@@ -186,7 +186,7 @@ export function PlateQuad({
   );
 }
 
-const field = `min-h-0 w-full text-[10px] leading-snug ${SCREEN_FIELD}`;
+const field = `min-h-0 w-full text-small leading-snug ${SCREEN_FIELD}`;
 
 /* ------------------------------------------------------------------ */
 /* The editors                                                         */
@@ -278,7 +278,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
           {feature?.content ? (
             <Textarea rows={5} value={node.content} aria-label={feature.content.label} className={`${field} flex-1 resize-none`} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
           ) : (
-            <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing to list inside it.</p>
+            <p className="text-fine" style={{ color: SCREEN.dim }}>This part has nothing to list inside it.</p>
           )}
         </PlateQuad>
         {/*
@@ -309,7 +309,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     if (!isLinkable(node.featureId)) {
       return (
         <PlateQuad {...common} title="Links">
-          <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part does not send anyone anywhere.</p>
+          <p className="text-fine" style={{ color: SCREEN.dim }}>This part does not send anyone anywhere.</p>
         </PlateQuad>
       );
     }
@@ -355,7 +355,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
             ))}
           </div>
         </Row>
-        {opts.length === 0 ? <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing else to set.</p> : null}
+        {opts.length === 0 ? <p className="text-fine" style={{ color: SCREEN.dim }}>This part has nothing else to set.</p> : null}
         {opts.map((opt) => {
           if (opt.kind === "set") {
             const raw = node.options[opt.id];
@@ -410,7 +410,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
 
   return (
     <PlateQuad {...common} title={which}>
-      <p className="text-[9px]" style={{ color: SCREEN.dim }}>Nothing to set here.</p>
+      <p className="text-fine" style={{ color: SCREEN.dim }}>Nothing to set here.</p>
     </PlateQuad>
   );
 }

@@ -79,18 +79,18 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
     update(space.id, { plan });
   };
   return (
-    <div className="flex h-full min-h-0 flex-col text-[11px]">
+    <div className="flex h-full min-h-0 flex-col text-plain">
       <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
-        <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>This space</div>
+        <div className="text-fine uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>This space</div>
         <Input
           aria-label="What this space is called"
           data-space-name=""
           value={space.label}
           placeholder="A black hole"
           onChange={(e) => update(space.id, { label: e.target.value })}
-          className={cn("mt-1 h-7 text-[12px] font-semibold", SCREEN_FIELD)}
+          className={cn("mt-1 h-7 text-large font-semibold", SCREEN_FIELD)}
         />
-        <div data-space-holds="" className="mt-1 text-[10px]" style={{ color: VOID.muted }}>
+        <div data-space-holds="" className="mt-1 text-small" style={{ color: VOID.muted }}>
           {!inside.length && !drawn.length
             ? "nothing in it yet"
             : [inside.length ? `${inside.length} part${inside.length === 1 ? "" : "s"}` : "", drawn.length ? `${drawn.length} drawing${drawn.length === 1 ? "" : "s"} to make` : ""].filter(Boolean).join(", ")}
@@ -114,19 +114,19 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
             const r = generateSurface(space.id);
             setSaid(r.did);
           }}
-          className="tactile flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium disabled:opacity-40"
+          className="tactile flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-plain font-medium disabled:opacity-40"
           style={{ borderColor: "oklch(0.86 0.16 72)", background: "oklch(0.2 0.05 60)", color: "oklch(0.97 0.07 85)" }}
         >
           <Wand2 className="size-3.5" />
           {making ? "Making…" : made ? "Make it again" : drawn.length ? `Generate ${drawn.length + inside.length} element${drawn.length + inside.length === 1 ? "" : "s"}` : "Lock the layout"}
         </button>
-        {said ? <div data-space-said="" className="mt-1 text-[10px]" style={{ color: VOID.muted }}>{said}</div> : null}
+        {said ? <div data-space-said="" className="mt-1 text-small" style={{ color: VOID.muted }}>{said}</div> : null}
         {made && !making ? (
           <button
             type="button"
             data-space-relock=""
             onClick={() => { play("tap"); lockNow(space.id); setSaid("locked again, where everything is now"); }}
-            className="tactile mt-1 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            className="tactile mt-1 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-small"
             style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
             title="Lock the layout again from where the parts are now"
           >
@@ -142,7 +142,7 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
             placeholder="Say what belongs in here. Everything made in it starts from this."
             value={space.prompt}
             onChange={(e) => update(space.id, { prompt: e.target.value })}
-            className={cn("text-[11px]", SCREEN_FIELD)}
+            className={cn("text-plain", SCREEN_FIELD)}
           />
         </section>
         <section>
@@ -161,7 +161,7 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
             type="button"
             data-space-brief-copy=""
             onClick={() => { play("tap"); void navigator.clipboard?.writeText(brief); }}
-            className="tactile mt-1 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]"
+            className="tactile mt-1 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-small"
             style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
           >
             <Copy className="size-2.5" />
@@ -175,7 +175,7 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
           <button
             type="button" data-space-plan-reset=""
             onClick={() => { play("tap"); update(space.id, { plan: null }); }}
-            className="tactile flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            className="tactile flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-small"
             style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
           >
             <RotateCcw className="size-3" />
@@ -200,7 +200,7 @@ function Steps({ reading, write }: { reading: Reading; write: (p: Partial<Plan>)
       <ol data-space-steps="" className="space-y-1">
         {reading.steps.map((st, i) => (
           <li key={st} data-space-step={st} className="flex items-center gap-1 rounded-md px-1.5 py-1" style={screenFace}>
-            <span className="w-3 text-center font-mono text-[10px]" style={{ color: SCREEN.dim }}>{i + 1}</span>
+            <span className="w-3 text-center font-mono text-small" style={{ color: SCREEN.dim }}>{i + 1}</span>
             <span className="min-w-0 flex-1 truncate font-mono" style={{ color: SCREEN.ink }}>{STEP_MEANS[st]}</span>
             <Key title="Earlier" onClick={() => move(i, i - 1)} disabled={i === 0} testId={`space-step-up-${st}`}><ArrowUp /></Key>
             <Key title="Later" onClick={() => move(i, i + 1)} disabled={i === reading.steps.length - 1} testId={`space-step-down-${st}`}><ArrowDown /></Key>
@@ -214,7 +214,7 @@ function Steps({ reading, write }: { reading: Reading; write: (p: Partial<Plan>)
             <button
               key={st} type="button" data-space-step-add={st}
               onClick={() => { play("tap"); write({ steps: [...reading.steps, st] }); }}
-              className="tactile flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]"
+              className="tactile flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-small"
               style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
               title="Put this step back, at the end"
             >
@@ -263,11 +263,11 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
   const what = [feature?.name ?? node.featureId, node.kind ? KIND_MEANS[node.kind] : null, node.role ? `a ${node.role}` : null].filter(Boolean).join(" · ");
 
   return (
-    <div className="flex h-full min-h-0 flex-col text-[11px]">
+    <div className="flex h-full min-h-0 flex-col text-plain">
       {/* What it is */}
       <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
         <div className="flex items-center justify-between">
-          <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>In this space</div>
+          <div className="text-fine uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>In this space</div>
           {/*
             The way back to the space itself. Its own key on the board goes
             the moment a part is inside it, so a space holding placed parts
@@ -278,7 +278,7 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
             type="button"
             data-space-own={space.id}
             onClick={() => { play("select"); useStudio.getState().setSelection([space.id]); }}
-            className="tactile rounded-sm border px-1.5 py-0.5 text-[9px]"
+            className="tactile rounded-sm border px-1.5 py-0.5 text-fine"
             style={{ borderColor: VOID.rim, color: VOID.muted }}
           >
             This space
@@ -289,10 +289,10 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
           data-space-what=""
           value={node.label}
           onChange={(e) => update(node.id, { label: e.target.value })}
-          className={cn("mt-1 h-7 text-[12px] font-semibold", SCREEN_FIELD)}
+          className={cn("mt-1 h-7 text-large font-semibold", SCREEN_FIELD)}
         />
-        <div className="mt-1 truncate text-[10px]" style={{ color: VOID.muted }} title={what}>{what}</div>
-        <div className="mt-0.5 truncate text-[10px]" style={{ color: VOID.muted }}>in {space.label.trim() || "a black hole"}</div>
+        <div className="mt-1 truncate text-small" style={{ color: VOID.muted }} title={what}>{what}</div>
+        <div className="mt-0.5 truncate text-small" style={{ color: VOID.muted }}>in {space.label.trim() || "a black hole"}</div>
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
@@ -307,7 +307,7 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
             placeholder={node.sketch?.words ? node.sketch.words : "Say what this should be."}
             value={node.prompt}
             onChange={(e) => update(node.id, { prompt: e.target.value })}
-            className={cn("text-[11px]", SCREEN_FIELD)}
+            className={cn("text-plain", SCREEN_FIELD)}
           />
         </section>
 
@@ -316,12 +316,12 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
           <Label>{reading.chosen ? "Sent to, as you chose" : "The route will send it to"}</Label>
           <div className="flex items-center gap-1 rounded-md p-1" style={screenFace}>
             <Key title="The model before this one" onClick={() => stepModel(-1)} disabled={choices.length < 2}><ChevronLeft /></Key>
-            <div data-space-model={reading.model?.slug ?? ""} className="min-w-0 flex-1 truncate text-center font-mono text-[11px]" style={{ color: reading.model ? SCREEN.ink : SCREEN.dim }} title={reading.model?.slug}>
+            <div data-space-model={reading.model?.slug ?? ""} className="min-w-0 flex-1 truncate text-center font-mono text-plain" style={{ color: reading.model ? SCREEN.ink : SCREEN.dim }} title={reading.model?.slug}>
               {reading.model ? reading.model.name : why(reading.why)}
             </div>
             <Key title="The model after this one" onClick={() => stepModel(1)} disabled={choices.length < 2}><ChevronRight /></Key>
           </div>
-          <div className="mt-1 text-[10px]" style={{ color: VOID.muted }}>
+          <div className="mt-1 text-small" style={{ color: VOID.muted }}>
             {reading.making === "icon" ? "A mark" : reading.making === "type" ? "Type" : reading.making === "object" ? "A solid" : reading.making === "surface" ? "A ground" : "A picture"}
             {reading.model ? `, one of ${choices.length} that can take it` : ""}
           </div>
@@ -367,7 +367,7 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
             type="button"
             data-space-plan-reset=""
             onClick={() => { play("tap"); setPlan(node.id, null); }}
-            className="tactile flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            className="tactile flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-small"
             style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
           >
             <RotateCcw className="size-3" />
@@ -391,11 +391,11 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
 export function SpaceInkPanel({ shape, space, strokeIds }: { shape: StudioShape; space: Space; strokeIds: string[] }) {
   const update = useStudio((s) => s.updateShape);
   return (
-    <div className="flex h-full min-h-0 flex-col text-[11px]">
+    <div className="flex h-full min-h-0 flex-col text-plain">
       <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
-        <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>A drawing in this space</div>
-        <div className="mt-1 text-[12px] font-semibold">{strokeIds.length} stroke{strokeIds.length === 1 ? "" : "s"}, not made yet</div>
-        <div className="mt-0.5 truncate text-[10px]" style={{ color: VOID.muted }}>in {space.label.trim() || "a black hole"}</div>
+        <div className="text-fine uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>A drawing in this space</div>
+        <div className="mt-1 text-large font-semibold">{strokeIds.length} stroke{strokeIds.length === 1 ? "" : "s"}, not made yet</div>
+        <div className="mt-0.5 truncate text-small" style={{ color: VOID.muted }}>in {space.label.trim() || "a black hole"}</div>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
         <section>
@@ -405,17 +405,17 @@ export function SpaceInkPanel({ shape, space, strokeIds }: { shape: StudioShape;
             placeholder="Say what this one should be: a chart of the token being traded, a buy button."
             value={shape.prompt}
             onChange={(e) => update(shape.id, { prompt: e.target.value })}
-            className={cn("text-[11px]", SCREEN_FIELD)}
+            className={cn("text-plain", SCREEN_FIELD)}
           />
         </section>
-        <p className="text-[10px]" style={{ color: VOID.muted }}>Generate on the space makes every drawing in it real, each with its own words, and locks them where they were drawn.</p>
+        <p className="text-small" style={{ color: VOID.muted }}>Generate on the space makes every drawing in it real, each with its own words, and locks them where they were drawn.</p>
       </div>
     </div>
   );
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>{children}</div>;
+  return <div className="mb-1 text-fine uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>{children}</div>;
 }
 
 /** A small key on a screen: the screen's own box, in its colours. */

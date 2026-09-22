@@ -188,10 +188,10 @@ function QueueQuestion({ job }: { job: DrawJob }) {
       data-queue-question={job.id}
       role="group"
       aria-label={q.ask}
-      className="fixed right-4 top-24 z-50 w-[300px] rounded-[4px] border p-2.5 text-[11px] shadow-panel backdrop-blur"
+      className="fixed right-4 top-24 z-50 w-[300px] rounded-[4px] border p-2.5 text-plain shadow-panel backdrop-blur"
       style={{ background: "oklch(0.15 0.018 18 / 0.96)", borderColor: "oklch(0.46 0.157 18 / 0.7)", color: "oklch(0.92 0.02 18)" }}
     >
-      <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: "oklch(0.72 0.106 18)" }}>before anything is spent</p>
+      <p className="mb-1.5 text-fine font-medium uppercase tracking-[0.18em]" style={{ color: "oklch(0.72 0.106 18)" }}>before anything is spent</p>
       <div className="flex items-start gap-2">
         {job.picture ? (
           <span className="shrink-0 rounded border p-1" style={{ borderColor: "oklch(0.46 0.157 18 / 0.7)", background: "oklch(0.15 0.04 18)" }}>
@@ -199,7 +199,7 @@ function QueueQuestion({ job }: { job: DrawJob }) {
             <img src={`data:image/png;base64,${job.picture}`} alt="" width={56} height={56} className="block size-14 object-contain" style={{ filter: "invert(0.9)" }} />
           </span>
         ) : null}
-        <p className="min-w-0 flex-1 text-[12px] font-medium leading-snug">{q.ask}</p>
+        <p className="min-w-0 flex-1 text-large font-medium leading-snug">{q.ask}</p>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {q.choices.map((c) => (
@@ -207,7 +207,7 @@ function QueueQuestion({ job }: { job: DrawJob }) {
             key={c}
             type="button"
             data-queue-answer={c}
-            className="tactile rounded-sm border px-2 py-1 text-[11px]"
+            className="tactile rounded-sm border px-2 py-1 text-plain"
             style={{ borderColor: "oklch(0.46 0.157 18 / 0.7)", background: "oklch(0.2 0.03 18)", color: "oklch(0.92 0.02 18)" }}
             onClick={() => answer(c)}
           >
@@ -217,7 +217,7 @@ function QueueQuestion({ job }: { job: DrawJob }) {
         <button
           type="button"
           data-queue-answer=""
-          className="tactile rounded-sm px-2 py-1 text-[10px]"
+          className="tactile rounded-sm px-2 py-1 text-small"
           style={{ color: "oklch(0.72 0.106 18)" }}
           onClick={() => answer("")}
         >
@@ -321,7 +321,7 @@ export function ProcessCounter() {
          */
         className={cn(
           moltenKeyClass("verdant"),
-          "process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none",
+          "process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-small font-medium outline-none",
         )}
         style={moltenSeed("finish") as React.CSSProperties}
       >
@@ -367,7 +367,7 @@ export function QueueList() {
   return (
     <ul className="space-y-1">
       {[...queue].reverse().map((j) => (
-        <li key={j.id} className="flex items-start gap-2 text-[11px] leading-snug">
+        <li key={j.id} className="flex items-start gap-2 text-plain leading-snug">
           <span
             className="mt-1 size-1.5 shrink-0 rounded-full"
             style={{

@@ -49,9 +49,9 @@ export function OwnSettings({ panel, advanced = false }: { panel: string; advanc
                     </Tooltip>
                   ) : null}
                   <span className="truncate text-xs text-fg">{d.label}</span>
-                  {d.advanced ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase tracking-wider text-fg-faint">adv</span> : null}
+                  {d.advanced ? <span className="rounded-xs border border-border px-1 text-fine uppercase tracking-wider text-fg-faint">adv</span> : null}
                 </div>
-                {d.description ? <div className="text-[10px] text-fg-muted">{d.description}</div> : null}
+                {d.description ? <div className="text-small text-fg-muted">{d.description}</div> : null}
               </div>
               <div className="shrink-0">
                 <Control def={d} value={v} onChange={(nv) => set(d.id, nv)} />
@@ -65,7 +65,7 @@ export function OwnSettings({ panel, advanced = false }: { panel: string; advanc
           type="button"
           data-own-settings-more={tucked}
           onClick={() => setShowAdv(true)}
-          className="tactile mx-3 my-2 rounded-sm border border-border px-2 py-1 text-[10px] text-fg-muted hover:bg-hover"
+          className="tactile mx-3 my-2 rounded-sm border border-border px-2 py-1 text-small text-fg-muted hover:bg-hover"
         >
           <RotateCcw className="mr-1 inline size-3" />
           {tucked} more, for tuning

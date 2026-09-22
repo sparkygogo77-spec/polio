@@ -1536,7 +1536,7 @@ export function Canvas() {
             <div
               key={g.id}
               {...ctxProps("studio-group", g.id, g)}
-              className="absolute cursor-default rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
+              className="absolute cursor-default rounded-sm px-1.5 py-0.5 text-small font-medium"
               style={{ left: b.x - 14, top: b.y - 40, color: `oklch(0.75 0.15 ${g.hue})`, background: `oklch(0.7 0.15 ${g.hue} / 0.12)` }}
               onPointerDown={(e) => {
                 e.stopPropagation();
@@ -1640,7 +1640,7 @@ export function Canvas() {
                   data-make-real={g.id}
                   title={many ? `Turn these ${g.strokeIds.length} strokes into one part` : "Turn this drawing into a part"}
                   onClick={(e) => { e.stopPropagation(); makeInkReal(g); }}
-                  className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-medium shadow-sm"
+                  className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-small font-medium shadow-sm"
                   style={{ borderColor: "oklch(0.62 0.17 250)", background: "oklch(0.32 0.1 250)", color: "oklch(0.95 0.04 250)" }}
                 >
                   <Sparkles className="size-3" />
@@ -1660,7 +1660,7 @@ export function Canvas() {
                       play("tick");
                       useStudio.getState().joinInk([...g.strokeIds, ...mate.strokeIds]);
                     }}
-                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] shadow-sm"
+                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-small shadow-sm"
                     style={{ borderColor: "oklch(0.5 0.1 250)", background: "oklch(0.24 0.06 250)", color: "oklch(0.9 0.04 250)" }}
                   >
                     <Ungroup className="size-3" />
@@ -1674,7 +1674,7 @@ export function Canvas() {
                     data-ink-split={g.id}
                     title="Split these into separate drawings"
                     onClick={(e) => { e.stopPropagation(); play("tick"); useStudio.getState().splitInk(g.strokeIds); }}
-                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] shadow-sm"
+                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-small shadow-sm"
                     style={{ borderColor: "oklch(0.5 0.1 250)", background: "oklch(0.24 0.06 250)", color: "oklch(0.9 0.04 250)" }}
                   >
                     <Scissors className="size-3" />
@@ -1696,7 +1696,7 @@ export function Canvas() {
           const b = shapeBounds(sh);
           const data = sh.relation === "data";
           return (
-            <div key={`label-${sh.id}`} className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-[10px]" style={{ left: b.x + (data ? b.w / 2 - 20 : 0), top: b.y + (data ? b.h / 2 - 8 : -16), color: `oklch(0.78 0.15 ${sh.hue})` }}>
+            <div key={`label-${sh.id}`} className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-small" style={{ left: b.x + (data ? b.w / 2 - 20 : 0), top: b.y + (data ? b.h / 2 - 8 : -16), color: `oklch(0.78 0.15 ${sh.hue})` }}>
               {data ? `⛓ ${sh.label || "data"}` : sh.label || "✎"}
             </div>
           );
@@ -1994,7 +1994,7 @@ const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason
                 <div className="flex h-full w-full items-center justify-center">
                   <span
                     data-chain-reason={shape.id}
-                    className="max-w-full truncate rounded-full border px-1.5 py-[3px] text-[10px] font-medium leading-none"
+                    className="max-w-full truncate rounded-full border px-1.5 py-[3px] text-small font-medium leading-none"
                     style={{ borderColor: wire, background: "oklch(0.16 0.03 20 / 0.92)", color: "oklch(0.9 0.06 27)" }}
                     title={reason}
                   >
@@ -2055,7 +2055,7 @@ function FillTab({ node, chipScale }: { node: StudioNode; chipScale: number }) {
   const frameWidth = useStudio((s) => s.frameWidth);
   const set = (patch: Partial<StudioNode>) => { play("tap"); useStudio.getState().updateNode(node.id, patch); };
   const stop = (e: React.PointerEvent) => e.stopPropagation();
-  const btn = "tactile flex h-5 items-center justify-center gap-1 rounded-sm px-1.5 text-[9px] text-fg-muted hover:bg-panel hover:text-fg";
+  const btn = "tactile flex h-5 items-center justify-center gap-1 rounded-sm px-1.5 text-fine text-fg-muted hover:bg-panel hover:text-fg";
   return (
     <div
       data-fill-tab=""
@@ -2098,7 +2098,7 @@ function BoardSurface({ target, on, box }: { target: string; on: string; box: { 
   if (page?.id === on) return null;
   if (!page) {
     return (
-      <div data-cube-surface="gone" className="grid size-full place-items-center px-2 text-center text-[9px] leading-snug text-fg-faint" style={{ width: box.w, height: box.h, pointerEvents: "none" }}>
+      <div data-cube-surface="gone" className="grid size-full place-items-center px-2 text-center text-fine leading-snug text-fg-faint" style={{ width: box.w, height: box.h, pointerEvents: "none" }}>
         the page this side showed is not in the site any more
       </div>
     );
@@ -2360,7 +2360,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       {/* What is this, and when would you want it? Answered without clicking, and out of the way once it is picked. */}
       {feature && !selected ? (
         <div
-          className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-[11px] leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"
+          className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-plain leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"
           style={{ top: `calc(100% + 8px)`, transform: `scale(${chipScale})` }}
         >
           <span className="mb-0.5 block font-medium text-fg">{feature.name}</span>
@@ -2370,25 +2370,25 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
 
       {/* label chip: what this is, in the builder's words */}
       <div
-        className={cn("pointer-events-none absolute left-0 flex origin-bottom-left items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-[10px] text-fg shadow-sm transition-opacity", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
+        className={cn("pointer-events-none absolute left-0 flex origin-bottom-left items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-small text-fg shadow-sm transition-opacity", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
         style={{ top: -6, transform: `translateY(-100%) scale(${chipScale})` }}
       >
         {node.glyph ? <span>{node.glyph}</span> : Icon ? <Icon className="size-3" style={{ color: `oklch(0.8 0.15 ${hue})` }} /> : null}
         <span className="font-medium">{node.label}</span>
         <span className="num text-fg-faint">{node.w}×{node.h}</span>
         {/* What the drawing was read as, on the part it made: a box says it is a box. */}
-        {node.kind === "cube" ? <span data-kind-chip="cube" className="rounded-xs border border-border px-1 text-[9px] text-fg-faint">box · cube</span> : null}
+        {node.kind === "cube" ? <span data-kind-chip="cube" className="rounded-xs border border-border px-1 text-fine text-fg-faint">box · cube</span> : null}
         {/* A solid is turned, and a gesture nobody can see is a gesture
             nobody uses. So the part says which of the two it is in, and the
             way out of the one it is in. */}
         {canHandle && selected
-          ? <span data-hold-chip={handsOn ? "open" : "shut"} className="rounded-xs border px-1 text-[9px]" style={{ borderColor: mark, color: mark }}>
+          ? <span data-hold-chip={handsOn ? "open" : "shut"} className="rounded-xs border px-1 text-fine" style={{ borderColor: mark, color: mark }}>
               {handsOn ? "turning · press the ground to stop" : "press twice to turn it"}
             </span>
           : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
-        {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">{node.priority}</span> : null}
-        {node.locked ? <span className="text-[9px] text-fg-faint">locked</span> : null}
+        {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">{node.priority}</span> : null}
+        {node.locked ? <span className="text-fine text-fg-faint">locked</span> : null}
       </div>
 
       {selected && !node.locked

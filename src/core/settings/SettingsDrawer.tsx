@@ -50,7 +50,7 @@ export function Control({ def, value, onChange }: { def: SettingDef; value: unkn
             <Slider className="absolute inset-0 [&_[data-orientation]]:bg-transparent [&_span[data-orientation]>span]:bg-transparent" value={[Number(value)]} min={0} max={360} step={1} onValueChange={(v) => onChange(v[0])} silent aria-label={def.label} />
           </div>
           <span className="size-4 shrink-0 rounded-sm border border-border" style={{ background: `oklch(0.75 0.17 ${Number(value)})` }} />
-          <span className="num w-7 text-right text-[10px] text-fg-muted">{Number(value)}°</span>
+          <span className="num w-7 text-right text-small text-fg-muted">{Number(value)}°</span>
         </div>
       );
     case "number":
@@ -104,9 +104,9 @@ function Row({ def, stored, isStored, onSet, onReset }: {
             </Tooltip>
           ) : null}
           <span className="truncate text-xs text-fg">{def.label}</span>
-          {def.advanced ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase tracking-wider text-fg-faint">adv</span> : null}
+          {def.advanced ? <span className="rounded-xs border border-border px-1 text-fine uppercase tracking-wider text-fg-faint">adv</span> : null}
         </div>
-        {def.description ? <div className="text-[10px] text-fg-muted">{def.description}</div> : null}
+        {def.description ? <div className="text-small text-fg-muted">{def.description}</div> : null}
       </div>
       <div className="shrink-0">
         <Control def={def} value={value} onChange={set} />
@@ -209,7 +209,7 @@ export function SettingsDrawer() {
         <Input left={<Search />} placeholder="Search options…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-            <button type="button" onClick={() => setGroup("all")} className={cn("tactile shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]", group === "all" ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover")}>
+            <button type="button" onClick={() => setGroup("all")} className={cn("tactile shrink-0 rounded-sm px-1.5 py-0.5 text-small", group === "all" ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover")}>
               All
             </button>
             {/* The tab carries the group's colour too, or picking a category
@@ -226,7 +226,7 @@ export function SettingsDrawer() {
                   key={g.id}
                   type="button"
                   onClick={() => setGroup(g.id)}
-                  className={cn("tactile flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px]", !tint && (on ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover"))}
+                  className={cn("tactile flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-small", !tint && (on ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover"))}
                   style={tint ? { color: tint, background: on ? `oklch(0.82 0.15 ${g.hue} / 0.16)` : undefined, opacity: on ? 1 : 0.7 } : undefined}
                 >
                   {GIcon ? <GIcon className="size-3" /> : null}
@@ -236,7 +236,7 @@ export function SettingsDrawer() {
             })}
           </div>
           <Tooltip content={`${hiddenCount} advanced options`}>
-            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-fg-muted">
+            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-small text-fg-muted">
               <SlidersHorizontal className="size-3" />
               Advanced
               <Switch size="sm" checked={advanced} onCheckedChange={setAdvanced} />
@@ -258,8 +258,8 @@ export function SettingsDrawer() {
                 <header className="sticky top-0 z-10 flex items-center gap-2 bg-panel/90 px-3 py-1.5 backdrop-blur">
                   {GIcon ? <GIcon className="size-3.5" style={g.hue == null ? undefined : { color: `oklch(0.82 0.15 ${g.hue})` }} /> : null}
                   <div className="flex-1 leading-tight">
-                    <div className="text-[11px] font-semibold text-fg">{g.label}</div>
-                    {g.description ? <div className="text-[10px] text-fg-faint">{g.description}</div> : null}
+                    <div className="text-plain font-semibold text-fg">{g.label}</div>
+                    {g.description ? <div className="text-small text-fg-faint">{g.description}</div> : null}
                   </div>
                   {groupModified ? (
                     <Tooltip content="Reset this group">
@@ -284,7 +284,7 @@ export function SettingsDrawer() {
               </section>
             );
           })}
-        <div className="p-3 text-[10px] text-fg-faint">
+        <div className="p-3 text-small text-fg-faint">
           Settings persist in this browser. Right-click anywhere for quick toggles.
         </div>
       </ScrollArea>

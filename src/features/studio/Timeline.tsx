@@ -1878,7 +1878,7 @@ export function Timeline() {
           data-timeline-lost=""
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => { play("confirm"); useStudio.getState().requestFit(); }}
-          className="tactile absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-medium shadow-panel"
+          className="tactile absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-plain font-medium shadow-panel"
           style={{ background: "oklch(0.16 0.03 152 / 0.94)", borderColor: "oklch(0.66 0.17 152 / 0.6)", color: "oklch(0.92 0.06 152)" }}
         >
           <MapPin className="size-3.5" />
@@ -1976,7 +1976,7 @@ export function Timeline() {
 
       {nothing ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="max-w-sm text-center text-[12px] leading-relaxed text-[oklch(0.7_0.06_152)]">
+          <p className="max-w-sm text-center text-large leading-relaxed text-[oklch(0.7_0.06_152)]">
             Nothing has happened yet, which is not the same as something being wrong. The first thing you do to the
             board makes iteration one and it appears here; after that every ask that comes back and every drawing made
             real stands here too, and the strands between them are what one iteration made of the last. Add a part, or
@@ -2304,7 +2304,7 @@ function IterationBox({
           The line above the headline is a label, and it is sized like one:
           what the iteration made is the biggest thing on the box.
         */}
-        <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[oklch(0.95_0.03_var(--box-hue,152))]">
+        <span className="flex items-center gap-1.5 text-fine font-semibold uppercase tracking-[0.14em] text-[oklch(0.95_0.03_var(--box-hue,152))]">
           {icon}
           {kind}
           {/* Nothing else on this row. The flag that marked the update being
@@ -2418,7 +2418,7 @@ function Asked({ thread }: { thread: Thread }) {
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
             placeholder="Say what to do differently, and run it again"
-            className="block w-full resize-none rounded-sm border bg-transparent px-1.5 py-1 text-[12px] leading-snug outline-none focus:ring-1"
+            className="block w-full resize-none rounded-sm border bg-transparent px-1.5 py-1 text-large leading-snug outline-none focus:ring-1"
             style={{ borderColor: "oklch(0.42 0.118 var(--box-hue, 152) / 0.7)", color: "oklch(0.95 0.05 var(--box-hue, 150))" }}
           />
         )}
@@ -2444,7 +2444,7 @@ function Asked({ thread }: { thread: Thread }) {
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); again(); }}
           title="Run this prompt again"
-          className="tactile flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
+          className="tactile flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-small"
           style={{ borderColor: "oklch(0.58 0.14 var(--box-hue, 152))", background: "oklch(0.26 0.07 var(--box-hue, 152))", color: "oklch(0.97 0.03 var(--box-hue, 152))" }}
         >
           {/* Heavier than the words beside it: at the zoom a timeline settles to this is seven pixels across, and a thin stroke there is a blur. */}
@@ -2556,7 +2556,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
       {from ? (
         <SitePreview doc={from} width={W} height={H} />
       ) : (
-        <span className="grid h-full w-full place-items-center text-[10px] font-semibold" style={{ color: BODY }}>
+        <span className="grid h-full w-full place-items-center text-small font-semibold" style={{ color: BODY }}>
           {kept ? "nothing stands on the site yet" : "no picture of the site was kept with this one"}
         </span>
       )}
@@ -2582,12 +2582,12 @@ function Features({ thread }: { thread: Thread }) {
   return (
     <div className="flex min-h-0 shrink-0 flex-col gap-1 px-0.5 py-0.5">
       {/* The body line, straight on the texture: 12px and semibold, near white, with the edge every glyph on a box casts. */}
-      <span data-headline="" className="line-clamp-1 block text-[12px] font-semibold leading-snug" style={{ color: BODY }}>
+      <span data-headline="" className="line-clamp-1 block text-large font-semibold leading-snug" style={{ color: BODY }}>
         {headlineOf(thread)}
         {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
       </span>
       {parts.length ? (
-        <ul data-features="" className="flex flex-wrap gap-1 overflow-hidden text-[9px]" style={{ maxHeight: 34 }}>
+        <ul data-features="" className="flex flex-wrap gap-1 overflow-hidden text-fine" style={{ maxHeight: 34 }}>
           {parts.slice(0, 14).map((n) => (
             <li
               key={n.id}
@@ -2619,7 +2619,7 @@ function Features({ thread }: { thread: Thread }) {
           {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.88 0.045 var(--box-hue, 152))" }}>and {parts.length - 14} more</li> : null}
         </ul>
       ) : (
-        <span className="text-[10px] font-semibold" style={{ color: BODY }}>nothing stands on the site yet</span>
+        <span className="text-small font-semibold" style={{ color: BODY }}>nothing stands on the site yet</span>
       )}
     </div>
   );
@@ -2763,7 +2763,7 @@ function ElementPiece({
                not a contrast. Still under the name above it at 0.95, so the two
                keep their order. Measured by `ink-on-cards`, which reports the
                worst mark by name now rather than only its number. */
-            <span className="mt-0.5 block text-[10px] font-semibold text-[oklch(0.95_0.04_18)]">and {thread.changes.length - 1} more</span>
+            <span className="mt-0.5 block text-small font-semibold text-[oklch(0.95_0.04_18)]">and {thread.changes.length - 1} more</span>
           ) : null}
         </span>
       </div>
@@ -2936,7 +2936,7 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
           headline says. The copy control sits off the headline, in the
           corner, because a headline with a button in it is a toolbar.
         */}
-        <p data-reading-head={side} className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>
+        <p data-reading-head={side} className="mb-1.5 text-fine font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>
           {side === "in" ? "Input" : "Output"}
         </p>
         <span className="absolute right-2 top-1.5">
@@ -2963,16 +2963,16 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
             */}
             <Made thread={thread} skin={skin} height={element ? 150 : 96} live />
             {changed.length ? (
-              <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-[10px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
+              <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-small">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
             ) : thread.changes.length ? (
-              <ul className="space-y-0.5 text-[10px]">{thread.changes.map((cx, i) => <li key={i}>{cx}</li>)}</ul>
+              <ul className="space-y-0.5 text-small">{thread.changes.map((cx, i) => <li key={i}>{cx}</li>)}</ul>
             ) : (
-              <p className="text-[10px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
+              <p className="text-small" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
             )}
             <Bill thread={thread} skin={skin} />
             <details className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
-              <summary data-said-head="" className="cursor-pointer text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what was said</summary>
-              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+              <summary data-said-head="" className="cursor-pointer text-fine uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what was said</summary>
+              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-small leading-relaxed">{thread.answer || "nothing came back"}</pre>
             </details>
           </div>
         )}
@@ -2998,11 +2998,11 @@ function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
   const who = sayWhere({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer });
   return (
     <div data-bill={thread.id} className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
-      <p className="mb-0.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+      <p className="mb-0.5 flex items-center gap-1.5 text-fine uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
         <Coins className="size-3" /> what it cost
       </p>
-      <p className="num text-[11px]" style={{ color: skin.text }}>{head}</p>
-      {who ? <p className="num text-[10px]" style={{ color: skin.dim }}>{who}</p> : null}
+      <p className="num text-plain" style={{ color: skin.text }}>{head}</p>
+      {who ? <p className="num text-small" style={{ color: skin.dim }}>{who}</p> : null}
       {/*
         And then each pass on its own line.
 
@@ -3014,11 +3014,11 @@ function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
         the true thing to put there.
       */}
       {u.passes?.length ? (
-        <ul className="mt-1 space-y-0.5 border-t pt-1 num text-[10px]" style={{ borderColor: skin.rim, color: skin.dim }}>
+        <ul className="mt-1 space-y-0.5 border-t pt-1 num text-small" style={{ borderColor: skin.rim, color: skin.dim }}>
           {u.passes.map((l, i) => <li key={i}>{l}</li>)}
         </ul>
       ) : null}
-      {thread.model ? <p className="mt-0.5 text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
+      {thread.model ? <p className="mt-0.5 text-fine" style={{ color: skin.dim }}>{thread.model}</p> : null}
     </div>
   );
 }
@@ -3060,7 +3060,7 @@ function WentIn({ thread, skin, element }: { thread: Thread; skin: { rim: string
   return (
     <div className="space-y-1.5">
       {many ? (
-        <div data-goes={goes.length} className="flex items-center gap-1.5 text-[9px]" style={{ color: skin.dim }}>
+        <div data-goes={goes.length} className="flex items-center gap-1.5 text-fine" style={{ color: skin.dim }}>
           <button
             type="button"
             data-go-back=""
@@ -3091,10 +3091,10 @@ function WentIn({ thread, skin, element }: { thread: Thread; skin: { rim: string
             <Drawn sketch={at.sketch} size={72} tone="oklch(0.97 0.045 22)" />
           </span>
         ) : null}
-        <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{at.ask || "nothing was typed"}</p>
+        <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-plain leading-relaxed">{at.ask || "nothing was typed"}</p>
       </div>
       {many && at.id !== thread.id ? (
-        <p className="text-[9px]" style={{ color: skin.dim }}>what that one led to: {at.changes[0] ?? "nothing recorded"}</p>
+        <p className="text-fine" style={{ color: skin.dim }}>what that one led to: {at.changes[0] ?? "nothing recorded"}</p>
       ) : null}
       {element && thread.madeId ? <EditHere id={thread.madeId} skin={skin} /> : null}
     </div>
@@ -3123,7 +3123,7 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
     setPrompt(node?.prompt ?? "");
   }, [node?.id, node?.label, node?.prompt]);
   if (!node) {
-    return <p className="border-t pt-1.5 text-[9px]" style={{ borderColor: skin.rim, color: skin.dim }}>the part this made is no longer on the board</p>;
+    return <p className="border-t pt-1.5 text-fine" style={{ borderColor: skin.rim, color: skin.dim }}>the part this made is no longer on the board</p>;
   }
   const commit = () => {
     const name = label.trim() || node.label;
@@ -3144,7 +3144,7 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
       label: `Reshaping ${label.trim() || node.label}`,
     });
   };
-  const field = "w-full rounded-sm border bg-transparent px-1.5 py-0.5 text-[11px] leading-snug outline-none focus:ring-1";
+  const field = "w-full rounded-sm border bg-transparent px-1.5 py-0.5 text-plain leading-snug outline-none focus:ring-1";
   return (
     <div
       data-edit-here={node.id}
@@ -3154,7 +3154,7 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
       // the board's shortcuts either, or typing a name would delete a part.
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <p className="text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>edit it here</p>
+      <p className="text-fine uppercase tracking-[0.16em]" style={{ color: skin.dim }}>edit it here</p>
       <input
         data-edit-label=""
         aria-label="What it is called"
@@ -3182,13 +3182,13 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
           data-edit-again=""
           disabled={!node.sketch}
           onClick={again}
-          className="tactile rounded-sm border px-2 py-0.5 text-[10px] disabled:opacity-40"
+          className="tactile rounded-sm border px-2 py-0.5 text-small disabled:opacity-40"
           style={{ borderColor: skin.rim, color: skin.text }}
           title={node.sketch ? "The same drawing, back on the queue, with these words beside it" : "This part was not drawn, so there is nothing to draw again"}
         >
           Draw it again with these words
         </button>
-        <span className="num text-[9px]" style={{ color: skin.dim }}>{node.w} × {node.h}</span>
+        <span className="num text-fine" style={{ color: skin.dim }}>{node.w} × {node.h}</span>
       </div>
     </div>
   );
@@ -3236,7 +3236,7 @@ export function Made({ thread, skin, width = 380, height = 96, live = false, qui
   const palette = React.useMemo(() => resolvePalette(look?.palette), [look?.palette]);
   if (!node) {
     return (
-      <p data-made-gone="" className="px-1 py-2 text-center text-[9px] leading-snug" style={{ color: skin.dim }}>
+      <p data-made-gone="" className="px-1 py-2 text-center text-fine leading-snug" style={{ color: skin.dim }}>
         {thread.madeId ? "the part this made is no longer on the board" : "this one made nothing on the board"}
       </p>
     );
@@ -3286,7 +3286,7 @@ function CopyBit({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="tactile flex items-center gap-1 rounded px-1 text-[9px] uppercase tracking-[0.12em] opacity-80 hover:opacity-100"
+      className="tactile flex items-center gap-1 rounded px-1 text-fine uppercase tracking-[0.12em] opacity-80 hover:opacity-100"
       onClick={() => {
         void navigator.clipboard?.writeText(text);
         play("tap");
@@ -3390,7 +3390,7 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
       {...mark}
       onClick={() => { run(); onClose(); }}
       className={cn(
-        "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] hover:bg-[oklch(0.3_0.07_152)]",
+        "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-plain hover:bg-[oklch(0.3_0.07_152)]",
         danger ? "text-[oklch(0.8_0.14_25)]" : "text-[oklch(0.9_0.04_152)]",
       )}
     >
@@ -3406,7 +3406,7 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
       className="fixed z-50 w-56 rounded-lg border p-1 shadow-pop"
       style={{ left: at.x, top: at.y, background: "oklch(0.21 0.059 152)", borderColor: "oklch(0.4 0.118 152)" }}
     >
-      <p className="truncate px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[oklch(0.66_0.08_152)]">{thread.mode}</p>
+      <p className="truncate px-2 py-1 text-small uppercase tracking-[0.14em] text-[oklch(0.66_0.08_152)]">{thread.mode}</p>
       {item("Open it below", <Wand2 className="size-3" />, () => useStudio.getState().openThread(thread.id))}
       {/*
         The flag, off the card and into the menu.

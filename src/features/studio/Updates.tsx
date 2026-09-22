@@ -81,11 +81,11 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
                 <History className="size-4" style={{ color: FIELD.lit }} />
                 What has landed
               </D.Title>
-              <D.Description className="mt-0.5 text-[11px]" style={{ color: FIELD.dim }}>
+              <D.Description className="mt-0.5 text-plain" style={{ color: FIELD.dim }}>
                 {passes.length} passes, {changes} changes, about {read} minute{read === 1 ? "" : "s"} to read. Newest first.
               </D.Description>
               {/* Which build is answering: the same mark the Builds page wears. */}
-              <BuildMark className="mt-1 block text-[10px]" style={{ color: FIELD.dim }} />
+              <BuildMark className="mt-1 block text-small" style={{ color: FIELD.dim }} />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {/* "Things I can use" stood here and hid the fourth kind. Every
@@ -106,7 +106,7 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
                 {passes.map((pass, i) => <PassCard key={pass.id} pass={pass} skin={FIELD} at={i} />)}
               </div>
             ) : (
-              <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
+              <p className="p-6 text-center text-large" style={{ color: FIELD.dim }}>
                 Nothing has landed yet. The first change to the site will show up here on its own.
               </p>
             )}
@@ -146,7 +146,7 @@ function PassCard({ pass, skin, at }: { pass: Pass; skin: Skin; at: number }) {
         {rest.map((c) => <ChangeLine key={c.id} change={c} skin={skin} />)}
       </div>
       {pass.more ? (
-        <p className="pt-1 text-[10px]" style={{ color: skin.dim }}>and {pass.more} more in the same pass</p>
+        <p className="pt-1 text-small" style={{ color: skin.dim }}>and {pass.more} more in the same pass</p>
       ) : null}
     </Row>
   );

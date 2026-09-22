@@ -11,7 +11,7 @@ export function EmptyState({ icon: Icon, title, body, action, className }: { ico
         </div>
       ) : null}
       <div className="text-xs font-medium text-fg">{title}</div>
-      {body ? <div className="max-w-xs text-[11px] text-fg-muted">{body}</div> : null}
+      {body ? <div className="max-w-xs text-plain text-fg-muted">{body}</div> : null}
       {action ? <div className="mt-1">{action}</div> : null}
     </div>
   );

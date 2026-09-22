@@ -164,7 +164,7 @@ export function PromptTrail() {
     return (
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border p-6 text-center">
         <Sparkles className="size-4 text-fg-faint" />
-        <p className="text-[11px] text-fg-muted">Nothing on the trail yet. Write a prompt on a part, then ask Claude to critique, fill or finish, every finding lands here beside the prompt it was about, with the prompt that would settle it.</p>
+        <p className="text-plain text-fg-muted">Nothing on the trail yet. Write a prompt on a part, then ask Claude to critique, fill or finish, every finding lands here beside the prompt it was about, with the prompt that would settle it.</p>
       </div>
     );
   }
@@ -173,7 +173,7 @@ export function PromptTrail() {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <Segmented size="xs" value={filter} onChange={(v) => setFilter(v as Filter)} options={[{ value: "all", label: "Every prompt" }, { value: "findings", label: `With findings${found ? ` (${found})` : ""}` }]} aria-label="Which prompts to show" silent />
-        <span className="text-[10px] text-fg-faint">Click a bubble to read all of it. Take it writes the proposed prompt onto the part.</span>
+        <span className="text-small text-fg-faint">Click a bubble to read all of it. Take it writes the proposed prompt onto the part.</span>
       </div>
 
       <div ref={box} className="relative max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated/40 p-3" data-prompt-trail="">
@@ -233,7 +233,7 @@ export function PromptTrail() {
                       }
                     />
                   )) : (
-                    <span className="self-center text-[10px] text-fg-faint">{lane.current ? "nothing found" : ""}</span>
+                    <span className="self-center text-small text-fg-faint">{lane.current ? "nothing found" : ""}</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
@@ -262,7 +262,7 @@ export function PromptTrail() {
 function Head({ label, hint }: { label: string; hint: string }) {
   return (
     <Tooltip content={hint}>
-      <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-fg-faint">
+      <div className="flex items-center gap-1 text-small font-medium uppercase tracking-wider text-fg-faint">
         {label}
       </div>
     </Tooltip>
@@ -284,7 +284,7 @@ function Bubble({
       className={cn("tactile w-full cursor-pointer rounded-xl border px-2.5 py-2 text-left shadow-[0_1px_0_var(--border)] outline-none transition-colors hover:border-border-strong focus-visible:border-accent", tone, className)}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 truncate text-[11px] font-semibold text-fg">{title}</span>
+        <span className="min-w-0 truncate text-plain font-semibold text-fg">{title}</span>
         {meta ? <span className="shrink-0 text-[9.5px] text-fg-faint">{meta}</span> : null}
       </div>
       <p className={cn("mt-0.5 whitespace-pre-wrap text-[10.5px] leading-snug", faint ? "italic text-fg-faint" : "text-fg-muted", !open && "line-clamp-3")}>{text}</p>

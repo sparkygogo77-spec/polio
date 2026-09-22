@@ -23,7 +23,7 @@ export function Progress({ value, className, tone = "accent", height = 3, glow, 
           style={{ width: `${pct * 100}%` }}
         />
       </div>
-      {label ? <span className="num shrink-0 text-[10px] text-fg-muted">{label}</span> : null}
+      {label ? <span className="num shrink-0 text-small text-fg-muted">{label}</span> : null}
     </div>
   );
 }

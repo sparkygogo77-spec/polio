@@ -26,7 +26,7 @@ export const buttonVariants = cva(
         link: "bg-transparent border-transparent text-accent underline-offset-4 hover:underline px-0 h-auto",
       },
       size: {
-        xs: "h-6 px-1.5 text-[11px] rounded-sm gap-1 [&_svg]:size-3",
+        xs: "h-6 px-1.5 text-plain rounded-sm gap-1 [&_svg]:size-3",
         sm: "h-7 px-2 text-xs [&_svg]:size-3.5",
         md: "h-8 px-3 text-xs [&_svg]:size-3.5",
         lg: "h-9 px-4 text-sm [&_svg]:size-4",

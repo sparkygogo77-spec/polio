@@ -2516,6 +2516,25 @@ Radius is a token too (`--radius`). There is no density mode: compact
 against comfortable moved the body's font size by one pixel and nothing
 else, so it was removed rather than kept as a control that does nothing.
 
+**The four sizes the Builder is written in are tokens** (`--text-fine` 9px,
+`--text-small` 10px, `--text-plain` 11px, `--text-large` 12px), used as
+`text-fine`, `text-small`, `text-plain`, `text-large`. They were 578
+arbitrary values across 66 files, which is not a scale, it is one decision
+taken 578 times. Use a name; do not write `text-[10px]` in a component.
+Two things go with them:
+
+- **A new named size must be declared in `src/core/lib/cn.ts` as well.**
+  `tailwind-merge` knows Tailwind's own scale and nothing else, so it reads
+  an unknown `text-*` name as a text COLOUR and drops the size as a
+  duplicate wherever a component sets both in one `cn` call. The text then
+  inherits 13px silently. `tests/type-scale.mjs` holds it, in both merge
+  orders, and measures the four on screen.
+- **`src/features/studio/parts/` keeps its arbitrary values on purpose.**
+  A part is what the exported site is made of, and the export writes its own
+  stylesheet from the document's tokens rather than shipping this one, so a
+  name that stylesheet has never heard of is a size that goes missing in
+  somebody's built site.
+
 ---
 
 ## 8. Routing

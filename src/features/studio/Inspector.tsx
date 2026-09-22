@@ -60,8 +60,8 @@ function OptionRange({ option, value, onChange }: { option: FeatureOption; value
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-fg">{option.label}</span>
-        <span className="num text-[11px] text-fg-muted">{now}{r.unit ?? ""}</span>
+        <span className="text-plain text-fg">{option.label}</span>
+        <span className="num text-plain text-fg-muted">{now}{r.unit ?? ""}</span>
       </div>
       <Slider
         min={r.min}
@@ -90,8 +90,8 @@ function OptionSet({ option, value, onChange }: { option: FeatureOption; value?:
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-fg">{option.label}</span>
-        <span className="num text-[10px] text-fg-faint">{on.size} on</span>
+        <span className="text-plain text-fg">{option.label}</span>
+        <span className="num text-small text-fg-faint">{on.size} on</span>
       </div>
       <div className="flex flex-wrap gap-1">
         {option.values.map((v) => (
@@ -101,7 +101,7 @@ function OptionSet({ option, value, onChange }: { option: FeatureOption; value?:
             aria-pressed={on.has(v)}
             onClick={() => { play(on.has(v) ? "close" : "select"); toggle(v); }}
             className={cn(
-              "tactile rounded-full border px-2 py-0.5 text-[10px]",
+              "tactile rounded-full border px-2 py-0.5 text-small",
               on.has(v) ? "border-accent/60 bg-accent-soft text-accent" : "border-border text-fg-muted hover:text-fg",
             )}
           >
@@ -128,7 +128,7 @@ function Designs({ items }: { items: Design[] }) {
   return (
     <div data-designs="" className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
       {items.map((it, i) => (
-        <span key={i} data-design="" className="flex h-5 items-center gap-1 rounded-[4px] bg-elevated pl-0.5 pr-1.5 text-[10px] text-fg" style={{ border: "1px solid var(--border)" }}>
+        <span key={i} data-design="" className="flex h-5 items-center gap-1 rounded-[4px] bg-elevated pl-0.5 pr-1.5 text-small text-fg" style={{ border: "1px solid var(--border)" }}>
           <span className="flex size-4 items-center justify-center rounded-[3px] [&_svg]:size-2.5" style={{ background: `oklch(0.66 0.17 ${it.hue})`, color: "oklch(0.99 0 0)" }}>
             {it.icon}
           </span>
@@ -200,8 +200,8 @@ export function BackgroundInspector() {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Layers className="size-3.5 text-fg-muted" />
         <div className="min-w-0 flex-1">
-          <div data-look-heading className="text-[11px] font-semibold text-fg">Background</div>
-          <div className="text-[10px] text-fg-muted">The page behind every part</div>
+          <div data-look-heading className="text-plain font-semibold text-fg">Background</div>
+          <div className="text-small text-fg-muted">The page behind every part</div>
         </div>
         <Tooltip content="Cut the background" shortcut="mod+x">
           <Button variant="ghost" size="iconXs" aria-label="Cut the background" onClick={() => s().cutBackground()}>
@@ -227,7 +227,7 @@ export function BackgroundInspector() {
         glance, and cut and put back.
       */}
       <div className="p-3">
-        <p className="text-[10px] leading-snug text-fg-muted">
+        <p className="text-small leading-snug text-fg-muted">
           {fill === "flat" ? "Painted flat" : `Painted with a ${fill}`}
           {layers.length ? `, under ${layers.length} texture${layers.length === 1 ? "" : "s"}` : ""}
           . The fill and the layers are one stack, at the foot of this panel.
@@ -419,11 +419,11 @@ function PictureField({ node }: { node: StudioNode }) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={src} alt={pic.alt} className="block max-h-32 w-full object-cover" />
             ) : looked ? (
-              <div className="p-3 text-[11px] leading-relaxed text-warn">
+              <div className="p-3 text-plain leading-relaxed text-warn">
                 This picture is not in this browser any more. Choose it again to put it back.
               </div>
             ) : (
-              <div className="p-3 text-[11px] text-fg-muted">Looking for it…</div>
+              <div className="p-3 text-plain text-fg-muted">Looking for it…</div>
             )}
           </div>
         ) : null}
@@ -458,7 +458,7 @@ function PictureField({ node }: { node: StudioNode }) {
               money, and the rate is the renderer's published one; what it
               actually cost comes back with the picture and replaces this.
             */}
-            <p className="text-[10px] leading-relaxed text-fg-muted">
+            <p className="text-small leading-relaxed text-fg-muted">
               Drawn with your own Replicate key, about <span className="num text-fg">${RENDER_COST.raster.toFixed(2)}</span> a
               go at the model&rsquo;s published rate. It lands as a file on this part, the same as one you chose yourself.
             </p>
@@ -472,9 +472,9 @@ function PictureField({ node }: { node: StudioNode }) {
         ) : null}
         {/* What it really cost, said after, and outside the box that closes
             when it worked — it was set and then hidden with the asking. */}
-        {drawn ? <p className="text-[10px] leading-relaxed text-fg-muted">{drawn}</p> : null}
+        {drawn ? <p className="text-small leading-relaxed text-fg-muted">{drawn}</p> : null}
         {pic ? (
-          <p className="text-[10px] leading-relaxed text-fg-muted">
+          <p className="text-small leading-relaxed text-fg-muted">
             {pic.published
               ? <>Published with the site, at <code className="text-fg">{pic.path}</code>.</>
               : <>This picture is in this browser only. It goes up with the site the next time you publish, as <code className="text-fg">{pic.path}</code>.</>}
@@ -489,9 +489,9 @@ function PictureField({ node }: { node: StudioNode }) {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-fg-faint">{label}</span>
+      <span className="mb-1 block text-small font-medium uppercase tracking-wider text-fg-faint">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-[10px] text-fg-muted">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-small text-fg-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -502,7 +502,7 @@ export function HuePicker({ value, onChange }: { value: number | null; onChange:
       <button
         type="button"
         onClick={() => onChange(null)}
-        className={cn("tactile size-5 rounded-sm border text-[9px] text-fg-faint", value === null ? "border-accent" : "border-border")}
+        className={cn("tactile size-5 rounded-sm border text-fine text-fg-faint", value === null ? "border-accent" : "border-border")}
         title="Category colour"
       >
         A
@@ -542,7 +542,7 @@ function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
       estimateSize={34}
       className="px-2 py-1"
       empty={
-        <p className="px-4 text-center text-[11px] text-fg-muted">
+        <p className="px-4 text-center text-plain text-fg-muted">
           Nothing on this page yet. Open the parts drawer under the board, place a part, then pick it to say what it should be.
         </p>
       }
@@ -562,9 +562,9 @@ function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
               className="flex size-5 shrink-0 items-center justify-center rounded-sm"
               style={{ background: `oklch(0.7 0.14 ${hue} / 0.16)`, color: `oklch(0.8 0.15 ${hue})` }}
             >
-              {n.glyph ? <span className="text-[10px]">{n.glyph}</span> : feature ? <feature.icon className="size-3" /> : <Frame className="size-3" />}
+              {n.glyph ? <span className="text-small">{n.glyph}</span> : feature ? <feature.icon className="size-3" /> : <Frame className="size-3" />}
             </span>
-            <span className="min-w-0 flex-1 truncate text-left text-[11px] text-fg">{n.label}</span>
+            <span className="min-w-0 flex-1 truncate text-left text-plain text-fg">{n.label}</span>
             {n.prompt.trim() ? (
               <Wand2 className="size-3 shrink-0 text-fg-faint" aria-label="has words" />
             ) : null}
@@ -616,8 +616,8 @@ export function Inspector() {
     return (
       <div className="flex h-full min-h-0 flex-col" data-page-picked="">
         <div className="border-b border-border px-3 py-2">
-          <div className="text-[11px] font-semibold text-fg">{page.name}</div>
-          <div className="text-[10px] text-fg-muted">
+          <div className="text-plain font-semibold text-fg">{page.name}</div>
+          <div className="text-small text-fg-muted">
             {nodes.length ? `${nodes.length} element${nodes.length === 1 ? "" : "s"} on this page. Pick one to prompt it.` : "The page itself is picked."}
           </div>
         </div>
@@ -631,7 +631,7 @@ export function Inspector() {
           >
             <PaletteIcon className="size-3.5" />
           </span>
-          <p className="min-w-0 flex-1 text-[10px] text-fg-muted">The page&rsquo;s fill and its textures are the site&rsquo;s look.</p>
+          <p className="min-w-0 flex-1 text-small text-fg-muted">The page&rsquo;s fill and its textures are the site&rsquo;s look.</p>
           <Button
             size="xs"
             variant="outline"
@@ -650,8 +650,8 @@ export function Inspector() {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-border px-3 py-2">
-          <div className="text-[11px] font-semibold text-fg">{page.name}</div>
-          <div className="text-[10px] text-fg-muted">Page-level prompt</div>
+          <div className="text-plain font-semibold text-fg">{page.name}</div>
+          <div className="text-small text-fg-muted">Page-level prompt</div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <Field label="This page should…" hint="Applies to everything on this page.">
@@ -702,8 +702,8 @@ export function Inspector() {
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <span className="size-2 rounded-full" style={{ background: `oklch(0.75 0.16 ${shape.hue})` }} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-semibold text-fg">{shape.label || kindLabel}</div>
-            <div className="text-[10px] text-fg-muted">
+            <div className="truncate text-plain font-semibold text-fg">{shape.label || kindLabel}</div>
+            <div className="text-small text-fg-muted">
               {kindLabel}
               {fromNode && toNode ? ` · ${fromNode.label} → ${toNode.label}` : ""}
             </div>
@@ -791,8 +791,8 @@ export function Inspector() {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-border px-3 py-2">
-          <div className="text-[11px] font-semibold text-fg">{selNodes.length} elements selected</div>
-          <div className="truncate text-[10px] text-fg-muted">{selNodes.map((n) => n.label).join(", ")}</div>
+          <div className="text-plain font-semibold text-fg">{selNodes.length} elements selected</div>
+          <div className="truncate text-small text-fg-muted">{selNodes.map((n) => n.label).join(", ")}</div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
           {sharedGroup ? (
@@ -873,8 +873,8 @@ export function Inspector() {
           </span>
         ) : null}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[11px] font-semibold text-fg">{node.label}</div>
-          <div className="truncate text-[10px] text-fg-muted">{cat?.label ?? "Custom"}</div>
+          <div className="truncate text-plain font-semibold text-fg">{node.label}</div>
+          <div className="truncate text-small text-fg-muted">{cat?.label ?? "Custom"}</div>
         </div>
         <Tooltip content={node.locked ? "Unlock" : "Lock position"}>
           <Button variant="ghost" size="iconXs" aria-label="Lock" onClick={() => update({ locked: !node.locked })}>
@@ -981,13 +981,13 @@ export function Inspector() {
         {mark === "size" ? (
         <div className="rounded-md border border-border p-2">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Size & position</span>
-            <span className="num text-[10px] text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of frame</span>
+            <span className="text-small font-medium uppercase tracking-wider text-fg-faint">Size & position</span>
+            <span className="num text-small text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of frame</span>
           </div>
           <div className="grid grid-cols-4 gap-1">
             {(["x", "y", "w", "h"] as const).map((k) => (
               <label key={k} className="flex flex-col gap-0.5">
-                <span className="text-[9px] uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}</span>
+                <span className="text-fine uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}</span>
                 <Input
                   type="number"
                   inputSize="sm"
@@ -1059,7 +1059,7 @@ export function Inspector() {
 
         {feature?.options?.length ? (
           <div className="space-y-2 rounded-md border border-border p-2">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Options</div>
+            <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
             {feature.options.map((opt) =>
               opt.kind === "set" ? (
                 <OptionSet
@@ -1077,7 +1077,7 @@ export function Inspector() {
                 />
               ) : (
                 <div key={opt.id} className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-fg">{opt.label}</span>
+                  <span className="text-plain text-fg">{opt.label}</span>
                   <Select
                     className="w-32"
                     value={node.options[opt.id] ?? opt.values[0]!}
@@ -1112,7 +1112,7 @@ export function Inspector() {
 
         {mark === "link" && isLinkable(node.featureId) ? <LinkField node={node} /> : null}
         {mark === "link" && !isLinkable(node.featureId) ? (
-          <p className="text-[10px] text-fg-muted">This part does not send anyone anywhere, so it has nothing to point at.</p>
+          <p className="text-small text-fg-muted">This part does not send anyone anywhere, so it has nothing to point at.</p>
         ) : null}
 
         {mark === "looks" ? (
@@ -1126,7 +1126,7 @@ export function Inspector() {
             <button
               type="button"
               onClick={() => update({ glyph: null })}
-              className={cn("tactile size-6 rounded-sm border text-[10px]", node.glyph === null ? "border-accent" : "border-border")}
+              className={cn("tactile size-6 rounded-sm border text-small", node.glyph === null ? "border-accent" : "border-border")}
             >
               <PaletteIcon className="mx-auto size-3" />
             </button>
@@ -1147,11 +1147,11 @@ export function Inspector() {
 
         {group ? (
           <div className="rounded-md border border-border p-2">
-            <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-faint">
+            <div className="mb-1 flex items-center gap-1.5 text-small uppercase tracking-wider text-fg-faint">
               <Layers className="size-3" />
               In group
             </div>
-            <div className="mb-1.5 text-[11px] font-medium text-fg">{group.label}</div>
+            <div className="mb-1.5 text-plain font-medium text-fg">{group.label}</div>
             <Textarea
               autoGrow
               rows={2}
@@ -1164,11 +1164,11 @@ export function Inspector() {
 
         {feature ? (
           <div className="rounded-md border border-border bg-elevated/50 p-2">
-            <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-faint">
+            <div className="mb-1 flex items-center gap-1.5 text-small uppercase tracking-wider text-fg-faint">
               <Lightbulb className="size-3" />
               What this usually means
             </div>
-            <p className="text-[11px] leading-relaxed text-fg-muted">{feature.blurb}</p>
+            <p className="text-plain leading-relaxed text-fg-muted">{feature.blurb}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <Badge size="sm" variant="outline">{feature.id}</Badge>
               <Badge size="sm">{cat?.label}</Badge>
@@ -1176,7 +1176,7 @@ export function Inspector() {
           </div>
         ) : null}
 
-        <div className="text-[10px] text-fg-faint">
+        <div className="text-small text-fg-faint">
           Row order comes from where it sits in the frame. Width and height are built exactly, not reflowed.
         </div>
       </div>
@@ -1232,13 +1232,13 @@ function Role({ node }: { node: StudioNode }) {
               data-role={r}
               aria-pressed={node.role === r}
               onClick={() => set(node.role === r ? null : r)}
-              className={cn("tactile rounded-md border px-2 py-1 text-[10px] capitalize", node.role === r ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+              className={cn("tactile rounded-md border px-2 py-1 text-small capitalize", node.role === r ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
             >
               {r}
             </button>
           ))}
         </div>
-        <p className="text-[9px] leading-snug text-fg-faint">
+        <p className="text-fine leading-snug text-fg-faint">
           {weigh(node.vector!).paths} paths traced, {kept.paths.length} kept for an icon. Drop an icon onto a button and the
           button wears it.
         </p>
@@ -1317,19 +1317,19 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                   aria-pressed={on}
                   aria-label={`Pick the ${side} face`}
                   onClick={() => { play(on ? "close" : "tap"); useStudio.getState().pickFace(node.id, on ? null : side); }}
-                  className={cn("tactile rounded-sm px-1 text-[10px] uppercase tracking-[0.14em]", on ? "text-fg" : "text-fg-faint hover:text-fg")}
+                  className={cn("tactile rounded-sm px-1 text-small uppercase tracking-[0.14em]", on ? "text-fg" : "text-fg-faint hover:text-fg")}
                 >
                   {side}
                 </button>
-                {bare ? <span className="text-[9px] text-fg-faint">empty</span> : null}
-                {on ? <span className="text-[9px] text-accent">picked</span> : null}
+                {bare ? <span className="text-fine text-fg-faint">empty</span> : null}
+                {on ? <span className="text-fine text-accent">picked</span> : null}
                 <span className="flex-1" />
                 <button
                   type="button"
                   aria-label={`Clear the ${side} face`}
                   disabled={bare && !face.colour && !(face.prompt ?? "").trim() && !face.pageId}
                   onClick={() => set(node.id, i, null)}
-                  className="tactile rounded-sm border border-border px-1.5 py-0.5 text-[9px] text-fg-muted disabled:opacity-40 hover:text-fg"
+                  className="tactile rounded-sm border border-border px-1.5 py-0.5 text-fine text-fg-muted disabled:opacity-40 hover:text-fg"
                 >
                   clear
                 </button>
@@ -1368,13 +1368,13 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                   back the moment the page is taken off. */}
               {sites.length ? (
                 <div className="mt-1 flex flex-wrap items-center gap-1" data-face-pages={side}>
-                  <span className="text-[9px] uppercase tracking-[0.14em] text-fg-faint">page</span>
+                  <span className="text-fine uppercase tracking-[0.14em] text-fg-faint">page</span>
                   <button
                     type="button"
                     data-pick-page="none"
                     aria-pressed={!face.pageId}
                     onClick={() => { play("close"); set(node.id, i, { pageId: null }); }}
-                    className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", !face.pageId ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+                    className={cn("tactile rounded-sm border px-1.5 py-0.5 text-fine", !face.pageId ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
                   >
                     none
                   </button>
@@ -1387,7 +1387,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                         data-pick-page={p.id}
                         aria-pressed={on}
                         onClick={() => { play(on ? "close" : "confirm"); set(node.id, i, { pageId: on ? null : p.id }); }}
-                        className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", on ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+                        className={cn("tactile rounded-sm border px-1.5 py-0.5 text-fine", on ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
                       >
                         {p.name}
                       </button>
@@ -1396,7 +1396,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                 </div>
               ) : null}
               {face.pageId ? (
-                <p className="mt-1 text-[9px] leading-snug text-fg-faint">
+                <p className="mt-1 text-fine leading-snug text-fg-faint">
                   This side is the page. Its heading and body are kept and come back when the page is taken off.
                 </p>
               ) : null}
@@ -1413,7 +1413,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                       aria-label={`${side} face, ${role.label}`}
                       aria-pressed={is}
                       onClick={() => set(node.id, i, { colour: role.id })}
-                      className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", is ? "border-accent text-fg" : "border-border text-fg-faint hover:text-fg")}
+                      className={cn("tactile rounded-sm border px-1.5 py-0.5 text-fine", is ? "border-accent text-fg" : "border-border text-fg-faint hover:text-fg")}
                       style={role.id && palette?.[role.id] ? { boxShadow: `inset 3px 0 0 ${palette[role.id]}` } : undefined}
                     >
                       {role.label}
@@ -1486,11 +1486,11 @@ function Solid({ node, palette }: { node: StudioNode; palette: Record<string, st
             {node.mesh?.glb ? <Button size="sm" variant="outline" data-solid-show="" onClick={() => { play("tap"); showSolid(node.id); }}>Show the solid made before</Button> : null}
           </div>
         ) : (
-          <p className="text-[10px] leading-snug text-fg-muted" data-solid-needs="">
+          <p className="text-small leading-snug text-fg-muted" data-solid-needs="">
             {ready === null ? "Checking for a Replicate token…" : "No Replicate token yet. Paste one under Keys (⌘⇧K) and this lights up. Until then the cube is the whole thing: it turns, it takes words on every face, and nothing is missing from it."}
           </p>
         )}
-        {said ? <p className="text-[10px] leading-snug text-fg-faint" data-solid-said="">{said}</p> : null}
+        {said ? <p className="text-small leading-snug text-fg-faint" data-solid-said="">{said}</p> : null}
       </div>
     </Field>
   );
@@ -1519,7 +1519,7 @@ function LinkField({ node }: { node: StudioNode }) {
         aria-label="Links to"
       />
       {link?.kind === "node" ? (
-        <p className="mt-1 text-[10px] leading-snug text-fg-faint" data-link-node="">
+        <p className="mt-1 text-small leading-snug text-fg-faint" data-link-node="">
           Drawn as an arrow to the part {other?.label ?? link.target}: pressing this scrolls to it. Pick a page or an address above to send people elsewhere.
         </p>
       ) : null}
@@ -1555,7 +1555,7 @@ function WorkField({ node }: { node: StudioNode }) {
   const says = node.data ?? "";
   return (
     <div className="mt-2 border-t border-border pt-2">
-      <p className="mb-1 text-[10px] leading-snug text-fg-muted">
+      <p className="mb-1 text-small leading-snug text-fg-muted">
         Or say what it should <em>do</em>, and the backend for it is built here, on this button.
       </p>
       <Textarea
@@ -1567,7 +1567,7 @@ function WorkField({ node }: { node: StudioNode }) {
         onChange={(e) => useStudio.getState().updateNode(node.id, { data: e.target.value })}
       />
       {says.trim() ? (
-        <p data-backend-sited="" className="mt-1 text-[10px] leading-snug text-fg-faint">
+        <p data-backend-sited="" className="mt-1 text-small leading-snug text-fg-faint">
           The backend builds this where this button is.
         </p>
       ) : null}

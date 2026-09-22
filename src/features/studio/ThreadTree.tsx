@@ -476,7 +476,7 @@ export function ThreadTree() {
         </div>
       </div>
       {nothingYet ? (
-        <p className="flex items-start gap-2 rounded-lg border border-border bg-elevated p-3 text-[11px] text-fg-muted">
+        <p className="flex items-start gap-2 rounded-lg border border-border bg-elevated p-3 text-plain text-fg-muted">
           <GitBranch className="mt-0.5 size-3.5 shrink-0 text-fg-faint" />
           <span>
             Nothing has landed yet. Every prompt that reaches Claude and comes back lands as a thread here, what was
@@ -485,7 +485,7 @@ export function ThreadTree() {
           </span>
         </p>
       ) : null}
-      <p className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-fg-faint">
+      <p className="flex flex-wrap items-center justify-between gap-2 text-small text-fg-faint">
         <span>
           Drag a thread or a piece to move it, only that one moves. Click a piece to vine it to the next call:
           <span className="text-[oklch(0.7_0.25_300)]"> purple is about to be sent</span>,
@@ -586,7 +586,7 @@ function PieceChip({
       >
         <span className="size-1.5 shrink-0 rounded-full" style={{ background: vined ? PENDING.core : landed ? VINE.body : "oklch(0.62 0.16 300)" }} />
         <span className="truncate">{piece.label}</span>
-        {fresh ? <span className="shrink-0 text-[9px] opacity-80">changed</span> : null}
+        {fresh ? <span className="shrink-0 text-fine opacity-80">changed</span> : null}
       </button>
     </Tooltip>
   );
@@ -628,10 +628,10 @@ function DraftCard({
           <GripVertical className="size-3.5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-[12px]" style={{ color: PENDING.core }}>
+          <p className="flex items-center gap-1.5 text-large" style={{ color: PENDING.core }}>
             <Sparkles className="size-3" /> The next call
           </p>
-          <p className="mt-1 text-[10px] text-fg-muted">
+          <p className="mt-1 text-small text-fg-muted">
             {pieces.length
               ? `${pieces.length} piece${pieces.length === 1 ? "" : "s"} vined${unchanged ? `, ${unchanged} unchanged and not resent` : ""}. The brief goes in front of them, from the cache.`
               : "Nothing vined. Click a piece to send it with the next ask; with none, the whole blueprint goes."}
@@ -639,11 +639,11 @@ function DraftCard({
           {pieces.length ? (
             <ul className="mt-2 space-y-0.5">
               {pieces.slice(0, 6).map((p) => (
-                <li key={p.id} className="truncate text-[10px]" style={{ color: sent[p.id] === p.fingerprint ? "oklch(0.55 0.03 300)" : "oklch(0.86 0.1 305)" }}>
+                <li key={p.id} className="truncate text-small" style={{ color: sent[p.id] === p.fingerprint ? "oklch(0.55 0.03 300)" : "oklch(0.86 0.1 305)" }}>
                   {sent[p.id] === p.fingerprint ? "· " : "+ "}{p.label}
                 </li>
               ))}
-              {pieces.length > 6 ? <li className="text-[10px] text-fg-faint">and {pieces.length - 6} more</li> : null}
+              {pieces.length > 6 ? <li className="text-small text-fg-faint">and {pieces.length - 6} more</li> : null}
             </ul>
           ) : null}
         </div>
@@ -732,8 +732,8 @@ function ThreadCard({
           <ChevronRight className="size-3.5" />
         </button>
         <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
-          <p className="text-[12px] font-semibold leading-snug text-fg">{threadTitle(t)}</p>
-          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-fg-faint">
+          <p className="text-large font-semibold leading-snug text-fg">{threadTitle(t)}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-small text-fg-faint">
             <Badge size="sm" variant="outline">{t.mode}</Badge>
             <span className="num">{new Date(t.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             {t.model ? <span className="truncate">{t.model}</span> : null}
@@ -771,7 +771,7 @@ function ThreadCard({
       {t.changes.length ? (
         <ul className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5">
           {t.changes.map((c, i) => (
-            <li key={i} className="flex items-start gap-1 text-[10px] leading-snug text-fg-muted">
+            <li key={i} className="flex items-start gap-1 text-small leading-snug text-fg-muted">
               <Check className="mt-px size-2.5 shrink-0 text-[oklch(0.72_0.22_148)]" /> {c}
             </li>
           ))}
@@ -786,11 +786,11 @@ function ThreadCard({
               {changed.length ? (
                 <ul className="space-y-0.5">
                   {changed.map((line, i) => (
-                    <li key={i} className="font-mono text-[10px] text-fg-muted">{line}</li>
+                    <li key={i} className="font-mono text-small text-fg-muted">{line}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-[10px] text-fg-faint">Nothing on the board changed with this thread.</p>
+                <p className="text-small text-fg-faint">Nothing on the board changed with this thread.</p>
               )}
             </Section>
             {findings.length ? (
@@ -799,10 +799,10 @@ function ThreadCard({
                   <ul className="space-y-1.5">
                     {findings.map((f) => (
                       <li key={f.id} className="rounded border border-border bg-elevated p-2">
-                        <p className="text-[11px] leading-snug text-fg">{f.target.label}: {f.text}</p>
+                        <p className="text-plain leading-snug text-fg">{f.target.label}: {f.text}</p>
                         {f.prompt ? (
                           <div className="mt-1 flex items-start gap-2">
-                            <p className="min-w-0 flex-1 text-[10px] italic leading-snug text-fg-muted">{f.prompt}</p>
+                            <p className="min-w-0 flex-1 text-small italic leading-snug text-fg-muted">{f.prompt}</p>
                             <Button variant="outline" size="xs" disabled={f.applied} onClick={() => applyRevision(f.id)}>
                               {f.applied ? "Taken" : "Take it"}
                             </Button>
@@ -833,7 +833,7 @@ function Pane({
   return (
     <div className={cn("rounded-lg border border-border bg-panel/95 p-2.5 shadow-pop", className)}>
       <div className="mb-1 flex items-center gap-1.5">
-        <p className="flex flex-1 items-center gap-1 text-[9px] uppercase tracking-[0.16em] text-fg-faint">
+        <p className="flex flex-1 items-center gap-1 text-fine uppercase tracking-[0.16em] text-fg-faint">
           <Circle className="size-1.5 fill-current" /> {label}
         </p>
         <Button variant="ghost" size="xs" onClick={() => void ctx.copy(text, label.toLowerCase())} aria-label={`Copy ${label}`}>
@@ -842,7 +842,7 @@ function Pane({
       </div>
       <div
         // A screen, like every other box of words in the Builder.
-        className={cn("overflow-auto whitespace-pre-wrap break-words rounded p-2 text-[11px] leading-relaxed", mono && "font-mono text-[10px]", bodyClassName)}
+        className={cn("overflow-auto whitespace-pre-wrap break-words rounded p-2 text-plain leading-relaxed", mono && "font-mono text-small", bodyClassName)}
         style={{ ...screenFace, color: SCREEN.ink }}
       >
         {text}
@@ -871,7 +871,7 @@ export function PinnedThreads() {
         <div key={t.id} className="rounded-lg border border-accent/40 bg-elevated/60 p-2.5 shadow-pop">
           <div className="flex items-start gap-2">
             <Pin className="mt-0.5 size-3 shrink-0 fill-current text-accent" />
-            <p className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-fg">{threadTitle(t)}</p>
+            <p className="min-w-0 flex-1 text-large font-semibold leading-snug text-fg">{threadTitle(t)}</p>
             {t.id !== liveThreadId && t.doc ? (
               <Button variant="ghost" size="xs" onClick={() => { play("confirm"); standOn(t.id); }}>
                 <MapPin className="size-3" /> Stand on it
@@ -888,7 +888,7 @@ export function PinnedThreads() {
           {t.changes.length ? (
             <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
               {t.changes.map((c, i) => (
-                <li key={i} className="flex items-center gap-1 text-[10px] text-fg-muted">
+                <li key={i} className="flex items-center gap-1 text-small text-fg-muted">
                   <Check className="size-2.5 text-[oklch(0.72_0.22_148)]" /> {c}
                 </li>
               ))}
@@ -903,7 +903,7 @@ export function PinnedThreads() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 flex items-center gap-1 text-[9px] uppercase tracking-[0.16em] text-fg-faint">
+      <p className="mb-1 flex items-center gap-1 text-fine uppercase tracking-[0.16em] text-fg-faint">
         <Circle className="size-1.5 fill-current" /> {label}
       </p>
       {children}

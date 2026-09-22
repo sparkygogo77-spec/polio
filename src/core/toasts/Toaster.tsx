@@ -44,9 +44,9 @@ function Toast({ t }: { t: ToastItem }) {
             ) : (
               <span className="truncate text-xs font-medium text-fg">{t.title}</span>
             )}
-            {t.count > 1 ? <span className="num rounded-xs bg-elevated px-1 text-[10px] text-fg-muted">×{t.count}</span> : null}
+            {t.count > 1 ? <span className="num rounded-xs bg-elevated px-1 text-small text-fg-muted">×{t.count}</span> : null}
           </div>
-          {t.diff ? <div className="num mt-0.5 text-[11px] text-fg-muted">{`${t.diff.fromLabel} → ${t.diff.toLabel}`}</div> : t.body ? <div className="mt-0.5 truncate text-[11px] text-fg-muted">{t.body}</div> : null}
+          {t.diff ? <div className="num mt-0.5 text-plain text-fg-muted">{`${t.diff.fromLabel} → ${t.diff.toLabel}`}</div> : t.body ? <div className="mt-0.5 truncate text-plain text-fg-muted">{t.body}</div> : null}
           {t.action ? (
             <Button variant="link" size="xs" className="mt-1 h-auto" onClick={t.action.onClick}>
               {t.action.label}

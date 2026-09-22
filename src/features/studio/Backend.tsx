@@ -132,22 +132,22 @@ export function Backend() {
       {/* ------------------------------------------------ the conversation */}
       <div data-backend-thread="" className="min-h-0 flex-1 overflow-y-auto rounded-md border px-2 py-1.5" style={{ borderColor: FIELD.rim, background: FIELD.raised }}>
         {turns.length === 0 && !busy ? (
-          <p className="p-4 text-center text-[11px]" style={{ color: FIELD.dim }}>
+          <p className="p-4 text-center text-plain" style={{ color: FIELD.dim }}>
             Nothing said yet. The site as it stands goes with every ask, so you can point at it
             — “why is the hero fighting the nav” — and argue with the answer.
           </p>
         ) : null}
         {turns.map((t, i) => (
           <div key={i} data-turn={t.role} className="border-b py-1.5 last:border-0" style={{ borderColor: FIELD.rim }}>
-            <div className="mb-0.5 flex items-center gap-2 text-[10px] uppercase tracking-wide" style={{ color: FIELD.dim }}>
+            <div className="mb-0.5 flex items-center gap-2 text-small uppercase tracking-wide" style={{ color: FIELD.dim }}>
               <span>{t.role === "user" ? "You" : "Claude"}</span>
               {t.took ? <span className="num">{(t.took / 1000).toFixed(1)}s</span> : null}
             </div>
-            <p className="whitespace-pre-wrap text-[12px] leading-snug">{t.text}</p>
+            <p className="whitespace-pre-wrap text-large leading-snug">{t.text}</p>
           </div>
         ))}
-        {busy ? <p className="py-2 text-[11px]" style={{ color: FIELD.dim }}>Thinking at {effort} effort…</p> : null}
-        {error ? <p data-backend-error="" className="py-2 text-[11px]" style={{ color: "oklch(0.72 0.17 25)" }}>{error}</p> : null}
+        {busy ? <p className="py-2 text-plain" style={{ color: FIELD.dim }}>Thinking at {effort} effort…</p> : null}
+        {error ? <p data-backend-error="" className="py-2 text-plain" style={{ color: "oklch(0.72 0.17 25)" }}>{error}</p> : null}
         <div ref={foot} />
       </div>
 
@@ -156,7 +156,7 @@ export function Backend() {
         <button
           type="button"
           data-backend-system-toggle=""
-          className="tactile flex items-center gap-1.5 rounded px-1 text-[10px] uppercase tracking-wide"
+          className="tactile flex items-center gap-1.5 rounded px-1 text-small uppercase tracking-wide"
           style={{ color: FIELD.dim }}
           onClick={() => { play("select"); setOpenSystem((v) => !v); }}
         >
@@ -171,10 +171,10 @@ export function Backend() {
               onChange={(e) => { setSystem(e.target.value); hold(SYSTEM_KEY, e.target.value); }}
               rows={3}
               placeholder="Anything to add to how it should answer. Added to the Builder's own instructions, not in place of them."
-              className="mt-1 w-full resize-y rounded-md border bg-transparent p-1.5 text-[11px] leading-snug outline-none"
+              className="mt-1 w-full resize-y rounded-md border bg-transparent p-1.5 text-plain leading-snug outline-none"
               style={{ borderColor: FIELD.rim, color: FIELD.text }}
             />
-            <p className="px-1 pt-0.5 text-[10px]" style={{ color: FIELD.dim }}>
+            <p className="px-1 pt-0.5 text-small" style={{ color: FIELD.dim }}>
               Added to the Builder&rsquo;s own instructions. The rules for reading a blueprint are what make the answers usable, so they stay.
             </p>
           </>
@@ -190,7 +190,7 @@ export function Backend() {
             data-backend-effort={e.id}
             aria-pressed={effort === e.id}
             title={e.blurb}
-            className={cn("tactile rounded px-2 py-1 text-[10px] uppercase tracking-wide")}
+            className={cn("tactile rounded px-2 py-1 text-small uppercase tracking-wide")}
             style={effort === e.id
               ? { background: FIELD.lit, color: "oklch(0.15 0.04 152)" }
               : { border: `1px solid ${FIELD.rim}`, color: FIELD.dim }}
@@ -215,7 +215,7 @@ export function Backend() {
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send(); } }}
           rows={2}
           placeholder="Ask it something about this site. ⌘↵ sends."
-          className="min-h-0 flex-1 resize-y rounded-md border bg-transparent p-1.5 text-[12px] leading-snug outline-none"
+          className="min-h-0 flex-1 resize-y rounded-md border bg-transparent p-1.5 text-large leading-snug outline-none"
           style={{ borderColor: FIELD.rim, color: FIELD.text }}
         />
         {busy ? (

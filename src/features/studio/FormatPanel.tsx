@@ -80,10 +80,10 @@ export function FormatPanel() {
       <div className="shrink-0 space-y-2 border-b border-border p-2">
         <Input left={<Search />} placeholder="Search options…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search format options" />
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-fg-faint">{changed ? `${changed} changed` : "all defaults"}</span>
+          <span className="text-small text-fg-faint">{changed ? `${changed} changed` : "all defaults"}</span>
           <div className="flex items-center gap-2">
             <Tooltip content={`${hidden} advanced options`}>
-              <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-fg-muted">
+              <label className="flex cursor-pointer items-center gap-1.5 text-small text-fg-muted">
                 <SlidersHorizontal className="size-3" />
                 All options
                 <Switch size="sm" checked={showAll} onCheckedChange={setShowAll} />
@@ -108,8 +108,8 @@ export function FormatPanel() {
               <header className="sticky top-0 z-10 flex items-center gap-2 bg-panel/90 px-3 py-1.5 backdrop-blur">
                 <GroupIcon className="size-3.5 text-accent" />
                 <div className="flex-1 leading-tight">
-                  <div className="text-[11px] font-semibold text-fg">{group.label}</div>
-                  <div className="text-[10px] text-fg-faint">{group.blurb}</div>
+                  <div className="text-plain font-semibold text-fg">{group.label}</div>
+                  <div className="text-small text-fg-faint">{group.blurb}</div>
                 </div>
               </header>
               <ul>
@@ -120,18 +120,18 @@ export function FormatPanel() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           {isChanged ? <span className="size-1.5 shrink-0 rounded-full bg-accent" /> : null}
-                          <span className="truncate text-[11px] text-fg">{field.label}</span>
+                          <span className="truncate text-plain text-fg">{field.label}</span>
                           {field.advanced ? (
-                            <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">adv</span>
+                            <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">adv</span>
                           ) : null}
                           {/* A field the preview does not draw says so, rather than
                               letting a person watch the site not change. It still
                               reaches the blueprint, which is where it matters. */}
                           {!field.live ? (
-                            <span data-brief-only="" title="Reaches the blueprint; the preview does not draw it." className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">brief</span>
+                            <span data-brief-only="" title="Reaches the blueprint; the preview does not draw it." className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">brief</span>
                           ) : null}
                         </div>
-                        {field.hint ? <div className="text-[10px] text-fg-muted">{field.hint}</div> : null}
+                        {field.hint ? <div className="text-small text-fg-muted">{field.hint}</div> : null}
                       </div>
                       <div className="shrink-0">
                         <Control field={field} />
@@ -143,7 +143,7 @@ export function FormatPanel() {
             </section>
           );
         })}
-        <p className={cn("p-3 text-[10px] text-fg-faint")}>
+        <p className={cn("p-3 text-small text-fg-faint")}>
           Only options you change are written into the brief, so defaults stay out of the builder&apos;s way.
         </p>
       </div>

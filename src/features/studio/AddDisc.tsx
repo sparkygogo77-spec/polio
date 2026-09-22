@@ -338,7 +338,7 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
                 key={`h-${row.id}`}
                 data-roll=""
                 data-add-head={row.id}
-                className="pointer-events-none select-none font-mono text-[9px] font-semibold uppercase"
+                className="pointer-events-none select-none font-mono text-fine font-semibold uppercase"
                 style={{ color: SCREEN.ink, letterSpacing: 1.8, textShadow: `0 0 6px ${SCREEN.line}`, willChange: "transform, opacity" }}
               >
                 {row.label}
@@ -363,7 +363,7 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
           value={query}
           aria-label="Search the parts"
           placeholder="Search"
-          className="h-[22px] rounded-full border-[oklch(0.36_0.06_290)] bg-[oklch(0.1_0.03_300)] px-2.5 text-center font-mono text-[10px] text-[oklch(0.88_0.09_175)] placeholder:text-[oklch(0.5_0.03_285)]"
+          className="h-[22px] rounded-full border-[oklch(0.36_0.06_290)] bg-[oklch(0.1_0.03_300)] px-2.5 text-center font-mono text-small text-[oklch(0.88_0.09_175)] placeholder:text-[oklch(0.5_0.03_285)]"
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -466,7 +466,7 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
       >
         <PartPreview feature={feature} width={width} height={height} />
       </span>
-      <span className="line-clamp-1 text-[11px] font-semibold leading-tight" style={{ color: chosen ? "oklch(0.85 0.12 205)" : CONSOLE.text, textShadow: "0 1px 3px oklch(0 0 0 / 0.85)" }}>
+      <span className="line-clamp-1 text-plain font-semibold leading-tight" style={{ color: chosen ? "oklch(0.85 0.12 205)" : CONSOLE.text, textShadow: "0 1px 3px oklch(0 0 0 / 0.85)" }}>
         {feature.name}
       </span>
     </div>

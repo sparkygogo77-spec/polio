@@ -71,7 +71,7 @@ function CountRing({ n, limit }: { n: number; limit: number }) {
   const over = n > limit;
   const near = !over && limit - n <= 20;
   return (
-    <span className={cn("num inline-flex items-center gap-1.5 text-[11px]", over ? "text-down" : near ? "text-warn" : "text-fg-muted")} title={`${n} of ${limit}`}>
+    <span className={cn("num inline-flex items-center gap-1.5 text-plain", over ? "text-down" : near ? "text-warn" : "text-fg-muted")} title={`${n} of ${limit}`}>
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
         <circle cx="10" cy="10" r={r} fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2" />
         <circle cx="10" cy="10" r={r} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray={c} strokeDashoffset={c * (1 - f)} strokeLinecap="round" transform="rotate(-90 10 10)" />
@@ -85,8 +85,8 @@ function Field({ label, hint, children, className }: { label: string; hint?: str
   return (
     <label className={cn("flex min-w-0 flex-col gap-1", className)}>
       <span className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium text-fg-muted">{label}</span>
-        {hint ? <span className="truncate text-[10px] text-fg-faint">{hint}</span> : null}
+        <span className="text-plain font-medium text-fg-muted">{label}</span>
+        {hint ? <span className="truncate text-small text-fg-faint">{hint}</span> : null}
       </span>
       {children}
     </label>
@@ -165,14 +165,14 @@ function Rail({ onNew }: { onNew: () => void }) {
                         className={cn("tactile w-full rounded-md px-2 py-1.5 text-left hover:bg-hover", focusedId === d.id && "bg-active")}
                       >
                         <span className="flex items-baseline gap-2">
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-fg">{draftTitle(d)}</span>
-                          <span className="num shrink-0 text-[10px] text-fg-faint">{when ? relativeTime(when) : ""}</span>
+                          <span className="min-w-0 flex-1 truncate text-large font-medium text-fg">{draftTitle(d)}</span>
+                          <span className="num shrink-0 text-small text-fg-faint">{when ? relativeTime(when) : ""}</span>
                         </span>
                         <span className="mt-0.5 flex items-center gap-1.5">
                           <Badge variant={st.badge} size="sm">{st.label}</Badge>
-                          {d.posts.length > 1 ? <span className="text-[10px] text-fg-faint">thread of {d.posts.length}</span> : null}
+                          {d.posts.length > 1 ? <span className="text-small text-fg-faint">thread of {d.posts.length}</span> : null}
                           {d.posts.some((p) => p.media.length) ? <ImageIcon className="size-3 text-fg-faint" /> : null}
-                          {last && d.status !== "draft" ? <span className="min-w-0 truncate text-[10px] text-fg-faint">· {last.title}</span> : null}
+                          {last && d.status !== "draft" ? <span className="min-w-0 truncate text-small text-fg-faint">· {last.title}</span> : null}
                         </span>
                       </button>
                     </li>
@@ -185,14 +185,14 @@ function Rail({ onNew }: { onNew: () => void }) {
       ) : null}
       {railMode !== "drafts" ? (
         <div className={cn("flex min-h-0 flex-col border-t border-border", railMode === "both" ? "flex-[2]" : "flex-1")}>
-          <div className="shrink-0 px-3 pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-faint">Log</div>
+          <div className="shrink-0 px-3 pt-2 text-small font-semibold uppercase tracking-wide text-fg-faint">Log</div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
             {log.length === 0 ? (
-              <p className="py-3 text-[11px] text-fg-faint">Everything that happens to a draft shows here.</p>
+              <p className="py-3 text-plain text-fg-faint">Everything that happens to a draft shows here.</p>
             ) : (
               <ul className="space-y-1.5 py-1">
                 {log.slice(0, 60).map((l) => (
-                  <li key={l.id} className="flex gap-2 text-[11px] leading-snug">
+                  <li key={l.id} className="flex gap-2 text-plain leading-snug">
                     <span aria-hidden className={cn("mt-[5px] size-1.5 shrink-0 rounded-full", l.level === "success" ? "bg-up" : l.level === "warn" ? "bg-warn" : l.level === "error" ? "bg-down" : "bg-fg-faint")} />
                     <span className="min-w-0 flex-1">
                       <span className="text-fg">{l.title}</span>
@@ -229,17 +229,17 @@ function MediaStrip({ draft, index, altRequired, onAdd }: { draft: Draft; index:
             <li key={m.id} className="flex gap-2 rounded-md border border-border bg-elevated p-1.5">
               <div className="relative size-14 shrink-0 overflow-hidden rounded-sm bg-active">
                 {m.thumb ? <img src={m.thumb} alt="" className="size-full object-cover" /> : <Film className="absolute inset-0 m-auto size-5 text-fg-muted" />}
-                <span className="absolute bottom-0.5 left-0.5 rounded-sm bg-black/60 px-1 text-[9px] uppercase text-white">{m.kind}</span>
+                <span className="absolute bottom-0.5 left-0.5 rounded-sm bg-black/60 px-1 text-fine uppercase text-white">{m.kind}</span>
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center gap-1">
-                  <span className="num min-w-0 flex-1 truncate text-[10px] text-fg-muted" title={m.name}>{m.width}×{m.height} · {fmtBytes(m.size)}</span>
+                  <span className="num min-w-0 flex-1 truncate text-small text-fg-muted" title={m.name}>{m.width}×{m.height} · {fmtBytes(m.size)}</span>
                   <Button variant="ghost" size="iconXs" aria-label={`Remove ${m.name}`} onClick={() => removeMedia(draft.id, m.id)}><X /></Button>
                 </div>
                 {m.kind !== "video" ? (
                   <Input inputSize="sm" value={m.alt} onChange={(e) => updateMedia(draft.id, m.id, { alt: e.target.value.slice(0, 1000) })} placeholder={altRequired ? "Alt text (required)" : "Alt text"} className={cn(altRequired && !m.alt.trim() && "border-warn/60")} />
                 ) : (
-                  <span className="text-[10px] text-fg-faint">Videos take no alt text on X.</span>
+                  <span className="text-small text-fg-faint">Videos take no alt text on X.</span>
                 )}
               </div>
             </li>
@@ -251,7 +251,7 @@ function MediaStrip({ draft, index, altRequired, onAdd }: { draft: Draft; index:
         <Button variant="outline" size="xs" disabled={full} onClick={() => fileRef.current?.click()}>
           <Upload /> Add media
         </Button>
-        <span className="text-[10px] text-fg-faint">{full ? "This post is full: four pictures, or one GIF or video." : "Up to four pictures, or one GIF or video. Paste or drop them too."}</span>
+        <span className="text-small text-fg-faint">{full ? "This post is full: four pictures, or one GIF or video." : "Up to four pictures, or one GIF or video. Paste or drop them too."}</span>
       </div>
     </div>
   );
@@ -384,7 +384,7 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
             const n = weighedLength(p.text);
             return (
               <li key={i} className={cn("rounded-lg border border-border bg-panel p-3", draft.posts.length > 1 && "relative pl-8")} onDrop={onDrop(i)} onDragOver={(e) => e.preventDefault()}>
-                {draft.posts.length > 1 ? <span className="num absolute left-2.5 top-3 text-[11px] font-semibold text-fg-faint">{i + 1}</span> : null}
+                {draft.posts.length > 1 ? <span className="num absolute left-2.5 top-3 text-plain font-semibold text-fg-faint">{i + 1}</span> : null}
                 <Textarea
                   autoGrow
                   rows={i === 0 ? 4 : 2}
@@ -415,7 +415,7 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
         </ol>
 
         {/* options */}
-        <button type="button" onClick={() => setShowOptions((v) => !v)} className="tactile mt-3 flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] font-medium text-fg-muted hover:text-fg">
+        <button type="button" onClick={() => setShowOptions((v) => !v)} className="tactile mt-3 flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-plain font-medium text-fg-muted hover:text-fg">
           <ChevronDown className={cn("size-3.5 transition-transform", showOptions && "rotate-180")} />
           Options
           <span className="font-normal text-fg-faint">
@@ -441,7 +441,7 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
             <Field label="Sensitive media" hint="marks the whole thread">
               <div className="flex h-7 items-center gap-2">
                 <Switch size="sm" checked={draft.sensitive} disabled={locked} onCheckedChange={(v) => st.getState().updateDraft(draft.id, { sensitive: v })} />
-                <span className="text-[11px] text-fg-muted">{draft.sensitive ? "Hidden behind a warning on X" : "Shown as normal"}</span>
+                <span className="text-plain text-fg-muted">{draft.sensitive ? "Hidden behind a warning on X" : "Shown as normal"}</span>
               </div>
             </Field>
             <Field label="Quote a post" hint="URL or id">
@@ -453,8 +453,8 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
             <div className="col-span-2 space-y-2 rounded-md border border-border bg-elevated/60 p-2">
               <div className="flex items-center gap-2">
                 <Switch size="sm" checked={!!draft.poll} disabled={locked} onCheckedChange={(v) => st.getState().updateDraft(draft.id, { poll: v ? { options: ["", ""], durationMinutes: 1440 } : null })} />
-                <span className="text-[11px] font-medium text-fg">Poll</span>
-                <span className="text-[10px] text-fg-faint">on the first post; cannot go with media</span>
+                <span className="text-plain font-medium text-fg">Poll</span>
+                <span className="text-small text-fg-faint">on the first post; cannot go with media</span>
               </div>
               {draft.poll ? (
                 <div className="grid grid-cols-2 gap-2">
@@ -484,12 +484,12 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
         {problems.length ? (
           <ul className="mt-3 space-y-1 rounded-md border border-warn/30 bg-warn/8 p-2">
             {problems.map((p) => (
-              <li key={p} className="flex gap-1.5 text-[11px] text-warn"><AlertTriangle className="mt-px size-3 shrink-0" />{p}</li>
+              <li key={p} className="flex gap-1.5 text-plain text-warn"><AlertTriangle className="mt-px size-3 shrink-0" />{p}</li>
             ))}
           </ul>
         ) : null}
         {draft.lastError && (draft.status === "failed" || draft.status === "scheduled" || draft.status === "missed") ? (
-          <p className="mt-3 flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-[11px] text-down">
+          <p className="mt-3 flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-plain text-down">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             <span>
               {draft.lastError}
@@ -498,7 +498,7 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
           </p>
         ) : null}
         {draft.status === "sent" && draft.sentIds[0] ? (
-          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-up">
+          <p className="mt-3 flex items-center gap-1.5 text-plain text-up">
             <Check className="size-3" /> Sent {draft.sentAt ? relativeTime(draft.sentAt) : ""}.
             <a className="underline underline-offset-2" href={`https://x.com/i/status/${draft.sentIds[0]}`} target="_blank" rel="noopener noreferrer">Open on X</a>
           </p>
@@ -553,7 +553,7 @@ function ScheduleBar({ draft, problems, busy, locked, offsetMin, windowMin, onSc
           <Button variant="ghost" size="icon" aria-label="Copy the words" onClick={() => void actions.copy(draft.posts.map((p) => p.text).join("\n\n"), "the draft")}><Copy /></Button>
         </Tooltip>
       </div>
-      <p className="mt-1.5 min-h-[14px] text-[10px] text-fg-faint">
+      <p className="mt-1.5 min-h-[14px] text-small text-fg-faint">
         {busy ?? (
           past ? "That time has passed. Pick a later one, or send now." :
           modeNote ?? (queued && draft.scheduledAt
@@ -577,8 +577,8 @@ function MediaGrid({ media }: { media: TweetMedia[] }) {
       {media.map((m) => (
         <div key={m.id} className="relative min-h-16 bg-black/30">
           {m.thumb ? <img src={m.thumb} alt={m.alt} className={cn("size-full object-cover", n === 1 && "max-h-72")} /> : <Film className="absolute inset-0 m-auto size-6 text-white/50" />}
-          {m.kind !== "image" ? <span className="absolute bottom-1.5 left-1.5 rounded-sm bg-black/70 px-1 text-[10px] font-semibold uppercase text-white">{m.kind}</span> : null}
-          {m.alt ? <span className="absolute bottom-1.5 right-1.5 rounded-sm bg-black/70 px-1 text-[10px] font-semibold text-white">ALT</span> : null}
+          {m.kind !== "image" ? <span className="absolute bottom-1.5 left-1.5 rounded-sm bg-black/70 px-1 text-small font-semibold uppercase text-white">{m.kind}</span> : null}
+          {m.alt ? <span className="absolute bottom-1.5 right-1.5 rounded-sm bg-black/70 px-1 text-small font-semibold text-white">ALT</span> : null}
         </div>
       ))}
     </div>
@@ -623,7 +623,7 @@ function PreviewCard({ draft }: { draft: Draft }) {
                       <span className="relative flex h-full items-center justify-between px-3 text-[13px] font-semibold text-[#1d9bf0]"><span>{o || `Choice ${k + 1}`}</span></span>
                     </div>
                   ))}
-                  <p className={cn("text-[12px]", dark ? "text-[#71767b]" : "text-[#536471]")}>0 votes · {draft.poll.durationMinutes >= 1440 ? `${Math.round(draft.poll.durationMinutes / 1440)} day${draft.poll.durationMinutes >= 2880 ? "s" : ""}` : `${Math.round(draft.poll.durationMinutes / 60)} hour${draft.poll.durationMinutes >= 120 ? "s" : ""}`} left</p>
+                  <p className={cn("text-large", dark ? "text-[#71767b]" : "text-[#536471]")}>0 votes · {draft.poll.durationMinutes >= 1440 ? `${Math.round(draft.poll.durationMinutes / 1440)} day${draft.poll.durationMinutes >= 2880 ? "s" : ""}` : `${Math.round(draft.poll.durationMinutes / 60)} hour${draft.poll.durationMinutes >= 120 ? "s" : ""}`} left</p>
                 </div>
               ) : null}
               {url && !p.media.length && !draft.poll ? (
@@ -635,8 +635,8 @@ function PreviewCard({ draft }: { draft: Draft }) {
                   </div>
                 </div>
               ) : null}
-              {i === 0 && draft.quoteUrl.trim() ? <div className={cn("mt-2 rounded-xl border p-2.5 text-[12px]", dark ? "border-white/12 text-[#71767b]" : "border-black/10 text-[#536471]")}>Quoting {draft.quoteUrl.trim()}</div> : null}
-              <div className={cn("mt-2 flex items-center gap-1 text-[12px]", dark ? "text-[#71767b]" : "text-[#536471]")}>
+              {i === 0 && draft.quoteUrl.trim() ? <div className={cn("mt-2 rounded-xl border p-2.5 text-large", dark ? "border-white/12 text-[#71767b]" : "border-black/10 text-[#536471]")}>Quoting {draft.quoteUrl.trim()}</div> : null}
+              <div className={cn("mt-2 flex items-center gap-1 text-large", dark ? "text-[#71767b]" : "text-[#536471]")}>
                 {draft.replySettings !== "everyone" ? <span>{{ following: "Accounts you follow", mentionedUsers: "Only people mentioned", verified: "Verified accounts", subscribers: "Subscribers" }[draft.replySettings]} can reply</span> : <span>Everyone can reply</span>}
                 {draft.sensitive ? <span> · sensitive</span> : null}
               </div>
@@ -839,14 +839,14 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
         <Select value={pageId} onChange={setPageId} options={pages.map((p) => ({ value: p.id, label: p.name, description: p.path }))} className="min-w-28" aria-label="Page to tour" disabled={busy} />
         <Segmented size="xs" value={localDevice} onChange={(v) => setLocalDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} />
         <Segmented size="xs" value={localSpeed} onChange={(v) => setLocalSpeed(v as TourSpeed)} options={[{ value: "slow", label: "Slow" }, { value: "normal", label: "Normal" }, { value: "fast", label: "Fast" }]} />
-        <span className="text-[10px] text-fg-faint">{interact ? "works tabs and rows" : "scroll only"} · {loops} pass{loops > 1 ? "es" : ""}</span>
+        <span className="text-small text-fg-faint">{interact ? "works tabs and rows" : "scroll only"} · {loops} pass{loops > 1 ? "es" : ""}</span>
       </div>
 
       {/* The frame. When recording it lifts to cover the screen, without remounting. */}
       <div className={cn(fullscreen ? "fixed inset-0 z-[95] bg-black" : cn("relative w-full overflow-hidden rounded-lg border border-border bg-black", frameHeight))} data-tour-frame>
         <iframe ref={iframeRef} src={src} title="Live site" className="size-full border-0 bg-white" sandbox="allow-scripts allow-same-origin" onLoad={() => { const f = iframeRef.current; if (f?.contentDocument) { void waitForFrame(f).then(() => setFrameDevice(f, localDevice)).catch(() => undefined); } }} />
         {fullscreen ? (
-          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/70 px-2 py-1 text-[11px] text-white">
+          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/70 px-2 py-1 text-plain text-white">
             <span className="size-2 animate-pulse rounded-full bg-red-500" /> Recording the tab · {Math.round(progress * 100)}%
           </div>
         ) : null}
@@ -877,7 +877,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
           </>
         )}
         <span className="flex-1" />
-        {busy ? <span className="flex items-center gap-1 text-[11px] text-fg-muted"><Loader2 className="size-3 animate-spin" />{state === "rendering" ? "Rendering…" : state === "recording" ? "Recording…" : state === "converting" ? "Making the GIF…" : "Playing…"}</span> : null}
+        {busy ? <span className="flex items-center gap-1 text-plain text-fg-muted"><Loader2 className="size-3 animate-spin" />{state === "rendering" ? "Rendering…" : state === "recording" ? "Recording…" : state === "converting" ? "Making the GIF…" : "Playing…"}</span> : null}
       </div>
       {busy ? <Progress value={progress} tone="accent" /> : null}
       {/*
@@ -886,12 +886,12 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
         is off and this says which of the two reasons it is.
       */}
       {canRender === false ? (
-        <p className="flex gap-1.5 rounded-md border border-border bg-elevated p-2 text-[11px] text-fg-muted">
+        <p className="flex gap-1.5 rounded-md border border-border bg-elevated p-2 text-plain text-fg-muted">
           <Info className="mt-px size-3 shrink-0" />
           {serverNote}
         </p>
       ) : null}
-      {error ? <p className="flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-[11px] text-down"><AlertTriangle className="mt-px size-3 shrink-0" />{error}</p> : null}
+      {error ? <p className="flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-plain text-down"><AlertTriangle className="mt-px size-3 shrink-0" />{error}</p> : null}
 
       {result ? (
         <div className="space-y-2 rounded-lg border border-border bg-panel p-2">
@@ -900,8 +900,8 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant={result.format === "gif" || result.format === "mp4" ? "up" : "warn"}>{result.format.toUpperCase()}</Badge>
-            <span className="num text-[10px] text-fg-muted">{fmtBytes(result.blob.size)} · {result.from === "tab" ? "from the tab" : "from the server"}</span>
-            {result.note ? <span className="text-[10px] text-warn">{result.note}</span> : null}
+            <span className="num text-small text-fg-muted">{fmtBytes(result.blob.size)} · {result.from === "tab" ? "from the tab" : "from the server"}</span>
+            {result.note ? <span className="text-small text-warn">{result.note}</span> : null}
             <span className="flex-1" />
             {result.format === "webm" ? (
               <Tooltip content="Plays the recording through twice, here in the browser, and writes a GIF X will take.">
@@ -911,7 +911,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
             <Button variant="primary" size="xs" onClick={() => void attach()} disabled={!draft || busy}><FileImage /> Attach to post 1</Button>
             <Button variant="ghost" size="xs" onClick={() => { URL.revokeObjectURL(result.url); setResult(null); }}>Discard</Button>
           </div>
-          {result.format === "webm" ? <p className="text-[10px] text-fg-faint">X takes GIF and MP4, not WebM. Make a GIF of it here, or render on the server, which makes one.</p> : null}
+          {result.format === "webm" ? <p className="text-small text-fg-faint">X takes GIF and MP4, not WebM. Make a GIF of it here, or render on the server, which makes one.</p> : null}
         </div>
       ) : null}
     </div>
@@ -989,7 +989,7 @@ export function TweetConsole() {
           <Feather className="size-4 text-accent" />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-fg">Tweet console</h2>
-            <p className="truncate text-[11px] text-fg-muted">Draft, preview, record a tour of the site, schedule, send. The queue runs while this app is open.</p>
+            <p className="truncate text-plain text-fg-muted">Draft, preview, record a tour of the site, schedule, send. The queue runs while this app is open.</p>
           </div>
           {apiChip}
           <Tooltip content="Ask the server again">
@@ -1006,7 +1006,7 @@ export function TweetConsole() {
 
         {open && showOwn ? (
           <div className="min-h-0 shrink-0 overflow-auto border-b border-border bg-panel/60" style={{ maxHeight: "40%" }}>
-            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-fg-faint">The console's own settings</div>
+            <div className="px-3 py-2 text-small uppercase tracking-wider text-fg-faint">The console's own settings</div>
             <OwnSettings panel="tweets" />
           </div>
         ) : null}
@@ -1048,7 +1048,7 @@ function SideColumn({ draft, side, setSide, active, intent, onIntentDone }: { dr
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Segmented size="xs" value={side} onChange={(v) => setSide(v as "preview" | "tour")} options={[{ value: "preview", label: "Preview", icon: <BarChart3 /> }, { value: "tour", label: "Tour", icon: <MonitorPlay /> }]} />
         <span className="flex-1" />
-        {side === "preview" && draft ? <span className="num text-[10px] text-fg-faint">{draft.posts.length > 1 ? `${draft.posts.length} posts · ` : ""}{total} chars · limit {limit}</span> : null}
+        {side === "preview" && draft ? <span className="num text-small text-fg-faint">{draft.posts.length > 1 ? `${draft.posts.length} posts · ` : ""}{total} chars · limit {limit}</span> : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {side === "preview" ? (

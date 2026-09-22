@@ -71,7 +71,7 @@ export const Tooltip = React.forwardRef<HTMLElement, TooltipProps & React.HTMLAt
           sideOffset={6}
           collisionPadding={8}
           className={cn(
-            "z-[80] flex max-w-xs items-center gap-2 rounded-md border border-border bg-panel px-2 py-1 text-[11px] text-fg shadow-pop animate-pop select-none",
+            "z-[80] flex max-w-xs items-center gap-2 rounded-md border border-border bg-panel px-2 py-1 text-plain text-fg shadow-pop animate-pop select-none",
             className,
           )}
         >

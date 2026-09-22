@@ -151,6 +151,27 @@
   --font-sans: var(--font-body);
   --font-mono: var(--font-mono);
 
+  /*
+   * The four sizes the Builder is written in.
+   *
+   * They were 585 arbitrary values across 67 files (text-[10px] and its
+   * three neighbours), which is not a scale, it is the same decision taken
+   * 585 times. Named here, changing one changes every panel, label and
+   * caption that reads it.
+   *
+   * Ordered by size and named plainly, because a name that says where a
+   * size is used (hint, caption, heading) is a name that goes wrong the
+   * first time one of them is used somewhere else.
+   *
+   * No line height is set with them. The classes they replace set the size
+   * and nothing else, and a line height added here would move text in
+   * hundreds of places under cover of a rename.
+   */
+  --text-fine: 9px;
+  --text-small: 10px;
+  --text-plain: 11px;
+  --text-large: 12px;
+
   --shadow-panel: var(--shadow-panel);
   --shadow-pop: var(--shadow-pop);
 

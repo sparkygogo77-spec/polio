@@ -119,14 +119,14 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
             title={`Live ${fmtAge(project.live.at)} ago`}
-            className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full border border-up/30 bg-panel/85 px-1.5 py-0.5 text-[10px] text-up backdrop-blur"
+            className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full border border-up/30 bg-panel/85 px-1.5 py-0.5 text-small text-up backdrop-blur"
           >
             Live
             <ExternalLink className="size-2.5" />
           </a>
         ) : null}
         {active ? (
-          <span className="absolute left-1.5 top-1.5 rounded-full border border-accent/40 bg-panel/85 px-1.5 py-0.5 text-[10px] text-accent backdrop-blur">
+          <span className="absolute left-1.5 top-1.5 rounded-full border border-accent/40 bg-panel/85 px-1.5 py-0.5 text-small text-accent backdrop-blur">
             open
           </span>
         ) : null}
@@ -158,7 +158,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
           </span>
         )}
 
-        <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-fg-muted">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-plain text-fg-muted">
           {/* A site nobody has opened yet has no document at all, which is not
               the same as a document with nothing in it. */}
           {shape.pages === 0 && shape.parts === 0 ? (
@@ -175,7 +175,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
         </p>
 
         {project.repo ? (
-          <p className="flex min-w-0 items-center gap-1 truncate text-[10px] text-fg-faint">
+          <p className="flex min-w-0 items-center gap-1 truncate text-small text-fg-faint">
             <FolderGit2 className="size-3 shrink-0" />
             {repoLabel(project)}
             <span className="text-fg-faint/70">· {project.repo.branch}</span>
@@ -268,7 +268,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
       <div className="flex items-center gap-2">
         <FolderGit2 className={cn("size-3.5 shrink-0", active ? "text-accent" : "text-fg-faint")} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">{project.name}</span>
-        {active ? <span className="rounded-full border border-accent/35 bg-accent/12 px-1.5 py-px text-[10px] text-accent">open</span> : null}
+        {active ? <span className="rounded-full border border-accent/35 bg-accent/12 px-1.5 py-px text-small text-accent">open</span> : null}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -302,7 +302,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
             href={`https://github.com/${repoLabel(project)}/tree/${project.repo.branch}`}
             target="_blank"
             rel="noreferrer"
-            className="ml-1 inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+            className="ml-1 inline-flex items-center gap-1 text-plain text-accent hover:underline"
           >
             Open on GitHub
             <ExternalLink className="size-2.5" />
@@ -310,7 +310,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
         ) : null}
       </div>
 
-      <p className="mt-1.5 text-[11px] text-fg-muted">
+      <p className="mt-1.5 text-plain text-fg-muted">
         {draft.trim() && !parsed ? (
           <span className="text-down">A repository is owner/name.</span>
         ) : saveFailed ? (
@@ -351,7 +351,7 @@ export function BuildsPage() {
             re-reads the document you press and nothing is lost on the way out.
           </p>
           {/* Which build of the Builder this is: a site three days behind trunk used to look exactly like a current one. */}
-          <BuildMark className="mt-2 inline-block text-[11px] text-fg-faint" />
+          <BuildMark className="mt-2 inline-block text-plain text-fg-faint" />
         </div>
         <div className="flex items-center gap-2">
           {/* The tour is offered where arriving happens, not buried in a menu. */}
@@ -377,7 +377,7 @@ export function BuildsPage() {
             { value: "repos", label: "Repos", icon: <FolderGit2 /> },
           ]}
         />
-        <span className="text-[11px] text-fg-faint">
+        <span className="text-plain text-fg-faint">
           <span className="num">{projects.length}</span> {projects.length === 1 ? "site" : "sites"} in this browser
         </span>
       </div>

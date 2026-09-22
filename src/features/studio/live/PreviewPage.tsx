@@ -105,7 +105,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
               type="button"
               aria-current={p.id === page.id ? "page" : undefined}
               onClick={() => goPage(p.id)}
-              className={cn("tactile shrink-0 rounded-md px-2 py-1 text-[11px]", p.id === page.id ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+              className={cn("tactile shrink-0 rounded-md px-2 py-1 text-plain", p.id === page.id ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
             >
               {p.name}
             </button>
@@ -123,7 +123,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
           ]}
           aria-label="Preview device"
         />
-        <span className="num ml-2 w-10 text-right text-[10px] text-fg-muted">{Math.round(scale * 100)}%</span>
+        <span className="num ml-2 w-10 text-right text-small text-fg-muted">{Math.round(scale * 100)}%</span>
       </div>
 
       <div ref={ref} data-live-scroller="" className="min-h-0 flex-1 overflow-auto" {...ctxProps("studio-live", page.id, { pageId: page.id, device })}>

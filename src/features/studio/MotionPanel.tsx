@@ -85,7 +85,7 @@ export function MotionPanel() {
   return (
     <div data-motion-panel="" className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-fg">Frame interpolation</span>
+        <span className="text-plain font-semibold text-fg">Frame interpolation</span>
         <Button
           size="xs"
           variant="outline"
@@ -95,7 +95,7 @@ export function MotionPanel() {
           Crate
         </Button>
       </div>
-      <p data-motion-reach="" className="text-[9px] leading-snug text-fg-faint">
+      <p data-motion-reach="" className="text-fine leading-snug text-fg-faint">
         A crate plays here and goes into the blueprint as a brief. No part of the page plays it yet, so
         the preview does not show it.
       </p>
@@ -109,7 +109,7 @@ export function MotionPanel() {
               onClick={() => setOpenId(a.id)}
               aria-pressed={a.id === asset?.id}
               className={cn(
-                "tactile rounded-full border px-2 py-0.5 text-[10px]",
+                "tactile rounded-full border px-2 py-0.5 text-small",
                 a.id === asset?.id ? "border-accent/60 bg-accent-soft text-accent" : "border-border text-fg-muted hover:text-fg",
               )}
             >
@@ -122,7 +122,7 @@ export function MotionPanel() {
       {asset ? (
         <Crate key={asset.id} asset={asset} />
       ) : (
-        <p className="rounded-md border border-dashed border-border p-3 text-[10px] leading-snug text-fg-muted">
+        <p className="rounded-md border border-dashed border-border p-3 text-small leading-snug text-fg-muted">
           A crate holds five keyframes. Drop a picture in each sleeve and the Builder works out every
           frame in between, 45 of them in a second and a half, which you can scrub, play, and take
           away as a sprite sheet. The brief that goes with it tells whoever renders it properly what
@@ -317,11 +317,11 @@ function Crate({ asset }: { asset: MotionAsset }) {
                   aria-label="Scrub the sequence"
                 />
               </div>
-              <span className="num shrink-0 text-[10px] text-fg-muted">
+              <span className="num shrink-0 text-small text-fg-muted">
                 {at + 1}/{plan.length}
               </span>
             </div>
-            <p className="text-[9px] leading-snug text-fg-faint">
+            <p className="text-fine leading-snug text-fg-faint">
               {step?.holding
                 ? `Holding keyframe ${(step.from ?? 0) + 1}`
                 : `Between ${(step?.from ?? 0) + 1} and ${(step?.to ?? 0) + 1}, ${Math.round((step?.t ?? 0) * 100)}% across`}
@@ -330,7 +330,7 @@ function Crate({ asset }: { asset: MotionAsset }) {
             </p>
           </>
         ) : (
-          <p className="p-1 text-[10px] leading-snug text-fg-muted">
+          <p className="p-1 text-small leading-snug text-fg-muted">
             Two sleeves filled and it starts moving.
           </p>
         )}
@@ -387,8 +387,8 @@ function Crate({ asset }: { asset: MotionAsset }) {
       {/* --------------------------------------------------------- the gaps */}
       {gaps > 0 ? (
         <div className="space-y-1 rounded-md border border-border p-1.5">
-          <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Gaps</div>
-          <p className="text-[9px] leading-snug text-fg-faint">
+          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Gaps</div>
+          <p className="text-fine leading-snug text-fg-faint">
             How long each one takes, next to the others. Turn one up and the motion lingers there.
           </p>
           {Array.from({ length: gaps }, (_, i) => (
@@ -438,8 +438,8 @@ function Crate({ asset }: { asset: MotionAsset }) {
           </Button>
         </Tooltip>
       </div>
-      {note ? <p className="text-[9px] text-fg-muted">{note}</p> : null}
-      <p className="text-[9px] leading-snug text-fg-faint">
+      {note ? <p className="text-fine text-fg-muted">{note}</p> : null}
+      <p className="text-fine leading-snug text-fg-faint">
         The Builder dissolves between your keyframes on this timing. That is exactly right for a fade
         or a colour turn, and a floor for anything that has to morph, the brief carries the timing
         over to whoever renders those frames properly.
@@ -460,7 +460,7 @@ function Sleeve({ asset, at, live }: { asset: MotionAsset; at: number; live: boo
         onImage={(src) => s().setMotionFrame(asset.id, at, src)}
       />
       <div className="flex items-center justify-between gap-0.5">
-        <span className={cn("num shrink-0 text-[9px]", live ? "text-accent" : "text-fg-faint")}>{at + 1}</span>
+        <span className={cn("num shrink-0 text-fine", live ? "text-accent" : "text-fg-faint")}>{at + 1}</span>
         <span className="flex shrink-0 opacity-0 transition-opacity group-hover/sleeve:opacity-100 focus-within:opacity-100">
           <button
             type="button"
@@ -500,8 +500,8 @@ function Row({ label, value, children }: { label: string; value?: string; childr
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] text-fg-muted">{label}</label>
-        {value ? <span className="num text-[10px] text-fg-faint">{value}</span> : null}
+        <label className="text-small text-fg-muted">{label}</label>
+        {value ? <span className="num text-small text-fg-faint">{value}</span> : null}
       </div>
       {children}
     </div>

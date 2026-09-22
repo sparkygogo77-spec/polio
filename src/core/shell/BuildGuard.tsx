@@ -92,7 +92,7 @@ export function BuildGuard() {
       role="alert"
       /* A row of its own above the bar, never over it: a banner that hid
          the GitHub button would have hidden the one control it is about. */
-      className="flex shrink-0 items-center justify-center gap-3 px-4 py-2 text-[12px]"
+      className="flex shrink-0 items-center justify-center gap-3 px-4 py-2 text-large"
       style={{ background: "oklch(0.72 0.17 18)", color: "oklch(0.98 0.01 18)" }}
     >
       <span>{staleSays(s)}</span>

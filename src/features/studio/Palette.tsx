@@ -142,7 +142,7 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
           className="tactile flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border p-2 opacity-40 hover:opacity-100"
         >
           <RotateCcw className="size-3.5 text-fg-faint" />
-          <span className="line-clamp-1 text-center text-[10px] text-fg-muted">{feature.name}</span>
+          <span className="line-clamp-1 text-center text-small text-fg-muted">{feature.name}</span>
         </button>
       </Tooltip>
     );
@@ -191,7 +191,7 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
           className="flex cursor-grab flex-col gap-1 outline-none active:cursor-grabbing"
         >
           <PartPreview feature={feature} width={width} height={height} play={awake} />
-          <span className="line-clamp-1 text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
+          <span className="line-clamp-1 text-small leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
         </div>
         <button
           type="button"
@@ -572,7 +572,7 @@ export function Palette() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search parts"
             placeholder="Search parts…"
-            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] tracking-tight outline-none placeholder:opacity-45"
+            className="min-w-0 flex-1 bg-transparent font-mono text-large tracking-tight outline-none placeholder:opacity-45"
             style={{ color: SCREEN.ink }}
           />
           {query ? (
@@ -597,7 +597,7 @@ export function Palette() {
             type="button"
             onClick={() => { play("select"); setShowRemoved((v) => !v); }}
             aria-pressed={showRemoved}
-            className="tactile flex shrink-0 items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] text-fg-muted hover:bg-hover hover:text-fg"
+            className="tactile flex shrink-0 items-center gap-1 rounded-sm px-1 py-0.5 text-small text-fg-muted hover:bg-hover hover:text-fg"
           >
             <EyeOff className="size-3" />
             {hidden.length} removed
@@ -644,7 +644,7 @@ export function Palette() {
               <div className="h-10" />
             </div>
           ) : (
-            <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
+            <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-plain text-fg-muted">
               Nothing by that name. Drop a <span className="text-accent">&nbsp;New idea&nbsp;</span> and describe it.
             </div>
           )
@@ -704,8 +704,8 @@ export function Palette() {
                           nothing is only-reachable at full size. */}
                       {anyOpen ? null : (
                         <>
-                          <span className="text-center text-[10px] leading-tight">{c.label}</span>
-                          <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                          <span className="text-center text-small leading-tight">{c.label}</span>
+                          <span className="num text-fine text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
                         </>
                       )}
                     </button>
@@ -753,8 +753,8 @@ export function Palette() {
                   </span>
                   {anyOpen ? null : (
                     <>
-                      <span className="text-center text-[10px] leading-tight">New idea</span>
-                      <span className="num text-[9px] text-fg-faint">yours</span>
+                      <span className="text-center text-small leading-tight">New idea</span>
+                      <span className="num text-fine text-fg-faint">yours</span>
                     </>
                   )}
                 </button>
@@ -855,7 +855,7 @@ function CategorySection({
         className="sticky top-0 z-[2] flex items-center gap-2 px-3 py-1.5 backdrop-blur-sm"
         style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
       >
-        <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: `oklch(0.86 0.12 ${category.hue})` }}>
+        <span className="flex items-center gap-1.5 text-plain font-medium" style={{ color: `oklch(0.86 0.12 ${category.hue})` }}>
           {React.createElement(planetOf(category.id), { size: 14 })}
           {category.label}
         </span>
@@ -868,7 +868,7 @@ function CategorySection({
                 type="button"
                 onClick={() => { play("select"); setSub(on ? null : g.id); }}
                 aria-pressed={on}
-                className="tactile flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                className="tactile flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-small font-medium"
                 style={{
                   background: on ? `oklch(0.78 0.17 ${category.hue})` : `oklch(0.72 0.15 ${category.hue} / 0.16)`,
                   color: on ? "oklch(0.16 0.04 0)" : `oklch(0.86 0.12 ${category.hue})`,
@@ -877,7 +877,7 @@ function CategorySection({
               >
                 {React.createElement(moonFor(g.id), { size: 12 })}
                 <span className="whitespace-nowrap">{g.label}</span>
-                <span className="num text-[9px] opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
+                <span className="num text-fine opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
               </button>
             );
           })}
@@ -914,7 +914,7 @@ function Band({ title, children }: { title: string; children: React.ReactNode })
   return (
     <section className="mb-4 last:mb-0">
       <div className="mb-2 flex items-center gap-2">
-        <span className="shrink-0 text-[9px] uppercase tracking-wider text-fg-faint">{title}</span>
+        <span className="shrink-0 text-fine uppercase tracking-wider text-fg-faint">{title}</span>
         <span className="h-px flex-1 bg-border" />
       </div>
       {children}

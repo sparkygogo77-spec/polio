@@ -408,17 +408,17 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
     }
   };
 
-  const row = "flex items-center gap-1.5 text-[11px]";
+  const row = "flex items-center gap-1.5 text-plain";
   return (
     <div data-repo-panel="" className="flex w-[260px] flex-col gap-2">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">The repo this site goes to</p>
+        <p className="text-small uppercase tracking-[0.12em] text-fg-faint">The repo this site goes to</p>
         {/* A site with none says so in words. It never wears the server's
             name as if it were its own, and never shows a blank. */}
-        <p data-repo-points="" data-repo-own={own ?? ""} className={cn("truncate text-[12px] font-medium", own ? "text-fg" : "text-fg-muted")}>
+        <p data-repo-points="" data-repo-own={own ?? ""} className={cn("truncate text-large font-medium", own ? "text-fg" : "text-fg-muted")}>
           {own ?? "No repo of its own yet"}
         </p>
-        <p className="text-[10px] text-fg-muted">
+        <p className="text-small text-fg-muted">
           {own
             ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}`
             : "The first publish makes a private one named after this site, unless you pick a repo below."}
@@ -427,9 +427,9 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
 
       {siteBranch && pointsAt ? (
         <div data-repo-branch={siteBranch} className="rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
-          <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Edits are on a branch</p>
-          <p className="truncate font-mono text-[11px] text-fg" title={siteBranch}>{siteBranch}</p>
-          <p className="mt-0.5 text-[10px] text-fg-muted">
+          <p className="text-small uppercase tracking-[0.12em] text-fg-faint">Edits are on a branch</p>
+          <p className="truncate font-mono text-plain text-fg" title={siteBranch}>{siteBranch}</p>
+          <p className="mt-0.5 text-small text-fg-muted">
             The running site stays on main until you merge. Look first:{" "}
             <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${pointsAt}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>
             {" "}— and Vercel deploys it at a preview address of its own on every publish.
@@ -452,11 +452,11 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
         <>
           <div className="h-px bg-border" />
           <div data-repo-branches="">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Branches besides {branches?.base ?? "main"}</p>
+            <p className="text-small uppercase tracking-[0.12em] text-fg-faint">Branches besides {branches?.base ?? "main"}</p>
             {branches === null ? (
-              <p className="text-[10px] text-fg-muted">{branchSaid ?? "Asking GitHub…"}</p>
+              <p className="text-small text-fg-muted">{branchSaid ?? "Asking GitHub…"}</p>
             ) : branches.rows.length === 0 ? (
-              <p className="text-[10px] text-fg-muted">None. Every edit branch has been merged or removed.</p>
+              <p className="text-small text-fg-muted">None. Every edit branch has been merged or removed.</p>
             ) : (
               <ul className="max-h-[152px] overflow-y-auto">
                 {branches.rows.map((r) => {
@@ -467,8 +467,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
                       {/* The mark is the decision: amber for work main has not got, faint for a branch main already holds. */}
                       <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: unmerged ? "oklch(0.8 0.15 75)" : "oklch(0.6 0.02 260 / 0.5)" }} />
                       <span className="min-w-0 flex-1">
-                        <span className={cn("block truncate font-mono text-[10px]", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{here ? " · open here" : ""}</span>
-                        <span className="block text-[10px] text-fg-faint">
+                        <span className={cn("block truncate font-mono text-small", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{here ? " · open here" : ""}</span>
+                        <span className="block text-small text-fg-faint">
                           {r.updates < 0
                             ? "GitHub would not compare it"
                             : unmerged
@@ -492,8 +492,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
                 })}
               </ul>
             )}
-            {branches && branches.more > 0 ? <p className="text-[10px] text-fg-faint">And {branches.more} more on GitHub.</p> : null}
-            {branches !== null && branchSaid ? <p data-repo-branch-said="" className="text-[10px] text-fg">{branchSaid}</p> : null}
+            {branches && branches.more > 0 ? <p className="text-small text-fg-faint">And {branches.more} more on GitHub.</p> : null}
+            {branches !== null && branchSaid ? <p data-repo-branch-said="" className="text-small text-fg">{branchSaid}</p> : null}
           </div>
         </>
       ) : null}
@@ -501,12 +501,12 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
       <div className="h-px bg-border" />
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">{own ? "Move to a different repo" : "Bring in one of your repos"}</p>
-        <p className="mb-0.5 text-[10px] text-fg-muted">{own ? <span data-repo-bound="">This site belongs to {own}. Moving it asks first.</span> : "Choosing one brings it in and replaces the board. Publish only just points publishing there."}</p>
+        <p className="text-small uppercase tracking-[0.12em] text-fg-faint">{own ? "Move to a different repo" : "Bring in one of your repos"}</p>
+        <p className="mb-0.5 text-small text-fg-muted">{own ? <span data-repo-bound="">This site belongs to {own}. Moving it asks first.</span> : "Choosing one brings it in and replaces the board. Publish only just points publishing there."}</p>
         {mine === null ? (
-          <p className="text-[10px] text-fg-muted">{said ?? "Asking GitHub…"}</p>
+          <p className="text-small text-fg-muted">{said ?? "Asking GitHub…"}</p>
         ) : mine.length === 0 ? (
-          <p className="text-[10px] text-fg-muted">No repos on this account yet.</p>
+          <p className="text-small text-fg-muted">No repos on this account yet.</p>
         ) : (
           <div className="max-h-[128px] overflow-y-auto">
             {mine.map((r) => (
@@ -516,17 +516,17 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
                 data-repo-connect={r.name}
                 onClick={() => { if (connect(r.name, r.branch ?? "main", "import")) startBring(r.name); }}
                 title={`Bring ${r.name} in: this site becomes it, and publishes to it`}
-                className={cn("tactile flex min-w-0 flex-1 items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
+                className={cn("tactile flex min-w-0 flex-1 items-center justify-between rounded px-1 py-0.5 text-left text-plain", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
                 <span className="truncate">{r.name}</span>
-                {r.private ? <span className="shrink-0 text-[9px] text-fg-faint">private</span> : null}
+                {r.private ? <span className="shrink-0 text-fine text-fg-faint">private</span> : null}
               </button>
               <button
                 type="button"
                 data-repo-publish-only={r.name}
                 title={`Publish only: point publishing at ${r.name} and leave the board as it is`}
                 onClick={() => { if (connect(r.name, r.branch ?? "main")) { setSaid(`Publishing goes to ${r.name} now. The board is as it was.`); } }}
-                className="tactile shrink-0 rounded px-1 py-0.5 text-[9px] text-fg-faint hover:text-fg"
+                className="tactile shrink-0 rounded px-1 py-0.5 text-fine text-fg-faint hover:text-fg"
               >
                 publish only
               </button>
@@ -539,7 +539,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
       <div className="h-px bg-border" />
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Make a new repo</p>
+        <p className="text-small uppercase tracking-[0.12em] text-fg-faint">Make a new repo</p>
         <div className={row}>
           <Input
             inputSize="sm"
@@ -547,7 +547,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             value={name}
             aria-label="Name for the new repo"
             placeholder="a-name"
-            className="h-6 text-[11px]"
+            className="h-6 text-plain"
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void make(); } }}
           />
@@ -555,13 +555,13 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             {making ? "Making…" : "Make"}
           </Button>
         </div>
-        <p className="mt-0.5 text-[10px] text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
+        <p className="mt-0.5 text-small text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
       </div>
 
       <div className="h-px bg-border" />
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Bring a repo in</p>
+        <p className="text-small uppercase tracking-[0.12em] text-fg-faint">Bring a repo in</p>
         <div className={row}>
           <Input
             inputSize="sm"
@@ -569,7 +569,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             value={bring}
             aria-label="The repo to bring in"
             placeholder="owner/name"
-            className="h-6 text-[11px]"
+            className="h-6 text-plain"
             onChange={(e) => setBring(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void bringIn(); } }}
           />
@@ -577,10 +577,10 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             {pulling ? "Reading\u2026" : "Bring it"}
           </Button>
         </div>
-        <p className="mt-0.5 text-[10px] text-fg-muted">A repo with a page in it comes in as ordinary parts. A repo of sources is read at the address it is deployed at, from About on GitHub or from a publish made here, and says so if it has none.</p>
+        <p className="mt-0.5 text-small text-fg-muted">A repo with a page in it comes in as ordinary parts. A repo of sources is read at the address it is deployed at, from About on GitHub or from a publish made here, and says so if it has none.</p>
       </div>
 
-      {said ? <p data-repo-said="" className="text-[10px] text-fg">{said}</p> : null}
+      {said ? <p data-repo-said="" className="text-small text-fg">{said}</p> : null}
     </div>
   );
 }
