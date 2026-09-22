@@ -3,7 +3,8 @@ import { findPlaywright, NO_PLAYWRIGHT, type PWPage } from "../headless";
 import { readZipInfo } from "@/features/studio/zipFile";
 import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts, ZIP_BUDGET_MS, ZIP_REFUSAL_SAYS } from "@/features/studio/zipImport";
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
-import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { carryFaces, type FacesRead } from "@/features/studio/fonts";
 
 /**
  * Reading the page inside a zip, exactly.
@@ -115,9 +116,19 @@ export async function POST(request: Request) {
       const reading = (await page.evaluate(MEASURE, selector)) as Record<string, unknown> | null;
       if (reading) readings.push({ ...reading, from: { url: `zip:${name}/${gate.entry}`, host: name, selector, at: Date.now() } });
     }
+    /* The faces the readings are set in, carried out of the zip: a face's
+       address under the served home is a file in the zip, or is not. */
+    const read = (await page.evaluate(FACES).catch(() => ({ faces: [], links: [] }))) as FacesRead;
+    const used = readings.map((r) => (r as { type?: { face?: string | null } }).type?.face ?? "").filter(Boolean);
+    const faces = await carryFaces(read, used, `zip:${name}/${gate.entry}`, async (url) => {
+      if (!url.startsWith(`${HOME}/`)) return { error: "the zip cannot reach beyond itself" };
+      const hit = fileFor(decodeURIComponent(url.slice(HOME.length + 1).split(/[?#]/)[0] ?? ""), names, gate.dir);
+      const bytes = hit ? unpacked(hit) : null;
+      return bytes && bytes.length ? { bytes } : { error: "that file is not in the zip" };
+    });
     await context.close();
     if (!readings.length) return no("gone", "None of those are on the page any more. Read the zip again.");
-    return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, page: { width, height }, readings, took: took() });
+    return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, page: { width, height }, readings, faces, took: took() });
   } catch (err) {
     const said = (err instanceof Error ? err.message.split("\n")[0] : String(err)) ?? "";
     const timedOut = /timeout|timed out/i.test(said);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT } from "../headless";
 import { allowed, MAX_ELEMENTS, READ_BUDGET_MS } from "@/features/studio/siteFetch";
-import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { carryFaces, FONT_FILE_MAX, type FacesRead } from "@/features/studio/fonts";
 
 /**
  * Reading one element off a live page, exactly.
@@ -39,6 +40,31 @@ const MAX_SHOT_HEIGHT = 4000;
 export async function GET() {
   const found = await findPlaywright();
   return NextResponse.json({ ok: !!found.pw, ...(found.pw ? { from: found.from } : { reason: "no-browser", message: NO_PLAYWRIGHT }) });
+}
+
+/**
+ * A font file, fetched by this server. The same bounds as the page: public
+ * https only, so a page cannot point this server at something inside its
+ * own network. Refused past the size a face may weigh, and after eight
+ * seconds, with the reason said rather than a silent fallback.
+ */
+async function fetchFont(url: string): Promise<{ bytes: Uint8Array } | { error: string }> {
+  const gate = allowed(url);
+  if (!gate.ok) return { error: gate.says };
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 8000);
+  try {
+    const r = await fetch(gate.url, { signal: stop.signal, redirect: "follow", headers: { accept: "font/woff2,font/woff,font/ttf,font/otf,*/*;q=0.5" } });
+    if (!r.ok) return { error: `it answered ${r.status}` };
+    const said = Number(r.headers.get("content-length") ?? 0);
+    if (said > FONT_FILE_MAX) return { error: `its file is ${Math.round(said / 1024)}KB, past the ${Math.round(FONT_FILE_MAX / 1024)}KB a face may weigh` };
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return { bytes: buf };
+  } catch (err) {
+    return { error: err instanceof Error && err.name === "AbortError" ? "no answer within eight seconds" : err instanceof Error ? err.message.split("\n")[0] ?? "no answer" : String(err) };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function POST(request: Request) {
@@ -120,9 +146,20 @@ export async function POST(request: Request) {
         if (one) readings.push({ ...one, from: { url: gate.url, host: gate.host, selector: sel, at: Date.now() } });
       }
       const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
+      /*
+       * The faces the readings are set in, carried one to one: the page's
+       * `@font-face` rules read off its sheets, and the files fetched here,
+       * where there is no origin to refuse them. A face the page declares
+       * no rule for is a system face and needs nothing; one that cannot be
+       * fetched, or whose licence keeps it home, is kept by its address
+       * with the reason, so the strip can say so.
+       */
+      const read = (await page.evaluate(FACES).catch(() => ({ faces: [], links: [] }))) as FacesRead;
+      const used = readings.map((r) => (r as { type?: { face?: string | null } }).type?.face ?? "").filter(Boolean);
+      const faces = await carryFaces(read, used, gate.url, fetchFont);
       await context.close();
       if (!readings.length) return NextResponse.json({ ok: false, reason: "gone", message: "None of those are on the page any more. Read the page again.", took: took() });
-      return NextResponse.json({ ok: true, page: { width, height }, readings, took: took() });
+      return NextResponse.json({ ok: true, page: { width, height }, readings, faces, took: took() });
     }
 
     const reading = (await page.evaluate(MEASURE, selector ?? "")) as { box: { x: number; y: number; w: number; h: number } } | null;

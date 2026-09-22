@@ -469,3 +469,55 @@ export const MEASURE = (selector: string) => {
     children,
   };
 };
+
+/**
+ * The faces the page declares, read off its stylesheets.
+ *
+ * Every `@font-face` rule this browser can read: the family as declared,
+ * its weight and style, its `src` list made absolute against the sheet
+ * that declared it, and that sheet. A sheet from another origin cannot be
+ * read at all, so its link is listed instead — a Google Fonts sheet names
+ * its families in its address, and `fonts.ts` reads that. Nothing here
+ * decides what to carry: that is `carryFaces`, with the faces the readings
+ * are set in.
+ */
+export const FACES = (): { faces: { family: string; weight?: string; style?: string; sources: { url: string; format?: string }[]; sheet: string | null; unicodeRange?: string }[]; links: { href: string }[] } => {
+  const faces: { family: string; weight?: string; style?: string; sources: { url: string; format?: string }[]; sheet: string | null; unicodeRange?: string }[] = [];
+  const links: { href: string }[] = [];
+  const abs = (u: string, base: string): string => { try { return new URL(u, base).href; } catch { return u; } };
+  const walk = (list: CSSRuleList, base: string, sheet: string | null): void => {
+    for (const r of Array.from(list)) {
+      if (r instanceof CSSFontFaceRule) {
+        const st = r.style;
+        const family = st.getPropertyValue("font-family").trim().replace(/^["']|["']$/g, "");
+        const src = st.getPropertyValue("src");
+        const sources: { url: string; format?: string }[] = [];
+        const re = /url\((["']?)([^)"']+)\1\)(?:\s*format\((["']?)([^)"']+)\3\))?/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(src))) sources.push({ url: abs(m[2]!, base), ...(m[4] ? { format: m[4] } : {}) });
+        if (family && sources.length) {
+          const weight = st.getPropertyValue("font-weight").trim();
+          const style = st.getPropertyValue("font-style").trim();
+          const range = st.getPropertyValue("unicode-range").trim();
+          faces.push({ family, ...(weight ? { weight } : {}), ...(style ? { style } : {}), sources, sheet, ...(range ? { unicodeRange: range } : {}) });
+        }
+      } else if (r instanceof CSSImportRule) {
+        try {
+          const inner = r.styleSheet;
+          if (inner) walk(inner.cssRules, inner.href ?? base, inner.href ?? sheet);
+        } catch {
+          if (r.href) links.push({ href: abs(r.href, base) });
+        }
+      } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) {
+        walk((r as CSSGroupingRule).cssRules, base, sheet);
+      }
+    }
+  };
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList | null = null;
+    try { rules = sheet.cssRules; } catch { if (sheet.href) links.push({ href: sheet.href }); continue; }
+    if (!rules) continue;
+    walk(rules, sheet.href ?? location.href, sheet.href ?? null);
+  }
+  return { faces, links };
+};

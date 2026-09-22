@@ -724,10 +724,17 @@ export function FontQuads({
   const weight = font?.weight ?? 400;
   const spacing = font?.spacing ?? 0;
   const leading = font?.leading ?? 1.55;
+  /* The faces the site carries come first, each set in itself, so a part
+     can be put in the page's own face or taken out of it: a carried face
+     is named on the part, never welded to it. */
+  const carried = useStudio((s) => s.look.fonts);
+  const faces = [...new Set((carried ?? []).map((f) => f.family))];
   const families: StepItem[] = [
     { id: "", label: "Site's type" },
+    ...faces.map((name): StepItem => ({ id: `face:${name}`, label: name, style: { fontFamily: `"${name}"`, textTransform: "none", fontSize: 10 } })),
     ...Object.keys(FAMILY).map((k): StepItem => ({ id: k, label: k, style: { fontFamily: FAMILY[k], textTransform: "none", fontSize: 10 } })),
   ];
+  const facing = font?.face && faces.includes(font.face) ? `face:${font.face}` : (font?.family ?? "");
   void reach;
   return (
     <>
@@ -744,8 +751,8 @@ export function FontQuads({
       <ArcSlider slab={b} tone="screen" {...runOf(b)} {...outer} label="Line height" value={(leading - 1) / 1}
         onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
       <Caption slab={b}>{`${spacing}em · ${leading}`}</Caption>
-      <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={font?.family ?? ""} label="Family"
-        onChange={(id) => set({ family: id || undefined })} />
+      <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={facing} label="Family"
+        onChange={(id) => (id.startsWith("face:") ? set({ face: id.slice(5) }) : set({ family: id || undefined, face: undefined }))} />
       <Caption slab={fam}>Family</Caption>
     </>
   );
