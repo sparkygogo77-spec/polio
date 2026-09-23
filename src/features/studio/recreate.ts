@@ -238,8 +238,23 @@ export function colourFrom(r: ElementReading): NodeColour {
   return c;
 }
 
-/** The words a part draws, one per line: this app's own rule for contents that may hold commas. */
-export const lines = (items: string[]): string => items.map((s) => s.trim()).filter(Boolean).join("\n");
+/**
+ * The words a part draws, one per line: this app's own rule for contents
+ * that may hold commas.
+ *
+ * ONE RUN KEEPS ITS OWN EDGES. Trimming every item is right when several are
+ * being stacked into lines — a line's leading space is an artefact of the
+ * markup. It is wrong when the item IS the part's whole text, because then
+ * the space at its edge is the space that separated it from the words beside
+ * it on the page, and there is nowhere else for that to live. His header
+ * came back "A SolWorksproject" because this trimmed it off before anything
+ * downstream could see it, and the boxes butt so no gap could recover it.
+ */
+export const lines = (items: string[]): string => {
+  const kept = items.filter((s) => s.trim());
+  if (kept.length === 1) return kept[0]!.replace(/\s+/g, " ");
+  return kept.map((s) => s.trim()).join("\n");
+};
 
 /* ------------------------------------------------------------------ */
 /* The catalogue                                                        */

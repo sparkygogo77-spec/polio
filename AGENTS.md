@@ -410,6 +410,61 @@ with it: half a page moving is worse than either, and it is one predicate to
 flip. `tests/grew-moves.mjs` counts crossings the way he counted them, and was
 red on the unfixed build at `para×b1 by 18px`.
 
+**A space between two runs belongs to the run after it, and only if the page
+draws one.** His header is one node with three runs and read back "A
+SolWorksproject". It cannot be fixed at the join: "Sol|Works" takes no space
+and "Works|project" takes one, both are letter against letter at gap zero, and
+both pairs of boxes butt, so no rule reading only the text or only the
+geometry can tell them apart. Only the page knew, and `siteRead.ts` was
+trimming it away (`raw.replace(/\s+/g," ").trim()`) before anything
+downstream could see it. The reader keeps it now under three rules, and they
+are the browser's: it rides on the run AFTER it and never the one before, so
+it is written down exactly once and rejoining cannot double it; it counts only
+where the page RENDERS a space, because whitespace at the edge of a line is
+collapsed away by CSS and a headline indented in the markup must not gain one;
+and the question is asked of the LINE the run sits in, not of the element
+being read, because a fragment read on its own cannot see what is beside it.
+`spaceBefore` walks its own block's text nodes, skipping nested blocks, and
+finds the nearest ink before it. `recreate.ts`'s `lines()` stops trimming when
+there is one item, since then the item IS the part's whole text;
+`reassemble.ts` believes a carried space over any guess and infers no second
+one from the gap. `tests/reader-space.mjs` runs the real `MEASURE` over a real
+DOM and was red on each rule on its own — the first version of it was
+**vacuous**, its fixture putting the runs in one block where the older glue
+path already joined them, so it passed with the fix reverted.
+
+**How far apart two pieces of one sentence may sit is measured off the box,
+not off the type.** His price line — `n_prose_92` "$ 116.59" and `n_prose_95`
+"-1.94 %", 22px edge to edge — never merged. The old limit was derived from a
+type size the capture often does not record, so it collapsed to its 2px floor
+and multiplied up: 14.4px, or 20.7px with a size. The cut sat between one and
+eight pixels from a gap that is plainly a word space. A box's own HEIGHT is
+always recorded and scales with the type the way a word space does, so
+`joinLimit` is `max(spaceAt(a) * 4, min(a.h, b.h) * 0.75)`. At his scale the
+limit falls at 43px: 43 joins, 44 does not, and his 22 is inside it with room.
+A control 400px along the same line is still separate, and so is
+`n_ctaprimary_59`, 139px below and sharing no band of the page.
+
+**A captured wrapper is fitted to what it holds, and one holding nothing
+goes.** Collapsed on LOAD rather than dropped at capture, for the same reason
+`reassemble.ts` exists: his board is already written down, so a capture-time
+rule fixes the next page he takes and does nothing for the one he is looking
+at. And "drop the empty ones" is the wrong rule — the banner he clicked on,
+`n_box_75`, is 1763x82, is NOT empty, and carries 33px of dead space under its
+only child, which is itself an empty box. The claim count and the geometry
+disagree in both directions on his page, so `slimWrappers` trusts neither
+claim and asks where the boxes actually are. Only the bottom is ever trimmed:
+shrinking a box moves nothing, lifting one would. Never removed: a wrapper his
+hand placed (not fitted either — its size is his answer, as with the button
+and the healing) and one that shows a surface of its own, since dropping that
+takes a coloured band off the page. Containment is within one page, because
+every page starts at 0,0 again. Note what this does NOT do: positions are
+absolute and the healing is monotone, so giving a box back its height gives
+back the height and does not move what sits below it. `tests/reassemble.mjs`
+is pure and `tests/boxes-fit.mjs` runs it through the palette; both halves of
+the store action were disabled in turn to watch the right checks go red.
+The whole of this work, with the numbers, is in `docs/SPANS.md`.
+
 **A button in the Builder is pressable in the Builder.** His nine captured
 pages were reachable only from the tab bar, which makes a correct import feel
 dead. A second press on a linkable part that has a link follows it —

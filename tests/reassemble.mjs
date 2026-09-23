@@ -9,7 +9,7 @@
  * Pure: no browser, no build, no server.
  *   node --experimental-strip-types tests/reassemble.mjs
  */
-import { sentences, saysWhat, WORDY } from "../src/features/studio/reassemble.ts";
+import { sentences, saysWhat, slimSays, slimWrappers, WORDY } from "../src/features/studio/reassemble.ts";
 import { plain } from "../src/features/studio/parts/spans.ts";
 
 const results = [];
@@ -122,6 +122,200 @@ check("…and is named, which is how he checks the ruling was read right",
 check("…and the line a person reads says so plainly",
   /moved or stretched by hand/.test(saysWhat(mine)) && /f2/.test(saysWhat(mine)), saysWhat(mine));
 check("with nothing in pieces, it says that instead", /No sentence/.test(saysWhat([])), saysWhat([]));
+
+
+/* ------------------------------------------------------------------ */
+/* 6. His header, with the space the page actually had                 */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS SITE READS "A SolWorks project". Not "A Sol Works project" — "SolWorks"
+ * is the name — so one boundary takes a space and the other does not, both
+ * are letter against letter, and both pairs of boxes BUTT because the space
+ * is inside a run's own text rather than between two boxes. No rule reading
+ * only the words or only the geometry can tell those two boundaries apart.
+ * Only the page knew, and the reader now keeps it: the whitespace rides on
+ * the run that carries it, which is the contract's rule four.
+ */
+n = 0;
+const real = sentences([
+  frag("A Sol", 0, 40),
+  frag("Works", 40, 42),
+  frag(" project", 82, 50),
+]);
+check("his header comes back exactly as his site reads it",
+  plain(real[0]?.spans ?? []) === "A SolWorks project", JSON.stringify(plain(real[0]?.spans ?? [])));
+check("…and the sentence round-trips character for character",
+  plain(real[0]?.spans ?? []) === "A Sol" + "Works" + " project");
+
+/* Both ends of a boundary, which is what he asked to see proved. */
+n = 0;
+const bothEnds = sentences([frag("one ", 0, 40), frag(" two", 40, 40), frag("three", 80, 40)]);
+check("a space at either end of a boundary is kept once, never doubled",
+  plain(bothEnds[0]?.spans ?? []) === "one  twothree", JSON.stringify(plain(bothEnds[0]?.spans ?? [])));
+check("…and a carried space stops a second being inferred from the gap", (() => {
+  n = 0;
+  const carried = sentences([frag("left ", 0, 40), frag("right", 46, 40)]);
+  return plain(carried[0]?.spans ?? []) === "left right";
+})(), (() => { n = 0; return JSON.stringify(plain(sentences([frag("left ", 0, 40), frag("right", 46, 40)])[0]?.spans ?? [])); })());
+
+/* ------------------------------------------------------------------ */
+/* 7. His price line, at the distance it actually sits                 */
+/* ------------------------------------------------------------------ */
+
+n = 0;
+const his = sentences([
+  { id: "n_prose_92", pageId: "p0", featureId: "prose", x: 1084, y: 65, w: 59, h: 40, content: "$ 116.59" },
+  { id: "n_prose_95", pageId: "p0", featureId: "prose", x: 1165, y: 65, w: 43, h: 32, content: "-1.94 %" },
+]);
+check("his price line merges at the 22px gap it actually has", his.length === 1, `${his.length} sentences, gap 22px`);
+check("…into one sentence", plain(his[0]?.spans ?? []) === "$ 116.59 -1.94 %", JSON.stringify(plain(his[0]?.spans ?? [])));
+/* And the limit is still a limit: a control on the same line is not swept in. */
+n = 0;
+check("a button four hundred pixels along the same line is still not swept in",
+  sentences([
+    { id: "a", pageId: "p0", featureId: "prose", x: 0, y: 0, w: 60, h: 40, content: "words" },
+    { id: "b", pageId: "p0", featureId: "prose", x: 400, y: 0, w: 90, h: 40, content: "Connect" },
+  ]).length === 0);
+n = 0;
+check("…and a gap wider than the shorter box is tall is still two things",
+  sentences([
+    { id: "a", pageId: "p0", featureId: "prose", x: 0, y: 0, w: 60, h: 20, content: "words" },
+    { id: "b", pageId: "p0", featureId: "prose", x: 100, y: 0, w: 60, h: 20, content: "apart" },
+  ]).length === 0);
+
+
+/*
+ * WHERE THE NEW LIMIT ACTUALLY FALLS, at his scale, so it is a number and
+ * not a feeling. Two 32-tall boxes: three quarters of 32 is 24, and the
+ * sentence rule allows 1.8 of that, so 43 joins and 44 does not. His pair
+ * sits at 22, which is inside it with room to spare — and that is the point,
+ * because the old limit put the cut between one and eight pixels away from
+ * a gap that was plainly a word space.
+ */
+const atGap = (g) => {
+  n = 0;
+  return sentences([
+    { id: "l", pageId: "p0", featureId: "prose", x: 0, y: 0, w: 60, h: 32, content: "left" },
+    { id: "r", pageId: "p0", featureId: "prose", x: 60 + g, y: 0, w: 60, h: 32, content: "right" },
+  ]).length;
+};
+check("at his scale the limit falls at 43 pixels, and 43 is one sentence", atGap(43) === 1);
+check("…and 44 is two separate things", atGap(44) === 0);
+check("…so his 22-pixel pair is inside it with room, not one pixel from the cut", atGap(22) === 1);
+
+/*
+ * AND THE NEIGHBOUR THE COORDINATOR WARNED ABOUT. `n_ctaprimary_59` sits
+ * 139px BELOW the fall and does not share its band of the page, so it is a
+ * column jump rather than a gap in a sentence — and it is a button, which is
+ * not in the wordy set either. Two reasons, and it needs only one.
+ */
+n = 0;
+check("the control below his price line is not dragged into it",
+  sentences([
+    { id: "n_prose_92", pageId: "p0", featureId: "prose", x: 1084, y: 65, w: 59, h: 40, content: "$ 116.59" },
+    { id: "n_prose_95", pageId: "p0", featureId: "prose", x: 1165, y: 65, w: 43, h: 32, content: "-1.94 %" },
+    { id: "n_ctaprimary_59", pageId: "p0", featureId: "cta-primary", x: 1400, y: 236, w: 150, h: 44, content: "Connect" },
+  ]).every((r) => !r.drop.includes("n_ctaprimary_59") && r.keep !== "n_ctaprimary_59"));
+
+/* ------------------------------------------------------------------ */
+/* 8. Wrappers fitted to what they hold — HIS OWN NUMBERS              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Measured on the page he screenshotted: 45 wrappers among 114 parts, five
+ * holding nothing and worth 293px, three claiming two children and holding
+ * one. And the banner, which is why "drop the empty ones" is the wrong rule:
+ * n_box_75 is 1763x82, claims one child and holds exactly one — n_box_76,
+ * the 1280x49 box that claims three and holds nothing. A chain: banner, into
+ * an empty div, into nothing. The banner is not empty, so a drop-empties
+ * rule walks straight past the part he actually clicked on.
+ */
+const box = (id, x, y, w, h, extra = {}) => ({ id, pageId: "p0", featureId: "box", x, y, w, h, content: "", ...extra });
+const leaf = (id, x, y, w, h) => ({ id, pageId: "p0", featureId: "prose", x, y, w, h, content: "words" });
+
+const chain = [
+  box("n_box_75", 0, 0, 1763, 82),      // the banner: holds one thing, 33px of nothing under it
+  box("n_box_76", 0, 0, 1280, 49),      // the empty div inside it
+];
+const slim = slimWrappers(chain);
+check("the empty box inside the banner is found and comes back as nothing",
+  slim.some((d) => d.id === "n_box_76" && d.h === 0), JSON.stringify(slim));
+check("and the BANNER is found too, though it is not empty — which a drop-empties rule would miss",
+  slim.some((d) => d.id === "n_box_75" && d.h === 49 && d.holds === 1), JSON.stringify(slim));
+check("…recovering exactly the 33px of dead space he measured under its only child",
+  (slim.find((d) => d.id === "n_box_75")?.was ?? 0) - (slim.find((d) => d.id === "n_box_75")?.h ?? 0) === 33);
+
+/* Five empty wrappers at his sizes: the 293px is the number he measured. */
+const empties = [
+  box("n_box_53", 0, 0, 1457, 148), box("n_box_76b", 0, 200, 1280, 49),
+  box("n_box_80", 0, 300, 216, 16), box("n_box_110", 0, 400, 1280, 40),
+  box("n_box_111", 0, 500, 96, 40),
+];
+const gone = slimWrappers(empties);
+check("his five empty wrappers are all found", gone.length === 5 && gone.every((d) => d.h === 0), `${gone.length} found`);
+check("…totalling the 293px of height he measured",
+  gone.reduce((n, d) => n + d.was, 0) === 293, `${gone.reduce((n, d) => n + d.was, 0)}px`);
+
+/* Only the bottom is trimmed: a box is never lifted off what sits above it. */
+const padded = [box("w", 0, 0, 100, 100, { pad: { top: 10, bottom: 8 } }), leaf("k", 10, 30, 60, 20)];
+const fit = slimWrappers(padded);
+check("a wrapper is fitted to its lowest child plus the foot the capture recorded",
+  fit[0]?.h === 58, `${fit[0]?.h} (child ends at 50, foot 8)`);
+check("…and its top never moves, so nothing is lifted off what is above it",
+  !("y" in (fit[0] ?? {})));
+
+/* And what it must not touch. */
+check("a box that draws something of its own is not a wrapper",
+  slimWrappers([box("pic", 0, 0, 100, 100, { picture: { id: "p" } })]).length === 0);
+check("a box carrying words is not a wrapper",
+  slimWrappers([{ ...box("w2", 0, 0, 100, 100), content: "hello" }]).length === 0);
+check("a wrapper that already fits is left alone",
+  slimWrappers([box("snug", 0, 0, 100, 50), leaf("in", 0, 0, 100, 50)]).length === 0);
+/*
+ * TWO THINGS THAT ARE NEVER REMOVED, both for the same reason: removing a
+ * box is the one direction that cannot be undone by looking at the page.
+ *
+ * A wrapper HIS HAND placed or resized is his answer about its size, so it
+ * is not touched at all — not fitted, not removed — exactly as with the
+ * button and the healing.
+ *
+ * A wrapper that shows a SURFACE of its own — a background, an edge, a
+ * texture, an aura — looks empty only because its contents sit outside it.
+ * Dropping it takes a coloured band off the page. Fitting one is still fine,
+ * because that only gives back height nothing occupies.
+ */
+check("a wrapper his hand placed is not touched, even though it holds nothing",
+  slimWrappers([box("mine", 0, 0, 800, 90, { byHand: true })]).length === 0);
+check("…nor fitted, even though it is taller than what it holds",
+  slimWrappers([box("mine2", 0, 0, 800, 90, { byHand: true }), leaf("kid", 0, 0, 800, 20)]).length === 0);
+check("an empty wrapper carrying a background is left where it is",
+  slimWrappers([box("band", 0, 0, 1763, 60, { colour: { surface: "rgb(17,17,17)" } })]).length === 0);
+check("…and one carrying an edge too",
+  slimWrappers([box("ruled", 0, 0, 1763, 60, { edge: { width: 1, style: "solid" } })]).length === 0);
+check("…but an edge switched off is no surface, so that one still goes",
+  slimWrappers([box("noedge", 0, 0, 1763, 60, { edge: { width: 0, style: "none" } })]).length === 1);
+check("and a wrapper that SHOWS something is still fitted, which is the banner",
+  (() => {
+    const d = slimWrappers([box("lit", 0, 0, 1763, 82, { colour: { surface: "rgb(17,17,17)" } }), leaf("only", 0, 0, 1280, 49)]);
+    return d.length === 1 && d[0].id === "lit" && d[0].h === 49;
+  })());
+
+/*
+ * EVERY PAGE STARTS AT 0,0 AGAIN, so containment is only ever within one
+ * page. Without that, a box on page two sitting where a box on page one sits
+ * makes each of them look full, and both are left as they are — or worse, a
+ * wrapper is fitted to a child that is not on its page at all.
+ */
+check("a box on another page is not inside this one, however the coordinates line up",
+  (() => {
+    const d = slimWrappers([box("here", 0, 0, 800, 90), { ...leaf("there", 0, 0, 800, 20), pageId: "p1" }]);
+    return d.length === 1 && d[0].id === "here" && d[0].h === 0;
+  })());
+
+check("and the line a person reads says what was removed and what was fitted",
+  /removed/.test(slimSays(slim)) && /fitted/.test(slimSays(slim)) && /px of empty box/.test(slimSays(slim)), slimSays(slim));
+check("with nothing oversized, it says that instead", /No box/.test(slimSays([])), slimSays([]));
 
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

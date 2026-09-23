@@ -227,12 +227,79 @@ export const MEASURE = (selector: string) => {
     return el;
   };
   let lastBlock: Element | null = null;
-  let lastEndedInSpace = false;
+  /*
+   * THE SPACE BEFORE A RUN, ASKED OF THE PAGE RATHER THAN OF THE READING.
+   *
+   * His header came back "A SolWorksproject" because the reader trimmed
+   * every run's edges: three fragments, no spaces, and nothing left anywhere
+   * to say where they belonged. The boxes butt, so no gap could be measured
+   * either — only the page knew, and it was being thrown away here.
+   *
+   * Three rules, and they are the browser's, not ours:
+   *
+   *  - A space belongs to the run AFTER it, never to the one before, so it
+   *    is written down exactly once. Two runs cannot each claim it and come
+   *    back with a double space where the page had one.
+   *  - It is only a space if the page RENDERS one there. Whitespace at the
+   *    start of a line is collapsed away by CSS, so a headline indented in
+   *    the markup — "\n  Everything arrives somewhere\n" — has no space in
+   *    front of it and must not gain one.
+   *  - The question is asked of the whole line the run sits in, not of the
+   *    element being read. A fragment read on its own has no idea what is
+   *    beside it, and being beside something is the entire point.
+   */
+  const lineCache = new Map<Element, Element>();
+  /** The nearest thing that makes a line: the block this run is set in. */
+  const lineOf = (e: Element): Element => {
+    const had = lineCache.get(e);
+    if (had) return had;
+    let node: Element | null = e;
+    while (node && node !== document.body) {
+      const d = getComputedStyle(node).display;
+      if (d !== "inline" && d !== "contents") break;
+      node = node.parentElement;
+    }
+    const found = node ?? document.body;
+    lineCache.set(e, found);
+    return found;
+  };
+  /** Every run of text on one line, in the order it is read. */
+  const lineText = new Map<Element, Text[]>();
+  const runsOn = (b: Element): Text[] => {
+    let list = lineText.get(b);
+    if (list) return list;
+    list = [];
+    const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(); t; t = w.nextNode()) {
+      const par = (t as Text).parentElement;
+      /* A nested block is its own line, so its words are not on this one. */
+      if (par && lineOf(par) === b) list.push(t as Text);
+    }
+    lineText.set(b, list);
+    return list;
+  };
+  /** Does the page draw a space immediately before this run? */
+  const spaceBefore = (n: Text): boolean => {
+    const par = n.parentElement;
+    if (!par) return false;
+    const list = runsOn(lineOf(par));
+    const i = list.indexOf(n);
+    if (i < 0) return false;
+    const own = /^\s/.test(n.textContent ?? "");
+    /* Whatever the whitespace is, it draws only if words come before it. */
+    let gap = own;
+    for (let j = i - 1; j >= 0; j--) {
+      const t = list[j]!.textContent ?? "";
+      if (/\S/.test(t)) return gap || /\s$/.test(t);
+      if (/\s/.test(t)) gap = true;
+    }
+    return false;
+  };
   const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   for (let n = walk.nextNode(); n; n = walk.nextNode()) {
     const raw = n.textContent ?? "";
     const words = raw.replace(/\s+/g, " ").trim();
-    if (!words) { if (/\s/.test(raw)) lastEndedInSpace = true; continue; }
+    if (!words) continue;
     const parent = n.parentElement;
     if (!parent) continue;
     const ps = getComputedStyle(parent);
@@ -243,15 +310,15 @@ export const MEASURE = (selector: string) => {
     const last = text[text.length - 1];
     if (last && block === lastBlock && last.words.length < 300) {
       // The size stays the line's own: an `abbr` set a shade smaller is still on the line.
-      const glue = lastEndedInSpace || /^\s/.test(raw) ? " " : "";
+      const glue = spaceBefore(n as Text) ? " " : "";
       last.words = `${last.words}${glue}${words}`.replace(/\s+/g, " ").slice(0, 300);
-      lastEndedInSpace = /\s$/.test(raw);
       continue;
     }
-    lastEndedInSpace = /\s$/.test(raw);
+    const lead = spaceBefore(n as Text) ? " " : "";
     const pb = parent.getBoundingClientRect();
     text.push({
-      words: words.slice(0, 300),
+      /* The space the page draws in front of it rides along (`spaceBefore`). */
+      words: `${lead}${words}`.slice(0, 300),
       px,
       weight,
       y: box.height ? Math.round(((pb.top - box.top) / box.height) * 100) / 100 : 0,

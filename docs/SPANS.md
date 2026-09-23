@@ -166,3 +166,136 @@ rather than where he dragged it, and every hand-moved part replaced is
 reported by name. The `byHand` exemption is overruled INSIDE a runs rebuild
 only — a part he moved that is not in a sentence being reassembled still
 stays where he put it.
+
+---
+
+## Three fixes after the emitter landed
+
+Measured on trunk `90560a8`, on his board, and each one run red on purpose
+before it was trusted. The numbers about his page are the coordinator's
+measurements, not mine.
+
+### 1. The lost space — "A SolWorksproject"
+
+The header is **one node with three runs** and reads back with no spaces at
+all. Where the space went: the reader trimmed every run's edges
+(`raw.replace(/\s+/g," ").trim()`) before anything downstream could see them,
+and the boxes butt, so no gap could recover it either.
+
+**It cannot be fixed at the join.** "Sol|Works" takes no space and
+"Works|project" takes one; both boundaries are letter against letter at gap
+zero. No rule reading only the text or only the geometry can tell them apart.
+Only the page knew.
+
+So it is fixed at the reading, in `siteRead.ts`, under three rules — and they
+are the browser's, not ours:
+
+- **A space belongs to the run AFTER it, never to the one before.** Written
+  down exactly once, so two fragments cannot each claim it and rejoin with a
+  double space. Nothing carries a trailing space.
+- **Only if the page RENDERS one there.** Whitespace at the edge of a line is
+  collapsed away by CSS. A headline indented in the markup —
+  `"\n  Everything arrives somewhere\n"` — has no space in front of it, and an
+  earlier version of this fix that kept edges blindly put one in front of
+  every heading on every hand-written page. That was caught by
+  `tests/site-read.mjs`, which went from 56/56 to 55/56.
+- **Asked of the LINE, not of the element being read.** A fragment read on its
+  own cannot see what is beside it, and being beside something is the whole
+  point. `spaceBefore` walks the text nodes of the run's own block, skipping
+  nested blocks, and finds the nearest ink before it.
+
+`recreate.ts`'s `lines()` stopped trimming when there is only one item, since
+then the item IS the part's whole text and its edges are the page's.
+`reassemble.ts` believes a carried space over any guess: no second space is
+inferred from the gap beside one that is already there.
+
+`tests/reader-space.mjs` (13/13) round-trips a sentence whose runs are
+separated by spaces at both ends of a run boundary, against a real DOM through
+the real `MEASURE`. Three red proofs, one per rule: trimming edges again gives
+back `"A SolWorksproject"` exactly; asking the element rather than the line
+loses the space that lives between two fragments; counting line-start
+whitespace puts a space in front of the indented headline.
+
+*An earlier version of this test was **vacuous** — its fixture put the runs in
+one block, where the reader's older glue path already joined them, so the
+changed line was never reached and it passed with the fix reverted. It is
+rebuilt on separate elements read separately, which is the real case.*
+
+### 2. The price line that never grouped
+
+`n_prose_92` "$ 116.59" and `n_prose_95` "-1.94 %", 81px apart start-to-start
+and **22px** edge-to-edge, did not merge. Measured rather than assumed: the old
+limit was `spaceAt(last) * gapMax * 4`, and `spaceAt` is derived from a **type
+size the capture often does not record**. With no size it collapses to its 2px
+floor, giving 14.4px; with one it gave 20.7px. So the cut sat between one and
+eight pixels away from a gap that is plainly a word space.
+
+A box's own **height** is the honest proxy — always recorded, and it scales
+with the type the way a word space does:
+
+```ts
+function joinLimit(a: Frag, b: Frag): number {
+  return Math.max(spaceAt(a) * 4, Math.min(a.h, b.h) * 0.75);
+}
+```
+
+At his scale (32-tall boxes) the limit falls at **43px**: 43 joins, 44 does
+not, and his 22 is inside it with room rather than one pixel from the cut.
+Neighbours that are genuinely separate are still separate — a control 400px
+along the same line, and `n_ctaprimary_59`, which sits 139px below and shares
+no band of the page, so it is a column jump and not a gap in a sentence.
+
+### 3. Empty captured wrappers — collapsed on load, not dropped at capture
+
+**The decision, and why.** Two things settled it, and neither is a pixel
+count:
+
+- **Capture-time recovers nothing he can see.** His board is already written
+  down — 720 nodes across nine pages, published from an earlier capture. A
+  capture-time rule fixes the next page he takes and does exactly nothing for
+  the board he is looking at. That is the same reason `reassemble.ts` exists
+  at all rather than being a reader change.
+- **"Drop the empty ones" would walk past the part he clicked on.** `n_box_75`
+  is 1763x82, claims one child, and geometrically holds exactly one thing:
+  `n_box_76`, the 1280x49 box that claims three and holds nothing. A chain —
+  banner, into an empty div, into nothing. The banner is **not empty**; it
+  carries 33px of dead space under its only child. The footer `n_box_109` is
+  the same fault mirrored: 1763x73, claims one, holds five.
+
+The claim count and the geometry disagree in **both** directions, which says
+they come from different passes and one of them is wrong. So `slimWrappers`
+trusts neither claim and asks where the boxes actually are, as every other
+rule in that file does. A wrapper holding nothing is removed; one holding
+something is fitted to its lowest child plus whatever foot padding the capture
+recorded.
+
+**Only the bottom is ever trimmed, never the top.** Shrinking a box moves
+nothing; lifting one would, and lifting is the direction that puts a part
+where nobody placed it.
+
+**Two things are never removed**, both because removal is the one direction
+that cannot be undone by looking at the page:
+
+- A wrapper **his hand** placed or resized — not fitted either. Its size is
+  his answer, exactly as with the button and the healing.
+- A wrapper that shows a **surface of its own** — a background, an edge, a
+  texture, an aura. It looks empty only from the outside, and dropping it
+  takes a coloured band off the page. Fitting one is still fine.
+
+Containment is **within one page**: every page starts at 0,0 again, so without
+that check a box on page two makes a box on page one look full.
+
+**And a finding that limits what this can do:** shrinking wrappers alone will
+not close the gaps between parts. Positions are absolute and the healing is
+monotone — it pushes things down when something grows and never pulls them
+back up. Giving a box back its height gives back the height; it does not move
+what sits below it. Closing those gaps is a separate piece and is not
+authorised here.
+
+`tests/reassemble.mjs` is pure (53/53) and `tests/boxes-fit.mjs` (13/13) runs
+it end to end through the palette against a production build. Red proofs, each
+on its own: the old distance rule puts his price line back to 0 sentences;
+removing the carried-space preference gives `"left  right"`; dropping the hand
+exemption touches his box; dropping the surface guard removes the coloured
+band; dropping the page check joins two pages; and disabling each half of the
+store action in turn fails exactly the checks that half is responsible for.
