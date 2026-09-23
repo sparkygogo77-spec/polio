@@ -61,7 +61,8 @@ import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
 import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
-import { sentences, slimWrappers, type Frag, type Reassembly, type Slimming } from "./reassemble";
+import { saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Reassembly, type Slimming } from "./reassemble";
+import { paintSays, repaintActive, type Painted } from "./repaint";
 
 /**
  * What is in your hand. Four, not six.
@@ -768,6 +769,29 @@ interface StudioState extends Doc {
    * disagree in both directions on his page, so only the geometry is read.
    */
   fitWrappers: () => Slimming[];
+  /**
+   * Which version of the rebuild rules this document has been through, or
+   * absent for one that has been through none. The sweep on open reads it,
+   * so a board is put right once rather than rewritten every time it opens.
+   */
+  swept?: number | null;
+  /**
+   * WHAT THE SWEEP ON OPEN DID, IN WORDS, UNTIL SOMEBODY HAS SAID IT.
+   *
+   * Nothing in this file can publish a line of news, and hydration may
+   * resolve after a Builder surface's own effects have run — so the sentence
+   * is put here and watched for, rather than handed back from the hook.
+   * Never saved: it belongs to this visit, and a board that announced itself
+   * once must not announce itself again on the next reload.
+   */
+  sweepNote?: string | null;
+  /**
+   * Put the WHOLE document right: both rebuilds, every page, one checkpoint,
+   * once. `force` runs it again on a board already marked. Returns what it
+   * did, or null when there was nothing to do or the board was never
+   * captured. See the action for the three promises it keeps.
+   */
+  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[] } | null;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1213,6 +1237,60 @@ function snapshot(s: StudioState): Doc {
   };
 }
 
+/**
+ * The nodes a set of rebuilt sentences leaves behind.
+ *
+ * Pure and shared, because the palette command and the sweep on open must
+ * never drift: one of them quietly doing something different to a document
+ * is exactly the kind of thing nobody notices until a board is wrong.
+ */
+function withJoins(nodes: StudioNode[], done: readonly Reassembly[]): StudioNode[] {
+  const dropped = new Set(done.flatMap((d) => d.drop));
+  const by = new Map(done.map((d) => [d.keep, d]));
+  return nodes
+    .filter((n) => !dropped.has(n.id))
+    .map((n) => {
+      const d = by.get(n.id);
+      if (!d) return n;
+      /* The box is the capture's composite now, not where he dragged a piece
+         of it, so it stops being marked his and the healing may lay what
+         follows under it again. */
+      const { byHand: _was, ...rest } = n;
+      return { ...rest, content: d.spans, x: d.x, y: d.y, w: d.w, h: d.h };
+    });
+}
+
+/**
+ * The nodes with the active controls' dropped tint put back.
+ *
+ * Each one takes its colour in the role its own kind actually fills from —
+ * a control's accent, a plain box's surface — and a control is told it is
+ * solid now, because that is the branch that draws a fill at all.
+ */
+function withPaint(nodes: StudioNode[], done: readonly Painted[]): StudioNode[] {
+  const by = new Map(done.map((d) => [d.id, d]));
+  return nodes.map((n) => {
+    const d = by.get(n.id);
+    if (!d) return n;
+    return {
+      ...n,
+      colour: d.role === "accent"
+        ? { ...(n.colour ?? {}), accent: d.paint }
+        : { ...(n.colour ?? {}), surface: d.paint, bg: d.paint },
+      ...(d.solid ? { options: { ...(n.options ?? {}), variant: "solid" } } : {}),
+    };
+  });
+}
+
+/** The nodes a set of fitted wrappers leaves behind; `h: 0` means it goes. */
+function withFits(nodes: StudioNode[], done: readonly Slimming[]): StudioNode[] {
+  const gone = new Set(done.filter((d) => d.h === 0).map((d) => d.id));
+  const fit = new Map(done.filter((d) => d.h > 0).map((d) => [d.id, d.h]));
+  return nodes
+    .filter((n) => !gone.has(n.id))
+    .map((n) => { const h = fit.get(n.id); return h === undefined ? n : { ...n, h }; });
+}
+
 function firstPage(): StudioPage {
   return { id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" };
 }
@@ -1575,21 +1653,7 @@ export const useStudio = create<StudioState>()(
           /* One checkpoint for the lot: it is one rebuild, and his to undo
              if he does not like what it did to a line he had arranged. */
           push();
-          const dropped = new Set(done.flatMap((d) => d.drop));
-          const by = new Map(done.map((d) => [d.keep, d]));
-          set((s) => ({
-            nodes: s.nodes
-              .filter((n) => !dropped.has(n.id))
-              .map((n) => {
-                const d = by.get(n.id);
-                if (!d) return n;
-                /* The box is the capture's composite now, not where he
-                   dragged a piece of it, so it stops being marked his and
-                   the healing may lay what follows under it again. */
-                const { byHand: _was, ...rest } = n;
-                return { ...rest, content: d.spans, x: d.x, y: d.y, w: d.w, h: d.h };
-              }),
-          }));
+          set((s) => ({ nodes: withJoins(s.nodes, done) }));
           return done;
         },
 
@@ -1597,14 +1661,87 @@ export const useStudio = create<StudioState>()(
           const done = slimWrappers(get().nodes as unknown as Frag[]);
           if (!done.length) return [];
           push();
-          const gone = new Set(done.filter((d) => d.h === 0).map((d) => d.id));
-          const fit = new Map(done.filter((d) => d.h > 0).map((d) => [d.id, d.h]));
-          set((s) => ({
-            nodes: s.nodes
-              .filter((n) => !gone.has(n.id))
-              .map((n) => { const h = fit.get(n.id); return h === undefined ? n : { ...n, h }; }),
-          }));
+          set((s) => ({ nodes: withFits(s.nodes, done) }));
           return done;
+        },
+
+        /*
+         * THE WHOLE DOCUMENT, ONCE, WHEN IT IS OPENED.
+         *
+         * HIS WORDS about boxes coming out wrong: "it should be done
+         * automatically properly". The two rebuilds above are correct and
+         * reach a stored board, but only when a person presses them — so a
+         * board captured before they existed sat unchanged, and the only
+         * cheap fix on offer was two commands per page across nine pages,
+         * which is a chore rather than a fix.
+         *
+         * Three things this must be, and every one of them is a promise to
+         * somebody whose document is being rewritten without being asked:
+         *
+         *  - EVERY PAGE, not the one on screen. That is the entire reason it
+         *    is worth having; `sentences` already groups per page and
+         *    `slimWrappers` already keeps containment within a page, so the
+         *    work is to hand them the whole document and never a slice.
+         *  - ONE CHECKPOINT for the lot. Removing parts automatically is
+         *    only acceptable if a single undo puts every one of them back,
+         *    so the checkpoint is taken once, before either pass, and
+         *    neither pass takes its own.
+         *  - ONCE PER DOCUMENT. A board already swept is left alone on every
+         *    later open, marked with the version of the rules it went
+         *    through (`SWEEP`), so bumping that number is the whole of
+         *    "sweep them all again".
+         *
+         * The safeguards under it are the passes' own and are not relaxed
+         * here: nothing his hand placed is touched, a wrapper showing a
+         * surface of its own is never removed, and only a box's bottom moves.
+         *
+         * The joins run FIRST and the fitting reads their result, because a
+         * join removes parts and resizes the one that stays, and a wrapper
+         * must be fitted to what is left rather than to what was there. The
+         * repaint runs last and cannot disagree with either: the fitting only
+         * ever changes a height or removes a box, and the repaint only ever
+         * changes paint.
+         */
+        sweepDocument: (force) => {
+          const s0 = get();
+          if (!force && s0.swept === SWEEP) return null;
+          /*
+           * A BOARD NOBODY CAPTURED IS NOT SWEPT, and is marked so it is
+           * never asked again. The same question `onRehydrateStorage` asks
+           * about whose boxes these are: a repository or site brought in, or
+           * a part carrying the element it was read from, its layout, its
+           * padding, its edge or the way its words are set. None of those and
+           * the board is his, drawn and placed, and nothing here applies.
+           */
+          const captured = (s0.brought?.length ?? 0) > 0
+            || s0.nodes.some((n) => n.from || n.layout || n.pad || n.edge || n.text);
+          if (!captured) { set({ swept: SWEEP }); return null; }
+
+          const joined = sentences(s0.nodes as unknown as Frag[]);
+          const afterJoin = joined.length ? withJoins(s0.nodes, joined) : s0.nodes;
+          const fitted = slimWrappers(afterJoin as unknown as Frag[]);
+          const afterFit = fitted.length ? withFits(afterJoin, fitted) : afterJoin;
+          /*
+           * AND THE PAINT THE CAPTURE DROPPED. The other lane taught the
+           * converter to read `oklab()`, which reaches a new capture and
+           * nothing at all on a board already written down — so on his the
+           * whole correction is a colour and a variant, worked out from what
+           * the document still holds (`repaint.ts`).
+           */
+          const painted = repaintActive(afterFit as unknown as Frag[]);
+          if (!joined.length && !fitted.length && !painted.length) { set({ swept: SWEEP }); return null; }
+
+          /* The one checkpoint, taken before anything moves. */
+          push();
+          set({
+            nodes: painted.length ? withPaint(afterFit, painted) : afterFit,
+            swept: SWEEP,
+            /* Said out loud, because a board that quietly loses six parts
+               between one visit and the next is worse than one that never
+               lost them — and the line is how he knows there is an undo. */
+            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length ? slimSays(fitted) : "", painted.length ? paintSays(painted) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
+          });
+          return { joined, fitted, painted };
         },
 
         raiseNode: (id, toTop) => {
@@ -2717,6 +2854,9 @@ function docOnly(s: StudioState) {
         look: s.look,
         motion: s.motion,
         activePageId: s.activePageId,
+        /* Saved, because "once per document" is a promise that has to
+           survive the reload it is protecting against. */
+        swept: s.swept,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
@@ -2946,16 +3086,39 @@ export function shapeBounds(shape: StudioShape) {
 /* Hydration                                                           */
 /* ------------------------------------------------------------------ */
 
+/** Two surfaces mounting must not both try the sweep on one page load. */
+let sweeping = false;
+
 /**
  * The store skips hydration so server and first client render agree; every
  * Builder surface calls this once so the saved document comes back before the
  * board's own effects write anything. A layout effect runs before children's
  * passive effects (the board's fit-to-view), which is what makes it safe.
+ *
+ * AND THE SWEEP GOES HERE, for the same reason: it must see the document as
+ * it was saved. His words about boxes coming out wrong were "it should be
+ * done automatically properly", and a board captured before the rebuilds
+ * existed sat unchanged until somebody pressed two commands on each of nine
+ * pages. It runs once per document, over every page, under one undo — see
+ * `sweepDocument`.
+ *
+ * Before the healing rather than after, and that is deliberate: the healing
+ * only ever runs for the page on screen, so a sweep that waited for it would
+ * judge the open page by settled heights and the other eight by captured
+ * ones, and give a different answer per page for no reason a person could
+ * see. Reading the document as it was saved is the same answer everywhere.
  */
 export function useStudioHydration() {
   useLayoutEffect(() => {
     migrateKey("polio.studio", "builder.studio");
-    if (!useStudio.persist.hasHydrated()) void useStudio.persist.rehydrate();
+    if (sweeping) return;
+    sweeping = true;
+    const sweep = () => { useStudio.getState().sweepDocument(); };
+    if (useStudio.persist.hasHydrated()) { sweep(); return; }
+    /* Hydration may resolve after this surface's own effects have run, so
+       what the sweep did is put in the document's state and watched for
+       rather than handed back here — see `sweepNote`. */
+    void Promise.resolve(useStudio.persist.rehydrate()).then(sweep);
   }, []);
 }
 

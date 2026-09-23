@@ -59,11 +59,18 @@ const page = (from) => [
   node("b3", "prose", "Run it in CI", 40, 224, 684, 28, from),
 ];
 
+/*
+ * MARKED AS ALREADY SWEPT, on purpose. The sweep on open
+ * (`tests/sweep-on-open.mjs`) puts a captured board right without being
+ * asked, and these boards are captured — it would remove the empty wrapper
+ * this check needs and leave it measuring the sweep instead of the healing.
+ * The mark makes the sweep stand aside so the healing is what is under test.
+ */
 const doc = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Docs", path: "/", prompt: "", scroll: "inherit" }],
   nodes: page({ from: FROM }),
   groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 /* The same page, placed by hand: no `from` on anything. */
@@ -71,7 +78,7 @@ const byHand = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Docs", path: "/", prompt: "", scroll: "inherit" }],
   nodes: page({}),
   groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });
@@ -174,7 +181,7 @@ const stored = JSON.stringify({ state: {
     node("inside", "prose", "held", 60, 580, 400, 60, BOXY),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "SOLCINERATOR", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const already = await open(stored);
@@ -210,7 +217,7 @@ const withMine = JSON.stringify({ state: {
     node("other", "prose", "Ordinary", 40, 152, 684, 28, { from: FROM }),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const kept = await open(withMine);
@@ -243,7 +250,7 @@ const hisOwn = JSON.stringify({ state: {
     node("b", "prose", "Sitting over it on purpose", 40, 120, 684, 60),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const mine = await open(hisOwn);
@@ -294,7 +301,7 @@ for (let i = 0; i < 6; i++) threeUp.push(node(`body${i}`, "prose", LONG, BODY_X,
 const columns = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Documentation", path: "/", prompt: "", scroll: "inherit" }],
   nodes: threeUp, groups: [], shapes: [], format: {}, brief: { name: "SOLCINERATOR", gimmick: "", master: "" },
-  frameWidth: 1763, activePageId: "p0", trail: [],
+  frameWidth: 1763, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 /* Empty space with nothing in it, measured DOWN A COLUMN. Counting gaps

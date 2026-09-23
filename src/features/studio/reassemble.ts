@@ -25,6 +25,21 @@
  */
 import { merged, type Span } from "./parts/spans.ts";
 
+/**
+ * WHICH VERSION OF THESE RULES A DOCUMENT HAS BEEN THROUGH.
+ *
+ * A board is swept once and then left alone, so a person opening the Builder
+ * does not have their document rewritten every time. The mark is this number
+ * rather than a boolean, so bumping it here is the whole of "sweep every
+ * board again" — and forgetting to bump it is the whole of "leave them be".
+ *
+ * Bump it when a rule changes what a sweep would do.
+ *
+ *   1  the sentences put back together, and the wrappers fitted
+ *   2  the active control's dropped tint worked out again (`repaint.ts`)
+ */
+export const SWEEP = 2;
+
 /** The parts this will consider joining: ones whose whole body is words. */
 export const WORDY = new Set(["box", "prose", "value-prop", "micro-copy", "eyebrow-rule"]);
 
@@ -39,7 +54,9 @@ export interface Frag {
   h: number;
   content: unknown;
   /** Palette roles this part repaints for itself. `text` is the ink; the rest paint its surface. */
-  colour?: ({ text?: string } & Record<string, string | undefined>) | null;
+  colour?: ({ text?: string; accent?: string; surface?: string; bg?: string } & Record<string, string | undefined>) | null;
+  /** How the part was set up: `variant`, `size`, `shape`. */
+  options?: Record<string, string> | null;
   font?: { weight?: number; face?: string; size?: number } | null;
   link?: { kind: string; target: string } | null;
   byHand?: boolean;

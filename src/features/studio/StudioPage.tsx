@@ -1023,6 +1023,28 @@ export function StudioPage() {
   React.useEffect(() => { mountNebula(); }, []);
 
   /*
+   * A DOCUMENT PUT RIGHT ON OPEN SAYS SO.
+   *
+   * The sweep runs down in the store, before anything else writes, and
+   * nothing there can publish. It leaves what it did behind and this says it
+   * — because a board that quietly loses six parts between one visit and the
+   * next is worse than one that never lost them. One undo takes the whole
+   * sweep back, and the line is how he knows there is something to undo.
+   */
+  const news = useActions();
+  const sweepNote = useStudio((s) => s.sweepNote);
+  React.useEffect(() => {
+    if (!sweepNote) return;
+    news.publish({
+      key: "studio:sweep",
+      title: "This board was put right when it opened",
+      body: sweepNote,
+      level: "info", source: "studio", toast: { durationMs: 12000 },
+    });
+    useStudio.setState({ sweepNote: null });
+  }, [sweepNote, news]);
+
+  /*
    * The tab you are on is the tab you stay on.
    *
    * It used to move under you twice over. The set of tabs changed with the

@@ -465,6 +465,52 @@ is pure and `tests/boxes-fit.mjs` runs it through the palette; both halves of
 the store action were disabled in turn to watch the right checks go red.
 The whole of this work, with the numbers, is in `docs/SPANS.md`.
 
+**A captured board is put right when it opens — every page, once, one undo.**
+Three rebuilds landed, merged and deployed, and his board did not move by a
+byte: each was correct and reached a stored document, but only when a person
+pressed a command, and the cheap answer turned out to be eighteen presses
+across nine pages. His words about boxes coming out wrong were "it should be
+done automatically properly". `sweepDocument` runs from `useStudioHydration`,
+before anything else writes — which also makes it deterministic, because the
+healing only ever runs for the page on screen, so a sweep that waited for it
+would judge the open page by settled heights and the other eight by captured
+ones. Three promises, each red-proved on its own: EVERY PAGE (the commands
+already were page-agnostic — `sentences` groups per page and `slimWrappers`
+keeps containment within one — so the work was handing them the whole document
+and never a slice); ONE CHECKPOINT, taken before either pass, because
+automatic removal is only acceptable if a single undo puts every part back;
+and ONCE PER DOCUMENT, marked with `SWEEP`, the version of the rules it went
+through, so bumping that number is the whole of "put every board right again".
+A board nobody captured is never swept and is marked so it is never asked — the
+same question `onRehydrateStorage` asks about whose boxes these are. It says
+what it did (`sweepNote`, watched for rather than handed back, because
+hydration can resolve after a surface's own effects have run — that race would
+otherwise have shipped as an intermittent silence). `tests/sweep-on-open.mjs`
+holds all of it; `tests/old-board.mjs` is the shape of check that was missing,
+which opens a board the old code wrote and presses NOTHING.
+
+**The paint a capture dropped, worked out again from what is left.** The other
+lane taught the converter to read `oklab()`, which reaches a new capture and
+nothing at all on a board already written down. An active control is picked
+out by a translucent tint of its own colour over what is behind it —
+`oklab(0.86644 -0.233888 0.179499 / 0.1)` on his time buttons — and the drop
+left it with a border colour and no surface. `repaint.ts` puts it back from
+three things the document still holds: the tint's colour as the node's accent,
+what is behind it as the surface of the innermost containing box that paints
+one, and WHICH node it is, because a row of choices where the rest agree names
+its odd one out. Only the opacity is assumed, and it is one named constant
+(`TINT`). Green at a tenth over `rgb(21, 25, 34)` is `rgb(19, 48, 31)`, which
+is the value the other lane reached from the opposite direction by re-reading
+the capture. The colour goes in the role that kind of part actually fills
+from: a control's ACCENT plus `variant: solid`, a plain box's SURFACE — and
+`Cta.tsx`'s `ghost` branch fills with `accent + "22"`, which against an
+`rgb(...)` string is no colour at all, which is why the fault showed as
+nothing rather than as a faint tint. Every condition that stops it painting
+something bare was red-proved separately: a pair is ambiguous and left alone,
+a set whose others disagree says nothing, an unlabelled mark is not a choice
+(two 20x20 `svg` marks in his own document met every geometric test), and with
+nothing painted behind it the answer would be invented rather than worked out.
+
 **A button in the Builder is pressable in the Builder.** His nine captured
 pages were reachable only from the tab bar, which makes a correct import feel
 dead. A second press on a linkable part that has a link follows it —

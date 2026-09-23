@@ -299,3 +299,74 @@ removing the carried-space preference gives `"left  right"`; dropping the hand
 exemption touches his box; dropping the surface guard removes the coloured
 band; dropping the page check joins two pages; and disabling each half of the
 store action in turn fails exactly the checks that half is responsible for.
+
+---
+
+## The sweep on open, and why it was needed
+
+All three fixes above landed, merged, deployed — and his board did not move by
+a byte. Same 685 nodes, same seventeen "A SolWorksproject", same 45 wrappers,
+same 293px. Green suite, clean merge, confirmed deploy, unchanged page: the
+exact shape of a fix that works on the path it tests and never reaches the
+user's data.
+
+**The answer, measured rather than reasoned.** `joinSentences` and
+`fitWrappers` have exactly two callers each — the copy-whole import and their
+palette commands. `onRehydrateStorage` calls neither. `MEASURE` runs only
+inside a browser against a live page. So: nothing ran when a stored board was
+opened. `tests/old-board.mjs` is the check that was missing — it seeds a board
+the old code wrote, presses **nothing**, and asserts what a load does and does
+not do.
+
+**Item one is unrecoverable from inside polio, and a re-import will not fix
+it.** The space was destroyed at reading time, before the document existed,
+and `Runs.tsx` emits adjacent spans — so the published page reads
+"A SolWorksproject" too, and re-reading anything polio published gives the
+damage back. Only a fresh capture of the original source site restores it.
+
+**Items two and three did reach his board, by command — and only the open
+page's worth was visible**, because nine pages of two presses is a chore
+rather than a fix. So the sweep runs on open: every page, one checkpoint,
+once. Note that the commands were never page-scoped; a three-page fixture
+swept all three. What IS page-scoped is the healing, which runs only for the
+page on screen — which is why the sweep runs BEFORE it, so every page is
+judged by the same captured heights instead of the open one being judged by
+settled ones.
+
+**And the publish question is answered: there is no second defect.** A space
+inside a run survives the board, the live preview and the published page —
+`>$ 116.59 <span style="color: rgb(239, 68, 68);">-1.94 %</span>` is what
+ships. Red-proved by trimming each run in `Runs.tsx`, which gives
+`"$ 116.59-1.94 %"` in all three places.
+
+## The paint a capture dropped
+
+The capture could not read `oklab()`, so the translucent tint that marks an
+active control was dropped and the node arrived as an outline where the page
+had a solid. The other lane fixed the reading; that reaches a new capture and
+nothing on a board already written down.
+
+Three of the four things the browser used are still in the document — the
+tint's colour (the node's accent), what is behind it (the innermost containing
+box that paints a surface), and which node it is (in a row of choices where
+the rest agree, the odd one out). Only the opacity is gone, and it is one
+named constant, `TINT = 0.1`.
+
+    green rgb(0, 255, 0) at a tenth over rgb(21, 25, 34) = rgb(19, 48, 31)
+
+which is the value the other lane arrived at independently by re-reading the
+capture and regenerating the document. Two routes, one number. Run over the
+committed `sink/site/document.json` the rule finds exactly one node,
+`n_ctaprimary_34`, at exactly that colour.
+
+**Where the colour goes** is the part's business: a control fills from its
+accent (`Cta.tsx`: `outline ? transparent : ghost ? accent+"22" : accent`), so
+it takes the blend there plus `variant: solid`; a plain box fills from its
+surface. That `accent + "22"` is also why the fault read as nothing at all
+rather than as a faint tint — an eight-digit hex suffix on an `rgb(...)`
+string is not a colour.
+
+**Note on data.** None of these checks use `sink` as a stand-in for his board;
+every fixture is built at his measured numbers. `sink` is used once, for
+arithmetic: it is the only place holding a raw capture with the `oklab()`
+string still in it.

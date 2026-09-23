@@ -63,10 +63,18 @@ const nodes = [
   node("band", "box", "", 0, 1100, 1763, 60, { colour: { surface: "rgb(17,17,17)" } }), // empty, but it shows
 ];
 
+/*
+ * MARKED AS ALREADY SWEPT, on purpose. The sweep on open
+ * (`tests/sweep-on-open.mjs`) now does this to a captured board without being
+ * asked, which would put the board right before this check had pressed
+ * anything and leave it measuring the sweep instead of the command. The mark
+ * makes the sweep stand aside so the COMMAND is what is under test — the
+ * thing a person reaches for on a board that has already been through one.
+ */
 const doc = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
   nodes, groups: [], shapes: [], format: {}, brief: { name: "SOLWORKS", gimmick: "", master: "" },
-  frameWidth: 1763, activePageId: "p0", trail: [],
+  frameWidth: 1763, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });

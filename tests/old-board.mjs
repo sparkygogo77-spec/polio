@@ -10,9 +10,15 @@
  *
  * Every other check in this family seeds a board and then PRESSES something.
  * That proves the command reaches old data and proves nothing whatever about
- * what happens when he simply opens the Builder. This one presses nothing
- * first, and says out loud what a load does and does not do — so the answer
- * is written down as a measurement rather than as a belief about the code.
+ * what happens when he simply opens the Builder. This one presses NOTHING,
+ * so the answer is a measurement rather than a belief about the code.
+ *
+ * WHEN IT WAS WRITTEN it said, correctly, that a load did nothing at all —
+ * and that was the finding. The sweep on open exists because of it, so the
+ * assertions are now its mirror: opening the board is enough. It is kept as a
+ * separate check from `sweep-on-open.mjs` because it holds HIS numbers on one
+ * page — the 293px, the banner's 33px — and because of the last section,
+ * which is the one thing no amount of sweeping can reach.
  *
  * The board here is HIS, at his shapes: a headline already merged into one
  * node with three spaceless runs, the price pair still two nodes with no runs
@@ -108,46 +114,55 @@ const press = async (typed, label) => {
 /* ------------------------------------------------------------------ */
 
 const load = await saved();
-check("the stored board is read back whole", Object.keys(load).length === 10, `${Object.keys(load).length} parts`);
 /*
- * THIS IS THE CHECK THAT WAS MISSING. Each of these is a fix that shipped,
- * and none of them touches a document that is merely opened. Said as an
- * assertion so that if any of them is ever made to run on load, this goes red
- * and somebody has to come and decide it on purpose.
+ * THIS IS THE CHECK THAT WAS MISSING, and it was missing in both directions.
+ * Written against the old behaviour it said "a load does nothing", which was
+ * true and was the whole finding. It now says the opposite, and if any of
+ * these ever stops being true a board he opens quietly stops being put right.
  */
-check("opening the board joins NOTHING: the price pair is still two parts",
-  "n_prose_92" in load && "n_prose_95" in load);
-check("opening the board fits NOTHING: the banner is still at its captured height",
-  load.n_box_75?.h === 82, `${load.n_box_75?.h}`);
-check("opening the board removes NOTHING: all five empty wrappers are still there",
-  EMPTIES.every((id) => id in load), EMPTIES.filter((id) => !(id in load)).join(", ") || "all five present");
-check("…still totalling the 293px he measured",
-  EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0) === 293,
-  `${EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0)}px`);
-check("and the headline still reads back exactly as he reported it",
-  load.n_prose_11?.words === "A SolWorksproject", JSON.stringify(load.n_prose_11?.words));
+check("opening the board joins the price pair, with nothing pressed",
+  "n_prose_92" in load && !("n_prose_95" in load), Object.keys(load).join(", "));
+check("…reading as his page does", load.n_prose_92?.words === "$ 116.59 -1.94 %", JSON.stringify(load.n_prose_92?.words));
+check("opening the board fits the banner, giving back the 33px under its only child",
+  load.n_box_75?.h === 49, `82 → ${load.n_box_75?.h}`);
+check("opening the board removes all five empty wrappers",
+  EMPTIES.every((id) => !(id in load)), EMPTIES.filter((id) => id in load).join(", ") || "all five gone");
+check("…which is the 293px he measured, given back",
+  EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0) === 0, `${EMPTIES.length - EMPTIES.filter((id) => id in load).length} of 5 gone`);
+check("and it left a mark, so opening it again will not do this a second time",
+  (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state?.swept ?? null)) === 2);
 
 /* ------------------------------------------------------------------ */
-/* 2. WHAT A PRESS DOES REACH                                          */
+/* 2. AND A PRESS AFTERWARDS HAS NOTHING LEFT TO DO                    */
 /* ------------------------------------------------------------------ */
 
-check("the palette offers the rebuild", await press("broken sentences", /broken sentences/i));
+check("the palette still offers the rebuild", await press("broken sentences", /broken sentences/i));
 const joined = await saved();
-check("pressing it DOES reach the stored board: the price pair becomes one part",
-  ("n_prose_92" in joined) !== ("n_prose_95" in joined), Object.keys(joined).join(", "));
-check("…reading as his page does, with the space the gap says belongs there",
-  /\$ 116\.59 -1\.94 %/.test(joined.n_prose_92?.words ?? joined.n_prose_95?.words ?? ""),
-  JSON.stringify(joined.n_prose_92?.words ?? joined.n_prose_95?.words));
+check("pressing the rebuild again finds nothing left to join",
+  JSON.stringify(joined) === JSON.stringify(load), JSON.stringify(Object.keys(joined)));
 
-check("the palette offers the fitting", await press("fit captured boxes", /fit captured boxes/i));
+/*
+ * THE SWEEP IS ONE PASS, AND THAT IS THE CAUTIOUS CHOICE RATHER THAN AN
+ * OVERSIGHT. The banner held something when the sweep started — the empty div
+ * inside it — so it was FITTED and not removed. Once that div is gone the
+ * banner holds nothing, and a second pass would remove it too.
+ *
+ * It is not cascaded, because the rule that keeps this safe is "a box that
+ * held something when we looked is fitted, never removed": the document as
+ * captured decides, and a box cannot be deleted by a consequence of our own
+ * editing. A 1763-wide band disappearing two steps down a chain is exactly
+ * the kind of change nobody asked for. This asserts what a later press does
+ * so the behaviour is written down rather than discovered.
+ */
+check("the palette still offers the fitting", await press("fit captured boxes", /fit captured boxes/i));
 const fitted = await saved();
-check("pressing it DOES reach the stored board: the five empty wrappers go",
-  EMPTIES.every((id) => !(id in fitted)), EMPTIES.filter((id) => id in fitted).join(", ") || "all five gone");
-check("…and the banner is fitted to the child it holds",
-  fitted.n_box_75?.h === 49, `82 → ${fitted.n_box_75?.h}`);
+check("pressing the fitting again DOES remove the banner, now that nothing is in it",
+  !("n_box_75" in fitted), Object.keys(fitted).join(", "));
+check("…which is why the sweep is one pass: it fits what held something and never removes it",
+  "n_box_75" in load && load.n_box_75.h === 49);
 
 /* ------------------------------------------------------------------ */
-/* 3. AND WHAT NO PRESS CAN REACH                                      */
+/* 3. AND WHAT NOTHING CAN REACH                                       */
 /* ------------------------------------------------------------------ */
 
 /*
@@ -162,7 +177,7 @@ check("…and the banner is fitted to the child it holds",
  * discovered again on his board: no command fixes it, and the only thing
  * that does is reading the original site again.
  */
-check("no command recovers the headline's space, because it is not in the document at all",
+check("neither the sweep nor any command recovers the headline's space, because it is not in the document at all",
   fitted.n_prose_11?.words === "A SolWorksproject", JSON.stringify(fitted.n_prose_11?.words));
 
 await browser.close();
