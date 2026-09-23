@@ -15,7 +15,7 @@ import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, ty
 import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
-import { saysWhat, slimSays } from "./reassemble";
+import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
@@ -189,7 +189,10 @@ export const studio = defineFeature({
       when: onStudio,
       run: (c) => {
         const done = useStudio.getState().fitWrappers();
-        c.publish({ key: "studio:fit", title: done.length ? "Boxes fitted" : "Nothing to fit", body: slimSays(done), level: "info", source: "studio", toast: { durationMs: 8000 } });
+        /* And the ones holding nothing, which are named and left alone: on his
+           page both are real surfaces that slid below their own contents. */
+        const empty = emptyWrappers(useStudio.getState().nodes as never);
+        c.publish({ key: "studio:fit", title: done.length ? "Boxes fitted" : "Nothing to fit", body: slimSays(done, empty), level: "info", source: "studio", toast: { durationMs: 8000 } });
       },
     },
     {

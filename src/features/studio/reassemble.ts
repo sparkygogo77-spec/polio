@@ -25,6 +25,26 @@
  */
 import { merged, type Span } from "./parts/spans.ts";
 
+/**
+ * WHICH VERSION OF THESE RULES A DOCUMENT HAS BEEN THROUGH.
+ *
+ * A board is swept once and then left alone, so a person opening the Builder
+ * does not have their document rewritten every time. The mark is this number
+ * rather than a boolean, so bumping it here is the whole of "sweep every
+ * board again" — and forgetting to bump it is the whole of "leave them be".
+ *
+ * Bump it when a rule changes what a sweep would do.
+ *
+ *   1  the sentences put back together, and the wrappers fitted
+ *   2  the active control's dropped tint worked out again (`repaint.ts`)
+ *   3  the same box emitted twice, one copy taken out (`twins.ts`); and
+ *      empty wrappers no longer removed, because they are misplaced rather
+ *      than junk — a board swept at 1 or 2 may have lost one, and there is
+ *      no putting that back from here, which is why the removal is gone
+ *      rather than narrowed
+ */
+export const SWEEP = 3;
+
 /** The parts this will consider joining: ones whose whole body is words. */
 export const WORDY = new Set(["box", "prose", "value-prop", "micro-copy", "eyebrow-rule"]);
 
@@ -39,7 +59,9 @@ export interface Frag {
   h: number;
   content: unknown;
   /** Palette roles this part repaints for itself. `text` is the ink; the rest paint its surface. */
-  colour?: ({ text?: string } & Record<string, string | undefined>) | null;
+  colour?: ({ text?: string; accent?: string; surface?: string; bg?: string } & Record<string, string | undefined>) | null;
+  /** How the part was set up: `variant`, `size`, `shape`. */
+  options?: Record<string, string> | null;
   font?: { weight?: number; face?: string; size?: number } | null;
   link?: { kind: string; target: string } | null;
   byHand?: boolean;
@@ -266,11 +288,41 @@ export function saysWhat(done: readonly Reassembly[]): string {
  */
 export interface Slimming {
   id: string;
-  /** The height it should have, given what it holds. Zero means it holds nothing. */
+  /** The height it should have, given what it holds. */
   h: number;
   was: number;
-  /** How many parts sit inside it, geometrically. */
+  /** How many parts sit inside it, geometrically. Never zero: see below. */
   holds: number;
+}
+
+/**
+ * A WRAPPER THAT HOLDS NOTHING IS NOT DELETED, AND THE REASON MATTERS.
+ *
+ * This used to remove them, on the reading that a box with nothing in it is
+ * dead space a capture invented. Measured on his page, that reading is wrong
+ * and the correction would have been destructive: both of the two empty
+ * wrappers on his home page are REAL SURFACES THAT HAVE SLID BELOW THE
+ * CONTENT THEY SHOULD CONTAIN.
+ *
+ *   n_box_75, the banner, 1763x65 at y 147 — and every header part is ABOVE
+ *   it, from the logo at y -11 to the price line at y 65. The header runs
+ *   -11..105; the banner band runs 147..212 and holds nothing.
+ *
+ *   n_box_46, the Your Tokens panel, 1507x172 at y 1247 — and its section is
+ *   above it, the heading at 1056 and its sentences at 1160 and 1192.
+ *
+ * Deleting those takes his banner and his panel off the page for good. They
+ * are not junk; they are misplaced, and the correction is to put them back
+ * around what they own — which is a different piece, and a bigger one, since
+ * a panel sitting below its contents contributes its whole height as dead
+ * space and pushes everything after it down.
+ *
+ * So until that piece exists, an empty wrapper is REPORTED and never touched.
+ * Fitting a wrapper that does hold something is unaffected and still runs:
+ * that only ever gives back height nothing occupies.
+ */
+export function emptyWrappers(frags: readonly Frag[]): Frag[] {
+  return frags.filter((w) => !w.byHand && isWrapper(w) && w.h > 0 && !frags.some((f) => within(w, f)));
 }
 
 /** Is this box wholly inside that one? On the same page: every page starts at 0,0 again. */
@@ -282,8 +334,18 @@ function within(outer: Frag, inner: Frag): boolean {
     && inner.y + inner.h <= outer.y + outer.h + 1;
 }
 
-/** A part with no words and nothing drawn: a box that is only a box. */
+/**
+ * A part with no words and nothing drawn: a box that is only a box.
+ *
+ * AND IT MUST BE A BOX. Every one of the 75 wordless parts in his captured
+ * document is a `box`, and a part of any other kind with nothing in it is
+ * something else entirely: a `picture` holding no picture is a stand-in by
+ * design, not a failed load, and deleting it would take a slot off the page
+ * that somebody meant to fill. Caught by the chrome lane's own check, which
+ * seeded exactly that and lost it.
+ */
 function isWrapper(f: Frag): boolean {
+  if (f.featureId !== "box") return false;
   const words = typeof f.content === "string"
     ? f.content
     : Array.isArray(f.content) ? f.content.map((r) => (r as Span).text ?? "").join("") : "";
@@ -309,10 +371,10 @@ function shows(f: Frag): boolean {
 /**
  * Wrappers that are taller than what they hold, with the height they should be.
  *
- * A wrapper holding nothing comes back with `h: 0` — it is a box with no
- * reason to exist and the caller removes it. One holding something comes back
- * fitted to its lowest child plus whatever padding the capture recorded for
- * its foot, so a banner stops carrying 33px of nothing under its only child.
+ * One holding something comes back fitted to its lowest child plus whatever
+ * padding the capture recorded for its foot, so a banner stops carrying 33px
+ * of nothing under its only child. One holding NOTHING is not here at all —
+ * see `emptyWrappers` for why it is reported rather than removed.
  */
 export function slimWrappers(frags: readonly Frag[]): Slimming[] {
   const out: Slimming[] = [];
@@ -320,10 +382,8 @@ export function slimWrappers(frags: readonly Frag[]): Slimming[] {
     // His hand put this box where it is, so its size is his answer, not ours.
     if (w.byHand || !isWrapper(w)) continue;
     const held = frags.filter((f) => within(w, f));
-    if (!held.length) {
-      if (w.h > 0 && !shows(w)) out.push({ id: w.id, h: 0, was: w.h, holds: 0 });
-      continue;
-    }
+    // A box holding nothing is misplaced, not junk. Never touched here.
+    if (!held.length) continue;
     const foot = Math.max(0, Math.round(w.pad?.bottom ?? 0));
     const want = Math.max(...held.map((f) => f.y + f.h)) - w.y + foot;
     /* A pixel or two is measurement, not dead space. */
@@ -332,14 +392,12 @@ export function slimWrappers(frags: readonly Frag[]): Slimming[] {
   return out;
 }
 
-/** One line a person can read about the boxes that were fitted or dropped. */
-export function slimSays(done: readonly Slimming[]): string {
-  if (!done.length) return "No box on this page was bigger than what it holds.";
-  const gone = done.filter((d) => d.h === 0);
-  const fitted = done.filter((d) => d.h > 0);
+/** One line a person can read about the boxes that were fitted, and the ones left. */
+export function slimSays(done: readonly Slimming[], empty: readonly Frag[] = []): string {
   const saved = done.reduce((n, d) => n + (d.was - d.h), 0);
-  return [
-    gone.length ? `${gone.length} box${gone.length === 1 ? "" : "es"} holding nothing removed` : "",
-    fitted.length ? `${fitted.length} fitted to what ${fitted.length === 1 ? "it holds" : "they hold"}` : "",
-  ].filter(Boolean).join(", ") + `: ${saved}px of empty box.`;
+  const left = empty.length
+    ? ` ${empty.length} box${empty.length === 1 ? "" : "es"} hold nothing and ${empty.length === 1 ? "was" : "were"} left alone: ${empty.map((e) => e.id).join(", ")}.`
+    : "";
+  if (!done.length) return `No box on this page was bigger than what it holds.${left}`;
+  return `${done.length} box${done.length === 1 ? "" : "es"} fitted to what ${done.length === 1 ? "it holds" : "they hold"}: ${saved}px of empty box.${left}`;
 }

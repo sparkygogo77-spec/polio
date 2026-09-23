@@ -454,16 +454,147 @@ at. And "drop the empty ones" is the wrong rule — the banner he clicked on,
 only child, which is itself an empty box. The claim count and the geometry
 disagree in both directions on his page, so `slimWrappers` trusts neither
 claim and asks where the boxes actually are. Only the bottom is ever trimmed:
-shrinking a box moves nothing, lifting one would. Never removed: a wrapper his
-hand placed (not fitted either — its size is his answer, as with the button
-and the healing) and one that shows a surface of its own, since dropping that
-takes a coloured band off the page. Containment is within one page, because
+shrinking a box moves nothing, lifting one would. NOTHING IS REMOVED, and that correction was
+measured rather than reasoned: both empty wrappers on his home page turned out
+to be REAL SURFACES THAT HAD SLID BELOW THE CONTENT THEY OWN — the banner,
+1763x65 at y 147, with its whole header above it at -11..105, and the Your
+Tokens panel, 1507x172 at y 1247, with its heading at 1056. Deleting those
+takes his banner and his panel off the page for good. They are misplaced, not
+junk, and putting them back round what they own is a different and larger
+piece. So an empty wrapper is named in the report and left exactly where it
+is. Also never touched: a wrapper his hand placed (not fitted either — its
+size is his answer, as with the button and the healing) and one that shows a
+surface of its own. And a wrapper is a `box`: every one of the
+75 wordless parts in his captured document is one, and a part of another kind
+holding nothing is something else — a `picture` with no picture is a stand-in
+by design, and deleting it takes a slot off the page somebody meant to fill. Containment is within one page, because
 every page starts at 0,0 again. Note what this does NOT do: positions are
 absolute and the healing is monotone, so giving a box back its height gives
 back the height and does not move what sits below it. `tests/reassemble.mjs`
 is pure and `tests/boxes-fit.mjs` runs it through the palette; both halves of
 the store action were disabled in turn to watch the right checks go red.
 The whole of this work, with the numbers, is in `docs/SPANS.md`.
+
+**A captured board is put right when it opens — every page, once, one undo.**
+Three rebuilds landed, merged and deployed, and his board did not move by a
+byte: each was correct and reached a stored document, but only when a person
+pressed a command, and the cheap answer turned out to be eighteen presses
+across nine pages. His words about boxes coming out wrong were "it should be
+done automatically properly". `sweepDocument` runs from `useStudioHydration`,
+before anything else writes — which also makes it deterministic, because the
+healing only ever runs for the page on screen, so a sweep that waited for it
+would judge the open page by settled heights and the other eight by captured
+ones. Three promises, each red-proved on its own: EVERY PAGE (the commands
+already were page-agnostic — `sentences` groups per page and `slimWrappers`
+keeps containment within one — so the work was handing them the whole document
+and never a slice); ONE CHECKPOINT, taken before either pass, because
+automatic removal is only acceptable if a single undo puts every part back;
+and ONCE PER DOCUMENT, marked with `SWEEP`, the version of the rules it went
+through, so bumping that number is the whole of "put every board right again".
+A board nobody captured is never swept and is marked so it is never asked — the
+same question `onRehydrateStorage` asks about whose boxes these are. It says
+what it did (`sweepNote`, watched for rather than handed back, because
+hydration can resolve after a surface's own effects have run — that race would
+otherwise have shipped as an intermittent silence). `tests/sweep-on-open.mjs`
+holds all of it; `tests/old-board.mjs` is the shape of check that was missing,
+which opens a board the old code wrote and presses NOTHING.
+
+**The paint a capture dropped, worked out again from what is left.** The other
+lane taught the converter to read `oklab()`, which reaches a new capture and
+nothing at all on a board already written down. An active control is picked
+out by a translucent tint of its own colour over what is behind it —
+`oklab(0.86644 -0.233888 0.179499 / 0.1)` on his time buttons — and the drop
+left it with a border colour and no surface. `repaint.ts` puts it back from
+three things the document still holds: the tint's colour as the node's own
+INK, what it was laid over as the surface of the innermost containing box that
+paints one — or the PAGE's own background when none does — and WHICH node it
+is, because a set of choices where the rest agree names its odd one out. Only
+the opacity is assumed, and it is one named constant (`TINT`). The first
+version of this predicate read the accent and required a painted backdrop, and
+would have silently skipped the docs sidebar, which has neither: no accent
+field, ink in `colour.text`, and every box behind it unpainted. The rule is
+written as "differs from what the others share" and never as "equals the
+green", so it survives a different accent, does not grab text that is green by
+design, and finds NO active entry on his home page, where every sidebar entry
+is the same grey — which is what his reference shows. Green at a tenth over
+`rgb(21, 25, 34)` is `rgb(19, 48, 31)` and over `rgb(16, 21, 26)` is
+`rgb(14, 44, 23)`: both the values the other lane reached from the opposite
+direction by re-reading the capture. Only a part carrying a `variant` is
+considered, deliberately — without that, a column of paragraphs with one
+coloured differently is indistinguishable from a set of choices, and missing
+an active entry is safe where inventing one is not. The colour goes in `bg`, the role the
+WRAPPER fills from, and that was measured rather than reasoned because the
+chrome lane moved a node's fill out there mid-flight: seeded four ways at
+60x30 and read as painted pixels, `accent` + `variant: solid` has the button
+paint 35x15 of a 35x18 box while `colour.bg` paints the whole of it — the very
+"a box's fill reaches its edge" fault, and `Cta.tsx` now stands aside
+(`background: saidRole(t, "bg") ? "transparent" : fill`). The variant is left
+alone deliberately, departing from the "and variant solid" the other lane
+specified: with `bg` set the button paints nothing either way, and forcing
+`solid` would flip the text of a node that never named a colour onto the
+accent's contrast. (`Cta.tsx`'s `ghost` branch fills with `accent + "22"`,
+which against an `rgb(...)` string is no colour at all, which is why the fault
+showed as nothing rather than as a faint tint.) Every condition that stops it painting
+something bare was red-proved separately: a pair is ambiguous and left alone,
+a set whose others disagree says nothing, an unlabelled mark is not a choice
+(two 20x20 `svg` marks in his own document met every geometric test), a part
+with no variant is not a control, and with neither a painted box nor a page
+colour behind it the answer would be invented rather than worked out.
+
+**The same box emitted twice.** Measured on his document: 24 pairs across
+nine pages where one box holds another at 88% or more of its area, repeating
+per page. Thirteen PIXEL IDENTICAL — the main content panel of almost every
+page, twice, exactly on top of itself. Nine differing by EXACTLY ONE PIXEL OF
+WIDTH, 256 against 255: the sidebar, on every page. Not one element read
+through two box models, which was the standing hypothesis — his raw capture
+holds six parent/child pairs with identical rects and they are two distinct
+DOM elements every time (`div` in `div`, `button` in `div`, `img` in `div`).
+The cause is one gap: `pageBlocks` dedupes properly, one box is one block
+within two pixels, and `offered` threw that away — `rest` was filtered against
+the blocks that SURVIVED the wrapper-opening loop and never against itself, so
+wherever neither twin survived, both were emitted. That also explains the
+off-by-one shape, because the tolerance that would have caught 256-against-255
+lives inside `pageBlocks` and `rest` applied none. Fixed in `offered` (reaches
+a NEW capture) and retrofitted by `twins.ts` in the sweep (reaches a board
+already written down).
+
+`twins.ts` is a separate file from the wrapper rule ON PURPOSE. A duplicate
+may be removed because an identical twin remains, which it TESTS — `keeps`,
+and the check that no keeper is itself on the removal list; where it cannot
+prove the twin survives it leaves both. An empty wrapper may not be removed at
+all. Keep the twin that SAYS or DRAWS something, else the outermost: "keep the
+first" throws away the button of a `div`-wrapping-a-button pair and leaves a
+bare box, which looks fine in a count and is wrong on his screen. The
+tolerance is two pixels and no wider, so a pair that DISAGREES on height keeps
+both — removing one would be choosing a height nothing here knows. And the
+dedupe reads the document AS SAVED, never the result of the other passes:
+fitting a wrapper changes a height, and his page_home column pair (528 against
+431, one containing the other) is left the same height by it — a dedupe
+reading that result deletes a node on the strength of a size THIS CODE chose.
+It did exactly that until the check caught it. A box may only be removed for
+something the capture said.
+
+**Why a wrapper lands below the content it owns.** `tests/wrapper-below.mjs`
+runs the real `MEASURE` against DOMs built to isolate it. A captured element's
+box is its own rect GROWN to swallow children that run out of it, and the
+growth has three limits — a child outside any one of them is not swallowed, so
+it arrives as a loose part and its parent arrives as an empty box wherever its
+own collapsed rect happened to be:
+
+1. **A positioned child is skipped outright** (`cs.position === "fixed" ||
+   "absolute"`), however plainly it is inside its parent in the markup.
+2. **`TOUCH = 24`** — a child more than 24px clear of the box is out of reach.
+   His banner's contents end at 105 and the band starts at 147: 42px.
+3. **Two levels only** (`for (const c of el.children) for (const k of [c,
+   ...c.children])`). Content overflowing from three levels down is invisible;
+   the same content one level nearer is swallowed, which is what pins it to
+   the depth and nothing else.
+
+And the thing that makes it fixable: the reading already knows. Every
+candidate carries the DOM path it was read from and a recreation keeps it
+(`node.from.selector` — all 126 nodes of his committed document have one), so
+a wrapper's true children are the nodes whose path CONTINUES its own: no
+geometry, no reach, no positioning to trip over. Nothing reads it.
 
 **A button in the Builder is pressable in the Builder.** His nine captured
 pages were reachable only from the tab bar, which makes a correct import feel

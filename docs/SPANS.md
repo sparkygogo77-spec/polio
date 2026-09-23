@@ -299,3 +299,184 @@ removing the carried-space preference gives `"left  right"`; dropping the hand
 exemption touches his box; dropping the surface guard removes the coloured
 band; dropping the page check joins two pages; and disabling each half of the
 store action in turn fails exactly the checks that half is responsible for.
+
+---
+
+## The sweep on open, and why it was needed
+
+All three fixes above landed, merged, deployed — and his board did not move by
+a byte. Same 685 nodes, same seventeen "A SolWorksproject", same 45 wrappers,
+same 293px. Green suite, clean merge, confirmed deploy, unchanged page: the
+exact shape of a fix that works on the path it tests and never reaches the
+user's data.
+
+**The answer, measured rather than reasoned.** `joinSentences` and
+`fitWrappers` have exactly two callers each — the copy-whole import and their
+palette commands. `onRehydrateStorage` calls neither. `MEASURE` runs only
+inside a browser against a live page. So: nothing ran when a stored board was
+opened. `tests/old-board.mjs` is the check that was missing — it seeds a board
+the old code wrote, presses **nothing**, and asserts what a load does and does
+not do.
+
+**Item one is unrecoverable from inside polio, and a re-import will not fix
+it.** The space was destroyed at reading time, before the document existed,
+and `Runs.tsx` emits adjacent spans — so the published page reads
+"A SolWorksproject" too, and re-reading anything polio published gives the
+damage back. Only a fresh capture of the original source site restores it.
+
+**Items two and three did reach his board, by command — and only the open
+page's worth was visible**, because nine pages of two presses is a chore
+rather than a fix. So the sweep runs on open: every page, one checkpoint,
+once. Note that the commands were never page-scoped; a three-page fixture
+swept all three. What IS page-scoped is the healing, which runs only for the
+page on screen — which is why the sweep runs BEFORE it, so every page is
+judged by the same captured heights instead of the open one being judged by
+settled ones.
+
+**And the publish question is answered: there is no second defect.** A space
+inside a run survives the board, the live preview and the published page —
+`>$ 116.59 <span style="color: rgb(239, 68, 68);">-1.94 %</span>` is what
+ships. Red-proved by trimming each run in `Runs.tsx`, which gives
+`"$ 116.59-1.94 %"` in all three places.
+
+## The paint a capture dropped
+
+The capture could not read `oklab()`, so the translucent tint that marks an
+active control was dropped and the node arrived as an outline where the page
+had a solid. The other lane fixed the reading; that reaches a new capture and
+nothing on a board already written down.
+
+**My first predicate was wrong, and it would have failed silently.** It looked
+for the tint's colour in the node's `accent` and required a painted box
+behind it. On the second measured case, the docs sidebar's "Burn Tokens"
+entry, both are absent: it carries no accent at all, only `colour.text`, and
+every box behind it has `colour: null`. It would have corrected one page and
+skipped the other without saying so.
+
+**The signal that does hold** is the one his sidebar makes obvious:
+
+> In a set of choices, the active one is the one whose ink differs from the
+> ink the rest agree on.
+
+Twelve of thirteen docs entries share one muted `oklch()`; the thirteenth is
+the accent. Five of six time buttons share one dim white; the sixth is the
+accent. Written as "differs from what the others share" and never as "equals
+the green", so it survives a different accent and does not grab text that is
+green by design. Comparison is by string, so the inactive `oklch()` needs no
+parsing.
+
+It also predicts the page it was not fitted to: on his home page every
+sidebar entry is grey, so it finds **no** active entry there — which is what
+his reference shows, and it is where an earlier guess (that "Cleanup" was
+highlighted) was wrong. One on docs, zero on home, agreeing with the real site
+on both.
+
+So three of the four things the browser used survive: the tint's colour (the
+node's own ink), what it was laid over (the innermost containing box that
+paints a surface, or **the page's own background** when none does), and which
+node it is. Only the opacity is gone: `TINT = 0.1`.
+
+    rgb(0, 255, 0) at a tenth over rgb(21, 25, 34) = rgb(19, 48, 31)   the time button
+    rgb(0, 255, 0) at a tenth over rgb(16, 21, 26) = rgb(14, 44, 23)   the docs entry
+
+Both are the values the other lane arrived at independently by re-reading the
+capture. Two routes, two numbers, no ids. Run over the committed
+`sink/site/document.json` the rule finds exactly one node, `n_ctaprimary_34`,
+at exactly that colour — with or without the page-background fallback, so the
+fallback adds no false positives on real data.
+
+**Narrowed to controls on purpose.** Only a part carrying a `variant` is
+considered, which both measured cases are. Without it, a column of same-sized
+paragraphs with one coloured differently is indistinguishable from a set of
+choices, and painting a box behind somebody's highlighted sentence is a change
+nobody asked for. Missing an active entry is safe; inventing one is not. If a
+`box`-shaped active entry ever turns up, that is the line to widen — against
+measured data, not in advance.
+
+**Where the colour goes, measured, because the answer changed underneath this
+work.** The chrome lane moved a node's fill out to the wrapper, so there are
+now two routes and they are not equivalent. Seeded four ways at 60×30 against
+a production build and read as painted pixels:
+
+| written as | what paints | size of a 35×18 box |
+|---|---|---|
+| `accent` + `variant: solid` | the `button` itself | 35×**15** |
+| `colour.bg` | the wrapper | 35×**18** |
+| both | the wrapper | 35×18 |
+| untouched | **nothing** | — |
+
+The first stops at the padding, which is the very fault the chrome lane fixed
+as "a box's fill reaches its edge"; `Cta.tsx` now stands aside for it
+(`background: saidRole(t, "bg") ? "transparent" : fill`). So the blend goes in
+`bg` — what the page actually had, a `background-color` on the element — and
+it fills the box.
+
+**The variant is deliberately left alone**, which departs from the "and
+variant solid" the other lane specified. With `bg` set the button paints
+nothing either way, so it makes no difference to either measured node; and
+forcing `solid` would flip the text of any node that never named a colour from
+the accent to the accent's contrast — light text on a dark tint, the wrong way
+round. Worth reconciling with the other lane, since a re-captured document and
+a swept one should agree on the field.
+
+(The old route is also why the fault read as nothing at all rather than as a
+faint tint: a `ghost` fills with `accent + "22"`, and an eight-digit hex
+suffix on an `rgb(...)` string is not a colour.)
+
+**Note on data.** None of these checks use `sink` as a stand-in for his board;
+every fixture is built at his measured numbers. `sink` is used once, for
+arithmetic: it is the only place holding a raw capture with the `oklab()`
+string still in it.
+
+---
+
+## The same box emitted twice
+
+His numbers: 24 pairs across nine pages where one box holds another at 88% or
+more of its area, repeating per page rather than scattering. Thirteen **pixel
+identical** — the main content panel of almost every page, twice, exactly on
+top of itself. Nine differing by **exactly one pixel of width**, 256 against
+255: the sidebar, on every page.
+
+**The standing hypothesis was two box models — one read including a border,
+one excluding — and the capture refutes it.** His raw capture holds six
+parent/child pairs with identical rects, and they are two distinct DOM
+elements every time: `div` in `div`, `button` in `div`, `img` in `div`. The
+page really does wrap a row in a box the same size. Nothing is measured twice.
+
+**The cause is one gap.** `pageBlocks` dedupes properly — one box is one
+block, within two pixels — and `offered` threw that work away:
+
+```ts
+const rest = candidates.filter((c) => !blocks.some((b) => same(b.box, c.box) || …));
+return [...blocks, ...rest];        // rest is never compared against itself
+```
+
+`rest` is filtered against the blocks that *survived* the wrapper-opening
+loop. Where neither twin survived, both are emitted. That predicts the
+off-by-one shape too, because the two-pixel tolerance that would have caught
+256-against-255 lives inside `pageBlocks` and `rest` applies none. Reproduced
+in pure data before anything was changed.
+
+**Two pieces, and they reach different things.** The fix in `offered` stops it
+happening and reaches a **new capture only**. `twins.ts` in the sweep is the
+**retrofit** that reaches a board already written down.
+
+### What keeps the dedupe safe
+
+- **Its own file**, not just its own thought. A duplicate may be removed
+  because a twin remains; an empty wrapper may not be removed at all.
+- **The twin is proven, not assumed** — `keeps` names it, and nothing is
+  removed whose keeper is itself on the removal list. Where it cannot prove
+  the twin survives, it leaves both.
+- **Keep the one that says or draws something, else the outermost.** "Keep
+  the first" throws away the button of a `div`-wrapping-a-button pair.
+- **Two pixels and no wider.** A pair that disagrees on height keeps both:
+  removing one would be choosing a height nothing here knows. His page_home
+  column pair is 255×431 against 256×528; page_tokens' is 255×440 against
+  256×440 and only that one is deduped.
+- **Read off the document as SAVED.** The taller of his column pair *contains*
+  the shorter, so the wrapper pass fits 528 → 431 — and at that moment they
+  are the same box. A dedupe reading that result deletes a node on the
+  strength of a height this code chose. **It did exactly that until the check
+  caught it.** A box may only be removed for something the capture said.

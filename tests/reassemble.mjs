@@ -9,7 +9,7 @@
  * Pure: no browser, no build, no server.
  *   node --experimental-strip-types tests/reassemble.mjs
  */
-import { sentences, saysWhat, slimSays, slimWrappers, WORDY } from "../src/features/studio/reassemble.ts";
+import { emptyWrappers, sentences, saysWhat, slimSays, slimWrappers, WORDY } from "../src/features/studio/reassemble.ts";
 import { plain } from "../src/features/studio/parts/spans.ts";
 
 const results = [];
@@ -239,9 +239,18 @@ const chain = [
   box("n_box_76", 0, 0, 1280, 49),      // the empty div inside it
 ];
 const slim = slimWrappers(chain);
-check("the empty box inside the banner is found and comes back as nothing",
-  slim.some((d) => d.id === "n_box_76" && d.h === 0), JSON.stringify(slim));
-check("and the BANNER is found too, though it is not empty — which a drop-empties rule would miss",
+/*
+ * NOTHING IS REMOVED ANY MORE, and the reason is measured rather than
+ * cautious. Both empty wrappers on his home page are real surfaces that slid
+ * BELOW the content they own: the banner at y 147 with its whole header above
+ * it at -11..105, and the Your Tokens panel at y 1247 with its heading at
+ * 1056. Deleting those takes them off the page for good. They are misplaced,
+ * not junk, and the correction is to put them back round what they own.
+ */
+check("the empty box inside the banner is reported, and NOT removed",
+  !slim.some((d) => d.id === "n_box_76") && emptyWrappers(chain).some((f) => f.id === "n_box_76"),
+  JSON.stringify(slim.map((d) => d.id)));
+check("and the BANNER is fitted, because it does hold something — which a drop-empties rule would miss",
   slim.some((d) => d.id === "n_box_75" && d.h === 49 && d.holds === 1), JSON.stringify(slim));
 check("…recovering exactly the 33px of dead space he measured under its only child",
   (slim.find((d) => d.id === "n_box_75")?.was ?? 0) - (slim.find((d) => d.id === "n_box_75")?.h ?? 0) === 33);
@@ -252,10 +261,10 @@ const empties = [
   box("n_box_80", 0, 300, 216, 16), box("n_box_110", 0, 400, 1280, 40),
   box("n_box_111", 0, 500, 96, 40),
 ];
-const gone = slimWrappers(empties);
-check("his five empty wrappers are all found", gone.length === 5 && gone.every((d) => d.h === 0), `${gone.length} found`);
-check("…totalling the 293px of height he measured",
-  gone.reduce((n, d) => n + d.was, 0) === 293, `${gone.reduce((n, d) => n + d.was, 0)}px`);
+check("empty wrappers are never fitted and never dropped, only reported",
+  slimWrappers(empties).length === 0 && emptyWrappers(empties).length === 5, `${slimWrappers(empties).length} changed`);
+check("…and the report names them, so he can see what was left alone",
+  /hold nothing and were left alone/.test(slimSays([], emptyWrappers(empties))), slimSays([], emptyWrappers(empties)));
 
 /* Only the bottom is trimmed: a box is never lifted off what sits above it. */
 const padded = [box("w", 0, 0, 100, 100, { pad: { top: 10, bottom: 8 } }), leaf("k", 10, 30, 60, 20)];
@@ -266,6 +275,17 @@ check("…and its top never moves, so nothing is lifted off what is above it",
   !("y" in (fit[0] ?? {})));
 
 /* And what it must not touch. */
+/*
+ * A WRAPPER IS A BOX. Every one of the 75 wordless parts in his captured
+ * document is a `box`; a part of any other kind holding nothing is something
+ * else. A `picture` with no picture is a stand-in by design, and removing it
+ * takes a slot off the page that somebody meant to fill.
+ */
+check("a picture part holding no picture is a stand-in, not an empty wrapper",
+  slimWrappers([{ ...box("standin", 900, 300, 112, 112), featureId: "picture" }]).length === 0);
+check("…and neither is any other kind of part that happens to hold nothing",
+  slimWrappers([{ ...box("tiles", 0, 0, 400, 200), featureId: "stat-tiles" }]).length === 0);
+
 check("a box that draws something of its own is not a wrapper",
   slimWrappers([box("pic", 0, 0, 100, 100, { picture: { id: "p" } })]).length === 0);
 check("a box carrying words is not a wrapper",
@@ -286,15 +306,12 @@ check("a wrapper that already fits is left alone",
  * because that only gives back height nothing occupies.
  */
 check("a wrapper his hand placed is not touched, even though it holds nothing",
-  slimWrappers([box("mine", 0, 0, 800, 90, { byHand: true })]).length === 0);
+  slimWrappers([box("mine", 0, 0, 800, 90, { byHand: true })]).length === 0
+  && emptyWrappers([box("mine", 0, 0, 800, 90, { byHand: true })]).length === 0);
 check("…nor fitted, even though it is taller than what it holds",
   slimWrappers([box("mine2", 0, 0, 800, 90, { byHand: true }), leaf("kid", 0, 0, 800, 20)]).length === 0);
 check("an empty wrapper carrying a background is left where it is",
   slimWrappers([box("band", 0, 0, 1763, 60, { colour: { surface: "rgb(17,17,17)" } })]).length === 0);
-check("…and one carrying an edge too",
-  slimWrappers([box("ruled", 0, 0, 1763, 60, { edge: { width: 1, style: "solid" } })]).length === 0);
-check("…but an edge switched off is no surface, so that one still goes",
-  slimWrappers([box("noedge", 0, 0, 1763, 60, { edge: { width: 0, style: "none" } })]).length === 1);
 check("and a wrapper that SHOWS something is still fitted, which is the banner",
   (() => {
     const d = slimWrappers([box("lit", 0, 0, 1763, 82, { colour: { surface: "rgb(17,17,17)" } }), leaf("only", 0, 0, 1280, 49)]);
@@ -309,12 +326,12 @@ check("and a wrapper that SHOWS something is still fitted, which is the banner",
  */
 check("a box on another page is not inside this one, however the coordinates line up",
   (() => {
-    const d = slimWrappers([box("here", 0, 0, 800, 90), { ...leaf("there", 0, 0, 800, 20), pageId: "p1" }]);
-    return d.length === 1 && d[0].id === "here" && d[0].h === 0;
+    const both = [box("here", 0, 0, 800, 90), { ...leaf("there", 0, 0, 800, 20), pageId: "p1" }];
+    return slimWrappers(both).length === 0 && emptyWrappers(both).some((f) => f.id === "here");
   })());
 
-check("and the line a person reads says what was removed and what was fitted",
-  /removed/.test(slimSays(slim)) && /fitted/.test(slimSays(slim)) && /px of empty box/.test(slimSays(slim)), slimSays(slim));
+check("and the line a person reads says what was fitted",
+  /fitted/.test(slimSays(slim)) && /px of empty box/.test(slimSays(slim)), slimSays(slim));
 check("with nothing oversized, it says that instead", /No box/.test(slimSays([])), slimSays([]));
 
 const bad = results.filter((r) => !r).length;
