@@ -110,9 +110,28 @@ hand-placed buttons byte-identical.
 tests/spans-hold.mjs`, no browser, no build — and holds both rules of the
 contract. Run red first by removing the merge and the newline cut: 7 red.
 
-**Next: the renderer**, then the emitter that stops fragmenting a sentence at
-capture. The inspector half — select a word, colour it — is its own commit
-behind them.
+**Landed: the renderer.** `parts/Runs.tsx` draws a run sequence as inline
+spans — no block, no wrapper, nothing that could introduce a break the
+browser would not have made, so what decides where a line breaks is the
+browser reading one continuous run of inline content, exactly as on the page
+it came from. A run that says nothing gets no element at all, which is what
+keeps a plain string setting byte for byte as before. A colour names one of
+the six roles or is his own literal, resolved off the THEME rather than a
+palette so a run naming "accent" follows the part it is inside and `parts/`
+stays self-contained. A run that points somewhere carries one marker on both
+surfaces: words on the board, pressable live. `PlainBox` and `Prose` read
+runs; `Prose`'s drop-cap, kinetic and highlight modes take a paragraph apart
+by character and by word, so they keep exactly the branch they had.
+
+`tests/runs-draw.mjs` holds his two cases at 17/17 and asks the browser how
+many line boxes the words occupy rather than counting markup. Run red by
+giving each run `display: block` — the fragmentation this replaces — it
+reports 6 line boxes where there should be 1, his symptom exactly, while the
+colour and face checks stay green. That is why the line-box count is the
+check and colour alone is not.
+
+**Next: the emitter** that stops fragmenting a sentence at capture. The
+inspector half — select a word, colour it — is its own commit behind it.
 
 **His hand-corrections are replaced, by his ruling.** He extended and moved
 these boxes working around this bug, and said plainly he wants the correct

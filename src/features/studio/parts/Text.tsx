@@ -8,14 +8,23 @@ import { Fill, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
 import { boxStyles, cardStyle, FAMILY, items, titled } from "./theme";
 import { num, opt, type PartProps } from "./types";
+import { Runs } from "./Runs";
+import { lines } from "./spans";
 
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
-export function Prose({ id, content, theme: t, mode }: PartProps) {
+export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartProps) {
   // Paragraphs break on lines, and only on lines. A comma inside prose is
   // punctuation, not a separator: "for the builders, believers, and bold
   // thinkers" was being drawn as three paragraphs, one clause each, which is
   // what the shared comma split does to every real sentence it is given.
   const typed = content.split("\n").map((x) => x.trim()).filter(Boolean);
+  /*
+   * The same paragraphs, as runs, when the node carries runs. Cut on lines
+   * by `lines()` — which never lets a run straddle a newline — so a
+   * paragraph's ink survives the split that used to lose it. Empty when the
+   * node's words are a plain string, and then everything below is untouched.
+   */
+  const runParas = spans?.length ? lines(spans).filter((l) => l.length > 0) : null;
   const paras = typed.length ? typed : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22), "", t.published), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18), "", t.published)];
   const quote = id === "pull-quote";
   const dropCap = id === "drop-cap";
@@ -58,7 +67,19 @@ export function Prose({ id, content, theme: t, mode }: PartProps) {
             <div style={{ fontFamily: t.headingFamily, fontWeight: 600, fontSize: t.fontPx * 1.15 }}>Heading three</div>
           </>
         ) : null}
-        {paras.map((p, i) => (
+        {/*
+          A captured sentence draws as its runs, and only then. The
+          paragraph modes below — a drop cap, the kinetic one, a highlight —
+          read a paragraph as a string and take it apart by character and by
+          word, so they keep exactly the branch they had. Nothing hand-typed
+          carries runs, so nothing hand-typed goes down this path.
+        */}
+        {runParas ? runParas.map((line, i) => (
+          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
+            <Runs spans={line} t={t} mode={mode} onNavigate={onNavigate} />
+          </p>
+        )) : null}
+        {runParas ? null : paras.map((p, i) => (
           <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
             {dropCap && i === 0 ? (
               <>

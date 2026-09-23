@@ -284,14 +284,29 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   if (e) {
     const width = typeof e.width === "number" && Number.isFinite(e.width) ? Math.max(0, e.width) : 1;
     const style = e.style ?? "solid";
-    const raw = (e.colour ?? "").trim();
-    const colour = raw && (ROLES as readonly string[]).includes(raw) && palette ? palette[raw as RoleId] : raw && parseColor(raw) ? raw : t.line;
-    s.border = style === "none" || width === 0 ? "none" : `${width}px ${style} ${colour}`;
+    s.border = style === "none" || width === 0 ? "none" : `${width}px ${style} ${inkOf(e.colour, palette, t.line)}`;
   }
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
   if (x?.transform) s.textTransform = x.transform;
   return s;
+}
+
+/**
+ * A colour somebody named, resolved the one way this app resolves them.
+ *
+ * A palette ROLE name follows the site and keeps a captured part inside the
+ * project it was recreated into; a literal is his own and does not move.
+ * Anything else is not a colour and the caller's fallback stands. Written
+ * once because an edge, a run of words and anything else that names a colour
+ * must agree about what a name means — two readings of "accent" is the bug
+ * this repository names most often, in miniature.
+ */
+export function inkOf(raw: string | null | undefined, palette: Palette | undefined, fallback: string): string {
+  const v = (raw ?? "").trim();
+  if (!v) return fallback;
+  if ((ROLES as readonly string[]).includes(v)) return palette ? palette[v as RoleId] : fallback;
+  return parseColor(v) ? v : fallback;
 }
 
 export const FAMILY: Record<string, string> = {
