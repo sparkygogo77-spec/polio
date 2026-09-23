@@ -21,7 +21,7 @@
 import type { Frag } from "./reassemble.ts";
 
 /** What a part remembers about the element it was read from. */
-export interface Read { from?: { selector?: string } | null }
+export interface Read { from?: { selector?: string; position?: string } | null }
 
 /** The DOM path a part was read from, or nothing for one that was drawn or placed. */
 export const pathOf = (f: Frag & Read): string => (f.from?.selector ?? "").trim();
@@ -43,6 +43,27 @@ export function owned(all: readonly (Frag & Read)[], w: Frag & Read): (Frag & Re
   const p = pathOf(w);
   if (!p) return [];
   return all.filter((f) => f.pageId === w.pageId && under(p, pathOf(f)));
+}
+
+/**
+ * What a wrapper owns that its box is meant to hold: everything it owns,
+ * less a part the capture records as OUT OF THE FLOW (position absolute or
+ * fixed, carried by the converter as `from.position`) and what that part
+ * holds in turn.
+ *
+ * His SOL WORKS badge is an absolutely positioned 112px image in a 49px box,
+ * overhanging it 27 above and 36 below and the header bar 11 above and 19
+ * below — his site, as the capture measured it. Read as a wrapper adrift, it
+ * grew that box 49 -> 112 and the header 82 -> 112, dragged the header's top
+ * up past the page's edge and laid its foot over the cards below. An element
+ * out of the flow sizes nothing that holds it, so nothing is grown to take it
+ * in. Across sink's nine pages the capture marks 34 parts so, and only the
+ * eight badges sit outside their parent's box.
+ */
+export function inFlow(all: readonly (Frag & Read)[], w: Frag & Read): (Frag & Read)[] {
+  const kids = owned(all, w);
+  const out = kids.filter((k) => k.from?.position === "absolute" || k.from?.position === "fixed").map(pathOf);
+  return kids.filter((k) => !out.some((o) => o === pathOf(k) || under(o, pathOf(k))));
 }
 
 /** The box that would hold everything a wrapper owns. */
@@ -71,7 +92,7 @@ export function holdOf(kids: readonly Frag[]): Hold | null {
  * which the wide test reads as drift and would strip.
  */
 export function escaping(all: readonly (Frag & Read)[], w: Frag & Read): (Frag & Read)[] {
-  return owned(all, w).filter((k) =>
+  return inFlow(all, w).filter((k) =>
     k.y < w.y || k.y + k.h > w.y + w.h || k.x < w.x || k.x + k.w > w.x + w.w);
 }
 
@@ -84,7 +105,7 @@ export function escaping(all: readonly (Frag & Read)[], w: Frag & Read): (Frag &
  * already holds what it owns.
  */
 export function grown(all: readonly (Frag & Read)[], w: Frag & Read): { x: number; y: number; w: number; h: number } | null {
-  const kids = owned(all, w);
+  const kids = inFlow(all, w);
   if (!kids.length) return null;
   const y = Math.min(w.y, ...kids.map((k) => k.y));
   const b = Math.max(w.y + w.h, ...kids.map((k) => k.y + k.h));

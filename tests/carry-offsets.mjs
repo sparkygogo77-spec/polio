@@ -38,7 +38,7 @@
  * the nearest part on the page whose path its own continues.
  *
  * The fixture is sink's home, Tokens and Cleanup pages (sparkygogo77-spec/sink
- * 571f067, site/document.json), with a blank page put first. Home and Tokens
+ * 98355ca, site/document.json), with a blank page put first. Home and Tokens
  * are the two his board showed broken; Cleanup is a guard. On his board it
  * read rail bottom 1354 against footer top 1354, as the capture has it — which
  * is also what EVERY page reads before it has been opened, since the healing
@@ -228,6 +228,32 @@ const aside = bySel("body > div > aside"), nav = bySel("body > div > aside > nav
 const buttons = ids.filter((id) => owner.get(id) === nav);
 check("the sidebar's buttons move with the sidebar", !!aside && !!nav && buttons.length === 8 && buttons.every((b) => moved(b) === moved(nav)) && moved(nav) === moved(aside),
   `aside ${moved(aside)}, nav ${moved(nav)}, buttons ${[...new Set(buttons.map(moved))].join("/")}`);
+
+/*
+ * THE LOGO THAT OVERHANGS ITS HEADER, ON PURPOSE. His SOL WORKS badge is a
+ * 112px image in a 49px box (header > div), 27 above it and 36 below, and
+ * outside the header bar itself by 11 above and 19 below: the capture records
+ * its wrapper as position: absolute with -19.5px insets. That is his site.
+ * The sweep's grow step read it as a wrapper adrift and grew header > div
+ * 49 -> 112 and the header 82 -> 112 to swallow it, and the grown header lay
+ * over the top 28px of the cards below. Every number here is the capture's.
+ */
+if (pg === "page_home") {
+  const cap = (s) => doc.nodes.find((n) => n.pageId === pg && n.from?.selector === s);
+  const header = cap("body > div > header"), hdiv = cap("body > div > header > div"), logo = cap("body > div > header > div > div:nth-of-type(2) > img") /* its wrapper is the same box, removed as its twin by the sweep */, main = cap("body > div > main");
+  check("the sweep leaves header > div at its captured height, the logo overhanging it", ref[hdiv.id]?.h === hdiv.h && ref[hdiv.id]?.y === hdiv.y,
+    `captured y${hdiv.y} h${hdiv.h}; after the sweep y${ref[hdiv.id]?.y} h${ref[hdiv.id]?.h}`);
+  check("…and the header bar at its captured height", ref[header.id]?.h === header.h && ref[header.id]?.y === header.y,
+    `captured y${header.y} h${header.h}; after the sweep y${ref[header.id]?.y} h${ref[header.id]?.h}`);
+  check("healed, the logo still hangs outside header > div, above and below, as captured",
+    after[logo.id].y < after[hdiv.id].y && after[logo.id].y + after[logo.id].h > after[hdiv.id].y + after[hdiv.id].h,
+    `logo ${after[logo.id].y}–${after[logo.id].y + after[logo.id].h}, header > div ${after[hdiv.id].y}–${after[hdiv.id].y + after[hdiv.id].h}`);
+  check("healed, the header bar keeps its captured top: it is not dragged up past the page's edge to hold the logo", after[header.id].y === header.y,
+    `captured top ${header.y}; healed top ${after[header.id].y}`);
+  const was = header.y + header.h - main.y, now = after[header.id].y + after[header.id].h - after[main.id].y;
+  check("healed, the header overlaps the main area by exactly the capture's own overlap, no more", now === was,
+    `header bottom ${after[header.id].y + after[header.id].h}, main top ${after[main.id].y}: ${now} (captured ${header.y + header.h} against ${main.y}: ${was})`);
+}
 
 /*
  * THE PRICE COUNTER, BY NAME. On his Tokens page the header's price group
