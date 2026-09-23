@@ -15,7 +15,7 @@ import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, ty
 import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
-import { saysWhat } from "./reassemble";
+import { saysWhat, slimSays } from "./reassemble";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
@@ -178,6 +178,18 @@ export const studio = defineFeature({
       run: (c) => {
         const done = useStudio.getState().joinSentences();
         c.publish({ key: "studio:join", title: done.length ? "Sentences put back together" : "Nothing was in pieces", body: saysWhat(done), level: "info", source: "studio", toast: { durationMs: 8000 } });
+      },
+    },
+    {
+      id: "studio.fitWrappers",
+      label: "Builder: fit captured boxes to what they hold",
+      group: "Builder",
+      icon: Frame,
+      keywords: ["empty", "wrapper", "box", "gap", "space", "banner", "collapse"],
+      when: onStudio,
+      run: (c) => {
+        const done = useStudio.getState().fitWrappers();
+        c.publish({ key: "studio:fit", title: done.length ? "Boxes fitted" : "Nothing to fit", body: slimSays(done), level: "info", source: "studio", toast: { durationMs: 8000 } });
       },
     },
     {

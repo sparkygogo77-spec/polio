@@ -61,7 +61,7 @@ import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
 import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
-import { sentences, type Frag, type Reassembly } from "./reassemble";
+import { sentences, slimWrappers, type Frag, type Reassembly, type Slimming } from "./reassemble";
 
 /**
  * What is in your hand. Four, not six.
@@ -762,6 +762,12 @@ interface StudioState extends Doc {
    * sentence, and that every one taken is named. See `reassemble.ts`.
    */
   joinSentences: () => Reassembly[];
+  /**
+   * Fit every captured wrapper to what it actually holds, and drop the ones
+   * holding nothing. See `slimWrappers`: the claim count and the geometry
+   * disagree in both directions on his page, so only the geometry is read.
+   */
+  fitWrappers: () => Slimming[];
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1583,6 +1589,20 @@ export const useStudio = create<StudioState>()(
                 const { byHand: _was, ...rest } = n;
                 return { ...rest, content: d.spans, x: d.x, y: d.y, w: d.w, h: d.h };
               }),
+          }));
+          return done;
+        },
+
+        fitWrappers: () => {
+          const done = slimWrappers(get().nodes as unknown as Frag[]);
+          if (!done.length) return [];
+          push();
+          const gone = new Set(done.filter((d) => d.h === 0).map((d) => d.id));
+          const fit = new Map(done.filter((d) => d.h > 0).map((d) => [d.id, d.h]));
+          set((s) => ({
+            nodes: s.nodes
+              .filter((n) => !gone.has(n.id))
+              .map((n) => { const h = fit.get(n.id); return h === undefined ? n : { ...n, h }; }),
           }));
           return done;
         },

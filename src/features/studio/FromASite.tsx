@@ -50,7 +50,7 @@ import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
-import { saysWhat } from "./reassemble";
+import { saysWhat, slimSays } from "./reassemble";
 
 type Source =
   /* A site read at its address. `repo` is set when the address stood in
@@ -394,6 +394,8 @@ export function FromASite({ space }: { space: Space }) {
      * only the reader would do nothing for the board he is looking at.
      */
     const joined = useStudio.getState().joinSentences();
+    /* And the boxes that hold nothing, or less than they are tall. */
+    const fitted = useStudio.getState().fitWrappers();
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
     /* Brought in from it: the site is bound to this repository, and the
        repository belongs to this site from now on. */
@@ -408,7 +410,7 @@ export function FromASite({ space }: { space: Space }) {
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       /* Said out loud, and by name where a part he had moved was replaced:
          that naming is how he checks the ruling was read right. */
-      const sentencesSaid = joined.length ? ` ${saysWhat(joined)}` : "";
+      const sentencesSaid = `${joined.length ? ` ${saysWhat(joined)}` : ""}${fitted.length ? ` ${slimSays(fitted)}` : ""}`;
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,

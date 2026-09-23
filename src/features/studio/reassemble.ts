@@ -38,10 +38,24 @@ export interface Frag {
   w: number;
   h: number;
   content: unknown;
-  colour?: { text?: string } | null;
+  /** Palette roles this part repaints for itself. `text` is the ink; the rest paint its surface. */
+  colour?: ({ text?: string } & Record<string, string | undefined>) | null;
   font?: { weight?: number; face?: string; size?: number } | null;
   link?: { kind: string; target: string } | null;
   byHand?: boolean;
+  /** Set when the node draws something of its own, so it is not a bare box. */
+  picture?: unknown;
+  cube?: unknown;
+  vector?: unknown;
+  mesh?: unknown;
+  code?: unknown;
+  outline?: unknown;
+  /** Set when the box shows a surface of its own, so removing it would be seen. */
+  texture?: unknown;
+  aura?: unknown;
+  edge?: { width?: number; style?: string } | null;
+  /** What the capture recorded for its inside edges. */
+  pad?: { top?: number; bottom?: number } | null;
 }
 
 export interface Reassembly {
@@ -64,6 +78,27 @@ export interface Reassembly {
 function sameLine(a: Frag, b: Frag): boolean {
   const over = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
   return over > Math.min(a.h, b.h) * 0.5;
+}
+
+/**
+ * How far apart two pieces of one sentence may sit.
+ *
+ * MEASURED ON HIS PRICE LINE, which did not merge. "$ 116.59" ends at 1143
+ * and "-1.94 %" starts at 1165: a gap of 22px against a limit that worked
+ * out at 14.4px, or 20.7px if the capture had recorded a type size. It
+ * missed by between one and eight pixels, which is no kind of rule at all —
+ * the limit was derived from a font size the capture often does not write,
+ * so it collapsed to its 2px floor and then multiplied that up.
+ *
+ * A box's own HEIGHT is the honest proxy: it is always recorded, and it
+ * scales with the type the way a word space does. Two pieces of one line sit
+ * closer together than that line is tall; a gap wider than the shorter box's
+ * height is a layout gap between separate things, not the space inside a
+ * sentence. His pair: the shorter box is 32 tall, three quarters of it is
+ * 24, and 22 fits. A button 400px away on the same line still does not.
+ */
+function joinLimit(a: Frag, b: Frag): number {
+  return Math.max(spaceAt(a) * 4, Math.min(a.h, b.h) * 0.75);
 }
 
 /**
@@ -140,7 +175,7 @@ export function sentences(frags: readonly Frag[], gapMax = 1.8): Reassembly[] {
           .sort((a, b) => a.x - b.x)[0];
         if (!next) break;
         const gap = next.x - (last.x + last.w);
-        if (gap > spaceAt(last) * gapMax * 4) break;
+        if (gap > joinLimit(last, next) * gapMax) break;
         run.push(next);
         taken.add(next.id);
       }
@@ -149,9 +184,26 @@ export function sentences(frags: readonly Frag[], gapMax = 1.8): Reassembly[] {
       const spans: Span[] = [];
       run.forEach((f, i) => {
         if (i > 0) {
+          /*
+           * THE SPACE THE PAGE HAD, PREFERRED OVER ANY GUESS AT IT.
+           *
+           * A run that carries its own edge whitespace is telling us what
+           * the page actually did, and it is believed: no second space is
+           * put beside one that is already there. The gap is only consulted
+           * when neither side carries anything, which is what a document
+           * captured before the reader kept its edges looks like.
+           *
+           * It is worth being plain that the gap CANNOT settle his header on
+           * its own. "A Sol" + "Works" takes no space and "Works" +
+           * "project" takes one, both boundaries are letter against letter,
+           * and both pairs of boxes butt — so no rule reading only the text
+           * or only the geometry can tell them apart. Only the page knew,
+           * and now the run carries it.
+           */
           const prev = run[i - 1]!;
+          const already = /\s$/.test(wordsOf(prev)) || /^\s/.test(wordsOf(f));
           const gap = f.x - (prev.x + prev.w);
-          if (gap >= spaceAt(prev)) spans.push({ text: " " });
+          if (!already && gap >= spaceAt(prev)) spans.push({ text: " " });
         }
         spans.push(runOf(f));
       });
@@ -180,4 +232,114 @@ export function saysWhat(done: readonly Reassembly[]): string {
   return `${done.length} sentence${done.length === 1 ? "" : "s"} put back together, out of ${parts} pieces.${
     hand.length ? ` ${hand.length} of them you had moved or stretched by hand and ${hand.length === 1 ? "it was" : "they were"} replaced: ${hand.join(", ")}.` : ""
   }`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wrappers that hold nothing, or less than they claim                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A captured wrapper fitted to what it actually holds.
+ *
+ * WHAT HE CLICKED: a banner 1763x82 that looked empty, its contents sitting
+ * outside it, adding height and gaps for nothing. Measured across the page
+ * he screenshotted: 45 wrappers among 114 parts, five of them holding
+ * nothing at all and worth 293px of height, three more claiming two children
+ * and geometrically holding one.
+ *
+ * AND THE BANNER IS WHY "DROP THE EMPTY ONES" IS THE WRONG RULE. `n_box_75`
+ * is 1763x82, claims one child and geometrically holds exactly one — the
+ * 1280x49 wrapper that claims three and holds nothing. So it is a chain:
+ * banner, into an empty div, into nothing. The banner is NOT empty, so a
+ * rule that only dropped empties would walk straight past the part he
+ * actually complained about. The footer is the same fault mirrored: 1763x73,
+ * claims one, holds five.
+ *
+ * The claim and the geometry disagree in BOTH directions, which says they
+ * come from different passes and one of them is wrong. So this trusts
+ * neither claim: it asks where the boxes actually are, which is the same
+ * thing every other rule in this file does.
+ *
+ * ONLY THE BOTTOM IS TRIMMED, and never the top. Shrinking a box can move
+ * nothing; lifting one would, and lifting is the direction that puts a part
+ * somewhere nobody placed it.
+ */
+export interface Slimming {
+  id: string;
+  /** The height it should have, given what it holds. Zero means it holds nothing. */
+  h: number;
+  was: number;
+  /** How many parts sit inside it, geometrically. */
+  holds: number;
+}
+
+/** Is this box wholly inside that one? On the same page: every page starts at 0,0 again. */
+function within(outer: Frag, inner: Frag): boolean {
+  return outer.id !== inner.id
+    && outer.pageId === inner.pageId
+    && inner.x >= outer.x - 1 && inner.y >= outer.y - 1
+    && inner.x + inner.w <= outer.x + outer.w + 1
+    && inner.y + inner.h <= outer.y + outer.h + 1;
+}
+
+/** A part with no words and nothing drawn: a box that is only a box. */
+function isWrapper(f: Frag): boolean {
+  const words = typeof f.content === "string"
+    ? f.content
+    : Array.isArray(f.content) ? f.content.map((r) => (r as Span).text ?? "").join("") : "";
+  return !words.trim() && !f.picture && !f.cube && !f.vector && !f.mesh && !f.code && !f.outline;
+}
+
+/**
+ * Does this box show a surface of its own?
+ *
+ * REMOVING A BOX THAT SHOWS SOMETHING TAKES A BAND OFF THE PAGE. An empty
+ * wrapper carrying a background, an edge, a texture or an aura is a coloured
+ * strip somebody meant to be there, and it looks empty only because its
+ * contents sit outside it. Fitting it is safe — that only takes away height
+ * nothing occupies. Removing it is not, so one that shows anything is left
+ * exactly where it is, and the report says how many were spared.
+ */
+function shows(f: Frag): boolean {
+  const painted = f.colour && Object.values(f.colour).some((v) => typeof v === "string" && v.trim());
+  const ruled = !!f.edge && (f.edge.width ?? 0) > 0 && f.edge.style !== "none";
+  return !!painted || ruled || !!f.texture || !!f.aura;
+}
+
+/**
+ * Wrappers that are taller than what they hold, with the height they should be.
+ *
+ * A wrapper holding nothing comes back with `h: 0` — it is a box with no
+ * reason to exist and the caller removes it. One holding something comes back
+ * fitted to its lowest child plus whatever padding the capture recorded for
+ * its foot, so a banner stops carrying 33px of nothing under its only child.
+ */
+export function slimWrappers(frags: readonly Frag[]): Slimming[] {
+  const out: Slimming[] = [];
+  for (const w of frags) {
+    // His hand put this box where it is, so its size is his answer, not ours.
+    if (w.byHand || !isWrapper(w)) continue;
+    const held = frags.filter((f) => within(w, f));
+    if (!held.length) {
+      if (w.h > 0 && !shows(w)) out.push({ id: w.id, h: 0, was: w.h, holds: 0 });
+      continue;
+    }
+    const foot = Math.max(0, Math.round(w.pad?.bottom ?? 0));
+    const want = Math.max(...held.map((f) => f.y + f.h)) - w.y + foot;
+    /* A pixel or two is measurement, not dead space. */
+    if (want > 0 && w.h - want > 2) out.push({ id: w.id, h: Math.round(want), was: w.h, holds: held.length });
+  }
+  return out;
+}
+
+/** One line a person can read about the boxes that were fitted or dropped. */
+export function slimSays(done: readonly Slimming[]): string {
+  if (!done.length) return "No box on this page was bigger than what it holds.";
+  const gone = done.filter((d) => d.h === 0);
+  const fitted = done.filter((d) => d.h > 0);
+  const saved = done.reduce((n, d) => n + (d.was - d.h), 0);
+  return [
+    gone.length ? `${gone.length} box${gone.length === 1 ? "" : "es"} holding nothing removed` : "",
+    fitted.length ? `${fitted.length} fitted to what ${fitted.length === 1 ? "it holds" : "they hold"}` : "",
+  ].filter(Boolean).join(", ") + `: ${saved}px of empty box.`;
 }
