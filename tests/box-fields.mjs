@@ -88,7 +88,9 @@ const hdr = await boxOf("hdr");
 check("the header's box is on the board, laid out as the row it said", !!hdr && hdr.display === "flex" && hdr.direction === "row" && hdr.align === "center" && hdr.justify === "space-between" && hdr.gap === "12px", JSON.stringify(hdr));
 check("padded as it said", hdr?.padding === "16px 24px", hdr?.padding ?? "-");
 check("and edged as it said", hdr?.border === `1px solid ${EDGE}`, hdr?.border ?? "-");
-const painted = await page.evaluate(() => { const el = document.querySelector('[data-node-id="hdr"] [data-part="box"]'); return el ? getComputedStyle(el).backgroundColor : null; });
+/* Read off the box, which paints the node's ground edge to edge; the part
+   inside it used to, inside the padding only (see `tests/box-fill.mjs`). */
+const painted = await page.evaluate(() => { const el = document.querySelector('[data-node-id="hdr"] [data-part-box]'); return el ? getComputedStyle(el).backgroundColor : null; });
 check("with the part's own colour inside the edge", painted === "rgb(10, 14, 26)", painted ?? "-");
 
 const strip = await boxOf("strip");

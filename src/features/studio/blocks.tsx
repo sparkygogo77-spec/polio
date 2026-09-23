@@ -133,6 +133,23 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   const boxed = hasBox(node);
+  /*
+   * A BOX IS FILLED TO ITS EDGE.
+   *
+   * The box round a part draws the node's padding and edge, and the node's
+   * own ground (`ownBackground`, else the floor under a textured page) was
+   * painted by the part INSIDE that padding. His wallet button came out as a
+   * green edge, 16px of the page, and a green block the size of its words;
+   * his stat cards and panels, whose box part holds nothing, came out as an
+   * outline round a fill 0px tall, because a part with no words has no
+   * height inside a box that takes its height from what it holds. So the
+   * box paints the ground, edge to edge, and the part inside it paints none
+   * of its own. A part that draws its own surface (a card) still does; a
+   * node with no box is untouched, its part filling it exactly as before.
+   * `tests/box-fill.mjs` holds it in pixels.
+   */
+  const ground = boxed ? (t.ownBackground ?? t.partGround) : undefined;
+  const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;
   const drawn = (
     <P
       id={node.featureId}
@@ -146,7 +163,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       w={size?.w ?? node.w}
       h={size?.h ?? node.h}
       link={node.link ?? null}
-      theme={t}
+      theme={inner}
       mode={mode}
       cube={node.cube}
       picture={picture}
@@ -196,7 +213,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...boxStyle(node, t, palette) }}>
+      <div data-part-box="" style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
         {drawn}
       </div>
     ) : drawn}
