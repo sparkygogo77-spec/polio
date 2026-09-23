@@ -2,7 +2,8 @@
 
 For whoever next works on how the Builder draws round a part (selection,
 badges, borders, fills) and on the select tool's gestures. Everything here is
-merged or on `claude/adoring-rubin-jjx7rr`, rebased on trunk `e78ca77`. Nothing here changes the published page, and none of it touches
+merged or on `claude/adoring-rubin-jjx7rr` (last fix `98c694f`, on trunk
+`2ee4225`). Nothing here changes the published page, and none of it touches
 the converter, capture, spans, runs, wrappers or the sweep.
 
 Each claim is marked **proved** (a check that went red first and asserts the
@@ -198,12 +199,46 @@ reads "Words at their largest…".
 | An unedged captured button has no border | No more `2px solid transparent`; a hand-placed button keeps its 2px | `tests/button-no-edge.mjs` |
 | "not shown" waits until he picks the part | Shown on the chip above the part. Screen-reader names and placeholders are not counted as copy. A picture that didn't arrive is named | `tests/badge-selected.mjs`. **Measured on his board**: 5 → 0 badges, correctly, because nothing there is missing. The "badge appears" case is proved only on the seeded board |
 
+## The marquee's release, and a timing dependency still open
+
+**Fixed (`98c694f`).** The marquee rectangle was only React state, and
+`onPointerUp` read it from the render its handler was made in. A release
+arriving before a render landed after the last move saw the rectangle one move
+late, or not at all. The hand's selection was silently **half-taken**: on
+trunk the check took `b2` alone instead of `b1, b2`. That is worse than
+nothing, because nobody notices until they act on it. The rectangle is now
+also kept in `marqueeRef`, written on every move, and the release reads it.
+
+**Proved** (`tests/marquee-burst.mjs`, own seeded board): events are
+dispatched in the page with a frame awaited after the press and every move but
+the last. The check asserts the rectangle was drawn, then sends the last move
+and the release in one task. On `2ee4225` it scored 6/8 (took `b2` alone and
+`p1` alone). After the fix it scores 8/8. The Playwright-mouse
+`marquee-cover.mjs` stays at 22/22.
+
+**Still open, the same shape: the drag state.** `drag` is React state too,
+set by `setDrag` in `onPointerDown`. `onPointerMove` and `onPointerUp` both
+begin with `if (!drag) return;`, reading it from the render their handlers
+were made in. So a press sent in the same task as the moves still sees no
+drag: the moves do nothing, and the release does nothing. Measured:
+dispatching press, moves and release in one synchronous burst on the
+container case selects nothing at all. A real hand's press is a separate
+event from its moves, so this is believed rare, not shown impossible. The fix
+is the one the rectangle got: mirror `drag` in a ref and read the ref in the
+move and release handlers. It was left alone deliberately, to keep that
+change to what was asked.
+
 ## Open, not mine to fix
 
 `tests/box-fields.mjs` fails 2/17 on trunk ("the cards wrap into lines
 inside the strip", "the strip grew to hold them"), in the live preview at
 tablet width. It fails identically on trunk with my changes set aside. It
 passed 17/17 on `0574738` and has failed since `0bdd262`.
+
+**Two lanes touch this suite from different sides.** The column lane found
+independently that its change shifts this same suite's strip by 5px. Neither
+lane has amended the suite. If `box-fields` changes again, check which
+lane's change moved it before reading the mark as either one's.
 
 ## Habits that caught real faults here
 
