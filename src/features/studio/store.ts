@@ -59,7 +59,9 @@ import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
 import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
+import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
+import { sentences, type Frag, type Reassembly } from "./reassemble";
 
 /**
  * What is in your hand. Four, not six.
@@ -127,7 +129,20 @@ export interface StudioNode {
   /** The element's own prompt — specific to this placement. */
   prompt: string;
   /** What it contains: tab labels, links, placeholder text. The board draws this. */
-  content: string;
+  /**
+   * The words this part draws — a plain string, or a sequence of runs.
+   *
+   * A run carries its own colour, weight, face and link, so a sentence with
+   * one green word in it is ONE part instead of three. His price line came
+   * in as four or five boxes that each wrapped on their own, and his header
+   * split "A Sol Works project" into three where "Works" is a different
+   * face; both are the same fault, and it is this field being flat.
+   *
+   * A plain string stays valid for ever: `spansOf` in `parts/spans.ts` turns
+   * either into runs and `plain` turns either into text, so nothing saved
+   * before this needs migrating and no part needs changing to keep working.
+   */
+  content: Words;
   x: number;
   y: number;
   w: number;
@@ -738,6 +753,15 @@ interface StudioState extends Doc {
    * undo nothing a person did, and one of them would put the overlap back.
    */
   settleToWords: (fitted: { id: string; h: number; y: number }[]) => void;
+  /**
+   * Put the sentences a capture broke into parts back together.
+   *
+   * Run when a document is taken in, and offered as a command for a board
+   * that is already open. Returns what it joined so the caller can say it
+   * out loud — his ruling is that a part he moved by hand IS merged inside a
+   * sentence, and that every one taken is named. See `reassemble.ts`.
+   */
+  joinSentences: () => Reassembly[];
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1539,6 +1563,30 @@ export const useStudio = create<StudioState>()(
           });
         },
 
+        joinSentences: () => {
+          const done = sentences(get().nodes as unknown as Frag[]);
+          if (!done.length) return [];
+          /* One checkpoint for the lot: it is one rebuild, and his to undo
+             if he does not like what it did to a line he had arranged. */
+          push();
+          const dropped = new Set(done.flatMap((d) => d.drop));
+          const by = new Map(done.map((d) => [d.keep, d]));
+          set((s) => ({
+            nodes: s.nodes
+              .filter((n) => !dropped.has(n.id))
+              .map((n) => {
+                const d = by.get(n.id);
+                if (!d) return n;
+                /* The box is the capture's composite now, not where he
+                   dragged a piece of it, so it stops being marked his and
+                   the healing may lay what follows under it again. */
+                const { byHand: _was, ...rest } = n;
+                return { ...rest, content: d.spans, x: d.x, y: d.y, w: d.w, h: d.h };
+              }),
+          }));
+          return done;
+        },
+
         raiseNode: (id, toTop) => {
           push();
           set((s) => {
@@ -1684,7 +1732,7 @@ export const useStudio = create<StudioState>()(
 
           if (role.kind === "list") {
             const rows = Math.max(2, Math.min(12, role.rows ?? 3));
-            const content = node.content.trim() || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`).join(", ");
+            const content = plain(node.content).trim() || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`).join(", ");
             set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "list", content } : n)) }));
             return { kind: "list", did: `a list of ${rows} rows` };
           }

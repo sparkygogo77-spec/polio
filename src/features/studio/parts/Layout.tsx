@@ -8,6 +8,8 @@ import { Btn, Fill, Placeholder } from "./primitives";
 import { rng, hash, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
 import { opt, set, type PartProps } from "./types";
+import { Runs } from "./Runs";
+import { lines } from "./spans";
 
 const cols = (options: Record<string, string>, def = 3) => Math.max(1, Math.min(6, Number(opt(options, "columns", String(def))) || def));
 
@@ -371,11 +373,27 @@ export function Note({ id, label, content, theme: t }: PartProps) {
  * into it, drawn plainly. With nothing typed it draws nothing at all: no
  * edge, no name, no count of what is inside.
  */
-export function PlainBox({ id, content, theme: t }: PartProps) {
+export function PlainBox({ id, content, spans, theme: t, mode, onNavigate }: PartProps) {
+  /*
+   * A sentence with a coloured or differently faced word in it is ONE box
+   * now. It was three — "A Sol", "Works", "project" — each wrapping on its
+   * own, which is what made the first of them too short. The runs go in as
+   * inline content so the browser decides the break, exactly as it does on
+   * the page this came from. Nothing typed by hand carries runs, so a box
+   * with a plain string draws precisely as it always has.
+   */
+  const runs = spans?.length ? lines(spans) : null;
   const words = content.trim();
   return (
     <Fill t={t} data-part={id} style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-      {words ? words : null}
+      {runs
+        ? runs.map((line, i) => (
+            <React.Fragment key={i}>
+              {i > 0 ? "\n" : null}
+              <Runs spans={line} t={t} mode={mode} onNavigate={onNavigate} />
+            </React.Fragment>
+          ))
+        : words ? words : null}
     </Fill>
   );
 }

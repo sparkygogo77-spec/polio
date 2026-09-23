@@ -27,6 +27,7 @@ import {
 } from "./imageRoute";
 import { planFor, type Plan, type Reading } from "./space";
 import { useStudio, type StudioNode } from "./store";
+import { plain } from "./parts/spans";
 
 /** What the plan understands about a node. A subset, so this stays free of the board. */
 export function planned(n: StudioNode) {
@@ -38,7 +39,7 @@ export function planned(n: StudioNode) {
     h: n.h,
     role: n.role,
     outline: n.outline,
-    content: n.content,
+    content: plain(n.content),
     pictureKind: n.vector ? "vector" : null,
     plan: n.plan ?? null,
     sketch: n.sketch ? { words: n.sketch.words } : null,

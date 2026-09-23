@@ -39,6 +39,7 @@ import { tidySteps } from "./space";
 import { oddness, stillAsks, withAnswer } from "./oddness";
 import type { Step } from "./imageRoute";
 import { play } from "@/core/audio/engine";
+import { plain } from "./parts/spans";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
 const bare = (dataUrl: string | null | undefined): string | null => {
@@ -914,7 +915,7 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
  */
 function loneDrawing(node: StudioNode | null, job: DrawJob): boolean {
   const s = useStudio.getState();
-  if (node && (node.featureId !== "custom-idea" || node.content.trim())) return false;
+  if (node && (node.featureId !== "custom-idea" || plain(node.content).trim())) return false;
   const box = node
     ? { x: node.x, y: node.y, w: node.w, h: node.h }
     : job.at && job.drawn

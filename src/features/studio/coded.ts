@@ -38,6 +38,7 @@ import { corners, isBox, kindOfSketch } from "./shapeKind.ts";
 import { CUBE_MIN, REST } from "./parts/cubeFaces.ts";
 import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
 import type { StudioNode } from "./store.ts";
+import { plain } from "./parts/spans";
 
 /** What a matcher is handed: the drawing, and everything already said about the part. */
 export interface CodedContext {
@@ -100,7 +101,7 @@ const CUBE: CodedPart = {
   },
   configure: ({ sketch, node, lone }) => {
     const words = (node?.prompt ?? "").trim() || sketch.words.trim();
-    const faces = facesFrom(node?.content ?? "", words);
+    const faces = facesFrom(plain(node?.content), words);
     const n = written({ faces });
     const asBox = !saysCube(`${sketch.words ?? ""} ${node?.prompt ?? ""}`) && kindOfSketch(sketch, node?.prompt ?? "", lone ?? true).why.includes("four corners");
     /*
@@ -169,7 +170,7 @@ const ACCORDION: CodedPart = {
     return framed ? 0.8 : 0;
   },
   configure: ({ sketch, node }) => {
-    const words = (node?.content ?? "").trim() || stripLeadIn((node?.prompt ?? "").trim() || sketch.words.trim(), OPENS);
+    const words = plain(node?.content).trim() || stripLeadIn((node?.prompt ?? "").trim() || sketch.words.trim(), OPENS);
     const rows = listItems(words).slice(0, 12);
     return {
       patch: {

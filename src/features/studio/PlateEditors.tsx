@@ -26,6 +26,7 @@ import { NODE_SHAPES, useStudio, type StudioNode } from "./store";
 import { spun } from "./menuGeometry";
 import { Caption, CONSOLE, Glued, PICKED, SCREEN, SectorButton, SHRINK, type Slab } from "./RingConsole";
 import { centreOf, wholeOf } from "./RingEditors";
+import { plain } from "./parts/spans";
 
 /* ------------------------------------------------------------------ */
 /* The pieces                                                          */
@@ -276,7 +277,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
       <>
         <PlateQuad {...common} title={feature?.content?.label ?? "Contents"}>
           {feature?.content ? (
-            <Textarea rows={5} value={node.content} aria-label={feature.content.label} className={`${field} flex-1 resize-none`} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
+            <Textarea rows={5} value={plain(node.content)} aria-label={feature.content.label} className={`${field} flex-1 resize-none`} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
           ) : (
             <p className="text-fine" style={{ color: SCREEN.dim }}>This part has nothing to list inside it.</p>
           )}
