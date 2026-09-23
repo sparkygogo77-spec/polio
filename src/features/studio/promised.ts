@@ -73,3 +73,24 @@ export function missingCopy(prompt: string, shown: string): string[] {
   const have = fold(shown);
   return named.filter((c) => !have.includes(fold(c)));
 }
+
+/**
+ * The same question, asked of words a page would draw.
+ *
+ * A capture writes what the browser's accessibility tree says about an
+ * element into its prompt: `named “Creator Hub”`, `placeholder “Ask or
+ * search…”`. Those are what a screen reader announces and what an empty
+ * field hints, not words drawn in the box; his header's Creator Hub button
+ * is an icon in a square with no words on it at all, and the board was
+ * calling "Creator Hub" missing from it. So the tree's names are taken out
+ * before the prompt is read. Used by the board; the published page's audit
+ * keeps `missingCopy` as it is.
+ */
+export function missingDrawnCopy(prompt: string, shown: string): string[] {
+  return missingCopy(prompt.replace(/\b(?:named|placeholder)\s+["“][^"”\n]*["”]/g, ""), shown);
+}
+
+/** Whether a prompt names any copy at all, once the tree's names are out: nothing named, nothing measured. */
+export function namesDrawnCopy(prompt: string): boolean {
+  return missingDrawnCopy(prompt, "").length > 0;
+}

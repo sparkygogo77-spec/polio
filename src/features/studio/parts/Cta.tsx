@@ -65,7 +65,16 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
    * draws it; a button drawing its own inside that is two edges 2px apart.
    * So his edge is the edge, and this draws none — which also gives back the
    * 4px that `2px solid transparent` was quietly taking out of a 143px box.
+   *
+   * AND A NODE THAT SPEAKS HAS NO EDGE IT DID NOT NAME. The transparent 2px
+   * is the library's: it keeps a solid and an outline button of one size
+   * the same size. A node that says what it wears (its colours, where its
+   * words sit, its padding) is not the library's button, so with no edge
+   * named it gets no border at all, rather than an invisible one eating 4px
+   * of its inside. A weight alone is not enough to count: `button-own.mjs`
+   * holds a weight-only node to the library's edge.
    */
+  const spoke = !!t.said || !!t.tight;
   const fill = outline ? "transparent" : ghost ? `${t.accent}22` : following ? t.surface : t.accent;
   const style: React.CSSProperties = {
     width: "100%", height: "100%", display: "flex", alignItems: "center", cursor: "pointer",
@@ -83,7 +92,7 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
     // captured control's words are grey because the page's were.
     color: saidRole(t, "text") ? t.text : outline || ghost || following ? t.accent : t.accentText,
     // His edge is drawn by the box round this part; nothing of our own inside it.
-    border: t.said?.edge ? "none" : outline || following ? `2px solid ${t.accent}` : "2px solid transparent",
+    border: t.said?.edge || spoke ? "none" : outline || following ? `2px solid ${t.accent}` : "2px solid transparent",
     borderRadius: radiusFor(opt(options, "shape", "rounded"), t) || Math.min(t.radius, 14),
     transition: "transform 120ms ease, background 160ms ease",
   };

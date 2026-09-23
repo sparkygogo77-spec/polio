@@ -17,7 +17,6 @@ import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usePicture, type Picture } from "./pictures";
 import { isSpans, plain, spansOf } from "./parts/spans";
-import { missingCopy, namedCopy } from "./promised";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -58,63 +57,6 @@ export interface BlockProps {
    * draw a page simply does not pass one.
    */
   surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
-}
-
-/**
- * The words his prompt named that the drawn part is not showing.
- *
- * It reads the part after it has drawn, not the node behind it, because the
- * node is not where they go missing: a part handed four lines and built for
- * three keeps all four and draws three. Twenty-two parts in this library
- * read only the first line they are given and discard the rest in silence.
- *
- * Nothing is measured unless the prompt names copy outright, so a prompt
- * about nothing but colour and weight costs nothing at all. What it reads is
- * the part's own `[data-part]` body rather than everything around it, so the
- * badge can never read its own words back and call them shown. And it reads
- * twice \u2014 once after the paint and once a beat later \u2014 because a part that
- * fills itself over a frame or two has nothing on it yet on the first look.
- */
-function Promised({ prompt, watch }: { prompt: string; watch: string }) {
-  const probe = React.useRef<HTMLSpanElement>(null);
-  const [missing, setMissing] = React.useState<string[]>([]);
-  const wanted = React.useMemo(() => namedCopy(prompt), [prompt]);
-
-  React.useEffect(() => {
-    if (!wanted.length) { setMissing((was) => (was.length ? [] : was)); return; }
-    let live = true;
-    const read = () => {
-      /* Every part but the drawn icon marks its own body; that one draws
-         paths and no words, so the box around it is the honest fallback. */
-      const near = probe.current?.parentElement ?? null;
-      const body = (near?.querySelector("[data-part]") as HTMLElement | null) ?? near;
-      if (!live || !body) return;
-      const next = missingCopy(prompt, body.innerText ?? "");
-      setMissing((was) => (was.length === next.length && was.every((w, i) => w === next[i]) ? was : next));
-    };
-    const frame = requestAnimationFrame(read);
-    const later = window.setTimeout(read, 450);
-    return () => { live = false; cancelAnimationFrame(frame); window.clearTimeout(later); };
-  }, [prompt, watch, wanted.length]);
-
-  return (
-    <>
-      <span ref={probe} hidden aria-hidden data-promised={wanted.length} />
-      {missing.length ? (
-        <span
-          data-asked-for={missing.length}
-          title={`The prompt asks for ${missing.join(", ")}, and this part is not showing ${missing.length === 1 ? "it" : "them"}.`}
-          style={{
-            position: "absolute", right: 6, bottom: 6, zIndex: 3, pointerEvents: "none",
-            padding: "1px 6px", borderRadius: 999, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
-            background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)",
-          }}
-        >
-          {missing.length} not shown
-        </span>
-      ) : null}
-    </>
-  );
 }
 
 export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
@@ -190,28 +132,24 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   }
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
-  /*
-   * What the prompt names and the page does not show.
-   *
-   * THIS USED TO READ THE NODE, AND THAT WAS THE WHOLE BUG.
-   *
-   * It compared the prompt against the node's label, content, data and
-   * options, which is a different question from the one he was asking. A
-   * part that is handed four lines and has room for three keeps all four on
-   * the node and draws three, so the node answers "it is all here" and the
-   * badge stayed quiet while a word of his sat on the board unseen. There
-   * are twenty-two parts that read only the first line they are given and
-   * discard the rest without a word.
-   *
-   * It now reads what the part actually drew, which is what the published
-   * page's audit has always done — the same question, asked in the place
-   * where he is working rather than after it has gone out. Measuring costs
-   * a layout read, so nothing is measured at all unless the prompt names
-   * copy outright: a prompt about nothing but colour and weight never
-   * touches it.
-   */
-  const watch = [node.prompt ?? "", node.content ?? "", node.data ?? "", JSON.stringify(node.options ?? {}), size?.w ?? node.w, size?.h ?? node.h].join("|");
   const boxed = hasBox(node);
+  /*
+   * A BOX IS FILLED TO ITS EDGE.
+   *
+   * The box round a part draws the node's padding and edge, and the node's
+   * own ground (`ownBackground`, else the floor under a textured page) was
+   * painted by the part INSIDE that padding. His wallet button came out as a
+   * green edge, 16px of the page, and a green block the size of its words;
+   * his stat cards and panels, whose box part holds nothing, came out as an
+   * outline round a fill 0px tall, because a part with no words has no
+   * height inside a box that takes its height from what it holds. So the
+   * box paints the ground, edge to edge, and the part inside it paints none
+   * of its own. A part that draws its own surface (a card) still does; a
+   * node with no box is untouched, its part filling it exactly as before.
+   * `tests/box-fill.mjs` holds it in pixels.
+   */
+  const ground = boxed ? (t.ownBackground ?? t.partGround) : undefined;
+  const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;
   const drawn = (
     <P
       id={node.featureId}
@@ -225,7 +163,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       w={size?.w ?? node.w}
       h={size?.h ?? node.h}
       link={node.link ?? null}
-      theme={t}
+      theme={inner}
       mode={mode}
       cube={node.cube}
       picture={picture}
@@ -247,15 +185,6 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       on screen is would be to take the picture off and watch. Never on the
       live site: a visitor is not building anything.
     */}
-    {/*
-      Copy the prompt asked for and the part is not carrying, said where he
-      is building, before it goes out. His hero's prompt named an eyebrow, a
-      pill and a meta row; the part published its plain text and none of
-      those, and the first anybody knew was the live site. Only what a
-      prompt names outright — quoted, or in capitals — counts, so a prompt
-      about nothing but colour and weight is never accused of anything.
-    */}
-    {mode === "board" ? <Promised prompt={node.prompt ?? ""} watch={watch} /> : null}
     {mode === "board" && node.picture && hasBody(node.code) ? (
       <span
         data-shows="picture"
@@ -284,7 +213,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...boxStyle(node, t, palette) }}>
+      <div data-part-box="" style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
         {drawn}
       </div>
     ) : drawn}
