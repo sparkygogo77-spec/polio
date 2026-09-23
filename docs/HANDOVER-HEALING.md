@@ -43,11 +43,17 @@ into an empty site that had been opened first (as Site 3 on his Builder has
 been). The page is then opened and left to heal; positions are read from the
 saved document.
 
-The harness was a scratch script, not committed. Its whole shape is
-`tests/bring-sweeps.mjs` (the stub, the Keys step, the door) with sink's tree
-served instead of a fixture: `site/document.json` plus `assets/pictures/*`
-from the sink repository, and the page switched by writing `activePageId` and
-reloading. Rebuild it from that file; it is about sixty lines.
+**`scripts/bring-measure.mjs`** does all of it and prints every table in
+section 2. Against a production build, with a checkout of
+sparkygogo77-spec/sink:
+
+    npm run build && npx next start -p 3013
+    node scripts/bring-measure.mjs http://127.0.0.1:3013 <path to sink> [out.json]
+
+Re-run on the rebased branch (trunk `1d18b0e` plus this lane's three
+commits), it reproduced every figure below exactly. The ids it reads are
+sink's; if sink's document is regenerated it names any it cannot find
+rather than guessing.
 
 **Only the tokens page is solid.** On home the healing ran once while the
 import landed (home is the page on screen), so its figures are indicative.
