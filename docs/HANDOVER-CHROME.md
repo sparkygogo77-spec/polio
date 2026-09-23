@@ -2,8 +2,7 @@
 
 For whoever next works on how the Builder draws round a part (selection,
 badges, borders, fills) and on the select tool's gestures. Everything here is
-merged or on `claude/adoring-rubin-jjx7rr` at `13c05fb`, rebased on trunk
-`e78ca77`. Nothing here changes the published page, and none of it touches
+merged or on `claude/adoring-rubin-jjx7rr`, rebased on trunk `e78ca77`. Nothing here changes the published page, and none of it touches
 the converter, capture, spans, runs, wrappers or the sweep.
 
 Each claim is marked **proved** (a check that went red first and asserts the
@@ -111,9 +110,24 @@ asserting the pick, the frame, the handle and a changed frame size first):
   which a press on bare page selects, is dropped.
 - A plain click on bare page still selects the background, as before.
 - **Starting a marquee on a covered page.** A press on a part that wholly
-  contains a smaller part on its page (`ownsOthers`) starts a marquee instead
-  of moving it. Released without a drag, that part is picked, with its group.
-  A press on any other part grabs it as before.
+  contains a smaller part on its page (`ownsOthers`) **and is not a control**
+  starts a marquee instead of moving it. Released without a drag, that part
+  is picked, with its group. A press on any other part grabs it as before.
+- **A control is always grabbed, whatever it holds.** This corrects the
+  first version, which was wrong on his board. On `page_home` all eight
+  sidebar buttons hold their icon (`n_ctaprimary_59` holds `n_drawnicon_60`,
+  and so on), and the thirteen on `page_docs` hold nothing. Under the holding
+  rule alone, none of his home sidebar could be dragged, while the same
+  control on the docs page could. `control.ts` has `isControl(node)`, the
+  one answer to "control or scenery". A part is a control if any of these
+  holds:
+  - it's `cta-primary`, `quick-action` or `follow`;
+  - it carries a `link`;
+  - its `data` starts with the captured role "button" or "link".
+
+  Anything that needs that distinction should ask `isControl` rather than
+  grow its own, for example "keep the control over the container that merely
+  repeats it" when duplicates are reduced.
 - A second quick press on a container falls through to the old double-press
   path, so a linked container still goes where it points.
 
@@ -125,7 +139,7 @@ container on purpose.
 - The code accepts either key on every platform. On a Mac, Ctrl-click can
   also raise the context menu, so ⌘ is the one to tell him.
 
-**Proved** (`tests/marquee-cover.mjs`, own seeded board, 14/14; the press
+**Proved** (`tests/marquee-cover.mjs`, own seeded board, 22/22; the press
 point's owner is checked with `elementFromPoint` and the marquee rectangle
 `[data-marquee]` is looked for while the button is still down):
 - Across a panel, the marquee takes exactly the two parts it fully covers,
@@ -134,12 +148,18 @@ point's owner is checked with `elementFromPoint` and the marquee rectangle
   background.
 - A plain press picks the panel. A leaf drags 60px. Ctrl+drag moves the
   panel.
+- His case: a `cta-primary` holding a drawn icon, and a captured box the
+  browser called a button holding one, both drag about 50px and draw no
+  marquee. Holding is checked against the stored boxes, because a drawn icon
+  with no drawing renders taller than its box. The drag is diagonal, so a
+  marquee under the old rule would have height to be seen. On `e78ca77` both
+  cases went red (a marquee drawn, 0px moved) before `control.ts`.
 
 **Believed, with a caution.**
-- "Holds others" is judged by shape. So a captured button whose icon was
-  captured as a separate part inside it counts as a container: dragging it
-  draws a marquee. His sidebar buttons may be built that way. I haven't
-  checked that on his board.
+- "Holds others" is judged by shape. The coordinator measured that his
+  home sidebar buttons do hold their icons, which is why controls are now
+  exempt (above). A container that is not a control but ought to be dragged
+  would still draw a marquee. Ctrl/⌘ is the way through for that.
 - Trunk now has `owns.ts` (the other lane's), which answers "who owns what"
   from the recorded DOM path instead of shape. It's a better source for
   captured boards. If someone unifies the two, `ownsOthers` in `Canvas.tsx`

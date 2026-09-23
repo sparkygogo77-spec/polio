@@ -7,7 +7,10 @@
  * every point is covered by some part — the banner, the panels, the page
  * wrapper — so a marquee could never start: every press grabbed a part and
  * dragged it. So a press on a part that OWNS other parts (wholly contains
- * them) starts a marquee; a press on a leaf grabs the leaf; the held
+ * them) starts a marquee, unless that part is a CONTROL — a button, anything
+ * with a link or a button or link role — which is always grabbed, because
+ * all eight sidebar buttons on his home page hold their icon; a press on a
+ * leaf grabs the leaf; the held
  * modifier (Ctrl, or ⌘ on a Mac) moves the container on purpose; and a plain
  * press on the container with no drag still picks it.
  *
@@ -52,6 +55,15 @@ const doc = JSON.stringify({ state: {
     node("c", "value-prop", "C", 470, 160, 200, 60),
     /* A leaf on its own, for the grab. */
     node("d", "value-prop", "D", 1000, 160, 160, 60),
+    /* HIS CASE. A sidebar button whose icon was captured as a part inside it
+       (n_ctaprimary_59 holding n_drawnicon_60, and all eight on his home
+       page). It owns a part, and it is a control, so it is grabbed. A button
+       with nothing inside would pass under either rule and prove nothing. */
+    node("btn", "cta-primary", "Creator Hub", 100, 800, 223, 44, { data: "button, named \u201cCreator Hub\u201d", link: { kind: "page", target: "p0" } }),
+    node("btnIcon", "drawn-icon", "", 116, 812, 20, 20, { role: "icon" }),
+    /* A captured box the browser called a button, with a part inside it: a control too. */
+    node("boxBtn", "box", "", 400, 800, 32, 32, { data: "button, named \u201cDocs\u201d" }),
+    node("boxIcon", "drawn-icon", "", 408, 808, 16, 16, { role: "icon" }),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "MARQUEE", gimmick: "", master: "" },
   frameWidth: 1440, activePageId: "p0", trail: [],
@@ -131,6 +143,34 @@ const k = (await rectOf("panel")).width / 800;
 await drag(dAt, [dAt[0] + 60 * k, dAt[1]]);
 const dAfter = await rectOf("d");
 check("a press-drag on a leaf moves the leaf", Math.abs((dAfter.x - dRect.x) / k - 60) < 12, `${((dAfter.x - dRect.x) / k).toFixed(1)} board px`);
+
+/* 4b. A control that holds a part is still grabbed: his sidebar button, and a captured box the browser called a button. */
+for (const [id, w, kid] of [["btn", 223, "btnIcon"], ["boxBtn", 32, "boxIcon"]]) {
+  // Into view first, and every rect read after the scroll, never before it.
+  // Centred: at the edge of the pane the Builder's own chrome covers the board.
+  await page.evaluate((id) => document.querySelector(`[data-node-id="${id}"]`).scrollIntoView({ block: "center" }), id);
+  await page.waitForTimeout(300);
+  const r0 = await rectOf(id);
+  const kk = r0.width / w;
+  // Clear of the icon inside it, so the press is on the control itself.
+  const at2 = [r0.x + r0.width - 4 * kk, r0.y + r0.height - 3 * kk];
+  check(`${id}: the press point is over the control, not its icon`, (await ownerAt(...at2)) === id, await ownerAt(...at2));
+  /* Holding is decided from the parts' stored boxes, which is what the rule
+     reads: a drawn icon with no drawing in it renders taller than its box,
+     so its drawn rect is not the question. */
+  const boxes = await page.evaluate(([a, b]) => {
+    const all = JSON.parse(localStorage.getItem("builder.studio") ?? "{}").state?.nodes ?? [];
+    return [a, b].map((x) => { const n = all.find((m) => m.id === x); return n ? [n.x, n.y, n.x + n.w, n.y + n.h] : null; });
+  }, [id, kid]);
+  const [A, B] = boxes;
+  const ownsKid = !!A && !!B && B[0] >= A[0] && B[1] >= A[1] && B[2] <= A[2] && B[3] <= A[3];
+  check(`${id}: it really does hold a part (else this proves nothing)`, ownsKid, JSON.stringify(boxes));
+  // Diagonal, so a marquee under the old rule would have height to be seen by.
+  const marquee = await drag(at2, [at2[0] + 50 * kk, at2[1] + 20 * kk]);
+  const r1 = await rectOf(id);
+  check(`${id}: a press-drag on it draws no marquee`, marquee === null, JSON.stringify(marquee));
+  check(`${id}: …and moves it`, Math.abs((r1.x - r0.x) / kk - 50) < 12, `${((r1.x - r0.x) / kk).toFixed(1)} board px`);
+}
 
 /* 5. With the modifier held, the panel moves on purpose. */
 at = await map();

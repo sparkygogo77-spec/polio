@@ -49,6 +49,7 @@ import { openRadial, pageSpot } from "./RadialMenu";
 import { useSettleToWords } from "./textFit";
 import { missingDrawnCopy, namesDrawnCopy } from "./promised";
 import { plain } from "./parts/spans";
+import { isControl } from "./control";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox, scaleHeld, type Box as HeldBox, type Held } from "./groupScale";
 
@@ -974,6 +975,10 @@ export function Canvas() {
          * could never start: every press grabbed a part and dragged it,
          * whole banners across the page. So a press on a part that owns
          * others starts a marquee, and a press on a leaf grabs the leaf.
+         * A CONTROL IS ALWAYS GRABBED, whatever it holds (`control.ts`): all
+         * eight sidebar buttons on his home page hold their icon, and under
+         * the holding rule alone none of them could be dragged, while the
+         * same buttons on his docs page, holding nothing, could.
          * Released without a drag, the part is picked as any part is (see
          * the marquee's release). The held modifier — Ctrl, or ⌘ on a Mac —
          * moves it on purpose. A second press in quick succession falls
@@ -982,7 +987,7 @@ export function Canvas() {
          */
         const prior = pressed.current;
         const twice = !!prior && prior.id === id && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
-        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && ownsOthers(store.nodes, node)) {
+        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && ownsOthers(store.nodes, node)) {
           pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
           capture();
           setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id });
