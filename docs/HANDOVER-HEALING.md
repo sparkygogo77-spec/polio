@@ -162,3 +162,51 @@ wrapper-heals and grew-moves suites are where their red checks would start.
   the wrong fix because the fixture's nav was itself shrunk, so rail and nav
   never became twins. His nav's entries fill it to its foot; the fixture had
   to as well. Run every check red under the wrong fix, not only the old code.
+
+---
+
+## 6. Separate defects, logged and NOT fixed with the carry
+
+Found while the carry was built. Each is its own change; none of them rides
+along with the healing work.
+
+1. **A picture drawn taller than the capture recorded.** On sink's pages the
+   "Solana" picture draws **220 tall against a captured 24** (`n_picture_90`
+   on home, `n_picture_240` on Tokens, one per section page), and the SOL
+   WORKS logo **156 against 112** (`n_picture_87`, `n_picture_237`). The
+   board draws the picture wrong; the capture is right. The healing no longer
+   treats it as growth (only words grow), so it moves nothing — but it still
+   draws at that size.
+
+2. **Eight buttons paint their descendants' words, and the descendants paint
+   them again.** Each section page's wallet button carries its own content set
+   to the joined words of what it holds — on Tokens `n_ctaprimary_247` reads
+   "4HXH...TXxd 7s ago" — while it also owns the two prose parts that draw the
+   same words over it (`n_prose_250` "4HXH...TXxd" at 1261,25 and
+   `n_prose_251` "7s ago" at 1261,41). Two layers of the same text in two
+   colours: the white is the button's own label, which is in none of his
+   design. One per page, eight in all: Creator Hub `n_ctaprimary_97`, Cleanup
+   `n_ctaprimary_176`, Tokens `n_ctaprimary_247`, NFTs `n_ctaprimary_323`,
+   cNFTs `n_ctaprimary_399`, Domains `n_ctaprimary_470`, plus LP and Unknown.
+   Documentation has none. This is the duplicated-button-words defect, and it
+   is not harmless repetition. **Produced at capture time, not by polio:** the
+   joined words are already in sink's own `site/document.json` (traced by the
+   lane that took it) — the converter's side of the import.
+
+3. **"[object Object]" as content, 18 parts, two on each of the nine pages.**
+   On the footer line it renders as "A SolWorks project". It is **not in
+   sink's document** (0 parts carry it), so polio produces it after import.
+   BELIEVED, not traced: the sweep joins exactly 18 sentences across the nine
+   pages, two per page — the header's and the footer's "A Sol|Works|project" —
+   and the joined content is what reads as "[object Object]".
+   **So 2 and 3 live on opposite sides of the import:** the buttons' doubled
+   words come in with sink's document; the "[object Object]" does not, and is
+   made after it lands. Look for them in different places.
+
+4. **The grow step's own overlap.** The sweep grows the header to hold its
+   logo, from 0–82 to −11–101 (−11–121 once the price line reflows), and
+   the first sidebar button starts at 89 (109 after the healing). The header
+   reaches **12px** past that button's top. The capture has the header ending
+   at 82, clear of the button: the overlap is manufactured by the grow step,
+   not the page's own, and the carry keeps it rather than prising the pair
+   apart.
