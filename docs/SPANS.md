@@ -480,3 +480,178 @@ happening and reaches a **new capture only**. `twins.ts` in the sweep is the
   are the same box. A dedupe reading that result deletes a node on the
   strength of a height this code chose. **It did exactly that until the check
   caught it.** A box may only be removed for something the capture said.
+
+---
+
+## Measurement: what recorded parentage would move
+
+**A measurement, not a change. No repositioning is built.** `owns.ts` answers
+the question and moves nothing; `scripts/wrappers-report.mjs` prints the
+numbers for any document.
+
+**I do not have his board.** Everything below is the committed
+capture-derived document (126 nodes, one page) — the same site and the same
+converter, so the *mechanism* transfers, but the counts do not. Run the script
+against his document for his numbers.
+
+### The naive rule is wrong, and the measurement is what says so
+
+"Put the wrapper where the parts it owns are" — replace its box with theirs:
+
+| | wrappers |
+|---|---|
+| flagged | **31** of 126 |
+| would move **down** | 27 (376px total) |
+| would move **up** | 2 (38px) |
+| would **shrink** | 29 (1879px) |
+
+Twenty-seven moving *down* is the tell. That rule strips every wrapper's
+**padding**: a box with 25px of it reads as 25px adrift and 50px too tall.
+Twenty-nine of the thirty-one are padding, not drift.
+
+### Grow-only, and the direction is the point
+
+Keep the wrapper's own box, take in what escapes it, never shrink:
+
+| | wrappers |
+|---|---|
+| flagged | **2** of 126 |
+| direction | up and taller only — 38px lift, 93px growth |
+| which ones | `n_box_83`, `n_box_84` — the header wrappers, each owning 32–33 parts with 2 escaping |
+
+Fifteen times more selective, and it lands exactly on the banner fault.
+
+### The healing does not undo it — it is currently causing it
+
+I told the coordinator the opposite, and that was wrong. Measured
+(`tests/wrapper-heals.mjs`), on his shape — banner 1763×82 at y 0, logo
+overflowing to y −11:
+
+- **Left alone:** the healing sees the banner overlapping the logo it owns
+  and clears it the only way it can, downward. `y 0 → 101`. Every part below
+  moves down 101px too. **An 11px overhang becomes 101px of dead space.**
+- **Put right first:** the healing moves nothing at all, and the page is
+  **101px shorter**.
+
+So repositioning doesn't need the healing to pull anything back — it removes
+the reason the healing pushed. And the two cannot fight: the correction only
+lifts or grows, the healing only pushes down to clear an overlap, and the
+correction's purpose is to stop the overlap existing.
+
+This is very likely how his banner came to sit at y 147 with its header above
+it: not the capture alone, but the capture's overlap plus a healing with one
+direction.
+
+### The sidebar does not fall out of this rule
+
+Both column boxes have **zero** escaping children, and grow-only leaves both
+untouched. The document holds an outer rail (256×1282, y 73→1355, reaching
+the footer) and an inner nav (255×440, tracking its 24 entries) — a real
+outer/inner pair, not duplicates, which is why `twins` correctly leaves them.
+On his board *both* are short, which this rule cannot fix, because the rail's
+own content ends where it ends. It needs its own investigation.
+
+---
+
+## The failed prediction: words twice is not boxes twice
+
+The dedupe took his 24 near-duplicate pairs to 2, pixel-identical 13 → 0,
+off-by-one 9 → 0, 48 parts gone, and `n_box_75` and `n_box_46` both present.
+**And the duplicated button label is untouched**, which I had predicted it
+would subsume.
+
+**Of the two possibilities, it is the second: a different cause, not a gap in
+the retrofit.** Two parts inside one cannot both be box-identical to it, so
+`twins` can never fire on them — and neither can the fix in `offered`, which
+is also box-only. **A new capture gets this wrong too.**
+
+Reproduced (`tests/said-twice.mjs`): a row containing a button, both carrying
+the same words, comes out as `#row 940×84` and `#burn 300×44`. Both offered.
+The cause is `CANDIDATES`' own dedupe, which was written for exactly this:
+
+```js
+// One box inside another saying exactly the same thing is one thing to
+// point at, not two. The outer one is kept: it is what a person means.
+const key = `${w}x${h}:${words.slice(0, 60)}`;
+```
+
+The key carries the **size**, so it only matches boxes that are the same
+size — precisely the case `pageBlocks` already catches by box alone. The case
+the comment describes never matches it. Same shape of fault as `offered`: the
+intent is written down and the key does not implement it.
+
+So the one-gap story is narrower than we both thought. There are **two**
+gaps of the same shape, in two different readers:
+
+| | same box | same words, different box |
+|---|---|---|
+| caught by | `pageBlocks` → `offered` (fixed) | nothing (`CANDIDATES`' key defeats itself) |
+| his symptom | 24 duplicate panels and rails | the duplicated button label |
+
+### The split link is a third bucket, and not structural
+
+`n_prose_55` reads "Launch your first token on to see PnL tracking here" with
+the words *missing* from the middle, while `n_prose_56` is "pump.fun" 703px
+right and 35px down. Nothing is duplicated — something is absent from one
+reading and present in another, which is the opposite fault.
+
+Six markups through the real reader. Inline, inline-block, absolutely
+positioned 700px away, and `display: contents` **all keep the words**. Only
+two produce his string character for character: **`display: none` and
+`visibility: hidden`** — the link not being drawn *at the moment the sentence
+is read*.
+
+That makes it a **state** fault, not a structural one: the page in a different
+condition for one read than another, which is what a scroll reveal or an
+entrance animation does. It cannot be settled without his page; what is
+recorded here is which explanations are ruled out.
+
+---
+
+## Grow-only, built
+
+Authorised on the measurement, and the measurement is also the limit. **His
+nine pages, 631 nodes: 35 wrappers, 652px of lift, 1548px of growth** — 5.5%
+of his nodes against 1.6% of sink's, three times worse, one more reason sink
+was never a stand-in.
+
+| | |
+|---|---|
+| `n_box_46`, Your Tokens | 1507×172 at y 1247, owns **9**, all 9 escape, **225px lift** |
+| `n_box_75`, the banner | 1763×65 at y 147, owns **25**, all 25 escape, **158px lift** |
+| the other seven pages | a 1763×82 banner owning 28 (11px lift, 19px growth) and a 1280×49 wrapper owning 27 (27px lift, 36px growth) — identical every time |
+
+Seven identical instances of each is the converter doing one thing repeatedly,
+not two accidents.
+
+**Never widen this to the naive rule.** It flags 31 of 126 against this rule's
+2, and 29 of the 31 differ from their contents only by their own padding.
+
+### Reach
+
+The grow pass is **retrofit and new capture alike** — it is a document-level
+correction applied when a captured board opens, so his existing board gets it
+on the next load (`SWEEP` 3 → 4) and so does anything captured later. **No
+converter change is made**, because the cause is `MEASURE`'s growth limits and
+changing those is a riskier piece that has not been authorised.
+
+### Ordering, and a rule it establishes
+
+The grow pass reads the document **as saved**, like the dedupe. It runs
+**before** the fitting — so the fitting *does* act on a box this code chose,
+which the dedupe is forbidden to do. The difference is worth naming:
+
+> A deletion may only ever be justified by something the capture said.
+> Recomputing a **height** from corrected geometry is not the same act.
+
+Fitting the banner once it properly holds its header gives back the space
+under it (223 → 112 in the live check). Fitting it before would have measured
+it against an empty div and been wrong.
+
+### Growing downward does not push
+
+His split-link sentence owns one part 35px below it. Growing down is the one
+direction that could shove what follows, so it is measured: the sentence grows
+30 → 55 and **the part directly underneath does not move**. And the words are
+still split — grow-only pulls the escaped link inside the sentence's box and
+is not a fix for that defect, which is a different bucket.

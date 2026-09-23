@@ -51,7 +51,10 @@ const node = (id, pageId, f, content, x, y, w, h, extra = {}) => ({
   id, pageId, featureId: f, label: id, prompt: "", content, data: "", x, y, w, h, groupId: null, options: {},
   priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null, colour: null, font: null,
   anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", aura: null, auraSize: 1, auraStyle: "glow", texture: null,
-  sketch: null, from: FROM, byHand: false, ...extra,
+  sketch: null, byHand: false, ...extra,
+  /* Each part keeps the DOM path it was read from; parentage is read off that
+     and never off geometry. A distinct path per id unless one is given. */
+  from: { ...FROM, selector: extra.sel ?? `${FROM.selector} > ${id}` },
 });
 
 /* His nine pages, each carrying the same faults at his own numbers. */
@@ -86,6 +89,24 @@ const parts = (p) => [
    * not one painted box behind the entries, so the tint went straight onto
    * the page. Three of these, so there is a majority to be odd against.
    */
+  /*
+   * HIS BANNER AND HIS YOUR TOKENS PANEL, at his geometry: a box sitting
+   * BELOW every part it owns. The banner owns its header and is 158px under
+   * it; the panel owns its heading and sentences and is 225px under them.
+   * Owning is read off the DOM path the capture recorded, not geometry.
+   */
+  node(`${p}_adrift`, p, "box", "", 0, 3400, 1763, 65, { sel: "body > div > header" }),
+  node(`${p}_alogo`, p, "picture", "", 826, 3242, 112, 112, { sel: "body > div > header > img", picture: { id: "p" } }),
+  node(`${p}_amark`, p, "prose", "SOLCINERATOR", 40, 3272, 300, 30, { sel: "body > div > header > span" }),
+  /*
+   * AND ONE THAT ESCAPES DOWNWARD, which is his split-link sentence: it owns
+   * exactly one part and that part is 35px BELOW it. Growing downward is the
+   * direction that could make the healing push what follows, so it is here on
+   * purpose with a part right underneath it.
+   */
+  node(`${p}_sent`, p, "prose", "Launch your first token on to see PnL tracking here", 40, 3600, 700, 30, { sel: "body > div > main > p" }),
+  node(`${p}_link`, p, "prose", "pump.fun", 743, 3635, 80, 20, { sel: "body > div > main > p > a" }),
+  node(`${p}_after`, p, "prose", "The part right under the sentence.", 40, 3700, 700, 30, { sel: "body > div > main > p:nth-of-type(2)" }),
   node(`${p}_shelf`, p, "box", "", 0, 1700, 255, 200),
   /*
    * THE SAME BOX EMITTED TWICE, in both of his shapes: the content panel
@@ -105,7 +126,7 @@ const parts = (p) => [
   )),
 ];
 const nodes = PAGES.flatMap(parts);
-const PER_PAGE = 22;
+const PER_PAGE = 28;
 
 const doc = (extra = {}) => JSON.stringify({ state: {
   pages: PAGES.map((id, i) => ({ id, name: id.slice(5), path: i ? `/${id.slice(5)}` : "/", prompt: "", scroll: "inherit" })),
@@ -132,7 +153,7 @@ const read = (p) => p.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state ?? {};
   const by = {};
   for (const n of s.nodes ?? []) (by[n.pageId] ??= {})[n.id] = {
-    h: n.h, bg: n.colour?.bg ?? null, accent: n.colour?.accent ?? null, variant: (n.options ?? {}).variant ?? null,
+    y: n.y, h: n.h, bg: n.colour?.bg ?? null, accent: n.colour?.accent ?? null, variant: (n.options ?? {}).variant ?? null,
     words: typeof n.content === "string" ? n.content : (n.content ?? []).map((r) => r.text).join(""),
   };
   return { total: (s.nodes ?? []).length, by, swept: s.swept ?? null };
@@ -146,8 +167,8 @@ const { ctx, p } = await open(doc());
 const after = await read(p);
 
 check("every page was swept, not only the one on screen", (() => {
-  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 19);
-  return bad.length === 0 || (console.log(`      pages not at 19 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
+  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 25);
+  return bad.length === 0 || (console.log(`      pages not at 25 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
 })(), `${after.total} parts, was ${PAGES.length * PER_PAGE}`);
 check("…the price pair is one part on ALL NINE, not just the open one",
   PAGES.every((pg) => !!after.by[pg]?.[`${pg}_92`] && !after.by[pg]?.[`${pg}_95`]),
@@ -264,6 +285,61 @@ check("…but the pair that DISAGREES on height keeps BOTH, because removing one
 check("…and it said which copy went and which twin it left",
   /twin left in place/.test(await p.evaluate(() => document.body.innerText)));
 
+/*
+ * A WRAPPER PUT BACK ROUND THE PARTS IT OWNS, on every page. Measured on his
+ * board before it was built: 35 wrappers across nine pages, 652px of lift,
+ * 1548px of growth, and the two worst are the two faults he reported.
+ */
+/*
+ * READ ON THE EIGHT PAGES THE HEALING DOES NOT TOUCH, and by relationship on
+ * the one it does. The healing only ever runs for the page on screen, and
+ * there it settles text that needs more room than the capture recorded —
+ * which shifts everything below it by the same amount. That is its own
+ * behaviour, tested in `grew-moves.mjs`, and reading an absolute y on the
+ * open page would measure it rather than this.
+ */
+const AWAY = PAGES.slice(1);
+check("the adrift banner is lifted to hold the header it owns, on every page the healing leaves alone",
+  AWAY.every((pg) => after.by[pg]?.[`${pg}_adrift`]?.y === 3242),
+  PAGES.map((pg) => after.by[pg]?.[`${pg}_adrift`]?.y).join(" "));
+check("…and nothing it owns moved to meet it — the box came to the parts, not the parts to the box",
+  AWAY.every((pg) => after.by[pg]?.[`${pg}_alogo`]?.y === 3242 && after.by[pg]?.[`${pg}_amark`]?.y === 3272));
+check("…and on the open page it holds them too, whatever the healing settled around it",
+  (() => {
+    const w = after.by.page_home?.page_home_adrift, k = after.by.page_home?.page_home_alogo;
+    return !!w && !!k && k.y >= w.y && k.y + k.h <= w.y + w.h;
+  })(), JSON.stringify([after.by.page_home?.page_home_adrift, after.by.page_home?.page_home_alogo]));
+check("…so it now holds them, which is the whole point",
+  PAGES.every((pg) => {
+    const w = after.by[pg]?.[`${pg}_adrift`], k = after.by[pg]?.[`${pg}_alogo`];
+    return w && k && k.y >= w.y && k.y + k.h <= w.y + w.h;
+  }), JSON.stringify(after.by.page_home?.page_home_adrift));
+
+/*
+ * AND THE ONE THAT GROWS DOWNWARD. His split-link sentence owns a part 35px
+ * BELOW it. Growing down is the direction that could shove what follows, so
+ * this measures the part right underneath: it must not move.
+ */
+check("a sentence whose owned link escapes downward grows to take it in",
+  PAGES.every((pg) => (after.by[pg]?.[`${pg}_sent`]?.h ?? 0) >= 55),
+  `h ${after.by.page_home?.page_home_sent?.h}, was 30`);
+/*
+ * AND THE PART RIGHT UNDERNEATH DOES NOT MOVE. Growing downward is the one
+ * direction that could shove what follows, so this is the check that says it
+ * did not: the sentence grew 25px into the gap below it and the part under it
+ * stayed exactly where it was. On the open page the whole page has settled by
+ * the same amount, so what is held there is that the DISTANCE is unchanged.
+ */
+check("…and the part right underneath it does NOT move, so growing down pushed nothing",
+  AWAY.every((pg) => after.by[pg]?.[`${pg}_after`]?.y === 3700),
+  PAGES.map((pg) => after.by[pg]?.[`${pg}_after`]?.y).join(" "));
+check("…on the open page too, where everything below the settling moved together",
+  (after.by.page_home?.page_home_after?.y ?? 0) - (after.by.page_home?.page_home_adrift?.y ?? 0) === 3700 - 3242,
+  `${after.by.page_home?.page_home_after?.y} − ${after.by.page_home?.page_home_adrift?.y}`);
+check("…and the words are still split, because this is not the fix for that",
+  after.by.page_home?.page_home_sent?.words === "Launch your first token on to see PnL tracking here"
+  && !!after.by.page_home?.page_home_link);
+
 /* The safeguards, on the path that runs without being asked. */
 /*
  * AND THE ONE THAT MATTERS MOST: the dedupe must never reach an empty wrapper
@@ -307,6 +383,19 @@ await ctx.close();
    though it is full of things a sweep would change. */
 const already = await open(doc({ swept: SWEEP }));
 const kept = await read(already.p);
+/*
+ * AND A BOARD A NEWER BUILD SWEPT IS LEFT ALONE TOO. The mark is read as "at
+ * or past these rules", not "exactly these": an exact match treats a number
+ * it does not recognise as never-swept and runs the whole thing over a board
+ * that has already been past it.
+ */
+const ahead = await open(doc({ swept: SWEEP + 5 }));
+const untouched = await read(ahead.p);
+check("a board marked by a NEWER build than this one is not swept",
+  untouched.total === PAGES.length * PER_PAGE && untouched.swept === SWEEP + 5,
+  `${untouched.total} parts, mark ${untouched.swept}`);
+await ahead.ctx.close();
+
 check("a board already swept at this version is not swept again",
   kept.total === PAGES.length * PER_PAGE, `${kept.total} parts`);
 check("…so nothing it holds is touched a second time",
@@ -319,7 +408,7 @@ await already.ctx.close();
 const stale = await open(doc({ swept: SWEEP - 1 }));
 const fresh = await read(stale.p);
 check("a board marked at an older version IS swept again",
-  fresh.total === PAGES.length * 19 && fresh.swept === SWEEP, `${fresh.total} parts, mark ${fresh.swept}`);
+  fresh.total === PAGES.length * 25 && fresh.swept === SWEEP, `${fresh.total} parts, mark ${fresh.swept}`);
 await stale.ctx.close();
 
 /* ------------------------------------------------------------------ */
