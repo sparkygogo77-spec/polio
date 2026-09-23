@@ -2204,8 +2204,19 @@ function BoardSurface({ target, on, box }: { target: string; on: string; box: { 
 function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | null>, selected: boolean): string[] {
   const [missing, setMissing] = React.useState<string[]>([]);
   const prompt = node.prompt ?? "";
-  const asks = selected && namesDrawnCopy(prompt);
-  const watch = [plain(node.content), node.data ?? "", JSON.stringify(node.options ?? {}), node.w, node.h].join("|");
+  /*
+   * A picture that did not arrive is missing too, and is said by its own
+   * name. The accessible name is not copy (see above), but on a picture it
+   * is the picture's name, and a picture the node holds that this browser
+   * does not have, or that failed to load, is exactly the "something is
+   * missing" he asked to be told about. Read off what was drawn, not off
+   * the node: `[data-picture-lost]` is `PictureSlot`'s own mark for a file
+   * the browser no longer holds, and a broken image is one that finished
+   * with no pixels. A stand-in picture never had a file and is not missing.
+   */
+  const pictureName = /\bnamed\s+["\u201c]([^"\u201d\n]+)["\u201d]/.exec(prompt)?.[1] || node.picture?.alt?.trim() || node.label;
+  const asks = selected && (namesDrawnCopy(prompt) || !!node.picture);
+  const watch = [plain(node.content), node.data ?? "", JSON.stringify(node.options ?? {}), JSON.stringify(node.picture ?? null), node.w, node.h].join("|");
   React.useEffect(() => {
     if (!asks) { setMissing((was) => (was.length ? [] : was)); return; }
     let live = true;
@@ -2213,13 +2224,18 @@ function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | nul
       const surface = body.current?.querySelector<HTMLElement>("[data-mode]") ?? null;
       const drawn = surface?.querySelector<HTMLElement>("[data-part]") ?? surface;
       if (!live || !drawn) return;
-      const next = missingDrawnCopy(prompt, drawn.innerText ?? "");
+      const lost = !!node.picture && (!!drawn.querySelector("[data-picture-lost]")
+        || [...drawn.querySelectorAll("img")].some((img) => img.complete && img.naturalWidth === 0));
+      const next = [
+        ...(lost ? [`the picture \u201c${pictureName}\u201d`] : []),
+        ...missingDrawnCopy(prompt, drawn.innerText ?? "").map((w) => `\u201c${w}\u201d`),
+      ];
       setMissing((was) => (was.length === next.length && was.every((w, i) => w === next[i]) ? was : next));
     };
     const frame = requestAnimationFrame(read);
     const later = window.setTimeout(read, 450);
     return () => { live = false; cancelAnimationFrame(frame); window.clearTimeout(later); };
-  }, [asks, prompt, watch, body]);
+  }, [asks, prompt, watch, body, node.picture, pictureName]);
   return asks ? missing : [];
 }
 
@@ -2513,11 +2529,11 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         {unshown.length ? (
           <span
             data-asked-for={unshown.length}
-            title={`The prompt asks for ${unshown.map((w) => `“${w}”`).join(", ")}, and this part is not showing ${unshown.length === 1 ? "it" : "them"}.`}
+            title={`Not showing ${unshown.join(", ")}.`}
             className="max-w-[320px] truncate rounded-xs border px-1 text-fine"
             style={{ borderColor: "oklch(0.7 0.12 70 / 0.6)", background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)" }}
           >
-            not shown: {unshown.map((w) => `“${w}”`).join(" · ")}
+            not shown: {unshown.join(" · ")}
           </span>
         ) : null}
         {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">{node.priority}</span> : null}

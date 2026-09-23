@@ -63,6 +63,15 @@ const doc = JSON.stringify({ state: {
     node("field", "box", "", 960, 120, 200, 32, { prompt: "The browser computes it as a textbox, named “Ask or search”, placeholder “Ask or search…”." }),
     /* Real copy asked for and not carried. */
     node("short", "value-prop", "Hello there", 200, 300, 420, 120, { prompt: 'An eyebrow reading "BUILT FOR THE NEXT BLOCK" over the heading.' }),
+    /* His SOL WORKS logo: a picture the node holds and this browser does not
+       have. Its quoted words are its accessible name, but the picture itself
+       really is missing, and that is worth saying. */
+    node("logo", "picture", "", 700, 300, 112, 112, {
+      prompt: "The browser computes it as a image, named \u201cSOL WORKS\u201d.",
+      picture: { id: "pic_not_here", path: "assets/pictures/pic_not_here.png", type: "image/png", w: 1024, h: 1024, bytes: 1, alt: "", from: "upload" },
+    }),
+    /* Control: a picture part with no picture of its own is a stand-in by design, not a failed load. */
+    node("standin", "picture", "", 900, 300, 112, 112, { prompt: "The browser computes it as a image, named \u201cSolana\u201d." }),
     /* Real copy asked for and carried: the control. */
     node("kept", "value-prop", "Stay in the loop", 200, 520, 420, 120, { prompt: 'The heading reads "Stay in the loop".' }),
   ],
@@ -78,7 +87,7 @@ await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2000);
 
 const drawn = await page.evaluate(() => [...document.querySelectorAll("[data-node-id]")].map((n) => n.getAttribute("data-node-id")));
-check("all four parts are on the board", ["hub", "field", "short", "kept"].every((id) => drawn.includes(id)), drawn.join(", "));
+check("all six parts are on the board", ["hub", "field", "short", "kept", "logo", "standin"].every((id) => drawn.includes(id)), drawn.join(", "));
 
 /* Visible badges: any [data-asked-for] that is rendered and not transparent. */
 const badges = () => page.evaluate(() => [...document.querySelectorAll("[data-asked-for]")].filter((b) => {
@@ -120,6 +129,14 @@ check("…and its accessible name is not called missing copy", hub.badges.length
 
 const field = await pick("field");
 check("a field's recorded name and placeholder are not called missing copy", field.picked && field.badges.length === 0, field.badges.map((b) => b.text).join("; ") || "none");
+
+const logo = await pick("logo");
+check("the picture that did not arrive is picked, and really is lost", logo.picked && (await page.locator('[data-node-id="logo"] [data-picture-lost]').count()) === 1);
+check("…and says its picture is not shown, by name", logo.badges.length === 1 && /picture/i.test(logo.badges[0].text) && /SOL WORKS/.test(logo.badges[0].text), logo.badges.map((b) => b.text).join("; ") || "no badge");
+check("…outside its own box", logo.badges.length === 1 && !overlaps(logo.badges[0].rect, logo.rect), JSON.stringify({ badge: logo.badges[0]?.rect, part: logo.rect }));
+
+const standin = await pick("standin");
+check("a stand-in picture, which never had a file, is not called missing", standin.picked && standin.badges.length === 0, standin.badges.map((b) => b.text).join("; ") || "none");
 
 const kept = await pick("kept");
 check("a part showing what its prompt quoted says nothing", kept.picked && kept.badges.length === 0, kept.badges.map((b) => b.text).join("; ") || "none");
