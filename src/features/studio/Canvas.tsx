@@ -47,6 +47,8 @@ import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial, pageSpot } from "./RadialMenu";
 import { useSettleToWords } from "./textFit";
+import { missingDrawnCopy, namesDrawnCopy } from "./promised";
+import { plain } from "./parts/spans";
 
 const GRID = 8;
 
@@ -2179,6 +2181,48 @@ function BoardSurface({ target, on, box }: { target: string; on: string; box: { 
   );
 }
 
+/**
+ * The words a picked part's prompt names and the part is not drawing.
+ *
+ * It used to be a "1 NOT SHOWN" badge inside every unpicked part, bottom
+ * right: on a 32×32 header button it wrapped to 42×22, covered the icon it
+ * was about and spilled onto the part beside it, and picking the part hid
+ * it, because a picked part is drawn live and the badge was board-only. His
+ * ruling: nothing until he picks the part, and then say what is missing. So
+ * it is read here, only while the part is picked, and written on the label
+ * chip above the part rather than on the part.
+ *
+ * It reads what the part drew, not the node: a part handed four lines and
+ * built for three keeps all four on the node and draws three. It reads the
+ * part's own `[data-part]` body, else the whole drawn surface for the few
+ * parts that draw no words (the drawn icon), and it reads twice, after the
+ * paint and a beat later, because some parts fill themselves over a frame
+ * or two. The accessible names a capture writes into a prompt are not copy
+ * he asked for (`missingDrawnCopy`), so a button that is an icon in a box
+ * is never told its screen-reader name is missing.
+ */
+function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | null>, selected: boolean): string[] {
+  const [missing, setMissing] = React.useState<string[]>([]);
+  const prompt = node.prompt ?? "";
+  const asks = selected && namesDrawnCopy(prompt);
+  const watch = [plain(node.content), node.data ?? "", JSON.stringify(node.options ?? {}), node.w, node.h].join("|");
+  React.useEffect(() => {
+    if (!asks) { setMissing((was) => (was.length ? [] : was)); return; }
+    let live = true;
+    const read = () => {
+      const surface = body.current?.querySelector<HTMLElement>("[data-mode]") ?? null;
+      const drawn = surface?.querySelector<HTMLElement>("[data-part]") ?? surface;
+      if (!live || !drawn) return;
+      const next = missingDrawnCopy(prompt, drawn.innerText ?? "");
+      setMissing((was) => (was.length === next.length && was.every((w, i) => w === next[i]) ? was : next));
+    };
+    const frame = requestAnimationFrame(read);
+    const later = window.setTimeout(read, 450);
+    return () => { live = false; cancelAnimationFrame(frame); window.clearTimeout(later); };
+  }, [asks, prompt, watch, body]);
+  return asks ? missing : [];
+}
+
 const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
@@ -2250,6 +2294,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
    * added — see `boxEntry.ts` for why that distinction is the whole of it.
    */
   const held = useBoxEntry(node.id, body);
+  // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
+  const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
   React.useEffect(() => {
     const from = arrive;
@@ -2463,6 +2509,17 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
             </span>
           : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
+        {/* The words his prompt named and the part is not drawing, on the chip above it: outside the part, and only while it is picked. */}
+        {unshown.length ? (
+          <span
+            data-asked-for={unshown.length}
+            title={`The prompt asks for ${unshown.map((w) => `“${w}”`).join(", ")}, and this part is not showing ${unshown.length === 1 ? "it" : "them"}.`}
+            className="max-w-[320px] truncate rounded-xs border px-1 text-fine"
+            style={{ borderColor: "oklch(0.7 0.12 70 / 0.6)", background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)" }}
+          >
+            not shown: {unshown.map((w) => `“${w}”`).join(" · ")}
+          </span>
+        ) : null}
         {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">{node.priority}</span> : null}
         {node.locked ? <span className="text-fine text-fg-faint">locked</span> : null}
       </div>
