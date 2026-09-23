@@ -130,8 +130,33 @@ reports 6 line boxes where there should be 1, his symptom exactly, while the
 colour and face checks stay green. That is why the line-box count is the
 check and colour alone is not.
 
-**Next: the emitter** that stops fragmenting a sentence at capture. The
-inspector half — select a word, colour it — is its own commit behind it.
+**Landed: the emitter.** `reassemble.ts` is pure and holds the rules:
+`sentences()` finds wordy parts sitting on one line, close enough to the next
+to have been one sentence, and returns the runs plus the box. Wired into the
+copy-whole import — his door, where the fragments are already written into the
+published document, so teaching only the reader would have done nothing for
+the board he is looking at — and offered as a palette command for a board
+already open. One undo for the whole rebuild.
+
+The one inference is named: the capture threw the whitespace away when it
+split the sentence, so the GAP decides whether a space belonged there. Half a
+space width, judged against the type size rather than a flat pixel count,
+which is what tells "A Sol" + "Works" from "$" + "118.35".
+
+`tests/reassemble.mjs` is pure (22/22) and each contract rule was run red on
+its own: no merge gives 5 runs where there should be 1; no space inference
+gives "A SolWorksproject"; allowing newlines in joins across a line.
+`tests/sentence-back.mjs` (12/12) runs it end to end through the palette.
+
+**Known residue, and it is not this piece.** A reassembled sentence sits on
+ONE line when its box has the room its words need here, and still wraps at the
+width the capture recorded — because the merged box is the sum of the
+fragments' own widths and those were measured on HIS machine, where the face
+is narrower. That is the +9-per-heading residue at sentence scale, and it is
+the sideways-growth piece. The test measures both and says which is which.
+
+**Still to do: the inspector half** — select a word, colour it — which is its
+own commit and needs no new types.
 
 **His hand-corrections are replaced, by his ruling.** He extended and moved
 these boxes working around this bug, and said plainly he wants the correct

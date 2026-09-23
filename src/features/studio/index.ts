@@ -15,6 +15,7 @@ import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, ty
 import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
+import { saysWhat } from "./reassemble";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
@@ -167,6 +168,18 @@ export const studio = defineFeature({
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },
     /* He searched the palette for "import" and for "site" and found nothing
        but "put every removed part back". Both words are keywords here. */
+    {
+      id: "studio.joinSentences",
+      label: "Builder: put broken sentences back together",
+      group: "Builder",
+      icon: Wand2,
+      keywords: ["runs", "spans", "sentence", "fragment", "merge", "text", "rejoin"],
+      when: onStudio,
+      run: (c) => {
+        const done = useStudio.getState().joinSentences();
+        c.publish({ key: "studio:join", title: done.length ? "Sentences put back together" : "Nothing was in pieces", body: saysWhat(done), level: "info", source: "studio", toast: { durationMs: 8000 } });
+      },
+    },
     {
       id: "studio.bringRepo",
       label: "Builder: bring a repository in",

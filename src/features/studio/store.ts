@@ -61,6 +61,7 @@ import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
 import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
+import { sentences, type Frag, type Reassembly } from "./reassemble";
 
 /**
  * What is in your hand. Four, not six.
@@ -752,6 +753,15 @@ interface StudioState extends Doc {
    * undo nothing a person did, and one of them would put the overlap back.
    */
   settleToWords: (fitted: { id: string; h: number; y: number }[]) => void;
+  /**
+   * Put the sentences a capture broke into parts back together.
+   *
+   * Run when a document is taken in, and offered as a command for a board
+   * that is already open. Returns what it joined so the caller can say it
+   * out loud — his ruling is that a part he moved by hand IS merged inside a
+   * sentence, and that every one taken is named. See `reassemble.ts`.
+   */
+  joinSentences: () => Reassembly[];
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1551,6 +1561,30 @@ export const useStudio = create<StudioState>()(
             // would re-render the board and be measured again for ever.
             return moved ? { nodes } : {};
           });
+        },
+
+        joinSentences: () => {
+          const done = sentences(get().nodes as unknown as Frag[]);
+          if (!done.length) return [];
+          /* One checkpoint for the lot: it is one rebuild, and his to undo
+             if he does not like what it did to a line he had arranged. */
+          push();
+          const dropped = new Set(done.flatMap((d) => d.drop));
+          const by = new Map(done.map((d) => [d.keep, d]));
+          set((s) => ({
+            nodes: s.nodes
+              .filter((n) => !dropped.has(n.id))
+              .map((n) => {
+                const d = by.get(n.id);
+                if (!d) return n;
+                /* The box is the capture's composite now, not where he
+                   dragged a piece of it, so it stops being marked his and
+                   the healing may lay what follows under it again. */
+                const { byHand: _was, ...rest } = n;
+                return { ...rest, content: d.spans, x: d.x, y: d.y, w: d.w, h: d.h };
+              }),
+          }));
+          return done;
         },
 
         raiseNode: (id, toTop) => {

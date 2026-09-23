@@ -50,6 +50,7 @@ import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
+import { saysWhat } from "./reassemble";
 
 type Source =
   /* A site read at its address. `repo` is set when the address stood in
@@ -384,6 +385,15 @@ export function FromASite({ space }: { space: Space }) {
     if (!here) { builds.adopt(); }
     const id = activeProject()?.id ?? null;
     useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
+    /*
+     * The sentences, put back together. His site's price line arrived as
+     * four parts and his header as three, because a capture splits a text
+     * node wherever its ink changes and a node's words could not hold a run
+     * of their own until now. The document in the repository was published
+     * from that capture, so the pieces are already written down and teaching
+     * only the reader would do nothing for the board he is looking at.
+     */
+    const joined = useStudio.getState().joinSentences();
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
     /* Brought in from it: the site is bound to this repository, and the
        repository belongs to this site from now on. */
@@ -396,6 +406,9 @@ export function FromASite({ space }: { space: Space }) {
       }
       const behind = copy.pictures.length - kept + copy.lost.length;
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
+      /* Said out loud, and by name where a part he had moved was replaced:
+         that naming is how he checks the ruling was read right. */
+      const sentencesSaid = joined.length ? ` ${saysWhat(joined)}` : "";
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,
@@ -409,7 +422,7 @@ export function FromASite({ space }: { space: Space }) {
          ended a step that had long finished, with a refusal on the strip
          naming this repository under whatever came next. */
       if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
-      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}` });
+      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${sentencesSaid}${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}` });
       play("confirm");
     })();
   };
