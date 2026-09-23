@@ -11,7 +11,7 @@
  *
  *   node tests/owns.mjs
  */
-import { adrift, escaping, grown, owned, pathOf, under } from "../src/features/studio/owns.ts";
+import { adrift, escaping, grown, grownSays, grownTo, owned, pathOf, under } from "../src/features/studio/owns.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -102,6 +102,57 @@ check("a part on another page is never owned, however the paths line up",
   owned([...header, { ...n("other", "body > div > header > div > b", 0, 0, 10, 10), pageId: "p1" }], header[0]).length === 2);
 check("a part that was drawn rather than captured owns nothing",
   owned(header, { ...header[0], from: null }).length === 0);
+
+/* ------------------------------------------------------------------ */
+/* Grow-only, which is the rule that was authorised                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * MEASURED BEFORE IT WAS BUILT. On his nine pages and 631 nodes: 35 wrappers,
+ * 652px of lift, 1548px of growth. The naive rule — put the wrapper where its
+ * contents are — flags 31 of 126 on the committed capture-derived document
+ * against this rule's 2, and 29 of those 31 differ from their contents only
+ * by their own PADDING. That number is the argument against ever widening
+ * this, and it is why the shrink guard is a guard and not a preference.
+ */
+const board = [
+  ...header,
+  /* His Your Tokens panel, at his geometry: 1507x172 at y 1247, with its own
+     heading and sentences ABOVE it. His owns nine parts and all nine escape;
+     three are enough to hold the rule, and the 225px lift is his number. */
+  n("panel", "body > div > section", 256, 1247, 1507, 172),
+  n("head", "body > div > section > h2", 300, 1022, 400, 40),
+  n("none", "body > div > section > p", 300, 1160, 900, 30),
+  n("line", "body > div > section > p:nth-of-type(2)", 300, 1192, 900, 30),
+];
+const grew = grownTo(board);
+check("the banner and the panel are both put back round what they own",
+  grew.map((g) => g.id).sort().join(",") === "banner,panel", JSON.stringify(grew.map((g) => g.id)));
+check("…the panel lifted by 225px, which is his number exactly",
+  grew.find((g) => g.id === "panel")?.was.y - grew.find((g) => g.id === "panel")?.y === 225,
+  `${grew.find((g) => g.id === "panel")?.was.y} → ${grew.find((g) => g.id === "panel")?.y}`);
+check("…and every part it owns was outside it, which is the shape of his nine",
+  (() => { const p = grew.find((g) => g.id === "panel"); return p?.owns === 3 && p?.escaped === 3; })(),
+  JSON.stringify(grew.find((g) => g.id === "panel")));
+
+/*
+ * OUT, NEVER IN. Every one of these lifts a box or makes it bigger. That is
+ * what makes it safe beside the healing, which only ever pushes DOWN to clear
+ * an overlap: the two cannot fight, because the correction's whole purpose is
+ * to stop the overlap existing.
+ */
+check("every change is a lift or a growth — nothing moves down and nothing shrinks",
+  grew.every((g) => g.y <= g.was.y && g.x <= g.was.x && g.w >= g.was.w && g.h >= g.was.h),
+  JSON.stringify(grew.map((g) => ({ dy: g.y - g.was.y, dh: g.h - g.was.h }))));
+check("the section that merely has padding is NOT touched, which is the whole 29-in-31 point",
+  !grew.some((g) => g.id === "main"), JSON.stringify(grew.map((g) => g.id)));
+check("a box his hand placed is never grown, whatever it owns",
+  grownTo(board.map((f) => (f.id === "panel" ? { ...f, byHand: true } : f))).every((g) => g.id !== "panel"));
+check("a part that was drawn rather than captured is never grown",
+  grownTo(board.map((f) => (f.id === "panel" ? { ...f, from: null } : f))).every((g) => g.id !== "panel"));
+check("and the line a person reads says the lift and the growth, and that nothing went the other way",
+  /px of lift/.test(grownSays(grew)) && /nothing moved down or got smaller/.test(grownSays(grew)), grownSays(grew));
+check("with nothing adrift, it says that instead", /already holds/.test(grownSays([])), grownSays([]));
 
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

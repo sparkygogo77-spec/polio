@@ -94,6 +94,71 @@ export function grown(all: readonly (Frag & Read)[], w: Frag & Read): { x: numbe
   return { x, y, w: r - x, h: b - y };
 }
 
+/** A wrapper grown to hold what it owns. */
+export interface Grown {
+  id: string;
+  x: number; y: number; w: number; h: number;
+  /** What it was, so the change can be read and undone. */
+  was: { x: number; y: number; w: number; h: number };
+  /** How many parts it owns, and how many were outside it. */
+  owns: number;
+  escaped: number;
+}
+
+/**
+ * Every wrapper that does not hold what it owns, grown until it does.
+ *
+ * MEASURED BEFORE IT WAS BUILT, on his nine pages and 631 nodes: 35 wrappers,
+ * 652px of lift and 1548px of growth. The two worst are the two faults he
+ * reported — his Your Tokens panel, 1507x172 at y 1247, owning NINE parts
+ * with all nine outside it, lifted 225px; and his banner, 1763x65 at y 147,
+ * owning TWENTY-FIVE with all twenty-five outside it, lifted 158px. And then
+ * a regular per-page pattern on the other seven: a 1763x82 banner owning 28,
+ * and a 1280x49 wrapper owning 27, identical every time. The converter doing
+ * the same thing on every page rather than two accidents.
+ *
+ * GROW ONLY, AND THAT IS THE WHOLE OF IT. The obvious rule — put the wrapper
+ * where its contents are — flags 31 of 126 on the committed capture-derived
+ * document against this rule's 2, and 29 of those 31 differ from their
+ * contents only by their own PADDING, which that rule would strip from every
+ * one of them. Keeping the wrapper's own box and taking in what escaped is
+ * the difference between correcting a fault and flattening a page.
+ *
+ * It also means the move is in ONE DIRECTION: out. The healing only ever
+ * pushes down to clear an overlap, so the two cannot fight — and measured,
+ * the healing is not the obstacle but the amplifier. Left alone, it clears
+ * the banner's 11px overhang by shoving it 101px past its own logo and drags
+ * the page down with it; with the wrapper grown first it does nothing at all
+ * and the page is 101px shorter (`tests/wrapper-heals.mjs`).
+ *
+ * Nothing his hand touched, and nothing without a recorded path.
+ */
+export function grownTo(all: readonly (Frag & Read)[]): Grown[] {
+  const out: Grown[] = [];
+  for (const w of all) {
+    if (w.byHand) continue;
+    const box = grown(all, w);
+    if (!box) continue;
+    /* Out, never in: a rule that could shrink is the rule that strips padding. */
+    if (box.y > w.y || box.x > w.x || box.w < w.w || box.h < w.h) continue;
+    out.push({
+      id: w.id, ...box,
+      was: { x: w.x, y: w.y, w: w.w, h: w.h },
+      owns: owned(all, w).length,
+      escaped: escaping(all, w).length,
+    });
+  }
+  return out;
+}
+
+/** One line a person can read about the boxes put back round what they own. */
+export function grownSays(done: readonly Grown[]): string {
+  if (!done.length) return "Every box on this page already holds what it owns.";
+  const lift = done.reduce((n, d) => n + (d.was.y - d.y), 0);
+  const grow = done.reduce((n, d) => n + (d.h - d.was.h), 0);
+  return `${done.length} box${done.length === 1 ? "" : "es"} put back round the parts ${done.length === 1 ? "it owns" : "they own"}: ${lift}px of lift and ${grow}px of growth, and nothing moved down or got smaller.`;
+}
+
 /** A wrapper measured against what it owns. */
 export interface Adrift {
   id: string;

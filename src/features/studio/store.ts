@@ -64,6 +64,7 @@ import type { Locked, Placed, Plan, Space } from "./space";
 import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Reassembly, type Slimming } from "./reassemble";
 import { paintSays, repaintActive, type Painted } from "./repaint";
 import { twins, twinSays, type Twin } from "./twins";
+import { grownSays, grownTo, type Grown, type Read } from "./owns";
 
 /**
  * What is in your hand. Four, not six.
@@ -792,7 +793,7 @@ interface StudioState extends Doc {
    * did, or null when there was nothing to do or the board was never
    * captured. See the action for the three promises it keeps.
    */
-  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[]; empty: Frag[]; doubled: Twin[] } | null;
+  sweepDocument: (force?: boolean) => { joined: Reassembly[]; grew: Grown[]; fitted: Slimming[]; painted: Painted[]; empty: Frag[]; doubled: Twin[] } | null;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1262,6 +1263,22 @@ function withJoins(nodes: StudioNode[], done: readonly Reassembly[]): StudioNode
 }
 
 /**
+ * The nodes with each adrift wrapper put back round what it owns.
+ *
+ * Out, never in: every one of these lifts a box or makes it bigger, and the
+ * guard against a rule that could shrink is in `grownTo` rather than here,
+ * because the shrinking rule is the one that strips padding from 29 wrappers
+ * in 31.
+ */
+function withGrown(nodes: StudioNode[], done: readonly Grown[]): StudioNode[] {
+  const by = new Map(done.map((g) => [g.id, g]));
+  return nodes.map((n) => {
+    const g = by.get(n.id);
+    return g ? { ...n, x: g.x, y: g.y, w: g.w, h: g.h } : n;
+  });
+}
+
+/**
  * The nodes with each duplicated box's spare copy taken out.
  *
  * SAFE FOR ONE REASON ONLY: an identical twin remains in its place, which
@@ -1719,7 +1736,14 @@ export const useStudio = create<StudioState>()(
          */
         sweepDocument: (force) => {
           const s0 = get();
-          if (!force && s0.swept === SWEEP) return null;
+          /*
+           * AT OR PAST these rules, and it is left alone. Written as `>=`
+           * rather than `===` because a document a NEWER build has swept must
+           * not be swept again by an older one: an exact match reads a mark
+           * it does not recognise as "never swept" and runs the whole thing
+           * over a board that has already been past it.
+           */
+          if (!force && (s0.swept ?? 0) >= SWEEP) return null;
           /*
            * A BOARD NOBODY CAPTURED IS NOT SWEPT, and is marked so it is
            * never asked again. The same question `onRehydrateStorage` asks
@@ -1734,8 +1758,27 @@ export const useStudio = create<StudioState>()(
 
           const joined = sentences(s0.nodes as unknown as Frag[]);
           const afterJoin = joined.length ? withJoins(s0.nodes, joined) : s0.nodes;
-          const fitted = slimWrappers(afterJoin as unknown as Frag[]);
-          const afterFit = fitted.length ? withFits(afterJoin, fitted) : afterJoin;
+          /*
+           * A WRAPPER PUT BACK ROUND THE PARTS IT OWNS, read off the DOM path
+           * the capture recorded rather than off geometry (`owns.ts`).
+           *
+           * Read from the document AS SAVED, like the dedupe, because the
+           * capture is the authority on what owns what. Applied before the
+           * fitting, and that IS the fitting acting on a box this code chose
+           * — which is allowed here and was forbidden for the dedupe, for a
+           * reason worth naming: the dedupe DELETES, and a deletion may only
+           * ever be justified by something the capture said. Recomputing a
+           * HEIGHT from corrected geometry is not the same act. Fitting the
+           * banner once it properly holds its header gives back the space
+           * under it; fitting it before would have measured it against an
+           * empty div and been wrong.
+           */
+          const grew = grownTo(s0.nodes as unknown as (Frag & Read)[])
+            .filter((g) => afterJoin.some((n) => n.id === g.id));
+          const afterGrow = grew.length ? withGrown(afterJoin, grew) : afterJoin;
+
+          const fitted = slimWrappers(afterGrow as unknown as Frag[]);
+          const afterFit = fitted.length ? withFits(afterGrow, fitted) : afterGrow;
           /* Reported, never removed: both of the empty wrappers on his home
              page are real surfaces that slid below their own contents. */
           const empty = emptyWrappers(afterFit as unknown as Frag[]);
@@ -1773,7 +1816,7 @@ export const useStudio = create<StudioState>()(
            * would be skipped there in silence.
            */
           const painted = repaintActive(afterFit as unknown as Frag[], s0.look?.palette?.bg ?? null);
-          if (!joined.length && !fitted.length && !painted.length && !empty.length && !doubled.length) { set({ swept: SWEEP }); return null; }
+          if (!joined.length && !grew.length && !fitted.length && !painted.length && !empty.length && !doubled.length) { set({ swept: SWEEP }); return null; }
 
           /* The one checkpoint, taken before anything moves. */
           push();
@@ -1783,9 +1826,9 @@ export const useStudio = create<StudioState>()(
             /* Said out loud, because a board that quietly loses six parts
                between one visit and the next is worse than one that never
                lost them — and the line is how he knows there is an undo. */
-            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length || empty.length ? slimSays(fitted, empty) : "", painted.length ? paintSays(painted) : "", doubled.length ? twinSays(doubled) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
+            sweepNote: `${[joined.length ? saysWhat(joined) : "", grew.length ? grownSays(grew) : "", fitted.length || empty.length ? slimSays(fitted, empty) : "", painted.length ? paintSays(painted) : "", doubled.length ? twinSays(doubled) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
           });
-          return { joined, fitted, painted, empty, doubled };
+          return { joined, grew, fitted, painted, empty, doubled };
         },
 
         raiseNode: (id, toTop) => {

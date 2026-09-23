@@ -42,8 +42,10 @@ import { merged, type Span } from "./parts/spans.ts";
  *      than junk — a board swept at 1 or 2 may have lost one, and there is
  *      no putting that back from here, which is why the removal is gone
  *      rather than narrowed
+ *   4  a wrapper put back round the parts it owns (`owns.ts`), read off the
+ *      DOM path the capture recorded rather than off geometry
  */
-export const SWEEP = 3;
+export const SWEEP = 4;
 
 /** The parts this will consider joining: ones whose whole body is words. */
 export const WORDY = new Set(["box", "prose", "value-prop", "micro-copy", "eyebrow-rule"]);

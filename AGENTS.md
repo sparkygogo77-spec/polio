@@ -574,6 +574,37 @@ reading that result deletes a node on the strength of a size THIS CODE chose.
 It did exactly that until the check caught it. A box may only be removed for
 something the capture said.
 
+**A wrapper is put back round the parts it owns.** Measured on his nine pages
+and 631 nodes before a line was written: 35 wrappers, 652px of lift, 1548px of
+growth, and the two worst are the two faults he reported — his Your Tokens
+panel owning nine parts with all nine outside it (225px lift) and his banner
+owning twenty-five with all twenty-five outside it (158px). Then the same
+1763x82 banner and 1280x49 wrapper on each of the other seven pages, identical
+every time: the converter doing one thing repeatedly, not two accidents.
+
+GROW ONLY, and the measurement is the argument. The obvious rule — put the
+wrapper where its contents are — flags 31 of 126 on the committed
+capture-derived document against this rule's 2, and **29 of those 31 differ
+from their contents only by their own PADDING**, which it would strip from
+every one. Keeping the wrapper's box and taking in what escaped is the
+difference between correcting a fault and flattening a page. Never widen it.
+
+The move is in one direction: out. The healing only pushes DOWN to clear an
+overlap, so the two cannot fight — and measured (`tests/wrapper-heals.mjs`),
+the healing is not the obstacle but the amplifier: left alone it clears the
+banner's 11px overhang by shoving it 101px past its own logo and drags the
+page with it; with the wrapper grown first it does nothing and the page is
+101px shorter. I had told the coordinator the opposite, from reasoning rather
+than measurement, and it was wrong.
+
+Ordering, and the rule it establishes: the grow pass reads the document AS
+SAVED, like the dedupe, and runs BEFORE the fitting — so the fitting does act
+on a box this code chose, which the dedupe is forbidden to do. The difference
+is named rather than implicit: **a deletion may only be justified by something
+the capture said; recomputing a HEIGHT from corrected geometry is not the same
+act.** Fitting the banner once it properly holds its header gives back the
+space under it; fitting it before would have measured it against an empty div.
+
 **Why a wrapper lands below the content it owns.** `tests/wrapper-below.mjs`
 runs the real `MEASURE` against DOMs built to isolate it. A captured element's
 box is its own rect GROWN to swallow children that run out of it, and the

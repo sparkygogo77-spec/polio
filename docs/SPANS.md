@@ -605,3 +605,53 @@ That makes it a **state** fault, not a structural one: the page in a different
 condition for one read than another, which is what a scroll reveal or an
 entrance animation does. It cannot be settled without his page; what is
 recorded here is which explanations are ruled out.
+
+---
+
+## Grow-only, built
+
+Authorised on the measurement, and the measurement is also the limit. **His
+nine pages, 631 nodes: 35 wrappers, 652px of lift, 1548px of growth** — 5.5%
+of his nodes against 1.6% of sink's, three times worse, one more reason sink
+was never a stand-in.
+
+| | |
+|---|---|
+| `n_box_46`, Your Tokens | 1507×172 at y 1247, owns **9**, all 9 escape, **225px lift** |
+| `n_box_75`, the banner | 1763×65 at y 147, owns **25**, all 25 escape, **158px lift** |
+| the other seven pages | a 1763×82 banner owning 28 (11px lift, 19px growth) and a 1280×49 wrapper owning 27 (27px lift, 36px growth) — identical every time |
+
+Seven identical instances of each is the converter doing one thing repeatedly,
+not two accidents.
+
+**Never widen this to the naive rule.** It flags 31 of 126 against this rule's
+2, and 29 of the 31 differ from their contents only by their own padding.
+
+### Reach
+
+The grow pass is **retrofit and new capture alike** — it is a document-level
+correction applied when a captured board opens, so his existing board gets it
+on the next load (`SWEEP` 3 → 4) and so does anything captured later. **No
+converter change is made**, because the cause is `MEASURE`'s growth limits and
+changing those is a riskier piece that has not been authorised.
+
+### Ordering, and a rule it establishes
+
+The grow pass reads the document **as saved**, like the dedupe. It runs
+**before** the fitting — so the fitting *does* act on a box this code chose,
+which the dedupe is forbidden to do. The difference is worth naming:
+
+> A deletion may only ever be justified by something the capture said.
+> Recomputing a **height** from corrected geometry is not the same act.
+
+Fitting the banner once it properly holds its header gives back the space
+under it (223 → 112 in the live check). Fitting it before would have measured
+it against an empty div and been wrong.
+
+### Growing downward does not push
+
+His split-link sentence owns one part 35px below it. Growing down is the one
+direction that could shove what follows, so it is measured: the sentence grows
+30 → 55 and **the part directly underneath does not move**. And the words are
+still split — grow-only pulls the escaped link inside the sentence's box and
+is not a fix for that defect, which is a different bucket.

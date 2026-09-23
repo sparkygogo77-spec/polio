@@ -20,6 +20,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/wrapper-heals.mjs http://127.0.0.1:3013
  */
+import { SWEEP } from "../src/features/studio/reassemble.ts";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -59,8 +60,9 @@ const mk = (nodes) => JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
   nodes, groups: [], shapes: [], format: {}, brief: { name: "SOLWORKS", gimmick: "", master: "" },
   look: { palette: { bg: "rgb(16,21,26)" }, texture: [], target: "page" },
-  /* Marked swept: this is about the healing, not about the sweep. */
-  frameWidth: 1763, activePageId: "p0", trail: [], swept: 999,
+  /* Marked swept: this is about the healing, not about the sweep — and the
+     mark is read from `SWEEP` so it keeps standing aside as that is bumped. */
+  frameWidth: 1763, activePageId: "p0", trail: [], swept: SWEEP,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });
