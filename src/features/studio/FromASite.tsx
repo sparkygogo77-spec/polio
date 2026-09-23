@@ -50,7 +50,6 @@ import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
-import { saysWhat, slimSays } from "./reassemble";
 
 type Source =
   /* A site read at its address. `repo` is set when the address stood in
@@ -386,16 +385,28 @@ export function FromASite({ space }: { space: Space }) {
     const id = activeProject()?.id ?? null;
     useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
     /*
-     * The sentences, put back together. His site's price line arrived as
-     * four parts and his header as three, because a capture splits a text
-     * node wherever its ink changes and a node's words could not hold a run
-     * of their own until now. The document in the repository was published
-     * from that capture, so the pieces are already written down and teaching
-     * only the reader would do nothing for the board he is looking at.
+     * PUT RIGHT BY THE SWEEP, IN THE SWEEP'S ORDER, AND BY NOTHING ELSE.
+     *
+     * Measured through this door with sink's document: the sweep never ran
+     * on an import. The empty site it lands on had been opened, and a board
+     * with nothing captured on it is marked swept; `loadDoc` kept the mark,
+     * so the imported document arrived "already swept" and the grow step,
+     * the duplicate pass and the repaint never reached it. What ran instead
+     * were a sentence join and `fitWrappers`, called here on their own.
+     *
+     * And those two cannot simply run first. Fitting before the sweep shrank
+     * his rail to the box of the nav inside it, and the sweep's duplicate
+     * pass — which reads the document AS SAVED so it only ever deletes for
+     * something the capture said — then read a height this code had chosen
+     * as a twin and deleted the nav. So the mark the document came with is
+     * the only one it keeps (a published document carries none), and the
+     * sweep does all of it. Its sentence is said here, in this import's own
+     * line, rather than a second time under "put right when it opened".
      */
-    const joined = useStudio.getState().joinSentences();
-    /* And the boxes that hold nothing, or less than they are tall. */
-    const fitted = useStudio.getState().fitWrappers();
+    useStudio.setState({ swept: (copy.document as { swept?: number | null }).swept ?? null });
+    useStudio.getState().sweepDocument();
+    const sweptSays = useStudio.getState().sweepNote ?? "";
+    useStudio.setState({ sweepNote: null });
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
     /* Brought in from it: the site is bound to this repository, and the
        repository belongs to this site from now on. */
@@ -410,11 +421,11 @@ export function FromASite({ space }: { space: Space }) {
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       /* Said out loud, and by name where a part he had moved was replaced:
          that naming is how he checks the ruling was read right. */
-      const sentencesSaid = `${joined.length ? ` ${saysWhat(joined)}` : ""}${fitted.length ? ` ${slimSays(fitted)}` : ""}`;
+      const sentencesSaid = sweptSays ? ` ${sweptSays}` : "";
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,
-        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}`,
+        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}${sentencesSaid}`,
         level: behind ? "warn" : "success",
         source: "studio",
         toast: { durationMs: 10000 },
