@@ -550,3 +550,58 @@ the footer) and an inner nav (255×440, tracking its 24 entries) — a real
 outer/inner pair, not duplicates, which is why `twins` correctly leaves them.
 On his board *both* are short, which this rule cannot fix, because the rail's
 own content ends where it ends. It needs its own investigation.
+
+---
+
+## The failed prediction: words twice is not boxes twice
+
+The dedupe took his 24 near-duplicate pairs to 2, pixel-identical 13 → 0,
+off-by-one 9 → 0, 48 parts gone, and `n_box_75` and `n_box_46` both present.
+**And the duplicated button label is untouched**, which I had predicted it
+would subsume.
+
+**Of the two possibilities, it is the second: a different cause, not a gap in
+the retrofit.** Two parts inside one cannot both be box-identical to it, so
+`twins` can never fire on them — and neither can the fix in `offered`, which
+is also box-only. **A new capture gets this wrong too.**
+
+Reproduced (`tests/said-twice.mjs`): a row containing a button, both carrying
+the same words, comes out as `#row 940×84` and `#burn 300×44`. Both offered.
+The cause is `CANDIDATES`' own dedupe, which was written for exactly this:
+
+```js
+// One box inside another saying exactly the same thing is one thing to
+// point at, not two. The outer one is kept: it is what a person means.
+const key = `${w}x${h}:${words.slice(0, 60)}`;
+```
+
+The key carries the **size**, so it only matches boxes that are the same
+size — precisely the case `pageBlocks` already catches by box alone. The case
+the comment describes never matches it. Same shape of fault as `offered`: the
+intent is written down and the key does not implement it.
+
+So the one-gap story is narrower than we both thought. There are **two**
+gaps of the same shape, in two different readers:
+
+| | same box | same words, different box |
+|---|---|---|
+| caught by | `pageBlocks` → `offered` (fixed) | nothing (`CANDIDATES`' key defeats itself) |
+| his symptom | 24 duplicate panels and rails | the duplicated button label |
+
+### The split link is a third bucket, and not structural
+
+`n_prose_55` reads "Launch your first token on to see PnL tracking here" with
+the words *missing* from the middle, while `n_prose_56` is "pump.fun" 703px
+right and 35px down. Nothing is duplicated — something is absent from one
+reading and present in another, which is the opposite fault.
+
+Six markups through the real reader. Inline, inline-block, absolutely
+positioned 700px away, and `display: contents` **all keep the words**. Only
+two produce his string character for character: **`display: none` and
+`visibility: hidden`** — the link not being drawn *at the moment the sentence
+is read*.
+
+That makes it a **state** fault, not a structural one: the page in a different
+condition for one read than another, which is what a scroll reveal or an
+entrance animation does. It cannot be settled without his page; what is
+recorded here is which explanations are ruled out.
