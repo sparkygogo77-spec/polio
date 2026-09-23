@@ -79,14 +79,30 @@ const parts = (p) => [
       ? { options: { shape: "square", variant: "ghost", size: "medium" }, colour: { text: "rgb(0, 255, 0)", accent: "rgb(0, 255, 0)" } }
       : { options: { shape: "square", variant: "outline", size: "medium" }, colour: { text: "rgb(255, 255, 255)", accent: "rgb(45, 55, 72)" } },
   )),
+  /*
+   * AND HIS DOCS SIDEBAR, which is the same fault with none of the same
+   * handholds: no accent field anywhere — the ink is in `colour.text` — and
+   * not one painted box behind the entries, so the tint went straight onto
+   * the page. Three of these, so there is a majority to be odd against.
+   */
+  node(`${p}_shelf`, p, "box", "", 0, 1700, 255, 200),
+  ...["Burn Tokens", "Cleanup", "API"].map((t, i) => node(
+    `${p}_s${i}`, p, "cta-primary", t, 16, 1716 + i * 60, 223, 56,
+    { options: { shape: "square", variant: "outline", size: "medium" },
+      colour: { text: i === 0 ? "rgb(0, 255, 0)" : "oklch(0.707 0.022 261.325)" } },
+  )),
 ];
 const nodes = PAGES.flatMap(parts);
-const PER_PAGE = 12;
+const PER_PAGE = 16;
 
 const doc = (extra = {}) => JSON.stringify({ state: {
   pages: PAGES.map((id, i) => ({ id, name: id.slice(5), path: i ? `/${id.slice(5)}` : "/", prompt: "", scroll: "inherit" })),
   nodes, groups: [], shapes: [], format: {}, brief: { name: "SOLWORKS", gimmick: "", master: "" },
-  frameWidth: 1763, activePageId: "page_home", trail: [], ...extra,
+  frameWidth: 1763, activePageId: "page_home", trail: [],
+  /* The page's own background: what the browser composited the tint against
+     where no box behind it paints anything. */
+  look: { palette: { bg: "rgb(16, 21, 26)", text: "rgb(255, 255, 255)" }, texture: [], target: "page" },
+  ...extra,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });
@@ -118,8 +134,8 @@ const { ctx, p } = await open(doc());
 const after = await read(p);
 
 check("every page was swept, not only the one on screen", (() => {
-  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 9);
-  return bad.length === 0 || (console.log(`      pages not at 9 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
+  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 13);
+  return bad.length === 0 || (console.log(`      pages not at 13 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
 })(), `${after.total} parts, was ${PAGES.length * PER_PAGE}`);
 check("…the price pair is one part on ALL NINE, not just the open one",
   PAGES.every((pg) => !!after.by[pg]?.[`${pg}_92`] && !after.by[pg]?.[`${pg}_95`]),
@@ -147,7 +163,12 @@ check("the active time button got its tint back, on all nine pages",
 check("…and is solid now, so there is a fill to draw",
   PAGES.every((pg) => after.by[pg]?.[`${pg}_t1`]?.variant === "solid"),
   PAGES.map((pg) => after.by[pg]?.[`${pg}_t1`]?.variant).join(","));
-check("…while the three that were never active are untouched",
+check("the active sidebar entry got its tint back too, over the PAGE and with no accent to read",
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_s0`]?.accent === "rgb(14, 44, 23)"),
+  PAGES.map((pg) => after.by[pg]?.[`${pg}_s0`]?.accent).join(" | "));
+check("…and the two muted entries beside it, whose colour nothing here can even parse, are untouched",
+  PAGES.every((pg) => ["s1", "s2"].every((e) => after.by[pg]?.[`${pg}_${e}`]?.accent == null && after.by[pg]?.[`${pg}_${e}`]?.variant === "outline")));
+check("…while the three time buttons that were never active are untouched",
   PAGES.every((pg) => ["t0", "t2", "t3"].every((t) =>
     after.by[pg]?.[`${pg}_${t}`]?.accent === "rgb(45, 55, 72)" && after.by[pg]?.[`${pg}_${t}`]?.variant === "outline")));
 
@@ -198,7 +219,7 @@ await already.ctx.close();
 const stale = await open(doc({ swept: 0 }));
 const fresh = await read(stale.p);
 check("a board marked at an older version IS swept again",
-  fresh.total === PAGES.length * 9 && fresh.swept === 2, `${fresh.total} parts, mark ${fresh.swept}`);
+  fresh.total === PAGES.length * 13 && fresh.swept === 2, `${fresh.total} parts, mark ${fresh.swept}`);
 await stale.ctx.close();
 
 /* ------------------------------------------------------------------ */

@@ -346,18 +346,52 @@ active control was dropped and the node arrived as an outline where the page
 had a solid. The other lane fixed the reading; that reaches a new capture and
 nothing on a board already written down.
 
-Three of the four things the browser used are still in the document — the
-tint's colour (the node's accent), what is behind it (the innermost containing
-box that paints a surface), and which node it is (in a row of choices where
-the rest agree, the odd one out). Only the opacity is gone, and it is one
-named constant, `TINT = 0.1`.
+**My first predicate was wrong, and it would have failed silently.** It looked
+for the tint's colour in the node's `accent` and required a painted box
+behind it. On the second measured case, the docs sidebar's "Burn Tokens"
+entry, both are absent: it carries no accent at all, only `colour.text`, and
+every box behind it has `colour: null`. It would have corrected one page and
+skipped the other without saying so.
 
-    green rgb(0, 255, 0) at a tenth over rgb(21, 25, 34) = rgb(19, 48, 31)
+**The signal that does hold** is the one his sidebar makes obvious:
 
-which is the value the other lane arrived at independently by re-reading the
-capture and regenerating the document. Two routes, one number. Run over the
-committed `sink/site/document.json` the rule finds exactly one node,
-`n_ctaprimary_34`, at exactly that colour.
+> In a set of choices, the active one is the one whose ink differs from the
+> ink the rest agree on.
+
+Twelve of thirteen docs entries share one muted `oklch()`; the thirteenth is
+the accent. Five of six time buttons share one dim white; the sixth is the
+accent. Written as "differs from what the others share" and never as "equals
+the green", so it survives a different accent and does not grab text that is
+green by design. Comparison is by string, so the inactive `oklch()` needs no
+parsing.
+
+It also predicts the page it was not fitted to: on his home page every
+sidebar entry is grey, so it finds **no** active entry there — which is what
+his reference shows, and it is where an earlier guess (that "Cleanup" was
+highlighted) was wrong. One on docs, zero on home, agreeing with the real site
+on both.
+
+So three of the four things the browser used survive: the tint's colour (the
+node's own ink), what it was laid over (the innermost containing box that
+paints a surface, or **the page's own background** when none does), and which
+node it is. Only the opacity is gone: `TINT = 0.1`.
+
+    rgb(0, 255, 0) at a tenth over rgb(21, 25, 34) = rgb(19, 48, 31)   the time button
+    rgb(0, 255, 0) at a tenth over rgb(16, 21, 26) = rgb(14, 44, 23)   the docs entry
+
+Both are the values the other lane arrived at independently by re-reading the
+capture. Two routes, two numbers, no ids. Run over the committed
+`sink/site/document.json` the rule finds exactly one node, `n_ctaprimary_34`,
+at exactly that colour — with or without the page-background fallback, so the
+fallback adds no false positives on real data.
+
+**Narrowed to controls on purpose.** Only a part carrying a `variant` is
+considered, which both measured cases are. Without it, a column of same-sized
+paragraphs with one coloured differently is indistinguishable from a set of
+choices, and painting a box behind somebody's highlighted sentence is a change
+nobody asked for. Missing an active entry is safe; inventing one is not. If a
+`box`-shaped active entry ever turns up, that is the line to widen — against
+measured data, not in advance.
 
 **Where the colour goes** is the part's business: a control fills from its
 accent (`Cta.tsx`: `outline ? transparent : ghost ? accent+"22" : accent`), so

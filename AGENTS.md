@@ -495,21 +495,33 @@ nothing at all on a board already written down. An active control is picked
 out by a translucent tint of its own colour over what is behind it —
 `oklab(0.86644 -0.233888 0.179499 / 0.1)` on his time buttons — and the drop
 left it with a border colour and no surface. `repaint.ts` puts it back from
-three things the document still holds: the tint's colour as the node's accent,
-what is behind it as the surface of the innermost containing box that paints
-one, and WHICH node it is, because a row of choices where the rest agree names
-its odd one out. Only the opacity is assumed, and it is one named constant
-(`TINT`). Green at a tenth over `rgb(21, 25, 34)` is `rgb(19, 48, 31)`, which
-is the value the other lane reached from the opposite direction by re-reading
-the capture. The colour goes in the role that kind of part actually fills
+three things the document still holds: the tint's colour as the node's own
+INK, what it was laid over as the surface of the innermost containing box that
+paints one — or the PAGE's own background when none does — and WHICH node it
+is, because a set of choices where the rest agree names its odd one out. Only
+the opacity is assumed, and it is one named constant (`TINT`). The first
+version of this predicate read the accent and required a painted backdrop, and
+would have silently skipped the docs sidebar, which has neither: no accent
+field, ink in `colour.text`, and every box behind it unpainted. The rule is
+written as "differs from what the others share" and never as "equals the
+green", so it survives a different accent, does not grab text that is green by
+design, and finds NO active entry on his home page, where every sidebar entry
+is the same grey — which is what his reference shows. Green at a tenth over
+`rgb(21, 25, 34)` is `rgb(19, 48, 31)` and over `rgb(16, 21, 26)` is
+`rgb(14, 44, 23)`: both the values the other lane reached from the opposite
+direction by re-reading the capture. Only a part carrying a `variant` is
+considered, deliberately — without that, a column of paragraphs with one
+coloured differently is indistinguishable from a set of choices, and missing
+an active entry is safe where inventing one is not. The colour goes in the role that kind of part actually fills
 from: a control's ACCENT plus `variant: solid`, a plain box's SURFACE — and
 `Cta.tsx`'s `ghost` branch fills with `accent + "22"`, which against an
 `rgb(...)` string is no colour at all, which is why the fault showed as
 nothing rather than as a faint tint. Every condition that stops it painting
 something bare was red-proved separately: a pair is ambiguous and left alone,
 a set whose others disagree says nothing, an unlabelled mark is not a choice
-(two 20x20 `svg` marks in his own document met every geometric test), and with
-nothing painted behind it the answer would be invented rather than worked out.
+(two 20x20 `svg` marks in his own document met every geometric test), a part
+with no variant is not a control, and with neither a painted box nor a page
+colour behind it the answer would be invented rather than worked out.
 
 **A button in the Builder is pressable in the Builder.** His nine captured
 pages were reachable only from the tab bar, which makes a correct import feel

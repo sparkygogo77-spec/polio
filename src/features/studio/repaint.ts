@@ -11,27 +11,46 @@
  * converter, so it reaches a NEW capture and nothing whatever on a board
  * that is already written down — which is where his is.
  *
- * WHAT IS LEFT TO WORK FROM, and it is enough. Three of the four things the
- * browser used are still in the document:
+ * WHAT IS LEFT TO WORK FROM, and it is enough — but not what I first thought.
+ * My first predicate looked for the tint's colour in the node's ACCENT and
+ * for something painted behind it, and it was wrong on both counts for the
+ * second case that was measured. His "Burn Tokens" entry carries no accent at
+ * all, only `colour.text`, and every box behind it paints nothing whatever.
+ * It would have been skipped in silence.
  *
- *   - the TINT'S COLOUR, as the node's own accent, because the tint and the
- *     border are the same colour on a control picked out this way;
- *   - WHAT IS BEHIND IT, as the surface of the innermost box that contains
- *     it and paints one;
- *   - WHICH node it is, because the dropped tint left a fingerprint: in a row
- *     of controls that are choices, the active one is the one painted
- *     differently from the rest, and it is the only one with nothing to
- *     paint.
+ * The signal that does hold, on both measured cases and on the page where
+ * there is no active entry at all, is the one his sidebar makes obvious:
  *
- * The fourth, the tint's OPACITY, is gone — see `TINT`. It is the one number
- * here that is assumed rather than read, and it is named so it can be argued
- * with rather than buried.
+ *   IN A SET OF CHOICES, THE ACTIVE ONE IS THE ONE WHOSE INK DIFFERS FROM
+ *   THE INK THE REST AGREE ON.
  *
- * MEASURED, on the one case there is data for: his "1W" button carries accent
- * `rgb(0, 255, 0)` and sits in a box whose surface is `rgb(21, 25, 34)`.
- * Green at a tenth over that is `rgb(19, 48, 31)` — which is the value the
- * other lane arrived at independently by re-reading the capture. Same number
- * from the opposite direction.
+ * Twelve of his thirteen docs entries are the same muted grey and the
+ * thirteenth is the accent; five of his six time buttons are the same dim
+ * white and the sixth is the accent. It is written as "differs from what the
+ * others share" and never as "equals the green", so it survives a different
+ * accent and a different grey, and it does not grab text that is green by
+ * design. And it predicts the page it was NOT fitted to: on his home page
+ * every sidebar entry is grey, so it finds no active entry there, which is
+ * what his reference shows.
+ *
+ * So: the tint's colour is the node's own ink, and what it was laid over is
+ * the innermost containing box that paints a surface — or, when none does,
+ * the page's own background, because that is what the browser composited
+ * against. The fourth thing, the tint's OPACITY, is gone; see `TINT`.
+ *
+ * MEASURED. His "1W" carries ink `rgb(0, 255, 0)` in a card surfaced
+ * `rgb(21, 25, 34)`; green at a tenth over that is `rgb(19, 48, 31)`, which
+ * is the value the other lane arrived at independently by re-reading the
+ * capture. Same number from the opposite direction.
+ *
+ * NARROWED TO CONTROLS ON PURPOSE. Only a part the library treats as a
+ * control — one carrying a `variant` — is considered, which both measured
+ * cases are. Without that, a column of same-sized paragraphs with one
+ * coloured differently is indistinguishable from a set of choices, and
+ * painting a box behind somebody's highlighted sentence is a change nobody
+ * asked for. Missing an active entry is safe; inventing one is not. If a
+ * `box`-shaped active entry ever turns up, this is the line to widen, and it
+ * should be widened against measured data rather than in advance.
  *
  * Pure — no React, no store, no DOM — so `tests/repaint.mjs` can hold the
  * rules without a browser or a build.
@@ -70,9 +89,9 @@ export interface Painted {
   role: "accent" | "surface";
   /** Whether the part also needs telling it is solid now. */
   solid: boolean;
-  /** The tint's own colour, which is the node's accent. */
+  /** The tint's own colour, which is the node's own ink. */
   tint: string;
-  /** What it was laid over, and whose box that was. */
+  /** What it was laid over, and whose box that was — or the page's own. */
   over: string;
   overId: string;
   /** How many other choices it sits among: what made it the odd one out. */
@@ -122,6 +141,18 @@ function within(outer: Frag, inner: Frag): boolean {
     && inner.y + inner.h <= outer.y + outer.h + 1;
 }
 
+/**
+ * The ink a part was given: its own text colour, or its accent when the
+ * converter wrote the colour there instead. His two measured cases differ on
+ * exactly this — the time button carries both, the sidebar entry only `text`.
+ */
+function inkOf(f: Frag): string | null {
+  const t = f.colour?.text?.trim();
+  if (t) return t;
+  const a = f.colour?.accent?.trim();
+  return a || null;
+}
+
 /** The words a part draws, whether it holds a plain string or runs. */
 function wordsOf(f: Frag): string {
   const c = f.content;
@@ -149,7 +180,9 @@ function beside(a: Frag, b: Frag): boolean {
  * tinted, because painting a control that was meant to be bare is a visible
  * change nobody asked for:
  *
- *  - it must have an accent of its own, or there is no tint colour to use;
+ *  - it must be a CONTROL, so a coloured paragraph in a list is not mistaken
+ *    for an active choice;
+ *  - it must have an ink of its own, or there is no tint colour to use;
  *  - it must have NO surface of its own, or nothing was dropped;
  *  - it must SAY something, and so must something else in its set. A choice
  *    a person can pick is labelled; this is what tells a row of tabs from a
@@ -162,42 +195,56 @@ function beside(a: Frag, b: Frag): boolean {
  *    painted differently are ambiguous — each is the odd one out of the other
  *    — so nothing is done to a pair, and a set is at least three. With three
  *    or more all agreeing but one, the one that differs is the active one;
- *  - and something behind it must paint a surface, or there is nothing to
- *    lay the tint over and the answer would be invented rather than worked
- *    out.
+ *  - and there must be something to lay the tint over: a box behind it that
+ *    paints, or failing that the page's own background. With neither, the
+ *    answer would be invented rather than worked out.
  *
  * And his hand is exempt, as everywhere else: a colour he chose is his.
  */
-export function repaintActive(frags: readonly Frag[]): Painted[] {
+export function repaintActive(frags: readonly Frag[], pageBg?: string | null): Painted[] {
   const out: Painted[] = [];
+  const page = pageBg?.trim() && rgb(pageBg) ? pageBg.trim() : null;
   for (const f of frags) {
     if (f.byHand) continue;
-    const tint = f.colour?.accent?.trim();
-    if (!tint || !rgb(tint)) continue;
+    /* A control, and only a control: see the note at the top of this file. */
+    if (typeof f.options?.variant !== "string") continue;
     if (surfaceOf(f)) continue;
     /* A choice is labelled; an icon is not. */
     if (!wordsOf(f).trim()) continue;
+    const ink = inkOf(f);
+    if (!ink || !rgb(ink)) continue;
+
     const set = frags.filter((o) => beside(f, o));
     if (!set.some((o) => wordsOf(o).trim())) continue;
     /*
      * Odd one out, and the rest agreeing. With only one other choice there is
      * nothing to be odd against: each of a pair differs from the other and
-     * neither is more active than the other, so a pair is left alone.
+     * neither is more active, so a pair is left alone. Compared as written
+     * rather than parsed, so a palette in `oklch()` — which is what his
+     * inactive entries are in — is compared perfectly well without this
+     * needing to understand it.
      */
     if (set.length < 2) continue;
-    const rest = set.map((o) => (o.colour?.accent ?? "").trim().toLowerCase());
+    const rest = set.map((o) => (inkOf(o) ?? "").replace(/\s+/g, " ").trim().toLowerCase());
     if (rest.some((a) => a !== rest[0])) continue;
-    if (rest[0] === tint.toLowerCase()) continue;
+    if (rest[0] === ink.replace(/\s+/g, " ").trim().toLowerCase()) continue;
+
+    /*
+     * What it was laid over: the innermost box that actually paints, and the
+     * PAGE when none of them does. His docs sidebar is the second case —
+     * every box behind the entry has no colour at all, so the browser
+     * composited the tint straight onto the page.
+     */
     const behind = frags
       .filter((o) => within(o, f) && surfaceOf(o))
       .sort((a, b) => a.w * a.h - b.w * b.h)[0];
-    if (!behind) continue;
-    const paint = over(tint, surfaceOf(behind)!);
+    const over_ = behind ? surfaceOf(behind)! : page;
+    if (!over_) continue;
+    const paint = over(ink, over_);
     if (!paint) continue;
-    const control = typeof f.options?.variant === "string";
     out.push({
-      id: f.id, paint, role: control ? "accent" : "surface", solid: control,
-      tint, over: surfaceOf(behind)!, overId: behind.id, among: set.length,
+      id: f.id, paint, role: "accent", solid: true,
+      tint: ink, over: over_, overId: behind?.id ?? "the page", among: set.length,
     });
   }
   return out;

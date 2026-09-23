@@ -1727,8 +1727,13 @@ export const useStudio = create<StudioState>()(
            * nothing at all on a board already written down — so on his the
            * whole correction is a colour and a variant, worked out from what
            * the document still holds (`repaint.ts`).
+           *
+           * The page's own background goes in with it, because his docs
+           * sidebar has NO painted box anywhere behind its entries — the tint
+           * went straight onto the page, and without this the correction
+           * would be skipped there in silence.
            */
-          const painted = repaintActive(afterFit as unknown as Frag[]);
+          const painted = repaintActive(afterFit as unknown as Frag[], s0.look?.palette?.bg ?? null);
           if (!joined.length && !fitted.length && !painted.length) { set({ swept: SWEEP }); return null; }
 
           /* The one checkpoint, taken before anything moves. */
