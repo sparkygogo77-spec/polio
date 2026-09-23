@@ -61,7 +61,7 @@ import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
 import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
-import { saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Reassembly, type Slimming } from "./reassemble";
+import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Reassembly, type Slimming } from "./reassemble";
 import { paintSays, repaintActive, type Painted } from "./repaint";
 
 /**
@@ -791,7 +791,7 @@ interface StudioState extends Doc {
    * did, or null when there was nothing to do or the board was never
    * captured. See the action for the three promises it keeps.
    */
-  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[] } | null;
+  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[]; empty: Frag[] } | null;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1277,13 +1277,16 @@ function withPaint(nodes: StudioNode[], done: readonly Painted[]): StudioNode[] 
   });
 }
 
-/** The nodes a set of fitted wrappers leaves behind; `h: 0` means it goes. */
+/**
+ * The nodes a set of fitted wrappers leaves behind.
+ *
+ * Nothing is removed. A box that holds nothing is misplaced rather than junk
+ * — see `emptyWrappers` — so this only ever changes a height, and only ever
+ * downward from what the capture recorded.
+ */
 function withFits(nodes: StudioNode[], done: readonly Slimming[]): StudioNode[] {
-  const gone = new Set(done.filter((d) => d.h === 0).map((d) => d.id));
-  const fit = new Map(done.filter((d) => d.h > 0).map((d) => [d.id, d.h]));
-  return nodes
-    .filter((n) => !gone.has(n.id))
-    .map((n) => { const h = fit.get(n.id); return h === undefined ? n : { ...n, h }; });
+  const fit = new Map(done.map((d) => [d.id, d.h]));
+  return nodes.map((n) => { const h = fit.get(n.id); return h === undefined ? n : { ...n, h }; });
 }
 
 function firstPage(): StudioPage {
@@ -1716,6 +1719,9 @@ export const useStudio = create<StudioState>()(
           const afterJoin = joined.length ? withJoins(s0.nodes, joined) : s0.nodes;
           const fitted = slimWrappers(afterJoin as unknown as Frag[]);
           const afterFit = fitted.length ? withFits(afterJoin, fitted) : afterJoin;
+          /* Reported, never removed: both of the empty wrappers on his home
+             page are real surfaces that slid below their own contents. */
+          const empty = emptyWrappers(afterFit as unknown as Frag[]);
           /*
            * AND THE PAINT THE CAPTURE DROPPED. The other lane taught the
            * converter to read `oklab()`, which reaches a new capture and
@@ -1729,7 +1735,7 @@ export const useStudio = create<StudioState>()(
            * would be skipped there in silence.
            */
           const painted = repaintActive(afterFit as unknown as Frag[], s0.look?.palette?.bg ?? null);
-          if (!joined.length && !fitted.length && !painted.length) { set({ swept: SWEEP }); return null; }
+          if (!joined.length && !fitted.length && !painted.length && !empty.length) { set({ swept: SWEEP }); return null; }
 
           /* The one checkpoint, taken before anything moves. */
           push();
@@ -1739,9 +1745,9 @@ export const useStudio = create<StudioState>()(
             /* Said out loud, because a board that quietly loses six parts
                between one visit and the next is worse than one that never
                lost them — and the line is how he knows there is an undo. */
-            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length ? slimSays(fitted) : "", painted.length ? paintSays(painted) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
+            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length || empty.length ? slimSays(fitted, empty) : "", painted.length ? paintSays(painted) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
           });
-          return { joined, fitted, painted };
+          return { joined, fitted, painted, empty };
         },
 
         raiseNode: (id, toTop) => {

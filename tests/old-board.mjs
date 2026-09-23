@@ -125,10 +125,17 @@ check("opening the board joins the price pair, with nothing pressed",
 check("…reading as his page does", load.n_prose_92?.words === "$ 116.59 -1.94 %", JSON.stringify(load.n_prose_92?.words));
 check("opening the board fits the banner, giving back the 33px under its only child",
   load.n_box_75?.h === 49, `82 → ${load.n_box_75?.h}`);
-check("opening the board removes all five empty wrappers",
-  EMPTIES.every((id) => !(id in load)), EMPTIES.filter((id) => id in load).join(", ") || "all five gone");
-check("…which is the 293px he measured, given back",
-  EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0) === 0, `${EMPTIES.length - EMPTIES.filter((id) => id in load).length} of 5 gone`);
+/*
+ * AND IT REMOVES NOTHING. Both empty wrappers on his home page turned out to
+ * be real surfaces sitting below the content they own, so an empty wrapper is
+ * reported and left where it is. The 293px stays on the page until a rule
+ * exists that puts those boxes back round what they own.
+ */
+check("opening the board removes NO empty wrapper, because they are misplaced and not junk",
+  EMPTIES.every((id) => id in load), EMPTIES.filter((id) => !(id in load)).join(", ") || "all five still there");
+check("…still totalling the 293px he measured",
+  EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0) === 293,
+  `${EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0)}px`);
 check("and it left a mark, so opening it again will not do this a second time",
   (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state?.swept ?? null)) === 2);
 
@@ -142,41 +149,18 @@ check("pressing the rebuild again finds nothing left to join",
   JSON.stringify(joined) === JSON.stringify(load), JSON.stringify(Object.keys(joined)));
 
 /*
- * THE SWEEP IS ONE PASS, AND THAT IS THE CAUTIOUS CHOICE RATHER THAN AN
- * OVERSIGHT. The banner held something when the sweep started — the empty div
- * inside it — so it was FITTED and not removed. Once that div is gone the
- * banner holds nothing, and a second pass would remove it too.
- *
- * It is not cascaded, because the rule that keeps this safe is "a box that
- * held something when we looked is fitted, never removed": the document as
- * captured decides, and a box cannot be deleted by a consequence of our own
- * editing. A 1763-wide band disappearing two steps down a chain is exactly
- * the kind of change nobody asked for. This asserts what a later press does
- * so the behaviour is written down rather than discovered.
+ * AND A SECOND PRESS CHANGES NOTHING EITHER, because nothing is deleted now
+ * — so the chain that used to empty the banner and then remove it on a later
+ * press cannot happen at all. Fitting only ever gives back height nothing
+ * occupies, and it converges on the first pass.
  */
 check("the palette still offers the fitting", await press("fit captured boxes", /fit captured boxes/i));
 const fitted = await saved();
-check("pressing the fitting again DOES remove the banner, now that nothing is in it",
-  !("n_box_75" in fitted), Object.keys(fitted).join(", "));
-check("…which is why the sweep is one pass: it fits what held something and never removes it",
-  "n_box_75" in load && load.n_box_75.h === 49);
+check("pressing the fitting again changes nothing, and removes nothing",
+  JSON.stringify(fitted) === JSON.stringify(load), Object.keys(fitted).join(", "));
+check("…the banner still there, fitted to what it holds rather than gone",
+  fitted.n_box_75?.h === 49);
 
-/* ------------------------------------------------------------------ */
-/* 3. AND WHAT NOTHING CAN REACH                                       */
-/* ------------------------------------------------------------------ */
-
-/*
- * THE HEADLINE IS NOT RECOVERABLE FROM THIS DOCUMENT, and that is not a bug
- * in the commands — it is the shape of the loss. The space was thrown away
- * at READING time, before the document existed. The three runs carry no
- * geometry of their own, so there is no gap to judge; "Sol|Works" takes no
- * space and "Works|project" takes one, both letter against letter. Nothing
- * held anywhere in this app knows which. Only the original page did.
- *
- * So this asserts the failure, deliberately, rather than leaving it to be
- * discovered again on his board: no command fixes it, and the only thing
- * that does is reading the original site again.
- */
 check("neither the sweep nor any command recovers the headline's space, because it is not in the document at all",
   fitted.n_prose_11?.words === "A SolWorksproject", JSON.stringify(fitted.n_prose_11?.words));
 

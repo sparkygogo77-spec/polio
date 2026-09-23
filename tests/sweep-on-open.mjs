@@ -134,8 +134,8 @@ const { ctx, p } = await open(doc());
 const after = await read(p);
 
 check("every page was swept, not only the one on screen", (() => {
-  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 13);
-  return bad.length === 0 || (console.log(`      pages not at 13 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
+  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 15);
+  return bad.length === 0 || (console.log(`      pages not at 15 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
 })(), `${after.total} parts, was ${PAGES.length * PER_PAGE}`);
 check("…the price pair is one part on ALL NINE, not just the open one",
   PAGES.every((pg) => !!after.by[pg]?.[`${pg}_92`] && !after.by[pg]?.[`${pg}_95`]),
@@ -146,8 +146,18 @@ check("…reading as his page does, with the space the gap says belongs there",
 check("…the banner is fitted on all nine, giving back its 33px",
   PAGES.every((pg) => after.by[pg]?.[`${pg}_75`]?.h === 49),
   PAGES.map((pg) => after.by[pg]?.[`${pg}_75`]?.h).join(","));
-check("…and both empty wrappers are gone from all nine",
-  PAGES.every((pg) => !after.by[pg]?.[`${pg}_76`] && !after.by[pg]?.[`${pg}_53`]));
+/*
+ * AND NOTHING IS DELETED. Both empty wrappers on his home page turned out to
+ * be real surfaces that had slid below the content they own — the banner with
+ * its whole header above it, the Your Tokens panel with its heading above it.
+ * Deleting those takes them off the page for good, so an empty wrapper is now
+ * reported and left exactly where it is.
+ */
+check("the two empty wrappers are STILL THERE, on every page, untouched",
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_76`]?.h === 49 && after.by[pg]?.[`${pg}_53`]?.h === 148),
+  `${after.by.page_home?.page_home_76?.h} and ${after.by.page_home?.page_home_53?.h}`);
+check("…and the sweep said so, rather than leaving him to notice",
+  /hold nothing and were left alone/.test(await p.evaluate(() => document.body.innerText)));
 
 /*
  * THE PAINT THE CAPTURE DROPPED, on every page too. A tenth of the button's
@@ -255,7 +265,7 @@ await already.ctx.close();
 const stale = await open(doc({ swept: 0 }));
 const fresh = await read(stale.p);
 check("a board marked at an older version IS swept again",
-  fresh.total === PAGES.length * 13 && fresh.swept === 2, `${fresh.total} parts, mark ${fresh.swept}`);
+  fresh.total === PAGES.length * 15 && fresh.swept === 2, `${fresh.total} parts, mark ${fresh.swept}`);
 await stale.ctx.close();
 
 /* ------------------------------------------------------------------ */

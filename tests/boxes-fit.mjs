@@ -106,8 +106,19 @@ await page.waitForTimeout(1200);
 
 const after = await saved();
 
-check("the empty box inside the banner is gone", !("n_box_76" in after), Object.keys(after).join(", "));
-check("…and the empty box standing on its own is gone too", !("n_box_53" in after));
+/*
+ * NOTHING IS REMOVED, AND THAT IS THE POINT OF THIS CHECK NOW.
+ *
+ * This used to assert the empty boxes were deleted. Measured on his board,
+ * both empty wrappers on his home page are real surfaces that have slid BELOW
+ * the content they own — the banner at y 147 with its whole header above it
+ * at -11..105, and the Your Tokens panel at y 1247 with its heading at 1056.
+ * Deleting those takes his banner and his panel off the page for good. They
+ * are misplaced, not junk, and the correction is to put them back round what
+ * they own, which is a different and larger piece.
+ */
+check("the empty box inside the banner is still there, reported and not removed", "n_box_76" in after, Object.keys(after).join(", "));
+check("…and so is the empty box standing on its own", "n_box_53" in after);
 check("the banner STAYS, because it is not empty — which is what a drop-empties rule would miss",
   "n_box_75" in after);
 check("…fitted to its only child, giving back exactly the 33px of dead space under it",
@@ -125,12 +136,13 @@ check("nothing was LIFTED: no part's top moved at all",
 
 /* The board drew what the document says, rather than only the document changing. */
 const drawn = await page.evaluate(() => [...document.querySelectorAll("[data-node-id]")].map((el) => el.getAttribute("data-node-id")));
-check("the board is drawing the four that are left, and neither of the two that went",
-  drawn.length === 4 && !drawn.includes("n_box_76") && !drawn.includes("n_box_53"), drawn.join(", "));
+check("the board is still drawing every one of the six",
+  drawn.length === 6, drawn.join(", "));
 
 /* And it says what it did, in words, by name where it matters. */
 const said = await page.evaluate(() => document.body.innerText);
-check("and it says out loud how much empty box it gave back", /px of empty box/.test(said),
+check("and it says out loud how much empty box it gave back, and what it left alone",
+  /px of empty box/.test(said) && /hold nothing and were left alone/.test(said),
   (said.match(/[^\n]*px of empty box[^\n]*/) ?? ["not said"])[0]);
 
 await browser.close();

@@ -454,10 +454,17 @@ at. And "drop the empty ones" is the wrong rule — the banner he clicked on,
 only child, which is itself an empty box. The claim count and the geometry
 disagree in both directions on his page, so `slimWrappers` trusts neither
 claim and asks where the boxes actually are. Only the bottom is ever trimmed:
-shrinking a box moves nothing, lifting one would. Never removed: a wrapper his
-hand placed (not fitted either — its size is his answer, as with the button
-and the healing) and one that shows a surface of its own, since dropping that
-takes a coloured band off the page. And a wrapper is a `box`: every one of the
+shrinking a box moves nothing, lifting one would. NOTHING IS REMOVED, and that correction was
+measured rather than reasoned: both empty wrappers on his home page turned out
+to be REAL SURFACES THAT HAD SLID BELOW THE CONTENT THEY OWN — the banner,
+1763x65 at y 147, with its whole header above it at -11..105, and the Your
+Tokens panel, 1507x172 at y 1247, with its heading at 1056. Deleting those
+takes his banner and his panel off the page for good. They are misplaced, not
+junk, and putting them back round what they own is a different and larger
+piece. So an empty wrapper is named in the report and left exactly where it
+is. Also never touched: a wrapper his hand placed (not fitted either — its
+size is his answer, as with the button and the healing) and one that shows a
+surface of its own. And a wrapper is a `box`: every one of the
 75 wordless parts in his captured document is one, and a part of another kind
 holding nothing is something else — a `picture` with no picture is a stand-in
 by design, and deleting it takes a slot off the page somebody meant to fill. Containment is within one page, because
@@ -533,6 +540,28 @@ a set whose others disagree says nothing, an unlabelled mark is not a choice
 (two 20x20 `svg` marks in his own document met every geometric test), a part
 with no variant is not a control, and with neither a painted box nor a page
 colour behind it the answer would be invented rather than worked out.
+
+**Why a wrapper lands below the content it owns.** `tests/wrapper-below.mjs`
+runs the real `MEASURE` against DOMs built to isolate it. A captured element's
+box is its own rect GROWN to swallow children that run out of it, and the
+growth has three limits — a child outside any one of them is not swallowed, so
+it arrives as a loose part and its parent arrives as an empty box wherever its
+own collapsed rect happened to be:
+
+1. **A positioned child is skipped outright** (`cs.position === "fixed" ||
+   "absolute"`), however plainly it is inside its parent in the markup.
+2. **`TOUCH = 24`** — a child more than 24px clear of the box is out of reach.
+   His banner's contents end at 105 and the band starts at 147: 42px.
+3. **Two levels only** (`for (const c of el.children) for (const k of [c,
+   ...c.children])`). Content overflowing from three levels down is invisible;
+   the same content one level nearer is swallowed, which is what pins it to
+   the depth and nothing else.
+
+And the thing that makes it fixable: the reading already knows. Every
+candidate carries the DOM path it was read from and a recreation keeps it
+(`node.from.selector` — all 126 nodes of his committed document have one), so
+a wrapper's true children are the nodes whose path CONTINUES its own: no
+geometry, no reach, no positioning to trip over. Nothing reads it.
 
 **A button in the Builder is pressable in the Builder.** His nine captured
 pages were reachable only from the tab bar, which makes a correct import feel
