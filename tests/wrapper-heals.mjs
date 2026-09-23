@@ -14,8 +14,11 @@
  * the REASON the healing pushed.
  *
  * The fault, at his shape: the banner's own rect is 1763x82 at y 0 and the
- * logo it owns overflows to y -11. The healing sees a box overlapping a part,
- * and its only direction is down.
+ * logo it owns overflows to y -11. The healing saw a box overlapping a part,
+ * and its only direction was down. Since the healing places a captured page
+ * by what holds what (`textFit.ts#fitTree`), the logo is the banner's content
+ * and nothing is pushed: section 1 now asserts that, where it used to assert
+ * the fault.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/wrapper-heals.mjs http://127.0.0.1:3013
@@ -85,26 +88,30 @@ const seeded = (set, id) => set.find((n) => n.id === id);
 const bottom = (o) => Math.max(...Object.values(o).map((v) => v.y + v.h));
 
 /* ------------------------------------------------------------------ */
-/* 1. The fault, left alone: the healing makes it WORSE                */
+/* 1. The fault, left alone: the healing no longer amplifies it        */
 /* ------------------------------------------------------------------ */
 
 /*
- * This is the part I had not measured. The banner overlaps the logo it owns
- * by 11px, and the healing clears overlaps by pushing DOWN — so it shoves the
- * banner past the logo entirely, turning an 11px overlap into a 101px
- * displacement, and drags everything below it down by the same amount.
+ * THIS HALF USED TO ASSERT THE FAULT. It checked that the healing pushed the
+ * adrift banner DOWN past the logo it owns — y 0 to 101 — and dragged every
+ * part below by the same amount: an 11px overhang turned into a hundred
+ * pixels of dead space. That was measured, and it was the healing placing
+ * every part on its own against whatever it overlapped, with no notion of
+ * what holds what. A suite defending it would be defending the bug.
  *
- * Which is very likely how his banner came to sit at y 147 with its header
- * above it: not the capture alone, but the capture's overlap plus a healing
- * that only knows one direction.
+ * The healing now places a captured page as the tree its recorded paths
+ * describe: the logo's path continues the banner's, so the logo is the
+ * banner's content, not something above it to be cleared. Left alone, the
+ * banner is not pushed, nothing below it moves, and the page is exactly as
+ * tall as the one put right.
  */
-check("left alone, the healing pushes the adrift banner DOWN, past the logo it owns",
-  A.banner.y > seeded(faulty, "banner").y + 50, `y 0 → ${A.banner.y}`);
-check("…and drags every part below it down by the same amount",
-  A.below1.y - 150 === A.banner.y && A.below2.y - 220 === A.banner.y && A.below3.y - 290 === A.banner.y,
-  `below1 150 → ${A.below1.y}, below2 220 → ${A.below2.y}, below3 290 → ${A.below3.y}`);
-check("…so an 11px overhang becomes a hundred pixels of dead space on the page",
-  A.banner.y > 90, `${A.banner.y}px`);
+check("left alone, the banner owns the logo by its recorded path, so the healing does not push it down",
+  A.banner.y === seeded(faulty, "banner").y, `y ${seeded(faulty, "banner").y} → ${A.banner.y}`);
+check("…and drags nothing below it: every part below keeps its distance from the banner",
+  ["below1", "below2", "below3"].every((id) => A[id].y - A.banner.y === seeded(faulty, id).y - seeded(faulty, "banner").y),
+  ["below1", "below2", "below3"].map((id) => `${id} ${seeded(faulty, id).y} → ${A[id].y}`).join(", "));
+check("…so the 11px overhang no longer becomes dead space: left alone, the page is as tall as put right",
+  bottom(A) === bottom(B), `${bottom(A)} against ${bottom(B)}`);
 
 /* ------------------------------------------------------------------ */
 /* 2. Put right, the healing has nothing to do                         */
@@ -113,8 +120,6 @@ check("…so an 11px overhang becomes a hundred pixels of dead space on the page
 check("with the banner grown to hold what it owns, the healing moves NOTHING",
   ["banner", "logo", "mark", "below1", "below2", "below3"].every((id) => B[id].y === seeded(put_right, id).y),
   Object.entries(B).map(([k, v]) => `${k} ${v.y}`).join(", "));
-check("…and the page is a hundred pixels shorter than the one left alone",
-  bottom(A) - bottom(B) > 90, `${bottom(A)} against ${bottom(B)}, ${bottom(A) - bottom(B)}px`);
 
 /*
  * AND THE DIRECTION MATTERS. The correction only ever lifts a box or makes it

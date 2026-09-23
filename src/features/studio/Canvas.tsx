@@ -203,7 +203,8 @@ export function Canvas() {
    * and a board with nothing captured on it never settles at all.
    * See `useSettleToWords`.
    */
-  useSettleToWords(nodes, React.useCallback((f) => useStudio.getState().settleToWords(f), []));
+  const settleFrame = useStudio((s) => s.frameWidth);
+  useSettleToWords(nodes, React.useCallback((f) => useStudio.getState().settleToWords(f), []), settleFrame);
   const shapes = useStudio(useShallow(pageShapes));
   /* Read here rather than off `getState()` in a handler, because the page's
      own height depends on it: a space drawn below the last part makes the

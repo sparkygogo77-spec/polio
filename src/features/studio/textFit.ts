@@ -32,6 +32,7 @@
  * dragging every box taller by hand.
  */
 import * as React from "react";
+import { under } from "./owns";
 
 /** A box as it stands, and the height it actually drew at. */
 export interface Drawn {
@@ -42,6 +43,14 @@ export interface Drawn {
   h: number;
   /** What the box came out as on screen, once its words had the room. */
   drew: number;
+  /** The DOM path the capture recorded for it (`node.from.selector`), when it was captured. */
+  path?: string;
+  /** Whether it holds words of its own: only words reflow, so only they can grow a captured part. */
+  words?: boolean;
+  /** Its padding either side, as captured: its inside is what a row of its children fills. */
+  pad?: { left?: number; right?: number };
+  /** Its captured `layout` declares a stretching row — a grid, or a flex row not told to align otherwise — so its children in one line share one height. */
+  row?: boolean;
 }
 
 /** A box that has to move, grow, or both. */
@@ -66,7 +75,158 @@ export interface Fitted {
  * its words comes back empty, which is what makes it safe to run after any
  * import rather than only after a bad one.
  */
-export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean): Fitted[] {
+export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame?: number): Fitted[] {
+  return boxes.some((b) => b.path) ? fitTree(boxes, grows, frame) : fitFlat(boxes, grows);
+}
+
+/**
+ * A captured page: a box and what it holds move together, and an offset
+ * inside a box changes only by the growth above it there.
+ *
+ * MEASURED on sink's home page through the real door: the placement below
+ * (`fitFlat`) gave every part a top of its own and skipped the pair where one
+ * box holds another, so a container neither pushed nor carried its contents.
+ * The sidebar went down 72 and its eight buttons 12, the first button's icon
+ * 0; the footer and its parts by four different amounts. A box whose contents
+ * have fallen out of it is what the owner saw.
+ *
+ * The capture recorded who holds whom — the DOM path, as `owns.ts` reads it —
+ * so this places the page as that tree, by two rules (the coordinator's):
+ *
+ *   1. GROWTH IS ABSORBED BY THE CONTAINER. A part's growth is its words
+ *      needing more height than it had, or what it holds growing inside it.
+ *      ONLY WORDS: a picture, an icon or a box drawn taller than the capture
+ *      recorded is the board drawing it wrong, not the page growing (sink's
+ *      "Solana" picture drew 220 against a captured 24 and made the header
+ *      308), so it keeps its captured height and moves nothing.
+ *      Its container grows by that much, and the container's own contents
+ *      below it — the siblings standing under it — move down by it.
+ *   2. DISPLACEMENT IS INHERITED. Whatever moves a part moves everything it
+ *      holds by exactly that much, so they keep their offsets.
+ *
+ * Rule 2 is the invariant; rule 1 is the only thing that changes an offset
+ * inside a box, and only by the growth above it there. So a sibling moves by
+ * the most that any sibling standing over it moved and grew, gap kept as the
+ * capture had it — INCLUDING a gap below zero: the page's own overlaps (a
+ * fixed header over the top of the sidebar) are the page's, and prising them
+ * apart moved the sidebar and not its buttons. A part with no recorded path
+ * is a sibling at the top of the page, and against another like it the old
+ * rule stands: what was saved into it is laid apart.
+ *
+ * Measured before it was written: carrying creates no overlap the contents
+ * did not already have — on sink's home page, none with no text growth, and
+ * with text grown only the ones rule 1 then pushes apart.
+ *
+ * AND A ROW GROWS AS ONE. His sidebar and his main area are one row that
+ * fills together — his own unswept document and his live site both show the
+ * column running header to footer — so when the main area's words grow, the
+ * rail grows with it; it has no contents that grew, it has a row-mate that
+ * did. Siblings are a row only where the capture STATES it, never by a size:
+ *   · wordless boxes sharing a top and a height that tile their container's
+ *     whole width edge to edge (the container's inside, or the page frame
+ *     for a top-level part) — the main-and-rail pair on each section page,
+ *     and the documentation page's three columns; or
+ *   · siblings sharing a top and a height under a box whose captured `layout`
+ *     declares a stretching row (a grid, or a flex row not aligned otherwise).
+ * When the last of a row is placed, its members line up on the row's lowest
+ * top — carrying what they hold, by rule 2 — and all grow to its lowest bottom.
+ */
+function fitTree(boxes: readonly Drawn[], grows?: (id: string) => boolean, frame?: number): Fitted[] {
+  const byId = new Map(boxes.map((b) => [b.id, b]));
+  const ownerOf = new Map<string, string | null>();
+  for (const b of boxes) {
+    let best: Drawn | null = null;
+    if (b.path) for (const o of boxes) if (o !== b && o.path && under(o.path, b.path) && (!best || o.path!.length > best.path!.length)) best = o;
+    ownerOf.set(b.id, best?.id ?? null);
+  }
+  const kidsOf = new Map<string | null, Drawn[]>();
+  for (const b of boxes) {
+    const o = ownerOf.get(b.id) ?? null;
+    kidsOf.set(o, [...(kidsOf.get(o) ?? []), b]);
+  }
+  /** Where each part ended, how far it moved in all, and how much it grew. */
+  const put = new Map<string, { y: number; h: number; moved: number; grew: number }>();
+
+  /* The rows the capture states, by sibling set. */
+  const rowOf = new Map<string, string[]>();
+  for (const [owner, sibs] of kidsOf) {
+    const box = owner ? byId.get(owner) : null;
+    const left = box ? box.x + (box.pad?.left ?? 0) : 0;
+    const right = box ? box.x + box.w - (box.pad?.right ?? 0) : frame;
+    const seen = new Set<string>();
+    for (const a of sibs) {
+      if (seen.has(a.id) || !a.path) continue;
+      const line = sibs.filter((b) => b.path && Math.abs(b.y - a.y) <= 1 && Math.abs(b.h - a.h) <= 1);
+      line.forEach((b) => seen.add(b.id));
+      if (line.length < 2) continue;
+      const xs = [...line].sort((p, q) => p.x - q.x);
+      const tiles = right !== undefined && line.every((b) => !b.words)
+        && Math.abs(xs[0]!.x - left) <= 1 && Math.abs(xs[xs.length - 1]!.x + xs[xs.length - 1]!.w - right) <= 1
+        && xs.every((b, i) => i === 0 || Math.abs(b.x - (xs[i - 1]!.x + xs[i - 1]!.w)) <= 1);
+      if (tiles || box?.row) { const ids = line.map((b) => b.id); for (const id of ids) rowOf.set(id, ids); }
+    }
+  }
+  /** Move a placed part and everything it holds by `d`: rule 2, applied after the fact. */
+  const shift = (id: string, d: number) => {
+    const p = put.get(id);
+    if (p) put.set(id, { ...p, y: p.y + d, moved: p.moved + d });
+    for (const k of kidsOf.get(id) ?? []) shift(k.id, d);
+  };
+
+  /** Lay out one box's contents, the box itself having moved `base`. Returns the growth inside it. */
+  const place = (owner: string | null, base: number): number => {
+    const sibs = [...(kidsOf.get(owner) ?? [])].sort((a, b) => a.y - b.y || a.x - b.x);
+    let inside = 0;
+    for (const b of sibs) {
+      const mayMove = !grows || grows(b.id);
+      let rel = 0;
+      if (mayMove) {
+        for (const p of sibs) {
+          if (p === b) break;
+          if (p.y >= b.y || !across(b, p)) continue;
+          const was = put.get(p.id)!;
+          if (b.path && p.path) {
+            /* The sibling's own shift inside this box, and its growth: the gap the capture recorded is kept exactly. */
+            rel = Math.max(rel, was.moved - base + was.grew);
+          } else if (!holds(b, p) && !holds(p, b)) {
+            /* Not captured: the old rule, and a pair saved into each other is laid apart. */
+            const gap = Math.max(0, b.y - (p.y + p.h));
+            rel = Math.max(rel, was.y + was.h + gap - (b.y + base));
+          }
+        }
+      }
+      const moved = mayMove ? base + rel : 0;
+      const own = mayMove && b.words ? Math.max(0, Math.round(b.drew) - b.h) : 0;
+      const held = place(b.id, moved);
+      const grew = mayMove ? Math.max(own, held) : 0;
+      put.set(b.id, { y: b.y + moved, h: b.h + grew, moved, grew });
+      /* The last of a row placed: the row lines up and grows as one. */
+      const row = rowOf.get(b.id);
+      if (row && row.every((id) => put.has(id))) {
+        const top = Math.max(...row.map((id) => put.get(id)!.moved));
+        for (const id of row) { const d = top - put.get(id)!.moved; if (d) shift(id, d); }
+        const bottom = Math.max(...row.map((id) => put.get(id)!.y + put.get(id)!.h));
+        for (const id of row) {
+          const p = put.get(id)!, was = byId.get(id)!;
+          put.set(id, { ...p, h: bottom - p.y, grew: bottom - p.y - was.h });
+        }
+      }
+    }
+    for (const b of sibs) { const p = put.get(b.id)!; inside = Math.max(inside, p.moved - base + p.grew); }
+    return inside;
+  };
+  place(null, 0);
+
+  const out: Fitted[] = [];
+  for (const [id, p] of put) {
+    const b = byId.get(id)!;
+    if (p.h !== b.h || p.y !== b.y) out.push({ id, h: p.h, y: p.y });
+  }
+  return out;
+}
+
+/** A page with nothing captured on it: every box placed against what it stands under. */
+function fitFlat(boxes: readonly Drawn[], grows?: (id: string) => boolean): Fitted[] {
   /*
    * WHAT A BOX STANDS UNDER, NOT WHAT COMES AFTER IT IN THE LIST.
    *
@@ -180,10 +340,16 @@ export async function tidyToWords(ids: readonly string[], read: (id: string) => 
 }
 
 /** What a node's box drew at on the board, or null if it is not on screen. */
-export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number }): Drawn | null {
+export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }): Drawn | null {
   const el = document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
-  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight };
+  const path = (node.from?.selector ?? "").trim();
+  const c = node.content;
+  const words = !!(typeof c === "string" ? c.trim() : Array.isArray(c) ? c.map((r) => (r as { text?: string }).text ?? "").join("").trim() : "");
+  const l = node.layout;
+  const row = !!l && (l.display === "grid" || (l.display === "flex" && (!l.direction || l.direction === "row"))) && (!l.align || l.align === "stretch" || l.align === "normal");
+  const pad = node.pad ? { left: node.pad.left ?? 0, right: node.pad.right ?? 0 } : undefined;
+  return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight, ...(path ? { path, words, row, ...(pad ? { pad } : {}) } : {}) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -239,11 +405,13 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
  * brace: the same answer is never applied twice.
  */
 export function useSettleToWords(
-  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean }[],
+  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }[],
   apply: (f: Fitted[]) => void,
+  /** The page frame's width: a top-level row fills it edge to edge. */
+  frame?: number,
 ): void {
-  const latest = React.useRef({ nodes, apply });
-  latest.current = { nodes, apply };
+  const latest = React.useRef({ nodes, apply, frame });
+  latest.current = { nodes, apply, frame };
   /** The last answer applied, so an unchanged one is never applied again. */
   const said = React.useRef("");
   /** A pointer on the board is a hand mid-gesture; nothing moves under it. */
@@ -278,7 +446,7 @@ export function useSettleToWords(
       if (d) boxes.push(d);
     }
     if (!boxes.length) return;
-    const fitted = fitRows(boxes, (id) => machines.has(id));
+    const fitted = fitRows(boxes, (id) => machines.has(id), latest.current.frame);
     if (!fitted.length) { said.current = ""; return; }
     const print = fitted.map((f) => `${f.id}:${f.h},${f.y}`).join("|");
     if (print === said.current) return;
