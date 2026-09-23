@@ -402,6 +402,16 @@ export function Canvas() {
      now — the pause was paying for a per-frame cloud repaint that no longer
      exists — so nothing reads the flag and nothing writes it. */
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  /*
+   * THE SAME RECTANGLE, WITHOUT WAITING FOR A RENDER. State draws it; this
+   * is what the release reads. The release's handler is the one from the
+   * last render, so reading state there needed a render to land between the
+   * last move and the release: a dropped frame on a loaded machine and the
+   * release saw the rectangle one move late, or not at all, and picked the
+   * box the hand drew across instead of what it drew round. Written on every
+   * move and cleared with the state. `tests/marquee-burst.mjs`.
+   */
+  const marqueeRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
   // The last line that was not a closed one, so the board can say so where it was drawn.
   const [refused, setRefused] = React.useState<{ points: [number, number][]; at: number } | null>(null);
@@ -990,6 +1000,7 @@ export function Canvas() {
         if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && ownsOthers(store.nodes, node)) {
           pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
           capture();
+          marqueeRef.current = null;
           setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id });
           return;
         }
@@ -1086,6 +1097,7 @@ export function Canvas() {
         else store.clearSelection();
       }
       capture();
+      marqueeRef.current = null;
       setDrag({ kind: "marquee", startX: p.x, startY: p.y });
       return;
     }
@@ -1205,7 +1217,9 @@ export function Canvas() {
     }
 
     if (drag.kind === "marquee") {
-      setMarquee({ x: Math.min(drag.startX, p.x), y: Math.min(drag.startY, p.y), w: Math.abs(dxRaw), h: Math.abs(dyRaw) });
+      const m = { x: Math.min(drag.startX, p.x), y: Math.min(drag.startY, p.y), w: Math.abs(dxRaw), h: Math.abs(dyRaw) };
+      marqueeRef.current = m;
+      setMarquee(m);
       return;
     }
 
@@ -1301,6 +1315,8 @@ export function Canvas() {
   const onPointerUp = () => {
     if (!drag) return;
     const store = useStudio.getState();
+    // The rectangle as the last move left it, rendered or not (see `marqueeRef`).
+    const marquee = marqueeRef.current;
     /*
      * Drawing the shape is the whole action.
      *
@@ -1473,6 +1489,7 @@ export function Canvas() {
 
     setDrag(null);
     setMarquee(null);
+    marqueeRef.current = null;
     setInk(null);
     setGuides({ x: [], y: [] });
   };
