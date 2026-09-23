@@ -427,3 +427,56 @@ suffix on an `rgb(...)` string is not a colour.)
 every fixture is built at his measured numbers. `sink` is used once, for
 arithmetic: it is the only place holding a raw capture with the `oklab()`
 string still in it.
+
+---
+
+## The same box emitted twice
+
+His numbers: 24 pairs across nine pages where one box holds another at 88% or
+more of its area, repeating per page rather than scattering. Thirteen **pixel
+identical** — the main content panel of almost every page, twice, exactly on
+top of itself. Nine differing by **exactly one pixel of width**, 256 against
+255: the sidebar, on every page.
+
+**The standing hypothesis was two box models — one read including a border,
+one excluding — and the capture refutes it.** His raw capture holds six
+parent/child pairs with identical rects, and they are two distinct DOM
+elements every time: `div` in `div`, `button` in `div`, `img` in `div`. The
+page really does wrap a row in a box the same size. Nothing is measured twice.
+
+**The cause is one gap.** `pageBlocks` dedupes properly — one box is one
+block, within two pixels — and `offered` threw that work away:
+
+```ts
+const rest = candidates.filter((c) => !blocks.some((b) => same(b.box, c.box) || …));
+return [...blocks, ...rest];        // rest is never compared against itself
+```
+
+`rest` is filtered against the blocks that *survived* the wrapper-opening
+loop. Where neither twin survived, both are emitted. That predicts the
+off-by-one shape too, because the two-pixel tolerance that would have caught
+256-against-255 lives inside `pageBlocks` and `rest` applies none. Reproduced
+in pure data before anything was changed.
+
+**Two pieces, and they reach different things.** The fix in `offered` stops it
+happening and reaches a **new capture only**. `twins.ts` in the sweep is the
+**retrofit** that reaches a board already written down.
+
+### What keeps the dedupe safe
+
+- **Its own file**, not just its own thought. A duplicate may be removed
+  because a twin remains; an empty wrapper may not be removed at all.
+- **The twin is proven, not assumed** — `keeps` names it, and nothing is
+  removed whose keeper is itself on the removal list. Where it cannot prove
+  the twin survives, it leaves both.
+- **Keep the one that says or draws something, else the outermost.** "Keep
+  the first" throws away the button of a `div`-wrapping-a-button pair.
+- **Two pixels and no wider.** A pair that disagrees on height keeps both:
+  removing one would be choosing a height nothing here knows. His page_home
+  column pair is 255×431 against 256×528; page_tokens' is 255×440 against
+  256×440 and only that one is deduped.
+- **Read off the document as SAVED.** The taller of his column pair *contains*
+  the shorter, so the wrapper pass fits 528 → 431 — and at that moment they
+  are the same box. A dedupe reading that result deletes a node on the
+  strength of a height this code chose. **It did exactly that until the check
+  caught it.** A box may only be removed for something the capture said.

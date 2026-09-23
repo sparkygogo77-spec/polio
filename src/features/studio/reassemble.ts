@@ -37,8 +37,13 @@ import { merged, type Span } from "./parts/spans.ts";
  *
  *   1  the sentences put back together, and the wrappers fitted
  *   2  the active control's dropped tint worked out again (`repaint.ts`)
+ *   3  the same box emitted twice, one copy taken out (`twins.ts`); and
+ *      empty wrappers no longer removed, because they are misplaced rather
+ *      than junk — a board swept at 1 or 2 may have lost one, and there is
+ *      no putting that back from here, which is why the removal is gone
+ *      rather than narrowed
  */
-export const SWEEP = 2;
+export const SWEEP = 3;
 
 /** The parts this will consider joining: ones whose whole body is words. */
 export const WORDY = new Set(["box", "prose", "value-prop", "micro-copy", "eyebrow-rule"]);

@@ -31,6 +31,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/old-board.mjs http://127.0.0.1:3013
  */
+import { SWEEP } from "../src/features/studio/reassemble.ts";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -137,7 +138,7 @@ check("…still totalling the 293px he measured",
   EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0) === 293,
   `${EMPTIES.reduce((n, id) => n + (load[id]?.h ?? 0), 0)}px`);
 check("and it left a mark, so opening it again will not do this a second time",
-  (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state?.swept ?? null)) === 2);
+  (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state?.swept ?? null)) === SWEEP);
 
 /* ------------------------------------------------------------------ */
 /* 2. AND A PRESS AFTERWARDS HAS NOTHING LEFT TO DO                    */

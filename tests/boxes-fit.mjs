@@ -23,6 +23,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/boxes-fit.mjs http://127.0.0.1:3013
  */
+import { SWEEP } from "../src/features/studio/reassemble.ts";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -74,7 +75,7 @@ const nodes = [
 const doc = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
   nodes, groups: [], shapes: [], format: {}, brief: { name: "SOLWORKS", gimmick: "", master: "" },
-  frameWidth: 1763, activePageId: "p0", trail: [], swept: 2,
+  frameWidth: 1763, activePageId: "p0", trail: [], swept: SWEEP,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });

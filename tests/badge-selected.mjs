@@ -1,3 +1,4 @@
+import { SWEEP } from "../src/features/studio/reassemble.ts";
 /**
  * What the prompt named and the part is not showing: said when he picks the
  * part, outside it, and only about words a page would actually show.
@@ -80,7 +81,7 @@ const doc = JSON.stringify({ state: {
      puts a captured board right without being asked, and would take the empty
      search field out of this one before the badges were looked at. The mark
      makes it stand aside so the badges are what is under test. */
-  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: SWEEP,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });

@@ -63,6 +63,7 @@ import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
 import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Reassembly, type Slimming } from "./reassemble";
 import { paintSays, repaintActive, type Painted } from "./repaint";
+import { twins, twinSays, type Twin } from "./twins";
 
 /**
  * What is in your hand. Four, not six.
@@ -791,7 +792,7 @@ interface StudioState extends Doc {
    * did, or null when there was nothing to do or the board was never
    * captured. See the action for the three promises it keeps.
    */
-  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[]; empty: Frag[] } | null;
+  sweepDocument: (force?: boolean) => { joined: Reassembly[]; fitted: Slimming[]; painted: Painted[]; empty: Frag[]; doubled: Twin[] } | null;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1261,6 +1262,22 @@ function withJoins(nodes: StudioNode[], done: readonly Reassembly[]): StudioNode
 }
 
 /**
+ * The nodes with each duplicated box's spare copy taken out.
+ *
+ * SAFE FOR ONE REASON ONLY: an identical twin remains in its place, which
+ * `twins` proves rather than assumes. This is deliberately NOT the
+ * empty-wrapper rule and shares no code with it: an empty wrapper that has
+ * slid below its contents must be repositioned and must never be removed.
+ */
+function withoutTwins(nodes: StudioNode[], done: readonly Twin[]): StudioNode[] {
+  const going = new Set(done.map((t) => t.id));
+  const staying = new Set(nodes.map((n) => n.id));
+  /* The twin has to actually be here. If it is not, nothing goes. */
+  if (done.some((t) => !staying.has(t.keeps) || going.has(t.keeps))) return nodes;
+  return nodes.filter((n) => !going.has(n.id));
+}
+
+/**
  * The nodes with the active controls' dropped tint put back.
  *
  * The colour goes in `bg`, which is the role the WRAPPER fills from, so it
@@ -1723,6 +1740,27 @@ export const useStudio = create<StudioState>()(
              page are real surfaces that slid below their own contents. */
           const empty = emptyWrappers(afterFit as unknown as Frag[]);
           /*
+           * AND THE SAME BOX EMITTED TWICE. A separate pass from the wrapper
+           * one above, and separate on purpose: a duplicate may be removed
+           * because its twin remains, which is a test; an empty wrapper may
+           * not be removed at all. `offered` no longer emits the pair, which
+           * reaches a new capture; this is the retrofit for a board already
+           * written down.
+           */
+          /*
+           * READ OFF THE DOCUMENT AS IT WAS SAVED, not off the result of the
+           * passes above — and that is not tidiness, it is the difference
+           * between safe and not. Fitting a wrapper CHANGES A HEIGHT, and two
+           * boxes the capture recorded 97px apart can be left the same height
+           * by it. A dedupe reading that result would see a twin the page
+           * never had and delete a node on the strength of a size WE chose.
+           * A box may only be removed for something the CAPTURE said, never
+           * for a consequence of our own editing — the same rule that keeps
+           * the wrapper pass to one pass.
+           */
+          const doubled = twins(s0.nodes as unknown as Frag[])
+            .filter((t) => afterFit.some((n) => n.id === t.id) && afterFit.some((n) => n.id === t.keeps));
+          /*
            * AND THE PAINT THE CAPTURE DROPPED. The other lane taught the
            * converter to read `oklab()`, which reaches a new capture and
            * nothing at all on a board already written down — so on his the
@@ -1735,19 +1773,19 @@ export const useStudio = create<StudioState>()(
            * would be skipped there in silence.
            */
           const painted = repaintActive(afterFit as unknown as Frag[], s0.look?.palette?.bg ?? null);
-          if (!joined.length && !fitted.length && !painted.length && !empty.length) { set({ swept: SWEEP }); return null; }
+          if (!joined.length && !fitted.length && !painted.length && !empty.length && !doubled.length) { set({ swept: SWEEP }); return null; }
 
           /* The one checkpoint, taken before anything moves. */
           push();
           set({
-            nodes: painted.length ? withPaint(afterFit, painted) : afterFit,
+            nodes: withoutTwins(painted.length ? withPaint(afterFit, painted) : afterFit, doubled),
             swept: SWEEP,
             /* Said out loud, because a board that quietly loses six parts
                between one visit and the next is worse than one that never
                lost them — and the line is how he knows there is an undo. */
-            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length || empty.length ? slimSays(fitted, empty) : "", painted.length ? paintSays(painted) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
+            sweepNote: `${[joined.length ? saysWhat(joined) : "", fitted.length || empty.length ? slimSays(fitted, empty) : "", painted.length ? paintSays(painted) : "", doubled.length ? twinSays(doubled) : ""].filter(Boolean).join(" ")} One undo takes all of it back.`,
           });
-          return { joined, fitted, painted, empty };
+          return { joined, fitted, painted, empty, doubled };
         },
 
         raiseNode: (id, toTop) => {

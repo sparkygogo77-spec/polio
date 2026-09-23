@@ -517,7 +517,31 @@ export function offered(candidates: readonly Block[], cap = 24): Block[] {
   const blocks = pageBlocks(candidates);
   const same = (a: Box, b: Box) => Math.abs(a.x - b.x) <= 2 && Math.abs(a.y - b.y) <= 2 && Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2;
   const rest = candidates.filter((c) => !blocks.some((b) => same(b.box, c.box) || (b.members ?? []).includes(c.selector)));
-  return [...blocks, ...rest].slice(0, cap);
+  /*
+   * AND THE LEFTOVERS ARE ONE BOX EACH TOO.
+   *
+   * `pageBlocks` dedupes properly — one box is one block, within two pixels —
+   * and this used to throw that work away. `rest` was filtered against the
+   * blocks that SURVIVED the wrapper-opening loop and never against itself,
+   * so wherever neither twin survived, BOTH were offered. Measured on his
+   * document: 24 pairs across nine pages where one box holds another at 88%
+   * or more of its area, repeating per page rather than scattering. Thirteen
+   * pixel-identical — the main content panel of almost every page, twice,
+   * exactly on top of itself. Nine differing by exactly one pixel of width,
+   * 256 against 255: the sidebar, on every page.
+   *
+   * That one gap explains both shapes, because the two-pixel tolerance that
+   * would have caught 256-against-255 lives inside `pageBlocks` and none was
+   * applied here. It is not one element read through two box models — his raw
+   * capture holds six parent/child pairs with identical rects, and they are
+   * two distinct DOM elements every time.
+   *
+   * The first of a pair is kept, which is `pageBlocks`' own convention and
+   * the outer one, since candidates arrive biggest first.
+   */
+  const once: Block[] = [];
+  for (const c of rest) if (!once.some((k) => same(k.box, c.box))) once.push(c);
+  return [...blocks, ...once].slice(0, cap);
 }
 
 /* ------------------------------------------------------------------ */

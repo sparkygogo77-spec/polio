@@ -29,6 +29,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/sweep-on-open.mjs http://127.0.0.1:3013
  */
+import { SWEEP } from "../src/features/studio/reassemble.ts";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -86,6 +87,17 @@ const parts = (p) => [
    * the page. Three of these, so there is a majority to be odd against.
    */
   node(`${p}_shelf`, p, "box", "", 0, 1700, 255, 200),
+  /*
+   * THE SAME BOX EMITTED TWICE, in both of his shapes: the content panel
+   * pixel-identical to itself, and the sidebar pair one pixel apart in width.
+   * Plus the pair that DISAGREES on height, which must survive whole.
+   */
+  node(`${p}_d1`, p, "box", "", 1468, 393, 270, 26),
+  node(`${p}_d2`, p, "box", "", 1468, 393, 270, 26),
+  node(`${p}_rail1`, p, "box", "", 0, 2000, 256, 440),
+  node(`${p}_rail2`, p, "box", "", 0, 2000, 255, 440),
+  node(`${p}_tall1`, p, "box", "", 0, 2500, 256, 528),
+  node(`${p}_tall2`, p, "box", "", 0, 2500, 255, 431),
   ...["Burn Tokens", "Cleanup", "API"].map((t, i) => node(
     `${p}_s${i}`, p, "cta-primary", t, 16, 1716 + i * 60, 223, 56,
     { options: { shape: "square", variant: "outline", size: "medium" },
@@ -93,7 +105,7 @@ const parts = (p) => [
   )),
 ];
 const nodes = PAGES.flatMap(parts);
-const PER_PAGE = 16;
+const PER_PAGE = 22;
 
 const doc = (extra = {}) => JSON.stringify({ state: {
   pages: PAGES.map((id, i) => ({ id, name: id.slice(5), path: i ? `/${id.slice(5)}` : "/", prompt: "", scroll: "inherit" })),
@@ -134,8 +146,8 @@ const { ctx, p } = await open(doc());
 const after = await read(p);
 
 check("every page was swept, not only the one on screen", (() => {
-  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 15);
-  return bad.length === 0 || (console.log(`      pages not at 15 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
+  const bad = PAGES.filter((pg) => Object.keys(after.by[pg] ?? {}).length !== 19);
+  return bad.length === 0 || (console.log(`      pages not at 19 parts: ${bad.map((b) => `${b}=${Object.keys(after.by[b] ?? {}).length}`).join(", ")}`), false);
 })(), `${after.total} parts, was ${PAGES.length * PER_PAGE}`);
 check("…the price pair is one part on ALL NINE, not just the open one",
   PAGES.every((pg) => !!after.by[pg]?.[`${pg}_92`] && !after.by[pg]?.[`${pg}_95`]),
@@ -218,13 +230,55 @@ check("…while the three time buttons that were never active are untouched",
   PAGES.every((pg) => ["t0", "t2", "t3"].every((t) =>
     after.by[pg]?.[`${pg}_${t}`]?.bg == null && after.by[pg]?.[`${pg}_${t}`]?.variant === "outline")));
 
+/*
+ * THE SAME BOX EMITTED TWICE, taken out on every page — a separate pass from
+ * the wrapper one, and safe for one reason only: an identical twin remains.
+ */
+check("the pixel-identical pair loses one copy on all nine pages",
+  PAGES.every((pg) => !!after.by[pg]?.[`${pg}_d1`] !== !!after.by[pg]?.[`${pg}_d2`]),
+  PAGES.map((pg) => `${!!after.by[pg]?.[`${pg}_d1`]}/${!!after.by[pg]?.[`${pg}_d2`]}`).join(" "));
+check("…and the sidebar pair, one pixel apart in width, loses one too",
+  PAGES.every((pg) => !!after.by[pg]?.[`${pg}_rail1`] !== !!after.by[pg]?.[`${pg}_rail2`]));
+/*
+ * AND THE PAIR THAT DISAGREES ON HEIGHT KEEPS BOTH — which is not free, and
+ * is the sharpest thing this check holds. The taller of the two CONTAINS the
+ * shorter, so the wrapper pass fits it from 528 down to 431 — and at that
+ * point the two are the same box, and a dedupe reading the result would
+ * delete one on the strength of a height THIS CODE chose rather than one the
+ * page had. So the dedupe reads the document as it was saved. A box may only
+ * be removed for something the capture said.
+ */
+/*
+ * AND THE PAIR THAT DISAGREES ON HEIGHT KEEPS BOTH — which is not free, and
+ * is the sharpest thing this check holds. The taller of the two CONTAINS the
+ * shorter, so the wrapper pass fits it from 528 down to 431 — and at that
+ * moment the two ARE the same box, and a dedupe reading the result deletes
+ * one on the strength of a height THIS CODE chose rather than one the page
+ * had. That is what it did until this check caught it. So the dedupe reads
+ * the document as it was SAVED: a box may only be removed for something the
+ * capture said.
+ */
+check("…but the pair that DISAGREES on height keeps BOTH, because removing one would choose a height",
+  PAGES.every((pg) => !!after.by[pg]?.[`${pg}_tall1`] && !!after.by[pg]?.[`${pg}_tall2`]),
+  `${after.by.page_home?.page_home_tall1?.h} and ${after.by.page_home?.page_home_tall2?.h}`);
+check("…and it said which copy went and which twin it left",
+  /twin left in place/.test(await p.evaluate(() => document.body.innerText)));
+
 /* The safeguards, on the path that runs without being asked. */
+/*
+ * AND THE ONE THAT MATTERS MOST: the dedupe must never reach an empty wrapper
+ * that has slid below its contents. Losing his banner by a second route would
+ * be the same mistake twice, so it is asserted rather than left to luck.
+ */
+check("the two empty wrappers are untouched by the dedupe as well as by the fitting",
+  PAGES.every((pg) => !!after.by[pg]?.[`${pg}_76`] && !!after.by[pg]?.[`${pg}_53`]));
+
 check("the box his hand placed survives on every page, untouched",
   PAGES.every((pg) => after.by[pg]?.[`${pg}_mine`]?.h === 90), "90 everywhere");
 check("the empty box that shows a background survives on every page",
   PAGES.every((pg) => after.by[pg]?.[`${pg}_band`]?.h === 60), "60 everywhere");
 
-check("the document is marked with the version of the rules it went through", after.swept === 2, String(after.swept));
+check("the document is marked with the version of the rules it went through", after.swept === SWEEP, String(after.swept));
 const said = await p.evaluate(() => document.body.innerText);
 check("and it said so out loud rather than changing his board in silence",
   /put right when it opened/i.test(said) && /undo/i.test(said),
@@ -251,7 +305,7 @@ await ctx.close();
 
 /* A board already marked at this version is left exactly as it is, even
    though it is full of things a sweep would change. */
-const already = await open(doc({ swept: 2 }));
+const already = await open(doc({ swept: SWEEP }));
 const kept = await read(already.p);
 check("a board already swept at this version is not swept again",
   kept.total === PAGES.length * PER_PAGE, `${kept.total} parts`);
@@ -262,10 +316,10 @@ await already.ctx.close();
 
 /* And a board marked at an OLDER version is swept again, which is what makes
    bumping `SWEEP` the whole of "put every board right again". */
-const stale = await open(doc({ swept: 0 }));
+const stale = await open(doc({ swept: SWEEP - 1 }));
 const fresh = await read(stale.p);
 check("a board marked at an older version IS swept again",
-  fresh.total === PAGES.length * 15 && fresh.swept === 2, `${fresh.total} parts, mark ${fresh.swept}`);
+  fresh.total === PAGES.length * 19 && fresh.swept === SWEEP, `${fresh.total} parts, mark ${fresh.swept}`);
 await stale.ctx.close();
 
 /* ------------------------------------------------------------------ */
@@ -287,7 +341,7 @@ const hand = JSON.stringify({ state: {
 const his = await open(hand);
 const mine = await read(his.p);
 check("a board nobody captured is not swept at all", mine.total === PER_PAGE, `${mine.total} parts`);
-check("…and is marked, so it is never asked again", mine.swept === 2, String(mine.swept));
+check("…and is marked, so it is never asked again", mine.swept === SWEEP, String(mine.swept));
 await his.ctx.close();
 
 await browser.close();

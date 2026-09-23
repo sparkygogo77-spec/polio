@@ -541,6 +541,39 @@ a set whose others disagree says nothing, an unlabelled mark is not a choice
 with no variant is not a control, and with neither a painted box nor a page
 colour behind it the answer would be invented rather than worked out.
 
+**The same box emitted twice.** Measured on his document: 24 pairs across
+nine pages where one box holds another at 88% or more of its area, repeating
+per page. Thirteen PIXEL IDENTICAL — the main content panel of almost every
+page, twice, exactly on top of itself. Nine differing by EXACTLY ONE PIXEL OF
+WIDTH, 256 against 255: the sidebar, on every page. Not one element read
+through two box models, which was the standing hypothesis — his raw capture
+holds six parent/child pairs with identical rects and they are two distinct
+DOM elements every time (`div` in `div`, `button` in `div`, `img` in `div`).
+The cause is one gap: `pageBlocks` dedupes properly, one box is one block
+within two pixels, and `offered` threw that away — `rest` was filtered against
+the blocks that SURVIVED the wrapper-opening loop and never against itself, so
+wherever neither twin survived, both were emitted. That also explains the
+off-by-one shape, because the tolerance that would have caught 256-against-255
+lives inside `pageBlocks` and `rest` applied none. Fixed in `offered` (reaches
+a NEW capture) and retrofitted by `twins.ts` in the sweep (reaches a board
+already written down).
+
+`twins.ts` is a separate file from the wrapper rule ON PURPOSE. A duplicate
+may be removed because an identical twin remains, which it TESTS — `keeps`,
+and the check that no keeper is itself on the removal list; where it cannot
+prove the twin survives it leaves both. An empty wrapper may not be removed at
+all. Keep the twin that SAYS or DRAWS something, else the outermost: "keep the
+first" throws away the button of a `div`-wrapping-a-button pair and leaves a
+bare box, which looks fine in a count and is wrong on his screen. The
+tolerance is two pixels and no wider, so a pair that DISAGREES on height keeps
+both — removing one would be choosing a height nothing here knows. And the
+dedupe reads the document AS SAVED, never the result of the other passes:
+fitting a wrapper changes a height, and his page_home column pair (528 against
+431, one containing the other) is left the same height by it — a dedupe
+reading that result deletes a node on the strength of a size THIS CODE chose.
+It did exactly that until the check caught it. A box may only be removed for
+something the capture said.
+
 **Why a wrapper lands below the content it owns.** `tests/wrapper-below.mjs`
 runs the real `MEASURE` against DOMs built to isolate it. A captured element's
 box is its own rect GROWN to swallow children that run out of it, and the
