@@ -31,6 +31,7 @@ import { Textarea } from "@/core/ui/textarea";
 import { Segmented } from "@/core/ui/segmented";
 import { Select } from "@/core/ui/select";
 import { Slider } from "@/core/ui/slider";
+import { Switch } from "@/core/ui/switch";
 import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -809,6 +810,14 @@ export function Inspector() {
                   aria-label="Group prompt"
               placeholder="e.g. These three share one card shell and animate in together."
                   onChange={(e) => useStudio.getState().updateGroup(sharedGroup.id, { prompt: e.target.value })}
+                />
+              </Field>
+              <Field label="Hold together" hint="Picked as one and sized as one: the members' places, spacing and sizes go with every resize.">
+                <Switch
+                  size="sm"
+                  aria-label="Hold the group together"
+                  checked={!!sharedGroup.locked}
+                  onCheckedChange={(v) => useStudio.getState().updateGroup(sharedGroup.id, { locked: v })}
                 />
               </Field>
               <Button variant="outline" size="sm" className="w-full" onClick={() => useStudio.getState().ungroup(sharedGroup.id)}>

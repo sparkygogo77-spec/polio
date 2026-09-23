@@ -1,4 +1,4 @@
-import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Wand2, ZoomIn } from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Wand2, ZoomIn } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
@@ -135,6 +135,10 @@ export const studio = defineFeature({
       description: "Every prompt from the blueprint dialog goes with a picture of each page as the live preview shows it, so Claude sees the site and not only a description of it. Needs Playwright on the server; without it the words go alone.",
     },
     { id: "studio.screenshotPages", group: "studio", label: "Pages per prompt", description: "How many pages are photographed for one prompt, in order.", type: "number", default: 4, min: 1, max: 12, step: 1, advanced: true, order: 3 },
+    {
+      id: "studio.groupScaleContents", group: "studio", label: "Scale contents with group", type: "toggle", default: true, order: 5,
+      description: "When a locked group is resized, its icons and words grow and shrink with it. Off, the arrangement still scales and each part keeps its own size. Also on the tool bar while the select tool is in hand.",
+    },
     { id: "studio.publishDeploy", group: "studio", label: "Publish also deploys", description: "After the push to GitHub, call the Vercel deploy hook when one is set.", type: "toggle", default: true, advanced: true, order: 4 },
   ],
   routes: [
@@ -349,6 +353,12 @@ export const studio = defineFeature({
           { id: "studio.group.prompt", label: group.prompt ? "Edit group prompt" : "Write group prompt", icon: Wand2, onSelect: () => s.setSelection(members.map((n) => n.id)) },
           hueMenu(group.hue, (h) => s.updateGroup(group.id, { hue: h ?? 265 })),
           { id: "studio.group.copy", label: "Copy member names", icon: Copy, onSelect: () => void ctx.copy(members.map((n) => n.label).join(", "), "member names") },
+          {
+            id: "studio.group.lock",
+            label: group.locked ? "Let go: members size on their own" : "Hold together: size as one",
+            icon: group.locked ? Unlock : Lock,
+            onSelect: () => s.updateGroup(group.id, { locked: !group.locked }),
+          },
           { type: "separator" },
           { id: "studio.group.ungroup", label: "Ungroup", icon: Ungroup, onSelect: () => s.ungroup(group.id) },
           {

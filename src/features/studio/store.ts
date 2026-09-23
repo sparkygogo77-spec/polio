@@ -324,6 +324,13 @@ export interface StudioGroup {
   label: string;
   prompt: string;
   hue: number;
+  /**
+   * Held together: picked as one, framed as one, sized as one, the members'
+   * arrangement carried through a resize (`groupScale.ts`). Absent on every
+   * group made before it existed, and absent means exactly what a group
+   * always was.
+   */
+  locked?: boolean;
 }
 
 export interface StudioShape {

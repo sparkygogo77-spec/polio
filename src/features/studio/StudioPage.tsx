@@ -47,6 +47,7 @@ import type { Device } from "./live/layout";
 import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Popover } from "@/core/ui/popover";
+import { ToolOptions } from "./toolOptions";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
@@ -434,9 +435,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <span className="mx-1 h-4 w-px bg-border" />
       <ToolPicker tool={tool} setTool={setTool} />
 
-      {tool === "pen" || tool === "arrow" ? (
-        <div className="hidden lg:flex"><DrawKindRow inkHue={inkHue} /></div>
-      ) : null}
+      {/* The tool in hand, and its own settings: the pen's colour, the select tool's checkbox. See `toolOptions.tsx`. */}
+      <ToolOptions tool={tool} />
 
       <span className="mx-1 h-4 w-px bg-border" />
       <DeviceSwitch width={frameWidth} />
@@ -576,126 +576,6 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
  * More key now, drawn only while the bar is folding them; on a wide bar
  * the key is not there, because they are.
  */
-/**
- * ONE COLOUR, AND BESIDE IT WHAT HE IS DRAWING.
- *
- * His words: "in the places of the colors when i pick to draw freehand just
- * make the color stay there but only one button instead of multiple, and
- * when i click the color i can adjust it and beside it the buttons become
- * preselect options for 'button' 'surface' 'icon' or whatever options i can
- * draw".
- *
- * Eight swatches became one button that wears the colour it is set to and
- * opens the eight when pressed; the room they took is now the kinds. The
- * saying-what-a-thing-is moves BEFORE the drawing instead of being asked
- * afterwards — and `part` is still there, so it moves rather than
- * disappearing.
- *
- * Every chip is wired to a path that already exists (`DRAW_KINDS` in the
- * store says which). `Button` is not here, and its absence is the point: a
- * preset kind means coded and pressable the moment it lands, and until that
- * is true a Button chip would be a control that lies.
- */
-function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean }) {
-  const [open, setOpen] = React.useState(false);
-  const kind = useStudio((st) => st.drawKind);
-  return (
-    <div data-draw-row="" className={cn("flex items-center gap-1", compact ? "" : "rounded-md border border-border bg-elevated px-1 py-0.5")}>
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        align="start"
-        content={
-          /*
-           * PRESSING THE COLOUR ADJUSTS IT.
-           *
-           * "when i click the color i can adjust it" \u2014 and eight swatches is
-           * not adjusting, it is choosing from eight. The wheel is the whole
-           * wheel, so the colour he wants is reachable whether or not
-           * somebody thought of it; the eight stay under it as the quick way
-           * back to a colour he has used, which is what they were good for.
-           */
-          <div data-ink-hues="" className="flex w-[176px] flex-col gap-2">
-            <div
-              data-ink-wheel=""
-              role="slider"
-              tabIndex={0}
-              aria-label="Ink colour"
-              aria-valuemin={0}
-              aria-valuemax={359}
-              aria-valuenow={Math.round(inkHue)}
-              onKeyDown={(e) => {
-                const step = e.key === "ArrowLeft" ? -4 : e.key === "ArrowRight" ? 4 : 0;
-                if (!step) return;
-                e.preventDefault();
-                useStudio.getState().setInk({ hue: (Math.round(inkHue) + step + 360) % 360 });
-              }}
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
-                const pick = (clientX: number) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  useStudio.getState().setInk({ hue: Math.max(0, Math.min(359, Math.round(((clientX - r.left) / Math.max(1, r.width)) * 359))) });
-                };
-                pick(e.clientX);
-                const move = (m: PointerEvent) => pick(m.clientX);
-                const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-                window.addEventListener("pointermove", move);
-                window.addEventListener("pointerup", up);
-              }}
-              className="relative h-5 w-full cursor-ew-resize rounded-sm border border-border"
-              style={{ background: "linear-gradient(to right, oklch(0.72 0.16 0), oklch(0.72 0.16 60), oklch(0.72 0.16 120), oklch(0.72 0.16 180), oklch(0.72 0.16 240), oklch(0.72 0.16 300), oklch(0.72 0.16 359))" }}
-            >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute top-[-2px] h-[22px] w-[3px] rounded-full border border-bg bg-fg"
-                style={{ left: `calc(${(inkHue / 359) * 100}% - 1.5px)` }}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {HUES.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-label={`Ink hue ${h}`}
-                  onClick={() => { useStudio.getState().setInk({ hue: h }); setOpen(false); }}
-                  className={cn("tactile size-5 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")}
-                  style={{ background: `oklch(0.72 0.16 ${h})` }}
-                />
-              ))}
-            </div>
-          </div>
-        }
-      >
-        <button
-          type="button"
-          data-ink-colour=""
-          aria-label="Ink colour"
-          title="The colour you draw in. Press to change it."
-          className="tactile size-4 shrink-0 rounded-sm border border-fg"
-          style={{ background: `oklch(0.72 0.16 ${inkHue})` }}
-        />
-      </Popover>
-      <span className="mx-0.5 h-3.5 w-px bg-border" />
-      {DRAW_KINDS.map((k) => (
-        <button
-          key={k.id}
-          type="button"
-          data-draw-kind={k.id}
-          aria-pressed={kind === k.id}
-          title={k.means}
-          onClick={() => useStudio.getState().setDrawKind(k.id)}
-          className={cn(
-            "tactile rounded-sm px-1.5 py-px text-small",
-            kind === k.id ? "bg-accent text-on-accent" : "text-fg-muted hover:text-fg",
-          )}
-        >
-          {k.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
   const row = "flex items-center gap-1.5 text-plain text-fg";
@@ -725,7 +605,7 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
             </Button>
             <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
           </div>
-          {tool === "pen" || tool === "arrow" ? <DrawKindRow inkHue={inkHue} compact /> : null}
+          <ToolOptions tool={tool as Tool} compact />
           <div className={row}>
             <SearchTools always />
             <Tooltip content="What has landed, and what is new to use">

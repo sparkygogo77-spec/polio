@@ -49,6 +49,8 @@ import { openRadial, pageSpot } from "./RadialMenu";
 import { useSettleToWords } from "./textFit";
 import { missingDrawnCopy, namesDrawnCopy } from "./promised";
 import { plain } from "./parts/spans";
+import { useSettingValue } from "@/core/settings/useSetting";
+import { pulledBox, scaleHeld, type Box as HeldBox, type Held } from "./groupScale";
 
 const GRID = 8;
 
@@ -126,7 +128,7 @@ const MIN_H = 24;
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 interface Drag {
-  kind: "node" | "marquee" | "pan" | "draw" | "resize" | "erase";
+  kind: "node" | "marquee" | "pan" | "draw" | "resize" | "erase" | "group";
   startX: number;
   startY: number;
   ids?: string[];
@@ -143,6 +145,26 @@ interface Drag {
   startTop?: number;
   moved?: boolean;
   snapped?: boolean;
+  /** A marquee begun on a part that holds others: released without a drag, that part is picked. */
+  from?: string;
+  /** A locked group being resized: its id, its box and its members as they were when the hand went down. */
+  groupId?: string;
+  box?: HeldBox;
+  held?: Held[];
+  /** The words of that resize wanted more (or less) than the renderer's clamp allows. */
+  clamped?: "largest" | "smallest" | null;
+}
+
+/**
+ * Does this part hold others: wholly contain at least one smaller part on
+ * its page? On a captured board these are the banner, the panels and the
+ * page wrapper — the things that cover every point, and the things a
+ * marquee is drawn ACROSS rather than moved.
+ */
+function ownsOthers(nodes: readonly StudioNode[], c: StudioNode): boolean {
+  return nodes.some((n) => n.id !== c.id && n.pageId === c.pageId
+    && n.x >= c.x && n.y >= c.y && n.x + n.w <= c.x + c.w && n.y + n.h <= c.y + c.h
+    && n.w * n.h < c.w * c.h);
 }
 
 interface Guides {
@@ -197,6 +219,17 @@ export function Canvas() {
   const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
   const tool = useStudio((s) => s.tool);
+  /* The select tool's option (`toolOptions.tsx`): a locked group's icons and words scale with it. */
+  const scaleContents = useSettingValue<boolean>("studio.groupScaleContents") !== false;
+  /* Where the last resize of a locked group met the text clamp, said on its frame. */
+  const [ceiling, setCeiling] = React.useState<{ groupId: string; which: "largest" | "smallest" } | null>(null);
+  /* The locked groups that are picked whole: each is framed and sized as one thing. */
+  const held = React.useMemo(() => groups.flatMap((g) => {
+    if (!g.locked) return [];
+    const b = groupBounds(nodes, g.id);
+    return b && b.members.every((m) => selection.includes(m.id)) ? [{ g, b }] : [];
+  }), [groups, nodes, selection]);
+  const heldIds = React.useMemo(() => new Set(held.flatMap(({ b }) => b.members.map((m) => m.id))), [held]);
   /*
    * `zoom` here is the *applied* scale, not the number in the bar.
    *
@@ -885,6 +918,24 @@ export function Canvas() {
      * `closest("[data-frame]")` alone would call a press on one "bare
      * ground" and start a pan instead of ever reaching the shape it landed
      * on. */
+    /* A locked group's own handle: the group is resized as one thing (`groupScale.ts`). */
+    const groupHandle = target.closest?.("[data-group-resize]") as HTMLElement | null;
+    if (groupHandle && tool === "select" && e.button === 0) {
+      const gid = groupHandle.dataset.groupId ?? "";
+      const b = groupBounds(store.nodes.filter((n) => n.pageId === store.activePageId), gid);
+      if (b) {
+        capture();
+        setCeiling(null);
+        setDrag({
+          kind: "group", startX: p.x, startY: p.y, groupId: gid, handle: groupHandle.dataset.groupResize as Handle,
+          box: { x: b.x, y: b.y, w: b.w, h: b.h },
+          held: b.members.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, size: typeof n.font?.size === "number" ? n.font.size : null })),
+          ids: b.members.map((n) => n.id),
+        });
+      }
+      return;
+    }
+
     const onBareGround = tool === "select" && !nodeEl && !target.closest?.("[data-frame]") && !target.closest?.("[data-shape-id]");
     if (e.button === 1 || (tool === "select" && e.altKey) || onBareGround) {
       // Pushing the ground used to be a marquee from nothing, which cleared
@@ -915,6 +966,28 @@ export function Canvas() {
       if (nodeEl?.dataset.nodeId) {
         const id = nodeEl.dataset.nodeId;
         const node = store.nodes.find((n) => n.id === id);
+        /*
+         * A PART THAT HOLDS OTHERS IS DRAWN ACROSS, NOT MOVED.
+         *
+         * His ruling. On a captured board every point is covered by some
+         * part — the banner, the panels, the page wrapper — so a marquee
+         * could never start: every press grabbed a part and dragged it,
+         * whole banners across the page. So a press on a part that owns
+         * others starts a marquee, and a press on a leaf grabs the leaf.
+         * Released without a drag, the part is picked as any part is (see
+         * the marquee's release). The held modifier — Ctrl, or ⌘ on a Mac —
+         * moves it on purpose. A second press in quick succession falls
+         * through to the double-press below, so a linked container still
+         * goes where it points.
+         */
+        const prior = pressed.current;
+        const twice = !!prior && prior.id === id && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
+        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && ownsOthers(store.nodes, node)) {
+          pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
+          capture();
+          setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id });
+          return;
+        }
         let ids = store.selection;
         if (e.shiftKey) {
           store.toggleSelection(id);
@@ -1104,6 +1177,28 @@ export function Canvas() {
       return;
     }
 
+    if (drag.kind === "group" && drag.box && drag.held && drag.handle) {
+      if (!drag.moved) {
+        if (Math.abs(dxRaw) < 2 && Math.abs(dyRaw) < 2) return;
+        store.commit(); // one undo for the whole resize
+      }
+      const to = pulledBox(drag.box, drag.handle, dxRaw, dyRaw, MIN_H);
+      const { next, ceiling: clamped } = scaleHeld(drag.held, drag.box, to, scaleContents);
+      const by = new Map(next.map((m) => [m.id, m]));
+      useStudio.setState({
+        nodes: store.nodes.map((n) => {
+          const m = by.get(n.id);
+          if (!m) return n;
+          const geo = { x: m.x, y: m.y, w: m.w, h: m.h };
+          // A part that never set a size and still reads 1× keeps its font as it was.
+          if (m.size === undefined || (m.size === 1 && n.font?.size == null)) return { ...n, ...geo };
+          return { ...n, ...geo, font: { ...(n.font ?? {}), size: m.size } };
+        }),
+      });
+      setDrag({ ...drag, moved: true, clamped });
+      return;
+    }
+
     if (drag.kind === "marquee") {
       setMarquee({ x: Math.min(drag.startX, p.x), y: Math.min(drag.startY, p.y), w: Math.abs(dxRaw), h: Math.abs(dyRaw) });
       return;
@@ -1265,15 +1360,36 @@ export function Canvas() {
         }
       }
       play("tap");
-    } else if (drag.kind === "marquee" && marquee) {
+    } else if (drag.kind === "marquee" && marquee && (marquee.w > 3 || marquee.h > 3)) {
+      /*
+       * ONLY WHAT IT FULLY COVERS. His ruling: a marquee takes the parts,
+       * drawings and wires wholly inside it, so drawing a box over a region
+       * never picks up what lies behind it. And one that catches nothing
+       * picks nothing: the press that began it on the bare page had picked
+       * the background, and that is let go rather than kept.
+       */
+      const inside = (b: { x: number; y: number; w: number; h: number }) =>
+        b.x >= marquee.x && b.y >= marquee.y && b.x + b.w <= marquee.x + marquee.w && b.y + b.h <= marquee.y + marquee.h;
       const hits = [
-        ...nodes.filter((n) => n.x < marquee.x + marquee.w && n.x + n.w > marquee.x && n.y < marquee.y + marquee.h && n.y + n.h > marquee.y).map((n) => n.id),
-        ...shapes.filter((sh) => { const b = shapeBounds(sh); return b.x < marquee.x + marquee.w && b.x + b.w > marquee.x && b.y < marquee.y + marquee.h && b.y + b.h > marquee.y; }).map((sh) => sh.id),
+        ...nodes.filter(inside).map((n) => n.id),
+        ...shapes.filter((sh) => inside(shapeBounds(sh))).map((sh) => sh.id),
       ];
       if (hits.length) {
         store.setSelection(hits);
         play("select");
+      } else store.clearSelection();
+    } else if (drag.kind === "marquee" && drag.from) {
+      // A press on a part that holds others, let go without a drag: it is picked, with its group.
+      const n = store.nodes.find((x) => x.id === drag.from);
+      if (n) {
+        store.setSelection(n.groupId ? store.nodes.filter((m) => m.groupId === n.groupId).map((m) => m.id) : [n.id]);
+        play("select");
       }
+    } else if (drag.kind === "group" && drag.moved) {
+      const held = new Set(drag.ids ?? []);
+      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (held.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)) });
+      setCeiling(drag.clamped && drag.groupId ? { groupId: drag.groupId, which: drag.clamped } : null);
+      play("tap");
     } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
       // The space tool: a closed line is a placeholder (`space.ts`), an open one is nothing, and says so.
       if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
@@ -1592,7 +1708,7 @@ export function Canvas() {
              already speak here: a dashed line is a line that is about to
              become something rather than a line that stays. */}
           {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "arrow" ? "arrow" : "pen", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected dashed={makingASpace} /> : null}
-          {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
+          {marquee ? <rect data-marquee="" x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
           {guides.y.map((y) => <line key={`gy${y}`} y1={y} y2={y} x1={-40} x2={frameWidth + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
         </svg>
@@ -1623,6 +1739,7 @@ export function Canvas() {
             key={n.id}
             node={n}
             selected={selection.includes(n.id)}
+            inHeldGroup={heldIds.has(n.id)}
             theme={theme}
             palette={palette}
             zoom={zoom}
@@ -1631,6 +1748,43 @@ export function Canvas() {
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
           />
+        ))}
+
+        {/*
+          A held group, picked: one frame round the whole arrangement and
+          eight handles on it, which resize every member as one thing
+          (`groupScale.ts`). Over the parts, so its handles are never under
+          one. Where the last resize met the text clamp it says so, under
+          the frame, rather than the words quietly stopping.
+        */}
+        {held.map(({ g, b }) => (
+          <div
+            key={`held-${g.id}`}
+            data-group-frame={g.id}
+            className="pointer-events-none absolute z-20"
+            style={{ left: b.x, top: b.y, width: b.w, height: b.h, outline: `${(1.5 / zoom).toFixed(2)}px solid oklch(0.78 0.15 ${g.hue})`, outlineOffset: `${(3 / zoom).toFixed(2)}px` }}
+          >
+            {GROUP_HANDLES.map(([h, left, top]) => (
+              <span
+                key={h}
+                data-group-resize={h}
+                data-group-id={g.id}
+                className="pointer-events-auto absolute size-2.5 rounded-[2px] border bg-panel"
+                style={{ left, top, transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`, borderColor: `oklch(0.78 0.15 ${g.hue})`, cursor: HANDLE_CURSOR[h] }}
+              />
+            ))}
+            {ceiling?.groupId === g.id ? (
+              <span
+                data-group-ceiling={ceiling.which}
+                className="absolute left-0 origin-top-left whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-small text-fg-muted shadow-sm"
+                style={{ top: "calc(100% + 8px)", transform: `scale(${Math.max(1, 1 / zoom)})` }}
+              >
+                {ceiling.which === "largest"
+                  ? "Words at their largest: 2× the site's size. The boxes kept growing."
+                  : "Words at their smallest: 0.6× the site's size. The boxes kept shrinking."}
+              </span>
+            ) : null}
+          </div>
         ))}
 
         {/* A layer set to "over everything" washes across the finished page. */}
@@ -2097,6 +2251,12 @@ const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason
  * reads as the part's outline rather than as a frame round it.
  */
 /** Which way each handle pulls, for a handle that is not on a corner of the box. */
+/** A held group's eight handles: which, and where on its frame. */
+const GROUP_HANDLES: [Handle, string, string][] = [
+  ["nw", "0%", "0%"], ["n", "50%", "0%"], ["ne", "100%", "0%"], ["e", "100%", "50%"],
+  ["se", "100%", "100%"], ["s", "50%", "100%"], ["sw", "0%", "100%"], ["w", "0%", "50%"],
+];
+
 const HANDLE_CURSOR: Record<string, string> = {
   nw: "nwse-resize", n: "ns-resize", ne: "nesw-resize", e: "ew-resize",
   se: "nwse-resize", s: "ns-resize", sw: "nesw-resize", w: "ew-resize",
@@ -2239,7 +2399,7 @@ function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | nul
   return asks ? missing : [];
 }
 
-const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
+const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -2540,7 +2700,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         {node.locked ? <span className="text-fine text-fg-faint">locked</span> : null}
       </div>
 
-      {selected && !node.locked
+      {/* A member of a held group is sized by the group's frame, not by handles of its own. */}
+      {selected && !node.locked && !inHeldGroup
         ? hugs
           // On the path's own extremes: on a diagonal the two corner handles
           // land on the two ends of the line and the rest sit on its sides.
@@ -2570,7 +2731,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
               />
             ))
         : null}
-      {selected && !node.locked ? <FillTab node={node} chipScale={chipScale} /> : null}
+      {selected && !node.locked && !inHeldGroup ? <FillTab node={node} chipScale={chipScale} /> : null}
     </div>
   );
 });
