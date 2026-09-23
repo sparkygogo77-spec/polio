@@ -176,8 +176,11 @@ check("…the price pair is one part on ALL NINE, not just the open one",
 check("…reading as his page does, with the space the gap says belongs there",
   PAGES.every((pg) => after.by[pg]?.[`${pg}_92`]?.words === "$ 116.59 -1.94 %"),
   JSON.stringify(after.by.page_contact?.page_contact_92?.words));
-check("…the banner is fitted on all nine, giving back its 33px",
-  PAGES.every((pg) => after.by[pg]?.[`${pg}_75`]?.h === 49),
+/* THE SWEEP FITS NOTHING (measured on sink: 56 of 56 fits cut height the
+   capture explains). The banner keeps the height it was captured at, read off
+   the seeded node rather than written here. */
+check("…the banner keeps its captured height on all nine: the sweep fits nothing",
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_75`]?.h === nodes.find((n) => n.id === `${pg}_75`).h),
   PAGES.map((pg) => after.by[pg]?.[`${pg}_75`]?.h).join(","));
 /*
  * AND NOTHING IS DELETED. Both empty wrappers on his home page turned out to

@@ -1734,12 +1734,10 @@ export const useStudio = create<StudioState>()(
          * here: nothing his hand placed is touched, a wrapper showing a
          * surface of its own is never removed, and only a box's bottom moves.
          *
-         * The joins run FIRST and the fitting reads their result, because a
-         * join removes parts and resizes the one that stays, and a wrapper
-         * must be fitted to what is left rather than to what was there. The
-         * repaint runs last and cannot disagree with either: the fitting only
-         * ever changes a height or removes a box, and the repaint only ever
-         * changes paint.
+         * The joins run FIRST, because a join removes parts and resizes the
+         * one that stays. The repaint runs last and cannot disagree with
+         * either: it only ever changes paint. Nothing here fits a box to what
+         * it holds any more — see the note where the fitting used to run.
          */
         sweepDocument: (force) => {
           const s0 = get();
@@ -1770,22 +1768,29 @@ export const useStudio = create<StudioState>()(
            * the capture recorded rather than off geometry (`owns.ts`).
            *
            * Read from the document AS SAVED, like the dedupe, because the
-           * capture is the authority on what owns what. Applied before the
-           * fitting, and that IS the fitting acting on a box this code chose
-           * — which is allowed here and was forbidden for the dedupe, for a
-           * reason worth naming: the dedupe DELETES, and a deletion may only
-           * ever be justified by something the capture said. Recomputing a
-           * HEIGHT from corrected geometry is not the same act. Fitting the
-           * banner once it properly holds its header gives back the space
-           * under it; fitting it before would have measured it against an
-           * empty div and been wrong.
+           * capture is the authority on what owns what. It only ever lifts
+           * or grows a box, never shrinks one: a deletion may only ever be
+           * justified by something the capture said, and so may a box made
+           * smaller.
            */
           const grew = grownTo(s0.nodes as unknown as (Frag & Read)[])
             .filter((g) => afterJoin.some((n) => n.id === g.id));
           const afterGrow = grew.length ? withGrown(afterJoin, grew) : afterJoin;
 
-          const fitted = slimWrappers(afterGrow as unknown as Frag[]);
-          const afterFit = fitted.length ? withFits(afterGrow, fitted) : afterGrow;
+          /*
+           * AND NOTHING IS FITTED. Measured on sink's document: of the 56
+           * boxes the fitting shrank, all 56 were as tall as the capture said
+           * for a reason the capture records — a fixed rail's viewport height,
+           * a column's min-height, a row's stretch, a sized button centring
+           * its icon, a line's line-height — and not one held dead space. On
+           * his board it took the sidebar rail from 1281 to the 440 of the nav
+           * inside it. Shrinking a captured box undoes a measurement, the same
+           * error as replacing a wrapper with its contents' box (29 of 31
+           * flags there were padding). The fitting stays a command a person
+           * runs on purpose; the sweep does not run it for him.
+           */
+          const fitted: Slimming[] = [];
+          const afterFit = afterGrow;
           /* Reported, never removed: both of the empty wrappers on his home
              page are real surfaces that slid below their own contents. */
           const empty = emptyWrappers(afterFit as unknown as Frag[]);

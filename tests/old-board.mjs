@@ -124,8 +124,11 @@ const load = await saved();
 check("opening the board joins the price pair, with nothing pressed",
   "n_prose_92" in load && !("n_prose_95" in load), Object.keys(load).join(", "));
 check("…reading as his page does", load.n_prose_92?.words === "$ 116.59 -1.94 %", JSON.stringify(load.n_prose_92?.words));
-check("opening the board fits the banner, giving back the 33px under its only child",
-  load.n_box_75?.h === 49, `82 → ${load.n_box_75?.h}`);
+/* THE SWEEP FITS NOTHING (measured on sink: 56 of 56 fits cut height the
+   capture explains). The banner keeps the height it was seeded at. */
+const seeded75 = nodes.find((n) => n.id === "n_box_75").h;
+check("opening the board leaves the banner at its captured height: the sweep fits nothing",
+  load.n_box_75?.h === seeded75, `${seeded75} → ${load.n_box_75?.h}`);
 /*
  * AND IT REMOVES NOTHING. Both empty wrappers on his home page turned out to
  * be real surfaces sitting below the content they own, so an empty wrapper is
@@ -150,15 +153,15 @@ check("pressing the rebuild again finds nothing left to join",
   JSON.stringify(joined) === JSON.stringify(load), JSON.stringify(Object.keys(joined)));
 
 /*
- * AND A SECOND PRESS CHANGES NOTHING EITHER, because nothing is deleted now
- * — so the chain that used to empty the banner and then remove it on a later
- * press cannot happen at all. Fitting only ever gives back height nothing
- * occupies, and it converges on the first pass.
+ * THE FITTING IS A PERSON'S COMMAND NOW, NOT THE SWEEP'S. Pressed, it fits
+ * the banner to what it holds — and removes nothing, because nothing is
+ * deleted, so the chain that used to empty the banner and then remove it on
+ * a later press cannot happen at all.
  */
 check("the palette still offers the fitting", await press("fit captured boxes", /fit captured boxes/i));
 const fitted = await saved();
-check("pressing the fitting again changes nothing, and removes nothing",
-  JSON.stringify(fitted) === JSON.stringify(load), Object.keys(fitted).join(", "));
+check("pressing the fitting removes nothing: every part the load left is still there",
+  JSON.stringify(Object.keys(fitted).sort()) === JSON.stringify(Object.keys(load).sort()), Object.keys(fitted).join(", "));
 check("…the banner still there, fitted to what it holds rather than gone",
   fitted.n_box_75?.h === 49);
 

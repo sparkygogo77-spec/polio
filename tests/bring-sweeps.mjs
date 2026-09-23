@@ -120,6 +120,14 @@ const banner = byId(s, "banner");
 check("the sweep ran on it: the banner is put back round the logo it owns (lifted to -11, grown to 112)", !!banner && banner.y === -11 && banner.h === 112, banner ? `y ${banner.y} h ${banner.h}` : "gone");
 check("the nav is still on the board: no twin was made by a height this code chose", !!byId(s, "nav"), byId(s, "nav") ? `h ${byId(s, "nav").h}` : "deleted");
 check("both entries are still on the board", !!byId(s, "entry1") && !!byId(s, "entry2"));
+/* THE SWEEP FITS NOTHING. Measured on sink's document: 56 of the sweep's 56
+   fits cut height the capture explains — a fixed rail's viewport height, a
+   column's min-height, a row's stretch — and none cut dead space. The heights
+   are read from the fixture's own nodes, never written here as numbers. */
+const was = (id) => DOC.nodes.find((n) => n.id === id).h;
+for (const id of ["rail", "nav", "main", "footer"]) {
+  check(`the ${id} keeps the height the capture measured`, byId(s, id)?.h === was(id), `${byId(s, id)?.h} of ${was(id)}`);
+}
 check("and the imported document is marked at these rules, so it is swept once and not again", (s.swept ?? 0) >= SWEEP, `swept ${s.swept}`);
 const TOLD = /box(?:es)? put back round the parts (?:they own|it owns)/g;
 let said = "";
