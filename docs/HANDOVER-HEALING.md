@@ -203,10 +203,27 @@ along with the healing work.
    words come in with sink's document; the "[object Object]" does not, and is
    made after it lands. Look for them in different places.
 
-4. **The grow step's own overlap.** The sweep grows the header to hold its
+4. **The grow step's own overlap.** FIXED since: the converter now carries the
+   capture's `position` (sink 98355ca) and the grow step never grows a wrapper
+   to take in an out-of-flow part; the header keeps 0/82. What follows is how
+   it was found. The sweep grows the header to hold its
    logo, from 0–82 to −11–101 (−11–121 once the price line reflows), and
    the first sidebar button starts at 89 (109 after the healing). The header
    reaches **12px** past that button's top. The capture has the header ending
    at 82, clear of the button: the overlap is manufactured by the grow step,
    not the page's own, and the carry keeps it rather than prising the pair
    apart.
+
+5. **The Builder clips every part above y 0, and the page size ignores it —
+   one entry, one rule.** `frameHeight` (`store.ts`) measures the page from 0
+   down to the lowest part's foot, and `frameTopReach` gives the board room
+   above the page for ink and drawn spaces only — its own comment says so on
+   purpose: "a part above the origin is a part with a negative position in
+   the site's own coordinates, which is a different problem and not one a
+   drawing surface should paper over." Known and deferred by its author. On
+   sink the capture places exactly one kind of part above 0: the SOL WORKS
+   badge at y −11 on each section page. With the grow step no longer
+   swallowing it (header back at 0/82), the badge's own 11px above 0 stay
+   clipped and the page badge reads from 0. **The owner has accepted this and
+   will place the logo by hand.** Nothing is designed for it; nobody works on
+   it without the coordinator saying so.
