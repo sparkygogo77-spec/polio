@@ -30,6 +30,7 @@ import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
 import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
+import { plain } from "./parts/spans";
 
 export interface CompileInput {
   pages: StudioPage[];
@@ -373,7 +374,7 @@ export function compileSpec(input: CompileInput): Spec {
           tier: tierOf(n),
           priority: n.priority,
           prompt: n.prompt.trim(),
-          content: (n.content ?? "").trim(),
+          content: plain(n.content).trim(),
           options: n.options,
           // A part that sends people somewhere and has nowhere to send them yet
           // says so, so the agent builds a placeholder rather than a guess.

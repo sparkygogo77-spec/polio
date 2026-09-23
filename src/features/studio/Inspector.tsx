@@ -36,6 +36,7 @@ import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
 import { VirtualList } from "@/core/ui/virtual-list";
 import { linkReason } from "./links";
+import { plain } from "./parts/spans";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -980,7 +981,7 @@ export function Inspector() {
               autoGrow
               rows={2}
               aria-label={feature.content.label}
-              value={node.content}
+              value={plain(node.content)}
               placeholder={feature.content.placeholder}
               onChange={(e) => update({ content: e.target.value })}
             />

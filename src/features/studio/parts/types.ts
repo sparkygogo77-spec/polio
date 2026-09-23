@@ -25,6 +25,7 @@
  *   - a wordmark with nothing typed for it is `t.siteName`, never "Logo"
  *   - the root element carries `data-part={id}`
  */
+import type { Span } from "./spans";
 import type * as React from "react";
 import type { Theme } from "./theme";
 import type { Picture } from "../pictures";
@@ -132,6 +133,16 @@ export interface PartProps {
   label: string;
   /** Raw contents as typed; parts call `items(content, fallback)`. */
   content: string;
+  /**
+   * The same words as runs, when the node carries them as runs.
+   *
+   * `content` above stays the plain string and every part that has not
+   * learned spans keeps reading it exactly as before — that is what makes a
+   * plain string permanently valid rather than a migration waiting to
+   * happen. A part that draws a sentence reads this instead, and falls back
+   * to `content` when it is absent. See `parts/spans.ts`.
+   */
+  spans?: Span[];
   options: Record<string, string>;
   /** The box to fill, in frame pixels. */
   w: number;

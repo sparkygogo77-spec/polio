@@ -46,6 +46,7 @@ import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, t
 import { isBox } from "./shapeKind";
 import { pictureOf } from "./reshapeRun";
 import { useStudio, type StudioNode } from "./store";
+import { plain } from "./parts/spans";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;
@@ -206,7 +207,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const blank = isBlankSketch({ strokes, words });
   // A box drawn on its own, with nothing typed: the catalogue will claim it
   // as a cube, and the disc says so before the press rather than after.
-  const boxAlone = !words.trim() && isBox({ strokes, words: "" }) && (!node || (node.featureId === "custom-idea" && !node.content.trim()));
+  const boxAlone = !words.trim() && isBox({ strokes, words: "" }) && (!node || (node.featureId === "custom-idea" && !plain(node.content).trim()));
 
   /*
    * Make real: the drawing goes on the queue and the board closes.

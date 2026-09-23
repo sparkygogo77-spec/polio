@@ -1,6 +1,6 @@
 # Runs inside a sentence — the shape
 
-**For Fable.** This is the contract. It is defined here and not negotiated in
+**The contract.** (Written for Fable; the capture lane is retired and the emitting side is ours now.) It is defined here and not negotiated in
 a chat: build against it, and if something in it cannot be measured, say which
 field and why rather than emitting an approximation.
 
@@ -90,3 +90,35 @@ his sentence comes back as one part, centred, with pump.fun green inside it.
 Selecting a word in the inspector and colouring it is an independent surface
 that cannot regress the import, and holding the first behind the second buys
 nothing. If this shape is right, the second commit adds no types at all.
+
+
+---
+
+## Where it stands
+
+**Landed: the node shape and the normaliser.** `parts/spans.ts` holds `Span`,
+`Words`, `spansOf`, `plain`, `merged`, `alike` and `lines`, and
+`StudioNode.content` is `Words`. Widening that type is what found every place
+that read content raw — eleven of them — and each now goes through `plain()`.
+Parts are untouched: `blocks.tsx` hands each one `content` as the plain string
+exactly as before and `spans` beside it only when the node carries runs, which
+is what makes a plain string permanently valid rather than a migration waiting
+to happen. Proved a no-op: the whole suite green and the twenty-nine
+hand-placed buttons byte-identical.
+
+`tests/spans-hold.mjs` is pure — `node --experimental-strip-types
+tests/spans-hold.mjs`, no browser, no build — and holds both rules of the
+contract. Run red first by removing the merge and the newline cut: 7 red.
+
+**Next: the renderer**, then the emitter that stops fragmenting a sentence at
+capture. The inspector half — select a word, colour it — is its own commit
+behind them.
+
+**His hand-corrections are replaced, by his ruling.** He extended and moved
+these boxes working around this bug, and said plainly he wants the correct
+result rather than his patches kept. So a fragment group merges whatever its
+parts are marked, the merged box takes the geometry the capture recorded
+rather than where he dragged it, and every hand-moved part replaced is
+reported by name. The `byHand` exemption is overruled INSIDE a runs rebuild
+only — a part he moved that is not in a sentence being reassembled still
+stays where he put it.

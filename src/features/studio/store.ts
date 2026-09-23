@@ -59,6 +59,7 @@ import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
 import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
+import { plain, type Words } from "./parts/spans";
 import type { Locked, Placed, Plan, Space } from "./space";
 
 /**
@@ -127,7 +128,20 @@ export interface StudioNode {
   /** The element's own prompt — specific to this placement. */
   prompt: string;
   /** What it contains: tab labels, links, placeholder text. The board draws this. */
-  content: string;
+  /**
+   * The words this part draws — a plain string, or a sequence of runs.
+   *
+   * A run carries its own colour, weight, face and link, so a sentence with
+   * one green word in it is ONE part instead of three. His price line came
+   * in as four or five boxes that each wrapped on their own, and his header
+   * split "A Sol Works project" into three where "Works" is a different
+   * face; both are the same fault, and it is this field being flat.
+   *
+   * A plain string stays valid for ever: `spansOf` in `parts/spans.ts` turns
+   * either into runs and `plain` turns either into text, so nothing saved
+   * before this needs migrating and no part needs changing to keep working.
+   */
+  content: Words;
   x: number;
   y: number;
   w: number;
@@ -1684,7 +1698,7 @@ export const useStudio = create<StudioState>()(
 
           if (role.kind === "list") {
             const rows = Math.max(2, Math.min(12, role.rows ?? 3));
-            const content = node.content.trim() || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`).join(", ");
+            const content = plain(node.content).trim() || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`).join(", ");
             set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "list", content } : n)) }));
             return { kind: "list", did: `a list of ${rows} rows` };
           }

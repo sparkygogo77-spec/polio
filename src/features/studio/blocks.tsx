@@ -16,6 +16,7 @@ import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usePicture, type Picture } from "./pictures";
+import { isSpans, plain, spansOf } from "./parts/spans";
 import { missingCopy, namedCopy } from "./promised";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
@@ -215,7 +216,11 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     <P
       id={node.featureId}
       label={node.label}
-      content={node.content ?? ""}
+      /* The plain string, exactly as every part has always had it, and the
+         runs beside it for the parts that draw a sentence. See
+         `parts/spans.ts`: a plain string stays valid for ever. */
+      content={plain(node.content)}
+      spans={isSpans(node.content) ? spansOf(node.content) : undefined}
       options={node.options}
       w={size?.w ?? node.w}
       h={size?.h ?? node.h}
@@ -446,7 +451,7 @@ function Unknown({ node, t }: { node: StudioNode; t: Theme }) {
       }}
     >
       <span style={{ fontWeight: 700, fontFamily: t.headingFamily }}>{node.label}</span>
-      <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{node.content || node.prompt || node.featureId}</span>
+      <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{plain(node.content) || node.prompt || node.featureId}</span>
     </div>
   );
 }
