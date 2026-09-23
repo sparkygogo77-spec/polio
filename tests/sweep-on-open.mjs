@@ -120,7 +120,7 @@ const read = (p) => p.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("builder.studio") || "{}")?.state ?? {};
   const by = {};
   for (const n of s.nodes ?? []) (by[n.pageId] ??= {})[n.id] = {
-    h: n.h, accent: n.colour?.accent ?? null, variant: (n.options ?? {}).variant ?? null,
+    h: n.h, bg: n.colour?.bg ?? null, accent: n.colour?.accent ?? null, variant: (n.options ?? {}).variant ?? null,
     words: typeof n.content === "string" ? n.content : (n.content ?? []).map((r) => r.text).join(""),
   };
   return { total: (s.nodes ?? []).length, by, swept: s.swept ?? null };
@@ -158,19 +158,55 @@ check("…and both empty wrappers are gone from all nine",
  * which against an `rgb(...)` string is not a colour, so it drew nothing.
  */
 check("the active time button got its tint back, on all nine pages",
-  PAGES.every((pg) => after.by[pg]?.[`${pg}_t1`]?.accent === "rgb(19, 48, 31)"),
-  PAGES.map((pg) => after.by[pg]?.[`${pg}_t1`]?.accent).join(" | "));
-check("…and is solid now, so there is a fill to draw",
-  PAGES.every((pg) => after.by[pg]?.[`${pg}_t1`]?.variant === "solid"),
-  PAGES.map((pg) => after.by[pg]?.[`${pg}_t1`]?.variant).join(","));
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_t1`]?.bg === "rgb(19, 48, 31)"),
+  PAGES.map((pg) => after.by[pg]?.[`${pg}_t1`]?.bg).join(" | "));
+check("…in the role that fills the box to its edge, leaving its variant and its own colour alone",
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_t1`]?.variant === "ghost" && after.by[pg]?.[`${pg}_t1`]?.accent === "rgb(0, 255, 0)"),
+  `${after.by.page_home?.page_home_t1?.variant} accent ${after.by.page_home?.page_home_t1?.accent}`);
 check("the active sidebar entry got its tint back too, over the PAGE and with no accent to read",
-  PAGES.every((pg) => after.by[pg]?.[`${pg}_s0`]?.accent === "rgb(14, 44, 23)"),
-  PAGES.map((pg) => after.by[pg]?.[`${pg}_s0`]?.accent).join(" | "));
+  PAGES.every((pg) => after.by[pg]?.[`${pg}_s0`]?.bg === "rgb(14, 44, 23)"),
+  PAGES.map((pg) => after.by[pg]?.[`${pg}_s0`]?.bg).join(" | "));
 check("…and the two muted entries beside it, whose colour nothing here can even parse, are untouched",
-  PAGES.every((pg) => ["s1", "s2"].every((e) => after.by[pg]?.[`${pg}_${e}`]?.accent == null && after.by[pg]?.[`${pg}_${e}`]?.variant === "outline")));
+  PAGES.every((pg) => ["s1", "s2"].every((e) => after.by[pg]?.[`${pg}_${e}`]?.bg == null && after.by[pg]?.[`${pg}_${e}`]?.variant === "outline")));
+
+/*
+ * AND IT ACTUALLY PAINTS, which is the only claim that matters. A colour
+ * written into a role nothing reads looks exactly like doing nothing, and the
+ * role that fills a control changed underneath this work when the chrome lane
+ * moved a node's fill out to the wrapper. So the board is asked what colour
+ * is really there, and the inactive button beside it is asked too — a check
+ * that only looked at the active one would pass just as well if every button
+ * on the page had been painted.
+ */
+const drawn = await p.evaluate(() => {
+  const res = {};
+  for (const el of document.querySelectorAll("[data-node-id]")) {
+    const id = el.getAttribute("data-node-id");
+    /*
+     * The part's OWN body, and nothing else inside the node. A selected part
+     * on the board carries a label plate of its own, painted in the Builder's
+     * chrome colour — reading "the first painted thing in here" finds that on
+     * every part and reports a fill where there is none.
+     */
+    for (const e of [el.querySelector("[data-part-box]"), el.querySelector("[data-part]"), el.querySelector("button")].filter(Boolean)) {
+      const c = getComputedStyle(e).backgroundColor;
+      if (c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent") { res[id] = c; break; }
+    }
+  }
+  return res;
+});
+check("the active time button DRAWS the tint on the board, not just carries it",
+  drawn.page_home_t1 === "rgb(19, 48, 31)", String(drawn.page_home_t1));
+check("…and the inactive one beside it draws nothing, so this painted one button and not the row",
+  drawn.page_home_t0 == null, String(drawn.page_home_t0));
+check("the active sidebar entry draws its own, over the page",
+  drawn.page_home_s0 === "rgb(14, 44, 23)", String(drawn.page_home_s0));
+check("…and the muted entries beside it draw nothing",
+  drawn.page_home_s1 == null && drawn.page_home_s2 == null, `${drawn.page_home_s1} ${drawn.page_home_s2}`);
+
 check("…while the three time buttons that were never active are untouched",
   PAGES.every((pg) => ["t0", "t2", "t3"].every((t) =>
-    after.by[pg]?.[`${pg}_${t}`]?.accent === "rgb(45, 55, 72)" && after.by[pg]?.[`${pg}_${t}`]?.variant === "outline")));
+    after.by[pg]?.[`${pg}_${t}`]?.bg == null && after.by[pg]?.[`${pg}_${t}`]?.variant === "outline")));
 
 /* The safeguards, on the path that runs without being asked. */
 check("the box his hand placed survives on every page, untouched",
@@ -211,7 +247,7 @@ check("a board already swept at this version is not swept again",
   kept.total === PAGES.length * PER_PAGE, `${kept.total} parts`);
 check("…so nothing it holds is touched a second time",
   kept.by.page_home?.page_home_75?.h === 82 && !!kept.by.page_home?.page_home_95
-  && kept.by.page_home?.page_home_t1?.accent === "rgb(0, 255, 0)");
+  && kept.by.page_home?.page_home_t1?.bg == null);
 await already.ctx.close();
 
 /* And a board marked at an OLDER version is swept again, which is what makes

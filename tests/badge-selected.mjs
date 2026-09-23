@@ -76,7 +76,11 @@ const doc = JSON.stringify({ state: {
     node("kept", "value-prop", "Stay in the loop", 200, 520, 420, 120, { prompt: 'The heading reads "Stay in the loop".' }),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "BADGES", gimmick: "", master: "" },
-  frameWidth: 1440, activePageId: "p0", trail: [],
+  /* Marked as already swept: the sweep on open (`tests/sweep-on-open.mjs`)
+     puts a captured board right without being asked, and would take the empty
+     search field out of this one before the badges were looked at. The mark
+     makes it stand aside so the badges are what is under test. */
+  frameWidth: 1440, activePageId: "p0", trail: [], swept: 2,
 }, version: 0 });
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });

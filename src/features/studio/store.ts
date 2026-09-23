@@ -1263,22 +1263,17 @@ function withJoins(nodes: StudioNode[], done: readonly Reassembly[]): StudioNode
 /**
  * The nodes with the active controls' dropped tint put back.
  *
- * Each one takes its colour in the role its own kind actually fills from —
- * a control's accent, a plain box's surface — and a control is told it is
- * solid now, because that is the branch that draws a fill at all.
+ * The colour goes in `bg`, which is the role the WRAPPER fills from, so it
+ * reaches the node's edge rather than stopping at the words — see the note in
+ * `repaint.ts`, which measures the two routes against each other. Nothing
+ * else about the node is touched: not its accent, which is still the tint's
+ * own colour and its border's, and not its variant.
  */
 function withPaint(nodes: StudioNode[], done: readonly Painted[]): StudioNode[] {
   const by = new Map(done.map((d) => [d.id, d]));
   return nodes.map((n) => {
     const d = by.get(n.id);
-    if (!d) return n;
-    return {
-      ...n,
-      colour: d.role === "accent"
-        ? { ...(n.colour ?? {}), accent: d.paint }
-        : { ...(n.colour ?? {}), surface: d.paint, bg: d.paint },
-      ...(d.solid ? { options: { ...(n.options ?? {}), variant: "solid" } } : {}),
-    };
+    return d ? { ...n, colour: { ...(n.colour ?? {}), bg: d.paint } } : n;
   });
 }
 

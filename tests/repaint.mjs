@@ -162,8 +162,17 @@ check("and a control on another page is not in the row, however the coordinates 
  * to set. Getting this wrong paints the right colour into a field nothing
  * reads, which looks exactly like doing nothing.
  */
-check("a control takes the colour in its accent, and is told it is solid now",
-  done[0]?.role === "accent" && done[0]?.solid === true, `${done[0]?.role} solid=${done[0]?.solid}`);
+/*
+ * THE ROLE, MEASURED. Seeded four ways at 60x30 against a production build:
+ * `accent` + `variant: solid` has the button paint 35x15 of a 35x18 box, and
+ * `colour.bg` has the wrapper paint the whole 35x18 — which is the fault the
+ * chrome lane fixed as "a box's fill reaches its edge". So the colour goes in
+ * `bg`, and the variant is deliberately left alone: with `bg` set the button
+ * paints nothing either way, and forcing `solid` would flip the text of any
+ * node that never named a colour onto the accent's contrast.
+ */
+check("the colour goes in bg, which is the role that fills the box to its edge",
+  done[0]?.role === "bg", String(done[0]?.role));
 check("a part with no variant is not a control, so a coloured line in a list is never painted",
   repaintActive([
     box("shell2", 0, 0, 240, 400, { colour: { surface: "rgb(16, 21, 26)" } }),

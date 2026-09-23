@@ -393,12 +393,35 @@ nobody asked for. Missing an active entry is safe; inventing one is not. If a
 `box`-shaped active entry ever turns up, that is the line to widen — against
 measured data, not in advance.
 
-**Where the colour goes** is the part's business: a control fills from its
-accent (`Cta.tsx`: `outline ? transparent : ghost ? accent+"22" : accent`), so
-it takes the blend there plus `variant: solid`; a plain box fills from its
-surface. That `accent + "22"` is also why the fault read as nothing at all
-rather than as a faint tint — an eight-digit hex suffix on an `rgb(...)`
-string is not a colour.
+**Where the colour goes, measured, because the answer changed underneath this
+work.** The chrome lane moved a node's fill out to the wrapper, so there are
+now two routes and they are not equivalent. Seeded four ways at 60×30 against
+a production build and read as painted pixels:
+
+| written as | what paints | size of a 35×18 box |
+|---|---|---|
+| `accent` + `variant: solid` | the `button` itself | 35×**15** |
+| `colour.bg` | the wrapper | 35×**18** |
+| both | the wrapper | 35×18 |
+| untouched | **nothing** | — |
+
+The first stops at the padding, which is the very fault the chrome lane fixed
+as "a box's fill reaches its edge"; `Cta.tsx` now stands aside for it
+(`background: saidRole(t, "bg") ? "transparent" : fill`). So the blend goes in
+`bg` — what the page actually had, a `background-color` on the element — and
+it fills the box.
+
+**The variant is deliberately left alone**, which departs from the "and
+variant solid" the other lane specified. With `bg` set the button paints
+nothing either way, so it makes no difference to either measured node; and
+forcing `solid` would flip the text of any node that never named a colour from
+the accent to the accent's contrast — light text on a dark tint, the wrong way
+round. Worth reconciling with the other lane, since a re-captured document and
+a swept one should agree on the field.
+
+(The old route is also why the fault read as nothing at all rather than as a
+faint tint: a `ghost` fills with `accent + "22"`, and an eight-digit hex
+suffix on an `rgb(...)` string is not a colour.)
 
 **Note on data.** None of these checks use `sink` as a stand-in for his board;
 every fixture is built at his measured numbers. `sink` is used once, for

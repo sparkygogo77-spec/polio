@@ -457,7 +457,10 @@ claim and asks where the boxes actually are. Only the bottom is ever trimmed:
 shrinking a box moves nothing, lifting one would. Never removed: a wrapper his
 hand placed (not fitted either — its size is his answer, as with the button
 and the healing) and one that shows a surface of its own, since dropping that
-takes a coloured band off the page. Containment is within one page, because
+takes a coloured band off the page. And a wrapper is a `box`: every one of the
+75 wordless parts in his captured document is one, and a part of another kind
+holding nothing is something else — a `picture` with no picture is a stand-in
+by design, and deleting it takes a slot off the page somebody meant to fill. Containment is within one page, because
 every page starts at 0,0 again. Note what this does NOT do: positions are
 absolute and the healing is monotone, so giving a box back its height gives
 back the height and does not move what sits below it. `tests/reassemble.mjs`
@@ -512,11 +515,19 @@ is the same grey — which is what his reference shows. Green at a tenth over
 direction by re-reading the capture. Only a part carrying a `variant` is
 considered, deliberately — without that, a column of paragraphs with one
 coloured differently is indistinguishable from a set of choices, and missing
-an active entry is safe where inventing one is not. The colour goes in the role that kind of part actually fills
-from: a control's ACCENT plus `variant: solid`, a plain box's SURFACE — and
-`Cta.tsx`'s `ghost` branch fills with `accent + "22"`, which against an
-`rgb(...)` string is no colour at all, which is why the fault showed as
-nothing rather than as a faint tint. Every condition that stops it painting
+an active entry is safe where inventing one is not. The colour goes in `bg`, the role the
+WRAPPER fills from, and that was measured rather than reasoned because the
+chrome lane moved a node's fill out there mid-flight: seeded four ways at
+60x30 and read as painted pixels, `accent` + `variant: solid` has the button
+paint 35x15 of a 35x18 box while `colour.bg` paints the whole of it — the very
+"a box's fill reaches its edge" fault, and `Cta.tsx` now stands aside
+(`background: saidRole(t, "bg") ? "transparent" : fill`). The variant is left
+alone deliberately, departing from the "and variant solid" the other lane
+specified: with `bg` set the button paints nothing either way, and forcing
+`solid` would flip the text of a node that never named a colour onto the
+accent's contrast. (`Cta.tsx`'s `ghost` branch fills with `accent + "22"`,
+which against an `rgb(...)` string is no colour at all, which is why the fault
+showed as nothing rather than as a faint tint.) Every condition that stops it painting
 something bare was red-proved separately: a pair is ambiguous and left alone,
 a set whose others disagree says nothing, an unlabelled mark is not a choice
 (two 20x20 `svg` marks in his own document met every geometric test), a part

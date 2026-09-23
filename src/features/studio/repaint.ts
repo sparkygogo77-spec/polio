@@ -72,23 +72,38 @@ export const TINT = 0.1;
 /**
  * A control whose dropped tint has been worked out again.
  *
- * WHICH ROLE THE COLOUR GOES IN is the part's business, not ours, and the two
- * kinds differ. A control fills from its ACCENT — `Cta.tsx` is one line,
- * `outline ? transparent : ghost ? accent+"22" : accent` — so putting the
- * blend there and setting the variant to solid is the whole correction. (And
- * that `accent+"22"` is why the fault showed as nothing at all rather than as
- * a faint tint: an eight-digit hex suffix on an `rgb(...)` string is not a
- * colour, so the ghost drew no fill whatsoever.) A plain box has no variant
- * and fills from its SURFACE, which the converter writes alongside `bg`.
+ * WHICH ROLE THE COLOUR GOES IN, measured rather than reasoned, because the
+ * answer changed underneath this. There are two routes to a fill on a
+ * control, and they are not equivalent:
+ *
+ *   accent + variant solid   the button paints it itself, INSIDE its padding
+ *   colour.bg                the wrapper paints it, out to the node's edge
+ *
+ * Seeded four ways at 60x30 and read off a production build, the first fills
+ * 35x15 and the second 35x18 of a 35x18 box — which is the very fault the
+ * chrome lane fixed as "a box's fill reaches its edge", and `Cta.tsx` now
+ * stands aside (`background: saidRole(t, "bg") ? "transparent" : fill`) so
+ * the wrapper can do it. So `bg` is the role: it is what the page actually
+ * had — a `background-color` on the element — and it is the one that fills
+ * the box.
+ *
+ * THE VARIANT IS LEFT ALONE, and that is a deliberate departure from "and
+ * variant solid". With `bg` set the button paints nothing either way, so the
+ * variant makes no difference to either measured node; and forcing `solid`
+ * WOULD change the text colour of any node that never named one, from the
+ * accent to the accent's contrast — light text on a dark tint, which is the
+ * wrong way round. Doing less is the safer half here.
+ *
+ * (The old route is also why the fault showed as nothing at all rather than a
+ * faint tint: a `ghost` fills with `accent + "22"`, and an eight-digit hex
+ * suffix on an `rgb(...)` string is not a colour.)
  */
 export interface Painted {
   id: string;
   /** The opaque colour the browser would have drawn. */
   paint: string;
-  /** The role to put it in: what this kind of part actually fills from. */
-  role: "accent" | "surface";
-  /** Whether the part also needs telling it is solid now. */
-  solid: boolean;
+  /** The role to put it in: the one that fills the box rather than the words. */
+  role: "bg";
   /** The tint's own colour, which is the node's own ink. */
   tint: string;
   /** What it was laid over, and whose box that was — or the page's own. */
@@ -243,7 +258,7 @@ export function repaintActive(frags: readonly Frag[], pageBg?: string | null): P
     const paint = over(ink, over_);
     if (!paint) continue;
     out.push({
-      id: f.id, paint, role: "accent", solid: true,
+      id: f.id, paint, role: "bg",
       tint: ink, over: over_, overId: behind?.id ?? "the page", among: set.length,
     });
   }

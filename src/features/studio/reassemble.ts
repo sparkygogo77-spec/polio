@@ -299,8 +299,18 @@ function within(outer: Frag, inner: Frag): boolean {
     && inner.y + inner.h <= outer.y + outer.h + 1;
 }
 
-/** A part with no words and nothing drawn: a box that is only a box. */
+/**
+ * A part with no words and nothing drawn: a box that is only a box.
+ *
+ * AND IT MUST BE A BOX. Every one of the 75 wordless parts in his captured
+ * document is a `box`, and a part of any other kind with nothing in it is
+ * something else entirely: a `picture` holding no picture is a stand-in by
+ * design, not a failed load, and deleting it would take a slot off the page
+ * that somebody meant to fill. Caught by the chrome lane's own check, which
+ * seeded exactly that and lost it.
+ */
 function isWrapper(f: Frag): boolean {
+  if (f.featureId !== "box") return false;
   const words = typeof f.content === "string"
     ? f.content
     : Array.isArray(f.content) ? f.content.map((r) => (r as Span).text ?? "").join("") : "";

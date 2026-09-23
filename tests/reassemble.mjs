@@ -266,6 +266,17 @@ check("…and its top never moves, so nothing is lifted off what is above it",
   !("y" in (fit[0] ?? {})));
 
 /* And what it must not touch. */
+/*
+ * A WRAPPER IS A BOX. Every one of the 75 wordless parts in his captured
+ * document is a `box`; a part of any other kind holding nothing is something
+ * else. A `picture` with no picture is a stand-in by design, and removing it
+ * takes a slot off the page that somebody meant to fill.
+ */
+check("a picture part holding no picture is a stand-in, not an empty wrapper",
+  slimWrappers([{ ...box("standin", 900, 300, 112, 112), featureId: "picture" }]).length === 0);
+check("…and neither is any other kind of part that happens to hold nothing",
+  slimWrappers([{ ...box("tiles", 0, 0, 400, 200), featureId: "stat-tiles" }]).length === 0);
+
 check("a box that draws something of its own is not a wrapper",
   slimWrappers([box("pic", 0, 0, 100, 100, { picture: { id: "p" } })]).length === 0);
 check("a box carrying words is not a wrapper",
