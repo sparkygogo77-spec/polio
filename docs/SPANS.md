@@ -480,3 +480,73 @@ happening and reaches a **new capture only**. `twins.ts` in the sweep is the
   are the same box. A dedupe reading that result deletes a node on the
   strength of a height this code chose. **It did exactly that until the check
   caught it.** A box may only be removed for something the capture said.
+
+---
+
+## Measurement: what recorded parentage would move
+
+**A measurement, not a change. No repositioning is built.** `owns.ts` answers
+the question and moves nothing; `scripts/wrappers-report.mjs` prints the
+numbers for any document.
+
+**I do not have his board.** Everything below is the committed
+capture-derived document (126 nodes, one page) — the same site and the same
+converter, so the *mechanism* transfers, but the counts do not. Run the script
+against his document for his numbers.
+
+### The naive rule is wrong, and the measurement is what says so
+
+"Put the wrapper where the parts it owns are" — replace its box with theirs:
+
+| | wrappers |
+|---|---|
+| flagged | **31** of 126 |
+| would move **down** | 27 (376px total) |
+| would move **up** | 2 (38px) |
+| would **shrink** | 29 (1879px) |
+
+Twenty-seven moving *down* is the tell. That rule strips every wrapper's
+**padding**: a box with 25px of it reads as 25px adrift and 50px too tall.
+Twenty-nine of the thirty-one are padding, not drift.
+
+### Grow-only, and the direction is the point
+
+Keep the wrapper's own box, take in what escapes it, never shrink:
+
+| | wrappers |
+|---|---|
+| flagged | **2** of 126 |
+| direction | up and taller only — 38px lift, 93px growth |
+| which ones | `n_box_83`, `n_box_84` — the header wrappers, each owning 32–33 parts with 2 escaping |
+
+Fifteen times more selective, and it lands exactly on the banner fault.
+
+### The healing does not undo it — it is currently causing it
+
+I told the coordinator the opposite, and that was wrong. Measured
+(`tests/wrapper-heals.mjs`), on his shape — banner 1763×82 at y 0, logo
+overflowing to y −11:
+
+- **Left alone:** the healing sees the banner overlapping the logo it owns
+  and clears it the only way it can, downward. `y 0 → 101`. Every part below
+  moves down 101px too. **An 11px overhang becomes 101px of dead space.**
+- **Put right first:** the healing moves nothing at all, and the page is
+  **101px shorter**.
+
+So repositioning doesn't need the healing to pull anything back — it removes
+the reason the healing pushed. And the two cannot fight: the correction only
+lifts or grows, the healing only pushes down to clear an overlap, and the
+correction's purpose is to stop the overlap existing.
+
+This is very likely how his banner came to sit at y 147 with its header above
+it: not the capture alone, but the capture's overlap plus a healing with one
+direction.
+
+### The sidebar does not fall out of this rule
+
+Both column boxes have **zero** escaping children, and grow-only leaves both
+untouched. The document holds an outer rail (256×1282, y 73→1355, reaching
+the footer) and an inner nav (255×440, tracking its 24 entries) — a real
+outer/inner pair, not duplicates, which is why `twins` correctly leaves them.
+On his board *both* are short, which this rule cannot fix, because the rail's
+own content ends where it ends. It needs its own investigation.
