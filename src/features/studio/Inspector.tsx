@@ -37,7 +37,8 @@ import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
 import { VirtualList } from "@/core/ui/virtual-list";
 import { linkReason } from "./links";
-import { plain } from "./parts/spans";
+import { plain, reword } from "./parts/spans";
+import { growToWords } from "./growToWords";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -992,7 +993,7 @@ export function Inspector() {
               aria-label={feature.content.label}
               value={plain(node.content)}
               placeholder={feature.content.placeholder}
-              onChange={(e) => update({ content: e.target.value })}
+              onChange={(e) => { update({ content: reword(node.content, e.target.value) }); growToWords(node.id); }}
             />
           </Field>
         ) : null}

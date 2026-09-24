@@ -97,6 +97,44 @@ export function plain(w: Words | null | undefined): string {
   return spansOf(w).map((s) => s.text).join("");
 }
 
+/**
+ * A typed change, landed in the runs rather than over them.
+ *
+ * The word editors show a part's words as one plain string, and wrote that
+ * string back over the runs: every stretch then took the part's own ink. His
+ * wordmark reads "A Sol" green, "Works" white, " project" green; one space
+ * typed in the Contents panel and "Works" came back green. So the edit is
+ * found by what did not change, the same start and the same end, and only
+ * the middle is replaced: the characters before and after keep the run they
+ * were in, and what is typed takes the ink of the run it is typed into (the
+ * one before the caret, or the first when typing at the very start). Words
+ * that were a plain string stay a plain string.
+ */
+export function reword(was: Words | null | undefined, next: string): Words {
+  if (!Array.isArray(was) || !was.length) return next;
+  const old = plain(was);
+  if (old === next) return was;
+  const owner: number[] = [];
+  was.forEach((s, i) => { for (let k = 0; k < s.text.length; k++) owner.push(i); });
+  let head = 0;
+  while (head < old.length && head < next.length && old[head] === next[head]) head++;
+  let tail = 0;
+  while (tail < old.length - head && tail < next.length - head && old[old.length - 1 - tail] === next[next.length - 1 - tail]) tail++;
+  const typedInto = head > 0 ? owner[head - 1]! : owner[0] ?? 0;
+  const runOf: number[] = [
+    ...owner.slice(0, head),
+    ...Array.from({ length: next.length - head - tail }, () => typedInto),
+    ...owner.slice(old.length - tail),
+  ];
+  const out: Span[] = [];
+  for (let k = 0; k < next.length; k++) {
+    const last = out[out.length - 1];
+    if (last && runOf[k - 1] === runOf[k]) last.text += next[k];
+    else out.push({ ...was[runOf[k]!]!, text: next[k]! });
+  }
+  return out.length ? out : "";
+}
+
 /** Do these two runs read the same to a reader, so they are one run? */
 export function alike(a: Span, b: Span): boolean {
   return a.colour === b.colour
