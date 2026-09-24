@@ -150,48 +150,59 @@ check("rather than as a paragraph about them", shown.words < 160, `${shown.words
 /* ------------------------------------------------------------------ */
 
 /*
- * HIS WORDS: the colour selector "should make it apparent what is about to
- * change before he changes it ... so he is never picking a colour blind" —
- * a font example for the text roles, a square for background and surface,
- * and for highlight whatever it actually affects.
+ * HIS WORDS, the first time: the colour selector "should make it apparent
+ * what is about to change before he changes it ... so he is never picking a
+ * colour blind". So each role drew what it paints.
  *
- * What stood there was the role's NAME. So this asks two things a name
- * cannot pass: that every one of the six draws something, and that what it
- * draws is different from role to role. A single shared example would sail
- * through the first and fail the second, which is the point of the second.
+ * HIS WORDS, the second time, asked for three times: six examples shown one
+ * at a time is redundant. He wants ONE example with all six roles in it at
+ * once, background, surface, text, muted text, accent and highlight, so the
+ * whole palette is seen together instead of flipped through role by role.
+ * A correction is a rule (DESIGN.md 4.3): this section used to require six
+ * DIFFERENT examples, and it now requires the opposite, one example that
+ * does not change when the role does, except for the mark on what the
+ * picked role paints.
+ *
+ * Every colour below is read off the six swatches the panel itself paints,
+ * never written in here.
  */
 const ROLE_NAMES = ["Background", "Surface", "Text", "Muted text", "Accent", "Highlight"];
-const seen = [];
-for (const name of ROLE_NAMES) {
-  await page.getByRole("button", { name, exact: true }).first().click({ force: true });
-  await page.waitForTimeout(350);
-  /*
-   * FINGERPRINTED ON WHAT IS DRAWN, never on the role's own id.
-   *
-   * The first version of this put the role id in the fingerprint, which
-   * made the "six different things" check below unfailable: two roles
-   * drawing an identical example would still have had two different ids
-   * and sailed past. Text and Muted text share their words on purpose —
-   * they are the same two lines with the emphasis moved between them — so
-   * the id was carrying exactly the pair the check needed to catch. What
-   * is read now is the words plus every mark's own colour and opacity,
-   * which is the thing his eye is actually being shown.
-   */
-  const ex = await page.evaluate(() => {
-    const e = document.querySelector("[data-role-example]");
-    if (!e) return null;
-    const paint = [...e.querySelectorAll("*")].map((n) => {
-      const cs = getComputedStyle(n);
-      return `${cs.color}|${cs.backgroundColor}|${cs.opacity}|${cs.textDecorationLine}`;
-    });
-    return { role: e.getAttribute("data-role-example"), text: e.innerText.trim(), marks: paint.length, paint: paint.join(" ") };
+const ROLE_ID = { Background: "bg", Surface: "surface", Text: "text", "Muted text": "muted", Accent: "accent", Highlight: "highlight" };
+const swatch = (name) => page.locator("[data-look-colour]").getByRole("button", { name, exact: true }).first();
+const roleColour = {};
+for (const name of ROLE_NAMES) roleColour[name] = await swatch(name).evaluate((e) => getComputedStyle(e).backgroundColor);
+const readExample = () => page.evaluate(() => {
+  const all = document.querySelectorAll("[data-look-colour] [data-role-example]");
+  const e = all[0];
+  if (!e) return { count: 0 };
+  const nodes = [e, ...e.querySelectorAll("*")];
+  const paints = new Set();
+  for (const n of nodes) { const cs = getComputedStyle(n); paints.add(cs.color); paints.add(cs.backgroundColor); }
+  // What is DRAWN, less the mark: words, and every element's colour, fill and opacity. Outlines are the mark.
+  const drawn = nodes.map((n) => { const cs = getComputedStyle(n); return `${cs.color}|${cs.backgroundColor}|${cs.opacity}`; }).join(" ") + "::" + e.innerText;
+  const picked = nodes.filter((n) => n.hasAttribute("data-picked")).map((n) => {
+    const cs = getComputedStyle(n);
+    return { part: n.getAttribute("data-role-part"), color: cs.color, fill: cs.backgroundColor };
   });
-  check(`picking ${name} shows what it paints, not its name`, !!ex && (ex.text.length > 0 || ex.marks > 0),
-    ex ? `${ex.role}: "${ex.text.replace(/\n+/g, " / ")}"` : "nothing drawn");
-  seen.push(ex ? `${ex.text}::${ex.paint}` : "");
+  return { count: all.length, paints: [...paints], drawn, picked };
+});
+const drawnSeen = new Set();
+for (const name of ROLE_NAMES) {
+  await swatch(name).click({ force: true });
+  await page.waitForTimeout(350);
+  const ex = await readExample();
+  const missing = ROLE_NAMES.filter((r) => !(ex.paints ?? []).includes(roleColour[r]));
+  check(`with ${name} picked there is one example, and all six roles are painted in it`, ex.count === 1 && missing.length === 0,
+    ex.count !== 1 ? `${ex.count} examples` : missing.length ? `not painted: ${missing.map((r) => `${r} ${roleColour[r]}`).join(", ")}` : "");
+  const want = ROLE_ID[name];
+  const marked = ex.picked ?? [];
+  check(`…with what ${name} paints marked in it, and nothing else`,
+    marked.length > 0 && marked.every((m) => m.part === want && (m.color === roleColour[name] || m.fill === roleColour[name])),
+    marked.length ? marked.map((m) => m.part).join(", ") : "nothing marked");
+  drawnSeen.add(ex.drawn ?? "");
 }
-check("and the six examples are six different things, not one example relabelled",
-  new Set(seen).size === ROLE_NAMES.length, `${new Set(seen).size} distinct of ${ROLE_NAMES.length}, read off the words and every mark's own colour`);
+check("and it is the same example whichever role is picked, the palette seen whole rather than role by role",
+  drawnSeen.size === 1, `${drawnSeen.size} different drawings over six picks`);
 
 /* ------------------------------------------------------------------ */
 /* 6. ONE PLACE PAINTS THE PAGE                                        */
