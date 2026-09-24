@@ -115,106 +115,79 @@ function ContrastBadge({ a, b, label }: { a: string; b: string; label: string })
 /* ------------------------------------------------------------------ */
 
 /**
- * PICK A ROLE AND SEE THE THING IT PAINTS, not its name.
+ * THE WHOLE PALETTE IN ONE EXAMPLE, with the picked role marked in it.
  *
- * HIS WORDS: the colour selector "should make it apparent what is about to
- * change before he changes it ... so he is never picking a colour blind."
- * And the standard behind it, his own: a setting should directly show what
- * it does rather than name it.
+ * HIS WORDS, the first time: the colour selector "should make it apparent
+ * what is about to change before he changes it ... so he is never picking a
+ * colour blind". So each role drew its own use, one at a time: squares for
+ * background and surface, two lines of type for the text roles, a button
+ * and a link for the accent, a marked phrase for the highlight.
  *
- * What stood here was the name of the role and nothing else. "Muted text"
- * and "Highlight" are words about a colour; neither tells you which of the
- * things on your page turns that colour when you drag the mixer, and the
- * six chips above cannot either, because a chip is the colour and never the
- * use. So each role draws its own use, at the size it is used at:
+ * HIS WORDS, the second time, asked for three times: six examples that
+ * differ only in which role they happen to show is redundant. A palette is
+ * judged as a whole, each colour against the others, and flipping between
+ * roles to compare them is exactly what an example should save him. So
+ * there is one example and every role is in it at once:
  *
- *   Background, Surface   a square, his word, and the surface stands ON the
- *                         background because a card is only ever read
- *                         against the page behind it.
- *   Text, Muted text      a font example, his word: real type at the real
- *                         weight, muted set under text so the drop between
- *                         them is the thing you are actually choosing.
- *   Accent                what it actually affects, which is the things you
- *                         press: a button, and a link in a line of text.
- *   Highlight             what it actually affects, which is a phrase marked
- *                         as if with a pen, and a part told to wear it.
+ *   Background   the page the whole example stands on
+ *   Surface      a card on that page
+ *   Text         a heading on the card
+ *   Muted text   the quieter line under it
+ *   Accent       a button, and a link in a line of text
+ *   Highlight    a phrase in that line, marked as if with a pen
  *
- * Every one of them is painted from the RESOLVED palette, so it is live: it
- * moves under the mixer as the colour moves, which is what makes it a look
- * before rather than a report after. The example is drawn on the page's own
- * background for the same reason a card is, because a colour has no contrast
- * on its own and all six of these are read against the page.
+ * The first rule still holds: what the picked role paints is marked in the
+ * example, a dashed line round each thing it colours, so what the mixer is
+ * about to change is shown before it changes. The mark is drawn in a colour
+ * the role is not (the text colour, or the accent when the role IS the text),
+ * and the example is otherwise identical whichever role is picked.
+ *
+ * Painted from the RESOLVED palette, so it moves under the mixer as the
+ * colour moves. `tests/looks-panel.mjs` holds all of this.
  */
-function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
-  const frame = "relative h-[58px] overflow-hidden rounded-md border border-border";
-  /* Background and surface: a square each, and the surface on the page. */
-  if (role === "bg" || role === "surface") {
-    return (
-      <div data-role-example={role} className={cn(frame, "flex items-center justify-center gap-3")} style={{ background: palette.bg }}>
-        <span
-          className="size-9 rounded"
-          style={{ background: palette.bg, outline: role === "bg" ? `2px solid ${palette.accent}` : `1px solid ${withAlpha(palette.text, 0.14)}` }}
-        />
-        <span
-          className="size-9 rounded"
-          style={{ background: palette.surface, outline: role === "surface" ? `2px solid ${palette.accent}` : `1px solid ${withAlpha(palette.text, 0.14)}` }}
-        />
-        <span className="text-fine" style={{ color: palette.muted }}>
-          {role === "bg" ? "the page" : "cards on the page"}
-        </span>
-      </div>
-    );
-  }
-  /* Text and muted: a font example, one under the other. */
-  if (role === "text" || role === "muted") {
-    return (
-      <div data-role-example={role} className={cn(frame, "flex flex-col justify-center gap-0.5 px-3")} style={{ background: palette.bg }}>
-        <span
-          className="text-[13px] font-semibold leading-tight"
-          style={{ color: palette.text, opacity: role === "text" ? 1 : 0.45 }}
-        >
+function PaletteExample({ role, palette }: { role: RoleId; palette: Palette }) {
+  const markColour = role === "text" ? palette.accent : palette.text;
+  const mark = (r: RoleId, inset = false): React.CSSProperties =>
+    role === r ? { outline: `1.5px dashed ${markColour}`, outlineOffset: inset ? -4 : 2 } : {};
+  const picked = (r: RoleId) => (role === r ? { "data-picked": "" } : {});
+  return (
+    <div
+      data-role-example="palette"
+      data-role-part="bg"
+      {...picked("bg")}
+      className="rounded-md border border-border p-2.5"
+      style={{ background: palette.bg, ...mark("bg", true) }}
+    >
+      <div
+        data-role-part="surface"
+        {...picked("surface")}
+        className="flex flex-col gap-1 rounded px-2.5 py-2"
+        style={{ background: palette.surface, ...mark("surface") }}
+      >
+        <span data-role-part="text" {...picked("text")} className="self-start text-[13px] font-semibold leading-tight" style={{ color: palette.text, ...mark("text") }}>
           A heading on the page
         </span>
-        <span
-          className="text-small leading-tight"
-          style={{ color: palette.muted, opacity: role === "muted" ? 1 : 0.45 }}
-        >
+        <span data-role-part="muted" {...picked("muted")} className="self-start text-small leading-tight" style={{ color: palette.muted, ...mark("muted") }}>
           The quieter line under it
         </span>
+        <div className="mt-1 flex items-center gap-2">
+          <span
+            data-role-part="accent"
+            {...picked("accent")}
+            className="shrink-0 rounded px-2 py-1 text-small font-semibold"
+            style={{ background: palette.accent, color: palette.bg, ...mark("accent") }}
+          >
+            Button
+          </span>
+          <span className="min-w-0 text-small leading-tight" style={{ color: palette.text }}>
+            a{" "}
+            <span data-role-part="accent" {...picked("accent")} style={{ color: palette.accent, textDecoration: "underline", textUnderlineOffset: 2, ...mark("accent") }}>link</span>
+            {" "}and one{" "}
+            <span data-role-part="highlight" {...picked("highlight")} style={{ background: palette.highlight, color: palette.bg, padding: "1px 3px", borderRadius: 2, ...mark("highlight") }}>marked</span>
+            {" "}phrase
+          </span>
+        </div>
       </div>
-    );
-  }
-  /* Accent: the things you press. His standard names buttons especially. */
-  if (role === "accent") {
-    return (
-      <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
-        <span
-          className="rounded px-2 py-1 text-small font-semibold"
-          style={{ background: palette.accent, color: palette.bg }}
-        >
-          Button
-        </span>
-        <span className="text-small" style={{ color: palette.text }}>
-          and a{" "}
-          <span style={{ color: palette.accent, textDecoration: "underline", textUnderlineOffset: 2 }}>link</span>
-        </span>
-      </div>
-    );
-  }
-  /* Highlight: a phrase marked with it, and a part wearing it. */
-  return (
-    <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
-      <span className="text-small leading-tight" style={{ color: palette.text }}>
-        one phrase{" "}
-        <span style={{ background: palette.highlight, color: palette.bg, padding: "1px 3px", borderRadius: 2 }}>marked</span>{" "}
-        in a line
-      </span>
-      <span
-        className="ml-auto rounded px-2 py-1 text-fine font-semibold"
-        style={{ background: palette.highlight, color: palette.bg }}
-      >
-        a part
-      </span>
     </div>
   );
 }
@@ -286,8 +259,9 @@ function ColourSection() {
       </div>
 
       {/* The example goes BEFORE the mixer, because it is what the mixer is
-          about: picked first, dragged second, and never dragged blind. */}
-      <RoleExample role={role} palette={resolved} />
+          about: the whole palette at once, the picked role marked in it,
+          picked first, dragged second, and never dragged blind. */}
+      <PaletteExample role={role} palette={resolved} />
 
       <Mixer value={current} onChange={setRoleColour} />
 

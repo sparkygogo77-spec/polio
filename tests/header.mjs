@@ -228,8 +228,18 @@ check(
   }),
   await page.locator("[data-site-mark]").evaluate((el) => getComputedStyle(el).backgroundColor),
 );
-const strip = await page.locator("[data-page-strip] button").evaluateAll((els) => els.map((e) => (e.getAttribute("aria-label") ?? e.innerText).trim().split("\n")[0]));
-check("every page is on the strip", strip.filter((t) => !/^Add page$/.test(t)).length === 2, strip.join(" · "));
+/*
+ * The pages are one control now, the page you are on and a list of the rest
+ * (tests/pages-dropdown.mjs holds why and how much room it gives back), so
+ * "every page" is read from the list the control opens.
+ */
+check("the page you are on is on the strip", (await page.locator("[data-page-strip] [data-page-current]").count()) === 1);
+await page.locator("[data-page-current]").click();
+await page.waitForTimeout(400);
+const strip = await page.locator("[data-page-menu] [data-ctx='studio-page']").evaluateAll((els) => els.map((e) => e.innerText.trim().split("\n")[0]));
+check("every page is one press away on it", strip.length === 2, strip.join(" · "));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
 check(
   "and adding one is on the same control, not loose beside it",
   (await page.locator("[data-page-strip]").getByRole("button", { name: "Add page" }).count()) === 1,

@@ -28,6 +28,8 @@ import { haptic } from "@/core/feedback/haptics";
 import { cn } from "@/core/lib/cn";
 import { useSetting } from "@/core/settings/useSetting";
 import { Popover } from "@/core/ui/popover";
+import { Tooltip } from "@/core/ui/tooltip";
+import { Link2, Link2Off, Lock } from "lucide-react";
 import { DRAW_KINDS, HUES, useStudio, type Tool } from "./store";
 
 type Entry = { id: string; tools: readonly Tool[]; order: number } & (
@@ -55,7 +57,7 @@ export function ToolOptions({ tool, compact }: { tool: Tool; compact?: boolean }
     <div data-tool-options={tool} className={cn("items-center gap-1.5", compact ? "flex flex-wrap" : "hidden lg:flex")}>
       {mine.map((o) => (
         <div key={o.id} data-tool-option={o.id} className="flex items-center">
-          {o.kind === "toggle" ? <OptionCheckbox setting={o.setting} label={o.label} hint={o.hint} /> : o.render({ compact })}
+          {o.kind === "toggle" ? <OptionCheckbox setting={o.setting} label={o.label} hint={o.hint} compact={compact} /> : o.render({ compact })}
         </div>
       ))}
     </div>
@@ -63,23 +65,49 @@ export function ToolOptions({ tool, compact }: { tool: Tool; compact?: boolean }
 }
 
 /**
- * A checkbox, because he asked for one by name. `@/core/ui` has a Switch
- * and no checkbox, so this is a real `<input type="checkbox">` wearing the
- * same press feedback the Switch gives — the sound and the haptic — so it
- * feels like every other control on this bar.
+ * A checkbox, because he asked for one by name, worn as an icon, because he
+ * then asked for the room back.
+ *
+ * HIS WORDS, the second time: "Scale contents with group" was a labelled
+ * checkbox taking a 164px slot on the bar; make it an icon, two linked locks
+ * or something in that spirit. So the key is a padlock (the setting is about
+ * a LOCKED group) beside a chain: whole when the contents scale with the
+ * group, broken when each part keeps its own size. On is filled in the
+ * accent, off is plain, so the state reads at a glance the way a tick does;
+ * pointing at it says the whole label, the state and what it does.
+ *
+ * It is still a real `<input type="checkbox">`: the key's whole face, its
+ * own tick drawn away (never hidden: a control at zero opacity is not on
+ * the screen, `tests/header.mjs`), so a press anywhere on it is a press on
+ * the checkbox, the
+ * keyboard reaches it, and it carries the sound and the haptic every other
+ * control on this bar gives. In More tools (`compact`) there is room, so the
+ * words come back beside the icon.
  */
-function OptionCheckbox({ setting, label, hint }: { setting: string; label: string; hint: string }) {
-  const [on, set] = useSetting<boolean>(setting);
+function OptionCheckbox({ setting, label, hint, compact }: { setting: string; label: string; hint: string; compact?: boolean }) {
+  const [value, set] = useSetting<boolean>(setting);
+  const on = value !== false;
+  const Chain = on ? Link2 : Link2Off;
   return (
-    <label title={hint} className="tactile flex cursor-pointer select-none items-center gap-1.5 rounded-md border border-border bg-elevated px-1.5 py-0.5 text-small text-fg-muted hover:text-fg">
-      <input
-        type="checkbox"
-        className="size-3.5 cursor-pointer accent-(--accent)"
-        checked={on !== false}
-        onChange={(e) => { play(e.target.checked ? "toggleOn" : "toggleOff"); haptic(); set(e.target.checked); }}
-      />
-      {label}
-    </label>
+    <Tooltip content={`${label}: ${on ? "on" : "off"}. ${hint}`}>
+      <label
+        className={cn(
+          "tactile relative flex cursor-pointer select-none items-center gap-0.5 rounded-md border px-1 py-0.5 text-small",
+          on ? "border-accent bg-accent-soft text-accent" : "border-border bg-elevated text-fg-muted hover:text-fg",
+        )}
+      >
+        <input
+          type="checkbox"
+          aria-label={label}
+          className="absolute inset-0 m-0 size-full cursor-pointer appearance-none rounded-md bg-transparent"
+          checked={on}
+          onChange={(e) => { play(e.target.checked ? "toggleOn" : "toggleOff"); haptic(); set(e.target.checked); }}
+        />
+        <Lock aria-hidden className="pointer-events-none size-3.5 shrink-0" />
+        <Chain aria-hidden className="pointer-events-none size-3.5 shrink-0" />
+        {compact ? <span className="pointer-events-none ml-1">{label}</span> : null}
+      </label>
+    </Tooltip>
   );
 }
 
