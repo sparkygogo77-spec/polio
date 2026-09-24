@@ -192,13 +192,44 @@ along with the healing work.
    is not harmless repetition. **Produced at capture time, not by polio:** the
    joined words are already in sink's own `site/document.json` (traced by the
    lane that took it) — the converter's side of the import.
+   TRACED: the converter gathered a button's words from its whole subtree
+   (`wordsWithin`) but folded only a DIRECT child holding words and nothing
+   else. The wallet's words sit in `button > div > span`, a level deeper, so
+   they were gathered AND emitted. The ruling, for buttons and sentences
+   alike: every captured word is drawn by exactly one part; a child folds only
+   as a control's label (a button's direct child holding only words) or as a
+   run of its parent's own sentence; anything else keeps its words out of the
+   parent. Three halves, in this order, because each one alone is worse:
+   · polio `2bbde72` — a button that speaks and carries no words draws none
+     (else it paints "Get started" where the address was). On trunk; changed
+     nothing visible on its own, which is right.
+   · polio `e98f7f1` — the twin keep rule (entry 8). Without it the capture
+     half DELETES the eight buttons.
+   · sink, the capture half — gather only what is folded. Prepared, and held
+     until `e98f7f1` is on trunk and verified. It changes exactly the eight
+     nodes' `content` and `label`; all 720 ids stay, in order.
 
-3. **"[object Object]" as content, 18 parts, two on each of the nine pages.**
-   On the footer line it renders as "A SolWorks project". It is **not in
-   sink's document** (0 parts carry it), so polio produces it after import.
-   BELIEVED, not traced: the sweep joins exactly 18 sentences across the nine
-   pages, two per page — the header's and the footer's "A Sol|Works|project" —
-   and the joined content is what reads as "[object Object]".
+3. **"[object Object]": 18 parts on the board, from 17 sets in sink.**
+   CORRECTED and TRACED. The earlier line here said "two on each of the nine
+   pages", counted off the board. The board does hold 18, but not that way:
+   sink's document carries 17 "A Sol / Works / project" sets (8 header, 8
+   footer, 1 inside the Documentation page's `main`) and 1 "Powered by /
+   GitBook" pair in its aside. That is 18 rejoins, 17 + 1, and a count wrong
+   by one in a handover is how someone later concludes a fix missed a case.
+   It is **not in sink's document** (0 parts carry it; every `content` there
+   is a string), which the column lane found from the capture's end. It is
+   made in polio: the sentence rejoin (`reassemble.ts`) keeps one part per
+   sentence and `withJoins` (`store.ts:1268`) writes its runs into `content`
+   as a LIST. Measured on a fresh import: 18 parts with list content, the
+   string "[object Object]" drawn 0 times and present 0 times in the saved
+   state. It appears only where something reads `content` as a string.
+   **What the capture's sentence half will and will not clear.** The 8 footer
+   sets sit under "v2.0.0 |", a parent with words of its own, so the capture
+   folds them into that sentence and they never reach the rejoin: they
+   disappear on a new import once that half lands. The other 10 — 8 header
+   sets and both Documentation ones — have parents with NO words of their
+   own, so the capture leaves them as parts, the rejoin still joins them, and
+   they survive until polio handles list-as-content.
    **So 2 and 3 live on opposite sides of the import:** the buttons' doubled
    words come in with sink's document; the "[object Object]" does not, and is
    made after it lands. Look for them in different places.
@@ -240,3 +271,44 @@ along with the healing work.
    and the capture commits). The order that keeps the capture: land the
    capture, Bring it into a new site, publish last. The owner has been told;
    what Publish should do about it is his call, and nothing here changes it.
+
+7. **His wordmark reads "A SolWorksproject": no space before "project".**
+   The first thing he showed, hours before any of this was diagnosed. The
+   page reads "A Sol" "Works" " project": no space between the first two, one
+   before the third ("Works" is a different face). The capture trims each
+   element's own words (`capture-route.mjs`, `own()`), so no run carries the
+   space the page had; the boxes butt (gap 0 at 1425), so the rejoin's gap
+   rule puts none back either. `spans.ts` says it plainly: only the page
+   knew, and the run must carry it. Not fixed by any half above: the capture
+   must keep a run's edge whitespace. Measured on the board: 17 kept parts
+   read "A SolWorksproject"; "Powered by GitBook" keeps its space.
+
+8. **The twin keep rule threw away a button and kept its bare wrapper.**
+   FIXED in polio `e98f7f1`. `twins.ts` ranked same-box twins on words, then
+   drawings, then "the outermost, then the first". A twin that shows a
+   surface of its own tied with a bare box. It now ranks words, drawings,
+   WHAT SHOWS (a colour, a drawn edge, a texture, an aura), then the
+   outermost. Reach, over sink's nine pages: 33 twins removed under both
+   rules; the survivor changes in ONE stack today and NINE with the capture's
+   button half. The one is live on his board: the Documentation search field
+   (`n_box_647/648/649`) lost `n_box_649`, the input's box with its fill,
+   hairline and inset, and kept a bare div. The nine are that plus the eight
+   wallet buttons.
+   **How it was caught, and the rule it leaves.** The capture half was about
+   to be pushed with "0 duplicate-word buttons" in hand. A real-door import
+   also read 101 buttons where there had been 109: the eight were gone, their
+   fill and green edge with them. Reporting the part TOTAL beside the defect
+   count was proposed as the guard, and rejected, because it would have
+   missed exactly this: parts read 652 before and after. Only the kinds
+   moved: box 243 → 251, cta-primary 109 → 101. **Verify by parts per kind,
+   never a total** — a total hides a substitution, a breakdown cannot.
+   `scripts/import-measure.mjs` prints it, per page and in all, beside the
+   other three numbers we verify by: duplicate-word buttons, escapes, gap.
+
+9. **720 parts in, 652 on the board: all 68 accounted for, by kind.**
+   `scripts/import-measure.mjs` on `e98f7f1` with the capture's button half:
+   box 33 and prose 35 lost, nothing else. The 33 boxes are the twin spares,
+   none carrying words, a colour or an edge. The 35 prose are the pieces the
+   sentence rejoin absorbs: "Works" ×17, "project" ×17, "GitBook" ×1, into
+   its 18 kept parts. No part of any other kind is lost on import.
+
