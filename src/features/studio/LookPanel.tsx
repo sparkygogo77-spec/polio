@@ -203,6 +203,16 @@ function ColourSection() {
   React.useEffect(() => setCanPick("EyeDropper" in window), []);
 
   const current = parseColor(resolved[role]) ?? { l: 0.7, c: 0.15, h: 265 };
+  /* Where each role came from, on a site brought in. Nothing on a site made here. */
+  const from = look.paletteFrom;
+  const same = (a?: string, b?: string) => (a ?? "").replace(/\s+/g, "").toLowerCase() === (b ?? "").replace(/\s+/g, "").toLowerCase();
+  const sourceSays = (r: RoleId): string => {
+    const src = from?.[r];
+    if (!src) return "";
+    if (!same(resolved[r], src.colour)) return "set by you";
+    if (src.shows) return `none on this site, shows ${ROLE_LABEL[src.shows].toLowerCase()}`;
+    return `from ${src.parts} part${src.parts === 1 ? "" : "s"} on this site`;
+  };
   const setRoleColour = (c: Oklch) =>
     useStudio.getState().setLook({ palette: { ...look.palette, [role]: css(c) } });
 
@@ -229,29 +239,44 @@ function ColourSection() {
       <div className="flex items-center justify-between">
         <h3 data-look-heading className="text-plain font-semibold text-fg">Colour</h3>
         {look.palette && Object.keys(look.palette).length ? (
-          <button type="button" onClick={() => useStudio.getState().setLook({ palette: {} })} className="text-small text-fg-muted hover:text-fg">
+          <button
+            type="button"
+            /* Back to what the site gave, on a site brought in; the app's own otherwise. */
+            onClick={() => useStudio.getState().setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {} })}
+            className="text-small text-fg-muted hover:text-fg"
+          >
             Reset
           </button>
         ) : null}
       </div>
 
-      {/* Six roles. Everything the site draws reads one of these. */}
+      {/* Six roles. Everything the site draws reads one of these. On a site
+          brought in, each says under it where it came from (paletteFrom.ts):
+          how many of his parts follow it, or "none" when the site gave it
+          nothing and it shows another role's colour instead. */}
       <div className="grid grid-cols-6 gap-1">
         {ROLES.map((r) => (
-          <Tooltip key={r} content={`${ROLE_LABEL[r]}, ${resolved[r]}`}>
-            <button
-              type="button"
-              aria-label={ROLE_LABEL[r]}
-              aria-pressed={role === r}
-              onClick={() => { play("select"); setRole(r); }}
-              className={cn("h-9 rounded-md border-2 transition-colors", role === r ? "border-accent" : "border-border hover:border-border-strong")}
-              style={{ background: resolved[r] }}
-            />
-          </Tooltip>
+          <div key={r} className="flex flex-col items-stretch gap-0.5">
+            <Tooltip content={`${ROLE_LABEL[r]}, ${resolved[r]}${from?.[r] ? `. ${sourceSays(r)}` : ""}`}>
+              <button
+                type="button"
+                aria-label={ROLE_LABEL[r]}
+                aria-pressed={role === r}
+                onClick={() => { play("select"); setRole(r); }}
+                className={cn("h-9 rounded-md border-2 transition-colors", role === r ? "border-accent" : "border-border hover:border-border-strong")}
+                style={{ background: resolved[r] }}
+              />
+            </Tooltip>
+            {from?.[r] ? (
+              <span data-role-source={r} className="num text-center text-fine text-fg-faint">
+                {from[r]!.shows ? "none" : from[r]!.parts}
+              </span>
+            ) : null}
+          </div>
         ))}
       </div>
-      <div className="flex items-center justify-between text-small text-fg-muted">
-        <span>{ROLE_LABEL[role]}</span>
+      <div className="flex items-center justify-between gap-2 text-small text-fg-muted">
+        <span data-role-says="" className="min-w-0">{ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}</span>
         <span className="flex gap-1">
           <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
           <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />

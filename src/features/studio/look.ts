@@ -880,6 +880,13 @@ export interface Look {
    * Absent on every site that carried none, and nothing is drawn for it.
    */
   fonts?: CarriedFont[];
+  /**
+   * Where each role came from, on a site brought in (`paletteFrom.ts`): the
+   * colour the rule picked off the site's own parts and how many parts
+   * follow it, or the role it shows because the site gave none. Absent on a
+   * site made here, and the panel says nothing about sources then.
+   */
+  paletteFrom?: Partial<Record<RoleId, { colour: string; parts: number; shows?: RoleId }>>;
 }
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });

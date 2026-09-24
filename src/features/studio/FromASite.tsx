@@ -45,6 +45,7 @@ import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
+import { landPalette } from "./paletteFrom";
 import { useStudio, type StudioNode } from "./store";
 import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
@@ -405,6 +406,21 @@ export function FromASite({ space }: { space: Space }) {
      */
     useStudio.setState({ swept: (copy.document as { swept?: number | null }).swept ?? null });
     useStudio.getState().sweepDocument();
+    /*
+     * THE SITE'S OWN COLOURS, AND HIS PARTS TIED TO THEM (`paletteFrom.ts`).
+     *
+     * After the sweep, never before it: the sweep's repaint reads a
+     * control's ink as a colour to mix, and a role's name is not one. So the
+     * six roles are picked off the board as the sweep left it, and each part
+     * colour that is exactly a role's colour is written as the role's name.
+     * The board draws the same; moving a role now moves what wore it.
+     */
+    {
+      const now = useStudio.getState();
+      const captured = (copy.document as { look?: { palette?: Record<string, string> } }).look?.palette ?? {};
+      const landed = landPalette(now.nodes, captured);
+      useStudio.setState({ nodes: landed.nodes, look: { ...now.look, palette: landed.palette, paletteFrom: landed.from } });
+    }
     const sweptSays = useStudio.getState().sweepNote ?? "";
     useStudio.setState({ sweepNote: null });
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
