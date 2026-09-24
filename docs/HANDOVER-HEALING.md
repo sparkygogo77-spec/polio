@@ -245,19 +245,38 @@ along with the healing work.
    not the page's own, and the carry keeps it rather than prising the pair
    apart.
 
-5. **The Builder clips every part above y 0, and the page size ignores it —
-   one entry, one rule.** `frameHeight` (`store.ts`) measures the page from 0
-   down to the lowest part's foot, and `frameTopReach` gives the board room
-   above the page for ink and drawn spaces only — its own comment says so on
-   purpose: "a part above the origin is a part with a negative position in
-   the site's own coordinates, which is a different problem and not one a
-   drawing surface should paper over." Known and deferred by its author. On
-   sink the capture places exactly one kind of part above 0: the SOL WORKS
-   badge at y −11 on each section page. With the grow step no longer
-   swallowing it (header back at 0/82), the badge's own 11px above 0 stay
-   clipped and the page badge reads from 0. **The owner has accepted this and
-   will place the logo by hand.** Nothing is designed for it; nobody works on
-   it without the coordinator saying so.
+5. **A part above y 0 was out of reach; the board now reaches it. The
+   reported page size is left alone, on purpose.** FIXED for reach.
+   `frameTopReach` (`store.ts`) gave the board room above the page for ink
+   and drawn spaces and not for parts. On sink the capture places one kind
+   of part above 0: the SOL WORKS badge at y −11, 112 tall, on each section
+   page (Documentation has none). Measured on 2bbde72, "clipped" was the
+   wrong word: nothing clips it. The board keeps 20px of ground over the page,
+   so at the zoom it opens at the badge fitted with 9px to spare. Zoomed in
+   to 3.03 its top 13px sat above the board's own top, where no scroll
+   reaches, and a part at y −200 was 175px out of reach at any zoom. The earlier
+   acceptance ("the owner will place the logo by hand") is superseded: he
+   ruled the barrier unnecessary. Parts now count in `frameTopReach`. The
+   part stays at −11 and the page keeps its origin; only the board reaches
+   higher. `tests/part-above-reach.mjs`: 8/12 on 2bbde72, 12/12 with the fix.
+
+   **The badge above the page still reads from 0** (the section pages report
+   the lowest part's foot, not foot + 11). Making it read the span was
+   weighed and not done, because every other height in the app measures
+   from 0 and would then disagree with it:
+   - the frame box the badge labels (`Canvas.tsx`, `height: frameH`) is
+     drawn from 0, and the snap-to-foot aims at that same height;
+   - the published site (`live/LiveSite.tsx:217`) draws the page as a box
+     from 0 with `overflow: hidden`, and `live/reflow.ts:70` measures from 0.
+     The badge's top 11px are not on the published page, just as they were
+     not on the captured site: a browser cannot scroll above a document's
+     top either;
+   - `SitePreview` and the import cover animation (`ImportFlow.tsx:269`)
+     size the page from 0.
+   Changing only the number would make the badge claim a height that the
+   frame, the preview and the published page do not have. Changing the page
+   itself to start above 0 would move every one of those. Neither is done. A page that scrolls
+   correctly and reports its height from its origin is the smaller problem.
 
 6. **A Publish would overwrite the capture in sink.** Sink's `main` is both the
    store of the captured document (`site/document.json`, what Bring imports)

@@ -541,16 +541,22 @@ export function frameHeight(
  * grows instead: this is how much room it needs above the page, so what is
  * drawn up there is on the surface rather than off the top of it.
  *
- * Parts are not counted. A part above the origin is a part with a negative
- * position in the site's own coordinates, which is a different problem and
- * not one a drawing surface should paper over. Ink and drawn spaces are
- * scratch by nature and are.
+ * Parts are counted too. A capture places a part where the site had it, and
+ * sink's section pages have the SOL WORKS badge at y -11: the site's own
+ * header lets it hang over the top. Leaving parts out was a barrier the
+ * owner did not ask for. Measured on 2bbde72: the board keeps 20px of
+ * ground over the page, so at the zoom it opens at the badge fitted, and
+ * zoomed in to 3.03 its top 13px sat above the board where no scroll
+ * reaches; a part at y -200 was 175px out of reach at any zoom.
+ * The part is not moved and the page's origin does not move either: the
+ * board reaches up to it, as it does to ink. `tests/part-above-reach.mjs`.
  */
 export function frameTopReach(
-  also: { shapes?: StudioShape[]; spaces?: Space[] } = {},
+  also: { nodes?: StudioNode[]; shapes?: StudioShape[]; spaces?: Space[] } = {},
   margin = 24,
 ): number {
   let top = 0;
+  for (const n of also.nodes ?? []) top = Math.min(top, n.y);
   for (const sh of also.shapes ?? []) {
     for (const [, y] of sh.points) top = Math.min(top, y);
   }

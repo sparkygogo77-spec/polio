@@ -362,9 +362,11 @@ export function Canvas() {
    * stroke at y -520 sat 265px above the board's own top: uncut, since the
    * page stopped clipping, and still unreachable, because a scroller only
    * ever travels down. Sideways needs none of this: the board pans across,
-   * so a thing off the left is a pan away rather than lost.
+   * so a thing off the left is a pan away rather than lost. Parts count as
+   * well as ink: a capture can place one above the page, where the site had
+   * it, and the board reaches it rather than the part being moved.
    */
-  const above = Math.round(frameTopReach({ shapes, spaces }) * zoom);
+  const above = Math.round(frameTopReach({ nodes, shapes, spaces }) * zoom);
   const boardH = Math.round(pageH * zoom) + TOP_GUTTER + above;
 
   /*
