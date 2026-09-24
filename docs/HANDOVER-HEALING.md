@@ -403,6 +403,40 @@ along with the healing work.
    **For whoever takes it:** the fix is the capture's `own()`. Then decide,
    with the owner, whether boards that already grew get their heights
    reset: a stored-height change, his call.
+   **Later the same night: a safety net landed, and the box was tested as an
+   arbiter.** The one-line rule (`parts/Text.tsx`, `tests/one-line-words.mjs`)
+   now stops a text part one line tall from wrapping. It is a safety net
+   (his rule: a box never arrives too small for its text), NOT this fix: the
+   words still read "$ 116.59". His live site shows "$117.12 ↗+1.83%", with no
+   space either side. The coordinator's machine: "$116.59" 54.2px, "$ 116.59"
+   61.9 against a 59 box; "-1.94%" 39.6, "-1.94 %" 46.2 against 43. This
+   container, whose fonts match the capture's ("$116.59" is 59.3 against 59):
+   67.8 and 50.6 with the space. **Can the recorded box say which joins are
+   wrong, with no recapture?** Measured over all 284 one-paragraph text parts
+   on sink `5a0bc6d`'s nine pages, each at its own recorded font (the carried
+   Press Start 2P where the part names it), against its box less padding
+   and border:
+   - 248 are one line tall. 33 of those are wider than their box: **16 by one
+     space (1.04 and 1.06 spaces), every one the price pair on 8 pages**, and
+     each fits once its single space goes. 16 more by under half a space
+     (at most 2.9px, rounding and face), none with a space-shaped excess; one
+     long sentence by 1.3 spaces that no single dropped space fixes.
+   - **The dropped side is exact in the site's own face.** The wordmark
+     pieces are 60, 60 and 96 wide; in Press Start 2P "A Sol" is 60.0,
+     "Works" 60.0, "project" 84.0 and " project" 96.0. The box holds the
+     space the trim took, to the pixel, on all 17 sets (Docs: 70/70/112 at
+     14px, the same). Measured in a fallback face instead it is invisible.
+   - **Where it is noise.** 136 fitting parts sit in boxes over five spaces
+     wider than their words: blocks, not shrink-wrapped runs. "Narrower
+     than its box" means nothing there. Only a run whose box hugs its words
+     (an inline span) can say a space was dropped.
+   So on this capture the box arbitrates cleanly in both directions, with a
+   rule of: over by half to one and a half spaces AND fixed by dropping one
+   space; or a shrink-wrapped run whose box is its words plus one space.
+   Two conditions before anyone builds on it: it must be measured in the
+   capture machine's fonts (the converter would need a browser to measure),
+   and a multi-space text says a space is extra, not which one. Not built:
+   the coordinator asked for the distribution first.
 
 **One idea under two of these, met once here:** a check can read correct
 because the evidence left rather than because the fault did. A duplicate
