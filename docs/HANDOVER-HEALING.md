@@ -322,3 +322,8 @@ along with the healing work.
    sentence rejoin absorbs: "Works" ×17, "project" ×17, "GitBook" ×1, into
    its 18 kept parts. No part of any other kind is lost on import.
 
+**One idea under two of these, met once here:** a check can read correct
+because the evidence left rather than because the fault did. A duplicate
+count went to 0 when eight wallet buttons were deleted rather than
+de-duplicated, and a published board can drop a flag the capture held and
+look clean for it. Before trusting a zero, count the parts it was measured on.
