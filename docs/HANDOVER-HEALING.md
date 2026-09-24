@@ -205,9 +205,9 @@ along with the healing work.
      nothing visible on its own, which is right.
    · polio `e98f7f1` — the twin keep rule (entry 8). Without it the capture
      half DELETES the eight buttons.
-   · sink, the capture half — gather only what is folded. Prepared, and held
-     until `e98f7f1` is on trunk and verified. It changes exactly the eight
-     nodes' `content` and `label`; all 720 ids stay, in order.
+   · sink `5a0bc6d`, the capture half — gather only what is folded. On sink's
+     `main` after `e98f7f1` was on trunk and verified. It changes exactly the
+     eight nodes' `content` and `label`; all 720 ids stay, in order.
 
 3. **"[object Object]": 18 parts on the board, from 17 sets in sink.**
    CORRECTED and TRACED. The earlier line here said "two on each of the nine
@@ -346,6 +346,27 @@ along with the healing work.
    none carrying words, a colour or an edge. The 35 prose are the pieces the
    sentence rejoin absorbs: "Works" ×17, "project" ×17, "GitBook" ×1, into
    its 18 kept parts. No part of any other kind is lost on import.
+   Traced by id, not only by kind: each of the 35 is a sibling (same parent
+   path) of one of the 18 parts the rejoin keeps, and its words are inside
+   that kept part — 35 of 35. They are removed by `withJoins`, the
+   `.filter((n) => !dropped.has(n.id))` at `store.ts:1260`.
+
+10. **Any number read off a board depends on which pages have been drawn.**
+   The healing runs when a page is opened, and it moves things. On sink, a
+   section page nobody has opened since the import still has its header's
+   inner box at the captured 16–65; opening the page lets that box take in
+   the price line (16–85), and the logo's worst escape on the page drops
+   from 63 to 43. Home is healed while the import lands, so it reads 43
+   either way. Measured on polio `fb89923` with sink `5a0bc6d`: worst escape
+   **63** with only home rendered, **43** with all nine opened; parts (652),
+   parts per kind, duplicate-word buttons (0), escapes (16) and the gap (0 on
+   all eight) the same in both. Two of us traded 43 against 63 for a round
+   before this was named: neither measurement was wrong, the state was a
+   hidden input. **A figure without the pages it was read after is not
+   reproducible.** `scripts/import-measure.mjs` prints it on every run, opens
+   every page by default, and reads the board as the import left it with
+   `OPEN=none` — which is what a fresh import in a person's browser is until
+   they visit each page.
 
 10. **Centred text drew left of its part's centre.** FIXED, drawing only.
    "No PnL data available", "No tokens created yet" and "Launch your first

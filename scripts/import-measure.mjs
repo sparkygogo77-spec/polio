@@ -25,8 +25,18 @@
  * from.selector starts with P's, is longer, and the next character is a space
  * or ">" — the guard that stops div:nth-of-type(1) swallowing …(11).
  *
+ * WHICH PAGES HAVE BEEN DRAWN IS AN INPUT, and it is printed with every run.
+ * The healing runs when a page is opened, and it moves things: opening a
+ * section page lets its header's inner box take in the price line, and the
+ * logo's worst escape on that page drops from 63 to 43. A figure read off a
+ * board without saying which pages had been rendered is not reproducible.
+ * By default every page is opened, in order, before anything is read;
+ * OPEN=none reads the board exactly as the import left it, which is what a
+ * fresh import in a person's browser is until they visit each page.
+ *
  *   npm run build && npx next start -p 3013
  *   node scripts/import-measure.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   OPEN=none node scripts/import-measure.mjs http://127.0.0.1:3013 <path to a sink checkout>
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -105,7 +115,11 @@ await page.waitForTimeout(3000);
 /* Every page opened and left to heal                                   */
 /* ------------------------------------------------------------------ */
 
-for (const p of doc.pages.map((p) => p.id)) {
+const OPEN = (process.env.OPEN ?? "all").toLowerCase();
+if (OPEN !== "all" && OPEN !== "none") { console.error("OPEN is all or none"); process.exit(2); }
+/* The page the import itself left on screen has been rendered either way. */
+const landedOn = (await state()).activePageId ?? null;
+for (const p of OPEN === "all" ? doc.pages.map((p) => p.id) : []) {
   await page.evaluate((id) => { const raw = JSON.parse(localStorage.getItem("builder.studio")); raw.state.activePageId = id; localStorage.setItem("builder.studio", JSON.stringify(raw)); }, p);
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(5000);
@@ -125,6 +139,7 @@ const KINDS = [...new Set([...doc.nodes, ...all].map((n) => n.featureId))].sort(
 const kindLine = (k) => KINDS.map((f) => `${f} ${k[f] ?? 0}`).join(", ");
 
 console.log(`sink ${SINK}`);
+console.log(`pages rendered before reading: ${OPEN === "all" ? `all ${doc.pages.length}, each opened in turn` : `only ${landedOn ?? "?"}, where the import landed (OPEN=none)`}`);
 console.log(`document ${doc.nodes.length} parts; board ${all.length} parts; page errors ${errors.length}${errors.length ? ` (${errors[0]})` : ""}\n`);
 let tDup = 0, tEsc = 0, worstAll = 0;
 for (const pg of doc.pages) {
