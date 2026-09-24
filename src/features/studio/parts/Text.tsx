@@ -12,7 +12,7 @@ import { Runs } from "./Runs";
 import { lines } from "./spans";
 
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
-export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartProps) {
+export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: PartProps) {
   // Paragraphs break on lines, and only on lines. A comma inside prose is
   // punctuation, not a separator: "for the builders, believers, and bold
   // thinkers" was being drawn as three paragraphs, one clause each, which is
@@ -51,6 +51,20 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartPr
    * one on every plain paragraph, which is most of them.
    */
   const box = boxStyles(t);
+  /*
+   * A LINE THE DOCUMENT HOLDS AS ONE LINE IS DRAWN ON ONE LINE.
+   *
+   * His header price, "$ 116.59" in a box 59×20, is one line of its own type
+   * tall. Drawn in this machine's monospace the words need a few pixels more
+   * than the width the page measured, and they broke onto a second line; the
+   * board then grew the part to 40, its group to 44, and stored it. So a
+   * single paragraph in a box too short for two of its own lines is set on
+   * one line, as wide as its words need, rather than broken to fit a width a
+   * different machine measured. Drawing only: the box, its width and its
+   * place are the document's. `tests/one-line-words.mjs`.
+   */
+  const padY = typeof box.padding === "number" ? box.padding * 2 : 0;
+  const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight;
   return (
     /*
      * A hair of room on the left: `Fill` clips what leaves its box, and text
@@ -58,7 +72,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartPr
      * a capital B came out looking like a lowercase one on every paragraph
      * whose box style is plain, which is most of them.
      */
-    <Fill t={t} data-part={id} style={{ ...box, overflow: "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)) }}>
+    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
@@ -69,7 +83,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartPr
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
       */}
-      <div style={{ maxWidth: t.measurePx, marginLeft: t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div style={{ maxWidth: t.measurePx, marginLeft: t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>
