@@ -512,6 +512,70 @@ count went to 0 when eight wallet buttons were deleted rather than
 de-duplicated, and a published board can drop a flag the capture held and
 look clean for it. Before trusting a zero, count the parts it was measured on.
 
+## 6b. The sentence holes, folded (sink `e353246` check, `85b5100` fix)
+
+**The contract moved, on purpose. Read 637 as folds, not parts lost.**
+
+| fresh import, new site, only page_home rendered (OPEN=none) | old (sink 81aa13d) | new (sink 85b5100) |
+|---|---|---|
+| parts on the board | 652 | **637** |
+| box / cta-primary / drawn-icon / picture / value-prop | 243 / 109 / 132 / 20 / 22 | 243 / 109 / 132 / 20 / 22 |
+| prose | 126 | **111** |
+| duplicate-word buttons | 0 | 0 |
+| wordless buttons (every page opened) | 8 | 8 |
+| escapes | 16 (worst 63) | 16 (worst 63) |
+| gap, eight footer pages | 0 | 0 |
+| prose lost on import (rejoin) | 35 | 19 |
+| parts whose words are runs | 18 | 25 |
+
+**The 15 are folds.** 31 prose parts that were the elements inside 15 sentences
+are now runs of those sentences, and every one's words are in its sentence
+(31 of 31, checked word for word). Nothing else in the document changed:
+15 contents and 8 labels, 0 boxes. The 15:
+
+| sentence | before | after |
+|---|---|---|
+| home `n_prose_55` | Launch your first token on to see PnL tracking here | Launch your first token on **pump.fun** to see PnL tracking here |
+| footer x8 (`n_prose_115` …) | v2.0.0 \| | v2.0.0 \| **A SolWorks project** |
+| nfts, cnfts, lp (`n_prose_280/356/503`) | It may be in the tab accessed … | It may be in the **"Unknown"** tab accessed … |
+| docs `n_valueprop_693` | Burn Tokens. Reclaim SOL. | **🔥** Burn Tokens. Reclaim SOL. |
+| docs `n_prose_706` | With built-in , instantly swap … | With built-in **Jupiter DEX integration**, instantly swap … |
+| docs `n_valueprop_709` | Ready to Reclaim Your SOL | **❓** Ready to Reclaim Your SOL |
+
+pump.fun is a run with its own green and its link (`https://pump.fun/`).
+**Where** each element goes is measured: the one place where the sentence, in
+its own face, puts the element at its recorded x within a quarter of a space
+(+0.1px for pump.fun). **The spacing either side** is measured for the 8
+footers and is **CONVENTION** for 7, recorded per sentence in sink's ledger,
+because the box cannot tell the readings apart: on a centred line two
+missing spaces shorten it by two and move its start right by exactly one,
+so "on pump.fun to" and "onpump.funto" put the link at the same x; and the
+space after an element in a left-set line moves nothing recorded. The
+convention: a space between words, none before punctuation. The seven
+chosen strings are the pump.fun, three "Unknown", Jupiter, 🔥 and ❓ lines
+above.
+
+**On the board** (every page opened) 78 parts sit differently from the old
+import, **every one closer to its captured box, none further** (52 box, 16
+prose, 5 cta-primary, 4 drawn-icon, 1 value-prop). The old import grew the
+holed sentences round their missing words (pump.fun's 20 -> 24, each footer
+16 -> 20, Jupiter 52 -> 78) and pushed what was below them down; the fold
+removes the cause. The 15 keep their x and width; their heights come back
+toward the capture.
+
+**"[object Object]": MEASURED AND ABSENT, no fix written.** Entry 3 above says
+18. On a fresh import of sink 81aa13d with every page opened in turn: 0 drawn
+on any page, 0 in the stored document, 0 on the live page of every page. The
+18 parts whose words are runs all draw correctly; everything that reads
+content reads runs (a part is handed plain words and the runs separately,
+`blocks.tsx`). It went with the join work. Nobody needs to go looking.
+
+**One measurement, two numbers.** The grow-on-edit (`fbf4417`) took his
+wordmark from 216 to **229** in my harness; the coordinator, doing it by hand
+on the live site, measured **228**. The space is 12.02px here and the
+growth rounds up to the whole pixel; the live browser's metrics round
+differently. Both are real; neither is corrected to the other.
+
 ## 7. Open, written down, not started
 
 1. **Publishing a site from the capture: which sizing rules could a capture
