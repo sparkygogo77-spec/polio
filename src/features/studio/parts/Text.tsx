@@ -72,7 +72,24 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
      * a capital B came out looking like a lowercase one on every paragraph
      * whose box style is plain, which is most of them.
      */
-    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)) }}>
+    /*
+     * THE GLYPH INSET MUST NOT COST THE LINE ITS ROOM.
+     *
+     * The 2px in from the left keep a first glyph's side bearing from being
+     * clipped, and they were taken out of the box: every plain paragraph had
+     * 2px less to set its line in than the box the page measured. Measured on
+     * a fresh import of sink: 64 one-line parts looked short of their words,
+     * almost all by 2 to 2.5px, and the wordmark, 216px of words in a 216px
+     * box, needed 218. The boxes were right. So the drawn surface reaches the
+     * inset's width past the box on the right: the words start where they
+     * did and have the box's whole width to set in. A matching negative
+     * right margin keeps its outer size the box's, so a part that centres its
+     * own contents (a captured flex row, justify centre) does not shift it by
+     * half the inset. Only words set from the left: a centred line would
+     * move half the inset right, and a right-set one past the box. Nothing is
+     * stored and no part moves. `tests/inset-room.mjs`.
+     */
+    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)), ...(Number(box.padding ?? 0) < 2 && (t.textAlign === "left" || t.textAlign === "justify") ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginRight: -(2 - Number(box.padding ?? 0)) } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
