@@ -271,6 +271,16 @@ along with the healing work.
    and the capture commits). The order that keeps the capture: land the
    capture, Bring it into a new site, publish last. The owner has been told;
    what Publish should do about it is his call, and nothing here changes it.
+   **A second consequence: a Publish can bring back a fixed defect.** The grow
+   step's fix keys on `from.position`, which on sink's pages the capture puts
+   on the SOL WORKS badge's wrapper, not on the image; the sweep removes that
+   wrapper as the image's twin, so a swept board has no wrapper. Until the
+   survivor inherited the flag, such a board published to sink and brought
+   back in reached the grow step as an unflagged image, and the header was
+   grown round the badge again (`tests/twin-flag.mjs`, red on f961d1b). That
+   hole is now closed in polio, but it is the sharper argument for a Publish
+   guard: a publish writes the board as it stands, not as it was captured, and
+   any fact the capture held that the board does not will be gone from sink.
 
 7. **His wordmark reads "A SolWorksproject": no space before "project".**
    The first thing he showed, hours before any of this was diagnosed. The
