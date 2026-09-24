@@ -458,6 +458,32 @@ along with the healing work.
    capture machine's fonts (the converter would need a browser to measure),
    and a multi-space text says a space is extra, not which one. Not built:
    the coordinator asked for the distribution first.
+   **BUILT, in sink's converter** (sink `bbd8a72` check, `cc68d31` fix):
+   `site/capture/join-arbiter.mjs` measures each one-line text part in the
+   faces the document carries, in a browser on the machine converting.
+   One space too wide with a single space in it: the space goes. Exactly one
+   space short with a run touching it on one side: the space comes back on
+   that side. Anything else is kept as captured and noted in the ledger,
+   which also records the machine's metrics on every run ("$116.59" 59.3px
+   here against the recorded 59). Regenerated from the same captures, 33
+   contents change and nothing else: "$ 116.59" -> "$116.59" (x6, and
+   "$ 116.70" -> "$116.70" x2), "-1.94 %" -> "-1.94%" (x6, and "-1.85 %" ->
+   "-1.85%" x2), "project" -> " project" (x17). The one case left is the
+   Cleanup warning sentence: 20 spaces, and the box cannot say which is
+   extra. In the Builder the wordmark draws "A SolWorks project" and the price
+   "$116.59". Boards imported before this keep the old words until they are
+   brought in again.
+
+   **The one-line guard was OVERRULED, on purpose.** The one-line safety net
+   (`parts/Text.tsx`, polio `199e1ce`) moves 191 of 245 parts on a fresh
+   import of the fixture compared with trunk, against a guard that said
+   nothing else may move. The coordinator overruled that guard: every one
+   of the 191 lands CLOSER to its captured box and none further, and the
+   parts sitting exactly on their captured box go from **42 to 66**. It is
+   the same defect fixed in more places: the wrap was growing the stat
+   labels ("Total PnL") and, through them, the header band and everything
+   below it. If you see 191 parts move and wonder why, this is why. Do not
+   revert it without that measurement.
 
 **One idea under two of these, met once here:** a check can read correct
 because the evidence left rather than because the fault did. A duplicate
