@@ -57,6 +57,50 @@ check("a div wrapping a button keeps the BUTTON and drops the bare box",
   JSON.stringify(button[0]));
 check("…because it is the one that says something", button[0]?.why === "says");
 
+/*
+ * HIS WALLET BUTTON ONCE IT STOPS DRAWING WORDS THAT ARE NOT ITS OWN. The
+ * capture keeps its address and age as parts of their own and the button
+ * carries no words (sink, site/capture/check-button-words.mjs). It is still
+ * the same box as the div wrapping it, and it is the one wearing his dark
+ * fill and green edge: with neither saying anything, "the outermost, then the
+ * first" kept the bare wrapper and took the button, and the edge round his
+ * address went with it — on all eight pages. Values from page_tokens.
+ */
+const wallet = twins([
+  at("n_box_246", 1224, 16, 153, 49),
+  { ...at("n_ctaprimary_247", 1224, 16, 153, 49), featureId: "cta-primary",
+    colour: { bg: "rgb(10, 14, 26)", accent: "rgb(10, 14, 26)" }, edge: { width: 1, style: "solid", colour: "rgb(0, 255, 0)" } },
+]);
+check("a div wrapping a button that carries no words still keeps the BUTTON",
+  wallet.length === 1 && wallet[0].id === "n_box_246" && wallet[0].keeps === "n_ctaprimary_247",
+  JSON.stringify(wallet[0]));
+/* …and the rule it keeps it by is not "a button always wins": a bare button
+   and a box that wears a fill are decided by what shows, the fill. */
+const shown = twins([
+  { ...at("bare-button", 0, 0, 200, 40), featureId: "cta-primary", options: { variant: "outline" }, edge: { style: "none" } },
+  { ...at("painted", 0, 0, 200, 40), colour: { bg: "rgb(21, 25, 34)" } },
+]);
+check("between a painted box and a bare wordless control, what shows stays",
+  shown.length === 1 && shown[0].keeps === "painted", JSON.stringify(shown[0]));
+
+/*
+ * AND IT IS ALREADY HAPPENING, before any capture change. His Documentation
+ * header's search field is three boxes at the same place and size: a div, a
+ * div inside it, and the input, which alone wears the dark fill, the blue
+ * hairline and the 40px inset its icon sits in. Ranked only on words and
+ * drawings all three tied, the outermost was kept, and the field lost its
+ * fill and edge on his board. Values from sink's page_docs.
+ */
+const search = twins([
+  at("n_box_647", 1259, 12, 448, 38),
+  at("n_box_648", 1259, 12, 448, 38),
+  { ...at("n_box_649", 1259, 12, 448, 38),
+    colour: { bg: "rgb(10, 14, 26)", surface: "rgb(10, 14, 26)", text: "oklch(0.872 0.01 258.338)" },
+    edge: { width: 1, style: "solid", colour: "rgb(30, 58, 95)" }, pad: { top: 8, right: 16, bottom: 8, left: 40 } },
+]);
+check("his docs search field keeps the box that wears its fill and edge, and loses the two bare ones",
+  search.length === 2 && search.every((t) => t.keeps === "n_box_649"), JSON.stringify(search));
+
 const logo = twins([
   at("n_box_94", 826, -11, 112, 112),
   { ...at("n_picture_95", 826, -11, 112, 112), featureId: "picture", picture: { id: "p" } },
