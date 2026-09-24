@@ -276,7 +276,8 @@ export interface StudioNode {
    * blueprint can say a part is a recreation rather than an invention.
    * Absent on every part that was drawn or placed.
    */
-  from?: { url: string; host: string; selector: string; at: number } | null;
+  /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
+  from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" } | null;
   /**
    * HIS HAND PUT THIS BOX WHERE IT IS.
    *
@@ -1298,7 +1299,26 @@ function withoutTwins(nodes: StudioNode[], done: readonly Twin[]): StudioNode[] 
   const staying = new Set(nodes.map((n) => n.id));
   /* The twin has to actually be here. If it is not, nothing goes. */
   if (done.some((t) => !staying.has(t.keeps) || going.has(t.keeps))) return nodes;
-  return nodes.filter((n) => !going.has(n.id));
+  /*
+   * AND THE ONE THAT STAYS KEEPS WHAT THE CAPTURE SAID ABOUT THEIR BOX. Two
+   * parts in one box share its placement, so a spare taken out that was out of
+   * the flow (`from.position`) leaves that fact on the part that remains. His
+   * SOL WORKS badge carries the flag on its wrapper, not on the image; the
+   * wrapper goes as the image's twin, and without this the next sweep over the
+   * saved document — or his board published and brought back — met an
+   * unflagged image and grew the header round it again (`tests/twin-flag.mjs`).
+   */
+  const flagOf = new Map<string, "absolute" | "fixed">();
+  for (const t of done) {
+    const gone = nodes.find((n) => n.id === t.id)?.from?.position;
+    if (gone) flagOf.set(t.keeps, gone);
+  }
+  return nodes
+    .filter((n) => !going.has(n.id))
+    .map((n) => {
+      const flag = flagOf.get(n.id);
+      return flag && n.from && !n.from.position ? { ...n, from: { ...n.from, position: flag } } : n;
+    });
 }
 
 /**
