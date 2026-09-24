@@ -230,6 +230,12 @@ along with the healing work.
    sets and both Documentation ones — have parents with NO words of their
    own, so the capture leaves them as parts, the rejoin still joins them, and
    they survive until polio handles list-as-content.
+   **One line from the entry this replaced, re-measured so it is not lost or
+   revived by mistake:** the first version said the footer line "renders as
+   'A SolWorks project'", with the space. Measured on 0a81b05 with the
+   fixture's home page: header (`n_prose_81`) and footer (`n_prose_116`) both
+   draw "A SolWorksproject". That reading does not hold today; entry 7 is the
+   current one.
    **So 2 and 3 live on opposite sides of the import:** the buttons' doubled
    words come in with sink's document; the "[object Object]" does not, and is
    made after it lands. Look for them in different places.
