@@ -227,3 +227,16 @@ along with the healing work.
    clipped and the page badge reads from 0. **The owner has accepted this and
    will place the logo by hand.** Nothing is designed for it; nobody works on
    it without the coordinator saying so.
+
+6. **A Publish would overwrite the capture in sink.** Sink's `main` is both the
+   store of the captured document (`site/document.json`, what Bring imports)
+   and the owner's Publish target. A Publish writes the files `siteFiles`
+   (`src/features/studio/agent.ts:578`) lists — `site/document.json` (his
+   whole board as it stands), `site/BLUEPRINT.md` and `site/blueprint.json` —
+   onto that branch. So one Publish replaces the captured document, and from
+   then on Bring imports his board, not the capture: the `from.position` flags
+   (sink 98355ca) and every capture-side fix go with it. **No publish has
+   reached sink's `main` so far** (its commits, to 98355ca, are three uploads
+   and the capture commits). The order that keeps the capture: land the
+   capture, Bring it into a new site, publish last. The owner has been told;
+   what Publish should do about it is his call, and nothing here changes it.
