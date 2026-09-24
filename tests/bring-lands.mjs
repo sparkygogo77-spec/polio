@@ -122,6 +122,11 @@ const freshSite = async () => {
   await page.waitForTimeout(900);
 };
 const boundNow = () => page.evaluate(() => { try { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return p && p.repo ? `${p.repo.owner}/${p.repo.name}` : null; } catch { return null; } });
+const acceptReplace = async (p) => {
+  await p.waitForTimeout(300);
+  const go = p.locator("[data-repo-bring-go]");
+  if (await go.count()) await go.click();
+};
 const bring = async (name) => {
   const boundTo = await boundNow();
   let fresh = false;
@@ -130,6 +135,9 @@ const bring = async (name) => {
   await page.waitForTimeout(700);
   await page.locator("[data-repo-bring]").fill(name);
   await page.locator("[data-repo-pull]").click();
+  /* A board with parts on it says what a Bring will replace before it runs
+     (tests/bring-bound.mjs); this test is about what lands, so it accepts. */
+  await acceptReplace(page);
   return fresh;
 };
 
@@ -361,6 +369,7 @@ await k2.getByRole("button", { name: "Close keys" }).click(); await short.waitFo
 await short.locator("[data-github-button]").first().click(); await short.waitForTimeout(700);
 await short.locator("[data-repo-bring]").fill("him/sources");
 await short.locator("[data-repo-pull]").click();
+await acceptReplace(short);
 let strip = null;
 for (let i = 0; i < 20 && !(strip && strip.kind === "refused"); i++) { await short.waitForTimeout(500); strip = await short.evaluate(() => { const e = document.querySelector("[data-import-strip]"); if (!e) return null; const r = e.getBoundingClientRect(); return { kind: e.getAttribute("data-import-strip"), text: e.textContent, top: Math.round(r.top), bottom: Math.round(r.bottom), inner: innerHeight }; }); }
 check("on a short window with toasts off, the ending is still on screen: a strip across the top of the board, in the same words", !!strip && strip.kind === "refused" && /him\/sources: There is no page in this repository to open/.test(strip.text ?? ""), JSON.stringify(strip));

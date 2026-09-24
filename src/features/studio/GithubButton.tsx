@@ -181,6 +181,10 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
   const [making, setMaking] = React.useState(false);
   const [bring, setBring] = React.useState("");
   const [pulling, setPulling] = React.useState(false);
+  /* The repository a Bring is waiting on his word for, while the line saying what goes is up. */
+  const [asking, setAsking] = React.useState<string | null>(null);
+  const partCount = useStudio((s) => s.nodes.length);
+  const pageCount = useStudio((s) => s.pages.length);
   const [name, setName] = React.useState(() => repoNameFor(siteName));
   const siteBranch = useStudio((s) => s.siteBranch);
   const [merging, setMerging] = React.useState(false);
@@ -360,7 +364,39 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * surface the site will land on, and opens the importer on it with the
    * repository already filled in.
    */
-  const bringIn = () => startBring(bring.trim());
+  const bringIn = () => askBring(bring.trim());
+  /*
+   * SAY WHAT GOES, ONCE, BEFORE IT GOES. A Bring replaces the site's whole
+   * document. The lock only refuses a DIFFERENT repository, so bringing the
+   * bound one into a board with work on it was accepted with no word, and
+   * the work was gone. He has said he wants to go ahead knowing that, so this
+   * is a line he accepts, not a wall: it names the repository and how many
+   * parts are about to go. An empty board has nothing to lose and is not
+   * asked. `tests/bring-bound.mjs`.
+   */
+  const askBring = (want: string) => {
+    if (!want || pulling) return;
+    /* Nothing to lose, or nothing that will happen: an empty board is not
+       asked, and a repository the lock refuses is refused in words at once,
+       not asked about first. */
+    if (partCount === 0 || (own && want.toLowerCase() !== own.toLowerCase())) { startBring(want); return; }
+    setSaid(null);
+    setAsking(want);
+  };
+  const confirmLine = (where: "own" | "typed") => {
+    if (!asking || (where === "own") !== (asking === own)) return null;
+    const parts = `${partCount} part${partCount === 1 ? "" : "s"}`;
+    const pages = `${pageCount} page${pageCount === 1 ? "" : "s"}`;
+    return (
+      <div data-repo-bring-confirm="" className="mt-1 rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
+        <p className="text-small text-fg">Bringing {asking} in replaces this whole site: its {parts} on {pages} go, and the repo&apos;s come in their place.</p>
+        <div className="mt-1 flex gap-1.5">
+          <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => { const want = asking; setAsking(null); startBring(want); }}>Replace it</Button>
+          <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
+        </div>
+      </div>
+    );
+  };
   /*
    * ATTACHING IS IMPORTING. HIS RULING. Picking a repository from the list
    * used to bind where the site publishes and bring nothing in, with no
@@ -408,6 +444,15 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}`
             : "The first publish makes a private one named after this site, unless you pick a repo below."}
         </p>
+        {/* The site is bound to this repository, so bringing it in needs no
+            typing: his ruling, "it should always stay locked to the repo it
+            is selected to, so I don't have to retype it". */}
+        {own ? (
+          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => askBring(own)}>
+            {pulling && asking === null ? "Reading\u2026" : `Bring ${own} in`}
+          </Button>
+        ) : null}
+        {confirmLine("own")}
       </div>
 
       {siteBranch && pointsAt ? (
@@ -562,6 +607,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
             {pulling ? "Reading\u2026" : "Bring it"}
           </Button>
         </div>
+        {confirmLine("typed")}
         <p className="mt-0.5 text-small text-fg-muted">A repo with a page in it comes in as ordinary parts. A repo of sources is read at the address it is deployed at, from About on GitHub or from a publish made here, and says so if it has none.</p>
       </div>
 
