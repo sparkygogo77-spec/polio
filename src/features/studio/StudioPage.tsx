@@ -191,16 +191,28 @@ function SiteHead() {
 }
 
 /**
- * The pages, on the toolbar rather than on a row of their own.
+ * The pages, on the toolbar as one control rather than a row of tabs.
  *
- * One page is the normal case and four is a lot, so a full-width strip for
- * them was a band of empty chrome across the whole window. They scroll here
- * if they ever need to.
+ * A tab per page cost the tools their room as the site grew. At a 1753px
+ * window sink's nine tabs took 820px of the bar: "Search commands…" was cut
+ * to nothing, the site's name to a sliver, and "Documentation 69" sat
+ * scrolled out of sight. Each page added took another 60 to 120px. So the
+ * bar carries the page you are on, with its part count, and the rest are a
+ * press away; the room the control takes no longer grows with the pages.
+ *
+ * What a tab did, an entry still does: a press opens the page, a right-press
+ * gives the page's own menu, and the count beside each name is the one the
+ * board has (`tests/pages-dropdown.mjs`). Add page stays on the same edge.
  */
 function PageChips() {
   const pages = useStudio((s) => s.pages);
   const activeId = useStudio((s) => s.activePageId);
   const nodes = useStudio((s) => s.nodes);
+  const [open, setOpen] = React.useState(false);
+  const count = (id: string) => nodes.filter((n) => n.pageId === id).length;
+  const current = pages.find((p) => p.id === activeId) ?? pages[0];
+  if (!current) return null;
+  const here = count(current.id);
   return (
     // One control, not a row of buttons with a stray plus after it: the pages
     // and the way to add one are the same thing, so they share an edge.
@@ -217,34 +229,52 @@ function PageChips() {
        * controls along in this bar. So switching pages and adding one are
        * both reachable at 375 without it, through a control that is on
        * screen.
-       *
-       * It is 95px wide, and the second line was ending at 321 with 54 to
-       * spare while Finish wanted 69 — short by fifteen. This is what makes
-       * the bar two lines with room to make every key a real target.
        */
-      className="hidden min-w-0 shrink items-center rounded-md border border-border bg-elevated p-0.5 md:flex">
-      <div className="hide-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
-      {pages.map((p) => {
-        const count = nodes.filter((n) => n.pageId === p.id).length;
-        const active = p.id === activeId;
-        return (
-          <button
-            key={p.id}
-            type="button"
-            {...ctxProps("studio-page", p.id, p)}
-            onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); }}
-            className={cn(
-              "tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain",
-              active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
-            )}
-          >
-            <FileText className={cn("size-3 shrink-0", active && "text-accent")} />
-            <span className="max-w-[110px] truncate">{p.name}</span>
-            {count ? <span className="num text-fine text-fg-faint">{count}</span> : null}
-          </button>
-        );
-      })}
-      </div>
+      className="hidden shrink-0 items-center rounded-md border border-border bg-elevated p-0.5 md:flex">
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        align="start"
+        className="w-auto min-w-[200px] max-w-[320px] p-1"
+        content={
+          <div data-page-menu="" className="flex flex-col gap-0.5">
+            {pages.map((p) => {
+              const n = count(p.id);
+              const active = p.id === current.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  {...ctxProps("studio-page", p.id, p)}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); setOpen(false); }}
+                  className={cn(
+                    "tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain",
+                    active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
+                  )}
+                >
+                  <FileText className={cn("size-3 shrink-0", active && "text-accent")} />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {n ? <span className="num shrink-0 pl-2 text-fine text-fg-faint">{n}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        }
+      >
+        <button
+          type="button"
+          data-page-current=""
+          {...ctxProps("studio-page", current.id, current)}
+          aria-label={`Page: ${current.name}${here ? `, ${here} parts` : ""}. Choose another page`}
+          className="tactile flex h-6 shrink-0 items-center gap-1 rounded-md bg-accent-soft px-1.5 text-plain text-fg"
+        >
+          <FileText className="size-3 shrink-0 text-accent" />
+          <span className="max-w-[160px] truncate">{current.name}</span>
+          {here ? <span className="num text-fine text-fg-faint">{here}</span> : null}
+          <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
+        </button>
+      </Popover>
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
         <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => useStudio.getState().addPage()}>
