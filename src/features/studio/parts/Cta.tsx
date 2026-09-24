@@ -10,7 +10,14 @@ import { cardStyle, items, radiusFor, saidRole, titled } from "./theme";
 import { opt, type PartProps } from "./types";
 
 export function Cta({ id, content, options, theme: t, mode, link, vector, onNavigate, emit }: PartProps) {
-  const label = items(content, [id === "follow" ? "Follow" : id === "quick-action" ? "Buy now" : "Get started"])[0]!;
+  /*
+   * The library's stand-in label is for a button nobody has said anything
+   * about. A node that speaks (a captured control, in its measured clothes)
+   * and carries no words draws none: his wallet button's words are parts of
+   * their own, drawn over it, and a stand-in would be white words under them.
+   */
+  const spoke = !!t.said || !!t.tight;
+  const label = items(content, spoke ? [""] : [id === "follow" ? "Follow" : id === "quick-action" ? "Buy now" : "Get started"])[0]!;
   const variant = opt(options, "variant", "solid");
   const size = opt(options, "size", "medium");
   const [done, setDone] = React.useState(false);
@@ -26,6 +33,8 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
       onNavigate?.(link);
       return;
     }
+    // Nothing to say, nothing said: no "Done ✓", no empty toast.
+    if (!label) return;
     if (mode === "live") {
       setDone(true);
       window.setTimeout(() => setDone(false), 1200);
@@ -74,7 +83,6 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
    * of its inside. A weight alone is not enough to count: `button-own.mjs`
    * holds a weight-only node to the library's edge.
    */
-  const spoke = !!t.said || !!t.tight;
   const fill = outline ? "transparent" : ghost ? `${t.accent}22` : following ? t.surface : t.accent;
   const style: React.CSSProperties = {
     width: "100%", height: "100%", display: "flex", alignItems: "center", cursor: "pointer",
