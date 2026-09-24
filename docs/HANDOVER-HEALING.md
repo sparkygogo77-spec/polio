@@ -485,6 +485,27 @@ along with the healing work.
    below it. If you see 191 parts move and wonder why, this is why. Do not
    revert it without that measurement.
 
+12. **An imported site's colour roles were the app's, not the site's, and moved
+   nothing.** FIXED at import (`paletteFrom.ts`, called from `copySite` in
+   `FromASite.tsx` after the sweep). Sink's document named two roles, the
+   page and the body's white text; the other four came from the app's default
+   hue, and the pink highlight was that hue turned 62 degrees. And every part
+   carried a fixed colour, so moving a role moved only the gaps between
+   sections. Now the six are picked off the swept board (neutrals, chroma
+   under 0.005, never compete for a text role; the accent is the colour the
+   most parts wear across every role and the edges), every part colour that
+   is exactly a role's is written as the role's name, and the Colour panel
+   says under each role how many parts follow it or "none". Measured with
+   sink: 463 of 629 colour slots linked; bg 27 parts, surface 23, text 171,
+   muted 17, accent 128, highlight 24; every page byte-identical to the
+   build before (0 px on all nine). `tests/palette-import.mjs`.
+   **One trap left for whoever moves `SWEEP`:** the sweep's `repaint` reads a
+   control's ink as an rgb colour to mix, and skips one it cannot parse. The
+   linking runs after the sweep for exactly that reason. A later bump of
+   `SWEEP` re-runs the sweep over role names, and `repaint` would then skip
+   controls it used to repaint. Resolve role names through the palette in
+   `repaint.ts` before bumping it.
+
 **One idea under two of these, met once here:** a check can read correct
 because the evidence left rather than because the fault did. A duplicate
 count went to 0 when eight wallet buttons were deleted rather than
