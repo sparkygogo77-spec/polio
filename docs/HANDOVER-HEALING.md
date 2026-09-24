@@ -346,3 +346,47 @@ because the evidence left rather than because the fault did. A duplicate
 count went to 0 when eight wallet buttons were deleted rather than
 de-duplicated, and a published board can drop a flag the capture held and
 look clean for it. Before trusting a zero, count the parts it was measured on.
+
+## 7. Open, written down, not started
+
+1. **Publishing a site from the capture: which sizing rules could a capture
+   supply, and which can nobody supply?** Measured on sink `5a0bc6d` (same
+   figures as `98355ca`): 223 of 720 parts carry the `layout` the browser
+   computed (222 flex, 1 grid, the home stat row, kept as `columns: 4`);
+   148 more are block containers, where no layout field means normal flow,
+   71 of them holding two or more parts directly; 349 are leaves. Below the page
+   shell the selector tree has no gaps: every part's parent element is a part,
+   except the 34 top-level bands. So **the structure is there to rebuild this
+   site at the width it was captured; how it adapts to other widths was never
+   captured.** A flex row arranges its children but every child is a fixed
+   pixel box, so nothing grows or shrinks to fill. What is missing falls in
+   three tiers, and the tier decides who can close it:
+   - **Captured, not carried. Converter work, no recapture.** Every
+     element's margins, max-width and min-height; the fixed bands' insets and
+     z-index; the page shell's own flex column (`body > div`, "the page is
+     not a part"); the grid's track widths (the converter keeps only their
+     count). All in `site/capture/routes/*.json`, all "nowhere" in
+     `ledger.txt`.
+   - **Exposed by the browser, never recorded. Needs a new capture.**
+     `getComputedStyle` gives flex-grow, flex-shrink and flex-basis: "this
+     column takes the remaining space" is readable, and the capture never
+     asked. Authored rules (widths in %, `1fr` tracks, `@media` breakpoints)
+     are not in computed style but are in the page's stylesheets when they
+     are served from the site's own domain, and the capture already reads
+     those sheets for `@font-face`. Or measure it instead: capture at two or
+     three widths and compare. **Every recapture uses the wallet stand-in, which
+     is ruled out.** That ruling, not the browser, is what this tier waits on.
+   - **Not knowable from outside.** Layout decided in JavaScript (a
+     component that renders a different tree on a phone), and behaviour that
+     depends on data the stand-in does not have.
+   NOT verified: whether his stylesheets contain breakpoints at all. The
+   capture recorded the sheet's address (`look.fonts[].from.sheet`);
+   fetching it is a request to his live site and is his call. Not done.
+   Neither blueprint file carries `layout`: they cannot be rendered into this
+   site (flat rows, no nesting, "left of/right of" is only reading order).
+
+2. **The Publish and Bring guards: unbuilt, and the owner has not ruled.**
+   A Publish writes the board over sink's captured document (entry 6 of §6);
+   a Bring after that imports his board, not the capture, and any fact the
+   capture held that the board does not is gone. What either should do,
+   refuse, warn, or write elsewhere, is his decision. Nothing is built.
