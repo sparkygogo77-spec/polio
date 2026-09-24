@@ -59,7 +59,17 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate }: PartPr
      * whose box style is plain, which is most of them.
      */
     <Fill t={t} data-part={id} style={{ ...box, overflow: "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)) }}>
-      <div style={{ maxWidth: t.measurePx, textAlign: t.textAlign, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      {/*
+        The line length caps the words, and the cap has to sit where the
+        words are set. It sat at the left edge whatever the alignment, so a
+        centred line was centred inside 541px at the left of a 1457px part:
+        his "No tokens created yet" drew 456px left of its part's centre.
+        Centred, the capped block is centred in the part; set right, it
+        sits right. The cap itself is kept, as Hero keeps it, so where a line
+        wraps (and so how tall the words are) does not change.
+        `tests/centred-text.mjs`.
+      */}
+      <div style={{ maxWidth: t.measurePx, marginLeft: t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>

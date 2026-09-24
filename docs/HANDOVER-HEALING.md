@@ -341,6 +341,21 @@ along with the healing work.
    sentence rejoin absorbs: "Works" ×17, "project" ×17, "GitBook" ×1, into
    its 18 kept parts. No part of any other kind is lost on import.
 
+10. **Centred text drew left of its part's centre.** FIXED, drawing only.
+   "No PnL data available", "No tokens created yet" and "Launch your first
+   token…" carry `text.align: "center"` and a 1457-wide box, both right. The
+   words sit in a holder capped at the site's line length (`t.measurePx`,
+   66 characters = 541px), and the holder sat at the part's left edge, so they
+   were centred inside 541px: 456px left of the part's centre, on the board
+   and on the live page. `parts/Text.tsx` now centres the capped holder
+   (right-aligned text sits it right), as `Hero.tsx` already did. The cap is
+   kept, so where a line wraps, and how tall the words are, does not change.
+   `n_prose_54`: holder 541 wide before and after; its words' centre −456px
+   from the part's centre before, +1 after. Over the fixture's 245 parts, only
+   five centred paragraphs' words moved, sideways only; no stored box, no
+   drawn part box, no left or unaligned text changed. `tests/centred-text.mjs`:
+   8/10 on f35ac75, 10/10 with the fix.
+
 **One idea under two of these, met once here:** a check can read correct
 because the evidence left rather than because the fault did. A duplicate
 count went to 0 when eight wallet buttons were deleted rather than
