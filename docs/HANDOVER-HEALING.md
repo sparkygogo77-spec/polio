@@ -362,6 +362,48 @@ along with the healing work.
    drawn part box, no left or unaligned text changed. `tests/centred-text.mjs`:
    8/10 on f35ac75, 10/10 with the fix.
 
+11. **The header price wraps: "$ 116.59" and "-1.94 %". NOT FIXED: it is not
+   a drawing fault, and the board has already stored its result.** Stopped
+   by the coordinator's rule (stop if it reaches beyond drawing), measured on
+   9bc39df with the fixture's home page.
+   - **The capture's widths are right; its words are not.** `n_prose_92` was
+     captured 59×20 and `n_prose_95` 43×16, one line each, in a 176×24 group.
+     Measured in the site's own font stack (ui-monospace, "SF Mono", Menlo…):
+     "$116.59", as the page drew it, is 59.3px; "-1.94%" is 43.4px. The
+     capture wrote "$ 116.59" and "-1.94 %": one character wider each
+     (67.8px, 50.6px). That is what wraps them.
+   - **The space is made at capture time, in the capture itself.**
+     `capture-route.mjs:123`, `own()`, joins an element's text nodes with
+     `" "`. React renders "$" and the price as two text nodes, so one space
+     appears that the page never drew. The same line then `.trim()`s each
+     run, and that is the space LOST in "A SolWorksproject" (entry 7).
+     One function, a space added here and one lost there. It is in the raw
+     capture (`routes/page_home.json`: `text: "$ 116.59"`), before the
+     converter or polio's rejoin touch it, so neither can undo it safely:
+     after the join, nothing says whether a space was the page's. Fixing it
+     at source (join text nodes with "", as the DOM already carries their
+     own whitespace; keep edge spaces instead of trimming) needs a new
+     capture, which is ruled out while it needs the wallet stand-in.
+   - **The board stores the damage within seconds of opening.** A fresh
+     import draws 59×40 and 43×32 at once (two lines), and the healing
+     grows the stored boxes to match about 3s later: 92 → 59×40,
+     95 → 43×32, `n_box_91` → 124×40, `n_box_93` → 57×32, `n_box_89` →
+     176×44 (from 20, 16, 20, 16, 24). Healing is grow-only, so on his board
+     those heights are in the document now. No drawing change can bring
+     them back to 20 and 16. That needs a stored height changed, which the
+     rule forbids.
+   - **A drawing-only patch was possible and was not made.** "Draw a text
+     part at least as wide as its words" would stop the wrap on a fresh
+     import, but it would draw the wrong words ("$ 116.59", with the space)
+     past its captured box by about 9px. It would also key on the machine's
+     fallback font: the needed width was 57.9 and 50.1 in this container and
+     62 and 46 on the coordinator's. The board's 2px left inset
+     (`parts/Text.tsx`, `paddingLeft: max(2, …)`) takes 2 more off every
+     plain paragraph's room. That is a real contributor, not the cause.
+   **For whoever takes it:** the fix is the capture's `own()`. Then decide,
+   with the owner, whether boards that already grew get their heights
+   reset: a stored-height change, his call.
+
 **One idea under two of these, met once here:** a check can read correct
 because the evidence left rather than because the fault did. A duplicate
 count went to 0 when eight wallet buttons were deleted rather than
