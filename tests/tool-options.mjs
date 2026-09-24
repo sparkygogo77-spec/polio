@@ -71,6 +71,30 @@ check("the options bar is in the header", b.bar);
 check("…carrying 'Scale contents with group', on by default", b.scale === true, String(b.scale));
 check("…and not the drawing colours, which belong to the pen", b.ink === false, String(b.ink));
 
+/*
+ * AN ICON, NOT A LABEL: his words, "it is a labelled checkbox eating a wide
+ * slot in the toolbar", and the coordinator's condition, that an icon must
+ * not lose what a checkbox gives, its state read at a glance. So: the key is
+ * narrow and says nothing in words; its drawing is different on and off
+ * (read off the SVG it draws, not off a class); and pointing at it says the
+ * whole label and the state.
+ */
+const key = page.locator('[data-tool-option="group-scale"]');
+const face = () => key.evaluate((el) => ({
+  w: Math.round(el.getBoundingClientRect().width),
+  words: (el.innerText || "").trim(),
+  drawn: [...el.querySelectorAll("svg path, svg line, svg rect, svg circle")].map((n) => n.outerHTML.replace(/\s+/g, " ")).join(""),
+}));
+const onFace = await face();
+check("it takes an icon's room on the bar, not a label's", onFace.w <= 48, `${onFace.w}px`);
+check("…and writes no words there", onFace.words === "", JSON.stringify(onFace.words));
+await key.hover();
+await page.waitForTimeout(900);
+const tip = await page.evaluate(() => [...document.querySelectorAll("[role=tooltip], [data-radix-popper-content-wrapper]")].map((e) => e.textContent.trim()).join(" | "));
+check("pointing at it says the whole label and that it is on", /Scale contents with group/.test(tip) && /\bon\b/i.test(tip), tip.slice(0, 120));
+await page.mouse.move(1500, 950);
+await page.waitForTimeout(300);
+
 const before = await board();
 await page.locator('[data-tool-option="group-scale"] input[type="checkbox"]').click();
 await page.waitForTimeout(500);
@@ -78,6 +102,9 @@ b = await bar();
 check("pressing it turns it off", b.scale === false, String(b.scale));
 check("…and the setting is saved per browser", (await setting()) === false, String(await setting()));
 check("…and the board is not touched", (await board()) === before);
+const offFace = await face();
+check("off, the icon itself is drawn differently: the state reads at a glance, without pointing", offFace.drawn !== "" && offFace.drawn !== onFace.drawn,
+  offFace.drawn ? "" : "no drawing on the key");
 
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1800);
