@@ -47,7 +47,7 @@ export interface Twin {
   /** The one that remains — checked to remain, not assumed to. */
   keeps: string;
   /** Why that one was the keeper. */
-  why: "says" | "draws" | "outermost";
+  why: "says" | "draws" | "shows" | "outermost";
   /** How many were stacked there in all. */
   of: number;
 }
@@ -81,10 +81,26 @@ function wordsOf(f: Frag): string {
 const draws = (f: Frag): boolean => !!(f.picture || f.cube || f.vector || f.mesh || f.code || f.outline);
 
 /**
+ * Does it show a surface of its own: a fill or colour it names, an edge that
+ * is drawn, a texture, an aura? The same test as `shows` in reassemble.ts.
+ *
+ * His wallet button, once it stops drawing words that are not its own, says
+ * nothing and draws nothing, and is still the same box as the bare div round
+ * it. It is the one wearing his dark fill and green edge; ranked only on
+ * words and drawings the two tied, the first was kept, and it was the div.
+ */
+function shows(f: Frag): boolean {
+  const painted = f.colour && Object.values(f.colour).some((v) => typeof v === "string" && v.trim());
+  const ruled = !!f.edge && (f.edge.width ?? 0) > 0 && f.edge.style !== "none";
+  return !!painted || ruled || !!f.texture || !!f.aura;
+}
+
+/**
  * The spare copies, each with the one that stays.
  *
  * THE KEEP RULE, and the easy one would have been wrong: keep the twin that
- * SAYS or DRAWS something, and only failing that the outermost. On his page
+ * SAYS or DRAWS something, then one that SHOWS a surface of its own, and
+ * only failing all three the outermost. On his page
  * `n_box_92` and `n_ctaprimary_93` are the same box — a div wrapping a button
  * — and "keep the first" throws away the button and leaves a bare box, which
  * would look fine in a count and be wrong on his screen. Same for the div
@@ -105,14 +121,14 @@ export function twins(frags: readonly Frag[]): Twin[] {
     // A copy he moved is a copy he meant.
     if (stack.some((s) => s.byHand)) continue;
 
-    const rank = (s: Frag) => (wordsOf(s).trim() ? 3 : draws(s) ? 2 : 1);
+    const rank = (s: Frag) => (wordsOf(s).trim() ? 4 : draws(s) ? 3 : shows(s) ? 2 : 1);
     const keeper = stack.reduce((best, s) => {
       const r = rank(s), br = rank(best);
       if (r !== br) return r > br ? s : best;
       // Neither speaks: the outermost, which is the biggest, then the first.
       return s.w * s.h > best.w * best.h ? s : best;
     }, stack[0]!);
-    const why = wordsOf(keeper).trim() ? "says" : draws(keeper) ? "draws" : "outermost";
+    const why = wordsOf(keeper).trim() ? "says" : draws(keeper) ? "draws" : shows(keeper) ? "shows" : "outermost";
     for (const s of stack) if (s.id !== keeper.id) out.push({ id: s.id, keeps: keeper.id, why, of: stack.length });
   }
   /*
