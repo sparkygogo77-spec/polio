@@ -23,6 +23,9 @@
  *     capture keeps what the site had inside a link as a part beside it);
  *     how much of each link is still under another part is reported, so
  *     the next one is noticed;
+ *   · a linked part holding one link and nothing else pressable follows a
+ *     press anywhere on its box (his ruling: the stretched link), and a
+ *     part holding more is held back and counted;
  *   · and how many links the document holds and how many the export emits,
  *     page by page, which must be the same two numbers.
  * No `<a>` inside an `<a>`, and no control inside one, because a browser
@@ -190,6 +193,7 @@ const ANCHORS = () => [...document.querySelectorAll("a")].map((a, i) => {
 const emitted = {};
 const followed = [];
 const passedThrough = {};
+const stretchedBy = {};
 const reach = new Set();
 for (const p of s.pages) {
   const file = fileOf(p);
@@ -243,7 +247,22 @@ for (const p of s.pages) {
       const a = q.linked ? el.querySelector("a[href]") : null;
       const lr = a ? [a, ...a.querySelectorAll("*")].flatMap((c) => [...c.getClientRects()]).filter((k) => k.width > 0 && k.height > 0) : [];
       const link = lr.length ? { x0: Math.min(...lr.map((k) => k.left)), y0: Math.min(...lr.map((k) => k.top)), x1: Math.max(...lr.map((k) => k.right)), y1: Math.max(...lr.map((k) => k.bottom)) } : null;
-      return { ...q, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom, link, own: el.matches(PRESS) || !!el.querySelector(PRESS), pe: getComputedStyle(el).pointerEvents };
+      /* Its links, and anything else in it that takes a press. */
+      const linksIn = el.querySelectorAll("a[href]").length;
+      const otherPress = [el, ...el.querySelectorAll("*")].filter((x) => x.matches(PRESS) && !x.matches("a[href]")).length;
+      const after = a ? getComputedStyle(a, "::after") : null;
+      const stretched = !!after && after.content !== "none" && after.content !== "normal" && after.position === "absolute";
+      /* How much of the part's own box a press there follows its link: every 4px, never fewer than 8 points a side. */
+      let hits = 0, points = 0;
+      if (a) {
+        const nx = Math.max(8, Math.ceil(r.width / 4)), ny = Math.max(8, Math.ceil(r.height / 4));
+        for (let gx = 0.5; gx < nx; gx++) for (let gy = 0.5; gy < ny; gy++) {
+          const hit = document.elementFromPoint(r.left + (r.width * gx) / nx, r.top + (r.height * gy) / ny);
+          points++;
+          if (hit && a.contains(hit)) hits++;
+        }
+      }
+      return { ...q, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom, link, linksIn, otherPress, stretched, share: points ? hits / points : null, own: el.matches(PRESS) || !!el.querySelector(PRESS), pe: getComputedStyle(el).pointerEvents };
     }).filter(Boolean);
     const E = 0.01;
     const inside = (q, l) => q.x0 >= l.x0 - E && q.y0 >= l.y0 - E && q.x1 <= l.x1 + E && q.y1 <= l.y1 + E;
@@ -253,7 +272,7 @@ for (const p of s.pages) {
       const holders = links.filter((l) => l.id !== q.id && inside(q, l)).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0));
       const clips = links.filter((l) => l.id !== q.id && over(q, l) && !inside(q, l)).map((l) => l.id);
       const h = holders[0];
-      return { id: q.id, pe: q.pe, own: q.own || q.linked || q.runLink, holder: h?.id ?? null, inLink: !!h?.link && inside(q, h.link), clips, at: { x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 } };
+      return { id: q.id, pe: q.pe, linked: q.linked, runLink: q.runLink, linksIn: q.linksIn, otherPress: q.otherPress, stretched: q.stretched, share: q.share, own: q.own || q.linked || q.runLink, holder: h?.id ?? null, clips, at: { x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 } };
     });
   }, partsHere);
   const through = lay.filter((q) => q.holder && !q.own);
@@ -266,16 +285,29 @@ for (const p of s.pages) {
     none.length === through.length && through.every((q) => q.pe === "none"),
     `${none.length} let it through, ${through.length} should${through.filter((q) => q.pe !== "none").length ? `; not: ${through.filter((q) => q.pe !== "none").slice(0, 4).map((q) => `${q.id} on ${q.holder}`).join(", ")}` : ""}${none.filter((q) => !through.includes(q)).length ? `; and should not: ${none.filter((q) => !through.includes(q)).map((q) => q.id).join(", ")}` : ""}`);
   /*
-   * Pressed on its middle, each of those that sits inside its link's own box
-   * reaches the link. One that sits on the linked part but outside the box
-   * its link draws (a sidebar icon in a button's padding: the link is the
-   * button's words, 159 by 20 in a 223 by 44 part, as in the preview) has
-   * nothing under it to reach, and is counted rather than passed.
+   * THE STRETCHED LINK. His ruling: a part whose link is only as big as its
+   * words (a sidebar entry: 159 by 20 in a 223 by 44 part) has its link
+   * stretched over the whole part by an empty layer, because on the site the
+   * whole entry was the link. Only where the part holds exactly one link and
+   * nothing else pressable: two links under one layer would have one of
+   * them silently win. Read here off the document and the page.
    */
-  const beside = through.filter((q) => !q.inLink);
-  if (beside.length) console.log(`  ${names[p.id]}: ${beside.length} of them sit on the linked part but outside the box its link draws, and a press there reaches no link: ${beside.map((q) => q.id).join(", ")}`);
+  const linkedParts = lay.filter((q) => q.linked);
+  const eligible = linkedParts.filter((q) => !q.runLink && q.linksIn === 1 && q.otherPress === 0);
+  const guarded = linkedParts.filter((q) => !eligible.includes(q));
+  stretchedBy[p.id] = { took: linkedParts.filter((q) => q.stretched).length, guarded: guarded.length };
+  console.log(`  ${names[p.id]}: ${linkedParts.length} linked parts, ${eligible.length} with one link and nothing else pressable, ${guarded.length} held back by that guard${guarded.length ? ` (${guarded.map((q) => `${q.id}: ${q.linksIn} links, ${q.otherPress} other`).join(", ")})` : ""}`);
+  check(`${names[p.id]}: exactly the linked parts with one link and nothing else pressable stretch it over the part`,
+    eligible.every((q) => q.stretched) && guarded.every((q) => !q.stretched),
+    `${linkedParts.filter((q) => q.stretched).length} stretch, ${eligible.length} should`);
+  const short = eligible.filter((q) => q.share < 1);
+  check(`${names[p.id]}: a press anywhere on each of those parts follows its link, measured every 4px`, short.length === 0,
+    short.length ? short.slice(0, 5).map((q) => `${q.id} ${Math.round(q.share * 100)}%`).join(", ") : `${eligible.length} parts, all 100%`);
+  /* Pressed on its middle, every part sitting wholly on one of those reaches the link. */
   const reached = [];
-  for (const q of through.filter((t) => t.inLink)) {
+  const heldBack = through.filter((q) => guarded.some((g) => g.id === q.holder));
+  if (heldBack.length) console.log(`  ${names[p.id]}: ${heldBack.length} parts sit on a linked part the guard held back, and are not pressed: ${heldBack.map((q) => q.id).join(", ")}`);
+  for (const q of through.filter((t) => !heldBack.includes(t))) {
     const to = got.find((a) => a.part === q.holder)?.href;
     if (out.url() !== ORIGIN + file) await out.goto(ORIGIN + file, { waitUntil: "networkidle" });
     const pop = out.context().waitForEvent("page", { timeout: 1500 }).catch(() => null);
@@ -287,7 +319,7 @@ for (const p of s.pages) {
     reached.push({ q, ok: !!to && landed === to, landed });
   }
   const missed = reached.filter((r) => !r.ok);
-  check(`${names[p.id]}: pressed in its middle, every part wholly inside a link's box follows that link`, missed.length === 0,
+  check(`${names[p.id]}: pressed in its middle, every part wholly on a link follows that link`, missed.length === 0,
     `${reached.length - missed.length}/${reached.length}${missed.length ? `; ${missed.slice(0, 3).map((r) => `${r.q.id} on ${r.q.holder} landed ${r.landed.replace(ORIGIN, "/")}`).join("; ")}` : ""}`);
 
   /* And pressed: a real mouse, on that point, lands on the target and the target opens. */
@@ -319,12 +351,71 @@ check("every page is reached from every page that links to it", pairs.size > 0 &
 
 /* The two numbers. */
 const total = Object.values(emitted).reduce((a, b) => a + b, 0);
-console.log("\n  page            held  emitted  press let through");
-for (const p of s.pages) console.log(`  ${names[p.id].padEnd(14)} ${String(held.filter((h) => h.page === p.id).length).padStart(5)}  ${String(emitted[p.id] ?? 0).padStart(7)}  ${String(passedThrough[p.id] ?? 0).padStart(17)}`);
+console.log("\n  page            held  emitted  press let through  link stretched  held back by guard");
+for (const p of s.pages) console.log(`  ${names[p.id].padEnd(14)} ${String(held.filter((h) => h.page === p.id).length).padStart(5)}  ${String(emitted[p.id] ?? 0).padStart(7)}  ${String(passedThrough[p.id] ?? 0).padStart(17)}  ${String(stretchedBy[p.id]?.took ?? 0).padStart(14)}  ${String(stretchedBy[p.id]?.guarded ?? 0).padStart(18)}`);
 console.log(`  ${"all".padEnd(14)} ${String(held.length).padStart(5)}  ${String(total).padStart(7)}`);
 check("the document's links and the export's links are the same number, page by page", s.pages.every((p) => held.filter((h) => h.page === p.id).length === (emitted[p.id] ?? 0)),
   `document ${held.length}, export ${total}`);
 check("the export threw nothing", outErrors.length === 0, outErrors.slice(0, 2).join("; "));
+
+/* ------------------------------------------------------------------ */
+/* The guard, made to do work                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Sink has no part holding two links, so on sink the guard holds nothing
+ * back and a check of it there proves nothing. Here it is given one: a copy
+ * of the pump.fun line, its own run link kept, and a page link of its own
+ * as well, placed below everything on the home page. Two links in one part:
+ * its link must not be stretched over it, nothing may be nested, and the
+ * run must still follow.
+ */
+{
+  const FIX = "n_guard_two_links";
+  const added = await page.evaluate(({ FIX, home }) => {
+    const raw = JSON.parse(localStorage.getItem("builder.studio"));
+    const nodes = raw.state.nodes;
+    const src = nodes.find((n) => n.pageId === home && Array.isArray(n.content) && n.content.some((r) => r?.link?.target));
+    if (!src) return null;
+    const bottom = Math.max(...nodes.filter((n) => n.pageId === home).map((n) => n.y + n.h));
+    nodes.push({ ...src, id: FIX, y: bottom + 40, link: { kind: "page", target: home } });
+    localStorage.setItem("builder.studio", JSON.stringify(raw));
+    const run = src.content.find((r) => r?.link?.target);
+    return { from: src.id, runs: src.content.filter((r) => r?.link?.target).length, words: run.text.trim(), to: run.link.target };
+  }, { FIX, home });
+  await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2500);
+  const fx = (await page.evaluate(async (h) => (window.__studioExport ? await window.__studioExport([h]) : null), home)) ?? [];
+  const fixHtml = fx.find((f) => f.path === "index.html")?.content ?? "";
+  for (const f of fx) if (f.path === "index.html") files.find((g) => g.path === "index.html").content = f.content;
+  await out.goto(ORIGIN + "index.html", { waitUntil: "networkidle" });
+  await out.setViewportSize({ width: s.frameWidth + 200, height: Math.max(1000, await out.evaluate(() => document.documentElement.scrollHeight) + 50) });
+  const g = await out.evaluate(({ FIX, words }) => {
+    const el = document.getElementById(FIX);
+    if (!el) return null;
+    const as = [...el.querySelectorAll("a[href]")];
+    return {
+      anchors: as.map((a) => ({ words: a.textContent.trim(), href: a.href, stretched: getComputedStyle(a, "::after").position === "absolute" && getComputedStyle(a, "::after").content !== "none" })),
+      nested: as.some((a) => !!a.parentElement.closest("a")),
+      run: (() => { const a = as.find((x) => x.textContent.trim() === words); if (!a) return null; const r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })(),
+    };
+  }, { FIX, words: added?.words });
+  console.log(`\n  the guard's fixture: a copy of ${added?.from} holding its ${added?.runs} run link and a page link of its own; the export gives it ${g?.anchors.length ?? 0} link(s): ${(g?.anchors ?? []).map((a) => `"${a.words}" ${a.href.replace(ORIGIN, "/")}${a.stretched ? " STRETCHED" : ""}`).join(", ")}`);
+  check("a part holding two links is held back: no link stretched over it", !!g && !!fixHtml && g.anchors.length > 0 && g.anchors.every((a) => !a.stretched), JSON.stringify(g?.anchors ?? null));
+  check("…and nothing in it is a link inside a link", !!g && !g.nested);
+  let landed = null;
+  if (g?.run) {
+    const pop = out.context().waitForEvent("page", { timeout: 1500 }).catch(() => null);
+    await out.mouse.click(g.run.x, g.run.y);
+    const p2 = await pop;
+    landed = p2 ? p2.url() : out.url();
+    if (p2) await p2.close();
+  }
+  const runTo = added?.to ? new URL(added.to).href : null;
+  check("…and its run of words still follows its own link", !!g?.run && !!runTo && landed === runTo, `"${added?.words}" landed ${landed}`);
+  check("…and its own page link, which cannot hold a link, is left out rather than nested, so the count says so",
+    !!g && g.anchors.length === (added?.runs ?? 0), `${(added?.runs ?? 0) + 1} held, ${g?.anchors.length ?? 0} emitted`);
+}
 
 await browser.close();
 const failed = results.filter((r) => !r).length;
