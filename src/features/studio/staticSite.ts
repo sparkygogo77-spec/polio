@@ -149,7 +149,7 @@ function drewNothing(el: Element): boolean {
 interface Expected { id: string; label: string; featureId: string; prompt: string }
 interface Audit { html: string; blank: string[]; unplaced: string[]; unwritten: string[]; unsaid: { part: string; words: string[] }[] }
 
-function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Audit {
+export function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Audit {
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;pointer-events:none;opacity:0`;
   document.body.appendChild(host);

@@ -299,6 +299,28 @@ if (cmp) {
   console.log(`  worst 100px cells (x,y: px differing of 10000): ${cmp.worst.map(([k, v]) => `${k}: ${v}`).join("; ")}`);
   if (process.env.SHOTS) { const fs = await import("node:fs"); fs.writeFileSync(`${process.env.SHOTS}/ref-${PAGE}.png`, Buffer.from(A, "base64")); fs.writeFileSync(`${process.env.SHOTS}/out-${PAGE}.png`, Buffer.from(B, "base64")); }
 }
+/*
+ * A DIAGNOSIS, NOT A CHECK. The preview draws its page inside a composited
+ * layer (a scale(1) wrapper and the page's fade-in), where Chromium
+ * antialiases words in grey; the exported page is drawn on the root layer,
+ * where it may antialias them in colour. The same export, its page lifted
+ * onto a layer of its own for the picture only, says how much of the
+ * difference is that and nothing else.
+ */
+if (A && B) {
+  await out.evaluate(() => { const r = document.querySelector("[data-page], [data-live-page]"); if (r) r.style.willChange = "transform"; });
+  await out.waitForTimeout(500);
+  const B2 = await settled(out, marks.shotSel);
+  await out.evaluate(() => { const r = document.querySelector("[data-page], [data-live-page]"); if (r) r.style.willChange = ""; });
+  const n2 = B2 ? await out.evaluate(async ([a, b]) => {
+    const load = async (s) => { const i = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob()); const c = new OffscreenCanvas(i.width, i.height); const x = c.getContext("2d"); x.drawImage(i, 0, 0); return { w: i.width, h: i.height, d: x.getImageData(0, 0, i.width, i.height).data }; };
+    const P = await load(a), Q = await load(b); if (P.w !== Q.w || P.h !== Q.h) return { n: -1, worst: [] }; let n = 0; const cells = new Map();
+    for (let i = 0; i < P.d.length; i += 4) if (Math.abs(P.d[i] - Q.d[i]) + Math.abs(P.d[i + 1] - Q.d[i + 1]) + Math.abs(P.d[i + 2] - Q.d[i + 2]) > 12) { n++; const x = (i / 4) % P.w, y = Math.floor(i / 4 / P.w); const k = `${Math.floor(x / 100) * 100},${Math.floor(y / 100) * 100}`; cells.set(k, (cells.get(k) ?? 0) + 1); }
+    return { n, worst: [...cells].sort((a, b) => b[1] - a[1]).slice(0, 6) };
+  }, [A, B2]) : null;
+  console.log(`  diagnosis: with the exported page drawn on its own layer, as the preview's is: ${n2?.n} px differ; worst ${(n2?.worst ?? []).map(([k, v]) => `${k}: ${v}`).join("; ")}`);
+  if (process.env.SHOTS && B2) { const fs = await import("node:fs"); fs.writeFileSync(`${process.env.SHOTS}/out-layer-${PAGE}.png`, Buffer.from(B2, "base64")); }
+}
 check("both pictures settled", !!A && !!B, `${A ? "" : "the preview never settled; "}${B ? "" : "the export never settled or has no page"}`);
 check("the export draws within 1% of the preview's pixels (a convention, not a measured bar)", !!cmp && cmp.size.split(" vs ")[0] === cmp.size.split(" vs ")[1] && cmp.share <= 1, cmp ? `${cmp.share.toFixed(2)}%, ${cmp.size}` : "");
 

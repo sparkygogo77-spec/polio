@@ -30,6 +30,7 @@ import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog } from "./BriefDialog";
+import { exportSite } from "./exportSite";
 import { DRAW_KINDS, FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
@@ -1020,6 +1021,9 @@ export function StudioPage() {
       }
       setBriefOpen(true);
     };
+    /* The site as HTML and CSS, for the checks and scripts/export-site.mjs.
+       Not wired into Publish: see exportSite.ts. */
+    (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
