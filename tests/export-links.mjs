@@ -187,6 +187,8 @@ for (const p of s.pages) {
   if (!paths.has(file)) { check(`${names[p.id]}: exported`, false, `${file} not in the tree`); continue; }
   await out.goto(ORIGIN + file, { waitUntil: "networkidle" });
   await out.evaluate(() => document.fonts?.ready);
+  /* Taller than the page, so every link is inside the window a press is measured in. */
+  await out.setViewportSize({ width: s.frameWidth + 200, height: Math.max(1000, await out.evaluate(() => document.documentElement.scrollHeight) + 50) });
   const got = await out.evaluate(ANCHORS);
   emitted[p.id] = got.length;
 

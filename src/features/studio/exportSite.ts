@@ -36,13 +36,24 @@
  * and `window.__studioExport` hands them to whoever asks (the checks, and
  * scripts/export-site.mjs, which writes them to a folder to open).
  *
- * Still, as `staticSite` is: a React handler is gone, so a part that only
- * does something when pressed does nothing, and an entrance animation names
- * keyframes the app's stylesheet held, so the page arrives already arrived.
+ * LINKS ARE REAL. Every part and every run of words the document gives a
+ * link is an `<a href>` here (`linksOf`): a page to the file that page is
+ * exported as, relative, so the tree works opened from disk as well as
+ * served; a url as given, in a new tab as the preview opens one; a part on
+ * the page by its id. The preview draws these as a button, a span with a
+ * role, or nothing at all (a box reads no link), all pressed by React; with
+ * React gone each was dead, 83 on sink and not one `<a>`
+ * (tests/export-links.mjs).
+ *
+ * Still, as `staticSite` is: any other React handler is gone, so a part that
+ * only does something when pressed does nothing, and an entrance animation
+ * names keyframes the app's stylesheet held, so the page arrives already
+ * arrived.
  */
 import * as React from "react";
-import { LiveSite } from "./live/LiveSite";
-import { useStudio } from "./store";
+import { LiveSite, resolvePageLink } from "./live/LiveSite";
+import { useStudio, type StudioNode, type StudioPage } from "./store";
+import type { NodeLink } from "./parts/types";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "./staticSite";
 import { fontFaceCss } from "./fonts";
 import { ROLES, type RoleId } from "./look";
@@ -90,11 +101,85 @@ function toRoles(style: string, roles: [string, RoleId][]): string {
   return out;
 }
 
-/** One page's markup, the Builder's marks taken off it and its colours tied to the roles. */
-function clean(html: string, pageId: string, roles: [string, RoleId][]): string {
+/** How far a page's file is below the root, as the `../` that climbs back to it. */
+const upOf = (page: StudioPage, home: string) => "../".repeat(pageFile(page, home).split("/").length - 1);
+
+/** Where a link goes from one exported page, as an href, or null when it names nothing that is exported. */
+function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: StudioPage[], home: string): string | null {
+  const target = link?.target?.trim();
+  if (!link || !target) return null;
+  /* A script is not somewhere to go: left a link that goes nowhere, and counted missing by the check. */
+  if (link.kind === "url") return /^\s*javascript:/i.test(target) ? null : target;
+  if (link.kind === "node") return `#${target}`;
+  const to = resolvePageLink(pages, target);
+  return to ? upOf(from, home) + pageFile(to, home) : null;
+}
+
+/** The same element as an `<a>`: every attribute and child kept, the ones only a pretend link needed dropped. */
+function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle = ""): HTMLAnchorElement {
+  const a = el.ownerDocument.createElement("a");
+  for (const at of Array.from(el.attributes)) {
+    if (at.name === "role" || at.name === "tabindex" || at.name === "type" || at.name === "aria-pressed") continue;
+    a.setAttribute(at.name, at.value);
+  }
+  if (extraStyle) a.setAttribute("style", `${extraStyle}${a.getAttribute("style") ?? ""}`);
+  a.setAttribute("href", href);
+  if (kind === "url") { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); }
+  while (el.firstChild) a.appendChild(el.firstChild);
+  el.replaceWith(a);
+  return a;
+}
+
+/**
+ * Every link the document holds, made a real one.
+ *
+ * A RUN: the preview's `span[data-run-link]`, which carries its own target,
+ * becomes an `<a>` with the same style. Inline for inline, so the words set
+ * as they did.
+ *
+ * A PART, in the order the preview draws its press:
+ *   · a part that is the link whole (`data-link-whole`, a block `div`)
+ *     becomes a block `<a>`;
+ *   · a button (a captured control, a library button) becomes an `<a>` with
+ *     the button's own style: a link cannot hold a button, and a button
+ *     cannot be a link;
+ *   · anything else (a box: the preview reads no link off one at all) has
+ *     its insides held in an `<a>` that draws no box of its own
+ *     (`display: contents`), so what is drawn and where does not change and
+ *     a press anywhere on it follows.
+ * Only a part's OWN elements: a part drawn inside another part is its own.
+ */
+function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>) {
+  for (const run of Array.from(root.querySelectorAll("[data-run-link][data-run-to]"))) {
+    const link = { kind: run.getAttribute("data-run-link") as NodeLink["kind"], target: run.getAttribute("data-run-to") ?? "" };
+    const href = hrefOf(link, from, pages, home);
+    if (href) asAnchor(run, href, link.kind);
+  }
+  for (const part of Array.from(root.querySelectorAll("[data-live-node]"))) {
+    const node = nodes.get(part.getAttribute("data-live-node") ?? "");
+    const href = hrefOf(node?.link, from, pages, home);
+    if (!node?.link || !href) continue;
+    const own = (el: Element) => el.closest("[data-live-node]") === part && !el.closest("a");
+    const whole = Array.from(part.querySelectorAll("[data-link-whole]")).find(own);
+    if (whole) { asAnchor(whole, href, node.link.kind, "display:block;"); continue; }
+    const button = Array.from(part.querySelectorAll("button")).find(own);
+    if (button) { asAnchor(button, href, node.link.kind); continue; }
+    const a = part.ownerDocument.createElement("a");
+    a.setAttribute("href", href);
+    a.setAttribute("style", "display:contents");
+    if (node.link.kind === "url") { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); }
+    while (part.firstChild) a.appendChild(part.firstChild);
+    part.appendChild(a);
+  }
+}
+
+/** One page's markup, the Builder's marks taken off it, its links made real and its colours tied to the roles. */
+function clean(html: string, page: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>, roles: [string, RoleId][]): string {
+  const pageId = page.id;
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
   const root = tpl.content;
+  linksOf(root, page, pages, home, nodes);
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
   for (const el of Array.from(root.querySelectorAll("*"))) {
@@ -128,11 +213,12 @@ export async function exportSite(only?: readonly string[]): Promise<ExportFile[]
   const roles = (ROLES.map((r) => [asWritten(palette[r]), r]) as [string, RoleId][])
     .filter(([w]) => !!w)
     .sort((a, b) => b[0].length - a[0].length);
+  const nodes = new Map(s.nodes.map((n) => [n.id, n]));
   const files: ExportFile[] = [];
 
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
-    const up = page.id === home ? "" : "../";
+    const up = upOf(page, home);
     const { html } = markupOf(
       React.createElement(LiveSite, {
         pages: s.pages,
@@ -163,7 +249,7 @@ export async function exportSite(only?: readonly string[]): Promise<ExportFile[]
 </head>
 <body>
 <div class="site-root">
-${clean(html, page.id, roles)}
+${clean(html, page, s.pages, home, nodes, roles)}
 </div>
 </body>
 </html>

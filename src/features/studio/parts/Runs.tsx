@@ -83,10 +83,13 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
         const style = look(s, t);
         const to = s.link;
         if (to && mode === "live" && onNavigate) {
+          /* `data-run-to` is where it goes, written on the run itself so the
+             export can make it a real href without pairing runs by order. */
           return (
             <span
               key={i}
               data-run-link={to.kind}
+              data-run-to={to.target}
               role="link"
               tabIndex={0}
               style={{ ...style, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
@@ -108,7 +111,7 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
          * no style, the words straight in, so nothing about being stored as
          * runs can change how they set.
          */
-        if (to) return <span key={i} data-run-link={to.kind} style={style}>{s.text}</span>;
+        if (to) return <span key={i} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
         return style ? <span key={i} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
       })}
     </>

@@ -24,12 +24,43 @@ document), so Publish still sends what it sent.
   in place of the app's 126 KB; every `data-*` attribute and `title` taken
   off, each part keeping its id as a plain `id`; no document, blueprint,
   prompt or capture in the tree.
-- **A still.** React handlers are gone, and entrance animations name
+- **A still, apart from its links.** React handlers are gone, and entrance animations name
   keyframes the app's stylesheet held, so the page arrives already arrived.
 - **Hand-editable in its colours and faces, not yet in its layout.** Every part
   is positioned absolutely, inline, as the board draws it. The document does
   carry real flex and grid on 223 parts; emitting those as layout is the next
   step, and is a choice to be measured, not a fidelity gain at one width.
+
+## Links (`tests/export-links.mjs`)
+
+Every part and run of words the document gives a link is a real `<a href>`.
+On ab38c88 the export had not one: the preview presses its links through
+React (a button, a span with a link role, and for a box nothing at all,
+since a box reads no link), and with React gone each was dead. The old run
+check counted a span with a link role as a link, so it passed.
+
+- **What the document holds, on sink, fresh import:** 83 links. 65 buttons
+  (page links: the sidebar on the eight app pages, plus docs' "Launch
+  SOLCINERATOR"), 17 boxes (page links to Documentation: two icon boxes on
+  each app page, and docs' SOLCINERATOR logo box back to home), 1 run of words
+  (pump.fun, a url). No picture carries one, and no link points at a part.
+- **How each is written:** a run becomes an inline `<a>` with its own style;
+  a button becomes an `<a>` with the button's own style (a link cannot hold
+  a button); a box has its insides held in an `<a>` with `display: contents`,
+  which draws no box. A page link goes to the file that page is exported as,
+  relative and ending in `index.html`, so the tree works opened from disk as
+  well as served; a url opens in a new tab, as the preview opens one.
+- **Measured:** 83 held, 83 emitted, page by page; all 83 pressed with a real
+  mouse land on their target and it opens; 73 of 73 page-to-page pairs
+  reached. All nine pages are byte-identical PNGs before and after the
+  anchors, and the preview comparison below is unchanged to the pixel.
+- **Not done:** the preview still does not follow a box's link (a box reads
+  none). On the eight app pages an icon sits on 25% of each icon box; on docs
+  the logo's icon and name cover 86% of its box, so pressing the name
+  "SOLCINERATOR" itself does not follow. Both are covered by parts drawn
+  after them. They are captured as siblings, where the site had them inside
+  the link. Making covering parts pass the press through is a rule with a
+  blast radius and has not been written.
 
 ## Measured, sink, every page (`tests/export-page.mjs`)
 

@@ -155,8 +155,18 @@ const pagePath = PAGE === home ? "" : (s.pages.find((p) => p.id === PAGE).path |
 await page.goto(`${BASE}/builder/preview${pagePath === "/" ? "" : pagePath}`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 
-/* What a page draws, read the same way from either: every part's box, and every run of words in order. */
-const READ = ({ rootSel, partSel }) => {
+/*
+ * What a page draws, read the same way from either: every part's box, and every run of words in order.
+ *
+ * WHETHER WORDS ARE A LINK is read differently on each side, on purpose. In
+ * the export only a real `<a href>` counts: a span with a role is not a link
+ * a person can follow, and counting one is how the export shipped 83 dead
+ * links with this check green. In the preview a link is pressed by React, so
+ * there it is what the document says: words inside a run link or a
+ * link-whole wrapper, or words of a part that carries a link (inside its
+ * button, where it has one). tests/export-links.mjs holds the links whole.
+ */
+const READ = ({ rootSel, partSel, linked = null }) => {
   const root = document.querySelector(rootSel);
   if (!root) return null;
   const R = root.getBoundingClientRect();
@@ -170,7 +180,11 @@ const READ = ({ rootSel, partSel }) => {
       const words = t.textContent.replace(/\s+/g, " ").trim();
       if (!words) continue;
       const cs = getComputedStyle(t.parentElement);
-      runs.push({ words, color: cs.color, face: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(), size: cs.fontSize, link: !!t.parentElement.closest("a, [role=link]") });
+      const at = t.parentElement;
+      const link = linked
+        ? !!at.closest("[data-run-link], [data-link-whole]") || (linked.includes(id) && (!el.querySelector("button") || !!at.closest("button")))
+        : !!at.closest("a[href]");
+      runs.push({ words, color: cs.color, face: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(), size: cs.fontSize, link });
     }
     parts[id] = { x: Math.round(r.left - R.left), y: Math.round(r.top - R.top), w: Math.round(r.width), h: Math.round(r.height), runs };
   }
@@ -178,12 +192,12 @@ const READ = ({ rootSel, partSel }) => {
 };
 const scale = await page.evaluate(() => { const r = document.querySelector("[data-live-page]")?.getBoundingClientRect(); const w = document.querySelector("[data-live-page]")?.offsetWidth; return r && w ? r.width / w : 0; });
 check("the reference is the preview at 100%", Math.abs(scale - 1) < 0.001, `scale ${scale}`);
-let ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-live-node]" });
+let ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-live-node]", linked: s.nodes.filter((n) => n.link?.target).map((n) => n.id) });
 /* Taller than the page, so neither picture is cut by a window or a scrolling panel. */
 const TALL = Math.max(1000, (ref?.h ?? 0) + 400);
 await page.setViewportSize({ width: s.frameWidth + 200, height: TALL });
 await page.waitForTimeout(1500);
-ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-live-node]" });
+ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-live-node]", linked: s.nodes.filter((n) => n.link?.target).map((n) => n.id) });
 
 /* ------------------------------------------------------------------ */
 /* The export, served on its own                                        */
