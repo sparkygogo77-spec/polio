@@ -54,28 +54,73 @@ check counted a span with a link role as a link, so it passed.
   mouse land on their target and it opens; 73 of 73 page-to-page pairs
   reached. All nine pages are byte-identical PNGs before and after the
   anchors, and the preview comparison below is unchanged to the pixel.
-- **What sits on a link.** The capture keeps a thing the site had inside a
-  link as a part beside it, drawn on top, so it takes the press. On the
-  export only, by one CSS declaration: a part whose box is wholly inside a
-  linked part's box (to 0.01px; clipping a corner does not count), with no
-  link, no linked run and nothing pressable of its own, gets
-  `pointer-events: none` (`pressThrough` in `exportSite.ts`). Nothing moves,
-  nothing is reparented, the document and the Builder are untouched. On sink
-  it is 10 parts on each app page and 2 on docs. The docs logo box went from
-  7% pressable (measured every 4px) to all of it, so its name
-  "SOLCINERATOR" now follows; the icon boxes went from 75% to all.
-- **The honest residue.** The app-page icons and the docs logo were captured
-  as siblings of the link where the original had them inside it, and the
-  export works around that rather than fixing it. Containment is the
-  converter's. If it is fixed there, this declaration becomes unnecessary
-  rather than wrong.
-- **Still dead:** a sidebar icon. It takes the declaration (it sits wholly in
-  its button's part), but the link is the button, and the button draws only
-  its words' box, 159 by 20 inside a 223 by 44 part: the icon is in the
-  part's padding, where no link is, in the preview as in the export. 8 per
-  app page, reported by the test and not passed.
-- **Not done:** the preview still does not follow a box's link (a box reads
-  none).
+### One cause, two workarounds
+
+**The capture flattens containment.** Things the original site had inside a
+link (the sidebar entries' icons, the icon boxes' icons, the Documentation
+logo's icon and name) arrive as parts beside the link, drawn on top of it or
+in its padding. Both declarations below work round that one cause, in the
+export only, and nothing else. If a future lane fixes containment in the
+converter, **both can be deleted**: they become unnecessary rather than
+wrong, and nothing else leans on them. Neither moves a pixel: all nine pages
+are byte-identical PNGs to the export before any links existed.
+
+1. **A part sitting wholly on a link lets the press through**
+   (`pressThrough` in `exportSite.ts`): `pointer-events: none` on a part
+   whose box is wholly inside a linked part's box (to 0.01px; clipping a
+   corner does not count) and which has no link, no linked run and nothing
+   pressable of its own. On sink, 10 parts on each app page and 2 on docs.
+2. **A part's link is stretched over its part** (`stretchLinks`): an empty,
+   transparent `::after` on the link, placed over the part, so a press
+   anywhere on the part follows it. A button's link sits in the part's
+   `Fill`, which is `position: relative` and clips, so on its own the layer
+   stopped at the words' box; that one box is set back to `position: static`
+   (`.link-fills-part-frame`), which draws nothing differently only when it
+   has no offset, z-index, transform or filter and nothing placed inside it.
+   Measured on sink, every button has exactly one such box, with none of
+   those. Only where the part holds exactly one link and nothing else
+   pressable, counted from the document (its own link and every linked run)
+   and the page (every control): two links under one layer would have one
+   silently win. On sink, 10 parts on each app page and 2 on docs take it,
+   and the guard holds back **0**: sink has no part with two links, so there
+   the guard does no work. The test gives it a part that does (a copy of the
+   pump.fun line with a page link of its own as well): nothing is stretched
+   over it, nothing is nested, and pump.fun still follows. Its own page link
+   is left out rather than wrapped round a link, and the count says so. That
+   fixture also found that the exporter used to wrap such a part's link round
+   its run's link, which a browser tears into six links when it reads the
+   file. Nothing on sink has that shape.
+
+**Measured after both:** every linked part is pressable over 100% of its box,
+sampled every 4px. The sidebar entries went from 36%, and docs' "Launch
+SOLCINERATOR" from 41%. The icon boxes went from 75%, and the docs logo from
+7%, so its name "SOLCINERATOR" now follows. Every part sitting on a link,
+pressed in its middle, follows it (10 per app page, 2 on docs). 83 of 83
+links followed, 73 of 73 page-to-page pairs reached.
+
+### Known defect, not fixed: the preview's sidebar icons
+
+In the Builder's preview, pressing a sidebar icon does not follow the link.
+The owner has not raised it and the Builder is not what the export ships, so
+it is recorded, not fixed. Measured on sink's home page, all eight entries:
+the part is 223 by 44 and its button, the only thing that follows, is 159
+by 20.1, so **36% of the entry** takes the press (sampled every 4px). The
+icon (for example n_drawnicon_62 on n_ctaprimary_61, Cleanup) sits in the
+part's padding. Pressed in its middle, the preview stays on page_home;
+pressing the words, as a control, goes to page_cleanup. The same cause as
+above. The preview also does not follow a box's link at all, since a box
+reads none.
+
+### A sampling resolution can decide a result
+
+The docs logo was first reported as **14%** pressable. That number came from
+an 8 by 8 grid of sample points per link. The grid was too coarse to see a
+20px icon on a 223px button: it reported the sidebar buttons as fully free
+while a press on their icons did nothing. At a point every 4px (never fewer
+than 8 a side), the same logo measures **7%**. Neither number was a
+calculation error: the resolution decided the result. Before trusting a
+coverage number, check that the sampling is finer than the smallest thing
+that can cover. The test now samples every 4px.
 
 ### How the links were proved, kept because it is how to prove the next thing
 
@@ -90,7 +135,8 @@ check counted a span with a link role as a link, so it passed.
 - Page links end in `index.html` rather than a bare folder, so the tree
   works opened from disk.
 - What is still under another part is reported per link, every 4px, so
-  the next covered link is noticed.
+  the next covered link is noticed; a guard that does no work on sink is
+  shown working on a fixture, not assumed.
 
 ## Measured, sink, every page (`tests/export-page.mjs`)
 

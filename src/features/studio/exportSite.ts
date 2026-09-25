@@ -87,6 +87,10 @@ ol,ul,menu{list-style:none}
 table{border-collapse:collapse;border-color:inherit;text-indent:0}
 [hidden]:where(:not([hidden=until-found])){display:none!important}`;
 
+/* A part's link stretched over its part: empty, transparent, and on top of the part so a press anywhere on it follows (see stretchLinks). */
+const STRETCH = `a.link-fills-part::after{content:"";position:absolute;inset:0}
+.link-fills-part-frame{position:static!important}`;
+
 /** A colour as the browser writes it back in a style attribute, so a role can be found where the page wears it. */
 function asWritten(colour: string): string {
   const probe = document.createElement("i");
@@ -149,7 +153,8 @@ function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle 
  *     a press anywhere on it follows.
  * Only a part's OWN elements: a part drawn inside another part is its own.
  */
-function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>) {
+function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>): Map<Element, HTMLAnchorElement> {
+  const partLinks = new Map<Element, HTMLAnchorElement>();
   for (const run of Array.from(root.querySelectorAll("[data-run-link][data-run-to]"))) {
     const link = { kind: run.getAttribute("data-run-link") as NodeLink["kind"], target: run.getAttribute("data-run-to") ?? "" };
     const href = hrefOf(link, from, pages, home);
@@ -161,20 +166,81 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
     if (!node?.link || !href) continue;
     const own = (el: Element) => el.closest("[data-live-node]") === part && !el.closest("a");
     const whole = Array.from(part.querySelectorAll("[data-link-whole]")).find(own);
-    if (whole) { asAnchor(whole, href, node.link.kind, "display:block;"); continue; }
+    if (whole) { partLinks.set(part, asAnchor(whole, href, node.link.kind, "display:block;")); continue; }
     const button = Array.from(part.querySelectorAll("button")).find(own);
-    if (button) { asAnchor(button, href, node.link.kind); continue; }
+    if (button) { partLinks.set(part, asAnchor(button, href, node.link.kind)); continue; }
+    /* A part whose words already hold a link cannot be held in another: a
+       link inside a link is rebuilt by the browser, not followed. Its own
+       link is left out, and tests/export-links.mjs counts it missing. */
+    if (Array.from(part.querySelectorAll("a[href]")).some((x) => x.closest("[data-live-node]") === part)) continue;
     const a = part.ownerDocument.createElement("a");
     a.setAttribute("href", href);
     a.setAttribute("style", "display:contents");
     if (node.link.kind === "url") { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); }
     while (part.firstChild) a.appendChild(part.firstChild);
     part.appendChild(a);
+    partLinks.set(part, a);
   }
+  return partLinks;
 }
+
+/** The classes a stretched link and the box between it and its part wear: the stylesheet's STRETCH. */
+const FILLS = "link-fills-part";
+const FRAME = "link-fills-part-frame";
 
 /** What a part does when pressed, if anything: a link, a control, or anything that takes focus. */
 const PRESS = "a[href], button, input, select, textarea, [tabindex], [role=link], [role=button]";
+
+/**
+ * A part's link, stretched over the whole part.
+ *
+ * WHY. A captured button's link is only as big as its words: a sidebar
+ * entry's is 159 by 20 inside a 223 by 44 part, and the icon beside the
+ * words sits in the part's padding, where there is no link, in the preview
+ * as here. On the site the icon was inside the link and the whole entry was
+ * pressable; the capture flattened that away. His ruling, in the export
+ * only: an empty, transparent layer on the link (`::after`, placed over the
+ * part, which is the nearest placed box) so a press anywhere on the part
+ * follows it. It draws nothing and moves nothing.
+ *
+ * THE BOX IN BETWEEN. A button's link sits in the part's `Fill`, which is
+ * `position: relative` (and clips), so the layer would stop at the words'
+ * box. That one box is set back to `position: static` in the export, which
+ * changes nothing drawn only when it has no offset, no z-index, no
+ * transform or filter, and nothing placed inside it; otherwise the link is
+ * not stretched. Measured on sink: every button's link has exactly one such
+ * box, none of those things, and the nine pages are byte-identical.
+ *
+ * ONLY where the part holds exactly one link and nothing else pressable,
+ * counted from the document (its own link, and every linked run of its
+ * words) and from the page (every control in it). Two links under one layer
+ * would have one of them silently win. Returns how many took it and how
+ * many each guard held back.
+ */
+function stretchLinks(partLinks: Map<Element, HTMLAnchorElement>, nodes: Map<string, StudioNode>): { took: number; twoLinks: number; placed: number } {
+  let took = 0, twoLinks = 0, placed = 0;
+  const pos = (el: Element) => (el as HTMLElement).style?.position ?? "";
+  for (const [part, a] of partLinks) {
+    const node = nodes.get(part.getAttribute("data-live-node") ?? "");
+    const runs = Array.isArray(node?.content) ? node!.content.filter((r) => r?.link?.target).length : 0;
+    const links = part.querySelectorAll("a[href]").length;
+    const others = [part, ...Array.from(part.querySelectorAll("*"))].filter((x) => x.matches(PRESS) && !x.matches("a[href]")).length;
+    if (runs !== 0 || links !== 1 || others !== 0) { twoLinks++; continue; }
+    const between: HTMLElement[] = [];
+    for (let e = a.parentElement; e && e !== part; e = e.parentElement) if (pos(e) && pos(e) !== "static") between.push(e);
+    const quiet = between.every((e) => {
+      const st = e.style;
+      return st.position === "relative" && !st.top && !st.left && !st.right && !st.bottom && !st.inset && !st.zIndex
+        && (!st.transform || st.transform === "none") && (!st.filter || st.filter === "none")
+        && !Array.from(e.querySelectorAll<HTMLElement>("*")).some((x) => pos(x) && pos(x) !== "static");
+    });
+    if (!quiet) { placed++; continue; }
+    for (const e of between) e.classList.add(FRAME);
+    a.classList.add(FILLS);
+    took++;
+  }
+  return { took, twoLinks, placed };
+}
 
 /**
  * A part sitting wholly on a link lets the press through to it.
@@ -221,7 +287,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
   const root = tpl.content;
-  linksOf(root, page, pages, home, nodes);
+  const partLinks = linksOf(root, page, pages, home, nodes);
+  stretchLinks(partLinks, nodes);
   pressThrough(root, nodes);
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
@@ -311,6 +378,9 @@ ${fontFaceCss(s.look.fonts ?? [])}
 
 /* What every element starts from. */
 ${RESET}
+
+/* A link that is a whole part, pressable over the whole part. */
+${STRETCH}
 
 /* The page, at the one width it was made at. */
 body { background: var(--bg); }
