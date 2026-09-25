@@ -173,6 +173,48 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
   }
 }
 
+/** What a part does when pressed, if anything: a link, a control, or anything that takes focus. */
+const PRESS = "a[href], button, input, select, textarea, [tabindex], [role=link], [role=button]";
+
+/**
+ * A part sitting wholly on a link lets the press through to it.
+ *
+ * WHY. The capture keeps a thing the site had INSIDE a link (the sidebar's
+ * icons, the Documentation logo's icon and name) as a part BESIDE it, drawn
+ * on top, so it takes the press: the docs logo followed on 14% of itself
+ * and not on its own name. Containment is the converter's to fix; until it
+ * does, his ruling, in the export only: a part whose box is wholly inside a
+ * linked part's box, with no link and nothing pressable of its own, gets
+ * `pointer-events: none`. Nothing moves and the document is untouched. When
+ * containment is fixed this becomes unnecessary rather than wrong.
+ *
+ *   · wholly inside, to 0.01px, by the boxes the page places them at; a part
+ *     that only clips a link's corner keeps its press;
+ *   · a part with a link, a linked run of words or a control of its own
+ *     keeps its press: two links fighting over one press is worse than one
+ *     that has to be aimed at.
+ * Returns how many parts took it.
+ */
+function pressThrough(root: DocumentFragment, nodes: Map<string, StudioNode>): number {
+  const boxOf = (el: HTMLElement) => {
+    const [x, y, w, h] = [el.style.left, el.style.top, el.style.width, el.style.minHeight || el.style.height].map((v) => (v.endsWith("px") ? parseFloat(v) : NaN));
+    return [x, y, w, h].every((v) => Number.isFinite(v)) ? { x0: x!, y0: y!, x1: x! + w!, y1: y! + h! } : null;
+  };
+  const parts = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).map((el) => ({ el, node: nodes.get(el.getAttribute("data-live-node") ?? ""), box: boxOf(el) }));
+  const links = parts.filter((p) => p.box && p.node?.link?.target && p.el.querySelector("a[href]"));
+  const E = 0.01;
+  let n = 0;
+  for (const q of parts) {
+    const b = q.box;
+    if (!b || !q.node || q.node.link?.target) continue;
+    if (Array.isArray(q.node.content) && q.node.content.some((r) => r?.link?.target)) continue;
+    if (q.el.matches(PRESS) || q.el.querySelector(PRESS)) continue;
+    const on = links.some((l) => l.el !== q.el && b.x0 >= l.box!.x0 - E && b.y0 >= l.box!.y0 - E && b.x1 <= l.box!.x1 + E && b.y1 <= l.box!.y1 + E);
+    if (on) { q.el.style.pointerEvents = "none"; n++; }
+  }
+  return n;
+}
+
 /** One page's markup, the Builder's marks taken off it, its links made real and its colours tied to the roles. */
 function clean(html: string, page: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>, roles: [string, RoleId][]): string {
   const pageId = page.id;
@@ -180,6 +222,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   tpl.innerHTML = html;
   const root = tpl.content;
   linksOf(root, page, pages, home, nodes);
+  pressThrough(root, nodes);
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
   for (const el of Array.from(root.querySelectorAll("*"))) {

@@ -54,13 +54,43 @@ check counted a span with a link role as a link, so it passed.
   mouse land on their target and it opens; 73 of 73 page-to-page pairs
   reached. All nine pages are byte-identical PNGs before and after the
   anchors, and the preview comparison below is unchanged to the pixel.
+- **What sits on a link.** The capture keeps a thing the site had inside a
+  link as a part beside it, drawn on top, so it takes the press. On the
+  export only, by one CSS declaration: a part whose box is wholly inside a
+  linked part's box (to 0.01px; clipping a corner does not count), with no
+  link, no linked run and nothing pressable of its own, gets
+  `pointer-events: none` (`pressThrough` in `exportSite.ts`). Nothing moves,
+  nothing is reparented, the document and the Builder are untouched. On sink
+  it is 10 parts on each app page and 2 on docs. The docs logo box went from
+  7% pressable (measured every 4px) to all of it, so its name
+  "SOLCINERATOR" now follows; the icon boxes went from 75% to all.
+- **The honest residue.** The app-page icons and the docs logo were captured
+  as siblings of the link where the original had them inside it, and the
+  export works around that rather than fixing it. Containment is the
+  converter's. If it is fixed there, this declaration becomes unnecessary
+  rather than wrong.
+- **Still dead:** a sidebar icon. It takes the declaration (it sits wholly in
+  its button's part), but the link is the button, and the button draws only
+  its words' box, 159 by 20 inside a 223 by 44 part: the icon is in the
+  part's padding, where no link is, in the preview as in the export. 8 per
+  app page, reported by the test and not passed.
 - **Not done:** the preview still does not follow a box's link (a box reads
-  none). On the eight app pages an icon sits on 25% of each icon box; on docs
-  the logo's icon and name cover 86% of its box, so pressing the name
-  "SOLCINERATOR" itself does not follow. Both are covered by parts drawn
-  after them. They are captured as siblings, where the site had them inside
-  the link. Making covering parts pass the press through is a rule with a
-  blast radius and has not been written.
+  none).
+
+### How the links were proved, kept because it is how to prove the next thing
+
+- The amended run check was proved red on the old exporter before it was
+  trusted green on the fix.
+- The flaw was in a check before it was in the export: `export-page.mjs`
+  counted a span with a link role as a link, which is what let the dead
+  links through. The check was fixed, not the symptom.
+- Two false failures were a test window shorter than the page, not the
+  export: a press is measured in a window taller than the page.
+- A url link whose target is `javascript:` is not written as an href.
+- Page links end in `index.html` rather than a bare folder, so the tree
+  works opened from disk.
+- What is still under another part is reported per link, every 4px, so
+  the next covered link is noticed.
 
 ## Measured, sink, every page (`tests/export-page.mjs`)
 
