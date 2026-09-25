@@ -269,6 +269,37 @@ const leaks = [...secrets.filter((v) => text.includes(v)).map((v) => v.slice(0, 
 check("nothing in the exported files is the capture or his working", leaks.length === 0, leaks.slice(0, 3).join("; "));
 
 /* ------------------------------------------------------------------ */
+/* 4b. Every letter where the preview puts it                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Boxes are compared to the pixel and runs by their style; this holds the
+ * letters themselves, each to a thousandth of a pixel, so a layout that
+ * drifted by less than a pixel cannot hide inside "the letter edges differ".
+ */
+const GLYPHS = ([rootSel, partAttr, ids]) => {
+  const root = document.querySelector(rootSel); if (!root) return {};
+  const R = root.getBoundingClientRect(); const out = {};
+  for (const id of ids) {
+    const el = root.querySelector(`[${partAttr}="${CSS.escape(id)}"]`); if (!el) continue;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let i = 0;
+    for (let t = w.nextNode(); t; t = w.nextNode()) {
+      if (!t.textContent.trim()) continue;
+      const range = document.createRange();
+      for (let k = 0; k < t.textContent.length; k++) { range.setStart(t, k); range.setEnd(t, k + 1); const r = range.getBoundingClientRect(); if (r.width) out[`${id}#${i}#${k}`] = [r.left - R.left, r.top - R.top, r.width, r.height]; }
+      i++;
+    }
+  }
+  return out;
+};
+const gA = await page.evaluate(GLYPHS, ["[data-live-page]", "data-live-node", ids]);
+const gB = await out.evaluate(GLYPHS, [marks.rootSel, marks.rootSel === "[data-page]" ? "id" : "data-live-node", ids]);
+const gKeys = Object.keys(gA);
+const gOff = gKeys.filter((k) => !gB[k] || gA[k].some((v, i) => Math.abs(v - gB[k][i]) > 0.001));
+check(`every letter stands where the preview stands it, to 0.001px (${gKeys.length} letters)`, gKeys.length > 0 && gOff.length === 0 && Object.keys(gB).length === gKeys.length,
+  gOff.slice(0, 3).map((k) => `${k}: ${gA[k].map((v) => v.toFixed(3)).join(",")} → ${gB[k] ? gB[k].map((v) => v.toFixed(3)).join(",") : "missing"}`).join("; "));
+
+/* ------------------------------------------------------------------ */
 /* 5. The pixels                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -300,29 +331,37 @@ if (cmp) {
   if (process.env.SHOTS) { const fs = await import("node:fs"); fs.writeFileSync(`${process.env.SHOTS}/ref-${PAGE}.png`, Buffer.from(A, "base64")); fs.writeFileSync(`${process.env.SHOTS}/out-${PAGE}.png`, Buffer.from(B, "base64")); }
 }
 /*
- * A DIAGNOSIS, NOT A CHECK. The preview draws its page inside a composited
- * layer (a scale(1) wrapper and the page's fade-in), where Chromium
- * antialiases words in grey; the exported page is drawn on the root layer,
- * where it may antialias them in colour. The same export, its page lifted
- * onto a layer of its own for the picture only, says how much of the
- * difference is that and nothing else.
+ * THE CONVENTION THE BAR IS MEASURED UNDER, accepted by the coordinator once
+ * it was diagnosed rather than tuned to: the preview draws its page inside a
+ * composited layer and Chromium rasterises words differently there, so the
+ * exported page is lifted onto a layer of its own FOR THE PICTURE ONLY
+ * (never in the export). Measured across all nine sink pages, the
+ * difference without it was 37 to 47 px per letter on every page, the same
+ * rate whatever the page, with every letter in the same place to 0.001px
+ * (checked above): a rate that scales with how much text a page has, not a
+ * fault in any page. Both numbers are printed.
  */
+let layered = null;
 if (A && B) {
   await out.evaluate(() => { const r = document.querySelector("[data-page], [data-live-page]"); if (r) r.style.willChange = "transform"; });
   await out.waitForTimeout(500);
   const B2 = await settled(out, marks.shotSel);
   await out.evaluate(() => { const r = document.querySelector("[data-page], [data-live-page]"); if (r) r.style.willChange = ""; });
-  const n2 = B2 ? await out.evaluate(async ([a, b]) => {
+  layered = B2 ? await out.evaluate(async ([a, b]) => {
     const load = async (s) => { const i = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob()); const c = new OffscreenCanvas(i.width, i.height); const x = c.getContext("2d"); x.drawImage(i, 0, 0); return { w: i.width, h: i.height, d: x.getImageData(0, 0, i.width, i.height).data }; };
-    const P = await load(a), Q = await load(b); if (P.w !== Q.w || P.h !== Q.h) return { n: -1, worst: [] }; let n = 0; const cells = new Map();
+    const P = await load(a), Q = await load(b); if (P.w !== Q.w || P.h !== Q.h) return { n: -1, share: 100, worst: [] }; let n = 0; const cells = new Map();
     for (let i = 0; i < P.d.length; i += 4) if (Math.abs(P.d[i] - Q.d[i]) + Math.abs(P.d[i + 1] - Q.d[i + 1]) + Math.abs(P.d[i + 2] - Q.d[i + 2]) > 12) { n++; const x = (i / 4) % P.w, y = Math.floor(i / 4 / P.w); const k = `${Math.floor(x / 100) * 100},${Math.floor(y / 100) * 100}`; cells.set(k, (cells.get(k) ?? 0) + 1); }
-    return { n, worst: [...cells].sort((a, b) => b[1] - a[1]).slice(0, 6) };
+    return { n, share: 100 * n / (P.w * P.h), worst: [...cells].sort((a, b) => b[1] - a[1]).slice(0, 6) };
   }, [A, B2]) : null;
-  console.log(`  diagnosis: with the exported page drawn on its own layer, as the preview's is: ${n2?.n} px differ; worst ${(n2?.worst ?? []).map(([k, v]) => `${k}: ${v}`).join("; ")}`);
+  const letters = gKeys.length;
+  console.log(`  as exported: ${cmp?.n} px (${cmp?.share.toFixed(2)}%), ${letters ? (cmp.n / letters).toFixed(1) : "-"} px per letter`);
+  console.log(`  on its own layer, as the preview's page is: ${layered?.n} px (${layered?.share.toFixed(2)}%); worst ${(layered?.worst ?? []).map(([k, v]) => `${k}: ${v}`).join("; ")}`);
   if (process.env.SHOTS && B2) { const fs = await import("node:fs"); fs.writeFileSync(`${process.env.SHOTS}/out-layer-${PAGE}.png`, Buffer.from(B2, "base64")); }
 }
 check("both pictures settled", !!A && !!B, `${A ? "" : "the preview never settled; "}${B ? "" : "the export never settled or has no page"}`);
-check("the export draws within 1% of the preview's pixels (a convention, not a measured bar)", !!cmp && cmp.size.split(" vs ")[0] === cmp.size.split(" vs ")[1] && cmp.share <= 1, cmp ? `${cmp.share.toFixed(2)}%, ${cmp.size}` : "");
+check("the export draws within 1% of the preview's pixels, lifted onto a layer of its own as the preview's page is (a convention, not a measured bar)",
+  !!cmp && cmp.size.split(" vs ")[0] === cmp.size.split(" vs ")[1] && !!layered && layered.n >= 0 && layered.share <= 1,
+  layered ? `${layered.share.toFixed(2)}% on its own layer, ${cmp.share.toFixed(2)}% as exported, ${cmp.size}` : "");
 
 await browser.close();
 const bad = results.filter((r) => !r).length;

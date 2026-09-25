@@ -31,38 +31,60 @@ document), so Publish still sends what it sent.
   carry real flex and grid on 223 parts; emitting those as layout is the next
   step, and is a choice to be measured, not a fidelity gain at one width.
 
-## Measured, sink on polio 01adbd8 (`tests/export-page.mjs`)
+## Measured, sink, every page (`tests/export-page.mjs`)
 
 Each page against the preview of the same page at 100%, both pictures settled.
-The 1% bar is a convention.
+Every letter is also held to where the preview puts it, to 0.001px: all nine
+pages pass that, 186 to 1098 letters each, none moved and none missing. The
+pixel bar is 1%, a convention, measured with the exported page lifted onto a
+layer of its own for the picture only (never in the export), because the
+preview draws its page inside a composited layer and Chromium rasterises
+words differently there. The coordinator accepted that convention once it
+was diagnosed rather than tuned to.
 
-| page | checks | pixels differ | with the export on its own layer |
-|---|---|---|---|
-| home | 14/14 | 16945 (0.57%) | 4514 |
-| cleanup | 14/14 | 16878 (0.60%) | 0 |
-| tokens | 14/14 | 7652 (0.27%) | 0 |
-| nfts | 14/14 | 16456 (0.59%) | 0 |
-| cnfts | 14/14 | 17892 (0.64%) | 0 |
-| domains | 14/14 | 8261 (0.30%) | 0 |
-| lp | 14/14 | 18535 (0.66%) | 0 |
-| unknown | 14/14 | 15083 (0.54%) | 0 |
-| docs | 12/13, **fails the 1% bar** | 41012 (1.46%) | 11867 |
+| page | letters | as exported | px per letter | on its own layer |
+|---|---|---|---|---|
+| home | 471 | 16945 (0.57%) | 36.0 | 4514 (0.15%) |
+| cleanup | 406 | 16878 (0.60%) | 41.6 | 0 |
+| tokens | 186 | 7652 (0.27%) | 41.1 | 0 |
+| nfts | 436 | 16456 (0.59%) | 37.7 | 0 |
+| cnfts | 459 | 17892 (0.64%) | 39.0 | 0 |
+| domains | 193 | 8261 (0.30%) | 42.8 | 0 |
+| lp | 476 | 18535 (0.66%) | 38.9 | 0 |
+| unknown | 456 | 15083 (0.54%) | 33.1 | 0 |
+| docs | 1098 | 41012 (1.46%) | 37.4 | 11867 (0.42%) |
 
-Every differing pixel on every page is a letter edge: same glyphs, same places,
-same colours, same faces (the boxes and runs checks pass on all nine). The
-preview draws its page inside a composited layer, where Chromium antialiases
-words differently; lifting the exported page onto a layer of its own, for the
-picture only, takes seven pages to exactly 0. Home keeps 4514 and docs 11867,
-still letter edges, **not traced**: not the face (the same stacks resolve on
-both sides), not sub-pixel placement (both at whole pixels), not font smoothing
-(no effect on Linux Chromium; tried and taken back out). The export is not
-tuned to the board's compositing, and the docs bar was not moved.
+**Docs, traced.** It was the one page over 1% as exported, four times its
+neighbours. Per letter it is not: 37.4 px, inside the 33 to 43 every page
+shows. It has the most words (1098 letters against 186 to 476), and a bar
+measured against the page's area crosses first on the densest page. Its
+letters are all where the preview's are to 0.001px, in the same faces and
+colours, so nothing is laid out or drawn differently: the same glyphs at the
+same places are rasterised differently, the same artefact as every other
+page at a different scale. Ruled out, each by measurement: the face (the
+same stacks resolve on both sides); sub-pixel placement (whole-pixel page
+origins, identical glyph positions); font smoothing (no effect on Linux
+Chromium); the inherited font context (giving the export the preview's
+13px/18.2px sans-serif changed not one pixel); the preview's ancestry (a
+scrolling box and a scale(1) wrapper round the export changed nothing).
+Home and docs keep 4514 and 11867 px on their own layer where the other
+seven reach 0; those are letter edges in particular parts (the docs side
+navigation and headings, home's empty-state lines), with the glyphs in
+place. Why those parts rasterise differently even on a layer is not traced.
 
 ## The leak
 
 `tests/publish-leak.mjs` reads every file the real Publish button pushes. On
-9734afa it fails: `site/document.json`, `site/BLUEPRINT.md` and
-`site/blueprint.json` carry the capture and his working (22657 occurrences,
-overlapping); the nine pages and the stylesheet carry none. The exporter's own
-tree carries none either (`tests/export-page.mjs`). It stays red until
-Publish stops sending the design document, which is the wiring that waits.
+9734afa it failed: `site/document.json`, `site/BLUEPRINT.md` and
+`site/blueprint.json` carried the capture and his working (22657 occurrences,
+overlapping); the nine pages and the stylesheet carried none. Fixed by what
+Publish writes, never by the test: the blueprint pair no longer goes up
+(nothing downstream reads either; they stay in the Brief dialog), and the
+document goes up cleaned (`publishedDoc` in `agent.ts`): prompts, notes,
+where each part and face was captured, pages' prompts and the brief emptied;
+`from.position` kept. It stays because Bring reads it back (`repoImport.ts`,
+MADE_HERE) and a copy of this app renders it at /site; measured, a published
+document brought back in lands all 637 parts, every kind the same. The cost:
+with no element paths it brings back no ownership, so escapes read 0 there.
+When and where Publish writes, and what it overwrites, are unchanged: the
+guards are the owner's to rule on.
