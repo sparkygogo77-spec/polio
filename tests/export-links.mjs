@@ -18,6 +18,11 @@
  *   · a person can follow it: a real mouse press on a point of it that
  *     nothing else covers lands on the target;
  *   · every page is reached from every page that links to it;
+ *   · a part wholly on a linked part, with no press of its own, lets the
+ *     press through to the link, and nothing else does (his ruling: the
+ *     capture keeps what the site had inside a link as a part beside it);
+ *     how much of each link is still under another part is reported, so
+ *     the next one is noticed;
  *   · and how many links the document holds and how many the export emits,
  *     page by page, which must be the same two numbers.
  * No `<a>` inside an `<a>`, and no control inside one, because a browser
@@ -164,11 +169,15 @@ const ANCHORS = () => [...document.querySelectorAll("a")].map((a, i) => {
   const r = a.getBoundingClientRect();
   let free = 0, total = 0, point = null;
   const rects = [...a.getClientRects(), ...[...a.querySelectorAll("*")].flatMap((c) => [...c.getClientRects()])].filter((q) => q.width > 0 && q.height > 0);
-  for (const q of rects) for (let gx = 0.5; gx < 8; gx++) for (let gy = 0.5; gy < 8; gy++) {
-    const x = q.left + (q.width * gx) / 8, y = q.top + (q.height * gy) / 8;
+  /* Every 4px, and never fewer than 8 points a side, so a 16px icon on a link is seen. */
+  for (const q of rects) {
+    const nx = Math.max(8, Math.ceil(q.width / 4)), ny = Math.max(8, Math.ceil(q.height / 4));
+    for (let gx = 0.5; gx < nx; gx++) for (let gy = 0.5; gy < ny; gy++) {
+    const x = q.left + (q.width * gx) / nx, y = q.top + (q.height * gy) / ny;
     total++;
     const hit = document.elementFromPoint(x, y);
     if (hit && a.contains(hit)) { free++; point ??= { x, y }; }
+    }
   }
   return {
     i, part: part?.id ?? null, words: a.textContent.replace(/\s+/g, " ").trim(), raw: a.getAttribute("href"),
@@ -180,6 +189,7 @@ const ANCHORS = () => [...document.querySelectorAll("a")].map((a, i) => {
 
 const emitted = {};
 const followed = [];
+const passedThrough = {};
 const reach = new Set();
 for (const p of s.pages) {
   const file = fileOf(p);
@@ -212,6 +222,74 @@ for (const p of s.pages) {
   check(`${names[p.id]}: every link has a point a person can press`, blocked.length === 0,
     `${blocked.map((a) => a.part).join(", ")}${covered.length ? `${blocked.length ? "; " : ""}partly under another part: ${covered.map((a) => `${a.part} ${Math.round((100 * a.free) / a.total)}% free`).join(", ")}` : ""}`);
 
+  /*
+   * WHAT SITS ON A LINK. The capture keeps a thing the site had inside a link
+   * as a part BESIDE it, drawn on top, so it takes the press. His ruling, in
+   * the export only: a part whose box is wholly inside a linked part's box,
+   * and which has no link and nothing pressable of its own, lets the press
+   * through (`pointer-events: none`). Only partly inside, or with a press of
+   * its own, it keeps its press. Read here off what the exported page draws
+   * and what the document says, never off the exporter's own choice.
+   */
+  /* A linked part is one whose whole box is a link; a link on a run of its words is a press of its own, not a box to sit on. */
+  const partsHere = s.nodes.filter((n) => n.pageId === p.id).map((n) => ({ id: n.id, linked: !!n.link?.target, runLink: Array.isArray(n.content) && n.content.some((r) => r?.link?.target) }));
+  const lay = await out.evaluate((parts) => {
+    const PRESS = "a[href], button, input, select, textarea, [tabindex], [role=link], [role=button]";
+    const all = parts.map((q) => {
+      const el = document.getElementById(q.id);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      /* Where a press on this part follows its link: the link's own boxes, and everything drawn inside it. */
+      const a = q.linked ? el.querySelector("a[href]") : null;
+      const lr = a ? [a, ...a.querySelectorAll("*")].flatMap((c) => [...c.getClientRects()]).filter((k) => k.width > 0 && k.height > 0) : [];
+      const link = lr.length ? { x0: Math.min(...lr.map((k) => k.left)), y0: Math.min(...lr.map((k) => k.top)), x1: Math.max(...lr.map((k) => k.right)), y1: Math.max(...lr.map((k) => k.bottom)) } : null;
+      return { ...q, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom, link, own: el.matches(PRESS) || !!el.querySelector(PRESS), pe: getComputedStyle(el).pointerEvents };
+    }).filter(Boolean);
+    const E = 0.01;
+    const inside = (q, l) => q.x0 >= l.x0 - E && q.y0 >= l.y0 - E && q.x1 <= l.x1 + E && q.y1 <= l.y1 + E;
+    const over = (q, l) => q.x0 < l.x1 && q.x1 > l.x0 && q.y0 < l.y1 && q.y1 > l.y0;
+    const links = all.filter((q) => q.linked);
+    return all.filter((q) => q.x1 > q.x0 && q.y1 > q.y0).map((q) => {
+      const holders = links.filter((l) => l.id !== q.id && inside(q, l)).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0));
+      const clips = links.filter((l) => l.id !== q.id && over(q, l) && !inside(q, l)).map((l) => l.id);
+      const h = holders[0];
+      return { id: q.id, pe: q.pe, own: q.own || q.linked || q.runLink, holder: h?.id ?? null, inLink: !!h?.link && inside(q, h.link), clips, at: { x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 } };
+    });
+  }, partsHere);
+  const through = lay.filter((q) => q.holder && !q.own);
+  const keeps = lay.filter((q) => q.holder && q.own);
+  const clipping = lay.filter((q) => !q.holder && q.clips.length);
+  const none = lay.filter((q) => q.pe === "none");
+  passedThrough[p.id] = none.length;
+  console.log(`  ${names[p.id]}: ${through.length} parts wholly on a link with no press of their own, ${keeps.length} wholly on one with a press of their own, ${clipping.length} only partly on one`);
+  check(`${names[p.id]}: exactly the parts wholly on a link with no press of their own let the press through`,
+    none.length === through.length && through.every((q) => q.pe === "none"),
+    `${none.length} let it through, ${through.length} should${through.filter((q) => q.pe !== "none").length ? `; not: ${through.filter((q) => q.pe !== "none").slice(0, 4).map((q) => `${q.id} on ${q.holder}`).join(", ")}` : ""}${none.filter((q) => !through.includes(q)).length ? `; and should not: ${none.filter((q) => !through.includes(q)).map((q) => q.id).join(", ")}` : ""}`);
+  /*
+   * Pressed on its middle, each of those that sits inside its link's own box
+   * reaches the link. One that sits on the linked part but outside the box
+   * its link draws (a sidebar icon in a button's padding: the link is the
+   * button's words, 159 by 20 in a 223 by 44 part, as in the preview) has
+   * nothing under it to reach, and is counted rather than passed.
+   */
+  const beside = through.filter((q) => !q.inLink);
+  if (beside.length) console.log(`  ${names[p.id]}: ${beside.length} of them sit on the linked part but outside the box its link draws, and a press there reaches no link: ${beside.map((q) => q.id).join(", ")}`);
+  const reached = [];
+  for (const q of through.filter((t) => t.inLink)) {
+    const to = got.find((a) => a.part === q.holder)?.href;
+    if (out.url() !== ORIGIN + file) await out.goto(ORIGIN + file, { waitUntil: "networkidle" });
+    const pop = out.context().waitForEvent("page", { timeout: 1500 }).catch(() => null);
+    const nav = out.waitForURL((u) => u.href !== ORIGIN + file, { timeout: 1500 }).catch(() => null);
+    await out.mouse.click(q.at.x, q.at.y);
+    const [popup] = await Promise.all([pop, nav]);
+    const landed = popup ? popup.url() : out.url();
+    if (popup) await popup.close();
+    reached.push({ q, ok: !!to && landed === to, landed });
+  }
+  const missed = reached.filter((r) => !r.ok);
+  check(`${names[p.id]}: pressed in its middle, every part wholly inside a link's box follows that link`, missed.length === 0,
+    `${reached.length - missed.length}/${reached.length}${missed.length ? `; ${missed.slice(0, 3).map((r) => `${r.q.id} on ${r.q.holder} landed ${r.landed.replace(ORIGIN, "/")}`).join("; ")}` : ""}`);
+
   /* And pressed: a real mouse, on that point, lands on the target and the target opens. */
   for (const a of got) {
     if (!a.point || !a.href) { followed.push({ page: p.id, a, ok: false, why: a.href ? "nowhere to press" : "no href" }); continue; }
@@ -241,8 +319,8 @@ check("every page is reached from every page that links to it", pairs.size > 0 &
 
 /* The two numbers. */
 const total = Object.values(emitted).reduce((a, b) => a + b, 0);
-console.log("\n  page            held  emitted");
-for (const p of s.pages) console.log(`  ${names[p.id].padEnd(14)} ${String(held.filter((h) => h.page === p.id).length).padStart(5)}  ${String(emitted[p.id] ?? 0).padStart(7)}`);
+console.log("\n  page            held  emitted  press let through");
+for (const p of s.pages) console.log(`  ${names[p.id].padEnd(14)} ${String(held.filter((h) => h.page === p.id).length).padStart(5)}  ${String(emitted[p.id] ?? 0).padStart(7)}  ${String(passedThrough[p.id] ?? 0).padStart(17)}`);
 console.log(`  ${"all".padEnd(14)} ${String(held.length).padStart(5)}  ${String(total).padStart(7)}`);
 check("the document's links and the export's links are the same number, page by page", s.pages.every((p) => held.filter((h) => h.page === p.id).length === (emitted[p.id] ?? 0)),
   `document ${held.length}, export ${total}`);
