@@ -575,7 +575,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     } catch (err) {
       /* The description still goes up, and the banner says the pages did
          not — rather than a publish that silently carries half of it. */
-      setNote(`The pages could not be written out (${err instanceof Error ? err.message : "unknown"}), so only the document and the blueprint went up.`);
+      setNote(`The pages could not be written out (${err instanceof Error ? err.message : "unknown"}), so only the document went up.`);
       return publishFiles;
     }
     /*
@@ -902,7 +902,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           ) : null}
         </span>
       }
-      note={`${publishFiles.length} files: the document the app renders at /site, the blueprint, ${files.length ? `and ${files.length} generated` : "no generated code yet"}. What this does is written on the live thread's card.`}
+      note={`${publishFiles.length} files: the site's document with its prompts and capture taken out, ${files.length ? `and ${files.length} generated` : "no generated code yet"}, and the pages when it goes up. The blueprint stays here. What this does is written on the live thread's card.`}
     >
       <div data-brief-publish="" className="flex flex-col gap-1.5">
         <LeftBehind />

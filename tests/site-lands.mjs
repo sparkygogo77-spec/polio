@@ -127,7 +127,12 @@ check("a publish commits files", paths.length > 0, `${paths.length} files`);
 check("and a page at the root, which is the thing that was missing", committed.has("index.html"),
   paths.slice(0, 12).join(", ") || "nothing");
 check("with a stylesheet beside it", committed.has("assets/site.css"), committed.has("assets/site.css") ? `${Math.round((committed.get("assets/site.css")?.length ?? 0) / 1024)} KB` : "none");
-check("and the document and the blueprint are still there", committed.has("site/document.json") && committed.has("site/BLUEPRINT.md"));
+/* The document still goes up, because Bring reads it back; the blueprint no
+   longer does. HIS RULING: a published repository holds what a website
+   securely should, and the blueprint carried every prompt and the capture
+   (tests/publish-leak.mjs reads the whole tree for them). */
+check("and the document is still there, and the blueprint is not", committed.has("site/document.json") && !committed.has("site/BLUEPRINT.md") && !committed.has("site/blueprint.json"),
+  paths.filter((p) => p.startsWith("site/")).join(", "));
 check("every page of the board has its own address", committed.has("about/index.html"), paths.filter((p) => p.endsWith("index.html")).join(", "));
 
 /* ------------------------------------------------------------------ */

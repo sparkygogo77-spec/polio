@@ -574,12 +574,67 @@ export async function publishStatus(): Promise<PublishStatus> {
   }
 }
 
-/** The files that make the site: the document the app renders at /site, and the blueprint both ways. */
-export function siteFiles(markdown: string, json: string): GeneratedFile[] {
+/**
+ * The document as it goes into a published repository: the site, and none of
+ * how it was made.
+ *
+ * HIS WORDS: a private repository "should not contain such revealing files
+ * and only comprise of what a website securely should". Measured on sink
+ * brought in through the real door, the document carried the capture and his
+ * working in exactly these places, and nowhere else: every part's prompt
+ * ("Captured from ccc-woad.vercel.app/ … as body > div > …"), its notes (the
+ * capture's description of the element), where it was captured (address,
+ * host, element path, time), each page's prompt, the brief he writes for
+ * Claude, and where each carried face was found. So those are emptied.
+ *
+ * What stays is what something downstream reads: Bring imports a site made
+ * here from this file whole (`repoImport.ts`, MADE_HERE), and a repository
+ * that is a copy of this app renders it at /site (`published.ts`). A part
+ * keeps its `from.position`, the flag the header fix reads, which says how
+ * the element was placed and nothing about where it came from.
+ *
+ * The cost, said: a document brought back in from a publish carries no
+ * element paths and no notes, so the sweep that runs on it finds no wrapper
+ * by its path and no control by its notes. A published board carries no
+ * wrappers already; this is that, written down.
+ */
+export function publishedDoc(): Record<string, unknown> {
+  const d = studioDoc() as {
+    nodes?: (Record<string, unknown> & { from?: { position?: unknown } | null })[];
+    pages?: Record<string, unknown>[];
+    brief?: Record<string, unknown>;
+    look?: Record<string, unknown> & { fonts?: (Record<string, unknown> & { from?: unknown })[] };
+    shapes?: Record<string, unknown>[];
+  } & Record<string, unknown>;
+  return {
+    ...d,
+    nodes: (d.nodes ?? []).map((n) => ({
+      ...n,
+      prompt: "",
+      data: "",
+      from: n.from && n.from.position ? { position: n.from.position } : null,
+    })),
+    pages: (d.pages ?? []).map((p) => ({ ...p, prompt: "" })),
+    brief: { ...(d.brief ?? {}), master: "", gimmick: "" },
+    look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}) } : d.look,
+    shapes: (d.shapes ?? []).map((sh) => ("prompt" in sh ? { ...sh, prompt: "" } : sh)),
+  };
+}
+
+/**
+ * The files that make the site's repository beside its pages: the document,
+ * cleaned (`publishedDoc`), and nothing else.
+ *
+ * The blueprint (BLUEPRINT.md, blueprint.json) no longer goes up. Nothing
+ * downstream reads either, it carried every part's prompt and the capture,
+ * and blueprint.json carried his drafts, Claude's critiques, the prompts
+ * they proposed and the model that proposed them. They are still in the
+ * Brief dialog, to read and download, on his side of the publish.
+ * tests/publish-leak.mjs reads the whole pushed tree for any of it.
+ */
+export function siteFiles(_markdown?: string, _json?: string): GeneratedFile[] {
   return [
-    { path: "site/document.json", content: JSON.stringify(studioDoc(), null, 2) + "\n" },
-    { path: "site/BLUEPRINT.md", content: markdown.endsWith("\n") ? markdown : markdown + "\n" },
-    { path: "site/blueprint.json", content: json.endsWith("\n") ? json : json + "\n" },
+    { path: "site/document.json", content: JSON.stringify(publishedDoc(), null, 2) + "\n" },
   ];
 }
 
