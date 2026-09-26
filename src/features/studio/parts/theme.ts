@@ -66,6 +66,8 @@ export interface Theme {
    * of the box and cut them off.
    */
   tight?: boolean;
+  /** The part was captured from a live page (`applyCaptured`): its box is the page's measurement, not a default. */
+  captured?: boolean;
   boxStyle: string;
   boxPad: number;
   headingFamily: string;
@@ -253,6 +255,41 @@ export function applyEdge(t: Theme, edge: NodeEdge | null | undefined): Theme {
   return edge ? { ...t, said: { ...t.said, edge: true } } : t;
 }
 
+/** Tags a browser draws inline: captured from one, a part's height is its glyphs', not a line's. */
+const INLINE = new Set(["span", "a", "b", "i", "em", "strong", "small", "code", "label", "abbr", "mark", "sub", "sup", "time"]);
+
+/**
+ * The theme for a part captured from a live page: its box is a measurement.
+ *
+ * MEASURED on sink (tests/captured-words.mjs): 356 of 637 parts sat below
+ * where the capture put them, because the board drew captured words taller
+ * than the live page did and the settle took that for growth. Two of the
+ * defaults behind it are the part's own, right for a part placed by hand
+ * and wrong for one whose size was read off his page:
+ *
+ *   · the reading measure (541px) held the Documentation paragraph to five
+ *     lines where his page, 832px wide, has three. Captured, the box's own
+ *     width is the only measure;
+ *   · a tagline captured from an inline span is as tall as its glyphs (12px
+ *     for his 12px face), and drawn as a line at his 1.33 it was 16, so the
+ *     header grew by 4 and everything under it moved. Captured from an
+ *     inline element on one line, the line is the captured height.
+ *
+ * (The third, a heading's own padding, is `ValueProp`'s to drop.) A part
+ * with no `from` is never passed through here: a hand-built part is untouched.
+ */
+export function applyCaptured(t: Theme, node: { from?: { selector?: string } | null; h: number }): Theme {
+  const selector = node.from?.selector?.trim();
+  if (!selector) return t;
+  // No reading measure: the box is the measure. Not `node.w` itself —
+  // `Text` sets words 2px in and widens by as much, and a cap at the box's
+  // width took those 2px back (tests/inset-room.mjs).
+  const next: Theme = { ...t, captured: true, measurePx: 100_000 };
+  const tag = (selector.split(">").pop() ?? "").trim().split(/[:.#[]/)[0]!.toLowerCase();
+  if (INLINE.has(tag) && node.h > 0 && node.h < t.fontPx * t.lineHeight) next.lineHeight = node.h / t.fontPx;
+  return next;
+}
+
 /** The theme, told that the box pads itself: a part that pads its words stops. */
 export function applyPad(t: Theme, pad: NodePad | null | undefined): Theme {
   return pad ? { ...t, tight: true } : t;
@@ -315,7 +352,7 @@ export const FAMILY: Record<string, string> = {
   serif: "Georgia, 'Times New Roman', serif",
   display: "'Impact', 'Arial Black', ui-sans-serif, sans-serif",
   condensed: "'Arial Narrow', 'Roboto Condensed', ui-sans-serif, sans-serif",
-  monospace: "ui-monospace, 'SF Mono', Menlo, monospace",
+  monospace: "ui-monospace, 'SF Mono', Menlo, 'Liberation Mono', monospace",
   handwritten: "'Segoe Print', 'Comic Sans MS', cursive",
   "system sans": "ui-sans-serif, system-ui, sans-serif",
   "humanist sans": "'Segoe UI', 'Trebuchet MS', ui-sans-serif, sans-serif",

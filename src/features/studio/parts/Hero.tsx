@@ -74,14 +74,22 @@ function Caret({ t, mode }: { t: Theme; mode: PartProps["mode"] }) {
  * only way to get the turn was two parts butted together, which wraps
  * wrongly the moment anything changes width.
  */
-export function ValueProp({ id, content, options, theme: t }: PartProps) {
+export function ValueProp({ id, content, options, h, theme: t }: PartProps) {
   const line = items(content, ["One sentence that says what this is and who it's for."])[0]!;
+  // A captured box one line tall holds one line. The capture rounds a width
+  // down, so a heading as wide as its words ("PnL Over Time", 156.03 in a
+  // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way.
+  const lh = t.captured ? t.lineHeight : 1.2;
+  const oneLine = !!t.captured && h > 0 && h < 2 * t.fontPx * 1.6 * lh;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
   return (
-    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight ? 0 : t.fontPx * 0.5 }}>
-      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: 1.2, maxWidth: t.measurePx, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
+    /* Captured, the box is his heading's own and it had no padding and its
+       own leading (`applyCaptured`): padded, a heading as wide as its words
+       wrapped, and the page under it moved (tests/captured-words.mjs). */
+    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
+      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {parts.head}
         {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
       </p>
