@@ -177,6 +177,20 @@ along with the healing work.
    board draws the picture wrong; the capture is right. The healing no longer
    treats it as growth (only words grow), so it moves nothing — but it still
    draws at that size.
+   **RESOLVED as of 507d4ec:** the 220 and 156 heights are gone. A fresh sink
+   import in a new site, all nine pages opened, draws every picture part at
+   its stored box (the part's own `offsetHeight`, which the layout reads):
+
+   | parts | stored | captured | drawn |
+   |---|---|---|---|
+   | SolWorks logo ×8 (n_picture_87, 166, 237, 313, 389, 460, 536, 610) | 112×112 | 112×112 | 112×112 |
+   | Solana ×8 (n_picture_90, 169, 240, 316, 392, 463, 539, 613) | 48×24 | 48×24 | 48×25 |
+   | question mark ×4 (n_picture_277, 353, 500, 576) | 128×128 | 128×128 | 128×128 |
+
+   Captured is the live source re-measured by its recorded selector for the
+   two header pictures; the question mark's sections need a wallet, so its
+   captured size is the capture's own record. Solana's 1px is within
+   tolerance and left.
 
 2. **Eight buttons paint their descendants' words, and the descendants paint
    them again.** Each section page's wallet button carries its own content set
