@@ -100,6 +100,7 @@ export async function put(blob: Blob, opts: { alt?: string; from?: Picture["from
   const type = blob.type || "image/png";
   const { w, h } = await sizeOf(blob);
   await ask((await shelf("readwrite")).put(blob, id));
+  arrived(id);
   return { id, path: `assets/pictures/${id}.${endsWith(type)}`, type, w, h, bytes: blob.size, alt: opts.alt ?? opts.name ?? "", from: opts.from ?? "upload" };
 }
 
@@ -115,6 +116,7 @@ export async function put(blob: Blob, opts: { alt?: string; from?: Picture["from
 export async function keep(pic: Picture, blob: Blob): Promise<void> {
   if (!ok()) throw new Error("This browser has no file storage, so a picture cannot be kept here.");
   await ask((await shelf("readwrite")).put(blob, pic.id));
+  arrived(pic.id);
 }
 
 /** The file itself, for the publish to carry. Null when this browser no longer has it. */
@@ -137,6 +139,30 @@ export async function bytesFor(pic: Picture): Promise<Blob | null> {
 const addresses = new Map<string, string>();
 const asked = new Set<string>();
 
+/*
+ * BYTES THAT ARRIVE AFTER THE PART IS DRAWN. A site brought in from its
+ * repository lands on the board first and has its pictures kept a moment
+ * later, one by one. Measured on a fresh import of sink: the board looked
+ * for the Solana mark 2ms before its bytes were kept, found nothing, and
+ * said it was lost until a reload. So a look that finds nothing is not the
+ * last word: keeping a picture forgets that miss and tells whoever is
+ * drawing it to look again.
+ */
+const waiting = new Map<string, Set<() => void>>();
+
+function arrived(id: string): void {
+  asked.delete(id);
+  for (const again of waiting.get(id) ?? []) again();
+}
+
+/** Be told when a picture's bytes are kept here. Returns the way to stop. */
+function onArrive(id: string, again: () => void): () => void {
+  const set = waiting.get(id) ?? new Set<() => void>();
+  set.add(again);
+  waiting.set(id, set);
+  return () => { set.delete(again); if (!set.size) waiting.delete(id); };
+}
+
 export function urlFor(pic: Picture): string | undefined {
   return addresses.get(pic.id);
 }
@@ -149,6 +175,9 @@ export async function reach(pic: Picture): Promise<string | null> {
   asked.add(pic.id);
   const blob = await bytesFor(pic);
   if (!blob) return null;
+  /* Two parts showing one picture can both be looking; one address serves both. */
+  const also = addresses.get(pic.id);
+  if (also) return also;
   const url = URL.createObjectURL(blob);
   addresses.set(pic.id, url);
   return url;
@@ -205,8 +234,11 @@ export function usePicture(pic: Picture | null | undefined): { src?: string; loo
   React.useEffect(() => {
     if (!pic || known) return;
     let alive = true;
-    void reach(pic).then(() => { if (alive) { setLooked(true); bump(); } });
-    return () => { alive = false; };
+    const look = () => { void reach(pic).then(() => { if (alive) { setLooked(true); bump(); } }); };
+    look();
+    /* Not here yet is not gone: look again the moment the bytes are kept. */
+    const stop = onArrive(pic.id, look);
+    return () => { alive = false; stop(); };
     // The picture is the dependency, and its id is what identifies it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
