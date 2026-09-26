@@ -19,6 +19,8 @@ import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "./parts/theme";
+import { usePicture } from "./pictures";
+import { siteLogo } from "./siteMark";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
@@ -155,6 +157,11 @@ function SiteHead() {
   // letter in its own accent — the same thing the brief promises.
   const name = brief.name.trim() || project?.name?.trim() || "This site";
   const initial = [...name][0]?.toUpperCase() ?? "S";
+  // Its own logo when it has one (`siteMark.ts`), the letter when it has no
+  // pictures or this browser no longer holds the bytes.
+  const nodes = useStudio((s) => s.nodes);
+  const logo = React.useMemo(() => siteLogo(nodes), [nodes]);
+  const { src: logoSrc } = usePicture(logo);
   return (
     <>
       <Tooltip content="Every site this browser is holding">
@@ -180,11 +187,21 @@ function SiteHead() {
          * more than a decoration.
          */
         className="hidden size-[18px] shrink-0 items-center justify-center rounded-[5px] text-small font-bold leading-none md:flex"
-        style={{ background: palette.accent, color: palette.bg }}
+        style={logo && logoSrc ? undefined : { background: palette.accent, color: palette.bg }}
       >
-        {initial}
+        {logo && logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoSrc} alt="" data-picture-id={logo.id} className="size-full rounded-[5px] object-contain" />
+        ) : initial}
       </span>
-      <span data-site-build="" className="hidden max-w-[170px] truncate text-large font-semibold text-fg sm:inline" title={name}>
+      {/*
+       * `pr-0.5`: sized to its words, the box ends where the last letter's
+       * advance does, and a bold R's leg reaches a third of a pixel past it
+       * in Arial and Helvetica — so the clip cut through the R with no
+       * ellipsis to say so ("SOLCINERATO"). Two pixels hold the ink; a name
+       * too long still ends in an ellipsis (tests/site-picture.mjs).
+       */}
+      <span data-site-build="" className="hidden max-w-[170px] truncate pr-0.5 text-large font-semibold text-fg sm:inline" title={name}>
         {name}
       </span>
     </>
