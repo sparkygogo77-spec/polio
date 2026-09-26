@@ -195,3 +195,54 @@ document brought back in lands all 637 parts, every kind the same. The cost:
 with no element paths it brings back no ownership, so escapes read 0 there.
 When and where Publish writes, and what it overwrites, are unchanged: the
 guards are the owner's to rule on.
+
+## Where Publish goes, and where a board came from (`tests/publish-source.mjs`)
+
+**The owner's ruling:** polio never writes to a capture repository. sink
+holds the capturer's code and the capture, and is kept. Publish sends a site
+to its own output repository, never to the one it was brought in from.
+
+**Measured on 3e14749**, red: a fresh Bring of `sparkygogo77-spec/sink` left
+the site with `repo = sparkygogo77-spec/sink, bound = "import"`; Push to
+GitHub sent that as both `repo` and `boundTo`, and the route made 9 writes into
+sink (blobs, tree, commit, then `PATCH refs/heads/main`), all caught by a
+stand-in for GitHub. The Bring dialog's line "Where Publish pushes is a
+separate setting, on the Builds page" was not true in code: the import wrote
+the very field (`project.repo`) the Builds page edits.
+
+### Blast radius: every reader and writer of `project.repo` / `bound`, listed before the rule changed
+
+Writers:
+1. `builds/store.ts` `setRepo`: writes both, `bound` defaulting to "connected".
+2. `FromASite.tsx` whole-site import: `setRepo(id, repo, "import")`. The defect.
+3. `FromASite.tsx` page brought into a space: `setRepo(here.id, …, "import")`
+   when the site had none.
+4. `GithubButton.tsx` `connect()`: a list press (as "import", then a Bring),
+   Publish only ("connected"), a repository made there ("made").
+5. `BriefDialog.tsx` `remember()`: the repository a first publish made.
+6. `BuildsPage.tsx` `RepoRow`: the "Publish here" field.
+7. `builds/store.ts` `carryRepos()`: copies an old document's `siteRepo` in.
+8. `builds/store.ts` `duplicate()`: the copy takes both.
+
+Readers:
+1. `BriefDialog.tsx` `pushTo()`: `repo`, `branch`, `boundTo`, `create`, for
+   Push to GitHub and Go live.
+2. `api/studio/publish/route.ts`: `boundTo` is the lock; `where()` falls back
+   to the server's `GITHUB_REPO`.
+3. `GithubButton.tsx` `own`: the panel's "The repo this site goes to", the
+   Bring beside it, the Replace/Keep gate, the lock handed to `bringRepoIn`,
+   the branch list, Merge into main, "Move to a different repo", the tooltip.
+4. `RepoPicker.tsx` `own`: which rows are barred, and the lock.
+5. `bringRepo.ts` `bringRepoIn`: `own` refuses a different repository.
+6. `builds/store.ts` `importedBy`: refuses pointing another site at an
+   imported repository.
+7. `studio/store.ts` via `activeRepo()`: an edit on a site with a repository
+   opens an `edit/…` branch there (on an imported board, in sink).
+8. `agent.ts` `publish`: a push with no branch uses that `siteBranch`.
+9. `SwitchButton.tsx`, `NewSiteOffer.tsx`, `BuildsPage.tsx` card: labels.
+10. `FromASite.tsx` `deployedBy`: the address a site this Builder published
+    went live at.
+11. `FromASite.tsx` import line: "Connected to … the next edit opens a branch
+    there."
+12. Go live's deploy call, after a push that worked (Vercel; not changed).
+13. Tests that pinned the old rule: `bring-lands.mjs`, `bring-bound.mjs`.
