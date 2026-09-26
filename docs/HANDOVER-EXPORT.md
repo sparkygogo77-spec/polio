@@ -282,3 +282,43 @@ asks for `repo = boundTo = sparkygogo77-spec/sink`; 9 writes into it on one
 press, 19 over the run). On this change, 26 of 26: the push asks
 `create = SOLCINERATOR, branch = main`, the route makes `someone/solcinerator`
 and makes its 9 writes there, and 0 writes reach sink over the whole run.
+
+## Going live in one press (`tests/live-link.mjs`)
+
+**Measured on b2ba350**, red, 5 of 16: Go live on a site with no repository
+pushed to the repository Publish made (`someone/kept-live`), asked Vercel for
+its projects, found none connected, and the deploy route answered
+"no-project" ("Import it once at vercel.com/new"). No project, no deployment,
+no address. A repository Publish makes can never be imported by hand before
+its first Go live, so a new site never went live.
+
+### Blast radius: every reader and writer of a site's address and of the deploy route, listed before the rule changed
+
+Writers:
+1. `BriefDialog.tsx` `goLive()`: `setLive(id, url)` once a deployment is READY.
+2. `builds/store.ts` `setLive`; `duplicate()` clears `live` on the copy.
+
+Readers:
+1. `BuildsPage.tsx` card: a "Live" link when `project.live` is set.
+2. `FromASite.tsx` `deployedBy()`: a Bring of a repository some site here
+   publishes to reads its page at that site's `live.url`.
+3. `BriefDialog.tsx`: the per-press `liveRun` line; nothing shows the recorded
+   address.
+
+The deploy route and its callers:
+1. `agent.ts` `deploy()` (POST), from `goLive()` only; sends the Vercel token
+   and team, not the GitHub token, not the site's name, not its sources.
+2. `agent.ts` `watchDeploy()` (GET `?id=`), from `goLive()`.
+3. `agent.ts` `deployStatus()` (GET), which gates the Go live button and the badge.
+4. `api/studio/deploy/route.ts` POST: a project named in the request, or by
+   `VERCEL_PROJECT` on the server, wins over the one connected to the
+   repository; otherwise the one whose `link` is the repository; otherwise
+   "no-project". Then `POST /v13/deployments` with `gitSource`.
+5. `api/studio/publish/route.ts`: `VERCEL_DEPLOY_HOOK`, a poke for a project
+   that is not connected. Not changed.
+
+Server settings read: `VERCEL_TOKEN`, `VERCEL_TEAM`, `VERCEL_PROJECT`,
+`GITHUB_REPO` and `GITHUB_BRANCH` (when a request names none).
+
+Tests: `go-live.mjs` (no token; a made-up token reaches Vercel and is refused),
+`vercel-pages.mjs` (the project lookup walks pages), `live-link.mjs`.
