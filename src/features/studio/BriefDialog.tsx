@@ -34,7 +34,8 @@ import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
 import { auditCounts, auditSite, sitePictures, staticSite, type PageAudit } from "./staticSite";
 import { useStudio } from "./store";
-import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployState, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { useKeys } from "@/features/keys/store";
 import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
@@ -179,7 +180,64 @@ function Label({ children }: { children: React.ReactNode }) {
   return <span className="text-small font-medium uppercase tracking-wider text-fg-faint">{children}</span>;
 }
 
+/*
+ * A DEPLOYMENT IS FOLLOWED TO ITS END, WHATEVER HAPPENS TO THE PAGE.
+ *
+ * Go live starts a deployment and follows it from this page. The dialog
+ * closing does not stop that; a reload or a closed tab did, and the address
+ * never landed (`tests/live-resume.mjs`). So the deployment is written on
+ * the site as `pending` the moment it starts, and cleared only when Vercel
+ * says it ended: READY records the address, ERROR or CANCELED end it with
+ * nothing to record. A wait with no Vercel key, a lost connection, or the
+ * ten-minute patience running out leaves it pending, to be picked up again.
+ * `following` keeps one page from following the same deployment twice.
+ */
+const following = new Set<string>();
+/** A deployment older than this is not waited on again: whatever it came to, the Vercel log has it. */
+const PENDING_FOR = 24 * 60 * 60_000;
+
+async function followDeployment(projectId: string, dep: { id: string; team: string | null }, onState?: (s: DeployState) => void): Promise<DeployState> {
+  following.add(dep.id);
+  const builds = useBuilds.getState();
+  if (builds.projects.find((p) => p.id === projectId)?.pending?.id !== dep.id) builds.setPending(projectId, { id: dep.id, team: dep.team, at: Date.now() });
+  try {
+    const end = await watchDeploy(dep.id, { team: dep.team, onState });
+    if (end.state === "READY" && end.url) useBuilds.getState().setLive(projectId, end.url);
+    if (end.state === "READY" || end.state === "ERROR" || end.state === "CANCELED") useBuilds.getState().setPending(projectId, undefined);
+    return end;
+  } finally {
+    following.delete(dep.id);
+  }
+}
+
+/**
+ * On the Builder, every site's pending deployment is picked up: after the
+ * list hydrates, after a new one is written, and again when a Vercel key is
+ * unlocked, since without one there is nothing to ask Vercel with.
+ */
+function useResumeLive() {
+  const ctx = useActions();
+  const waiting = useBuilds((s) => s.projects.filter((p) => p.pending).map((p) => `${p.id}:${p.pending!.id}`).join(","));
+  const keyed = useKeys((s) => s.unlocked && !!s.values.VERCEL_TOKEN);
+  React.useEffect(() => {
+    for (const p of useBuilds.getState().projects) {
+      const dep = p.pending;
+      if (!dep || following.has(dep.id)) continue;
+      if (Date.now() - dep.at > PENDING_FOR) { useBuilds.getState().setPending(p.id, undefined); continue; }
+      void followDeployment(p.id, dep).then((end) => {
+        if (end.state === "READY" && end.url) {
+          ctx.publish({ key: "studio:live", title: "The site is live", body: `${p.name} at ${end.url}`, level: "success", source: "studio", toast: true, href: end.url });
+        } else if (end.state === "ERROR" || end.state === "CANCELED") {
+          ctx.publish({ key: "studio:live", title: `The build ${end.state.toLowerCase()}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, keyed]);
+}
+
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  useResumeLive();
   const pinned = useStudio((s) => s.bookPinned);
   const spec = useCompiledBrief();
 
@@ -755,16 +813,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       setLiveRun({ state: started.state, url: started.url, inspectorUrl: started.inspectorUrl, done: false });
 
       setBusy("Building…");
-      const end = await watchDeploy(started.id, {
-        team: started.team,
-        onState: (st) => {
+      const follow = (onState: (s: DeployState) => void) =>
+        project?.id ? followDeployment(project.id, { id: started.id, team: started.team }, onState) : watchDeploy(started.id, { team: started.team, onState });
+      const end = await follow(
+        (st) => {
           setLiveRun({ state: st.state, url: st.url, inspectorUrl: st.inspectorUrl ?? started.inspectorUrl, done: st.done, message: st.message });
           setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : st.state === null ? "Waiting for Vercel to say…" : "Finishing…");
         },
-      });
+      );
       if (end.state === "READY" && end.url) {
-        const id = project?.id;
-        if (id) useBuilds.getState().setLive(id, end.url);
         useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
         ctx.publish({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
       } else {

@@ -8,7 +8,7 @@
  * deployment is kept on the site now, and the Builder picks it up when it
  * opens again.
  *
- *   1. Go live, reload the moment Vercel has been asked for the deployment.
+ *   1. Go live, reload at the first poll of the deployment.
  *   2. Go live again, close the tab at the same moment, open a new one.
  * Each time the site must record the address once the deployment is READY,
  * show it, and keep nothing pending.
@@ -147,13 +147,17 @@ await page.waitForTimeout(1200);
   await page.waitForTimeout(500);
 }
 
-/** Go live, and the moment Vercel has been asked for a deployment, leave the page the way `leave` says. */
+/**
+ * Go live, and at the first poll leave the page the way `leave` says. The
+ * first poll, not the request: the deployment's id reaches the page only in
+ * Vercel's answer, and a page left before that answer has nothing to pick up.
+ */
 const goLiveAndLeave = async (leave) => {
   const n = deployments.length;
   await page.evaluate(() => window.__studioOpenBrief?.());
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: /Go live/ }).first().click({ timeout: 15000 });
-  for (let i = 0; i < 120 && deployments.length === n; i++) await sleep(100);
+  for (let i = 0; i < 300 && !(deployments[n]?.polls >= 1); i++) await sleep(100);
   const dep = deployments[n];
   const pollsWhenLeft = dep?.polls ?? null;
   await leave();

@@ -57,6 +57,13 @@ export interface Project {
   offered?: boolean;
   /** Where it went live, the last time it did. */
   live?: { url: string; at: number };
+  /**
+   * A deployment Go live started and has not seen end. Kept here, not in
+   * the page, so a reload or a closed tab does not lose it: the Builder
+   * picks it up when it opens again and records the address once it is
+   * READY (`BriefDialog.tsx`, `tests/live-resume.mjs`).
+   */
+  pending?: { id: string; team: string | null; at: number };
 }
 
 /** What a project's document says about itself, for the row that lists it. */
@@ -94,6 +101,8 @@ interface Builds {
   /** The new site's offer was taken or declined. */
   setOffered: (id: string) => void;
   setLive: (id: string, url: string) => void;
+  /** The deployment being waited on, or none. */
+  setPending: (id: string, pending: Project["pending"]) => void;
   /** Write the open document back to its own slot. */
   save: () => void;
 }
@@ -230,7 +239,7 @@ export const useBuilds = create<Builds>()(
         const copy = uid();
         write(slot(copy), read(slot(id)));
         set((s) => ({
-          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined }, ...s.projects],
+          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined }, ...s.projects],
         }));
       },
 
@@ -269,6 +278,9 @@ export const useBuilds = create<Builds>()(
 
       setLive: (id, url) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, live: { url, at: Date.now() } } : p)) })),
+
+      setPending: (id, pending) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, pending } : p)) })),
     }),
     {
       name: "builder.builds",

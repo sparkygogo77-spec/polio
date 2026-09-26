@@ -710,6 +710,8 @@ export interface DeployState {
   url: string | null;
   inspectorUrl: string | null;
   message?: string;
+  /** Why the route could not say, when it could not: "no-token" is a wait for a key, not an end. */
+  reason?: string;
 }
 
 /**
