@@ -42,7 +42,7 @@ import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
-import { docOf, useBuilds, type Project } from "./store";
+import { docOf, repoLabel as labelOf, useBuilds, type Project } from "./store";
 import { SitePreview } from "@/features/studio/SitePreview";
 
 /** "owner/name" if it looks like one, else nothing. */
@@ -181,6 +181,9 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
             <span className="text-fg-faint/70">· {project.repo.branch}</span>
           </p>
         ) : null}
+        {project.source ? (
+          <p data-card-source="" className="min-w-0 truncate text-small text-fg-faint">from {labelOf(project.source)}</p>
+        ) : null}
 
         {/* The options bar. Everything that can be done to this site, in one
             row under it, rather than appearing on hover somewhere else. Pushed
@@ -253,11 +256,15 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
   React.useEffect(() => { setDraft(repoLabel(project)); setBranch(project.repo?.branch ?? "main"); }, [project]);
 
   const parsed = parseRepo(draft);
+  /* A repository a site was brought in from is never a publish target: the
+     owner's ruling, polio never writes to a capture repository. Refused
+     here in words, and by the store and the publish route behind it. */
+  const from = parsed ? useBuilds.getState().projects.find((p) => p.source && labelOf(p.source)!.toLowerCase() === `${parsed.owner}/${parsed.name}`.toLowerCase()) ?? null : null;
   const changed = draft.trim() !== repoLabel(project) || branch.trim() !== (project.repo?.branch ?? "main");
   const commit = () => {
     if (!changed) return;
     if (!draft.trim()) { setRepo(project.id, undefined); }
-    else if (parsed) { setRepo(project.id, { ...parsed, branch: branch.trim() || "main" }); }
+    else if (parsed && !from) { if (!setRepo(project.id, { ...parsed, branch: branch.trim() || "main" })) return; }
     else return;
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1200);
@@ -293,7 +300,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           className="h-7 w-28 text-xs"
           aria-label={`Publish ${project.name} to this branch`}
         />
-        <Button size="xs" variant={changed ? "primary" : "outline"} disabled={!changed || (!!draft.trim() && !parsed)} onClick={commit}>
+        <Button size="xs" variant={changed ? "primary" : "outline"} disabled={!changed || (!!draft.trim() && (!parsed || !!from))} onClick={commit}>
           {saved ? <Check /> : null}
           {/* IT IS NOT THE ATTACH CONTROL AND MUST STOP READING LIKE ONE.
               "Use this" on a field called Repos is what he pressed expecting
@@ -319,6 +326,8 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
       <p className="mt-1.5 text-plain text-fg-muted">
         {draft.trim() && !parsed ? (
           <span className="text-down">A repository is owner/name.</span>
+        ) : from && changed ? (
+          <span data-repo-refused="" className="text-down">{labelOf(from.source)} is where {from.id === project.id ? "this site" : from.name} was brought in from, and Publish never writes back into that. Name a repository of its own, or leave it empty and the first Publish makes one.</span>
         ) : saveFailed ? (
           <span className="text-down">This browser would not keep the change: its storage is full. Remove a site or its pictures, then set it again.</span>
         ) : project.repo ? (
@@ -326,6 +335,9 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
         ) : (
           <span data-repo-none="">No repository of its own yet. The first Publish makes a private one named after this site, or set one here.</span>
         )}
+        {project.source ? (
+          <span data-repo-source="" className="block text-fg-faint">Brought in from {labelOf(project.source)}. Bring reads it; Publish never writes to it.</span>
+        ) : null}
       </p>
     </li>
   );

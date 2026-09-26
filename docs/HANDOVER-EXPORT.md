@@ -3,9 +3,9 @@
 The site as files a person can open: an `index.html` per page, one stylesheet,
 the pictures. `src/features/studio/exportSite.ts`, reached as
 `window.__studioExport()`; `scripts/export-site.mjs` writes it to a folder whose
-`index.html` opens from disk. **Not wired into Publish**: the owner has not
-ruled on the guards (a Publish overwrites sink's main with the board's
-document), so Publish still sends what it sent.
+`index.html` opens from disk. **Not wired into Publish**: Publish still sends
+what it sent. (The guard that was missing, a Publish overwriting sink's main
+with the board's document, is in place: see "Where Publish goes" below.)
 
 ## What it is
 
@@ -246,3 +246,39 @@ Readers:
     there."
 12. Go live's deploy call, after a push that worked (Vercel; not changed).
 13. Tests that pinned the old rule: `bring-lands.mjs`, `bring-bound.mjs`.
+
+### The rule now
+
+- **Two fields.** `project.repo` is where a site publishes, and only that.
+  `project.source` is where it was brought in from: what Bring reads (the
+  lock on which repository a board may bring in again), never written to.
+  Every import (`FromASite.tsx`, both paths) sets only the source, and takes
+  off a publish target that was the same repository, saying so.
+- **One rule, `settle` in `builds/store.ts`:** a site bound by "import" reads
+  as brought in from that repository with no publish target, and no site
+  keeps a publish target that is any site's source. It runs on every
+  hydration (the persist `merge`, then written back by `carryRepos`) and
+  whenever a source is set. `setRepo` refuses a source. Not a persist version
+  bump, so an older build reading the list does not drop it.
+- **A site with no target** gets a repository of its own on its first
+  Publish (`createRepo` in the route, as before), on `main`.
+- **The route refuses**, in words and before any call that writes: any
+  repository the browser says a site was brought in from (`sources`, reason
+  "source"); any repository holding `site/capture/` on its default branch or
+  the branch asked for (reason "capture"); and one it cannot look in (reason
+  "capture-unknown", with GitHub's status). The capture check runs ahead of
+  `tipOf`, which can itself make a branch. The Brief dialog refuses a source
+  before sending, and takes a target the route calls a capture or a source
+  off the site, saying so. The Builds page's "Publish here" and the GitHub
+  panel's "publish only" refuse a source in words.
+- **Replace / Keep, measured on every Bring door** into a 3-part board
+  brought in from sink. On 3e14749: the GitHub panel's Bring beside the
+  repo and its typed field warned; its list of repos and the "Bring a
+  repository in" dialog replaced the 3 parts with 245 and said nothing.
+  Now all four warn, and Keep my board leaves the 3 parts.
+
+**Measured:** `tests/publish-source.mjs` on 3e14749, 7 of 24 (the browser
+asks for `repo = boundTo = sparkygogo77-spec/sink`; 9 writes into it on one
+press, 19 over the run). On this change, 26 of 26: the push asks
+`create = SOLCINERATOR, branch = main`, the route makes `someone/solcinerator`
+and makes its 9 writes there, and 0 writes reach sink over the whole run.

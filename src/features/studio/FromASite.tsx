@@ -424,9 +424,14 @@ export function FromASite({ space }: { space: Space }) {
     const sweptSays = useStudio.getState().sweepNote ?? "";
     useStudio.setState({ sweepNote: null });
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
-    /* Brought in from it: the site is bound to this repository, and the
-       repository belongs to this site from now on. */
-    if (id && repo) builds.setRepo(id, repo, "import");
+    /* Brought in from it: that is where the site came from, and only that.
+       It is never where the site publishes (the owner's ruling: polio never
+       writes to a capture repository), so a publish target that was this
+       same repository is taken off, and said below. */
+    const aimedHere = id ? useBuilds.getState().projects.find((p) => p.id === id)?.repo : undefined;
+    const tookOff = !!aimedHere && !!repo && `${aimedHere.owner}/${aimedHere.name}`.toLowerCase() === `${repo.owner}/${repo.name}`.toLowerCase();
+    if (id && repo) builds.setSource(id, repo);
+    const publishesTo = id ? useBuilds.getState().projects.find((p) => p.id === id)?.repo : undefined;
     if (id && copy.name) builds.rename(id, copy.name);
     void (async () => {
       let kept = 0;
@@ -441,7 +446,7 @@ export function FromASite({ space }: { space: Space }) {
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,
-        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}${sentencesSaid}`,
+        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Brought in from ${of.owner}/${of.name} on ${copy.ref}, which Publish never writes to: ${publishesTo ? `it goes to ${publishesTo.owner}/${publishesTo.name}` : `the first Publish makes this site a repository of its own`}.${tookOff ? ` ${of.owner}/${of.name} was this site's publish target, and is not any more.` : ""}${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}${sentencesSaid}`,
         level: behind ? "warn" : "success",
         source: "studio",
         toast: { durationMs: 10000 },
@@ -703,13 +708,12 @@ export function FromASite({ space }: { space: Space }) {
         parts,
       );
     }
-    /* A page brought in from a repository binds the site to it, when the
-       site had none: the site is that repository's now. */
+    /* A page brought in from a repository is where the site came from,
+       when it had come from nowhere yet. Never where it publishes. */
     if (from) {
       const here = activeProject();
-      const bound = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
-      const same = here?.repo && `${here.repo.owner}/${here.repo.name}`.toLowerCase() === `${from.owner}/${from.name}`.toLowerCase();
-      if (here && bound && (!here.repo || same)) useBuilds.getState().setRepo(here.id, same ? here.repo : bound, "import");
+      const came = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
+      if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
     }
     // Locked as the page had it: the layout is the specification.
     lockNow(space.id);

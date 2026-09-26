@@ -279,6 +279,7 @@ const mineHeld = async () => { const ids = await nodeIds(); return ids.length ==
 const doors = [
   { name: "the GitHub panel's Bring beside the source", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700); await page.locator("[data-repo-bring-own]").click(); } },
   { name: "the GitHub panel's typed field", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700); await page.locator("[data-repo-bring]").fill(SINK); await page.locator("[data-repo-pull]").click(); } },
+  { name: "the GitHub panel's list of repos", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(1200); await page.locator(`[data-repo-connect="${SINK}"]`).click(); } },
   { name: "the Bring a repository in dialog", press: async () => { await page.locator("[data-bring-repo]").first().click(); await page.waitForTimeout(900); await page.locator(`[data-repo-pick="${SINK}"]`).click(); } },
 ];
 for (const d of doors) {

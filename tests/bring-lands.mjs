@@ -121,14 +121,18 @@ const freshSite = async () => {
   await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(900);
 };
+/* Where the open site publishes, and where it was brought in from: two
+   fields since the owner's ruling that Publish never writes into the
+   repository a site came from (tests/publish-source.mjs). */
 const boundNow = () => page.evaluate(() => { try { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return p && p.repo ? `${p.repo.owner}/${p.repo.name}` : null; } catch { return null; } });
+const sourceNow = () => page.evaluate(() => { try { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return p && p.source ? `${p.source.owner}/${p.source.name}` : null; } catch { return null; } });
 const acceptReplace = async (p) => {
   await p.waitForTimeout(300);
   const go = p.locator("[data-repo-bring-go]");
   if (await go.count()) await go.click();
 };
 const bring = async (name) => {
-  const boundTo = await boundNow();
+  const boundTo = await sourceNow();
   let fresh = false;
   if (boundTo && boundTo.toLowerCase() !== name.toLowerCase()) { await freshSite(); fresh = true; }
   await page.locator("[data-github-button]").first().click();
@@ -211,13 +215,13 @@ await bring("him/made");
 let sites = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);
-  sites = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return { list: v.state.projects.map((p) => ({ name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}@${p.repo.branch}` : null, id: p.id })), active: v.state.activeId }; });
+  sites = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return { list: v.state.projects.map((p) => ({ name: p.name, repo: p.source ? `${p.source.owner}/${p.source.name}@${p.source.branch}` : null, id: p.id })), active: v.state.activeId }; });
   if (sites.list.find((p) => p.id === sites.active)?.repo) break;
 }
 const made = sites?.list.find((p) => p.id === sites.active);
 check("a repository carrying the published document replaces this site with the whole of it, and the site takes its name", sites.list.length === before2.sites && made?.name === DOC.brief.name && sites.active === before2.active, JSON.stringify(made));
 check("no second site is made", sites.list.length === before2.sites, `${sites.list.length} sites`);
-check("connected to the repository it came from, on the branch that was read", made?.repo === "him/made@main", made?.repo ?? "none");
+check("it records the repository it came from, on the branch that was read", made?.repo === "him/made@main", made?.repo ?? "none");
 await page.waitForTimeout(1500);
 const copied = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: s.nodes.length, pages: s.pages.length, spaces: (s.spaces ?? []).length, first: s.nodes[0] ? { featureId: s.nodes[0].featureId, x: s.nodes[0].x, y: s.nodes[0].y, w: s.nodes[0].w, content: s.nodes[0].content } : null, brief: s.brief?.name }; });
 check("every part is there, on every page", copied.nodes === DOC.nodes.length && copied.pages === DOC.pages.length, `${copied.nodes} parts on ${copied.pages} pages, expected ${DOC.nodes.length} on ${DOC.pages.length}`);
@@ -243,24 +247,24 @@ check("a new press clears the strip: the previous repository's line is gone at o
 let less = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);
-  less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, n: v.state.projects.length }; });
+  less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { name: p.name, repo: p.source ? `${p.source.owner}/${p.source.name}` : null, n: v.state.projects.length }; });
   if (less.repo === "him/madeless") break;
 }
 check("a site made here with no deployed address copies just the same, replacing the site it was brought into", less.n === sites.list.length + (fresh2c ? 1 : 0) && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
 
-/* 2e. THE LOCK. This site was brought in from him/madeless: it belongs to
-   that repository. Another repository cannot be brought into it, another
-   site cannot be pointed at it, and a new site is offered an import at
-   once, with two doors and a way to say not now. */
+/* 2e. THE LOCK. This site was brought in from him/madeless. Another
+   repository cannot be brought into it, no site publishes into it, and a
+   new site is offered an import at once, with two doors and a way to say
+   not now. */
 await page.waitForTimeout(6500);
-const bound = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, bound: p.bound ?? null, nodes: JSON.parse(localStorage.getItem("builder.studio")).state.nodes.length }; });
-check("a site brought in from a repository is bound to it, and knows it was an import", bound.repo === "him/madeless" && bound.bound === "import", JSON.stringify(bound));
+const bound = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, source: p.source ? `${p.source.owner}/${p.source.name}` : null, bound: p.bound ?? null, nodes: JSON.parse(localStorage.getItem("builder.studio")).state.nodes.length }; });
+check("a site brought in from a repository records where it came from, and does not publish there", bound.source === "him/madeless" && bound.repo === null && bound.bound === null, JSON.stringify(bound));
 await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700);
-check("the panel says the site belongs to its repository, and moving it asks first", await page.evaluate(() => /This site belongs to him\/madeless\. Moving it asks first\./.test(document.querySelector("[data-repo-bound]")?.textContent ?? "")));
+check("the panel says where the site was brought in from, and that Publish never writes there", await page.evaluate(() => /Brought in from him\/madeless, which Publish never writes to\./.test(document.querySelector("[data-repo-source]")?.textContent ?? "")));
 await page.locator("[data-repo-bring]").fill("him/page");
 await page.locator("[data-repo-pull]").click(); await page.waitForTimeout(800);
 const lockSaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
-check("bringing another repository into a bound site is refused in words", /This site belongs to him\/madeless\. Make a new site to bring him\/page in\./.test(lockSaid), lockSaid.slice(0, 140));
+check("bringing another repository into a site brought in from one is refused in words", /This site was brought in from him\/madeless\. Make a new site to bring him\/page in\./.test(lockSaid), lockSaid.slice(0, 140));
 check("and nothing changes", (await doc()).nodes === bound.nodes);
 await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 
@@ -271,16 +275,16 @@ const offer = await page.evaluate(() => { const e = document.querySelector("[dat
 check("a new site is offered an import straight away, with both doors and a way to say not now", !!offer && /no repository yet/.test(offer.text ?? "") && offer.bring && offer.make && offer.later, JSON.stringify(offer));
 await page.locator("[data-offer-bring]").click(); await page.waitForTimeout(700);
 check("the bring door opens the GitHub control on the bring field", await page.evaluate(() => document.activeElement?.getAttribute("data-repo-bring") === ""));
-/* On the new site, pointing at the repository BLACKORB's site was brought in from is refused: that repository belongs to that site. */
-await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); v.state.projects.find((p) => p.repo && p.repo.name === "madeless").name = "Madeless site"; localStorage.setItem("builder.builds", JSON.stringify(v)); });
+/* On the new site, publishing to the repository another site was brought in from is refused. */
+await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); v.state.projects.find((p) => p.source && p.source.name === "madeless").name = "Madeless site"; localStorage.setItem("builder.builds", JSON.stringify(v)); });
 const connectSaid = await page.evaluate(async () => {
-  const list = document.querySelector("[data-repo-connect='him/madeless']");
+  const list = document.querySelector("[data-repo-publish-only='him/madeless']");
   if (!list) return "no such row";
   list.click();
   await new Promise((r) => setTimeout(r, 400));
   return document.querySelector("[data-repo-said]")?.textContent ?? "";
 });
-check("pointing a site at a repository another site was brought in from is refused: it belongs to that site", /him\/madeless belongs to the site .+, which was brought in from it/.test(connectSaid) || connectSaid === "no such row", connectSaid.slice(0, 140));
+check("publishing a site to a repository another site was brought in from is refused", /him\/madeless is where the site .+ was brought in from/.test(connectSaid) || connectSaid === "no such row", connectSaid.slice(0, 140));
 await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 await page.locator("[data-offer-later]").click(); await page.waitForTimeout(300);
 check("not now takes the offer away", (await page.locator("[data-new-site-offer]").count()) === 0);
@@ -290,8 +294,9 @@ await page.locator("[data-builds-switch]").first().click(); await page.waitForTi
 await page.getByRole("button", { name: /Madeless/ }).first().click(); await page.waitForTimeout(900);
 
 /* 2f. ATTACHING IS IMPORTING. Choosing a repository from the panel's list
-   runs the same path Bring it runs: the site is bound and the board is
-   replaced. Publish only binds and leaves the board alone. */
+   runs the same path Bring it runs: the board is replaced and the site
+   records where it came from. Publish only points publishing and leaves the
+   board alone. */
 await page.route("**/api/studio/repo?**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }));
 await page.route("**/api/studio/repo", (r) => r.request().method() === "GET" ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }) : r.continue());
 await freshSite();
@@ -301,14 +306,14 @@ await page.locator("[data-repo-connect='him/page2']").click();
 let attached = await doc();
 for (let i = 0; i < 90 && attached.nodes === 0; i++) { await page.waitForTimeout(1000); attached = await doc(); }
 check("choosing it brings it in: the board is the repository's", attached.nodes >= 2, `${attached.nodes} parts`);
-check("and the site is bound to it as an import", (await boundNow()) === "him/page2" && await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return v.state.projects.find((p) => p.id === v.state.activeId).bound === "import"; }));
+check("and the site records it as where it came from, not where it publishes", (await sourceNow()) === "him/page2" && (await boundNow()) === null);
 await page.waitForTimeout(1500);
 await freshSite();
 await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(900);
-/* him/page belongs to the site it was brought into: pointing this one at it is refused. */
+/* him/page is where a site was brought in from: publishing this one there is refused. */
 await page.locator("[data-repo-publish-only='him/page']").click(); await page.waitForTimeout(500);
 const ownedSaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
-check("pointing a site at a repository another site was brought in from is refused, even for publishing", /him\/page belongs to the site .+, which was brought in from it/.test(ownedSaid), ownedSaid.slice(0, 120));
+check("pointing a site's publishing at a repository another site was brought in from is refused", /him\/page is where the site .+ was brought in from/.test(ownedSaid), ownedSaid.slice(0, 120));
 await page.locator("[data-repo-publish-only='him/page3']").click(); await page.waitForTimeout(600);
 const onlySaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
 check("publish only points publishing there and says so, and leaves the board as it was", /Publishing goes to him\/page3 now\. The board is as it was\./.test(onlySaid) && (await doc()).nodes === 0 && (await boundNow()) === "him/page3", onlySaid.slice(0, 120));

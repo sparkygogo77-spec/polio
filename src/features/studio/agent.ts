@@ -738,7 +738,7 @@ export async function watchDeploy(
   }
 }
 
-export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string; boundTo?: string }): Promise<PublishResult> {
+export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string; boundTo?: string; sources?: string[] }): Promise<PublishResult> {
   try {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
@@ -756,6 +756,8 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
         ...(input.create ? { create: input.create } : {}),
         // Which repository this site is bound to: the route refuses any other.
         ...(input.boundTo ? { boundTo: input.boundTo } : {}),
+        // Where sites here were brought in from: the route refuses every one.
+        ...(input.sources?.length ? { sources: input.sources } : {}),
       }),
     });
     const data = (await res.json()) as PublishResult;

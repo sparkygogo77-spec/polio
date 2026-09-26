@@ -26,7 +26,7 @@ import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { Input } from "@/core/ui/input";
 import { publishStatus, type PublishStatus } from "@/features/studio/agent";
-import { activeProject, importedBy, repoFrom, useBuilds } from "@/features/builds/store";
+import { activeProject, repoFrom, repoLabel, sourceOf, useBuilds } from "@/features/builds/store";
 import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys, useKeys } from "@/features/keys/store";
@@ -112,7 +112,7 @@ export function GithubButton() {
       open={open}
       onOpenChange={setOpen}
       align="end"
-      content={<RepoPanel own={mine} branch={project?.repo?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
+      content={<RepoPanel own={mine} from={repoLabel(project?.source)} branch={project?.repo?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
     >
     <Tooltip content={label}>
       <Button
@@ -172,7 +172,13 @@ export function GithubButton() {
  * No key of his is stored here. The token rides with the call out of the
  * Keys panel, in his browser, exactly as it does for a publish.
  */
-function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
+/*
+ * TWO REPOSITORIES, NEVER THE SAME ONE. `own` is where this site publishes;
+ * `from` is where it was brought in from, which is what Bring reads and what
+ * Publish never writes to (the owner's ruling: polio never writes to a
+ * capture repository).
+ */
+function RepoPanel({ own, from, branch, canPush, onDone }: { own: string | null; from: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
   /* The site's own, or nothing: there is no other repository a publish goes to. */
   const pointsAt = own;
   const siteName = useStudio((s) => s.brief?.name ?? "");
@@ -308,26 +314,25 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * lands. A Builder with no site adopted yet takes one first.
    */
   /*
-   * THE LOCK. A site is bound to one repository. Pointing a bound site at
+   * THE LOCK. A site publishes to one repository. Pointing a bound site at
    * another is deliberate: a confirmation naming both, never a click on a
-   * list. A repository another site was brought in from belongs to that
-   * site, and no other site may be pointed at it: an existing design must
-   * never overwrite a repository he imported.
+   * list. A repository any site was brought in from, this one included, is
+   * never a publish target: polio never writes to a capture repository.
+   * Bringing one in is a Bring (`askBring`), and never points publishing.
    */
-  const connect = (full: string, onBranch: string, how: "connected" | "made" | "import" = "connected"): boolean => {
+  const connect = (full: string, onBranch: string, how: "connected" | "made" = "connected"): boolean => {
     const repo = repoFrom(full, onBranch);
     if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be connected.`); return false; }
     let project = activeProject();
     if (!project) { useBuilds.getState().adopt(); project = activeProject(); }
     if (!project) { setSaid("There is no site open to connect it to."); return false; }
-    const theirs = importedBy(full, project.id);
-    if (theirs) { setSaid(`${full} belongs to the site ${theirs.name}, which was brought in from it. Open that site to publish to it.`); return false; }
+    const theirs = sourceOf(full);
+    if (theirs) { setSaid(`${full} is where ${theirs.id === project.id ? "this site" : `the site ${theirs.name}`} was brought in from, and Publish never writes back into that. The first Publish makes this site a repository of its own.`); return false; }
     const current = project.repo ? `${project.repo.owner}/${project.repo.name}` : null;
     if (current && current.toLowerCase() !== full.toLowerCase()) {
       if (!window.confirm(`Move this site from ${current} to ${full}? Publishes go to ${full} from now on, and ${current} is left as it is.`)) return false;
     }
-    useBuilds.getState().setRepo(project.id, repo, how);
-    return true;
+    return useBuilds.getState().setRepo(project.id, repo, how);
   };
 
   const make = async () => {
@@ -379,12 +384,12 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
     /* Nothing to lose, or nothing that will happen: an empty board is not
        asked, and a repository the lock refuses is refused in words at once,
        not asked about first. */
-    if (partCount === 0 || (own && want.toLowerCase() !== own.toLowerCase())) { startBring(want); return; }
+    if (partCount === 0 || (from && want.toLowerCase() !== from.toLowerCase())) { startBring(want); return; }
     setSaid(null);
     setAsking(want);
   };
   const confirmLine = (where: "own" | "typed") => {
-    if (!asking || (where === "own") !== (asking === own)) return null;
+    if (!asking || (where === "own") !== (!!from && asking.toLowerCase() === from.toLowerCase())) return null;
     const parts = `${partCount} part${partCount === 1 ? "" : "s"}`;
     const pages = `${pageCount} page${pageCount === 1 ? "" : "s"}`;
     return (
@@ -415,7 +420,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
          the toast, the navigation — and the picker would have been a second
          copy of it, which is the bug this repository names most often. */
       const out = bringRepoIn(want, {
-        own,
+        own: from,
         say: (n) => ctx.publish({ ...n, level: "info", source: "studio", toast: { durationMs: 5000 } }),
         toBoard: () => router.push("/builder"),
         stale: () => !!staleBuild(),
@@ -447,10 +452,13 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
         {/* The site is bound to this repository, so bringing it in needs no
             typing: his ruling, "it should always stay locked to the repo it
             is selected to, so I don't have to retype it". */}
-        {own ? (
-          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => askBring(own)}>
-            {pulling && asking === null ? "Reading\u2026" : `Bring ${own} in`}
-          </Button>
+        {from ? (
+          <>
+            <p data-repo-source={from} className="mt-1 text-small text-fg-muted">Brought in from <span className="text-fg">{from}</span>, which Publish never writes to.</p>
+            <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => askBring(from)}>
+              {pulling && asking === null ? "Reading\u2026" : `Bring ${from} in`}
+            </Button>
+          </>
         ) : null}
         {confirmLine("own")}
       </div>
@@ -544,8 +552,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
               <button
                 type="button"
                 data-repo-connect={r.name}
-                onClick={() => { if (connect(r.name, r.branch ?? "main", "import")) startBring(r.name); }}
-                title={`Bring ${r.name} in: this site becomes it, and publishes to it`}
+                onClick={() => askBring(r.name)}
+                title={`Bring ${r.name} in: this site becomes it. It still publishes to a repository of its own`}
                 className={cn("tactile flex min-w-0 flex-1 items-center justify-between rounded px-1 py-0.5 text-left text-plain", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
                 <span className="truncate">{r.name}</span>

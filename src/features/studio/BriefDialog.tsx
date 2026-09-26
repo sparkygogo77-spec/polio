@@ -35,7 +35,7 @@ import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
 import { auditCounts, auditSite, sitePictures, staticSite, type PageAudit } from "./staticSite";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
-import { activeProject, useBuilds } from "@/features/builds/store";
+import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { Button } from "@/core/ui/button";
@@ -607,17 +607,47 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
    */
   const pushTo = () => {
     const project = activeProject();
+    /* WHERE IT PUBLISHES, never where it came from: `repo` is the publish
+       target alone, and `source` (what Bring read) is not read here. */
+    const repo = repoLabel(project?.repo) ?? undefined;
+    const sources = allSources();
     return {
       project,
-      repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
-      branch: project?.repo?.branch,
+      repo,
+      /* A site with no target yet gets a new repository, on main. The
+         document's edit branch was opened against a target, and a
+         repository made this moment has none of that history. */
+      branch: project?.repo?.branch ?? (repo ? undefined : "main"),
       /* The lock, said to the route: this site publishes to the repository
          it is bound to and nowhere else, whatever else the call says. */
-      boundTo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
+      boundTo: repo,
+      /* Every repository a site here was brought in from: the route refuses
+         each, whatever the call names. */
+      sources,
+      /* Said here too, before anything is sent: the target is where a site
+         came from. `settle` keeps that from happening; this is the words
+         for it if it ever does. */
+      refused: repo && sources.some((r) => r.toLowerCase() === repo.toLowerCase())
+        ? `${repo} is where a site here was brought in from, and Publish never writes back into that. Clear it on the Builds page and the next Publish makes this site a repository of its own.`
+        : null,
       /* No repository yet: what to call the one this publish will make.
          Nobody is asked for a name — the site already has one. */
-      create: project?.repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
+      create: repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
     };
+  };
+
+  /*
+   * A TARGET THE ROUTE SAYS IS A CAPTURE, OR A SOURCE, IS TAKEN OFF.
+   *
+   * It is refused either way; left on, every press would be refused again
+   * and the Builds page would go on saying Publish pushes there. Taken off
+   * and said, the next press makes the site a repository of its own.
+   */
+  const refusedTarget = (project: ReturnType<typeof activeProject>, r: { reason?: string; message?: string }): string => {
+    const message = r.message ?? "";
+    if (!project?.repo || (r.reason !== "capture" && r.reason !== "source")) return message;
+    useBuilds.getState().setRepo(project.id, undefined);
+    return `${message} It is no longer this site's publish target: the next Publish makes a repository of its own.`;
   };
 
   /*
@@ -636,10 +666,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const doPublish = async () => {
     if (busy) return;
     setNote(null);
+    const { project, repo, branch, create, boundTo, sources, refused } = pushTo();
+    if (refused) {
+      setNote(refused);
+      ctx.publish({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
+      return;
+    }
     const going = await everything();
     setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
-      const { project, repo, branch, create, boundTo } = pushTo();
       const r = await publish({
         files: going,
         message: pubMessage.trim() || "Builder: publish the site",
@@ -648,6 +683,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         branch,
         create,
         boundTo,
+        sources,
       });
       remember(project, r.created, r.ok ? r.branch : branch);
       if (r.ok) {
@@ -660,8 +696,9 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         ]);
         ctx.publish({ key: "studio:publish", title: r.created ? `Made ${r.repo} and published to it` : `Published to ${r.repo}`, body: `${r.files} files on ${r.branch}${r.deployed ? " · Vercel deploy started" : ""}`, level: "success", source: "studio", toast: true, href: r.commitUrl });
       } else {
-        setNote(r.message);
-        ctx.publish({ key: "studio:publish", title: "Publish failed", body: r.message, level: "error", source: "studio", toast: true });
+        const says = refusedTarget(project, r);
+        setNote(says);
+        ctx.publish({ key: "studio:publish", title: "Publish failed", body: says, level: "error", source: "studio", toast: true });
       }
     } finally {
       setBusy(null);
@@ -681,15 +718,21 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     if (busy) return;
     setNote(null);
     setLiveRun(null);
-    const { project, repo, branch, create } = pushTo();
+    const { project, repo, branch, create, boundTo, sources, refused } = pushTo();
+    if (refused) {
+      setNote(refused);
+      ctx.publish({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
+      return;
+    }
     const going = await everything();
     try {
       setBusy(`Pushing ${going.length} files to GitHub…`);
-      const pushed = await publish({ files: going, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create });
+      const pushed = await publish({ files: going, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create, boundTo, sources });
       remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
       if (!pushed.ok) {
-        setNote(pushed.message);
-        ctx.publish({ key: "studio:publish", title: "Publish failed", body: pushed.message, level: "error", source: "studio", toast: true });
+        const says = refusedTarget(project, pushed);
+        setNote(says);
+        ctx.publish({ key: "studio:publish", title: "Publish failed", body: says, level: "error", source: "studio", toast: true });
         return;
       }
       setPubResult({ url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook });

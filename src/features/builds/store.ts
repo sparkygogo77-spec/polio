@@ -18,6 +18,9 @@ import { uid } from "@/core/lib/ids";
 import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/store";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
+/** A hydration settled the list (`settle`), and storage does not have it yet. */
+let unsettled = false;
+
 /** Where the Builder reads and writes the document it is editing. */
 const LIVE = "builder.studio";
 /** Where a project that is not open keeps its own. */
@@ -27,16 +30,29 @@ export interface Project {
   id: string;
   name: string;
   updatedAt: number;
-  /** Where it publishes to. Unset until someone says. */
+  /**
+   * WHERE IT PUBLISHES TO, and only that. Unset until someone says, or
+   * until the first Publish makes it a repository of its own.
+   */
   repo?: { owner: string; name: string; branch: string };
   /**
-   * HOW THE SITE CAME TO ITS REPOSITORY, which is the lock. A site is bound
-   * to one repository: brought in from it, made for it, or connected to
-   * it. Bound, it publishes there and nowhere else, and nothing else can be
-   * brought into it by accident. A repository a site was brought in from
-   * belongs to that site: no other site may be pointed at it.
+   * How the site came to that publish target, which is the lock: made for
+   * it, or connected to it. Bound, it publishes there and nowhere else.
+   *
+   * "import" is only ever read, from a browser that saved before the
+   * source was its own field: it meant `repo` was where the site was
+   * brought in from, and `settle` turns it into `source`.
    */
   bound?: "import" | "made" | "connected";
+  /**
+   * WHERE IT WAS BROUGHT IN FROM. Read-only: what Bring reads, and never
+   * where Publish writes. The owner's ruling: polio never writes to a
+   * capture repository, so a site publishes to a repository of its own
+   * and never back into the one it came from. `repo` and `source` are
+   * never the same repository, and no board publishes into any board's
+   * source (`settle`, `setRepo`, and the publish route all hold that).
+   */
+  source?: { owner: string; name: string; branch: string };
   /** The new-site offer was answered: nothing to offer again. */
   offered?: boolean;
   /** Where it went live, the last time it did. */
@@ -67,7 +83,14 @@ interface Builds {
   rename: (id: string, name: string) => void;
   duplicate: (id: string) => void;
   remove: (id: string) => void;
-  setRepo: (id: string, repo: Project["repo"], bound?: Project["bound"]) => void;
+  /**
+   * Where a site publishes to. False, and nothing changed, when that is a
+   * repository a board was brought in from. "import" sets the source
+   * instead, for any caller still saying it that way.
+   */
+  setRepo: (id: string, repo: Project["repo"], bound?: Project["bound"]) => boolean;
+  /** Where a site was brought in from. A publish target that is the same repository goes. */
+  setSource: (id: string, source: Project["source"]) => void;
   /** The new site's offer was taken or declined. */
   setOffered: (id: string) => void;
   setLive: (id: string, url: string) => void;
@@ -231,8 +254,15 @@ export const useBuilds = create<Builds>()(
         swapDoc(held);
       },
 
-      setRepo: (id, repo, bound) =>
-        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? p.bound ?? "connected") : undefined } : p)) })),
+      setRepo: (id, repo, bound) => {
+        if (bound === "import") { get().setSource(id, repo); return true; }
+        if (repo && sourceOf(repoLabel(repo)!)) return false;
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? (p.bound === "import" ? undefined : p.bound) ?? "connected") : undefined } : p)) }));
+        return true;
+      },
+
+      setSource: (id, source) =>
+        set((s) => ({ projects: settle(s.projects.map((p) => (p.id === id ? { ...p, source } : p))) })),
 
       setOffered: (id) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, offered: true } : p)) })),
@@ -257,6 +287,21 @@ export const useBuilds = create<Builds>()(
         },
       })),
       partialize: (s) => ({ projects: s.projects, activeId: s.activeId }) as Builds,
+      /* The source a site was brought in from is its own field. A browser
+         that saved before that has sites whose `repo` is where they came
+         from, and they are read as brought in from it, on every hydration.
+         Not a version bump: an older build reading a list saved by this one
+         would drop a list with a version it does not know, and with it
+         every site's name; read by an older build, a settled site simply
+         has no repository yet. */
+      merge: (persisted, current) => {
+        const was = (persisted ?? {}) as Partial<Builds>;
+        const list = Array.isArray(was.projects) ? was.projects : current.projects;
+        const projects = settle(list);
+        /* Written back by `carryRepos`, which runs after every hydration. */
+        if (projects.some((p, i) => p !== list[i])) unsettled = true;
+        return { ...current, ...was, projects };
+      },
       skipHydration: true,
     },
   ),
@@ -274,28 +319,59 @@ export const repoFrom = (name: string, branch = "main"): Project["repo"] | undef
   return owner && repo && !more ? { owner, name: repo, branch: branch.trim() || "main" } : undefined;
 };
 
-/**
- * The site a repository was brought in from, if any. That repository
- * belongs to that site: an existing design must never overwrite a
- * repository he imported, so no other site may be pointed at it.
- */
-export const importedBy = (name: string, exceptId?: string | null): Project | null => {
-  const want = name.trim().toLowerCase();
-  return useBuilds.getState().projects.find((p) => p.id !== exceptId && p.bound === "import" && p.repo && `${p.repo.owner}/${p.repo.name}`.toLowerCase() === want) ?? null;
-};
-
 /** As `owner/name`, which is how every route and every label wants it. */
 export const repoLabel = (repo: Project["repo"] | undefined): string | null => (repo ? `${repo.owner}/${repo.name}` : null);
 
+const sameRepo = (a: Project["repo"] | undefined, b: Project["repo"] | undefined) =>
+  !!a && !!b && repoLabel(a)!.toLowerCase() === repoLabel(b)!.toLowerCase();
+
 /**
- * THE ONE PLACE A SITE'S REPOSITORY IS KEPT is `project.repo`, here.
+ * THE ONE RULE, APPLIED TO A LIST OF SITES.
  *
- * The repository the open site points at, as `owner/name`, or null when it
- * has none. Everything that needs the answer reads it here: the GitHub
- * control, the Sites list, the Builds page, Publish, and the studio store
- * when an edit decides whether to open a branch. Null means the server's
- * own repository, which is what every publish used before there was a
- * choice, and every surface says so in words rather than showing a blank.
+ *   1. A site bound by "import" was brought in from its `repo`: that is its
+ *      source, and it has no publish target until its first Publish makes
+ *      one. This is how a board saved before the split reads after it.
+ *   2. No site keeps a publish target that is any site's source, its own
+ *      included. It is taken off, and the next Publish makes one of its own.
+ *
+ * Run on every hydration (`merge`, and `carryRepos` after it) and on every
+ * source written, so there is no state in which a board is aimed at a
+ * repository a board came from.
+ */
+export function settle(projects: Project[]): Project[] {
+  const read = projects.map((p) =>
+    p.bound === "import" ? { ...p, source: p.source ?? p.repo, repo: undefined, bound: undefined } : p,
+  );
+  const sources = read.map((p) => p.source).filter(Boolean);
+  return read.map((p) => (p.repo && sources.some((s) => sameRepo(s, p.repo)) ? { ...p, repo: undefined, bound: undefined } : p));
+}
+
+/**
+ * The site a repository was brought in from, if any, its own included. No
+ * site may publish there: that is the capture, and polio never writes to it.
+ */
+export const sourceOf = (name: string): Project | null => {
+  const want = name.trim().toLowerCase();
+  return useBuilds.getState().projects.find((p) => p.source && repoLabel(p.source)!.toLowerCase() === want) ?? null;
+};
+
+/** Every repository a site in this browser was brought in from, as `owner/name`. The publish route refuses each. */
+export const allSources = (): string[] =>
+  [...new Set(useBuilds.getState().projects.map((p) => repoLabel(p.source)).filter((r): r is string => !!r))];
+
+/** Where the open site was brought in from, as `owner/name`, or null. What Bring reads. */
+export const activeSource = (): string | null => repoLabel(activeProject()?.source);
+
+/**
+ * THE ONE PLACE A SITE'S PUBLISH TARGET IS KEPT is `project.repo`, here.
+ *
+ * The repository the open site publishes to, as `owner/name`, or null when
+ * it has none yet. Everything that needs the answer reads it here: the
+ * GitHub control, the Sites list, the Builds page, Publish, and the studio
+ * store when an edit decides whether to open a branch. Null means the first
+ * Publish makes it a repository of its own, and every surface says so in
+ * words rather than showing a blank. Where it was brought in from is
+ * `project.source`, which nothing publishes to.
  */
 export const activeRepo = (): string | null => repoLabel(activeProject()?.repo);
 
@@ -329,7 +405,7 @@ function carryRepos(): void {
   };
   const held = takeCarriedRepo();
   let changed = false;
-  const next = projects.map((p) => {
+  const carried = projects.map((p) => {
     if (p.repo) return p;
     const named = (p.id === activeId ? held : null) ?? fromDoc(p.id);
     const repo = named ? repoFrom(named) : undefined;
@@ -337,5 +413,8 @@ function carryRepos(): void {
     changed = true;
     return { ...p, repo };
   });
-  if (changed) useBuilds.setState({ projects: next });
+  /* Nothing carried, and nothing already held, may aim a site at a
+     repository a site was brought in from. */
+  const next = settle(carried);
+  if (changed || unsettled || next.some((p, i) => p !== carried[i])) { unsettled = false; useBuilds.setState({ projects: next }); }
 }

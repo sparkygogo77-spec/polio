@@ -67,7 +67,10 @@ check("and every way it can fail says which one in plain words",
    list, the Builds page and Publish look, so it is where a connect writes. */
 /* HIS RULING: attaching is importing. And one answer about the token. */
 const button0 = readFileSync("src/features/studio/GithubButton.tsx", "utf8");
-check("choosing a repository from the list runs the same path Bring it runs", /if \(connect\(r\.name, r\.branch \?\? "main", "import"\)\) startBring\(r\.name\);/.test(button0));
+/* Through `askBring`, the same path Bring it runs, which says what a Bring
+   will replace before it runs; it never points publishing
+   (tests/publish-source.mjs). */
+check("choosing a repository from the list runs the same path Bring it runs", /data-repo-connect=\{r\.name\}\s*onClick=\{\(\) => askBring\(r\.name\)\}/.test(button0));
 check("and publish only is a separate control that binds without touching the board", /data-repo-publish-only=\{r\.name\}/.test(button0) && /Publishing goes to \$\{r\.name\} now\. The board is as it was\./.test(button0));
 check("the button reads the browser's key live, the same value the panel reads", /const mineNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0) && /const keyNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0));
 check("and when the key locks again the list is taken down with the reason, not left under a button that says no token", /The key is locked again after five minutes idle\. Open Keys to unlock it, and the list comes back\./.test(button0));

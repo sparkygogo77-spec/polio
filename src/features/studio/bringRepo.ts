@@ -90,7 +90,7 @@ export function takeKeptBring(): string | null {
  * the importer, exactly as a publish reads it.
  */
 export interface Bringing {
-  /** The repository this site is bound to, if it is bound. */
+  /** The repository this site was brought in from, if any. Never its publish target. */
   own?: string | null;
   /** How this surface says things out loud. */
   say: (n: { key: string; title: string; body: string }) => void;
@@ -111,10 +111,10 @@ export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: st
   const repo = readRepo(asked);
   if (!repo) return { ok: false, says: REPO_REFUSAL_SAYS["not-a-repo"] };
   const full = `${repo.owner}/${repo.name}`;
-  /* A bound site brings in its own repository and no other: one site is one
-     repository, and bringing a second in would quietly replace the first. */
+  /* A site brought in from a repository brings in that one and no other:
+     bringing a second in would quietly replace the first. */
   if (o.own && full.toLowerCase() !== o.own.toLowerCase()) {
-    return { ok: false, says: `This site belongs to ${o.own}. Make a new site to bring ${full} in.` };
+    return { ok: false, says: `This site was brought in from ${o.own}. Make a new site to bring ${full} in.` };
   }
   if (!o.hasToken()) return { ok: false, says: REPO_REFUSAL_SAYS["no-token"] };
   /*

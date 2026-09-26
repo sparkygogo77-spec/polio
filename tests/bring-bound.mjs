@@ -13,6 +13,11 @@
  * so bringing the bound one into a board with work on it was accepted, and
  * replaced the whole document.
  *
+ * Since the owner's ruling that Publish never writes into the repository a
+ * site came from, the repo a site is locked to for a Bring is its SOURCE,
+ * and it is a field of its own (`tests/publish-source.mjs`); the fixture is
+ * a board brought in from him/sink, which publishes nowhere yet.
+ *
  * So: a Bring beside the bound repo's name, and one line before it runs,
  * naming the repo and how many parts are about to go, which he can accept or
  * decline. Not a block; he has said he wants to go ahead knowing. The typed
@@ -71,7 +76,7 @@ const ids = (s) => (s.nodes ?? []).map((n) => n.id);
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.evaluate(([mine, bound]) => {
   const env = (s) => JSON.stringify({ state: s, version: 0 });
-  localStorage.setItem("builder.builds", env({ projects: [{ id: "s3", name: "Site 3", updatedAt: Date.now(), repo: bound }], activeId: "s3" }));
+  localStorage.setItem("builder.builds", env({ projects: [{ id: "s3", name: "Site 3", updatedAt: Date.now(), source: bound }], activeId: "s3" }));
   localStorage.setItem("builder.studio", env({
     pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
     activePageId: "page_home", groups: [], selection: [], threads: [], spaces: [], shapes: [], nodes: mine,
@@ -93,7 +98,7 @@ await page.locator("[data-github-button]").first().click();
 await page.waitForTimeout(700);
 
 const bound = `${BOUND.owner}/${BOUND.name}`;
-check("the panel names the site's own repo", (await page.locator("[data-repo-points]").getAttribute("data-repo-own")) === bound);
+check("the panel names the repo the site was brought in from", (await page.locator("[data-repo-source]").getAttribute("data-repo-source")) === bound);
 const own = page.locator("[data-repo-bring-own]");
 check("there is a Bring for that repo beside its name, with nothing to type", (await own.count()) === 1 && (await own.isVisible()),
   `${await own.count()} found`);
@@ -123,8 +128,8 @@ if (await own.count()) {
   check("accepting brings the bound repo in: the board is the repo's now, and his three parts are gone",
     ids(s).some((id) => doc.nodes.some((n) => n.id === id)) && !MINE.some((n) => ids(s).includes(n.id)),
     `${ids(s).length} parts, mine left: ${MINE.filter((n) => ids(s).includes(n.id)).length}`);
-  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds")).state.projects.find((p) => p.id === "s3")?.repo);
-  check("and the site is still bound to the same repo", after && `${after.owner}/${after.name}` === bound, JSON.stringify(after));
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds")).state.projects.find((p) => p.id === "s3"));
+  check("and the site is still brought in from the same repo, and publishes nowhere yet", after?.source && `${after.source.owner}/${after.source.name}` === bound && !after.repo, JSON.stringify({ source: after?.source, repo: after?.repo }));
 }
 check("with no browser dialog and no page error on the way", errors.length === 0, errors.join(" / "));
 

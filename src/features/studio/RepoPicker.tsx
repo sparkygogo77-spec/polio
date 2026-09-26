@@ -33,9 +33,10 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
 import { heldKeys, useKeys } from "@/features/keys/store";
-import { activeProject } from "@/features/builds/store";
+import { activeSource } from "@/features/builds/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn } from "./bringRepo";
+import { useStudio } from "./store";
 
 interface Mine { name: string; private: boolean; branch?: string }
 
@@ -53,6 +54,11 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
   const ctx = useActions();
   const router = useRouter();
   const unlocked = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
+  /* The repository a Bring is waiting on his word for, and what it would replace. */
+  const [asking, setAsking] = React.useState<string | null>(null);
+  const partCount = useStudio((s) => s.nodes.length);
+  const pageCount = useStudio((s) => s.pages.length);
+  React.useEffect(() => { if (!open) setAsking(null); }, [open]);
 
   /* The list, asked for when the sheet opens and again if the key is
      unlocked while it is open: the Keys panel relocks after five idle
@@ -74,11 +80,28 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
     return () => { alive = false; };
   }, [open, unlocked]);
 
-  const own = activeProject()?.repo ? `${activeProject()!.repo!.owner}/${activeProject()!.repo!.name}` : null;
+  /* Where this site was brought in from: the only repository it may bring
+     in again. Where it publishes is not this, and is not read here. */
+  const own = activeSource();
   const rows = (mine ?? []).filter((r) => !find.trim() || r.name.toLowerCase().includes(find.trim().toLowerCase()));
+
+  /*
+   * SAY WHAT GOES, ONCE, BEFORE IT GOES, as the GitHub panel's Bring does.
+   * This door had no such line: measured on 3e14749, choosing sink here on
+   * a board of 3 parts replaced them with 245 and said nothing
+   * (`tests/publish-source.mjs`). An empty board has nothing to lose and is
+   * not asked.
+   */
+  const ask = (name: string) => {
+    if (pulling) return;
+    if (partCount === 0) { choose(name); return; }
+    setSaid(null);
+    setAsking(name);
+  };
 
   const choose = (name: string) => {
     if (pulling) return;
+    setAsking(null);
     setPulling(name);
     const out = bringRepoIn(name, {
       own,
@@ -138,8 +161,8 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
                     type="button"
                     data-repo-pick={r.name}
                     disabled={barred || !!pulling}
-                    onClick={() => choose(r.name)}
-                    title={barred ? `This site belongs to ${own}. Make a new site to bring ${r.name} in.` : `Bring ${r.name} in`}
+                    onClick={() => ask(r.name)}
+                    title={barred ? `This site was brought in from ${own}. Make a new site to bring ${r.name} in.` : `Bring ${r.name} in`}
                     className="tactile flex w-full items-center gap-2 px-2 py-1.5 text-left disabled:opacity-40"
                   >
                     <span className="min-w-0 flex-1 truncate font-mono text-plain text-fg">{r.name}</span>
@@ -152,10 +175,22 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
           </ul>
         ) : null}
 
+        {asking ? (
+          <div data-repo-bring-confirm="" className="rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
+            <p className="text-small text-fg">Bringing {asking} in replaces this whole site: its {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"} go, and the repo&apos;s come in their place.</p>
+            <div className="mt-1 flex gap-1.5">
+              <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => choose(asking)}>Replace it</Button>
+              <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Said plainly, because the two are different actions and one of
-            them used to stand in for the other. */}
+            them used to stand in for the other. It was not true until the
+            source had a field of its own: the import wrote the very field
+            the Builds page edits. */}
         <p className="text-small leading-snug text-fg-faint">
-          This reads the repository and puts its page on the board. Where Publish pushes is a separate setting, on the Builds page.
+          This reads the repository and puts its page on the board. It never changes where Publish pushes: a site publishes to a repository of its own, set on the Builds page, and never back into the one it was brought in from.
         </p>
       </div>
     </Dialog>
