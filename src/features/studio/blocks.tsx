@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
-import { applyEdge, applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme } from "./parts/theme";
+import { applyEdge, applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
@@ -59,6 +59,30 @@ export interface BlockProps {
   surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
 }
 
+/*
+ * WORDS THEIR OWN BOX CENTRES ARE CENTRED.
+ *
+ * A page can centre a line two ways: `text-align`, or a flex box that puts
+ * its one child in the middle. The capture keeps both, as `text.align` and
+ * as `layout`, and only the first reached the words. Measured on sink's
+ * home page: "No PnL data available for the selected period" carried
+ * `layout {display: flex, direction: row, justify: center}` and no
+ * alignment, and drew 510px left of its centre, under a line that said
+ * centre and drew centred.
+ *
+ * So for the parts that are words, horizontal centring by the box counts
+ * as centring the words: justify centre on a row, align centre on a column.
+ * Anything the node says itself wins. Across sink's nine pages this is nine
+ * parts, and eight of them (the buttons) already said centre.
+ */
+const WORDS = new Set(["prose", "value-prop", "cta-primary"]);
+function wordsSet(node: StudioNode): NodeText | null | undefined {
+  if (node.text?.align || !WORDS.has(node.featureId)) return node.text;
+  const l = node.layout;
+  const centres = !!l && l.display === "flex" && ((l.direction ?? "row") === "row" ? l.justify === "center" : l.align === "center");
+  return centres ? { ...node.text, align: "center" } : node.text;
+}
+
 export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
   const def = resolvePart(node.featureId);
   /*
@@ -79,7 +103,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // nothing at all — the edge is the box wrapper's below — it only carries
   // the fact, so a part that draws its own edge can stand aside for his.
   // See `NodeSaid` in `parts/theme.ts`.
-  const painted = applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), node.text), node.pad), node.edge);
+  const painted = applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), wordsSet(node)), node.pad), node.edge);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {

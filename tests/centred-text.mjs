@@ -30,12 +30,25 @@ const check = (name, ok, detail = "") => {
 
 const doc = JSON.parse(readFileSync(new URL("./fixtures/sink-pages.json", import.meta.url), "utf8"));
 const home = doc.nodes.filter((n) => n.pageId === "page_home" && n.featureId === "prose");
-const said = (n) => n.text?.align ?? "none";
+/*
+ * AND TEXT ITS OWN BOX CENTRES IS CENTRED. MEASURED on trunk 3e14749:
+ * n_prose_40 "No PnL data available for the selected period" carries no
+ * text.align but `layout {display: flex, direction: row, justify: center}` —
+ * the page centred it with flexbox — and drew its words at the left while
+ * n_prose_45 under it, saying centre, drew centred. Only horizontal centring
+ * counts: justify centre on a row, align centre on a column. Across sink's
+ * nine pages that is nine text parts: this one, and eight buttons that say
+ * centre already.
+ */
+const boxCentres = (l) => !!l && l.display === "flex" && ((l.direction ?? "row") === "row" ? l.justify === "center" : l.align === "center");
+const said = (n) => n.text?.align ?? (boxCentres(n.layout) ? "center" : "none");
 const centred = home.filter((n) => said(n) === "center");
 const flush = home.filter((n) => said(n) !== "center" && said(n) !== "right");
+const byBox = centred.filter((n) => !n.text?.align);
 /* Half a glyph is the most rounding and a 2px side bearing could explain. */
 const NEAR = 3;
 
+check("the fixture has a paragraph its own box centres, with no alignment of its own", byBox.length > 0, byBox.map((n) => n.id).join(" "));
 check("the fixture has captured paragraphs that say centre, and ones that do not",
   centred.length > 0 && flush.length > 0, `${centred.length} centre, ${flush.length} left or unsaid`);
 
@@ -99,7 +112,7 @@ for (const [where, path, attr] of [["the board", "/builder", "data-node-id"], ["
      too, so position is read only where this could move it: the centred ones. */
   check(`${where}: no stored alignment changed, and no centred paragraph moved`, home.every((n) => {
     const t = stored.get(n.id);
-    return !t || (said(t) === said(n) && (said(n) !== "center" || (t.x === n.x && t.w === n.w)));
+    return !t || ((t.text?.align ?? null) === (n.text?.align ?? null) && (said(n) !== "center" || (t.x === n.x && t.w === n.w)));
   }));
 }
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
