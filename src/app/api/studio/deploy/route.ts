@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findVercelProject, type VercelProject } from "@/features/studio/vercelProjects";
+import { CaptureUnknown, holdsCapture, sourceAmong } from "../publish/capture";
 
 /**
  * Live, and the address back.
@@ -99,6 +100,61 @@ async function findProject(tok: string, team: string | null, repo: string, named
   return hit ? { found: hit } : { found: null };
 }
 
+/** A Vercel project name made from whatever the site is called: lowercase letters, digits, `.`, `_` and `-`. */
+function projectName(name: unknown): string | null {
+  if (typeof name !== "string") return null;
+  const s = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-{3,}/g, "--").replace(/^[-._]+|[-._]+$/g, "").slice(0, 90);
+  return s && /[a-z0-9]/.test(s) ? s : null;
+}
+
+/*
+ * A NEW REPOSITORY, CONNECTED ON ITS FIRST GO LIVE.
+ *
+ * Publish makes a site its own repository, and nobody can import that by
+ * hand before its first Go live, so "no project is connected" was the answer
+ * every new site got. A project is made here instead, connected to the
+ * repository (Vercel's create-project with `gitRepository`) and named after
+ * the site, so every later push deploys on its own.
+ *
+ * Every way it can fail is said: a name Vercel already has gets a suffix, as
+ * a repository name does, and the answer says so; Vercel's GitHub app not
+ * seeing the repository is said with how to grant it; a token Vercel turns
+ * down is said as that.
+ */
+type Made = { project: VercelProject; note: string | null } | { refused: { reason: string; message: string } };
+
+const githubAccess = (repo: string, said: string) => {
+  const owner = repo.split("/")[0];
+  return `Vercel's GitHub app cannot see ${repo}, so no Vercel project could be connected to it. To let it: on GitHub open Settings, then Applications, then Vercel's Configure (github.com/settings/installations, or ${owner}'s own organization settings if it is an organization), and under Repository access choose All repositories or add ${repo}. If Vercel is not installed there at all, install it from github.com/apps/vercel. Then press Go live again. Vercel said: ${said}`;
+};
+
+async function makeProject(tok: string, team: string | null, repo: string, wanted: string): Promise<Made> {
+  let clash: string | null = null;
+  for (let i = 0; i < 10; i++) {
+    const name = i ? `${wanted}-${i}` : wanted;
+    const { ok, status, data } = await vercel<VercelProject & { error?: { code?: string; message?: string } }>(
+      tok,
+      `/v11/projects${query(team)}`,
+      { method: "POST", body: JSON.stringify({ name, gitRepository: { type: "github", repo } }) },
+    );
+    if (ok && data.id) {
+      const note = clash ? `Vercel already has a project named ${clash}, so this one is ${name}.` : null;
+      return { project: data, note };
+    }
+    const said = data.error?.message ?? `Vercel answered ${status}.`;
+    const code = data.error?.code ?? "";
+    if (status === 409 || /conflict|exist/i.test(code) || /already exists/i.test(said)) { clash ??= name; continue; }
+    if (/github|git repository|repositor|integration|install/i.test(`${code} ${said}`) && status !== 401) {
+      return { refused: { reason: "github-access", message: githubAccess(repo, said) } };
+    }
+    if (status === 401 || status === 403) {
+      return { refused: { reason: "auth", message: `Vercel would not let this token make a project${team ? ` under ${team}` : ""}. Vercel said: ${said}` } };
+    }
+    return { refused: { reason: "vercel", message: `Vercel would not make a project for ${repo}. Vercel said: ${said}` } };
+  }
+  return { refused: { reason: "name-taken", message: `Vercel already has projects named every name from ${wanted} to ${wanted}-9. Rename the site and press Go live again.` } };
+}
+
 /**
  * What a deployment is reachable at.
  *
@@ -155,7 +211,7 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: { repo?: unknown; branch?: unknown; project?: unknown; team?: unknown };
+  let body: { repo?: unknown; branch?: unknown; project?: unknown; team?: unknown; name?: unknown; sources?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -169,7 +225,18 @@ export async function POST(request: Request) {
   // Nobody named a branch: main is assumed, and the answer says so.
   const branch = askedBranch ?? "main";
   const team = (typeof body.team === "string" && body.team.trim()) || process.env.VERCEL_TEAM?.trim() || null;
-  const named = (typeof body.project === "string" && body.project.trim()) || process.env.VERCEL_PROJECT?.trim() || null;
+  /* The server's VERCEL_PROJECT is for a request that names no repository,
+     the server's own. A site that names its repository is deployed from the
+     project connected to that repository, and never from one the server
+     happens to name. */
+  const repoNamed = typeof body.repo === "string" && !!body.repo.trim();
+  const named = (typeof body.project === "string" && body.project.trim()) || (repoNamed ? null : process.env.VERCEL_PROJECT?.trim()) || null;
+
+  /* NEVER INTO WHERE A SITE CAME FROM: the same rule as Publish. */
+  const fromHere = sourceAmong(repo, body.sources);
+  if (fromHere) {
+    return NextResponse.json({ ok: false, reason: "source", repo: fromHere, message: `${fromHere} is where a site here was brought in from, and Go live never connects Vercel to that. This site goes live from a repository of its own.` });
+  }
 
   let lookup: Lookup;
   try {
@@ -177,15 +244,48 @@ export async function POST(request: Request) {
   } catch (err) {
     return NextResponse.json({ ok: false, reason: "network", message: `The server could not reach Vercel${err instanceof Error ? ` (${err.message})` : ""}.` });
   }
-  if (!lookup.found) {
-    if (lookup.refused) return NextResponse.json({ ok: false, ...lookup.refused });
-    return NextResponse.json({
-      ok: false,
-      reason: "no-project",
-      message: `No Vercel project is connected to ${repo}${team ? ` under ${team}` : ""}. Import it once at vercel.com/new and this button works from then on.`,
-    });
+  if (!lookup.found && lookup.refused) return NextResponse.json({ ok: false, ...lookup.refused });
+  if (!lookup.found && named) {
+    return NextResponse.json({ ok: false, reason: "no-project", message: `There is no Vercel project named ${named}${team ? ` under ${team}` : ""}.` });
   }
-  const project = lookup.found;
+  /* A project asked for by name deploys only the repository it is connected to. */
+  const link = lookup.found?.link;
+  if (lookup.found && named && link?.type === "github" && link.org && link.repo && `${link.org}/${link.repo}`.toLowerCase() !== repo.toLowerCase()) {
+    return NextResponse.json({ ok: false, reason: "elsewhere", message: `The Vercel project ${lookup.found.name} is connected to ${link.org}/${link.repo}, not to ${repo}, so it was not built from ${repo}.` });
+  }
+
+  let project: VercelProject;
+  let made: string | null = null;
+  let note: string | null = null;
+  if (lookup.found) {
+    project = lookup.found;
+  } else {
+    /* Connecting is the step the rule is about: nothing is connected to a
+       capture repository, and it is looked for before anything is made. */
+    const ghToken = request.headers.get("x-github-token")?.trim() || process.env.GITHUB_TOKEN?.trim() || "";
+    if (ghToken.length <= 8) {
+      return NextResponse.json({ ok: false, reason: "no-github", message: `No GitHub token to check that ${repo} is not a capture repository, so no Vercel project was connected to it. Put one in the keys panel.` });
+    }
+    try {
+      if (await holdsCapture(ghToken, repo, branch)) {
+        return NextResponse.json({ ok: false, reason: "capture", repo, message: `${repo} holds a capture (site/capture/), and Go live never connects Vercel to a capture repository. This site goes live from a repository of its own.` });
+      }
+    } catch (error) {
+      const why = error instanceof CaptureUnknown ? error.message : "GitHub could not be reached";
+      return NextResponse.json({ ok: false, reason: "capture-unknown", repo, message: `Could not tell whether ${repo} holds a capture (${why}), so no Vercel project was connected to it.` });
+    }
+    const wanted = projectName(body.name) ?? projectName(repo.split("/")[1]) ?? "site";
+    let got: Made;
+    try {
+      got = await makeProject(tok, team, repo, wanted);
+    } catch (err) {
+      return NextResponse.json({ ok: false, reason: "network", message: `The server could not reach Vercel${err instanceof Error ? ` (${err.message})` : ""}.` });
+    }
+    if ("refused" in got) return NextResponse.json({ ok: false, ...got.refused });
+    project = got.project;
+    made = project.name;
+    note = got.note;
+  }
 
   const [org, name] = repo.split("/");
   // repoId is what v13 wants when it has one; org and repo are accepted too,
@@ -222,6 +322,9 @@ export async function POST(request: Request) {
     ...(askedBranch ? {} : { assumed: true }),
     team,
     state: data.readyState ?? null,
+    /* Set only when this call made the project, and what it had to say about it. */
+    ...(made ? { created: made } : {}),
+    ...(note ? { note } : {}),
     // The build's own address, live the moment it is ready; the production
     // alias replaces it in the poll once Vercel has assigned one.
     url: liveUrl(data),

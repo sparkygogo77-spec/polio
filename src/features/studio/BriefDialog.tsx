@@ -283,6 +283,8 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [pubResult, setPubResult] = React.useState<{ url: string; files: number; deployed: boolean; hook: boolean; note?: string } | null>(null);
   const [live, setLive] = React.useState<DeployStatus | null>(null);
   const [liveRun, setLiveRun] = React.useState<{ state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
+  /* The address the open site went live at, the last time it did. */
+  const liveAt = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.live?.url ?? null);
   const abort = React.useRef<AbortController | null>(null);
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
@@ -739,13 +741,17 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
 
       setBusy("Asking Vercel to build it…");
-      const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch });
+      /* A repository with no Vercel project gets one on the way, named after
+         the site, so this press is the only one needed from board to address. */
+      const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch, name: siteName.trim() || project?.name?.trim() || undefined, sources });
       if (!started.ok) {
         setNote(started.message);
         useStudio.getState().noteThread([`Vercel would not build it: ${started.message}`]);
         ctx.publish({ key: "studio:live", title: "Not deployed", body: started.message, level: "warn", source: "studio", toast: true });
         return;
       }
+      if (started.created) useStudio.getState().noteThread([`Made the Vercel project ${started.created}, connected to ${started.repo}: every push to it deploys on its own now`]);
+      if (started.note) setNote(started.note);
       setLiveRun({ state: started.state, url: started.url, inspectorUrl: started.inspectorUrl, done: false });
 
       setBusy("Building…");
@@ -976,7 +982,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
             {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
             {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : liveRun.state ? `${liveRun.state.toLowerCase()}…` : "waiting for Vercel to say…"}
             {liveRun.state === "READY" && liveRun.url ? (
-              <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
+              <a data-live-address="" className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
                 {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
               </a>
             ) : liveRun.inspectorUrl ? (
@@ -985,6 +991,17 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
               </a>
             ) : null}
             {liveRun.message ? <span className="text-fg-faint">{liveRun.message}</span> : null}
+          </p>
+        ) : null}
+        {/* WHERE IT LIVES, from the last time it went live, on every later
+            visit and after a plain push: a connected project deploys each
+            push to the same address. */}
+        {liveAt && liveRun?.state !== "READY" ? (
+          <p className="flex flex-wrap items-center gap-1.5 text-plain text-fg-muted">
+            <Globe className="size-3" /> Live at
+            <a data-live-address="" className="underline underline-offset-2 text-fg" href={liveAt} target="_blank" rel="noopener noreferrer">
+              {liveAt.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
+            </a>
           </p>
         ) : null}
         {pubResult ? (

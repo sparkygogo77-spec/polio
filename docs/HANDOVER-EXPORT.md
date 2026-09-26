@@ -322,3 +322,46 @@ Server settings read: `VERCEL_TOKEN`, `VERCEL_TEAM`, `VERCEL_PROJECT`,
 
 Tests: `go-live.mjs` (no token; a made-up token reaches Vercel and is refused),
 `vercel-pages.mjs` (the project lookup walks pages), `live-link.mjs`.
+
+### The rule now
+
+- **Go live is the one press.** It pushes (Publish makes the repository on a
+  first press, as before), then the deploy route looks for the Vercel project
+  connected to that repository and, finding none, makes one: Vercel's
+  create-project (`POST /v11/projects`) with `gitRepository`, named after the
+  site. Every later push to that repository deploys on its own. The first
+  deployment is asked for and waited on, and the production address (the
+  shortest alias of a READY deployment) is written on the site
+  (`project.live`). The Publish card shows it as a link (`data-live-address`)
+  on every later visit and after a plain Push to GitHub; the Builds page
+  card already showed it.
+- **Said in words:** no Vercel token (as before); Vercel's GitHub app cannot
+  see the repository (reason "github-access", with where to grant it and what
+  Vercel said); a name Vercel already has gets a suffix, like a repository
+  name, and the answer says so (`note`), or, if every suffix to -9 is taken,
+  "name-taken"; a failing build ends on Vercel's own `errorMessage`.
+- **Never connected to where a site came from:** the route refuses any of
+  the `sources` the browser sends (reason "source"), and before it makes a
+  project it looks for `site/capture/` with the GitHub token (reason
+  "capture"; one it cannot look in, "capture-unknown"; no GitHub token,
+  "no-github"). The check is `publish/capture.ts`, shared with Publish.
+- **The server's `VERCEL_PROJECT`** is used only for a request that names no
+  repository. A site that names its repository deploys from the project
+  connected to it, and a project asked for by name that is connected to a
+  different repository is refused ("elsewhere") rather than built.
+- `VERCEL_API` points the deploy route at a stand-in in tests, as
+  `GITHUB_API` does for Publish.
+
+**Measured:** `tests/live-link.mjs` 5 of 16 on b2ba350 (with the override),
+16 of 16 here. One press: `POST /v11/projects {name: "kept-live",
+gitRepository: {type: "github", repo: "someone/kept-live"}}`, one deployment
+from it, READY, `live = https://kept-live.vercel.app`, shown as a link; a
+second Go live made no second project and showed the same address, and so
+did a plain push.
+
+**Not measured, and cannot be here:** the exact error Vercel gives when its
+GitHub app cannot see a repository. The stand-in answers with the message
+Vercel is known to give ("To link a GitHub repository, you need to install
+the GitHub integration first…"); the route recognises any answer that names
+GitHub, a repository, an integration or an install, other than a clash or a
+401. The first real run should read which one it gets.

@@ -180,16 +180,18 @@ await page.waitForTimeout(1200);
 }
 const openBrief = async () => { await page.evaluate(() => window.__studioOpenBrief?.()); await page.waitForTimeout(1500); };
 const closeBrief = async () => { await page.keyboard.press("Escape"); await page.waitForTimeout(400); };
-/** Press a Publish button and wait until the dialog is no longer busy. */
+/**
+ * Press a Publish button and wait for how it ended, read off the card: Go
+ * live ends at a live link or a line saying why not; a push ends at the
+ * commit. The dialog stays open until then.
+ */
 const pressAndSettle = async (name) => {
   await openBrief();
   await page.getByRole("button", { name }).first().click({ timeout: 15000 });
-  await page.waitForTimeout(800);
-  for (let i = 0; i < 120; i++) {
-    const busy = await page.evaluate(() => /Pushing|Asking Vercel|Building|Queued|Waiting for Vercel|Finishing/.test(document.querySelector("[data-brief-publish]")?.textContent ?? ""));
-    if (!busy) break;
-    await page.waitForTimeout(500);
-  }
+  const ended = name.source.includes("Go live")
+    ? () => page.evaluate(() => { const c = document.querySelector("[data-brief-publish]"); return !!c && (!!c.querySelector("[data-live-address]") && /Live at/.test(c.textContent ?? "") && !/Building|Queued|waiting for Vercel/i.test(c.textContent ?? "") || /failed|would not|cancelled|No Vercel|cannot/i.test(c.textContent ?? "")); })
+    : () => page.evaluate(() => /files committed/.test(document.querySelector("[data-brief-publish]")?.textContent ?? ""));
+  for (let i = 0; i < 120 && !(await ended()); i++) await page.waitForTimeout(500);
   await page.waitForTimeout(800);
   const link = await page.evaluate(() => { const a = document.querySelector("[data-live-address]"); return a ? { href: a.getAttribute("href"), text: a.textContent } : null; });
   const says = await page.evaluate(() => (document.querySelector("[data-brief-publish]")?.textContent ?? "").replace(/\s+/g, " "));

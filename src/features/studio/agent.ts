@@ -67,7 +67,8 @@ export function rendererHeader(): Record<string, string> {
  *
  * A publish writes to somebody's own account, so the token that does it is
  * theirs: typed into the keys panel, held in this browser, sent only to the
- * publish route. Separate from the other two for the same reason they are
+ * publish route, and to the deploy route, which reads a repository with it
+ * before connecting Vercel to it and writes nothing. Separate from the other two for the same reason they are
  * separate from each other — a route that has no use for a key should never
  * be handed one.
  */
@@ -677,15 +678,22 @@ export async function deployStatus(): Promise<DeployStatus> {
 }
 
 export type DeployStart =
-  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null }
+  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null; /** Set when this call made the Vercel project. */ created?: string; note?: string }
   | { ok: false; message: string; reason?: string };
 
-/** Ask Vercel to build the repository's branch. Returns as soon as it is queued. */
-export async function deploy(input: { repo?: string; branch?: string; project?: string; team?: string } = {}): Promise<DeployStart> {
+/**
+ * Ask Vercel to build the repository's branch. Returns as soon as it is queued.
+ *
+ * A repository with no Vercel project gets one on the way, named after the
+ * site (`name`), so the GitHub token rides too: the route looks for a capture
+ * in the repository before it connects anything to it, and refuses every one
+ * of `sources`, where sites here were brought in from.
+ */
+export async function deploy(input: { repo?: string; branch?: string; project?: string; team?: string; name?: string; sources?: string[] } = {}): Promise<DeployStart> {
   try {
     const res = await fetch("/api/studio/deploy", {
       method: "POST",
-      headers: { "content-type": "application/json", ...vercelHeader() },
+      headers: { "content-type": "application/json", ...vercelHeader(), ...publisherHeader() },
       body: JSON.stringify({ ...input, team: input.team ?? heldTeam() }),
     });
     const data = (await res.json()) as DeployStart;
