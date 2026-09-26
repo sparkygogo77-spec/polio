@@ -35,8 +35,12 @@ export async function holdsCapture(token: string, repo: string, branch: string):
   return false;
 }
 
-/** The repository among `sources` that `repo` is, if any: a site here was brought in from it. */
+/**
+ * The repository among `sources` that `repo` is, if any: a site here was
+ * brought in from it, and neither Publish nor Go live goes there. Only
+ * `owner/name` entries count.
+ */
 export function sourceAmong(repo: string, sources: unknown): string | null {
-  const list = Array.isArray(sources) ? sources.filter((r): r is string => typeof r === "string").map((r) => r.trim()) : [];
+  const list = Array.isArray(sources) ? sources.filter((r): r is string => typeof r === "string" && /^[\w.-]+\/[\w.-]+$/.test(r.trim())).map((r) => r.trim()) : [];
   return list.find((r) => r.toLowerCase() === repo.toLowerCase()) ?? null;
 }
