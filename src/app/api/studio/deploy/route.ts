@@ -23,7 +23,12 @@ import { findVercelProject, type VercelProject } from "@/features/studio/vercelP
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const API = "https://api.vercel.com";
+/*
+ * Vercel, or something standing in for it. `VERCEL_API` is unset everywhere
+ * but a test run, where it points at a stub, as `GITHUB_API` does for the
+ * publish route (`tests/live-link.mjs`).
+ */
+const API = process.env.VERCEL_API?.replace(/\/$/, "") || "https://api.vercel.com";
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** A team's things are not the account's, so every call carries the slug when there is one. */
