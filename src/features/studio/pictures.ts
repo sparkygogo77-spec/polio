@@ -167,20 +167,34 @@ export function urlFor(pic: Picture): string | undefined {
   return addresses.get(pic.id);
 }
 
+/*
+ * A look in flight, by id. Two readers of one picture — the bar's mark and
+ * the logo part on the board — asked together, and the second was told
+ * "nothing" while the first was still reading, said lost, and was never
+ * drawn again (tests/picture-arrives.mjs). The second waits for the first.
+ */
+const looking = new Map<string, Promise<string | null>>();
+
 /** Fetch it into an address, once, and tell the caller when it is there. */
 export async function reach(pic: Picture): Promise<string | null> {
   const had = addresses.get(pic.id);
   if (had) return had;
+  const going = looking.get(pic.id);
+  if (going) return going;
   if (asked.has(pic.id)) return null;
   asked.add(pic.id);
-  const blob = await bytesFor(pic);
-  if (!blob) return null;
-  /* Two parts showing one picture can both be looking; one address serves both. */
-  const also = addresses.get(pic.id);
-  if (also) return also;
-  const url = URL.createObjectURL(blob);
-  addresses.set(pic.id, url);
-  return url;
+  const look = (async () => {
+    const blob = await bytesFor(pic);
+    if (!blob) return null;
+    /* Two parts showing one picture can both be looking; one address serves both. */
+    const also = addresses.get(pic.id);
+    if (also) return also;
+    const url = URL.createObjectURL(blob);
+    addresses.set(pic.id, url);
+    return url;
+  })().finally(() => looking.delete(pic.id));
+  looking.set(pic.id, look);
+  return look;
 }
 
 /** Throw one away: the part has let go of it, or it has been replaced. */
