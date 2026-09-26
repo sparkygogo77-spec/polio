@@ -761,7 +761,10 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
       }),
     });
     const data = (await res.json()) as PublishResult;
-    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason };
+    /* A failure keeps what the route made: without `created` the site never
+       learns the repository exists, and the next press makes a second one
+       with a suffix (tests/publish-made-kept.mjs). */
+    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(data.created ? { created: data.created } : {}), ...(data.repo ? { repo: data.repo } : {}) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
   }
