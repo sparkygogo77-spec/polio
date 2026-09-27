@@ -313,7 +313,9 @@ export const STEPS: Step[] = [
       {
         name: "Go live",
         line: "Pushes the files, builds them on Vercel and hands back the address the site is at.",
-        where: "The book's publish row. The Vercel token goes in the keys panel, ⌘⇧K.",
+        where: "The top bar, beside the GitHub button; the book's publish row has it too. The GitHub and Vercel tokens go in the keys panel, Ctrl+Shift+K.",
+        at: "[data-go-live]",
+        pad: 4,
       },
     ],
   },

@@ -2,6 +2,7 @@ import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, 
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
+import { GoLiveButton } from "./GoLiveButton";
 import { openRepoPicker } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
@@ -166,6 +167,8 @@ export const studio = defineFeature({
        and stays over with the rest of them. */
     { id: "studio.queue", order: 10, slot: "status", component: QueueStrip },
     { id: "studio.github", order: 20, component: GithubButton },
+    /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
+    { id: "studio.golive", order: 21, component: GoLiveButton },
   ],
 
   commands: [
