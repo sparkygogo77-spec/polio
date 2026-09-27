@@ -79,8 +79,16 @@ export function noPageSays(repo: Repo, kinds: readonly string[], at: string | nu
  * its files; this is for the ones that predate that.
  */
 export const MADE_HERE = "site/document.json";
-export function madeHere(paths: readonly string[]): boolean {
-  return paths.includes(MADE_HERE);
+/** A path inside the site's folder of the repository, when the control named one (`owner/sink/sites/share-xyz`); at the root otherwise. */
+export function pathIn(dir: string | null | undefined, path: string): string {
+  return dir ? `${dir}/${path}` : path;
+}
+/** Where the document is: `site/document.json` at the root, or inside the site's folder. */
+export function docPathIn(dir: string | null | undefined): string {
+  return pathIn(dir, MADE_HERE);
+}
+export function madeHere(paths: readonly string[], dir?: string | null): boolean {
+  return paths.includes(docPathIn(dir));
 }
 
 /**
@@ -123,6 +131,12 @@ export interface Repo {
   name: string;
   /** A branch, tag or commit, when one was named. Otherwise the repository's own default. */
   ref: string | null;
+  /**
+   * A folder inside the repository holding the site (`sites/share-xyz`), so a
+   * sink holds one site at its root and others under `sites/`, each with its
+   * own `site/document.json` and `assets/pictures`. Null is the root.
+   */
+  dir?: string | null;
 }
 
 /**
@@ -138,6 +152,7 @@ export function readRepo(raw: string): Repo | null {
   if (!text || text.length > 400) return null;
   text = text.replace(/^git\+/, "").replace(/^git@github\.com:/, "github.com/");
   let ref: string | null = null;
+  let dir: string | null = null;
   if (/^https?:\/\//i.test(text) || /^github\.com\//i.test(text)) {
     let u: URL;
     try {
@@ -149,7 +164,8 @@ export function readRepo(raw: string): Repo | null {
     const parts = u.pathname.split("/").filter(Boolean);
     if (parts.length < 2) return null;
     const at = parts.indexOf("tree");
-    if (at === 2 && parts[3]) ref = decodeURIComponent(parts.slice(3).join("/"));
+    /* `/tree/<ref>/<folder…>`: the ref is one segment, and what follows is the site's folder. */
+    if (at === 2 && parts[3]) { ref = decodeURIComponent(parts[3]); dir = parts.slice(4).map(decodeURIComponent).join("/") || null; }
     text = `${parts[0]}/${parts[1]}`;
   }
   const cut = text.lastIndexOf("@");
@@ -158,14 +174,16 @@ export function readRepo(raw: string): Repo | null {
     ref = text.slice(cut + 1).trim() || ref;
     text = text.slice(0, cut);
   }
-  const m = /^([A-Za-z0-9][\w.-]*)\/([\w.-]+?)(?:\.git)?$/.exec(text.trim());
+  /* `owner/name`, or `owner/name/<folder>` for a site kept in a folder of the repository. */
+  const m = /^([A-Za-z0-9][\w.-]*)\/([\w.-]+?)(?:\.git)?(?:\/([\w.-]+(?:\/[\w.-]+)*))?\/?$/.exec(text.trim());
   if (!m) return null;
-  return { owner: m[1]!, name: m[2]!, ref: ref?.trim() || null };
+  if (m[3]) dir = m[3];
+  return { owner: m[1]!, name: m[2]!, ref: ref?.trim() || null, dir: dir?.replace(/^\/+|\/+$/g, "") || null };
 }
 
 /** How the repository is written for a person: what they typed, tidied. */
 export function repoName(r: Repo): string {
-  return `${r.owner}/${r.name}${r.ref ? `@${r.ref}` : ""}`;
+  return `${r.owner}/${r.name}${r.dir ? `/${r.dir}` : ""}${r.ref ? `@${r.ref}` : ""}`;
 }
 
 /** Folders that are never part of a website, however the repository is arranged. */

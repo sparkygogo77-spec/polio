@@ -187,7 +187,14 @@ export interface NodeEdge {
 /** How the words inside are set: where they sit and their case. */
 export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize" }
 /** The four, as a node carries them. */
-export interface NodeBox { layout?: NodeLayout | null; pad?: NodePad | null; edge?: NodeEdge | null; text?: NodeText | null }
+export interface NodeBox {
+  layout?: NodeLayout | null;
+  pad?: NodePad | null;
+  edge?: NodeEdge | null;
+  text?: NodeText | null;
+  /** Rounded corners the page gave the box, in px (share.xyz's cards, pills and tabs); one radius for all four. */
+  radius?: number | null;
+}
 
 /**
  * WHAT THE NODE SAID ABOUT ITSELF, as against what the site says.
@@ -236,7 +243,7 @@ export function saidRole(t: Theme, role: RoleId): boolean {
 
 /** Does this node say anything about its box? Nothing said, nothing wrapped. */
 export function hasBox(n: NodeBox): boolean {
-  return !!(n.layout || n.pad || n.edge || n.text);
+  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0));
 }
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
@@ -331,6 +338,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     /* A glow the capture recorded (the dashboard cards' faint green): a shadow, as written, or none. */
     if (typeof e.shadow === "string" && e.shadow.trim() && e.shadow.trim() !== "none") s.boxShadow = e.shadow.trim();
   }
+  /* The corners as the page rounded them, on the board and the published page alike. */
+  if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) s.borderRadius = n.radius;
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
   if (x?.transform) s.textTransform = x.transform;

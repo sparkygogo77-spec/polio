@@ -278,7 +278,7 @@ export interface StudioNode {
    * Absent on every part that was drawn or placed.
    */
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
-  from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" } | null;
+  from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
   /**
    * HIS HAND PUT THIS BOX WHERE IT IS.
    *
@@ -317,6 +317,8 @@ export interface StudioNode {
   layout?: NodeLayout | null;
   pad?: NodePad | null;
   edge?: NodeEdge | null;
+  /** Rounded corners the page gave the box, in px; drawn by the box wrapper (parts/theme.ts#boxStyle). */
+  radius?: number | null;
   text?: NodeText | null;
   /**
    * A feature from the library, working on this part (`library/works.ts`).
@@ -1338,7 +1340,7 @@ function withoutTwins(nodes: StudioNode[], done: readonly Twin[]): StudioNode[] 
    * saved document — or his board published and brought back — met an
    * unflagged image and grew the header round it again (`tests/twin-flag.mjs`).
    */
-  const flagOf = new Map<string, "absolute" | "fixed">();
+  const flagOf = new Map<string, "absolute" | "fixed" | "sticky">();
   for (const t of done) {
     const gone = nodes.find((n) => n.id === t.id)?.from?.position;
     if (gone) flagOf.set(t.keeps, gone);

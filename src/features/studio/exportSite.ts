@@ -336,7 +336,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
 function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, StudioNode>, W: number): void {
   const parts: FluidPart[] = [...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({
     id: n.id, x: n.x ?? 0, y: n.y ?? 0, w: n.w, h: n.h,
-    selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null,
+    selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null, inset: n.from?.inset ?? null,
     layout: (n as { layout?: FluidPart["layout"] }).layout ?? null,
     pad: (n as { pad?: FluidPart["pad"] }).pad ?? null,
   }));

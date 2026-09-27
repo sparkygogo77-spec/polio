@@ -51,6 +51,8 @@ export interface FluidPart {
   h: number;
   selector?: string | null;
   position?: string | null;
+  /** A sticky part's inset, the sides that stick it, in px. */
+  inset?: { top?: number; right?: number; bottom?: number; left?: number } | null;
   layout?: { display?: string; direction?: string; justify?: string; align?: string; gap?: number; columns?: number } | null;
   pad?: { left?: number; right?: number } | null;
 }
@@ -206,6 +208,25 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
   const st = el.style;
   st.left = css(k.left, W);
   if (k.width.css || Math.abs(k.width.k) > 1e-9) st.width = css(k.width, W);
+  /*
+   * A STICKY BAND STAYS STICKY. share.xyz's header and category row are
+   * `position: sticky; top: 0`, and the export drew them once at the top
+   * and scrolled them away. The frame's parts are absolute; a sticky part
+   * has to be in the flow to stick, so it stands in the flow at the place
+   * it was measured — its top and left as margins, and its height taken
+   * back below so the frame grows by nothing — and sticks at the inset the
+   * page gave it. Written after the parts that flow, it paints over them.
+   */
+  if (p.position === "sticky") {
+    st.position = "sticky";
+    st.top = `${p.inset?.top ?? 0}px`;
+    st.marginTop = `${p.y}px`;
+    st.marginBottom = `-${p.h}px`;
+    st.marginLeft = st.left;
+    st.left = "auto";
+    st.zIndex = "2";
+    return;
+  }
   if (!k.fixed) return;
   st.position = "fixed";
   if (k.fixed === "top") { st.top = `${p.y}px`; st.bottom = ""; if (k.height) { st.height = st.minHeight = `${k.height}px`; st.overflow = "clip"; } }
