@@ -92,8 +92,32 @@ await page.evaluate((url) => {
   st.projects = (st.projects ?? []).map((p) => (p.id === st.activeId ? { ...p, live: { url, at: Date.now() } } : p));
   localStorage.setItem("builder.builds", JSON.stringify({ ...raw, state: st }));
 }, LIVE);
+/*
+ * A picture put on the board by hand: the captured SolWorks logo's twin,
+ * with no record of where it came from. A captured picture draws no border
+ * the capture did not record; a hand-built one keeps the part's default.
+ */
+const LOGO = s.nodes.find((x) => x.picture?.id === "pic_cc8659c3" && x.pageId === s.pages[0].id && x.from?.selector);
+const HAND = "n_hand_picture";
+await page.evaluate(({ logo, id }) => {
+  const raw = JSON.parse(localStorage.getItem("builder.studio"));
+  raw.state.nodes.push({ ...logo, id, from: null, label: "picture", x: 40, y: 1440 });
+  localStorage.setItem("builder.studio", JSON.stringify(raw));
+}, { logo: LOGO, id: HAND });
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
+
+console.log("0. On the board");
+{
+  const edge = (id) => page.evaluate((id) => {
+    const img = document.querySelector(`[data-node-id="${id}"] img`);
+    return img ? getComputedStyle(img).borderTopWidth : null;
+  }, id);
+  check("the captured SolWorks logo draws no border on the board", (await edge(LOGO.id)) === "0px", `${LOGO.id}: ${await edge(LOGO.id)}`);
+  check("a picture placed by hand keeps its default border", (await edge(HAND)) === "1px", `${HAND}: ${await edge(HAND)}`);
+  const mark = await page.evaluate(() => document.querySelector("[data-site-mark] [data-picture-id]")?.getAttribute("data-picture-id") ?? null);
+  check("the Builder's top-bar mark is the SolWorks logo", mark === "pic_cc8659c3", String(mark));
+}
 
 /* What the site says about itself, typed where the site's name is typed. */
 const DESCRIPTION = "A SolWorks project";
@@ -319,6 +343,38 @@ console.log("5. The head");
     check(`${tag}: og:image is the site's picture at the site's address`, head.ogImage === `${LIVE}/assets/pictures/pic_cc8659c3.png`, String(head.ogImage));
     check(`${tag}: og:url is this page at the site's address`, head.ogUrl === `${LIVE}/${slug(p)}`, String(head.ogUrl));
   }
+  await v.close();
+}
+console.log("6. Pictures and icons");
+{
+  const v = await browser.newPage({ viewport: { width: W, height: 1000 } });
+  await v.goto(`${ORIGIN}/`, { waitUntil: "networkidle" });
+  const edge = (id) => v.evaluate((id) => { const img = part(id)?.querySelector("img"); return img ? getComputedStyle(img).borderTopWidth : null; }, id);
+  check("the captured SolWorks logo is published with no border", (await edge(LOGO.id)) === "0px", String(await edge(LOGO.id)));
+  check("the hand-built picture is published with its default border", (await edge(HAND)) === "1px", String(await edge(HAND)));
+  /* The icons: each file's own size, and each the SolWorks logo drawn at that size. */
+  const icons = await v.evaluate(async () => {
+    const load = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+    const pix = (img, n) => { const c = document.createElement("canvas"); c.width = c.height = n; const g = c.getContext("2d"); g.drawImage(img, 0, 0, n, n); return g.getImageData(0, 0, n, n).data; };
+    const logo = await load("assets/pictures/pic_cc8659c3.png");
+    const one = async (sel) => {
+      const l = document.querySelector(sel);
+      if (!l) return null;
+      const img = await load(l.href);
+      if (!img || !logo) return { href: l.getAttribute("href"), sizes: l.getAttribute("sizes"), loaded: !!img };
+      const n = img.naturalWidth, a = pix(img, n), b = pix(logo, n);
+      let d = 0;
+      for (let k = 0; k < a.length; k++) d += Math.abs(a[k] - b[k]);
+      return { href: l.getAttribute("href"), sizes: l.getAttribute("sizes"), w: img.naturalWidth, h: img.naturalHeight, off: Math.round((d / a.length) * 10) / 10 };
+    };
+    const og = document.querySelector('meta[property="og:image"]')?.getAttribute("content") ?? "";
+    const ogLocal = await load(new URL(og).pathname.replace(/^\//, ""));
+    return { small: await one('link[rel="icon"][sizes="32x32"]'), touch: await one('link[rel="apple-touch-icon"]'), og: ogLocal ? [ogLocal.naturalWidth, ogLocal.naturalHeight] : null, ogw: document.querySelector('meta[property="og:image:width"]')?.getAttribute("content") ?? null };
+  });
+  /* Off by a few levels in 255 at most: the same picture, scaled by another hand. */
+  check("a 32px icon, the SolWorks logo at that size", !!icons.small && icons.small.w === 32 && icons.small.h === 32 && icons.small.off <= 8, JSON.stringify(icons.small));
+  check("a 180px icon for a phone's home screen, the same logo", !!icons.touch && icons.touch.w === 180 && icons.touch.h === 180 && icons.touch.sizes === "180x180" && icons.touch.off <= 8, JSON.stringify(icons.touch));
+  check("og:image is the 1024 original", !!icons.og && icons.og[0] === 1024 && icons.og[1] === 1024 && icons.ogw === "1024", JSON.stringify(icons.og) + ` width ${icons.ogw}`);
   await v.close();
 }
 check("nothing any page asked for was missing", failed.length === 0, failed.slice(0, 4).join(", ") || "none");

@@ -9,7 +9,9 @@
  *     only the GitHub key it names the Vercel one; with both it is enabled;
  *   · pressed, it runs the same Go live as the book (one function): the book,
  *     opened mid-build, shows the same progress; once READY the site holds the
- *     address, the button opens it, and the book's row still has Go live.
+ *     address, and the book's row still has Go live;
+ *   · once live it reads Update live site and pushes and redeploys again, with
+ *     the same progress; the address is a small link of its own beside it.
  *
  * Stand-ins for GitHub and Vercel, as tests/live-link.mjs; each deployment
  * stays BUILDING for its first four polls.
@@ -216,9 +218,50 @@ console.log("4. Pressed: the same Go live, the same progress, and the address");
   check("the book's row keeps its Go live", bookGo === true, `enabled ${bookGo}`);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
-  const href = await page.evaluate(() => document.querySelector("header [data-go-live-address]")?.getAttribute("href") ?? null);
-  check("the top-bar button now opens that address", (await state()) === "live" && href === ADDRESS, `${await state()}: ${href}`);
   check("one project was made on Vercel, and one deployment", projects.length === 1 && deployments.length === n + 1, `${projects.length} projects, ${deployments.length - n} deployments`);
+}
+
+/*
+ * THE OWNER'S RULING: once live, the top-bar button still pushes. It became
+ * "Live site" and only opened the address, so a changed board could not be
+ * republished from the bar and nothing he changed showed. Its main action
+ * is always the push and the redeploy, "Update live site" once live, and the
+ * address is a small link of its own beside it.
+ */
+console.log("5. Live: the button updates the site, and the address is a link beside it");
+{
+  const label = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
+  const enabled = await bar().first().evaluate((b) => b.tagName === "BUTTON" && !b.disabled);
+  check("the top-bar button reads Update live site, and can be pressed", label === "Update live site" && enabled, `${await state()}: ${JSON.stringify(label)}, a pressable button: ${enabled}`);
+  const link = await page.evaluate(() => {
+    const a = document.querySelector("header [data-go-live-address]");
+    const b = document.querySelector("header [data-go-live]");
+    if (!a || !b) return null;
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    return { href: a.getAttribute("href"), target: a.getAttribute("target"), apart: !b.contains(a) && !a.contains(b), gap: Math.round(ra.left - rb.right), small: ra.width <= rb.width, name: a.getAttribute("aria-label") ?? "" };
+  });
+  check("the address is its own small link beside it, opening in a new tab", !!link && link.href === ADDRESS && link.target === "_blank" && link.apart && link.gap >= 0 && link.gap <= 16 && link.small && /top-bar\.vercel\.app/.test(link.name), JSON.stringify(link));
+
+  /* The board changes, and the button puts the change on the site. */
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("builder.studio"));
+    raw.state.brief = { ...(raw.state.brief ?? {}), name: "Top Bar", gimmick: "", master: "" };
+    localStorage.setItem("builder.studio", JSON.stringify(raw));
+  });
+  const commits = ghSeen.filter((l) => /POST \/repos\/.*\/git\/commits$/.test(l)).length;
+  const n = deployments.length;
+  await bar().first().click().catch(() => {});
+  for (let i = 0; i < 300 && !(deployments[n]?.polls >= 1); i++) await sleep(100);
+  const busyState = await state();
+  const busyLabel = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
+  check("pressed, it shows the same progress", busyState === "busy" && /Building|Queued|Waiting|Asking|Pushing|Writing/.test(busyLabel), `${busyState}: ${JSON.stringify(busyLabel)}`);
+  for (let i = 0; i < 60 && (await state()) === "busy"; i++) await sleep(500);
+  await page.waitForTimeout(800);
+  const pushed = ghSeen.filter((l) => /POST \/repos\/.*\/git\/commits$/.test(l)).length - commits;
+  check("…and pushes the board again and redeploys it", pushed === 1 && deployments.length === n + 1 && projects.length === 1, `${pushed} commits, ${deployments.length - n} deployments, ${projects.length} projects`);
+  const after = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
+  const p = await project();
+  check("then it is Update live site again, the address still recorded", after === "Update live site" && p?.live?.url === ADDRESS, `${JSON.stringify(after)}, ${p?.live?.url}`);
 }
 check("no page error on the way", errors.length === 0, errors.join(" / "));
 
