@@ -249,7 +249,13 @@ check("the exported page opens on its own and asks for nothing outside the tree"
 /* ------------------------------------------------------------------ */
 
 const ids = Object.keys(ref?.parts ?? {});
-const moved = ids.filter((id) => { const a = ref.parts[id], b = got?.parts?.[id]; return !b || Math.abs(a.x - b.x) > 1 || Math.abs(a.y - b.y) > 1 || Math.abs(a.w - b.w) > 1 || Math.abs(a.h - b.h) > 1; });
+/* A band fixed at the top is published as tall as the space the page leaves it (tests/fluid-site.mjs): the top of the first part not inside it that starts within it. */
+const clipTo = new Map(onPage.filter((n) => n.from?.position === "fixed" && (n.y ?? 0) <= 1.5).map((n) => {
+  const inside = (q) => q.from?.selector?.startsWith(`${n.from.selector} > `);
+  const below = onPage.filter((q) => q !== n && q.from?.selector && !inside(q) && q.y > n.y + 1.5 && q.y < n.y + n.h - 1.5 && q.x < n.x + n.w && q.x + q.w > n.x);
+  return [n.id, below.length ? Math.min(...below.map((q) => q.y)) - n.y : null];
+}).filter(([, h]) => h !== null));
+const moved = ids.filter((id) => { const a = ref.parts[id], b = got?.parts?.[id]; const h = clipTo.get(id) ?? a.h; return !b || Math.abs(a.x - b.x) > 1 || Math.abs(a.y - b.y) > 1 || Math.abs(a.w - b.w) > 1 || Math.abs(h - b.h) > 1; });
 check(`every part stands where the preview stands it, at its size (${ids.length} parts)`, ids.length > 0 && moved.length === 0,
   moved.slice(0, 4).map((id) => { const a = ref.parts[id], b = got?.parts?.[id]; return `${id} ${a.x},${a.y} ${a.w}×${a.h} → ${b ? `${b.x},${b.y} ${b.w}×${b.h}` : "missing"}`; }).join("; ") + (moved.length > 4 ? ` …and ${moved.length - 4} more` : ""));
 const priceBox = onPage.find((n) => /\$\s*\d/.test(typeof n.content === "string" ? n.content : (n.content ?? []).map((x) => x.text).join("")));

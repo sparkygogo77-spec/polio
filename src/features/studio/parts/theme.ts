@@ -177,7 +177,13 @@ export interface NodeLayout {
 /** Padding in pixels, clockwise from the top. */
 export interface NodePad { top?: number; right?: number; bottom?: number; left?: number }
 /** An edge on the box: width in pixels, a style, and a colour or the name of a palette role. */
-export interface NodeEdge { width?: number; style?: "solid" | "dashed" | "dotted" | "double" | "none"; colour?: string }
+export interface NodeEdge {
+  width?: number;
+  style?: "solid" | "dashed" | "dotted" | "double" | "none";
+  colour?: string;
+  /** The box-shadow the page gave the box, as CSS (a glow, a lift). Drawn round the box, on the board and the published page. */
+  shadow?: string;
+}
 /** How the words inside are set: where they sit and their case. */
 export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize" }
 /** The four, as a node carries them. */
@@ -322,6 +328,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     const width = typeof e.width === "number" && Number.isFinite(e.width) ? Math.max(0, e.width) : 1;
     const style = e.style ?? "solid";
     s.border = style === "none" || width === 0 ? "none" : `${width}px ${style} ${inkOf(e.colour, palette, t.line)}`;
+    /* A glow the capture recorded (the dashboard cards' faint green): a shadow, as written, or none. */
+    if (typeof e.shadow === "string" && e.shadow.trim() && e.shadow.trim() !== "none") s.boxShadow = e.shadow.trim();
   }
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;

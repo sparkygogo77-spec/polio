@@ -67,6 +67,8 @@ export interface Fluid {
   width: Len;
   /** Fixed in the window, and anchored at its top, its bottom, or both. */
   fixed?: "top" | "bottom" | "both";
+  /** A fixed band's height, where the page below it begins sooner than its own measured foot. */
+  height?: number;
 }
 
 const E = 1.5;
@@ -173,6 +175,21 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
         f = top ? "top" : bottom ? "bottom" : "both";
       }
       if (f) k.fixed = f === "both" && C.position !== "fixed" ? "top" : f;
+      /*
+       * A BAND AT THE TOP ENDS WHERE THE PAGE BELOW IT BEGINS. Sink's banner
+       * measured 82 tall (captured with a stand-in wallet chip, taller than
+       * the real one), and the page under it is laid out for 73: the
+       * sidebar's top inset and the main column's margin. Drawn at 82 it
+       * hid the top 9px of the cards, their top edges with them. So a band
+       * fixed at the top is as tall as the space the page left it: the top
+       * of the first part not inside it that starts within it. Its insides
+       * are their own parts and keep their places.
+       */
+      if (!fixed && C.position === "fixed" && k.fixed === "top") {
+        const inside = (q: FluidPart) => !!q.selector && q.selector.startsWith(`${C.selector} > `);
+        const below = caught.filter((q) => q !== C && !inside(q) && q.y > C.y + E && q.y < C.y + C.h - E && q.x < C.x + C.w && q.x + q.w > C.x);
+        if (below.length) k.height = Math.min(...below.map((q) => q.y)) - C.y;
+      }
       out.set(C.id, k);
       place(C, k, f === "both" ? "top" : f);
     });
@@ -191,7 +208,7 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
   if (k.width.css || Math.abs(k.width.k) > 1e-9) st.width = css(k.width, W);
   if (!k.fixed) return;
   st.position = "fixed";
-  if (k.fixed === "top") { st.top = `${p.y}px`; st.bottom = ""; }
+  if (k.fixed === "top") { st.top = `${p.y}px`; st.bottom = ""; if (k.height) { st.height = st.minHeight = `${k.height}px`; st.overflow = "clip"; } }
   else if (k.fixed === "bottom") { st.top = "auto"; st.bottom = `${H - (p.y + p.h)}px`; }
   else { st.top = `${p.y}px`; st.bottom = `${H - (p.y + p.h)}px`; st.minHeight = "0px"; st.height = "auto"; }
 }
