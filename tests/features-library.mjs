@@ -41,13 +41,13 @@ check("the library holds Live SOL price and Live token price", !!getWork("sol-pr
 for (const w of LIBRARY) {
   const m = w.manifest;
   check(`${m.id}: a manifest with name, category, inputs, needs and a shelf look`,
-    !!m.name && m.category === "data" && Array.isArray(m.inputs) && NEEDS.has(m.needs) && !!m.look?.sample,
+    !!m.name && (/price/.test(m.id) ? m.category === "data" : !!m.category) && Array.isArray(m.inputs) && NEEDS.has(m.needs) && !!m.look?.sample,
     `${m.name} · ${m.category} · needs ${m.needs} · looks like ${m.look?.sample}`);
   check(`${m.id}: its manifest is plain data, as a repository would hold it`, JSON.stringify(JSON.parse(JSON.stringify(m))) === JSON.stringify(m));
   check(`${m.id}: a script`, typeof w.script === "string" && w.script.includes(`define(${JSON.stringify(m.id)}`));
 }
 check("Live token price asks for the mint", getWork("token-price").manifest.inputs.some((i) => i.id === "mint"));
-check("both refresh every N seconds, set per part", LIBRARY.every((w) => w.manifest.inputs.some((i) => i.id === "every")));
+check("both refresh every N seconds, set per part", ["sol-price", "token-price"].every((id) => getWork(id).manifest.inputs.some((i) => i.id === "every")));
 
 /* ------------------------------------------------- the scripts, running */
 /** A stand-in page: one part, its words inside a span, as the export draws them. */

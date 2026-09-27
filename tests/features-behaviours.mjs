@@ -30,6 +30,8 @@ import http from "node:http";
 import { chromium } from "playwright-core";
 import { LIBRARY, getWork, featureFiles, pageFeatureTags, matchWorks } from "../src/features/studio/library/works.ts";
 import { readWords } from "../src/features/studio/library/read.ts";
+import { contractFiles } from "../src/features/studio/library/contract.ts";
+import { foundIn, offersFrom } from "../src/features/studio/library/roundTrip.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -37,7 +39,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const IDS = ["reveal", "copy-toast", "tilt", "follow-pointer", "marquee", "embed", "crt-loader", "dust"];
+const IDS = ["reveal", "copy-toast", "tilt", "follow-pointer", "marquee", "embed", "crt-loader", "dust-canvas"];
 const CATEGORIES = new Set(["structure", "nav", "hero", "content", "media", "motion", "interact", "forms", "data", "social", "ai", "platform"]);
 const NEEDS = new Set(["none", "wallet", "backend", "key"]);
 
@@ -70,7 +72,7 @@ check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) =
   const said = [
     ["reveal on scroll", "reveal"], ["fade in on scroll", "reveal"], ["copy with toast", "copy-toast"], ["click to copy", "copy-toast"],
     ["tilt toward the mouse", "tilt"], ["parallax", "tilt"], ["follow the pointer", "follow-pointer"], ["eye follows cursor", "follow-pointer"],
-    ["marquee", "marquee"], ["scrolling ticker loop", "marquee"], ["crt loader", "crt-loader"], ["floating dust", "dust"],
+    ["marquee", "marquee"], ["scrolling ticker loop", "marquee"], ["crt loader", "crt-loader"], ["floating dust", "dust-canvas"],
   ];
   for (const [text, id] of said) {
     const r = read(text);
@@ -90,6 +92,19 @@ check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) =
   check("publishing ships the runtime and each behaviour's script", IDS.every((id) => files.includes(`assets/features/${id}.js`)) && files.includes("assets/features/runtime.js"), files.join(", "));
 }
 
+/* ---------------------------- the owner's two, as contract folders */
+{
+  const nodes = [{ id: "n_crt", pageId: "page_home", featureId: "hero", content: "", work: { id: "crt-loader", inputs: {} } }, { id: "n_dust", pageId: "page_home", featureId: "hero", content: "", work: { id: "dust-canvas", inputs: {} } }];
+  const files = contractFiles(nodes, [{ id: "page_home", name: "Home", path: "/" }]);
+  const paths = files.map((f) => f.path);
+  const folders = ["crt-loader", "dust-canvas"].every((id) => ["manifest.json", "script.js", "README.md"].every((f) => paths.includes(`features/${id}/${f}`)));
+  check("CRT loader and Dust publish as features/crt-loader/ and features/dust-canvas/, per the contract", folders, paths.filter((p) => p.startsWith("features/")).join(", "));
+  const back = offersFrom(foundIn(files), LIBRARY);
+  check("…and read back unchanged: nothing to offer, nothing wrong", back.length === 0, JSON.stringify(back.map((o) => [o.id, o.status, o.problems])));
+  const fresh = offersFrom(foundIn(files), LIBRARY.filter((w) => !["crt-loader", "dust-canvas"].includes(w.manifest.id)));
+  check("…and a library without them would take them back as they are", fresh.length === 2 && fresh.every((o) => o.acceptable), JSON.stringify(fresh.map((o) => [o.id, o.problems])));
+}
+
 /* ----------------------------------- the stand-in page, in a browser */
 const dir = mkdtempSync(join(tmpdir(), "behaviours-"));
 const PARTS = [
@@ -105,7 +120,7 @@ const PARTS = [
   ["n_embed_self", "embed", { url: "SELF_URL" }, "top:560px;left:560px;width:200px;height:120px", "self"],
   ["n_embed_bad", "embed", { url: "javascript:alert(1)" }, "top:560px;left:800px;width:200px;height:120px", "bad"],
   ["n_crt", "crt-loader", { title: "TRUMP & MORTY", ticker: "$TRORTY", hold: "1.2" }, "top:3000px;left:0;width:10px;height:10px", ""],
-  ["n_dust", "dust", {}, "top:900px;left:0;width:800px;height:300px", ""],
+  ["n_dust", "dust-canvas", {}, "top:900px;left:0;width:800px;height:300px", ""],
 ];
 const server = http.createServer((req, res) => {
   const path = join(dir, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/+/, "") || "index.html");
@@ -159,11 +174,11 @@ const style = (p, id, prop) => p.$eval(`#${id}`, (el, k) => getComputedStyle(el)
   check("the page runs every script without an error", errors.length === 0, errors.join(" | "));
 
   /* CRT loader: covers the page, then switches off and is gone. */
-  const crtUp = await p.$eval("#n_crt", (el) => { const o = el.querySelector("[data-crt]") ?? el; const r = o.getBoundingClientRect(); return { w: r.width, h: r.height, fixed: getComputedStyle(o).position, text: el.textContent }; });
+  const crtUp = await p.$eval("#n_crt", (el) => { const o = document.querySelector("[data-crt]") ?? el; const r = o.getBoundingClientRect(); return { w: r.width, h: r.height, fixed: getComputedStyle(o).position, text: o.textContent }; });
   check("CRT loader: a full-screen tuning screen on arrival", crtUp.fixed === "fixed" && crtUp.w >= 1200 && crtUp.h >= 800 && /TRUMP & MORTY/.test(crtUp.text) && /\$TRORTY/.test(crtUp.text), JSON.stringify(crtUp));
-  check("…with a moving static drawn on a canvas", await p.$eval("#n_crt", (el) => !!el.querySelector("canvas")));
+  check("…with a moving static drawn on a canvas", await p.evaluate(() => !!document.querySelector("[data-crt] canvas")));
   await wait(3200);
-  check("…that switches off like an old set and leaves the page", await p.$eval("#n_crt", (el) => !el.querySelector("[data-crt]") || getComputedStyle(el.querySelector("[data-crt]")).display === "none"));
+  check("…that switches off like an old set and leaves the page", await p.evaluate(() => !document.querySelector("[data-crt]")));
 
   /* Dust: a canvas in the part, drawn into. */
   const dust = await p.$eval("#n_dust", (el) => { const c = el.querySelector("canvas"); if (!c) return null; const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let lit = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) lit++; return { lit, pe: getComputedStyle(c).pointerEvents, w: c.getBoundingClientRect().width }; });
@@ -231,11 +246,12 @@ const style = (p, id, prop) => p.$eval(`#${id}`, (el, k) => getComputedStyle(el)
   check("…whichever way it is", up[1] < -5 && Math.hypot(...up) <= 14.01, JSON.stringify(up));
 
   /* Marquee. */
-  const m1 = await p.$eval("#n_marquee", (el) => ({ copies: el.querySelectorAll("[aria-hidden=true]").length, x: el.firstElementChild && new DOMMatrix(getComputedStyle(el.firstElementChild).transform).m41, overflow: getComputedStyle(el).overflow }));
-  await wait(400);
+  const m1 = await p.$eval("#n_marquee", (el) => ({ copies: el.querySelectorAll("[aria-hidden=true]").length, x: el.firstElementChild ? new DOMMatrix(getComputedStyle(el.firstElementChild).transform).m41 : 0, loop: el.firstElementChild?.firstElementChild?.getBoundingClientRect().width ?? 0, overflow: getComputedStyle(el).overflow }));
+  await wait(150);
   const m2 = await p.$eval("#n_marquee", (el) => new DOMMatrix(getComputedStyle(el.firstElementChild).transform).m41);
-  check("Marquee: the contents run on a loop, a hidden copy behind them", m1.copies >= 1 && m1.overflow === "hidden", JSON.stringify(m1));
-  check("…moving the way it was set", m2 < m1.x, `${m1.x} → ${m2}`);
+  const moved = m1.loop ? (((m1.x - m2) % m1.loop) + m1.loop) % m1.loop : 0;
+  check("Marquee: the contents run on a loop, a hidden copy behind them", m1.copies >= 1 && m1.overflow === "hidden" && m1.loop > 0, JSON.stringify(m1));
+  check("…moving the way it was set, at its speed", moved > 10 && moved < 60, `${moved.toFixed(1)} px in 150 ms at 200 px/s`);
   await p.hover("#n_marquee", { timeout: 3000 }).catch(() => {});
   await wait(100);
   const h1 = await p.$eval("#n_marquee", (el) => new DOMMatrix(getComputedStyle(el.firstElementChild).transform).m41);
@@ -258,7 +274,7 @@ const style = (p, id, prop) => p.$eval(`#${id}`, (el, k) => getComputedStyle(el)
 {
   const { ctx, p, errors } = await open("reduce");
   check("with less motion asked for, still no error", errors.length === 0, errors.join(" | "));
-  check("the CRT loader does not play", await p.$eval("#n_crt", (el) => { const o = el.querySelector("[data-crt]"); return !o || getComputedStyle(o).display === "none"; }));
+  check("the CRT loader does not play", await p.evaluate(() => !document.querySelector("[data-crt]")));
   check("the dust does not drift", await p.$eval("#n_dust", (el) => { const c = el.querySelector("canvas"); return !c || !c.getContext("2d").getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v); }));
   check("a part set to reveal is simply there", Number(await style(p, "n_reveal_low", "opacity")) === 1 && ["none", "0px"].includes(await style(p, "n_reveal_low", "translate")));
   await p.mouse.move(235, 280);

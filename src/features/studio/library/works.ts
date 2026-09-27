@@ -25,8 +25,10 @@
  *
  * Pure on purpose: no store, no React, no imports, so the tests run it as
  * written under node's type stripping, and a feature read from a repository
- * later is the same shape as one written here.
+ * later is the same shape as one written here. (The behaviours — reveal,
+ * copy, tilt and the rest — are in `behaviours.ts`, the same shape.)
  */
+import { BEHAVIOURS } from "./behaviours.ts";
 
 /** What a feature needs before it can run. `none` runs on a static page as published. */
 export type WorkNeeds = "none" | "wallet" | "backend" | "key";
@@ -199,7 +201,7 @@ const TOKEN_PRICE: Work = {
 };
 
 /** Every feature the Builder has, in shelf order. */
-export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE];
+export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE, ...BEHAVIOURS];
 
 /**
  * The features the owner accepted from their repositories (`roundTrip.ts`),
