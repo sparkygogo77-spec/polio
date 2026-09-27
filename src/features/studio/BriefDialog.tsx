@@ -190,12 +190,27 @@ function useResumeLive() {
   const ctx = useActions();
   const waiting = useBuilds((s) => s.projects.filter((p) => p.pending).map((p) => `${p.id}:${p.pending!.id}`).join(","));
   const keyed = useKeys((s) => s.unlocked && !!s.values.VERCEL_TOKEN);
+  /*
+   * A FOLLOW STARTED BEFORE THE KEY ARRIVED IS STARTED AGAIN AFTER IT. After
+   * a reload the pending deployment can be picked up before the Vercel key
+   * has loaded: that follow asks without a key and ends unfinished, and the
+   * run the key's arrival asks for was skipped because the keyless one was
+   * still in flight. Nothing asked again, and the deployment stayed pending
+   * after one poll (tests/live-resume.mjs, about one run in four). So a
+   * follow that ends unfinished, with the key changed since it began, is
+   * run again, once per change.
+   */
+  const [again, setAgain] = React.useState(0);
   React.useEffect(() => {
     for (const p of useBuilds.getState().projects) {
       const dep = p.pending;
       if (!dep || following.has(dep.id)) continue;
       if (Date.now() - dep.at > PENDING_FOR) { useBuilds.getState().setPending(p.id, undefined); continue; }
+      const keyedAtStart = keyed;
       void followDeployment(p.id, dep).then((end) => {
+        const ended = end.state === "READY" || end.state === "ERROR" || end.state === "CANCELED";
+        const k = useKeys.getState();
+        if (!ended && (k.unlocked && !!k.values.VERCEL_TOKEN) !== keyedAtStart) { setAgain((n) => n + 1); return; }
         if (end.state === "READY" && end.url) {
           ctx.publish({ key: "studio:live", title: "The site is live", body: `${p.name} at ${end.url}`, level: "success", source: "studio", toast: true, href: end.url });
         } else if (end.state === "ERROR" || end.state === "CANCELED") {
@@ -204,7 +219,7 @@ function useResumeLive() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waiting, keyed]);
+  }, [waiting, keyed, again]);
 }
 
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
