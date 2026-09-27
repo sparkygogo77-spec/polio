@@ -34,7 +34,13 @@ export async function bringSink(BASE, SINK, viewport = { width: 1763, height: 10
     if (pic) return j({ encoding: "base64", content: readFileSync(join(SINK, "assets/pictures", pic[1])).toString("base64") });
     return j({ message: "no" }, 404);
   });
-  const state = () => page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {});
+  /* The saved document: the localStorage mirror when it holds one, else (a pointer: the document lives in IndexedDB, docStore.ts) the board's own. */
+  const state = () => page.evaluate(() => {
+    const env = JSON.parse(localStorage.getItem("builder.studio") || "{}");
+    if (env.state) return env.state;
+    if (env.idb && window.__studioPublishDoc) return window.__studioPublishDoc();
+    return {};
+  });
 
   await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
   await page.evaluate(() => {
