@@ -236,7 +236,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     setBusy("Asking Vercel to build it…");
     /* A repository with no Vercel project gets one on the way, named after
        the site, so this press is the only one needed from board to address. */
-    const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch, name: siteName.trim() || project?.name?.trim() || undefined, sources });
+    /* The commit just pushed goes too: a connected project deploys it by
+       itself, and that deployment is followed rather than a second made. */
+    const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch, name: siteName.trim() || project?.name?.trim() || undefined, sources, sha: pushed.sha });
     if (!started.ok) {
       refuse(started.message, started.hint);
       useStudio.getState().noteThread([`Vercel would not build it: ${started.message}`]);

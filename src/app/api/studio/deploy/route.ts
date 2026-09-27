@@ -109,6 +109,9 @@ async function findProject(tok: string, team: string | null, repo: string, named
   return hit ? { found: hit } : { found: null };
 }
 
+/** How long a push's own deployment is waited for before one is asked for instead. */
+const PUSH_WAIT_MS = 30_000;
+
 /** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
 const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
 
@@ -235,7 +238,7 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: { repo?: unknown; branch?: unknown; project?: unknown; team?: unknown; name?: unknown; sources?: unknown };
+  let body: { repo?: unknown; branch?: unknown; project?: unknown; team?: unknown; name?: unknown; sources?: unknown; sha?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -315,13 +318,61 @@ export async function POST(request: Request) {
   // repoId is what v13 wants when it has one; org and repo are accepted too,
   // and are the only thing to go on for a project linked before repoId was
   // recorded. Both are sent, so neither case needs a second round trip.
+  /* The commit the push just made, when the caller says: that one is built, not whatever the branch holds by then. */
+  const sha = typeof body.sha === "string" && /^[0-9a-f]{7,40}$/i.test(body.sha.trim()) ? body.sha.trim() : null;
   const gitSource = {
     type: "github",
     ref: branch,
+    ...(sha ? { sha } : {}),
     ...(project.link?.repoId ? { repoId: project.link.repoId } : {}),
     org,
     repo: name,
   };
+
+  /*
+   * ONE PRESS, ONE PRODUCTION DEPLOYMENT.
+   *
+   * A project connected to the repository deploys every push by itself:
+   * that is Vercel's Git integration, and it is what makes later pushes go
+   * live on their own. Asking for a deployment as well built the same
+   * commit twice on every press after the first (`tests/go-live-once.mjs`).
+   * So when the push's own deployment can exist (a project that was there
+   * before the push), it is looked for, by the commit, and followed.
+   *
+   * A project made by this call was not there when the push landed, so
+   * nothing deployed it, and one is asked for. So is one when no deployment
+   * of the commit shows up within PUSH_WAIT_MS: a project whose Git
+   * deployments are turned off still goes live.
+   */
+  if (!made && sha) {
+    const until = Date.now() + PUSH_WAIT_MS;
+    for (;;) {
+      const { ok: listed, data: list } = await vercel<{ deployments?: { uid?: string; id?: string; url?: string; readyState?: string; state?: string; inspectorUrl?: string; meta?: { githubCommitSha?: string } }[] }>(
+        tok,
+        `/v6/deployments${query(team, { projectId: project.id, target: "production", limit: "20" })}`,
+      );
+      const own = listed ? (list.deployments ?? []).find((d) => d.meta?.githubCommitSha === sha) : undefined;
+      if (own && (own.uid ?? own.id)) {
+        return NextResponse.json({
+          ok: true,
+          id: own.uid ?? own.id,
+          project: project.name,
+          repo,
+          branch,
+          ...(askedBranch ? {} : { assumed: true }),
+          team,
+          state: own.readyState ?? own.state ?? null,
+          url: own.url ? `https://${own.url}` : null,
+          inspectorUrl: own.inspectorUrl ?? null,
+          /* Started by the push, not by this call. */
+          followed: true,
+        });
+      }
+      /* A list Vercel will not give is no reason to wait: one is asked for. */
+      if (!listed || Date.now() >= until) break;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
 
   /*
    * A NEW PROJECT'S FIRST DEPLOYMENT SAYS WHAT IT IS BUILDING.

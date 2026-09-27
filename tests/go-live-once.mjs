@@ -102,6 +102,8 @@ const vc = http.createServer(async (req, res) => {
 /* ------------------------------------------------------------ GitHub */
 const ghSeen = [];
 let commits = 0;
+/** A commit's sha, shaped as GitHub's are: forty hex characters. */
+const shaOf = (n) => n.toString(16).padStart(40, "0");
 const gh = http.createServer(async (req, res) => {
   const body = await readBody(req);
   const path = new URL(req.url, "http://x").pathname;
@@ -113,11 +115,11 @@ const gh = http.createServer(async (req, res) => {
   const rest = m[2] ?? "";
   if (!rest) return send(200, { default_branch: "main" });
   if (rest.startsWith("/contents/")) return send(404, { message: "Not Found" });
-  if (rest.startsWith("/git/ref/heads/")) return send(200, { object: { sha: commits ? `c${commits}` : "c0" } });
+  if (rest.startsWith("/git/ref/heads/")) return send(200, { object: { sha: shaOf(commits) } });
   if (rest.startsWith("/git/commits/")) return send(200, { tree: { sha: "tree0" } });
   if (rest === "/git/blobs") return send(201, { sha: `b${ghSeen.length}` });
   if (rest === "/git/trees") return send(201, { sha: "tree1" });
-  if (rest === "/git/commits" && req.method === "POST") { commits++; return send(201, { sha: `c${commits}`, html_url: `https://example.invalid/c${commits}` }); }
+  if (rest === "/git/commits" && req.method === "POST") { commits++; return send(201, { sha: shaOf(commits), html_url: `https://example.invalid/${shaOf(commits)}` }); }
   /* The branch moves: that is the push the Git integration sees. */
   if (rest.startsWith("/git/refs")) { const sha = JSON.parse(body || "{}").sha; pushed(m[1], sha); return send(200, { object: { sha } }); }
   return send(404, { message: "Not Found" });
@@ -200,7 +202,7 @@ for (const n of [1, 2]) {
   const made = await press();
   const p = await project();
   check(`the button read Update live site, and one production deployment came of it`, /Update live site/.test(before) && made.length === 1, `${JSON.stringify(before)}; ${made.map((d) => `${d.id} by ${d.by} of ${d.sha}`).join(", ") || "none"}`);
-  check("it is the push's own, of the commit just pushed", made[0]?.sha === `c${commits}`, `deployed ${made[0]?.sha ?? "nothing"}, pushed c${commits}`);
+  check("it is the push's own, of the commit just pushed", made[0]?.by === "git" && made[0]?.sha === shaOf(commits), `deployed ${made[0]?.sha ?? "nothing"} by ${made[0]?.by ?? "nobody"}, pushed ${shaOf(commits)}`);
   check("followed to READY: the live link is the same address", p?.live?.url === ADDRESS && !p?.pending, `live = ${p?.live?.url ?? null}, pending = ${JSON.stringify(p?.pending ?? null)}`);
 }
 console.log("4. A project connected by an earlier press, never deployed");

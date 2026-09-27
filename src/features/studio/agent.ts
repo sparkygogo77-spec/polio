@@ -689,7 +689,7 @@ export type DeployStart =
  * in the repository before it connects anything to it, and refuses every one
  * of `sources`, where sites here were brought in from.
  */
-export async function deploy(input: { repo?: string; branch?: string; project?: string; team?: string; name?: string; sources?: string[] } = {}): Promise<DeployStart> {
+export async function deploy(input: { repo?: string; branch?: string; project?: string; team?: string; name?: string; sources?: string[]; /** The commit the push just made: its own deployment is followed rather than a second one made. */ sha?: string } = {}): Promise<DeployStart> {
   try {
     const res = await fetch("/api/studio/deploy", {
       method: "POST",
