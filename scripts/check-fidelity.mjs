@@ -53,6 +53,10 @@ const most = Number(/const MOST_PICTURES = (\d+)/.exec(run)?.[1]);
 check("the importer takes hundreds of pictures, not 40 (share.xyz's three pages name 218)", most >= 400, String(most));
 check("…and a picture budget of its own, not the 8 MB the whole repository is read within", /MAX_PICTURE_BYTES/.test(run) && !/weight \+ \(entry\.size \?\? 0\) > MAX_REPO_BYTES/.test(run));
 
+/* The frame a sticky band scrolls in */
+const exp = readFileSync(join(src, "exportSite.ts"), "utf8");
+check("the published page frame clips without becoming the scroll container, so a sticky band sticks to the window", /isPage \? \(el\.getAttribute\("style"\) \?\? ""\)\.replace\(\/overflow:\\s\*hidden\/, "overflow: clip"\)/.test(exp));
+
 /* A site in a folder of the repository */
 const imp = await jiti.import(join(src, "repoImport.ts"));
 const plain = imp.readRepo("STANDIN-owner/sink");

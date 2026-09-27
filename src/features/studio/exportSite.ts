@@ -319,7 +319,14 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
     }
     if (node) el.setAttribute("id", node);
     if (isPage) el.setAttribute("data-page", pageId);
-    const style = el.getAttribute("style");
+    /*
+     * The page frame clips, and is no scroll container. The preview's frame
+     * is `overflow: hidden`, which makes it the nearest scrolling ancestor of
+     * everything in it: a sticky band (fluidSite.ts) then sticks to the
+     * frame, which never scrolls, and share.xyz's header scrolled away.
+     * `clip` clips the same and leaves the window as what scrolls.
+     */
+    const style = isPage ? (el.getAttribute("style") ?? "").replace(/overflow:\s*hidden/, "overflow: clip") : el.getAttribute("style");
     if (style) el.setAttribute("style", toRoles(style, roles));
   }
   const box = document.createElement("div");
