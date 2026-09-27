@@ -354,14 +354,16 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
    * its last part, and the published page scrolled by that much where the
    * original fits the screen (the owner's ruling). A page whose parts end at
    * the foot of the capture's window (the lowest fixed band's) fitted it, so
-   * it is the window's height and never scrolls; any other is as tall as its
-   * lowest part and scrolls, its scrollbar hidden (`frameCss`).
+   * in a window at least that tall it is the window's height and never
+   * scrolls; in a shorter one (a small laptop) it keeps its own height and
+   * scrolls, so nothing is cut off. Any other page is as tall as its lowest
+   * part and scrolls. Never with a scrollbar showing (`frameCss`).
    */
   const bottom = Math.max(0, ...parts.map((p) => p.y + p.h));
   const fits = H > 0 && bottom <= H + 1;
   for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
     pg.style.width = "100%";
-    pg.style.height = fits ? "100vh" : `${bottom}px`;
+    pg.style.height = fits ? `max(100vh, ${bottom}px)` : `${bottom}px`;
   }
 }
 

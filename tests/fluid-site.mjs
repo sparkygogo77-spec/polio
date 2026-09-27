@@ -164,7 +164,7 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
  * one that scrolls keeps scrolling, with no scrollbar shown.
  */
 console.log("3. Fit, and no scrollbar");
-for (const [file, width, height, fits] of [["index.html", W, H, true], ["index.html", 1922, 1080, true], ["docs/index.html", 1763, 900, false]]) {
+for (const [file, width, height, fits] of [["index.html", W, H, true], ["index.html", 1922, 1080, false], ["docs/index.html", 1763, 900, false]]) {
   const v = await open(width, height, file);
   const m = await v.evaluate(() => ({
     over: document.documentElement.scrollHeight - innerHeight,
@@ -183,14 +183,17 @@ for (const [file, width, height, fits] of [["index.html", W, H, true], ["index.h
   await v.close();
 }
 
-/* A short window: the page still fits it, the header at the top and the footer at the foot (the owner's ruling; nothing to scroll). */
+/* A window shorter than the capture's: the page scrolls, nothing cut off, the header at the top and the footer at the foot (the coordinator's ruling: small laptops must reach everything). */
 {
   const v = await open(1922, 700);
-  await v.mouse.wheel(0, 400);
+  const tall = await v.evaluate(() => document.documentElement.scrollHeight);
+  const lowest = Math.max(...s.nodes.filter((n) => n.pageId === "page_home").map((n) => (n.y ?? 0) + n.h));
+  await v.mouse.wheel(0, 5000);
   await v.waitForTimeout(400);
+  const y = await v.evaluate(() => scrollY);
   const hd = await rect(v, nodeBy(HEADER).id), ft = await rect(v, nodeBy(FOOTER).id);
-  const over = await v.evaluate(() => document.documentElement.scrollHeight - innerHeight);
-  check("in a 700px window the page fits, the header at the top and the footer at the foot", hd && ft && near(hd.y, 0) && near(ft.b, 700) && over <= 0, JSON.stringify({ header: hd?.y, footer: ft?.b, over }));
+  check("in a 700px window the page scrolls to its lowest part, nothing cut off", tall >= lowest && near(y, tall - 700), JSON.stringify({ tall, lowest, scrolled: y }));
+  check("…with the header at the top and the footer at the foot", hd && ft && near(hd.y, 0) && near(ft.b, 700), JSON.stringify({ header: hd?.y, footer: ft?.b }));
   await v.close();
 }
 
