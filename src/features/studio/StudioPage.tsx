@@ -1155,7 +1155,7 @@ export function StudioPage() {
         {design && libraryOpen ? (
           <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
-            <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
+            <div className="flex min-h-8 shrink-0 items-center gap-1 border-b border-border px-1.5 py-0.5">
               <Segmented
                 className="min-w-0 flex-1 flex-wrap [&>*]:flex-1 [&>*]:px-1"
                 size="xs"
