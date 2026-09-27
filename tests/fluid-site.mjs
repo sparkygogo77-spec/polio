@@ -157,13 +157,40 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   await v.close();
 }
 
-/* Scrolled, the bands stay where they are and the page moves under them. */
+/*
+ * THE OWNER'S RULING: the original fits the whole screen with no scrolling,
+ * and ours showed a scrollbar. A page that fit the capture's window (its
+ * parts end at the foot of the lowest fixed band) fits the window exactly;
+ * one that scrolls keeps scrolling, with no scrollbar shown.
+ */
+console.log("3. Fit, and no scrollbar");
+for (const [file, width, height, fits] of [["index.html", W, H, true], ["index.html", 1922, 1080, true], ["docs/index.html", 1763, 900, false]]) {
+  const v = await open(width, height, file);
+  const m = await v.evaluate(() => ({
+    over: document.documentElement.scrollHeight - innerHeight,
+    bar: innerWidth - document.documentElement.clientWidth,
+    hidden: getComputedStyle(document.documentElement).scrollbarWidth,
+  }));
+  const tag = `${file} at ${width}×${height}`;
+  if (fits) check(`${tag}: fits the window exactly, nothing to scroll`, m.over <= 0, `${m.over}px over`);
+  else {
+    await v.mouse.wheel(0, 300);
+    await v.waitForTimeout(300);
+    const y = await v.evaluate(() => scrollY);
+    check(`${tag}: still scrolls`, m.over > 0 && y > 0, `${m.over}px over, scrolled ${y}`);
+  }
+  check(`${tag}: no scrollbar shown`, m.bar === 0 && m.hidden === "none", JSON.stringify(m));
+  await v.close();
+}
+
+/* A short window: the page still fits it, the header at the top and the footer at the foot (the owner's ruling; nothing to scroll). */
 {
   const v = await open(1922, 700);
   await v.mouse.wheel(0, 400);
   await v.waitForTimeout(400);
-  const hd = await rect(v, nodeBy(HEADER).id), ft = await rect(v, nodeBy(FOOTER).id), mn = await rect(v, nodeBy(MAIN).id);
-  check("scrolled, the header and footer stay put and the page moves under them", hd && ft && mn && near(hd.y, 0) && near(ft.b, 700) && mn.y < 73 - 100, JSON.stringify({ header: hd?.y, footer: ft?.b, main: mn?.y }));
+  const hd = await rect(v, nodeBy(HEADER).id), ft = await rect(v, nodeBy(FOOTER).id);
+  const over = await v.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  check("in a 700px window the page fits, the header at the top and the footer at the foot", hd && ft && near(hd.y, 0) && near(ft.b, 700) && over <= 0, JSON.stringify({ header: hd?.y, footer: ft?.b, over }));
   await v.close();
 }
 
