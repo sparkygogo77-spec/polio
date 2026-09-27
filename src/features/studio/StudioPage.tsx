@@ -15,6 +15,7 @@ import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { ImportStrip } from "./FromASite";
 import { BringRepoDoor } from "./RepoPicker";
+import { CaptureSiteDoor } from "./CaptureSiteDialog";
 import { NewSiteOffer } from "./NewSiteOffer";
 import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
@@ -609,6 +610,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           binds where Publish pushes, and the GitHub control draws nothing
           at all until a site already has a repository or a token. */}
       <BringRepoDoor />
+      <CaptureSiteDoor />
       <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
       <ProcessCounter />
