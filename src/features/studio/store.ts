@@ -278,7 +278,7 @@ export interface StudioNode {
    * Absent on every part that was drawn or placed.
    */
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
-  from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" } | null;
+  from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
   /**
    * HIS HAND PUT THIS BOX WHERE IT IS.
    *
@@ -317,6 +317,8 @@ export interface StudioNode {
   layout?: NodeLayout | null;
   pad?: NodePad | null;
   edge?: NodeEdge | null;
+  /** Rounded corners the page gave the box, in px; drawn by the box wrapper (parts/theme.ts#boxStyle). */
+  radius?: number | null;
   text?: NodeText | null;
   /**
    * A feature from the library, working on this part (`library/works.ts`).
@@ -1346,7 +1348,7 @@ function withoutTwins(nodes: StudioNode[], done: readonly Twin[]): StudioNode[] 
    * saved document — or his board published and brought back — met an
    * unflagged image and grew the header round it again (`tests/twin-flag.mjs`).
    */
-  const flagOf = new Map<string, "absolute" | "fixed">();
+  const flagOf = new Map<string, "absolute" | "fixed" | "sticky">();
   for (const t of done) {
     const gone = nodes.find((n) => n.id === t.id)?.from?.position;
     if (gone) flagOf.set(t.keeps, gone);
@@ -2922,7 +2924,20 @@ export const useStudio = create<StudioState>()(
        */
       storage: createJSONStorage(() => ({
         getItem: (k) => localStorage.getItem(k),
-        setItem: (k, v) => { if (studioRead && !studioSwapping) localStorage.setItem(k, v); },
+        setItem: (k, v) => {
+          if (!studioRead || studioSwapping) return;
+          /*
+           * A DOCUMENT TOO BIG FOR LOCALSTORAGE STILL OPENS. share.xyz's three
+           * pages are 8.5 MB, past the browser's quota: setItem threw inside
+           * the import, which stopped before its pictures were kept, and the
+           * board showed every logo broken. The document stays on the board
+           * for the session; what could not be saved is noted beside the key
+           * (its size) so the next reader can tell. The store's own home is
+           * IndexedDB next, with this key as the pointer.
+           */
+          try { localStorage.setItem(k, v); localStorage.removeItem(`${k}.unsaved`); }
+          catch { try { localStorage.setItem(`${k}.unsaved`, String(v.length)); } catch { /* nothing to note it in */ } }
+        },
         removeItem: (k) => localStorage.removeItem(k),
       })),
       merge: (persisted, current) => mergeDoc(persisted, current as StudioState),

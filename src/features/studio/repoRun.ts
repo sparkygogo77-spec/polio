@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { docPathIn, pathIn, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
 
 const API = "https://api.github.com";
@@ -107,7 +107,10 @@ function unbase64(s: string): Uint8Array {
 }
 
 /** How many pictures a copy brings across before the rest are named as left behind. */
-const MOST_PICTURES = 40;
+/** How many pictures a document may name before the rest are only named: share.xyz's three pages name 218, a site's worth is hundreds. */
+const MOST_PICTURES = 600;
+/** And their bytes together, a budget of the pictures' own: the document's own size is not counted against it. */
+const MAX_PICTURE_BYTES = 64 * 1024 * 1024;
 
 type Blob = { path: string; sha: string; size?: number };
 
@@ -200,7 +203,7 @@ async function sourceOf(repo: Repo, token: string, ref: string, blobs: Blob[], s
  * the rest are named too, so the copy says what it left behind.
  */
 async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: string; sha: string; size?: number }[], say: (line: string) => void): Promise<RepoCopy | null> {
-  const at = blobs.find((e) => e.path === MADE_HERE);
+  const at = blobs.find((e) => e.path === docPathIn(repo.dir));
   if (!at) return null;
   const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
   if (isNo(blob)) return null;
@@ -229,9 +232,9 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
   let weight = 0;
   let i = 0;
   for (const p of wanted.values()) {
-    const entry = blobs.find((e) => e.path === p.path);
+    const entry = blobs.find((e) => e.path === pathIn(repo.dir, p.path));
     if (!entry) { lost.push(p.path); continue; }
-    if (pictures.length >= MOST_PICTURES || weight + (entry.size ?? 0) > MAX_REPO_BYTES) { lost.push(p.path); continue; }
+    if (pictures.length >= MOST_PICTURES || weight + (entry.size ?? 0) > MAX_PICTURE_BYTES) { lost.push(p.path); continue; }
     say(`Fetching its pictures… ${++i} of ${wanted.size}`);
     const got = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${entry.sha}`, token);
     if (isNo(got)) { lost.push(p.path); continue; }
@@ -282,7 +285,7 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
    * with it from the same tree. Only a document that cannot be read falls
    * through to the page or the address, and says so.
    */
-  if (madeHere(paths)) {
+  if (madeHere(paths, repo.dir)) {
     say(`Reading the site itself out of ${repo.owner}/${repo.name}…`);
     const copy = await copyOf(repo, token, ref, blobs, say);
     if (copy) return copy;
@@ -308,7 +311,7 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
      * meant by bringing the repository in.
      */
     const kinds = [...new Set(paths.map((p) => (p.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase()).filter(Boolean))];
-    const made = madeHere(paths);
+    const made = madeHere(paths, repo.dir);
     const page = pageAddress(homepage || null, made);
     return { no: "no-page", says: noPageSays(repo, kinds, page.at, made), deployedAt: homepage || null, pageAt: page.at, pageWhy: page.why, madeHere: made };
   }

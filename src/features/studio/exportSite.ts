@@ -419,7 +419,14 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
     }
     if (node) el.setAttribute("id", node);
     if (isPage) el.setAttribute("data-page", pageId);
-    const style = el.getAttribute("style");
+    /*
+     * The page frame clips, and is no scroll container. The preview's frame
+     * is `overflow: hidden`, which makes it the nearest scrolling ancestor of
+     * everything in it: a sticky band (fluidSite.ts) then sticks to the
+     * frame, which never scrolls, and share.xyz's header scrolled away.
+     * `clip` clips the same and leaves the window as what scrolls.
+     */
+    const style = isPage ? (el.getAttribute("style") ?? "").replace(/overflow:\s*hidden/, "overflow: clip") : el.getAttribute("style");
     if (style) el.setAttribute("style", toRoles(style, roles));
   }
   const box = document.createElement("div");
@@ -436,7 +443,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
 function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, StudioNode>, W: number): void {
   const parts: FluidPart[] = [...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({
     id: n.id, x: n.x ?? 0, y: n.y ?? 0, w: n.w, h: n.h,
-    selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null,
+    selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null, inset: n.from?.inset ?? null,
     layout: (n as { layout?: FluidPart["layout"] }).layout ?? null,
     pad: (n as { pad?: FluidPart["pad"] }).pad ?? null,
   }));
