@@ -45,6 +45,7 @@ import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import type { Spend } from "./spend";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
+import type { WorkUse } from "./library/works";
 import type { NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
@@ -317,6 +318,21 @@ export interface StudioNode {
   pad?: NodePad | null;
   edge?: NodeEdge | null;
   text?: NodeText | null;
+  /**
+   * A feature from the library, working on this part (`library/works.ts`).
+   *
+   * Working code with no look of its own: the part draws as designed, and
+   * the published page writes the feature's output into the part's own
+   * element. Optional, so nothing saved before it needs migrating.
+   */
+  work?: WorkUse | null;
+  /**
+   * What the owner said this part should do that no feature covers yet, in
+   * his words, for the repo-connected code chat to build. Its own field and
+   * not `data`, because a capture writes its own description into `data`
+   * ("button, named …") and that is not a task anybody asked for.
+   */
+  task?: string | null;
 }
 
 export interface StudioGroup {

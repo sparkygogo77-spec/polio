@@ -60,6 +60,7 @@ import {
 } from "./menuGeometry";
 import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
+import { SayPlate } from "./SayBox";
 import { DrawBoard } from "./DrawBoard";
 import { CONSOLE, HoverTray, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
@@ -323,6 +324,9 @@ function motionOptions(node: StudioNode) {
  */
 interface WheelHands {
   solid: (nodeId: string) => void;
+  /** The pencil's old controls are showing, under "more". */
+  writeMore?: boolean;
+  more?: () => void;
 }
 
 function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice[] {
@@ -344,9 +348,18 @@ function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice
         ...(motionOptions(node).length ? [{ id: "behaviour", label: "Behaviour", icon: Orbit }] : []),
       ];
     case "write":
-      // Everything written *about* the part: its words, what is in it, where
-      // it sends people, the data it shows, and (a placeholder) its priority.
+      // One box first: say what the part is, and it is (`SayBox.tsx`). Its
+      // words, what is in it, where it sends people, the data it shows and
+      // its priority are all things that box reads; the controls for each
+      // are still here, one press away under More.
+      if (!hands?.writeMore) {
+        return [
+          { id: "say", label: "Say it", icon: Wand2 },
+          { id: "more", label: "More", icon: Ellipsis, act: () => hands?.more?.() },
+        ];
+      }
       return [
+        { id: "say", label: "Say it", icon: Pencil },
         { id: "words", label: "Words", icon: Wand2 },
         { id: "contents", label: "Contents", icon: ListTree },
         { id: "links", label: "Links", icon: Link2 },
@@ -485,6 +498,8 @@ export function RadialMenu() {
   const ctx = useActions();
   const [picked, setPicked] = React.useState<SlotId | null>(null);
   const [subPick, setSubPick] = React.useState<string | null>(null);
+  // The pencil's old five, shown under "more" instead of the one box's pair.
+  const [writeMore, setWriteMore] = React.useState(false);
   // The page's wheel turned into the add disc: pressed from its middle.
   const [adding, setAdding] = React.useState(false);
   // Re-renders the tray when looks are copied, so Paste lights up.
@@ -543,7 +558,9 @@ export function RadialMenu() {
     // …unless it was opened straight onto a slot, which is what "change this
     // part" does: the choice the wheel exists to offer has been made already.
     setPicked(open?.slot ?? null);
-    setSubPick(null);
+    // The pencil opens on the one box: that is what "write on this" means.
+    setSubPick(open?.slot === "write" ? "say" : null);
+    setWriteMore(false);
     setAdding(false);
   }, [seq, open?.slot]);
 
@@ -846,7 +863,8 @@ export function RadialMenu() {
   const take = (slot: Slot) => {
     if (slot.kind === "action") return fire(slot.id);
     play(slot.kind === "board" ? "open" : "select");
-    setSubPick(null);
+    setSubPick(slot.id === "write" && !bg ? "say" : null);
+    setWriteMore(false);
     setPicked(slot.id);
   };
 
@@ -962,8 +980,9 @@ export function RadialMenu() {
       play(r.ok ? "confirm" : "deny");
     });
   };
+  const showMore = () => { play("select"); setWriteMore(true); setSubPick(null); };
   const choicesOf = (g: SlotId): Choice[] =>
-    bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!, { solid: solidFromWheel });
+    bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!, { solid: solidFromWheel, writeMore, more: showMore });
 
   /* ---------------------------------------------------------- level 2 */
   const group = picked && !onBoard ? (slots as Partial<Record<SlotId, Slot>>)[picked] ?? null : null;
@@ -1192,7 +1211,7 @@ export function RadialMenu() {
         {group && editing ? (
           <div data-radial-editor={editing} className="pointer-events-none absolute left-0 top-0">
             <QuadrantConsole span={consoleSpan} onGrip={carry}>
-              {(slabs) => (bg ? <BackgroundEditor which={editing} slabs={slabs} page={page} /> : <Editor which={editing} node={node!} slabs={slabs} />)}
+              {(slabs) => (bg ? <BackgroundEditor which={editing} slabs={slabs} page={page} /> : <Editor which={editing} node={node!} slabs={slabs} onMore={showMore} />)}
             </QuadrantConsole>
           </div>
         ) : null}
@@ -1614,7 +1633,7 @@ function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
 /* The one editor a green choice asked for                             */
 /* ------------------------------------------------------------------ */
 
-function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs: Slab[] }) {
+function Editor({ which, node, slabs, onMore }: { which: string; node: StudioNode; slabs: Slab[]; onMore: () => void }) {
   const format = useStudio((st) => st.format);
   const look = useStudio((st) => st.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
@@ -1662,5 +1681,6 @@ function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs
   // text field round a curve. They go on a plate, in the slab opposite the
   // green — cut square for it whatever the wheel's shape is.
   const plate = slabs.find((s) => Math.abs(((s.from % 1) + 1) % 1 - 0.25) < 0.001) ?? slabs[0]!;
+  if (which === "say") return <SayPlate node={node} plate={plate} onMore={onMore} />;
   return <PlateEditor which={which} node={node} plate={plate} spare={slabs.filter((s) => s !== plate)} />;
 }

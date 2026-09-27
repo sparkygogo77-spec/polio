@@ -46,6 +46,8 @@ import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial, pageSpot } from "./RadialMenu";
+import { decisions, type Decision } from "./library/badge";
+import { getWork } from "./library/works";
 import { useSettleToWords } from "./textFit";
 import { missingDrawnCopy, namesDrawnCopy } from "./promised";
 import { plain } from "./parts/spans";
@@ -191,6 +193,8 @@ export function Canvas() {
     });
   }, [news]);
   const nodes = useStudio(useShallow(pageNodes));
+  /* The parts still waiting on a decision: each wears the orange ! (`library/badge.ts`). */
+  const decide = React.useMemo(() => new Map(decisions(nodes).map((d) => [d.id, d.why])), [nodes]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
    *
@@ -1772,6 +1776,7 @@ export function Canvas() {
             page={{ w: frameWidth, h: frameH }}
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
+            decide={decide.get(n.id) ?? null}
           />
         ))}
 
@@ -2424,7 +2429,7 @@ function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | nul
   return asks ? missing : [];
 }
 
-const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
+const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide }: { node: StudioNode; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -2710,6 +2715,8 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
             </span>
           : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
+        {node.work && getWork(node.work.id) ? <span data-work-chip={node.work.id} className="rounded-xs border border-border px-1 text-fine text-fg-muted">⚡ {getWork(node.work.id)!.manifest.name}</span> : null}
+        {node.task?.trim() ? <span data-task-chip="" className="max-w-[220px] truncate rounded-xs border border-border px-1 text-fine text-fg-faint" title={node.task}>task: {node.task}</span> : null}
         {/* The words his prompt named and the part is not drawing, on the chip above it: outside the part, and only while it is picked. */}
         {unshown.length ? (
           <span
@@ -2757,6 +2764,50 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
             ))
         : null}
       {selected && !node.locked && !inHeldGroup ? <FillTab node={node} chipScale={chipScale} /> : null}
+      {decide ? <DecideBadge node={node} why={decide} chipScale={chipScale} /> : null}
     </div>
   );
 });
+
+/**
+ * The orange !: this part still needs a decision.
+ *
+ * On every clickable part that goes nowhere and every live-data spot
+ * (`library/badge.ts`), in the Builder only: it is drawn by the board over
+ * the part, never by the part, so a published page cannot carry it. It sits
+ * just above the part's top-right corner rather than on the part, because a
+ * badge inside a 16px icon covers the icon it is about. Pressing it opens the
+ * one box (`SayBox.tsx`) on that part; answering it takes the ! away.
+ */
+function DecideBadge({ node, why, chipScale }: { node: StudioNode; why: Decision["why"]; chipScale: number }) {
+  const say = why === "live" ? "Live data: say where it comes from" : "Goes nowhere yet: say what it does";
+  return (
+    <button
+      type="button"
+      data-decide={why}
+      data-decide-for={node.id}
+      aria-label={say}
+      title={say}
+      onPointerDown={(e) => { e.stopPropagation(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        play("open");
+        useStudio.getState().setSelection([node.id]);
+        openRadial(node.id, e.clientX, e.clientY, null, "write");
+      }}
+      className="tactile pointer-events-auto absolute right-0 top-0 z-[4] flex items-center justify-center rounded-full font-bold leading-none"
+      style={{
+        width: 14,
+        height: 14,
+        fontSize: 10,
+        transform: `translate(35%, calc(-100% - 2px)) scale(${chipScale})`,
+        transformOrigin: "left bottom",
+        background: "oklch(0.74 0.18 55)",
+        color: "oklch(0.2 0.05 50)",
+        boxShadow: "0 0 0 1.5px oklch(0.2 0.03 50), 0 1px 3px oklch(0 0 0 / 0.5)",
+      }}
+    >
+      !
+    </button>
+  );
+}

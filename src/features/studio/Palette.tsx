@@ -28,6 +28,7 @@ import {
   type CategoryId, type FeatureDef,
 } from "./catalog";
 import { useStudio } from "./store";
+import { getWork, LIBRARY } from "./library/works";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { moonFor } from "./moons";
@@ -892,6 +893,7 @@ function CategorySection({
         </button>
       </div>
       <div className="px-3 py-2">
+        <WorkShelf category={category} />
         {groups.map(({ shape, items }) => {
           const { width, tall } = columnsFor(shape, items);
           return (
@@ -907,6 +909,53 @@ function CategorySection({
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * The features that sit in this category: working code, no look of its own.
+ *
+ * Each card shows what a part carrying it looks like, in the category's own
+ * colour, with what it needs to run. Pressed with a part picked, the feature
+ * goes onto that part and takes its style; with nothing picked, it lands on
+ * a new line of text showing its sample, to be styled like any other.
+ */
+function WorkShelf({ category }: { category: CategoryDef }) {
+  const works = LIBRARY.filter((w) => w.manifest.category === category.id);
+  if (!works.length) return null;
+  const attach = (id: string) => {
+    const st = useStudio.getState();
+    const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) : undefined;
+    const w = getWork(id)!;
+    if (picked) {
+      st.updateNode(picked.id, { work: { id, inputs: {} } });
+      play("confirm");
+      return;
+    }
+    const at = addFeatureToCanvas("prose");
+    useStudio.getState().updateNode(at, { content: w.manifest.look.sample, work: { id, inputs: {} }, w: 240, h: 40 });
+    useStudio.getState().setSelection([at]);
+  };
+  return (
+    <Band title="Working">
+      <div className="flex flex-wrap items-start gap-2">
+        {works.map(({ manifest: m }) => (
+          <Tooltip key={m.id} content={`${m.blurb} Pick a part first to put it there.`} side="top">
+            <button
+              type="button"
+              data-work-card={m.id}
+              onClick={() => attach(m.id)}
+              className="tactile flex w-[180px] flex-col items-start gap-1 rounded-md px-3 py-2 text-left"
+              style={{ background: `oklch(0.2 0.04 ${category.hue} / 0.7)`, boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${category.hue} / 0.35)` }}
+            >
+              <span className="num text-[20px] font-semibold leading-none" style={{ color: `oklch(0.86 0.14 ${category.hue})` }}>{m.look.sample}</span>
+              <span className="text-small font-medium text-fg">{m.name}</span>
+              <span className="text-fine text-fg-faint">{m.look.caption ?? ""}{m.look.caption ? " · " : ""}{m.needs === "none" ? "runs as published" : `needs a ${m.needs}`}</span>
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+    </Band>
   );
 }
 

@@ -116,6 +116,10 @@ src/features/studio/
   Preview.tsx    the pinned live preview: LiveSite scaled down, fully clickable
   Palette.tsx    the library
   Inspector.tsx  per-part contents, size & position, options, prompt
+  library/       the feature library: working code with no look of its own.
+                 works.ts (manifests, scripts, the runtime publishing ships),
+                 read.ts (what the one box reads), badge.ts (where the ! goes)
+  SayBox.tsx     the one box on the pencil: type, it applies, "understood as …"
   index.ts       routes, commands, shortcuts, and every context menu
 ```
 

@@ -58,8 +58,11 @@ await page.locator('[data-node-id="n1"]').click({ button: "right" });
 await page.waitForTimeout(700);
 await page.locator('[data-radial] [data-shard="write"]').click({ force: true });
 await page.waitForTimeout(600);
+/* The pencil opens on the one box now (tests/one-box.mjs); Priority is one press further, under More. */
+await page.locator('[data-radial] [data-shard="more"]').click({ force: true });
+await page.waitForTimeout(600);
 const under = await page.locator("[data-radial] [data-shard]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")).filter(Boolean));
-check("the pencil's level offers Priority, without a soon on it", under.includes("Priority"), under.join(" · "));
+check("the pencil's More offers Priority, without a soon on it", under.includes("Priority"), under.join(" · "));
 await page.locator('[data-radial] [data-shard="priority"]').click({ force: true });
 await page.waitForTimeout(600);
 const ticks = page.locator("[data-radial] [data-tick]");

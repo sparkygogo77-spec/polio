@@ -7,6 +7,7 @@
  * explicit relationship. That is what makes "put it here, next to that" a
  * specification rather than decoration.
  */
+import { describeWork } from "./library/works";
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable, resolvePart } from "./parts";
 import { FORMAT_FIELDS, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
@@ -89,6 +90,10 @@ interface NodeSpec {
   body: string | null;
   /** Parts this one reads from, via data wires. */
   feeds: string[];
+  /** A library feature working on it, in a sentence ("Live SOL price, every 30 s"). */
+  works?: string | null;
+  /** What the owner said it should do that no feature covers yet. */
+  task?: string | null;
   group: string | null;
   region: string | null;
   row: number;
@@ -392,6 +397,8 @@ export function compileSpec(input: CompileInput): Spec {
             : null,
           texture: !n.texture ? null : n.texture === "none" ? "no texture, whatever the site wears" : "its own texture layer",
           data: (n.data ?? "").trim(),
+          works: n.work ? describeWork(n.work) : null,
+          task: n.task?.trim() || null,
           drawn: n.sketch && !isBlankSketch(n.sketch) ? describeSketch(n.sketch) : null,
           shape: n.shape && n.shape !== "box" ? n.shape : null,
           // The line itself is in the document; the brief says it is there
@@ -671,6 +678,8 @@ export function specToMarkdown(spec: Spec): string {
         if (e.texture) L.push(`  - texture: ${e.texture}`);
         if (e.anim) L.push(`  - on arrival: it ${e.anim}`);
         if (e.data) L.push(`  - data: ${e.data}`);
+        if (e.works) L.push(`  - works: ${e.works}`);
+        if (e.task) L.push(`  - task: ${e.task}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
         if (e.outline) L.push(`  - outline: ${e.outline}`);

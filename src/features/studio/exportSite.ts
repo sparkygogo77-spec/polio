@@ -46,8 +46,14 @@
  * React gone each was dead, 83 on sink and not one `<a>`
  * (tests/export-links.mjs).
  *
- * Still, as `staticSite` is: any other React handler is gone, so a part that
- * only does something when pressed does nothing, and an entrance animation
+ * FEATURES RUN. A part carrying a feature from the library (`node.work`)
+ * gets it on the published page: `assets/features/runtime.js`, the
+ * feature's own script, and a JSON list on the page saying which part takes
+ * which feature. The feature writes into the part's own element, so it keeps
+ * the part's style. A page that uses none carries none of it.
+ *
+ * Otherwise still, as `staticSite` is: any other React handler is gone, so a
+ * part that only does something when pressed does nothing, and an entrance animation
  * names keyframes the app's stylesheet held, so the page arrives already
  * arrived.
  */
@@ -63,6 +69,7 @@ import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { captureHeight, fluidParts, fluidStyle, isCaptured, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
+import { featureFiles, pageFeatureTags } from "./library/works";
 
 export type ExportFile = SiteFile | SiteBinary;
 
@@ -527,6 +534,7 @@ ${headOf({ title, name, description, icon, icons, up, folder: pageFile(page, hom
 <div class="site-root">
 ${clean(html, page, s.pages, home, nodes, roles, fluidAt)}
 </div>
+${pageFeatureTags(s.nodes.filter((n) => n.pageId === page.id), up)}
 </body>
 </html>
 `,
@@ -552,6 +560,8 @@ ${STRETCH}
 ${frameCss(width, fluidAt !== null)}
 `;
   files.push({ path: "assets/site.css", content: css });
+  /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
+  files.push(...featureFiles(s.nodes));
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */
   if (icons) files.push(...icons.files);
 
