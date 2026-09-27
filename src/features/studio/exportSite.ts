@@ -349,7 +349,20 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
     const p = byId.get(id), f = k.get(id);
     if (p && f) fluidStyle(el, p, f, W, H);
   }
-  for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) pg.style.width = "100%";
+  /*
+   * THE PAGE IS AS TALL AS WHAT IS ON IT. The preview's page runs 160px past
+   * its last part, and the published page scrolled by that much where the
+   * original fits the screen (the owner's ruling). A page whose parts end at
+   * the foot of the capture's window (the lowest fixed band's) fitted it, so
+   * it is the window's height and never scrolls; any other is as tall as its
+   * lowest part and scrolls, its scrollbar hidden (`frameCss`).
+   */
+  const bottom = Math.max(0, ...parts.map((p) => p.y + p.h));
+  const fits = H > 0 && bottom <= H + 1;
+  for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
+    pg.style.width = "100%";
+    pg.style.height = fits ? "100vh" : `${bottom}px`;
+  }
 }
 
 /** A value for an attribute in double quotes. */
@@ -465,7 +478,10 @@ function frameCss(width: number, fluid: boolean): string {
      works, and no narrower than 1280 (or its own width, if less), below
      which the window scrolls. */
   if (fluid) return `html, body { background: var(--bg); }
-.site-root { width: 100%; min-width: ${Math.min(width, 1280)}px; }`;
+.site-root { width: 100%; min-width: ${Math.min(width, 1280)}px; }
+/* Scrolling, never a scrollbar: the original shows none (the owner's ruling). */
+html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+::-webkit-scrollbar { display: none; width: 0; height: 0; }`;
   return `html, body { background: var(--bg); }
 body { container-type: inline-size; overflow-x: clip; }
 .site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }`;

@@ -235,6 +235,8 @@ if (bandFoot) {
     const at = fixed.map((e) => { const r = e.getBoundingClientRect(); return [e, r.left - R.left, r.top - R.top, r.height]; });
     for (const [e, x, y, h] of at) Object.assign(e.style, { position: "absolute", left: `${x}px`, top: `${y}px`, bottom: "auto", height: `${h}px`, minHeight: `${h}px` });
   });
+  /* A page that fitted the capture's window is published the window's height, without the preview's room below its last part (tests/fluid-site.mjs): for the picture it is given the preview's height back, which is bare page in both. */
+  await out.evaluate((h) => { const pg = document.querySelector("[data-page]"); if (pg && pg.style.height === "100vh") pg.style.height = `${h}px`; }, ref?.h ?? 0);
   await out.setViewportSize({ width: s.frameWidth, height: TALL });
   await out.waitForTimeout(300);
 }
