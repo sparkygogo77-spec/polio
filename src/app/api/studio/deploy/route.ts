@@ -109,6 +109,9 @@ async function findProject(tok: string, team: string | null, repo: string, named
   return hit ? { found: hit } : { found: null };
 }
 
+/** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
+const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
+
 /** A Vercel project name made from whatever the site is called: lowercase letters, digits, `.`, `_` and `-`. */
 function projectName(name: unknown): string | null {
   if (typeof name !== "string") return null;
@@ -320,11 +323,30 @@ export async function POST(request: Request) {
     repo: name,
   };
 
-  const { ok, status, data } = await vercel<{ id?: string; url?: string; alias?: string[]; inspectorUrl?: string; readyState?: string }>(
+  /*
+   * A NEW PROJECT'S FIRST DEPLOYMENT SAYS WHAT IT IS BUILDING.
+   *
+   * Vercel refuses the first deployment of a project that has none with a
+   * 400, "The `projectSettings` object is required for new projects", which
+   * is what the first real Go live got. What Publish sends is static HTML
+   * (an index.html and a folder per page, assets/, site/), so the settings
+   * say so: no framework, no build, no install, and the output directory
+   * left to Vercel's default, the root when there is no public/ folder.
+   *
+   * A project made by this call is new, so it gets them at once. One found
+   * connected is tried as it is, so a project with a framework of its own
+   * keeps it, and given them only when Vercel says it needs them: a project
+   * an earlier press made and never deployed, which is reused, never
+   * replaced (`tests/go-live-first-deploy.mjs`).
+   */
+  const start = (settings: boolean) => vercel<{ id?: string; url?: string; alias?: string[]; inspectorUrl?: string; readyState?: string }>(
     tok,
     `/v13/deployments${query(team, { forceNew: "1" })}`,
-    { method: "POST", body: JSON.stringify({ name: project.name, project: project.id, target: "production", gitSource }) },
+    { method: "POST", body: JSON.stringify({ name: project.name, project: project.id, target: "production", gitSource, ...(settings ? { projectSettings: STATIC_SITE } : {}) }) },
   );
+  let started = await start(!!made);
+  if (!made && !started.ok && started.status === 400 && /projectSettings/.test(started.data.error?.message ?? "")) started = await start(true);
+  const { ok, status, data } = started;
   if (!ok || !data.id) {
     return NextResponse.json({
       ok: false,
