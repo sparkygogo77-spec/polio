@@ -128,7 +128,107 @@ function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: Stud
   if (link.kind === "url") return /^\s*javascript:/i.test(target) ? null : target;
   if (link.kind === "node") return `#${target}`;
   const to = resolvePageLink(pages, target);
-  return to ? upOf(from, home) + pageFile(to, home) : null;
+  return to ? cleanHref(from, to, home) : null;
+}
+
+/**
+ * A PAGE'S ADDRESS IS CLEAN: `/tokens`, never `/tokens/index.html`. The
+ * owner saw solcinerator.vercel.app/tokens/index.html in the bar. The files
+ * stay `tokens/index.html`; `vercel.json` (cleanUrls, no trailing slash)
+ * serves them at `/tokens`. A link is written relative to the page it is on
+ * as served (`/docs` sits in `/`), so the site works wherever it is rooted.
+ * Opened from disk, a page link is a folder, not the file in it.
+ */
+export const pageAddress = (page: StudioPage, home: string) => "/" + pageFile(page, home).replace(/(^|\/)index\.html$/, "");
+function cleanHref(from: StudioPage, to: StudioPage, home: string): string {
+  const a = pageAddress(from, home), b = pageAddress(to, home);
+  const ups = a.slice(0, a.lastIndexOf("/") + 1).split("/").length - 2;
+  return "../".repeat(Math.max(0, ups)) + (b.slice(1) || "./");
+}
+
+/**
+ * PAGES THE ORIGINAL SHOWED AT ONE ADDRESS SWITCH IN PLACE.
+ *
+ * The original kept solcinerator's address at its root whichever section was
+ * picked: its sidebar switched sections in place. The capture says so: every
+ * captured part keeps the address it was captured at (`from.url`), and
+ * Creator Hub and the seven sections were all captured at `/`, Docs at
+ * `/docs`. Pages sharing a captured address are a group; the group's root
+ * is the page whose own path is that address (else its first page). Returns,
+ * for each page in a group of two or more, its group and root.
+ */
+function inPlaceGroups(pages: StudioPage[], nodes: StudioNode[], home: string): Map<string, { root: StudioPage; members: StudioPage[] }> {
+  const at = new Map<string, string>();
+  for (const page of pages) {
+    const count = new Map<string, number>();
+    for (const n of nodes) {
+      if (n.pageId !== page.id || !n.from?.url) continue;
+      let u: string;
+      try { const x = new URL(n.from.url); u = `${x.origin}${x.pathname.replace(/\/+$/, "") || "/"}`; } catch { continue; }
+      count.set(u, (count.get(u) ?? 0) + 1);
+    }
+    const best = [...count].sort((a, b) => b[1] - a[1])[0];
+    if (best) at.set(page.id, best[0]);
+  }
+  const out = new Map<string, { root: StudioPage; members: StudioPage[] }>();
+  for (const addr of new Set(at.values())) {
+    const members = pages.filter((p) => at.get(p.id) === addr);
+    if (members.length < 2) continue;
+    const path = new URL(addr).pathname.replace(/\/+$/, "") || "/";
+    const norm = (p: StudioPage) => "/" + (p.path ?? "").trim().replace(/^\/+|\/+$/g, "");
+    const root = members.find((p) => norm(p) === path) ?? members.find((p) => p.id === home) ?? members[0]!;
+    for (const m of members) out.set(m.id, { root, members });
+  }
+  return out;
+}
+
+/**
+ * The script that switches a group's pages in place: a press on a link to a
+ * page of the same group fetches that page and swaps it in, and the address
+ * stays the group's root; back and forward walk the pages seen. The links
+ * are real `<a href>` all the same, so a crawler, a new tab or a browser
+ * without scripts opens the page at its own clean address. A page of the
+ * group opened at its own address shows the root's address too, as the
+ * original would. Nothing for a page in no group.
+ */
+function inPlaceScript(page: StudioPage, group: { root: StudioPage; members: StudioPage[] } | undefined, home: string): string {
+  if (!group) return "";
+  const data = { root: cleanHref(page, group.root, home), members: group.members.map((m) => cleanHref(page, m, home)) };
+  return `<script type="application/json" id="in-place">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
+<script>
+(() => {
+  const G = JSON.parse(document.getElementById("in-place").textContent);
+  const key = (u) => new URL(u, location.href).pathname.replace(/\\/index\\.html$/, "").replace(/(.)\\/$/, "$1");
+  const members = new Set(G.members.map(key));
+  const root = new URL(G.root, location.href).href;
+  /* Every address in the page made whole first: the bar will say the root's, and a relative one would then read from there. */
+  const whole = (doc, base) => doc.querySelectorAll("[href], [src]").forEach((e) => {
+    for (const a of ["href", "src"]) { const v = e.getAttribute(a); if (v && !/^(#|[a-z][a-z0-9+.-]*:)/i.test(v)) e.setAttribute(a, new URL(v, base).href); }
+  });
+  whole(document, location.href);
+  const show = async (to, push) => {
+    let text;
+    try { const r = await fetch(to); if (!r.ok) throw 0; text = await r.text(); } catch { location.href = to; return; }
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    whole(doc, to);
+    const next = doc.querySelector(".site-root");
+    if (!next) { location.href = to; return; }
+    document.querySelector(".site-root").replaceWith(document.adoptNode(next));
+    document.title = doc.title;
+    if (push) history.pushState({ at: to }, "", root);
+    scrollTo(0, 0);
+  };
+  history.replaceState({ at: location.href }, "", root);
+  addEventListener("click", (e) => {
+    if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
+    if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download") || new URL(a.href).origin !== location.origin || !members.has(key(a.href))) return;
+    e.preventDefault();
+    void show(a.href, true);
+  });
+  addEventListener("popstate", (e) => { if (e.state && e.state.at) void show(e.state.at, false); });
+})();
+</script>`;
 }
 
 /** The same element as an `<a>`: every attribute and child kept, the ones only a pretend link needed dropped. */
@@ -515,6 +615,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   const icons = icon && logoBytes ? await siteIcons(icon, logoBytes) : null;
   const live = activeProject()?.live?.url?.trim().replace(/\/+$/, "") || null;
   const description = s.brief.description?.trim() ?? "";
+  const inPlace = inPlaceGroups(s.pages, s.nodes, home);
 
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
@@ -553,6 +654,7 @@ ${headOf({ title, name, description, icon, icons, up, folder: pageFile(page, hom
 ${clean(html, page, s.pages, home, nodes, roles, fluidAt)}
 </div>
 ${pageFeatureTags(s.nodes.filter((n) => n.pageId === page.id), up)}
+${inPlaceScript(page, inPlace.get(page.id), home)}
 </body>
 </html>
 `,
@@ -578,6 +680,8 @@ ${STRETCH}
 ${frameCss(width, fluidAt !== null)}
 `;
   files.push({ path: "assets/site.css", content: css });
+  /* Clean addresses on Vercel: tokens/index.html served at /tokens (see cleanHref). */
+  files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
   files.push(...featureFiles(s.nodes));
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */

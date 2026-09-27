@@ -115,7 +115,8 @@ const home = s.pages[0].id;
 const names = Object.fromEntries(s.pages.map((p) => [p.id, p.name || p.id]));
 
 /* Where each page is exported to, the way staticSite's pageFile names it. */
-const fileOf = (p) => (p.id === home ? "index.html" : `${((p.path || p.name || p.id).trim().replace(/^\/+|\/+$/g, "")).toLowerCase().replace(/[^a-z0-9/_-]+/g, "-").replace(/^-+|-+$/g, "") || p.id}/index.html`);
+/* Where each page is served: its clean address (/cleanup), the file cleanup/index.html behind it, as the committed vercel.json asks. */
+const fileOf = (p) => (p.id === home ? "" : `${((p.path || p.name || p.id).trim().replace(/^\/+|\/+$/g, "")).toLowerCase().replace(/[^a-z0-9/_-]+/g, "-").replace(/^-+|-+$/g, "") || p.id}`);
 /* A page link's target, by id, then path, then name, as the board resolves one. */
 const pageBy = (t) => {
   const k = String(t).trim().replace(/^\/+|\/+$/g, "").toLowerCase();
@@ -151,14 +152,22 @@ const files = (await page.evaluate(async () => (window.__studioExport ? await wi
 check("the exporter gave files", files.length > 0, `${files.length} files`);
 const paths = new Set(files.map((f) => f.path));
 
-const out = await browser.newPage({ viewport: { width: s.frameWidth + 200, height: 1000 } });
+/*
+ * Opened without scripts, as a crawler or a new tab's first read is: the
+ * published pages that the original showed at one address switch in place
+ * with a script, which keeps the address at the root (tests/published-site.mjs
+ * holds that). Here every link must still be a real one that goes where the
+ * document says, and that is what a page without its script shows.
+ */
+const out = await browser.newPage({ viewport: { width: s.frameWidth + 200, height: 1000 }, javaScriptEnabled: false });
 const outErrors = [];
 out.on("pageerror", (e) => outErrors.push(e.message));
 const asked = [];
 await out.context().route("**/*", (r) => {
   const u = new URL(r.request().url());
   if (u.origin + "/" !== ORIGIN) { asked.push(u.href); return r.fulfill({ status: 200, contentType: "text/html", body: "<title>outside</title>" }); }
-  const p = decodeURIComponent(u.pathname).replace(/^\/+/, "") || "index.html";
+  let p = decodeURIComponent(u.pathname).replace(/^\/+/, "") || "index.html";
+  if (!paths.has(p) && paths.has(`${p}/index.html`)) p = `${p}/index.html`;
   const f = files.find((x) => x.path === p);
   if (!f) return r.fulfill({ status: 404, body: "" });
   const type = p.endsWith(".html") ? "text/html" : p.endsWith(".css") ? "text/css" : p.endsWith(".png") ? "image/png" : p.endsWith(".jpg") || p.endsWith(".jpeg") ? "image/jpeg" : p.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream";
@@ -198,7 +207,8 @@ const reach = new Set();
 for (const p of s.pages) {
   const file = fileOf(p);
   const want = held.filter((h) => h.page === p.id);
-  if (!paths.has(file)) { check(`${names[p.id]}: exported`, false, `${file} not in the tree`); continue; }
+  const behind = file ? `${file}/index.html` : "index.html";
+  if (!paths.has(behind)) { check(`${names[p.id]}: exported`, false, `${behind} not in the tree`); continue; }
   await out.goto(ORIGIN + file, { waitUntil: "networkidle" });
   await out.evaluate(() => document.fonts?.ready);
   /* Taller than the page, so every link is inside the window a press is measured in. */
@@ -333,7 +343,8 @@ for (const p of s.pages) {
     const [popup] = await Promise.all([pop, nav]);
     let landed = popup ? popup.url() : out.url();
     if (popup) { await popup.waitForLoadState().catch(() => {}); landed = popup.url(); await popup.close(); }
-    const opened = landed.startsWith(ORIGIN) ? paths.has(new URL(landed).pathname.replace(/^\/+/, "")) : asked.length > before || !!popup;
+    const at = new URL(landed).pathname.replace(/^\/+/, "");
+    const opened = landed.startsWith(ORIGIN) ? paths.has(at || "index.html") || paths.has(`${at}/index.html`) : asked.length > before || !!popup;
     const ok = landed === a.href && opened;
     followed.push({ page: p.id, a, ok, why: ok ? "" : `landed ${landed.replace(ORIGIN, "/")}` });
     if (ok && landed.startsWith(ORIGIN)) { const t = s.pages.find((q) => ORIGIN + fileOf(q) === landed.split("#")[0]); if (t) reach.add(`${p.id}>${t.id}`); }
