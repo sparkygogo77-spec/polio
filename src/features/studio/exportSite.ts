@@ -58,7 +58,7 @@ import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from
 import { fontFaceCss } from "./fonts";
 import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
-import { bytesFor, type Picture } from "./pictures";
+import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { activeProject } from "@/features/builds/store";
 
@@ -336,18 +336,70 @@ const attr = (v: string) => esc(v).replace(/"/g, "&quot;");
  *     at, which is known once it has gone live (the Builds page keeps it).
  *     Before that, og:url is left out and the picture is named relative.
  */
-function headOf(o: { title: string; name: string; description: string; icon: Picture | null; up: string; folder: string; live: string | null }): string {
+function headOf(o: { title: string; name: string; description: string; icon: Picture | null; icons: SiteIcons | null; up: string; folder: string; live: string | null }): string {
   const L: string[] = [];
   if (o.description) L.push(`<meta name="description" content="${attr(o.description)}">`);
-  if (o.icon) L.push(`<link rel="icon" href="${attr(o.up + o.icon.path)}"${o.icon.type ? ` type="${attr(o.icon.type)}"` : ""}>`);
+  if (o.icons) {
+    L.push(`<link rel="icon" type="image/png" sizes="32x32" href="${attr(o.up + o.icons.small)}">`);
+    L.push(`<link rel="apple-touch-icon" sizes="180x180" href="${attr(o.up + o.icons.touch)}">`);
+  } else if (o.icon) L.push(`<link rel="icon" href="${attr(o.up + o.icon.path)}"${o.icon.type ? ` type="${attr(o.icon.type)}"` : ""}>`);
   L.push(`<meta property="og:type" content="website">`);
   L.push(`<meta property="og:site_name" content="${attr(o.name)}">`);
   L.push(`<meta property="og:title" content="${attr(o.title)}">`);
   if (o.description) L.push(`<meta property="og:description" content="${attr(o.description)}">`);
   if (o.live) L.push(`<meta property="og:url" content="${attr(`${o.live}/${o.folder}`)}">`);
-  if (o.icon) L.push(`<meta property="og:image" content="${attr(o.live ? `${o.live}/${o.icon.path}` : o.up + o.icon.path)}">`);
+  if (o.icon) {
+    L.push(`<meta property="og:image" content="${attr(o.live ? `${o.live}/${o.icon.path}` : o.up + o.icon.path)}">`);
+    if (o.icon.w && o.icon.h) L.push(`<meta property="og:image:width" content="${o.icon.w}">\n<meta property="og:image:height" content="${o.icon.h}">`);
+  }
   L.push(`<meta name="twitter:card" content="summary">`);
   return L.join("\n");
+}
+
+/** The site's picture drawn as icons, and where each is published. */
+interface SiteIcons { small: string; touch: string; files: SiteBinary[] }
+
+/**
+ * The site's picture at the sizes a browser asks an icon for: 32 for the
+ * tab, 180 for a phone's home screen. The share picture stays the original
+ * (1024 on sink): a tab shrinking a 316 KB logo to 16px every visit is the
+ * wrong way round. Drawn here, in the browser that holds the bytes, by
+ * halving until the next halving would pass the size, so a large logo is
+ * not thinned to a few sampled pixels in one step. Square, the picture
+ * fitted inside and centred. A picture the browser cannot decode gives none,
+ * and the head falls back to the picture itself.
+ */
+async function siteIcons(pic: Picture, blob: Blob): Promise<SiteIcons | null> {
+  let bmp: ImageBitmap;
+  try { bmp = await createImageBitmap(blob); } catch { return null; }
+  const draw = async (n: number): Promise<string> => {
+    let src: CanvasImageSource = bmp;
+    let w = bmp.width, h = bmp.height;
+    while (Math.max(w, h) / 2 >= n) {
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(w / 2)); c.height = Math.max(1, Math.round(h / 2));
+      const g = c.getContext("2d")!;
+      g.imageSmoothingQuality = "high";
+      g.drawImage(src, 0, 0, c.width, c.height);
+      src = c; w = c.width; h = c.height;
+    }
+    const c = document.createElement("canvas");
+    c.width = c.height = n;
+    const g = c.getContext("2d")!;
+    g.imageSmoothingQuality = "high";
+    const k = n / Math.max(w, h);
+    g.drawImage(src, (n - w * k) / 2, (n - h * k) / 2, w * k, h * k);
+    const out = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/png"));
+    return out ? base64(out) : "";
+  };
+  const [small, touch] = await Promise.all([draw(32), draw(180)]);
+  bmp.close();
+  if (!small || !touch) return null;
+  const at = (n: number) => `assets/icons/${pic.id}-${n}.png`;
+  return {
+    small: at(32), touch: at(180),
+    files: [{ path: at(32), content: small, encoding: "base64" }, { path: at(180), content: touch, encoding: "base64" }],
+  };
 }
 
 /**
@@ -398,7 +450,9 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   const nodes = new Map(s.nodes.map((n) => [n.id, n]));
   const files: ExportFile[] = [];
   const logo = siteLogo(s.nodes);
-  const icon = logo && (await bytesFor(logo)) ? logo : null;
+  const logoBytes = logo ? await bytesFor(logo) : null;
+  const icon = logo && logoBytes ? logo : null;
+  const icons = icon && logoBytes ? await siteIcons(icon, logoBytes) : null;
   const live = activeProject()?.live?.url?.trim().replace(/\/+$/, "") || null;
   const description = s.brief.description?.trim() ?? "";
 
@@ -431,7 +485,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
-${headOf({ title, name, description, icon, up, folder: pageFile(page, home).replace(/index\.html$/, ""), live })}
+${headOf({ title, name, description, icon, icons, up, folder: pageFile(page, home).replace(/index\.html$/, ""), live })}
 <link rel="stylesheet" href="${up}assets/site.css">
 </head>
 <body>
@@ -463,6 +517,8 @@ ${STRETCH}
 ${frameCss(width)}
 `;
   files.push({ path: "assets/site.css", content: css });
+  /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */
+  if (icons) files.push(...icons.files);
 
   if (opts.pictures !== false) {
     const { files: pictures } = await sitePictures();

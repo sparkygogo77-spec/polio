@@ -8,12 +8,13 @@
  *
  * It is the same Go live as the book's row (`goLive.ts`): one function, and
  * one record of how it is getting on, so a press here shows its progress
- * here and in the book alike. Once the site has a live address this opens
- * it; the book's row keeps Go live for pushing again. With a key missing it
- * is disabled and says which one, and where it goes.
+ * here and in the book alike. Once the site has a live address it reads
+ * Update live site and still pushes, and a small link beside it opens the
+ * address. With a key missing it is disabled and says which one, and where
+ * it goes.
  */
 import * as React from "react";
-import { Globe, Loader2 } from "lucide-react";
+import { ExternalLink, Globe, Loader2 } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
@@ -69,26 +70,29 @@ function GoLiveControl() {
     return () => { alive = false; off(); };
   }, []);
 
+  const host = liveAt?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null;
+  /* The address, a link of its own beside the button, busy or not. */
+  const beside = (main: React.ReactElement) => (!liveAt ? main : (
+    <span className="flex items-center gap-1">
+      {main}
+      <Tooltip content={`Open ${host}`}>
+        <Button asChild variant="ghost" size="icon">
+          <a data-go-live-address="" href={liveAt} target="_blank" rel="noopener noreferrer" aria-label={`Open the live site, ${host}`}>
+            <ExternalLink />
+          </a>
+        </Button>
+      </Tooltip>
+    </span>
+  ));
+
   if (busy) {
-    return (
+    return beside(
       <Tooltip content={`Going live: ${busy}`}>
         <span>
           <Button variant="outline" size="sm" data-go-live="" data-go-live-state="busy" disabled aria-label={`Go live: ${busy}`}>
             <Loader2 className="animate-spin" /> {busy.replace(/…$/, "")}…
           </Button>
         </span>
-      </Tooltip>
-    );
-  }
-
-  if (liveAt) {
-    return (
-      <Tooltip content={`${liveAt} — to push the site again, Go live in the book's publish row (Ctrl+Enter).`}>
-        <Button asChild variant="outline" size="sm" data-go-live="" data-go-live-state="live">
-          <a data-go-live-address="" href={liveAt} target="_blank" rel="noopener noreferrer" aria-label={`Open the live site, ${liveAt.replace(/^https:\/\//, "")}`}>
-            <Globe /> Live site
-          </a>
-        </Button>
       </Tooltip>
     );
   }
@@ -101,21 +105,28 @@ function GoLiveControl() {
       : missing.length
         ? `Needs a ${missing.join(" and a ")} token: put ${missing.length > 1 ? "them" : "it"} in the keys panel, Ctrl+Shift+K.`
         : null;
-  return (
-    <Tooltip content={why ?? "Push the site, build it on Vercel and hand back the address."}>
+  /*
+   * ONCE LIVE, STILL THE PUSH. THE OWNER'S RULING. It became "Live site" and
+   * only opened the address, so a changed board could not be put on the site
+   * from here and nothing the owner changed showed. The press is always the push and
+   * the redeploy; live, it says so, and the address is a small link of its
+   * own beside it (`tests/go-live-bar.mjs`).
+   */
+  return beside(
+    <Tooltip content={why ?? (liveAt ? `Push the board as it is now and rebuild ${host}.` : "Push the site, build it on Vercel and hand back the address.")}>
       <span>
         <Button
           variant="outline"
           size="sm"
           data-go-live=""
-          data-go-live-state={why ? "blocked" : "ready"}
+          data-go-live-state={why ? "blocked" : liveAt ? "live" : "ready"}
           disabled={!!why}
           onClick={() => {
             const name = useStudio.getState().brief?.name ?? "";
             void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish });
           }}
         >
-          <Globe /> Go live
+          <Globe /> {liveAt ? "Update live site" : "Go live"}
         </Button>
       </span>
     </Tooltip>

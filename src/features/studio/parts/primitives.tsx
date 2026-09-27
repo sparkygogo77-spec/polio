@@ -149,11 +149,15 @@ export function PictureSlot({ t, pic, src, label, mode = "board" }: {
   mode?: PartMode;
 }) {
   if (pic && src) {
+    /* A captured picture draws only the edge the capture recorded, which the
+       box round the part draws; the line here is a default for a picture
+       placed by hand, and on a captured one it outlined the SolWorks logo
+       (`tests/published-site.mjs`). */
     return (
       <img
         src={src}
         alt={pic.alt ?? ""}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: `1px solid ${t.line}` }}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: t.captured ? "none" : `1px solid ${t.line}` }}
       />
     );
   }
