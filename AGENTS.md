@@ -1423,8 +1423,8 @@ a kicker with a rule, and label-and-value rows that copy.
   `[data-live-wash]` on the live site. Keep it faint; it covers the words too.
 - Pictures come in three ways — choose, drag, paste — through
   `ImageIntake.tsx`. Everything is shrunk to 640px on the long edge and
-  re-encoded before it is stored, because the document lives in localStorage
-  and one phone photo would fill it. `usePasteImage` ignores a paste aimed at
+  re-encoded before it is stored, because the document's localStorage mirror
+  is what most readers see and one phone photo would fill it. `usePasteImage` ignores a paste aimed at
   an input or textarea, so typing is never interrupted.
 - **A picture is cooked before it is a texture** (`texture.ts`). Dropped in
   raw it tiles as a grid of photographs, covers the background colour, and
@@ -2714,9 +2714,18 @@ carry why a thing arrived.
 
 - **One document is open; the rest wait beside it.** `builder.studio` stays
   the key the Builder reads and writes. Every project keeps its own copy at
-  `builder.doc:<id>`, and `open(id)` is save → copy in → `useStudio.persist
-  .rehydrate()`, which puts the canvas and every panel on the new document
-  without a reload. Both stores are `skipHydration`, so something has to
+  `builder.doc:<id>`, and `open(id)` is save → copy in → `swapDoc`, which
+  puts the canvas and every panel on the new document without a reload.
+- **The document lives in IndexedDB, with localStorage beside it**
+  (`studio/docStore.ts`). localStorage holds about 5 MB and a captured site
+  can be 8 MB, so the key's home is the `builder.docs` database; localStorage
+  keeps a mirror of what fits (whole, or with its recorded paths packed,
+  `from.selector` → `from.sel`, which `mergeDoc` unpacks) and a pointer with
+  the site's shape for what does not. A whole document found in localStorage
+  is read from there and carried across, synchronously, so a check may still
+  seed the key and the owner's site from before survives; only a pointer, or
+  the `#idb` flag beside the key, sends a read to IndexedDB. The builds store
+  moves documents between the keys through it and waits for the write. Both stores are `skipHydration`, so something has to
   start them: the feature's `onMount` rehydrates the list and `adopt()`s
   whatever the Builder is already holding on a first run, so nobody arrives
   to find their work replaced by an empty list.
