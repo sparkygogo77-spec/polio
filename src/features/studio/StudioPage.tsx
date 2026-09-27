@@ -296,7 +296,7 @@ function PageChips() {
       </Popover>
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
-        <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => useStudio.getState().addPage()}>
+        <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => { const id = useStudio.getState().addPage(); useStudio.getState().want({ panel: "pages", focus: "name", id }); }}>
           <Plus />
         </Button>
       </Tooltip>
@@ -992,6 +992,18 @@ export function StudioPage() {
    * nothing is selected.
    */
   const sideTab = leftPanel;
+  const wanted = useStudio((s) => s.wanted);
+  React.useEffect(() => {
+    if (!wanted) return;
+    setLeftPanel(wanted.panel);
+    setLibraryOpen(true);
+  }, [wanted]);
+  /* ONE PRESS ON A PART OPENS ITS PANEL. The tabs were icons nobody had
+     found; the part you just chose is what you want to see. */
+  const single = useStudio((s) => (s.selection.length === 1 ? s.selection[0] : null));
+  React.useEffect(() => {
+    if (single) setLeftPanel("inspector");
+  }, [single]);
 
   /* A panel asking to be opened — the background's way of handing you to
      Looks, where its controls now live. */
@@ -1145,7 +1157,7 @@ export function StudioPage() {
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
-                className="min-w-0 flex-1 [&>*]:flex-1"
+                className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-1 [&>*]:px-0.5"
                 size="xs"
                 value={sideTab}
                 onChange={setLeftPanel}
@@ -1162,12 +1174,11 @@ export function StudioPage() {
                      Dimmed when you are not on it rather than drained to
                      grey: the hue is what says which panel this is, so it
                      never goes away, it only stands back. */
-                  icon: (
-                    <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
-                      {t.icon}
-                    </span>
-                  ),
-                  label: <span className={sideTab === t.value ? undefined : "sr-only"}>{t.label}</span>,
+                  /* Every tab says its name. Six words at 9.5px fit the
+                     215px column where five icons and one word did; the
+                     word wears the panel's hue so the colour still says
+                     which panel this is. */
+                  label: <span className="whitespace-nowrap text-[9px] tracking-tighter" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.78 }}>{t.label}</span>,
                 }))}
                 aria-label="Side panel"
               />

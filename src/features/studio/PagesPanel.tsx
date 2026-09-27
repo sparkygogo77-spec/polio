@@ -33,6 +33,18 @@ export function PagesPanel() {
   const ctx = useActions();
   const brief = useStudio((s) => s.brief);
   const [expanded, setExpanded] = React.useState<string | null>(activeId);
+  const wanted = useStudio((s) => s.wanted);
+  React.useEffect(() => {
+    if (!wanted || wanted.focus !== "name" || !wanted.id) return;
+    setExpanded(wanted.id);
+    const id = wanted.id;
+    const t = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(`[data-page-name="${id}"]`);
+      if (el) { el.focus(); el.select(); }
+      useStudio.getState().want(null);
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [wanted]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -104,7 +116,7 @@ export function PagesPanel() {
 
               {isOpen ? (
                 <div className="space-y-2 border-t border-border p-2">
-                  <Input value={page.name} aria-label="Page name" onChange={(e) => useStudio.getState().updatePage(page.id, { name: e.target.value })} />
+                  <Input value={page.name} data-page-name={page.id} aria-label="Page name" onChange={(e) => useStudio.getState().updatePage(page.id, { name: e.target.value })} />
                   <Input value={page.path} mono aria-label="Route" onChange={(e) => useStudio.getState().updatePage(page.id, { path: e.target.value })} />
                   <Select
                     className="w-full"

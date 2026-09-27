@@ -120,14 +120,26 @@ function GoLiveControl() {
           size="sm"
           data-go-live=""
           data-go-live-state={why ? "blocked" : liveAt ? "live" : "ready"}
-          disabled={!!why}
+          aria-disabled={why ? true : undefined}
           onClick={() => {
+            /* NEVER A DEAD BUTTON. With something missing the press says what,
+               beside the button, and opens the keys panel where it goes. */
+            if (why) {
+              ctx.publish({ key: "studio:go-live-needs", title: "Go live", body: why, level: "warn", source: "studio", toast: { durationMs: 8000 } });
+              if (missing.length) ctx.togglePanel("keys");
+              return;
+            }
             const name = useStudio.getState().brief?.name ?? "";
             void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish });
           }}
         >
           <Globe /> {liveAt ? "Update live site" : "Go live"}
         </Button>
+        {why && missing.length ? (
+          <span data-go-live-why="" className="ml-1.5 hidden max-w-[220px] truncate text-fine text-fg-muted lg:inline" title={why}>
+            needs {missing.join(" + ")}
+          </span>
+        ) : null}
       </span>
     </Tooltip>
   );

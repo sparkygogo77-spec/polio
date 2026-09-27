@@ -1045,6 +1045,15 @@ export function Canvas() {
           return;
         }
         /*
+         * TWO PRESSES ON A PART WITH WORDS OPEN ITS WORDS. The panel takes
+         * the caret, so what is typed next goes into the words and never
+         * reaches a letter shortcut (`tests/words-on-press.mjs`).
+         */
+        if (again && node && ids.length === 1 && getFeature(node.featureId)?.content) {
+          store.want({ panel: "inspector", focus: "words", id });
+          return;
+        }
+        /*
          * A BUTTON IN THE BUILDER IS PRESSABLE IN THE BUILDER.
          *
          * His words: a button should be pressable here and take him to the

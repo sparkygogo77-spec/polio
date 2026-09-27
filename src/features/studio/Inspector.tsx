@@ -344,6 +344,38 @@ function Mark({
   );
 }
 
+/** THE WORDS, FIRST. Two presses on the part put the caret here (`wanted`). */
+function WordsField({ node, content }: { node: StudioNode; content: { label: string; placeholder?: string } }) {
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  const wanted = useStudio((s) => s.wanted);
+  React.useEffect(() => {
+    if (!wanted || wanted.focus !== "words" || wanted.id !== node.id) return;
+    /* After the press that asked: the board takes the keys back on its
+       pointerup, so the caret lands once that has happened. */
+    const t = window.setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      useStudio.getState().want(null);
+    }, 160);
+    return () => window.clearTimeout(t);
+  }, [wanted, node.id]);
+  return (
+    <Field label="Words" hint={`${content.label}. The board draws exactly this.`}>
+      <Textarea
+        ref={ref}
+        autoGrow
+        rows={2}
+        aria-label="Words"
+        value={plain(node.content)}
+        placeholder={content.placeholder}
+        onChange={(e) => { useStudio.getState().updateNode(node.id, { content: reword(node.content, e.target.value) }); growToWords(node.id); }}
+      />
+    </Field>
+  );
+}
+
 function PictureField({ node }: { node: StudioNode }) {
   const pic = node.picture ?? null;
   const { src, looked } = usePicture(pic);
@@ -963,6 +995,11 @@ export function Inspector() {
           every time, and every other control on this panel is one press away
           behind its own mark.
         */}
+        {/* THE WORDS COME FIRST: they are what a first owner came to change.
+            Two presses on the part land the caret here (`wanted`). Under
+            them, where the part goes and what it does. */}
+        {feature?.content ? <WordsField node={node} content={feature.content} /> : null}
+        {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
         <Field
           label="Prompt for this element"
           hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
@@ -985,18 +1022,6 @@ export function Inspector() {
         </Field>
         <PictureField node={node} />
 
-        {feature?.content ? (
-          <Field label={feature.content.label} hint="Comma-separated. The board draws exactly this.">
-            <Textarea
-              autoGrow
-              rows={2}
-              aria-label={feature.content.label}
-              value={plain(node.content)}
-              placeholder={feature.content.placeholder}
-              onChange={(e) => { update({ content: reword(node.content, e.target.value) }); growToWords(node.id); }}
-            />
-          </Field>
-        ) : null}
 
         {mark === "size" ? (
         <div className="rounded-md border border-border p-2">
