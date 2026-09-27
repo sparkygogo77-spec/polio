@@ -261,6 +261,8 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
     st.marginBottom = `-${p.h}px`;
     st.marginLeft = st.left;
     st.left = "auto";
+    /* Above the parts that flow past it; the parts it owns are inside it (bandMoves), so nothing of its own is covered. */
+    st.zIndex = "2";
     return;
   }
   if (!k.fixed) return;

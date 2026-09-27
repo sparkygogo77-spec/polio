@@ -40,6 +40,7 @@ const el = { style: {} };
 fluid.fluidStyle(el, { id: "n1", x: 0, y: 0, w: 1440, h: 105, selector: "body > div > div", position: "sticky", inset: { top: 0 } }, { left: { c: 0, k: 0 }, width: { c: 1440, k: 1 } }, 1440, 900);
 check("a sticky band is published position sticky at its inset", el.style.position === "sticky" && el.style.top === "0px", JSON.stringify(el.style));
 check("…keeping its place in the frame of absolute parts: margins for its top and left, and none of its height added below", el.style.marginTop === "0px" && el.style.marginBottom === "-105px" && el.style.left === "auto" && el.style.marginLeft === "0px", JSON.stringify(el.style));
+check("…and above the parts that scroll past it, now that its own parts are inside it", el.style.zIndex === "2", JSON.stringify(el.style));
 const el2 = { style: {} };
 fluid.fluidStyle(el2, { id: "n2", x: 76, y: 400, w: 300, h: 40, selector: "body > aside", position: "sticky", inset: { top: 84 } }, { left: { c: 76, k: 0 }, width: { c: 300, k: 0 } }, 1440, 900);
 check("…a sticky part lower down sticks at its own inset from where it stood", el2.style.position === "sticky" && el2.style.top === "84px" && el2.style.marginTop === "400px" && el2.style.marginLeft === "76px", JSON.stringify(el2.style));
