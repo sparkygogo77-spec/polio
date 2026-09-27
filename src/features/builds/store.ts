@@ -114,7 +114,7 @@ interface Builds {
  * waits for IndexedDB, so a site too big for localStorage (a pointer in the
  * mirror) comes back whole when it is opened again.
  */
-const read = (key: string): Promise<string | null> => readDoc(key);
+const read = (key: string): Promise<string | null> => Promise.resolve(readDoc(key));
 const write = (key: string, value: string | null): Promise<void> => writeDocNow(key, value);
 
 /**

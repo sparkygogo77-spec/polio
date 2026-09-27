@@ -33,6 +33,7 @@ export const MIRROR_MAX = 2_500_000;
 export interface Pointer { idb: true; bytes: number; pages: number; parts: number; siteRepo: string | null }
 
 const ok = () => typeof indexedDB !== "undefined";
+const store = (): Storage | null => { try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; } };
 
 function shelf(mode: IDBTransactionMode): Promise<IDBObjectStore> {
   return new Promise((done, no) => {
@@ -56,8 +57,11 @@ async function idbSet(key: string, value: string | null): Promise<void> {
   try {
     const s = await shelf("readwrite");
     if (value === null) await ask(s.delete(key)); else await ask(s.put(value, key));
+    /* The flag beside the key says IndexedDB holds a document, so a read with no mirror knows whether to look there. */
+    try { if (value === null) store()?.removeItem(`${key}#idb`); else store()?.setItem(`${key}#idb`, "1"); } catch { /* the flag is a courtesy */ }
   } catch { /* storage off: the mirror is what there is */ }
 }
+const heldInIdb = (key: string): boolean => { try { return store()?.getItem(`${key}#idb`) === "1"; } catch { return false; } };
 
 /* ------------------------------------------------------------------ */
 /* Packed paths                                                          */
@@ -182,8 +186,6 @@ export function mirrorText(value: string, max = MIRROR_MAX): { kind: "full" | "p
   return { kind: "pointer", text: pointerFor(value) };
 }
 
-const store = (): Storage | null => { try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; } };
-
 /** The mirror as localStorage holds it: a document, a packed one, a pointer, or nothing. */
 export function readMirror(key: string): string | null {
   try { return store()?.getItem(key) ?? null; } catch { return null; }
@@ -203,14 +205,27 @@ function writeMirror(key: string, value: string | null): void {
 /* Reading and writing                                                  */
 /* ------------------------------------------------------------------ */
 
-/** The document under a key: the mirror when it holds a whole document (and it is carried into IndexedDB), else IndexedDB. */
-export async function readDoc(key: string): Promise<string | null> {
+/**
+ * The document under a key.
+ *
+ * SYNCHRONOUS WHENEVER IT CAN BE. The Builder hydrated from localStorage in
+ * the same tick as the page loaded, and a hundred checks rely on that:
+ * open the page, put a document in the key, open it again. A read that
+ * always went to IndexedDB finished after the page had settled, and the
+ * store's first write — the empty default — landed on the document the
+ * check had just put there. So: the mirror when it holds a whole document
+ * (carried into IndexedDB on the way), nothing when there is nothing
+ * anywhere, and a Promise only when a pointer or the flag says IndexedDB
+ * holds it.
+ */
+export function readDoc(key: string): string | null | Promise<string | null> {
   const raw = readMirror(key);
   if (raw !== null && !isPointer(raw)) {
     const text = unpackDocText(raw);
     void idbSet(key, text);
     return text;
   }
+  if (raw === null && !heldInIdb(key)) return null;
   return idbGet(key);
 }
 

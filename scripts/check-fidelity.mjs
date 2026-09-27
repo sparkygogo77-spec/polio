@@ -115,7 +115,7 @@ check("(a) a document that fits localStorage is mirrored whole; one that does no
 check("(a) a pointer is known for one, a document is not", ds.isPointer(ds.mirrorText(envelope, 10).text) === true && ds.isPointer(envelope) === false && ds.isPointer(null) === false);
 check("(a) the studio store reads and writes through it, and unpacks a path on the way in", /getItem: \(k\) => readDoc\(k\)/.test(store) && /writeDoc\(k, v\)/.test(store) && /unpackFrom\(n\.from/.test(store) && !/\.unsaved/.test(store));
 const builds = readFileSync(join(here, "..", "src", "features", "builds", "store.ts"), "utf8");
-check("(a) the builds store moves documents between the live key and the slots through it, waiting for IndexedDB", /const read = \(key: string\): Promise<string \| null> => readDoc\(key\);/.test(builds) && /writeDocNow\(key, value\)/.test(builds) && /open: async \(id\)/.test(builds) && /await get\(\)\.save\(\)/.test(builds));
+check("(a) the builds store moves documents between the live key and the slots through it, waiting for IndexedDB", /const read = \(key: string\): Promise<string \| null> => Promise\.resolve\(readDoc\(key\)\);/.test(builds) && /writeDocNow\(key, value\)/.test(builds) && /open: async \(id\)/.test(builds) && /await get\(\)\.save\(\)/.test(builds));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
