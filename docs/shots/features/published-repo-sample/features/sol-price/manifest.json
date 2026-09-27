@@ -1,0 +1,54 @@
+{
+  "id": "sol-price",
+  "name": "Live SOL price",
+  "category": "data",
+  "blurb": "The price of SOL in dollars, from a public price source, refreshed every few seconds.",
+  "inputs": [
+    {
+      "id": "every",
+      "label": "Refresh every (seconds)",
+      "kind": "number",
+      "default": "30",
+      "heard": "(\\d+)\\s*(?:s|sec|secs|second|seconds)\\b"
+    },
+    {
+      "id": "format",
+      "label": "Format",
+      "kind": "one",
+      "default": "$1.23",
+      "values": [
+        "$1.23",
+        "1.23",
+        "$1.2K"
+      ]
+    },
+    {
+      "id": "show",
+      "label": "Show",
+      "kind": "one",
+      "default": "price",
+      "values": [
+        "price",
+        "24h change"
+      ],
+      "heard": "\\b(24h change|change)\\b"
+    }
+  ],
+  "needs": "none",
+  "says": [
+    "sol price",
+    "solana price",
+    "price of sol",
+    "sol usd",
+    "sol change",
+    "sol 24h"
+  ],
+  "look": {
+    "sample": "$142.37",
+    "caption": "SOL · live"
+  },
+  "version": 1,
+  "parts": [
+    "n_prose_92"
+  ]
+}

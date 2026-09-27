@@ -177,6 +177,7 @@ await pressBang(STAT.id);
 await say("“12.5000 SOL”");
 n = await node(STAT.id);
 check("quoted, it is the part's words", words(n) === "12.5000 SOL", words(n));
+check("…and words typed on a live-data spot answer its !", await page.locator(`[data-decide-for="${STAT.id}"]`).count() === 0);
 await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
 
 /* -------------------------------------------------------- the shelf */

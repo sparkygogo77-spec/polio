@@ -21,6 +21,7 @@ import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { exportSite } from "./exportSite";
 import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
+import { contractFiles } from "./library/contract";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
 export interface Pushed { url: string; files: number; deployed: boolean; hook: boolean; note?: string }
@@ -183,7 +184,15 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
   } catch (err) {
     say(`The pictures could not be read out of this browser (${err instanceof Error ? err.message : "unknown"}), so the pages went up without them.`);
   }
-  return [...pages, ...shots, ...described];
+  /*
+   * And what the code chat working in the repository reads: TASKS.md, the
+   * feature contract in AGENTS.md and CLAUDE.md (merged into the owner's own
+   * by the route), and a features/<name>/ folder per feature in use
+   * (`library/contract.ts`). What a code chat builds there comes back.
+   */
+  const st = useStudio.getState();
+  const contract = contractFiles(st.nodes, st.pages).filter((f) => !described.some((d) => d.path === f.path));
+  return [...pages, ...shots, ...contract, ...described];
 }
 
 /**

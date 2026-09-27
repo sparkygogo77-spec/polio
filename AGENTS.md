@@ -118,7 +118,13 @@ src/features/studio/
   Inspector.tsx  per-part contents, size & position, options, prompt
   library/       the feature library: working code with no look of its own.
                  works.ts (manifests, scripts, the runtime publishing ships),
-                 read.ts (what the one box reads), badge.ts (where the ! goes)
+                 read.ts (what the one box reads), badge.ts (where the ! goes),
+                 contract.ts (TASKS.md, the feature contract in AGENTS.md /
+                 CLAUDE.md and features/<id>/ written into every published
+                 repo), roundTrip.ts + repoFeatures.ts (features/ folders read
+                 back from the owner's own repos, offered for review; never
+                 run), useLibrary.ts (accepted features, kept across sites)
+  WorkShelf.tsx  the shelf's Working band and the review card for offers
   SayBox.tsx     the one box on the pencil: type, it applies, "understood as …"
   index.ts       routes, commands, shortcuts, and every context menu
 ```

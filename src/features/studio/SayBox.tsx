@@ -23,7 +23,7 @@ import type { Slab } from "./RingConsole";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { readWords, type Reading } from "./library/read";
-import { describeWork, getWork, inputsOf, LIBRARY } from "./library/works";
+import { allWorks, describeWork, getWork, inputsOf } from "./library/works";
 
 const field = `min-h-0 w-full text-small leading-snug ${SCREEN_FIELD}`;
 /** Parts that draw no words: plain text typed on one is an instruction, not copy. */
@@ -31,8 +31,8 @@ const WORDLESS = new Set(["drawn-icon", "picture"]);
 
 type Applied = Exclude<Reading, { kind: "ask" } | { kind: "nothing" }>;
 /** The fields a reading can change, so undo puts back exactly those. */
-const TOUCHES = ["link", "content", "work", "task"] as const;
-type Before = Pick<StudioNode, "link" | "content" | "work" | "task">;
+const TOUCHES = ["link", "content", "work", "task", "settled"] as const;
+type Before = Pick<StudioNode, "link" | "content" | "work" | "task" | "settled">;
 
 /** What a part is now, in the box's own words. */
 export function nowSays(node: StudioNode, pages: { id: string; name: string }[]): string | null {
@@ -48,7 +48,8 @@ export function nowSays(node: StudioNode, pages: { id: string; name: string }[])
 export function patchFor(node: StudioNode, r: Applied): Partial<StudioNode> {
   switch (r.kind) {
     case "link": return { link: r.link };
-    case "words": return { content: reword(node.content, r.text) };
+    /* Words typed here are chosen: on a live-data spot they are its answer. */
+    case "words": return { content: reword(node.content, r.text), settled: true };
     case "work": return { work: r.work };
     case "task": return { task: r.text };
   }
@@ -67,7 +68,7 @@ export function SayPlate({ node, plate, onMore }: { node: StudioNode; plate: Sla
   const apply = (r: Applied) => {
     const st = useStudio.getState();
     const was = st.nodes.find((n) => n.id === node.id) ?? node;
-    const before = Object.fromEntries(TOUCHES.map((k) => [k, was[k] ?? null])) as Before;
+    const before = Object.fromEntries(TOUCHES.map((k) => [k, was[k] ?? (k === "settled" ? false : null)])) as Before;
     st.updateNode(node.id, patchFor(was, r));
     if (r.kind === "words") growToWords(node.id);
     setDone({ say: r.say, before });
@@ -78,7 +79,7 @@ export function SayPlate({ node, plate, onMore }: { node: StudioNode; plate: Sla
   const submit = () => {
     const r = readWords(text, {
       pages: pages.map((p) => ({ id: p.id, name: p.name, path: p.path })),
-      works: LIBRARY.map((w) => w.manifest),
+      works: allWorks().map((w) => w.manifest),
       drawsWords: !WORDLESS.has(node.featureId) && (!!feature?.content || !!plain(node.content).trim()),
       words: plain(node.content),
     });

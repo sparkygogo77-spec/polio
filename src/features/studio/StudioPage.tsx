@@ -6,6 +6,7 @@
  * Middle— the canvas, with page tabs above and the master prompt below.
  * Right — whatever is selected, the site format options, or the page list.
  */
+import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
@@ -1371,6 +1372,8 @@ export function StudioPage() {
           floats over everything because the board behind it is the preview. */}
       <ImportFlow />
       <RadialMenu />
+      {/* What came back from the site's repository, to review (`WorkShelf.tsx`). */}
+      <FeatureOffers />
       <LightPlacer />
       <BriefDialog open={briefOpen && !book} onOpenChange={setBriefOpen} />
     </div>

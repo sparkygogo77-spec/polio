@@ -43,6 +43,7 @@ import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
 import { keep } from "./pictures";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
+import { checkRepoFeatures } from "./library/repoFeatures";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { landPalette } from "./paletteFrom";
@@ -301,6 +302,8 @@ export function FromASite({ space }: { space: Space }) {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
     busy(`Opening ${repoName(r)}…`);
+    /* Reading one of the owner's repositories is when the features a code chat built there are offered back (`library/repoFeatures.ts`). */
+    void checkRepoFeatures({ owner: r.owner, name: r.name, ref: r.ref ?? null }, token);
     const got = await readRepoSite(r, token, (says) => busy(says));
     if (isCopy(got)) { copySite(got, r); return; }
     if (refused(got)) {

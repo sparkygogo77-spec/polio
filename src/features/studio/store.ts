@@ -333,6 +333,12 @@ export interface StudioNode {
    * ("button, named …") and that is not a task anybody asked for.
    */
   task?: string | null;
+  /**
+   * The owner typed this part's words in the one box. A live-data spot whose
+   * words were chosen that way is decided, and loses its orange !
+   * (`library/badge.ts`).
+   */
+  settled?: boolean;
 }
 
 export interface StudioGroup {

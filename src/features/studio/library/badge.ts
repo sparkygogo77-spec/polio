@@ -7,7 +7,8 @@
  *     `data`: a capture writes its own description into `data`);
  *   · a live-data spot — a price, a change, a balance, a count, a time ago,
  *     a shortened address — that shows a number the capture froze, with no
- *     feature and no task on it.
+ *     feature and no task on it, and whose words the owner did not type
+ *     in the one box (`settled`, set by the one box when it reads words).
  *
  * One control, one !: the parts inside a clickable part defer to it (the
  * wallet chip carries it, not the hash and the "13s ago" inside), and a part
@@ -28,6 +29,8 @@ interface Part {
   content?: unknown;
   link?: unknown;
   task?: string | null;
+  /** The owner typed this part's words in the one box: a live-data spot showing them is decided. */
+  settled?: boolean;
   work?: { id: string } | null;
   from?: { selector?: string | null } | null;
 }
@@ -95,6 +98,8 @@ export function decisions(nodes: readonly Part[]): Decision[] {
     if (answered(n)) continue;
     const pressable = control !== null || BUTTONISH.has(n.featureId ?? "");
     if (pressable) { out.push({ id: n.id, why: "nowhere" }); continue; }
+    /* Words the owner typed are words they chose: a number written by hand is not waiting to be made live. */
+    if (n.settled) continue;
     if (!WORDLESS.has(n.featureId ?? "") && isLiveWords(wordsOf(n.content))) out.push({ id: n.id, why: "live" });
   }
   return out;

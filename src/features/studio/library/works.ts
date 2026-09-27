@@ -70,6 +70,32 @@ export interface Work {
   manifest: WorkManifest;
   /** Plain browser JavaScript. Calls `siteFeatures.define(id, fn(el, inputs, api))`. */
   script: string;
+  /** The folder's README, for a feature that came back from a repository. */
+  readme?: string;
+  /** `owner/name` of the repository it came back from, when it did. */
+  from?: string;
+  /**
+   * Its shelf picture: the part it was attached to when it was accepted,
+   * as that part was, so the shelf can draw it. Null for the built-in ones,
+   * which show `look.sample` instead.
+   */
+  picture?: WorkPicture | null;
+}
+
+/** A part, as much of it as the shelf needs to draw it again. */
+export interface WorkPicture {
+  featureId: string;
+  label: string;
+  content: unknown;
+  w: number;
+  h: number;
+  colour?: unknown;
+  font?: unknown;
+  options?: Record<string, string>;
+  layout?: unknown;
+  pad?: unknown;
+  edge?: unknown;
+  text?: unknown;
 }
 
 /** What a part carries when a feature is attached to it. */
@@ -175,8 +201,25 @@ const TOKEN_PRICE: Work = {
 /** Every feature the Builder has, in shelf order. */
 export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE];
 
+/**
+ * The features the owner accepted from their repositories (`roundTrip.ts`),
+ * handed in by the library store. Held as text: nothing here runs them.
+ * One with a built-in's id replaces that built-in.
+ */
+let accepted: Work[] = [];
+export function setAccepted(list: readonly Work[]): void {
+  accepted = [...list];
+}
+
+/** Every feature there is: the built-in ones, each replaced by an accepted one of its id, then the accepted new ones. */
+export function allWorks(): Work[] {
+  const byId = new Map(accepted.map((w) => [w.manifest.id, w]));
+  return [...LIBRARY.map((w) => byId.get(w.manifest.id) ?? w), ...accepted.filter((w) => !LIBRARY.some((b) => b.manifest.id === w.manifest.id))];
+}
+
 export function getWork(id: string | null | undefined): Work | undefined {
-  return id ? LIBRARY.find((w) => w.manifest.id === id) : undefined;
+  if (!id) return undefined;
+  return accepted.find((w) => w.manifest.id === id) ?? LIBRARY.find((w) => w.manifest.id === id);
 }
 
 /** The inputs a part carrying this feature runs with: what it set, else the defaults. */
@@ -367,6 +410,6 @@ export function featureFiles(nodes: readonly Carrier[]): { path: string; content
   if (!used.size) return [];
   return [
     { path: "assets/features/runtime.js", content: RUNTIME_JS },
-    ...LIBRARY.filter((w) => used.has(w.manifest.id)).map((w) => ({ path: `assets/features/${w.manifest.id}.js`, content: shipped(w) })),
+    ...allWorks().filter((w) => used.has(w.manifest.id)).map((w) => ({ path: `assets/features/${w.manifest.id}.js`, content: shipped(w) })),
   ];
 }
