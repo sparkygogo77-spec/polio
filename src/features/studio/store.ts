@@ -46,7 +46,7 @@ import type { Spend } from "./spend";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { WorkUse } from "./library/works";
-import type { NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
+import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
@@ -319,6 +319,10 @@ export interface StudioNode {
   edge?: NodeEdge | null;
   /** Rounded corners the page gave the box, in px; drawn by the box wrapper (parts/theme.ts#boxStyle). */
   radius?: number | null;
+  /** Transparency the page gave the box (0..1); drawn by the box wrapper. */
+  opacity?: number | null;
+  /** The artistic properties a capture recorded (blend, filter, transform, gradient, outlined type); drawn as written by the box wrapper. */
+  art?: NodeArt | null;
   text?: NodeText | null;
   /**
    * A feature from the library, working on this part (`library/works.ts`).
