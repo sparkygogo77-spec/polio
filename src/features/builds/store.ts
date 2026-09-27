@@ -16,6 +16,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/store";
+import { isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
 /** A hydration settled the list (`settle`), and storage does not have it yet. */
@@ -86,10 +87,10 @@ interface Builds {
   /** First run: take whatever is already in the Builder rather than lose it. */
   adopt: () => void;
   create: (name?: string) => string;
-  open: (id: string) => void;
+  open: (id: string) => Promise<void>;
   rename: (id: string, name: string) => void;
-  duplicate: (id: string) => void;
-  remove: (id: string) => void;
+  duplicate: (id: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
   /**
    * Where a site publishes to. False, and nothing changed, when that is a
    * repository a board was brought in from. "import" sets the source
@@ -104,15 +105,17 @@ interface Builds {
   /** The deployment being waited on, or none. */
   setPending: (id: string, pending: Project["pending"]) => void;
   /** Write the open document back to its own slot. */
-  save: () => void;
+  save: () => Promise<void>;
 }
 
-const read = (key: string): string | null => {
-  try { return localStorage.getItem(key); } catch { return null; }
-};
-const write = (key: string, value: string | null) => {
-  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* private mode */ }
-};
+/*
+ * A document is read and written through docStore.ts: IndexedDB, with the
+ * localStorage mirror beside it. Moving one between the live key and a slot
+ * waits for IndexedDB, so a site too big for localStorage (a pointer in the
+ * mirror) comes back whole when it is opened again.
+ */
+const read = (key: string): Promise<string | null> => readDoc(key);
+const write = (key: string, value: string | null): Promise<void> => writeDocNow(key, value);
 
 /**
  * A project's document, as the Builder would have loaded it.
@@ -138,17 +141,18 @@ export type StudioDoc = PreviewDoc;
  */
 export function docOf(id: string, active = false): StudioDoc | null {
   try {
-    const raw = read(active ? LIVE : slot(id));
-    if (!raw) return null;
-    return (JSON.parse(raw) as { state?: StudioDoc }).state ?? null;
+    const raw = readMirror(active ? LIVE : slot(id));
+    /* A site too big for the mirror leaves a pointer: its shape is there (`shapeOf`), its document is not. */
+    if (!raw || isPointer(raw)) return null;
+    return (JSON.parse(unpackDocText(raw)) as { state?: StudioDoc }).state ?? null;
   } catch {
     return null;
   }
 }
 
 export function shapeOf(id: string, active = false): Shape {
-  const doc = docOf(id, active);
-  return { pages: doc?.pages?.length ?? 0, parts: doc?.nodes?.length ?? 0 };
+  const shape = shapeOfRaw(readMirror(active ? LIVE : slot(id)));
+  return { pages: shape?.pages ?? 0, parts: shape?.parts ?? 0 };
 }
 
 export const useBuilds = create<Builds>()(
@@ -163,17 +167,15 @@ export const useBuilds = create<Builds>()(
         const id = uid();
         // Whatever the Builder is holding becomes the first project, so nobody
         // opens this page and finds their work replaced by an empty list.
-        const held = read(LIVE);
-        if (held) write(slot(id), held);
         set({ projects: [{ id, name: "First site", updatedAt: Date.now() }], activeId: id });
-        carryRepos();
+        void read(LIVE).then((held) => { if (held) return write(slot(id), held); }).then(carryRepos);
       },
 
-      save: () => {
+      save: async () => {
         const id = get().activeId;
         if (!id) return;
-        const held = read(LIVE);
-        if (held) write(slot(id), held);
+        const held = await read(LIVE);
+        if (held) await write(slot(id), held);
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, updatedAt: Date.now() } : p)) }));
       },
 
@@ -203,25 +205,28 @@ export const useBuilds = create<Builds>()(
        * That is how a blank site came to adopt the last site's work.
        */
       create: (name) => {
-        get().save();
         const id = uid();
-        // A new site has no slot and no document: `swapDoc(null)` is what
-        // makes the board actually blank rather than whatever was on it.
-        write(slot(id), null);
-        write(LIVE, null);
-        set((s) => ({
-          projects: [{ id, name: name?.trim() || `Site ${s.projects.length + 1}`, updatedAt: Date.now() }, ...s.projects],
-          activeId: id,
-        }));
-        swapDoc(null);
+        /* The site being left is saved first, then the new one begins blank:
+           `swapDoc(null)` is what makes the board actually blank rather than
+           whatever was on it. The save is a read of IndexedDB, so the rest
+           follows it. */
+        void get().save().then(async () => {
+          await write(slot(id), null);
+          await write(LIVE, null);
+          set((s) => ({
+            projects: [{ id, name: name?.trim() || `Site ${s.projects.length + 1}`, updatedAt: Date.now() }, ...s.projects],
+            activeId: id,
+          }));
+          swapDoc(null);
+        });
         return id;
       },
 
-      open: (id) => {
+      open: async (id) => {
         if (get().activeId === id) return;
-        get().save();
-        const held = read(slot(id));
-        write(LIVE, held);
+        await get().save();
+        const held = await read(slot(id));
+        await write(LIVE, held);
         set({ activeId: id });
         // Every panel and the canvas come back on the new document without a
         // reload, and an empty site comes back empty.
@@ -232,20 +237,20 @@ export const useBuilds = create<Builds>()(
       rename: (id, name) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, name: name.trim() || p.name } : p)) })),
 
-      duplicate: (id) => {
-        get().save();
+      duplicate: async (id) => {
+        await get().save();
         const from = get().projects.find((p) => p.id === id);
         if (!from) return;
         const copy = uid();
-        write(slot(copy), read(slot(id)));
+        await write(slot(copy), await read(slot(id)));
         set((s) => ({
           projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined }, ...s.projects],
         }));
       },
 
-      remove: (id) => {
+      remove: async (id) => {
         const was = get().activeId;
-        write(slot(id), null);
+        await write(slot(id), null);
         set((s) => {
           const left = s.projects.filter((p) => p.id !== id);
           return { projects: left, activeId: s.activeId === id ? (left[0]?.id ?? null) : s.activeId };
@@ -258,8 +263,8 @@ export const useBuilds = create<Builds>()(
            the surviving site's slot. */
         if (was !== id) return;
         const next = get().activeId;
-        const held = next ? read(slot(next)) : null;
-        write(LIVE, held);
+        const held = next ? await read(slot(next)) : null;
+        await write(LIVE, held);
         swapDoc(held);
       },
 
@@ -408,9 +413,7 @@ function carryRepos(): void {
   const { projects, activeId } = useBuilds.getState();
   const fromDoc = (id: string): string | null => {
     try {
-      const raw = read(id === activeId ? LIVE : slot(id));
-      const was = raw ? (JSON.parse(raw) as { state?: { siteRepo?: unknown } }).state?.siteRepo : null;
-      return typeof was === "string" && was.trim() ? was.trim() : null;
+      return shapeOfRaw(readMirror(id === activeId ? LIVE : slot(id)))?.siteRepo ?? null;
     } catch {
       return null;
     }

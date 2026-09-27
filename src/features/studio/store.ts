@@ -16,6 +16,7 @@
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { readDoc, writeDoc, unpackFrom } from "./docStore";
 import { uid } from "@/core/lib/ids";
 import { getFeature, setBrought } from "./catalog";
 import { Boxes } from "lucide-react";
@@ -2926,23 +2927,18 @@ export const useStudio = create<StudioState>()(
        * else in the store yet — so refusing them loses nothing and saves the
        * document.
        */
+      /*
+       * THE DOCUMENT LIVES IN INDEXEDDB (docStore.ts), with localStorage
+       * beside it: a mirror of what fits, a pointer for what does not.
+       * share.xyz's three pages are 8.5 MB, past localStorage's quota; the
+       * save threw inside the import, which stopped before its pictures
+       * were kept. A document already in localStorage is read from there
+       * and carried across, so what was on the board before this stays.
+       */
       storage: createJSONStorage(() => ({
-        getItem: (k) => localStorage.getItem(k),
-        setItem: (k, v) => {
-          if (!studioRead || studioSwapping) return;
-          /*
-           * A DOCUMENT TOO BIG FOR LOCALSTORAGE STILL OPENS. share.xyz's three
-           * pages are 8.5 MB, past the browser's quota: setItem threw inside
-           * the import, which stopped before its pictures were kept, and the
-           * board showed every logo broken. The document stays on the board
-           * for the session; what could not be saved is noted beside the key
-           * (its size) so the next reader can tell. The store's own home is
-           * IndexedDB next, with this key as the pointer.
-           */
-          try { localStorage.setItem(k, v); localStorage.removeItem(`${k}.unsaved`); }
-          catch { try { localStorage.setItem(`${k}.unsaved`, String(v.length)); } catch { /* nothing to note it in */ } }
-        },
-        removeItem: (k) => localStorage.removeItem(k),
+        getItem: (k) => readDoc(k),
+        setItem: (k, v) => { if (!studioRead || studioSwapping) return; writeDoc(k, v); },
+        removeItem: (k) => { writeDoc(k, null); },
       })),
       merge: (persisted, current) => mergeDoc(persisted, current as StudioState),
       partialize: docOnly,
@@ -3080,7 +3076,9 @@ function mergeDoc(persisted: unknown, current: StudioState): StudioState {
           ...current,
           ...p,
           nodes: (p.nodes ?? current.nodes).map((n) => ({
-            ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
+            ...n, content: n.content ?? "", link: n.link ?? null,
+            /* A path packed for the localStorage mirror (docStore.ts) is the path it was. */
+            from: n.from ? unpackFrom(n.from as { selector?: string; sel?: string } & Record<string, unknown>) as typeof n.from : n.from, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
             // Speed and delay were words once; a saved board still has them.
             animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
             shape: n.shape ?? null,

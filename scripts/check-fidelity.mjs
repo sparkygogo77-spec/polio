@@ -66,9 +66,7 @@ const most = Number(/const MOST_PICTURES = (\d+)/.exec(run)?.[1]);
 check("the importer takes hundreds of pictures, not 40 (share.xyz's three pages name 218)", most >= 400, String(most));
 check("…and a picture budget of its own, not the 8 MB the whole repository is read within", /MAX_PICTURE_BYTES/.test(run) && !/weight \+ \(entry\.size \?\? 0\) > MAX_REPO_BYTES/.test(run));
 
-/* A document past the localStorage quota */
 const store = readFileSync(join(src, "store.ts"), "utf8");
-check("a document too big for localStorage still opens: the save is caught and noted as unsaved, the import goes on to its pictures", /try \{ localStorage\.setItem\(k, v\); localStorage\.removeItem\(`\$\{k\}\.unsaved`\); \}/.test(store));
 
 /* The frame a sticky band scrolls in */
 const exp = readFileSync(join(src, "exportSite.ts"), "utf8");
@@ -103,6 +101,21 @@ const art = theme.boxStyle({ opacity: 0.5, art: { blend: "multiply", filter: "bl
 check("(c) the art a capture recorded is drawn as written: opacity, blend, filter, transform, gradient, shadowed and outlined type", art.opacity === 0.5 && art.mixBlendMode === "multiply" && art.filter === "blur(2px)" && art.transform === "rotate(3deg)" && art.backgroundImage === "linear-gradient(red, blue)" && art.backgroundSize === "cover" && art.textShadow === "0 1px 0 #000" && art.WebkitTextStroke === "1px #000" && art.paintOrder === "stroke", JSON.stringify(art));
 check("(c) a node with only art, or only an opacity, has a box to draw it on", theme.hasBox({ art: { filter: "blur(2px)" } }) === true && theme.hasBox({ opacity: 0.5 }) === true);
 check("(c) control: an identity transform, a full opacity and an empty art draw nothing", (() => { const s = theme.boxStyle({ opacity: 1, art: { transform: "matrix(1, 0, 0, 1, 0, 0)" } }, { line: "#000" }); return s.opacity === undefined && s.transform === undefined; })() && theme.hasBox({ opacity: 1, art: {} }) === false);
+
+/* (a) The document's home: IndexedDB, a mirror or a pointer beside it, packed paths */
+const ds = await jiti.import(join(src, "docStore.ts"));
+const sels = ["body > div > div:nth-of-type(2) > main > section:nth-of-type(1) > div:nth-of-type(2) > article:nth-of-type(1) > div:nth-of-type(2) > span > span", "body > div > header > h1", "body > custom-tag > div:nth-of-type(11)", "body > div > svg > g > path:nth-of-type(3)"];
+check("(a) a recorded path packs to a fraction and unpacks to itself, exactly", sels.every((x) => ds.unpackSelector(ds.packSelector(x)) === x) && ds.packSelector(sels[0]).length * 3 < sels[0].length, `${sels[0].length} → ${ds.packSelector(sels[0]).length}: ${ds.packSelector(sels[0])}`);
+check("(a) …div:nth-of-type(1) and (11) stay apart, and a tag it has no letter for travels in braces", ds.packSelector("body > div:nth-of-type(1)") !== ds.packSelector("body > div:nth-of-type(11)") && ds.packSelector("body > custom-tag") === "B/{custom-tag}");
+check("(a) …a path of another shape is left as it was", ds.packSelector("#root .card") === null && ds.packFrom({ selector: "#root .card", url: "u" }).selector === "#root .card");
+const envelope = JSON.stringify({ state: { pages: [{ id: "p" }], nodes: [{ id: "n1", from: { url: "u", selector: sels[0], at: 1 } }, { id: "n2", from: null }, { id: "n3" }], siteRepo: "STANDIN-owner/sink" }, version: 0 });
+const packedText = ds.packDocText(envelope);
+check("(a) a document's text packs its paths and unpacks to the same text", packedText.length < envelope.length && /"sel":/.test(packedText) && !/"selector":/.test(packedText) && ds.unpackDocText(packedText) === envelope, `${envelope.length} → ${packedText.length}`);
+check("(a) a document that fits localStorage is mirrored whole; one that does not is mirrored packed; one past that leaves a pointer with the site's shape", ds.mirrorText(envelope, 10000).kind === "full" && ds.mirrorText(envelope, envelope.length - 1).kind === "packed" && ds.mirrorText(envelope, 10).kind === "pointer" && JSON.stringify(ds.shapeOfRaw(ds.mirrorText(envelope, 10).text)) === JSON.stringify({ pages: 1, parts: 3, siteRepo: "STANDIN-owner/sink" }), ds.mirrorText(envelope, 10).text);
+check("(a) a pointer is known for one, a document is not", ds.isPointer(ds.mirrorText(envelope, 10).text) === true && ds.isPointer(envelope) === false && ds.isPointer(null) === false);
+check("(a) the studio store reads and writes through it, and unpacks a path on the way in", /getItem: \(k\) => readDoc\(k\)/.test(store) && /writeDoc\(k, v\)/.test(store) && /unpackFrom\(n\.from/.test(store) && !/\.unsaved/.test(store));
+const builds = readFileSync(join(here, "..", "src", "features", "builds", "store.ts"), "utf8");
+check("(a) the builds store moves documents between the live key and the slots through it, waiting for IndexedDB", /const read = \(key: string\): Promise<string \| null> => readDoc\(key\);/.test(builds) && /writeDocNow\(key, value\)/.test(builds) && /open: async \(id\)/.test(builds) && /await get\(\)\.save\(\)/.test(builds));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

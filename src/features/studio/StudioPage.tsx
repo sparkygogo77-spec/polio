@@ -1069,6 +1069,8 @@ export function StudioPage() {
     w.__studioUndoDepth = () => useStudio.getState().past.length;
     // The document exactly as Publish sends it, for checks that say "what publish sends" and used to read storage instead.
     w.__studioPublishDoc = () => studioDoc();
+    // A document put on the board whole, the way an import does (tests/big-document.mjs: one past localStorage's quota).
+    (w as unknown as { __studioLoadDoc?: (doc: Record<string, unknown>) => void }).__studioLoadDoc = (doc) => useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
     /*
      * The queue, for a test that watches one job go through.
      *
