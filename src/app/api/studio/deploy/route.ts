@@ -32,10 +32,15 @@ export const maxDuration = 60;
 const API = process.env.VERCEL_API?.replace(/\/$/, "") || "https://api.vercel.com";
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
-/** A team's things are not the account's, so every call carries the slug when there is one. */
+/**
+ * A team's things are not the account's, so every call names the team when
+ * there is one, the way Vercel reads it: a `team_` id as `?teamId=`, and a
+ * slug as `?slug=`. Either sent as the other names no team at all, and Vercel
+ * answers 403 (`tests/go-live-refused.mjs`).
+ */
 function query(team: string | null, extra: Record<string, string> = {}): string {
   const p = new URLSearchParams(extra);
-  if (team) p.set("slug", team);
+  if (team) p.set(/^team_/.test(team) ? "teamId" : "slug", team);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -68,21 +73,25 @@ async function vercel<T>(tok: string, path: string, init?: RequestInit): Promise
  */
 type Lookup =
   | { found: VercelProject }
-  | { found: null; refused?: { reason: string; message: string } };
+  | { found: null; refused?: { reason: string; message: string; hint?: string } };
 
 async function findProject(tok: string, team: string | null, repo: string, named: string | null): Promise<Lookup> {
   const [owner, name] = repo.split("/");
   // A page at a time, following `pagination.next` as `until`: one page of a
   // hundred was all this read, and an account past that was told to go and
   // import a project it already had.
-  let refused: { reason: string; message: string } | undefined;
+  let refused: { reason: string; message: string; hint?: string } | undefined;
   const page = async (until: string | null) => {
     const { ok, status, data } = await vercel<{ projects?: VercelProject[]; pagination?: { next?: number | string | null } }>(
       tok,
       `/v9/projects${query(team, { limit: "100", ...(until ? { until } : {}) })}`,
     );
     if (status === 401 || status === 403) {
-      refused = { reason: "auth", message: `Vercel would not accept the token${team ? ` for ${team}` : ""}. Check it is copied whole, has not expired, and can see that team.` };
+      refused = {
+        reason: "auth",
+        message: `Vercel would not accept the token${team ? ` for ${team}` : ""}. Vercel said: ${data.error?.message ?? `${status}`}`,
+        hint: `Check the token is copied whole, has not expired, and its scope includes ${team ?? "your account"} (Vercel → Account Settings → Tokens).`,
+      };
       return { projects: [], next: null };
     }
     if (!ok || !Array.isArray(data.projects)) {
@@ -121,7 +130,7 @@ function projectName(name: unknown): string | null {
  * seeing the repository is said with how to grant it; a token Vercel turns
  * down is said as that.
  */
-type Made = { project: VercelProject; note: string | null } | { refused: { reason: string; message: string } };
+type Made = { project: VercelProject; note: string | null } | { refused: { reason: string; message: string; hint?: string } };
 
 const githubAccess = (repo: string, said: string) => {
   const owner = repo.split("/")[0];
@@ -148,7 +157,18 @@ async function makeProject(tok: string, team: string | null, repo: string, wante
       return { refused: { reason: "github-access", message: githubAccess(repo, said) } };
     }
     if (status === 401 || status === 403) {
-      return { refused: { reason: "auth", message: `Vercel would not let this token make a project${team ? ` under ${team}` : ""}. Vercel said: ${said}` } };
+      /* The same token has just listed this scope's projects, so it is
+         valid and can see the scope: what is left is where it was asked to
+         make one, and whether Vercel may connect the repository. */
+      return {
+        refused: {
+          reason: "auth",
+          message: `Vercel would not let this token make a project${team ? ` under ${team}` : ""}. Vercel said: ${said}`,
+          hint: team
+            ? `Likely fix: let Vercel's GitHub app see ${repo} (GitHub → Settings → Applications → Vercel → Repository access), or give the token a scope that includes ${team}.`
+            : "Likely fix: no team was named, so Vercel was asked to make it in your personal scope; put your team's slug or team_ id in the Vercel Team field of the keys panel (Ctrl+Shift+K).",
+        },
+      };
     }
     return { refused: { reason: "vercel", message: `Vercel would not make a project for ${repo}. Vercel said: ${said}` } };
   }
@@ -208,6 +228,7 @@ export async function POST(request: Request) {
       ok: false,
       reason: "no-token",
       message: "No Vercel token. Put one in the keys panel (⌘⇧K) or set VERCEL_TOKEN on the server, and this can put the site live.",
+      hint: "Put the Vercel token in the keys panel, Ctrl+Shift+K.",
     });
   }
 

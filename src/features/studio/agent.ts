@@ -679,7 +679,7 @@ export async function deployStatus(): Promise<DeployStatus> {
 
 export type DeployStart =
   | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null; /** Set when this call made the Vercel project. */ created?: string; note?: string }
-  | { ok: false; message: string; reason?: string };
+  | { ok: false; message: string; reason?: string; /** One line on the likely fix, when the route has one. */ hint?: string };
 
 /**
  * Ask Vercel to build the repository's branch. Returns as soon as it is queued.
@@ -697,7 +697,7 @@ export async function deploy(input: { repo?: string; branch?: string; project?: 
       body: JSON.stringify({ ...input, team: input.team ?? heldTeam() }),
     });
     const data = (await res.json()) as DeployStart;
-    return data.ok ? data : { ok: false, message: data.message ?? "The deploy failed.", reason: data.reason };
+    return data.ok ? data : { ok: false, message: data.message ?? "The deploy failed.", reason: data.reason, ...(data.hint ? { hint: data.hint } : {}) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
   }

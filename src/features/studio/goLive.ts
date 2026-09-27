@@ -24,12 +24,20 @@ import { useStudio } from "./store";
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
 export interface Pushed { url: string; files: number; deployed: boolean; hook: boolean; note?: string }
 
+/**
+ * What stopped the last Go live, in the words of whoever stopped it, and a
+ * line on the likely fix. Shown on the top-bar button and in the book's row:
+ * the first real Go live was refused by Vercel and nothing said so.
+ */
+export interface Refused { message: string; hint?: string }
+
 /** How the Go live in flight, or the last one, is getting on. */
-export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null }>(() => ({
+export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null; refused: Refused | null }>(() => ({
   busy: null,
   run: null,
   note: null,
   pushed: null,
+  refused: null,
 }));
 
 /*
@@ -189,12 +197,14 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
   const set = useGoLive.setState;
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
-  set({ busy: "Writing the pages…", note: null, run: null, pushed: null });
+  set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null });
+  /* A refusal is said once, on the row and the top bar (`refused`), not again in the book's note. */
+  const refuse = (message: string, hint?: string) => set({ refused: { message, ...(hint ? { hint } : {}) } });
   const { say, siteName } = o;
   try {
     const { project, repo, branch, create, boundTo, sources, refused } = pushTo(siteName);
     if (refused) {
-      setNote(refused);
+      refuse(refused);
       say({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
       return;
     }
@@ -204,7 +214,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
     if (!pushed.ok) {
       const says = refusedTarget(project, pushed);
-      setNote(says);
+      refuse(`GitHub: ${says}`);
       say({ key: "studio:publish", title: "Publish failed", body: says, level: "error", source: "studio", toast: true });
       return;
     }
@@ -216,9 +226,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
        the site, so this press is the only one needed from board to address. */
     const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch, name: siteName.trim() || project?.name?.trim() || undefined, sources });
     if (!started.ok) {
-      setNote(started.message);
+      refuse(started.message, started.hint);
       useStudio.getState().noteThread([`Vercel would not build it: ${started.message}`]);
-      say({ key: "studio:live", title: "Not deployed", body: started.message, level: "warn", source: "studio", toast: true });
+      say({ key: "studio:live", title: "Not deployed", body: started.hint ? `${started.message} ${started.hint}` : started.message, level: "error", source: "studio", toast: true });
       return;
     }
     if (started.created) useStudio.getState().noteThread([`Made the Vercel project ${started.created}, connected to ${started.repo}: every push to it deploys on its own now`]);
@@ -238,6 +248,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
     } else {
       const ended = end.state ? end.state.toLowerCase() : "ended without a state";
+      refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`);
       useStudio.getState().noteThread([`The Vercel build ${ended}`]);
       say({ key: "studio:live", title: `The build ${ended}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
     }

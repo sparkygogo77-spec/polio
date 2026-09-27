@@ -24,6 +24,25 @@ import { goLive, useGoLive } from "./goLive";
 import { useStudio } from "./store";
 
 export function GoLiveButton() {
+  const refused = useGoLive((s) => s.refused);
+  const button = <GoLiveControl />;
+  if (!refused) return button;
+  /* WHY IT DID NOT GO LIVE, beside the button and without hovering: the
+     first real Go live was refused by Vercel and the owner saw nothing. */
+  const full = refused.hint ? `${refused.message} ${refused.hint}` : refused.message;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      {button}
+      <Tooltip content={full}>
+        <span data-go-live-said="" role="status" className="max-w-[min(420px,32vw)] truncate text-small text-down">
+          {refused.message}{refused.hint ? <span className="text-fg-muted"> {refused.hint}</span> : null}
+        </span>
+      </Tooltip>
+    </span>
+  );
+}
+
+function GoLiveControl() {
   const ctx = useActions();
   const busy = useGoLive((s) => s.busy);
   const liveAt = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.live?.url ?? null);

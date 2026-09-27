@@ -317,6 +317,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const liveRun = useGoLive((s) => s.run);
   const liveNote = useGoLive((s) => s.note);
   const livePushed = useGoLive((s) => s.pushed);
+  const liveRefused = useGoLive((s) => s.refused);
   const committed = pubResult ?? livePushed;
   /* The address the open site went live at, the last time it did. */
   const liveAt = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.live?.url ?? null);
@@ -859,6 +860,14 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
               </a>
             ) : null}
             {liveRun.message ? <span className="text-fg-faint">{liveRun.message}</span> : null}
+          </p>
+        ) : null}
+        {/* Why the last Go live stopped, in the words of whoever stopped it,
+            with the likely fix: the same line the top bar shows. */}
+        {liveRefused && !busy ? (
+          <p data-live-refused="" role="status" className="flex flex-wrap items-start gap-1.5 text-plain text-down">
+            <X className="mt-0.5 size-3 shrink-0" />
+            <span>{liveRefused.message}{liveRefused.hint ? <span className="text-fg-muted"> {liveRefused.hint}</span> : null}</span>
           </p>
         ) : null}
         {/* WHERE IT LIVES, from the last time it went live, on every later
