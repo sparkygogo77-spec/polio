@@ -55,11 +55,30 @@ const [W, H] = cap.viewport;
 const aside = bySel.get(ASIDE), header = bySel.get(HEADER), footer = bySel.get(FOOTER), row = bySel.get(ROW), grid = bySel.get(GRID), main = bySel.get(MAIN);
 check("the capture records the bands fixed, the header row's max-width and the grid", aside?.pos === "fixed" && header?.pos === "fixed" && footer?.pos === "fixed" && row?.maxw === "1280px" && grid?.disp === "grid",
   JSON.stringify({ aside: aside?.pos, header: header?.pos, footer: footer?.pos, maxw: row?.maxw, grid: grid?.cols }));
-const cols = String(grid.cols).split(/\s+/).length, gap = px(grid.gap), sideW = aside.w, mainL = main.mar[3];
+const cols = String(grid.cols).split(/\s+/).length, gap = px(grid.gap), sideW = aside.w, mainL = main.mar[3], mainT = main.mar[0];
 
 const { browser, page, state } = await bringSink(BASE, SINK);
 await page.waitForTimeout(3000);
 const s = await state();
+/*
+ * A glow the capture records rides on the part's edge (`edge.shadow`). Sink's
+ * capture recorded none (its capture script never read box-shadow), so one
+ * card is given the glow a capture would have handed over, as the converter
+ * would write it, and everything after is the Builder's.
+ */
+const GLOW = "0 0 15px rgba(0, 255, 0, 0.1)";
+const CARD1 = s.nodes.find((n) => n.pageId === "page_home" && n.from?.selector === "body > div > main > div > div:nth-of-type(1) > div:nth-of-type(1)");
+await page.evaluate(({ id, glow }) => {
+  const raw = JSON.parse(localStorage.getItem("builder.studio"));
+  raw.state.nodes = raw.state.nodes.map((n) => (n.id === id ? { ...n, edge: { ...(n.edge ?? {}), shadow: glow } } : n));
+  localStorage.setItem("builder.studio", JSON.stringify(raw));
+}, { id: CARD1.id, glow: GLOW });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(2500);
+{
+  const board = await page.evaluate((id) => { const b = document.querySelector(`[data-node-id="${id}"] [data-part-box]`); return b ? getComputedStyle(b).boxShadow : null; }, CARD1.id);
+  check("a glow on a captured card is drawn on the board", !!board && /rgba\(0, 255, 0, 0\.1\) 0px 0px 15px/.test(board), String(board));
+}
 const files = (await page.evaluate(async () => (window.__studioExport ? await window.__studioExport() : null))) ?? [];
 check("the exporter gave files", files.length > 0, `${files.length}`);
 const nodeBy = (sel, pid = "page_home") => s.nodes.find((n) => n.pageId === pid && n.from?.selector === sel);
@@ -101,7 +120,7 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const zoom = await v.evaluate(() => getComputedStyle(document.querySelector(".site-root")).zoom);
   check(`${width}: drawn 1:1, so browser zoom is the browser's (no page zoom)`, zoom === "1" || zoom === "normal", zoom);
   const hd = await rect(v, nodeBy(HEADER).id);
-  check(`${width}: the header bar spans the window, at its captured height`, hd && near(hd.x, 0) && near(hd.r, iw) && near(hd.y, 0) && near(hd.h, header.h, 1), JSON.stringify(hd));
+  check(`${width}: the header bar spans the window`, hd && near(hd.x, 0) && near(hd.r, iw) && near(hd.y, 0), JSON.stringify(hd));
   const rw = await rect(v, nodeBy(ROW).id);
   const rowW = Math.min(px(row.maxw), iw - header.pad[1] - header.pad[3]);
   check(`${width}: its contents centred at their natural size (max-width ${row.maxw})`, rw && near(rw.w, rowW) && near(rw.x, (iw - rowW) / 2), JSON.stringify(rw));
@@ -125,6 +144,15 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const version = s.nodes.find((n) => n.pageId === "page_home" && /v2\.0\.0/.test(JSON.stringify(n.content ?? "")));
   const vr = version ? await rect(v, version.id) : null;
   check(`${width}: "v2.0.0 | A SolWorks project" on screen, right of the footer's centre`, !!vr && vr.b <= height && vr.x > width / 2 && vr.r <= iw, JSON.stringify(vr));
+  /* The original's banner ends where the page below it begins (the sidebar's top inset and main's margin, 73px), so the cards' top edges are drawn in full just under it. */
+  const edges = await v.evaluate((ids) => ids.map((id) => { const e = document.getElementById(id); if (!e) return null; const r = e.getBoundingClientRect(); /* Whatever lies over the edge must let it show: a picture (the logo's transparent margin) or nothing painted. */
+    const over = []; for (const h of document.elementsFromPoint(r.left + r.width / 2, r.top + 0.5)) { if (e.contains(h)) return over.every((o) => o.tagName === "IMG" || (getComputedStyle(o).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(o).backgroundImage === "none" && getComputedStyle(o).borderTopWidth === "0px")); over.push(h); } return false; }), [1, 2, 3, 4].map((i) => nodeBy(`${GRID} > div:nth-of-type(${i})`).id));
+  check(`${width}: the cards' top edges are drawn in full, not under the banner`, edges.every(Boolean), JSON.stringify(edges));
+  check(`${width}: the banner ends where the page below it begins (${mainT}px)`, hd && near(hd.b, mainT), `${hd?.b}`);
+  if (width === 1922) {
+    const glow = await v.evaluate((id) => { const b = document.getElementById(id)?.querySelector("div"); return b ? getComputedStyle(b).boxShadow : null; }, CARD1.id);
+    check("the glow is published on that card", !!glow && /rgba\(0, 255, 0, 0\.1\) 0px 0px 15px/.test(glow), String(glow));
+  }
   if (width !== 1280) await shot(v, `home-${width}`);
   await v.close();
 }
