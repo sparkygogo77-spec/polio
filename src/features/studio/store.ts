@@ -2914,7 +2914,20 @@ export const useStudio = create<StudioState>()(
        */
       storage: createJSONStorage(() => ({
         getItem: (k) => localStorage.getItem(k),
-        setItem: (k, v) => { if (studioRead && !studioSwapping) localStorage.setItem(k, v); },
+        setItem: (k, v) => {
+          if (!studioRead || studioSwapping) return;
+          /*
+           * A DOCUMENT TOO BIG FOR LOCALSTORAGE STILL OPENS. share.xyz's three
+           * pages are 8.5 MB, past the browser's quota: setItem threw inside
+           * the import, which stopped before its pictures were kept, and the
+           * board showed every logo broken. The document stays on the board
+           * for the session; what could not be saved is noted beside the key
+           * (its size) so the next reader can tell. The store's own home is
+           * IndexedDB next, with this key as the pointer.
+           */
+          try { localStorage.setItem(k, v); localStorage.removeItem(`${k}.unsaved`); }
+          catch { try { localStorage.setItem(`${k}.unsaved`, String(v.length)); } catch { /* nothing to note it in */ } }
+        },
         removeItem: (k) => localStorage.removeItem(k),
       })),
       merge: (persisted, current) => mergeDoc(persisted, current as StudioState),
