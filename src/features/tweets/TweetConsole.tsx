@@ -964,7 +964,7 @@ export function TweetConsole() {
       <Badge variant="up"><KeyRound className="size-3" /> API ready{api.handle ? <span className="streamer-hidden"> · @{api.handle}</span> : null}</Badge>
     </Tooltip>
   ) : (
-    <Tooltip content={`Set ${api.missing.join(", ")} on the server to post from here. Until then Send opens X with the words.`}>
+    <Tooltip content={`Set ${(api.missing ?? []).join(", ") || "the keys"} on the server to post from here. Until then Send opens X with the words.`}>
       <Badge variant="warn"><KeyRound className="size-3" /> no keys · {sendMode === "api" ? "opens X instead" : sendMode === "intent" ? "opens X" : "copies"}</Badge>
     </Tooltip>
   );

@@ -883,6 +883,14 @@ interface StudioState extends Doc {
    * let go of the moment the selection moves off it.
    */
   handling: string | null;
+  /**
+   * WHAT THE BOARD ASKS A PANEL TO SHOW. Two presses on a text part want
+   * the Element panel open on its words with the caret in them; Add page
+   * wants the Pages panel open on the new page's name. The panel that
+   * answers clears it.
+   */
+  wanted: { panel: "inspector" | "pages"; focus?: "words" | "name"; id?: string; at: number } | null;
+  want: (w: { panel: "inspector" | "pages"; focus?: "words" | "name"; id?: string } | null) => void;
   hold: (nodeId: string | null) => void;
   /**
    * When he last opened the timeline.
@@ -1555,6 +1563,7 @@ export const useStudio = create<StudioState>()(
         selection: [],
         pickedFace: null,
         handling: null,
+        wanted: null,
         queueSeenAt: 0,
         tool: "select",
         inkHue: 265,
@@ -1966,6 +1975,7 @@ export const useStudio = create<StudioState>()(
         pickFace: (nodeId, side) => set({ pickedFace: side ? { nodeId, side } : null }),
 
         hold: (nodeId) => set({ handling: nodeId }),
+        want: (w) => set({ wanted: w ? { ...w, at: Date.now() } : null }),
 
         markQueueSeen: () => set({ queueSeenAt: Date.now() }),
 

@@ -5,7 +5,8 @@
  *
  * Held here:
  *   · a labelled Go live, with the globe, sits beside the GitHub button;
- *   · it is disabled with no keys, and says which key and Ctrl+Shift+K; with
+ *   · with no keys it is blocked, never a dead button: it says which key and
+ *     Ctrl+Shift+K, and a press opens the keys panel; with
  *     only the GitHub key it names the Vercel one; with both it is enabled;
  *   · pressed, it runs the same Go live as the book (one function): the book,
  *     opened mid-build, shows the same progress; once READY the site holds the
@@ -168,21 +169,21 @@ console.log("1. Where it is, and with no keys");
   const globe = n ? await bar().first().evaluate((e) => !!e.querySelector("svg.lucide-globe")) : false;
   check("a labelled Go live with the globe is in the top bar", n === 1 && label === "Go live" && globe, `${n} found, label ${JSON.stringify(label)}, globe ${globe}`);
   /* The GitHub control draws nothing until a token or a repository exists, so beside it is read once keys are in. */
-  const disabled = n ? await bar().first().isDisabled() : null;
+  const disabled = n ? (await state()) === "blocked" : null;
   const says = await tip();
-  check("with no keys it is disabled, and says which keys and Ctrl+Shift+K", disabled === true && /GitHub/.test(says) && /Vercel/.test(says) && /Ctrl\+Shift\+K/.test(says), `disabled ${disabled}; ${JSON.stringify(says)}; order ${order.join(",")}`);
+  check("with no keys it is blocked, and says which keys and Ctrl+Shift+K", disabled === true && /GitHub/.test(says) && /Vercel/.test(says) && /Ctrl\+Shift\+K/.test(says), `disabled ${disabled}; ${JSON.stringify(says)}; order ${order.join(",")}`);
 }
 console.log("2. With the GitHub key only");
 await keysIn([["github", GH_TOKEN]]);
 {
-  const disabled = await bar().first().isDisabled();
+  const disabled = (await state()) === "blocked";
   const says = await tip();
-  check("still disabled, and names only the Vercel key", disabled && /Vercel/.test(says) && !/GitHub/.test(says) && /Ctrl\+Shift\+K/.test(says), `disabled ${disabled}; ${JSON.stringify(says)}`);
+  check("still blocked, and names only the Vercel key", disabled && /Vercel/.test(says) && !/GitHub/.test(says) && /Ctrl\+Shift\+K/.test(says), `disabled ${disabled}; ${JSON.stringify(says)}`);
 }
 console.log("3. With both keys");
 await keysIn([["github", GH_TOKEN], ["vercel", VC_TOKEN]]);
 {
-  const disabled = await bar().first().isDisabled();
+  const disabled = (await state()) === "blocked";
   check("enabled", disabled === false && (await state()) === "ready", `disabled ${disabled}, state ${await state()}`);
   const order = await page.evaluate(() => [...document.querySelectorAll("header [data-github-button], header [data-go-live]")].map((e) => (e.hasAttribute("data-github-button") ? "github" : "golive")));
   const beside = await page.evaluate(() => {
