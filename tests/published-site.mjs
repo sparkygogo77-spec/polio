@@ -141,9 +141,15 @@ check("the press committed the pages", committed.has("index.html"), `${committed
 /* Served the way a static host serves it                               */
 /* ------------------------------------------------------------------ */
 const TYPES = { html: "text/html", css: "text/css", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", svg: "image/svg+xml", webp: "image/webp", ico: "image/x-icon", json: "application/json" };
+/* As Vercel serves it: with the committed vercel.json's cleanUrls and no trailing slash, /tokens is tokens/index.html and the other spellings redirect to it. */
+const vercel = (() => { try { return JSON.parse(committed.get("vercel.json")?.content ?? "{}"); } catch { return {}; } })();
 const site = http.createServer((rq, res) => {
-  let p = decodeURIComponent(new URL(rq.url, "http://x").pathname).replace(/^\/+/, "");
+  const path = decodeURIComponent(new URL(rq.url, "http://x").pathname);
+  if (vercel.cleanUrls && /\.html$/.test(path)) { res.writeHead(308, { location: path.replace(/(\/index)?\.html$/, "") || "/" }); res.end(); return; }
+  if (vercel.trailingSlash === false && path.length > 1 && path.endsWith("/")) { res.writeHead(308, { location: path.slice(0, -1) }); res.end(); return; }
+  let p = path.replace(/^\/+/, "");
   if (!p || p.endsWith("/")) p += "index.html";
+  else if (!committed.has(p) && committed.has(`${p}/index.html`)) p += "/index.html";
   const f = committed.get(p);
   if (!f) { res.writeHead(404); res.end("NOT_FOUND"); return; }
   res.writeHead(200, { "content-type": TYPES[p.split(".").pop()] ?? "application/octet-stream" });
@@ -159,7 +165,11 @@ const slug = (p) => (p.id === home ? "" : `${(p.path || p.name || p.id).trim().r
 const pageBy = (t) => s.pages.find((p) => p.id === t) ?? s.pages.find((p) => (p.path || "").replace(/^\/+|\/+$/g, "") === String(t).replace(/^\/+|\/+$/g, "")) ?? null;
 const docs = s.pages.find((p) => /doc/i.test(p.name || p.path || ""));
 /** The folder a page is served at: `/` and `/cleanup/`, whichever file in it the link names. */
-const folder = (href) => new URL(href).pathname.replace(/index\.html$/, "");
+/** The page an address is, however it is spelt: /cleanup, /cleanup/ and /cleanup/index.html alike. */
+const folder = (href) => new URL(href).pathname.replace(/index\.html$/, "").replace(/(.)\/$/, "$1");
+const addr = (p) => `/${slug(p)}`.replace(/(.)\/$/, "$1");
+/** Which page is on screen, by the exporter's own mark. */
+const showing = (v) => v.evaluate(() => document.querySelector("[data-page]")?.getAttribute("data-page") ?? null);
 
 const failed = [];
 
@@ -186,7 +196,7 @@ console.log("1. Navigation");
       const g = got.parts.find((x) => x.id === w.id);
       const to = pageBy(w.link.target);
       if (!g?.href) { dead.push(`${p.name}: ${w.label}`); continue; }
-      if (folder(g.href) !== `/${slug(to)}`) wrong.push(`${p.name}: ${w.label} → ${g.href}`);
+      if (folder(g.href) !== addr(to)) wrong.push(`${p.name}: ${w.label} → ${g.href}`);
       if (g.buttons) dead.push(`${p.name}: ${w.label} still holds a button`);
       if (to.id === p.id) { currentWant++; if (g.current === "page") current.push(w.id); }
     }
@@ -203,7 +213,8 @@ console.log("1. Navigation");
     if (!(await t.count())) return `no "${words}"`;
     await t.click({ timeout: 3000 }).catch(() => {});
     await v.waitForTimeout(600);
-    return folder(v.url()) === `/${slug(to)}` ? true : `stayed at ${v.url()}`;
+    const on = await showing(v);
+    return on === to.id ? true : `showing ${on} at ${v.url()}`;
   };
   const cleanup = s.pages.find((p) => /cleanup/i.test(p.name));
   const r1 = await press(s.pages[0], cleanup.name, cleanup);
@@ -274,7 +285,7 @@ for (const p of [s.pages[0], docs]) {
   const cleanup = s.pages.find((p) => /cleanup/i.test(p.name));
   await v.getByText(cleanup.name, { exact: true }).first().click({ timeout: 3000 }).catch(() => {});
   await v.waitForTimeout(600);
-  check(`at 1366, pressing "${cleanup.name}" still opens it`, folder(v.url()) === `/${slug(cleanup)}`, v.url());
+  check(`at 1366, pressing "${cleanup.name}" still opens it`, (await showing(v)) === cleanup.id, `${await showing(v)} at ${v.url()}`);
   await v.close();
 }
 
@@ -371,6 +382,47 @@ console.log("6. Pictures and icons");
   check("a 32px icon, the SolWorks logo at that size", !!icons.small && icons.small.w === 32 && icons.small.h === 32 && icons.small.off <= 8, JSON.stringify(icons.small));
   check("a 180px icon for a phone's home screen, the same logo", !!icons.touch && icons.touch.w === 180 && icons.touch.h === 180 && icons.touch.sizes === "180x180" && icons.touch.off <= 8, JSON.stringify(icons.touch));
   check("og:image is the 1024 original", !!icons.og && icons.og[0] === 1024 && icons.og[1] === 1024 && icons.ogw === "1024", JSON.stringify(icons.og) + ` width ${icons.ogw}`);
+  await v.close();
+}
+/*
+ * ADDRESSES. THE OWNER: choosing a page showed .../tokens/index.html, and the
+ * original keeps its address at the root whatever section is picked. The
+ * capture says which pages shared an address: its parts' own `from.url`.
+ * Those switch in place, the address staying the root's, back and forward
+ * walking them; every other page is at a clean address; every link is still
+ * a real <a href>, which a crawler or a new tab follows.
+ */
+console.log("7. Addresses");
+{
+  const capturedAt = (p) => { const u = s.nodes.find((n) => n.pageId === p.id && n.from?.url)?.from?.url; return u ? new URL(u).pathname.replace(/(.)\/$/, "$1") : null; };
+  const home0 = s.pages[0], tokens = s.pages.find((p) => /tokens/i.test(p.name));
+  check("the capture shows Creator Hub and Tokens at one address, Docs at another", capturedAt(home0) === capturedAt(tokens) && capturedAt(docs) !== capturedAt(home0), JSON.stringify([capturedAt(home0), capturedAt(tokens), capturedAt(docs)]));
+  const vj = (() => { try { return JSON.parse(committed.get("vercel.json")?.content ?? "null"); } catch { return null; } })();
+  check("vercel.json asks for clean addresses", vj?.cleanUrls === true && vj?.trailingSlash === false, JSON.stringify(vj));
+  const withIndex = [...committed].filter(([k, f]) => k.endsWith(".html") && /href="[^"]*index\.html/.test(f.content)).map(([k]) => k);
+  check("no link names index.html", withIndex.length === 0, withIndex.slice(0, 3).join(", ") || "none");
+
+  const v = await browser.newPage({ viewport: { width: W, height: 1000 } });
+  await v.goto(`${ORIGIN}/`, { waitUntil: "networkidle" });
+  const link = v.getByText(tokens.name, { exact: true }).first();
+  const href = await link.evaluate((e) => e.closest("a[href]")?.href ?? null);
+  check(`"${tokens.name}" is a real link to its clean address`, !!href && new URL(href).pathname === addr(tokens), String(href));
+  await link.click();
+  await v.waitForTimeout(800);
+  check(`pressing it shows ${tokens.name}, the address staying the root`, (await showing(v)) === tokens.id && new URL(v.url()).pathname === "/", `${await showing(v)} at ${v.url()}`);
+  await v.goBack();
+  await v.waitForTimeout(800);
+  const back = [await showing(v), new URL(v.url()).pathname];
+  await v.goForward();
+  await v.waitForTimeout(800);
+  const fwd = [await showing(v), new URL(v.url()).pathname];
+  check("back shows Creator Hub and forward Tokens again, at the root", back[0] === home0.id && fwd[0] === tokens.id && back[1] === "/" && fwd[1] === "/", JSON.stringify({ back, fwd }));
+  await v.evaluate((to) => [...document.querySelectorAll("a[href]")].find((a) => new URL(a.href).pathname.replace(/index\.html$/, "").replace(/(.)\/$/, "$1") === to)?.click(), addr(docs));
+  await v.waitForTimeout(800);
+  check("Docs, at another address in the original, opens at its clean address", (await showing(v)) === docs.id && new URL(v.url()).pathname === addr(docs), `${await showing(v)} at ${v.url()}`);
+  /* A crawler, or a new tab: the address is a page of its own. */
+  const raw = await (await fetch(`${ORIGIN}${addr(tokens)}`)).text();
+  check(`${addr(tokens)} opened on its own is ${tokens.name}`, raw.includes(`data-page="${tokens.id}"`), raw.slice(0, 80));
   await v.close();
 }
 check("nothing any page asked for was missing", failed.length === 0, failed.slice(0, 4).join(", ") || "none");
