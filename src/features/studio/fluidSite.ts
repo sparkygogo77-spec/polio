@@ -224,7 +224,6 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
     st.marginBottom = `-${p.h}px`;
     st.marginLeft = st.left;
     st.left = "auto";
-    st.zIndex = "2";
     return;
   }
   if (!k.fixed) return;
