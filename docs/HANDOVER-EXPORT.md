@@ -11,10 +11,19 @@ is in place: see "Where Publish goes" below.)
 
 ## What it is
 
-- **One width, fitted to the window.** Laid out at the width the site was
-  captured at (1763 for sink), then drawn at the window's width with CSS
-  `zoom` (`frameCss`): no sideways scroll below it, and the header bar,
-  sidebar and background reach both edges above it. No breakpoint is
+- **Captured sites are fluid, 1:1** (`fluidSite.ts`, `tests/fluid-site.mjs`).
+  The owner overruled zoom-to-fit: 13% too big beside the original, and
+  browser zoom did nothing. Each captured part's left and width become CSS
+  expressions of its parent's, from the capture's element path (containment),
+  its flex or grid layout, and `from.position` (fixed bands stay fixed). At
+  the capture's width every part is where it was captured. **Inferred, not
+  held:** max-widths (a centred box grows no wider than its parent's inside),
+  which item of a filled flex row grows (the widest), fixed bands' anchors
+  (from their captured place in the window), and where a folded-away wrapper
+  lost its layout (left half sticks left, right half right). Sticky is not
+  held at all (Docs' header and sidebars scroll away). No narrower than 1280;
+  a phone gets the page fitted to its screen. **Hand-built sites** keep the
+  one width scaled to the window (`frameCss`). No breakpoint is
   invented. For one to be real, the capture would have to record, per
   element, how its width was specified (a share, "the rest", a fixed px), its
   margins as margins rather than the positions they produced, and the page's

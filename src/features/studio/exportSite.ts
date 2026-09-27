@@ -7,8 +7,9 @@
  * captured at. Nothing here invents behaviour for another width: the capture
  * records none (no breakpoints, widths only as measured pixels, margins only
  * as the positions they produced), and a breakpoint made up here would be a
- * guess nobody can measure. The whole page is scaled to the window instead
- * (`frameCss`), which invents nothing.
+ * guess nobody can measure. A captured site stretches instead, 1:1, as the
+ * original did (`fluidSite.ts`, from what the capture holds and says where
+ * it infers); a hand-built one is scaled to the window (`frameCss`).
  *
  * WHAT IT BUILDS ON, AND WHY NOT A SECOND RENDERER. `staticSite.ts` already
  * renders each page with the preview's own `LiveSite` and reads the markup
@@ -60,6 +61,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
+import { captureHeight, fluidParts, fluidStyle, isCaptured, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 
 export type ExportFile = SiteFile | SiteBinary;
@@ -291,7 +293,7 @@ function pressThrough(root: DocumentFragment, nodes: Map<string, StudioNode>): n
 }
 
 /** One page's markup, the Builder's marks taken off it, its links made real and its colours tied to the roles. */
-function clean(html: string, page: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>, roles: [string, RoleId][]): string {
+function clean(html: string, page: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null): string {
   const pageId = page.id;
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
@@ -299,6 +301,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   const partLinks = linksOf(root, page, pages, home, nodes);
   stretchLinks(partLinks, nodes);
   pressThrough(root, nodes);
+  if (fluidAt) fluid(root, page.id, nodes, fluidAt);
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
   for (const el of Array.from(root.querySelectorAll("*"))) {
@@ -315,6 +318,31 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   const box = document.createElement("div");
   box.appendChild(root.cloneNode(true));
   return box.innerHTML;
+}
+
+/**
+ * A captured page, re-anchored to stretch as the original did (`fluidSite.ts`):
+ * every captured part's left and width follow the window, fixed bands are
+ * fixed, and the page is the window's width. A part placed by hand keeps its
+ * place. After the links and the press-through, which read the captured px.
+ */
+function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, StudioNode>, W: number): void {
+  const parts: FluidPart[] = [...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({
+    id: n.id, x: n.x ?? 0, y: n.y ?? 0, w: n.w, h: n.h,
+    selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null,
+    layout: (n as { layout?: FluidPart["layout"] }).layout ?? null,
+    pad: (n as { pad?: FluidPart["pad"] }).pad ?? null,
+  }));
+  const k = fluidParts(parts, W);
+  const H = captureHeight(parts);
+  const byId = new Map(parts.map((p) => [p.id, p]));
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
+    if (el.parentElement?.closest("[data-live-node]")) continue;
+    const id = el.getAttribute("data-live-node") ?? "";
+    const p = byId.get(id), f = k.get(id);
+    if (p && f) fluidStyle(el, p, f, W, H);
+  }
+  for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) pg.style.width = "100%";
 }
 
 /** A value for an attribute in double quotes. */
@@ -425,7 +453,12 @@ async function siteIcons(pic: Picture, blob: Blob): Promise<SiteIcons | null> {
  * its width). A browser that has none of this draws the page at the capture's
  * width, as it did before.
  */
-function frameCss(width: number): string {
+function frameCss(width: number, fluid: boolean): string {
+  /* A captured site stretches instead (`fluidSite.ts`): 1:1, so browser zoom
+     works, and no narrower than 1280 (or its own width, if less), below
+     which the window scrolls. */
+  if (fluid) return `html, body { background: var(--bg); }
+.site-root { width: 100%; min-width: ${Math.min(width, 1280)}px; }`;
   return `html, body { background: var(--bg); }
 body { container-type: inline-size; overflow-x: clip; }
 .site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }`;
@@ -449,6 +482,8 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
     .sort((a, b) => b[0].length - a[0].length);
   const nodes = new Map(s.nodes.map((n) => [n.id, n]));
   const files: ExportFile[] = [];
+  /* Captured, it stretches as the original did; built by hand, it keeps the frame it had. */
+  const fluidAt = s.nodes.some(isCaptured) ? width : null;
   const logo = siteLogo(s.nodes);
   const logoBytes = logo ? await bytesFor(logo) : null;
   const icon = logo && logoBytes ? logo : null;
@@ -483,14 +518,14 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="${fluidAt ? `width=${Math.min(width, 1280)}` : "width=device-width, initial-scale=1"}">
 <title>${esc(title)}</title>
 ${headOf({ title, name, description, icon, icons, up, folder: pageFile(page, home).replace(/index\.html$/, ""), live })}
 <link rel="stylesheet" href="${up}assets/site.css">
 </head>
 <body>
 <div class="site-root">
-${clean(html, page, s.pages, home, nodes, roles)}
+${clean(html, page, s.pages, home, nodes, roles, fluidAt)}
 </div>
 </body>
 </html>
@@ -514,7 +549,7 @@ ${RESET}
 ${STRETCH}
 
 /* The page, made at one width, drawn at the window's. */
-${frameCss(width)}
+${frameCss(width, fluidAt !== null)}
 `;
   files.push({ path: "assets/site.css", content: css });
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */

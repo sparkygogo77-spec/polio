@@ -203,9 +203,14 @@ ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-l
 /* The export, served on its own                                        */
 /* ------------------------------------------------------------------ */
 
-/* At the capture's own width: the export fits the page to the window
-   (tests/published-site.mjs), so this is the width it draws at 1:1. */
-const out = await browser.newPage({ viewport: { width: s.frameWidth, height: TALL } });
+/* At the capture's own width, where a captured site draws 1:1 as captured
+   (tests/fluid-site.mjs). And at the capture's window height when the page
+   has bands the capture found fixed: they are pinned to the window, as the
+   original's were, so that is the window they stand as captured in
+   (the foot of the lowest one). Read there, then pinned to the page where
+   they stood, so the tall picture below holds them in the same place. */
+const bandFoot = Math.max(0, ...onPage.filter((n) => n.from?.position === "fixed").map((n) => (n.y ?? 0) + n.h));
+const out = await browser.newPage({ viewport: { width: s.frameWidth, height: bandFoot || TALL } });
 const outErrors = [];
 out.on("pageerror", (e) => outErrors.push(e.message));
 const asked = [];
@@ -222,6 +227,17 @@ await out.route(/^(?!http:\/\/export\.local\/).*/, (r) => { outside.push(r.reque
 await out.goto(`http://export.local/${pageFile?.path ?? "index.html"}`, { waitUntil: "networkidle" }).catch(() => {});
 await out.evaluate(() => document.fonts?.ready);
 await out.waitForTimeout(1500);
+if (bandFoot) {
+  await out.evaluate(() => {
+    const root = document.querySelector("[data-page]") ?? document.body;
+    const R = root.getBoundingClientRect();
+    const fixed = [...document.querySelectorAll("*")].filter((e) => getComputedStyle(e).position === "fixed");
+    const at = fixed.map((e) => { const r = e.getBoundingClientRect(); return [e, r.left - R.left, r.top - R.top, r.height]; });
+    for (const [e, x, y, h] of at) Object.assign(e.style, { position: "absolute", left: `${x}px`, top: `${y}px`, bottom: "auto", height: `${h}px`, minHeight: `${h}px` });
+  });
+  await out.setViewportSize({ width: s.frameWidth, height: TALL });
+  await out.waitForTimeout(300);
+}
 /* The exported page's root and parts: this exporter's own marks, or the preview's where an export kept those. */
 const marks = await out.evaluate(() => (document.querySelector("[data-page]") ? { rootSel: "[data-page]", partSel: "[data-page] [id]", shotSel: "[data-page]" } : { rootSel: "[data-live-page]", partSel: "[data-live-node]", shotSel: "[data-live-page]" }));
 const got = await out.evaluate(READ, marks);

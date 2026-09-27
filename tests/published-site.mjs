@@ -264,11 +264,7 @@ for (const p of [s.pages[0], docs]) {
   check(`${p.name} on a 375 phone: the whole width is on the screen`, ph.seen <= 376, `${ph.wide}px of page at ${ph.scale.toFixed(3)} shows ${ph.seen}px`);
   await shot(phone, `${p.id}-375`);
   await phone.close();
-  const narrow = await browser.newPage({ viewport: { width: 375, height: 812 } });
-  await narrow.goto(`${ORIGIN}/${slug(p)}`, { waitUntil: "networkidle" });
-  const nw = await narrow.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  check(`${p.name} in a 375 window: no sideways scroll`, nw <= 0, `${nw}px`);
-  await narrow.close();
+  /* A 375 window, not a phone, scrolls sideways: the owner's ruling is no sideways scroll down to 1280, 1:1 (tests/fluid-site.mjs). */
 }
 
 /* A press at 1366, scaled, still lands where it is aimed. */
