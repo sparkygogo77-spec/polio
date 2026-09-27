@@ -186,8 +186,24 @@ export interface NodeEdge {
 }
 /** How the words inside are set: where they sit and their case. */
 export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize" }
+/** The artistic properties a capture recorded, as the browser computed them (sink `node.art`). Drawn as written; none is invented. */
+export interface NodeArt {
+  blend?: string;
+  filter?: string;
+  backdrop?: string;
+  clipPath?: string;
+  transform?: string;
+  animation?: string;
+  textShadow?: string;
+  textStroke?: { w: number; color: string };
+  paintOrder?: string;
+  background?: string;
+  backgroundOptions?: string[];
+}
 /** The four, as a node carries them. */
 export interface NodeBox {
+  opacity?: number | null;
+  art?: NodeArt | null;
   layout?: NodeLayout | null;
   pad?: NodePad | null;
   edge?: NodeEdge | null;
@@ -340,6 +356,25 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   }
   /* The corners as the page rounded them, on the board and the published page alike. */
   if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) s.borderRadius = n.radius;
+  /* The clothes an artistic page wore: transparency, blending, filters, a rotation, a gradient, outlined and shadowed type. */
+  if (typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1) s.opacity = n.opacity;
+  const a = n.art;
+  if (a) {
+    if (a.blend) s.mixBlendMode = a.blend as React.CSSProperties["mixBlendMode"];
+    if (a.filter) s.filter = a.filter;
+    if (a.backdrop) s.backdropFilter = a.backdrop;
+    if (a.clipPath) s.clipPath = a.clipPath;
+    if (a.transform && a.transform !== "none" && a.transform !== "matrix(1, 0, 0, 1, 0, 0)") s.transform = a.transform;
+    if (a.background) {
+      s.backgroundImage = a.background;
+      if (a.backgroundOptions?.[0]) s.backgroundSize = a.backgroundOptions[0];
+      if (a.backgroundOptions?.[1]) s.backgroundPosition = a.backgroundOptions[1];
+      if (a.backgroundOptions?.[2]) s.backgroundRepeat = a.backgroundOptions[2];
+    }
+    if (a.textShadow) s.textShadow = a.textShadow;
+    if (a.textStroke && a.textStroke.w > 0) s.WebkitTextStroke = `${a.textStroke.w}px ${a.textStroke.color}`;
+    if (a.paintOrder) s.paintOrder = a.paintOrder;
+  }
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
   if (x?.transform) s.textTransform = x.transform;
