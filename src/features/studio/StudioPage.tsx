@@ -1155,9 +1155,9 @@ export function StudioPage() {
         {design && libraryOpen ? (
           <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
-            <div className="flex min-h-8 shrink-0 items-center gap-1 border-b border-border px-1.5 py-0.5">
+            <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
-                className="min-w-0 flex-1 flex-wrap [&>*]:flex-1 [&>*]:px-1"
+                className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-1 [&>*]:px-0.5"
                 size="xs"
                 value={sideTab}
                 onChange={setLeftPanel}
@@ -1174,12 +1174,11 @@ export function StudioPage() {
                      Dimmed when you are not on it rather than drained to
                      grey: the hue is what says which panel this is, so it
                      never goes away, it only stands back. */
-                  icon: (
-                    <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
-                      {t.icon}
-                    </span>
-                  ),
-                  label: <span className="text-[10px]">{t.label}</span>,
+                  /* Every tab says its name. Six words at 9.5px fit the
+                     215px column where five icons and one word did; the
+                     word wears the panel's hue so the colour still says
+                     which panel this is. */
+                  label: <span className="whitespace-nowrap text-[9px] tracking-tighter" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.78 }}>{t.label}</span>,
                 }))}
                 aria-label="Side panel"
               />
