@@ -36,12 +36,16 @@ export function PagesPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* The two things that describe the whole site live here rather than
+      {/* The things that describe the whole site live here rather than
           under the board, so the workspace is not two text boxes tall. */}
       <div className="shrink-0 space-y-2 border-b border-border p-3" {...ctxProps("studio-brief", "brief", brief)}>
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Site name</span>
           <Input value={brief.name} placeholder="Untitled" aria-label="Site name" onChange={(e) => useStudio.getState().setBrief({ name: e.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-small uppercase tracking-wider text-fg-faint">Description</span>
+          <Input value={brief.description ?? ""} placeholder="The line under its name in a link preview" aria-label="Description" onChange={(e) => useStudio.getState().setBrief({ description: e.target.value })} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Central idea</span>

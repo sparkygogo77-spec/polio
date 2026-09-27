@@ -3,17 +3,25 @@
 The site as files a person can open: an `index.html` per page, one stylesheet,
 the pictures. `src/features/studio/exportSite.ts`, reached as
 `window.__studioExport()`; `scripts/export-site.mjs` writes it to a folder whose
-`index.html` opens from disk. **Not wired into Publish**: Publish still sends
-what it sent. (The guard that was missing, a Publish overwriting sink's main
-with the board's document, is in place: see "Where Publish goes" below.)
+`index.html` opens from disk. **Publish and Go live send it** (`collectFiles`
+in `goLive.ts`): the first Go live shipped `staticSite`'s pages, with every
+link a button and nothing behind it (`tests/published-site.mjs`). (The guard
+that was missing, a Publish overwriting sink's main with the board's document,
+is in place: see "Where Publish goes" below.)
 
 ## What it is
 
-- **One width**, the width the site was captured at (1763 for sink). No
-  breakpoint is invented. For one to be real, the capture would have to record,
-  per element, how its width was specified (a share, "the rest", a fixed px),
-  its margins as margins rather than the positions they produced, and the
-  page's layout at a second viewport width. It records none of these.
+- **One width, fitted to the window.** Laid out at the width the site was
+  captured at (1763 for sink), then drawn at the window's width with CSS
+  `zoom` (`frameCss`): no sideways scroll below it, and the header bar,
+  sidebar and background reach both edges above it. No breakpoint is
+  invented. For one to be real, the capture would have to record, per
+  element, how its width was specified (a share, "the rest", a fixed px), its
+  margins as margins rather than the positions they produced, and the page's
+  layout at a second viewport width. It records none of these.
+- **The head:** the site's picture (`siteLogo`) as icon and share picture,
+  the description typed under the site's name in the Pages panel, Open Graph,
+  and og:url once the site has an address.
 - **The same markup as the preview.** `staticSite.ts` already rendered each
   page with the preview's own `LiveSite` and read it back; that markup is kept
   (`markupOf` is shared) rather than written a second way.

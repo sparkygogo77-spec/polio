@@ -62,9 +62,18 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
    * one line, as wide as its words need, rather than broken to fit a width a
    * different machine measured. Drawing only: the box, its width and its
    * place are the document's. `tests/one-line-words.mjs`.
+   *
+   * TWO LINES TALL, LESS A ROUNDING, IS TWO LINES. The capture writes a
+   * height in whole pixels, so a box two lines tall can be stored a fraction
+   * under two lines: Docs' "Reclaim lost SOL…" is 59px and two of its lines
+   * are 59.006, so it was held to one line 1254px long in an 832px box and
+   * ran under the right column, on the board and on the published site. So
+   * a box within a pixel of two lines is two lines. (Not the midpoint: the site's
+   * "Ctrl K" is one line of 12px type in a 24px box, 1.504 lines, and it
+   * wrapped.) `tests/published-site.mjs`.
    */
   const padY = typeof box.padding === "number" ? box.padding * 2 : 0;
-  const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight;
+  const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
   return (
     /*
      * A hair of room on the left: `Fill` clips what leaves its box, and text

@@ -376,6 +376,8 @@ export interface StudioBrief {
   name: string;
   gimmick: string;
   master: string;
+  /** What the site says about itself to a visitor: its meta description and link preview. Published, unlike the two above. */
+  description?: string;
 }
 
 /**

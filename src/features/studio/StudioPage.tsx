@@ -1038,8 +1038,8 @@ export function StudioPage() {
       }
       setBriefOpen(true);
     };
-    /* The site as HTML and CSS, for the checks and scripts/export-site.mjs.
-       Not wired into Publish: see exportSite.ts. */
+    /* The site as HTML and CSS, for the checks and scripts/export-site.mjs:
+       what Publish and Go live send (exportSite.ts). */
     (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);

@@ -7,7 +7,8 @@
  * captured at. Nothing here invents behaviour for another width: the capture
  * records none (no breakpoints, widths only as measured pixels, margins only
  * as the positions they produced), and a breakpoint made up here would be a
- * guess nobody can measure.
+ * guess nobody can measure. The whole page is scaled to the window instead
+ * (`frameCss`), which invents nothing.
  *
  * WHAT IT BUILDS ON, AND WHY NOT A SECOND RENDERER. `staticSite.ts` already
  * renders each page with the preview's own `LiveSite` and reads the markup
@@ -31,10 +32,9 @@
  *     the document, the blueprint, a prompt or the capture
  *     (tests/publish-leak.mjs reads the whole tree).
  *
- * WHAT IT IS NOT: wired into Publish. Publish still sends what it sent; that
- * wiring waits on the owner's ruling about the guards. This produces files,
- * and `window.__studioExport` hands them to whoever asks (the checks, and
- * scripts/export-site.mjs, which writes them to a folder to open).
+ * WHERE IT GOES: Publish and Go live send it (`collectFiles` in goLive.ts),
+ * and `window.__studioExport` hands it to whoever else asks (the checks, and
+ * scripts/export-site.mjs, which writes it to a folder to open).
  *
  * LINKS ARE REAL. Every part and every run of words the document gives a
  * link is an `<a href>` here (`linksOf`): a page to the file that page is
@@ -58,6 +58,9 @@ import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from
 import { fontFaceCss } from "./fonts";
 import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
+import { bytesFor, type Picture } from "./pictures";
+import { siteLogo } from "./siteMark";
+import { activeProject } from "@/features/builds/store";
 
 export type ExportFile = SiteFile | SiteBinary;
 
@@ -120,7 +123,7 @@ function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: Stud
 }
 
 /** The same element as an `<a>`: every attribute and child kept, the ones only a pretend link needed dropped. */
-function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle = ""): HTMLAnchorElement {
+function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle = "", here = false): HTMLAnchorElement {
   const a = el.ownerDocument.createElement("a");
   for (const at of Array.from(el.attributes)) {
     if (at.name === "role" || at.name === "tabindex" || at.name === "type" || at.name === "aria-pressed") continue;
@@ -128,6 +131,7 @@ function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle 
   }
   if (extraStyle) a.setAttribute("style", `${extraStyle}${a.getAttribute("style") ?? ""}`);
   a.setAttribute("href", href);
+  if (here) a.setAttribute("aria-current", "page");
   if (kind === "url") { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); }
   while (el.firstChild) a.appendChild(el.firstChild);
   el.replaceWith(a);
@@ -165,16 +169,21 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
     const href = hrefOf(node?.link, from, pages, home);
     if (!node?.link || !href) continue;
     const own = (el: Element) => el.closest("[data-live-node]") === part && !el.closest("a");
+    /* The page this one is: its own entry in a menu is the current page's.
+       How it looks as the current one is the capture's (sink's sidebar draws
+       its own page's entry filled); this only says so to a screen reader. */
+    const here = node.link.kind === "page" && resolvePageLink(pages, node.link.target)?.id === from.id;
     const whole = Array.from(part.querySelectorAll("[data-link-whole]")).find(own);
-    if (whole) { partLinks.set(part, asAnchor(whole, href, node.link.kind, "display:block;")); continue; }
+    if (whole) { partLinks.set(part, asAnchor(whole, href, node.link.kind, "display:block;", here)); continue; }
     const button = Array.from(part.querySelectorAll("button")).find(own);
-    if (button) { partLinks.set(part, asAnchor(button, href, node.link.kind)); continue; }
+    if (button) { partLinks.set(part, asAnchor(button, href, node.link.kind, "", here)); continue; }
     /* A part whose words already hold a link cannot be held in another: a
        link inside a link is rebuilt by the browser, not followed. Its own
        link is left out, and tests/export-links.mjs counts it missing. */
     if (Array.from(part.querySelectorAll("a[href]")).some((x) => x.closest("[data-live-node]") === part)) continue;
     const a = part.ownerDocument.createElement("a");
     a.setAttribute("href", href);
+    if (here) a.setAttribute("aria-current", "page");
     a.setAttribute("style", "display:contents");
     if (node.link.kind === "url") { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); }
     while (part.firstChild) a.appendChild(part.firstChild);
@@ -308,12 +317,75 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   return box.innerHTML;
 }
 
+/** A value for an attribute in double quotes. */
+const attr = (v: string) => esc(v).replace(/"/g, "&quot;");
+
+/**
+ * What a page says about itself before it is opened: its icon, its
+ * description, and the Open Graph lines a link preview is drawn from.
+ *
+ *   · the icon and the share picture are the site's own picture, by the rule
+ *     the Builder's bar already uses (`siteLogo`: the picture on the most
+ *     pages, then the largest; on sink the SolWorks logo). A site with no
+ *     picture, or one this browser no longer has the bytes of, says nothing
+ *     rather than point at a file that is not there: a missing icon 404s;
+ *   · the description is the one the site's owner typed (`brief.description`),
+ *     never the brief's central idea, which is authoring and is not
+ *     published (tests/publish-leak.mjs). None typed, none written;
+ *   · og:url, and og:image as a full address, need the address the site is
+ *     at, which is known once it has gone live (the Builds page keeps it).
+ *     Before that, og:url is left out and the picture is named relative.
+ */
+function headOf(o: { title: string; name: string; description: string; icon: Picture | null; up: string; folder: string; live: string | null }): string {
+  const L: string[] = [];
+  if (o.description) L.push(`<meta name="description" content="${attr(o.description)}">`);
+  if (o.icon) L.push(`<link rel="icon" href="${attr(o.up + o.icon.path)}"${o.icon.type ? ` type="${attr(o.icon.type)}"` : ""}>`);
+  L.push(`<meta property="og:type" content="website">`);
+  L.push(`<meta property="og:site_name" content="${attr(o.name)}">`);
+  L.push(`<meta property="og:title" content="${attr(o.title)}">`);
+  if (o.description) L.push(`<meta property="og:description" content="${attr(o.description)}">`);
+  if (o.live) L.push(`<meta property="og:url" content="${attr(`${o.live}/${o.folder}`)}">`);
+  if (o.icon) L.push(`<meta property="og:image" content="${attr(o.live ? `${o.live}/${o.icon.path}` : o.up + o.icon.path)}">`);
+  L.push(`<meta name="twitter:card" content="summary">`);
+  return L.join("\n");
+}
+
+/**
+ * The page's frame, fitted to the window.
+ *
+ * The capture has one width and no breakpoints (see the top of this file),
+ * so the page is laid out at that width and then drawn at the window's:
+ * `zoom` by the window's width over the capture's. Wider windows draw it
+ * larger, so the header bar, the sidebar and the page's own background
+ * reach both edges; narrower ones smaller, so nothing scrolls sideways, a
+ * phone included (the viewport is the device's width, so a phone does not
+ * autosize the words of a page it takes for a desktop one).
+ *
+ * WHY ZOOM AND NOT A TRANSFORM. `zoom` lays the page out again at the new
+ * size: words are drawn at the size they end up, so they stay crisp; a press
+ * lands where it is aimed, because what is hit is what is drawn; and the
+ * page's height shrinks with it, where a transform leaves the layout box at
+ * full size, so the window would still scroll sideways and under the page.
+ *
+ * WHY NO SCRIPT. The factor is a number, and CSS gives a number from two
+ * lengths as `tan(atan2(a, b))`. `100cqw` is the body's width without the
+ * scrollbar (`100vw` counts it, and would push the page past the edge by
+ * its width). A browser that has none of this draws the page at the capture's
+ * width, as it did before.
+ */
+function frameCss(width: number): string {
+  return `html, body { background: var(--bg); }
+body { container-type: inline-size; overflow-x: clip; }
+.site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }`;
+}
+
 /**
  * The site, as files: an index.html per page, one stylesheet, the pictures.
  * `only` limits it to some pages; the stylesheet and the pictures come with
- * whatever is asked for.
+ * whatever is asked for. `pictures: false` leaves the pictures for the
+ * caller, which Go live does so that a lost one can be named.
  */
-export async function exportSite(only?: readonly string[]): Promise<ExportFile[]> {
+export async function exportSite(only?: readonly string[], opts: { pictures?: boolean } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
   const home = s.pages[0]!.id;
@@ -325,6 +397,10 @@ export async function exportSite(only?: readonly string[]): Promise<ExportFile[]
     .sort((a, b) => b[0].length - a[0].length);
   const nodes = new Map(s.nodes.map((n) => [n.id, n]));
   const files: ExportFile[] = [];
+  const logo = siteLogo(s.nodes);
+  const icon = logo && (await bytesFor(logo)) ? logo : null;
+  const live = activeProject()?.live?.url?.trim().replace(/\/+$/, "") || null;
+  const description = s.brief.description?.trim() ?? "";
 
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
@@ -353,8 +429,9 @@ export async function exportSite(only?: readonly string[]): Promise<ExportFile[]
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=${width}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
+${headOf({ title, name, description, icon, up, folder: pageFile(page, home).replace(/index\.html$/, ""), live })}
 <link rel="stylesheet" href="${up}assets/site.css">
 </head>
 <body>
@@ -382,13 +459,14 @@ ${RESET}
 /* A link that is a whole part, pressable over the whole part. */
 ${STRETCH}
 
-/* The page, at the one width it was made at. */
-body { background: var(--bg); }
-.site-root { width: ${width}px; margin-inline: auto; }
+/* The page, made at one width, drawn at the window's. */
+${frameCss(width)}
 `;
   files.push({ path: "assets/site.css", content: css });
 
-  const { files: pictures } = await sitePictures();
-  files.push(...pictures);
+  if (opts.pictures !== false) {
+    const { files: pictures } = await sitePictures();
+    files.push(...pictures);
+  }
   return files;
 }

@@ -18,7 +18,8 @@ import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
 import { deploy, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { sitePictures, staticSite } from "./staticSite";
+import { exportSite } from "./exportSite";
+import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
@@ -151,14 +152,16 @@ export function documentFiles(): GeneratedFile[] {
  * browser can open, so the repository imported at Vercel had nothing at
  * its root and answered NOT_FOUND at every address. The pages are written
  * here, at the moment of pressing, by rendering each one the way the
- * preview does and reading its markup back (`staticSite`). No key, no
+ * preview does and reading its markup back (`exportSite`, which also makes
+ * every link the document holds a real `<a href>`; `staticSite` shipped
+ * them as buttons with nothing behind them). No key, no
  * model, nothing asked of anybody: pressing publish is now enough to have
  * a website.
  */
 export async function collectFiles(described: GeneratedFile[], say: (note: string) => void): Promise<GeneratedFile[]> {
   let pages: GeneratedFile[] = [];
   try {
-    pages = staticSite();
+    pages = (await exportSite(undefined, { pictures: false })) as GeneratedFile[];
   } catch (err) {
     /* The description still goes up, and the line says the pages did not,
        rather than a publish that silently carries half of it. */

@@ -203,7 +203,9 @@ ref = await page.evaluate(READ, { rootSel: "[data-live-page]", partSel: "[data-l
 /* The export, served on its own                                        */
 /* ------------------------------------------------------------------ */
 
-const out = await browser.newPage({ viewport: { width: s.frameWidth + 200, height: TALL } });
+/* At the capture's own width: the export fits the page to the window
+   (tests/published-site.mjs), so this is the width it draws at 1:1. */
+const out = await browser.newPage({ viewport: { width: s.frameWidth, height: TALL } });
 const outErrors = [];
 out.on("pageerror", (e) => outErrors.push(e.message));
 const asked = [];

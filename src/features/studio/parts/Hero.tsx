@@ -78,9 +78,11 @@ export function ValueProp({ id, content, options, h, theme: t }: PartProps) {
   const line = items(content, ["One sentence that says what this is and who it's for."])[0]!;
   // A captured box one line tall holds one line. The capture rounds a width
   // down, so a heading as wide as its words ("PnL Over Time", 156.03 in a
-  // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way.
+  // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way,
+  // and like it counts a box within a pixel of two lines (a height the
+  // capture rounded to whole pixels) as two.
   const lh = t.captured ? t.lineHeight : 1.2;
-  const oneLine = !!t.captured && h > 0 && h < 2 * t.fontPx * 1.6 * lh;
+  const oneLine = !!t.captured && h > 0 && h < 2 * t.fontPx * 1.6 * lh - 1;
   const turn = opt(options, "turn", "none");
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
