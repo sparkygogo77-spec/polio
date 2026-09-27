@@ -47,6 +47,19 @@ const el3 = { style: {} };
 fluid.fluidStyle(el3, { id: "n3", x: 0, y: 0, w: 1440, h: 60, selector: "body > header", position: "fixed" }, { left: { c: 0, k: 0 }, width: { c: 1440, k: 1 }, fixed: "top" }, 1440, 900);
 check("control: a fixed band is still fixed", el3.style.position === "fixed" && el3.style.top === "0px");
 
+/* (b) The parts a band owns stick with it */
+const band = { id: "hdr", x: 0, y: 0, w: 1440, h: 105, selector: "body > div > div", position: "sticky", inset: { top: 0 } };
+const logo = { id: "logo", x: 76, y: 16, w: 41, h: 56, selector: "body > div > div > header > div > a" };
+const nav = { id: "nav", x: 76, y: 85, w: 1200, h: 17, selector: "body > div > div > nav" };
+const card = { id: "card", x: 76, y: 483, w: 350, h: 178, selector: "body > div > div:nth-of-type(2) > main > article" };
+const inner = { id: "inner", x: 300, y: 20, w: 300, h: 40, selector: "body > div > div > header > div:nth-of-type(2)", position: "fixed" };
+const deep = { id: "deep", x: 310, y: 30, w: 100, h: 20, selector: "body > div > div > header > div:nth-of-type(2) > span" };
+const moves = fluid.bandMoves([band, logo, nav, card, inner, deep]);
+check("(b) the parts whose path continues a sticky band's go into it, at their place within it", moves.get("logo")?.band === "hdr" && moves.get("logo")?.top === 16 && moves.get("nav")?.band === "hdr" && moves.get("nav")?.top === 85, JSON.stringify([...moves]));
+check("(b) …a part beside the band (a sibling path, div:nth-of-type(2)) stays where it is", !moves.has("card"));
+check("(b) …a band inside the band takes its own part first, then goes in with it", moves.get("deep")?.band === "inner" && moves.get("deep")?.top === 10 && moves.get("deep")?.dx === 300 && moves.get("inner")?.band === "hdr" && moves.get("inner")?.top === 20, JSON.stringify([...moves]));
+check("(b) control: with no band nothing moves", fluid.bandMoves([logo, nav, card]).size === 0);
+
 /* The picture budget */
 const run = readFileSync(join(src, "repoRun.ts"), "utf8");
 const most = Number(/const MOST_PICTURES = (\d+)/.exec(run)?.[1]);
@@ -74,6 +87,22 @@ check("…or as a GitHub address of the folder", !!url && url.dir === "sites/sha
 check("…and it is written back with the folder", !!dir && imp.repoName(dir) === "STANDIN-owner/sink/sites/share-xyz", dir && imp.repoName(dir));
 check("the document is looked for in that folder", imp.madeHere(["sites/share-xyz/site/document.json"], "sites/share-xyz") === true && imp.madeHere(["site/document.json"], "sites/share-xyz") === false && imp.madeHere(["site/document.json"], null) === true);
 check("…and its pictures beside it", imp.docPathIn("sites/share-xyz") === "sites/share-xyz/site/document.json" && imp.pathIn("sites/share-xyz", "assets/pictures/pic_1.png") === "sites/share-xyz/assets/pictures/pic_1.png" && imp.pathIn(null, "assets/pictures/pic_1.png") === "assets/pictures/pic_1.png");
+
+/* The Capture dialog's path, through the door and the importer */
+const withPath = imp.withPath({ owner: "STANDIN-owner", name: "sink", ref: "captures/example" }, "sites/example");
+check("a path beside the repository is the site's folder", withPath.dir === "sites/example" && withPath.ref === "captures/example" && imp.repoName(withPath) === "STANDIN-owner/sink/sites/example@captures/example", imp.repoName(withPath));
+check("…and what the door places names it, so the Builder reads it back", imp.readRepo(imp.repoName(withPath))?.dir === "sites/example" && imp.readRepo(imp.repoName(withPath))?.ref === "captures/example");
+check("…an empty path is the repository as it was", imp.withPath({ owner: "o", name: "n", ref: null }, "") .dir === undefined && imp.withPath({ owner: "o", name: "n", ref: null }, "/sites/x/").dir === "sites/x");
+const runSrc = readFileSync(join(src, "repoRun.ts"), "utf8");
+check("readRepoSite takes { path } beside the repository, as the Capture dialog expects", /readRepoSite\(repo: Repo, token: string, say: \(line: string\) => void, opts\?: \{ path\?: string \| null \}\)/.test(runSrc) && /if \(opts\?\.path\) repo = withPath\(repo, opts\.path\);/.test(runSrc));
+const door = readFileSync(join(src, "bringRepo.ts"), "utf8");
+check("the door carries Bringing.path into what it places for the board", /path\?: string \| null;/.test(door) && /const repo = withPath\(named, o\.path\);/.test(door) && /placeBring\(placed\)/.test(door) && /keepBringForBoard\(placed\)/.test(door));
+
+/* The art a capture recorded (claude/trumpmorty-art) */
+const art = theme.boxStyle({ opacity: 0.5, art: { blend: "multiply", filter: "blur(2px)", transform: "rotate(3deg)", background: "linear-gradient(red, blue)", backgroundOptions: ["cover", "center", "no-repeat"], textShadow: "0 1px 0 #000", textStroke: { w: 1, color: "#000" }, paintOrder: "stroke" } }, { line: "#000" });
+check("(c) the art a capture recorded is drawn as written: opacity, blend, filter, transform, gradient, shadowed and outlined type", art.opacity === 0.5 && art.mixBlendMode === "multiply" && art.filter === "blur(2px)" && art.transform === "rotate(3deg)" && art.backgroundImage === "linear-gradient(red, blue)" && art.backgroundSize === "cover" && art.textShadow === "0 1px 0 #000" && art.WebkitTextStroke === "1px #000" && art.paintOrder === "stroke", JSON.stringify(art));
+check("(c) a node with only art, or only an opacity, has a box to draw it on", theme.hasBox({ art: { filter: "blur(2px)" } }) === true && theme.hasBox({ opacity: 0.5 }) === true);
+check("(c) control: an identity transform, a full opacity and an empty art draw nothing", (() => { const s = theme.boxStyle({ opacity: 1, art: { transform: "matrix(1, 0, 0, 1, 0, 0)" } }, { line: "#000" }); return s.opacity === undefined && s.transform === undefined; })() && theme.hasBox({ opacity: 1, art: {} }) === false);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

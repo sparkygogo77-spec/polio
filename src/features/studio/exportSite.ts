@@ -67,7 +67,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { captureHeight, fluidParts, fluidStyle, isCaptured, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, fluidParts, fluidStyle, isCaptured, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
@@ -455,6 +455,22 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
     const id = el.getAttribute("data-live-node") ?? "";
     const p = byId.get(id), f = k.get(id);
     if (p && f) fluidStyle(el, p, f, W, H);
+  }
+  /*
+   * The parts a sticky or fixed band owns go inside its element and stick
+   * with it (fluidSite.ts#bandMoves). The band is positioned, so it is what
+   * its absolute parts are placed against: their top is their own less the
+   * band's, their left the same less the band's, and a nested band goes in
+   * with its own parts already inside it (the moves are nearest band first).
+   */
+  const moves = bandMoves(parts);
+  const elOf = (id: string) => root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
+  for (const [id, m] of moves) {
+    const el = elOf(id), host = elOf(m.band);
+    if (!el || !host || el === host || host.contains(el) || el.contains(host)) continue;
+    host.appendChild(el);
+    el.style.top = `${m.top}px`;
+    if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
   }
   /*
    * THE PAGE IS AS TALL AS WHAT IS ON IT. The preview's page runs 160px past

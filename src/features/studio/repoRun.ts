@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { docPathIn, pathIn, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
 
 const API = "https://api.github.com";
@@ -254,8 +254,10 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
  * dozen calls over somebody's connection and a spinner with no words is
  * how a minute feels like a failure.
  */
-export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void): Promise<RepoRead | RepoCopy | RepoNo> {
+export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void, opts?: { path?: string | null }): Promise<RepoRead | RepoCopy | RepoNo> {
   if (!token) return { no: "no-token", says: REPO_REFUSAL_SAYS["no-token"] };
+  /* A folder named beside the repository (the Capture dialog's `sites/<name>`) is where the site is read: its own site/document.json and pictures. */
+  if (opts?.path) repo = withPath(repo, opts.path);
 
   /* Asked every time, not only when no ref was named: the About line's
      address is what a repository of sources is read at, whichever branch

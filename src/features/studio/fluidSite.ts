@@ -97,6 +97,43 @@ export function isCaptured(p: { from?: { selector?: string | null } | null }): b
 /** The path of what an element sits inside, from its own. */
 const up = (sel: string) => sel.slice(0, Math.max(0, sel.lastIndexOf(" > ")));
 
+/** Where a part a band owns goes: into the band's element, at its place within the band. */
+export interface BandMove {
+  /** The band (sticky or fixed) whose element takes the part in. */
+  band: string;
+  /** The part's top inside the band, in px: its own less the band's. */
+  top: number;
+  /** How far the band stands from the page's left, in px, to take off the part's own left. */
+  dx: number;
+}
+
+/**
+ * THE PARTS A BAND OWNS STICK WITH IT. share.xyz's header is a sticky band
+ * holding the wordmark, the search field and the category row; the export
+ * drew each as a part of its own beside the band, so the band stuck and its
+ * contents scrolled away. A part whose recorded path continues the band's
+ * (`owns.ts#under`) is the band's: it goes inside the band's element, at
+ * its place within it, and sticks with it. A band inside a band takes its
+ * own parts first and then goes into the outer one with them; a part out
+ * of the flow (absolute, fixed) inside a band goes with it all the same,
+ * since it was measured against it. A part is moved at most once, into the
+ * nearest band that owns it.
+ */
+export function bandMoves(parts: readonly FluidPart[]): Map<string, BandMove> {
+  const out = new Map<string, BandMove>();
+  const bands = parts.filter((p) => p.selector && (p.position === "sticky" || p.position === "fixed"));
+  /* The nearest band first: the longest path owns most closely. */
+  bands.sort((a, b) => b.selector!.length - a.selector!.length);
+  for (const band of bands) {
+    for (const p of parts) {
+      if (p === band || !p.selector || out.has(p.id)) continue;
+      if (!p.selector.startsWith(`${band.selector} > `)) continue;
+      out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x });
+    }
+  }
+  return out;
+}
+
 /** Every part's left and width, for one page captured at width W. */
 export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, Fluid> {
   const out = new Map<string, Fluid>();

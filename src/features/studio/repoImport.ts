@@ -87,6 +87,11 @@ export function pathIn(dir: string | null | undefined, path: string): string {
 export function docPathIn(dir: string | null | undefined): string {
   return pathIn(dir, MADE_HERE);
 }
+/** The same repository, read inside a folder of it (`sites/<name>`): what the Capture dialog hands the door as `path`. An empty path is the repository as it was. */
+export function withPath(repo: Repo, path: string | null | undefined): Repo {
+  const dir = (path ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return dir ? { ...repo, dir } : repo;
+}
 export function madeHere(paths: readonly string[], dir?: string | null): boolean {
   return paths.includes(docPathIn(dir));
 }

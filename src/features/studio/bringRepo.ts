@@ -18,7 +18,7 @@
  * space, and the space is picked so its panel mounts and runs the import.
  */
 import { useStudio } from "./store";
-import { readRepo, repoName, REPO_REFUSAL_SAYS } from "./repoImport";
+import { readRepo, repoName, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
 import { clearImportLine } from "./FromASite";
 
 /** Where a request waits for the board: this tab only, and taken once. */
@@ -102,14 +102,19 @@ export interface Bringing {
   staleSays: () => string;
   /** Has he a GitHub token in this browser? */
   hasToken: () => boolean;
+  /** A folder of the repository holding the site (`sites/<name>`, the Capture dialog's), when it is not at the root. */
+  path?: string | null;
 }
 
 export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: string } {
   const asked = want.trim();
   if (!asked) return { ok: false, says: "Name a repository first." };
   if (o.stale()) return { ok: false, says: o.staleSays() };
-  const repo = readRepo(asked);
-  if (!repo) return { ok: false, says: REPO_REFUSAL_SAYS["not-a-repo"] };
+  const named = readRepo(asked);
+  if (!named) return { ok: false, says: REPO_REFUSAL_SAYS["not-a-repo"] };
+  /* With a folder beside it, the site is read there: the name placed for the board carries the folder (`owner/name/sites/<name>@ref`), which `readRepo` reads back. */
+  const repo = withPath(named, o.path);
+  const placed = o.path ? repoName(repo) : asked;
   const full = `${repo.owner}/${repo.name}`;
   /* A site brought in from a repository brings in that one and no other:
      bringing a second in would quietly replace the first. */
@@ -124,10 +129,10 @@ export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: st
    * instead, and the Builder opened.
    */
   if (boardIsHere()) {
-    placeBring(asked);
+    placeBring(placed);
     o.say({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands in a space on the board, and the space's panel says how it is going." });
   } else {
-    keepBringForBoard(asked);
+    keepBringForBoard(placed);
     o.say({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands in a space there, and the space's panel says how it is going." });
     o.toBoard();
   }

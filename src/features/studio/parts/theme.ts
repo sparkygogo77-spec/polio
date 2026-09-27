@@ -259,7 +259,9 @@ export function saidRole(t: Theme, role: RoleId): boolean {
 
 /** Does this node say anything about its box? Nothing said, nothing wrapped. */
 export function hasBox(n: NodeBox): boolean {
-  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0));
+  const art = !!n.art && Object.values(n.art).some((v) => v !== undefined && v !== null && v !== "");
+  const opacity = typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1;
+  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0) || art || opacity);
 }
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
