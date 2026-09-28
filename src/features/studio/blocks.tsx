@@ -84,6 +84,24 @@ function wordsSet(node: StudioNode): NodeText | null | undefined {
   return centres ? { ...node.text, align: "center" } : node.text;
 }
 
+/**
+ * A PART'S WINDOW DOES NOT TURN WITH THE PART. The capture cuts a part to the
+ * box it hangs out of (`art.clipPath`); written on the box that also runs the
+ * part's own animation, the cut turned with it (trumpmorty.fun's spinning
+ * planet showed a straight diagonal edge). A part with an animation of its own
+ * wears the cut on a still box round it; a still one keeps it on its own box,
+ * where sink works it out in the part's turned frame. `tests/clip-stays.mjs`.
+ */
+function stillCut(node: StudioNode): string | null {
+  const cut = node.art?.clipPath;
+  return cut && node.motion?.animation?.length ? cut : null;
+}
+function StillCut({ node, children }: { node: StudioNode; children: React.ReactNode }) {
+  const cut = stillCut(node);
+  if (!cut) return <>{children}</>;
+  return <div data-still-cut="" style={{ width: "100%", flex: "1 0 auto", display: "flex", flexDirection: "column", clipPath: cut }}>{children}</div>;
+}
+
 export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
   const def = resolvePart(node.featureId);
   /*
@@ -174,6 +192,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * `tests/box-fill.mjs` holds it in pixels.
    */
   const ground = boxed ? (t.ownBackground ?? t.partGround) : undefined;
+  /* A captured part with words of its own (a remote key, a stat tile's label): they may overflow the box the capture measured by a hair of face or rounding, never be cut by it (`tests/button-words-whole.mjs`). */
+  const wordsOwn = !!node.from?.selector?.trim() && !node.picture && plain(node.content).trim() !== "";
   const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;
   /*
    * A FRAME OF ANOTHER PAGE (sink `node.embed`: trumpmorty.fun's DEX Screener
@@ -263,9 +283,11 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null) }}>
+      <StillCut node={node}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null) }}>
         {drawn}
       </div>
+      </StillCut>
     ) : drawn}
     </>
   );

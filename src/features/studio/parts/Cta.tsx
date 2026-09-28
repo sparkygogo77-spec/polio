@@ -105,7 +105,9 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
     transition: "transform 120ms ease, background 160ms ease",
   };
   return (
-    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: style.justifyContent }}>
+    /* A captured control's words overflow its measured padding rather than
+       being cut (trumpmorty.fun's remote read HOMI, ROADMAF; `tests/button-words-whole.mjs`). */
+    <Fill t={t} data-part={id} overflow={spoke && label ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: style.justifyContent }}>
       <button
         type="button"
         onClick={onClick}
