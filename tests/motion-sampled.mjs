@@ -253,8 +253,10 @@ await page.waitForTimeout(400);
 const g2 = await grown();
 check("Preview: the marquee runs at its own pace at rest and hurries while the page scrolls", rest1 !== null && near(rest1, 1, 0.05) && fastest > 2, J({ rest1, fastest }));
 check("Preview: the roadmap line grows as the page scrolls past it", Number.isFinite(g1) && g2 > g1, J({ g1, g2 }));
-const whole = await page.evaluate(({ id, holder }) => { const el = document.querySelector(`[data-live-node="${id}"]`), h = document.querySelector(`[data-live-node="${holder}"]`); return el && h ? [el.offsetWidth, h.offsetWidth] : null; }, { id: LINE, holder: doc.nodes.filter((n) => sel(LINE).startsWith(`${n.from?.selector} > `)).sort((a, b) => b.from.selector.length - a.from.selector.length)[0]?.id });
-check("Preview: …drawn whole (its holder's width, less the holder's edge), shown as far as the scroll has reached", whole && near(whole[0], whole[1] - 6, 4), J(whole));
+/* Whole: its captured length over the share the capture drew, at the Preview's scale (read off the disc, which nothing resizes). */
+const whole = await page.evaluate(({ id, disc }) => { const el = document.querySelector(`[data-live-node="${id}"]`), d = document.querySelector(`[data-live-node="${disc}"]`); return el && d ? [el.offsetWidth, d.offsetWidth] : null; }, { id: LINE, disc: DISC });
+const want = whole && doc.nodes.find((n) => n.id === LINE).w * 100 / Number(gr.kept) * (whole[1] / doc.nodes.find((n) => n.id === DISC).w);
+check("Preview: …drawn whole (its captured length over the share the capture drew), shown as far as the scroll has reached", whole && near(whole[0], want, 4), J({ whole, want }));
 await page.waitForTimeout(2500);
 check("Preview: …and the marquee settles back to its own pace", near(await rate(), 1, 0.08), J(await rate()));
 
