@@ -110,9 +110,40 @@ check("hatch: og:url is its published address", meta(h1, "og:url") === `${LIVE}/
 check("hatch: the site's favicon, from one folder down", links(h1).some((l) => l.rel === "icon" && l.href === `../${pathOf("pic_favicon1")}`));
 check("hatch: large card too", meta(h1, "twitter:card") === "summary_large_image");
 
-/* Not live yet: the addresses stay relative, and og:url is left out. */
+/*
+ * Not live yet: nothing relative is written. A crawler reads og:image and
+ * og:url as full addresses or not at all (stonkfun's first Go live went up
+ * with "assets/pictures/…" and no og:url, and drew no card); they are left
+ * out until the address is known, and Go live writes them once it is.
+ */
 const h2 = headFor(s.pages[0], null);
-check("not live yet: og:image relative, no og:url", meta(h2, "og:image") === pathOf("pic_banner01") && meta(h2, "og:url") === null);
+check("not live yet: no relative og:image or twitter:image, and no og:url", meta(h2, "og:image") === null && meta(h2, "twitter:image") === null && meta(h2, "og:url") === null, `${meta(h2, "og:image")} / ${meta(h2, "og:url")}`);
+
+/*
+ * THE SHARE PICTURE A CRAWLER CAN DRAW. stonkfun's copy said
+ * og:image=pic_02a194ce.svg, its 296×289 logo mark: Discord and X draw no
+ * SVG, and a card from a picture under 200px is refused or blurred. A share
+ * picture, captured or fallen back on, is written only when it is a raster
+ * (PNG, JPEG, WebP, GIF) at least 200px on its short side; otherwise no
+ * og:image at all, and the card is the small one.
+ */
+const svgMark = { ...logo, id: "pic_mark0001", path: "assets/pictures/pic_mark0001.svg", type: "image/svg+xml", w: 296, h: 289 };
+const bare = (o) => pageHead({ title: "x", name: "x", description: "", icon: null, icons: null, up: "", address: "/", live: LIVE, site: undefined, page: undefined, ...o });
+const svgShare = bare({ site: { image: { picture: svgMark } } });
+check("an SVG share picture is not written: no og:image, no twitter:image, a small card", meta(svgShare, "og:image") === null && meta(svgShare, "twitter:image") === null && meta(svgShare, "twitter:card") === "summary", `${meta(svgShare, "og:image")} / ${meta(svgShare, "twitter:card")}`);
+const svgLogo = bare({ icon: svgMark, site: { title: "StonkFun", description: "Launch coins paired with anything." } });
+check("the logo fallen back on, an SVG, is not the share picture", meta(svgLogo, "og:image") === null && meta(svgLogo, "twitter:image") === null, meta(svgLogo, "og:image"));
+const svgLogoNoHead = bare({ icon: svgMark });
+check("…nor with no head at all", meta(svgLogoNoHead, "og:image") === null, meta(svgLogoNoHead, "og:image"));
+const touch250 = { ...logo, id: "pic_touch250", path: "assets/pictures/pic_touch250.png", type: "image/png", w: 250, h: 250 };
+const byTouch = bare({ icon: svgMark, site: { title: "StonkFun", icons: [{ rel: "icon", picture: { ...logo, w: 64, h: 64 } }, { rel: "apple-touch-icon", picture: touch250 }] } });
+check("with the logo an SVG, the site's own drawable icon stands in (stonkfun's 250px touch icon), a small card", meta(byTouch, "og:image") === `${LIVE}/${touch250.path}` && meta(byTouch, "twitter:card") === "summary", `${meta(byTouch, "og:image")} / ${meta(byTouch, "twitter:card")}`);
+const small = bare({ icon: { ...logo, w: 150, h: 150 } });
+check("a raster under 200px is not the share picture", meta(small, "og:image") === null, meta(small, "og:image"));
+const ok = bare({ icon: { ...logo, w: 400, h: 300 } });
+check("a raster 200px or more is, on the published address", meta(ok, "og:image") === `${LIVE}/${logo.path}`, meta(ok, "og:image"));
+const noLiveIcon = bare({ icon: { ...logo, w: 400, h: 300 }, live: null });
+check("…and not relative before the site is live", meta(noLiveIcon, "og:image") === null, meta(noLiveIcon, "og:image"));
 
 /* No captured card: a wide picture is a large card, a square one is not. */
 const auto = (w, h) => meta(pageHead({ title: "x", name: "x", description: "", icon: null, icons: null, up: "", address: "/", live: LIVE, site: { image: { picture: { ...logo, w, h } } }, page: undefined }), "twitter:card");

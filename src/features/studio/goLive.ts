@@ -18,7 +18,7 @@ import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
 import { deploy, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { exportSite } from "./exportSite";
+import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 import { contractFiles } from "./library/contract";
@@ -204,8 +204,18 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
  * server's, so each site goes where the Builds page says it goes, and the
  * address is written back to the project when it is live.
  */
-export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void }): Promise<void> {
+export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; again?: boolean }): Promise<void> {
   if (useGoLive.getState().busy) return;
+  /*
+   * THE FIRST TIME, TWICE. A link preview needs full addresses on the one the
+   * site is published at (og:url, og:image), and before the first deploy
+   * nobody knows it: Vercel names it, suffix and all
+   * (stonkfun-launch-coins-paired-with-a.vercel.app). So a site going live
+   * for the first time is written without them, and once Vercel has said the
+   * address the pages are written again with it and pushed once more.
+   */
+  const addressed = !!publishedAt();
+  let addressNow = false;
   const set = useGoLive.setState;
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
@@ -259,7 +269,8 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       : await watchDeploy(started.id, { team: started.team, onState });
     if (end.state === "READY" && end.url) {
       useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
-      say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
+      addressNow = !addressed && !o.again && !!publishedAt();
+      if (!addressNow) say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
     } else {
       const ended = end.state ? end.state.toLowerCase() : "ended without a state";
       refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`);
@@ -268,5 +279,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     }
   } finally {
     setBusy(null);
+  }
+  if (addressNow) {
+    useStudio.getState().noteThread([`Writing the link previews on ${publishedAt()?.replace(/^https:\/\//, "")}, now that it is known`]);
+    await goLive({ ...o, message: `${o.message} (link previews on the live address)`, again: true });
   }
 }

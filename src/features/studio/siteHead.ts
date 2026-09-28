@@ -42,6 +42,20 @@ export const LARGE = "summary_large_image";
 /** A share picture this wide, and no taller than wide, is drawn as the large card. */
 export const LARGE_FROM = 600;
 
+/** The shortest side a share picture may have: under it a card is refused or blurred. */
+export const SHARE_MIN = 200;
+
+/**
+ * Whether a crawler can draw this as a share picture: a raster (Discord and X
+ * draw no SVG; stonkfun's copy named its 296×289 logo mark) at least
+ * SHARE_MIN on its short side.
+ */
+export function drawable(p: Picture | null | undefined, w?: number, h?: number): boolean {
+  if (!p) return false;
+  const raster = p.type ? /^image\/(png|jpe?g|webp|gif)$/i.test(p.type) : /\.(png|jpe?g|webp|gif)$/i.test(p.path);
+  return raster && Math.min(w ?? p.w ?? 0, h ?? p.h ?? 0) >= SHARE_MIN;
+}
+
 /** The card a picture makes when nobody said: large when it is wide, small otherwise. */
 export function cardFor(img: HeadImage | undefined): string {
   if (!img) return "summary";
@@ -83,9 +97,12 @@ export interface HeadIn {
  *   · the description is the one the site's owner typed (`brief.description`),
  *     never the brief's central idea, which is authoring and is not
  *     published (tests/publish-leak.mjs). None typed, none written;
- *   · og:url, and og:image as a full address, need the address the site is
- *     at, which is known once it has gone live (the Builds page keeps it).
- *     Before that, og:url is left out and the picture is named relative.
+ *   · og:url, og:image and twitter:image are full addresses on the one the
+ *     site is published at, or are not written: a relative one draws no card.
+ *     Before the address is known they are left out, and Go live writes the
+ *     pages again once it is (`goLive.ts`);
+ *   · a share picture, captured or the logo fallen back on, is written only
+ *     when a crawler can draw it (`drawable`: a raster, SHARE_MIN or more).
  *
  * WITH ONE (a capture's, or set in Link preview), the page's own values
  * first, then the site's: title, share picture, card, icons, theme colour.
@@ -103,9 +120,13 @@ export function pageHead(o: HeadIn): string {
   const title = page?.title?.trim() || site?.title?.trim() || o.title;
   const name = site?.siteName?.trim() || o.name;
   const description = page?.description?.trim() || o.description;
-  const image = page?.image ?? site?.image;
+  const given = page?.image ?? site?.image;
+  const image = given && drawable(given.picture, given.w, given.h) ? given : undefined;
+  /* The logo stands in only when a crawler can draw it, then the site's own largest drawable icon (stonkfun's 250px touch icon); nothing relative is ever named: until the address is known, no share picture. */
+  const own = [...(site?.icons ?? [])].map((i) => i.picture).filter((p) => drawable(p)).sort((a, b) => (b.w ?? 0) - (a.w ?? 0))[0] ?? null;
+  const fallback = image ? null : drawable(o.icon) ? o.icon : own;
   const icons = site?.icons?.length ? site.icons : null;
-  const full = (path: string) => (o.live ? `${o.live}/${path}` : o.up + path);
+  const full = (path: string) => `${o.live}/${path}`;
   const L: string[] = [`<title>${esc(title)}</title>`];
   if (description) L.push(`<meta name="description" content="${attr(description)}">`);
   if (icons) {
@@ -124,7 +145,7 @@ export function pageHead(o: HeadIn): string {
   L.push(`<meta property="og:title" content="${attr(title)}">`);
   if (description) L.push(`<meta property="og:description" content="${attr(description)}">`);
   if (o.live) L.push(`<meta property="og:url" content="${attr(o.live + o.address)}">`);
-  if (image) {
+  if (image && o.live) {
     const at = full(image.picture.path);
     const w = image.w ?? image.picture.w, h = image.h ?? image.picture.h;
     const alt = image.alt?.trim() || image.picture.alt?.trim() || "";
@@ -133,20 +154,20 @@ export function pageHead(o: HeadIn): string {
     if (image.picture.type) L.push(`<meta property="og:image:type" content="${attr(image.picture.type)}">`);
     if (w && h) L.push(`<meta property="og:image:width" content="${w}">\n<meta property="og:image:height" content="${h}">`);
     if (alt) L.push(`<meta property="og:image:alt" content="${attr(alt)}">`);
-  } else if (o.icon) {
-    L.push(`<meta property="og:image" content="${attr(full(o.icon.path))}">`);
-    if (o.icon.w && o.icon.h) L.push(`<meta property="og:image:width" content="${o.icon.w}">\n<meta property="og:image:height" content="${o.icon.h}">`);
+  } else if (fallback && o.live) {
+    L.push(`<meta property="og:image" content="${attr(full(fallback.path))}">`);
+    if (fallback.w && fallback.h) L.push(`<meta property="og:image:width" content="${fallback.w}">\n<meta property="og:image:height" content="${fallback.h}">`);
   }
   if (!has) {
     L.push(`<meta name="twitter:card" content="summary">`);
     return L.join("\n");
   }
-  const card = image ? page?.card || site?.card || cardFor(image) : "summary";
+  const card = image && o.live ? page?.card || site?.card || cardFor(image) : "summary";
   L.push(`<meta name="twitter:card" content="${attr(card === LARGE ? LARGE : "summary")}">`);
   L.push(`<meta name="twitter:title" content="${attr(title)}">`);
   if (description) L.push(`<meta name="twitter:description" content="${attr(description)}">`);
-  const shown = image ? image.picture.path : o.icon?.path;
-  if (shown) {
+  const shown = image ? image.picture.path : fallback?.path;
+  if (shown && o.live) {
     L.push(`<meta name="twitter:image" content="${attr(full(shown))}">`);
     const alt = image?.alt?.trim() || image?.picture.alt?.trim();
     if (alt) L.push(`<meta name="twitter:image:alt" content="${attr(alt)}">`);
