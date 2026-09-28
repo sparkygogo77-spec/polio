@@ -70,6 +70,36 @@ const failing = { ...github, fetch: async (url, init) => { const u = String(url)
 const lost = await watchCapture({ repo, token: TOKEN, runId: 78, name: "example", ...failing, onProgress: () => {} });
 check("a failed run is said, with the link to its log", lost.done === true && lost.ok === false && /failed/.test(lost.says) && lost.htmlUrl === "https://github.test/run/78");
 
+/* When GitHub says no: each refusal said as what it is, not all as "scope". */
+const refusing = (dispatch, repoAnswer = null) => ({ sleep: async () => {}, fetch: async (url, init = {}) => {
+  const u = String(url);
+  if (u.endsWith("/repos/someone/sink")) return repoAnswer ?? new Response(JSON.stringify({ default_branch: "main" }), { status: 200 });
+  if (u.includes("/dispatches")) return dispatch();
+  return new Response("{}", { status: 404 });
+} });
+const say = async (pipes, ref = "main") => (await startCapture({ repo, token: TOKEN, url: "https://example.com", name: "example", pages: "/", ref, ...pipes })).says ?? "";
+const answer = (status, message, headers = {}) => () => new Response(JSON.stringify({ message }), { status, headers: { "content-type": "application/json", ...headers } });
+
+const scope = await say(refusing(answer(403, "Resource not accessible by personal access token")));
+check("a token without the permission is told the exact one: Actions read and write on the repository, or a classic token's repo scope",
+  /Actions/.test(scope) && /read and write/i.test(scope) && /someone\/sink/.test(scope) && /\brepo\b.*scope/.test(scope) && !/workflow\) scope/.test(scope), scope);
+const limited = await say(refusing(answer(403, "API rate limit exceeded for user.", { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "2000000000" })));
+check("a spent rate limit is said as one, not as a missing permission", /rate limit/i.test(limited) && !/permission|scope/i.test(limited), limited);
+const off = await say(refusing(answer(403, "Actions has been disabled for this repository.")));
+check("Actions turned off on the repository is said as that", /Actions/.test(off) && /(off|disabled)/i.test(off) && !/scope/i.test(off), off);
+const other403 = await say(refusing(answer(403, "Something new GitHub says")));
+check("any other refusal carries GitHub's own words", /Something new GitHub says/.test(other403), other403);
+const unseen = await say(refusing(() => new Response(JSON.stringify({ message: "Not Found" }), { status: 404 }), new Response(JSON.stringify({ message: "Not Found" }), { status: 404 })));
+check("a typed branch and a repository the token cannot see is not called a missing workflow", /cannot see|can.t see/i.test(unseen) && !/has no capture\.yml/.test(unseen), unseen);
+const noWorkflow = await say(refusing(() => new Response(JSON.stringify({ message: "Not Found" }), { status: 404 })));
+check("a repository it sees without the workflow is still said as a missing workflow", /has no capture\.yml/.test(noWorkflow), noWorkflow);
+const noRef = await say(refusing(answer(422, "No ref found for: mian")), "mian");
+check("a branch that does not exist is said as that", /mian/.test(noRef) && /branch/i.test(noRef), noRef);
+const noTrigger = await say(refusing(answer(422, "Workflow does not have 'workflow_dispatch' trigger")));
+check("a workflow without its dispatch trigger is said as that", /workflow_dispatch/.test(noTrigger), noTrigger);
+const expired = await say(refusing(answer(401, "Bad credentials")));
+check("a token GitHub does not know is said as expired or wrong", /expired|revoked|wrong|not a token/i.test(expired), expired);
+
 const failed = results.filter((r) => !r).length;
 console.log(failed ? `\n${failed} failed` : "\nall green");
 process.exit(failed ? 1 : 0);

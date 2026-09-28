@@ -84,6 +84,48 @@ export function workflowPermissionSays(repo: CaptureRepo, url?: string, name?: s
   const where = `${repo.owner}/${repo.name}`;
   return `This GitHub key can't run workflows on ${where}. Add to it: on a fine-grained token, Actions: Read and write and Contents: Read and write, on ${where}; on a classic token, the repo and workflow scopes. Or ask a capture chat to capture ${url || "the address"}${name ? ` into sites/${name}` : ""}, then use Bring in again.`;
 }
+/** What GitHub's own answer says, when it has one. */
+async function messageOf(r: Response): Promise<string> {
+  try { return String(((await r.json()) as { message?: string }).message ?? "").trim(); } catch { return ""; }
+}
+
+/**
+ * A refused dispatch, said as what it is. A 403 is not always the token's
+ * permission: a spent rate limit, Actions turned off, or an organisation's
+ * sign-in are 403s too, and each is fixed somewhere else. A 404 on a typed
+ * branch is also what a token that cannot see the repository gets, so the
+ * repository is asked before a missing workflow is blamed.
+ */
+async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Record<string, string>; repo: CaptureRepo; ref: string; url: string; name: string }): Promise<string> {
+  const full = `${o.repo.owner}/${o.repo.name}`;
+  const said = await messageOf(d);
+  if (d.status === 401) return "GitHub does not know this token: it is expired, revoked or pasted wrong. Put a fresh one in Keys.";
+  if (d.status === 403 || d.status === 429) {
+    if (d.headers.get("x-ratelimit-remaining") === "0" || /rate limit/i.test(said)) {
+      const reset = Number(d.headers.get("x-ratelimit-reset"));
+      const at = reset ? ` Try again after ${new Date(reset * 1000).toLocaleTimeString()}.` : " Try again in a while.";
+      return `GitHub's rate limit for this token is spent.${at}`;
+    }
+    if (/disabled/i.test(said)) return `Actions are turned off for ${full}: GitHub said "${said}". Turn them on in the repository's Settings → Actions → General.`;
+    if (/SAML|SSO|single sign-on/i.test(said) || d.headers.get("x-github-sso")) return `The token has to be authorised for the organisation's single sign-on: GitHub said "${said}".`;
+    if (!said || /not accessible|permission|must have/i.test(said)) {
+      return `${workflowPermissionSays(o.repo, o.url, o.name)}${said ? ` GitHub said "${said}".` : ""}`;
+    }
+    return `GitHub refused the dispatch (${d.status}): "${said}".`;
+  }
+  if (d.status === 404) {
+    const seen = await o.f(o.base, { headers: o.h }).then((r) => r.ok, () => true);
+    if (!seen) return `The token cannot see ${full}. A fine-grained token needs it chosen under its repository access.`;
+    return `${full} has no ${WORKFLOW} workflow on ${o.ref}. Merge sink's capture branch first, or name the branch it is on under advanced.`;
+  }
+  if (d.status === 422) {
+    if (/no ref/i.test(said)) return `${full} has no branch ${o.ref}. Name the branch the workflow is on under advanced.`;
+    if (/workflow_dispatch/i.test(said)) return `The ${WORKFLOW} on ${o.ref} cannot be started by hand: GitHub said "${said}". It needs a workflow_dispatch trigger.`;
+    return `GitHub would not start ${WORKFLOW} on ${o.ref}: "${said || "422"}".`;
+  }
+  return `GitHub answered ${d.status} to the dispatch${said ? `: "${said}"` : ""}.`;
+}
+
 
 /**
  * Dispatch the workflow, then find the run it made. The dispatch answers
@@ -112,9 +154,7 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
       method: "POST", headers: { ...h, "content-type": "application/json" },
       body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/" } }),
     });
-    if (d.status === 404) return { ok: false, status: 404, says: `${o.repo.owner}/${o.repo.name} has no ${WORKFLOW} workflow on ${ref}. Merge sink's capture branch first, or name the branch it is on under advanced.` };
-    if (d.status === 403) return { ok: false, status: 403, says: workflowPermissionSays(o.repo, address.href, name) };
-    if (!d.ok) return { ok: false, says: `GitHub answered ${d.status} to the dispatch.` };
+    if (!d.ok) return { ok: false, status: d.status, says: await refusal(d, { f, base, h, repo: o.repo, ref, url: address.href, name }) };
     for (let tries = 0; tries < (o.findTries ?? 10); tries++) {
       const r = await f(`${base}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=5`, { headers: h, cache: "no-store" } as RequestInit);
       if (r.ok) {
