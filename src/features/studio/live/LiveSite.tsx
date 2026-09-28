@@ -258,6 +258,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               {...nodeProps?.(p.node)}
               style={{
                 position: "absolute", left: p.x, top: p.y, width: p.w,
+                // A part the page never let take a press (the grain over everything, a decoration): presses pass through it.
+                ...((p.node as { inert?: boolean }).inert ? { pointerEvents: "none" as const } : null),
                 // The same floor the board gives a box: its words are never
                 // cut off, whatever height the capture measured.
                 minHeight: p.h, display: "flex", flexDirection: "column",

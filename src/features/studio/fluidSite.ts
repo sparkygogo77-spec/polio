@@ -328,6 +328,23 @@ export function fluidClip(clip: string, p: { x: number; w: number }, tx: number,
   return `inset(${t}px max(0px, calc(${r}px - (max(100vw, ${Math.min(W, 1280)}px) - ${W}px))) ${b}px ${l}px)`;
 }
 
+/**
+ * A HERO THAT FILLS THE WINDOW. Sink records a box the page sized in the
+ * window's height (`node.vh`: trumpmorty.fun's hero, min-height 100svh, 900 at
+ * the capture). In a taller window it is that much taller, never shorter, and
+ * what stands under it moves down by the difference; what stands in it moves
+ * by its centre's share of the hero's height (its column is centred, its hills
+ * sit on the foot). Above the hero's top, nothing (null). `tests/sink-fields.mjs`.
+ */
+export function vhShift(p: { y: number; h: number }, hero: { y: number; h: number }, px: number, group: { y: number; h: number } = p): string | null {
+  const grow = `(max(100svh, ${px}px) - ${px}px)`;
+  if (p.y >= hero.y + hero.h - 0.5) return `calc(${p.y}px + ${grow})`;
+  if (p.y < hero.y) return null;
+  /* By the share of the group it stands in (the hero's child that holds it), so a TV and its antenna move as one. */
+  const share = Math.max(0, Math.min(1, (group.y + group.h / 2 - hero.y) / Math.max(1, hero.h)));
+  return `calc(${p.y}px + ${grow} * ${+share.toFixed(6)})`;
+}
+
 /** The capture's window height for a page: the foot of its lowest fixed band. */
 export function captureHeight(parts: readonly FluidPart[]): number {
   return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.y + p.h));

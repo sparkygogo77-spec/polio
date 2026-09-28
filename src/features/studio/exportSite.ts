@@ -69,7 +69,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { bandMoves, captureHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
@@ -469,6 +469,25 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
       if (moved) cutEl.style.clipPath = moved;
     }
   }
+  /* A hero sized in the window's height (`node.vh`, 100svh): it fills a taller window and what is under it moves down (`fluidSite.ts#vhShift`). */
+  const heroNode = [...nodes.values()].find((n) => n.pageId === pageId && (n as { vh?: { px?: number } }).vh?.px);
+  const heroPx = (heroNode as { vh?: { px?: number } } | undefined)?.vh?.px ?? 0;
+  const heroPart = heroNode ? byId.get(heroNode.id) : undefined;
+  if (heroPart && heroPx > 0) {
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
+      if (el.parentElement?.closest("[data-live-node]")) continue;
+      const p = byId.get(el.getAttribute("data-live-node") ?? "");
+      if (!p || p.position === "fixed" || p.position === "sticky" || el.style.position === "fixed") continue;
+      if (p === heroPart) { el.style.minHeight = `max(100svh, ${heroPx}px)`; continue; }
+      /* The hero's own child that holds it: its group moves as one. */
+      const hs = heroPart.selector ?? "";
+      const group = p.selector && hs && p.selector.startsWith(`${hs} > `)
+        ? byId.get([...byId.values()].find((q) => q.selector && q.selector === `${hs} > ${p.selector!.slice(hs.length + 3).split(" > ")[0]}`)?.id ?? "") ?? p
+        : p;
+      const top = vhShift(p, heroPart, heroPx, group);
+      if (top) el.style.top = top;
+    }
+  }
   /*
    * The parts a sticky or fixed band owns go inside its element and stick
    * with it (fluidSite.ts#bandMoves). The band is positioned, so it is what
@@ -503,7 +522,7 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
   const fits = H > 0 && bottom <= H + 1;
   for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
     pg.style.width = "100%";
-    pg.style.height = fits ? `max(100vh, ${bottom}px)` : `${bottom}px`;
+    pg.style.height = fits ? `max(100vh, ${bottom}px)` : heroPart && heroPx > 0 ? `calc(${bottom}px + (max(100svh, ${heroPx}px) - ${heroPx}px))` : `${bottom}px`;
   }
 }
 

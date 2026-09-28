@@ -128,6 +128,10 @@ export interface NodeFont {
   face?: string;
   /** Multiplier on the site's base size, 0.6..2. */
   size?: number;
+  /** The size the page drew, in px (sink); `size` is exact beside it. */
+  px?: number;
+  /** The whole font-family stack the page set (sink), face first. */
+  stack?: string;
   /** 300..800. Body text takes it; parts that set their own weights keep them. */
   weight?: number;
   /** In em, -0.05..0.3. */
@@ -151,11 +155,20 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { c
   const next: Theme = { ...t };
   const stack = font.family ? FAMILY[font.family] : undefined;
   const face = typeof font.face === "string" ? font.face.trim().replace(/['"]/g, "") : "";
-  if (face || stack) {
+  /* The whole stack the page set, when sink recorded it (`font.stack`): a glyph the face lacks falls back as the page's did (the remote's ✈, VT323 then monospace; tests/sink-fields.mjs). */
+  const own = typeof font.stack === "string" && font.stack.trim() ? font.stack.trim() : null;
+  if (own) {
+    next.headingFamily = own;
+    next.bodyFamily = own;
+  } else if (face || stack) {
     next.headingFamily = [face ? `'${face}'` : null, stack ?? t.headingFamily].filter(Boolean).join(", ");
     next.bodyFamily = [face ? `'${face}'` : null, stack ?? t.bodyFamily].filter(Boolean).join(", ");
   }
-  if (typeof font.size === "number" && Number.isFinite(font.size)) next.fontPx = Math.round(t.fontPx * Math.max(sizeMin, Math.min(sizeMax, font.size)) * 10) / 10;
+  /* Captured, the size is the page's exactly: a tenth either way moves a line break ("Renewed for S2", 228.14px in 227). */
+  if (typeof font.size === "number" && Number.isFinite(font.size)) {
+    const px = t.fontPx * Math.max(sizeMin, Math.min(sizeMax, font.size));
+    next.fontPx = opts.captured ? Math.round(px * 10000) / 10000 : Math.round(px * 10) / 10;
+  }
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
   if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) next.letterSpacing = `${Math.max(-0.05, Math.min(0.3, font.spacing)).toFixed(3)}em`;
   if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(leadMin, Math.min(leadMax, font.leading));
@@ -223,6 +236,8 @@ export interface NodeBox {
   text?: NodeText | null;
   /** Rounded corners the page gave the box, in px (share.xyz's cards, pills and tabs); one radius for all four. */
   radius?: number | null;
+  /** Each corner, top-left clockwise, where they differ (trumpmorty.fun's remote, 48 48 70 70). */
+  radii?: readonly number[] | null;
 }
 
 /**
@@ -298,7 +313,7 @@ export function hasBox(n: NodeBox): boolean {
   const art = !!n.art && Object.values(n.art).some((v) => v !== undefined && v !== null && v !== "");
   const opacity = typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1;
   /* A part that moves, or embeds a frame, has a box to carry it (`parts/capturedMotion.ts`). */
-  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0) || art || opacity || hasMotion(n));
+  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0) || (Array.isArray(n.radii) && n.radii.some((r) => r > 0)) || art || opacity || hasMotion(n));
 }
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
@@ -395,6 +410,7 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   }
   /* The corners as the page rounded them, on the board and the published page alike. */
   if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) s.borderRadius = n.radius;
+  if (Array.isArray(n.radii) && n.radii.length === 4 && n.radii.every((r) => typeof r === "number" && Number.isFinite(r) && r >= 0) && n.radii.some((r) => r > 0)) s.borderRadius = n.radii.map((r) => `${r}px`).join(" ");
   /* The clothes an artistic page wore: transparency, blending, filters, a rotation, a gradient, outlined and shadowed type. */
   if (typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1) s.opacity = n.opacity;
   const a = n.art;
