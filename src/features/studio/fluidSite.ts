@@ -230,6 +230,8 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       else if (!lost && col && L?.align === "center" && !spans) k = at(0.5);
       else if (spans) k = at(0, 1);
       else if (Math.abs(right) <= E && C.w > (inR - inL) / 2) k = at(0, 1);
+      /* Past both inner edges (trumpmorty.fun's turned ribbons, 1586 at -73 in 1440): it overhangs, and keeps its overhang as P grows (`tests/fluid-overhang.mjs`). */
+      else if (left < -E && right < -E) k = at(0, 1);
       else if (Math.abs(C.x + C.w / 2 - (inL + inR) / 2) <= E) {
         /* Centred, and no wider than P's inside: the capture drops a max-width, and this is what one does (the header's row is 1280 at most, 1248 in a 1280 window). */
         const inside = plus(px(inR - inL), grow, 1, W);
