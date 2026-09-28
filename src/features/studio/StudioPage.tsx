@@ -994,18 +994,18 @@ export function StudioPage() {
    * nothing is selected.
    */
   const sideTab = leftPanel;
+  /* WHAT THE BOARD ASKS FOR. One press on a part asks for its Element
+     panel (Canvas.tsx), two for its words, Add page for the page's name,
+     a picture just laid for the Look panel. The tabs were icons nobody had
+     found; the thing just done is what you want to see. */
   const wanted = useStudio((s) => s.wanted);
   React.useEffect(() => {
     if (!wanted) return;
     setLeftPanel(wanted.panel);
     setLibraryOpen(true);
+    /* Answered, when nothing in the panel is waiting to take the caret. */
+    if (!wanted.focus) useStudio.getState().want(null);
   }, [wanted]);
-  /* ONE PRESS ON A PART OPENS ITS PANEL. The tabs were icons nobody had
-     found; the part you just chose is what you want to see. */
-  const single = useStudio((s) => (s.selection.length === 1 ? s.selection[0] : null));
-  React.useEffect(() => {
-    if (single) setLeftPanel("inspector");
-  }, [single]);
 
   /* A panel asking to be opened — the background's way of handing you to
      Looks, where its controls now live. */

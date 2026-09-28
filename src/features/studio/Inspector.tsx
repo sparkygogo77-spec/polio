@@ -999,7 +999,8 @@ export function Inspector() {
             Two presses on the part land the caret here (`wanted`). Under
             them, where the part goes and what it does. */}
         {feature?.content ? <WordsField node={node} content={feature.content} /> : null}
-        {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
+        {/* Once, not twice: the Link mark below shows the same field when it is open. */}
+        {isLinkable(node.featureId) && mark !== "link" ? <LinkField node={node} /> : null}
         <Field
           label="Prompt for this element"
           hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."

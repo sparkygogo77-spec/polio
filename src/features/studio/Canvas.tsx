@@ -1020,6 +1020,11 @@ export function Canvas() {
           store.setSelection(ids);
         }
         play("select");
+        /* ONE PRESS ON A PART OPENS ITS PANEL: the Element panel, for the
+           part just chosen. Read off the press, not off the selection, so a
+           part selected as it lands (a picture just laid, whose layer the
+           Look panel is showing) does not take the panel away. */
+        if (node && ids.length === 1) store.want({ panel: "inspector", id });
         /*
          * The second press opens a solid for handling.
          *
