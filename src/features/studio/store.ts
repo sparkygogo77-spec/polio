@@ -308,6 +308,15 @@ export interface StudioNode {
    */
   byHand?: boolean;
   /**
+   * What a press on the page shows (sink `behaviours.states`): this part is
+   * one of the parts a press puts in place of the page's own (gotchi.gg's
+   * pup, in the panel, once pup's card is pressed). Not drawn where the page
+   * opens — on the board, in the Preview or on the published page — until
+   * the press shows it (`Show on press`); left alone by the sweep and the
+   * healing, which read the page as it opens.
+   */
+  state?: { group: string; option: number } | null;
+  /**
    * How this box is laid out, padded, edged and set, when a page said so.
    *
    * A captured page is mostly boxes, and a box on a page has a layout (a
@@ -1860,8 +1869,11 @@ export const useStudio = create<StudioState>()(
             || s0.nodes.some((n) => n.from || n.layout || n.pad || n.edge || n.text);
           if (!captured) { set({ swept: SWEEP }); return null; }
 
-          const joined = sentences(s0.nodes as unknown as Frag[]);
-          const afterJoin = joined.length ? withJoins(s0.nodes, joined) : s0.nodes;
+          /* The page as it opens: a part a press shows (`state`) sits where the part it stands in for does, and is neither joined, grown round, nor a twin of it. It is kept as it is. */
+          const pressed = s0.nodes.filter((n) => n.state);
+          const opens = pressed.length ? s0.nodes.filter((n) => !n.state) : s0.nodes;
+          const joined = sentences(opens as unknown as Frag[]);
+          const afterJoin = joined.length ? withJoins(opens, joined) : opens;
           /*
            * A WRAPPER PUT BACK ROUND THE PARTS IT OWNS, read off the DOM path
            * the capture recorded rather than off geometry (`owns.ts`).
@@ -1872,7 +1884,7 @@ export const useStudio = create<StudioState>()(
            * justified by something the capture said, and so may a box made
            * smaller.
            */
-          const grew = grownTo(s0.nodes as unknown as (Frag & Read)[])
+          const grew = grownTo(opens as unknown as (Frag & Read)[])
             .filter((g) => afterJoin.some((n) => n.id === g.id));
           const afterGrow = grew.length ? withGrown(afterJoin, grew) : afterJoin;
 
@@ -1912,7 +1924,7 @@ export const useStudio = create<StudioState>()(
            * for a consequence of our own editing — the same rule that keeps
            * the wrapper pass to one pass.
            */
-          const doubled = twins(s0.nodes as unknown as Frag[])
+          const doubled = twins(opens as unknown as Frag[])
             .filter((t) => afterFit.some((n) => n.id === t.id) && afterFit.some((n) => n.id === t.keeps));
           /*
            * AND THE PAINT THE CAPTURE DROPPED. The other lane taught the
@@ -1932,7 +1944,7 @@ export const useStudio = create<StudioState>()(
           /* The one checkpoint, taken before anything moves. */
           push();
           set({
-            nodes: withoutTwins(painted.length ? withPaint(afterFit, painted) : afterFit, doubled),
+            nodes: [...withoutTwins(painted.length ? withPaint(afterFit, painted) : afterFit, doubled), ...pressed],
             swept: SWEEP,
             /* Said out loud, because a board that quietly loses six parts
                between one visit and the next is worse than one that never

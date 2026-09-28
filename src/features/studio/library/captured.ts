@@ -211,6 +211,14 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     if (n.art?.animation === i.name) { const { animation: _a, ...art } = n.art; void _a; n.art = art; }
   }
 
+  /* ---------------------------------------------------------------- what a press shows (sink `behaviours.states`) */
+  for (const st of Array.isArray(b.states) ? (b.states as Rec[]) : []) {
+    const shows = (Array.isArray(st.shows) ? st.shows : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
+    const hides = (Array.isArray(st.hides) ? st.hides : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
+    if (!shows.length || typeof st.part !== "string") continue;
+    give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? "") } });
+  }
+
   /* ---------------------------------------------------------------- motion sampled (sink `behaviours.motion`) */
   const M = (b.motion ?? null) as Rec | null;
   if (M && typeof M === "object") {

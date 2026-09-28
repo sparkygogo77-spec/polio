@@ -2641,6 +2641,8 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),
+        /* A part a press shows (sink `behaviours.states`): the board lays out the page as it opens, so it is not drawn here; the press plays in the Preview and on the published page. */
+        ...(node.state ? { display: "none" } : {}),
         /*
          * The aura belongs to the element, not to anything inside it — and
          * on a part cut to a drawn line it belongs to the *line*. A

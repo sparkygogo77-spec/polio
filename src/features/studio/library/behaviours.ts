@@ -800,7 +800,62 @@ const SCROLL_GROW: Work = {
 };
 
 /** The behaviours, in shelf order. */
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW];
+/*
+ * WHAT A PRESS SHOWS (sink `behaviours.states`): a row of cards that each
+ * open their own panel, a device's buttons that each change its screen.
+ * The capture pressed each and kept what changed as parts of their own,
+ * marked `state` and not drawn where the page opens. A press anywhere on
+ * this part (its words and pictures are parts of their own, laid over it)
+ * shows its parts and hides the page's own that they stand in for, and puts
+ * back whatever another press of the same group showed. Nothing is fetched
+ * and nothing is kept: a press shows what the page showed when it was
+ * captured.
+ */
+const PRESS_SHOWS: Work = {
+  manifest: {
+    id: "press-shows",
+    name: "Show on press",
+    category: "interact",
+    blurb: "A press on the part shows the parts its page showed for it (a card's panel, a button's screen) in place of the others of its group.",
+    inputs: [
+      { id: "shows", label: "Shows (parts)", kind: "text", default: "", placeholder: "part ids, comma-separated" },
+      { id: "hides", label: "In place of (parts)", kind: "text", default: "", placeholder: "part ids, comma-separated", advanced: true },
+      { id: "group", label: "Group", kind: "text", default: "", placeholder: "presses that take turns", advanced: true },
+    ],
+    needs: "none",
+    says: ["show on press", "tabs", "switch panel", "select card", "choose one", "press to show", "click to show"],
+    look: { sample: "▣ ▢ ▢ → panel", caption: "press · shows" },
+    version: 1,
+  },
+  script: `siteFeatures.define("press-shows", function (el, inputs) {
+  var root = el.ownerDocument || document;
+  var find = function (id) { return root.getElementById(id) || root.querySelector('[data-live-node="' + id + '"]'); };
+  var ids = function (v) { return String(v || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean); };
+  var all = window.__pressShows || (window.__pressShows = {});
+  var key = String(inputs.group || "").trim() || ("own:" + Math.random());
+  var group = all[key] || (all[key] = []);
+  var me = { el: el, shows: ids(inputs.shows), hides: ids(inputs.hides) };
+  group.push(me);
+  var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (p) p.style.display = on ? "flex" : "none"; }); };
+  function press() {
+    group.forEach(function (o) { if (o !== me) { set(o.shows, false); set(o.hides, true); } });
+    set(me.hides, false);
+    set(me.shows, true);
+  }
+  /* The part's words and pictures sit over it as parts of their own: a press anywhere inside its box is its press. */
+  root.addEventListener("click", function (e) {
+    var r = el.getBoundingClientRect();
+    if (!(e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom)) return;
+    var t = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (t) return;
+    press();
+  });
+  el.style.cursor = "pointer";
+});
+`,
+};
+
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS];
 
 /** The ones that move on their own, with nobody touching anything: the only ones the board plays (live/runWorks.ts). */
 export const AMBIENT = ["spin", "float", "dust-canvas"] as const;

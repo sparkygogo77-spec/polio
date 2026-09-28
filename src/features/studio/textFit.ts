@@ -445,7 +445,8 @@ export function useSettleToWords(
 
   const settle = React.useCallback(() => {
     if (held.current || typeof document === "undefined") return;
-    const ns = latest.current.nodes;
+    /* The page as it opens: a part a press shows is not drawn until then, and moves nothing (`StudioNode.state`). */
+    const ns = latest.current.nodes.filter((n) => !(n as { state?: unknown }).state);
     /*
      * WHOSE BOARD IS THIS.
      *

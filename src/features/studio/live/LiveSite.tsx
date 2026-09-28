@@ -270,6 +270,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 // Its entrance. The board draws the finished state; this is the
                 // only place a part is seen arriving.
                 animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
+                // A part a press shows: hidden where the page opens, until the press (`Show on press`) shows it.
+                ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
               }}
             >
               <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
