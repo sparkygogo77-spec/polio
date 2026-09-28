@@ -1161,28 +1161,35 @@ export function StudioPage() {
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
-                className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-1 [&>*]:px-0.5"
+                className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-none [&>*]:justify-center [&>*]:px-1.5 [&>[data-state=on]]:flex-1"
                 size="xs"
                 value={sideTab}
                 onChange={setLeftPanel}
-                /* Only the tab you are on says its name.
-                   Five words and five icons want 347px and the column is
-                   215px, so something had to give and it is the four words
-                   you are not reading. The one that is left is the one doing
-                   work — it says where you are — and the other four keep
-                   their word for a screen reader, so nothing is lost that
-                   was being said. */
+                /* An icon on every tab, and the word on the one you are on.
+                   73e2549 took the icons off so that six words would fit the
+                   215px column, and six 9px words read as a row of small print
+                   with nothing to find a panel by at a glance. HIS ASK: the
+                   icons back, and the active tab says its word. The other five
+                   keep theirs as a tooltip and as the name a screen reader
+                   reads, so every tab is still named by its word; only the
+                   four you are not reading stop printing it. */
                 options={SIDE_TABS.map((t) => ({
                   value: t.value,
+                  title: t.label,
                   /* The mark wears the panel's colour at both states.
                      Dimmed when you are not on it rather than drained to
                      grey: the hue is what says which panel this is, so it
                      never goes away, it only stands back. */
-                  /* Every tab says its name. Six words at 9.5px fit the
-                     215px column where five icons and one word did; the
-                     word wears the panel's hue so the colour still says
-                     which panel this is. */
-                  label: <span className="whitespace-nowrap text-[9px] tracking-tighter" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.78 }}>{t.label}</span>,
+                  icon: (
+                    <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
+                      {t.icon}
+                    </span>
+                  ),
+                  label: (
+                    <span data-tab-word="" className={sideTab === t.value ? "whitespace-nowrap text-[10px]" : "sr-only"}>
+                      {t.label}
+                    </span>
+                  ),
                 }))}
                 aria-label="Side panel"
               />

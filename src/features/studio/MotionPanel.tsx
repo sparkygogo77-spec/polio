@@ -41,6 +41,9 @@ import { Tooltip } from "@/core/ui/tooltip";
 /* Drawing one frame                                                   */
 /* ------------------------------------------------------------------ */
 
+/** The widest or tallest sprite sheet drawn: inside every browser's canvas. */
+const SHEET_MAX = 16384;
+
 /** Keep loaded keyframes around; a rAF loop cannot wait on an `onload`. */
 function useImages(srcs: (string | null)[]) {
   const [images, setImages] = React.useState<(HTMLImageElement | null)[]>([]);
@@ -177,12 +180,21 @@ function Crate({ asset }: { asset: MotionAsset }) {
     if (!playing || !ready || !plan.length) return;
     let raf = 0;
     let last = performance.now();
+    let owed = 0;
     let cursor = at;
     const step = 1000 / Math.max(1, asset.fps);
+    /* Time is kept, not repaints counted. Stepping one frame whenever a whole
+       step had passed since the last one lost the remainder every time: at
+       60 Hz a 33 ms step took three repaints, so "30 fps" played 20 and a
+       1.5 s crate ran for 2.3 s. What is owed carries over, and a slow
+       repaint catches up by more than one frame. */
     const tick = (now: number) => {
-      if (now - last >= step) {
-        last = now;
-        cursor = (cursor + 1) % plan.length;
+      owed += now - last;
+      last = now;
+      const due = Math.floor(owed / step);
+      if (due > 0) {
+        owed -= due * step;
+        cursor = (cursor + due) % plan.length;
         setAt(cursor);
       }
       raf = requestAnimationFrame(tick);
@@ -200,25 +212,32 @@ function Crate({ asset }: { asset: MotionAsset }) {
     if (!el || !plan.length) return;
     const w = el.width;
     const h = el.height;
+    /* One row while it fits, then rows. A row of 264px frames passes a
+       browser's widest canvas at a few hundred frames (Chromium 65,535px,
+       Firefox 32,767px), and a canvas that size hands back no picture at all
+       — six seconds at 60 fps downloaded nothing and said nothing. 16,384 a
+       side is inside every browser. */
+    const cols = Math.max(1, Math.min(plan.length, Math.floor(SHEET_MAX / w)));
+    const rows = Math.ceil(plan.length / cols);
     const out = document.createElement("canvas");
-    out.width = w * plan.length;
-    out.height = h;
+    out.width = w * cols;
+    out.height = h * rows;
     const ctx = out.getContext("2d");
     if (!ctx) return;
     for (let i = 0; i < plan.length; i++) {
       paint(i);
-      ctx.drawImage(el, i * w, 0);
+      ctx.drawImage(el, (i % cols) * w, Math.floor(i / cols) * h);
     }
     paint(at);
     out.toBlob((blob) => {
-      if (!blob) return;
+      if (!blob) { setNote("The browser would not make a picture that large."); return; }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${asset.name.replace(/\s+/g, "-").toLowerCase()}-sprite.png`;
       a.click();
       URL.revokeObjectURL(url);
-      setNote(`${plan.length} frames, one row.`);
+      setNote(rows === 1 ? `${plan.length} frames, one row.` : `${plan.length} frames, ${cols} across in ${rows} rows.`);
     }, "image/png");
   };
 
@@ -419,7 +438,7 @@ function Crate({ asset }: { asset: MotionAsset }) {
 
       {/* -------------------------------------------------- taking it away */}
       <div className="flex flex-wrap gap-1">
-        <Tooltip content="Every frame in one row, as a PNG." side="top">
+        <Tooltip content="Every frame on one PNG: one row, or rows of frames left to right when one row would be too wide." side="top">
           <Button size="xs" variant="outline" disabled={!ready} onClick={() => void sheet()}>
             <Download />
             Sprite sheet

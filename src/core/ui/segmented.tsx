@@ -9,6 +9,8 @@ export interface SegmentedOption {
   label: React.ReactNode;
   icon?: React.ReactNode;
   disabled?: boolean;
+  /** The option's name when its label is not drawn: a tooltip, and what a screen reader reads. */
+  title?: string;
 }
 
 export interface SegmentedProps {
@@ -42,6 +44,8 @@ export function Segmented({ value, onChange, options, size = "sm", className, si
           key={o.value}
           value={o.value}
           disabled={o.disabled}
+          title={o.title}
+          aria-label={o.title}
           className={cn(
             "tactile inline-flex h-full items-center gap-1 rounded-sm font-medium text-fg-muted hover:text-fg data-[state=on]:bg-panel data-[state=on]:text-fg data-[state=on]:shadow-[0_1px_0_var(--border)] disabled:opacity-45 [&_svg]:size-3.5",
             text,

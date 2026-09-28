@@ -304,7 +304,10 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
   }
   /* And the file type he asked for, under the model's own field. Left alone,
      the model's own default stands. */
-  if (asked.format && card.format?.field) out[card.format.field] = asked.format;
+  if (asked.format && card.format?.field) {
+    const format = formatFor(card, asked.format);
+    if (format) out[card.format.field] = format;
+  }
   /* Effort goes out under the name this model gives it \u2014 `thinking` on the
      one that has one \u2014 rather than under his word for it, which no model
      would recognise. */
@@ -315,10 +318,51 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
   return out;
 }
 
+/**
+ * The Replicate client for one call. `REPLICATE_API` points it somewhere
+ * other than api.replicate.com — a stand-in for the checks, the way
+ * GITHUB_API and VERCEL_API do for publishing — and is unset in use.
+ */
+function replicateFor(token: string): Replicate {
+  const at = process.env.REPLICATE_API?.trim();
+  return new Replicate({ auth: token, ...(at ? { baseUrl: at.replace(/\/+$/, "") } : {}) });
+}
+
+/**
+ * Only what this model takes, and only choices it lists.
+ *
+ * `shapeFor` is the Flux shape, `output_format: "webp"` and
+ * `safety_tolerance: 2`, and it went to every model he picked. Nano Banana 2
+ * takes jpg or png: a choice outside a model's list is a 422, a 422 is
+ * retried with the prompt alone, and so the pictures he gave it to work
+ * from and the ratio he chose were dropped without a word. A model with a
+ * row in the table is handed the fields that row declares.
+ */
+function fitted(card: ImageModel, input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    const f = card.fields.find((x) => x.name === k);
+    if (!f) continue;
+    if (f.kind === "enum" && f.values && !f.values.includes(v as string)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/** The file type he asked for, in this model's spelling: "JPEG" is `jpg` to one and `jpeg` to another. */
+function formatFor(card: ImageModel, asked: string): string | null {
+  const field = card.fields.find((f) => f.name === card.format?.field);
+  const values = field?.kind === "enum" ? field.values ?? [] : [];
+  if (!values.length || values.includes(asked)) return asked;
+  const other = asked === "jpeg" ? "jpg" : asked === "jpg" ? "jpeg" : null;
+  return other && values.includes(other) ? other : null;
+}
+
 /** What each model is handed: a picture to trace, or words to imagine from. */
 function input(kind: RenderKind, words: string, picture: string | null, w: number, h: number, card: ImageModel | null = null, asked: Asked = {}): Record<string, unknown> {
   if (fromPicture(kind)) return { image: `data:image/png;base64,${picture}` };
-  return { prompt: words, ...shapeFor(kind, w, h), ...said(card, asked) };
+  const shape = shapeFor(kind, w, h);
+  return { prompt: words, ...(card ? fitted(card, shape) : shape), ...said(card, asked) };
 }
 
 /** How long the bytes behind an answer may take to arrive. */
@@ -453,7 +497,7 @@ async function refine(body: Body, token: string) {
     options: body.options,
   });
 
-  const replicate = new Replicate({ auth: token });
+  const replicate = replicateFor(token);
   const began = Date.now();
   let done: Prediction;
   try {
@@ -630,7 +674,7 @@ export async function POST(request: Request) {
 
   // Handed the token for this call only. Nothing here keeps it, and it goes
   // when the request does.
-  const replicate = new Replicate({ auth: token });
+  const replicate = replicateFor(token);
   /* His model, when he named one and the table knows it; otherwise the one
      this kind of drawing has always used. */
   const asked: Asked = {

@@ -2232,10 +2232,20 @@ export const useStudio = create<StudioState>()(
           const id = uid("page");
           push();
           set((s) => {
-            const n = s.pages.length + 1;
+            /* The first number nothing is using, not the count plus one: the
+               count goes down when a page is deleted, and Home, Page 2, Page 3
+               less Page 2 then added a second Page 3 on /page-3 — one route,
+               two pages, and the export wrote the second over the first. */
+            const slug = (t: string) => "/" + t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const names = new Set(s.pages.map((p) => p.name.trim().toLowerCase()));
+            const paths = new Set(s.pages.map((p) => p.path));
+            let n = s.pages.length + 1;
+            if (!name) while (names.has(`page ${n}`) || paths.has(`/page-${n}`)) n++;
             const label = name ?? `Page ${n}`;
+            let path = slug(label);
+            for (let k = 2; paths.has(path); k++) path = `${slug(label)}-${k}`;
             return {
-              pages: [...s.pages, { id, name: label, path: "/" + label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), prompt: "", scroll: "inherit" }],
+              pages: [...s.pages, { id, name: label, path, prompt: "", scroll: "inherit" }],
               activePageId: id,
               selection: [],
             };
