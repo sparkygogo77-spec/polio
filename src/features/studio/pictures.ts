@@ -52,6 +52,8 @@ export interface Picture {
   from: "upload" | "drawn";
   /** The commit that carried it up, when one has. Absent means this browser only. */
   published?: string;
+  /** Pixel art its page drew square (`image-rendering: pixelated`): drawn square here too, never smoothed, when shown larger than it is. */
+  pixelated?: boolean;
 }
 
 const ok = () => typeof indexedDB !== "undefined";

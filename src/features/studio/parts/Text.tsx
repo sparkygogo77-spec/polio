@@ -71,8 +71,16 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
    * a box within a pixel of two lines is two lines. (Not the midpoint: the site's
    * "Ctrl K" is one line of 12px type in a 24px box, 1.504 lines, and it
    * wrapped.) `tests/published-site.mjs`.
+   *
+   * THE ROOM INSIDE ITS OWN PADDING. A captured link padded 9px above and
+   * below (gotchi.gg's nav: "my pets", 15px words in a 33px box) is drawn
+   * inside that padding by its box, and its height was read whole: 33 is
+   * past two 15px lines, so it was set as a paragraph, free to wrap, and
+   * clipped at a width another machine's glyphs overran ("adop", "par",
+   * "my pets" on two lines). The node's padding (`t.padY`) is taken off too.
+   * `tests/padded-one-line.mjs`.
    */
-  const padY = typeof box.padding === "number" ? box.padding * 2 : 0;
+  const padY = (typeof box.padding === "number" ? box.padding * 2 : 0) + (t.padY ?? 0);
   const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
   return (
     /*

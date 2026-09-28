@@ -66,6 +66,8 @@ export interface Theme {
    * padding inside it, so a part padding itself again pushed the words out
    * of the box and cut them off.
    */
+  /** The node's own padding, top and bottom together, drawn round the part by its box: its height holds this much less room for words. */
+  padY?: number;
   tight?: boolean;
   /** The part was captured from a live page (`applyCaptured`): its box is the page's measurement, not a default. */
   captured?: boolean;
@@ -382,7 +384,10 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
 
 /** The theme, told that the box pads itself: a part that pads its words stops. */
 export function applyPad(t: Theme, pad: NodePad | null | undefined): Theme {
-  return pad ? { ...t, tight: true } : t;
+  /* The rows the box's own padding takes from its height, said so a part reading its height for lines reads the room inside it (`padY`, parts/Text.tsx). */
+  if (!pad) return t;
+  const y = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0);
+  return { ...t, tight: true, padY: y(pad.top) + y(pad.bottom) };
 }
 
 /**

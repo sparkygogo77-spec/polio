@@ -32,7 +32,10 @@ export function CarriedFonts({ fonts, onFail }: { fonts?: readonly CarriedFont[]
       const spec = `${f.style ?? "normal"} ${weight} 16px "${f.family.replace(/"/g, "")}"`;
       /* A face carried as a link is loaded by the sheet, so the same ask
          finds it once the sheet has answered; a beat is given for that. */
-      const ask = () => document.fonts.load(spec).then(
+      /* Asked with a character of its own range: a face for the digits alone matches no space, and was said to have failed. */
+      const first = /u\+([0-9a-f?]+)/i.exec(f.unicodeRange ?? "")?.[1];
+      const sample = first ? String.fromCodePoint(Math.max(0x20, parseInt(first.replace(/\?/g, "0"), 16))) : undefined;
+      const ask = () => document.fonts.load(spec, sample).then(
         (faces) => { if (live && !faces.length && !said.current.has(f.id)) { said.current.add(f.id); onFail(f); } },
         () => { if (live && !said.current.has(f.id)) { said.current.add(f.id); onFail(f); } },
       );

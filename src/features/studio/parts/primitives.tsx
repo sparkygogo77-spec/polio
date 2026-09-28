@@ -143,7 +143,7 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
  */
 export function PictureSlot({ t, pic, src, label, mode = "board" }: {
   t: Theme;
-  pic?: { alt?: string; w?: number; h?: number } | null;
+  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
@@ -157,7 +157,7 @@ export function PictureSlot({ t, pic, src, label, mode = "board" }: {
       <img
         src={src}
         alt={pic.alt ?? ""}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: t.captured ? "none" : `1px solid ${t.line}` }}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: t.captured ? "none" : `1px solid ${t.line}`, ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
       />
     );
   }

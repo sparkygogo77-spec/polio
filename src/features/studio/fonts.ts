@@ -72,6 +72,8 @@ export interface CarriedFont {
   /** Why it is not carried, when it is not. */
   says?: string;
   bytes?: number;
+  /** The characters the rule was declared for, as the page wrote it: drawn only there, as the page drew it. */
+  unicodeRange?: string;
 }
 
 /** What carrying a page's faces came to. */
@@ -142,9 +144,31 @@ const MIME: Record<string, string> = { woff2: "font/woff2", woff: "font/woff", t
 
 export type FetchBytes = (url: string) => Promise<{ bytes: Uint8Array; error?: undefined } | { bytes?: undefined; error: string }>;
 
-/** A stable id for a rule: family, weight and style, so the same face brought twice is one entry. */
-export function fontId(family: string, weight?: string, style?: string): string {
-  return `font:${family.toLowerCase().replace(/\s+/g, "-")}:${(weight ?? "400").replace(/\s+/g, "-")}:${style ?? "normal"}`;
+/**
+ * Whether a range draws the letters a–z. A rule that does not — gotchi.gg's
+ * own digits, `Pixelify Sans` at U+30-39, beside Google's Latin file under
+ * the same name — is a face for some characters only, not the face: it had
+ * the Latin file's id, was read first, and was carried as the whole of it,
+ * so every letter fell to the fallback. (sink's converter holds the same
+ * rule, transcribed.)
+ */
+export function coversLetters(range: string | undefined): boolean {
+  if (!range || !range.trim()) return true;
+  const spans = range.split(",").map((part) => {
+    const m = /u\+([0-9a-f?]+)(?:-([0-9a-f]+))?/i.exec(part.trim());
+    if (!m) return null;
+    const lo = parseInt(m[1]!.replace(/\?/g, "0"), 16);
+    const hi = m[2] ? parseInt(m[2], 16) : parseInt(m[1]!.replace(/\?/g, "f"), 16);
+    return [lo, hi] as const;
+  }).filter((x): x is readonly [number, number] => !!x);
+  for (let c = 0x61; c <= 0x7a; c++) if (!spans.some(([lo, hi]) => c >= lo && c <= hi)) return false;
+  return true;
+}
+
+/** A stable id for a rule: family, weight and style, so the same face brought twice is one entry; a rule for some characters only has its range in it too. */
+export function fontId(family: string, weight?: string, style?: string, range?: string): string {
+  const only = range && !coversLetters(range) ? `:${range.toLowerCase().replace(/u\+/g, "u").replace(/[^0-9a-fu?-]+/g, "_")}` : "";
+  return `font:${family.toLowerCase().replace(/\s+/g, "-")}:${(weight ?? "400").replace(/\s+/g, "-")}:${style ?? "normal"}${only}`;
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -184,10 +208,10 @@ export async function carryFaces(read: FacesRead, used: readonly string[], pageU
       continue;
     }
     for (const rule of rules) {
-      const id = fontId(family, rule.weight, rule.style);
+      const id = fontId(family, rule.weight, rule.style, rule.unicodeRange);
       if (fonts.some((f) => f.id === id)) continue;
       const src = rule.sources.map((s) => ({ ...s, format: formatOf(s) })).find((s) => s.format);
-      const base = { id, family, ...(rule.weight ? { weight: rule.weight } : {}), ...(rule.style ? { style: rule.style } : {}), from: { url: pageUrl, sheet: rule.sheet } };
+      const base = { id, family, ...(rule.weight ? { weight: rule.weight } : {}), ...(rule.style ? { style: rule.style } : {}), ...(rule.unicodeRange ? { unicodeRange: rule.unicodeRange } : {}), from: { url: pageUrl, sheet: rule.sheet } };
       if (!src) {
         fonts.push({ ...base, source: { kind: "url", url: rule.sources[0]?.url ?? "" }, licence: "no source in a format a browser draws", carried: false, says: `${family} is declared in a format no browser here draws` });
         continue;
@@ -218,6 +242,8 @@ export async function carryFaces(read: FacesRead, used: readonly string[], pageU
       fonts.push({ ...base, source: { kind: "data", src: `data:${MIME[src.format!] ?? "font/woff2"};base64,${b64(got.bytes)}`, format: src.format! }, licence: licenceOf(src.url), carried: true, bytes: size });
     }
   }
+  /* A range is kept where it decides something: a family carried as more than one rule. One rule alone draws what it has either way. */
+  for (const f of fonts) if (f.unicodeRange && fonts.filter((g) => g.family === f.family).length < 2) delete f.unicodeRange;
   return { fonts, named };
 }
 
@@ -229,7 +255,9 @@ export function fontFaceCss(fonts: readonly CarriedFont[]): string {
     if (s.kind === "link") continue;
     const src = s.kind === "data" ? `url(${s.src}) format("${s.format}")` : s.url ? `url(${s.url})${s.format ? ` format("${s.format}")` : ""}` : "";
     if (!src) continue;
-    rules.push(`@font-face{font-family:"${f.family.replace(/"/g, "")}";font-weight:${f.weight ?? "400"};font-style:${f.style ?? "normal"};font-display:block;src:${src}}`);
+    /* Its range as the page wrote it, only characters and ranges: a face for the digits alone draws the digits alone. */
+    const range = f.unicodeRange && /^[\sUu+0-9a-fA-F?,-]+$/.test(f.unicodeRange) ? `;unicode-range:${f.unicodeRange.trim()}` : "";
+    rules.push(`@font-face{font-family:"${f.family.replace(/"/g, "")}";font-weight:${f.weight ?? "400"};font-style:${f.style ?? "normal"};font-display:block${range};src:${src}}`);
   }
   return rules.join("\n");
 }

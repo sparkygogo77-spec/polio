@@ -108,7 +108,26 @@ const grounded = (f: Frag): boolean =>
 /** Two pieces set in different faces or sizes (a score beside its label). A colour alone is not this: "A SolWorks project" joins. */
 const setApart = (a: Frag, b: Frag): boolean =>
   (!!a.font?.face && !!b.font?.face && a.font.face !== b.font.face) || (a.font?.size != null && b.font?.size != null && a.font.size !== b.font.size);
-const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setApart(a, b) || [ANCHOR, HEADING].some((tag) => {
+/**
+ * Two pieces each inside their own copy of a repeated element: the paths part
+ * at one step, the same tag in a different place among its siblings
+ * (`button:nth-of-type(1)` and `button:nth-of-type(2)`), and each piece lies
+ * INSIDE that step rather than being it. gotchi.gg's starter cards, a `p` in
+ * each `button`, and its stage labels, a `b` in each `figure`, are items in a
+ * row, not a sentence in pieces; "A Sol" + "Works" (`h1 > span:nth-of-type(1)`,
+ * `span:nth-of-type(2)`) are the siblings themselves and still join.
+ * `tests/items-apart.mjs`.
+ */
+function items(a: Frag, b: Frag): boolean {
+  const x = (a.from?.selector ?? "").split(" > ").map((s) => s.trim()), y = (b.from?.selector ?? "").split(" > ").map((s) => s.trim());
+  if (x.length < 2 || y.length < 2) return false;
+  let i = 0;
+  while (i < x.length && i < y.length && x[i] === y[i]) i++;
+  if (i >= x.length - 1 || i >= y.length - 1) return false;
+  const tag = (s: string) => /^[a-z][\w-]*/i.exec(s)?.[0]?.toLowerCase() ?? "";
+  return tag(x[i]!) !== "" && tag(x[i]!) === tag(y[i]!);
+}
+const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setApart(a, b) || items(a, b) || [ANCHOR, HEADING].some((tag) => {
   const x = enclosing(a, tag), y = enclosing(b, tag);
   return !!x && !!y && x !== y;
 });
