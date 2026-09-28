@@ -69,6 +69,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
+import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
 import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, typeShifts, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { layerStyle, type Units } from "./layerUnits";
@@ -589,48 +590,6 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   }
 }
 
-/** A value for an attribute in double quotes. */
-const attr = (v: string) => esc(v).replace(/"/g, "&quot;");
-
-/**
- * What a page says about itself before it is opened: its icon, its
- * description, and the Open Graph lines a link preview is drawn from.
- *
- *   · the icon and the share picture are the site's own picture, by the rule
- *     the Builder's bar already uses (`siteLogo`: the picture on the most
- *     pages, then the largest; on sink the SolWorks logo). A site with no
- *     picture, or one this browser no longer has the bytes of, says nothing
- *     rather than point at a file that is not there: a missing icon 404s;
- *   · the description is the one the site's owner typed (`brief.description`),
- *     never the brief's central idea, which is authoring and is not
- *     published (tests/publish-leak.mjs). None typed, none written;
- *   · og:url, and og:image as a full address, need the address the site is
- *     at, which is known once it has gone live (the Builds page keeps it).
- *     Before that, og:url is left out and the picture is named relative.
- */
-function headOf(o: { title: string; name: string; description: string; icon: Picture | null; icons: SiteIcons | null; up: string; folder: string; live: string | null }): string {
-  const L: string[] = [];
-  if (o.description) L.push(`<meta name="description" content="${attr(o.description)}">`);
-  if (o.icons) {
-    L.push(`<link rel="icon" type="image/png" sizes="32x32" href="${attr(o.up + o.icons.small)}">`);
-    L.push(`<link rel="apple-touch-icon" sizes="180x180" href="${attr(o.up + o.icons.touch)}">`);
-  } else if (o.icon) L.push(`<link rel="icon" href="${attr(o.up + o.icon.path)}"${o.icon.type ? ` type="${attr(o.icon.type)}"` : ""}>`);
-  L.push(`<meta property="og:type" content="website">`);
-  L.push(`<meta property="og:site_name" content="${attr(o.name)}">`);
-  L.push(`<meta property="og:title" content="${attr(o.title)}">`);
-  if (o.description) L.push(`<meta property="og:description" content="${attr(o.description)}">`);
-  if (o.live) L.push(`<meta property="og:url" content="${attr(`${o.live}/${o.folder}`)}">`);
-  if (o.icon) {
-    L.push(`<meta property="og:image" content="${attr(o.live ? `${o.live}/${o.icon.path}` : o.up + o.icon.path)}">`);
-    if (o.icon.w && o.icon.h) L.push(`<meta property="og:image:width" content="${o.icon.w}">\n<meta property="og:image:height" content="${o.icon.h}">`);
-  }
-  L.push(`<meta name="twitter:card" content="summary">`);
-  return L.join("\n");
-}
-
-/** The site's picture drawn as icons, and where each is published. */
-interface SiteIcons { small: string; touch: string; files: SiteBinary[] }
-
 /**
  * The site's picture at the sizes a browser asks an icon for: 32 for the
  * tab, 180 for a phone's home screen. The share picture stays the original
@@ -712,6 +671,19 @@ body { container-type: inline-size; overflow-x: clip; }
 }
 
 /**
+ * The address the site is published at, with no trailing slash, or null.
+ *
+ * Known once it has gone live: Go live writes the address Vercel answered
+ * on the site (`setLive`). Not before, and not guessed: a new Vercel project
+ * named `gotchi` is not `gotchi.vercel.app` when that name is somebody
+ * else's (his came out as gotchi-red.vercel.app). So a first Go live writes
+ * the preview's addresses relative, and Link preview says so.
+ */
+export function publishedAt(): string | null {
+  return activeProject()?.live?.url?.trim().replace(/\/+$/, "") || null;
+}
+
+/**
  * The site, as files: an index.html per page, one stylesheet, the pictures.
  * `only` limits it to some pages; the stylesheet and the pictures come with
  * whatever is asked for. `pictures: false` leaves the pictures for the
@@ -731,11 +703,18 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   const files: ExportFile[] = [];
   /* Captured, it stretches as the original did; built by hand, it keeps the frame it had. */
   const fluidAt = s.nodes.some(isCaptured) ? width : null;
+  const live = publishedAt();
+  /* The link preview a capture recorded, or Link preview set: named only where this browser still has the file. */
+  const heads = [s.brief.head, ...s.pages.map((p) => p.head)].flatMap((h) => headPictures(h));
+  const here = new Set<string>();
+  for (const pic of heads) if (!here.has(pic.id) && (await bytesFor(pic))) here.add(pic.id);
+  const held = (pic: Picture) => here.has(pic.id);
+  const siteHead = heldHead(s.brief.head, held);
+  /* The logo stays the fallback: for the icons when the head names none, for the share picture when it names none. */
   const logo = siteLogo(s.nodes);
   const logoBytes = logo ? await bytesFor(logo) : null;
   const icon = logo && logoBytes ? logo : null;
-  const icons = icon && logoBytes ? await siteIcons(icon, logoBytes) : null;
-  const live = activeProject()?.live?.url?.trim().replace(/\/+$/, "") || null;
+  const icons = icon && logoBytes && !siteHead?.icons?.length ? await siteIcons(icon, logoBytes) : null;
   const description = s.brief.description?.trim() ?? "";
   const inPlace = inPlaceGroups(s.pages, s.nodes, home);
 
@@ -767,8 +746,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="${fluidAt ? `width=${Math.min(width, 1280)}` : "width=device-width, initial-scale=1"}">
-<title>${esc(title)}</title>
-${headOf({ title, name, description, icon, icons, up, folder: pageFile(page, home).replace(/index\.html$/, ""), live })}
+${pageHead({ title, name, description, icon, icons, up, address: pageAddress(page, home), live, site: siteHead, page: heldHead(page.head, held) })}
 <link rel="stylesheet" href="${up}assets/site.css">
 </head>
 <body>
@@ -811,6 +789,7 @@ ${motion}
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
   files.push(...featureFiles(s.nodes));
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */
+  /* The heads' share pictures and icons are among the site's pictures (`sitePictures`), so they are served beside the pages. */
   if (icons) files.push(...icons.files);
 
   if (opts.pictures !== false) {

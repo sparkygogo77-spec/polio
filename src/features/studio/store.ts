@@ -21,6 +21,7 @@ import { uid } from "@/core/lib/ids";
 import { getFeature, setBrought } from "./catalog";
 import { Boxes } from "lucide-react";
 import { takeDoc, pictureLayersOff } from "./docTake";
+import type { SiteHead } from "./siteHead";
 import { formatDefaults, type FormatValues } from "./format";
 import { swapColour, swapFont, type ColourUse, type FaceTo } from "./siteColours";
 import type { Palette } from "./look";
@@ -406,6 +407,8 @@ export interface StudioPage {
   prompt: string;
   /** Overrides the site-wide scroll mode when set. */
   scroll: string;
+  /** Where this page's link preview differs from the site's (`brief.head`): its own title, description, share picture. */
+  head?: SiteHead;
 }
 
 export interface StudioBrief {
@@ -414,6 +417,8 @@ export interface StudioBrief {
   master: string;
   /** What the site says about itself to a visitor: its meta description and link preview. Published, unlike the two above. */
   description?: string;
+  /** The site's link preview: what a capture recorded in its head (sink `doc.head`), as edited in Link preview. Published by `siteHead.ts`. */
+  head?: SiteHead;
 }
 
 /**

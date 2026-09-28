@@ -9,6 +9,7 @@ import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
 import { MERGED_FILES } from "./library/contract";
+import { publishedHead, type SiteHead } from "./siteHead";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 export type Device = "desktop" | "tablet" | "phone";
@@ -608,6 +609,7 @@ export function publishedDoc(): Record<string, unknown> {
     look?: Record<string, unknown> & { fonts?: (Record<string, unknown> & { from?: unknown })[] };
     shapes?: Record<string, unknown>[];
   } & Record<string, unknown>;
+  const siteUrl = (d.brief?.head as SiteHead | undefined)?.url;
   return {
     ...d,
     nodes: (d.nodes ?? []).map((n) => ({
@@ -616,8 +618,9 @@ export function publishedDoc(): Record<string, unknown> {
       data: "",
       from: n.from && n.from.position ? { position: n.from.position } : null,
     })),
-    pages: (d.pages ?? []).map((p) => ({ ...p, prompt: "" })),
-    brief: { ...(d.brief ?? {}), master: "", gimmick: "" },
+    /* A head keeps what it says and not where it was captured from (`publishedHead`). */
+    pages: (d.pages ?? []).map((p) => ({ ...p, prompt: "", ...(p.head ? { head: publishedHead(p.head as SiteHead, [siteUrl]) } : {}) })),
+    brief: { ...(d.brief ?? {}), master: "", gimmick: "", ...(d.brief?.head ? { head: publishedHead(d.brief.head as SiteHead) } : {}) },
     look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}) } : d.look,
     shapes: (d.shapes ?? []).map((sh) => ("prompt" in sh ? { ...sh, prompt: "" } : sh)),
   };

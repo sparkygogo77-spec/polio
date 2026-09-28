@@ -15,6 +15,7 @@ import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useActions } from "@/core/actions";
+import { PageLinkPreview, SiteLinkPreview } from "./LinkPreview";
 
 const SCROLL_OPTIONS = [
   { value: "inherit", label: "Site default" },
@@ -50,7 +51,7 @@ export function PagesPanel() {
     <div className="flex h-full min-h-0 flex-col">
       {/* The things that describe the whole site live here rather than
           under the board, so the workspace is not two text boxes tall. */}
-      <div className="shrink-0 space-y-2 border-b border-border p-3" {...ctxProps("studio-brief", "brief", brief)}>
+      <div className="max-h-[60%] shrink-0 space-y-2 overflow-y-auto border-b border-border p-3" {...ctxProps("studio-brief", "brief", brief)}>
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Site name</span>
           <Input value={brief.name} placeholder="Untitled" aria-label="Site name" onChange={(e) => useStudio.getState().setBrief({ name: e.target.value })} />
@@ -59,6 +60,7 @@ export function PagesPanel() {
           <span className="text-small uppercase tracking-wider text-fg-faint">Description</span>
           <Input value={brief.description ?? ""} placeholder="The line under its name in a link preview" aria-label="Description" onChange={(e) => useStudio.getState().setBrief({ description: e.target.value })} />
         </label>
+        <SiteLinkPreview />
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Central idea</span>
           <Textarea autoGrow rows={2} value={brief.gimmick} placeholder="The one thing everything serves" aria-label="Central idea" onChange={(e) => useStudio.getState().setBrief({ gimmick: e.target.value })} />
@@ -132,6 +134,7 @@ export function PagesPanel() {
                     placeholder="What this page is for…"
                     onChange={(e) => useStudio.getState().updatePage(page.id, { prompt: e.target.value })}
                   />
+                  <PageLinkPreview page={page} />
                   <div className="flex items-center gap-1">
                     <Tooltip content="Move up">
                       <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => useStudio.getState().movePage(page.id, -1)}>

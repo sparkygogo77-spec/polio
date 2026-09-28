@@ -41,6 +41,7 @@ import { base64, bytesFor, type Picture } from "./pictures";
 import { unbuiltSections } from "./spec";
 import { missingCopy } from "./promised";
 import { NOT_WRITTEN } from "./parts/sample";
+import { namedPictures } from "./siteHead";
 
 export interface SiteFile {
   path: string;
@@ -220,9 +221,9 @@ export async function sitePictures(): Promise<{ files: SiteBinary[]; lost: Pictu
   const files: SiteBinary[] = [];
   const lost: Picture[] = [];
   const done = new Set<string>();
-  for (const node of s.nodes) {
-    const pic = node.picture;
-    if (!pic || done.has(pic.id)) continue;
+  /* The parts' pictures, and the heads' share pictures and icons (`namedPictures`). */
+  for (const pic of namedPictures(s)) {
+    if (done.has(pic.id)) continue;
     done.add(pic.id);
     const blob = await bytesFor(pic);
     if (!blob) { lost.push(pic); continue; }

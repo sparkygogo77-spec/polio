@@ -162,7 +162,9 @@ function SiteHead() {
   // Its own logo when it has one (`siteMark.ts`), the letter when it has no
   // pictures or this browser no longer holds the bytes.
   const nodes = useStudio((s) => s.nodes);
-  const logo = React.useMemo(() => siteLogo(nodes), [nodes]);
+  /* The icon the head names, when it names one: that is what the published site ships (`siteHead.ts`). */
+  const headIcon = brief.head?.icons?.find((i) => i.rel === "icon" || i.rel === "shortcut icon")?.picture ?? brief.head?.icons?.[0]?.picture ?? null;
+  const logo = React.useMemo(() => headIcon ?? siteLogo(nodes), [nodes, headIcon]);
   const { src: logoSrc } = usePicture(logo);
   return (
     <>

@@ -147,7 +147,9 @@ for (const p of s.pages ?? []) add(p.prompt, "a page's prompt");
 add(s.brief?.master, "the brief");
 add(s.brief?.gimmick, "the brief");
 for (const t of s.trail ?? []) { add(t.text, `a ${t.stage} in the prompt trail`); add(t.prompt, "a prompt Claude proposed"); }
-const hosts = [...new Set((s.nodes ?? []).map((n) => n.from?.host).filter(Boolean))];
+/* And the host the captured head names (`doc.head.url`, siteHead.ts): the link preview is published, where it was captured from is not. */
+const headHost = (() => { try { return doc.head?.url ? new URL(doc.head.url).host : null; } catch { return null; } })();
+const hosts = [...new Set([...(s.nodes ?? []).map((n) => n.from?.host), headHost].filter(Boolean))];
 const SIGNS = [
   [/Captured from/g, "the words \"Captured from\""],
   ...hosts.map((h) => [new RegExp(h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), `the captured host ${h}`]),

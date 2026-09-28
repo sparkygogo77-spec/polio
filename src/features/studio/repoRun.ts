@@ -23,6 +23,7 @@
  * named, and nothing is half-brought.
  */
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { namedPictures } from "./siteHead";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
 
 const API = "https://api.github.com";
@@ -216,17 +217,14 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
     return null;
   }
   const pages = Array.isArray(document.pages) ? (document.pages as unknown[]).length : 0;
-  const nodes = Array.isArray(document.nodes) ? (document.nodes as { picture?: { id?: unknown; path?: unknown; type?: unknown } }[]) : [];
+  const nodes = Array.isArray(document.nodes) ? (document.nodes as unknown[]) : [];
   if (!pages || !Array.isArray(document.nodes)) return null;
   const brief = document.brief as { name?: unknown } | undefined;
   const name = (typeof brief?.name === "string" && brief.name.trim()) || repo.name;
 
-  /* Each picture once, by id: two parts may show the same one. */
+  /* Each picture once, by id: two parts may show the same one. And the ones its head names, the share picture and the icons (`namedPictures`). */
   const wanted = new Map<string, { id: string; path: string; type: string }>();
-  for (const n of nodes) {
-    const p = n.picture;
-    if (p && typeof p.id === "string" && typeof p.path === "string" && !wanted.has(p.id)) wanted.set(p.id, { id: p.id, path: p.path, type: typeof p.type === "string" ? p.type : "image/png" });
-  }
+  for (const p of namedPictures(document)) wanted.set(p.id, { id: p.id, path: p.path, type: typeof p.type === "string" ? p.type : "image/png" });
   const pictures: RepoCopy["pictures"] = [];
   const lost: string[] = [];
   let weight = 0;

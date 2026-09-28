@@ -23,6 +23,8 @@ export interface DocIn {
   /** What the captured page's scripts did (sink `doc.behaviours`): attached to its parts as features, then dropped. */
   behaviours?: unknown;
   frameWidth?: unknown;
+  /** What the captured site said about itself in its head (sink `doc.head`): kept on the brief. Each page's own is on the page. */
+  head?: unknown;
 }
 
 export interface DocPrev {
@@ -58,6 +60,25 @@ export function pictureLayersOff<L extends { id: string; on?: boolean }>(nodes: 
   return layers.map((l) => (worn.has(l.id) && l.on ? { ...l, on: false } : l));
 }
 
+/**
+ * The brief, with the captured head on it.
+ *
+ * The head is the site's link preview (`siteHead.ts`): kept whole, so the
+ * export can say what the original said. The description is the one field
+ * the Builder already had a box for, so a captured one fills that box when
+ * nobody has typed one, and never over what somebody did. A document with
+ * no head changes nothing here.
+ */
+function briefOf(prev: object, doc: DocIn): object {
+  const brief = { ...prev, ...(doc.brief ?? {}) } as { description?: unknown; head?: unknown };
+  /* The head is the document's: one whose brief has none does not keep the last site's. */
+  if (doc.brief && !("head" in doc.brief)) delete brief.head;
+  const head = doc.head && typeof doc.head === "object" ? (doc.head as { description?: unknown }) : null;
+  if (!head) return brief;
+  const typed = typeof brief.description === "string" && brief.description.trim();
+  return { ...brief, head, ...(!typed && typeof head.description === "string" && head.description.trim() ? { description: head.description.trim() } : {}) };
+}
+
 export function takeDoc<P extends DocPrev>(
   s: P,
   doc: DocIn,
@@ -74,7 +95,7 @@ export function takeDoc<P extends DocPrev>(
     shapes: doc.shapes ?? s.shapes,
     spaces: doc.spaces ?? s.spaces,
     format: { ...defaults.format(), ...(doc.format ?? {}) },
-    brief: { ...s.brief, ...(doc.brief ?? {}) },
+    brief: briefOf(s.brief, doc),
     // The look and the behaviours are the document too. Leaving them out
     // meant a published site came back in the template's colours.
     look: (() => {

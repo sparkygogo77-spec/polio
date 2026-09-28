@@ -11,6 +11,11 @@
  *
  *   npm run build && npx next start -p 3013
  *   node scripts/export-site.mjs http://127.0.0.1:3013 <path to a sink checkout> <out dir>
+ *
+ * Any folder laid out as sink is (site/document.json, assets/pictures/)
+ * will do: tests/fixtures/link-preview is one. PUBLISHED_AT=<address> writes
+ * the site as already live there, so the link preview's full addresses can
+ * be read (a stand-in; nothing is published).
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -64,11 +69,11 @@ const positions = async () => Object.fromEntries(((await state()).nodes ?? []).m
 
 /* An empty site, opened first. */
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
-await page.evaluate(() => {
+await page.evaluate((live) => {
   const env = (s) => JSON.stringify({ state: s, version: 0 });
-  localStorage.setItem("builder.builds", env({ projects: [{ id: "s3", name: "Site 3", updatedAt: Date.now() }], activeId: "s3" }));
+  localStorage.setItem("builder.builds", env({ projects: [{ id: "s3", name: "Site 3", updatedAt: Date.now(), ...(live ? { live: { url: live, at: Date.now() } } : {}) }], activeId: "s3" }));
   localStorage.setItem("builder.studio", env({ nodes: [] }));
-});
+}, process.env.PUBLISHED_AT ?? null);
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 
@@ -89,7 +94,7 @@ await page.locator("[data-github-button]").first().click();
 await page.waitForTimeout(700);
 await page.locator("[data-repo-bring]").fill("sparkygogo77-spec/sink");
 await page.locator("[data-repo-pull]").click();
-for (let i = 0; i < 90 && ((await state()).nodes?.length ?? 0) < 100; i++) await page.waitForTimeout(1000);
+for (let i = 0; i < 90 && ((await state()).nodes?.length ?? 0) < Math.min(100, doc.nodes.length); i++) await page.waitForTimeout(1000);
 await page.waitForTimeout(3000);
 
 const files = await page.evaluate(async () => (window.__studioExport ? await window.__studioExport() : null));

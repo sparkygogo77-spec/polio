@@ -536,7 +536,9 @@ export function compileSpec(input: CompileInput): Spec {
       ? [
           `The site is called **${name}**. Wherever a logo or wordmark is drawn it reads "${name}", never "Logo".`,
           `Browser title: "${name}". Meta description: ${gimmick ? `"${firstSentence(gimmick)}"` : "one sentence from the idea, once it is written"}.`,
-          "Link preview (Open Graph and Twitter card): the first page's first screen at 1200×630 with the wordmark on it; the favicon is the wordmark's mark.",
+          brief.head?.image || brief.head?.icons?.length
+            ? `Link preview (Open Graph and Twitter card): ${brief.head.image ? `the share picture at ${brief.head.image.picture.path}${brief.head.image.w && brief.head.image.h ? ` (${brief.head.image.w}×${brief.head.image.h})` : ""}, ${brief.head.card === "summary" ? "a small card" : "a large card"}` : "no share picture yet"}; ${brief.head.icons?.length ? `the favicon is ${brief.head.icons[0]!.picture.path}` : "the favicon is the wordmark's mark"}. Written with full addresses on the published domain.`
+            : "Link preview (Open Graph and Twitter card): the first page's first screen at 1200×630 with the wordmark on it; the favicon is the wordmark's mark.",
         ]
       : [],
     format: formatRows,
