@@ -525,6 +525,7 @@ const SCROLL_HEADER: Work = {
       { id: "background", label: "Fill", kind: "text", default: "", placeholder: "a colour, e.g. #f3d440" },
       { id: "edge", label: "Edge (shadow)", kind: "text", default: "0 4px 0 #111", placeholder: "e.g. 0 4px 0 #111" },
       { id: "duration", label: "Takes (ms)", kind: "number", default: "300" },
+      { id: "padding", label: "Padding once scrolled (top bottom)", kind: "text", default: "", placeholder: "e.g. 8px 8px" },
     ],
     needs: "none",
     says: ["header bar on scroll", "sticky header background", "header on scroll", "scrolled header", "header changes on scroll", "shrink header"],
@@ -537,8 +538,13 @@ const SCROLL_HEADER: Work = {
   var safe = function (v) { v = String(v || "").trim(); return /^[#\\w\\s.,()%-]+$/.test(v) ? v : ""; };
   var fill = safe(inputs.background), edge = safe(inputs.edge), ms = Math.max(0, Number(inputs.duration) || 0), s = el.style;
   var was = { background: s.background, boxShadow: s.boxShadow, transition: s.transition };
+  /* The padding closes on the part's own box, where its captured padding is (the page's .scrolled rule: 14px to 8px). */
+  var pads = String(inputs.padding || "").trim().split(/\s+/).filter(function (v) { return /^\d*\.?\d+px$/.test(v); });
+  var inner = pads.length ? (el.firstElementChild || el) : null, is = inner ? inner.style : null;
+  var wasPad = is ? { top: is.paddingTop, bottom: is.paddingBottom, transition: is.transition } : null;
   /* A change of state, not a motion: it still happens for a visitor who asked for less motion, only at once. */
   s.transition = calm || !ms ? "none" : "background " + ms + "ms, background-color " + ms + "ms, box-shadow " + ms + "ms";
+  if (is) is.transition = calm || !ms ? "none" : "padding " + ms + "ms";
   var box = null;
   for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
   var on = null;
@@ -548,6 +554,7 @@ const SCROLL_HEADER: Work = {
     on = now;
     s.background = now && fill ? fill : was.background;
     s.boxShadow = now && edge ? edge : was.boxShadow;
+    if (is) { is.paddingTop = now ? pads[0] : wasPad.top; is.paddingBottom = now ? (pads[1] || pads[0]) : wasPad.bottom; }
     if (now) el.setAttribute("data-scrolled", ""); else el.removeAttribute("data-scrolled");
   }
   (box || window).addEventListener("scroll", place, { passive: true });

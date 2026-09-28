@@ -173,13 +173,19 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
   for (const s of (b.scrollClass as Rec[]) ?? []) {
     if (!s.part || s.folded) continue;
     const before = (s.before ?? {}) as Rec, after = (s.after ?? {}) as Rec;
-    const fill = after.background !== before.background ? String(after.background ?? "") : "";
-    const edge = after.boxShadow !== before.boxShadow && after.boxShadow !== "none" ? String(after.boxShadow ?? "") : "";
-    if (!fill && !edge) continue;
+    /* The page's own rule, when sink recorded it (`rules`): its fill, edge and padding as written; else the states either side (tests/header-bar-captured.mjs). */
+    const rule = ((Array.isArray(s.rules) ? (s.rules as Rec[]) : []).find((r) => r && typeof r.style === "object")?.style ?? {}) as Rec;
+    const said = (k: string) => (typeof rule[k] === "string" && String(rule[k]).trim() ? String(rule[k]).trim() : "");
+    const fill = said("background") || said("background-color") || (after.background !== before.background ? String(after.background ?? "") : "");
+    const edge = said("box-shadow") || (after.boxShadow !== before.boxShadow && after.boxShadow !== "none" ? String(after.boxShadow ?? "") : "");
+    const padTop = said("padding-top") || (after.paddingTop !== before.paddingTop ? String(after.paddingTop ?? "") : "");
+    const padBottom = said("padding-bottom") || (after.paddingBottom !== before.paddingBottom ? String(after.paddingBottom ?? "") : "");
+    const padding = padTop || padBottom ? `${padTop || String(before.paddingTop ?? "")} ${padBottom || String(before.paddingBottom ?? "")}`.trim() : "";
+    if (!fill && !edge && !padding) continue;
     const t = /background\s+(\d*\.?\d+)(ms|s)/.exec(String(s.transition ?? ""));
     /* Measured in 5 px steps: `at` is the first with it on, so the last without it is 5 px before. */
     const at = Math.max(0, (num(s.at) ?? 45) - 5);
-    give(s.part, { id: "scroll-header", inputs: { at: String(at), background: fill, edge, ...(t ? { duration: String(Math.round(Number(t[1]) * (t[2] === "s" ? 1000 : 1))) } : {}) } });
+    give(s.part, { id: "scroll-header", inputs: { at: String(at), background: fill, edge, ...(padding ? { padding } : {}), ...(t ? { duration: String(Math.round(Number(t[1]) * (t[2] === "s" ? 1000 : 1))) } : {}) } });
   }
 
   /* The lights: an idle loop taking the part to no opacity. The captured blink is handed over, so the switch stops it. */
