@@ -78,6 +78,8 @@ const context = await browser.newContext({ viewport: { width: 1500, height: 1000
 await context.addInitScript((d) => localStorage.setItem("builder.studio", d), doc);
 const page = await context.newPage();
 
+/* Read at 1:1: the board draws its page with CSS zoom (Canvas.tsx), so a computed length there is the zoomed one (a 2px edge reads 1.75px at 0.88). */
+const flat = () => page.evaluate(() => { const z = document.querySelector("[data-board-zoom]"); if (z) z.style.zoom = "1"; });
 const read = (attr) => page.evaluate((attr) => {
   const out = {};
   for (const el of document.querySelectorAll(`[${attr}]`)) {
@@ -97,6 +99,7 @@ const read = (attr) => page.evaluate((attr) => {
 for (const [where, path, attr] of [["board", "/builder", "data-node-id"], ["live page", "/builder/preview/", "data-live-node"]]) {
   await page.goto(`${URL_}${path}`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1800);
+  await flat();
   const on = await read(attr);
   check(`${where}: all five buttons drew`, Object.keys(on).length === 5, Object.keys(on).join(", "));
   for (const id of ["solid-unedged", "outline-unedged", "padded-unedged"]) {

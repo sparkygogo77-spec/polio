@@ -17,11 +17,13 @@
  * so undoing the typing puts the width back with it.
  */
 import { useStudio } from "./store";
+import { atFullSize } from "./textFit";
 
 export function growToWords(id: string): void {
   if (typeof window === "undefined") return;
   /* Two frames: the words just written have to be drawn before they can be measured. */
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  /* Read at one to one: words laid out at the board's zoom are not the page's words (`textFit.ts#atFullSize`). */
+  requestAnimationFrame(() => requestAnimationFrame(() => atFullSize(() => {
     const s = useStudio.getState();
     const n = s.nodes.find((x) => x.id === id);
     const surface = document.querySelector(`[data-node-id="${id}"] [data-part]`);
@@ -41,5 +43,5 @@ export function growToWords(id: string): void {
     const short = (one.width - has) / zoom;
     if (!oneLineTall || !(short > 0.5)) return;
     useStudio.setState((st) => ({ nodes: st.nodes.map((x) => (x.id === id ? { ...x, w: Math.ceil(x.w + short) } : x)) }));
-  }));
+  })));
 }

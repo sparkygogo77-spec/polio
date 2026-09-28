@@ -90,6 +90,9 @@ await context.addInitScript((d) => localStorage.setItem("builder.studio", d), do
 const page = await context.newPage();
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1800);
+/* Read at 1:1: the board draws its page with CSS zoom (Canvas.tsx), so a computed length there is the zoomed one (a 2px edge reads 1.75px at 0.88). */
+const flat = () => page.evaluate(() => { const z = document.querySelector("[data-board-zoom]"); if (z) z.style.zoom = "1"; });
+await flat();
 
 const read = async () => page.evaluate(() => {
   const out = {};

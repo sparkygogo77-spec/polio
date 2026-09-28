@@ -1620,7 +1620,27 @@ export function Canvas() {
 
       {/* Across on the pan, down on the gutter plus whatever room the ground
           above the page needs: the pane owns down. */}
-      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px) scale(${zoom})` }}>
+      {/*
+        The page drawn AT the zoom, not drawn at 1:1 and shrunk.
+
+        It was `scale(zoom)` on this box: the page laid out at its real size
+        and the picture made smaller. At 0.79 a 4px border is 3.16 device
+        pixels starting part-way into one, so each side of a box smeared
+        differently — the owner's TG / X pills and BUY ON PUMP.FUN with
+        stair-stepped, broken outlines, which the exported page never had.
+        CSS `zoom` lays the page out at the zoomed size instead, so edges,
+        borders and text land on whole pixels the way a browser at 79% draws
+        a site. Every rectangle reads as it did (offsets stay unzoomed, the
+        client rects zoomed), so turning a pointer into the page, the hit
+        thresholds and the 1/zoom chips are unchanged. Words laid out zoomed
+        never wrap onto more lines than at 1:1 (0 of 1824 widths × fonts ×
+        zooms measured), so a part sized to its words stays one line. The pan
+        stays a transform on the box outside, in screen pixels. What reads
+        the words' drawn size back (the settle) reads it at 1:1
+        (`textFit.ts#atFullSize`). `tests/board-crisp.mjs`.
+      */}
+      <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
+      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom }}>
         {/*
           The page's box, which no longer clips to itself.
 
@@ -2009,6 +2029,7 @@ export function Canvas() {
         })}
         </div>
         </div>
+      </div>
       </div>
 
       {/* The panel for the one part picked inside an open black hole, and the surfaces forming (`SpaceLayer.tsx`). */}

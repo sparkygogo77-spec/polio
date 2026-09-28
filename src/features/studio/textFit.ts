@@ -331,12 +331,33 @@ export async function tidyToWords(ids: readonly string[], read: (id: string) => 
   ]);
   await new Promise((go) => requestAnimationFrame(() => requestAnimationFrame(go)));
   const boxes: Drawn[] = [];
-  for (const id of ids) {
-    const b = read(id);
-    if (b) boxes.push(b);
-  }
+  atFullSize(() => {
+    for (const id of ids) {
+      const b = read(id);
+      if (b) boxes.push(b);
+    }
+  });
   const fitted = fitRows(boxes);
   if (fitted.length) apply(fitted);
+}
+
+/**
+ * Read the board at one to one.
+ *
+ * The board draws its page with CSS `zoom` (Canvas.tsx), so words are laid
+ * out at the zoomed size and a paragraph's height, read back, carries up to
+ * a pixel of that size's rounding: 2px of growth that was never there, which
+ * the settle below then wrote down and moved everything under it by
+ * (`tests/captured-words.mjs`). So a run of readings is taken with the board
+ * set to 1:1 and put back in the same task, before anything is painted:
+ * what is read is the page as it is, whatever the zoom.
+ */
+export function atFullSize<T>(read: () => T): T {
+  const board = typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-board-zoom]");
+  const was = board?.style.zoom ?? "";
+  if (!board || !was || was === "1") return read();
+  board.style.zoom = "1";
+  try { return read(); } finally { board.style.zoom = was; }
 }
 
 /** What a node's box drew at on the board, or null if it is not on screen. */
@@ -441,10 +462,12 @@ export function useSettleToWords(
     if (!ns.some((n) => !n.byHand)) return;
     const machines = new Set(ns.filter((n) => !n.byHand).map((n) => n.id));
     const boxes: Drawn[] = [];
-    for (const n of ns) {
-      const d = drawnOnBoard(n);
-      if (d) boxes.push(d);
-    }
+    atFullSize(() => {
+      for (const n of ns) {
+        const d = drawnOnBoard(n);
+        if (d) boxes.push(d);
+      }
+    });
     if (!boxes.length) return;
     const fitted = fitRows(boxes, (id) => machines.has(id), latest.current.frame);
     if (!fitted.length) { said.current = ""; return; }
