@@ -35,7 +35,8 @@ import type { CarriedFont } from "./fonts";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { useBoxEntry } from "./boxEntry";
-import { rasterFragment } from "./renderer";
+import { hasPicture, pictureFrom, readDrop } from "./pictureDrop";
+import { put as putPicture } from "./pictures";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
@@ -803,30 +804,38 @@ export function Canvas() {
      * ordinary Picture part he can select, move and resize like any other:
      * nothing generated is ever baked into the page behind his back.
      */
-    const dropped = e.dataTransfer.getData("application/x-studio-picture");
-    if (dropped) {
-      try {
-        const pic = JSON.parse(dropped) as { src?: string; w?: number; h?: number };
-        if (pic.src) {
-          const p0 = toCanvas(e.clientX, e.clientY);
-          const natural = { w: Math.max(1, pic.w || 512), h: Math.max(1, pic.h || 512) };
-          const scale = Math.min(1, frameWidth / natural.w);
-          const w = Math.round(natural.w * scale);
-          const h = Math.round(natural.h * scale);
-          const id = useStudio.getState().addNode("picture", snapGrid(p0.x - w / 2), snapGrid(p0.y - h / 2), { w, h });
-          useStudio.getState().updateNode(id, {
-            label: "Picture",
-            /* The same record any rendered body carries, so the part is an
-               ordinary one: it publishes, exports and edits like the rest. */
-            code: { html: rasterFragment(pic.src), overlap: 1, attempts: 1, at: Date.now(), source: "renderer", kind: "raster" },
-          });
-          play("confirm");
-          haptic();
+    /*
+     * ANY PICTURE, FROM ANYWHERE, WHOLE (`pictureDrop.ts`). The Render panel's
+     * own drag, a file from disk, a link or an <img> from another page: read
+     * to the last byte, checked, and kept as a stored picture on a Picture
+     * part at its own size. It was written into the part as a `data:` URL,
+     * and Chrome will not load one past 2 MB: a 1024² PNG drew a strip.
+     * Nothing is placed until all of it is here, and what cannot be is said.
+     */
+    const featureDrag = e.dataTransfer.getData("application/x-studio-feature");
+    const got = featureDrag ? null : readDrop(e.dataTransfer);
+    if (got && hasPicture(got)) {
+      const p0 = toCanvas(e.clientX, e.clientY);
+      void pictureFrom(got).then(async (pic) => {
+        if (!pic) return;
+        if (!pic.ok) {
+          play("deny");
+          news.publish({ key: "studio:picture-drop", title: "The picture was not kept", body: pic.says, level: "warn", source: "studio", toast: { durationMs: 9000 } });
+          return;
         }
-      } catch { /* not ours after all */ }
+        const made = await putPicture(pic.blob, { alt: pic.name === "Picture" ? "" : pic.name, from: "upload" });
+        const scale = Math.min(1, frameWidth / pic.w);
+        const w = Math.round(pic.w * scale);
+        const h = Math.round(pic.h * scale);
+        const st = useStudio.getState();
+        const id = st.addNode("picture", snapGrid(p0.x - w / 2), snapGrid(p0.y - h / 2), { w, h });
+        st.updateNode(id, { label: "Picture", picture: made });
+        play("confirm");
+        haptic();
+      });
       return;
     }
-    const featureId = e.dataTransfer.getData("application/x-studio-feature");
+    const featureId = featureDrag;
     if (!featureId) return;
     const p = toCanvas(e.clientX, e.clientY);
     const feature = getFeature(featureId);
