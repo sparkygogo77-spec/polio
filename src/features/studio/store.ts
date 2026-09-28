@@ -1052,6 +1052,13 @@ interface StudioState extends Doc {
   setBrief: (patch: Partial<StudioBrief>) => void;
   setLook: (patch: Partial<Look>) => void;
   /**
+   * An import is one undo step (tests/bring-again.mjs). `historyMark` before
+   * it starts; `oneStepSince(mark)` once it has landed folds every
+   * checkpoint it took into the first, so one Ctrl+Z is the board before it.
+   */
+  historyMark: () => number;
+  oneStepSince: (mark: number) => void;
+  /**
    * Swap-all (`siteColours.ts`): recolour exactly the spots that wear `from`
    * — for one use, or every use — and the page when it wore it. One undo.
    * `palette` is the resolved one, so a part naming a role is read as what
@@ -1494,6 +1501,8 @@ function shelve(repos: BroughtRepo[], parts: BroughtPart[]): void {
 export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
+      /** How many undo checkpoints have been taken, ever: `oneStepSince` counts from it. */
+      let pushes = 0;
       /** Push the pre-mutation document onto the undo stack. */
       /**
        * The first thing anyone does makes iteration one.
@@ -1545,6 +1554,7 @@ export const useStudio = create<StudioState>()(
       const push = () => {
         seed();
         run = null;
+        pushes++;
         set((s) => ({
           past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
           future: [],
@@ -2450,6 +2460,15 @@ export const useStudio = create<StudioState>()(
               return { ...m, frames };
             }),
           })),
+        historyMark: () => pushes,
+        oneStepSince: (mark) => {
+          /* Every checkpoint taken since `mark` after the first is folded into
+             the first: what one undo takes back is the board before it began. */
+          const extra = pushes - mark - 1;
+          if (extra <= 0) return;
+          pushes -= extra;
+          set((s) => ({ past: s.past.slice(0, Math.max(0, s.past.length - extra)), future: [] }));
+        },
         setLook: (patch) => {
           push();
           set((s) => ({ look: { ...s.look, ...patch } }));
@@ -3224,6 +3243,15 @@ const PRISTINE: ReturnType<typeof docOnly> = JSON.parse(JSON.stringify(docOnly(u
  * the one place for it. Set by every load, read once by the builds store's
  * copy across, and gone after that.
  */
+/**
+ * Where a Bring began in the undo history (`historyMark`), taken by the
+ * import when it lands: the space the Bring placed, the board it replaced
+ * and everything the landing does are then one undo step.
+ */
+let importMark: number | null = null;
+export function holdImportMark(mark: number): void { importMark = mark; }
+export function takeImportMark(): number | null { const m = importMark; importMark = null; return m; }
+
 let carried: string | null = null;
 export function takeCarriedRepo(): string | null {
   const it = carried;

@@ -129,14 +129,19 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
   const [pulling, setPulling] = React.useState(false);
   const [refused, setRefused] = React.useState<string | null>(null);
   /* What a Bring is waiting on his word for, while the line saying what goes is up. */
-  const [asking, setAsking] = React.useState<{ want: string; path: string | null } | null>(null);
+  /* `other`: a folder of the same repository that is not where this site came from, allowed once he says so. */
+  const [asking, setAsking] = React.useState<{ want: string; path: string | null; other: boolean } | null>(null);
+  const pages = useStudio((s) => s.pages);
+  const pageNames = React.useMemo(() => pages.map((p) => p.name), [pages]);
   const partCount = useStudio((s) => s.nodes.length);
   const pageCount = useStudio((s) => s.pages.length);
   const ctx = useActions();
   const router = useRouter();
   /* Where this site was brought in from: the only repo it may bring in again. Where it publishes is not this. */
-  const from = useBuilds((s) => repoLabel(s.projects.find((p) => p.id === s.activeId)?.source));
-  const fromRepo = from ? from.split("/").slice(0, 2).join("/") : null;
+  const source = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.source);
+  const from = repoLabel(source);
+  const fromRepo = source ? `${source.owner}/${source.name}` : null;
+  const [againSays, setAgainSays] = React.useState<string | null>(null);
 
   const read = React.useCallback((name: string, ref?: string) => {
     setChoicesSaid(null);
@@ -193,13 +198,40 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
   const ask = (want: string, path: string | null) => {
     if (!want || pulling) return;
     setRefused(null);
-    const repoOf = want.split("@")[0]!.split("/").slice(0, 2).join("/").toLowerCase();
-    if (partCount === 0 || (fromRepo && repoOf !== fromRepo.toLowerCase())) { run(want, path); return; }
-    setAsking({ want, path });
+    const [repoPart] = want.split("@");
+    const bits = repoPart!.split("/");
+    const repoOf = bits.slice(0, 2).join("/").toLowerCase();
+    const dirOf = (path ?? (bits.slice(2).join("/") || null))?.replace(/^\/+|\/+$/g, "") || null;
+    /* The same repository, another of its folders (or its root): a different source, which he may take over this one once he has said so. */
+    const other = !!source && repoOf === fromRepo!.toLowerCase() && (dirOf ?? "").toLowerCase() !== (source.dir ?? "").toLowerCase();
+    if (!other && (partCount === 0 || (fromRepo && repoOf !== fromRepo.toLowerCase()))) { run(want, path); return; }
+    setAsking({ want, path, other });
+  };
+
+  /*
+   * BRING IT IN AGAIN: what this site came from, whole — the repository, the
+   * branch and the folder — and never, in silence, the root of the default
+   * branch. It did exactly that: the folder was not recorded, and the press
+   * read sink main's root (SOLCINERATOR) over a trumpmorty.fun board. A site
+   * recorded before the folder was kept has no folder to reuse, so the
+   * picker opens on its repository and branch and he chooses.
+   */
+  const bringAgain = () => {
+    if (!source) return;
+    setRefused(null);
+    const name = `${source.owner}/${source.name}`;
+    if (source.dir) { ask(`${name}@${source.branch}`, source.dir); return; }
+    setPicked(name);
+    setChoices(null);
+    setFolder("");
+    setBranch(source.branch);
+    read(name, source.branch);
+    setAgainSays(`This site's record says ${name} on ${source.branch}, not which folder of it. Choose the folder it came from, or "the whole repo" if it was the root.`);
   };
 
   /* A new site for it: the site being left keeps its parts, and the repo comes into the new one. */
   const intoNewSite = (want: string, path: string | null) => {
+    setAgainSays(null);
     setAsking(null);
     const name = want.split("@")[0]!.split("/")[1] ?? "";
     const id = useBuilds.getState().create(name);
@@ -217,7 +249,8 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
   };
 
   const rows = (mine ?? []).filter((r) => !find.trim() || r.name.toLowerCase().includes(find.trim().toLowerCase()));
-  const whole = (s: string) => (asking?.path ? `${asking.want.split("@")[0]}/${asking.path}` : asking?.want.split("@")[0]) + (s ? ` on ${s}` : "");
+  const whole = (s: string) => `${asking?.path ? `${asking.want.split("@")[0]}/${asking.path}` : asking?.want.split("@")[0]} on ${s || (choices?.base ? choices.base : "its default branch")}`;
+  const listPages = (n: string[]) => (n.length <= 4 ? n.join(", ") : `${n.slice(0, 3).join(", ")} and ${n.length - 3} more`);
 
   return (
     <section data-repo-section="bring" className="flex flex-col gap-2">
@@ -226,11 +259,12 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
         {from
           ? <p data-repo-source={from} className="text-small text-fg-muted">This site was brought in from <span className="text-fg">{from}</span>, which it never publishes to. It can bring that one in again; another repo needs a new site.</p>
           : <p className="text-small text-fg-muted">Pick one of your repos to build from. Its page lands on the board as parts you can change.</p>}
-        {from ? (
-          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => ask(from, null)}>
-            Bring {from} in again
+        {from && source ? (
+          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={bringAgain}>
+            {source.dir ? `Bring ${from} in again, from ${source.branch}` : `Bring ${from} in again: choose its folder`}
           </Button>
         ) : null}
+        {againSays ? <p data-repo-again-says="" className="mt-1 text-small text-fg-muted">{againSays}</p> : null}
       </div>
 
       <div className="relative">
@@ -314,11 +348,16 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
       {asking ? (
         <div data-repo-bring-confirm="" className="rounded-md border px-2 py-1.5" style={warn}>
           <p className="text-small text-fg">
-            This site has {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"}. Bring {whole(asking.want.split("@")[1] ?? "")} into a new site, or replace this one with it?
+            Replacing this site takes away its {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"} ({listPages(pageNames)}) and brings in <span className="font-mono">{whole(asking.want.split("@")[1] ?? "")}</span>. One Ctrl+Z puts this board back. Or bring it into a new site and keep this one.
           </p>
+          {asking.other ? (
+            <p data-repo-bring-other="" className="mt-1 text-small text-fg">
+              That is not where this site came from ({from}{source ? ` on ${source.branch}` : ""}). Replacing makes it this site&apos;s source from now on.
+            </p>
+          ) : null}
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Button size="sm" variant="primary" data-repo-bring-newsite="" onClick={() => intoNewSite(asking.want, asking.path)}>Make a new site for it</Button>
-            <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => { const a = asking; setAsking(null); run(a.want, a.path); }}>Replace this one</Button>
+            <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => { const a = asking; setAsking(null); setAgainSays(null); run(a.want, a.path, a.other ? null : from); }}>Replace this one</Button>
             <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
           </div>
         </div>

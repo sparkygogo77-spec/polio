@@ -47,7 +47,7 @@ import { checkRepoFeatures } from "./library/repoFeatures";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { landPalette } from "./paletteFrom";
-import { useStudio, type StudioNode } from "./store";
+import { takeImportMark, useStudio, type StudioNode } from "./store";
 import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
@@ -379,6 +379,9 @@ export function FromASite({ space }: { space: Space }) {
    */
   const copySite = (copy: RepoCopy, of: Repo) => {
     const st = useStudio.getState();
+    /* One undo takes the whole import back: the spaces cleared, the document
+       loaded, the sweep and the palette are one step, not three. */
+    const mark = takeImportMark() ?? st.historyMark();
     /* Every space goes, not only the one made for the hand-off: the
        document loaded next carries none of its own, and a space left from
        an earlier import would sit on the copied site as a hole. */
@@ -424,9 +427,15 @@ export function FromASite({ space }: { space: Space }) {
       const landed = landPalette(now.nodes, captured);
       useStudio.setState({ nodes: landed.nodes, look: { ...now.look, palette: landed.palette, paletteFrom: landed.from } });
     }
+    useStudio.getState().oneStepSince(mark);
     const sweptSays = useStudio.getState().sweepNote ?? "";
     useStudio.setState({ sweepNote: null });
-    const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
+    /* The source whole: the repository, the branch it was read on, and the
+       folder the site is kept in. The folder was dropped, so "Bring it in
+       again" read the repository's root on its default branch: SOLCINERATOR
+       over a trumpmorty.fun board (tests/bring-again.mjs). */
+    const at = repoFrom(`${of.owner}/${of.name}`, copy.ref);
+    const repo = at ? { ...at, dir: of.dir ?? null } : at;
     /* Brought in from it: that is where the site came from, and only that.
        It is never where the site publishes (the owner's ruling: polio never
        writes to a capture repository), so a publish target that was this
@@ -713,7 +722,8 @@ export function FromASite({ space }: { space: Space }) {
        when it had come from nowhere yet. Never where it publishes. */
     if (from) {
       const here = activeProject();
-      const came = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
+      const cameAt = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
+      const came = cameAt ? { ...cameAt, dir: (from as { dir?: string | null }).dir ?? null } : cameAt;
       if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
     }
     // Locked as the page had it: the layout is the specification.

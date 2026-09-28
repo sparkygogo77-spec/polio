@@ -17,7 +17,7 @@
  * in the same order: a space is made for it, the request is handed to that
  * space, and the space is picked so its panel mounts and runs the import.
  */
-import { useStudio } from "./store";
+import { holdImportMark, useStudio } from "./store";
 import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
 import { clearImportLine } from "./FromASite";
 
@@ -37,6 +37,7 @@ export function placeBring(want: string): string | null {
   /* Every press starts from a clear strip: the last press's ending is not this one's. */
   clearImportLine();
   const st = useStudio.getState();
+  holdImportMark(st.historyMark());
   const id = st.addSpace({
     pageId: st.activePageId,
     boundary: [[240, 160], [1240, 160], [1240, 860], [240, 860]],
