@@ -185,7 +185,10 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const t = /background\s+(\d*\.?\d+)(ms|s)/.exec(String(s.transition ?? ""));
     /* Measured in 5 px steps: `at` is the first with it on, so the last without it is 5 px before. */
     const at = Math.max(0, (num(s.at) ?? 45) - 5);
-    give(s.part, { id: "scroll-header", inputs: { at: String(at), background: fill, edge, ...(padding ? { padding } : {}), ...(t ? { duration: String(Math.round(Number(t[1]) * (t[2] === "s" ? 1000 : 1))) } : {}) } });
+    /* The parts the header holds are parts of their own (its logo, nav pill, buttons): named, so the bar carries them as its padding closes. */
+    const hd = byId.get(String(s.part));
+    const parts = padding && hd ? inside(hd).map((k) => k.id).join(",") : "";
+    give(s.part, { id: "scroll-header", inputs: { at: String(at), background: fill, edge, ...(padding ? { padding } : {}), ...(parts ? { parts } : {}), ...(t ? { duration: String(Math.round(Number(t[1]) * (t[2] === "s" ? 1000 : 1))) } : {}) } });
   }
 
   /* The lights: an idle loop taking the part to no opacity. The captured blink is handed over, so the switch stops it. */

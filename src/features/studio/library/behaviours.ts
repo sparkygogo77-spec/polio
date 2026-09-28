@@ -526,6 +526,7 @@ const SCROLL_HEADER: Work = {
       { id: "edge", label: "Edge (shadow)", kind: "text", default: "0 4px 0 #111", placeholder: "e.g. 0 4px 0 #111" },
       { id: "duration", label: "Takes (ms)", kind: "number", default: "300" },
       { id: "padding", label: "Padding once scrolled (top bottom)", kind: "text", default: "", placeholder: "e.g. 8px 8px" },
+      { id: "parts", label: "Carries (the parts in the header)", kind: "text", default: "", placeholder: "part ids, comma-separated" },
     ],
     needs: "none",
     says: ["header bar on scroll", "sticky header background", "header on scroll", "scrolled header", "header changes on scroll", "shrink header"],
@@ -538,13 +539,19 @@ const SCROLL_HEADER: Work = {
   var safe = function (v) { v = String(v || "").trim(); return /^[#\\w\\s.,()%-]+$/.test(v) ? v : ""; };
   var fill = safe(inputs.background), edge = safe(inputs.edge), ms = Math.max(0, Number(inputs.duration) || 0), s = el.style;
   var was = { background: s.background, boxShadow: s.boxShadow, transition: s.transition };
-  /* The padding closes on the part's own box, where its captured padding is (the page's .scrolled rule: 14px to 8px). */
-  var pads = String(inputs.padding || "").trim().split(/\s+/).filter(function (v) { return /^\d*\.?\d+px$/.test(v); });
+  /* The padding closes on the part's own box, where its captured padding is (the page's .scrolled rule: 14px to 8px); the bar shrinks by as much, and the parts it holds (its own parts here) ride up with it. */
+  var pads = String(inputs.padding || "").trim().split(/\\s+/).filter(function (v) { return /^\\d*\\.?\\d+px$/.test(v); });
   var inner = pads.length ? (el.firstElementChild || el) : null, is = inner ? inner.style : null;
-  var wasPad = is ? { top: is.paddingTop, bottom: is.paddingBottom, transition: is.transition } : null;
+  var wasPad = is ? { top: is.paddingTop, bottom: is.paddingBottom } : null;
+  var cp = inner ? getComputedStyle(inner) : null;
+  var dTop = cp ? parseFloat(cp.paddingTop) - parseFloat(pads[0]) : 0, dBottom = cp ? parseFloat(cp.paddingBottom) - parseFloat(pads[1] || pads[0]) : 0;
+  var wasH = s.height, wasMin = s.minHeight, hPx = /^\\d*\\.?\\d+px$/.test(wasH) ? parseFloat(wasH) : null;
+  var held = String(inputs.parts || "").split(",").map(function (id) { return id ? document.getElementById(id.trim()) : null; }).filter(Boolean);
   /* A change of state, not a motion: it still happens for a visitor who asked for less motion, only at once. */
   s.transition = calm || !ms ? "none" : "background " + ms + "ms, background-color " + ms + "ms, box-shadow " + ms + "ms";
-  if (is) is.transition = calm || !ms ? "none" : "padding " + ms + "ms";
+  var t2 = calm || !ms ? "none" : "padding " + ms + "ms, height " + ms + "ms, translate " + ms + "ms";
+  if (is) { is.transition = t2; s.transition = s.transition === "none" ? "none" : s.transition + ", height " + ms + "ms"; }
+  held.forEach(function (h) { h.style.transition = t2; });
   var box = null;
   for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
   var on = null;
@@ -555,6 +562,8 @@ const SCROLL_HEADER: Work = {
     s.background = now && fill ? fill : was.background;
     s.boxShadow = now && edge ? edge : was.boxShadow;
     if (is) { is.paddingTop = now ? pads[0] : wasPad.top; is.paddingBottom = now ? (pads[1] || pads[0]) : wasPad.bottom; }
+    if (is && hPx !== null) { s.height = now ? (hPx - dTop - dBottom) + "px" : wasH; s.minHeight = now ? s.height : wasMin; }
+    held.forEach(function (h) { h.style.translate = now && dTop ? "0 " + (-dTop) + "px" : ""; });
     if (now) el.setAttribute("data-scrolled", ""); else el.removeAttribute("data-scrolled");
   }
   (box || window).addEventListener("scroll", place, { passive: true });
