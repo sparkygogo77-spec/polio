@@ -242,6 +242,8 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
         const share = inR - inL - C.w > 0 ? (C.x - inL) / (inR - inL - C.w) : 0.5;
         k = { width: { c: C.w, k: 0, css: width }, left: { c: C.x, k: 0, css: `calc(${css(l0, W).replace(/^calc/, "")} + (${insideCss} - ${width}) * ${+share.toFixed(6)})` } };
       } else if (Math.abs(right) <= E && left > E) k = at(1);
+      /* Placed absolutely (a decoration: trumpmorty.fun's ringed planet, the site's `right: 36%`): it moves by where its centre stood across what holds it, so it stays by what it sits over (`tests/fluid-wide.mjs`). */
+      else if (C.position === "absolute" && inR - inL > 0) k = at(Math.max(0, Math.min(1, (C.x + C.w / 2 - inL) / (inR - inL))));
       else if (lost && C.x + C.w / 2 > (inL + inR) / 2) k = at(1);
       else k = at(0);
       let f = fixed;
@@ -306,6 +308,24 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
   if (k.fixed === "top") { st.top = `${p.y}px`; st.bottom = ""; if (k.height) { st.height = st.minHeight = `${k.height}px`; st.overflow = "clip"; } }
   else if (k.fixed === "bottom") { st.top = "auto"; st.bottom = `${H - (p.y + p.h)}px`; }
   else { st.top = `${p.y}px`; st.bottom = `${H - (p.y + p.h)}px`; st.minHeight = "0px"; st.height = "auto"; }
+}
+
+/**
+ * A CUT WINDOW AS WIDE AS THE PAGE. The capture cuts a part to the box it
+ * hangs out of as an `inset()` in px in the part's own frame (trumpmorty.fun's
+ * marquee tracks, cut to their ribbons). Where the window's right edge falls on
+ * the page's right edge at the capture's width (the part's x, less its right
+ * inset, moved by its transform's x), it moves with that edge as the window
+ * grows or shrinks; any other cut is left as captured (null). The page is
+ * never narrower than 1280, as `frameCss` has it. `tests/fluid-wide.mjs`.
+ */
+export function fluidClip(clip: string, p: { x: number; w: number }, tx: number, W: number): string | null {
+  const m = /^inset\(\s*(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s*\)$/.exec(clip.trim());
+  if (!m) return null;
+  const [t, r, b, l] = m.slice(1).map(Number) as [number, number, number, number];
+  const edge = p.x + p.w - r + tx;
+  if (Math.abs(edge - W) > 4) return null;
+  return `inset(${t}px max(0px, calc(${r}px - (max(100vw, ${Math.min(W, 1280)}px) - ${W}px))) ${b}px ${l}px)`;
 }
 
 /** The capture's window height for a page: the foot of its lowest fixed band. */

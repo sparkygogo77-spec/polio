@@ -69,7 +69,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { bandMoves, captureHeight, fluidParts, fluidStyle, isCaptured, stickyFlow, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
@@ -460,6 +460,14 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
     const id = el.getAttribute("data-live-node") ?? "";
     const p = byId.get(id), f = k.get(id);
     if (p && f) fluidStyle(el, p, f, W, H);
+    /* A cut window that reaches the page's right edge moves with it (`fluidSite.ts#fluidClip`). */
+    const art = nodes.get(id)?.art;
+    const cutEl = art?.clipPath ? Array.from(el.querySelectorAll<HTMLElement>("[data-part-box], [data-still-cut]")).find((e) => !!e.style.clipPath) : null;
+    if (p && f && art?.clipPath && cutEl && !f.width.css && Math.abs(f.width.k) < 1e-9) {
+      const tx = Number(/^matrix\(([^)]*)\)$/.exec(art.transform ?? "")?.[1]?.split(",")[4] ?? 0) || 0;
+      const moved = fluidClip(art.clipPath, p, tx, W);
+      if (moved) cutEl.style.clipPath = moved;
+    }
   }
   /*
    * The parts a sticky or fixed band owns go inside its element and stick
