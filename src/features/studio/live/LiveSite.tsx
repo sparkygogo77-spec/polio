@@ -20,6 +20,8 @@ import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
 import { homeOf } from "../homePage";
+import { pageFeatures } from "../library/works";
+import { runWorks } from "./runWorks";
 
 export interface LiveSiteProps {
   pages: StudioPage[];
@@ -79,6 +81,13 @@ export interface LiveSiteProps {
    * the button instead.
    */
   published?: boolean;
+  /**
+   * Run the features the page's parts carry (`node.work`), as the published
+   * page runs them: the Preview's switch and the full preview route. Left
+   * out everywhere else (the companion beside the board, a page on a cube,
+   * the export's own render), so nothing plays while the board is shown.
+   */
+  features?: boolean;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -97,7 +106,7 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false }: LiveSiteProps) {
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, features = false }: LiveSiteProps) {
   const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published }), [format, look, siteName, published]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
@@ -204,6 +213,15 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, t.muted, t.bodyFamily],
   );
 
+  /* The features, run on this page's parts once they are drawn; again only when what they are told changes. */
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const bound = React.useMemo(() => (features && !published && depth === 0 ? JSON.stringify(pageFeatures(pageNodes).bindings) : "[]"), [features, published, depth, pageNodes]);
+  React.useEffect(() => {
+    if (bound === "[]" || !rootRef.current) return;
+    return runWorks(rootRef.current, pageNodes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bound, pageId]);
+
   const motionSheet = React.useMemo(() => motionCss(nodes.filter((n) => n.pageId === pageId), look?.keyframes, (id) => `[data-live-node="${id}"]`), [nodes, pageId, look?.keyframes]);
   const transition = String(format["pages.transition"] ?? "fade");
   const motion = String(format["motion.level"] ?? "moderate");
@@ -216,6 +234,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
 
   return (
     <div
+      ref={rootRef}
       data-live-root=""
       data-live-page={pageId}
       style={{ width, height, position: "relative", overflow: "hidden", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}

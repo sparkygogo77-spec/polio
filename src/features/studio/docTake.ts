@@ -7,6 +7,7 @@
  * visitor who did not build it, the frame width too. Pure, so the rule can
  * be held without a browser.
  */
+import { attachCaptured } from "./library/captured.ts";
 export interface DocIn {
   pages?: { id: string }[];
   nodes?: unknown[];
@@ -19,6 +20,8 @@ export interface DocIn {
   motion?: unknown[];
   /** A capture's `@keyframes` (sink `doc.keyframes`): taken into the look. */
   keyframes?: unknown[];
+  /** What the captured page's scripts did (sink `doc.behaviours`): attached to its parts as features, then dropped. */
+  behaviours?: unknown;
   frameWidth?: unknown;
 }
 
@@ -65,7 +68,8 @@ export function takeDoc<P extends DocPrev>(
   const width = typeof doc.frameWidth === "number" && Number.isFinite(doc.frameWidth) && doc.frameWidth > 0 ? Math.round(doc.frameWidth) : s.frameWidth;
   return {
     pages,
-    nodes: doc.nodes ?? s.nodes,
+    // A capture's script-driven motion arrives as features on its parts (library/captured.ts).
+    nodes: doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes,
     groups: doc.groups ?? s.groups,
     shapes: doc.shapes ?? s.shapes,
     spaces: doc.spaces ?? s.spaces,

@@ -132,6 +132,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
         <div style={{ width: width * scale, height: height * scale, margin: "16px auto", position: "relative" }}>
           <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
             <LiveSite
+              features
               pages={pages}
               nodes={nodes}
               pageId={page.id}

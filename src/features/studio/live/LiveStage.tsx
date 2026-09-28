@@ -87,6 +87,7 @@ export function LiveStage({
       <div style={{ width: width * scale, height: height * scale, margin: `${padding}px auto`, position: "relative" }}>
         <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
           <LiveSite
+            features
             pages={pages}
             nodes={nodes}
             pageId={pageId}

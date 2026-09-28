@@ -28,7 +28,7 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import { chromium } from "playwright-core";
-import { LIBRARY, getWork, featureFiles, pageFeatureTags, pageFeatures, matchWorks, usesOf, withWork, withoutWork, withInput, describeWork } from "../src/features/studio/library/works.ts";
+import { LIBRARY, getWork, featureFiles, pageFeatureTags, pageFeatures, matchWorks, usesOf, withWork, withoutWork, withInput, withSwitch, describeWork } from "../src/features/studio/library/works.ts";
 import { readWords } from "../src/features/studio/library/read.ts";
 import { contractFiles } from "../src/features/studio/library/contract.ts";
 import { foundIn, offersFrom } from "../src/features/studio/library/roundTrip.ts";
@@ -39,7 +39,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const IDS = ["reveal", "copy-toast", "tilt", "follow-pointer", "marquee", "embed", "crt-loader", "dust-canvas"];
+const IDS = ["reveal", "copy-toast", "tilt", "follow-pointer", "marquee", "embed", "crt-loader", "dust-canvas", "scroll-header", "blink"];
 const CATEGORIES = new Set(["structure", "nav", "hero", "content", "media", "motion", "interact", "forms", "data", "social", "ai", "platform"]);
 const NEEDS = new Set(["none", "wallet", "backend", "key"]);
 
@@ -63,6 +63,11 @@ check("Tilt's options: strength, axis, mode", ["strength", "axis", "mode"].every
 check("Tilt's mode is mouse or scroll", JSON.stringify(getWork("tilt")?.manifest.inputs.find((i) => i.id === "mode")?.values) === JSON.stringify(["mouse", "scroll"]));
 check("Follow the pointer's option: max travel", inputIds("follow-pointer").split(",").includes("travel"), inputIds("follow-pointer"));
 check("Marquee's options: speed, direction, pause on hover", ["speed", "direction", "pause"].every((k) => inputIds("marquee").split(",").includes(k)), inputIds("marquee"));
+check("Reveal also: a starting scale, how long it takes, its curve, what it scales about, and whether it waits for the loader", ["scale", "duration", "ease", "origin", "after"].every((k) => inputIds("reveal").split(",").includes(k)), inputIds("reveal"));
+check("Follow the pointer can be a layer: across, down, with the scroll", JSON.stringify(getWork("follow-pointer")?.manifest.inputs.find((i) => i.id === "how")?.values) === JSON.stringify(["move", "turn", "layer"]) && ["x", "y", "scroll"].every((k) => inputIds("follow-pointer").split(",").includes(k)), inputIds("follow-pointer"));
+check("Header bar on scroll's options: after how far, the fill, the edge", ["at", "background", "edge"].every((k) => inputIds("scroll-header").split(",").includes(k)), inputIds("scroll-header"));
+check("Blink's options: every, how", ["every", "how"].every((k) => inputIds("blink").split(",").includes(k)), inputIds("blink"));
+check("the fine options wait under More", ["scale", "duration", "ease", "origin", "after"].every((k) => getWork("reveal").manifest.inputs.find((i) => i.id === k)?.advanced) && !getWork("reveal").manifest.inputs.find((i) => i.id === "distance")?.advanced);
 check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) => i.id === "url" && i.required));
 
 /* ------------------------------------------------------- the one box */
@@ -73,6 +78,7 @@ check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) =
     ["reveal on scroll", "reveal"], ["fade in on scroll", "reveal"], ["copy with toast", "copy-toast"], ["click to copy", "copy-toast"],
     ["tilt toward the mouse", "tilt"], ["parallax", "tilt"], ["follow the pointer", "follow-pointer"], ["eye follows cursor", "follow-pointer"],
     ["marquee", "marquee"], ["scrolling ticker loop", "marquee"], ["crt loader", "crt-loader"], ["floating dust", "dust-canvas"],
+    ["header bar on scroll", "scroll-header"], ["blinking light", "blink"], ["pointer parallax", "follow-pointer"],
   ];
   for (const [text, id] of said) {
     const r = read(text);
@@ -105,6 +111,15 @@ check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) =
   check("…and the page binds both to it, loading both", pf.bindings.map((b) => `${b.part}:${b.feature}`).join() === "a:reveal,a:copy-toast" && pf.scripts.join() === "runtime.js,reveal.js,copy-toast.js", pf.scripts.join());
 }
 
+/* ------------------------------------------------ a switch per feature */
+{
+  const two = withWork({ id: "reveal", inputs: { distance: "48" } }, { id: "blink", inputs: { every: "2" } });
+  const off = withSwitch(two, "blink", false);
+  check("a feature switched off keeps its settings", usesOf(off).find((u) => u.id === "blink")?.off === true && usesOf(off).find((u) => u.id === "blink")?.inputs.every === "2", JSON.stringify(off));
+  check("…and the page neither binds nor loads it", pageFeatures([{ id: "a", work: off }]).bindings.map((b) => b.feature).join() === "reveal" && !featureFiles([{ id: "a", work: off }]).some((f) => f.path.endsWith("blink.js")));
+  check("…switched on again, it is back as it was", JSON.stringify(withSwitch(off, "blink", true)) === JSON.stringify(two));
+}
+
 /* ---------------------------- the owner's two, as contract folders */
 {
   const nodes = [{ id: "n_crt", pageId: "page_home", featureId: "hero", content: "", work: { id: "crt-loader", inputs: {} } }, { id: "n_dust", pageId: "page_home", featureId: "hero", content: "", work: { id: "dust-canvas", inputs: {} } }];
@@ -134,6 +149,10 @@ const PARTS = [
   ["n_embed_bad", "embed", { url: "javascript:alert(1)" }, "top:560px;left:800px;width:200px;height:120px", "bad"],
   ["n_crt", "crt-loader", { title: "TRUMP & MORTY", ticker: "$TRORTY", hold: "1.2" }, "top:3000px;left:0;width:10px;height:10px", ""],
   ["n_dust", "dust-canvas", {}, "top:900px;left:0;width:800px;height:300px", ""],
+  ["n_header", "scroll-header", { at: "40", background: "rgb(243, 212, 64)", edge: "rgb(26, 15, 11) 0px 4px 0px 0px", duration: "0" }, "top:0;left:0;width:1200px;height:60px;position:fixed", "HEADER"],
+  ["n_blink", "blink", { every: "0.4", how: "steps" }, "top:760px;left:900px;width:12px;height:12px;background:red", ""],
+  ["n_layer", "follow-pointer", { how: "layer", x: "-90", y: "-50", scroll: "0.5", ease: "1" }, "top:300px;left:900px;width:100px;height:100px", "layer"],
+  ["n_intro", "reveal", { direction: "up", distance: "40", scale: "0.9", duration: "300", after: "loader" }, "top:420px;left:900px;width:200px;height:40px", "Intro"],
 ];
 const server = http.createServer((req, res) => {
   const path = join(dir, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/+/, "") || "index.html");
@@ -186,12 +205,44 @@ const style = (p, id, prop) => p.$eval(`#${id}`, (el, k) => getComputedStyle(el)
   const { ctx, p, errors } = await open("no-preference");
   check("the page runs every script without an error", errors.length === 0, errors.join(" | "));
 
+  /* A reveal set to wait for the loader is still hidden while the loader stands. */
+  check("Reveal after the loader: held while the tuning screen stands", Number(await style(p, "n_intro", "opacity")) === 0 && await p.evaluate(() => !!document.querySelector("[data-crt]")), await style(p, "n_intro", "opacity"));
+  check("…at its starting scale", (await style(p, "n_intro", "scale")) === "0.9", await style(p, "n_intro", "scale"));
+
   /* CRT loader: covers the page, then switches off and is gone. */
   const crtUp = await p.$eval("#n_crt", (el) => { const o = document.querySelector("[data-crt]") ?? el; const r = o.getBoundingClientRect(); return { w: r.width, h: r.height, fixed: getComputedStyle(o).position, text: o.textContent }; });
   check("CRT loader: a full-screen tuning screen on arrival", crtUp.fixed === "fixed" && crtUp.w >= 1200 && crtUp.h >= 800 && /TRUMP & MORTY/.test(crtUp.text) && /\$TRORTY/.test(crtUp.text), JSON.stringify(crtUp));
   check("…with a moving static drawn on a canvas", await p.evaluate(() => !!document.querySelector("[data-crt] canvas")));
   await wait(3200);
   check("…that switches off like an old set and leaves the page", await p.evaluate(() => !document.querySelector("[data-crt]")));
+  await wait(700);
+  check("…and then the part set to wait for it comes in, to its full size", Number(await style(p, "n_intro", "opacity")) === 1 && ["none", "1"].includes(await style(p, "n_intro", "scale")), `${await style(p, "n_intro", "opacity")} ${await style(p, "n_intro", "scale")}`);
+
+  /* Blink. */
+  const seen = new Set();
+  for (let i = 0; i < 12; i++) { seen.add(Number(await style(p, "n_blink", "opacity"))); await wait(70); }
+  check("Blink: the light goes dark and comes back, in two steps", seen.has(0) && seen.has(1) && seen.size === 2, [...seen].join(","));
+
+  /* Header bar on scroll. */
+  check("Header bar: none at the top", (await style(p, "n_header", "backgroundColor")) === "rgba(0, 0, 0, 0)", await style(p, "n_header", "backgroundColor"));
+  await p.evaluate(() => window.scrollTo(0, 60));
+  await wait(200);
+  check("…the fill and the edge once scrolled past its point", (await style(p, "n_header", "backgroundColor")) === "rgb(243, 212, 64)" && /4px 0px 0px/.test(await style(p, "n_header", "boxShadow")), `${await style(p, "n_header", "backgroundColor")} ${await style(p, "n_header", "boxShadow")}`);
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await wait(200);
+  check("…and gone again back at the top", (await style(p, "n_header", "backgroundColor")) === "rgba(0, 0, 0, 0)");
+
+  /* Follow the pointer, as a layer. */
+  const layerAt = async (x, y) => { await p.mouse.move(x, y); await wait(250); return p.$eval("#n_layer", (el) => getComputedStyle(el).translate); };
+  const l1 = await layerAt(300, 200), l2 = await layerAt(900, 600);
+  const xy = (t) => (t === "none" ? [0, 0] : t.split(" ").map(parseFloat).concat(0).slice(0, 2));
+  check("Follow the pointer, as a layer: shifts by its factor over the window", Math.abs((xy(l2)[0] - xy(l1)[0]) - (-90 * 0.5)) < 2 && Math.abs((xy(l2)[1] - xy(l1)[1]) - (-50 * 0.5)) < 2, `${l1} → ${l2}`);
+  await p.evaluate(() => window.scrollTo(0, 200));
+  await wait(250);
+  const l3 = await p.$eval("#n_layer", (el) => getComputedStyle(el).translate);
+  check("…and with the scroll, by its factor", Math.abs((xy(l3)[1] - xy(l2)[1]) - 100) < 2, `${l2} → ${l3}`);
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await wait(150);
 
   /* Dust: a canvas in the part, drawn into. */
   const dust = await p.$eval("#n_dust", (el) => { const c = el.querySelector("canvas"); if (!c) return null; const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let lit = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) lit++; return { lit, pe: getComputedStyle(c).pointerEvents, w: c.getBoundingClientRect().width }; });
@@ -304,6 +355,15 @@ const style = (p, id, prop) => p.$eval(`#${id}`, (el, k) => getComputedStyle(el)
   await wait(100);
   check("copying still copies, and the toast still says so", (await p.evaluate(() => window.__copied)).length === 1 && await p.evaluate(() => !!document.querySelector("[data-feature-toast]")));
   check("an embed still shows", await p.$eval("#n_embed", (el) => !!el.querySelector("iframe")));
+  const lit = new Set();
+  for (let i = 0; i < 8; i++) { lit.add(Number(await style(p, "n_blink", "opacity"))); await wait(70); }
+  check("a light does not blink, it stays lit", lit.size === 1 && lit.has(1), [...lit].join(","));
+  check("a part set to come in after the loader is simply there", Number(await style(p, "n_intro", "opacity")) === 1);
+  await p.mouse.move(300, 200); await wait(150); await p.mouse.move(900, 600); await wait(200);
+  check("a layer does not follow the pointer", ["none", "0px"].includes(await style(p, "n_layer", "translate")));
+  await p.evaluate(() => window.scrollTo(0, 60));
+  await wait(100);
+  check("the header still takes its bar (a change of state, not a motion), at once", (await style(p, "n_header", "backgroundColor")) === "rgb(243, 212, 64)" && (await p.$eval("#n_header", (el) => el.style.transition)) === "none");
   await ctx.close();
 }
 

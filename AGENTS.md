@@ -119,8 +119,11 @@ src/features/studio/
   library/       the feature library: working code with no look of its own.
                  works.ts (manifests, scripts, the runtime publishing ships),
                  behaviours.ts (reveal, copy, tilt, follow, marquee, embed,
-                 CRT loader, dust: the same shape, registered in LIBRARY; a
-                 part can carry several, `work.also`, see usesOf/withWork),
+                 CRT loader, dust, header bar on scroll, blink: the same
+                 shape, registered in LIBRARY; a part can carry several,
+                 `work.also`, see usesOf/withWork; `off` switches one off),
+                 captured.ts (a capture's `doc.behaviours` attached as
+                 features on import, docs/CAPTURED-BEHAVIOURS.md),
                  read.ts (what the one box reads), badge.ts (where the ! goes),
                  contract.ts (TASKS.md, the feature contract in AGENTS.md /
                  CLAUDE.md and features/<id>/ written into every published

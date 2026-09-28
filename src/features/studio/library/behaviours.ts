@@ -40,6 +40,11 @@ const REVEAL: Work = {
       { id: "distance", label: "Distance (px)", kind: "number", default: "32", heard: "(\\d+)\\s*px\\b" },
       { id: "delay", label: "Delay (ms)", kind: "number", default: "0", heard: "(\\d+)\\s*ms\\b" },
       { id: "once", label: "Only the first time", kind: "one", default: "yes", values: ["yes", "no"] },
+      { id: "scale", label: "Starts at scale", kind: "number", default: "1", advanced: true },
+      { id: "duration", label: "Takes (ms)", kind: "number", default: "700", advanced: true },
+      { id: "ease", label: "Curve", kind: "text", default: "cubic-bezier(.2,.8,.2,1)", advanced: true },
+      { id: "origin", label: "Scales about", kind: "text", default: "", placeholder: "its own centre", advanced: true },
+      { id: "after", label: "Starts", kind: "one", default: "page", values: ["page", "loader"], advanced: true },
     ],
     needs: "none",
     says: ["reveal on scroll", "reveal", "scroll reveal", "fade in on scroll", "slide in on scroll", "animate on scroll", "appear on scroll"],
@@ -52,17 +57,24 @@ const REVEAL: Work = {
   var d = Math.max(0, Number(inputs.distance)); if (!isFinite(d)) d = 32;
   var dir = inputs.direction || "up";
   var from = dir === "up" ? "0 " + d + "px" : dir === "down" ? "0 " + -d + "px" : dir === "left" ? d + "px 0" : dir === "right" ? -d + "px 0" : "0 0";
+  var k = Number(inputs.scale); if (!isFinite(k) || k <= 0 || inputs.scale === "" || inputs.scale === undefined) k = 1;
+  var ms = Number(inputs.duration); if (!isFinite(ms) || ms <= 0) ms = 700;
+  var ease = /^[\\w\\s.,()-]+$/.test(inputs.ease || "") ? inputs.ease : "cubic-bezier(.2,.8,.2,1)";
   var delay = Math.max(0, Number(inputs.delay) || 0), once = inputs.once !== "no", s = el.style;
-  var was = { opacity: s.opacity, translate: s.translate, transition: s.transition };
-  function hide() { s.transition = "none"; s.opacity = "0"; s.translate = from; }
+  var was = { opacity: s.opacity, translate: s.translate, scale: s.scale, transition: s.transition, origin: s.transformOrigin };
+  function hide() { s.transition = "none"; s.opacity = "0"; s.translate = from; if (k !== 1) { s.scale = String(k); if (inputs.origin) s.transformOrigin = inputs.origin; } }
   function show() {
-    s.transition = "opacity 0.6s ease " + delay + "ms, translate 0.7s cubic-bezier(.2,.8,.2,1) " + delay + "ms";
-    s.opacity = was.opacity; s.translate = was.translate;
+    var move = ms + "ms " + ease + " " + delay + "ms";
+    s.transition = "opacity " + Math.round(ms * 0.86) + "ms ease " + delay + "ms, translate " + move + (k !== 1 ? ", scale " + move : "");
+    s.opacity = was.opacity; s.translate = was.translate; if (k !== 1) s.scale = was.scale;
+    if (inputs.origin) setTimeout(function () { s.transformOrigin = was.origin; }, delay + ms + 50);
   }
+  /* Set to start after the loader: held until the tuning screen has gone. */
+  function when(go) { if (inputs.after !== "loader") return go(); (function wait() { if (document.querySelector("[data-crt]")) setTimeout(wait, 80); else go(); })(); }
   hide();
   var io = new IntersectionObserver(function (seen) {
     for (var i = 0; i < seen.length; i++) {
-      if (seen[i].isIntersecting) { show(); if (once) io.disconnect(); }
+      if (seen[i].isIntersecting) { when(show); if (once) io.disconnect(); }
       else if (!once) hide();
     }
   }, { threshold: 0.1 });
@@ -190,32 +202,56 @@ const FOLLOW: Work = {
     id: "follow-pointer",
     name: "Follow the pointer",
     category: "interact",
-    blurb: "The part moves, or turns, toward the cursor, never further than its travel: an eye's pupil that watches.",
+    blurb: "The part moves, or turns, toward the cursor, never further than its travel: an eye's pupil that watches. As a layer, it shifts with the pointer's place in the window and with the scroll: parallax.",
     inputs: [
       { id: "travel", label: "Max travel (px)", kind: "number", default: "12", heard: "(\\d+)\\s*px\\b" },
-      { id: "how", label: "How", kind: "one", default: "move", values: ["move", "turn"], heard: "\\b(turn|rotate)s?\\b" },
+      { id: "how", label: "How", kind: "one", default: "move", values: ["move", "turn", "layer"], heard: "\\b(turn|rotate|layer)s?\\b" },
+      { id: "x", label: "As a layer: across (px over the window)", kind: "number", default: "-20", advanced: true },
+      { id: "y", label: "As a layer: down (px over the window)", kind: "number", default: "-10", advanced: true },
+      { id: "scroll", label: "As a layer: with the scroll (px a px)", kind: "number", default: "0", advanced: true },
+      { id: "ease", label: "As a layer: catch-up a frame (0 to 1)", kind: "number", default: "0.06", advanced: true },
     ],
     needs: "none",
-    says: ["follow the pointer", "follow the mouse", "follow the cursor", "follows cursor", "eye follows cursor", "look at the cursor", "watch the mouse", "pupil"],
+    says: ["follow the pointer", "follow the mouse", "follow the cursor", "follows cursor", "eye follows cursor", "look at the cursor", "watch the mouse", "pupil", "pointer parallax", "mouse parallax"],
     look: { sample: "◉ →", caption: "follows the pointer" },
     version: 1,
   },
   script: `siteFeatures.define("follow-pointer", function (el, inputs) {
   if (${CALM}) return;
+  var s = el.style;
+  if (inputs.how === "layer") {
+    var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+    var kx = num(inputs.x, -20), ky = num(inputs.y, -10), ks = num(inputs.scroll, 0), e = Math.min(1, Math.max(0.01, num(inputs.ease, 0.06)));
+    /* The page scrolls the window, or, in a preview, the box it stands in. */
+    var box = null;
+    for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+    var mx = 0, my = 0, cx = 0, cy = 0, me = {};
+    /* Run again on the same part (a preview drawn again), the newer run is the one that moves it. */
+    el.__follow = me;
+    window.addEventListener("pointermove", function (ev) { mx = ev.clientX / window.innerWidth - 0.5; my = ev.clientY / window.innerHeight - 0.5; }, { passive: true });
+    (function frame() {
+      if (!el.isConnected || el.__follow !== me) return;
+      cx += (mx - cx) * e; cy += (my - cy) * e;
+      var y = box ? box.scrollTop : window.scrollY;
+      s.translate = (cx * kx).toFixed(2) + "px " + (cy * ky + y * ks).toFixed(2) + "px";
+      requestAnimationFrame(frame);
+    })();
+    return;
+  }
   var travel = Math.max(0, Number(inputs.travel)); if (!isFinite(travel) || inputs.travel === "") travel = 12;
-  var turn = /turn|rotate/.test(inputs.how || ""), s = el.style, cx = 0, cy = 0;
+  var turn = /turn|rotate/.test(inputs.how || ""), cxx = 0, cyy = 0;
   if (!s.transition) s.transition = turn ? "rotate .15s ease-out" : "translate .12s ease-out";
   function to(x, y) {
     var r = el.getBoundingClientRect();
-    var ox = r.left + r.width / 2 - cx, oy = r.top + r.height / 2 - cy;
+    var ox = r.left + r.width / 2 - cxx, oy = r.top + r.height / 2 - cyy;
     var dx = x - ox, dy = y - oy, d = Math.sqrt(dx * dx + dy * dy);
     if (turn) { s.rotate = (Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1) + "deg"; return; }
     var m = d ? travel * Math.min(1, d / 160) / d : 0;
-    cx = dx * m; cy = dy * m;
-    s.translate = cx.toFixed(2) + "px " + cy.toFixed(2) + "px";
+    cxx = dx * m; cyy = dy * m;
+    s.translate = cxx.toFixed(2) + "px " + cyy.toFixed(2) + "px";
   }
   window.addEventListener("pointermove", function (e) { to(e.clientX, e.clientY); }, { passive: true });
-  document.addEventListener("mouseleave", function () { cx = cy = 0; s.translate = ""; });
+  document.addEventListener("mouseleave", function () { cxx = cyy = 0; s.translate = ""; });
 });
 `,
 };
@@ -474,5 +510,77 @@ const DUST: Work = {
 `,
 };
 
+/* ------------------------------------------------------------------ */
+/* Two small ones, from what trumpmorty.fun's script did               */
+/* ------------------------------------------------------------------ */
+
+const SCROLL_HEADER: Work = {
+  manifest: {
+    id: "scroll-header",
+    name: "Header bar on scroll",
+    category: "nav",
+    blurb: "Once the page is scrolled, the part (a header) takes a bar: a fill and an edge of its own. Back at the top it goes.",
+    inputs: [
+      { id: "at", label: "After (px scrolled)", kind: "number", default: "40", heard: "(\\d+)\\s*px\\b" },
+      { id: "background", label: "Fill", kind: "text", default: "", placeholder: "a colour, e.g. #f3d440" },
+      { id: "edge", label: "Edge (shadow)", kind: "text", default: "0 4px 0 #111", placeholder: "e.g. 0 4px 0 #111" },
+      { id: "duration", label: "Takes (ms)", kind: "number", default: "300" },
+    ],
+    needs: "none",
+    says: ["header bar on scroll", "sticky header background", "header on scroll", "scrolled header", "header changes on scroll", "shrink header"],
+    look: { sample: "▔▔ bar ▔▔", caption: "header · on scroll" },
+    version: 1,
+  },
+  script: `siteFeatures.define("scroll-header", function (el, inputs) {
+  var calm = ${CALM};
+  var at = Number(inputs.at); if (!isFinite(at) || inputs.at === "") at = 40;
+  var safe = function (v) { v = String(v || "").trim(); return /^[#\\w\\s.,()%-]+$/.test(v) ? v : ""; };
+  var fill = safe(inputs.background), edge = safe(inputs.edge), ms = Math.max(0, Number(inputs.duration) || 0), s = el.style;
+  var was = { background: s.background, boxShadow: s.boxShadow, transition: s.transition };
+  /* A change of state, not a motion: it still happens for a visitor who asked for less motion, only at once. */
+  s.transition = calm || !ms ? "none" : "background " + ms + "ms, background-color " + ms + "ms, box-shadow " + ms + "ms";
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var on = null;
+  function place() {
+    var now = (box ? box.scrollTop : window.scrollY) > at;
+    if (now === on) return;
+    on = now;
+    s.background = now && fill ? fill : was.background;
+    s.boxShadow = now && edge ? edge : was.boxShadow;
+    if (now) el.setAttribute("data-scrolled", ""); else el.removeAttribute("data-scrolled");
+  }
+  (box || window).addEventListener("scroll", place, { passive: true });
+  place();
+});
+`,
+};
+
+const BLINK: Work = {
+  manifest: {
+    id: "blink",
+    name: "Blink",
+    category: "motion",
+    blurb: "The part blinks on and off, like a LIVE light: in two steps, or fading.",
+    inputs: [
+      { id: "every", label: "Every (seconds)", kind: "number", default: "1" },
+      { id: "how", label: "How", kind: "one", default: "steps", values: ["steps", "fade"], heard: "\\b(fade|fades|fading)\\b" },
+    ],
+    needs: "none",
+    says: ["blink", "blinking", "blinking light", "live dot", "flash", "flashing", "on air light"],
+    look: { sample: "● LIVE", caption: "blink" },
+    version: 1,
+  },
+  script: `siteFeatures.define("blink", function (el, inputs) {
+  if (${CALM} || !el.animate) return;
+  var t = Number(inputs.every); if (!isFinite(t) || t <= 0) t = 1;
+  var frames = inputs.how === "fade"
+    ? [{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }]
+    : [{ opacity: 1 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }];
+  el.animate(frames, { duration: t * 1000, iterations: Infinity, easing: inputs.how === "fade" ? "ease-in-out" : "linear" });
+});
+`,
+};
+
 /** The behaviours, in shelf order. */
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST];
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK];

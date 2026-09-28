@@ -48,6 +48,8 @@ export interface WorkInput {
    */
   heard?: string;
   required?: boolean;
+  /** Shown under "More" in the Element panel, not in its first view. */
+  advanced?: boolean;
 }
 
 export interface WorkManifest {
@@ -109,13 +111,15 @@ export interface WorkPicture {
 export interface WorkUse {
   id: string;
   inputs: Record<string, string>;
+  /** Switched off in the Element panel: kept, with its settings, and shipped nowhere. */
+  off?: boolean;
   also?: WorkUse[];
 }
 
 /** Every feature a part carries, the first first. */
 export function usesOf(work: WorkUse | null | undefined): WorkUse[] {
   if (!work) return [];
-  const one = (u: WorkUse): WorkUse => ({ id: u.id, inputs: u.inputs ?? {} });
+  const one = (u: WorkUse): WorkUse => ({ id: u.id, inputs: u.inputs ?? {}, ...(u.off ? { off: true } : {}) });
   return [one(work), ...(work.also ?? []).map(one)];
 }
 function stack(list: WorkUse[]): WorkUse | null {
@@ -132,7 +136,20 @@ const writesWords = (id: string) => getWork(id)?.manifest.category === "data";
  */
 export function withWork(work: WorkUse | null | undefined, add: WorkUse): WorkUse {
   const kept = usesOf(work).filter((u) => u.id !== add.id && !(writesWords(u.id) && writesWords(add.id)));
-  return stack([...kept, { id: add.id, inputs: add.inputs ?? {} }])!;
+  return stack([...kept, { id: add.id, inputs: add.inputs ?? {}, ...(add.off ? { off: true } : {}) }])!;
+}
+/** A part's features with one switched on or off; its settings kept either way. */
+export function withSwitch(work: WorkUse | null | undefined, id: string, on: boolean): WorkUse | null {
+  return stack(usesOf(work).map((u) => {
+    if (u.id !== id) return u;
+    const { off: _off, ...rest } = u;
+    void _off;
+    return on ? rest : { ...rest, off: true };
+  }));
+}
+/** The features a part carries that are switched on: the ones a page runs. */
+export function onUsesOf(work: WorkUse | null | undefined): WorkUse[] {
+  return usesOf(work).filter((u) => !u.off);
 }
 /** A part's features without this one; null when it was the only one. */
 export function withoutWork(work: WorkUse | null | undefined, id: string): WorkUse | null {
@@ -425,7 +442,7 @@ export function pageFeatures(nodes: readonly Carrier[]): { scripts: string[]; bi
   const bindings: Binding[] = [];
   const used: string[] = [];
   for (const n of nodes) {
-    for (const u of usesOf(n.work)) {
+    for (const u of onUsesOf(n.work)) {
       const w = getWork(u.id);
       if (!w) continue;
       bindings.push({ part: n.id, feature: w.manifest.id, inputs: inputsOf(w.manifest, u.inputs) });
@@ -449,7 +466,7 @@ export function pageFeatureTags(nodes: readonly Carrier[], up: string): string {
 /** The files the whole site needs: the runtime and each used feature's script, once. */
 export function featureFiles(nodes: readonly Carrier[]): { path: string; content: string }[] {
   const used = new Set<string>();
-  for (const n of nodes) for (const u of usesOf(n.work)) if (getWork(u.id)) used.add(u.id);
+  for (const n of nodes) for (const u of onUsesOf(n.work)) if (getWork(u.id)) used.add(u.id);
   if (!used.size) return [];
   return [
     { path: "assets/features/runtime.js", content: RUNTIME_JS },
