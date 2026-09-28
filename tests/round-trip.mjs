@@ -25,6 +25,7 @@
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
+import { gunzipSync } from "node:zlib";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const SINK = process.argv[3] ?? "../sink";
@@ -65,6 +66,8 @@ await page.route("**/api/studio/**", async (r) => {
   const url = r.request().url();
   if (url.includes("/api/studio/publish") && r.request().method() === "POST") {
     pushed = JSON.parse(r.request().postData() ?? "{}");
+    /* Text goes packed (`publish()` in agent.ts): read what the route will commit. */
+    pushed.files = (pushed.files ?? []).map((f) => (f.encoding === "gzip" ? { path: f.path, content: gunzipSync(Buffer.from(f.content, "base64")).toString("utf8") } : f));
     return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sha: "0", commitUrl: "https://example.invalid/c", branch: "main", repo: SITE_REPO, files: pushed.files?.length ?? 0, deployed: false, hook: false }) });
   }
   if (url.includes("/api/studio/publish")) return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ github: { configured: true, token: "browser", repo: SITE_REPO, branch: "main", missing: [], allow: null }, vercel: { hook: false } }) });

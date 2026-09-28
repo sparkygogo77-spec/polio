@@ -40,7 +40,7 @@ import { recreateFrom, type ElementReading } from "./recreate";
 import { facesSays, genericsOf, genericSays, type FacesCarried } from "./fonts";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
-import { keep } from "./pictures";
+import { keepAll } from "./pictures";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { checkRepoFeatures } from "./library/repoFeatures";
@@ -437,10 +437,8 @@ export function FromASite({ space }: { space: Space }) {
     const publishesTo = id ? useBuilds.getState().projects.find((p) => p.id === id)?.repo : undefined;
     if (id && copy.name) builds.rename(id, copy.name);
     void (async () => {
-      let kept = 0;
-      for (const p of copy.pictures) {
-        try { await keep({ id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes.length, alt: "", from: "upload" }, new Blob([p.bytes as BlobPart], { type: p.type })); kept++; } catch { /* named below by count */ }
-      }
+      /* All in one transaction: one at a time behind a big board took minutes (`keepAll`). */
+      const kept = await keepAll(copy.pictures.map((p) => ({ pic: { id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes.length, alt: "", from: "upload" }, blob: new Blob([p.bytes as BlobPart], { type: p.type }) })));
       const behind = copy.pictures.length - kept + copy.lost.length;
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       /* Said out loud, and by name where a part he had moved was replaced:

@@ -119,6 +119,37 @@ export async function keep(pic: Picture, blob: Blob): Promise<void> {
   arrived(pic.id);
 }
 
+/**
+ * Many at once, in one transaction, under the ids a document names.
+ *
+ * A site copied whole kept its pictures one `keep` at a time, behind a board
+ * busy drawing four thousand parts: share.xyz's 128 took two minutes, and a
+ * reload or a Go live in that time left the rest behind for good
+ * (`tests/bring-pictures-kept.mjs`). One transaction is one wait. If it is
+ * refused whole, each is tried on its own, so one bad file costs only itself.
+ * Answers how many were kept.
+ */
+export async function keepAll(list: { pic: Picture; blob: Blob }[]): Promise<number> {
+  if (!ok() || !list.length) return 0;
+  try {
+    const store = await shelf("readwrite");
+    await new Promise<void>((done, no) => {
+      const tx = store.transaction;
+      tx.oncomplete = () => done();
+      tx.onerror = tx.onabort = () => no(tx.error ?? new Error("Storage refused."));
+      for (const { pic, blob } of list) store.put(blob, pic.id);
+    });
+    for (const { pic } of list) arrived(pic.id);
+    return list.length;
+  } catch {
+    let n = 0;
+    for (const { pic, blob } of list) {
+      try { await keep(pic, blob); n++; } catch { /* counted by what is missing */ }
+    }
+    return n;
+  }
+}
+
 /** The file itself, for the publish to carry. Null when this browser no longer has it. */
 export async function bytesFor(pic: Picture): Promise<Blob | null> {
   if (!ok()) return null;

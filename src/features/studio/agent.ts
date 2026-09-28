@@ -8,6 +8,7 @@
 import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
+import { MERGED_FILES } from "./library/contract";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 export type Device = "desktop" | "tablet" | "phone";
@@ -748,33 +749,98 @@ export async function watchDeploy(
   }
 }
 
+/*
+ * A BIG SITE GOES UP IN PARTS, AS ONE COMMIT.
+ *
+ * The Builder runs on Vercel, where a function takes a request body of at
+ * most 4.5 MB ("Request body size", vercel.com/docs/functions/limitations),
+ * and share.xyz's push was one request of 9.3 MB. So text goes packed
+ * (gzip, which the route unpacks), and a push past what one request carries
+ * sends its files in parts first (`stage`), each well under the limit; the
+ * last request carries the document, the files merged on the branch and
+ * the blobs the parts made, into one commit (`tests/publish-big-site.mjs`).
+ */
+const REQUEST_BUDGET = 3_500_000;
+/** What the route reads as it commits, so it goes in the last request, never a part. */
+const COMMITTED_LAST = new Set(["site/document.json", ...MERGED_FILES]);
+
+type Sent = { path: string; content: string; encoding?: "base64" | "gzip" };
+
+function base64Of(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/** Text past a few KB, packed: pages and the document shrink by ten or more. */
+async function packed(f: GeneratedFile): Promise<Sent> {
+  if (f.encoding === "base64") return { path: f.path, content: f.content, encoding: "base64" };
+  if (f.content.length < 4096 || typeof CompressionStream === "undefined") return { path: f.path, content: f.content };
+  const zipped = new Uint8Array(await new Response(new Blob([f.content]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+  return { path: f.path, content: base64Of(zipped), encoding: "gzip" };
+}
+
 export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string; boundTo?: string; sources?: string[] }): Promise<PublishResult> {
-  try {
+  /* The site's open edit branch, unless the caller names one: main is
+     never pushed to by accident while a branch is open. */
+  const branch = input.branch ?? useStudio.getState().siteBranch;
+  const send = async (repo: string | undefined, extra: Record<string, unknown>): Promise<PublishResult & { staged?: { path: string; sha: string }[] }> => {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
       headers: { "content-type": "application/json", ...publisherHeader() },
       body: JSON.stringify({
-        files: input.files.map((f) => ({ path: f.path, content: f.content, ...(f.encoding ? { encoding: f.encoding } : {}) })),
         message: input.message,
         deploy: input.deploy,
         // Which site this is. The server decides whether it may go there.
-        ...(input.repo ? { repo: input.repo } : {}),
-        /* The site's open edit branch, unless the caller names one: main is
-           never pushed to by accident while a branch is open. */
-        ...((input.branch ?? useStudio.getState().siteBranch) ? { branch: input.branch ?? useStudio.getState().siteBranch } : {}),
+        ...(repo ? { repo } : {}),
+        ...(branch ? { branch } : {}),
         // What to call a repository if this site has not got one yet.
-        ...(input.create ? { create: input.create } : {}),
+        ...(!repo && input.create ? { create: input.create } : {}),
         // Which repository this site is bound to: the route refuses any other.
         ...(input.boundTo ? { boundTo: input.boundTo } : {}),
         // Where sites here were brought in from: the route refuses every one.
         ...(input.sources?.length ? { sources: input.sources } : {}),
+        ...extra,
       }),
     });
-    const data = (await res.json()) as PublishResult;
-    /* A failure keeps what the route made: without `created` the site never
-       learns the repository exists, and the next press makes a second one
-       with a suffix (tests/publish-made-kept.mjs). */
-    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(data.created ? { created: data.created } : {}), ...(data.repo ? { repo: data.repo } : {}) };
+    const data = (await res.json().catch(() => null)) as (PublishResult & { staged?: { path: string; sha: string }[] }) | null;
+    return data ?? { ok: false, message: res.status === 413 ? "The push was more than the Builder's server takes in one request." : `The Builder's server answered ${res.status}.` };
+  };
+  /* A failure keeps what the route made: without `created` the site never
+     learns the repository exists, and the next press makes a second one
+     with a suffix (tests/publish-made-kept.mjs). */
+  const failed = (data: PublishResult, created?: string): PublishResult => {
+    const made = (data.ok ? undefined : data.created) ?? created;
+    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(made ? { created: made } : {}), ...(data.repo ?? made ? { repo: data.repo ?? made } : {}) };
+  };
+  try {
+    const files = await Promise.all(input.files.map(packed));
+    const weight = (f: Sent) => f.content.length + f.path.length + 64;
+    const total = files.reduce((a, f) => a + weight(f), 0);
+    if (total <= REQUEST_BUDGET) return failed(await send(input.repo, { files }));
+
+    const over = files.find((f) => weight(f) > REQUEST_BUDGET);
+    if (over) return { ok: false, reason: "too-big", message: `“${over.path}” is ${(weight(over) / 1e6).toFixed(1)} MB even packed, more than one request to the Builder carries.` };
+    const last = files.filter((f) => COMMITTED_LAST.has(f.path));
+    const parts: Sent[][] = [];
+    let part: Sent[] = [], size = 0;
+    for (const f of files.filter((x) => !COMMITTED_LAST.has(x.path))) {
+      if (size + weight(f) > REQUEST_BUDGET && part.length) { parts.push(part); part = []; size = 0; }
+      part.push(f);
+      size += weight(f);
+    }
+    if (part.length) parts.push(part);
+    let repo = input.repo;
+    let created: string | undefined;
+    const staged: { path: string; sha: string }[] = [];
+    for (const p of parts) {
+      const got = await send(repo, { stage: true, files: p });
+      if (!got.ok) return failed(got, created);
+      if (got.created) { created = got.created; repo = got.created; }
+      staged.push(...(got.staged ?? []));
+    }
+    const done = await send(repo, { files: last, staged });
+    return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
   }
