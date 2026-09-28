@@ -62,8 +62,24 @@ export function owned(all: readonly (Frag & Read)[], w: Frag & Read): (Frag & Re
  */
 export function inFlow(all: readonly (Frag & Read)[], w: Frag & Read): (Frag & Read)[] {
   const kids = owned(all, w);
-  const out = kids.filter((k) => k.from?.position === "absolute" || k.from?.position === "fixed").map(pathOf);
+  const out = kids.filter((k) => k.from?.position === "absolute" || k.from?.position === "fixed" || sideways(w, k)).map(pathOf);
   return kids.filter((k) => !out.some((o) => o === pathOf(k) || under(o, pathOf(k))));
+}
+
+/**
+ * A part that runs off its wrapper sideways, more than 8px past its left or
+ * right edge while level with it: content the page clipped or scrolled along
+ * the row, which sizes nothing that holds it. share.xyz's carousels (cards
+ * past a 916px row) and trumpmorty.fun's marquee (a 5657px track in a 1586px
+ * ribbon) grew their wrappers to 2192 and 5657 wide; his nine pages grow
+ * sideways by 1px of rounding at most. A part wholly above or below is not
+ * level with it (his split link, wrapped onto the next line, still grows its
+ * sentence down; `tests/owns-sideways.mjs`).
+ */
+const SIDEWAYS = 8;
+function sideways(w: Frag, k: Frag): boolean {
+  const level = k.y < w.y + w.h && k.y + k.h > w.y;
+  return level && (k.x < w.x - SIDEWAYS || k.x + k.w > w.x + w.w + SIDEWAYS);
 }
 
 /** The box that would hold everything a wrapper owns. */
