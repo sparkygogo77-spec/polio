@@ -98,7 +98,17 @@ function enclosing(f: Frag, tag: RegExp): string | null {
   return null;
 }
 const ANCHOR = /^a(?![\w-])/, HEADING = /^h[1-6](?![\w-])/;
-const apart = (a: Frag, b: Frag): boolean => [ANCHOR, HEADING].some((tag) => {
+/**
+ * A piece on a ground of its own: a fill, padding or an edge. trumpmorty.fun's
+ * CA button, captured as "CA" on navy, the address, "COPY" on yellow, is three
+ * pills, not a sentence; so is share.xyz's "Save 71×" badge beside a title.
+ */
+const grounded = (f: Frag): boolean =>
+  !!f.colour?.bg || (f.edge?.width ?? 0) > 0 || Object.values((f.pad ?? {}) as Record<string, number | undefined>).some((v) => (v ?? 0) > 0);
+/** Two pieces set in different faces or sizes (a score beside its label). A colour alone is not this: "A SolWorks project" joins. */
+const setApart = (a: Frag, b: Frag): boolean =>
+  (!!a.font?.face && !!b.font?.face && a.font.face !== b.font.face) || (a.font?.size != null && b.font?.size != null && a.font.size !== b.font.size);
+const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setApart(a, b) || [ANCHOR, HEADING].some((tag) => {
   const x = enclosing(a, tag), y = enclosing(b, tag);
   return !!x && !!y && x !== y;
 });
