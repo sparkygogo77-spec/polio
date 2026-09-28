@@ -76,7 +76,7 @@ should be *before* writing the prompt that says what it is.
 
 | Panel | Where | What it does |
 |---|---|---|
-| **Look** | left, toggle with `l` | Colour and texture. Six roles every part reads, a mixer, harmony generators, contrast readouts; under it a stack of texture layers that compile to plain CSS. |
+| **Look** | left, toggle with `l` | Colour and texture. Six roles every part reads, a mixer, harmony generators, contrast readouts; every colour and face the parts actually use, by use, with swap-all; under it a stack of texture layers that compile to plain CSS, the page's fill at its foot. |
 | **Parts drawer** | under the board | Three steps: category (emoji, own colour) → sub-group → the parts as live previews on contrasting discs. Search cuts across all of it. Prunable; drag or click to place. |
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
@@ -103,6 +103,11 @@ src/features/studio/
   planets.tsx    twelve outline category marks, one per kind of part
   showcase.ts    where a part would sit on a page, and how wide
   LookPanel.tsx  the mixer and the texture stack
+  siteColours.ts every colour and face the parts use, by use (text, fills,
+                 borders, shadows, accents), and swap-all; SiteColours.tsx
+                 is the Look panel's "On this site" and "Fonts on this site",
+                 the wheel's tray "All with this colour / in this font" is
+                 the same call (docs/audit/palette-captured.md)
   Palette.tsx    the parts drawer under the board
   live/          the live site: layout (absolute or reflowed), LiveSite renderer,
                  behaviours.ts + LiveShell.tsx (tier B run for real),

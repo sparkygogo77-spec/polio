@@ -9,7 +9,7 @@
  * compiling to plain CSS so it costs nothing and tiles for ever.
  */
 import * as React from "react";
-import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2, Undo2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
   TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
@@ -22,6 +22,8 @@ import { CHIP, emptyFill } from "./colourMenu";
 import { fillLayers, resolvePalette } from "./parts/theme";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
+import { roleFollowers } from "./siteColours";
+import { SiteColoursSection, SiteFontsSection } from "./SiteColours";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
@@ -29,7 +31,6 @@ import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
 import { Slider } from "@/core/ui/slider";
 import { Tooltip } from "@/core/ui/tooltip";
-import { BackgroundInspector } from "./Inspector";
 
 /* ------------------------------------------------------------------ */
 /* The mixer                                                           */
@@ -205,21 +206,44 @@ function ColourSection() {
   const current = parseColor(resolved[role]) ?? { l: 0.7, c: 0.15, h: 265 };
   /* Where each role came from, on a site brought in. Nothing on a site made here. */
   const from = look.paletteFrom;
+  /* How many parts follow each role NOW, counted off the parts rather than
+     read off the import: the import's count stood still while swaps,
+     overrides and deletions moved the parts under it. */
+  const nodes = useStudio((s) => s.nodes);
+  const follow = React.useMemo(() => roleFollowers(nodes), [nodes]);
   const same = (a?: string, b?: string) => (a ?? "").replace(/\s+/g, "").toLowerCase() === (b ?? "").replace(/\s+/g, "").toLowerCase();
+  /* A role the site gave nothing to said "none" under its swatch, which read
+     as "no colour". It is a colour — another role's, shown for want of one —
+     and no part wears it, which is what it now says. */
+  const unused = (r: RoleId) => !!from?.[r]?.shows && follow[r] === 0;
   const sourceSays = (r: RoleId): string => {
     const src = from?.[r];
     if (!src) return "";
-    if (!same(resolved[r], src.colour)) return "set by you";
-    if (src.shows) return `none on this site, shows ${ROLE_LABEL[src.shows].toLowerCase()}`;
-    return `from ${src.parts} part${src.parts === 1 ? "" : "s"} on this site`;
+    if (unused(r)) return `not used on this site, so it shows the ${ROLE_LABEL[src.shows!].toLowerCase()} colour`;
+    if (!same(resolved[r], src.colour)) return `set by you, worn by ${follow[r]} part${follow[r] === 1 ? "" : "s"}`;
+    return `from ${follow[r]} part${follow[r] === 1 ? "" : "s"} on this site`;
   };
   const setRoleColour = (c: Oklch) =>
     useStudio.getState().setLook({ palette: { ...look.palette, [role]: css(c) } });
+  /* On a site brought in, the parts that follow a role repaint when it moves. */
+  const following = from ? ROLES.reduce((n, r) => n + follow[r], 0) : 0;
+  const [asking, setAsking] = React.useState(false);
+  const [built, setBuilt] = React.useState(false);
 
+  /*
+   * BUILD PALETTE ASKS FIRST ON A SITE BROUGHT IN. Every part the import tied
+   * to a role repaints when the role moves — on trumpmorty.fun that is well
+   * over a hundred parts' captured colours replaced in one press, with
+   * nothing said. So it says what it will do and waits; and once done it says
+   * so, with the undo beside it (it was always one undo; nothing said so).
+   */
   const generate = () => {
+    if (following && !asking) { play("open"); setAsking(true); return; }
     play("confirm");
     const light = String(format["palette.mode"] ?? "dark") === "light";
     useStudio.getState().setLook({ palette: harmonise(current, harmony, light) });
+    setAsking(false);
+    setBuilt(true);
   };
 
   const pick = async () => {
@@ -252,8 +276,8 @@ function ColourSection() {
 
       {/* Six roles. Everything the site draws reads one of these. On a site
           brought in, each says under it where it came from (paletteFrom.ts):
-          how many of his parts follow it, or "none" when the site gave it
-          nothing and it shows another role's colour instead. */}
+          how many of his parts follow it now, or "unused" when the site gave
+          it nothing and it shows another role's colour instead. */}
       <div className="grid grid-cols-6 gap-1">
         {ROLES.map((r) => (
           <div key={r} className="flex flex-col items-stretch gap-0.5">
@@ -269,14 +293,17 @@ function ColourSection() {
             </Tooltip>
             {from?.[r] ? (
               <span data-role-source={r} className="num text-center text-fine text-fg-faint">
-                {from[r]!.shows ? "none" : from[r]!.parts}
+                {unused(r) ? "unused" : follow[r]}
               </span>
             ) : null}
           </div>
         ))}
       </div>
       <div className="flex items-center justify-between gap-2 text-small text-fg-muted">
-        <span data-role-says="" className="min-w-0">{ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}</span>
+        <span data-role-says="" className="min-w-0">
+          {ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}
+          {from && follow[role] ? `. Changing it repaints ${follow[role] === 1 ? "that part" : `those ${follow[role]}`}.` : ""}
+        </span>
         <span className="flex gap-1">
           <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
           <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
@@ -330,9 +357,30 @@ function ColourSection() {
           </Button>
         </Tooltip>
       </div>
-      <p className="text-small leading-snug text-fg-faint">
-        Builds all six roles from {ROLE_LABEL[role].toLowerCase()}. Every part reads these, and any one element can override a role.
-      </p>
+      {asking ? (
+        <div data-build-ask="" className="space-y-2 rounded-md border border-border bg-elevated p-2">
+          <p className="text-small leading-snug text-fg">
+            This site&apos;s colours came with it. Building a palette repaints the {following} part{following === 1 ? "" : "s"} tied
+            to these six colours, replacing the colours they were captured with. Colours no role holds stay as they are.
+          </p>
+          <div className="flex gap-1">
+            <Button data-build-confirm="" size="xs" variant="outline" className="flex-1" onClick={generate}>Build and repaint them</Button>
+            <Button size="xs" variant="ghost" onClick={() => { play("close"); setAsking(false); }}>Keep the site&apos;s</Button>
+          </div>
+        </div>
+      ) : built ? (
+        <p data-build-done="" className="flex items-center gap-2 text-small text-fg-muted">
+          Built from {ROLE_LABEL[role].toLowerCase()}.
+          <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setBuilt(false); play("close"); }}>
+            <Undo2 className="size-3" /> Undo
+          </button>
+        </p>
+      ) : (
+        <p className="text-small leading-snug text-fg-faint">
+          Builds all six colours from {ROLE_LABEL[role].toLowerCase()}.{" "}
+          {from ? "Only parts tied to one of the six move; the site's other colours are listed below." : "Every part reads these, and any one part can use its own instead."}
+        </p>
+      )}
     </section>
   );
 }
@@ -1034,11 +1082,19 @@ function LightSection() {
 export function LookPanel() {
   return (
     <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
-      {/* The page itself, first: its fill and the textures that land on it.
-          It used to be inside Element, where it was the one block that was
-          about the site rather than about the element picked. */}
-      <BackgroundInspector />
+      {/*
+        NO BACKGROUND HEADER. A block stood here — "Background / The page
+        behind every part", a scissors, a "page colour" chip and the line
+        "Painted flat. The fill and the layers are one stack, at the foot of
+        this panel." — and all it did was point at the stack at the foot of
+        this panel, which is where the fill and the page's layers are made.
+        Cutting and putting the background back live on the page's own wheel
+        (Strip, and "Put the background back" in its tray) and on ⌘X / ⌘V.
+        tests/look-no-background-head.mjs holds all three to it.
+      */}
       <ColourSection />
+      <SiteColoursSection />
+      <SiteFontsSection />
       <LightSection />
       <TextureSection />
     </div>

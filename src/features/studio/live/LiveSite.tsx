@@ -22,6 +22,7 @@ import { placeNodes, type Device } from "./layout";
 import { homeOf } from "../homePage";
 import { pageFeatures } from "../library/works";
 import { runWorks } from "./runWorks";
+import { leadsOf, withLead } from "../parts/leadIn";
 
 export interface LiveSiteProps {
   pages: StudioPage[];
@@ -113,6 +114,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const wash = React.useMemo(() => washCss(light), [light]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height: laidOut, placed, reflowed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
+  /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
+  const leads = React.useMemo(() => leadsOf(pageNodes), [pageNodes]);
   /*
    * The brief's own layout, minus what the board carries. Reflowed, a
    * section has nowhere of its own to stand, so the sections queue up under
@@ -269,7 +272,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
               }}
             >
-              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
+              <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
             </div>
           ))}
           {sections.map((sec) => (

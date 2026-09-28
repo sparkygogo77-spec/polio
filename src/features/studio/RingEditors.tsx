@@ -794,3 +794,108 @@ export function BehaviourQuads({
     </>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Edge: the border and the shadow                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How a shadow falls, as keys: a hard offset (the cartoon drop), soft, and a
+ * glow. No shadow at all is the colour grid's own empty chip ("No shadow",
+ * `colourMenu`) while the shadow is being painted, not a key of its own here.
+ */
+export type ShadowKind = "none" | "hard" | "soft" | "glow";
+const SHADOW_KEYS: ArcItem[] = [
+  { id: "hard", label: "Hard offset", style: keyOf(0), glyph: <MoveRight className="size-3" /> },
+  { id: "soft", label: "Soft", style: keyOf(1), glyph: <Blend className="size-3" /> },
+  { id: "glow", label: "Glow", style: keyOf(2), glyph: <Sparkles className="size-3" /> },
+];
+
+/** The first layer of a box-shadow, read as the four kinds. A shadow list is read by its first layer. */
+export function readShadow(css: string | null | undefined): { kind: ShadowKind; size: number; colour: string | null } {
+  const s = String(css ?? "").trim();
+  if (!s || s === "none") return { kind: "none", size: 6, colour: null };
+  const first = s.split(/,(?![^(]*\))/)[0]!;
+  const fn = /[a-z-]+\([^)]*\)|#[0-9a-f]{3,8}\b/i;
+  const colour = first.match(fn)?.[0] ?? null;
+  const n = [...first.replace(fn, "").matchAll(/-?\d+(?:\.\d+)?(?=px|\b)/g)].map((m) => Number(m[0]));
+  const [x = 0, y = 0, blur = 0] = n;
+  if (!blur && (x || y)) return { kind: "hard", size: Math.max(Math.abs(x), Math.abs(y)), colour };
+  if (!x && !y) return { kind: "glow", size: Math.round(blur / 2), colour };
+  return { kind: "soft", size: Math.abs(y) || Math.round(blur / 2), colour };
+}
+export function writeShadow(kind: ShadowKind, size: number, colour: string): string | undefined {
+  const n = Math.max(1, Math.round(size));
+  if (kind === "hard") return `${colour} ${n}px ${n}px 0px 0px`;
+  if (kind === "soft") return `${colour} 0px ${n}px ${n * 2}px 0px`;
+  if (kind === "glow") return `${colour} 0px 0px ${n * 2}px 0px`;
+  return undefined;
+}
+
+/**
+ * A part's edge: its border's colour and width, and the shadow it throws.
+ * The colour boxes paint one or the other — the key by the hole says which —
+ * and carry the site's own colours first (the ones its parts wear on their
+ * borders and shadows, `siteColours.ts`), so a captured part is recoloured
+ * in its own site's ink rather than a guess. Width and shadow size are
+ * sliders on a screen; how the shadow falls is four keys.
+ */
+export function EdgeQuads({
+  slabs, edge, palette, siteColours, onChange,
+}: {
+  slabs: Slab[];
+  edge: { width?: number; style?: string; colour?: string; shadow?: string } | null;
+  palette: Palette;
+  /** The site's colours, most worn first. */
+  siteColours: string[];
+  onChange: (next: { width?: number; style?: "solid" | "dashed" | "dotted" | "double" | "none"; colour?: string; shadow?: string } | null) => void;
+}) {
+  const recent = useStudio((s) => s.recentColours);
+  const [paint, setPaint] = React.useState<"border" | "shadow">("border");
+  const [boxes, dials, keys] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
+  const { hole, mid } = dials.rings;
+  const width = edge && edge.style !== "none" ? edge.width ?? 1 : 0;
+  const sh = readShadow(edge?.shadow);
+  const inkOf = (v: string | undefined | null) => (v && isRole(v) ? palette[v as RoleId] : v) || null;
+  const borderColour = inkOf(edge?.colour) ?? palette.text;
+  const shadowColour = sh.colour ?? borderColour;
+  const set = (patch: Partial<NonNullable<typeof edge>>) => {
+    const next = { ...(edge ?? {}), ...patch } as NonNullable<typeof edge>;
+    if (!next.shadow) delete next.shadow;
+    const drawn = (next.width ?? 0) > 0 && next.style !== "none";
+    onChange(drawn || next.shadow ? (next as Parameters<typeof onChange>[0]) : null);
+  };
+  const items: ArcItem[] = [
+    emptyChip(paint === "border" ? "No border" : "No shadow"),
+    ...[...new Set([...siteColours.slice(0, 10), ...recent])].map((col): ArcItem => ({ id: col, label: `Colour ${col}`, style: { background: col } })),
+    ...ROLES.map((r): ArcItem => ({ id: r, label: `The site's ${ROLE_LABEL[r].toLowerCase()}`, style: { background: palette[r] } })),
+  ];
+  const pick = (id: string) => {
+    if (paint === "border") {
+      if (!id) set({ width: 0, style: "none" });
+      else set({ colour: id, width: width || 2, style: edge?.style && edge.style !== "none" ? (edge.style as "solid") : "solid" });
+    } else {
+      if (!id) set({ shadow: undefined });
+      else set({ shadow: writeShadow(sh.kind === "none" ? "hard" : sh.kind, sh.size, inkOf(id) ?? id) });
+    }
+  };
+  const inner = { rIn: hole + 32, rOut: mid - 4 };
+  const outer = { rIn: mid + 6, rOut: mid + 22 };
+  return (
+    <>
+      <GridChips slab={boxes} items={items} value={paint === "border" ? (width ? edge?.colour ?? "" : "") : (sh.kind === "none" ? "" : sh.colour ?? "")} onPick={pick} />
+      <ScreenFace slab={dials} />
+      <ArcSlider slab={dials} tone="screen" {...runOf(dials)} {...inner} label="Border width" value={Math.min(1, width / 12)}
+        onChange={(f) => { const w = Math.min(12, Math.ceil(f * 12 - 0.001)); set(w ? { width: w, style: edge?.style && edge.style !== "none" ? (edge.style as "solid") : "solid", colour: edge?.colour ?? borderColour } : { width: 0, style: "none" }); }} />
+      <ArcSlider slab={dials} tone="screen" {...runOf(dials)} {...outer} label="Shadow size" value={Math.min(1, sh.size / 24)}
+        onChange={(f) => set({ shadow: writeShadow(sh.kind === "none" ? "hard" : sh.kind, Math.max(1, Math.min(24, Math.ceil(f * 24 - 0.001))), shadowColour) })} />
+      <Caption slab={dials}>{`${width}px border · ${sh.kind === "none" ? "no shadow" : `${sh.size}px ${sh.kind}`}`}</Caption>
+      <ArcChips slab={keys} items={SHADOW_KEYS} radius={chipsAt(keys)} value={sh.kind}
+        onPick={(id) => set({ shadow: writeShadow(id as ShadowKind, sh.size, shadowColour) })} />
+      <ArcChips slab={keys} items={[
+        { id: "border", label: "Paint the border", style: { background: CONSOLE.box, outline: `2px solid ${borderColour}`, outlineOffset: -4 } },
+        { id: "shadow", label: "Paint the shadow", style: { background: CONSOLE.box, boxShadow: `3px 3px 0 ${shadowColour}` } },
+      ]} radius={hole + 18} value={paint} onPick={(id) => setPaint(id as "border" | "shadow")} />
+    </>
+  );
+}

@@ -22,6 +22,8 @@ import { getFeature, setBrought } from "./catalog";
 import { Boxes } from "lucide-react";
 import { takeDoc, pictureLayersOff } from "./docTake";
 import { formatDefaults, type FormatValues } from "./format";
+import { swapColour, swapFont, type ColourUse, type FaceTo } from "./siteColours";
+import type { Palette } from "./look";
 import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
 /**
@@ -1049,6 +1051,17 @@ interface StudioState extends Doc {
   restoreAllFeatures: () => void;
   setBrief: (patch: Partial<StudioBrief>) => void;
   setLook: (patch: Partial<Look>) => void;
+  /**
+   * Swap-all (`siteColours.ts`): recolour exactly the spots that wear `from`
+   * — for one use, or every use — and the page when it wore it. One undo.
+   * `palette` is the resolved one, so a part naming a role is read as what
+   * it shows. Returns the parts it touched.
+   */
+  swapColourAll: (from: string, to: string, palette: Palette, opts?: { use?: ColourUse; only?: string[] }) => string[];
+  /** Swap-all for a face: every part (and run) set in `from` set in `to`. One undo. */
+  swapFontAll: (from: string, to: FaceTo, only?: string[], patch?: Record<string, number>) => string[];
+  /** Each of these parts patched by its own function, as one undo: an edit made to a whole selection. */
+  patchNodes: (ids: string[], fn: (n: StudioNode) => Partial<StudioNode>) => void;
   addMotion: () => string;
   updateMotion: (id: string, patch: Partial<MotionAsset>) => void;
   removeMotion: (id: string) => void;
@@ -2440,6 +2453,26 @@ export const useStudio = create<StudioState>()(
         setLook: (patch) => {
           push();
           set((s) => ({ look: { ...s.look, ...patch } }));
+        },
+        swapColourAll: (from, to, palette, opts = {}) => {
+          const s = get();
+          const r = swapColour(s.nodes, palette, from, to, { use: opts.use, only: opts.only ? new Set(opts.only) : undefined });
+          if (!r.changed.length) return [];
+          push();
+          set((st) => ({ nodes: r.nodes, ...(r.pageBg ? { look: { ...st.look, palette: { ...st.look.palette, bg: r.pageBg } } } : {}) }));
+          return r.changed;
+        },
+        patchNodes: (ids, fn) => {
+          push();
+          const set_ = new Set(ids);
+          set((s) => ({ nodes: s.nodes.map((n) => (set_.has(n.id) ? { ...n, ...fn(n) } : n)) }));
+        },
+        swapFontAll: (from, to, only, patch) => {
+          const r = swapFont(get().nodes, from, to, only ? new Set(only) : undefined, patch);
+          if (!r.changed.length) return [];
+          push();
+          set({ nodes: r.nodes });
+          return r.changed;
         },
         // A new layer goes on top, where every other layers panel puts one —
         // index 0 is the front of the stack.

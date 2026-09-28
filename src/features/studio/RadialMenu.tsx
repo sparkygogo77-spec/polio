@@ -45,7 +45,7 @@ import * as React from "react";
    same way: this line conflicted three times in one night otherwise.
    Sorted is not the same as union — an icon dropped on purpose stays
    dropped, and the wheel's Edit slot is why. */
-import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -58,7 +58,8 @@ import {
   BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, joinFor, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
   type Pt, type Shape,
 } from "./menuGeometry";
-import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import { AnimQuads, AuraQuads, BehaviourQuads, EdgeQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import { movedColours, movedFont, tallyColours, type Worn } from "./siteColours";
 import { PlateEditor } from "./PlateEditors";
 import { SayPlate } from "./SayBox";
 import { DrawBoard } from "./DrawBoard";
@@ -334,6 +335,9 @@ function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice
     case "look":
       return [
         { id: "hue", label: "Hue", icon: PaletteIcon },
+        // The border's colour and width and the shadow it throws: a captured
+        // part wears all three, and none of them had a control anywhere.
+        { id: "edge", label: "Edge", icon: SquareDashed },
         { id: "texture", label: "Texture", icon: Grid2x2 },
         { id: "aura", label: "Aura", icon: Sparkles },
       ];
@@ -554,6 +558,18 @@ export function RadialMenu() {
   const picture = React.useRef<HTMLInputElement>(null);
 
   const seq = open?.seq ?? 0;
+  /*
+   * The part's looks as the wheel found it, so the tray can offer "every part
+   * with this colour / in this font": what this part moved from and to since
+   * the wheel opened is what gets swapped across the site (`siteColours.ts`,
+   * the same swap-all the Look panel's list uses).
+   */
+  const opened = React.useRef<(Worn & { at: number }) | null>(null);
+  const openedId = node?.id ?? null;
+  React.useEffect(() => {
+    const n = openedId ? useStudio.getState().nodes.find((x) => x.id === openedId) : null;
+    opened.current = n ? { id: n.id, colour: n.colour, edge: n.edge ?? null, art: n.art ?? null, content: n.content, font: n.font, aura: n.aura, at: seq } : null;
+  }, [seq, openedId]);
   React.useEffect(() => {
     // …unless it was opened straight onto a slot, which is what "change this
     // part" does: the choice the wheel exists to offer has been made already.
@@ -946,6 +962,15 @@ export function RadialMenu() {
   // that are not worth a piece of the wheel. Not while the board is up — the
   // board has a tray of its own.
   const nodeIndex = node ? nodes.indexOf(node) : -1;
+  const was = node && opened.current?.id === node.id ? opened.current : null;
+  const colourMoves = was && node ? movedColours(was, node, palette) : [];
+  const fontMove = was && node ? movedFont(was, node) : null;
+  /* Once swapped, what the part wears now is the new starting point: pressing again does nothing twice. */
+  const reopen = () => {
+    const n = node ? useStudio.getState().nodes.find((x) => x.id === node.id) : null;
+    opened.current = n ? { id: n.id, colour: n.colour, edge: n.edge ?? null, art: n.art ?? null, content: n.content, font: n.font, aura: n.aura, at: seq } : null;
+    setCarried((k) => k + 1);
+  };
   const tray: TrayItem[] = bg
     ? [
         // "Here" means here: the board's own Preview, the same as `p`, not the full address the part's tray goes to.
@@ -965,6 +990,28 @@ export function RadialMenu() {
           },
         },
         { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
+        {
+          id: "same-colour", label: "All with this colour", icon: <Paintbrush className="size-3" />,
+          disabled: !colourMoves.length,
+          onClick: () => {
+            let n = 0;
+            for (const m of colourMoves) n += s().swapColourAll(m.from, m.to, palette, { use: m.use }).length;
+            reopen();
+            play(n ? "confirm" : "deny");
+            ctx.publish({ key: `studio:same-colour:${node!.id}`, title: n ? `Recoloured ${n} more part${n === 1 ? "" : "s"}` : "No other part wore that colour", body: colourMoves.map((m) => `${m.from} → ${m.to}`).join(", "), level: "info", source: "studio", toast: true });
+          },
+        },
+        {
+          id: "same-font", label: "All in this font", icon: <Type className="size-3" />,
+          disabled: !fontMove,
+          onClick: () => {
+            if (!fontMove) return;
+            const n = s().swapFontAll(fontMove.from, fontMove.to, undefined, fontMove.patch).length;
+            reopen();
+            play(n ? "confirm" : "deny");
+            ctx.publish({ key: `studio:same-font:${node!.id}`, title: n ? `Set ${n} more part${n === 1 ? "" : "s"} the same` : "No other part was in that font", body: fontMove.from || "the site's type", level: "info", source: "studio", toast: true });
+          },
+        },
       ];
 
   /*
@@ -1633,13 +1680,50 @@ function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
 /* The one editor a green choice asked for                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * AN EDIT ON THE WHEEL IS AN EDIT TO THE SELECTION. Opened on one of several
+ * picked parts, the wheel changes all of them — but only what was changed:
+ * painting the words white on one card leaves the other cards' fills, borders
+ * and faces as they are. Colour, edge and font are merged key by key; any
+ * other field is set as it is. One undo for the lot.
+ */
+const MERGED = new Set(["colour", "edge", "font"]);
+export function applyToSelection(node: StudioNode, patch: Partial<StudioNode>) {
+  const st = useStudio.getState();
+  const ids = st.selection.length > 1 && st.selection.includes(node.id) ? st.selection : [node.id];
+  if (ids.length === 1) return st.updateNode(node.id, patch);
+  const diff: Record<string, { set: Record<string, unknown>; drop: string[] } | { whole: unknown }> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (!MERGED.has(k)) { diff[k] = { whole: v }; continue; }
+    const was = ((node as unknown as Record<string, Record<string, unknown> | null>)[k] ?? {}) as Record<string, unknown>;
+    const now = (v ?? {}) as Record<string, unknown>;
+    const set: Record<string, unknown> = {};
+    for (const [kk, vv] of Object.entries(now)) if (JSON.stringify(was[kk]) !== JSON.stringify(vv)) set[kk] = vv;
+    diff[k] = { set, drop: Object.keys(was).filter((kk) => !(kk in now)) };
+  }
+  st.patchNodes(ids, (n) => Object.fromEntries(Object.entries(diff).map(([k, d]) => {
+    if ("whole" in d) return [k, d.whole];
+    const own = { ...(((n as unknown as Record<string, Record<string, unknown> | null>)[k]) ?? {}), ...d.set };
+    for (const kk of d.drop) delete own[kk];
+    return [k, Object.keys(own).length ? own : null];
+  })) as Partial<StudioNode>);
+}
+
 function Editor({ which, node, slabs, onMore }: { which: string; node: StudioNode; slabs: Slab[]; onMore: () => void }) {
   const format = useStudio((st) => st.format);
   const look = useStudio((st) => st.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
-  const update = (patch: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, patch);
+  const update = (patch: Partial<StudioNode>) => applyToSelection(node, patch);
+  const siteColours = React.useMemo(() => {
+    if (which !== "edge") return [];
+    const t = tallyColours(useStudio.getState().nodes, palette);
+    return [...new Set([...t.byUse.border, ...t.byUse.shadow, ...t.all].map((c) => c.value))];
+  }, [which, palette]);
 
   // The three that are about looks are drawn on the slabs themselves.
+  if (which === "edge") {
+    return <EdgeQuads slabs={slabs} edge={node.edge ?? null} palette={palette} siteColours={siteColours} onChange={(edge) => update({ edge })} />;
+  }
   if (which === "hue") {
     return <HueQuads slabs={slabs} colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />;
   }

@@ -16,6 +16,7 @@ import { getFeature, categoryOf } from "./catalog";
 import { isLinkable } from "./parts";
 import { useActions } from "@/core/actions";
 import { pageClip } from "./pageClip";
+import { leadsOf, withLead } from "./parts/leadIn";
 import { Block, themeFrom } from "./blocks";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { pictureOf } from "./reshapeRun";
@@ -1840,7 +1841,8 @@ export function Canvas() {
         {nodes.map((n) => (
           <NodeView
             key={n.id}
-            node={n}
+            /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
+            node={withLead(n, leadsOf(nodes))}
             selected={selection.includes(n.id)}
             inHeldGroup={heldIds.has(n.id)}
             theme={theme}
@@ -2601,7 +2603,9 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
         if (e.button !== 2) return;
         e.preventDefault();
         e.stopPropagation();
-        useStudio.getState().setSelection([node.id]);
+        /* A part already in a picked set keeps the set: the wheel's edits go to every picked part (RadialMenu's applyToSelection). */
+        const st = useStudio.getState();
+        if (!st.selection.includes(node.id)) st.setSelection([node.id]);
         openRadial(node.id, e.clientX, e.clientY);
       }}
       onContextMenu={(e) => {

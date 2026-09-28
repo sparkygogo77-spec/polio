@@ -6,12 +6,11 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Box, Brush, ClipboardPaste, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Pencil, Play, Scissors, SlidersHorizontal, Sparkles, SunDim, Trash2, Type, Unlock, Wand2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Box, Brush, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Palette as PaletteIcon, Pencil, Play, SlidersHorizontal, Sparkles, Trash2, Type, Unlock, Wand2 } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
-import { lands, speedWord, type Look } from "./look";
-import type { FormatValues } from "./format";
-import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { speedWord } from "./look";
+import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { drop as dropPicture, put as putPicture, usePicture } from "./pictures";
 import { RENDER_COST } from "./renderer";
 import { rendererHeader } from "./agent";
@@ -157,96 +156,6 @@ function nodeDesigns(n: StudioNode): Design[] {
   if (n.prompt.trim()) out.push({ icon: <Wand2 />, label: "words", hue: 350 });
   return out;
 }
-function backgroundDesigns(look: Look, format: FormatValues): Design[] {
-  const out: Design[] = [];
-  const fill = String(format["palette.background"] ?? "flat");
-  if (fill !== "flat") out.push({ icon: <Paintbrush />, label: fill, hue: 205 });
-  if (look.veil && look.veil > 0.005) out.push({ icon: <SunDim />, label: `veil ${Math.round(look.veil * 100)}%`, hue: 278 });
-  if (look.palette.bg) out.push({ icon: <PaletteIcon />, label: "page colour", hue: 150 });
-  const layers = (look.texture ?? []).filter((l) => l.on && lands(l, "page")).length;
-  if (layers) out.push({ icon: <Layers />, label: `${layers} texture${layers === 1 ? "" : "s"}`, hue: 330 });
-  return out;
-}
-
-/**
- * The background, picked: what the page is painted with before any part.
- *
- * The fill is the format's own background choice; the layers are the ones
- * in the Looks stack that land on the page, switched here without leaving
- * the board. Cut strips it bare and holds it; put back restores it.
- */
-export function BackgroundInspector() {
-  const look = useStudio((s) => s.look);
-  const format = useStudio((s) => s.format);
-  const s = useStudio.getState;
-  const fill = String(format["palette.background"] ?? "flat");
-  const layers = (look.texture ?? []).filter((l) => lands(l, "page"));
-  const held = heldBackground();
-  /*
-   * A SECTION OF A COLUMN, NOT A PANEL OF ITS OWN.
-   *
-   * This kept the shape it was born with, back when it WAS the whole of the
-   * Element tab: `h-full` on the outside and `flex-1 overflow-y-auto` on the
-   * body, which is how you fill a panel. Dropped into the Look column, which
-   * is itself a flex column that scrolls, `h-full` had nothing to measure
-   * against and the block collapsed — MEASURED at a 227px panel, 9px tall,
-   * from y 119 to y 128, with its own contents running on to y 156. So the
-   * Background heading was painted at 127 and the Colour heading at 140, two
-   * headings sharing a band, and the line "The page behind every part" ran
-   * straight through the row of swatches below it.
-   *
-   * It is not a margin that was wrong; it was the box. A section takes its
-   * own height and the column stacks it and does the scrolling, which is
-   * what every other section in this panel already does.
-   */
-  return (
-    <section className="border-b border-border" data-background-inspector="">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Layers className="size-3.5 text-fg-muted" />
-        <div className="min-w-0 flex-1">
-          <div data-look-heading className="text-plain font-semibold text-fg">Background</div>
-          <div className="text-small text-fg-muted">The page behind every part</div>
-        </div>
-        <Tooltip content="Cut the background" shortcut="mod+x">
-          <Button variant="ghost" size="iconXs" aria-label="Cut the background" onClick={() => s().cutBackground()}>
-            <Scissors />
-          </Button>
-        </Tooltip>
-      </div>
-      <Designs items={backgroundDesigns(look, format)} />
-      {/*
-        ONE PLACE PAINTS THE PAGE, and it is the stack at the foot of this
-        panel. His words: the fill options "may be redundant against the
-        Texture section at the bottom; merge them in some way rather than
-        leaving two places that paint the page."
-
-        What stood here was both halves of the redundancy. The Fill control
-        was one of the two places, and under it sat a list of the very same
-        page layers the Texture section lists, with a switch each — a second
-        remote for a control three inches further down. Both are gone: the
-        fill is the bottom row of the stack now, where the page's own order
-        puts it, and the layers are switched where they are built.
-
-        What stays here is what is only here: what the page is wearing, at a
-        glance, and cut and put back.
-      */}
-      <div className="p-3">
-        <p className="text-small leading-snug text-fg-muted">
-          {fill === "flat" ? "Painted flat" : `Painted with a ${fill}`}
-          {layers.length ? `, under ${layers.length} texture${layers.length === 1 ? "" : "s"}` : ""}
-          . The fill and the layers are one stack, at the foot of this panel.
-        </p>
-        {held ? (
-          <Button size="xs" variant="ghost" className="mt-2" onClick={() => s().pasteBackground()}>
-            <ClipboardPaste />
-            Put the cut background back
-          </Button>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
 /**
  * The picture a part holds: choose one, see it, take it away.
  *
