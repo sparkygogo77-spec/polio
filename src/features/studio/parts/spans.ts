@@ -75,6 +75,11 @@ export interface Span {
   motion?: { animation?: MotionAnimation[] } | null;
 }
 
+/** Are these a captured title's letters, each moving on its own (a transform or an animation per run)? */
+export function hasLetters(w: Words | null | undefined): boolean {
+  return Array.isArray(w) && w.some((s) => !!s && ((!!s.transform && s.transform !== "none") || !!s.motion?.animation?.length));
+}
+
 /** What a node's words are. A plain string is one unstyled span. */
 export type Words = string | Span[];
 

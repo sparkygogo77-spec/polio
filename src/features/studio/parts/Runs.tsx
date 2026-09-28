@@ -23,7 +23,7 @@
  */
 import * as React from "react";
 import type { Theme } from "./theme";
-import type { Span } from "./spans";
+import { hasLetters, type Span } from "./spans";
 import { animationsValue } from "./capturedMotion";
 import type { NodeLink, PartMode } from "./types";
 
@@ -90,9 +90,25 @@ function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefin
 }
 
 export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
-  return (
-    <>
-      {spans.map((s, i) => {
+  const drawn = spans.map((s, i) => one(s, i, t, mode, onNavigate));
+  /*
+   * A title's letters are inline-blocks, and a line may break between any
+   * two inline-blocks: "MORTY" broke after its M. So each word's letters are
+   * held together, and the line breaks only at the spaces between words, as
+   * the page's did.
+   */
+  if (!hasLetters(spans as Span[])) return <>{drawn}</>;
+  const out: React.ReactNode[] = [];
+  let word: React.ReactNode[] = [];
+  const close = () => { if (word.length) out.push(<span key={`w${out.length}`} style={{ whiteSpace: "nowrap" }}>{word}</span>); word = []; };
+  spans.forEach((s, i) => { if (/^\s+$/.test(s.text)) { close(); out.push(drawn[i]); } else word.push(drawn[i]); });
+  close();
+  return <>{out}</>;
+}
+
+/** One run, as the part draws it. */
+function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigate: RunsProps["onNavigate"]): React.ReactNode {
+      {
         const style = look(s, t, mode);
         /* A letter that moves wears the class reduced motion stills (capturedMotion.ts). */
         const moving = !!style?.animation;
@@ -128,7 +144,5 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
          */
         if (to) return <span key={i} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
         return style ? <span key={i} className={moving ? "mo-l" : undefined} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
-      })}
-    </>
-  );
+      }
 }

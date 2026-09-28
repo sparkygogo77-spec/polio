@@ -136,8 +136,18 @@ export interface NodeFont {
   leading?: number;
 }
 
-export function applyFont(t: Theme, font: NodeFont | null | undefined): Theme {
+/**
+ * The size and leading a node names are held to the Font control's range
+ * (0.6..2 × the base, 1..2) when a person set them here. A CAPTURED part's
+ * were read off its page (`captured`: it has `from.selector`, as
+ * `applyCaptured` reads it), so they are drawn as measured: trumpmorty.fun's
+ * headline is 4.84 × the base at a leading of 0.86, and held to the range it
+ * drew at 51px in a box measured for 124 (sink fidelity #7). Only a value no
+ * page could mean is refused (tests/captured-size.mjs).
+ */
+export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { captured?: boolean } = {}): Theme {
   if (!font) return t;
+  const [sizeMin, sizeMax, leadMin, leadMax] = opts.captured ? [0.1, 20, 0.5, 3] : [0.6, 2, 1, 2];
   const next: Theme = { ...t };
   const stack = font.family ? FAMILY[font.family] : undefined;
   const face = typeof font.face === "string" ? font.face.trim().replace(/['"]/g, "") : "";
@@ -145,10 +155,10 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined): Theme {
     next.headingFamily = [face ? `'${face}'` : null, stack ?? t.headingFamily].filter(Boolean).join(", ");
     next.bodyFamily = [face ? `'${face}'` : null, stack ?? t.bodyFamily].filter(Boolean).join(", ");
   }
-  if (typeof font.size === "number" && Number.isFinite(font.size)) next.fontPx = Math.round(t.fontPx * Math.max(0.6, Math.min(2, font.size)) * 10) / 10;
+  if (typeof font.size === "number" && Number.isFinite(font.size)) next.fontPx = Math.round(t.fontPx * Math.max(sizeMin, Math.min(sizeMax, font.size)) * 10) / 10;
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
   if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) next.letterSpacing = `${Math.max(-0.05, Math.min(0.3, font.spacing)).toFixed(3)}em`;
-  if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(1, Math.min(2, font.leading));
+  if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(leadMin, Math.min(leadMax, font.leading));
   return next;
 }
 

@@ -41,6 +41,9 @@ const doc = {
   nodes: [
     node("n_valueprop_1", { font: { size: SIZE, leading: LEAD }, from: { url: "http://stand.in/", host: "stand.in", selector: "body > h1", at } }),
     node("n_valueprop_2", { y: 400, font: { size: SIZE, leading: LEAD } }),
+    /* A folded title too narrow for its two words on one line: it breaks between them, never inside one. */
+    node("n_valueprop_3", { y: 700, w: 420, h: 220, font: { size: SIZE, leading: LEAD }, from: { url: "http://stand.in/", host: "stand.in", selector: "body > h2", at },
+      content: [..."TRUMP"].map((c, i) => ({ text: c, transform: `matrix(1, 0, 0, 1, 0, -${i + 1})` })).concat([{ text: " " }], [..."MORTY"].map((c, i) => ({ text: c, transform: `matrix(1, 0, 0, 1, 0, -${i + 1})` }))) }),
   ],
   groups: [], shapes: [],
   format: { "palette.mode": "light", "layout.radius": 0, "type.baseSize": 16 },
@@ -75,6 +78,9 @@ async function sizes(p, where, tpl) {
   const cap = await size(p, tpl, "n_valueprop_1"), hand = await size(p, tpl, "n_valueprop_2");
   check(`${where}: the captured heading draws at its measured ${want.toFixed(1)}px`, !!cap && Math.abs(cap.fs - want) < 0.6, JSON.stringify(cap));
   check(`${where}: …with its measured leading (${LEAD})`, !!cap && Math.abs(cap.lh / cap.fs - LEAD) < 0.01, JSON.stringify(cap));
+  const lines = await p.evaluate((sel) => { const el = document.querySelector(sel); return el ? [...el.querySelectorAll("p span")].filter((x) => x.textContent.length === 1 && x.textContent.trim()).map((x) => [x.textContent, Math.round(x.offsetTop)]) : []; }, tpl.replace("ID", "n_valueprop_3"));
+  const tops = (w) => new Set(lines.slice(w === 0 ? 0 : 5, w === 0 ? 5 : 10).map((l) => l[1]));
+  check(`${where}: a folded title wraps between its words, never inside one`, lines.length === 10 && tops(0).size === 1 && tops(1).size === 1 && [...tops(0)][0] < [...tops(1)][0], JSON.stringify(lines));
   check(`${where}: the same heading built by hand is still held to 2× (${held.toFixed(1)}px), at the part's own leading (1.2)`, !!hand && Math.abs(hand.fs - held) < 0.6 && Math.abs(hand.lh / hand.fs - 1.2) < 0.01, JSON.stringify(hand));
 }
 await sizes(page, "board", '[data-node-id="ID"]');

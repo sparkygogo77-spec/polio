@@ -33,8 +33,13 @@ shadow, each wobbling on its delay), `-hover-rest/-hover-on` (BUY ON
 PUMP.FUN lifts and turns with a 10px shadow, words and icon with it; before,
 nothing), `-embed` (a black box → the DEX Screener frame).
 
-Not done here: the headline draws at ~51px, not the site's 124, because
-`applyFont` caps a node's size at 2× the base (the heading clamp, sink
-fidelity #7); a `transform-origin` is not captured (the site's letters turn
+A captured part draws at the size and leading it was measured at
+(`applyFont(…, { captured })`, sink fidelity #7): the headline is 123.84px
+at 0.86, in the 635×213 box the capture measured, where it drew at 51.2px
+held to the Font control's 0.6–2× range; a part built here is still held
+to it (`tests/captured-size.mjs`). A title's letters wrap between words,
+never inside one, and rise past their tight line unclipped, as on the page.
+
+Not done here: a `transform-origin` is not captured (the site's letters turn
 about 50% 90%); pseudo-elements and script-driven motion (the marquee,
 parallax) are not in the capture.

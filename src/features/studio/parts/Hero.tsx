@@ -8,6 +8,7 @@ import { items, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
 import { splitTurn } from "./turn";
 import { Runs } from "./Runs";
+import { hasLetters } from "./spans";
 
 export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, picture }: PartProps) {
   const typing = id === "hero-typewriter";
@@ -91,7 +92,8 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
     /* Captured, the box is his heading's own and it had no padding and its
        own leading (`applyCaptured`): padded, a heading as wide as its words
        wrapped, and the page under it moved (tests/captured-words.mjs). */
-    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
+    /* A captured title's letters rise above a tight line (0.86) and wobble past it, as they did on the page: not clipped. */
+    <Fill t={t} data-part={id} overflow={hasLetters(spans) ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
       <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
         {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : (

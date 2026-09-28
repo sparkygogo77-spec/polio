@@ -17,7 +17,7 @@ import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usePicture, type Picture } from "./pictures";
-import { isSpans, plain, spansOf } from "./parts/spans";
+import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -104,7 +104,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // nothing at all — the edge is the box wrapper's below — it only carries
   // the fact, so a part that draws its own edge can stand aside for his.
   // See `NodeSaid` in `parts/theme.ts`.
-  const painted = applyCaptured(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), wordsSet(node)), node.pad), node.edge), { from: node.from, h: size?.h ?? node.h });
+  const painted = applyCaptured(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font, { captured: !!node.from?.selector?.trim() }), wordsSet(node)), node.pad), node.edge), { from: node.from, h: size?.h ?? node.h });
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {
@@ -262,7 +262,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
         {drawn}
       </div>
     ) : drawn}
