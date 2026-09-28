@@ -15,6 +15,7 @@ import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable } from "./parts";
 import { useActions } from "@/core/actions";
+import { pageClip } from "./pageClip";
 import { Block, themeFrom } from "./blocks";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { pictureOf } from "./reshapeRun";
@@ -2626,6 +2627,7 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
          * is the taller of the two.
          */
         className="relative flex w-full flex-col overflow-hidden"
+        data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
         /*
@@ -2660,6 +2662,8 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
           // actually painted, and what is painted here is already cut to the
           // drawn line.
           ...(hugs ? ((auraFilter(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties) : {}),
+          // Cut at the page's edge, as the site is (`pageClip.ts`).
+          clipPath: pageClip(node, page.w),
         }}
       >
         <Block
