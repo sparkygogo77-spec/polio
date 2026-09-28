@@ -92,7 +92,9 @@ const draws = (f: Frag): boolean => !!(f.picture || f.cube || f.vector || f.mesh
 function shows(f: Frag): boolean {
   const painted = f.colour && Object.values(f.colour).some((v) => typeof v === "string" && v.trim());
   const ruled = !!f.edge && (f.edge.width ?? 0) > 0 && f.edge.style !== "none";
-  return !!painted || ruled || !!f.texture || !!f.aura;
+  /* A shadow is a surface too: a screen's vignette is a layer the size of the picture that is only an inset shadow (`tests/screen-filter.mjs`). */
+  const shaded = !!(f.edge as { shadow?: string } | null | undefined)?.shadow?.trim();
+  return !!painted || ruled || shaded || !!f.texture || !!f.aura;
 }
 
 /** What a part paints, as one comparable value: its fill and ink, edge, texture, aura, and the page's own art (a gradient, a filter, a blend). */

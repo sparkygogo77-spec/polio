@@ -399,7 +399,10 @@ function isWrapper(f: Frag): boolean {
 function shows(f: Frag): boolean {
   const painted = f.colour && Object.values(f.colour).some((v) => typeof v === "string" && v.trim());
   const ruled = !!f.edge && (f.edge.width ?? 0) > 0 && f.edge.style !== "none";
-  return !!painted || ruled || !!f.texture || !!f.aura;
+  /* A shadow or a background of the page's own is a surface too: a screen's vignette (an inset shadow) and its scanlines (a repeating gradient) are layers with nothing in them (`tests/screen-filter.mjs`). */
+  const shaded = !!(f.edge as { shadow?: string } | null | undefined)?.shadow?.trim();
+  const art = !!((f as { art?: { background?: string } | null }).art?.background ?? "").trim();
+  return !!painted || ruled || shaded || art || !!f.texture || !!f.aura;
 }
 
 /**

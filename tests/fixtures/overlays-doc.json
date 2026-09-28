@@ -1,0 +1,539 @@
+{
+"pages": [
+{
+"id": "page_home",
+"name": "Home",
+"path": "/",
+"prompt": "",
+"scroll": "inherit"
+}
+],
+"nodes": [
+{
+"id": "n_box_1",
+"pageId": "page_home",
+"featureId": "box",
+"label": "div \u00b7 6 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 80,
+"y": 80,
+"w": 410,
+"h": 310,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"bg": "rgb(0, 0, 0)",
+"surface": "rgb(0, 0, 0)"
+},
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1)",
+"at": 1790626436579
+},
+"edge": {
+"width": 5,
+"style": "solid",
+"colour": "rgb(26, 15, 11)",
+"shadow": "rgba(0, 0, 0, 0.6) 0px 0px 40px 0px inset"
+}
+},
+{
+"id": "n_picture_2",
+"pageId": "page_home",
+"featureId": "box",
+"label": "p",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1) > img. The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "http://127.0.0.1:33131/p.png",
+"x": 85,
+"y": 85,
+"w": 400,
+"h": 300,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"bg": "rgb(200, 120, 60)",
+"surface": "rgb(200, 120, 60)"
+},
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1) > img",
+"at": 1790626436579
+}
+},
+{
+"id": "n_box_3",
+"pageId": "page_home",
+"featureId": "box",
+"label": "div \u00b7 0 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 0,
+"y": 470,
+"w": 1000,
+"h": 900,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"text": "rgb(0, 0, 0)"
+},
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(2)",
+"at": 1790626436579
+}
+},
+{
+"id": "n_box_4",
+"pageId": "page_home",
+"featureId": "box",
+"label": "::before \u00b7 0 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1)::before. The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 85,
+"y": 85,
+"w": 400,
+"h": 300,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": null,
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"inert": true,
+"art": {
+"background": "repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.14) 0px, rgba(0, 0, 0, 0.14) 2px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 4px)",
+"backgroundOptions": [
+"auto",
+"0% 0%",
+"repeat"
+]
+},
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1)::before",
+"at": 1790626436579,
+"position": "absolute"
+}
+},
+{
+"id": "n_box_5",
+"pageId": "page_home",
+"featureId": "box",
+"label": "div \u00b7 0 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1) > div:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 85,
+"y": 85,
+"w": 400,
+"h": 300,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"bg": "rgba(255, 255, 255, 0.06)",
+"surface": "rgba(255, 255, 255, 0.06)",
+"text": "rgb(0, 0, 0)"
+},
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"inert": true,
+"art": {
+"blend": "overlay",
+"animation": "flick"
+},
+"motion": {
+"animation": [
+{
+"name": "flick",
+"duration": "0.4s",
+"timing": "steps(1)",
+"delay": "0s",
+"iterations": "infinite",
+"direction": "normal",
+"fill": "none"
+}
+]
+},
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1) > div:nth-of-type(1)",
+"at": 1790626436579,
+"position": "absolute"
+}
+},
+{
+"id": "n_box_6",
+"pageId": "page_home",
+"featureId": "box",
+"label": "div \u00b7 0 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1) > div:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 85,
+"y": 235,
+"w": 400,
+"h": 1,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"bg": "rgba(160, 255, 90, 0.5)",
+"surface": "rgba(160, 255, 90, 0.5)",
+"text": "rgb(0, 0, 0)",
+"accent": "rgba(160, 255, 90, 0.5)"
+},
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"inert": true,
+"art": {
+"blend": "screen"
+},
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1) > div:nth-of-type(2)",
+"at": 1790626436579,
+"position": "absolute"
+}
+},
+{
+"id": "n_box_7",
+"pageId": "page_home",
+"featureId": "box",
+"label": "::after \u00b7 0 inside",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1)::after. The box, the words, the colours and the type are the ones measured on the page.",
+"content": "",
+"data": "",
+"x": 85,
+"y": 85,
+"w": 400,
+"h": 300,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": null,
+"font": null,
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"inert": true,
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1)::after",
+"at": 1790626436579,
+"position": "absolute"
+},
+"edge": {
+"width": 0,
+"style": "none",
+"shadow": "rgba(0, 0, 0, 0.8) 0px 0px 60px 0px inset"
+}
+},
+{
+"id": "n_prose_8",
+"pageId": "page_home",
+"featureId": "prose",
+"label": "CH 47",
+"prompt": "Captured from 127.0.0.1:33131/ as body > div:nth-of-type(1) > div:nth-of-type(3). The box, the words, the colours and the type are the ones measured on the page.",
+"content": "CH 47",
+"data": "",
+"x": 99,
+"y": 97,
+"w": 72,
+"h": 28,
+"groupId": null,
+"options": {},
+"priority": "must",
+"custom": false,
+"glyph": null,
+"hue": null,
+"locked": false,
+"link": null,
+"colour": {
+"text": "rgb(184, 255, 106)"
+},
+"font": {
+"family": "monospace",
+"size": 1.5,
+"px": 24,
+"weight": 400,
+"leading": 1.17
+},
+"anim": null,
+"animSpeed": 1,
+"animDelay": 0,
+"animEase": "smooth",
+"shape": null,
+"outline": null,
+"kind": null,
+"vector": null,
+"role": null,
+"cube": null,
+"mesh": null,
+"code": null,
+"aura": null,
+"auraSize": 1,
+"auraStyle": "glow",
+"texture": null,
+"sketch": null,
+"opacity": 0.7,
+"from": {
+"url": "http://127.0.0.1:33131/",
+"host": "127.0.0.1:33131",
+"selector": "body > div:nth-of-type(1) > div:nth-of-type(3)",
+"at": 1790626436579,
+"position": "absolute"
+}
+}
+],
+"groups": [],
+"shapes": [],
+"format": {
+"type.headingFamily": "system sans",
+"type.bodyFamily": "system sans",
+"type.baseSize": 16,
+"layout.radius": 0,
+"palette.mode": "light"
+},
+"brief": {
+"name": "OVERLAYS",
+"gimmick": "",
+"master": ""
+},
+"look": {
+"palette": {
+"bg": "rgb(240, 200, 60)",
+"text": "rgb(0, 0, 0)"
+},
+"texture": [],
+"target": "page",
+"light": {
+"on": false,
+"x": 0.5,
+"y": 0.12,
+"height": 0.55,
+"strength": 0.45,
+"lift": 10,
+"warmth": 80,
+"wash": 0
+}
+},
+"motion": [],
+"activePageId": "page_home",
+"hiddenFeatures": [],
+"frameWidth": 1000,
+"companion": null,
+"keyframes": [
+{
+"name": "flick",
+"frames": [
+{
+"key": "0%, 49%",
+"style": {
+"opacity": "1"
+}
+},
+{
+"key": "50%, 100%",
+"style": {
+"opacity": "0.02"
+}
+}
+]
+}
+],
+"behaviours": {
+"version": 1,
+"intro": [],
+"reveal": [],
+"scrollClass": [],
+"pointer": [],
+"loops": [],
+"idle": [
+{
+"part": "n_box_5",
+"selector": "body > div:nth-of-type(1) > div:nth-of-type(1)",
+"name": "flick",
+"css": true,
+"duration": 400,
+"easing": "linear",
+"delay": 0,
+"direction": "normal"
+}
+],
+"heldVisible": [
+{
+"part": "n_box_5",
+"selector": "body > div:nth-of-type(1) > div:nth-of-type(1)",
+"name": "flick",
+"opacity": 1
+}
+]
+}
+}

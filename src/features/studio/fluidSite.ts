@@ -94,8 +94,15 @@ export function isCaptured(p: { from?: { selector?: string | null } | null }): b
   return !!p.from?.selector?.trim();
 }
 
-/** The path of what an element sits inside, from its own. */
-const up = (sel: string) => sel.slice(0, Math.max(0, sel.lastIndexOf(" > ")));
+/** The path of what an element sits inside, from its own; a `::before` / `::after` sits inside its element. */
+const up = (sel: string) => (/::(before|after)$/.test(sel) ? sel.replace(/::(before|after)$/, "") : sel.slice(0, Math.max(0, sel.lastIndexOf(" > "))));
+/**
+ * Is `sel` inside `of`: a descendant, or one of its `::before` / `::after`.
+ * A pseudo-element was a part of the page's own at the page's level, and a
+ * screen's vignette (`X::after`, placed absolutely) moved as a free
+ * decoration while its screen stayed (`tests/screen-filter.mjs`).
+ */
+const within = (sel: string, of: string) => sel.startsWith(`${of} > `) || sel.startsWith(`${of}::`);
 
 /** Where a part a band owns goes: into the band's element, at its place within the band. */
 export interface BandMove {
@@ -132,7 +139,7 @@ export function bandMoves(parts: readonly FluidPart[], W = 0): Map<string, BandM
   const out = new Map<string, BandMove>();
   /* Sticky bands only: a fixed band's parts are already fixed with it (`fluidParts` hands fixedness down), and a part inside a fixed band stays so. */
   const fixed = parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.selector!);
-  const inFixed = (p: FluidPart) => p.position === "fixed" || fixed.some((f) => p.selector!.startsWith(`${f} > `));
+  const inFixed = (p: FluidPart) => p.position === "fixed" || fixed.some((f) => within(p.selector!, f));
   const bands = parts.filter((p) => p.selector && p.position === "sticky");
   /* The nearest band first: the longest path owns most closely. */
   bands.sort((a, b) => b.selector!.length - a.selector!.length);
@@ -140,7 +147,7 @@ export function bandMoves(parts: readonly FluidPart[], W = 0): Map<string, BandM
     for (const p of parts) {
       if (p === band || !p.selector || out.has(p.id)) continue;
       if (p.position === "sticky" || inFixed(p)) continue;
-      if (!p.selector.startsWith(`${band.selector} > `)) continue;
+      if (!within(p.selector, band.selector!)) continue;
       const full = band.x === 0 && (W <= 0 || Math.abs(band.w - W) <= 1);
       out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x, inside: full ? null : { left: `${p.x - band.x}px`, width: `${p.w}px` } });
     }
@@ -177,7 +184,7 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
   for (const p of caught) {
     let best: FluidPart | null = null;
     for (const q of caught) {
-      if (q === p || !p.selector!.startsWith(`${q.selector} > `)) continue;
+      if (q === p || !within(p.selector!, q.selector!)) continue;
       if (!best || q.selector!.length > best.selector!.length) best = q;
     }
     parentOf.set(p.id, best);
@@ -263,7 +270,7 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
        * are their own parts and keep their places.
        */
       if (!fixed && C.position === "fixed" && k.fixed === "top") {
-        const inside = (q: FluidPart) => !!q.selector && q.selector.startsWith(`${C.selector} > `);
+        const inside = (q: FluidPart) => !!q.selector && within(q.selector, C.selector!);
         const below = caught.filter((q) => q !== C && !inside(q) && q.y > C.y + E && q.y < C.y + C.h - E && q.x < C.x + C.w && q.x + q.w > C.x);
         if (below.length) k.height = Math.min(...below.map((q) => q.y)) - C.y;
       }
