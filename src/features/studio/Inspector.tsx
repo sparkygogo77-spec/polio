@@ -39,6 +39,7 @@ import { VirtualList } from "@/core/ui/virtual-list";
 import { linkReason } from "./links";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
+import { WorkFields } from "./WorkFields";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -1001,6 +1002,7 @@ export function Inspector() {
         {feature?.content ? <WordsField node={node} content={feature.content} /> : null}
         {/* Once, not twice: the Link mark below shows the same field when it is open. */}
         {isLinkable(node.featureId) && mark !== "link" ? <LinkField node={node} /> : null}
+        <WorkFields node={node} />
         <Field
           label="Prompt for this element"
           hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."

@@ -28,7 +28,7 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import { chromium } from "playwright-core";
-import { LIBRARY, getWork, featureFiles, pageFeatureTags, matchWorks } from "../src/features/studio/library/works.ts";
+import { LIBRARY, getWork, featureFiles, pageFeatureTags, pageFeatures, matchWorks, usesOf, withWork, withoutWork, withInput, describeWork } from "../src/features/studio/library/works.ts";
 import { readWords } from "../src/features/studio/library/read.ts";
 import { contractFiles } from "../src/features/studio/library/contract.ts";
 import { foundIn, offersFrom } from "../src/features/studio/library/roundTrip.ts";
@@ -90,6 +90,19 @@ check("Embed asks for the address", getWork("embed")?.manifest.inputs.some((i) =
   const nodes = IDS.map((id, i) => ({ id: `p${i}`, work: { id, inputs: {} } }));
   const files = featureFiles(nodes).map((f) => f.path).sort();
   check("publishing ships the runtime and each behaviour's script", IDS.every((id) => files.includes(`assets/features/${id}.js`)) && files.includes("assets/features/runtime.js"), files.join(", "));
+}
+
+/* -------------------------------------------- two on one part */
+{
+  const two = withWork({ id: "reveal", inputs: { distance: "48" } }, { id: "copy-toast", inputs: {} });
+  check("a second feature joins the first on a part", usesOf(two).map((u) => u.id).join() === "reveal,copy-toast" && two.inputs.distance === "48", JSON.stringify(two));
+  check("…the same one again replaces its old use", usesOf(withWork(two, { id: "reveal", inputs: { once: "no" } })).map((u) => `${u.id}:${JSON.stringify(u.inputs)}`).join() === 'copy-toast:{},reveal:{"once":"no"}');
+  check("…live data over live data replaces, since both write the words", usesOf(withWork(withWork(null, { id: "sol-price", inputs: {} }), { id: "token-price", inputs: {} })).map((u) => u.id).join() === "token-price");
+  check("…taken off, the other stays; the last taken off leaves none", usesOf(withoutWork(two, "reveal")).map((u) => u.id).join() === "copy-toast" && withoutWork(withoutWork(two, "reveal"), "copy-toast") === null);
+  check("…an input set on one is set on that one only", withInput(two, "copy-toast", "toast", "Yes").also[0].inputs.toast === "Yes" && !("toast" in withInput(two, "copy-toast", "toast", "Yes").inputs));
+  check("…said in a sentence as both", describeWork(two) === "Reveal on scroll + Copy with toast", describeWork(two));
+  const pf = pageFeatures([{ id: "a", work: two }]);
+  check("…and the page binds both to it, loading both", pf.bindings.map((b) => `${b.part}:${b.feature}`).join() === "a:reveal,a:copy-toast" && pf.scripts.join() === "runtime.js,reveal.js,copy-toast.js", pf.scripts.join());
 }
 
 /* ---------------------------- the owner's two, as contract folders */

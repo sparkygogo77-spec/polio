@@ -321,7 +321,7 @@ const CRT: Work = {
     id: "crt-loader",
     name: "CRT loader",
     category: "hero",
-    blurb: "A full-screen tuning screen while the page loads — static, scanlines, a channel and a bar — that switches off like an old set.",
+    blurb: "A full-screen tuning screen while the page loads: static, scanlines, a channel and a bar. It switches off like an old set.",
     inputs: [
       { id: "title", label: "Title", kind: "text", default: "", placeholder: "the part's own words" },
       { id: "ticker", label: "Ticker", kind: "text", default: "" },

@@ -22,7 +22,7 @@
  *
  * Pure: the tests run it as written.
  */
-import { allWorks, getWork, inputsOf, type Work, type WorkManifest, type WorkUse } from "./works.ts";
+import { allWorks, getWork, inputsOf, usesOf, type Work, type WorkManifest, type WorkUse } from "./works.ts";
 
 export const BLOCK_START = "<!-- builder:features:start -->";
 export const BLOCK_END = "<!-- builder:features:end -->";
@@ -200,10 +200,12 @@ export function readmeOf(w: Work): string {
 export function contractFiles(nodes: readonly Part[], pages: readonly Page[]): ContractFile[] {
   const parts = new Map<string, string[]>();
   for (const n of nodes) {
-    if (!n.work || !getWork(n.work.id)) continue;
-    const list = parts.get(n.work.id) ?? [];
-    list.push(n.id);
-    parts.set(n.work.id, list);
+    for (const u of usesOf(n.work)) {
+      if (!getWork(u.id)) continue;
+      const list = parts.get(u.id) ?? [];
+      list.push(n.id);
+      parts.set(u.id, list);
+    }
   }
   const folders = allWorks()
     .filter((w) => parts.has(w.manifest.id))

@@ -23,7 +23,7 @@ import type { Slab } from "./RingConsole";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { readWords, type Reading } from "./library/read";
-import { allWorks, describeWork, getWork, inputsOf } from "./library/works";
+import { allWorks, describeWork, getWork, inputsOf, usesOf, withInput, withoutWork, withWork } from "./library/works";
 
 const field = `min-h-0 w-full text-small leading-snug ${SCREEN_FIELD}`;
 /** Parts that draw no words: plain text typed on one is an instruction, not copy. */
@@ -50,7 +50,8 @@ export function patchFor(node: StudioNode, r: Applied): Partial<StudioNode> {
     case "link": return { link: r.link };
     /* Words typed here are chosen: on a live-data spot they are its answer. */
     case "words": return { content: reword(node.content, r.text), settled: true };
-    case "work": return { work: r.work };
+    /* A feature joins the ones the part has; the same one again, or live data over live data, replaces. */
+    case "work": return { work: withWork(node.work, r.work) };
     case "task": return { task: r.text };
   }
 }
@@ -94,7 +95,6 @@ export function SayPlate({ node, plate, onMore }: { node: StudioNode; plate: Sla
     play("close");
   };
 
-  const work = node.work ? getWork(node.work.id) : undefined;
   const now = nowSays(node, pages);
   const rail = (
     <>
@@ -156,23 +156,28 @@ export function SayPlate({ node, plate, onMore }: { node: StudioNode; plate: Sla
             </button>
           </div>
         ) : null}
-        {work && node.work ? (
-          <div data-say-work={work.manifest.id} className="flex flex-col gap-1">
-            {work.manifest.inputs.map((i) => {
-              const v = inputsOf(work.manifest, node.work!.inputs)[i.id] ?? "";
-              const set = (value: string) => useStudio.getState().updateNode(node.id, { work: { ...node.work!, inputs: { ...node.work!.inputs, [i.id]: value } } });
-              if (i.kind === "one") {
-                return (
-                  <div key={i.id} className="flex flex-wrap items-center gap-1">
-                    {(i.values ?? []).map((x) => <Tick key={x} on={v === x} onClick={() => set(x)}>{x}</Tick>)}
-                  </div>
-                );
-              }
-              return <Input key={i.id} value={v} aria-label={i.label} inputSize="sm" className={field} placeholder={i.placeholder ?? i.label} onChange={(e) => set(e.target.value)} />;
-            })}
-            <div><Tick on={false} onClick={() => useStudio.getState().updateNode(node.id, { work: null })}>take the feature off</Tick></div>
-          </div>
-        ) : null}
+        {usesOf(node.work).map((use) => {
+          const w = getWork(use.id);
+          if (!w) return null;
+          const set = (input: string, value: string) => useStudio.getState().updateNode(node.id, { work: withInput(node.work, use.id, input, value) });
+          return (
+            <div key={use.id} data-say-work={use.id} className="flex flex-col gap-1">
+              {usesOf(node.work).length > 1 ? <span className="font-mono text-[8px]" style={{ color: SCREEN.dim }}>{w.manifest.name}</span> : null}
+              {w.manifest.inputs.map((i) => {
+                const v = inputsOf(w.manifest, use.inputs)[i.id] ?? "";
+                if (i.kind === "one") {
+                  return (
+                    <div key={i.id} className="flex flex-wrap items-center gap-1">
+                      {(i.values ?? []).map((x) => <Tick key={x} on={v === x} onClick={() => set(i.id, x)}>{x}</Tick>)}
+                    </div>
+                  );
+                }
+                return <Input key={i.id} value={v} aria-label={i.label} inputSize="sm" className={field} placeholder={i.placeholder ?? i.label} onChange={(e) => set(i.id, e.target.value)} />;
+              })}
+              <div><Tick on={false} onClick={() => useStudio.getState().updateNode(node.id, { work: withoutWork(node.work, use.id) })}>{usesOf(node.work).length > 1 ? `take ${w.manifest.name} off` : "take the feature off"}</Tick></div>
+            </div>
+          );
+        })}
       </div>
     </PlateQuad>
   );

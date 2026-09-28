@@ -100,10 +100,47 @@ export interface WorkPicture {
   text?: unknown;
 }
 
-/** What a part carries when a feature is attached to it. */
+/**
+ * What a part carries when a feature is attached to it. A part can carry
+ * more than one (reveal on scroll and copy with toast on one address): the
+ * first is the use itself, the rest ride in `also`, so every reader that
+ * only knows one feature a part still sees the first.
+ */
 export interface WorkUse {
   id: string;
   inputs: Record<string, string>;
+  also?: WorkUse[];
+}
+
+/** Every feature a part carries, the first first. */
+export function usesOf(work: WorkUse | null | undefined): WorkUse[] {
+  if (!work) return [];
+  const one = (u: WorkUse): WorkUse => ({ id: u.id, inputs: u.inputs ?? {} });
+  return [one(work), ...(work.also ?? []).map(one)];
+}
+function stack(list: WorkUse[]): WorkUse | null {
+  const [first, ...rest] = list;
+  if (!first) return null;
+  return rest.length ? { ...first, also: rest } : first;
+}
+/** Two that both write the part's words would fight over them: live data replaces live data. */
+const writesWords = (id: string) => getWork(id)?.manifest.category === "data";
+
+/**
+ * A part's features with one more. The same feature again replaces its old
+ * use; a live-data feature replaces another; anything else stacks.
+ */
+export function withWork(work: WorkUse | null | undefined, add: WorkUse): WorkUse {
+  const kept = usesOf(work).filter((u) => u.id !== add.id && !(writesWords(u.id) && writesWords(add.id)));
+  return stack([...kept, { id: add.id, inputs: add.inputs ?? {} }])!;
+}
+/** A part's features without this one; null when it was the only one. */
+export function withoutWork(work: WorkUse | null | undefined, id: string): WorkUse | null {
+  return stack(usesOf(work).filter((u) => u.id !== id));
+}
+/** A part's features with one input of one of them changed. */
+export function withInput(work: WorkUse | null | undefined, id: string, input: string, value: string): WorkUse | null {
+  return stack(usesOf(work).map((u) => (u.id === id ? { ...u, inputs: { ...u.inputs, [input]: value } } : u)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -233,6 +270,8 @@ export function inputsOf(m: WorkManifest, set: Record<string, string> = {}): Rec
 
 /** In a sentence, for the one box and the blueprint: "Live SOL price, every 30 s". */
 export function describeWork(use: WorkUse): string {
+  const all = usesOf(use);
+  if (all.length > 1) return [describeWork(all[0]!), ...all.slice(1).map((u) => getWork(u.id)?.manifest.name ?? u.id)].join(" + ");
   const w = getWork(use.id);
   if (!w) return use.id;
   const inputs = inputsOf(w.manifest, use.inputs);
@@ -386,10 +425,12 @@ export function pageFeatures(nodes: readonly Carrier[]): { scripts: string[]; bi
   const bindings: Binding[] = [];
   const used: string[] = [];
   for (const n of nodes) {
-    const w = n.work ? getWork(n.work.id) : undefined;
-    if (!w) continue;
-    bindings.push({ part: n.id, feature: w.manifest.id, inputs: inputsOf(w.manifest, n.work!.inputs) });
-    if (!used.includes(w.manifest.id)) used.push(w.manifest.id);
+    for (const u of usesOf(n.work)) {
+      const w = getWork(u.id);
+      if (!w) continue;
+      bindings.push({ part: n.id, feature: w.manifest.id, inputs: inputsOf(w.manifest, u.inputs) });
+      if (!used.includes(w.manifest.id)) used.push(w.manifest.id);
+    }
   }
   return { scripts: bindings.length ? ["runtime.js", ...used.map((id) => `${id}.js`)] : [], bindings };
 }
@@ -408,7 +449,7 @@ export function pageFeatureTags(nodes: readonly Carrier[], up: string): string {
 /** The files the whole site needs: the runtime and each used feature's script, once. */
 export function featureFiles(nodes: readonly Carrier[]): { path: string; content: string }[] {
   const used = new Set<string>();
-  for (const n of nodes) if (n.work && getWork(n.work.id)) used.add(n.work.id);
+  for (const n of nodes) for (const u of usesOf(n.work)) if (getWork(u.id)) used.add(u.id);
   if (!used.size) return [];
   return [
     { path: "assets/features/runtime.js", content: RUNTIME_JS },

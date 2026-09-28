@@ -47,7 +47,7 @@ import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial, pageSpot } from "./RadialMenu";
 import { decisions, type Decision } from "./library/badge";
-import { getWork } from "./library/works";
+import { getWork, usesOf } from "./library/works";
 import { useSettleToWords } from "./textFit";
 import { missingDrawnCopy, namesDrawnCopy } from "./promised";
 import { plain } from "./parts/spans";
@@ -2729,7 +2729,7 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
             </span>
           : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
-        {node.work && getWork(node.work.id) ? <span data-work-chip={node.work.id} className="rounded-xs border border-border px-1 text-fine text-fg-muted">⚡ {getWork(node.work.id)!.manifest.name}</span> : null}
+        {node.work && getWork(node.work.id) ? <span data-work-chip={node.work.id} className="rounded-xs border border-border px-1 text-fine text-fg-muted">⚡ {usesOf(node.work).map((u) => getWork(u.id)?.manifest.name).filter(Boolean).join(" + ")}</span> : null}
         {node.task?.trim() ? <span data-task-chip="" className="max-w-[220px] truncate rounded-xs border border-border px-1 text-fine text-fg-faint" title={node.task}>task: {node.task}</span> : null}
         {/* The words his prompt named and the part is not drawing, on the chip above it: outside the part, and only while it is picked. */}
         {unshown.length ? (

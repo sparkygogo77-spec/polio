@@ -29,7 +29,7 @@ import { useStudio, type StudioNode } from "./store";
 import { addFeatureToCanvas } from "./Palette";
 import { Block, themeFrom } from "./blocks";
 import { overrideTheme, resolvePalette, type NodeColour } from "./parts/theme";
-import { allWorks, getWork, type Work, type WorkPicture } from "./library/works";
+import { allWorks, getWork, withWork, type Work, type WorkPicture } from "./library/works";
 import { useLibrary } from "./library/useLibrary";
 import { checkRepoFeatures } from "./library/repoFeatures";
 
@@ -87,7 +87,7 @@ export function WorkShelf({ category }: { category: CategoryDef }) {
     const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) : undefined;
     const w = getWork(id)!;
     if (picked) {
-      st.updateNode(picked.id, { work: { id, inputs: {} } });
+      st.updateNode(picked.id, { work: withWork(picked.work, { id, inputs: {} }) });
       play("confirm");
       return;
     }
