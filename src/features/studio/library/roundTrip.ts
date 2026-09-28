@@ -108,6 +108,8 @@ function readManifest(f: FoundFeature): { manifest: WorkManifest | null; parts: 
         ...(typeof x.placeholder === "string" ? { placeholder: x.placeholder } : {}),
         ...(typeof x.heard === "string" ? { heard: x.heard } : {}),
         ...(x.required === true ? { required: true } : {}),
+        /* Kept, or a feature with fine settings under More reads back as changed. */
+        ...(x.advanced === true ? { advanced: true } : {}),
       };
     }),
     needs: (NEEDS.has(str("needs")) ? str("needs") : "none") as WorkManifest["needs"],

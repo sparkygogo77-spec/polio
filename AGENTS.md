@@ -124,7 +124,8 @@ src/features/studio/
   library/       the feature library: working code with no look of its own.
                  works.ts (manifests, scripts, the runtime publishing ships),
                  behaviours.ts (reveal, copy, tilt, follow, marquee, embed,
-                 CRT loader, dust, header bar on scroll, blink: the same
+                 CRT loader, dust, header bar on scroll, blink, spin, float,
+                 lift on hover, grow with the scroll: the same
                  shape, registered in LIBRARY; a part can carry several,
                  `work.also`, see usesOf/withWork; `off` switches one off),
                  captured.ts (a capture's `doc.behaviours` attached as

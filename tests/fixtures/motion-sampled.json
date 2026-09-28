@@ -1,0 +1,1390 @@
+{
+ "pages": [
+  {
+   "id": "page_home",
+   "name": "Home",
+   "path": "/",
+   "prompt": "",
+   "scroll": "inherit"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "n_box_1",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "section \u00b7 6 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 0,
+   "y": 0,
+   "w": 1200,
+   "h": 760,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(102, 170, 204)",
+    "surface": "rgb(102, 170, 204)",
+    "accent": "rgb(102, 170, 204)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_2",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 1 inside",
+   "prompt": "Captured from standin.example/ as body > div. The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 0,
+   "y": 760,
+   "w": 1200,
+   "h": 120,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(210, 60, 52)",
+    "surface": "rgb(210, 60, 52)",
+    "accent": "rgb(210, 60, 52)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > div",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_3",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "section \u00b7 2 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 0,
+   "y": 880,
+   "w": 1200,
+   "h": 1140,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(31, 42, 107)",
+    "surface": "rgb(31, 42, 107)",
+    "accent": "rgb(31, 42, 107)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2)",
+    "at": 1790627538809
+   },
+   "pad": {
+    "top": 120,
+    "right": 100,
+    "bottom": 120,
+    "left": 100
+   }
+  },
+  {
+   "id": "n_box_4",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 1 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 100,
+   "y": 1000,
+   "w": 1000,
+   "h": 20,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgba(255, 255, 255, 0.12)",
+    "surface": "rgba(255, 255, 255, 0.12)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 10,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(1)",
+    "at": 1790627538809
+   },
+   "edge": {
+    "width": 3,
+    "style": "solid",
+    "colour": "rgb(17, 17, 17)"
+   }
+  },
+  {
+   "id": "n_box_5",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "i \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(1) > i. The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 103,
+   "y": 1003,
+   "w": 336,
+   "h": 14,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "art": {
+    "background": "repeating-linear-gradient(-45deg, rgb(166, 226, 46) 0px, rgb(166, 226, 46) 12px, rgb(124, 194, 26) 12px, rgb(124, 194, 26) 24px)",
+    "backgroundOptions": [
+     "auto",
+     "0% 0%",
+     "repeat"
+    ]
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(1) > i",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_6",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 4 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 100,
+   "y": 1020,
+   "w": 1000,
+   "h": 220,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": null,
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(2)",
+    "at": 1790627538809
+   },
+   "layout": {
+    "display": "grid",
+    "direction": "row",
+    "gap": 26,
+    "columns": 4
+   },
+   "pad": {
+    "top": 40,
+    "right": 0,
+    "bottom": 0,
+    "left": 0
+   }
+  },
+  {
+   "id": "n_box_7",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 100,
+   "y": 1060,
+   "w": 231,
+   "h": 180,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(255, 255, 255)",
+    "surface": "rgb(255, 255, 255)",
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_8",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 357,
+   "y": 1060,
+   "w": 230,
+   "h": 180,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(255, 255, 255)",
+    "surface": "rgb(255, 255, 255)",
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_9",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 613,
+   "y": 1060,
+   "w": 231,
+   "h": 180,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(255, 255, 255)",
+    "surface": "rgb(255, 255, 255)",
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_10",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(4). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 870,
+   "y": 1060,
+   "w": 230,
+   "h": 180,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(255, 255, 255)",
+    "surface": "rgb(255, 255, 255)",
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(4)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_box_11",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "section \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(3). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 0,
+   "y": 2020,
+   "w": 1200,
+   "h": 900,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(243, 212, 64)",
+    "surface": "rgb(243, 212, 64)",
+    "text": "rgb(0, 0, 0)",
+    "accent": "rgb(243, 212, 64)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(3)",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_prose_12",
+   "pageId": "page_home",
+   "featureId": "prose",
+   "label": "ALPHA \u00e2\u0153\u00a6 BETA \u00e2\u0153\u00a6 GAMMA \u00e2\u0153\u00a6 DELTA\u2026",
+   "prompt": "Captured from standin.example/ as body > div > div. The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "ALPHA \u00e2\u0153\u00a6 BETA \u00e2\u0153\u00a6 GAMMA \u00e2\u0153\u00a6 DELTA \u00e2\u0153\u00a6 ALPHA \u00e2\u0153\u00a6 BETA \u00e2\u0153\u00a6 GAMMA \u00e2\u0153\u00a6 DELTA \u00e2\u0153\u00a6 ALPHA \u00e2\u0153\u00a6 BETA \u00e2\u0153\u00a6 GAMMA \u00e2\u0153\u00a6 DELTA \u00e2\u0153\u00a6 ALPHA \u00e2\u0153\u00a6 BETA \u00e2\u0153\u00a6 GAMMA \u00e2\u0153\u00a6 DELTA \u00e2\u0153\u00a6",
+   "data": "",
+   "x": 0,
+   "y": 790,
+   "w": 2765,
+   "h": 37,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "text": "rgb(255, 255, 255)"
+   },
+   "font": {
+    "family": "system sans",
+    "size": 2,
+    "px": 32,
+    "weight": 400
+   },
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "art": {
+    "clipPath": "inset(0px 1388px 0px 177px)",
+    "transform": "matrix(1, 0, 0, 1, -177.11, 0)"
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > div > div",
+    "at": 1790627538809,
+    "position": "absolute"
+   }
+  },
+  {
+   "id": "n_box_13",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(1). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 60,
+   "y": 80,
+   "w": 220,
+   "h": 220,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 110,
+   "art": {
+    "transform": "matrix(0.9643, -0.2647, 0.2647, 0.9643, -0.01, 0)",
+    "background": "conic-gradient(rgb(238, 119, 68), rgb(255, 204, 102), rgb(238, 119, 68))",
+    "backgroundOptions": [
+     "auto",
+     "0% 0%",
+     "repeat"
+    ]
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(1)",
+    "at": 1790627538809,
+    "position": "absolute"
+   }
+  },
+  {
+   "id": "n_box_14",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(2). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 420,
+   "y": 120,
+   "w": 180,
+   "h": 110,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 55,
+   "art": {
+    "animation": "bob"
+   },
+   "motion": {
+    "animation": [
+     {
+      "name": "bob",
+      "duration": "4s",
+      "timing": "ease-in-out",
+      "delay": "0s",
+      "iterations": "infinite",
+      "direction": "normal",
+      "fill": "none"
+     }
+    ]
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(2)",
+    "at": 1790627538809,
+    "position": "absolute"
+   },
+   "edge": {
+    "width": 10,
+    "style": "solid",
+    "colour": "rgb(51, 204, 187)"
+   }
+  },
+  {
+   "id": "n_box_15",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(3). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 700,
+   "y": 120,
+   "w": 120,
+   "h": 120,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(204, 51, 51)",
+    "surface": "rgb(204, 51, 51)",
+    "text": "rgb(0, 0, 0)",
+    "accent": "rgb(204, 51, 51)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(3)",
+    "at": 1790627538809,
+    "position": "absolute"
+   }
+  },
+  {
+   "id": "n_box_16",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 0 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(5). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 940,
+   "y": 90,
+   "w": 90,
+   "h": 90,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(238, 238, 238)",
+    "surface": "rgb(238, 238, 238)",
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 45,
+   "art": {
+    "transform": "matrix(1, 0, 0, 1, 0, 9.38)"
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(5)",
+    "at": 1790627538809,
+    "position": "absolute"
+   }
+  },
+  {
+   "id": "n_box_17",
+   "pageId": "page_home",
+   "featureId": "box",
+   "label": "div \u00b7 1 inside",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(4). The box, the words, the colours and the type are the ones measured on the page.",
+   "content": "",
+   "data": "",
+   "x": 300,
+   "y": 380,
+   "w": 328,
+   "h": 228,
+   "groupId": null,
+   "options": {},
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "bg": "rgb(255, 255, 255)",
+    "surface": "rgb(255, 255, 255)"
+   },
+   "font": null,
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 18,
+   "motion": {
+    "transition": [
+     {
+      "property": "transform",
+      "duration": "0.15s",
+      "timing": "linear",
+      "delay": "0s"
+     }
+    ]
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(4)",
+    "at": 1790627538809,
+    "position": "absolute"
+   },
+   "edge": {
+    "width": 4,
+    "style": "solid",
+    "colour": "rgb(17, 17, 17)"
+   }
+  },
+  {
+   "id": "n_valueprop_18",
+   "pageId": "page_home",
+   "featureId": "value-prop",
+   "label": "heading \u201cA CARD\u201d",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > div:nth-of-type(4) > h3. The box, the words, the colours and the type are the ones measured on the page. The browser computes it as a heading, named \u201cA CARD\u201d.",
+   "content": "A CARD",
+   "data": "",
+   "x": 324,
+   "y": 404,
+   "w": 280,
+   "h": 22,
+   "groupId": null,
+   "options": {
+    "turn": "none"
+   },
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": null,
+   "colour": {
+    "text": "rgb(0, 0, 0)"
+   },
+   "font": {
+    "family": "system sans",
+    "size": 0.73125,
+    "px": 18.72,
+    "weight": 700
+   },
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(4) > h3",
+    "at": 1790627538809
+   }
+  },
+  {
+   "id": "n_ctaprimary_19",
+   "pageId": "page_home",
+   "featureId": "cta-primary",
+   "label": "link \u201cLIFT ME\u201d",
+   "prompt": "Captured from standin.example/ as body > section:nth-of-type(1) > a. The box, the words, the colours and the type are the ones measured on the page. The browser computes it as a link, named \u201cLIFT ME\u201d.",
+   "content": "LIFT ME",
+   "data": "link, named \u201cLIFT ME\u201d",
+   "x": 760,
+   "y": 420,
+   "w": 158,
+   "h": 70,
+   "groupId": null,
+   "options": {
+    "shape": "square",
+    "variant": "solid",
+    "size": "medium"
+   },
+   "priority": "must",
+   "custom": false,
+   "glyph": null,
+   "hue": null,
+   "locked": false,
+   "link": {
+    "kind": "node",
+    "target": "n_box_3"
+   },
+   "colour": {
+    "bg": "rgb(166, 226, 46)",
+    "accent": "rgb(166, 226, 46)",
+    "text": "rgb(0, 0, 238)"
+   },
+   "font": {
+    "family": "system sans",
+    "size": 1.5,
+    "px": 24,
+    "weight": 400
+   },
+   "anim": null,
+   "animSpeed": 1,
+   "animDelay": 0,
+   "animEase": "smooth",
+   "shape": null,
+   "outline": null,
+   "kind": null,
+   "vector": null,
+   "role": null,
+   "cube": null,
+   "mesh": null,
+   "code": null,
+   "aura": null,
+   "auraSize": 1,
+   "auraStyle": "glow",
+   "texture": null,
+   "sketch": null,
+   "radius": 12,
+   "motion": {
+    "transition": [
+     {
+      "property": "transform",
+      "duration": "0.2s",
+      "timing": "ease",
+      "delay": "0s"
+     }
+    ],
+    "hover": [
+     {
+      "selector": ".btn:hover",
+      "self": true,
+      "style": {
+       "transform": "translateY(-4px)"
+      }
+     }
+    ]
+   },
+   "from": {
+    "url": "http://standin.example/",
+    "host": "standin.example",
+    "selector": "body > section:nth-of-type(1) > a",
+    "at": 1790627538809,
+    "position": "absolute"
+   },
+   "pad": {
+    "top": 18,
+    "right": 30,
+    "bottom": 18,
+    "left": 30
+   },
+   "edge": {
+    "width": 3,
+    "style": "solid",
+    "colour": "rgb(17, 17, 17)"
+   }
+  }
+ ],
+ "groups": [],
+ "shapes": [],
+ "format": {
+  "type.headingFamily": "system sans",
+  "type.bodyFamily": "system sans",
+  "type.baseSize": 16,
+  "layout.radius": 0,
+  "palette.mode": "light"
+ },
+ "brief": {
+  "name": "",
+  "gimmick": "",
+  "master": ""
+ },
+ "look": {
+  "palette": {
+   "bg": "rgb(243, 212, 64)",
+   "text": "rgb(0, 0, 0)"
+  },
+  "texture": [],
+  "target": "page",
+  "light": {
+   "on": false,
+   "x": 0.5,
+   "y": 0.12,
+   "height": 0.55,
+   "strength": 0.45,
+   "lift": 10,
+   "warmth": 80,
+   "wash": 0
+  }
+ },
+ "motion": [],
+ "activePageId": "page_home",
+ "hiddenFeatures": [],
+ "frameWidth": 1200,
+ "companion": null,
+ "keyframes": [
+  {
+   "name": "bob",
+   "frames": [
+    {
+     "key": "50%",
+     "style": {
+      "translate": "0px -14px"
+     }
+    }
+   ]
+  }
+ ],
+ "behaviours": {
+  "version": 1,
+  "intro": [],
+  "reveal": [],
+  "scrollClass": [],
+  "pointer": [
+   {
+    "part": "n_box_13",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(1)",
+    "kind": "turn",
+    "at": [
+     {
+      "pointer": [
+       300,
+       240
+      ],
+      "transform": "rotate(-357.882deg)"
+     },
+     {
+      "pointer": [
+       900,
+       440
+      ],
+      "transform": "rotate(-439.878deg)"
+     }
+    ]
+   },
+   {
+    "part": "n_box_16",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(5)",
+    "kind": "move",
+    "at": [
+     {
+      "pointer": [
+       300,
+       240
+      ],
+      "transform": "translateY(6.38px)"
+     },
+     {
+      "pointer": [
+       900,
+       440
+      ],
+      "transform": "translateY(-3.88px)"
+     }
+    ],
+    "perX": 0,
+    "perY": -41.04,
+    "perScroll": 0.067
+   }
+  ],
+  "loops": [
+   {
+    "part": "n_prose_12",
+    "selector": "body > div > div",
+    "kind": "marquee",
+    "speed": 36,
+    "perFrame": 0.6,
+    "fps": 60,
+    "direction": "left",
+    "copies": 4,
+    "width": 2765,
+    "loopWidth": 691
+   }
+  ],
+  "idle": [
+   {
+    "part": "n_box_14",
+    "selector": "body > section:nth-of-type(1) > div:nth-of-type(2)",
+    "name": "bob",
+    "css": true,
+    "duration": 4000,
+    "easing": "linear",
+    "delay": 0,
+    "direction": "normal"
+   }
+  ],
+  "motion": {
+   "spin": [
+    {
+     "part": "n_box_13",
+     "selector": "body > section:nth-of-type(1) > div:nth-of-type(1)",
+     "period": 12001,
+     "direction": "ccw",
+     "via": "script",
+     "degPerSec": -30
+    }
+   ],
+   "float": [
+    {
+     "part": "n_box_14",
+     "selector": "body > section:nth-of-type(1) > div:nth-of-type(2)",
+     "axis": "y",
+     "travel": 14,
+     "amplitude": 7,
+     "toward": "-",
+     "period": 4000,
+     "easing": "ease-in-out",
+     "via": "css",
+     "name": "bob"
+    },
+    {
+     "part": "n_box_16",
+     "selector": "body > section:nth-of-type(1) > div:nth-of-type(5)",
+     "axis": "y",
+     "travel": 20,
+     "amplitude": 10,
+     "period": 5008,
+     "easing": "ease-in-out",
+     "via": "script"
+    }
+   ],
+   "hover": [
+    {
+     "part": "n_box_17",
+     "selector": "body > section:nth-of-type(1) > div:nth-of-type(4)",
+     "host": "n_box_17",
+     "kind": "tilt",
+     "via": "script",
+     "across": 13.9,
+     "down": 11.9,
+     "lift": 6,
+     "depth": 0,
+     "perspective": 900,
+     "perspectiveOn": "self",
+     "pace": "transform 0.15s linear",
+     "back": true,
+     "at": [
+      {
+       "pointer": [
+        0.25,
+        0.25
+       ],
+       "transform": "perspective(900px) rotateY(-3.42525deg) rotateX(2.61645deg) translateY(-6px)"
+      },
+      {
+       "pointer": [
+        0.5,
+        0.5
+       ],
+       "transform": "perspective(900px) rotateY(0deg) rotateX(0deg) translateY(-6px)"
+      },
+      {
+       "pointer": [
+        0.75,
+        0.75
+       ],
+       "transform": "perspective(900px) rotateY(3.50267deg) rotateX(-3.31645deg) translateY(-6px)"
+      }
+     ]
+    },
+    {
+     "part": "n_ctaprimary_19",
+     "selector": "body > section:nth-of-type(1) > a",
+     "host": "n_ctaprimary_19",
+     "kind": "lift",
+     "via": "css",
+     "lift": 4,
+     "x": 0,
+     "turn": 0,
+     "scale": 1,
+     "pace": "transform 0.2s"
+    }
+   ],
+   "scrollSpeed": [
+    {
+     "part": "n_prose_12",
+     "selector": "body > div > div",
+     "base": 0.6,
+     "perScroll": 0.246,
+     "max": 14,
+     "at": [
+      {
+       "v": 0,
+       "step": 0.6000000000000227
+      },
+      {
+       "v": 8,
+       "step": 2.564000000000078
+      },
+      {
+       "v": 80,
+       "step": 14.600000000000023
+      }
+     ]
+    }
+   ],
+   "scrollGrow": [
+    {
+     "part": "n_box_5",
+     "selector": "body > section:nth-of-type(2) > div:nth-of-type(1) > i",
+     "prop": "width",
+     "from": 0,
+     "to": 100,
+     "start": 1.004,
+     "end": -0.721,
+     "holder": [
+      1000,
+      20
+     ],
+     "full": [
+      994,
+      14
+     ],
+     "kept": 33.8
+    }
+   ],
+   "canvases": [
+    {
+     "host": "n_box_1",
+     "below": null,
+     "above": "n_box_13",
+     "box": [
+      0,
+      0,
+      1200,
+      760
+     ],
+     "zIndex": "1",
+     "readable": true,
+     "repaints": 1,
+     "kind": "particles",
+     "specks": 59,
+     "spacing": 20,
+     "size": 3.8,
+     "colours": [
+      "#fff3a0",
+      "#89cebc",
+      "#ef9043",
+      "#8fbf7a"
+     ],
+     "alpha": 1,
+     "drift": "up",
+     "perFrame": 0.531,
+     "speed": 33.6,
+     "fps": 63
+    }
+   ]
+  }
+ }
+}

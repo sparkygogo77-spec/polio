@@ -56,6 +56,9 @@ import { plain } from "./parts/spans";
 import { isControl } from "./control";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox, scaleHeld, type Box as HeldBox, type Held } from "./groupScale";
+import { pageFeatures } from "./library/works";
+import { AMBIENT } from "./library/behaviours";
+import { runWorks } from "./live/runWorks";
 
 const GRID = 8;
 
@@ -195,6 +198,12 @@ export function Canvas() {
     });
   }, [news]);
   const nodes = useStudio(useShallow(pageNodes));
+  /* What moves on its own (a spin, a float, the dust) plays on the board too, softly, on the drawn layer inside each part: the part's box stays put and editable (`live/runWorks.ts`, board). Again only when what they are told changes. */
+  const boardMoves = React.useMemo(() => JSON.stringify(pageFeatures(nodes).bindings.filter((b) => (AMBIENT as readonly string[]).includes(b.feature))), [nodes]);
+  React.useEffect(() => {
+    if (boardMoves === "[]" || !ref.current) return;
+    return runWorks(ref.current, useStudio.getState().nodes.filter((n) => n.pageId === useStudio.getState().activePageId), { board: true });
+  }, [boardMoves]);
   /* The parts still waiting on a decision: each wears the orange ! (`library/badge.ts`). */
   const decide = React.useMemo(() => new Map(decisions(nodes).map((d) => [d.id, d.why])), [nodes]);
   /*

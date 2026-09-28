@@ -19,7 +19,7 @@
  * Pure: no store, no React. `docTake.ts` calls it when a document carrying
  * the section is taken in; a document without one comes in untouched.
  */
-import { withWork, type WorkUse } from "./works.ts";
+import { usesOf, withWork, type WorkUse } from "./works.ts";
 
 type Rec = Record<string, unknown>;
 interface Node {
@@ -209,6 +209,109 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
       n.motion = rest.length ? { ...m, animation: rest } : m;
     }
     if (n.art?.animation === i.name) { const { animation: _a, ...art } = n.art; void _a; n.art = art; }
+  }
+
+  /* ---------------------------------------------------------------- motion sampled (sink `behaviours.motion`) */
+  const M = (b.motion ?? null) as Rec | null;
+  if (M && typeof M === "object") {
+    const list = (k: string) => (Array.isArray(M[k]) ? (M[k] as Rec[]) : []);
+    /** A stylesheet's own loop the part already carries (captured CSS, played as it was): not given twice. */
+    const plays = (n: Node, name: unknown) => typeof name === "string" && ((n.motion?.animation ?? []).some((a) => a.name === name) || n.art?.animation === name);
+    const ms = (v: unknown) => transitionOf(v).duration;
+
+    /* A spin, a float: the page's script did it, or its stylesheet did and the part does not carry it. */
+    for (const sp of list("spin")) {
+      const n = typeof sp.part === "string" ? byId.get(sp.part) : undefined;
+      if (!n || sp.folded || (sp.via === "css" && plays(n, sp.name))) continue;
+      const period = num(sp.period);
+      if (!period) continue;
+      give(n.id, { id: "spin", inputs: { period: str(period / 1000), direction: sp.direction === "ccw" ? "ccw" : "cw" } });
+    }
+    for (const f of list("float")) {
+      const n = typeof f.part === "string" ? byId.get(f.part) : undefined;
+      if (!n || f.folded || (f.via === "css" && plays(n, f.name))) continue;
+      const travel = num(f.travel), period = num(f.period);
+      if (!travel || !period) continue;
+      give(n.id, { id: "float", inputs: { travel: str(travel), period: str(period / 1000), axis: f.axis === "x" ? "x" : "y", toward: f.toward === "+" ? "+" : "-", ...(typeof f.easing === "string" && !/steps/.test(f.easing) ? { ease: f.easing } : {}) } });
+    }
+
+    /* Under the pointer: a tilt the page's script made (the TV, the cards), carrying the parts on it; a lift its script made. A stylesheet's :hover is carried as captured CSS already. */
+    for (const h of list("hover")) {
+      const n = typeof h.part === "string" ? byId.get(h.part) : undefined;
+      if (!n || h.folded || h.via !== "script") continue;
+      if (h.kind === "tilt") {
+        const parts = inside(n).map((k) => k.id).join(",");
+        const area = typeof h.host === "string" && h.host !== n.id && byId.has(h.host) ? h.host : "";
+        const pace = ms(h.pace);
+        give(n.id, { id: "tilt", inputs: {
+          mode: "mouse", axis: "both",
+          across: str(num(h.across) ?? 20), down: str(num(h.down) ?? 20),
+          lift: str(num(h.lift) ?? 0), depth: str(num(h.depth) ?? 0),
+          ...(num(h.perspective) ? { perspective: String(num(h.perspective)) } : {}),
+          ...(pace ? { pace } : {}),
+          ...(parts ? { parts } : {}), ...(area ? { area } : {}),
+        } });
+      } else if (h.kind === "lift") {
+        const pace = ms(h.pace);
+        give(n.id, { id: "hover-lift", inputs: { lift: str(num(h.lift) ?? 0), x: str(num(h.x) ?? 0), turn: str(num(h.turn) ?? 0), scale: str(num(h.scale) ?? 1), ...(pace ? { pace } : {}) } });
+      }
+    }
+
+    /* A marquee the scroll hurries: its own step, plus the scroll's pace times the boost, to the cap. */
+    for (const q of list("scrollSpeed")) {
+      const n = typeof q.part === "string" ? byId.get(q.part) : undefined;
+      if (!n || q.folded) continue;
+      const boost = num(q.perScroll), cap = num(q.max), base = num(q.base);
+      if (!boost) continue;
+      const had = usesOf(n.work).find((u) => u.id === "marquee");
+      const inputs = { ...(had?.inputs ?? { speed: String(Math.round((base ?? 0.6) * 60)), direction: "left", pause: "no", gap: "0" }), boost: str(boost), ...(cap !== null ? { cap: str(cap) } : {}) };
+      n.work = withWork(n.work, { id: "marquee", inputs, ...(had?.off ? { off: true } : {}) });
+    }
+
+    /* A line the scroll grows. */
+    for (const g of list("scrollGrow")) {
+      const n = typeof g.part === "string" ? byId.get(g.part) : undefined;
+      if (!n || g.folded) continue;
+      give(n.id, { id: "scroll-grow", inputs: { prop: g.prop === "height" ? "height" : "width", start: str(num(g.start) ?? 0.9), end: str(num(g.end) ?? 0.2), from: str(num(g.from) ?? 0), to: str(num(g.to) ?? 100), ...(num(g.kept) ? { kept: str(num(g.kept)!) } : {}) } });
+    }
+
+    /* A canvas the page repaints with specks: no part of its own, so a layer is made at its box, painted where it was (just over the part below it), carrying Dust. */
+    let k = 0;
+    for (const c of list("canvases")) {
+      if (c.kind !== "particles") continue;
+      const box = Array.isArray(c.box) ? (c.box as unknown[]).map(num) : [];
+      if (box.length !== 4 || box.some((v) => v === null)) continue;
+      const below = typeof c.below === "string" ? byId.get(c.below) : undefined;
+      const above = typeof c.above === "string" ? byId.get(c.above) : undefined;
+      const host = typeof c.host === "string" ? byId.get(c.host) : undefined;
+      const ref = below ?? above ?? host ?? out[0];
+      if (!ref) continue;
+      const id = `n_dust_${++k}`;
+      if (byId.has(id)) continue;
+      const [x, y, w, h] = box as number[];
+      const speed = num(c.perFrame);
+      /* A bare box, every field a new part has and nothing of the part beside it: it draws nothing of its own, and takes no press. */
+      const layer = {
+        id, pageId: ref.pageId, featureId: "box", label: "Dust (a canvas the page repainted)",
+        prompt: "A layer of specks drifting over the page, drawn on a canvas by the page's script: the Dust feature draws it here.",
+        content: "", data: "", x, y, w, h, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null,
+        colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
+        cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, art: null, work: null,
+        from: { ...(ref.from ?? {}), selector: typeof c.selector === "string" ? c.selector : `${ref.from?.selector ?? ""} ~ canvas` },
+        inert: true,
+      } as unknown as N;
+      layer.work = withWork(null, { id: "dust-canvas", inputs: {
+        ...(Array.isArray(c.colours) && c.colours.length ? { colours: (c.colours as unknown[]).map(String).join(", ") } : {}),
+        ...(num(c.spacing) ? { spacing: str(num(c.spacing)!) } : {}),
+        /* The feature's specks rise 0.275 px a frame on average at speed 1. */
+        ...(speed ? { speed: str(round(speed / 0.275, 100)) } : {}),
+        ...(num(c.size) ? { size: str(num(c.size)!) } : {}),
+        direction: c.drift === "down" ? "down" : "up",
+      } });
+      const at = below ? out.indexOf(below as N) + 1 : above ? out.indexOf(above as N) : host ? out.indexOf(host as N) + 1 : out.length;
+      out.splice(Math.max(0, at), 0, layer);
+      byId.set(id, layer);
+    }
   }
   return out;
 }

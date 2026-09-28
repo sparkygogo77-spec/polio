@@ -108,22 +108,31 @@ const layers = B.pointer.filter((p) => p.kind === "move");
 const layerIn = layers.map((p) => inputs(p.part, "follow-pointer"));
 check("the five landscape layers follow the pointer, as layers", layers.length === 5 && layerIn.every((i) => i?.how === "layer"), J(layerIn.map((i) => i?.how)));
 check("…each with the factor measured across, down and with the scroll", layers.every((p, k) => near(layerIn[k]?.x, p.perX, 0.01) && near(layerIn[k]?.y, p.perY, 0.01) && near(layerIn[k]?.scroll, p.perScroll, 0.001)), J(layerIn.map((i) => [i?.x, i?.y, i?.scroll])));
-check("the TV's turn is not attached: its screen, knobs and words are parts of their own and would not turn with it", !usesOf(byId.get(B.pointer.find((p) => p.kind === "turn")?.part)?.work).some((u) => u.id === "tilt"));
+/* The TV's turn: once sink sampled it under the pointer (`motion.hover`), a Tilt carrying its screen, knobs and words, so it turns whole (tests/motion-sampled.mjs); before, nothing, since its box alone would tear away from them. */
+const tvPart = B.pointer.find((p) => p.kind === "turn")?.part;
+const tvTilt = (B.motion?.hover ?? []).find((h) => h.kind === "tilt" && h.part === tvPart);
+const tvIn = inputs(tvPart, "tilt");
+if (tvTilt) check("the TV's turn is attached as a Tilt carrying the parts on it, so it turns whole", !!tvIn && (tvIn.parts ?? "").split(",").filter(Boolean).length >= 5, J(tvIn));
+else check("the TV's turn is not attached: its screen, knobs and words are parts of their own and would not turn with it", !usesOf(byId.get(tvPart)?.work).some((u) => u.id === "tilt"));
 
 /* ----------------------------------------------------------- header */
 const hdr = B.scrollClass[0];
 const hdrIn = inputs(hdr.part, "scroll-header");
 check("the header carries Header bar on scroll", !!hdrIn, hdr.part);
 check("…turning on past 40 px", hdrIn?.at === "40", J(hdrIn));
-check("…the yellow bar and the black bottom edge", hdrIn?.background === "rgb(243, 212, 64)" && /rgb\(26, 15, 11\) 0px 4px 0px/.test(hdrIn?.edge ?? ""), J(hdrIn));
+/* As the page's rule wrote them (`#f3d440`, `0 4px 0 #1a0f0b`) or as computed: the same colours. */
+check("…the yellow bar and the black bottom edge", /^(rgb\(243, 212, 64\)|#f3d440)$/i.test(hdrIn?.background ?? "") && /(rgb\(26, 15, 11\) 0px 4px 0px|0 4px 0 #1a0f0b)/i.test(hdrIn?.edge ?? ""), J(hdrIn));
 check("…at the page's own pace (0.3 s)", hdrIn?.duration === "300", J(hdrIn));
 
 /* ----------------------------------------------------------- blink */
-const lights = ["n_box_179", "n_prose_216", "n_box_126"];
-check("the three lights blink (the hero badge's dot, the TV's LIVE, the remote's LED)", lights.every((id) => use(id, "blink")), lights.map((id) => `${id}:${!!use(id, "blink")}`).join(" "));
-check("…at their own rate, in two steps", inputs("n_box_179", "blink")?.every === "1" && inputs("n_box_126", "blink")?.every === "1.4" && inputs("n_box_179", "blink")?.how === "steps", J(lights.map((id) => inputs(id, "blink"))));
+/* Found by what sink recorded, not by id: a new capture numbers its parts afresh. */
+const blinks = B.idle.filter((i) => i.name === "blink" && i.part && !i.folded && !i.pseudo);
+const lights = [...new Set(blinks.map((i) => i.part))];
+check("the three lights blink (the hero badge's dot, the TV's LIVE, the remote's LED)", lights.length === 3 && lights.every((id) => use(id, "blink")), lights.map((id) => `${id}:${!!use(id, "blink")}`).join(" "));
+check("…at their own rate, in two steps", blinks.length >= 3 && blinks.every((i) => inputs(i.part, "blink")?.every === String(i.duration / 1000) && inputs(i.part, "blink")?.how === "steps") && blinks.some((i) => i.duration === 1400), J(lights.map((id) => inputs(id, "blink"))));
 check("…and the captured blink is handed to the feature, so switching it off stops it", lights.every((id) => !(byId.get(id)?.motion?.animation ?? []).some((a) => a.name === "blink") && byId.get(id)?.art?.animation !== "blink"), J(lights.map((id) => byId.get(id)?.motion)));
-check("control: the other captured loops stay as captured (the planet's spin, the screen's flicker)", (byId.get("n_picture_11")?.motion?.animation ?? []).some((a) => a.name === "spin") && (byId.get("n_picture_198")?.motion?.animation ?? []).some((a) => a.name === "screenJit"));
+const planet = B.idle.find((i) => i.name === "spin" && i.part)?.part, screen = B.idle.find((i) => i.name === "screenJit" && i.part)?.part;
+check("control: the other captured loops stay as captured (the planet's spin, the screen's flicker)", (byId.get(planet)?.motion?.animation ?? []).some((a) => a.name === "spin") && (byId.get(screen)?.motion?.animation ?? []).some((a) => a.name === "screenJit"), J({ planet, screen }));
 
 /* ----------------------------------------------------------- a switch per feature */
 const one = byId.get(red.part);
@@ -137,7 +146,12 @@ const plain = JSON.parse(raw); delete plain.behaviours;
 const tookPlain = takeDoc(prev, plain, { format: () => ({}), look: () => ({}) });
 check("control: without a behaviours section, every part comes in exactly as written", J(tookPlain.nodes) === J(JSON.parse(raw).nodes));
 check("control: the section itself is not kept on the board, only what it attached", !("behaviours" in took));
-const moved = nodes.filter((n) => { const o = JSON.parse(raw).nodes.find((x) => x.id === n.id); const { work, motion, art, ...a } = n; const { work: w2, motion: m2, art: a2, ...b } = o; return J(a) !== J(b); });
+/* The one part attaching may add: a layer at a repainted canvas's box carrying Dust (sink's `motion.canvases`, tests/motion-sampled.mjs). */
+const rawIds = new Set(JSON.parse(raw).nodes.map((x) => x.id));
+const added = nodes.filter((n) => !rawIds.has(n.id));
+const particles = (B.motion?.canvases ?? []).filter((c) => c.kind === "particles").length;
+check("control: the only parts added are the Dust layers, one for each repainted canvas", added.length === particles && added.every((n) => usesOf(n.work).some((u) => u.id === "dust-canvas") && n.inert === true), J(added.map((n) => n.id)));
+const moved = nodes.filter((n) => rawIds.has(n.id)).filter((n) => { const o = JSON.parse(raw).nodes.find((x) => x.id === n.id); const { work, motion, art, ...a } = n; const { work: w2, motion: m2, art: a2, ...b } = o; return J(a) !== J(b); });
 check("control: attaching changes nothing about a part but its features (and a light's handed-over blink)", moved.length === 0, moved.map((n) => n.id).join());
 
 const failed = results.filter((r) => !r).length;

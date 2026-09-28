@@ -157,6 +157,14 @@ const TILT: Work = {
       { id: "mode", label: "Moves with", kind: "one", default: "mouse", values: ["mouse", "scroll"], heard: "\\b(mouse|scroll)\\b" },
       { id: "strength", label: "Strength (degrees, or px on scroll)", kind: "number", default: "10" },
       { id: "axis", label: "Axis", kind: "one", default: "both", values: ["both", "x", "y"] },
+      { id: "across", label: "Turns across (degrees over the whole part)", kind: "number", default: "", placeholder: "twice the strength", advanced: true },
+      { id: "down", label: "Turns down (degrees over the whole part)", kind: "number", default: "", placeholder: "twice the strength", advanced: true },
+      { id: "lift", label: "Rises (px) while tilted", kind: "number", default: "0", advanced: true },
+      { id: "depth", label: "Comes forward (px) while tilted", kind: "number", default: "0", advanced: true },
+      { id: "perspective", label: "Perspective (px)", kind: "number", default: "800", advanced: true },
+      { id: "pace", label: "Follows in (ms)", kind: "number", default: "250", advanced: true },
+      { id: "parts", label: "Carries (the parts on it)", kind: "text", default: "", placeholder: "part ids, comma-separated", advanced: true },
+      { id: "area", label: "Watches the pointer over", kind: "text", default: "", placeholder: "the part itself", advanced: true },
     ],
     needs: "none",
     says: ["tilt", "tilt toward the mouse", "tilt on hover", "3d tilt", "parallax", "parallax scroll", "move with scroll"],
@@ -169,16 +177,49 @@ const TILT: Work = {
   var k = Number(inputs.strength); if (!isFinite(k) || inputs.strength === "") k = 10;
   var s = el.style;
   if (!scroll) {
-    var base = s.transform, box = null;
-    if (!s.transition) s.transition = "transform .25s ease-out";
-    el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
-    el.addEventListener("pointermove", function (e) {
-      var r = box || (box = el.getBoundingClientRect());
-      var x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
-      var ry = axis === "y" ? 0 : x * 2 * k, rx = axis === "x" ? 0 : -y * 2 * k;
-      s.transform = "perspective(800px) rotateX(" + rx.toFixed(2) + "deg) rotateY(" + ry.toFixed(2) + "deg)" + (base ? " " + base : "");
-    });
-    el.addEventListener("pointerleave", function () { box = null; s.transform = base; });
+    var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || v === null || !isFinite(n) ? d : n; };
+    var across = num(inputs.across, 2 * k), down = num(inputs.down, 2 * k), lift = num(inputs.lift, 0), depth = num(inputs.depth, 0);
+    var persp = Math.max(100, num(inputs.perspective, 800)), pace = Math.max(0, num(inputs.pace, 250));
+    /* The parts it carries turn with it, about its middle, so a thing drawn as several parts (a TV and its screen, knobs and words) turns whole. */
+    var ids = String(inputs.parts || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    var carried = [el];
+    ids.forEach(function (id) { var p = document.getElementById(id) || (el.ownerDocument || document).querySelector('[data-live-node="' + id + '"]'); if (p && p !== el) carried.push(p); });
+    var areaId = String(inputs.area || "").trim(), area = areaId ? (document.getElementById(areaId) || document.querySelector('[data-live-node="' + areaId + '"]')) : null;
+    var bases = carried.map(function (p) { return { t: p.style.transform, o: p.style.transformOrigin, tr: p.style.transition }; });
+    carried.forEach(function (p) { if (!p.style.transition) p.style.transition = "transform " + pace + "ms ease-out"; });
+    function pose(x, y) {
+      var ry = axis === "y" ? 0 : x * across, rx = axis === "x" ? 0 : -y * down;
+      return "perspective(" + persp + "px) rotateY(" + ry.toFixed(2) + "deg) rotateX(" + rx.toFixed(2) + "deg)" + (lift ? " translateY(" + (-lift) + "px)" : "") + (depth ? " translateZ(" + depth + "px)" : "");
+    }
+    if (carried.length === 1 && !area) {
+      var box = null;
+      el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
+      el.addEventListener("pointermove", function (e) {
+        var r = box || (box = el.getBoundingClientRect());
+        s.transform = pose((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5) + (bases[0].t ? " " + bases[0].t : "");
+      });
+      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; });
+      return;
+    }
+    /* Carried parts sit over it and take the pointer: it is watched from the window, over the box it had standing still. */
+    var geo = null, on = false;
+    function measure() {
+      var r = (area || el).getBoundingClientRect(), m = el.getBoundingClientRect();
+      var cx = m.left + m.width / 2, cy = m.top + m.height / 2;
+      geo = { r: r, sx: window.scrollX, sy: window.scrollY, origins: carried.map(function (p) { var b = p.getBoundingClientRect(), kx = b.width ? p.offsetWidth / b.width : 1, ky = b.height ? p.offsetHeight / b.height : 1; return ((cx - b.left) * kx).toFixed(2) + "px " + ((cy - b.top) * ky).toFixed(2) + "px"; }) };
+    }
+    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); }
+    window.addEventListener("pointermove", function (e) {
+      if (!on) measure();
+      var r = geo.r, dx = window.scrollX - geo.sx, dy = window.scrollY - geo.sy;
+      var x = (e.clientX + dx - r.left) / r.width - 0.5, y = (e.clientY + dy - r.top) / r.height - 0.5;
+      if (x < -0.5 || x > 0.5 || y < -0.5 || y > 0.5) { if (on) rest(); return; }
+      on = true;
+      var t = pose(x, y);
+      carried.forEach(function (p, i) { p.style.transformOrigin = geo.origins[i]; p.style.transform = t + (bases[i].t ? " " + bases[i].t : ""); });
+    }, { passive: true });
+    document.addEventListener("mouseleave", rest);
+    window.addEventListener("scroll", function () { if (on) rest(); }, { passive: true });
     return;
   }
   var at = 0, queued = false;
@@ -267,6 +308,8 @@ const MARQUEE: Work = {
       { id: "direction", label: "Runs", kind: "one", default: "left", values: ["left", "right"], heard: "\\b(left|right)\\b" },
       { id: "pause", label: "Pause under the mouse", kind: "one", default: "yes", values: ["yes", "no"] },
       { id: "gap", label: "Gap between loops (px)", kind: "number", default: "40" },
+      { id: "boost", label: "Speeds up with the scroll (px a frame, per px scrolled a frame)", kind: "number", default: "0", advanced: true },
+      { id: "cap", label: "Speeds up by at most (px a frame)", kind: "number", default: "14", advanced: true },
     ],
     needs: "none",
     says: ["marquee", "marquee loop", "ticker", "scrolling ticker", "news ticker", "scrolling text", "loop text"],
@@ -305,6 +348,21 @@ const MARQUEE: Work = {
   if (inputs.pause !== "no") {
     el.addEventListener("pointerenter", function () { held = true; if (anim) anim.pause(); });
     el.addEventListener("pointerleave", function () { held = false; if (anim) anim.play(); });
+  }
+  /* The scroll hurries it: its step a frame is its own plus the scroll's pace (eased, as the page measured it) times the boost, never more than the cap. */
+  var boost = Math.max(0, Number(inputs.boost) || 0), cap = Math.max(0, Number(inputs.cap)); if (!isFinite(cap) || inputs.cap === "" || inputs.cap === undefined) cap = 14;
+  if (boost > 0) {
+    var sbox = null;
+    for (var q = el.parentElement; q && q !== document.body; q = q.parentElement) { var ov = getComputedStyle(q).overflowY; if ((ov === "auto" || ov === "scroll") && q.scrollHeight > q.clientHeight) { sbox = q; break; } }
+    var y0 = sbox ? sbox.scrollTop : window.scrollY, vel = 0, step = speed / 60;
+    (function hurry() {
+      if (!el.isConnected) return;
+      var y = sbox ? sbox.scrollTop : window.scrollY;
+      vel = vel * 0.9 + (y - y0) * 0.1; y0 = y;
+      var rate = (step + Math.min(Math.abs(vel) * boost, cap)) / step;
+      if (anim && Math.abs(anim.playbackRate - rate) > 0.01) anim.playbackRate = rate;
+      requestAnimationFrame(hurry);
+    })();
   }
 });
 `,
@@ -455,6 +513,8 @@ const DUST: Work = {
       { id: "colours", label: "Colours", kind: "text", default: "#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043" },
       { id: "spacing", label: "One speck every (px of width)", kind: "number", default: "18" },
       { id: "speed", label: "Speed", kind: "number", default: "1" },
+      { id: "size", label: "Speck size (px, across the middle)", kind: "number", default: "2.1", advanced: true },
+      { id: "direction", label: "Drifts", kind: "one", default: "up", values: ["up", "down"], advanced: true },
     ],
     needs: "none",
     says: ["floating dust", "dust", "dust canvas", "particles", "floating particles", "specks"],
@@ -466,17 +526,18 @@ const DUST: Work = {
   var cols = String(inputs.colours || "").split(",").map(function (c) { return c.trim(); }).filter(Boolean);
   if (!cols.length) cols = ["#8fbf7a", "#a6d86f", "#89cebc", "#fff3a0", "#ef9043"];
   var gap = Math.max(4, Number(inputs.spacing) || 18), speed = Math.max(0.1, Number(inputs.speed) || 1);
+  var size = Math.max(0.3, Number(inputs.size) || 2.1) / 2.1, down = inputs.direction === "down";
   if (getComputedStyle(el).position === "static") el.style.position = "relative";
   el.style.isolation = "isolate";
   var cv = document.createElement("canvas");
-  cv.setAttribute("aria-hidden", "true");
+  cv.setAttribute("aria-hidden", "true"); cv.setAttribute("data-feature-layer", "dust-canvas");
   cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1";
   el.insertBefore(cv, el.firstChild);
   var ctx = cv.getContext("2d"), parts = [], DPR = Math.min(window.devicePixelRatio || 1, 2), seen = true;
   if (!ctx) return;
   function spawn(any) {
-    return { x: Math.random() * cv.width, y: any ? Math.random() * cv.height : cv.height + 10,
-      r: (Math.random() * 2.6 + 0.8) * DPR, vy: -(Math.random() * 0.35 + 0.1) * DPR * speed, vx: (Math.random() - 0.5) * 0.3 * DPR * speed,
+    return { x: Math.random() * cv.width, y: any ? Math.random() * cv.height : down ? -10 : cv.height + 10,
+      r: (Math.random() * 2.6 + 0.8) * DPR * size, vy: (down ? 1 : -1) * (Math.random() * 0.35 + 0.1) * DPR * speed, vx: (Math.random() - 0.5) * 0.3 * DPR * speed,
       c: cols[Math.random() * cols.length | 0], a: Math.random() * 0.6 + 0.3, ph: Math.random() * 6.28 };
   }
   function resize() {
@@ -496,11 +557,11 @@ const DUST: Work = {
     if (seen) {
       for (var i = 0; i < parts.length; i++) {
         var p = parts[i]; p.ph += 0.02; p.x += p.vx + Math.sin(p.ph) * 0.3; p.y += p.vy;
-        if (p.y < -10) parts[i] = spawn(false);
+        if (p.y < -10 || p.y > cv.height + 10) parts[i] = spawn(false);
       }
       draw();
     }
-    requestAnimationFrame(frame);
+    if (cv.isConnected) requestAnimationFrame(frame);
   }
   if ("IntersectionObserver" in window) new IntersectionObserver(function (e) { seen = e[e.length - 1].isIntersecting; }).observe(el);
   resize();
@@ -598,5 +659,148 @@ const BLINK: Work = {
 `,
 };
 
+
+/* ------------------------------------------------------------------ */
+/* Motion sampled from a page (sink docs/behaviours.md, "Motion        */
+/* sampled"): what it did at rest, under the pointer and as it scrolled */
+/* ------------------------------------------------------------------ */
+
+const SPIN: Work = {
+  manifest: {
+    id: "spin",
+    name: "Spin",
+    category: "motion",
+    blurb: "The part turns round and round, slowly: a planet, a badge, a record.",
+    inputs: [
+      { id: "period", label: "One turn takes (seconds)", kind: "number", default: "20", heard: "(\\d+(?:\\.\\d+)?)\\s*(?:s|sec|secs|seconds)\\b" },
+      { id: "direction", label: "Turns", kind: "one", default: "cw", values: ["cw", "ccw"], heard: "\\b(cw|ccw)\\b" },
+    ],
+    needs: "none",
+    says: ["spin", "spinning", "rotate slowly", "slowly spins", "turns round", "rotating"],
+    look: { sample: "↻ spin", caption: "spin · slow" },
+    version: 1,
+  },
+  script: `siteFeatures.define("spin", function (el, inputs) {
+  if (${CALM} || !el.animate) return;
+  var t = Number(inputs.period); if (!isFinite(t) || t <= 0) t = 20;
+  var turn = inputs.direction === "ccw" ? "-360deg" : "360deg";
+  /* On the rotate property, added to any turn the part has of its own. */
+  el.animate([{ rotate: "0deg" }, { rotate: turn }], { duration: t * 1000, iterations: Infinity, easing: "linear", composite: "add" });
+});
+`,
+};
+
+const FLOAT: Work = {
+  manifest: {
+    id: "float",
+    name: "Float",
+    category: "motion",
+    blurb: "The part bobs gently up and back (or side to side), as if on water.",
+    inputs: [
+      { id: "travel", label: "Travels (px)", kind: "number", default: "12", heard: "(\\d+)\\s*px\\b" },
+      { id: "period", label: "Out and back takes (seconds)", kind: "number", default: "6", heard: "(\\d+(?:\\.\\d+)?)\\s*(?:s|sec|secs|seconds)\\b" },
+      { id: "axis", label: "Along", kind: "one", default: "y", values: ["y", "x"] },
+      { id: "toward", label: "Goes first", kind: "one", default: "-", values: ["-", "+"], advanced: true },
+      { id: "ease", label: "Curve", kind: "text", default: "ease-in-out", advanced: true },
+    ],
+    needs: "none",
+    says: ["float", "floating", "bob", "bobbing", "floats up and down", "hover up and down", "drift up and down"],
+    look: { sample: "≈ float", caption: "float · bob" },
+    version: 1,
+  },
+  script: `siteFeatures.define("float", function (el, inputs) {
+  if (${CALM} || !el.animate) return;
+  var d = Number(inputs.travel); if (!isFinite(d) || inputs.travel === "") d = 12;
+  var t = Number(inputs.period); if (!isFinite(t) || t <= 0) t = 6;
+  var sign = inputs.toward === "+" ? 1 : -1, far = (sign * d).toFixed(2) + "px";
+  var ease = /^[\\w\\s.,()-]+$/.test(inputs.ease || "") ? inputs.ease : "ease-in-out";
+  var out = inputs.axis === "x" ? far + " 0px" : "0px " + far;
+  /* On the translate property, added to wherever else the part is moved (a layer following the pointer). */
+  el.animate([{ translate: "0px 0px", easing: ease }, { translate: out, easing: ease, offset: 0.5 }, { translate: "0px 0px" }], { duration: t * 1000, iterations: Infinity, composite: "add" });
+});
+`,
+};
+
+const HOVER_LIFT: Work = {
+  manifest: {
+    id: "hover-lift",
+    name: "Lift on hover",
+    category: "interact",
+    blurb: "Under the pointer the part rises a little (and may lean or grow), and settles back when it leaves.",
+    inputs: [
+      { id: "lift", label: "Rises (px)", kind: "number", default: "4", heard: "(\\d+)\\s*px\\b" },
+      { id: "x", label: "Moves across (px)", kind: "number", default: "0", advanced: true },
+      { id: "turn", label: "Leans (degrees)", kind: "number", default: "0", advanced: true },
+      { id: "scale", label: "Grows to", kind: "number", default: "1", advanced: true },
+      { id: "pace", label: "Takes (ms)", kind: "number", default: "200", advanced: true },
+    ],
+    needs: "none",
+    says: ["lift on hover", "hover lift", "rise on hover", "raise on hover", "pop on hover", "hover up"],
+    look: { sample: "▲ lift", caption: "hover · lift" },
+    version: 1,
+  },
+  script: `siteFeatures.define("hover-lift", function (el, inputs) {
+  if (${CALM}) return;
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  var lift = num(inputs.lift, 4), x = num(inputs.x, 0), turn = num(inputs.turn, 0), k = num(inputs.scale, 1), ms = Math.max(0, num(inputs.pace, 200));
+  var s = el.style, was = { translate: s.translate, rotate: s.rotate, scale: s.scale, transition: s.transition };
+  s.transition = (was.transition ? was.transition + ", " : "") + "translate " + ms + "ms ease, rotate " + ms + "ms ease, scale " + ms + "ms ease";
+  el.addEventListener("pointerenter", function () { s.translate = x + "px " + (-lift) + "px"; if (turn) s.rotate = turn + "deg"; if (k !== 1) s.scale = String(k); });
+  el.addEventListener("pointerleave", function () { s.translate = was.translate; s.rotate = was.rotate; s.scale = was.scale; });
+});
+`,
+};
+
+const SCROLL_GROW: Work = {
+  manifest: {
+    id: "scroll-grow",
+    name: "Grow with the scroll",
+    category: "motion",
+    blurb: "The part (a progress line) fills as the page scrolls past it, and empties again on the way back.",
+    inputs: [
+      { id: "prop", label: "Grows", kind: "one", default: "width", values: ["width", "height"] },
+      { id: "start", label: "Starts when its top is (share of the window down)", kind: "number", default: "0.9" },
+      { id: "end", label: "Full when its top is (share of the window down)", kind: "number", default: "0.2" },
+      { id: "from", label: "From (%)", kind: "number", default: "0", advanced: true },
+      { id: "to", label: "To (%)", kind: "number", default: "100", advanced: true },
+      { id: "kept", label: "Drawn at (% of the whole line)", kind: "number", default: "100", advanced: true },
+    ],
+    needs: "none",
+    says: ["grow with the scroll", "scroll progress", "progress line", "progress bar on scroll", "fill on scroll", "timeline line"],
+    look: { sample: "▰▰▰▱▱", caption: "grows · on scroll" },
+    version: 1,
+  },
+  script: `siteFeatures.define("scroll-grow", function (el, inputs) {
+  /* A visitor who asked for less motion sees it whole. */
+  if (${CALM}) return;
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  var a = num(inputs.start, 0.9), b = num(inputs.end, 0.2), lo = num(inputs.from, 0), hi = num(inputs.to, 100), tall = inputs.prop === "height";
+  if (a === b) b = a - 0.01;
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var s = el.style, queued = false;
+  /* Drawn at part of its length (a capture keeps it as seen mid-scroll): made whole first, then shown as far as the scroll has reached. */
+  var kept = num(inputs.kept, 100);
+  if (kept > 0 && kept < 100) { if (tall) s.height = (el.offsetHeight * 100 / kept).toFixed(2) + "px"; else s.width = (el.offsetWidth * 100 / kept).toFixed(2) + "px"; }
+  function place() {
+    queued = false;
+    if (!el.isConnected) return;
+    var top = box ? box.getBoundingClientRect().top : 0, h = box ? box.clientHeight : window.innerHeight || 1;
+    var t = (el.getBoundingClientRect().top - top) / h;
+    var q = Math.max(0, Math.min(1, (a - t) / (a - b))), pct = lo + (hi - lo) * q, cut = Math.max(0, Math.min(100, 100 - pct)).toFixed(2) + "%";
+    s.clipPath = tall ? "inset(0 0 " + cut + " 0)" : "inset(0 " + cut + " 0 0)";
+    el.setAttribute("data-grown", String(Math.round(pct)));
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
+  (box || window).addEventListener("scroll", soon, { passive: true });
+  window.addEventListener("resize", soon);
+  place();
+});
+`,
+};
+
 /** The behaviours, in shelf order. */
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK];
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW];
+
+/** The ones that move on their own, with nobody touching anything: the only ones the board plays (live/runWorks.ts). */
+export const AMBIENT = ["spin", "float", "dust-canvas"] as const;

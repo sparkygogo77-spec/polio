@@ -77,6 +77,12 @@ function wordsOf(f: Frag): string {
   return "";
 }
 
+/** Does it carry a working feature, switched on (`node.work`)? */
+const works = (f: Frag): boolean => {
+  const w = (f as { work?: { off?: boolean; also?: { off?: boolean }[] } | null }).work;
+  return !!w && [w, ...(w.also ?? [])].some((u) => !u.off);
+};
+
 /** Does this part draw something of its own? */
 const draws = (f: Frag): boolean => !!(f.picture || f.cube || f.vector || f.mesh || f.code || f.outline);
 
@@ -145,7 +151,8 @@ export function twins(frags: readonly Frag[]): Twin[] {
     }, stack[0]!);
     const why = wordsOf(keeper).trim() ? "says" : draws(keeper) ? "draws" : shows(keeper) ? "shows" : "outermost";
     /* A copy that paints something its keeper does not is an overlay, not a spare (trumpmorty.fun's TV scanlines and glare over its screen; `tests/twins-overlays.mjs`). */
-    for (const s of stack) if (s.id !== keeper.id && !paintsMore(s, keeper)) out.push({ id: s.id, keeps: keeper.id, why, of: stack.length });
+    /* Nor is one that carries a working feature: it does something its twin does not (the Dust layer sink makes at a repainted canvas's box, the hero's own box; `tests/motion-sampled.mjs`). */
+    for (const s of stack) if (s.id !== keeper.id && !paintsMore(s, keeper) && !works(s)) out.push({ id: s.id, keeps: keeper.id, why, of: stack.length });
   }
   /*
    * AND THE PROOF, rather than the assumption. A copy is only safe to remove
