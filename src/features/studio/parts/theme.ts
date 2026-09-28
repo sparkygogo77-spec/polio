@@ -270,6 +270,29 @@ export function saidRole(t: Theme, role: RoleId): boolean {
   return !!t.said?.roles?.includes(role);
 }
 
+
+/**
+ * A BOX'S PICTURE, DRAWN AS THE PAGE'S BACKGROUND WAS.
+ *
+ * The capture reads a CSS background as `node.picture` on a box
+ * (trumpmorty.fun's sky, desert layers and star field) and keeps the picture,
+ * not how it was sized. Inferred from its shape: a strip, three times wider
+ * than tall or more, is the box's full height repeating across (the site's
+ * `auto 100% repeat-x`); anything else covers the box, centred (`center/cover`).
+ * `tests/box-picture.mjs`.
+ */
+export function boxPicture(picture: { pic: { w?: number; h?: number }; src?: string } | null | undefined): React.CSSProperties | null {
+  if (!picture?.src) return null;
+  const { w = 0, h = 0 } = picture.pic;
+  const strip = h > 0 && w / h >= 3;
+  return {
+    backgroundImage: `url("${picture.src.replace(/"/g, "%22")}")`,
+    backgroundSize: strip ? "auto 100%" : "cover",
+    backgroundPosition: strip ? "center top" : "center",
+    backgroundRepeat: strip ? "repeat-x" : "no-repeat",
+  };
+}
+
 /** Does this node say anything about its box? Nothing said, nothing wrapped. */
 export function hasBox(n: NodeBox): boolean {
   const art = !!n.art && Object.values(n.art).some((v) => v !== undefined && v !== null && v !== "");

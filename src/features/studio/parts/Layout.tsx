@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder } from "./primitives";
 import { rng, hash, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
+import { boxPicture, cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
 import { opt, set, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
@@ -373,7 +373,7 @@ export function Note({ id, label, content, theme: t }: PartProps) {
  * into it, drawn plainly. With nothing typed it draws nothing at all: no
  * edge, no name, no count of what is inside.
  */
-export function PlainBox({ id, content, spans, theme: t, mode, onNavigate }: PartProps) {
+export function PlainBox({ id, content, spans, theme: t, mode, onNavigate, picture }: PartProps) {
   /*
    * A sentence with a coloured or differently faced word in it is ONE box
    * now. It was three — "A Sol", "Works", "project" — each wrapping on its
@@ -385,7 +385,7 @@ export function PlainBox({ id, content, spans, theme: t, mode, onNavigate }: Par
   const runs = spans?.length ? lines(spans) : null;
   const words = content.trim();
   return (
-    <Fill t={t} data-part={id} style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+    <Fill t={t} data-part={id} style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", ...boxPicture(picture) }}>
       {runs
         ? runs.map((line, i) => (
             <React.Fragment key={i}>

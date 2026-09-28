@@ -11,7 +11,7 @@
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
-import { applyCaptured, applyEdge, applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
+import { applyCaptured, applyEdge, applyFont, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
@@ -215,7 +215,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       theme={inner}
       mode={mode}
       cube={node.cube}
-      picture={picture}
+      /* A box inside a box of its own: the outer one paints the picture, padding and all. */
+      picture={boxed && node.featureId === "box" ? null : picture}
       pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}
@@ -262,7 +263,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null) }}>
         {drawn}
       </div>
     ) : drawn}
