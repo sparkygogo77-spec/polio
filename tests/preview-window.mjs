@@ -13,7 +13,7 @@
  * Through the real door (sink's trumpmorty.fun brought in), at 1440 × 900 and
  * 2000 × 1100:
  *   · the page is as wide as the view and drawn 1:1;
- *   · the hero is the view's height (never under the 900 it was captured at);
+ *   · the hero is the view's height (never under its own content);
  *   · the ribbons stand where they stood against the hero's foot;
  *   · the planet's `-16vw` is 16% of the view's width;
  * and the device widths are still there: Desktop draws the 1440 frame.
@@ -116,8 +116,10 @@ for (const [W, H] of [[1440, 900], [2000, 1100]]) {
   const L = `${W} × ${H}`;
   check(`${L}: the Preview opens in the window view`, r.mode === "window", J(r.mode));
   check(`${L}: the page is as wide as the view, 1:1`, Math.abs(r.page.x - r.view.x) <= 1 && Math.abs(r.page.w - r.view.w) <= 1 && !!r.hero && Math.abs(r.hero.w - r.hero.ow) <= 1, J({ view: r.view, page: r.page, hero: r.hero && [r.hero.w, r.hero.ow] }));
-  const wantH = Math.max(r.view.h, hero.vh.px);
-  check(`${L}: the hero is the view's height (never under ${hero.vh.px})`, !!r.hero && Math.abs(r.hero.h - wantH) <= 1.5, `hero ${r.hero?.h}, view ${r.view.h}`);
+  /* Never under what it holds (vh.content, sink 3c98763; 900 before it was recorded). */
+  const floor = hero.vh.content ?? hero.vh.px;
+  const wantH = Math.max(r.view.h, floor);
+  check(`${L}: the hero is the view's height (never under its own ${floor})`, !!r.hero && Math.abs(r.hero.h - wantH) <= 1.5, `hero ${r.hero?.h}, view ${r.view.h}`);
   const was = red.y - (hero.y + hero.h), now = r.red && r.hero ? r.red.y - (r.hero.y + r.hero.h) : NaN;
   check(`${L}: the ribbons stand against the hero's foot as captured (${was}px)`, Math.abs(now - was) <= 2, `now ${now.toFixed?.(1)}`);
   check(`${L}: the planet's -16vw is 16% of the view's width`, !!r.planet && Math.abs(r.planet.ol - -0.16 * r.view.w) <= 1.5, `${r.planet?.ol} against ${(-0.16 * r.view.w).toFixed(1)}`);

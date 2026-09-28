@@ -69,7 +69,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, vhShift, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, typeShifts, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { layerStyle, type Units } from "./layerUnits";
 import { featureFiles, pageFeatureTags } from "./library/works";
@@ -483,20 +483,46 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   const heroNode = [...nodes.values()].find((n) => n.pageId === pageId && (n as { vh?: { px?: number } }).vh?.px);
   const heroPx = (heroNode as { vh?: { px?: number } } | undefined)?.vh?.px ?? 0;
   const heroPart = heroNode ? byId.get(heroNode.id) : undefined;
+  /*
+   * Type set with the window, and what it moves (`fluidSite.ts#typeShifts`),
+   * and the hero's height: the window's, never under what it holds (its own
+   * content and padding, `vh.content`, and what its type grew by). Held at
+   * the px it was captured at, a hero in a window shorter than that ran its
+   * ribbons below the fold (tests/fluid-type.mjs).
+   */
+  const typed = typeShifts([...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({ ...byId.get(n.id)!, fluid: n.font?.fluid ?? null, px: n.font?.px ?? null })), heroPart?.id ?? null);
+  const heroContent = (heroNode as { vh?: { content?: number } } | undefined)?.vh?.content ?? heroPx;
+  const heroH = typed.heroGrow ? `max(100svh, calc(${heroContent}px + ${typed.heroGrow}))` : `max(100svh, ${heroContent}px)`;
   if (heroPart && heroPx > 0) {
     for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
       if (el.parentElement?.closest("[data-live-node]")) continue;
       const p = byId.get(el.getAttribute("data-live-node") ?? "");
       if (!p || p.position === "fixed" || p.position === "sticky" || el.style.position === "fixed") continue;
-      if (p === heroPart) { el.style.minHeight = `max(100svh, ${heroPx}px)`; continue; }
+      if (p === heroPart) { el.style.minHeight = heroH; continue; }
       /* The hero's own child that holds it: its group moves as one. */
       const hs = heroPart.selector ?? "";
       const group = p.selector && hs && p.selector.startsWith(`${hs} > `)
         ? byId.get([...byId.values()].find((q) => q.selector && q.selector === `${hs} > ${p.selector!.slice(hs.length + 3).split(" > ")[0]}`)?.id ?? "") ?? p
         : p;
-      const top = vhShift(p, heroPart, heroPx, group);
+      const top = vhShift(p, heroPart, heroPx, group, heroH);
       if (top) el.style.top = top;
     }
+  }
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
+    if (el.parentElement?.closest("[data-live-node]")) continue;
+    const id = el.getAttribute("data-live-node") ?? "";
+    const node = nodes.get(id), p = byId.get(id);
+    /* Its words at the window's size: every size in it by the same measure, so a run at .62 of the title stays .62 of it. */
+    const fluid = node?.font?.fluid, fpx = node?.font?.px;
+    if (fluid && fpx && fpx > 0) {
+      for (const e of [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))]) {
+        const v = e.style.fontSize.endsWith("px") ? parseFloat(e.style.fontSize) : NaN;
+        if (Number.isFinite(v) && v > 0) e.style.fontSize = `calc(${fluid} * ${+(v / fpx).toFixed(6)})`;
+      }
+      if (p) el.style.minHeight = `calc(${fluid} * ${+(p.h / fpx).toFixed(6)})`;
+    }
+    const moved = typed.shift.get(id);
+    if (moved && p && p.position !== "fixed" && p.position !== "sticky" && el.style.position !== "fixed") el.style.top = `calc(${el.style.top || `${p.y}px`} + ${moved})`;
   }
   /* A layer placed in the window's units or a share of a block that grows with it (`node.units`): placed so again (`layerUnits.ts`). */
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
@@ -508,9 +534,9 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (!node || !u || !block || !bk || block.position === "fixed" || block.position === "sticky") continue;
     const isHero = block === heroPart && heroPx > 0;
     if (!isHero && !bk.width.css && Math.abs(bk.width.k) < 1e-9) continue;
-    const top = isHero ? `${block.y}px` : (heroPart && heroPx > 0 ? vhShift(block, heroPart, heroPx) : null) ?? `${block.y}px`;
+    const top = isHero ? `${block.y}px` : (heroPart && heroPx > 0 ? vhShift(block, heroPart, heroPx, block, heroH) : null) ?? `${block.y}px`;
     const pic = !!(node as { picture?: unknown }).picture || node.featureId === "picture";
-    const st = layerStyle(u, { left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? `max(100svh, ${heroPx}px)` : `${block.h}px` }, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null);
+    const st = layerStyle(u, { left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? heroH : `${block.h}px` }, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null);
     if (!st) continue;
     if (st.left) el.style.left = st.left;
     if (st.top) el.style.top = st.top;
@@ -558,7 +584,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   const fits = H > 0 && bottom <= H + 1;
   for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
     pg.style.width = "100%";
-    pg.style.height = fits ? `max(100vh, ${bottom}px)` : heroPart && heroPx > 0 ? `calc(${bottom}px + (max(100svh, ${heroPx}px) - ${heroPx}px))` : `${bottom}px`;
+    const grown = [heroPart && heroPx > 0 ? `(${heroH} - ${heroPx}px)` : null, typed.pageGrow].filter(Boolean);
+    pg.style.height = fits ? `max(100vh, ${bottom}px)` : grown.length ? `calc(${bottom}px + ${grown.join(" + ")})` : `${bottom}px`;
   }
 }
 

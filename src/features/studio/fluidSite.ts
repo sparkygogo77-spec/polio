@@ -343,8 +343,8 @@ export function fluidClip(clip: string, p: { x: number; w: number }, tx: number,
  * by its centre's share of the hero's height (its column is centred, its hills
  * sit on the foot). Above the hero's top, nothing (null). `tests/sink-fields.mjs`.
  */
-export function vhShift(p: { y: number; h: number }, hero: { y: number; h: number }, px: number, group: { y: number; h: number } = p): string | null {
-  const grow = `(max(100svh, ${px}px) - ${px}px)`;
+export function vhShift(p: { y: number; h: number }, hero: { y: number; h: number }, px: number, group: { y: number; h: number } = p, height = `max(100svh, ${px}px)`): string | null {
+  const grow = `(${height} - ${px}px)`;
   if (p.y >= hero.y + hero.h - 0.5) return `calc(${p.y}px + ${grow})`;
   if (p.y < hero.y) return null;
   /* By the share of the group it stands in (the hero's child that holds it), so a TV and its antenna move as one. */
@@ -355,4 +355,83 @@ export function vhShift(p: { y: number; h: number }, hero: { y: number; h: numbe
 /** The capture's window height for a page: the foot of its lowest fixed band. */
 export function captureHeight(parts: readonly FluidPart[]): number {
   return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.y + p.h));
+}
+
+/** A part's type set with the window (`node.font.fluid`, sink 3c98763), beside the px it measured. */
+export interface TypePart extends FluidPart { fluid?: string | null; px?: number | null }
+
+/**
+ * TYPE THAT GROWS WITH THE WINDOW MOVES WHAT IS AROUND IT. trumpmorty.fun's
+ * title is `clamp(58px, 8.6vw, 132px)`: 123.84px at the capture's 1440, 132
+ * at 2000, and 14px taller there; the CA line under it in the same column is
+ * 14px lower, and the column, centred in the hero, 7px higher. The export
+ * stands every part on the page, so what the browser does by flowing is said
+ * here as a shift in CSS, from the parts' recorded paths and layouts:
+ *   · a part set in window units grows by its height times the size's
+ *     change (`fluid` × h/px − h), as words do when nothing re-wraps;
+ *   · in a block or a column, a part moves down by what grew above it among
+ *     its siblings in the flow, and its parent grows by all of it;
+ *   · in a row or a grid, the parent grows by its tallest child's growth,
+ *     and a child centred across it moves by half the difference (the end,
+ *     all of it);
+ *   · a box sized in the window's height (the hero, 100svh) takes its
+ *     content's growth into its own height (`heroGrow`), and a child it
+ *     centres moves up by half its own growth.
+ * Parts placed absolutely, fixed or sticky neither grow a flow nor are moved
+ * by one; they move with the part they sit in. Nothing grows on a page with
+ * no type set in window units. `tests/fluid-type.mjs`.
+ */
+export function typeShifts(parts: readonly TypePart[], heroId: string | null = null): { shift: Map<string, string>; heroGrow: string | null; pageGrow: string | null } {
+  const shift = new Map<string, string>();
+  if (!parts.some((p) => p.fluid && p.px)) return { shift, heroGrow: null, pageGrow: null };
+  const caught = parts.filter((p) => p.selector);
+  const parentOf = new Map<string, TypePart | null>();
+  for (const p of caught) {
+    let best: TypePart | null = null;
+    for (const q of caught) if (q !== p && within(p.selector!, q.selector!) && (!best || q.selector!.length > best.selector!.length)) best = q;
+    parentOf.set(p.id, best);
+  }
+  const kidsOf = new Map<string | null, TypePart[]>();
+  for (const p of caught) { const k = parentOf.get(p.id)?.id ?? null; kidsOf.set(k, [...(kidsOf.get(k) ?? []), p]); }
+  const placed = (p: TypePart) => p.position === "absolute" || p.position === "fixed" || p.position === "sticky";
+  const sum = (xs: string[]) => (xs.length ? `(${xs.join(" + ")})` : null);
+  const across = (P: TypePart | null) => !!P?.layout && (P.layout.display === "grid" || (P.layout.display === "flex" && P.layout.direction !== "column"));
+  const grew = new Map<string, string | null>();
+  let heroGrow: string | null = null;
+  /* What each part grows by, inside out. */
+  const growOf = (P: TypePart | null): string | null => {
+    const key = P?.id ?? "";
+    if (grew.has(key)) return grew.get(key)!;
+    const own = P?.fluid && P.px && P.px > 0 ? `(${P.fluid} * ${+(P.h / P.px).toFixed(6)} - ${P.h}px)` : null;
+    const flow = (kidsOf.get(P?.id ?? null) ?? []).filter((k) => !placed(k));
+    const gs = flow.map(growOf).filter((g): g is string => !!g);
+    const kids = !gs.length ? null : across(P) ? `max(0px, ${gs.join(", ")})` : sum(gs);
+    let g = own && kids ? `(${own} + ${kids})` : own ?? kids;
+    /* The hero holds its growth in its own height: nothing beside it is moved by it here. */
+    if (P && P.id === heroId) { heroGrow = kids; g = null; }
+    grew.set(key, g);
+    return g;
+  };
+  const pageGrow = growOf(null);
+  /* Where each part moves: its parent's move, and its own place in the parent. */
+  const place = (P: TypePart | null, at: string | null) => {
+    const kids = (kidsOf.get(P?.id ?? null) ?? []).slice().sort((a, b) => a.y - b.y);
+    const flow = kids.filter((k) => !placed(k));
+    const G = growOf(P) ?? (P && P.id === heroId ? heroGrow : null);
+    const align = P?.layout?.align;
+    for (const C of kids) {
+      let mine: string | null = null;
+      if (!placed(C)) {
+        const g = growOf(C);
+        if (P && P.id === heroId && across(P)) mine = g && align === "center" ? `(${g} * -0.5)` : g && (align === "flex-end" || align === "end") ? `(${g} * -1)` : null;
+        else if (across(P)) mine = !G ? null : align === "center" ? `((${G} - ${g ?? "0px"}) * 0.5)` : align === "flex-end" || align === "end" ? `(${G} - ${g ?? "0px"})` : null;
+        else mine = sum(flow.filter((s) => s !== C && s.y + s.h <= C.y + 1.5).map(growOf).filter((x): x is string => !!x));
+      }
+      const total = at && mine ? `(${at} + ${mine})` : at ?? mine;
+      if (total) shift.set(C.id, total);
+      place(C, total);
+    }
+  };
+  place(null, null);
+  return { shift, heroGrow, pageGrow };
 }

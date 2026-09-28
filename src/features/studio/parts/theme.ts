@@ -132,6 +132,13 @@ export interface NodeFont {
   px?: number;
   /** The whole font-family stack the page set (sink), face first. */
   stack?: string;
+  /**
+   * The size as the page wrote it, when it follows the window (sink:
+   * `clamp(58px, 8.6vw, 132px)`); `px` is what it measured at the capture's
+   * width. The board draws `px`; the export and the Preview's window view
+   * draw this (`exportSite.ts#fluid`).
+   */
+  fluid?: string;
   /** 300..800. Body text takes it; parts that set their own weights keep them. */
   weight?: number;
   /** In em, -0.05..0.3. */
