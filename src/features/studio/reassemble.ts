@@ -85,20 +85,23 @@ export interface Frag {
 }
 
 /**
- * The anchor a piece was read from, as the path up to that `a`: null for
- * words in no link. Pieces in DIFFERENT anchors are separate controls, a row
- * of links rather than a sentence in pieces (trumpmorty.fun's nav pill,
- * share.xyz's category tabs; `tests/links-apart.mjs`).
+ * The anchor, and the heading, a piece was read from, each as the path up to
+ * that element: null for words in none. Pieces in DIFFERENT anchors are
+ * separate controls, a row of links rather than a sentence in pieces
+ * (trumpmorty.fun's nav pill, share.xyz's category tabs); pieces in different
+ * headings are different titles (trumpmorty.fun's roadmap cards, each an
+ * `article > h3`, 73px apart on one line). `tests/links-apart.mjs`.
  */
-function anchorOf(f: Frag): string | null {
+function enclosing(f: Frag, tag: RegExp): string | null {
   const steps = (f.from?.selector ?? "").split(" > ");
-  for (let i = steps.length - 1; i >= 0; i--) if (/^a(?![\w-])/.test(steps[i]!.trim())) return steps.slice(0, i + 1).join(" > ");
+  for (let i = steps.length - 1; i >= 0; i--) if (tag.test(steps[i]!.trim())) return steps.slice(0, i + 1).join(" > ");
   return null;
 }
-const apart = (a: Frag, b: Frag): boolean => {
-  const x = anchorOf(a), y = anchorOf(b);
+const ANCHOR = /^a(?![\w-])/, HEADING = /^h[1-6](?![\w-])/;
+const apart = (a: Frag, b: Frag): boolean => [ANCHOR, HEADING].some((tag) => {
+  const x = enclosing(a, tag), y = enclosing(b, tag);
   return !!x && !!y && x !== y;
-};
+});
 
 export interface Reassembly {
   /** The part that stays, with the sentence in it. */

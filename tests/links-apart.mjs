@@ -1,5 +1,6 @@
 /**
- * LINKS SIDE BY SIDE ARE A ROW OF LINKS, NOT A SENTENCE IN PIECES.
+ * LINKS SIDE BY SIDE ARE A ROW OF LINKS, NOT A SENTENCE IN PIECES; HEADINGS
+ * IN DIFFERENT CARDS ARE DIFFERENT TITLES.
  *
  * The sweep joins words that sit on one line close together (`reassemble.ts
  * #sentences`), which puts back a sentence the capture read in pieces. On the
@@ -42,6 +43,20 @@ const tabs = ["Trending", "Sports", "Politics", "Crypto"].map((t, i) => ({ ...p(
 const j2 = sentences(tabs);
 check("share.xyz's category tabs stay separate tabs", j2.length === 0, JSON.stringify(j2.map((r) => [r.keep, ...r.drop])));
 
+/*
+ * AND HEADINGS IN DIFFERENT CARDS. trumpmorty.fun's roadmap: card 3's title
+ * "The Graduation" and card 4's "Renewed for S2", each an `article > h3`,
+ * stand on one line 73px apart; joined, card 3's title ran over card 4 and
+ * card 4 lost its own. Pieces in different headings are never joined.
+ */
+const E = "body > main > section:nth-of-type(5) > div > div:nth-of-type(2)";
+const titles = [
+  { ...p("t3", "The Graduation", `${E} > article:nth-of-type(3) > h3`, 756, 229), y: 4174, h: 66, featureId: "value-prop" },
+  { ...p("t4", "Renewed for S2", `${E} > article:nth-of-type(4) > h3`, 1058, 229), y: 4199, h: 64, featureId: "value-prop" },
+];
+const j5 = sentences(titles);
+check("trumpmorty.fun's two roadmap titles, in different cards, stay two titles", j5.length === 0, JSON.stringify(j5.map((r) => [r.keep, ...r.drop])));
+
 /* Controls: what the join is for. */
 const S = "body > main > p";
 const inline = [
@@ -55,6 +70,9 @@ const A = "body > header > a";
 const one = [p("w1", "A Sol", `${A} > span:nth-of-type(1)`, 82, 50, { link }), p("w2", "Works", `${A} > span:nth-of-type(2)`, 132, 60, { link })];
 const j4 = sentences(one);
 check("control: one link read in pieces is still one link", j4.length === 1, JSON.stringify(j4.map((r) => [r.keep, ...r.drop])));
+const H = "body > main > h1";
+const title = [p("h1a", "Trump", `${H} > span:nth-of-type(1)`, 100, 200), p("h1b", "&", `${H} > span:nth-of-type(2)`, 304, 30)];
+check("control: one heading read in pieces is still one heading", sentences(title).length === 1);
 const plain = [p("x1", "Total", "body > div > p > span:nth-of-type(1)", 100, 40), p("x2", "Earned", "body > div > p > span:nth-of-type(2)", 146, 60)];
 check("control: words with no anchor join as before", sentences(plain).length === 1);
 
