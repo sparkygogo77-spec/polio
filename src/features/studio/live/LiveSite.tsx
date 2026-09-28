@@ -12,13 +12,14 @@ import { TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "./CarriedFonts";
 import { motionCss } from "../parts/capturedMotion";
 import { resolvePalette } from "../parts/theme";
-import { auraStyle, entranceCss, type Look } from "../look";
+import { auraStyle, entranceCss, washCss, type Look } from "../look";
 import type { StudioNode, StudioPage, StudioShape } from "../store";
 import { unbuiltSections } from "../spec";
 import type { Picture } from "../pictures";
 import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
+import { homeOf } from "../homePage";
 
 export interface LiveSiteProps {
   pages: StudioPage[];
@@ -90,7 +91,7 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
     pages.find((p) => p.id === t) ??
     pages.find((p) => p.path === t || p.path === "/" + slug(t)) ??
     pages.find((p) => p.name.toLowerCase() === t.toLowerCase()) ??
-    (t.toLowerCase() === "home" || t === "/" ? pages[0] ?? null : null)
+    (t.toLowerCase() === "home" || t === "/" ? homeOf(pages) ?? null : null)
   );
 }
 
@@ -100,6 +101,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published }), [format, look, siteName, published]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
+  const wash = React.useMemo(() => washCss(light), [light]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height: laidOut, placed, reflowed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
   /*
@@ -224,6 +226,12 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
         <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
+          {/* The pool the lamp puts on the page ("Light on the page"), as the
+              board draws it (Canvas, data-frame-light): under the parts, so
+              they stand in it. Only the board drew it, so the wash that
+              changed 41% of the board changed nothing in Preview or on the
+              published page. */}
+          {wash ? <div aria-hidden data-live-light="" style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: wash }} /> : null}
           {placed.map((p) => (
             <div
               key={p.node.id}

@@ -62,6 +62,7 @@ import { motionCss } from "./parts/capturedMotion";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { useStudio, type StudioNode, type StudioPage } from "./store";
 import type { NodeLink } from "./parts/types";
+import { homeFor, type Home } from "./homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "./staticSite";
 import { fontFaceCss } from "./fonts";
 import { ROLES, type RoleId } from "./look";
@@ -119,10 +120,10 @@ function toRoles(style: string, roles: [string, RoleId][]): string {
 }
 
 /** How far a page's file is below the root, as the `../` that climbs back to it. */
-const upOf = (page: StudioPage, home: string) => "../".repeat(pageFile(page, home).split("/").length - 1);
+const upOf = (page: StudioPage, home: Home) => "../".repeat(pageFile(page, home).split("/").length - 1);
 
 /** Where a link goes from one exported page, as an href, or null when it names nothing that is exported. */
-function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: StudioPage[], home: string): string | null {
+function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: StudioPage[], home: Home): string | null {
   const target = link?.target?.trim();
   if (!link || !target) return null;
   /* A script is not somewhere to go: left a link that goes nowhere, and counted missing by the check. */
@@ -140,8 +141,8 @@ function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: Stud
  * as served (`/docs` sits in `/`), so the site works wherever it is rooted.
  * Opened from disk, a page link is a folder, not the file in it.
  */
-export const pageAddress = (page: StudioPage, home: string) => "/" + pageFile(page, home).replace(/(^|\/)index\.html$/, "");
-function cleanHref(from: StudioPage, to: StudioPage, home: string): string {
+export const pageAddress = (page: StudioPage, home: Home) => "/" + pageFile(page, home).replace(/(^|\/)index\.html$/, "");
+function cleanHref(from: StudioPage, to: StudioPage, home: Home): string {
   const a = pageAddress(from, home), b = pageAddress(to, home);
   const ups = a.slice(0, a.lastIndexOf("/") + 1).split("/").length - 2;
   return "../".repeat(Math.max(0, ups)) + (b.slice(1) || "./");
@@ -158,7 +159,7 @@ function cleanHref(from: StudioPage, to: StudioPage, home: string): string {
  * is the page whose own path is that address (else its first page). Returns,
  * for each page in a group of two or more, its group and root.
  */
-function inPlaceGroups(pages: StudioPage[], nodes: StudioNode[], home: string): Map<string, { root: StudioPage; members: StudioPage[] }> {
+function inPlaceGroups(pages: StudioPage[], nodes: StudioNode[], home: Home): Map<string, { root: StudioPage; members: StudioPage[] }> {
   const at = new Map<string, string>();
   for (const page of pages) {
     const count = new Map<string, number>();
@@ -177,7 +178,7 @@ function inPlaceGroups(pages: StudioPage[], nodes: StudioNode[], home: string): 
     if (members.length < 2) continue;
     const path = new URL(addr).pathname.replace(/\/+$/, "") || "/";
     const norm = (p: StudioPage) => "/" + (p.path ?? "").trim().replace(/^\/+|\/+$/g, "");
-    const root = members.find((p) => norm(p) === path) ?? members.find((p) => p.id === home) ?? members[0]!;
+    const root = members.find((p) => norm(p) === path) ?? members.find((p) => p.id === home.id) ?? members[0]!;
     for (const m of members) out.set(m.id, { root, members });
   }
   return out;
@@ -192,7 +193,7 @@ function inPlaceGroups(pages: StudioPage[], nodes: StudioNode[], home: string): 
  * group opened at its own address shows the root's address too, as the
  * original would. Nothing for a page in no group.
  */
-function inPlaceScript(page: StudioPage, group: { root: StudioPage; members: StudioPage[] } | undefined, home: string): string {
+function inPlaceScript(page: StudioPage, group: { root: StudioPage; members: StudioPage[] } | undefined, home: Home): string {
   if (!group) return "";
   const data = { root: cleanHref(page, group.root, home), members: group.members.map((m) => cleanHref(page, m, home)) };
   return `<script type="application/json" id="in-place">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>
@@ -267,7 +268,7 @@ function asAnchor(el: Element, href: string, kind: NodeLink["kind"], extraStyle 
  *     a press anywhere on it follows.
  * Only a part's OWN elements: a part drawn inside another part is its own.
  */
-function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>): Map<Element, HTMLAnchorElement> {
+function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>): Map<Element, HTMLAnchorElement> {
   const partLinks = new Map<Element, HTMLAnchorElement>();
   for (const run of Array.from(root.querySelectorAll("[data-run-link][data-run-to]"))) {
     const link = { kind: run.getAttribute("data-run-link") as NodeLink["kind"], target: run.getAttribute("data-run-to") ?? "" };
@@ -401,7 +402,7 @@ function pressThrough(root: DocumentFragment, nodes: Map<string, StudioNode>): n
 }
 
 /** One page's markup, the Builder's marks taken off it, its links made real and its colours tied to the roles. */
-function clean(html: string, page: StudioPage, pages: StudioPage[], home: string, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null): string {
+function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null): string {
   const pageId = page.id;
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
@@ -629,7 +630,7 @@ body { container-type: inline-size; overflow-x: clip; }
 export async function exportSite(only?: readonly string[], opts: { pictures?: boolean } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
-  const home = s.pages[0]!.id;
+  const home = homeFor(s.pages);
   const width = s.frameWidth || 1440;
   const name = s.brief.name?.trim() || "Site";
   const palette = resolvePalette(s.format, s.look);
@@ -668,7 +669,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
       width,
       [],
     );
-    const title = page.name?.trim() ? (page.id === home ? name : `${page.name.trim()} · ${name}`) : name;
+    const title = page.name?.trim() ? (page.id === home.id ? name : `${page.name.trim()} · ${name}`) : name;
     files.push({
       path: pageFile(page, home),
       content: `<!doctype html>

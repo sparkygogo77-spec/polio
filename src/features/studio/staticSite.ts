@@ -36,6 +36,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { LiveSite } from "./live/LiveSite";
 import { useStudio, type StudioPage } from "./store";
+import { homeFor, type Home } from "./homePage";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { unbuiltSections } from "./spec";
 import { missingCopy } from "./promised";
@@ -47,11 +48,8 @@ export interface SiteFile {
 }
 
 /** Where a page's own `index.html` goes. The home page is the root. */
-export function pageFile(page: StudioPage, home: string | null): string {
-  if (page.id === home) return "index.html";
-  const p = (page.path || page.name || page.id).trim().replace(/^\/+|\/+$/g, "");
-  const slug = p.toLowerCase().replace(/[^a-z0-9/_-]+/g, "-").replace(/^-+|-+$/g, "") || page.id;
-  return `${slug}/index.html`;
+export function pageFile(page: StudioPage, home: Home): string {
+  return home.file(page);
 }
 
 /**
@@ -263,7 +261,7 @@ export interface PageAudit {
 export function auditSite(): PageAudit[] {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
-  const home = s.pages[0]!.id;
+  const home = homeFor(s.pages);
   const width = s.frameWidth || 1440;
   const pageIds = new Set(s.pages.map((p) => p.id));
   const orphans = s.nodes.filter((n) => !pageIds.has(n.pageId));
@@ -286,7 +284,7 @@ export function auditSite(): PageAudit[] {
         published: false,
       }),
       width,
-      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home ? orphans : [])]
+      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home.id ? orphans : [])]
         .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId, prompt: n.prompt ?? "" })),
     );
     return {
@@ -308,7 +306,7 @@ export function auditCounts(audit: PageAudit[]): number {
 export function staticSite(): SiteFile[] {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
-  const home = s.pages[0]!.id;
+  const home = homeFor(s.pages);
   const width = s.frameWidth || 1440;
   const { css, links } = styles();
   const name = s.brief.name?.trim() || "Site";
@@ -335,7 +333,7 @@ export function staticSite(): SiteFile[] {
         shapes: s.shapes,
         /* Not a browser address: the page being written will be read from a
            repository, where the file sits at its own path beside it. */
-        pictureAt: (pic) => `${page.id === home ? "" : "../"}${pic.path}`,
+        pictureAt: (pic) => `${"../".repeat(pageFile(page, home).split("/").length - 1)}${pic.path}`,
       }),
       width,
       /*
@@ -345,11 +343,11 @@ export function staticSite(): SiteFile[] {
        * which is the one shape that used to vanish without trace: not a
        * part that rendered badly, a part nothing ever asked to render.
        */
-      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home ? orphans : [])]
+      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home.id ? orphans : [])]
         .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId, prompt: n.prompt ?? "" })),
     );
-    const title = page.name?.trim() ? (page.id === home ? name : `${page.name.trim()} · ${name}`) : name;
-    const up = page.id === home ? "" : "../";
+    const title = page.name?.trim() ? (page.id === home.id ? name : `${page.name.trim()} · ${name}`) : name;
+    const up = "../".repeat(pageFile(page, home).split("/").length - 1);
     files.push({
       path: pageFile(page, home),
       content: `<!doctype html>

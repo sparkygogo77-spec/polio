@@ -20,6 +20,7 @@ import { livePath, useStudio, useStudioHydration } from "../store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 import { keepTurn } from "./LiveStage";
+import { homeOf } from "../homePage";
 
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
@@ -39,7 +40,8 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   const frameWidth = useStudio((s) => s.frameWidth);
 
   const rest = trim(params["*"] ?? "");
-  const page = pages.find((p) => trim(p.path) === rest) ?? pages[0]!;
+  /* "/" is Home, the same Home the export writes as index.html (homePage.ts). */
+  const page = (rest ? pages.find((p) => trim(p.path) === rest) : homeOf(pages)) ?? homeOf(pages)!;
 
   const [device, setDevice] = React.useState<Device>(() => (frameWidth <= DEVICE_WIDTH.phone ? "phone" : frameWidth <= DEVICE_WIDTH.tablet ? "tablet" : "desktop"));
   const ref = React.useRef<HTMLDivElement>(null);

@@ -25,6 +25,7 @@
  */
 import { paintRoles, roleVars } from "./bodyPaint.ts";
 import { auraStyle, entranceCss, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette } from "./look.ts";
+import { homeOf } from "./homePage.ts";
 
 export interface ScaffoldFile {
   path: string;
@@ -184,7 +185,7 @@ export function hrefOf(link: ScaffoldPart["link"], pages: ScaffoldPage[]): { hre
     pages.find((p) => p.id === t) ??
     pages.find((p) => p.path === t || p.path === "/" + slugOf(t)) ??
     pages.find((p) => p.name.toLowerCase() === t.toLowerCase()) ??
-    (t.toLowerCase() === "home" || t === "/" ? pages[0] ?? null : null);
+    (t.toLowerCase() === "home" || t === "/" ? homeOf(pages) ?? null : null);
   return page ? { href: page.path, newTab: false } : null;
 }
 

@@ -19,6 +19,7 @@
  */
 import type { NodeLink } from "../parts/types.ts";
 import { describeWork, inputsOf, matchWorks, type WorkManifest, type WorkUse } from "./works.ts";
+import { homeOf } from "../homePage.ts";
 
 export interface ReadContext {
   pages: { id: string; name: string; path?: string }[];
@@ -64,7 +65,7 @@ function pageNamed(text: string, pages: ReadContext["pages"]) {
   const want = norm(text);
   if (!want) return null;
   return pages.find((p) => norm(p.name) === want || (!!p.path && p.path !== "/" && norm(p.path) === want))
-    ?? (want === "home" || want === "home page" ? pages[0] ?? null : null);
+    ?? (want === "home" || want === "home page" ? homeOf(pages) ?? null : null);
 }
 
 const clip = (s: string, n = 48) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);

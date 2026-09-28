@@ -860,13 +860,13 @@ const WHERE_HINT: Record<TextureTarget, string> = {
   over: "Washed across the finished page, content included. Best kept faint, a grain, a fog, a scan line.",
 };
 
-function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ label, hint, checked, onChange, name }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; name?: string }) {
   return (
     <label className="flex cursor-pointer items-start gap-2">
       <input
         type="checkbox"
         checked={checked}
-        aria-label={label}
+        aria-label={name ?? label}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5"
         style={{ accentColor: "var(--accent)" }}
@@ -920,9 +920,13 @@ function LightSection() {
     <section data-look-light="" data-light-section="" className="border-t border-border p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 data-look-heading className="text-plain font-semibold text-fg">Light &amp; depth</h3>
+        {/* Nothing is written beside the switch (the heading says what it is),
+            but it still has a name: it was a checkbox called "", which a
+            screen reader could not say. */}
         <Toggle
           label=""
           hint=""
+          name="Light on"
           checked={light.on}
           onChange={(v) => { play(v ? "confirm" : "close"); set({ on: v }); }}
         />

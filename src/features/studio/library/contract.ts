@@ -23,6 +23,7 @@
  * Pure: the tests run it as written.
  */
 import { allWorks, getWork, inputsOf, usesOf, type Work, type WorkManifest, type WorkUse } from "./works.ts";
+import { homeFor, type Home } from "../homePage.ts";
 
 export const BLOCK_START = "<!-- builder:features:start -->";
 export const BLOCK_END = "<!-- builder:features:end -->";
@@ -45,13 +46,9 @@ function wordsOf(content: unknown): string {
   return "";
 }
 
-/** The file a page is published as, the way `pageFile` in staticSite.ts names it. */
-function fileOf(page: Page | undefined, home: string | undefined): string {
-  if (!page) return "index.html";
-  if (page.id === home) return "index.html";
-  const p = (page.path || page.name || page.id).trim().replace(/^\/+|\/+$/g, "");
-  const slug = p.toLowerCase().replace(/[^a-z0-9/_-]+/g, "-").replace(/^-+|-+$/g, "") || page.id;
-  return `${slug}/index.html`;
+/** The file a page is published as: the export's own answer (`homePage.ts`). */
+function fileOf(page: Page | undefined, home: Home): string {
+  return page ? home.file(page) : "index.html";
 }
 
 const one = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -61,7 +58,7 @@ const one = (s: string) => s.replace(/\s+/g, " ").trim();
 /* ------------------------------------------------------------------ */
 
 export function tasksFile(nodes: readonly Part[], pages: readonly Page[]): string {
-  const home = pages[0]?.id;
+  const home = homeFor(pages);
   const order = new Map(pages.map((p, i) => [p.id, i]));
   const tasked = nodes
     .filter((n) => n.task && n.task.trim())
