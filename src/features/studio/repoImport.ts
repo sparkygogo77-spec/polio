@@ -186,6 +186,23 @@ export function readRepo(raw: string): Repo | null {
   return { owner: m[1]!, name: m[2]!, ref: ref?.trim() || null, dir: dir?.replace(/^\/+|\/+$/g, "") || null };
 }
 
+/**
+ * Is this the repository, and the folder of it, a site was brought in from?
+ *
+ * A site brought in from one place is brought in again only from that
+ * place: `owner/sink` is not `owner/sink/sites/share-xyz`, and bringing
+ * the second into the first's site would put share.xyz's pages on the
+ * SOLCINERATOR board and aim its Go live at SOLCINERATOR's repository.
+ * The ref is not part of it: a branch of the same place is the same place.
+ */
+export function sameSource(own: string | null | undefined, repo: Repo): boolean {
+  if (!own) return true;
+  const was = readRepo(own);
+  if (!was) return false;
+  const path = (r: Repo) => `${r.owner}/${r.name}${r.dir ? `/${r.dir}` : ""}`.toLowerCase();
+  return path(was) === path(repo);
+}
+
 /** How the repository is written for a person: what they typed, tidied. */
 export function repoName(r: Repo): string {
   return `${r.owner}/${r.name}${r.dir ? `/${r.dir}` : ""}${r.ref ? `@${r.ref}` : ""}`;

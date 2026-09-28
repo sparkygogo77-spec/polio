@@ -7,8 +7,8 @@
  * beside it as a mirror of what fits or a pointer for what does not.
  *
  *   1. A document already in localStorage — the owner's site, from before —
- *      is read from there, carried into IndexedDB, and still there once
- *      localStorage is emptied.
+ *      is read from there, carried into IndexedDB, and still there after a
+ *      reload; removing the key still starts a fresh board, as it always did.
  *   2. A document past the quota is on the board, leaves a pointer in
  *      localStorage naming its shape, and comes back whole after a reload.
  *   3. A small edit after that is mirrored whole again.
@@ -56,12 +56,10 @@ const idb = () => page.evaluate(() => new Promise((done) => {
 await page.waitForTimeout(800);
 const carried = await idb();
 check("…and carried into IndexedDB", typeof carried === "string" && JSON.parse(carried).state.nodes.length === N0, carried ? `${carried.length} chars` : "nothing");
-/* localStorage emptied: only IndexedDB holds it now. */
-await page.evaluate(() => { localStorage.removeItem("builder.studio"); });
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForFunction(() => typeof window.__studioPublishDoc === "function" && (window.__studioPublishDoc().nodes ?? []).length > 0, null, { timeout: 30000 }).catch(() => {});
 const back = await page.evaluate(() => window.__studioPublishDoc().nodes.length);
-check("…and still on the board once localStorage is emptied: read from IndexedDB", back === N0, `${back} of ${N0}`);
+check("…and still on the board after a reload", back === N0, `${back} of ${N0}`);
 const mirrored = await page.evaluate(() => localStorage.getItem("builder.studio"));
 check("…mirrored whole into localStorage again, for what reads the key directly", typeof mirrored === "string" && mirrored.startsWith('{"state"') && JSON.parse(mirrored).state.nodes.length === N0, mirrored ? mirrored.slice(0, 40) : "nothing");
 
@@ -95,6 +93,14 @@ await page.evaluate((doc) => window.__studioLoadDoc(doc), SMALL);
 await page.waitForTimeout(800);
 const again = await page.evaluate(() => localStorage.getItem("builder.studio"));
 check("a small document after it is mirrored whole again", typeof again === "string" && again.startsWith('{"state"') && JSON.parse(again).state.nodes.length === N0, again ? again.slice(0, 40) : "nothing");
+/* 4. The key removed is a fresh board, whatever IndexedDB still holds: what removing it always meant. */
+/* Removed as the next load begins, so a save still settling on the open page cannot put it back first. */
+await page.addInitScript(() => { localStorage.removeItem("builder.studio"); });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForFunction(() => typeof window.__studioPublishDoc === "function", null, { timeout: 30000 }).catch(() => {});
+await page.waitForTimeout(800);
+const fresh = await page.evaluate(() => window.__studioPublishDoc().nodes.length);
+check("removing the key starts a fresh board, as it always did", fresh === 0, String(fresh));
 check("no page errors", errors.length === 0, errors.join(" | ").slice(0, 300));
 
 await browser.close();

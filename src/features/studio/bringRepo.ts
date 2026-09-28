@@ -18,7 +18,7 @@
  * space, and the space is picked so its panel mounts and runs the import.
  */
 import { useStudio } from "./store";
-import { readRepo, repoName, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
+import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
 import { clearImportLine } from "./FromASite";
 
 /** Where a request waits for the board: this tab only, and taken once. */
@@ -115,10 +115,11 @@ export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: st
   /* With a folder beside it, the site is read there: the name placed for the board carries the folder (`owner/name/sites/<name>@ref`), which `readRepo` reads back. */
   const repo = withPath(named, o.path);
   const placed = o.path ? repoName(repo) : asked;
-  const full = `${repo.owner}/${repo.name}`;
-  /* A site brought in from a repository brings in that one and no other:
-     bringing a second in would quietly replace the first. */
-  if (o.own && full.toLowerCase() !== o.own.toLowerCase()) {
+  const full = `${repo.owner}/${repo.name}${repo.dir ? `/${repo.dir}` : ""}`;
+  /* A site brought in from a repository — a folder of one included — brings in
+     that one and no other: bringing a second in would quietly replace the
+     first, and aim its Go live at the first's repository. */
+  if (!sameSource(o.own, repo)) {
     return { ok: false, says: `This site was brought in from ${o.own}. Make a new site to bring ${full} in.` };
   }
   if (!o.hasToken()) return { ok: false, says: REPO_REFUSAL_SAYS["no-token"] };

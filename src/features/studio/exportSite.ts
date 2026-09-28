@@ -67,7 +67,7 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { bandMoves, captureHeight, fluidParts, fluidStyle, isCaptured, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, fluidParts, fluidStyle, isCaptured, stickyFlow, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
@@ -463,15 +463,19 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
    * band's, their left the same less the band's, and a nested band goes in
    * with its own parts already inside it (the moves are nearest band first).
    */
-  const moves = bandMoves(parts);
+  const moves = bandMoves(parts, W);
   const elOf = (id: string) => root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
   for (const [id, m] of moves) {
     const el = elOf(id), host = elOf(m.band);
     if (!el || !host || el === host || host.contains(el) || el.contains(host)) continue;
     host.appendChild(el);
     el.style.top = `${m.top}px`;
-    if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
+    if (m.inside) { el.style.left = m.inside.left; el.style.width = m.inside.width; }
+    else if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
   }
+  /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
+  const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
+  for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }
   /*
    * THE PAGE IS AS TALL AS WHAT IS ON IT. The preview's page runs 160px past
    * its last part, and the published page scrolled by that much where the

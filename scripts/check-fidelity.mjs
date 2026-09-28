@@ -55,11 +55,20 @@ const nav = { id: "nav", x: 76, y: 85, w: 1200, h: 17, selector: "body > div > d
 const card = { id: "card", x: 76, y: 483, w: 350, h: 178, selector: "body > div > div:nth-of-type(2) > main > article" };
 const inner = { id: "inner", x: 300, y: 20, w: 300, h: 40, selector: "body > div > div > header > div:nth-of-type(2)", position: "fixed" };
 const deep = { id: "deep", x: 310, y: 30, w: 100, h: 20, selector: "body > div > div > header > div:nth-of-type(2) > span" };
-const moves = fluid.bandMoves([band, logo, nav, card, inner, deep]);
+const moves = fluid.bandMoves([band, logo, nav, card, inner, deep], 1440);
 check("(b) the parts whose path continues a sticky band's go into it, at their place within it", moves.get("logo")?.band === "hdr" && moves.get("logo")?.top === 16 && moves.get("nav")?.band === "hdr" && moves.get("nav")?.top === 85, JSON.stringify([...moves]));
 check("(b) …a part beside the band (a sibling path, div:nth-of-type(2)) stays where it is", !moves.has("card"));
-check("(b) …a band inside the band takes its own part first, then goes in with it", moves.get("deep")?.band === "inner" && moves.get("deep")?.top === 10 && moves.get("deep")?.dx === 300 && moves.get("inner")?.band === "hdr" && moves.get("inner")?.top === 20, JSON.stringify([...moves]));
-check("(b) control: with no band nothing moves", fluid.bandMoves([logo, nav, card]).size === 0);
+check("(b) …inside a band as wide as the page a part keeps its own fluid left and width", moves.get("logo")?.inside === null && moves.get("logo")?.dx === 0);
+const side = { id: "side", x: 1507, y: 63, w: 256, h: 800, selector: "body > div > aside", position: "sticky", inset: { top: 63 } };
+const item = { id: "item", x: 1524, y: 79, w: 223, h: 20, selector: "body > div > aside > div > p" };
+const narrow = fluid.bandMoves([side, item], 1763).get("item");
+check("(b) …inside a narrower band a part stands by its measured px, since a share of the page would become a share of the band", narrow?.band === "side" && narrow.top === 16 && narrow.inside?.left === "17px" && narrow.inside?.width === "223px", JSON.stringify(narrow));
+check("(b) …a fixed band inside it, and what that holds, stay as they are: the export already fixes them with it", !moves.has("inner") && !moves.has("deep"), JSON.stringify([...moves]));
+check("(b) control: with no sticky band nothing moves, a fixed band's parts included", fluid.bandMoves([logo, nav, card]).size === 0 && fluid.bandMoves([inner, deep]).size === 0);
+const second = { id: "hdr2", x: 0, y: 105, w: 1440, h: 40, selector: "body > div > div:nth-of-type(3)", position: "sticky", inset: { top: 0 } };
+const flow = fluid.stickyFlow([band, logo, second, card]);
+check("(b) sticky bands in the frame's flow stand at their own top: the second's margin is measured from the first's top", flow.get("hdr") === 0 && flow.get("hdr2") === 105 && flow.size === 2, JSON.stringify([...flow]));
+check("(b) …two bands at the same top: the second's margin is none, not the top again", JSON.stringify([...fluid.stickyFlow([{ ...band, y: 63 }, { ...second, y: 63 }])]) === JSON.stringify([["hdr", 63], ["hdr2", 0]]));
 
 /* The picture budget */
 const run = readFileSync(join(src, "repoRun.ts"), "utf8");
@@ -96,6 +105,14 @@ const runSrc = readFileSync(join(src, "repoRun.ts"), "utf8");
 check("readRepoSite takes { path } beside the repository, as the Capture dialog expects", /readRepoSite\(repo: Repo, token: string, say: \(line: string\) => void, opts\?: \{ path\?: string \| null \}\)/.test(runSrc) && /if \(opts\?\.path\) repo = withPath\(repo, opts\.path\);/.test(runSrc));
 const door = readFileSync(join(src, "bringRepo.ts"), "utf8");
 check("the door carries Bringing.path into what it places for the board", /path\?: string \| null;/.test(door) && /const repo = withPath\(named, o\.path\);/.test(door) && /placeBring\(placed\)/.test(door) && /keepBringForBoard\(placed\)/.test(door));
+
+/* A site is brought in again only from the place it came from */
+const root = imp.readRepo("STANDIN-owner/sink"), folder = imp.readRepo("STANDIN-owner/sink/sites/share-xyz");
+check("a site from the root of sink does not take a folder of sink: that is another site", imp.sameSource("STANDIN-owner/sink", folder) === false && imp.sameSource("STANDIN-owner/sink", root) === true);
+check("…a site from a folder takes that folder again, on any branch, and not the root", imp.sameSource("STANDIN-owner/sink/sites/share-xyz", folder) === true && imp.sameSource("STANDIN-owner/sink/sites/share-xyz", imp.readRepo("STANDIN-owner/sink/sites/share-xyz@captures/share-xyz")) === true && imp.sameSource("STANDIN-owner/sink/sites/share-xyz", root) === false);
+check("…a site from nowhere takes anything", imp.sameSource(null, folder) === true);
+const doorSrc = readFileSync(join(src, "bringRepo.ts"), "utf8");
+check("…and the door holds to it", /if \(!sameSource\(o\.own, repo\)\)/.test(doorSrc));
 
 /* The art a capture recorded (claude/trumpmorty-art) */
 const art = theme.boxStyle({ opacity: 0.5, art: { blend: "multiply", filter: "blur(2px)", transform: "rotate(3deg)", background: "linear-gradient(red, blue)", backgroundOptions: ["cover", "center", "no-repeat"], textShadow: "0 1px 0 #000", textStroke: { w: 1, color: "#000" }, paintOrder: "stroke" } }, { line: "#000" });

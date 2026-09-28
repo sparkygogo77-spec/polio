@@ -99,12 +99,20 @@ const up = (sel: string) => sel.slice(0, Math.max(0, sel.lastIndexOf(" > ")));
 
 /** Where a part a band owns goes: into the band's element, at its place within the band. */
 export interface BandMove {
-  /** The band (sticky or fixed) whose element takes the part in. */
+  /** The sticky band whose element takes the part in. */
   band: string;
   /** The part's top inside the band, in px: its own less the band's. */
   top: number;
   /** How far the band stands from the page's left, in px, to take off the part's own left. */
   dx: number;
+  /**
+   * The part's left and width inside the band, when the band is narrower
+   * than the page: a share of the page (`calc(100% …)`) would be a share of
+   * the band once inside it, so the measured px stand instead. Null for a
+   * band as wide as the page, where the part's own fluid left and width
+   * mean the same inside it (sink's sidebar band at 1507 put its parts at 1).
+   */
+  inside: { left: string; width: string } | null;
 }
 
 /**
@@ -113,23 +121,49 @@ export interface BandMove {
  * drew each as a part of its own beside the band, so the band stuck and its
  * contents scrolled away. A part whose recorded path continues the band's
  * (`owns.ts#under`) is the band's: it goes inside the band's element, at
- * its place within it, and sticks with it. A band inside a band takes its
- * own parts first and then goes into the outer one with them; a part out
- * of the flow (absolute, fixed) inside a band goes with it all the same,
- * since it was measured against it. A part is moved at most once, into the
- * nearest band that owns it.
+ * its place within it, and sticks with it. A part is moved at most once,
+ * into the nearest band that owns it. A band inside a band stays where it
+ * is: a fixed part is placed against the window whatever holds it, so
+ * moving it in and taking the outer band's top off it (sink's header
+ * inside its wrapper, both fixed at 73) put it at 0 and everything it
+ * held with it; it keeps its own place and takes its own parts in.
  */
-export function bandMoves(parts: readonly FluidPart[]): Map<string, BandMove> {
+export function bandMoves(parts: readonly FluidPart[], W = 0): Map<string, BandMove> {
   const out = new Map<string, BandMove>();
-  const bands = parts.filter((p) => p.selector && (p.position === "sticky" || p.position === "fixed"));
+  /* Sticky bands only: a fixed band's parts are already fixed with it (`fluidParts` hands fixedness down), and a part inside a fixed band stays so. */
+  const fixed = parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.selector!);
+  const inFixed = (p: FluidPart) => p.position === "fixed" || fixed.some((f) => p.selector!.startsWith(`${f} > `));
+  const bands = parts.filter((p) => p.selector && p.position === "sticky");
   /* The nearest band first: the longest path owns most closely. */
   bands.sort((a, b) => b.selector!.length - a.selector!.length);
   for (const band of bands) {
     for (const p of parts) {
       if (p === band || !p.selector || out.has(p.id)) continue;
+      if (p.position === "sticky" || inFixed(p)) continue;
       if (!p.selector.startsWith(`${band.selector} > `)) continue;
-      out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x });
+      const full = band.x === 0 && (W <= 0 || Math.abs(band.w - W) <= 1);
+      out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x, inside: full ? null : { left: `${p.x - band.x}px`, width: `${p.w}px` } });
     }
+  }
+  return out;
+}
+
+/**
+ * The top margin of each sticky band, in the order they stand in the frame.
+ *
+ * A sticky band is in the flow among absolute parts (`fluidStyle`): it
+ * stands at its top by a margin and takes its height back below, so the
+ * flow's cursor is at its top once it has passed. The next band's margin
+ * is measured from there, not from the frame's top: sink's docs page has
+ * two sticky bands at 63, and the second, given 63 again, stood at 126.
+ */
+export function stickyFlow(inOrder: readonly FluidPart[]): Map<string, number> {
+  const out = new Map<string, number>();
+  let cursor = 0;
+  for (const p of inOrder) {
+    if (p.position !== "sticky") continue;
+    out.set(p.id, p.y - cursor);
+    cursor = p.y;
   }
   return out;
 }

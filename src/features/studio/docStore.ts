@@ -19,7 +19,8 @@
  * READING: a full document in localStorage wins and is carried into
  * IndexedDB — that is the migration of what was there before this file,
  * and it is what lets a test or the headless route seed the key as they
- * always have. Only a pointer, or nothing, sends the read to IndexedDB.
+ * always have. Only a pointer sends the read to IndexedDB; a key with
+ * nothing in it is a fresh board, as it always was.
  *
  * WRITING: the mirror at once, the IndexedDB copy a moment later (one
  * write per key per burst of edits; flushed when the tab is hidden).
@@ -57,11 +58,8 @@ async function idbSet(key: string, value: string | null): Promise<void> {
   try {
     const s = await shelf("readwrite");
     if (value === null) await ask(s.delete(key)); else await ask(s.put(value, key));
-    /* The flag beside the key says IndexedDB holds a document, so a read with no mirror knows whether to look there. */
-    try { if (value === null) store()?.removeItem(`${key}#idb`); else store()?.setItem(`${key}#idb`, "1"); } catch { /* the flag is a courtesy */ }
   } catch { /* storage off: the mirror is what there is */ }
 }
-const heldInIdb = (key: string): boolean => { try { return store()?.getItem(`${key}#idb`) === "1"; } catch { return false; } };
 
 /* ------------------------------------------------------------------ */
 /* Packed paths                                                          */
@@ -208,24 +206,28 @@ function writeMirror(key: string, value: string | null): void {
 /**
  * The document under a key.
  *
+ * THE KEY IN LOCALSTORAGE SAYS WHAT THERE IS. A whole document there is the
+ * document (carried into IndexedDB on the way); a pointer there sends the
+ * read to IndexedDB; nothing there is nothing, whatever IndexedDB still
+ * holds — the way removing the key always meant a fresh board, and a
+ * check that removes it to start over (tests/selected-drags.mjs) starts
+ * over.
+ *
  * SYNCHRONOUS WHENEVER IT CAN BE. The Builder hydrated from localStorage in
  * the same tick as the page loaded, and a hundred checks rely on that:
  * open the page, put a document in the key, open it again. A read that
  * always went to IndexedDB finished after the page had settled, and the
  * store's first write — the empty default — landed on the document the
- * check had just put there. So: the mirror when it holds a whole document
- * (carried into IndexedDB on the way), nothing when there is nothing
- * anywhere, and a Promise only when a pointer or the flag says IndexedDB
- * holds it.
+ * check had just put there. Only a pointer makes the read a Promise.
  */
 export function readDoc(key: string): string | null | Promise<string | null> {
   const raw = readMirror(key);
-  if (raw !== null && !isPointer(raw)) {
+  if (raw === null) return null;
+  if (!isPointer(raw)) {
     const text = unpackDocText(raw);
     void idbSet(key, text);
     return text;
   }
-  if (raw === null && !heldInIdb(key)) return null;
   return idbGet(key);
 }
 

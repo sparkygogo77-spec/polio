@@ -53,7 +53,7 @@ export interface Project {
    * never the same repository, and no board publishes into any board's
    * source (`settle`, `setRepo`, and the publish route all hold that).
    */
-  source?: { owner: string; name: string; branch: string };
+  source?: { owner: string; name: string; branch: string; dir?: string | null };
   /** The new-site offer was answered: nothing to offer again. */
   offered?: boolean;
   /** Where it went live, the last time it did. */
@@ -337,7 +337,7 @@ export const repoFrom = (name: string, branch = "main"): Project["repo"] | undef
 };
 
 /** As `owner/name`, which is how every route and every label wants it. */
-export const repoLabel = (repo: Project["repo"] | undefined): string | null => (repo ? `${repo.owner}/${repo.name}` : null);
+export const repoLabel = (repo: (Project["repo"] & { dir?: string | null }) | undefined): string | null => (repo ? `${repo.owner}/${repo.name}${repo.dir ? `/${repo.dir}` : ""}` : null);
 
 const sameRepo = (a: Project["repo"] | undefined, b: Project["repo"] | undefined) =>
   !!a && !!b && repoLabel(a)!.toLowerCase() === repoLabel(b)!.toLowerCase();
