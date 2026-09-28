@@ -2626,7 +2626,11 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
          * the capture gave it. `flex: 1 0 auto` fills the box when the box
          * is the taller of the two.
          */
-        className="relative flex w-full flex-col overflow-hidden"
+        /* A part its own transform moves (the site's translateY(24px) rotate on
+           trumpmorty.fun's roadmap cards) is drawn whole where it moved, as
+           Preview and the export draw it; clipped here it lost its lower 22px
+           (`tests/board-turned.mjs`). */
+        className={cn("relative flex w-full flex-col", node.art?.transform ? "overflow-visible" : "overflow-hidden")}
         data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
