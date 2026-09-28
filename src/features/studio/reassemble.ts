@@ -80,7 +80,25 @@ export interface Frag {
   edge?: { width?: number; style?: string } | null;
   /** What the capture recorded for its inside edges. */
   pad?: { top?: number; bottom?: number } | null;
+  /** The element it was read from (`owns.ts`). */
+  from?: { selector?: string | null } | null;
 }
+
+/**
+ * The anchor a piece was read from, as the path up to that `a`: null for
+ * words in no link. Pieces in DIFFERENT anchors are separate controls, a row
+ * of links rather than a sentence in pieces (trumpmorty.fun's nav pill,
+ * share.xyz's category tabs; `tests/links-apart.mjs`).
+ */
+function anchorOf(f: Frag): string | null {
+  const steps = (f.from?.selector ?? "").split(" > ");
+  for (let i = steps.length - 1; i >= 0; i--) if (/^a(?![\w-])/.test(steps[i]!.trim())) return steps.slice(0, i + 1).join(" > ");
+  return null;
+}
+const apart = (a: Frag, b: Frag): boolean => {
+  const x = anchorOf(a), y = anchorOf(b);
+  return !!x && !!y && x !== y;
+};
 
 export interface Reassembly {
   /** The part that stays, with the sentence in it. */
@@ -200,6 +218,7 @@ export function sentences(frags: readonly Frag[], gapMax = 1.8): Reassembly[] {
         if (!next) break;
         const gap = next.x - (last.x + last.w);
         if (gap > joinLimit(last, next) * gapMax) break;
+        if (apart(last, next)) break;
         run.push(next);
         taken.add(next.id);
       }
