@@ -137,6 +137,9 @@ const SLIDERS = [
 ];
 for (const s of SLIDERS) {
   await reset();
+  /* The dials fold away behind "How it falls" (LookPanel's LightSection). */
+  const opener = page.locator("[data-light-open]").first();
+  if ((await opener.count()) && (await opener.getAttribute("aria-expanded")) !== "true") { await opener.click(); await page.waitForTimeout(300); }
   const slider = page.locator("[data-look-light]").first().locator('[role="slider"]').nth(s.at);
   const start = await pixels();
   await slider.focus();

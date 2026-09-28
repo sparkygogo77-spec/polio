@@ -37,7 +37,11 @@ const check = (name, ok, detail = "") => {
 /* 1. Who reads a crate, off the source. */
 const files = (dir) => readdirSync(dir).filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${dir}/${f}`);
 const RENDERERS = [...files("src/features/studio/live"), ...files("src/features/studio/parts"), "src/features/studio/blocks.tsx"];
-const readers = RENDERERS.filter((f) => /MotionAsset|\bs\.motion\b|\.motion\)|useStudio\([^)]*\.motion/.test(readFileSync(f, "utf8")));
+/* A crate is the studio's `motion` list, read off the store. A part's own
+   `motion` — what a captured run did on the page it came from (a span's
+   `s.motion.animation`, parts/capturedMotion.ts) — is not a crate, and
+   reading it is not playing one. */
+const readers = RENDERERS.filter((f) => /MotionAsset|useStudio\([^)]*\.motion\b|getState\(\)\.motion\b/.test(readFileSync(f, "utf8")));
 check(`no renderer reads a crate: ${RENDERERS.length} renderer files, ${readers.length} mention one (source read)`, readers.length === 0, readers.join(", ") || "none");
 const consumers = ["src/features/studio/spec.ts", "src/features/studio/BriefDialog.tsx"].filter((f) => /\bmotion\b/.test(readFileSync(f, "utf8")));
 check("the blueprint compiler and its dialog do (source read)", consumers.length === 2, consumers.join(", "));
