@@ -42,7 +42,7 @@ import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
-import { docOf, repoLabel as labelOf, useBuilds, type Project } from "./store";
+import { docOf, repoLabel as labelOf, sourceOf, useBuilds, type Project } from "./store";
 import { SitePreview } from "@/features/studio/SitePreview";
 
 /** "owner/name" if it looks like one, else nothing. */
@@ -259,7 +259,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
   /* A repository a site was brought in from is never a publish target: the
      owner's ruling, polio never writes to a capture repository. Refused
      here in words, and by the store and the publish route behind it. */
-  const from = parsed ? useBuilds.getState().projects.find((p) => p.source && labelOf(p.source)!.toLowerCase() === `${parsed.owner}/${parsed.name}`.toLowerCase()) ?? null : null;
+  const from = parsed ? sourceOf(`${parsed.owner}/${parsed.name}`) : null;
   const changed = draft.trim() !== repoLabel(project) || branch.trim() !== (project.repo?.branch ?? "main");
   const commit = () => {
     if (!changed) return;

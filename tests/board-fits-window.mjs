@@ -91,9 +91,14 @@ for (const [w, h] of [[1920, 1080], [1536, 864], [1366, 768], [1280, 720]]) {
 
 {
   const tall = Array.from({ length: 6 }, (_, i) => ({ id: `n${i}`, pageId: "page_home", featureId: "prose", label: "words", prompt: "", content: `Row ${i}`, data: "", x: 100, y: 200 + i * 600, w: 400, h: 60, groupId: null, options: {}, priority: "must", custom: false }));
+  /* Against a short page with the same chrome (no new-site offer on either), so only the page's height differs. */
+  const short = await open(1920, 1080, tall.slice(0, 1));
+  const s1 = await measure(short.p);
+  check("…a short page's whole frame is on screen too", whole(s1), fmt(s1));
+  await short.ctx.close();
   const { ctx, p } = await open(1920, 1080, tall);
   const m = await measure(p);
-  check("a tall page opens at the same zoom as an empty one: its height never binds", m.zoom === zooms["1920"], `${m.zoom}% against ${zooms["1920"]}%`);
+  check("a tall page opens at the same zoom as a short one: its height never binds", m.zoom === s1.zoom, `${m.zoom}% against ${s1.zoom}%`);
   check("…its first screen on show from the top, the rest below to scroll to", !!m.frame && m.frame.t >= m.barsFoot - 0.5 && m.frame.b > m.shelf.t, fmt(m));
   await ctx.close();
 }

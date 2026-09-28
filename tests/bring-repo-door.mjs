@@ -60,10 +60,11 @@ const builds = read("src/features/builds/BuildsPage.tsx");
 check("there is one door, and it holds the whole decision", /export function bringRepoIn\(/.test(bring)
   && /REPO_REFUSAL_SAYS\["not-a-repo"\]/.test(bring) && /REPO_REFUSAL_SAYS\["no-token"\]/.test(bring)
   && /boardIsHere\(\)/.test(bring) && /keepBringForBoard\(asked\)/.test(bring));
-check("the GitHub control goes through it rather than keeping its own copy",
-  /bringRepoIn\(want, \{/.test(button) && !/placeBring\(want\)/.test(button) && !/keepBringForBoard\(want\)/.test(button));
-check("and the picker goes through the same one, so there is no second importer",
-  /bringRepoIn\(name, \{/.test(picker) && !/placeBring\(/.test(picker));
+/* One repo menu now (tests/repo-menu.mjs): the GitHub control opens it rather than holding a panel, so it keeps no importer of its own at all. */
+check("the GitHub control keeps no copy of its own: it opens the one menu",
+  /openRepoPicker/.test(button) && !/bringRepoIn\(/.test(button) && !/placeBring\(/.test(button) && !/keepBringForBoard\(/.test(button));
+check("and the menu goes through the one door, so there is no second importer",
+  /bringRepoIn\(want, \{/.test(picker) && !/placeBring\(/.test(picker));
 check("the picker lists what he has rather than asking him to type a name",
   /fetch\("\/api\/studio\/repo"/.test(picker) && /data-repo-pick=\{r\.name\}/.test(picker));
 check("a site already bound offers only its own repository, and says why",

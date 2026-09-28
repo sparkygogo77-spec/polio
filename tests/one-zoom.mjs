@@ -111,7 +111,8 @@ if (inBook) {
  */
 const DESKTOP = 1440;
 const BASE = 1.21;
-const wide = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
+/* Tall enough too, now the fit also keeps the frame's first screen above the shelf (`tests/board-fits-window.mjs`): at 1440 high it rests at 95%, the window being the constraint. */
+const wide = await browser.newPage({ viewport: { width: 2560, height: 1600 } });
 await wide.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
 await wide.waitForSelector("[data-studio-bar]", { timeout: 20000 });
 await wide.waitForTimeout(2500);

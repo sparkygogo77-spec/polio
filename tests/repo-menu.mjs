@@ -111,7 +111,8 @@ async function site({ source = null, nodes = [] } = {}) {
 }
 const builds = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds") || "{}").state ?? {});
 const menu = (page) => page.locator("[data-repo-menu]");
-const toasts = (page) => page.evaluate(() => document.body.innerText);
+/* The space a Bring lands in is labelled with what was asked for: owner/name, its folder, @ its branch. */
+const spaces = (page) => page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.spaces ?? []).map((x) => x.label));
 const close = async (page) => { await page.keyboard.press("Escape"); await page.waitForTimeout(300); };
 
 /* ------------------------------------------- one menu, every way in */
@@ -143,7 +144,7 @@ await section(async () => {
 
 /* ---------------------------------------------------------- Bring in */
 await section(async () => {
-  const { ctx, page, asked } = await site();
+  const { ctx, page } = await site();
   await page.locator("[data-bring-repo]").first().click();
   await page.waitForTimeout(900);
   const listed = await page.locator("[data-repo-pick]").evaluateAll((b) => b.map((e) => e.getAttribute("data-repo-pick")));
@@ -166,8 +167,8 @@ await section(async () => {
   await choices.locator('[data-repo-folder="sites/trumpmorty"]').click();
   await choices.locator("[data-repo-bring-chosen]").click();
   await page.waitForTimeout(1200);
-  const said = await toasts(page);
-  check("bringing it in needs no @ and no typed path: the branch and folder go with it", /him\/sink\/sites\/trumpmorty@edit\/look/.test(said) || asked.some((u) => /edit%2Flook|edit\/look/.test(u) && /trumpmorty/.test(u)), said.match(/Reading[^\n]*/)?.[0] ?? asked.slice(0, 2).join(" "));
+  const landed = await spaces(page);
+  check("bringing it in needs no @ and no typed path: the branch and folder go with it", landed.includes("him/sink/sites/trumpmorty@edit/look"), landed.join(", "));
   check("…and the menu closes on it", await menu(page).count() === 0);
   await page.locator("[data-bring-repo]").first().click();
   await page.waitForTimeout(600);
@@ -193,6 +194,20 @@ await section(async () => {
   let b = await builds(page);
   check("picking one, with a branch, points publishing there", JSON.stringify(b.projects?.[0]?.repo) === JSON.stringify({ owner: "him", name: "site", branch: "first-draft" }), JSON.stringify(b.projects?.[0]?.repo));
   check("…and says so", /him\/site/.test(await pub.innerText()) && /first-draft/.test(await pub.innerText()));
+  await ctx.close();
+});
+await section(async () => {
+  /* Brought in from a folder of a repo: the whole repo is the capture, so it is never a publish target either. */
+  const { ctx, page } = await site({ source: { owner: "him", name: "sink", branch: "main", dir: "sites/solcinerator" } });
+  await page.locator("[data-github-button]").first().click();
+  await page.waitForTimeout(900);
+  const row = page.locator('[data-repo-section="publish"] [data-repo-publish-pick="him/sink"]');
+  check("a site brought in from a sites/ folder never publishes into that repo either", await row.count() === 0 || await row.isDisabled());
+  const refused = await page.evaluate(async () => {
+    const { owner, name } = { owner: "him", name: "sink" };
+    return (JSON.parse(localStorage.getItem("builder.builds") || "{}").state?.projects ?? []).some((p) => p.source?.owner === owner && p.source?.name === name);
+  });
+  check("…(the site does carry that source)", refused);
   await ctx.close();
 });
 await section(async () => {
@@ -226,7 +241,8 @@ await section(async () => {
   await ask.locator("[data-repo-bring-newsite]").click().catch(() => {});
   await page.waitForTimeout(2000);
   const b = await builds(page);
-  check("…which makes the new site and brings the repo into it", (b.projects?.length ?? 0) === before + 1 && b.activeId !== "s1", `${before} → ${b.projects?.length} · ${b.activeId}`);
+  const reading = (await spaces(page)).includes("him/site");
+  check("…which makes the new site and brings the repo into it", (b.projects?.length ?? 0) === before + 1 && b.activeId !== "s1" && reading, `${before} → ${b.projects?.length} · ${b.activeId} · reading ${reading}`);
   await ctx.close();
 });
 

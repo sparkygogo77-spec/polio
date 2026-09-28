@@ -367,14 +367,22 @@ export function settle(projects: Project[]): Project[] {
  * The site a repository was brought in from, if any, its own included. No
  * site may publish there: that is the capture, and polio never writes to it.
  */
+/*
+ * By the REPOSITORY, not the label. A site brought in from a folder of a
+ * repo (`owner/sink/sites/name`) has that whole repo as its capture, and its
+ * label with the folder on it matched neither `owner/sink` here nor the
+ * publish route's `owner/name` check, so the repo it came from could be
+ * picked as a publish target (`tests/repo-menu.mjs`).
+ */
+const repoOnly = (label: string): string => label.trim().replace(/@.*$/, "").split("/").slice(0, 2).join("/").toLowerCase();
 export const sourceOf = (name: string): Project | null => {
-  const want = name.trim().toLowerCase();
-  return useBuilds.getState().projects.find((p) => p.source && repoLabel(p.source)!.toLowerCase() === want) ?? null;
+  const want = repoOnly(name);
+  return useBuilds.getState().projects.find((p) => p.source && `${p.source.owner}/${p.source.name}`.toLowerCase() === want) ?? null;
 };
 
-/** Every repository a site in this browser was brought in from, as `owner/name`. The publish route refuses each. */
+/** Every repository a site in this browser was brought in from, as `owner/name` (never with its folder). The publish route refuses each. */
 export const allSources = (): string[] =>
-  [...new Set(useBuilds.getState().projects.map((p) => repoLabel(p.source)).filter((r): r is string => !!r))];
+  [...new Set(useBuilds.getState().projects.flatMap((p) => (p.source ? [`${p.source.owner}/${p.source.name}`] : [])))];
 
 /** Where the open site was brought in from, as `owner/name`, or null. What Bring reads. */
 export const activeSource = (): string | null => repoLabel(activeProject()?.source);

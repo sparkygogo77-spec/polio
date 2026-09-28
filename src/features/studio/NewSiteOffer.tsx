@@ -14,13 +14,12 @@ import { GitBranch, Plus, X } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
 import { useStudio } from "./store";
 import { VOID } from "@/core/ui/void";
+import { openRepoPicker } from "./RepoPicker";
 
-/** Open the GitHub control and put the hand on one of its fields. */
+/** Open the one repo menu and put the hand in the section asked for. */
 function openPanel(field: "bring" | "new") {
-  const button = document.querySelector<HTMLButtonElement>("[data-github-button]");
-  if (!button) return;
-  button.click();
-  window.setTimeout(() => document.querySelector<HTMLInputElement>(field === "bring" ? "[data-repo-bring]" : "[data-repo-new]")?.focus(), 250);
+  openRepoPicker();
+  window.setTimeout(() => document.querySelector<HTMLInputElement>(field === "bring" ? '[data-repo-section="bring"] input[aria-label="Find a repository"]' : "[data-repo-new]")?.focus(), 250);
 }
 
 export function NewSiteOffer() {
@@ -29,12 +28,12 @@ export function NewSiteOffer() {
   if (!project || project.repo || project.offered || parts > 0) return null;
   return (
     <div data-new-site-offer="" role="status" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5 text-plain" style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}>
-      <span className="min-w-0 flex-1">This site has no repository yet. Bring one in and this site becomes it, or make a new repository for it.</span>
+      <span className="min-w-0 flex-1">This site has no repo yet. Bring one in to build from, or make a new one for it to publish to.</span>
       <button type="button" data-offer-bring="" onClick={() => openPanel("bring")} className="tactile inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium" style={{ borderColor: VOID.rim }}>
-        <GitBranch className="size-3" /> Bring a repo in
+        <GitBranch className="size-3" /> Bring one in
       </button>
       <button type="button" data-offer-make="" onClick={() => openPanel("new")} className="tactile inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium" style={{ borderColor: VOID.rim }}>
-        <Plus className="size-3" /> Make a new repo
+        <Plus className="size-3" /> Make a new one
       </button>
       <button type="button" data-offer-later="" aria-label="Not now" onClick={() => useBuilds.getState().setOffered(project.id)} className="tactile rounded px-1" style={{ color: VOID.muted }}>
         <X className="size-3" />

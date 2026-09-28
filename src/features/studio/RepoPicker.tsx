@@ -1,28 +1,34 @@
 "use client";
 /**
- * Choose a repository, and choosing it brings it in.
+ * THE REPO MENU: one place for repositories, in two parts.
  *
- * HIS RULING: typing an exact repository name into a field is the wrong
- * shape. He wants to CHOOSE from the ones he has, from inside the Builder,
- * and the act of choosing is what brings it in.
+ * HIS COMPLAINT: there were two places doing overlapping things. This sheet
+ * ("Bring a repository in", a searchable list) and the GitHub button's
+ * panel ("The repo this site goes to", "Bring in one of your repos", "Make
+ * a new repo", "Bring a repo in" with an owner/name field). And a branch, or
+ * a site kept in a folder, had to be typed as `owner/sink@branch/sites/name`.
  *
- * That is also the repair for the way in. Before this there were two repo
- * controls and neither did what he expected from the Builder: the Builds
- * page's field binds where Publish pushes and imports nothing, and the
- * GitHub control — which does import, and has since "attaching is
- * importing" landed — draws nothing at all until a site already has a
- * repository or a token, so a fresh site showed no door anywhere. He looked
- * for one, searched the palette for "import" and for "site", and found
- * nothing. He was right: there wasn't one.
+ * So there is one menu, and every way in opens it: the board's door, the
+ * GitHub button, the new site's offer and the command palette. It has two
+ * sections, in the order a site is made:
  *
- * There is no second import path here. The list is the same `/api/studio/repo`
- * the GitHub panel lists, and the press goes through `bringRepoIn`, the one
- * door both controls now call. A private copy of a shared thing is the bug
- * this repository names most often, and an importer is the worst thing to
- * have two of.
+ *   · BRING IN. His repos, searchable. Picking one opens it out to its
+ *     branches (the default one already chosen) and the sites kept in its
+ *     `sites/<name>` folders, read from `/api/studio/repo/choices`. Nothing
+ *     to type; the typed owner/name field stays underneath as a fallback.
+ *   · PUBLISH TO. Where this site's own publishes go: one of his repos, or a
+ *     new one made by name, each with a branch, so a new site can publish
+ *     to a branch that is not main first. The edit branch and the branch list
+ *     of the repo it publishes to are here too.
  *
- * His token is read in his browser by the importer and never reaches our
- * server, exactly as a publish reads it.
+ * THE RULES ARE THE SAME ONES. A site never publishes into the repo any site
+ * was brought in from (polio never writes to a capture repository). A site
+ * brought in from one repo brings in that one and no other. Bringing into a
+ * site that has parts asks first, and offers a new site for it.
+ *
+ * There is no second import path here. The press goes through `bringRepoIn`,
+ * the one door. His token is read in his browser and rides with each call,
+ * exactly as a publish reads it.
  */
 import * as React from "react";
 import { Boxes, Loader2, Lock, Search } from "lucide-react";
@@ -30,15 +36,19 @@ import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Dialog } from "@/core/ui/dialog";
 import { Tooltip } from "@/core/ui/tooltip";
+import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
 import { heldKeys, useKeys } from "@/features/keys/store";
-import { activeSource } from "@/features/builds/store";
+import { activeProject, repoFrom, repoLabel, sourceOf, useBuilds } from "@/features/builds/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
+import type { BranchRow } from "@/app/api/studio/branches/route";
 import { bringRepoIn } from "./bringRepo";
+import { nameRefusal, repoNameFor } from "./repoName";
 import { useStudio } from "./store";
 
 interface Mine { name: string; private: boolean; branch?: string }
+interface Choices { base: string; ref: string; branches: string[]; sites: string[] }
 
 /** The token rides with the call, out of the Keys panel, in his browser. */
 const token = (): Record<string, string> => {
@@ -46,26 +56,21 @@ const token = (): Record<string, string> => {
   return t ? { "x-github-token": t } : {};
 };
 
+const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
+const warn = { borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" };
+const red = { borderColor: "oklch(0.72 0.17 18)", color: "oklch(0.8 0.16 18)" };
+
 export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [mine, setMine] = React.useState<Mine[] | null>(null);
   const [said, setSaid] = React.useState<string | null>(null);
-  const [find, setFind] = React.useState("");
-  const [pulling, setPulling] = React.useState("");
-  const ctx = useActions();
-  const router = useRouter();
   const unlocked = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
-  /* The repository a Bring is waiting on his word for, and what it would replace. */
-  const [asking, setAsking] = React.useState<string | null>(null);
-  const partCount = useStudio((s) => s.nodes.length);
-  const pageCount = useStudio((s) => s.pages.length);
-  React.useEffect(() => { if (!open) setAsking(null); }, [open]);
 
-  /* The list, asked for when the sheet opens and again if the key is
+  /* The list, asked for when the menu opens and again if the key is
      unlocked while it is open: the Keys panel relocks after five idle
      minutes, and a list that went stale under a button is worse than none. */
   React.useEffect(() => {
     if (!open) return;
-    if (!unlocked) { setMine(null); setSaid("No GitHub token in this browser yet. Open Keys, put one in, and your repositories are listed here."); return; }
+    if (!unlocked) { setMine(null); setSaid("No GitHub token in this browser yet. Open Keys, put one in, and your repos are listed here."); return; }
     let alive = true;
     setSaid(null);
     setMine(null);
@@ -80,124 +85,504 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
     return () => { alive = false; };
   }, [open, unlocked]);
 
-  /* Where this site was brought in from: the only repository it may bring
-     in again. Where it publishes is not this, and is not read here. */
-  const own = activeSource();
-  const rows = (mine ?? []).filter((r) => !find.trim() || r.name.toLowerCase().includes(find.trim().toLowerCase()));
-
-  /*
-   * SAY WHAT GOES, ONCE, BEFORE IT GOES, as the GitHub panel's Bring does.
-   * This door had no such line: measured on 3e14749, choosing sink here on
-   * a board of 3 parts replaced them with 245 and said nothing
-   * (`tests/publish-source.mjs`). An empty board has nothing to lose and is
-   * not asked.
-   */
-  const ask = (name: string) => {
-    if (pulling) return;
-    if (partCount === 0) { choose(name); return; }
-    setSaid(null);
-    setAsking(name);
-  };
-
-  const choose = (name: string) => {
-    if (pulling) return;
-    setAsking(null);
-    setPulling(name);
-    const out = bringRepoIn(name, {
-      own,
-      say: (n) => ctx.publish({ ...n, level: "info", source: "studio", toast: { durationMs: 5000 } }),
-      toBoard: () => router.push("/builder"),
-      stale: () => !!staleBuild(),
-      staleSays,
-      hasToken: () => !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN,
-    });
-    setPulling("");
-    if (out.ok) { onOpenChange(false); return; }
-    setSaid(out.says ?? "It could not be brought in.");
-  };
-
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Bring a repository in"
-      description="Choose one of yours. Choosing it reads the site and lands its page on the board as real parts."
+      title="Your repos"
+      description="Bring one in to build from, and choose where this site publishes."
     >
-      <div data-repo-picker="" className="flex w-full flex-col gap-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-fg-faint" />
-          <Input
-            value={find}
-            onChange={(e) => setFind(e.target.value)}
-            placeholder="Find a repository"
-            aria-label="Find a repository"
-            spellCheck={false}
-            className="h-8 pl-7 text-xs"
-          />
-        </div>
-
-        {said ? <p data-repo-picker-said="" className="text-plain text-fg-muted">{said}</p> : null}
-
-        {mine === null && !said ? (
-          <p className="flex items-center gap-1.5 text-plain text-fg-muted"><Loader2 className="size-3 animate-spin" /> Asking GitHub for your repositories…</p>
-        ) : null}
-
-        {mine && rows.length === 0 ? (
-          <p data-repo-picker-empty="" className="text-plain text-fg-muted">
-            {mine.length ? "None of yours match that." : "GitHub listed no repositories for this token."}
-          </p>
-        ) : null}
-
-        {rows.length ? (
-          <ul data-repo-picker-list="" className="max-h-[320px] overflow-y-auto rounded-md border border-border">
-            {rows.map((r) => {
-              /* A site is one repository. One already bound is the only one
-                 it may bring in, and the rest say why rather than failing
-                 under his hand after the press. */
-              const barred = !!own && r.name.toLowerCase() !== own.toLowerCase();
-              return (
-                <li key={r.name} className="border-b border-border last:border-b-0">
-                  <button
-                    type="button"
-                    data-repo-pick={r.name}
-                    disabled={barred || !!pulling}
-                    onClick={() => ask(r.name)}
-                    title={barred ? `This site was brought in from ${own}. Make a new site to bring ${r.name} in.` : `Bring ${r.name} in`}
-                    className="tactile flex w-full items-center gap-2 px-2 py-1.5 text-left disabled:opacity-40"
-                  >
-                    <span className="min-w-0 flex-1 truncate font-mono text-plain text-fg">{r.name}</span>
-                    {r.private ? <Lock aria-label="Private" className="size-3 shrink-0 text-fg-faint" /> : null}
-                    {pulling === r.name ? <Loader2 className="size-3 shrink-0 animate-spin" /> : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-
-        {asking ? (
-          <div data-repo-bring-confirm="" className="rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
-            <p className="text-small text-fg">Bringing {asking} in replaces this whole site: its {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"} go, and the repo&apos;s come in their place.</p>
-            <div className="mt-1 flex gap-1.5">
-              <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => choose(asking)}>Replace it</Button>
-              <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Said plainly, because the two are different actions and one of
-            them used to stand in for the other. It was not true until the
-            source had a field of its own: the import wrote the very field
-            the Builds page edits. */}
-        <p className="text-small leading-snug text-fg-faint">
-          This reads the repository and puts its page on the board. It never changes where Publish pushes: a site publishes to a repository of its own, set on the Builds page, and never back into the one it was brought in from.
-        </p>
+      <div data-repo-picker="" data-repo-menu="" className="flex max-h-[70vh] w-full flex-col gap-3 overflow-y-auto pr-1">
+        <BringIn mine={mine} said={said} onDone={() => onOpenChange(false)} />
+        <div className="h-px shrink-0 bg-border" />
+        <PublishTo mine={mine} />
       </div>
     </Dialog>
   );
 }
 
-/** Opened from the Builder's own control and from the command palette. */
+/* ------------------------------------------------------------------ */
+/* Bring in                                                            */
+/* ------------------------------------------------------------------ */
+
+function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | null; onDone: () => void }) {
+  const [find, setFind] = React.useState("");
+  const [picked, setPicked] = React.useState<string | null>(null);
+  const [choices, setChoices] = React.useState<Choices | null>(null);
+  const [choicesSaid, setChoicesSaid] = React.useState<string | null>(null);
+  const [branch, setBranch] = React.useState("");
+  const [folder, setFolder] = React.useState("");
+  const [typed, setTyped] = React.useState("");
+  const [pulling, setPulling] = React.useState(false);
+  const [refused, setRefused] = React.useState<string | null>(null);
+  /* What a Bring is waiting on his word for, while the line saying what goes is up. */
+  const [asking, setAsking] = React.useState<{ want: string; path: string | null } | null>(null);
+  const partCount = useStudio((s) => s.nodes.length);
+  const pageCount = useStudio((s) => s.pages.length);
+  const ctx = useActions();
+  const router = useRouter();
+  /* Where this site was brought in from: the only repo it may bring in again. Where it publishes is not this. */
+  const from = useBuilds((s) => repoLabel(s.projects.find((p) => p.id === s.activeId)?.source));
+  const fromRepo = from ? from.split("/").slice(0, 2).join("/") : null;
+
+  const read = React.useCallback((name: string, ref?: string) => {
+    setChoicesSaid(null);
+    const q = `repo=${encodeURIComponent(name)}${ref ? `&ref=${encodeURIComponent(ref)}` : ""}`;
+    void fetch(`/api/studio/repo/choices?${q}`, { headers: token(), cache: "no-store" })
+      .then((r) => r.json())
+      .then((a: { ok?: boolean; message?: string } & Partial<Choices>) => {
+        if (!a.ok) { setChoicesSaid(a.message ?? "GitHub would not say what is in it."); return; }
+        setChoices({ base: a.base ?? "main", ref: a.ref ?? a.base ?? "main", branches: a.branches ?? [], sites: a.sites ?? [] });
+        setFolder((f) => ((a.sites ?? []).includes(f) ? f : ""));
+      })
+      .catch(() => setChoicesSaid("GitHub could not be reached from this browser."));
+  }, []);
+
+  const pick = (name: string) => {
+    setRefused(null);
+    if (picked === name) { setPicked(null); return; }
+    setPicked(name);
+    setChoices(null);
+    setFolder("");
+    setBranch(mine?.find((r) => r.name === name)?.branch ?? "");
+    read(name);
+  };
+  const chooseBranch = (b: string) => {
+    setBranch(b);
+    if (picked) read(picked, b);
+  };
+
+  const run = (want: string, path: string | null, own: string | null = from) => {
+    setPulling(true);
+    try {
+      /* One door, shared by every way in: the stale check, the refusals, the space, the toast and the navigation all live there. */
+      const out = bringRepoIn(want, {
+        own,
+        path,
+        say: (n) => ctx.publish({ ...n, level: "info", source: "studio", toast: { durationMs: 5000 } }),
+        toBoard: () => router.push("/builder"),
+        stale: () => !!staleBuild(),
+        staleSays,
+        hasToken: () => !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN,
+      });
+      if (!out.ok) { setRefused(out.says ?? "It could not be brought in."); return; }
+      onDone();
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  /*
+   * SAY WHAT GOES, ONCE, BEFORE IT GOES. A Bring replaces the site's whole
+   * board. An empty board has nothing to lose and is not asked; a repo the
+   * lock refuses is refused in words at once, not asked about first.
+   */
+  const ask = (want: string, path: string | null) => {
+    if (!want || pulling) return;
+    setRefused(null);
+    const repoOf = want.split("@")[0]!.split("/").slice(0, 2).join("/").toLowerCase();
+    if (partCount === 0 || (fromRepo && repoOf !== fromRepo.toLowerCase())) { run(want, path); return; }
+    setAsking({ want, path });
+  };
+
+  /* A new site for it: the site being left keeps its parts, and the repo comes into the new one. */
+  const intoNewSite = (want: string, path: string | null) => {
+    setAsking(null);
+    const name = want.split("@")[0]!.split("/")[1] ?? "";
+    const id = useBuilds.getState().create(name);
+    let done = false;
+    const go = () => { if (done) return; done = true; off(); window.setTimeout(() => run(want, path, null), 60); };
+    const off = useBuilds.subscribe((s) => { if (s.activeId === id) go(); });
+    window.setTimeout(go, 4000);
+  };
+
+  const bringChosen = () => {
+    if (!picked) return;
+    const base = choices?.base ?? mine?.find((r) => r.name === picked)?.branch ?? "";
+    const want = branch && branch !== base ? `${picked}@${branch}` : picked;
+    ask(want, folder || null);
+  };
+
+  const rows = (mine ?? []).filter((r) => !find.trim() || r.name.toLowerCase().includes(find.trim().toLowerCase()));
+  const whole = (s: string) => (asking?.path ? `${asking.want.split("@")[0]}/${asking.path}` : asking?.want.split("@")[0]) + (s ? ` on ${s}` : "");
+
+  return (
+    <section data-repo-section="bring" className="flex flex-col gap-2">
+      <div>
+        <p className={head}>Bring in</p>
+        <p className="text-small text-fg-muted">
+          {from
+            ? <>This site was brought in from <span data-repo-source={from} className="text-fg">{from}</span>. It can bring that one in again; another repo needs a new site.</>
+            : "Pick one of your repos to build from. Its page lands on the board as parts you can change."}
+        </p>
+        {from ? (
+          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => ask(from, null)}>
+            Bring {from} in again
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-fg-faint" />
+        <Input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a repo" aria-label="Find a repository" spellCheck={false} className="h-8 pl-7 text-xs" />
+      </div>
+
+      {said ? <p data-repo-picker-said="" className="text-plain text-fg-muted">{said}</p> : null}
+      {mine === null && !said ? (
+        <p className="flex items-center gap-1.5 text-plain text-fg-muted"><Loader2 className="size-3 animate-spin" /> Asking GitHub for your repos…</p>
+      ) : null}
+      {mine && rows.length === 0 ? (
+        <p data-repo-picker-empty="" className="text-plain text-fg-muted">{mine.length ? "None of yours match that." : "GitHub listed no repos for this token."}</p>
+      ) : null}
+
+      {rows.length ? (
+        <ul data-repo-picker-list="" className="max-h-[280px] shrink-0 overflow-y-auto rounded-md border border-border">
+          {rows.map((r) => {
+            /* A site is one repository. One already brought in is the only one it may bring in, and the rest say why. */
+            const own = fromRepo;
+            const barred = !!own && r.name.toLowerCase() !== own.toLowerCase();
+            const isOpen = picked === r.name;
+            return (
+              <li key={r.name} className="border-b border-border last:border-b-0">
+                <button
+                  type="button"
+                  data-repo-pick={r.name}
+                  aria-expanded={isOpen}
+                  disabled={barred || pulling}
+                  onClick={() => pick(r.name)}
+                  title={barred ? `This site was brought in from ${own}. Make a new site to bring ${r.name} in.` : `Choose what to bring in from ${r.name}`}
+                  className="tactile flex w-full items-center gap-2 px-2 py-1.5 text-left disabled:opacity-40"
+                >
+                  <span className="min-w-0 flex-1 truncate font-mono text-plain text-fg">{r.name}</span>
+                  {r.private ? <Lock aria-label="Private" className="size-3 shrink-0 text-fg-faint" /> : null}
+                </button>
+                {isOpen ? (
+                  <div data-repo-choices={r.name} className="flex flex-col gap-1.5 border-t border-border bg-bg-subtle/40 px-2 py-2">
+                    {choicesSaid ? <p className="text-small text-fg-muted">{choicesSaid}</p> : null}
+                    <label className="flex items-center gap-2 text-small text-fg-muted">
+                      <span className="w-14 shrink-0">Branch</span>
+                      <select
+                        data-repo-branch-pick=""
+                        aria-label="Branch"
+                        value={branch || choices?.base || ""}
+                        onChange={(e) => chooseBranch(e.target.value)}
+                        className="h-6 min-w-0 flex-1 rounded-sm border border-border bg-bg px-1 font-mono text-plain text-fg"
+                      >
+                        {(choices?.branches.length ? choices.branches : [branch || "main"]).map((b) => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </label>
+                    <div className="flex items-start gap-2 text-small text-fg-muted">
+                      <span className="w-14 shrink-0 pt-0.5">Bring</span>
+                      <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                        {["", ...(choices?.sites ?? [])].map((f) => (
+                          <button
+                            key={f || "whole"}
+                            type="button"
+                            data-repo-folder={f}
+                            aria-pressed={folder === f}
+                            onClick={() => setFolder(f)}
+                            className={cn("tactile rounded-sm border px-1.5 py-0.5 font-mono text-plain", folder === f ? "border-accent text-fg" : "border-border text-fg-muted hover:text-fg")}
+                          >
+                            {f ? f.replace(/^sites\//, "") : "the whole repo"}
+                          </button>
+                        ))}
+                        {choices && !choices.sites.length ? <span className="py-0.5 text-fine text-fg-faint">no sites/ folders on this branch</span> : null}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="primary" data-repo-bring-chosen="" disabled={pulling} onClick={bringChosen}>
+                      {pulling ? "Reading…" : "Bring it in"}
+                    </Button>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {asking ? (
+        <div data-repo-bring-confirm="" className="rounded-md border px-2 py-1.5" style={warn}>
+          <p className="text-small text-fg">
+            This site has {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"}. Bring {whole(asking.want.split("@")[1] ?? "")} into a new site, or replace this one with it?
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <Button size="sm" variant="primary" data-repo-bring-newsite="" onClick={() => intoNewSite(asking.want, asking.path)}>Make a new site for it</Button>
+            <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => { const a = asking; setAsking(null); run(a.want, a.path); }}>Replace this one</Button>
+            <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <p className="text-small text-fg-faint">Or type one, as owner/name</p>
+        <div className="flex items-center gap-1.5">
+          <Input
+            inputSize="sm"
+            data-repo-bring=""
+            value={typed}
+            aria-label="The repo to bring in"
+            placeholder="owner/name"
+            className="h-6 text-plain"
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ask(typed.trim(), null); } }}
+          />
+          <Button size="sm" variant="outline" data-repo-pull="" disabled={pulling || !typed.trim()} onClick={() => ask(typed.trim(), null)}>
+            {pulling ? "Reading…" : "Bring it"}
+          </Button>
+        </div>
+      </div>
+      {refused ? <p data-repo-said="" className="text-small text-fg">{refused}</p> : null}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Publish to                                                          */
+/* ------------------------------------------------------------------ */
+
+function PublishTo({ mine }: { mine: Mine[] | null }) {
+  const project = useBuilds((s) => s.projects.find((p) => p.id === s.activeId) ?? null);
+  const own = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
+  const ownBranch = project?.repo?.branch ?? "main";
+  const siteName = useStudio((s) => s.brief?.name ?? "");
+  const siteBranch = useStudio((s) => s.siteBranch);
+  const canPush = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
+  const [branch, setBranch] = React.useState(ownBranch);
+  React.useEffect(() => { setBranch(ownBranch); }, [ownBranch]);
+  const [name, setName] = React.useState(() => repoNameFor(siteName));
+  const [making, setMaking] = React.useState(false);
+  const [said, setSaid] = React.useState<string | null>(null);
+  const [merging, setMerging] = React.useState(false);
+  const [branches, setBranches] = React.useState<{ base: string; rows: BranchRow[]; more: number } | null>(null);
+  const [branchSaid, setBranchSaid] = React.useState<string | null>(null);
+  const [removing, setRemoving] = React.useState<string | null>(null);
+  const onBranch = branch.trim() || "main";
+
+  /*
+   * POINTING PUBLISHING WRITES THE BUILDS STORE, and nothing else, with the
+   * branch. A repo any site was brought in from, this one included, is
+   * never a publish target. Moving a bound site to another repo asks first.
+   */
+  const connect = (full: string, how: "connected" | "made" = "connected"): boolean => {
+    const repo = repoFrom(full, onBranch);
+    if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be published to.`); return false; }
+    let p = activeProject();
+    if (!p) { useBuilds.getState().adopt(); p = activeProject(); }
+    if (!p) { setSaid("There is no site open to point."); return false; }
+    const theirs = sourceOf(full);
+    if (theirs) { setSaid(`${full} is where ${theirs.id === p.id ? "this site" : `the site ${theirs.name}`} was brought in from, and a site never publishes into that.`); return false; }
+    const current = p.repo ? `${p.repo.owner}/${p.repo.name}` : null;
+    if (current && current.toLowerCase() !== full.toLowerCase()) {
+      if (!window.confirm(`Move this site from ${current} to ${full}? Publishes go to ${full} from now on, and ${current} is left as it is.`)) return false;
+    }
+    const ok = useBuilds.getState().setRepo(p.id, repo, how);
+    if (ok) setSaid(`This site publishes to ${full} on ${onBranch} now. The board is as it was.`);
+    return ok;
+  };
+
+  const make = async () => {
+    const refusal = nameRefusal(name);
+    if (refusal) { setSaid(refusal); return; }
+    setMaking(true);
+    setSaid(null);
+    try {
+      const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name }) });
+      const a = await res.json();
+      if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
+      if (connect(String(a.name), "made")) setSaid(`Made ${a.name}. This site publishes to it on ${onBranch}.`);
+    } catch {
+      setSaid("Could not reach GitHub from here.");
+    } finally {
+      setMaking(false);
+    }
+  };
+
+  /* The branch list of the repo it publishes to: what each branch has that main has not. */
+  const listBranches = React.useCallback(async () => {
+    if (!own) { setBranches(null); return; }
+    setBranchSaid(null);
+    try {
+      const res = await fetch(`/api/studio/branches?repo=${encodeURIComponent(own)}`, { headers: token(), cache: "no-store" });
+      const a = await res.json();
+      if (!a.ok) { setBranches(null); setBranchSaid(a.message ?? "GitHub would not list the branches."); return; }
+      setBranches({ base: String(a.base ?? "main"), rows: (a.branches ?? []) as BranchRow[], more: Number(a.more ?? 0) });
+    } catch {
+      setBranches(null);
+      setBranchSaid("Could not reach GitHub from here.");
+    }
+  }, [own]);
+  React.useEffect(() => { void listBranches(); }, [listBranches]);
+
+  /* Main moves here and nowhere else, by his hand, and it asks first: it cannot be undone. */
+  const merge = async () => {
+    if (!own || !siteBranch || merging) return;
+    setMerging(true);
+    setSaid(null);
+    try {
+      const res = await fetch("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: siteBranch }) });
+      const a = await res.json();
+      if (!a.ok) { setSaid(a.message ?? "GitHub would not merge it."); return; }
+      useStudio.getState().setSiteBranch(null);
+      setSaid(a.message ?? `Merged ${siteBranch}.`);
+      void listBranches();
+    } catch {
+      setSaid("Could not reach GitHub from here.");
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const remove = async (row: BranchRow) => {
+    if (!own || removing) return;
+    const asks = row.updates > 0
+      ? `Delete ${row.name}? Its ${row.updates} update${row.updates === 1 ? "" : "s"} (+${row.added} −${row.removed}) are not in ${branches?.base ?? "main"} and go with it.`
+      : `Delete ${row.name}? Everything in it is already in ${branches?.base ?? "main"}.`;
+    if (!window.confirm(asks)) return;
+    setRemoving(row.name);
+    setBranchSaid(null);
+    try {
+      const res = await fetch("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: row.name }) });
+      const a = await res.json();
+      if (!a.ok) { setBranchSaid(a.message ?? `GitHub would not delete ${row.name}.`); return; }
+      if (row.name === siteBranch) useStudio.getState().setSiteBranch(null);
+      setBranches((b) => (b ? { ...b, rows: b.rows.filter((r) => r.name !== row.name) } : b));
+      setBranchSaid(a.message ?? `Deleted ${row.name}.`);
+    } catch {
+      setBranchSaid("Could not reach GitHub from here.");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  return (
+    <section data-repo-section="publish" data-repo-panel-publish="" className="flex flex-col gap-2">
+      <div>
+        <p className={head}>Publish to</p>
+        {/* A site with none says so in words, never a blank. */}
+        <p data-repo-points="" data-repo-own={own ?? ""} className={cn("truncate text-large font-medium", own ? "text-fg" : "text-fg-muted")}>
+          {own ?? "No repo of its own yet"}
+        </p>
+        <p className="text-small text-fg-muted">
+          {own
+            ? `on ${ownBranch}${canPush ? "" : ". No token in this browser, so a publish cannot push yet"}`
+            : "The first publish makes a private repo named after this site, unless you choose one here."}
+        </p>
+      </div>
+
+      {siteBranch && own ? (
+        <div data-repo-branch={siteBranch} className="rounded-md border px-2 py-1.5" style={warn}>
+          <p className={head}>Edits are on a branch</p>
+          <p className="truncate font-mono text-plain text-fg" title={siteBranch}>{siteBranch}</p>
+          <p className="mt-0.5 text-small text-fg-muted">
+            The running site stays on main until you merge. Look first:{" "}
+            <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${own}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>.
+          </p>
+          <Button size="sm" variant="outline" data-repo-merge="" disabled={merging} className="mt-1.5 w-full" style={red} onClick={() => { if (window.confirm(`Merge ${siteBranch} into main? The running site changes.`)) void merge(); }}>
+            {merging ? "Merging…" : "Merge into main"}
+          </Button>
+        </div>
+      ) : null}
+
+      <label className="flex items-center gap-2 text-small text-fg-muted">
+        <span className="shrink-0">Branch to publish to</span>
+        <Input inputSize="sm" data-repo-publish-branch="" aria-label="Branch to publish to" value={branch} placeholder="main" className="h-6 font-mono text-plain" onChange={(e) => setBranch(e.target.value)} />
+      </label>
+
+      <div>
+        <p className="text-small text-fg-faint">{own ? "Or move it to another of your repos" : "Choose one of your repos"}</p>
+        {mine === null ? (
+          <p className="text-small text-fg-muted">Your repos are listed once GitHub answers.</p>
+        ) : (
+          <ul className="max-h-[160px] overflow-y-auto">
+            {mine.map((r) => {
+              const brought = sourceOf(r.name);
+              return (
+                <li key={r.name}>
+                  <button
+                    type="button"
+                    data-repo-publish-pick={r.name}
+                    disabled={!!brought}
+                    onClick={() => void connect(r.name)}
+                    title={brought ? `${r.name} is where ${brought.name} was brought in from, and a site never publishes into that` : `Publish this site to ${r.name} on ${onBranch}`}
+                    className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-plain disabled:opacity-40", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
+                  >
+                    <span className="truncate">{r.name}</span>
+                    <span className="shrink-0 text-fine text-fg-faint">{brought ? "brought in from" : own === r.name ? "publishes here" : r.private ? "private" : ""}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <p className="text-small text-fg-faint">Or make a new repo for it</p>
+        <div className="flex items-center gap-1.5">
+          <Input
+            inputSize="sm"
+            data-repo-new=""
+            value={name}
+            aria-label="Name for the new repo"
+            placeholder="a-name"
+            className="h-6 text-plain"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void make(); } }}
+          />
+          <Button size="sm" variant="outline" data-repo-make="" disabled={making} onClick={() => void make()}>
+            {making ? "Making…" : "Make it"}
+          </Button>
+        </div>
+        <p className="mt-0.5 text-small text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
+      </div>
+
+      {own ? (
+        <div data-repo-branches="">
+          <p className="text-small text-fg-faint">Branches of {own} besides {branches?.base ?? "main"}</p>
+          {branches === null ? (
+            <p className="text-small text-fg-muted">{branchSaid ?? "Asking GitHub…"}</p>
+          ) : branches.rows.length === 0 ? (
+            <p className="text-small text-fg-muted">None. Every edit branch has been merged or removed.</p>
+          ) : (
+            <ul className="max-h-[152px] overflow-y-auto">
+              {branches.rows.map((r) => {
+                const unmerged = r.updates > 0;
+                return (
+                  <li key={r.name} data-repo-branch-row={r.name} data-repo-branch-unmerged={unmerged ? "1" : "0"} className="flex items-center gap-1.5 py-0.5">
+                    <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: unmerged ? "oklch(0.8 0.15 75)" : "oklch(0.6 0.02 260 / 0.5)" }} />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn("block truncate font-mono text-small", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{r.name === siteBranch ? " · open here" : ""}</span>
+                      <span className="block text-small text-fg-faint">
+                        {r.updates < 0
+                          ? "GitHub would not compare it"
+                          : unmerged
+                            ? <>{r.updates} update{r.updates === 1 ? "" : "s"} not in {branches.base} · <span style={{ color: "oklch(0.78 0.16 145)" }}>+{r.added}</span> <span style={{ color: "oklch(0.75 0.17 25)" }}>−{r.removed}</span></>
+                            : `everything in ${branches.base}`}
+                      </span>
+                    </span>
+                    <Button size="xs" variant="outline" data-repo-branch-delete={r.name} disabled={removing !== null} className="shrink-0" style={red} onClick={() => void remove(r)}>
+                      {removing === r.name ? "Deleting…" : "Delete"}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {branches && branches.more > 0 ? <p className="text-small text-fg-faint">And {branches.more} more on GitHub.</p> : null}
+          {branches !== null && branchSaid ? <p data-repo-branch-said="" className="text-small text-fg">{branchSaid}</p> : null}
+        </div>
+      ) : null}
+
+      {said ? <p data-repo-said="" className="text-small text-fg">{said}</p> : null}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Every way in opens this one                                          */
+/* ------------------------------------------------------------------ */
+
+/** Opened from the board's door, the GitHub button, the new site's offer and the command palette. */
 export function openRepoPicker(): void {
   window.dispatchEvent(new CustomEvent("studio:bring-repo"));
 }
@@ -212,31 +597,22 @@ export function useRepoPickerDoor(): [boolean, (v: boolean) => void] {
   return [open, setOpen];
 }
 
+/** The one menu, mounted once, in the top bar, on every page. */
+export function RepoMenuHost() {
+  const [open, setOpen] = useRepoPickerDoor();
+  return <RepoPicker open={open} onOpenChange={setOpen} />;
+}
+
 /**
- * The way in, on the board itself.
- *
- * Quiet and always there rather than clever about when to appear: the fault
- * being fixed is that he went looking for a door and there wasn't one, and a
- * door that hides itself once a board has parts on it would bring the same
- * fault back the next time. One thin row, furniture rather than an
- * invitation, and the command palette opens the same sheet.
+ * The way in, on the board itself: quiet and always there, because the fault
+ * it fixed was a person looking for a door and finding none.
  */
 export function BringRepoDoor() {
-  const [open, setOpen] = useRepoPickerDoor();
   return (
-    <>
-      <Tooltip content="Bring a repository in: choose one of yours and its page lands on the board as real parts.">
-        <Button
-          variant="ghost"
-          size="iconXs"
-          data-bring-repo=""
-          aria-label="Bring a repository in"
-          onClick={() => setOpen(true)}
-        >
-          <Boxes />
-        </Button>
-      </Tooltip>
-      <RepoPicker open={open} onOpenChange={setOpen} />
-    </>
+    <Tooltip content="Your repos: bring one in, or choose where this site publishes.">
+      <Button variant="ghost" size="iconXs" data-bring-repo="" aria-label="Bring a repository in" onClick={openRepoPicker}>
+        <Boxes />
+      </Button>
+    </Tooltip>
   );
 }

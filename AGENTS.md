@@ -330,6 +330,20 @@ different actions and one of them was pretending to be the other.
 check rather than a stack trace so it can be run red against a tree without
 the picker.
 
+**One repo menu, two sections.** Later the owner found two places doing
+overlapping things (the picker sheet, and the GitHub button's own panel with
+"The repo this site goes to", "Bring in one of your repos", "Make a new repo"
+and a typed "Bring a repo in"), and a branch or a `sites/<name>` folder had to
+be typed as `owner/sink@branch/sites/name`. They are one menu now,
+`RepoPicker.tsx`, mounted once in the top bar (`RepoMenuHost`) and opened by
+every way in through `openRepoPicker()`: the board's door, the GitHub button,
+the new site's offer and the palette. **Bring in**: pick a repo and it opens
+out to its branches (default chosen) and its `sites/` folders, from
+`/api/studio/repo/choices`; the typed owner/name field stays as a fallback.
+Bringing into a site with parts asks, offering a new site for it. **Publish
+to**: one of his repos or a new one by name, with a branch. The locks are the
+same. `tests/repo-menu.mjs` holds it.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost

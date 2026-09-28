@@ -3,7 +3,7 @@ import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry }
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
 import { GoLiveButton } from "./GoLiveButton";
-import { openRepoPicker } from "./RepoPicker";
+import { openRepoPicker, RepoMenuHost } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { PreviewPage } from "./live/PreviewPage";
@@ -169,6 +169,8 @@ export const studio = defineFeature({
     { id: "studio.github", order: 20, component: GithubButton },
     /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
     { id: "studio.golive", order: 21, component: GoLiveButton },
+    /* The one repo menu, mounted once so every way in opens the same one. It draws nothing in the bar itself. */
+    { id: "studio.repoMenu", order: 99, component: RepoMenuHost },
   ],
 
   commands: [
@@ -204,11 +206,11 @@ export const studio = defineFeature({
     },
     {
       id: "studio.bringRepo",
-      label: "Builder: bring a repository in",
+      label: "Builder: bring a repository in, or choose where it publishes",
       group: "Builder",
       icon: Link,
       keywords: ["import", "repo", "repository", "github", "site", "bring", "attach", "connect"],
-      run: (c) => { c.navigate("/builder"); openRepoPicker(); },
+      run: () => openRepoPicker(),
     },
     { id: "studio.library", label: "Builder: show or hide the side panel", group: "Builder", icon: Layers, when: onStudio, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { id: "studio.compile", label: "Builder: compile the blueprint", group: "Builder", icon: Send, when: onStudio, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
