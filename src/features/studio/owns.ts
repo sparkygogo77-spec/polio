@@ -35,7 +35,9 @@ export const pathOf = (f: Frag & Read): string => (f.from?.selector ?? "").trim(
  * `div:nth-of-type(11)`.
  */
 export function under(parent: string, kid: string): boolean {
-  return !!parent && !!kid && kid !== parent && kid.startsWith(`${parent} > `);
+  if (!parent || !kid || kid === parent) return false;
+  /* A pseudo-element is its element's: `a::before` belongs to `a` (`tests/pseudo-owned.mjs`). */
+  return kid.startsWith(`${parent} > `) || /^::(before|after)$/.test(kid.slice(parent.length)) && kid.startsWith(parent);
 }
 
 /** The parts a wrapper owns by the recorded path, nearest descendants and all. */
