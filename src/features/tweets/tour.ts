@@ -32,8 +32,8 @@ export const SPEED_PX: Record<TourSpeed, number> = { slow: 160, normal: 300, fas
 /** Hides the shell round the live site inside the frame: top bar, status bar, the preview's own toolbar. */
 export const HIDE_CHROME_CSS = `
   header, footer { display: none !important; }
-  div:has(> [data-live-scroller]) > div:first-child { display: none !important; }
-  div:has(> [data-live-scroller]) { height: 100dvh !important; }
+  [data-live-bar] { display: none !important; }
+  [data-live-column] { height: 100dvh !important; }
   [data-live-scroller] { scrollbar-width: none !important; }
   [data-live-scroller]::-webkit-scrollbar { display: none !important; }
 `;

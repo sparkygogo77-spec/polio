@@ -130,8 +130,8 @@ export const NO_VIDEO = "The browser on this server can open the site but cannot
 /** The shell round the live site, hidden: top bar, status bar, the preview's own toolbar. */
 export const HIDE_CHROME = `
   header, footer { display: none !important; }
-  div:has(> [data-live-scroller]) > div:first-child { display: none !important; }
-  div:has(> [data-live-scroller]) { height: 100dvh !important; }
+  [data-live-bar] { display: none !important; }
+  [data-live-column] { height: 100dvh !important; }
   [data-live-scroller] { scrollbar-width: none !important; }
   [data-live-scroller]::-webkit-scrollbar { display: none !important; }
 `;

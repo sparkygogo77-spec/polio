@@ -446,7 +446,16 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
  * fixed, and the page is the window's width. A part placed by hand keeps its
  * place. After the links and the press-through, which read the captured px.
  */
-function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, StudioNode>, W: number): void {
+/**
+ * The same, on the Preview's own page (`live/previewWindow.ts`): `live` leaves
+ * the parts a band owns where React put them, since moving an element React
+ * keeps would break its tree.
+ */
+export function fluidPage(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>, W: number): void {
+  fluid(root, pageId, nodes, W, true);
+}
+
+function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>, W: number, live = false): void {
   const parts: FluidPart[] = [...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({
     id: n.id, x: n.x ?? 0, y: n.y ?? 0, w: n.w, h: n.h,
     selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null, inset: n.from?.inset ?? null,
@@ -524,7 +533,7 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
    */
   const moves = bandMoves(parts, W);
   const elOf = (id: string) => root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
-  for (const [id, m] of moves) {
+  for (const [id, m] of live ? [] : moves) {
     const el = elOf(id), host = elOf(m.band);
     if (!el || !host || el === host || host.contains(el) || el.contains(host)) continue;
     host.appendChild(el);

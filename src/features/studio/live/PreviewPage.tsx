@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Monitor, Smartphone, Tablet } from "lucide-react";
+import { ArrowLeft, Maximize, Monitor, Smartphone, Tablet } from "lucide-react";
 import type { RouteProps } from "@/core/types";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -21,6 +21,8 @@ import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 import { keepTurn } from "./LiveStage";
 import { homeOf } from "../homePage";
+import { isCaptured } from "../fluidSite";
+import { previewWindow } from "./previewWindow";
 
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
@@ -43,14 +45,21 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   /* "/" is Home, the same Home the export writes as index.html (homePage.ts). */
   const page = (rest ? pages.find((p) => trim(p.path) === rest) : homeOf(pages)) ?? homeOf(pages)!;
 
-  const [device, setDevice] = React.useState<Device>(() => (frameWidth <= DEVICE_WIDTH.phone ? "phone" : frameWidth <= DEVICE_WIDTH.tablet ? "tablet" : "desktop"));
+  /*
+   * What the page is shown in. The window by default (`previewWindow.ts`):
+   * the page 1:1 at the Preview's own size, as the published page opens. A
+   * frame is a desktop that is narrower than the site's, so a site drawn for
+   * a phone opens at the phone's width. The device widths are the others.
+   */
+  const [device, setDevice] = React.useState<Device | "window">(() => (frameWidth <= DEVICE_WIDTH.phone ? "phone" : frameWidth <= DEVICE_WIDTH.tablet ? "tablet" : "window"));
   const ref = React.useRef<HTMLDivElement>(null);
   const [avail, setAvail] = React.useState(1600);
+  const [room, setRoom] = React.useState({ w: 1600, h: 900 });
 
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setAvail(el.clientWidth);
+    const measure = () => { setAvail(el.clientWidth); setRoom({ w: el.clientWidth, h: el.clientHeight }); };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -60,15 +69,25 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   // Lets the right-click menu switch device.
   React.useEffect(() => {
     const w = window as unknown as { __studioLiveDevice?: (d: string) => void };
-    w.__studioLiveDevice = (d) => setDevice(d as Device);
+    w.__studioLiveDevice = (d) => setDevice(d as Device | "window");
     return () => {
       delete w.__studioLiveDevice;
     };
   }, []);
 
-  const width = device === "desktop" ? frameWidth : DEVICE_WIDTH[device];
-  const scale = Math.min(1, (avail - 32) / width);
-  const { height } = React.useMemo(() => placeNodes(nodes.filter((n) => n.pageId === page.id), device, frameWidth), [nodes, page.id, device, frameWidth]);
+  const inWindow = device === "window";
+  const drawn: Device = inWindow ? "desktop" : device;
+  const captured = React.useMemo(() => nodes.some(isCaptured), [nodes]);
+  const width = drawn === "desktop" ? frameWidth : DEVICE_WIDTH[drawn];
+  /* In the window a captured page is 1:1 and stretches (below); one built by hand fills the width, as its published page does (`frameCss`). */
+  const scale = inWindow ? (captured ? 1 : Math.max(0.05, avail / width)) : Math.min(1, (avail - 32) / width);
+  const { height } = React.useMemo(() => placeNodes(nodes.filter((n) => n.pageId === page.id), drawn, frameWidth), [nodes, page.id, drawn, frameWidth]);
+  /* The captured page, re-anchored as published once it is drawn, and again whenever it is drawn anew or the window changes. */
+  const stretch = inWindow && captured;
+  const site = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    if (stretch && site.current) previewWindow(site.current, page.id, nodes, frameWidth);
+  }, [stretch, nodes, page.id, frameWidth, room.w, room.h]);
 
   // Opened *at* a part — from the wheel's tray — the page scrolls to it and
   // lets it play its entrance in view. The hash is the part's id.
@@ -91,8 +110,8 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   );
 
   return (
-    <div className="flex h-[calc(100dvh-var(--topbar-h))] min-w-0 flex-col overflow-hidden">
-      <div className={cn("flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5", published && "hidden")}>
+    <div data-live-column="" className="flex h-[calc(100dvh-var(--topbar-h))] min-w-0 flex-col overflow-hidden">
+      <div data-live-bar="" className={cn("flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5", published && "hidden")}>
         <Tooltip content="Back to the board" shortcut="b">
           <Button variant="ghost" size="xs" aria-label="Back to board" onClick={() => router.push("/builder")}>
             <ArrowLeft />
@@ -119,6 +138,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
           value={device}
           onChange={(v) => setDevice(v as Device)}
           options={[
+            { value: "window", label: "Window", icon: <Maximize /> },
             { value: "desktop", label: "Desktop", icon: <Monitor /> },
             { value: "tablet", label: "Tablet", icon: <Tablet /> },
             { value: "phone", label: "Phone", icon: <Smartphone /> },
@@ -128,15 +148,27 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
         <span className="num ml-2 w-10 text-right text-small text-fg-muted">{Math.round(scale * 100)}%</span>
       </div>
 
-      <div ref={ref} data-live-scroller="" className="min-h-0 flex-1 overflow-auto" {...ctxProps("studio-live", page.id, { pageId: page.id, device })}>
-        <div style={{ width: width * scale, height: height * scale, margin: "16px auto", position: "relative" }}>
-          <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+      {/*
+        The wrapper does not scroll and carries a transform, so a band the
+        page fixes to the window is fixed to the Preview's own view (not the
+        Builder's), and stays there as the page scrolls under it.
+      */}
+      <div className="relative min-h-0 flex-1" style={stretch ? { transform: "translateZ(0)", overflow: "hidden" } : undefined}>
+      <div ref={ref} data-live-scroller="" data-live-view={device} className={cn("overflow-auto", stretch ? "absolute inset-0 [scrollbar-width:none]" : "h-full")} {...ctxProps("studio-live", page.id, { pageId: page.id, device: drawn })}>
+        <div
+          ref={site}
+          style={stretch
+            ? ({ width: "100%", minWidth: Math.min(frameWidth, 1280), position: "relative", "--pv-vh": `${room.h / 100}px`, "--pv-vw": `${room.w / 100}px` } as React.CSSProperties)
+            : { width: width * scale, height: height * scale, margin: inWindow ? 0 : "16px auto", position: "relative" }}
+        >
+          {/* A new page for each view: what the window view writes onto the parts is not React's, and must not outlive it. */}
+          <div key={stretch ? "window" : "frame"} style={stretch ? { width: "100%" } : { width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
             <LiveSite
               features
               pages={pages}
               nodes={nodes}
               pageId={page.id}
-              device={device}
+              device={drawn}
               frameWidth={frameWidth}
               format={format}
               look={look}
@@ -148,6 +180,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

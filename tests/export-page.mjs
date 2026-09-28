@@ -156,6 +156,9 @@ await page.setViewportSize({ width: s.frameWidth + 200, height: 1000 });
 await page.evaluate((id) => { const raw = JSON.parse(localStorage.getItem("builder.studio")); raw.state.activePageId = id; localStorage.setItem("builder.studio", JSON.stringify(raw)); }, PAGE);
 const pagePath = PAGE === home ? "" : (s.pages.find((p) => p.id === PAGE).path || "");
 await page.goto(`${BASE}/builder/preview${pagePath === "/" ? "" : pagePath}`, { waitUntil: "networkidle" });
+/* At the width the site was captured at: the Desktop frame, not the window view the Preview opens in (`live/previewWindow.ts`). */
+await page.evaluate(() => window.__studioLiveDevice?.("desktop"));
+await page.waitForTimeout(600);
 await page.waitForTimeout(2500);
 
 /*
