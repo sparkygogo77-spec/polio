@@ -2588,7 +2588,8 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
         e.preventDefault();
         e.stopPropagation();
       }}
-      className={cn("group pointer-events-auto absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only. */
+      className={cn("group absolute cursor-grab active:cursor-grabbing", (node as { inert?: boolean }).inert && !selected ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: node.x, top: node.y, width: node.w,
         /* A minimum, not a height: the part grows past it when its words
