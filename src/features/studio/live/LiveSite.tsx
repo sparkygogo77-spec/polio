@@ -10,6 +10,7 @@ import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
 import { TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "./CarriedFonts";
+import { motionCss } from "../parts/capturedMotion";
 import { resolvePalette } from "../parts/theme";
 import { auraStyle, entranceCss, type Look } from "../look";
 import type { StudioNode, StudioPage, StudioShape } from "../store";
@@ -201,6 +202,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, t.muted, t.bodyFamily],
   );
 
+  const motionSheet = React.useMemo(() => motionCss(nodes.filter((n) => n.pageId === pageId), look?.keyframes, (id) => `[data-live-node="${id}"]`), [nodes, pageId, look?.keyframes]);
   const transition = String(format["pages.transition"] ?? "fade");
   const motion = String(format["motion.level"] ?? "moderate");
   const animation =
@@ -218,6 +220,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     >
       <TextureDrift layers={look?.texture} palette={palette} />
       <CarriedFonts fonts={look?.fonts} />
+      {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}
+      {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
         <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
           {placed.map((p) => (

@@ -4,6 +4,7 @@
  * Only `themeFrom` knows about the Builder's format ids; a generated site can
  * hand parts a `Theme` object built any other way.
  */
+import { hasMotion, type NodeEmbed, type NodeMotion } from "./capturedMotion";
 import type * as React from "react";
 import type { FormatValues } from "../format";
 import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
@@ -202,6 +203,8 @@ export interface NodeArt {
 }
 /** The four, as a node carries them. */
 export interface NodeBox {
+  motion?: NodeMotion | null;
+  embed?: NodeEmbed | null;
   opacity?: number | null;
   art?: NodeArt | null;
   layout?: NodeLayout | null;
@@ -261,7 +264,8 @@ export function saidRole(t: Theme, role: RoleId): boolean {
 export function hasBox(n: NodeBox): boolean {
   const art = !!n.art && Object.values(n.art).some((v) => v !== undefined && v !== null && v !== "");
   const opacity = typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1;
-  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0) || art || opacity);
+  /* A part that moves, or embeds a frame, has a box to carry it (`parts/capturedMotion.ts`). */
+  return !!(n.layout || n.pad || n.edge || n.text || (typeof n.radius === "number" && n.radius > 0) || art || opacity || hasMotion(n));
 }
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */

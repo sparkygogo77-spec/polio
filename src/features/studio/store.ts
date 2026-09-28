@@ -48,6 +48,7 @@ import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { WorkUse } from "./library/works";
 import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
+import type { NodeEmbed, NodeMotion } from "./parts/capturedMotion";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
@@ -324,6 +325,10 @@ export interface StudioNode {
   opacity?: number | null;
   /** The artistic properties a capture recorded (blend, filter, transform, gradient, outlined type); drawn as written by the box wrapper. */
   art?: NodeArt | null;
+  /** What the part did over time on the page it was captured from: animations, transitions, hover and focus (sink `node.motion`); replayed on the preview and the published page (`parts/capturedMotion.ts`). */
+  motion?: NodeMotion | null;
+  /** A frame of another page the capture found here (sink `node.embed`): an iframe on the preview and the published page, a still on the board. */
+  embed?: NodeEmbed | null;
   text?: NodeText | null;
   /**
    * A feature from the library, working on this part (`library/works.ts`).

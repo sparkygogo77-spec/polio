@@ -10,6 +10,7 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
+import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
 import { applyCaptured, applyEdge, applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
@@ -174,7 +175,31 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    */
   const ground = boxed ? (t.ownBackground ?? t.partGround) : undefined;
   const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;
-  const drawn = (
+  /*
+   * A FRAME OF ANOTHER PAGE (sink `node.embed`: trumpmorty.fun's DEX Screener
+   * chart). Live, the frame itself, filling the box, in a sandbox; on the
+   * board, a still naming where it comes from, since the board is a layout
+   * surface and another site running inside it is not something to lay out.
+   */
+  const frameSrc = embedSrc(node.embed);
+  const embedded = node.embed ? (
+    mode === "live" && frameSrc ? (
+      <iframe
+        src={frameSrc}
+        title={node.embed.title || node.label}
+        sandbox={typeof node.embed.sandbox === "string" ? node.embed.sandbox : EMBED_SANDBOX}
+        {...(node.embed.allow ? { allow: node.embed.allow } : {})}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        style={{ display: "block", width: "100%", height: size?.h ?? node.h, border: 0 }}
+      />
+    ) : (
+      <div data-embed-still="" style={{ width: "100%", height: size?.h ?? node.h, display: "flex", alignItems: "center", justifyContent: "center", background: t.surface, color: t.muted, fontFamily: t.bodyFamily, fontSize: 13 }}>
+        embed · {(() => { try { return new URL(node.embed.src).hostname; } catch { return "no address"; } })()}
+      </div>
+    )
+  ) : null;
+  const drawn = embedded ?? (
     <P
       id={node.featureId}
       label={node.label}
@@ -237,7 +262,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // inside a parent whose own height is its content is a cycle, and the
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
-      <div data-part-box="" style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette) }}>
         {drawn}
       </div>
     ) : drawn}

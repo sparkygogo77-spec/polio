@@ -80,6 +80,10 @@ const doc = {
         { text: "A", colour: "rgb(255, 255, 0)", size: 40, transform: TF(-1), motion: wob("-0.4s") }, { text: "N", transform: TF(-2), motion: wob("-0.6s") },
         { text: "D", transform: TF(-1), motion: wob("-0.8s") }, { text: " " }, { text: "I", transform: TF(-2), motion: wob("-0.5s") }, { text: "N", transform: TF(-2), motion: wob("-0.7s") },
       ] }),
+    /* A link whose words are a part of their own, drawn over its box: pointing at the words is pointing at the link, and they move with it. */
+    base("n_box_7", { x: 800, y: 60, w: 200, h: 60, colour: { bg: "rgb(255, 204, 0)", surface: "rgb(255, 204, 0)" }, from: { url: "http://stand.in/", host: "stand.in", selector: "body > p > a", at },
+      motion: { transition: [{ property: "transform", duration: "0.01s", timing: "linear", delay: "0s" }], hover: [{ selector: ".btn:hover", self: true, style: { transform: "translate(-3px, -3px)" } }] } }),
+    base("n_prose_8", { featureId: "prose", content: "Go", label: "Go", x: 820, y: 70, w: 120, h: 40, from: { url: "http://stand.in/", host: "stand.in", selector: "body > p > a > span", at } }),
     base("n_box_6", { x: 40, y: 420, w: 400, h: 300, label: "Iframe “Stand-in chart” · 127.0.0.1", from: { url: "http://stand.in/", host: "stand.in", selector: "body > iframe", at },
       embed: { src: EMBED, title: "Stand-in chart", allow: "fullscreen", loading: "lazy", size: { w: 400, h: 300 } } }),
   ],
@@ -153,7 +157,7 @@ async function motionChecks(p, where, tpl) {
     return {
       spin: spin ? getComputedStyle(spin).animationName : null,
       keyframes: /@keyframes cap-spin/.test(sheets) && /@keyframes cap-wob/.test(sheets),
-      evil: /display: none/.test(sheets),
+      evil: /cap-evil[^]*?display/.test(sheets.split("\n").filter((l) => /cap-evil/.test(l)).join("\n")),
       letters: letters.map((x) => ({ name: getComputedStyle(x).animationName, delay: getComputedStyle(x).animationDelay })),
       frame: frame ? { src: frame.getAttribute("src"), sandbox: frame.getAttribute("sandbox"), allow: frame.getAttribute("allow"), w: Math.round(fr.width), h: Math.round(fr.height), hw: Math.round(hr.width) } : null,
     };
@@ -171,6 +175,12 @@ async function motionChecks(p, where, tpl) {
   const hovered = await tf("n_ctaprimary_2");
   check(`${where}: hovering the button lifts it and fills it as the page did`, before?.tf === "none" && hovered?.tf === "matrix(1, 0, 0, 1, 0, -3)" && hovered?.bg === "rgb(0, 204, 255)", JSON.stringify({ before, hovered }));
   if (SHOTS) await p.screenshot({ path: join(SHOTS, `${where}-hover.png`) });
+  const words = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, at("n_prose_8"));
+  await p.mouse.move(5, 5); await p.waitForTimeout(300);
+  await p.mouse.move(words.x, words.y); await p.waitForTimeout(400);
+  const link = await tf("n_box_7");
+  const inner = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).transform, at("n_prose_8"));
+  check(`${where}: pointing at a link's words, a part of their own over its box, hovers the link, and the words move with it`, link?.tf === "matrix(1, 0, 0, 1, -3, -3)" && inner === "matrix(1, 0, 0, 1, -3, -3)", JSON.stringify({ link, inner }));
   const card = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width - 20, y: r.y + r.height - 20 }; }, at("n_box_3"));
   await p.mouse.move(5, 5); await p.waitForTimeout(300);
   const knob0 = await tf("n_box_4");
@@ -191,6 +201,7 @@ files = new Map(out.filter((f) => f.content !== null).map((f) => [f.path, f.cont
 const css = files.get("assets/site.css") ?? "";
 check("the export's stylesheet holds the prefixed keyframes, the animation and the hover", /@keyframes cap-spin/.test(css) && /\.mo-n_box_1 \{ animation: 2s linear 0s infinite normal none cap-spin/.test(css) && /\.mo-n_ctaprimary_2:hover/.test(css), css.slice(css.indexOf("@keyframes"), css.indexOf("@keyframes") + 300));
 check("…and asks for nothing to move under reduced motion", /prefers-reduced-motion: reduce/.test(css));
+check("…and writes no keyframes rule whose frames held nothing it could write safely", !/cap-evil/.test(css) && !/display:\s*none/.test(css.slice(css.indexOf("@keyframes"))));
 check("…the page carries no motion stylesheet of its own", !/@keyframes/.test(files.get("index.html") ?? ""));
 const site = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 await site.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "load" });

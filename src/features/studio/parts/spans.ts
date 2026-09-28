@@ -31,6 +31,7 @@
  * state to be tidied away later — it is the design.
  */
 import type { NodeLink } from "./types";
+import type { MotionAnimation } from "./capturedMotion";
 
 /**
  * A stretch of a node's words that carries its own look.
@@ -56,6 +57,22 @@ export interface Span {
   face?: string;
   /** Where these words go. The same link every other part uses. */
   link?: NodeLink;
+  /*
+   * THE ONE EXCEPTION TO "A SPAN NEVER CARRIES A SIZE": a title a page split
+   * into letters (sink folds trumpmorty.fun's "TRUMP & MORTY" back into one
+   * part) keeps, per letter, what that letter wore apart from the rest: its
+   * size (px, as measured) and text effects where they differ, and its own
+   * transform and animation, which is what made the letters wobble on their
+   * own. Only a capture writes these; a span typed here never has them.
+   */
+  size?: number;
+  textShadow?: string;
+  textStroke?: { w: number; color: string };
+  paintOrder?: string;
+  /** The letter's transform when measured, as the browser computed it. */
+  transform?: string;
+  /** The letter's own animation (`parts/capturedMotion.ts`), replayed live. */
+  motion?: { animation?: MotionAnimation[] } | null;
 }
 
 /** What a node's words are. A plain string is one unstyled span. */

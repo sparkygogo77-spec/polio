@@ -17,6 +17,8 @@ export interface DocIn {
   brief?: object;
   look?: object;
   motion?: unknown[];
+  /** A capture's `@keyframes` (sink `doc.keyframes`): taken into the look. */
+  keyframes?: unknown[];
   frameWidth?: unknown;
 }
 
@@ -72,7 +74,9 @@ export function takeDoc<P extends DocPrev>(
     // The look and the behaviours are the document too. Leaving them out
     // meant a published site came back in the template's colours.
     look: (() => {
-      const look = (doc.look ? { ...defaults.look(), ...doc.look } : s.look) as object & { texture?: { id: string; on?: boolean }[] };
+      const took = (doc.look ? { ...defaults.look(), ...doc.look } : s.look) as object & { texture?: { id: string; on?: boolean }[] };
+      /* A capture writes the page's @keyframes beside the look; they travel in it, for the parts that name them. */
+      const look = Array.isArray(doc.keyframes) ? { ...took, keyframes: doc.keyframes } : took;
       return Array.isArray(look.texture) ? { ...look, texture: pictureLayersOff(doc.nodes ?? s.nodes, look.texture) } : look;
     })(),
     motion: doc.motion ?? s.motion,

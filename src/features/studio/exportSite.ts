@@ -58,6 +58,7 @@
  * arrived.
  */
 import * as React from "react";
+import { motionCss } from "./parts/capturedMotion";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { useStudio, type StudioNode, type StudioPage } from "./store";
 import type { NodeLink } from "./parts/types";
@@ -411,11 +412,14 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: string
   if (fluidAt) fluid(root, page.id, nodes, fluidAt);
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
+  /* So is the page's motion: in the stylesheet, reaching each part by its id. */
+  for (const el of Array.from(root.querySelectorAll("style[data-motion-css]"))) el.remove();
   for (const el of Array.from(root.querySelectorAll("*"))) {
     const node = el.getAttribute("data-live-node");
     const isPage = el.hasAttribute("data-live-page");
     for (const a of Array.from(el.attributes)) {
-      if (a.name.startsWith("data-") || a.name === "title") el.removeAttribute(a.name);
+      /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */
+      if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }
     if (node) el.setAttribute("id", node);
     if (isPage) el.setAttribute("data-page", pageId);
@@ -689,6 +693,7 @@ ${inPlaceScript(page, inPlace.get(page.id), home)}
   }
 
   const vars = ROLES.map((r) => `  --${r}: ${palette[r]};`).join("\n");
+  const motion = motionCss(s.nodes.filter((n) => !only || only.includes(n.pageId)), s.look.keyframes, (id) => `#${id}`);
   const css = `/* The site's palette: every colour on the pages that is one of these is written as var(--name). */
 :root {
 ${vars}
@@ -705,7 +710,10 @@ ${STRETCH}
 
 /* The page, made at one width, drawn at the window's. */
 ${frameCss(width, fluidAt !== null)}
-`;
+${motion ? `
+/* The site's own motion, as captured: its keyframes (prefixed cap-), each part's animation, transitions and hover. */
+${motion}
+` : ""}`;
   files.push({ path: "assets/site.css", content: css });
   /* Clean addresses on Vercel: tokens/index.html served at /tokens (see cleanHref). */
   files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });

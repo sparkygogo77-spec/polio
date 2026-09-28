@@ -7,6 +7,7 @@ import { Btn, Fill, PictureSlot, useTicker } from "./primitives";
 import { items, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
 import { splitTurn } from "./turn";
+import { Runs } from "./Runs";
 
 export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, picture }: PartProps) {
   const typing = id === "hero-typewriter";
@@ -74,7 +75,7 @@ function Caret({ t, mode }: { t: Theme; mode: PartProps["mode"] }) {
  * only way to get the turn was two parts butted together, which wraps
  * wrongly the moment anything changes width.
  */
-export function ValueProp({ id, content, options, h, theme: t }: PartProps) {
+export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNavigate }: PartProps) {
   const line = items(content, ["One sentence that says what this is and who it's for."])[0]!;
   // A captured box one line tall holds one line. The capture rounds a width
   // down, so a heading as wide as its words ("PnL Over Time", 156.03 in a
@@ -92,8 +93,13 @@ export function ValueProp({ id, content, options, h, theme: t }: PartProps) {
        wrapped, and the page under it moved (tests/captured-words.mjs). */
     <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
       <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
-        {parts.head}
-        {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
+        {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
+        {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : (
+          <>
+            {parts.head}
+            {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
+          </>
+        )}
       </p>
     </Fill>
   );

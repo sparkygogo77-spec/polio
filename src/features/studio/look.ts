@@ -1,4 +1,5 @@
 import type { CarriedFont } from "./fonts";
+import type { CapturedKeyframes } from "./parts/capturedMotion";
 /**
  * Colour and texture: the site's look, as data.
  *
@@ -887,6 +888,13 @@ export interface Look {
    * site made here, and the panel says nothing about sources then.
    */
   paletteFrom?: Partial<Record<RoleId, { colour: string; parts: number; shows?: RoleId }>>;
+  /**
+   * The page's own `@keyframes`, as a capture read them (sink `doc.keyframes`),
+   * for the parts whose `node.motion` names them. Kept with the look so they
+   * travel with the document; drawn under a prefixed name
+   * (`parts/capturedMotion.ts`). Absent on a site made here.
+   */
+  keyframes?: CapturedKeyframes[];
 }
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });

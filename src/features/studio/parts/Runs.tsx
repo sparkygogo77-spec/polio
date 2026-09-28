@@ -24,6 +24,7 @@
 import * as React from "react";
 import type { Theme } from "./theme";
 import type { Span } from "./spans";
+import { animationsValue } from "./capturedMotion";
 import type { NodeLink, PartMode } from "./types";
 
 export interface RunsProps {
@@ -63,9 +64,21 @@ function ink0f(raw: string, t: Theme): string {
   return role ? role(t) : v;
 }
 
-function look(s: Span, t: Theme): React.CSSProperties | undefined {
+function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefined {
   const out: React.CSSProperties = {};
   let any = false;
+  /* A captured letter: its own size and effects, its transform, and live its own animation. A transform needs a box, so it stands inline-block. */
+  if (typeof s.size === "number" && Number.isFinite(s.size) && s.size > 0) { out.fontSize = s.size; any = true; }
+  if (s.textShadow) { out.textShadow = s.textShadow; any = true; }
+  if (s.textStroke && s.textStroke.w > 0) { out.WebkitTextStroke = `${s.textStroke.w}px ${s.textStroke.color}`; any = true; }
+  if (s.paintOrder) { out.paintOrder = s.paintOrder; any = true; }
+  const anim = mode === "live" ? animationsValue(s.motion?.animation) : null;
+  if ((s.transform && s.transform !== "none") || anim) {
+    out.display = "inline-block";
+    if (s.transform && s.transform !== "none") out.transform = s.transform;
+    if (anim) out.animation = anim;
+    any = true;
+  }
   if (s.colour) { const ink = ink0f(s.colour, t); if (ink) { out.color = ink; any = true; } }
   if (typeof s.weight === "number" && Number.isFinite(s.weight)) { out.fontWeight = Math.round(Math.max(300, Math.min(800, s.weight)) / 100) * 100; any = true; }
   if (s.italic) { out.fontStyle = "italic"; any = true; }
@@ -80,7 +93,9 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
   return (
     <>
       {spans.map((s, i) => {
-        const style = look(s, t);
+        const style = look(s, t, mode);
+        /* A letter that moves wears the class reduced motion stills (capturedMotion.ts). */
+        const moving = !!style?.animation;
         const to = s.link;
         if (to && mode === "live" && onNavigate) {
           /* `data-run-to` is where it goes, written on the run itself so the
@@ -112,7 +127,7 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
          * runs can change how they set.
          */
         if (to) return <span key={i} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
-        return style ? <span key={i} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
+        return style ? <span key={i} className={moving ? "mo-l" : undefined} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
       })}
     </>
   );
