@@ -69,8 +69,9 @@ import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
-import { bandMoves, captureHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, vhShift, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
+import { layerStyle, type Units } from "./layerUnits";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
 export type ExportFile = SiteFile | SiteBinary;
@@ -486,6 +487,32 @@ function fluid(root: DocumentFragment, pageId: string, nodes: Map<string, Studio
         : p;
       const top = vhShift(p, heroPart, heroPx, group);
       if (top) el.style.top = top;
+    }
+  }
+  /* A layer placed in the window's units or a share of a block that grows with it (`node.units`): placed so again (`layerUnits.ts`). */
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
+    if (el.parentElement?.closest("[data-live-node]") || el.style.position === "fixed") continue;
+    const node = nodes.get(el.getAttribute("data-live-node") ?? "");
+    const u = (node as { units?: Units } | undefined)?.units;
+    const block = u?.of?.by === "block" && u.of.part ? byId.get(u.of.part) : undefined;
+    const bk = block ? k.get(block.id) : undefined;
+    if (!node || !u || !block || !bk || block.position === "fixed" || block.position === "sticky") continue;
+    const isHero = block === heroPart && heroPx > 0;
+    if (!isHero && !bk.width.css && Math.abs(bk.width.k) < 1e-9) continue;
+    const top = isHero ? `${block.y}px` : (heroPart && heroPx > 0 ? vhShift(block, heroPart, heroPx) : null) ?? `${block.y}px`;
+    const pic = !!(node as { picture?: unknown }).picture || node.featureId === "picture";
+    const st = layerStyle(u, { left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? `max(100svh, ${heroPx}px)` : `${block.h}px` }, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null);
+    if (!st) continue;
+    if (st.left) el.style.left = st.left;
+    if (st.top) el.style.top = st.top;
+    if (st.width) el.style.width = st.width;
+    if (st.height) { el.style.height = st.height; el.style.minHeight = st.height; }
+    if (st.backgroundSize || st.backgroundPosition) {
+      for (const b of [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))]) {
+        if (!b.style.backgroundImage || !/url\(/.test(b.style.backgroundImage)) continue;
+        if (st.backgroundSize) b.style.backgroundSize = st.backgroundSize;
+        if (st.backgroundPosition) b.style.backgroundPosition = st.backgroundPosition;
+      }
     }
   }
   /*
