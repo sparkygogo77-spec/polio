@@ -72,14 +72,25 @@ const headers = (token: string): Record<string, string> => ({
   "X-GitHub-Api-Version": "2022-11-28",
 });
 
-export type Started = { ok: true; runId: number; htmlUrl: string; name: string } | { ok: false; says: string };
+export type Started = { ok: true; runId: number; htmlUrl: string; name: string } | { ok: false; says: string; status?: number };
+
+/**
+ * A key that may not run the capture, said so it can be put right: the
+ * exact permission, for either kind of token, and the way round it. A
+ * capture chat captures the same address into the same folder, and the site
+ * brings it in with Bring in again.
+ */
+export function workflowPermissionSays(repo: CaptureRepo, url?: string, name?: string): string {
+  const where = `${repo.owner}/${repo.name}`;
+  return `This GitHub key can't run workflows on ${where}. Add to it: on a fine-grained token, Actions: Read and write and Contents: Read and write, on ${where}; on a classic token, the repo and workflow scopes. Or ask a capture chat to capture ${url || "the address"}${name ? ` into sites/${name}` : ""}, then use Bring in again.`;
+}
 
 /**
  * Dispatch the workflow, then find the run it made. The dispatch answers
  * 204 and names no run, so the newest workflow_dispatch run of this
  * workflow created after the call is it.
  */
-export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string } & Pipes): Promise<Started> {
+export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; findEveryMs?: number; findTries?: number } & Pipes): Promise<Started> {
   const f = o.fetch ?? fetch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let address: URL;
@@ -101,17 +112,17 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
       method: "POST", headers: { ...h, "content-type": "application/json" },
       body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/" } }),
     });
-    if (d.status === 404) return { ok: false, says: `${o.repo.owner}/${o.repo.name} has no ${WORKFLOW} workflow on ${ref}. Merge sink's capture branch first, or name the branch it is on under advanced.` };
-    if (d.status === 403) return { ok: false, says: "The token may not run workflows. It needs the repository's actions: write (or workflow) scope." };
+    if (d.status === 404) return { ok: false, status: 404, says: `${o.repo.owner}/${o.repo.name} has no ${WORKFLOW} workflow on ${ref}. Merge sink's capture branch first, or name the branch it is on under advanced.` };
+    if (d.status === 403) return { ok: false, status: 403, says: workflowPermissionSays(o.repo, address.href, name) };
     if (!d.ok) return { ok: false, says: `GitHub answered ${d.status} to the dispatch.` };
-    for (let tries = 0; tries < 10; tries++) {
+    for (let tries = 0; tries < (o.findTries ?? 10); tries++) {
       const r = await f(`${base}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=5`, { headers: h, cache: "no-store" } as RequestInit);
       if (r.ok) {
         const runs = ((await r.json()) as { workflow_runs?: { id: number; html_url: string; created_at: string }[] }).workflow_runs ?? [];
         const mine = runs.find((run) => Date.parse(run.created_at) >= since);
         if (mine) return { ok: true, runId: mine.id, htmlUrl: mine.html_url, name };
       }
-      await sleep(2_000);
+      await sleep(o.findEveryMs ?? 2_000);
     }
     return { ok: false, says: "The capture was asked for, but its run did not show up in time. Look at the repository's Actions tab." };
   } catch {
@@ -150,15 +161,15 @@ export async function watchCapture(o: { repo: CaptureRepo; token: string; runId:
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const every = o.everyMs ?? 5_000;
   let htmlUrl = "";
+  let run: RunState;
   for (;;) {
-    let run: RunState;
     try { run = await readRun(o); } catch { await sleep(every); continue; }
     htmlUrl = run.htmlUrl;
     if (run.status === "completed") break;
     o.onProgress({ done: false, status: run.status, step: await stepOf(o), htmlUrl });
     await sleep(every);
   }
-  const run = await readRun(o);
+  /* The read that saw it complete is the answer: asking again straight away was a second read inside the same breath. */
   if (run.conclusion === "success") return { done: true, ok: true, ...capturePlace(o.name), htmlUrl };
   return { done: true, ok: false, says: `The capture failed (${run.conclusion ?? "no conclusion"}). Its log says why.`, htmlUrl };
 }

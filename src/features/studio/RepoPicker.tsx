@@ -31,7 +31,7 @@
  * exactly as a publish reads it.
  */
 import * as React from "react";
-import { Boxes, Loader2, Lock, Search } from "lucide-react";
+import { Boxes, Camera, Loader2, Lock, Search } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Dialog } from "@/core/ui/dialog";
@@ -46,6 +46,7 @@ import type { BranchRow } from "@/app/api/studio/branches/route";
 import { bringRepoIn } from "./bringRepo";
 import { nameRefusal, repoNameFor } from "./repoName";
 import { useStudio } from "./store";
+import { RecapturePanel, openRecapture, useRecapture } from "./Recapture";
 
 interface Mine { name: string; private: boolean; branch?: string }
 interface Choices { base: string; ref: string; branches: string[]; sites: string[] }
@@ -216,6 +217,16 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
    * recorded before the folder was kept has no folder to reuse, so the
    * picker opens on its repository and branch and he chooses.
    */
+  /* A recapture that has finished is offered through this section's own Replace prompt, whenever the menu is next open. */
+  const recaptureAt = useRecapture((s) => s.stage.at);
+  React.useEffect(() => {
+    const st = useRecapture.getState().stage;
+    if (st.at !== "ready" || asking || pulling) return;
+    useRecapture.getState().set({ at: "idle" });
+    ask(st.want, st.path);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recaptureAt]);
+
   const bringAgain = () => {
     if (!source) return;
     setRefused(null);
@@ -260,10 +271,20 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
           ? <p data-repo-source={from} className="text-small text-fg-muted">This site was brought in from <span className="text-fg">{from}</span>, which it never publishes to. It can bring that one in again; another repo needs a new site.</p>
           : <p className="text-small text-fg-muted">Pick one of your repos to build from. Its page lands on the board as parts you can change.</p>}
         {from && source ? (
-          <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={bringAgain}>
-            {source.dir ? `Bring ${from} in again, from ${source.branch}` : `Bring ${from} in again: choose its folder`}
-          </Button>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {/* The source is named in the line above; the button says what it does and on which branch, and fits the menu. */}
+            <Button size="sm" variant="outline" data-repo-bring-own="" disabled={pulling} onClick={bringAgain} title={source.dir ? `Bring ${from} in again, from ${source.branch}` : `Bring ${from} in again: choose its folder`}>
+              {source.dir ? `Bring in again, from ${source.branch}` : "Bring in again: choose its folder"}
+            </Button>
+            {/* A site brought in from a capture folder can be captured again from its address. */}
+            {source.dir ? (
+              <Button size="sm" variant="outline" data-repo-recapture="" disabled={pulling || recaptureAt === "running"} onClick={() => void openRecapture(source)}>
+                <Camera /> Recapture
+              </Button>
+            ) : null}
+          </div>
         ) : null}
+        {source?.dir ? <RecapturePanel source={source} say={(title, body) => ctx.publish({ key: `studio:recapture:${source.dir}`, title, body, level: "info", source: "studio", toast: { durationMs: 8000 } })} /> : null}
         {againSays ? <p data-repo-again-says="" className="mt-1 text-small text-fg-muted">{againSays}</p> : null}
       </div>
 

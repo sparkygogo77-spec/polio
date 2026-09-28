@@ -142,7 +142,8 @@ check("his board is his own now (7 parts on 3 pages)", (await partsNow()) === 7)
 read.length = 0;
 await openMenu();
 const again = page.locator("[data-repo-bring-own]");
-check("the menu offers to bring in again what this site came from, folder included", (await again.count()) === 1 && /sites\/trumpmorty-fun/.test(await again.innerText()), await again.innerText().catch(() => "none"));
+/* The button names the branch; the folder is in its title and in the line above it (the full name overflowed the menu). */
+check("the menu offers to bring in again what this site came from, folder included", (await again.count()) === 1 && /sites\/trumpmorty-fun/.test(await again.getAttribute("title")) && /claude\/trumpmorty/.test(await again.innerText()), `${await again.innerText().catch(() => "none")} · ${await again.getAttribute("title").catch(() => "")}`);
 await again.click();
 await page.waitForTimeout(500);
 const ask = page.locator("[data-repo-bring-confirm]");
