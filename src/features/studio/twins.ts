@@ -95,6 +95,19 @@ function shows(f: Frag): boolean {
   return !!painted || ruled || !!f.texture || !!f.aura;
 }
 
+/** What a part paints, as one comparable value: its fill and ink, edge, texture, aura, and the page's own art (a gradient, a filter, a blend). */
+function paint(f: Frag): string {
+  const a = (f as { art?: { background?: unknown; filter?: unknown; blend?: unknown; backdrop?: unknown } | null }).art;
+  const art = a ? [a.background, a.filter, a.blend, a.backdrop].filter((v) => typeof v === "string" && v.trim()) : [];
+  const drawn = draws(f) ? [JSON.stringify(f.picture ?? null), JSON.stringify(f.vector ?? null)] : [];
+  return JSON.stringify([shows(f) ? [f.colour, f.edge, f.texture, f.aura] : null, art, drawn]);
+}
+/** Does `s` paint something `keeper` does not? Bare, or painted the same, it does not. */
+function paintsMore(s: Frag, keeper: Frag): boolean {
+  const mine = paint(s);
+  return mine !== paint({ id: "", pageId: "", featureId: "", x: 0, y: 0, w: 0, h: 0, content: "" } as Frag) && mine !== paint(keeper);
+}
+
 /**
  * The spare copies, each with the one that stays.
  *
@@ -129,7 +142,8 @@ export function twins(frags: readonly Frag[]): Twin[] {
       return s.w * s.h > best.w * best.h ? s : best;
     }, stack[0]!);
     const why = wordsOf(keeper).trim() ? "says" : draws(keeper) ? "draws" : shows(keeper) ? "shows" : "outermost";
-    for (const s of stack) if (s.id !== keeper.id) out.push({ id: s.id, keeps: keeper.id, why, of: stack.length });
+    /* A copy that paints something its keeper does not is an overlay, not a spare (trumpmorty.fun's TV scanlines and glare over its screen; `tests/twins-overlays.mjs`). */
+    for (const s of stack) if (s.id !== keeper.id && !paintsMore(s, keeper)) out.push({ id: s.id, keeps: keeper.id, why, of: stack.length });
   }
   /*
    * AND THE PROOF, rather than the assumption. A copy is only safe to remove
