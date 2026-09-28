@@ -33,6 +33,7 @@
  */
 import * as React from "react";
 import { under } from "./owns";
+import { withPressed } from "./pressed";
 
 /** A box as it stands, and the height it actually drew at. */
 export interface Drawn {
@@ -475,7 +476,7 @@ export function useSettleToWords(
     const print = fitted.map((f) => `${f.id}:${f.h},${f.y}`).join("|");
     if (print === said.current) return;
     said.current = print;
-    latest.current.apply(fitted);
+    latest.current.apply(withPressed(fitted, latest.current.nodes));
   }, []);
 
   /* Debounced, and never before the faces have had their chance: a run of
