@@ -130,7 +130,7 @@ await section(async () => {
   await page.locator("[data-github-button]").first().click();
   await page.waitForTimeout(700);
   check("the GitHub button opens the same menu", await menu(page).count() === 1 && await page.locator("[data-repo-section]").count() === 2);
-  check("…and there is no second repo panel beside it", await page.locator("[data-repo-panel], [data-repo-picker]:not([data-repo-menu])").count() === 0);
+  check("…and there is no second repo panel beside it", await page.locator("[data-repo-panel]").count() === 1 && await page.locator("[data-repo-panel][data-repo-menu]").count() === 1 && await page.locator("[data-repo-picker]:not([data-repo-menu])").count() === 0);
   await close(page);
   const offer = page.locator("[data-offer-bring]");
   if (await offer.count()) {

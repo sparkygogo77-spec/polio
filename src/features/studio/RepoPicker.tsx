@@ -65,12 +65,25 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
   const [said, setSaid] = React.useState<string | null>(null);
   const unlocked = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
 
-  /* The list, asked for when the menu opens and again if the key is
-     unlocked while it is open: the Keys panel relocks after five idle
-     minutes, and a list that went stale under a button is worse than none. */
+  /* A list read with his key, so that when the key locks again the list is taken down with the reason. */
+  const listedWithKey = React.useRef(false);
+
+  /*
+   * The list, asked for when the menu opens and again when the key changes.
+   * With his key held it is read with it; without, the route falls back to
+   * the server's token, as a publish does, and says in words when there is
+   * none. The Keys panel relocks after five idle minutes, and a list that
+   * went stale under a button that says there is no token is worse than
+   * none, so a list read with the key is taken down when it locks.
+   */
   React.useEffect(() => {
     if (!open) return;
-    if (!unlocked) { setMine(null); setSaid("No GitHub token in this browser yet. Open Keys, put one in, and your repos are listed here."); return; }
+    if (!unlocked && listedWithKey.current) {
+      listedWithKey.current = false;
+      setMine(null);
+      setSaid("The key is locked again after five minutes idle. Open Keys to unlock it, and the list comes back.");
+      return;
+    }
     let alive = true;
     setSaid(null);
     setMine(null);
@@ -78,7 +91,7 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
       .then((r) => r.json())
       .then((a: { ok?: boolean; repos?: Mine[]; message?: string }) => {
         if (!alive) return;
-        if (a.ok && a.repos) setMine(a.repos);
+        if (a.ok && a.repos) { setMine(a.repos); listedWithKey.current = unlocked; }
         else setSaid(a.message ?? "GitHub did not answer with a list.");
       })
       .catch(() => { if (alive) setSaid("GitHub could not be reached from this browser."); });
@@ -92,7 +105,7 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
       title="Your repos"
       description="Bring one in to build from, and choose where this site publishes."
     >
-      <div data-repo-picker="" data-repo-menu="" className="flex max-h-[70vh] w-full flex-col gap-3 overflow-y-auto pr-1">
+      <div data-repo-picker="" data-repo-menu="" data-repo-panel="" className="flex max-h-[70vh] w-full flex-col gap-3 overflow-y-auto pr-1">
         <BringIn mine={mine} said={said} onDone={() => onOpenChange(false)} />
         <div className="h-px shrink-0 bg-border" />
         <PublishTo mine={mine} />
@@ -210,11 +223,9 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
     <section data-repo-section="bring" className="flex flex-col gap-2">
       <div>
         <p className={head}>Bring in</p>
-        <p className="text-small text-fg-muted">
-          {from
-            ? <>This site was brought in from <span data-repo-source={from} className="text-fg">{from}</span>. It can bring that one in again; another repo needs a new site.</>
-            : "Pick one of your repos to build from. Its page lands on the board as parts you can change."}
-        </p>
+        {from
+          ? <p data-repo-source={from} className="text-small text-fg-muted">This site was brought in from <span className="text-fg">{from}</span>, which it never publishes to. It can bring that one in again; another repo needs a new site.</p>
+          : <p className="text-small text-fg-muted">Pick one of your repos to build from. Its page lands on the board as parts you can change.</p>}
         {from ? (
           <Button size="sm" variant="outline" data-repo-bring-own="" className="mt-1" disabled={pulling} onClick={() => ask(from, null)}>
             Bring {from} in again

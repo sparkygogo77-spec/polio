@@ -67,13 +67,15 @@ check("and every way it can fail says which one in plain words",
    list, the Builds page and Publish look, so it is where a connect writes. */
 /* HIS RULING: attaching is importing. And one answer about the token. */
 const button0 = readFileSync("src/features/studio/GithubButton.tsx", "utf8");
+/* One repo menu now (tests/repo-menu.mjs): the GitHub button opens it, and the menu holds what its panel held. */
+const menu0 = readFileSync("src/features/studio/RepoPicker.tsx", "utf8");
 /* Through `askBring`, the same path Bring it runs, which says what a Bring
    will replace before it runs; it never points publishing
    (tests/publish-source.mjs). */
-check("choosing a repository from the list runs the same path Bring it runs", /data-repo-connect=\{r\.name\}\s*onClick=\{\(\) => askBring\(r\.name\)\}/.test(button0));
-check("and publish only is a separate control that binds without touching the board", /data-repo-publish-only=\{r\.name\}/.test(button0) && /Publishing goes to \$\{r\.name\} now\. The board is as it was\./.test(button0));
-check("the button reads the browser's key live, the same value the panel reads", /const mineNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0) && /const keyNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0));
-check("and when the key locks again the list is taken down with the reason, not left under a button that says no token", /The key is locked again after five minutes idle\. Open Keys to unlock it, and the list comes back\./.test(button0));
+check("choosing a repository from the list runs the same path Bring it runs", /data-repo-pick=\{r\.name\}/.test(menu0) && /onClick=\{bringChosen\}/.test(menu0) && /ask\(want, folder \|\| null\)/.test(menu0) && /bringRepoIn\(want, \{/.test(menu0));
+check("and publishing is a separate control that binds without touching the board", /data-repo-publish-pick=\{r\.name\}/.test(menu0) && /The board is as it was\./.test(menu0));
+check("the button reads the browser's key live, the same value the menu reads", /const mineNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0) && /const unlocked = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(menu0));
+check("and when the key locks again the list is taken down with the reason, not left under a button that says no token", /The key is locked again after five minutes idle\. Open Keys to unlock it, and the list comes back\./.test(menu0));
 const store = readFileSync("src/features/studio/store.ts", "utf8");
 const builds = readFileSync("src/features/builds/store.ts", "utf8");
 const button = readFileSync("src/features/studio/GithubButton.tsx", "utf8");
@@ -81,7 +83,7 @@ check("the choice is kept on the site in the builds store, the one place everyth
   /repo\?: \{ owner: string; name: string; branch: string \}/.test(builds) && /export const activeRepo/.test(builds));
 check("and not on the document any more", !/siteRepo: s\.siteRepo/.test(store) && !/setSiteRepo/.test(store));
 check("connecting and making both write there, with the branch",
-  /useBuilds\.getState\(\)\.setRepo\(project\.id, repo, how\)/.test(button) && !/setSiteRepo/.test(button) && /connect\(r\.name, r\.branch/.test(button) && /connect\(String\(a\.name\), String\(a\.branch/.test(button));
+  /useBuilds\.getState\(\)\.setRepo\(p\.id, repo, how\)/.test(menu0) && !/setSiteRepo/.test(menu0) && /repoFrom\(full, onBranch\)/.test(menu0) && /connect\(r\.name\)/.test(menu0) && /connect\(String\(a\.name\), "made"\)/.test(menu0));
 check("an edit opens its branch by asking the same place", /activeRepo\(\) && !s\.siteBranch/.test(store));
 check("a document that still names one is copied across once", /takeCarriedRepo/.test(store) && /function carryRepos/.test(builds));
 
@@ -116,15 +118,15 @@ if (!URL_) {
     points: document.querySelector("[data-repo-points]")?.textContent?.trim() ?? null,
     field: document.querySelectorAll("[data-repo-new]").length,
     make: document.querySelectorAll("[data-repo-make]").length,
-    said: document.querySelector("[data-repo-said]")?.textContent?.trim() ?? null,
+    said: document.querySelector("[data-repo-picker-said], [data-repo-said]")?.textContent?.trim() ?? null,
     words: (document.querySelector("[data-repo-panel]")?.innerText ?? "").toLowerCase(),
   }));
   check("pressing it opens the repository control", seen.panel === 1);
   /* The whole complaint: it used to leave the product. */
   check("…and does not leave the product", left.length === 0, left.join(" ") || "no window opened");
   check("it says where this site goes", !!seen.points, seen.points ?? "-");
-  check("it offers to bring in one of his repos, or to move a bound site to a different one", /bring in one of your repos|move to a different repo/.test(seen.words));
-  check("and says that choosing one brings it in and replaces the board, with publish only as the other control", /choosing one brings it in and replaces the board/.test(seen.words) && /publish only/.test(seen.words));
+  check("it offers to bring in one of his repos, and to choose or move where this site publishes", /bring in/.test(seen.words) && /pick one of your repos to build from|brought in from/.test(seen.words) && /publish to/.test(seen.words) && /choose one of your repos|move it to another/.test(seen.words));
+  check("and says that bringing one in lands it on the board, with publishing as the other section", /lands on the board/.test(seen.words) && /the board is as it was|publishes|no repo of its own yet/.test(seen.words));
   check("and it offers to make a new one, which was not possible before",
     seen.field === 1 && seen.make === 1);
   check("it calls them repos, which is what he calls them", /\brepo\b/.test(seen.words), seen.words.match(/\brepos?\b/g)?.join(" ") ?? "-");
