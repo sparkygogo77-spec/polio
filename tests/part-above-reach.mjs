@@ -1,5 +1,15 @@
 /**
- * A PART THE CAPTURE PLACED ABOVE THE PAGE'S TOP CAN BE SCROLLED TO.
+ * A PART THE CAPTURE PLACED ABOVE THE PAGE'S TOP STAYS WHERE IT WAS PUT, AND
+ * THE BOARD DOES NOT GROW UPWARD FOR IT.
+ *
+ * THE RULE CHANGED, trunk 2849a20. This check used to ask that the board grow
+ * up to reach such a part. Then the owner opened trumpmorty.fun, whose planet
+ * is a part at (-355, -441): the room above the page came to 441 × zoom + 24
+ * and every fit opened the page halfway down the screen under an empty
+ * starfield (`tests/board-overhang-fit.mjs`). A part hanging off the page is
+ * drawn where the site drew it and cut where the pane ends, as the site's own
+ * window cuts it; only ink and drawn spaces make room above. What follows is
+ * the history of the old rule, kept because the case it measured is the same.
  *
  * MEASURED on 2bbde72 with sink's pages: the SOL WORKS badge is captured at
  * y -11, 112 tall, on every section page. The board keeps 20px of ground over
@@ -117,16 +127,14 @@ const his = await open({ ...fixture, activePageId: "page_home" }, 20);
 check("the fixture's topmost part is the one the capture placed above 0", his.y === highest && highest < 0, `${his.id} at y ${his.y}`);
 check("zoomed in, its overhang is wider than the ground the board keeps over the page, so this case can fail",
   -his.y * his.zoom > flat.frameBelowBoard, `${(-his.y * his.zoom).toFixed(1)}px overhang at zoom ${his.zoom.toFixed(2)}, ${flat.frameBelowBoard}px of ground`);
-check("scrolled all the way up, the top of that part is on screen", his.offPane <= 1, `${his.offPane}px of it above the pane`);
-check("…and on the board's own surface", his.offBoard <= 1, `${his.offBoard}px above the board's top`);
+check("scrolled all the way up, the ground over the page is only the ground: the part does not grow it", his.frameBelowBoard <= flat.frameBelowBoard + 1, `${his.frameBelowBoard}px of ground over the page, ${flat.frameBelowBoard} with nothing above`);
 check("…and nothing between it and the board clips it", his.cut === null, his.cut ?? "");
 check("the part did not move: still where the capture put it", his.y === highest && Math.abs(his.fromFrame - his.y * his.zoom) <= 1.5,
   `stored y ${his.y}, drawn ${(his.fromFrame / his.zoom).toFixed(1)} from the page's top`);
 
 /* The rule: a part far above the page, at the zoom the board opens at. */
 const far = await open(stock([part("n_far", FAR), part("n_low", 300)]));
-check(`a part at y ${FAR}, at the zoom the board opens at, is scrolled to its top`, far.offPane <= 1, `${far.offPane}px of it above the pane`);
-check("…and it is on the board's own surface", far.offBoard <= 1, `${far.offBoard}px above the board's top`);
+check(`a part at y ${FAR}, at the zoom the board opens at, leaves the page where a page without it opens`, far.frameBelowBoard === flat.frameBelowBoard && far.scrollTop === 0, `${far.frameBelowBoard}px of ground over the page against ${flat.frameBelowBoard}; the pane at ${far.scrollTop}`);
 check("…and it did not move", far.y === FAR && Math.abs(far.fromFrame - far.y * far.zoom) <= 1.5, `stored y ${far.y}, drawn ${(far.fromFrame / far.zoom).toFixed(1)}`);
 check("the page keeps its origin: the part far above does not make the page taller", far.frameH === (await open(stock([part("n_low", 300)]))).frameH, `${far.frameH}`);
 
