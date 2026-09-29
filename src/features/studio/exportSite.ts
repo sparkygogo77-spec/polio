@@ -495,7 +495,9 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
    */
   const typed = typeShifts([...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({ ...byId.get(n.id)!, fluid: n.font?.fluid ?? null, px: n.font?.px ?? null })), heroPart?.id ?? null);
   /* As the page wrote it (a clamp of the window, or 100svh), never under what it holds where it wrote a minimum (`fluidSite.ts#heroHeight`). */
-  const heroH = heroHeight((heroNode as { vh?: { height?: string; minHeight?: string; px?: number; content?: number } } | undefined)?.vh ?? {}, typed.heroGrow);
+  const heroH = heroHeight((heroNode as { vh?: { height?: string; minHeight?: string; px?: number; content?: number } } | undefined)?.vh ?? {}, typed.heroGrow, heroPart?.h ?? 0);
+  /* What it grows from: the height it had at the capture, which its content can have made more than its minimum. */
+  const heroBase = Math.max(heroPx, heroPart?.h ?? 0);
   if (heroPart && heroPx > 0) {
     for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
       if (el.parentElement?.closest("[data-live-node]")) continue;
@@ -507,7 +509,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
       const group = p.selector && hs && p.selector.startsWith(`${hs} > `)
         ? byId.get([...byId.values()].find((q) => q.selector && q.selector === `${hs} > ${p.selector!.slice(hs.length + 3).split(" > ")[0]}`)?.id ?? "") ?? p
         : p;
-      const top = vhShift(p, heroPart, heroPx, group, heroH);
+      const top = vhShift(p, heroPart, heroBase, group, heroH);
       if (top) el.style.top = top;
     }
   }

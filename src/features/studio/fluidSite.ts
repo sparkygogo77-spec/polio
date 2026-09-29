@@ -423,9 +423,10 @@ export function vhShift(p: { y: number; h: number }, hero: { y: number; h: numbe
  * never under what it holds (`vh.content`, else the px captured), plus what
  * its type grew by. `tests/hero-height.mjs`.
  */
-export function heroHeight(vh: { height?: string; minHeight?: string; px?: number; content?: number }, grow: string | null = null): string {
+export function heroHeight(vh: { height?: string; minHeight?: string; px?: number; content?: number }, grow: string | null = null, measured = 0): string {
   const written = vh.height ?? vh.minHeight ?? "100svh";
-  const floor = vh.content ?? (vh.height ? null : vh.px ?? null);
+  /* Taller than its minimum at the capture (stonkfun.xyz's page wrapper, min-height 100vh, 1995 tall at 900): its content made it so, and that is its floor. */
+  const floor = !vh.height && measured > (vh.px ?? 0) + 1 ? measured : vh.content ?? (vh.height ? null : vh.px ?? null);
   if (floor === null) return grow ? `calc(${written} + ${grow})` : written;
   return grow ? `max(${written}, calc(${floor}px + ${grow}))` : `max(${written}, ${floor}px)`;
 }
