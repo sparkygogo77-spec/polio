@@ -31,6 +31,8 @@ export const POLIO_MD = "POLIO.md";
 /* What a capture leaves for this                                      */
 /* ------------------------------------------------------------------ */
 
+/** The part a record names when the capture tied it to none. */
+export const NO_PART = "@none";
 /** One behaviour the capture recorded, as sink named it, on the part it was recorded on. */
 export interface CapturedBehaviour { kind: string; part: string; what: string }
 /** A Show on press: pressing `part` shows some parts and hides others. */
@@ -80,8 +82,10 @@ export function captureNotes(behaviours: unknown, extra?: { handoff?: string | n
     if (!Array.isArray(v)) return;
     for (const r of v) {
       /* A canvas laid over a box is recorded on the box it covers (`host`). */
-      const part = typeof r?.part === "string" ? r.part : typeof r?.host === "string" ? r.host : null;
-      if (!isRec(r) || !part) continue;
+      if (!isRec(r)) continue;
+      /* One the capture tied to no part (a rule it saw run on nothing it kept) is still listed, as `@none`. */
+      const part = typeof r.part === "string" ? r.part : typeof r.host === "string" ? r.host : kind === "states" ? null : NO_PART;
+      if (!part) continue;
       if (kind === "states") {
         presses.push({
           page: text(r.page),
@@ -183,6 +187,7 @@ interface Part {
   colour?: Partial<Record<string, string>> | null;
   font?: { face?: string; family?: string; size?: number; px?: number; weight?: number } | null;
   inert?: boolean;
+  picture?: { path?: string; type?: string } | null;
 }
 export interface PolioSite {
   brief?: { name?: string; description?: string } | null;
@@ -343,7 +348,7 @@ export function polioMd(site: PolioSite): string {
   /* ---------------------------------------------------------- 3. Captured behaviour */
   say("## 3. Captured behaviour", "");
   const nodeOf = new Map(nodes.map((n) => [n.id, n]));
-  const partWhere = (id: string) => { const n = nodeOf.get(id); return n ? where(n) : id === "@page" ? "every page" : `${code(`#${id}`)} (not on the board)`; };
+  const partWhere = (id: string) => { const n = nodeOf.get(id); return n ? where(n) : id === "@page" ? "every page" : id === NO_PART ? "tied to no part" : `${code(`#${id}`)} (not on the board)`; };
   const recorded = capture?.behaviours ?? [];
   if (recorded.length) {
     say("What the captured page's scripts and stylesheets did, as the capture recorded it, and the part each is on:", "", "| Behaviour | Part | Where | Recorded |", "|---|---|---|---|");
@@ -352,16 +357,54 @@ export function polioMd(site: PolioSite): string {
   }
   const presses = capture?.presses ?? [];
   const stateParts = nodes.filter((n) => n.state?.group);
-  if (presses.length || stateParts.length) {
+  /* The site's own presses: each part carrying Show on press (`press-shows`, library/behaviours.ts), whatever made it. */
+  const idList = (v: string | undefined) => (v ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const running = nodes.flatMap((n) => usesOf(n.work).filter((u) => u.id === "press-shows").map((u) => ({ n, u, shows: idList(u.inputs.shows), hides: idList(u.inputs.hides), group: (u.inputs.group ?? "").trim() })))
+    .sort((a, b) => cmp(a.group, b.group) || cmp(a.n.id, b.n.id));
+  if (presses.length || stateParts.length || running.length) {
     say("### Show on press", "", "Pressing the part shows one state of its group and hides the others. The export shows each group's first state; the pressed states are on the board as parts of their own.", "");
+    if (running.length) {
+      say("The presses the site runs (`press-shows`, in `assets/features/`):", "", "| Part | Where | Shows | Group | Parts shown | In place of |", "|---|---|---|---|---|---|");
+      const list = (xs: string[]) => (xs.length ? `${xs.length}: ${[...xs].sort(cmp).slice(0, 8).map(code).join(", ")}${xs.length > 8 ? `, and ${xs.length - 8} more` : ""}` : "—");
+      for (const r of running) say(`| ${code(r.n.id)}${r.u.off ? " (off)" : ""} | ${where(r.n)} | ${partSays(r.n)} | ${code(r.group || "its own")} | ${list(r.shows)} | ${list(r.hides)} |`);
+      say("");
+    }
     if (presses.length) {
-      say("| Press | Part | Where | Group | Shows | Hides |", "|---|---|---|---|---|---|");
+      say("As the capture recorded them:", "", "| Press | Part | Where | Group | Shows | Hides |", "|---|---|---|---|---|---|");
       for (const s of presses) say(`| ${cell(s.name, 40)} | ${code(s.part)} | ${partWhere(s.part)} | ${code(s.group || "—")} | ${s.shows} | ${s.hides} |`);
     }
     const groups = countOf(stateParts, (n) => `${n.state!.group}\u0000${n.state!.option ?? 0}`);
     if (groups.length) {
       say("", "Parts belonging to each state:", "", "| Group | State | Parts |", "|---|---|---|");
       for (const [k, n] of [...groups].sort((a, b) => cmp(a[0], b[0]))) { const [g, o] = k.split("\u0000"); say(`| ${code(g!)} | ${o} | ${n} |`); }
+    }
+    say("");
+  }
+  /*
+   * FLIPBOOKS: a canvas that drew frames, carried as one animated svg (sink's
+   * converter labels the part `canvas-frames`). Shown by a press it plays from
+   * the press (`press-shows` asks for it again); otherwise it plays as the page opens.
+   */
+  const shownBy = new Map<string, string[]>();
+  for (const r of running) for (const id of r.shows) shownBy.set(id, [...(shownBy.get(id) ?? []), r.n.id]);
+  const shownIn = (n: Part): string[] => {
+    const direct = shownBy.get(n.id);
+    if (direct) return direct;
+    /* A picture laid over a shown part: shown with it, when the shown part holds its box and its state. */
+    const out: string[] = [];
+    for (const [id, by] of shownBy) {
+      const h = nodeOf.get(id);
+      if (!h || h.pageId !== n.pageId || !n.state || h.state?.group !== n.state.group || h.state?.option !== n.state.option) continue;
+      if ((n.x ?? 0) >= (h.x ?? 0) && (n.y ?? 0) >= (h.y ?? 0) && (n.x ?? 0) + (n.w ?? 0) <= (h.x ?? 0) + (h.w ?? 0) && (n.y ?? 0) + (n.h ?? 0) <= (h.y ?? 0) + (h.h ?? 0)) out.push(...by);
+    }
+    return [...new Set(out)].sort(cmp);
+  };
+  const flipbooks = nodes.filter((n) => /^canvas-frames\b/.test(n.label ?? "") && /svg/i.test(`${n.picture?.type ?? ""} ${n.picture?.path ?? ""}`));
+  if (flipbooks.length) {
+    say("### Flipbooks", "", "A canvas that drew frames, carried as one animated svg picture that plays once and holds. One a press shows plays from that press.", "", "| Part | Where | Picture | Played by |", "|---|---|---|---|");
+    for (const n of flipbooks) {
+      const by = [...new Set(shownIn(n))].sort(cmp);
+      say(`| ${code(n.id)} | ${where(n)} | ${n.picture?.path ? code(cell(n.picture.path, 100)) : "—"} | ${by.length ? `the press on ${by.slice(0, 6).map(code).join(", ")}${by.length > 6 ? `, and ${by.length - 6} more` : ""}` : "the page opening"} |`);
     }
     say("");
   }

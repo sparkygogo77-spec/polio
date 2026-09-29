@@ -106,6 +106,9 @@ const nodes = [
   { id: "n_screen", pageId: "page_home", featureId: "picture", content: "", x: 60, y: 320, w: 192, h: 144, from: from("body > main > section > canvas") },
   { id: "n_signin", pageId: "page_home", featureId: "cta-primary", content: "sign in", x: 1300, y: 10, w: 100, h: 40, from: from("body > header > button") },
   { id: "n_panel", pageId: "page_home", featureId: "box", content: "", x: 900, y: 60, w: 400, h: 300, state: { group: "page_home:g0", option: 1 }, from: from("body > dialog") },
+  { id: "n_frames", pageId: "page_home", featureId: "picture", label: "canvas-frames", content: "", x: 920, y: 80, w: 192, h: 144, state: { group: "page_home:g0", option: 1 }, picture: { id: "pic_f", path: "assets/pictures/pic_f.svg", type: "image/svg+xml" }, from: from("body > dialog > canvas") },
+  { id: "n_idle_frames", pageId: "page_shop", featureId: "picture", label: "canvas-frames", content: "", x: 0, y: 400, w: 64, h: 64, picture: { id: "pic_g", path: "assets/pictures/pic_g.svg", type: "image/svg+xml" } },
+  { id: "n_icon", pageId: "page_shop", featureId: "picture", label: "svg-1234", content: "", x: 0, y: 500, w: 16, h: 16, picture: { id: "pic_i", path: "assets/pictures/pic_i.svg", type: "image/svg+xml" } },
   { id: "n_hero", pageId: "page_home", featureId: "box", content: "", x: 0, y: 60, w: 1440, h: 200, state: { group: "page_home:g0", option: 0 }, from: from("body > main > header") },
   { id: "n_shop_link", pageId: "page_home", featureId: "cta-primary", content: "the shop", x: 40, y: 600, w: 120, h: 40, link: { kind: "page", target: "page_shop" }, from: from("body > main > nav > a") },
   { id: "n_burn", pageId: "page_shop", featureId: "cta-primary", content: [{ text: "burn " }, { text: "it" }], x: 40, y: 40, w: 120, h: 40, radii: [0, 0, 8, 8] },
@@ -163,6 +166,8 @@ check("…its main parts, by id, with the selector each is at and where it was c
 const behaviour = sectionOf(md, 3);
 for (const b of took.look.capture.behaviours) check(`Captured behaviour: ${b.kind} on ${b.part}`, new RegExp(`\\| ${b.kind} \\| \`${b.part}\` \\|`).test(behaviour));
 check("…the flipbook canvas, as a canvas on its part", /\| canvas \| `n_screen` \| `index\.html` `#n_screen` \| flipbook/.test(behaviour));
+check("…Show on press from the site's own feature: the press part, what it shows and in place of what", /\| `n_signin` \| `index\.html` `#n_signin` \| sign in \| `page_home:g0` \| 1: `n_panel` \| 1: `n_hero` \|/.test(behaviour));
+check("…a flipbook a press shows, played by that press; one on its own, by the page opening; an svg icon is no flipbook", /\| `n_frames` \| `index\.html` `#n_frames` \| `assets\/pictures\/pic_f\.svg` \| the press on `n_signin` \|/.test(behaviour) && /\| `n_idle_frames` \| `shop\/index\.html` `#n_idle_frames` \| `assets\/pictures\/pic_g\.svg` \| the page opening \|/.test(behaviour) && !sectionOf(md, 3).slice(behaviour.indexOf("### Flipbooks")).includes("n_icon"));
 check("…Show on press: the press, its part, its group, what it shows and hides", /\| sign in \| `n_signin` \| `index\.html` `#n_signin` \| `page_home:g0` \| 1 \| 1 \|/.test(behaviour) && behaviour.includes("| `page_home:g0` | 1 | 1 |"));
 const attached = took.nodes.flatMap((n) => usesOf(n.work).map((u) => [u.id, n.id]));
 check("…every feature attached, on its part", attached.length > 0 && attached.every(([w, id]) => behaviour.includes(`| \`${w}\` | \`${id}\` |`)), JSON.stringify(attached));
@@ -198,7 +203,7 @@ const readDoc = (site) => {
   } catch { return null; }
 };
 let real = 0;
-for (const site of ["trumpmorty-fun", "stonkfun-xyz"]) {
+for (const site of ["trumpmorty-fun", "stonkfun-xyz", "gotchi-gg"]) {
   const d = readDoc(site);
   if (!d?.behaviours) { console.log(`  --   ${site}: no captured document with behaviours at ${SINK}${REF ? ` ${REF}` : ""}; skipped`); continue; }
   real++;
@@ -211,14 +216,19 @@ for (const site of ["trumpmorty-fun", "stonkfun-xyz"]) {
   const bm = sectionOf(out, 3);
   const recs = [];
   for (const [k, v] of Object.entries(d.behaviours)) {
-    if (k === "motion") for (const [mk, mv] of Object.entries(v ?? {})) for (const r of Array.isArray(mv) ? mv : []) recs.push([mk === "canvases" ? "canvas" : mk, r.part ?? r.host]);
-    else if (Array.isArray(v)) for (const r of v) recs.push([k, r.part]);
+    if (k === "motion") for (const [mk, mv] of Object.entries(v ?? {})) for (const r of Array.isArray(mv) ? mv : []) recs.push([mk === "canvases" ? "canvas" : mk, r.part ?? r.host ?? "@none"]);
+    else if (Array.isArray(v)) for (const r of v) recs.push([k, r.part ?? r.host ?? "@none"]);
   }
   const missing = recs.filter(([k, part]) => (k === "states" ? !new RegExp(`\\| \`${part}\` \\|`).test(bm) : !bm.includes(`| ${k} | \`${part}\` |`)));
   check(`${site}: every captured behaviour (${recs.length}) is in the file, on its part`, recs.length > 0 && missing.length === 0, missing.slice(0, 5).map((m) => m.join(":")).join(", "));
   const uses = t.nodes.flatMap((n) => usesOf(n.work).map((u) => [u.id, n.id]));
   const lost = uses.filter(([w, id]) => !bm.includes(`| \`${w}\` | \`${id}\` |`) && !bm.includes(`| \`${w}\` (off) | \`${id}\` |`));
   check(`${site}: every feature attached (${uses.length}) is in the file`, lost.length === 0, lost.slice(0, 5).join(" "));
+  const runs = t.nodes.filter((n) => usesOf(n.work).some((u) => u.id === "press-shows"));
+  const flips = t.nodes.filter((n) => n.label === "canvas-frames" && n.picture?.type === "image/svg+xml");
+  const flipMd = bm.slice(bm.indexOf("### Flipbooks"));
+  const unlisted = [...runs.filter((n) => !new RegExp(`\\| \`${n.id}\`(?: \\(off\\))? \\| [^|]+ \\| [^|]* \\| \`[^\`]*\` \\| \\d+: `).test(bm)), ...flips.filter((n) => !flipMd.includes(`| \`${n.id}\` |`))];
+  check(`${site}: every Show on press (${runs.length}) and flipbook (${flips.length}) the site runs is listed`, unlisted.length === 0, unlisted.slice(0, 5).map((n) => n.id).join(", "));
   check(`${site}: the same document writes the same bytes`, out === polioMd({ ...t, brief: d.brief, format: d.format, nodes: [...t.nodes].reverse() }));
   check(`${site}: nothing secret, no bytes and no script`, leaks(out, d.pages).length === 0, leaks(out, d.pages).join(", "));
 }
