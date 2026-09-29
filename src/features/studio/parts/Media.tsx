@@ -8,6 +8,7 @@ import { Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { cardStyle, items, standIn, withAlpha } from "./theme";
 import { num, opt, type PartProps } from "./types";
+import { isWorld, WorldLayer } from "./World";
 
 /**
  * The stand-in every picture-shaped hole wears until it has a picture.
@@ -44,7 +45,7 @@ const swatch = (t: { accent: string; muted: string }, i: number) => {
  * dashed `Unknown` card, which paints the flat surface colour and drops
  * `surfacePaint` on the floor: a part carrying a picture, showing none.
  */
-export function Picture({ id, label, theme: t, picture, media, mode }: PartProps) {
+export function Picture({ id, label, theme: t, picture, media, world, mode, w, h }: PartProps) {
   /*
    * A captured video plays as the page's did: live (Preview and the
    * published page) a <video> of its source with its picture as the
@@ -78,6 +79,20 @@ export function Picture({ id, label, theme: t, picture, media, mode }: PartProps
    * stand-in crop with the file's name on a plate, and his logo was missing
    * from the top of his own page.
    */
+  /*
+   * A captured canvas world: its flipbook, and over it, live, a press area
+   * that follows each character and the dialog it opens (`parts/World.tsx`,
+   * the `world-dialogs` feature, `tests/world-dialogs.mjs`). The board keeps
+   * the picture alone.
+   */
+  if (picture?.pic && picture.src && mode === "live" && isWorld(world)) {
+    return (
+      <Fill t={t} data-part={id} data-part-picture="" data-part-worldhost="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius, position: "relative" }}>
+        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
+        <WorldLayer world={world} part={`${id}-${hash(JSON.stringify(world.chars))}`} w={picture.pic.w ?? w} h={picture.pic.h ?? h} />
+      </Fill>
+    );
+  }
   if (picture?.pic) {
     return (
       <Fill t={t} data-part={id} data-part-picture="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius }}>

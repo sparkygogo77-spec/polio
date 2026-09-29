@@ -25,6 +25,7 @@
  *   - a wordmark with nothing typed for it is `t.siteName`, never "Logo"
  *   - the root element carries `data-part={id}`
  */
+import type { NodeWorld } from "./World";
 import type { Span } from "./spans";
 import type * as React from "react";
 import type { Theme } from "./theme";
@@ -163,6 +164,8 @@ export interface PartProps {
   picture?: { pic: Picture; src?: string } | null;
   /** A captured video (sink `node.media`): where it plays from and how. Drawn live as a <video> over its picture (`tests/video-part.mjs`). */
   media?: NodeMedia | null;
+  /** A captured canvas world (sink `node.world`): its characters' press areas frame by frame, and the dialogs they open. Drawn live over the picture (`parts/World.tsx`, `tests/world-dialogs.mjs`). */
+  world?: NodeWorld | null;
   /**
    * Which piece of the part is picked, when the board is pointing at one
    * piece rather than the whole: a cube's face. `colour` is the board's

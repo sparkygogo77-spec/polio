@@ -883,7 +883,117 @@ const PRESS_SHOWS: Work = {
 `,
 };
 
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS];
+/*
+ * A CANVAS WORLD'S DIALOGS (parts/World.tsx, sink worlds.mjs). The part draws
+ * a press area over each character and the dialogs they open, closed; this
+ * opens one on a press and closes it by its close control, Escape (the
+ * browser's own, for a modal dialog) or a press outside it. Inside, each
+ * control does what sink saw it do on the page (`data-world-does`): goes
+ * where it went when that is a page of the site (never off it), copies what
+ * it copied, or changes the dialog as it
+ * did (a preset filling the amount, a tab, a side switch). One that needed a
+ * wallet or a server (`data-world-does="hook"`, what was seen in
+ * `data-world-hook`) does nothing until a backend wires it by its
+ * `data-world-control`; a form in a dialog is never sent. Links are links. The flipbook's clock and
+ * the areas' walk are started together, so each area stays on its character.
+ */
+const WORLD_DIALOGS: Work = {
+  manifest: {
+    id: "world-dialogs",
+    name: "Characters open their dialogs",
+    category: "interact",
+    blurb: "A press on a character walking in a captured canvas world opens its dialog, as the page did; Escape, the close button or a press outside closes it. Inside, each control does what it did on the page (a link within the site, a copy, a toggle or preset); one that needed a wallet or a server, or went off the site, waits for a backend.",
+    inputs: [],
+    needs: "none",
+    says: ["press a character", "click a pet", "character dialog", "open its dialog", "clickable characters"],
+    look: { sample: "🐾 → ▣", caption: "press · dialog" },
+    version: 1,
+  },
+  script: `siteFeatures.define("world-dialogs", function (el) {
+  var layer = el.querySelector("[data-part-world]");
+  if (!layer || layer.getAttribute("data-world-on")) return;
+  layer.setAttribute("data-world-on", "");
+  var hits = function () { return Array.prototype.slice.call(layer.querySelectorAll("[data-world-hit]")); };
+  /* Both clocks from the same moment: the flipbook asked for again (an svg's animation starts when it loads), and the areas' walk from nought as it arrives. */
+  var sync = function () { hits().forEach(function (h) { try { (h.getAnimations ? h.getAnimations() : []).forEach(function (a) { a.currentTime = 0; }); } catch (e) { /* the walk goes on as it is */ } }); };
+  var img = el.querySelector("img");
+  if (img) {
+    var src = img.getAttribute("src") || "";
+    if (/[.]svg([#?]|$)/i.test(src) || src.indexOf("data:image/svg") === 0) {
+      img.addEventListener("load", sync, { once: true });
+      img.setAttribute("src", src.split("#")[0] + "#w" + Date.now());
+    }
+  }
+  sync();
+  var dialogOf = function (k) { return layer.querySelector('dialog[data-world-dialog="' + k + '"]'); };
+  layer.addEventListener("click", function (e) {
+    var t = e.target;
+    var hit = t && t.closest ? t.closest("[data-world-open]") : null;
+    if (hit && layer.contains(hit)) {
+      e.preventDefault();
+      var d = dialogOf(hit.getAttribute("data-world-open"));
+      if (d && !d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
+      return;
+    }
+    var d2 = t && t.closest ? t.closest("dialog[data-world-dialog]") : null;
+    if (!d2) return;
+    var close = function () { if (d2.close) d2.close(); else d2.removeAttribute("open"); };
+    if (t.closest("[data-world-close]")) { e.preventDefault(); close(); return; }
+    /* What the control did on the page, done again; a hook (a wallet, a server) waits for a backend and does nothing. */
+    var c = t.closest("[data-world-does]");
+    if (c && d2.contains(c)) {
+      var does = c.getAttribute("data-world-does");
+      if (does === "native") return;
+      e.preventDefault();
+      if (does === "close") { close(); return; }
+      if (does === "link") {
+        var href = c.getAttribute("data-world-href");
+        /* Only a place on this site: an address anywhere else is never followed from a copy. */
+        if (href && !/^([a-z][a-z0-9+.-]*:|\\/\\/)/i.test(href)) { if (c.getAttribute("data-world-target") === "_blank") window.open(href, "_blank", "noopener"); else window.location.href = href; }
+        return;
+      }
+      if (does === "copy") { copy(c.getAttribute("data-world-copy") || ""); return; }
+      if (does === "ui") { replay(d2, c.getAttribute("data-world-change")); return; }
+      return;
+    }
+    /* A press on the dialog itself and not on anything in it: outside its box is the backdrop. */
+    if (t === d2) {
+      var r = d2.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close();
+    }
+  });
+  /* A change a press made on the page: each element it touched, by its place, given its attributes, look, words and value after. */
+  function replay(d, json) {
+    var list = []; try { list = JSON.parse(json || "[]"); } catch (x) { list = []; }
+    list.forEach(function (ch) {
+      var el = d.querySelector('[data-world-el="' + ch.e + '"]');
+      if (!el) return;
+      if (ch.a) Object.keys(ch.a).forEach(function (k) { if (/^on/i.test(k)) return; if (ch.a[k] === null) el.removeAttribute(k); else el.setAttribute(k, ch.a[k]); });
+      if (typeof ch.c === "string") el.setAttribute("class", ch.c);
+      if (typeof ch.t === "string" && !el.children.length) el.textContent = ch.t;
+      if (typeof ch.v === "string" && "value" in el) el.value = ch.v;
+      if (typeof ch.o === "boolean" && "open" in el) el.open = ch.o;
+      if (typeof ch.k === "boolean" && "checked" in el) el.checked = ch.k;
+    });
+  }
+  function copy(text) {
+    var done = function () {
+      var t = document.createElement("div");
+      t.setAttribute("role", "status");
+      t.textContent = "Copied";
+      t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483000;padding:8px 14px;border-radius:999px;background:rgba(18,18,20,.92);color:#fff;font:14px/1.3 system-ui,sans-serif;pointer-events:none";
+      (document.querySelector("dialog[open]") || document.body).appendChild(t);
+      setTimeout(function () { t.remove(); }, 1600);
+    };
+    try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (x) { /* no clipboard here */ }
+  }
+  /* A form in a dialog is the page's, and is never sent from here. */
+  layer.addEventListener("submit", function (e) { if (e.target && e.target.closest && e.target.closest("dialog[data-world-dialog]")) e.preventDefault(); }, true);
+});
+`,
+};
+
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS, WORLD_DIALOGS];
 
 /** The ones that move on their own, with nobody touching anything: the only ones the board plays (live/runWorks.ts). */
 export const AMBIENT = ["spin", "float", "dust-canvas"] as const;

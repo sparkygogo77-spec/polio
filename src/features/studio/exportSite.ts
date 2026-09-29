@@ -410,6 +410,12 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
   tpl.innerHTML = html;
   const root = tpl.content;
   const partLinks = linksOf(root, page, pages, home, nodes);
+  /* A canvas world's way to another page of the site (a character, a dialog's link or button): to that page's file, as every page link is. */
+  for (const el of Array.from(root.querySelectorAll("[data-part-world] a[href^='/'], [data-part-world] [data-world-href^='/']"))) {
+    const at = el.hasAttribute("data-world-href") ? "data-world-href" : "href";
+    const to = resolvePageLink(pages, (el.getAttribute(at) ?? "").split(/[?#]/)[0]!);
+    if (to) el.setAttribute(at, cleanHref(page, to, home));
+  }
   stretchLinks(partLinks, nodes);
   pressThrough(root, nodes);
   if (fluidAt) fluid(root, page.id, nodes, fluidAt);
@@ -420,7 +426,15 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
   for (const el of Array.from(root.querySelectorAll("*"))) {
     const node = el.getAttribute("data-live-node");
     const isPage = el.hasAttribute("data-live-page");
+    /*
+     * A canvas world's press areas and dialogs (parts/World.tsx) are the site's, not the Builder's marks: the
+     * feature finds them by their `data-world-*`, and a dialog keeps every attribute the page gave its controls
+     * (`data-buysol`, `data-world-control`) for a backend to wire, and its titles (tests/world-dialogs.mjs).
+     */
+    const world = el.closest("[data-part-world]");
+    const dialog = world ? el.closest("[data-world-dialogs]") : null;
     for (const a of Array.from(el.attributes)) {
+      if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world"))) continue;
       /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */
       if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }

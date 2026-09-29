@@ -221,6 +221,12 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? ""), ...(st.opening === true ? { opening: "yes" } : {}) } });
   }
 
+  /* ---------------------------------------------------------------- a canvas world's characters (sink `behaviours.worlds`, the part's `world`) */
+  for (const w of Array.isArray(b.worlds) ? (b.worlds as Rec[]) : []) {
+    const n = typeof w.part === "string" ? byId.get(w.part) : undefined;
+    if (n && (n as { world?: unknown }).world) give(n.id, { id: "world-dialogs", inputs: {} });
+  }
+
   /* ---------------------------------------------------------------- motion sampled (sink `behaviours.motion`) */
   const M = (b.motion ?? null) as Rec | null;
   if (M && typeof M === "object") {

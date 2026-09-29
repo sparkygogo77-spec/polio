@@ -20,6 +20,7 @@ import { usesOf } from "./library/works";
 import { usePicture, type Picture } from "./pictures";
 import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
 import type { NodeMedia } from "./parts/types";
+import type { NodeWorld } from "./parts/World";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -259,6 +260,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       /* A box inside a box of its own: the outer one paints the picture, padding and all. */
       picture={boxed && node.featureId === "box" ? null : picture}
       media={media}
+      world={(node as { world?: NodeWorld | null }).world ?? null}
       pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}

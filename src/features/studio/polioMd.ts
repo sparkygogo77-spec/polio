@@ -188,6 +188,8 @@ interface Part {
   font?: { face?: string; family?: string; size?: number; px?: number; weight?: number } | null;
   inert?: boolean;
   picture?: { path?: string; type?: string } | null;
+  /** A captured canvas world (parts/World.tsx): its characters and the dialogs they open. */
+  world?: { chars?: { key?: string; name?: string; dialog?: number; href?: string }[]; dialogs?: { html?: string }[] } | null;
 }
 export interface PolioSite {
   brief?: { name?: string; description?: string } | null;
@@ -405,6 +407,41 @@ export function polioMd(site: PolioSite): string {
     for (const n of flipbooks) {
       const by = [...new Set(shownIn(n))].sort(cmp);
       say(`| ${code(n.id)} | ${where(n)} | ${n.picture?.path ? code(cell(n.picture.path, 100)) : "—"} | ${by.length ? `the press on ${by.slice(0, 6).map(code).join(", ")}${by.length > 6 ? `, and ${by.length - 6} more` : ""}` : "the page opening"} |`);
+    }
+    say("");
+  }
+  /*
+   * CHARACTERS IN A CANVAS WORLD: each opens the dialog the page opened for
+   * it. Its buttons and fields are there with their words and attributes and
+   * do nothing yet; this is the list of them a backend wires, by the name
+   * each carries in `data-world-control`, with the page's own attributes.
+   */
+  const worlds = nodes.filter((n) => n.world && Array.isArray(n.world.chars) && n.world.chars.length);
+  if (worlds.length) {
+    say("### Characters in canvas worlds", "", "A canvas the page walked characters on. Each character has a press area that follows it through the flipbook's frames and opens the dialog the page opened for it (feature `world-dialogs`): close by its close button, Escape or a press outside. Every button and field in a dialog is kept as it was, with its words and the page's own attributes: find it by `data-world-control` inside `dialog[data-world-dialog]` (the character is `data-world-key`). Only a place on the site is a link; an address off it (an exchange, an explorer, a share intent) is an inert control with the address in `data-world-offsite`.", "", "| Part | Where | Characters | Dialogs |", "|---|---|---|---|");
+    for (const n of worlds) {
+      const cs = n.world!.chars!;
+      const on = cs.filter((c) => c.href).length, off = cs.filter((c) => (c as { offsite?: string }).offsite).length;
+      say(`| ${code(n.id)} | ${where(n)} | ${cs.length}${on ? `, ${on} going to a page of the site` : ""}${off ? `, ${off} going off it (inert)` : ""} | ${n.world!.dialogs?.length ?? 0} |`);
+    }
+    const controls = new Map<string, { tag: string; attrs: Set<string>; n: number; does: string }>();
+    for (const n of worlds) for (const d of n.world!.dialogs ?? []) {
+      for (const m of String(d.html ?? "").matchAll(/<([a-z]+)\b([^>]*\bdata-world-control="([^"]+)"[^>]*)>/g)) {
+        const name = m[3]!;
+        /* What pressing it did on the page (sink): replayed, or what a backend has to do. */
+        const get = (k: string) => (new RegExp(`\\s${k}="([^"]*)"`).exec(m[2]!) ?? [])[1]?.replace(/&quot;/g, '"').replace(/&amp;/g, "&") ?? "";
+        const does = get("data-world-does"), hook = get("data-world-hook"), off = get("data-world-offsite");
+        const said = does === "hook" ? `hook: ${hook}${off ? ` (${(() => { try { return new URL(off).host; } catch { return off; } })()})` : ""}` : does === "link" ? `link to ${get("data-world-href")}` : does || (m[1] === "a" && /\shref="\//.test(m[2]!) ? "link within the site" : "");
+        const c = controls.get(name) ?? { tag: m[1]!, attrs: new Set<string>(), n: 0, does: said };
+        c.n++;
+        for (const a of m[2]!.matchAll(/\s(data-(?!world-)[a-z0-9-]+)/g)) c.attrs.add(a[1]!);
+        controls.set(name, c);
+      }
+    }
+    if (controls.size) {
+      say("", "Controls in the dialogs. What pressing each did on the page is done again (`data-world-does`: `link` within the site, `copy`, `ui`, `close`, `native`); a `hook` needs a wallet or a server, or went off the site, and is what a backend wires, by `data-world-control`, where `data-world-hook` and `data-world-offsite` say what was seen:", "", "| `data-world-control` | Element | Does | The page's own attributes | In dialogs |", "|---|---|---|---|---|");
+      for (const [name, c] of [...controls].sort((a, b) => b[1].n - a[1].n || cmp(a[0], b[0])).slice(0, 60)) say(`| ${code(name)} | ${c.tag} | ${cell(c.does, 120) || "—"} | ${[...c.attrs].sort(cmp).map(code).join(", ") || "—"} | ${c.n} |`);
+      if (controls.size > 60) say(`| … | | | | ${controls.size - 60} more |`);
     }
     say("");
   }
