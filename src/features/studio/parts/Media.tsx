@@ -44,7 +44,32 @@ const swatch = (t: { accent: string; muted: string }, i: number) => {
  * dashed `Unknown` card, which paints the flat surface colour and drops
  * `surfacePaint` on the floor: a part carrying a picture, showing none.
  */
-export function Picture({ id, label, theme: t, picture, mode }: PartProps) {
+export function Picture({ id, label, theme: t, picture, media, mode }: PartProps) {
+  /*
+   * A captured video plays as the page's did: live (Preview and the
+   * published page) a <video> of its source with its picture as the
+   * poster, controls and autoplay as recorded; one that autoplayed plays
+   * muted, looped and inline, as browsers allow autoplay. The board keeps
+   * the picture. `tests/video-part.mjs`.
+   */
+  if (media?.kind === "video" && media.src && mode === "live") {
+    const auto = !!media.autoplay;
+    return (
+      <Fill t={t} data-part={id} data-part-video="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius }}>
+        <video
+          src={media.src}
+          poster={picture?.src ?? media.poster}
+          controls={!!media.controls}
+          autoPlay={auto}
+          loop={!!media.loop}
+          muted={auto || !!media.muted}
+          playsInline={auto || !!media.playsinline}
+          preload={auto ? "auto" : "none"}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      </Fill>
+    );
+  }
   /*
    * A picture the node holds as a file (`node.picture`, the way the split
    * hero and the product page hold theirs) is drawn through `PictureSlot`,

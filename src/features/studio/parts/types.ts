@@ -161,6 +161,8 @@ export interface PartProps {
    * longer has the bytes, and the part says so (`PictureSlot`).
    */
   picture?: { pic: Picture; src?: string } | null;
+  /** A captured video (sink `node.media`): where it plays from and how. Drawn live as a <video> over its picture (`tests/video-part.mjs`). */
+  media?: NodeMedia | null;
   /**
    * Which piece of the part is picked, when the board is pointing at one
    * piece rather than the whole: a cube's face. `colour` is the board's
@@ -237,4 +239,16 @@ export function set(options: Record<string, string>, id: string, def: string[]):
   const v = options[id];
   if (v === undefined) return def;
   return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+/** A captured video: its source, poster and how the page played it (sink `node.media`). */
+export interface NodeMedia {
+  kind: "video";
+  src?: string;
+  poster?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  controls?: boolean;
+  playsinline?: boolean;
 }

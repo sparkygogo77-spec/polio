@@ -73,6 +73,10 @@ export interface Span {
   transform?: string;
   /** The letter's own animation (`parts/capturedMotion.ts`), replayed live. */
   motion?: { animation?: MotionAnimation[] } | null;
+  /** A chip in the sentence (parasiteonsol.fun's dark "HOST" tag): its fill, padding (top right bottom left, px) and rounding. Only a capture writes these. */
+  bg?: string;
+  pad?: number[];
+  radius?: number;
 }
 
 /** Are these a captured title's letters, each moving on its own (a transform or an animation per run)? */
@@ -163,6 +167,7 @@ export function alike(a: Span, b: Span): boolean {
     && a.weight === b.weight
     && !!a.italic === !!b.italic
     && a.face === b.face
+    && a.bg === b.bg
     && linkAlike(a.link, b.link);
 }
 
