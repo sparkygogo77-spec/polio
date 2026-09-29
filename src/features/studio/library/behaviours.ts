@@ -948,11 +948,20 @@ const WORLD_DIALOGS: Work = {
       if (does === "close") { close(); return; }
       if (does === "link") {
         var href = c.getAttribute("data-world-href");
-        /* Only a place on this site: an address anywhere else is never followed from a copy. */
-        if (href && !/^([a-z][a-z0-9+.-]*:|\\/\\/)/i.test(href)) { if (c.getAttribute("data-world-target") === "_blank") window.open(href, "_blank", "noopener"); else window.location.href = href; }
+        /* A place on this site, or an address the site's allow-list lets through (marked when the part was drawn). */
+        if (href && (c.hasAttribute("data-world-allowed") || !/^([a-z][a-z0-9+.-]*:|\\/\\/)/i.test(href))) { if (c.getAttribute("data-world-target") === "_blank") window.open(href, "_blank", "noopener"); else window.location.href = href; }
         return;
       }
-      if (does === "copy") { copy(c.getAttribute("data-world-copy") || ""); return; }
+      /* The site's own address, copied as this site's (where it is published), not the one it was captured at. */
+      if (does === "copy") { var own = c.getAttribute("data-world-copy-path"); copy(own ? new URL(own, window.location.href).href : c.getAttribute("data-world-copy") || ""); return; }
+      /* Share of the site's own page (allowed by \`share:own\`): the machine's share sheet, else the link copied. */
+      if (does === "share") {
+        var sh = {}; try { sh = JSON.parse(c.getAttribute("data-world-share") || "{}"); } catch (x) { sh = {}; }
+        var url = sh.url && !/^([a-z][a-z0-9+.-]*:|\\/\\/)/i.test(sh.url) ? new URL(sh.url, window.location.href).href : window.location.href;
+        var data = { title: sh.title || document.title, text: sh.text || "", url: url };
+        if (navigator.share) navigator.share(data).catch(function () {}); else copy(url);
+        return;
+      }
       if (does === "ui") { replay(d2, c.getAttribute("data-world-change")); return; }
       return;
     }

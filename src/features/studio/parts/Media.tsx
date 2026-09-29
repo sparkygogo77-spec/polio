@@ -89,7 +89,7 @@ export function Picture({ id, label, theme: t, picture, media, world, mode, w, h
     return (
       <Fill t={t} data-part={id} data-part-picture="" data-part-worldhost="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius, position: "relative" }}>
         <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
-        <WorldLayer world={world} part={`${id}-${hash(JSON.stringify(world.chars))}`} w={picture.pic.w ?? w} h={picture.pic.h ?? h} />
+        <WorldLayer world={world} part={`${id}-${hash(JSON.stringify(world.chars))}`} w={picture.pic.w ?? w} h={picture.pic.h ?? h} offsite={t.offsite} />
       </Fill>
     );
   }

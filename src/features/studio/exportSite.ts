@@ -73,6 +73,7 @@ import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
 import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
 import { featureFiles, pageFeatureTags } from "./library/works";
 
 export type ExportFile = SiteFile | SiteBinary;
@@ -125,11 +126,14 @@ function toRoles(style: string, roles: [string, RoleId][]): string {
 const upOf = (page: StudioPage, home: Home) => "../".repeat(pageFile(page, home).split("/").length - 1);
 
 /** Where a link goes from one exported page, as an href, or null when it names nothing that is exported. */
+/* The site's allow-list for links off it, read as each export starts. */
+let offsite: OffsiteRules = offsiteRules(DEFAULT_OFFSITE);
 function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: StudioPage[], home: Home): string | null {
   const target = link?.target?.trim();
   if (!link || !target) return null;
   /* A script is not somewhere to go: left a link that goes nowhere, and counted missing by the check. */
-  if (link.kind === "url") return /^\s*javascript:/i.test(target) ? null : target;
+  /* An address off the site only as the site's allow-list says (`parts/offsite.ts`); a page of the site always. */
+  if (link.kind === "url") return /^\s*javascript:/i.test(target) || !linkAllowed(target, offsite) ? null : target;
   if (link.kind === "node") return `#${target}`;
   const to = resolvePageLink(pages, target);
   return to ? cleanHref(from, to, home) : null;
@@ -280,6 +284,8 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
   for (const part of Array.from(root.querySelectorAll("[data-live-node]"))) {
     const node = nodes.get(part.getAttribute("data-live-node") ?? "");
     const href = hrefOf(node?.link, from, pages, home);
+    /* One the allow-list keeps out is no link: the part stays as drawn, and says where it went for a backend. */
+    if (node?.link?.kind === "url" && !href && node.link.target && isOffsite(node.link.target)) part.setAttribute("data-offsite", node.link.target.trim());
     if (!node?.link || !href) continue;
     const own = (el: Element) => el.closest("[data-live-node]") === part && !el.closest("a");
     /* The page this one is: its own entry in a menu is the current page's.
@@ -434,7 +440,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
     const world = el.closest("[data-part-world]");
     const dialog = world ? el.closest("[data-world-dialogs]") : null;
     for (const a of Array.from(el.attributes)) {
-      if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world"))) continue;
+      if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world")) || a.name === "data-offsite") continue;
       /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */
       if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }
@@ -764,6 +770,7 @@ export function publishedAt(): string | null {
  */
 export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
+  offsite = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   if (!s.pages.length) return [];
   const home = homeFor(s.pages);
   const width = s.frameWidth || 1440;

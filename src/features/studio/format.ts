@@ -6,6 +6,7 @@
  * generically and the compiler writes every non-default value into the brief.
  * Adding an option here is a one-line change that shows up in both.
  */
+import { DEFAULT_OFFSITE } from "./parts/offsite.ts";
 import type { LucideIcon } from "lucide-react";
 import { Blend, Boxes, Compass, Layers, MousePointerClick, Sparkles, Type, Wrench } from "lucide-react";
 
@@ -78,6 +79,8 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("pages.breadcrumbs", "pages", "Breadcrumbs", false, { advanced: true }),
   bool("pages.search", "pages", "Site search", false),
   sel("pages.notFound", "pages", "404 page", ["helpful", "playful", "plain", "redirect home"], { advanced: true }),
+  /* The owner's allow-list for links off the site (`parts/offsite.ts`): a page of the site is always a link; anywhere else only as this says. */
+  { ...txt("links.offsite", "pages", "Links off the site", { advanced: true, live: true, placeholder: DEFAULT_OFFSITE, hint: "Comma-separated, first match decides: a host allows it (pump.fun), ! denies (!x.com), * is one path segment (!dexscreener.com/*/* keeps token pages out), share:own lets Share run for the site's own page. Anything not named stays a control that does nothing and says where it went." }), default: DEFAULT_OFFSITE },
 
   /* scroll */
   sel("scroll.mode", "scroll", "Scroll behaviour", ["normal", "snap to sections", "smooth / inertial", "horizontal", "scroll-driven story", "paged"]),

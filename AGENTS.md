@@ -746,13 +746,20 @@ the part the way the picture covers it (so it stays on the pet at any width),
 and the dialogs, closed. The `world-dialogs` feature opens one, closes it by
 its close button, Escape or a press outside, and replays each control's
 `data-world-does`: `link` (only to a path on the site), `copy`, `ui` (the
-elements a press changed, by `data-world-el`), `close`, `native`. The owner's
-two rules hold it: **only true backend actions stay hooks** — a wallet
-prompt, a write to a server, a form stay `hook` with what was seen in
-`data-world-hook`, found by `data-world-control` — and **no link leaves the
-site**: an exchange, an explorer or a share intent is an inert control with
-the address in `data-world-offsite` (`cleanDialog` strips any absolute href
-a document still carries). The export keeps every `data-world-*` and the
+elements a press changed, by `data-world-el`), `close`, `native`, `share`.
+The owner's rules hold it: **only true backend actions stay hooks** — a
+wallet prompt, a write to a server, a form stay `hook` with what was seen in
+`data-world-hook`, found by `data-world-control` — and **a link leaves the
+site only where the site's allow-list says** (`parts/offsite.ts`, the
+advanced format field `links.offsite`, first match decides; the defaults:
+pump.fun kept, dexscreener kept but never a token's page (`/*/*`), X and
+Twitter out, `share:own` lets a Share of the site's own page run, anything
+unnamed out). sink leaves every off-site control inert with its address in
+`data-world-offsite`; `cleanDialog` gives back the ones the list allows and
+keeps the rest inert, and the export applies the same list to the page's
+own off-site links (a refused one keeps `data-offsite`). A page of the site
+is always a link; a copied own address is copied as this site's
+(`data-world-copy-path`). The export keeps every `data-world-*` and the
 dialogs' own attributes, and points site paths at their page files.
 `tests/world-dialogs.mjs` (sink `check-worlds.mjs` for the capture).
 

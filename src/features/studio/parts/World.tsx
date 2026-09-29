@@ -28,6 +28,7 @@
  * never share one. Nothing here reads the store: props only, as every part.
  */
 import * as React from "react";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./offsite";
 
 export interface NodeWorld {
   /** How long each frame stands, ms. */
@@ -63,7 +64,7 @@ export function isWorld(v: unknown): v is NodeWorld {
 }
 
 /** The page's markup made safe to put in ours: nothing in it runs. */
-export function cleanDialog(html: string): string {
+export function cleanDialog(html: string, rules: OffsiteRules = offsiteRules(DEFAULT_OFFSITE)): string {
   return String(html)
     .replace(/<(script|style|iframe|object|embed|template|noscript)\b[\s\S]*?<\/\1\s*>/gi, "")
     .replace(/<\/?(script|style|iframe|object|embed|template|noscript|link|meta|base)\b[^>]*>/gi, "")
@@ -72,13 +73,33 @@ export function cleanDialog(html: string): string {
       .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
       .replace(/\s(href|src|xlink:href)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]*)/gi, "")
       .replace(/\s(action|formaction)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ""))
-    /* A link off the site is no link in the copy (the owner's rule): an inert control saying where it went. */
-    .replace(/<a\b[^>]*>/gi, (tag) => {
-      const m = /\shref\s*=\s*"([^"]*)"/i.exec(tag);
-      if (!m || onSite(m[1]!.replace(/&amp;/g, "&"))) return tag;
-      let t = tag.replace(m[0], ` data-world-offsite="${m[1]}"`).replace(/\s(target|rel)\s*=\s*"[^"]*"/gi, "");
-      if (!/\sdata-world-does=/.test(t)) t = t.replace(/^<a\b/i, `<a data-world-does="hook" data-world-hook="goes off the site"`);
-      if (!/\srole=/.test(t)) t = t.replace(/^<a\b/i, `<a role="link"`);
+    /*
+     * A link off the site stays a link only where the site's allow-list says (`parts/offsite.ts`); otherwise it is
+     * an inert control saying where it went. sink leaves every off-site one inert with its address, so an allowed
+     * one is given back its address here, and a control that opened an allowed address opens it again.
+     */
+    .replace(/<([a-z][a-z0-9-]*)\b[^>]*>/gi, (tag, name: string) => {
+      const get = (a: string) => { const m = new RegExp(`\\s${a}\\s*=\\s*"([^"]*)"`, "i").exec(tag); return m ? m[1]!.replace(/&amp;/g, "&").replace(/&quot;/g, '"') : null; };
+      const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+      const drop = (t: string, ...names: string[]) => names.reduce((x, a) => x.replace(new RegExp(`\\s${a}\\s*=\\s*"[^"]*"`, "gi"), ""), t);
+      const put = (t: string, at: string) => t.replace(/^<([a-z][a-z0-9-]*)\b/i, `<$1 ${at}`);
+      const isA = name.toLowerCase() === "a";
+      const href = isA ? get("href") : null;
+      const off = get("data-world-offsite") ?? (href && isOffsite(href) ? href : null);
+      /* A Share the page ran for its own page (the share sheet): allowed by `share:own`. */
+      if (!off && get("data-world-does") === "hook" && get("data-world-share")) {
+        let url = ""; try { url = String(JSON.parse(get("data-world-share")!).url ?? ""); } catch { url = ""; }
+        return rules.shareOwn && url.startsWith("/") && !url.startsWith("//") ? drop(tag, "data-world-does").replace(/^<([a-z][a-z0-9-]*)\b/i, `<$1 data-world-does="share"`) : tag;
+      }
+      if (!off) return tag;
+      if (linkAllowed(off, rules)) {
+        if (isA) return put(drop(tag, "href", "target", "rel", "data-world-does", "data-world-hook", "data-world-offsite").replace(/\srole="link"/i, ""), `href="${esc(off)}" target="_blank" rel="noopener"`);
+        return put(drop(tag, "data-world-does", "data-world-href", "data-world-target", "data-world-allowed"), `data-world-does="link" data-world-href="${esc(off)}" data-world-target="_blank" data-world-allowed=""`);
+      }
+      let t = drop(tag, "href", "target", "rel", "data-world-offsite", "data-world-href", "data-world-allowed");
+      t = put(t, `data-world-offsite="${esc(off)}"`);
+      if (get("data-world-does") !== "hook") t = put(drop(t, "data-world-does", "data-world-hook"), `data-world-does="hook" data-world-hook="goes off the site"`);
+      if (isA && !get("role")) t = put(t, `role="link"`);
       return t;
     });
 }
@@ -98,8 +119,8 @@ function ownIds(html: string, p: string): string {
 const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /** The dialog as it is put in the page: a <dialog>, named for its press areas, its ids its own. */
-export function dialogMarkup(html: string, k: number, key: string, part: string): string {
-  let h = ownIds(cleanDialog(html).trim(), `${part}-w${k}-`);
+export function dialogMarkup(html: string, k: number, key: string, part: string, rules?: OffsiteRules): string {
+  let h = ownIds(cleanDialog(html, rules).trim(), `${part}-w${k}-`);
   if (!/^<dialog\b/i.test(h)) h = `<dialog style="padding:0;border:0;background:transparent;max-width:none;max-height:none;overflow:visible">${h}</dialog>`;
   return h.replace(/^<dialog\b/i, `<dialog data-world-dialog="${k}" data-world-key="${attr(key)}"`);
 }
@@ -139,13 +160,14 @@ export function worldCss(world: NodeWorld, scope: string): string {
 }
 
 /** The areas and the dialogs, over a picture of `w` by `h` (the canvas box as captured) drawn to cover its part. */
-export function WorldLayer({ world, part, w, h }: { world: NodeWorld; part: string; w: number; h: number }) {
+export function WorldLayer({ world, part, w, h, offsite }: { world: NodeWorld; part: string; w: number; h: number; offsite?: string }) {
+  const rules = React.useMemo(() => offsiteRules(offsite ?? DEFAULT_OFFSITE), [offsite]);
   const scope = `w-${part.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const css = React.useMemo(() => worldCss(world, scope), [world, scope]);
   const dialogs = React.useMemo(() => world.dialogs.map((d, k) => {
     const key = world.chars.find((c) => c.dialog === k)?.key ?? String(k);
-    return dialogMarkup(d.html, k, key, part);
-  }).join(""), [world, part]);
+    return dialogMarkup(d.html, k, key, part, rules);
+  }).join(""), [world, part, rules]);
   const W = Math.max(1, w), H = Math.max(1, h);
   /* Smaller on top: the order the page's own hit test prefers. */
   const area = (c: WorldChar) => { const bs = c.boxes.filter(Boolean) as number[][]; return bs.length ? bs.reduce((n, b) => n + b[2]! * b[3]!, 0) / bs.length : 1; };
@@ -165,6 +187,8 @@ export function WorldLayer({ world, part, w, h }: { world: NodeWorld; part: stri
           const style: React.CSSProperties = { position: "absolute", visibility: "hidden", pointerEvents: "auto", cursor: "pointer", zIndex: z + 1, background: "transparent", border: 0, padding: 0, margin: 0, display: "block" };
           /* A character that went to another page of the site is a link to it; one that went off the site, or opened nothing, is a press that does nothing. */
           if (c.dialog === undefined || !world.dialogs[c.dialog]) {
+            const away = c.offsite ?? (c.href && !onSite(c.href) ? c.href : null);
+            if (away && linkAllowed(away, rules)) return <a key={k} href={away} target="_blank" rel="noopener" data-world-hit={k} data-world-key={c.key} aria-label={`Open ${name}`} style={style} />;
             return onSite(c.href) ? (
               <a key={k} href={c.href} data-world-hit={k} data-world-key={c.key} aria-label={`Open ${name}`} style={style} />
             ) : (

@@ -51,6 +51,14 @@ const dialog = (mint, ticker) => `<dialog class="sw0" data-dlg="para" data-mint=
   + `<button class="sw1" type="button" data-cca="${mint}" data-world-control="copy-ca" data-world-does="copy" data-world-copy="${mint}">Copy CA</button>`
   + `<button class="sw1" type="button" data-open="${mint}" data-world-control="open-coin" data-world-does="link" data-world-href="/coin/${mint}">Open coin</button>`
   + `<button class="sw1" type="button" data-evil="" data-world-control="evil" data-world-does="link" data-world-href="https://evil.example/${mint}">Evil</button>`
+  /* Off the site, as sink leaves every one (inert, its address kept); the site's allow-list decides which come back. */
+  + `<a class="sw3" data-world-control="pump-fun" data-world-does="hook" data-world-hook="goes off the site" data-world-offsite="https://pump.fun/coin/${mint}" role="link">pump.fun</a>`
+  + `<a class="sw3" data-world-control="charts" data-world-does="hook" data-world-hook="goes off the site" data-world-offsite="https://dexscreener.com/solana" role="link">charts</a>`
+  + `<a class="sw3" data-world-control="dev-on-x" data-world-does="hook" data-world-hook="goes off the site" data-world-offsite="https://x.com/STANDIN_dev" role="link">@STANDIN_dev</a>`
+  + `<a class="sw3" data-world-control="solscan-token" data-world-does="hook" data-world-hook="goes off the site" data-world-offsite="https://solscan.io/token/${mint}" role="link">solscan</a>`
+  + `<button class="sw1" type="button" data-world-control="board" data-world-does="hook" data-world-hook="opens a window off the site" data-world-offsite="https://pump.fun/board">Board</button>`
+  + `<button class="sw1" type="button" data-sheet="" data-world-control="share-sheet" data-world-does="hook" data-world-hook="asks the machine to share" data-world-share="${attrJson({ title: "STANDIN", text: "", url: `/h/${mint}` })}">Share sheet</button>`
+  + `<button class="sw1" type="button" data-copylink="" data-world-control="copy-link" data-world-does="copy" data-world-copy="https://STANDIN.example/h/${mint}" data-world-copy-path="/h/${mint}">Copy link</button>`
   + `<details class="sw2"><summary class="sw3 sw8-m" data-world-control="sell">Sell</summary><button class="sw1" type="button" data-side="sell" data-world-control="sell-for-standin">Sell for ${ticker}</button></details>`
   + `<dl class="sw2"><dt class="sw3">Price</dt><dd class="sw3">STANDIN SOL</dd><dt class="sw3">CA</dt><dd class="sw3"><a class="sw3" href="https://dexscreener.com/solana/${mint}" target="_blank" rel="noopener" data-world-control="dexscreener">dexscreener</a> <a class="sw3" href="javascript:window.__ran='href'">solscan</a> <a class="sw3" href="/h/${mint}" data-world-control="host-page">Host page</a></dd></dl>`
   + `<form class="sw2" data-world-form=""><input class="sw4" name="q" data-world-control="q"></form>`
@@ -95,7 +103,7 @@ const format = { "palette.mode": "light" };
 const t = themeFrom(format), palette = resolvePalette(format, undefined);
 const pic = { id: "pic_world", path: "assets/pictures/pic_world.svg", type: "image/svg+xml", w: CW, h: CH, bytes: 1, alt: "", from: "upload", pixelated: true };
 const node = (id, w, h, extra = {}) => ({ id, pageId: "page_home", featureId: "picture", label: "canvas-frames", prompt: "", content: "", data: "", x: 0, y: 0, w, h, groupId: null, options: {}, priority: "must", custom: false, locked: false, link: null, colour: null, font: null, texture: null, picture: pic, world, from: { url: "https://STANDIN.example/", host: "STANDIN.example", selector: "body > main > canvas" }, ...extra });
-const draw = (n, mode, w = n.w, h = n.h) => renderToStaticMarkup(React.createElement(Block, { node: n, t, palette, mode, size: { w, h }, pictureAt: () => flipbook }));
+const draw = (n, mode, w = n.w, h = n.h, more = null) => renderToStaticMarkup(React.createElement(Block, { node: n, t: more ? themeFrom({ ...format, ...more }) : t, palette, mode, size: { w, h }, pictureAt: () => flipbook }));
 
 /* ---------------------------------------------------------------- attached, drawn */
 {
@@ -110,13 +118,34 @@ const board = draw(node("n_world", CW, CH), "board");
 check("on the board it is the picture alone: no press areas, no dialogs", !/data-part-world|<dialog/.test(board) && /<img/.test(board), board.slice(0, 200));
 check("live, one press area per character: two open dialogs, one goes to a page of the site", (live.match(/<button[^>]*data-world-open=/g) ?? []).length === 2 && /<a[^>]*href="\/coin\/STANDIN_MINT_C"[^>]*data-world-hit="2"/.test(live), (live.match(/<(a|button)[^>]*data-world-hit[^>]*>/g) ?? []).join("\n"));
 check("…and one that went off the site is no link: a press that does nothing, the address kept as data", /<button[^>]*data-world-hit="3"[^>]*data-world-offsite="https:\/\/STANDIN.example\/coin\/D"/.test(live) && !/<a[^>]*data-world-hit="3"/.test(live), (live.match(/<[a-z]+[^>]*data-world-hit="3"[^>]*>/) ?? [""])[0]);
-check("no address off the site is a link anywhere: the dialogs' dexscreener is inert, its address kept as data", !/\shref="(https?:)?\/\//i.test(live) && /<a[^>]*data-world-offsite="https:\/\/dexscreener.com\/solana\/STANDIN_MINT_A"[^>]*data-world-control="dexscreener"|<a[^>]*data-world-control="dexscreener"[^>]*data-world-offsite="https:\/\/dexscreener/.test(live), (live.match(/<a[^>]*dexscreener[^>]*>/) ?? [""])[0] + " " + (live.match(/\shref="[^"]*"/g) ?? []).join(" "));
+check("no address off the site is a link unless the site's list allows it: every link is the site's own, pump.fun, or dexscreener's charts", (live.match(/\shref="[^"]*"/g) ?? []).every((h) => /^ href="(\/(?!\/)|https:\/\/pump\.fun\/|https:\/\/dexscreener\.com\/solana")/.test(h)), (live.match(/\shref="[^"]*"/g) ?? []).join(" "));
 check("…and both dialogs, closed", (live.match(/<dialog\b[^>]*data-world-dialog="\d"/g) ?? []).length === 2 && !/<dialog\b[^>]*\sopen\b/.test(live));
 check("nothing of the page's runs: no script, no handler, no javascript: address", !/<script|onclick|javascript:/i.test(live), (live.match(/<script[^>]*>|onclick="[^"]*"|javascript:[^"]*/gi) ?? []).join(" "));
 check("every control keeps its words and the page's own attributes, named for a backend", ["data-buysol", 'data-world-control="buy-with-sol"', 'data-bsol="0.1"', 'data-world-control="amount-in-sol"', 'data-side="sell"', 'data-share="STANDIN_MINT_A"', ">Buy with SOL<", ">Share<"].every((s) => live.includes(s)));
 {
   const ids = [...live.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
   check("each dialog's ids are its own, and still named by what named them", ids.length === 2 && new Set(ids).size === 2 && ids.every((id) => /-w[01]-pd-h$/.test(id)) && ids.every((id) => live.includes(`aria-labelledby="${id}"`)), JSON.stringify(ids));
+}
+
+/* ---------------------------------------------------------------- the owner's allow-list for links off the site */
+{
+  const { linkAllowed, offsiteRules, DEFAULT_OFFSITE } = await jiti.import(S("parts", "offsite.ts"));
+  const R = offsiteRules(DEFAULT_OFFSITE);
+  const cases = [["https://pump.fun/coin/STANDIN_MINT_A", true], ["https://pump.fun/board", true], ["https://dexscreener.com/solana", true], ["https://dexscreener.com/", true],
+    ["https://dexscreener.com/solana/STANDIN_MINT_A", false], ["https://x.com/STANDIN_dev", false], ["https://twitter.com/STANDIN_dev", false], ["https://x.com/intent/post?text=STANDIN", false],
+    ["https://solscan.io/token/STANDIN_MINT_A", false], ["https://example.com/", false], ["/h/STANDIN_MINT_A", true], ["/coins", true], ["javascript:alert(1)", false], ["//evil.example/x", false]];
+  const wrong = cases.filter(([u, want]) => linkAllowed(u, R) !== want);
+  check("the default list: pump.fun kept, dexscreener kept but not a token's page, X and every other site kept out, the site's own pages always", !wrong.length, JSON.stringify(wrong));
+  check("…and a Share of the site's own page runs by default (share:own)", R.shareOwn === true);
+  const tagIn = (html, name) => (html.match(new RegExp(`<[a-z]+\\b[^>]*data-world-control="${name}"[^>]*>`)) ?? [""])[0];
+  const pump = tagIn(live, "pump-fun"), charts = tagIn(live, "charts"), x = tagIn(live, "dev-on-x"), sol = tagIn(live, "solscan-token"), dex = tagIn(live, "dexscreener"), board = tagIn(live, "board"), sheet = tagIn(live, "share-sheet"), share = tagIn(live, "share");
+  check("drawn with the defaults: the pump.fun link is a link again, in a new window", /href="https:\/\/pump.fun\/coin\/STANDIN_MINT_A"/.test(pump) && /target="_blank"/.test(pump) && !/data-world-offsite/.test(pump), pump);
+  check("…dexscreener's charts a link, a token's page on dexscreener not", /href="https:\/\/dexscreener.com\/solana"/.test(charts) && !/\shref=/.test(dex) && /data-world-offsite="https:\/\/dexscreener.com\/solana\/STANDIN_MINT_A"/.test(dex), `${charts} ${dex}`);
+  check("…an X profile and solscan stay inert, their addresses kept as data", !/\shref=/.test(x) && /data-world-offsite="https:\/\/x.com\/STANDIN_dev"/.test(x) && /data-world-does="hook"/.test(x) && !/\shref=/.test(sol) && /data-world-offsite="https:\/\/solscan.io/.test(sol), `${x} ${sol}`);
+  check("…a button that opened pump.fun opens it again; Share to an X intent stays inert", /data-world-does="link"/.test(board) && /data-world-href="https:\/\/pump.fun\/board"/.test(board) && /data-world-allowed=""/.test(board) && /data-world-does="hook"/.test(share) && /data-world-offsite="https:\/\/x.com\/intent/.test(share), `${board} ${share}`);
+  check("…a Share sheet for the site's own page runs", /data-world-does="share"/.test(sheet), sheet);
+  const own = draw({ ...node("n_world", CW, CH) }, "live", CW, CH, { "links.offsite": "solscan.io" });
+  check("the owner's own list decides instead: solscan allowed, pump.fun and the share sheet not", /href="https:\/\/solscan.io\/token\/STANDIN_MINT_A"/.test(tagIn(own, "solscan-token")) && !/\shref=/.test(tagIn(own, "pump-fun")) && /data-world-does="hook"/.test(tagIn(own, "share-sheet")), `${tagIn(own, "solscan-token")} ${tagIn(own, "pump-fun")}`);
 }
 
 /* ---------------------------------------------------------------- in a browser, as published: the runtime, the feature, the part */
@@ -225,6 +254,19 @@ try {
   check("a character that led to another page of the site is a link to it", link.tag === "A" && link.href === "/coin/STANDIN_MINT_C", JSON.stringify(link));
   await openBy(3, 0);
   check("…one that led off the site does nothing when pressed", !(await opened()).length && tab.url() === url0 && !offsite.length && !popups.length, JSON.stringify({ url: tab.url(), offsite }));
+  /* Allowed off the site, and the site's own address. */
+  await openBy(0, 0);
+  await tab.click('dialog[open] [data-world-control="copy-link"]');
+  await tab.waitForTimeout(80);
+  check("Copy link copies this site's own address for the page, not the one it was captured at", (await tab.evaluate(() => navigator.clipboard.readText())) === `${ORIGIN}/h/STANDIN_MINT_A`);
+  await tab.evaluate(() => navigator.clipboard.writeText(""));
+  await tab.click('dialog[open] [data-world-control="share-sheet"]');
+  await tab.waitForTimeout(80);
+  check("a Share sheet for the site's own page shares it (with no share sheet here, its link copied)", (await tab.evaluate(() => navigator.clipboard.readText())) === `${ORIGIN}/h/STANDIN_MINT_A`);
+  const [pop] = await Promise.all([tab.waitForEvent("popup", { timeout: 3000 }).catch(() => null), tab.click('dialog[open] [data-world-control="pump-fun"]')]);
+  check("an allowed link off the site (pump.fun) is followed, in a new window", !!pop && offsite.includes("https://pump.fun/coin/STANDIN_MINT_A"), `${pop?.url()} ${offsite.join(" ")}`);
+  if (pop) await pop.close().catch(() => {});
+  await tab.keyboard.press("Escape");
   /* Last, as it leaves the page: a button that went to a page of the site goes there. */
   await openBy(0, 0);
   await tab.click('dialog[open] [data-world-control="open-coin"]');

@@ -4,6 +4,7 @@
  * Only `themeFrom` knows about the Builder's format ids; a generated site can
  * hand parts a `Theme` object built any other way.
  */
+import { DEFAULT_OFFSITE } from "./offsite";
 import { hasMotion, type NodeEmbed, type NodeMotion } from "./capturedMotion";
 import type * as React from "react";
 import type { FormatValues } from "../format";
@@ -71,6 +72,8 @@ export interface Theme {
   tight?: boolean;
   /** The part was captured from a live page (`applyCaptured`): its box is the page's measurement, not a default. */
   captured?: boolean;
+  /** Where a link may go off the site: the site's allow-list (`links.offsite`, `parts/offsite.ts`). */
+  offsite?: string;
   boxStyle: string;
   boxPad: number;
   headingFamily: string;
@@ -655,6 +658,7 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   const over = onTop.length ? textureCss(onTop, roles, "transparent") : null;
 
   return {
+    offsite: String(format["links.offsite"] ?? DEFAULT_OFFSITE),
     bg: roles.bg,
     backdrop: painted ? "" : backdrop,
     /** When a texture is set, this is the whole set of background properties. */
