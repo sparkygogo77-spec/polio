@@ -26,6 +26,7 @@ import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
+import { ownsOthers } from "./holds";
 import type { DrawJob } from "./queue";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";
 import { refinePart } from "./refineRun";
@@ -241,7 +242,26 @@ function boxOf(strokes: SketchPoint[][]): { x: number; y: number; w: number; h: 
 /** Run one job: read the drawing if a reader can be reached, and put it on the board either way. */
 export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult> {
   const s = useStudio.getState();
-  const node = job.nodeId ? s.nodes.find((n) => n.id === job.nodeId) ?? null : null;
+  const hit = job.nodeId ? s.nodes.find((n) => n.id === job.nodeId) ?? null : null;
+  /*
+   * A DRAWING ON A PART THAT HOLDS A SECTION IS MADE OVER IT, NOT INTO IT.
+   *
+   * The owner's trumpmorty.fun: a cube drawn on the hero turned the hero
+   * itself into a 3D cube, resized to the drawing's proportion at its own
+   * area (1440 × 901 became 1339 × 969), and the published page lost the
+   * hero's full width and background right of 1340. A captured part that
+   * holds others (the hero, a banner, a panel: `holds.ts`) is the page's
+   * structure; reshaping it takes everything in it along. So the drawing
+   * lands as a new part where it was made, centred on that part at the
+   * drawing's own proportion, and the part keeps its size and its kind.
+   * `tests/draw-on-section.mjs`.
+   */
+  const holdsASection = !!hit?.from?.selector?.trim() && ownsOthers(s.nodes, hit);
+  if (hit && holdsASection) {
+    const size = fitToSketch(job.sketch, Math.min(hit.w, 360), Math.min(hit.h, 360), job.frameWidth);
+    job = { ...job, nodeId: null, at: job.at ?? { x: hit.x + hit.w / 2, y: hit.y + hit.h / 2 }, drawn: job.drawn ?? size };
+  }
+  const node = holdsASection ? null : hit;
   /*
    * The answer, but only if the question it answers still stands.
    *

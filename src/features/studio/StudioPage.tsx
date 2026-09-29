@@ -1073,6 +1073,8 @@ export function StudioPage() {
     w.__studioPublishDoc = () => studioDoc();
     // A document put on the board whole, the way an import does (tests/big-document.mjs: one past localStorage's quota).
     (w as unknown as { __studioLoadDoc?: (doc: Record<string, unknown>) => void }).__studioLoadDoc = (doc) => useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
+    // A drawing put on the queue the way the draw board puts one (DrawBoard.tsx#makeReal), for a check that draws on a given part (tests/draw-on-section.mjs).
+    (w as unknown as { __studioDraw?: (job: Parameters<ReturnType<typeof useStudio.getState>["enqueueDraw"]>[0]) => string }).__studioDraw = (job) => useStudio.getState().enqueueDraw(job);
     /*
      * The queue, for a test that watches one job go through.
      *

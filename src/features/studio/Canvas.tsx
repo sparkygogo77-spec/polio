@@ -40,6 +40,7 @@ import { put as putPicture } from "./pictures";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
+import { ownsOthers } from "./holds";
 import {
   activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -164,17 +165,6 @@ interface Drag {
   clamped?: "largest" | "smallest" | null;
 }
 
-/**
- * Does this part hold others: wholly contain at least one smaller part on
- * its page? On a captured board these are the banner, the panels and the
- * page wrapper — the things that cover every point, and the things a
- * marquee is drawn ACROSS rather than moved.
- */
-function ownsOthers(nodes: readonly StudioNode[], c: StudioNode): boolean {
-  return nodes.some((n) => n.id !== c.id && n.pageId === c.pageId
-    && n.x >= c.x && n.y >= c.y && n.x + n.w <= c.x + c.w && n.y + n.h <= c.y + c.h
-    && n.w * n.h < c.w * c.h);
-}
 
 interface Guides {
   x: number[];
