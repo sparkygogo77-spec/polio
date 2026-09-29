@@ -273,6 +273,8 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       return;
     }
     set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook } });
+    /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */
+    if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
     useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
 
     setBusy("Asking Vercel to build it…");

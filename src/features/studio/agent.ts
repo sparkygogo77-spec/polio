@@ -644,7 +644,9 @@ export function siteFiles(_markdown?: string, _json?: string): GeneratedFile[] {
 }
 
 export type PublishResult =
-  | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string }
+  | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
+      /** How many files had changed from what the branch held, of how many the site is: only those were sent (`tests/publish-changed.mjs`). */
+      changed?: number; total?: number }
   /* A failure can still have made the repository, and says so, so the next
      press goes to the one that exists rather than making another. */
   | { ok: false; message: string; reason?: string; created?: string; repo?: string };
@@ -796,6 +798,34 @@ function base64Of(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+/** The git blob sha of a file's bytes, as GitHub would give it. */
+async function gitSha(f: GeneratedFile): Promise<string | null> {
+  if (typeof crypto === "undefined" || !crypto.subtle) return null;
+  let bytes: Uint8Array;
+  if (f.encoding === "base64") {
+    const bin = atob(f.content);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } else bytes = new TextEncoder().encode(f.content);
+  const head = new TextEncoder().encode(`blob ${bytes.length}\0`);
+  const all = new Uint8Array(head.length + bytes.length);
+  all.set(head);
+  all.set(bytes, head.length);
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-1", all));
+  return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** The branch's tree as it stands, path to blob sha; empty when it cannot be read, and then everything is sent. */
+async function treeOf(repo: string, branch: string): Promise<Map<string, string>> {
+  try {
+    const res = await fetch(`/api/studio/publish?tree=1&repo=${encodeURIComponent(repo)}&branch=${encodeURIComponent(branch)}`, { headers: publisherHeader(), cache: "no-store" });
+    const a = (await res.json()) as { ok?: boolean; tree?: { path: string; sha: string }[] };
+    return new Map(a.ok ? (a.tree ?? []).map((e) => [e.path, e.sha]) : []);
+  } catch {
+    return new Map();
+  }
+}
+
 /** Text past a few KB, packed: pages and the document shrink by ten or more. */
 async function packed(f: GeneratedFile): Promise<Sent> {
   if (f.encoding === "base64") return { path: f.path, content: f.content, encoding: "base64" };
@@ -869,12 +899,29 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
   };
   const all = () => [...staged].map(([path, sha]) => ({ path, sha }));
   try {
-    const files = await Promise.all(input.files.map(packed));
+    /*
+     * ONLY WHAT CHANGED GOES UP. Each file's git blob sha is worked out here
+     * and compared with the branch's tree as it stands; a file already there
+     * at its path is named by its sha in the one commit and not sent at all.
+     * What the route reads as it commits (the document, the merged files) is
+     * always sent. Parasite's 354 files took six minutes to re-send when
+     * little had changed.
+     */
+    const there = input.repo ? await treeOf(input.repo, branch ?? "main") : new Map<string, string>();
+    const changedFiles: GeneratedFile[] = [];
+    for (const f of input.files) {
+      const sha = there.size ? await gitSha(f) : null;
+      if (sha && there.get(f.path) === sha && !COMMITTED_LAST.has(f.path)) staged.set(f.path, sha);
+      else changedFiles.push(f);
+    }
+    const counted = { changed: input.files.filter((f) => !staged.has(f.path)).length, total: input.files.length };
+    const withCounts = <T extends PublishResult>(r: T): T => (r.ok ? { ...r, ...counted } : r);
+    const files = await Promise.all(changedFiles.map(packed));
     const weight = (f: Sent) => f.content.length + f.path.length + 64;
     const total = files.reduce((a, f) => a + weight(f), 0);
     if (total <= REQUEST_BUDGET) {
       const done = await carry(files, () => ({ staged: all() }));
-      return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
+      return done.ok ? withCounts({ ...done, ...(created && !done.created ? { created } : {}) }) : failed(done, created);
     }
 
     /*
@@ -920,7 +967,7 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
       if (!staged.has(f.path)) return { ok: false, message: `“${f.path}” could not be put back together.` };
     }
     const done = await carry(last, () => ({ staged: all() }));
-    return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
+    return done.ok ? withCounts({ ...done, ...(created && !done.created ? { created } : {}) }) : failed(done, created);
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
   }

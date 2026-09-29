@@ -141,7 +141,9 @@ function where(asked: unknown, c: ReturnType<typeof config>): { repo: string | n
  * (`publishStatus`). The POST below still takes the token, because pushing
  * is what it is for.
  */
-export async function GET() {
+export async function GET(request?: Request) {
+  const asked = request ? new URL(request.url).searchParams : null;
+  if (asked?.get("tree") && request) return treeListing(request, asked);
   const c = config();
   /* `configured` used to mean the server has both a token and a repository.
      Neither is required now: a token from the browser pushes just as well,
@@ -754,5 +756,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "github", status: error.status, ...(error.step ? { step: error.step } : {}), message: why, ...made });
     }
     return NextResponse.json({ ok: false, reason: "unknown", message: error instanceof Error ? error.message : "The publish failed.", ...made });
+  }
+}
+
+/**
+ * WHAT IS ON THE BRANCH NOW, FOR A PUSH THAT SENDS ONLY WHAT CHANGED.
+ *
+ * Update live site sent every file every time: parasite's 354 files at about
+ * two a request took six minutes when little had changed. The browser works
+ * out each file's git blob sha itself and asks this for the branch's tree
+ * (or, before the branch exists, the default branch's, which is where it
+ * will start): a file whose sha is already there at its path is not sent,
+ * only named, and it is still the one commit (`tests/publish-changed.mjs`).
+ * Read only.
+ */
+async function treeListing(request: Request, q: URLSearchParams) {
+  const token = tokenFor(request);
+  const repo = (q.get("repo") ?? "").trim();
+  const branch = (q.get("branch") ?? "").trim() || "main";
+  if (!token) return NextResponse.json({ ok: false, reason: "no-token", tree: [] });
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return NextResponse.json({ ok: false, reason: "bad-request", tree: [] }, { status: 400 });
+  try {
+    const base = await tipOf(token, repo, branch);
+    if (!base) return NextResponse.json({ ok: true, tree: [] });
+    const commit = await gh<{ tree: { sha: string } }>(token, "GET", `/repos/${repo}/git/commits/${base}`);
+    const listing = await gh<{ tree?: { path?: string; sha?: string; type?: string }[]; truncated?: boolean }>(token, "GET", `/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`);
+    const tree = (listing.tree ?? []).flatMap((e) => (e.type === "blob" && typeof e.path === "string" && typeof e.sha === "string" ? [{ path: e.path, sha: e.sha }] : []));
+    return NextResponse.json({ ok: true, base, tree, truncated: listing.truncated === true });
+  } catch (error) {
+    /* Unreadable is not a refusal: every file is sent, as before. */
+    return NextResponse.json({ ok: false, reason: "github", tree: [], message: error instanceof Error ? safe(error.message, token) : "GitHub could not be read." });
   }
 }
