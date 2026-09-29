@@ -732,6 +732,30 @@ pads its words (the pitch line, prose's box styles) adds none, because a
 captured box was measured with its padding inside it. `tests/picture-held.mjs`
 holds the three; it was run red against the build before the fix.
 
+**A canvas world's characters open their dialogs, and a control does what
+it did.** parasiteonsol.fun walks its coins as pets on a canvas and a press
+on one opens that coin's dialog; the capture used to keep a flipbook with
+nothing to press. sink (`worlds.mjs`) now holds the page's animation frames
+still one by one, presses every sprite its script drew, and carries in
+`node.world` each character's box in every frame (fractions of the canvas)
+and the dialog it opened, dressed in the page's computed look as classes
+(`css`), plus what every control in it did when pressed on live.
+`parts/World.tsx` draws, live only, a press area per character that walks
+with a step-end animation as long as the flipbook, inside a box laid over
+the part the way the picture covers it (so it stays on the pet at any width),
+and the dialogs, closed. The `world-dialogs` feature opens one, closes it by
+its close button, Escape or a press outside, and replays each control's
+`data-world-does`: `link` (only to a path on the site), `copy`, `ui` (the
+elements a press changed, by `data-world-el`), `close`, `native`. The owner's
+two rules hold it: **only true backend actions stay hooks** — a wallet
+prompt, a write to a server, a form stay `hook` with what was seen in
+`data-world-hook`, found by `data-world-control` — and **no link leaves the
+site**: an exchange, an explorer or a share intent is an inert control with
+the address in `data-world-offsite` (`cleanDialog` strips any absolute href
+a document still carries). The export keeps every `data-world-*` and the
+dialogs' own attributes, and points site paths at their page files.
+`tests/world-dialogs.mjs` (sink `check-worlds.mjs` for the capture).
+
 **Faces come through one to one, or say why they did not.** His ruling:
 fonts must come through as they are, because size and ratios have to stay
 true — he measured his layout against the real face, and a substitute that
