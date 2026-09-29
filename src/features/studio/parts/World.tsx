@@ -39,6 +39,46 @@ export interface NodeWorld {
   dialogs: { html: string; backdrop?: string }[];
   /** Class -> the CSS it stands for (`sw3`); `sw3-b` is its ::before, `-a` ::after, `-m` ::marker, `-p` ::placeholder. */
   css: Record<string, string>;
+  /** Drawn again live instead of played back, when the capture read what it is made of. */
+  stage?: WorldStage | null;
+}
+
+/**
+ * A SPRITE WORLD (sink worlds.mjs `stage`): what a canvas world is made of,
+ * rather than frames of it, so it is drawn again live and at any width, as the
+ * page drew it (`library/stageEngine.ts`). In art pixels: the canvas's own
+ * pixels, drawn `px` CSS pixels each (the page's scale at each window width it
+ * was seen at, `scaleAt`).
+ */
+export interface WorldStage {
+  /** CSS px per art px as captured, and [window width, px] as the page chose it at each width seen. */
+  px: number;
+  scaleAt?: [number, number][];
+  /** The canvas's art size as captured. */
+  art: { w: number; h: number };
+  /** Pictures, as data addresses: the sprite sheet and the scenes' backgrounds. */
+  images: string[];
+  /** A sprite: [image, sx, sy, sw, sh]. */
+  sprites: Record<string, [number, number, number, number, number]>;
+  scenes: StageScene[];
+  /** The scene shown as the page opens. */
+  start?: number;
+  /** How a character's label is drawn: its face, words, fill, edge, height. */
+  label?: { font: string; fg: string; bg: string; edge?: string; h: number; pad: number };
+  /** How the characters wander: art px a second, the pause at a turn (s), how often one stops on its own (a second). */
+  motion?: { speed: number; pause: [number, number]; stop: number };
+  fps?: number;
+}
+export interface StageScene {
+  name?: string;
+  /** The fill behind everything. */
+  sky?: string | null;
+  /** The part (by id) or element (by selector) that switches to this scene. */
+  tab?: string | null;
+  /** Backgrounds, back to front: a piece of an image, stood `bottom` art px above the foot, repeated across or placed from one side. */
+  layers: { img: number; sx: number; sy: number; sw: number; sh: number; w: number; h: number; bottom: number; repeat: boolean; side: "left" | "right" | "centre"; x: number }[];
+  /** Things that stand still and flicker (a chest, a fire): their frames, each shown `every` ms. */
+  props: { frames: string[]; every: number; side: "left" | "right"; x: number; bottom: number }[];
 }
 export interface WorldChar {
   /** What the dialog says the character is: an id-like attribute of it, then its heading. */
@@ -51,6 +91,24 @@ export interface WorldChar {
   href?: string;
   /** An address off the site the press went to: never a link here, kept for a backend. */
   offsite?: string;
+  /* In a sprite world (`stage`): */
+  /** Its scene. */
+  scene?: number;
+  /** Its sprite facing right and facing left (one alone is mirrored for the other), and the way it faced as captured. */
+  sprite?: { r?: string; l?: string };
+  /** Its home across the scene, a share of the width; how far it wanders either side, a share too. */
+  at?: number;
+  range?: number;
+  /** Its foot, art px above the scene's foot. */
+  foot?: number;
+  /** Its own pace, art px a second, when it had one. */
+  speed?: number;
+  /** The character it rides (a parasite on its host), and where on it: [dx, dy] from the host's top left, as the host faced `face`. */
+  rides?: number;
+  ride?: [number, number];
+  face?: 1 | -1;
+  /** The words drawn over it. */
+  label?: string;
 }
 
 /** A path on this site (`/coins`, `/h/…`), and not an address somewhere else. */
@@ -144,6 +202,8 @@ export function worldCss(world: NodeWorld, scope: string): string {
   }
   world.dialogs.forEach((d, k) => { if (d.backdrop) out.push(`${S} dialog[data-world-dialog="${k}"]::backdrop{${d.backdrop.replace(/[{}<]/g, "")}}`); });
   const total = world.every * world.frames;
+  /* A sprite world's areas are placed by its engine, frame by frame, as it draws. */
+  if (world.stage) return out.join("\n");
   world.chars.forEach((c, k) => {
     const steps: string[] = [];
     for (let f = 0; f < world.frames; f++) {
@@ -175,9 +235,17 @@ export function WorldLayer({ world, part, w, h, offsite }: { world: NodeWorld; p
   return (
     <div data-part-world={scope} style={{ position: "absolute", inset: 0, containerType: "size", overflow: "hidden", pointerEvents: "none" }}>
       <style>{css}</style>
+      {world.stage ? (
+        <>
+          {/* Drawn by the feature, over the captured picture, which stays for a machine that runs no script. */}
+          <canvas data-world-canvas="" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", display: "block" }} />
+          <script type="application/json" data-world-stage="" dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...world.stage, chars: world.chars.map(({ boxes: _b, ...c }) => c) }).replace(/</g, "\\u003c") }} />
+        </>
+      ) : null}
       <div
         data-world-frame=""
-        style={{
+        /* A sprite world's areas stand where its engine draws each character, over the whole part; a flipbook's over the picture as it covers the part. */
+        style={world.stage ? { position: "absolute", inset: 0 } : {
           position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
           width: `max(100cqw, calc(100cqh * ${W} / ${H}))`, height: `max(100cqh, calc(100cqw * ${H} / ${W}))`,
         }}

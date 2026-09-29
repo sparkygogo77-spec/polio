@@ -25,6 +25,7 @@
  * Pure: no imports, so the tests run it as written.
  */
 import type { Work } from "./works.ts";
+import { STAGE_ENGINE } from "./stageEngine.ts";
 
 /** Every script starts by asking this. */
 const CALM = `window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches`;
@@ -909,14 +910,27 @@ const WORLD_DIALOGS: Work = {
     look: { sample: "🐾 → ▣", caption: "press · dialog" },
     version: 1,
   },
-  script: `siteFeatures.define("world-dialogs", function (el) {
+  script: `${STAGE_ENGINE}
+siteFeatures.define("world-dialogs", function (el) {
   var layer = el.querySelector("[data-part-world]");
   if (!layer || layer.getAttribute("data-world-on")) return;
   layer.setAttribute("data-world-on", "");
   var hits = function () { return Array.prototype.slice.call(layer.querySelectorAll("[data-world-hit]")); };
   /* Both clocks from the same moment: the flipbook asked for again (an svg's animation starts when it loads), and the areas' walk from nought as it arrives. */
   var sync = function () { hits().forEach(function (h) { try { (h.getAnimations ? h.getAnimations() : []).forEach(function (a) { a.currentTime = 0; }); } catch (e) { /* the walk goes on as it is */ } }); };
-  var img = el.querySelector("img");
+  /* A sprite world: drawn again live by its engine, which places the press areas itself; its scenes switched by the page's own tabs. */
+  var stageJson = layer.querySelector("script[data-world-stage]");
+  if (stageJson) {
+    var stageData = null; try { stageData = JSON.parse(stageJson.textContent || "{}"); } catch (x) { stageData = null; }
+    var stage = stageData ? runStage(layer, stageData) : null;
+    if (stage) (stageData.scenes || []).forEach(function (sc, i) {
+      if (!sc.tab) return;
+      var root = el.ownerDocument || document, t = root.getElementById(sc.tab) || root.querySelector('[data-live-node="' + sc.tab + '"]');
+      if (!t) { try { t = root.querySelector(sc.tab); } catch (x) { t = null; } }
+      if (t) { t.style.cursor = "pointer"; t.addEventListener("click", function () { stage.setScene(i); }); }
+    });
+  }
+  var img = stageJson ? null : el.querySelector("img");
   if (img) {
     var src = img.getAttribute("src") || "";
     if (/[.]svg([#?]|$)/i.test(src) || src.indexOf("data:image/svg") === 0) {
