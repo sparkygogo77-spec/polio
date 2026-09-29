@@ -19,7 +19,7 @@ import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
 import { useBuilds } from "@/features/builds/store";
-import { useKeys } from "@/features/keys/store";
+import { keysReady, useKeys } from "@/features/keys/store";
 import { deployStatus, publishStatus } from "./agent";
 import { goLive, useGoLive } from "./goLive";
 import { useStudio } from "./store";
@@ -56,17 +56,32 @@ function GoLiveControl() {
     return off;
   }, []);
 
-  /* Both keys, asked the way the book asks, and again whenever the keys panel changes. */
-  const [keys, setKeys] = React.useState<{ github: boolean; vercel: boolean } | null>(null);
+  /*
+   * Both keys, asked the way the book asks, and again whenever the keys panel
+   * changes — but never before this browser's keys have been opened. Asked
+   * earlier, an empty keys panel read as "no key": the hint said "needs
+   * GitHub + Vercel" for a moment after every reload with both keys held,
+   * and a press in that moment opened the Keys panel instead of publishing.
+   * Until the answer is in, the state is "checking" and a press waits for
+   * it (`tests/go-live-keys-ready.mjs`).
+   */
+  type Keys = { github: boolean; vercel: boolean };
+  const [keys, setKeys] = React.useState<Keys | null>(null);
+  const checking = React.useRef<Promise<Keys> | null>(null);
   React.useEffect(() => {
     let alive = true;
+    let asked = 0;
     const ask = () => {
-      void Promise.all([publishStatus(), deployStatus()]).then(([p, d]) => {
-        if (alive) setKeys({ github: !!p.github?.configured, vercel: !!d.configured });
-      });
+      const n = ++asked;
+      const p = keysReady()
+        .then(() => Promise.all([publishStatus(), deployStatus()]))
+        .then(([pub, dep]) => ({ github: !!pub.github?.configured, vercel: !!dep.configured }));
+      checking.current = p;
+      void p.then((k) => { if (alive && n === asked) { setKeys(k); if (checking.current === p) checking.current = null; } });
     };
     ask();
-    const off = useKeys.subscribe(ask);
+    /* A change to the keys asks again, and the old answer is not shown while it does: a hint is never stale. */
+    const off = useKeys.subscribe((st, was) => { if (st.values !== was.values || st.unlocked !== was.unlocked || st.ready !== was.ready) { setKeys(null); ask(); } });
     return () => { alive = false; off(); };
   }, []);
 
@@ -97,14 +112,34 @@ function GoLiveControl() {
     );
   }
 
-  const missing = keys ? [!keys.github && "GitHub", !keys.vercel && "Vercel"].filter(Boolean) as string[] : [];
-  const why = !board
-    ? "Open the Builder to go live: the board is what goes up."
-    : keys === null
-      ? "Checking the keys…"
-      : missing.length
-        ? `Needs a ${missing.join(" and a ")} token: put ${missing.length > 1 ? "them" : "it"} in the keys panel, Ctrl+Shift+K.`
-        : null;
+  const missingOf = (k: Keys | null) => (k ? [!k.github && "GitHub", !k.vercel && "Vercel"].filter(Boolean) as string[] : []);
+  const whyOf = (k: Keys | null) => {
+    const m = missingOf(k);
+    return !board
+      ? "Open the Builder to go live: the board is what goes up."
+      : k === null
+        ? "Checking the keys…"
+        : m.length
+          ? `Needs a ${m.join(" and a ")} token: put ${m.length > 1 ? "them" : "it"} in the keys panel, Ctrl+Shift+K.`
+          : null;
+  };
+  const missing = missingOf(keys);
+  const why = whyOf(keys);
+  /* A press while the keys are still being checked waits for the answer, then does what that answer says. */
+  const press = async () => {
+    const k = keys ?? (checking.current ? await checking.current : null);
+    const reason = whyOf(k);
+    const gone = missingOf(k);
+    /* NEVER A DEAD BUTTON. With something missing the press says what,
+       beside the button, and opens the keys panel where it goes. */
+    if (reason) {
+      ctx.publish({ key: "studio:go-live-needs", title: "Go live", body: reason, level: "warn", source: "studio", toast: { durationMs: 8000 } });
+      if (gone.length) ctx.togglePanel("keys");
+      return;
+    }
+    const name = useStudio.getState().brief?.name ?? "";
+    void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish });
+  };
   /*
    * ONCE LIVE, STILL THE PUSH. THE OWNER'S RULING. It became "Live site" and
    * only opened the address, so a changed board could not be put on the site
@@ -119,19 +154,9 @@ function GoLiveControl() {
           variant="outline"
           size="sm"
           data-go-live=""
-          data-go-live-state={why ? "blocked" : liveAt ? "live" : "ready"}
-          aria-disabled={why ? true : undefined}
-          onClick={() => {
-            /* NEVER A DEAD BUTTON. With something missing the press says what,
-               beside the button, and opens the keys panel where it goes. */
-            if (why) {
-              ctx.publish({ key: "studio:go-live-needs", title: "Go live", body: why, level: "warn", source: "studio", toast: { durationMs: 8000 } });
-              if (missing.length) ctx.togglePanel("keys");
-              return;
-            }
-            const name = useStudio.getState().brief?.name ?? "";
-            void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish });
-          }}
+          data-go-live-state={board && keys === null ? "checking" : why ? "blocked" : liveAt ? "live" : "ready"}
+          aria-disabled={why && keys !== null ? true : undefined}
+          onClick={() => { void press(); }}
         >
           <Globe /> {liveAt ? "Update live site" : "Go live"}
         </Button>

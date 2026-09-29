@@ -32,6 +32,16 @@ const LEVEL_CUE: Record<Level, CueName> = { info: "notify", success: "success", 
 const RATE_WINDOW_MS = 1000;
 const RATE_MAX = 30;
 const SOUND_GAP_MS = 400;
+/**
+ * ONE SOUND FOR ONE BURST. An import says each step as it goes — on one card,
+ * updated in place — and each update rang again, so one import was a run of
+ * dings. A card rings when it first appears, and again only if it gets more
+ * serious; and cards from one source arriving within this window of a ring
+ * are one burst, heard once (`tests/toast-reach.mjs`).
+ */
+const GROUP_MS = 2500;
+const RANK: Record<Level, number> = { info: 0, success: 1, warn: 2, error: 3 };
+const lastRing = new Map<string, number>();
 
 const rate = new Map<string, number[]>();
 const lastSound = new Map<string, number>();
@@ -170,8 +180,12 @@ export const useToasts = create<ToastState>()((set, get) => ({
     if (input.sound !== false) {
       const soundKey = key ?? target.id;
       const last = lastSound.get(soundKey) ?? -Infinity;
-      if (now - last >= SOUND_GAP_MS || !existing) {
+      const updated = !!existing && target.id === existing.id;
+      const graver = updated && RANK[level] > RANK[existing!.level];
+      const burst = now - (lastRing.get(source) ?? -Infinity) < GROUP_MS;
+      if ((!updated && !burst) || (graver && now - last >= SOUND_GAP_MS)) {
         lastSound.set(soundKey, now);
+        lastRing.set(source, now);
         play(input.sound ?? LEVEL_CUE[level]);
       }
     }

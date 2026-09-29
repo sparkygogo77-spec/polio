@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { AlertTriangle, Bell, CheckCircle2, X, XCircle } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, ChevronDown, ChevronUp, X, XCircle } from "lucide-react";
 import { useToasts } from "./store";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { cn } from "@/core/lib/cn";
@@ -20,6 +20,21 @@ function Toast({ t }: { t: ToastItem }) {
   const Icon = t.icon ?? LEVEL_ICON[t.level];
   const ref = useFlashOnChange(t.rev);
   const [hover, setHover] = React.useState(false);
+  /*
+   * A LONG MESSAGE CAN BE OPENED. The body was one truncated line with no way
+   * to read the rest — the import's report, a refusal's reason — and the one
+   * control on the card, Dismiss, sat where anything else would have gone.
+   * The card now has a column of its own on the right: Dismiss at the top,
+   * Open below it, never over each other, and an open card holds still until
+   * it is closed again (`tests/toast-reach.mjs`).
+   */
+  const [open, setOpen] = React.useState(false);
+  const long = !!t.body && !t.diff && (t.body.length > 44 || t.body.includes("\n"));
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) hold(t.id); else release(t.id);
+  };
   const total = Math.max(1, t.expiresAt - t.createdAt);
   return (
     <div
@@ -46,16 +61,32 @@ function Toast({ t }: { t: ToastItem }) {
             )}
             {t.count > 1 ? <span className="num rounded-xs bg-elevated px-1 text-small text-fg-muted">×{t.count}</span> : null}
           </div>
-          {t.diff ? <div className="num mt-0.5 text-plain text-fg-muted">{`${t.diff.fromLabel} → ${t.diff.toLabel}`}</div> : t.body ? <div className="mt-0.5 truncate text-plain text-fg-muted">{t.body}</div> : null}
+          {t.diff ? <div className="num mt-0.5 text-plain text-fg-muted">{`${t.diff.fromLabel} → ${t.diff.toLabel}`}</div> : t.body ? (
+            <div
+              data-toast-body={open ? "open" : "closed"}
+              className={cn("mt-0.5 text-plain text-fg-muted", open ? "max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words" : "truncate", long && !open && "cursor-pointer")}
+              onClick={long && !open ? toggle : undefined}
+              title={long && !open ? "Open the whole message" : undefined}
+            >
+              {t.body}
+            </div>
+          ) : null}
           {t.action ? (
             <Button variant="link" size="xs" className="mt-1 h-auto" onClick={t.action.onClick}>
               {t.action.label}
             </Button>
           ) : null}
         </div>
-        <Button variant="ghost" size="iconXs" aria-label="Dismiss" sound="close" onClick={() => dismiss(t.id)}>
-          <X />
-        </Button>
+        <div className="flex shrink-0 flex-col items-center gap-0.5">
+          <Button variant="ghost" size="iconXs" aria-label="Dismiss" data-toast-dismiss="" sound="close" onClick={() => dismiss(t.id)}>
+            <X />
+          </Button>
+          {long ? (
+            <Button variant="ghost" size="iconXs" aria-label={open ? "Close the message" : "Open the whole message"} aria-expanded={open} data-toast-expand="" onClick={toggle}>
+              {open ? <ChevronUp /> : <ChevronDown />}
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div
         key={t.rev}
@@ -81,11 +112,38 @@ export function Toaster() {
             ? "bottom-2 left-1/2 -translate-x-1/2 items-center"
             : "bottom-2 right-3 items-end";
   const bottom = position?.startsWith("bottom");
+  /*
+   * CLEAR OF WHAT IS ALREADY IN THE CORNER. The Builder keeps its phone
+   * preview in the bottom-right corner, and a toast there sat over the
+   * preview's own Expand button: a press meant for one hit the other's
+   * Dismiss. When a corner window is there, the toasts stand above it.
+   */
+  const lift = useCornerLift(bottom && position !== "bottom-left" && position !== "bottom-center" && toasts.length > 0);
   return (
-    <div className={cn("pointer-events-none fixed z-[65] flex flex-col gap-2", pos, bottom ? "flex-col-reverse" : "")}>
+    <div data-toaster="" className={cn("pointer-events-none fixed z-[65] flex flex-col gap-2", pos, bottom ? "flex-col-reverse" : "")} style={lift ? { bottom: lift } : undefined}>
       {toasts.map((t) => (
         <Toast key={t.id} t={t} />
       ))}
     </div>
   );
+}
+
+/** How far above the bottom edge the toasts stand to clear a corner window (`[data-preview-window]`), or null. */
+function useCornerLift(on: boolean): number | null {
+  const [lift, setLift] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (!on) { setLift(null); return; }
+    const read = () => {
+      const w = document.querySelector("[data-preview-window]") as HTMLElement | null;
+      const r = w?.getBoundingClientRect();
+      /* Only a window that reaches the right-hand third of the screen is in the toasts' way. */
+      const next = r && r.width > 0 && r.right > window.innerWidth * 0.66 && r.bottom > window.innerHeight - 200 ? Math.round(window.innerHeight - r.top + 8) : null;
+      setLift((was) => (was === next ? was : next));
+    };
+    read();
+    const id = window.setInterval(read, 400);
+    window.addEventListener("resize", read);
+    return () => { window.clearInterval(id); window.removeEventListener("resize", read); };
+  }, [on]);
+  return lift;
 }

@@ -201,6 +201,12 @@ interface KeysState {
   error: string | null;
   lastTouch: number;
 
+  /**
+   * The entry has been opened at least once since the page loaded: until
+   * then an empty `values` means "not read yet", not "no key". Anything that
+   * says a key is missing waits for this (`keysReady`).
+   */
+  ready: boolean;
   refresh: () => Promise<void>;
   create: (pin: string) => Promise<boolean>;
   unlock: (pin: string) => Promise<boolean>;
@@ -362,6 +368,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
   busy: false,
   error: null,
   lastTouch: 0,
+  ready: false,
 
   refresh: () => {
     /*
@@ -436,7 +443,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
           lastTouch: Date.now(),
         });
       else set({ exists: !!read() });
-    })().finally(() => { inFlight = null; });
+    })().finally(() => { inFlight = null; set({ ready: true }); });
     return inFlight;
   },
   clearError: () => set({ error: null }),
@@ -620,4 +627,18 @@ export function heldKeys(ids: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const id of ids) if (values[id]) out[id] = values[id]!;
   return out;
+}
+
+/**
+ * Resolves once this browser's keys have been opened since the page loaded.
+ *
+ * Opening them is asynchronous (IndexedDB and a decrypt), and a check made
+ * before it finished read an empty keys panel as "no key": Update live site
+ * said "needs GitHub + Vercel" for a moment after every reload, and a press
+ * in that moment opened the Keys panel instead of publishing
+ * (`tests/go-live-keys-ready.mjs`). Starts the opening if nothing has.
+ */
+export function keysReady(): Promise<void> {
+  if (typeof window === "undefined" || useKeys.getState().ready) return Promise.resolve();
+  return useKeys.getState().refresh();
 }
