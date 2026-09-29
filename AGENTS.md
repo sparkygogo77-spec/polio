@@ -763,6 +763,25 @@ is always a link; a copied own address is copied as this site's
 dialogs' own attributes, and points site paths at their page files.
 `tests/world-dialogs.mjs` (sink `check-worlds.mjs` for the capture).
 
+**A sprite world is drawn again live, never looped.** The owner at 2000
+wide: the page's pets wander on paths of their own at the canvas's own size,
+so a wider window is a wider meadow; one flipbook scaled to cover the box made
+them huge, cut and looping. When sink reads what a world is made of
+(`node.world.stage`: the page's pixel scale at each window width, a sprite
+sheet cut to the pieces used, each scene's fill, backgrounds and props, each
+character's sprite, home, range, foot, pace, label and the host it rides),
+the picture part draws a canvas over the captured still and
+`library/stageEngine.ts` (inside the `world-dialogs` script, so Preview and
+published run it) draws it: art as wide as the box at the page's scale, pets
+their own size, wandering with a pace that drifts, stops and turns, riders
+carried and turned with their hosts, labels, props flickering, press areas
+placed where each pet is drawn, and the page's scene tabs (`scene.tab`, a
+part, pressed anywhere in its box) panning between scenes. Less motion stands
+it still. `tests/sprite-world.mjs`. The document also lists in `doc.held`
+every control the capture did not press because it would call a server,
+prompt a wallet or leave the site, with page, part, character, stable name and
+selector, for a later Learn step.
+
 **Faces come through one to one, or say why they did not.** His ruling:
 fonts must come through as they are, because size and ratios have to stay
 true — he measured his layout against the real face, and a substitute that
