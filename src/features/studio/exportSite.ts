@@ -70,7 +70,7 @@ import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
-import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { layerStyle, type Units } from "./layerUnits";
 import { featureFiles, pageFeatureTags } from "./library/works";
@@ -493,8 +493,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
    * ribbons below the fold (tests/fluid-type.mjs).
    */
   const typed = typeShifts([...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({ ...byId.get(n.id)!, fluid: n.font?.fluid ?? null, px: n.font?.px ?? null })), heroPart?.id ?? null);
-  const heroContent = (heroNode as { vh?: { content?: number } } | undefined)?.vh?.content ?? heroPx;
-  const heroH = typed.heroGrow ? `max(100svh, calc(${heroContent}px + ${typed.heroGrow}))` : `max(100svh, ${heroContent}px)`;
+  /* As the page wrote it (a clamp of the window, or 100svh), never under what it holds where it wrote a minimum (`fluidSite.ts#heroHeight`). */
+  const heroH = heroHeight((heroNode as { vh?: { height?: string; minHeight?: string; px?: number; content?: number } } | undefined)?.vh ?? {}, typed.heroGrow);
   if (heroPart && heroPx > 0) {
     for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
       if (el.parentElement?.closest("[data-live-node]")) continue;

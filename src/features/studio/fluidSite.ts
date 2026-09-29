@@ -399,6 +399,20 @@ export function vhShift(p: { y: number; h: number }, hero: { y: number; h: numbe
   return `calc(${p.y}px + ${grow} * ${+share.toFixed(6)})`;
 }
 
+/**
+ * HOW TALL A WINDOW-HEIGHT HERO IS: as the page wrote it (`vh.height`:
+ * parasiteonsol.fun's `clamp(520px, -168px + 100svh, 900px)`, 732 at 900;
+ * `vh.minHeight`: trumpmorty's 100svh). Where the page wrote a minimum it is
+ * never under what it holds (`vh.content`, else the px captured), plus what
+ * its type grew by. `tests/hero-height.mjs`.
+ */
+export function heroHeight(vh: { height?: string; minHeight?: string; px?: number; content?: number }, grow: string | null = null): string {
+  const written = vh.height ?? vh.minHeight ?? "100svh";
+  const floor = vh.content ?? (vh.height ? null : vh.px ?? null);
+  if (floor === null) return grow ? `calc(${written} + ${grow})` : written;
+  return grow ? `max(${written}, calc(${floor}px + ${grow}))` : `max(${written}, ${floor}px)`;
+}
+
 /** The capture's window height for a page: the foot of its lowest fixed band. */
 export function captureHeight(parts: readonly FluidPart[]): number {
   return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.y + p.h));
