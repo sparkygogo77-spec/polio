@@ -195,12 +195,38 @@ function liveUrl(d: { url?: string; alias?: string[] }): string | null {
   return host ? `https://${host}` : null;
 }
 
-/** GET with no id says whether this can deploy at all; with one, how a deployment is getting on. */
+/*
+ * THE ADDRESS BEFORE THE PUSH. A link preview needs the address the site is
+ * published at (og:url, og:image as full addresses), and one press is one
+ * deployment (tests/go-live-once.mjs), so it is asked for before anything
+ * is pushed: the project connected to the repository, and its production
+ * domain from Vercel's project domains (not a redirect, not a branch's),
+ * the shortest as `liveUrl` prefers. Nothing is made and nothing deployed;
+ * a repository with no project yet has no address, and says so.
+ */
+async function productionAddress(tok: string | null, repo: string, team: string | null, sources: string[]): Promise<{ ok: true; url: string } | { ok: false; reason: string }> {
+  if (!tok) return { ok: false, reason: "no-token" };
+  if (!REPO.test(repo) || sourceAmong(repo, sources)) return { ok: false, reason: "no-repo" };
+  try {
+    const lookup = await findProject(tok, team, repo, null);
+    if (!lookup.found) return { ok: false, reason: lookup.refused?.reason ?? "no-project" };
+    const { ok, data } = await vercel<{ domains?: { name?: string; redirect?: string | null; gitBranch?: string | null }[] }>(tok, `/v9/projects/${encodeURIComponent(lookup.found.id)}/domains${query(team)}`);
+    const names = ok ? (data.domains ?? []).filter((d) => d.name && !d.redirect && !d.gitBranch).map((d) => d.name as string) : [];
+    const host = names.sort((a, b) => a.length - b.length)[0];
+    return host ? { ok: true, url: `https://${host}` } : { ok: false, reason: "no-domain" };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
+
+/** GET with no id says whether this can deploy at all; with one, how a deployment is getting on; with `address`, where a repository's project is published. */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const { token: tok, source } = token(request);
 
+  const addressOf = url.searchParams.get("address");
+  if (addressOf !== null) return NextResponse.json(await productionAddress(tok, addressOf, url.searchParams.get("team")?.trim() || null, url.searchParams.getAll("source")));
   if (!id) {
     return NextResponse.json({ configured: !!tok, source, repo: process.env.GITHUB_REPO?.trim() ?? null, hook: !!process.env.VERCEL_DEPLOY_HOOK?.trim() });
   }

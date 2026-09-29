@@ -681,6 +681,22 @@ export async function deployStatus(): Promise<DeployStatus> {
   }
 }
 
+/** The address a repository's Vercel project publishes at, asked before a push; null when it has no project or domain yet. */
+export async function productionAddress(input: { repo?: string; sources?: string[] }): Promise<string | null> {
+  if (!input.repo) return null;
+  try {
+    const q = new URLSearchParams({ address: input.repo });
+    const team = heldTeam();
+    if (team) q.set("team", team);
+    for (const s of input.sources ?? []) q.append("source", s);
+    const res = await fetch(`/api/studio/deploy?${q}`, { cache: "no-store", headers: vercelHeader() });
+    const data = (await res.json()) as { ok?: boolean; url?: string };
+    return data.ok && typeof data.url === "string" ? data.url.replace(/\/+$/, "") : null;
+  } catch {
+    return null;
+  }
+}
+
 export type DeployStart =
   | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null; /** Set when this call made the Vercel project. */ created?: string; note?: string }
   | { ok: false; message: string; reason?: string; /** One line on the likely fix, when the route has one. */ hint?: string };

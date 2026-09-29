@@ -110,14 +110,9 @@ check("hatch: og:url is its published address", meta(h1, "og:url") === `${LIVE}/
 check("hatch: the site's favicon, from one folder down", links(h1).some((l) => l.rel === "icon" && l.href === `../${pathOf("pic_favicon1")}`));
 check("hatch: large card too", meta(h1, "twitter:card") === "summary_large_image");
 
-/*
- * Not live yet: nothing relative is written. A crawler reads og:image and
- * og:url as full addresses or not at all (stonkfun's first Go live went up
- * with "assets/pictures/…" and no og:url, and drew no card); they are left
- * out until the address is known, and Go live writes them once it is.
- */
+/* Not live yet, and no address known before the push: the picture named relative, og:url left out; the next publish, once live, fills them. */
 const h2 = headFor(s.pages[0], null);
-check("not live yet: no relative og:image or twitter:image, and no og:url", meta(h2, "og:image") === null && meta(h2, "twitter:image") === null && meta(h2, "og:url") === null, `${meta(h2, "og:image")} / ${meta(h2, "og:url")}`);
+check("not live yet: og:image relative, no og:url", meta(h2, "og:image") === pathOf("pic_banner01") && meta(h2, "og:url") === null, `${meta(h2, "og:image")} / ${meta(h2, "og:url")}`);
 
 /*
  * THE SHARE PICTURE A CRAWLER CAN DRAW. stonkfun's copy said
@@ -143,7 +138,7 @@ check("a raster under 200px is not the share picture", meta(small, "og:image") =
 const ok = bare({ icon: { ...logo, w: 400, h: 300 } });
 check("a raster 200px or more is, on the published address", meta(ok, "og:image") === `${LIVE}/${logo.path}`, meta(ok, "og:image"));
 const noLiveIcon = bare({ icon: { ...logo, w: 400, h: 300 }, live: null });
-check("…and not relative before the site is live", meta(noLiveIcon, "og:image") === null, meta(noLiveIcon, "og:image"));
+check("…named relative before the address is known", meta(noLiveIcon, "og:image") === logo.path, meta(noLiveIcon, "og:image"));
 
 /* No captured card: a wide picture is a large card, a square one is not. */
 const auto = (w, h) => meta(pageHead({ title: "x", name: "x", description: "", icon: null, icons: null, up: "", address: "/", live: LIVE, site: { image: { picture: { ...logo, w, h } } }, page: undefined }), "twitter:card");

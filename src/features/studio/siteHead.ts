@@ -97,10 +97,11 @@ export interface HeadIn {
  *   · the description is the one the site's owner typed (`brief.description`),
  *     never the brief's central idea, which is authoring and is not
  *     published (tests/publish-leak.mjs). None typed, none written;
- *   · og:url, og:image and twitter:image are full addresses on the one the
- *     site is published at, or are not written: a relative one draws no card.
- *     Before the address is known they are left out, and Go live writes the
- *     pages again once it is (`goLive.ts`);
+ *   · og:url, and og:image as a full address, need the address the site is
+ *     published at. Go live asks Vercel for it before the push (`goLive.ts`,
+ *     the project's production domain); a site with no project yet goes up
+ *     once with og:url left out and the picture named relative, and the
+ *     next publish, once live, fills them;
  *   · a share picture, captured or the logo fallen back on, is written only
  *     when a crawler can draw it (`drawable`: a raster, SHARE_MIN or more).
  *
@@ -122,11 +123,11 @@ export function pageHead(o: HeadIn): string {
   const description = page?.description?.trim() || o.description;
   const given = page?.image ?? site?.image;
   const image = given && drawable(given.picture, given.w, given.h) ? given : undefined;
-  /* The logo stands in only when a crawler can draw it, then the site's own largest drawable icon (stonkfun's 250px touch icon); nothing relative is ever named: until the address is known, no share picture. */
+  /* The logo stands in only when a crawler can draw it, then the site's own largest drawable icon (stonkfun's 250px touch icon). */
   const own = [...(site?.icons ?? [])].map((i) => i.picture).filter((p) => drawable(p)).sort((a, b) => (b.w ?? 0) - (a.w ?? 0))[0] ?? null;
   const fallback = image ? null : drawable(o.icon) ? o.icon : own;
   const icons = site?.icons?.length ? site.icons : null;
-  const full = (path: string) => `${o.live}/${path}`;
+  const full = (path: string) => (o.live ? `${o.live}/${path}` : o.up + path);
   const L: string[] = [`<title>${esc(title)}</title>`];
   if (description) L.push(`<meta name="description" content="${attr(description)}">`);
   if (icons) {
@@ -145,7 +146,7 @@ export function pageHead(o: HeadIn): string {
   L.push(`<meta property="og:title" content="${attr(title)}">`);
   if (description) L.push(`<meta property="og:description" content="${attr(description)}">`);
   if (o.live) L.push(`<meta property="og:url" content="${attr(o.live + o.address)}">`);
-  if (image && o.live) {
+  if (image) {
     const at = full(image.picture.path);
     const w = image.w ?? image.picture.w, h = image.h ?? image.picture.h;
     const alt = image.alt?.trim() || image.picture.alt?.trim() || "";
@@ -154,7 +155,7 @@ export function pageHead(o: HeadIn): string {
     if (image.picture.type) L.push(`<meta property="og:image:type" content="${attr(image.picture.type)}">`);
     if (w && h) L.push(`<meta property="og:image:width" content="${w}">\n<meta property="og:image:height" content="${h}">`);
     if (alt) L.push(`<meta property="og:image:alt" content="${attr(alt)}">`);
-  } else if (fallback && o.live) {
+  } else if (fallback) {
     L.push(`<meta property="og:image" content="${attr(full(fallback.path))}">`);
     if (fallback.w && fallback.h) L.push(`<meta property="og:image:width" content="${fallback.w}">\n<meta property="og:image:height" content="${fallback.h}">`);
   }
@@ -162,12 +163,12 @@ export function pageHead(o: HeadIn): string {
     L.push(`<meta name="twitter:card" content="summary">`);
     return L.join("\n");
   }
-  const card = image && o.live ? page?.card || site?.card || cardFor(image) : "summary";
+  const card = image ? page?.card || site?.card || cardFor(image) : "summary";
   L.push(`<meta name="twitter:card" content="${attr(card === LARGE ? LARGE : "summary")}">`);
   L.push(`<meta name="twitter:title" content="${attr(title)}">`);
   if (description) L.push(`<meta name="twitter:description" content="${attr(description)}">`);
   const shown = image ? image.picture.path : fallback?.path;
-  if (shown && o.live) {
+  if (shown) {
     L.push(`<meta name="twitter:image" content="${attr(full(shown))}">`);
     const alt = image?.alt?.trim() || image?.picture.alt?.trim();
     if (alt) L.push(`<meta name="twitter:image:alt" content="${attr(alt)}">`);

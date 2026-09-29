@@ -689,7 +689,7 @@ export function publishedAt(): string | null {
  * whatever is asked for. `pictures: false` leaves the pictures for the
  * caller, which Go live does so that a lost one can be named.
  */
-export async function exportSite(only?: readonly string[], opts: { pictures?: boolean } = {}): Promise<ExportFile[]> {
+export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
   const home = homeFor(s.pages);
@@ -703,7 +703,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   const files: ExportFile[] = [];
   /* Captured, it stretches as the original did; built by hand, it keeps the frame it had. */
   const fluidAt = s.nodes.some(isCaptured) ? width : null;
-  const live = publishedAt();
+  const live = publishedAt() ?? opts.address?.trim().replace(/\/+$/, "") ?? null;
   /* The link preview a capture recorded, or Link preview set: named only where this browser still has the file. */
   const heads = [s.brief.head, ...s.pages.map((p) => p.head)].flatMap((h) => headPictures(h));
   const here = new Set<string>();

@@ -212,8 +212,6 @@ console.log("4. Pressed: the same Go live, the same progress, and the address");
   check("the book, opened mid-build, shows the same run", /building…|queued…/i.test(book.text) && book.goDisabled === true, `Go live disabled: ${book.goDisabled}; ${book.text.slice(0, 160)}`);
   let p = null;
   for (let i = 0; i < 60; i++) { p = await project(); if (p?.live?.url) break; await sleep(500); }
-  /* The first time, the pages are written again on the address once it is known (tests/go-live-head.mjs): the run ends after that. */
-  for (let i = 0; i < 120 && (await state()) === "busy"; i++) await sleep(500);
   await page.waitForTimeout(1200);
   const bookLink = await page.evaluate(() => document.querySelector("[data-brief-publish] [data-live-address]")?.getAttribute("href") ?? null);
   check("once READY the site records the address, and the book shows it", p?.live?.url === ADDRESS && bookLink === ADDRESS, `live ${p?.live?.url ?? null}, book ${bookLink}`);
@@ -221,8 +219,7 @@ console.log("4. Pressed: the same Go live, the same progress, and the address");
   check("the book's row keeps its Go live", bookGo === true, `enabled ${bookGo}`);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
-  /* Two deployments the first time: the second writes the link previews on the address the first was given (tests/go-live-head.mjs). */
-  check("one project was made on Vercel, and two deployments", projects.length === 1 && deployments.length === n + 2, `${projects.length} projects, ${deployments.length - n} deployments`);
+  check("one project was made on Vercel, and one deployment", projects.length === 1 && deployments.length === n + 1, `${projects.length} projects, ${deployments.length - n} deployments`);
 }
 
 /*

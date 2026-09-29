@@ -16,7 +16,7 @@
 import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
-import { deploy, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
+import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "./staticSite";
@@ -159,10 +159,10 @@ export function documentFiles(): GeneratedFile[] {
  * model, nothing asked of anybody: pressing publish is now enough to have
  * a website.
  */
-export async function collectFiles(described: GeneratedFile[], say: (note: string) => void): Promise<GeneratedFile[]> {
+export async function collectFiles(described: GeneratedFile[], say: (note: string) => void, address?: string | null): Promise<GeneratedFile[]> {
   let pages: GeneratedFile[] = [];
   try {
-    pages = (await exportSite(undefined, { pictures: false })) as GeneratedFile[];
+    pages = (await exportSite(undefined, { pictures: false, address })) as GeneratedFile[];
   } catch (err) {
     /* The description still goes up, and the line says the pages did not,
        rather than a publish that silently carries half of it. */
@@ -204,18 +204,8 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
  * server's, so each site goes where the Builds page says it goes, and the
  * address is written back to the project when it is live.
  */
-export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; again?: boolean }): Promise<void> {
+export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void }): Promise<void> {
   if (useGoLive.getState().busy) return;
-  /*
-   * THE FIRST TIME, TWICE. A link preview needs full addresses on the one the
-   * site is published at (og:url, og:image), and before the first deploy
-   * nobody knows it: Vercel names it, suffix and all
-   * (stonkfun-launch-coins-paired-with-a.vercel.app). So a site going live
-   * for the first time is written without them, and once Vercel has said the
-   * address the pages are written again with it and pushed once more.
-   */
-  const addressed = !!publishedAt();
-  let addressNow = false;
   const set = useGoLive.setState;
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
@@ -230,7 +220,16 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       say({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
       return;
     }
-    const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote);
+    /*
+     * THE ADDRESS, BEFORE THE PAGES ARE WRITTEN. A link preview names full
+     * addresses on the one the site is published at, and one press is one
+     * deployment (tests/go-live-once.mjs), so a site not yet live asks
+     * Vercel where its repository's project publishes (tests/go-live-head.mjs).
+     * No project yet, no address: the pages go up with relative pictures and
+     * no og:url, and the next publish, once live, fills them.
+     */
+    const address = publishedAt() ? null : await productionAddress({ repo, sources });
+    const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address);
     setBusy(`Pushing ${going.length} files to GitHub…`);
     const pushed = await publish({ files: going, message: o.message, deploy: false, repo, branch, create, boundTo, sources });
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
@@ -269,8 +268,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       : await watchDeploy(started.id, { team: started.team, onState });
     if (end.state === "READY" && end.url) {
       useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
-      addressNow = !addressed && !o.again && !!publishedAt();
-      if (!addressNow) say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
+      say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
     } else {
       const ended = end.state ? end.state.toLowerCase() : "ended without a state";
       refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`);
@@ -279,9 +277,5 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     }
   } finally {
     setBusy(null);
-  }
-  if (addressNow) {
-    useStudio.getState().noteThread([`Writing the link previews on ${publishedAt()?.replace(/^https:\/\//, "")}, now that it is known`]);
-    await goLive({ ...o, message: `${o.message} (link previews on the live address)`, again: true });
   }
 }

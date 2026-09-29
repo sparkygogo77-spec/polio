@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * THE FIRST GO LIVE WRITES THE LINK PREVIEW ON THE ADDRESS IT GETS.
+ * THE LINK PREVIEW NAMES THE ADDRESS FROM THE FIRST PUSH, IN ONE DEPLOYMENT.
  *
- * stonkfun's copy went live for the first time and its pages said
- * og:image="assets/pictures/…" and no og:url: before the first deploy the
- * address is not known (Vercel names it, suffix and all), and a relative
- * og:image draws no card. Held here:
- *   · the first press pushes twice: the pages as written before the
- *     address was known, then, once Vercel has said it, the pages again;
- *   · the second push's index.html says og:url on that address, the first
- *     says none and names nothing relative;
- *   · a press once live pushes once.
+ * stonkfun's copy went live for the first time with og:image named relative
+ * and no og:url: the address was not known when the pages were written. One
+ * press is one deployment (tests/go-live-once.mjs), so the address is asked
+ * for before the push: the project connected to the site's repository, and
+ * its production domain from Vercel's project domains. Held here:
+ *   · a site whose repository has a project connected and never deployed:
+ *     the one push says og:url on its production domain (not the branch's,
+ *     not a redirect); one deployment;
+ *   · a new site, no repository or project yet: the one push names no og:url
+ *     and one deployment is made; the next press, once live, says og:url on
+ *     the address.
  *
  * Stand-ins for GitHub and Vercel, as tests/go-live-bar.mjs.
  *
@@ -62,7 +64,8 @@ const gh = http.createServer(async (req, res) => {
 });
 
 const vcSeen = [];
-const projects = [];
+/** One connected by an earlier press and never deployed, with its domains. */
+const projects = [{ id: "prj_earlier", name: "earlier", link: { type: "github", org: "someone", repo: "earlier", repoId: 900 } }];
 /** Every deployment asked for, and how many times each has been polled. */
 const deployments = [];
 const vc = http.createServer(async (req, res) => {
@@ -72,6 +75,11 @@ const vc = http.createServer(async (req, res) => {
   const send = (s, o) => { res.writeHead(s, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
   if (!/^Bearer .{9,}/.test(req.headers.authorization ?? "")) return send(403, { error: { code: "forbidden", message: "Not authorized" } });
   if (path === "/v9/projects" && req.method === "GET") return send(200, { projects, pagination: { next: null } });
+  if (path === "/v9/projects/prj_earlier/domains" && req.method === "GET") return send(200, { domains: [
+    { name: "earlier-git-main-someone.vercel.app", gitBranch: "main", redirect: null },
+    { name: "old.example", redirect: "earlier-site.vercel.app", gitBranch: null },
+    { name: "earlier-site.vercel.app", redirect: null, gitBranch: null },
+  ] });
   if (/^\/v\d+\/projects$/.test(path) && req.method === "POST") {
     const b = JSON.parse(body || "{}");
     const [org, name] = String(b.gitRepository?.repo ?? "").split("/");
@@ -162,26 +170,40 @@ const keysIn = async (fill) => {
 await keysIn([["github", GH_TOKEN], ["vercel", VC_TOKEN]]);
 const indexOf = (t) => Object.entries(t).find(([p]) => p === "index.html")?.[1] ?? "";
 const metaIn = (html, key) => html.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)"`))?.[1] ?? null;
-
-console.log("1. The first press: twice, the second on the address");
-{
-  await bar().first().click();
-  for (let i = 0; i < 600 && !(trees.length >= 2 && deployments.length >= 2 && (await state()) !== "busy"); i++) await sleep(100);
-  await page.waitForTimeout(800);
-  const p = await project();
-  check("the address is recorded", p?.live?.url === ADDRESS, p?.live?.url);
-  check("two pushes and two deployments", trees.length === 2 && deployments.length === 2, `${trees.length} pushes, ${deployments.length} deployments`);
-  const first = indexOf(trees[0] ?? {}), second = indexOf(trees[1] ?? {});
-  check("the first push names no og:url and nothing relative", !!first && metaIn(first, "og:url") === null && !/content="assets\//.test(first), first.match(/<head>[\s\S]*?<\/head>/)?.[0]?.slice(0, 400));
-  check("the second push says og:url on the address", metaIn(second, "og:url") === `${ADDRESS}/`, metaIn(second, "og:url"));
-}
-console.log("2. Live: one press, one push");
-{
+const press = async () => {
   const n = trees.length, d = deployments.length;
   await bar().first().click().catch(() => {});
-  for (let i = 0; i < 600 && !(trees.length > n && deployments[d]?.polls >= 5 && (await state()) !== "busy"); i++) await sleep(100);
+  for (let i = 0; i < 600 && !(trees.length > n && deployments.length > d && deployments.at(-1).polls >= 5); i++) await sleep(100);
+  for (let i = 0; i < 120 && (await state()) === "busy"; i++) await sleep(500);
   await page.waitForTimeout(1500);
-  check("once live a press pushes once, on the address from the start", trees.length === n + 1 && metaIn(indexOf(trees[n] ?? {}), "og:url") === `${ADDRESS}/`, `${trees.length - n} pushes`);
+  return { pushes: trees.length - n, deployments: deployments.length - d, html: indexOf(trees[n] ?? {}) };
+};
+
+console.log("1. A repository whose project is connected and never deployed");
+await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem("builder.builds")); raw.state.projects[0].repo = { owner: "someone", name: "earlier", branch: "main" }; raw.state.projects[0].bound = "made"; localStorage.setItem("builder.builds", JSON.stringify(raw)); });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+{
+  const r = await press();
+  check("one push, one deployment", r.pushes === 1 && r.deployments === 1, `${r.pushes} pushes, ${r.deployments} deployments`);
+  check("the push says og:url on the project's production domain, not the branch's or a redirect", metaIn(r.html, "og:url") === "https://earlier-site.vercel.app/", metaIn(r.html, "og:url"));
+}
+
+console.log("2. A new site: no repository and no project yet");
+await page.evaluate(() => {
+  const env = (s) => JSON.stringify({ state: s, version: 0 });
+  localStorage.setItem("builder.builds", env({ projects: [{ id: "s1", name: "Top Bar", updatedAt: Date.now() }], activeId: "s1" }));
+});
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+{
+  const r = await press();
+  check("one push, one deployment", r.pushes === 1 && r.deployments === 1, `${r.pushes} pushes, ${r.deployments} deployments`);
+  check("the push names no og:url: the address is not known yet", !!r.html && metaIn(r.html, "og:url") === null, metaIn(r.html, "og:url"));
+  const p = await project();
+  check("the address is recorded once live", p?.live?.url === ADDRESS, p?.live?.url);
+  const again = await press();
+  check("the next press, once live, says og:url on it, in one deployment", again.pushes === 1 && again.deployments === 1 && metaIn(again.html, "og:url") === `${ADDRESS}/`, `${again.pushes} pushes, ${again.deployments} deployments, ${metaIn(again.html, "og:url")}`);
 }
 check("no page error on the way", errors.length === 0, errors.join(" / "));
 
