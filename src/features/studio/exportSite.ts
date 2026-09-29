@@ -550,7 +550,11 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (st.left) el.style.left = st.left;
     if (st.top) el.style.top = st.top;
     if (st.width) el.style.width = st.width;
-    if (st.height) { el.style.height = st.height; el.style.minHeight = st.height; }
+    if (st.height) {
+      el.style.height = st.height; el.style.minHeight = st.height;
+      /* A picture sized by its block is held to that height: its wrapper grows with what it holds, and parasiteonsol.fun's hero picture stood 1026 tall in 702 (tests/picture-in-box.mjs). */
+      if (pic) for (const box of Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]"))) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; }
+    }
     if (st.backgroundSize || st.backgroundPosition) {
       for (const b of [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))]) {
         if (!b.style.backgroundImage || !/url\(/.test(b.style.backgroundImage)) continue;

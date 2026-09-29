@@ -51,7 +51,9 @@ const pic = { id: "pic_w", path: "data:image/svg+xml,%3Csvg xmlns='http://www.w3
 const n = { id: "p", pageId: "p0", featureId: "picture", label: "canvas", prompt: "", content: "", data: "", x: 0, y: 0, w: 400, h: 200, groupId: null, options: {}, priority: "must", custom: false, locked: false, link: null, colour: null, font: null, texture: null, picture: pic, from: { url: "https://x/", host: "x", selector: "body > canvas" } };
 const html = renderToStaticMarkup(React.createElement(Block, { node: n, t, palette, mode: "live", size: { w: 400, h: 200 }, pictureAt: (p) => p.path }));
 const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
-await page.setContent(`<body style="margin:0"><div id="part" style="position:absolute;left:10px;top:10px;width:400px;height:200px;display:flex;flex-direction:column">${html}</div></body>`);
+await page.setContent(`<body style="margin:0"><div id="part" style="position:absolute;left:10px;top:10px;width:400px;height:200px;min-height:200px;display:flex;flex-direction:column">${html}</div></body>`);
+/* What the export does to a picture a layer's units size (exportSite.ts): its wrapper held to the part's height. */
+await page.evaluate(() => { const el = document.getElementById("part"); for (const box of el.querySelectorAll(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]")) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; } });
 const img = await page.evaluate(() => { const i = document.querySelector("img"); const r = i.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), Math.round(r.top), Math.round(r.bottom)]; });
 check("a picture part's picture stays inside its 400 × 200 box", img[1] <= 200 && img[3] <= 210, JSON.stringify(img));
 await browser.close();
