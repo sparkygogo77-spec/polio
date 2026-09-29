@@ -34,3 +34,6 @@ undefined/
 # screenshots a scratchpad script wrote into the repository root because its
 # output directory was not set: never part of the source
 /*.png
+
+# screenshots and exports some suites write while they run (lead-in, bring-again, recapture, …)
+.scratch/
