@@ -462,6 +462,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null, inset: n.from?.inset ?? null,
     layout: (n as { layout?: FluidPart["layout"] }).layout ?? null,
     pad: (n as { pad?: FluidPart["pad"] }).pad ?? null,
+    maxw: (n as { maxw?: number }).maxw ?? null,
     state: n.state ? `${n.state.group}:${n.state.option}` : null,
   }));
   const k = fluidParts(parts, W);

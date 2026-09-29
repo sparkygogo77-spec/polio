@@ -55,6 +55,8 @@ export interface FluidPart {
   inset?: { top?: number; right?: number; bottom?: number; left?: number } | null;
   layout?: { display?: string; direction?: string; justify?: string; align?: string; gap?: number; columns?: number } | null;
   pad?: { left?: number; right?: number } | null;
+  /** The px max-width the page gave it (sink `node.maxw`): it grows with the window no further (`tests/fluid-maxwidth.mjs`). */
+  maxw?: number | null;
   /** The press that shows it (sink `behaviours.states`, `group:option`), or none: the page as it opens. */
   state?: string | null;
 }
@@ -269,6 +271,21 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       /* The element C sat in is not a part (the board folded it away), so P's layout is not C's parent's: read by where C stood. */
       const lost = !!P.selector && !!C.selector && up(C.selector) !== P.selector;
       if (still) k = at(0);
+      /*
+       * A MAX-WIDTH CONTAINER (stonkfun.xyz's `max-width: 1440px; margin: 0
+       * auto`): it grows with what holds it up to its max-width and no
+       * further; centred at the capture (as much room either side), it stays
+       * centred. What is inside it follows it; a full-bleed band beside it
+       * still stretches.
+       */
+      else if (C.maxw && C.maxw > 0 && C.w <= C.maxw + E && (spans || (C.w >= C.maxw - E && Math.abs(left - right) <= E))) {
+        const inside = css(plus(px(inR - inL), grow, 1, W), W).replace(/^calc/, "");
+        const grown = css(plus(px(C.w), grow, 1, W), W).replace(/^calc/, "");
+        const width = `min(${C.maxw}px, ${grown})`;
+        const l0 = css(plus(pk.left, px(inL - P.x), 1, W), W).replace(/^calc/, "");
+        const centred = Math.abs(left - right) <= E;
+        k = { width: { c: C.w, k: 0, css: width }, left: { c: C.x, k: 0, css: centred ? `calc(${l0} + (${inside} - ${width}) / 2)` : `calc(${l0} + ${left}px)` } };
+      }
       else if (!lost && L?.display === "grid" && (L.columns ?? 0) > 1) {
         const n = L.columns!;
         const colW = (inR - inL + gapPx) / n;
