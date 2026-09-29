@@ -112,7 +112,22 @@ async function site({ source = null, nodes = [] } = {}) {
 const builds = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("builder.builds") || "{}").state ?? {});
 const menu = (page) => page.locator("[data-repo-menu]");
 /* The space a Bring lands in is labelled with what was asked for: owner/name, its folder, @ its branch. */
-const spaces = (page) => page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.spaces ?? []).map((x) => x.label));
+/* What is being brought in, as the Builder says it: "Reading owner/name/folder@branch".
+   It used to be a space on the board, labelled with the same name; the import
+   runs out of sight now and says so in the toast (tests/bring-no-space.mjs). */
+const NAME = String.raw`([\w.-]+\/[\w.-]+(?:\/[\w./-]+)?(?:@[\w./-]+)?)`;
+const readingNow = (page) => page.evaluate((name) => [
+  ...document.body.innerText.matchAll(new RegExp(String.raw`\bReading ${name}`, "g")),
+  ...document.body.innerText.matchAll(new RegExp(String.raw`^${name}: GitHub has no such repository`, "gm")),
+].map((m) => m[1]), NAME);
+/* Watched from the press, every 100ms. The toast says "Reading …" only until
+   the import answers, and the stand-in here serves no files to import, so it
+   answers at once with the refusal — which names what it read just the same. */
+const brought = async (page, ms) => {
+  const seen = new Set();
+  for (let t = 0; t < ms; t += 100) { for (const r of await readingNow(page).catch(() => [])) seen.add(r); await page.waitForTimeout(100); }
+  return [...seen];
+};
 const close = async (page) => { await page.keyboard.press("Escape"); await page.waitForTimeout(300); };
 
 /* ------------------------------------------- one menu, every way in */
@@ -166,8 +181,7 @@ await section(async () => {
   check("…read again for the branch chosen", (await folders()).join() === ",sites/solcinerator,sites/trumpmorty", (await folders()).join());
   await choices.locator('[data-repo-folder="sites/trumpmorty"]').click();
   await choices.locator("[data-repo-bring-chosen]").click();
-  await page.waitForTimeout(1200);
-  const landed = await spaces(page);
+  const landed = await brought(page, 1200);
   check("bringing it in needs no @ and no typed path: the branch and folder go with it", landed.includes("him/sink/sites/trumpmorty@edit/look"), landed.join(", "));
   check("…and the menu closes on it", await menu(page).count() === 0);
   await page.locator("[data-bring-repo]").first().click();
@@ -242,9 +256,8 @@ await section(async () => {
   check("…offering a new site for it", await ask.locator("[data-repo-bring-newsite]").count() === 1);
   const before = (await builds(page)).projects?.length ?? 0;
   await ask.locator("[data-repo-bring-newsite]").click().catch(() => {});
-  await page.waitForTimeout(2000);
+  const reading = (await brought(page, 2000)).includes("him/site");
   const b = await builds(page);
-  const reading = (await spaces(page)).includes("him/site");
   check("…which makes the new site and brings the repo into it", (b.projects?.length ?? 0) === before + 1 && b.activeId !== "s1" && reading, `${before} → ${b.projects?.length} · ${b.activeId} · reading ${reading}`);
   await ctx.close();
 });

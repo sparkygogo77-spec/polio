@@ -23,7 +23,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
 import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, typedSince, type DrawJob } from "./queue";
-import { stillAsks } from "./oddness";
+import { stillAsks, withAnswer } from "./oddness";
 import { runDrawJob } from "./reshapeRun";
 import { progressOf } from "./formation";
 import { useStudio } from "./store";
@@ -187,7 +187,11 @@ export function DrawQueue() {
     if (!job) return;
     const said = typedSince(job.question, job.nodeId ? nodes.find((n) => n.id === job.nodeId)?.prompt : "");
     if (stillAsks(job.question, job.sketch, said)) return;
-    useStudio.getState().updateJob(job.id, { status: "waiting", question: null });
+    // The words go on with the drawing: the run reads them as what it is,
+    // and a drawing with words is not asked about again. Without them the
+    // run asked the same question on its next turn, and that one, counting
+    // these words as already there, was never withdrawn.
+    useStudio.getState().updateJob(job.id, { status: "waiting", question: null, sketch: withAnswer(job.sketch, said) });
   }, [queue, nodes]);
 
   const asking = askingJob(queue);

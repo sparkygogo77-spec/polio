@@ -12,6 +12,7 @@ npm run dev            # http://localhost:3000 — the Builder is at /builder
 npm run typecheck      # tsc --noEmit
 npm run build          # next build (must pass before you push)
 npm run new:feature X  # scaffold src/features/X and register it
+npm run test:all       # every test in tests/, each on the server its header asks for, then a pass/fail table
 ```
 
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.

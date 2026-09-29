@@ -174,6 +174,17 @@ const DRAWN = { x: 520, y: 380, w: 240, h: 180 };
   await page.mouse.up();
   await page.waitForTimeout(400);
 }
+/* The ink's own width on the page, in page pixels: the zoom it was drawn at
+   is the one "the size it was drawn" means. The board can fit itself to the
+   window again once the pen is put down, so the zoom read after landing is
+   not the zoom the person drew at. */
+const inkW = await page.evaluate(() => {
+  const pen = (JSON.parse(localStorage.getItem("builder.studio") ?? "{}").state?.shapes ?? []).filter((x) => x.kind === "pen");
+  const xs = pen.flatMap((p) => p.points.map((q) => q[0]));
+  return xs.length ? Math.max(...xs) - Math.min(...xs) : 0;
+});
+const drawZoom = inkW ? DRAWN.w / inkW : 0;
+check("the ink is on the page at the zoom it was drawn at", inkW > 0, `${Math.round(inkW)} page px for ${DRAWN.w} screen px`);
 await shot("1-drawn", { x: 300, y: 120, width: 1120, height: 700 });
 check("the ink is one drawing with a Make real button", (await page.locator("[data-make-real]").count()) === 1);
 await page.locator("[data-make-real]").first().click({ force: true });
@@ -192,7 +203,7 @@ const zoom = await page.evaluate(() => { const el = document.querySelector("[dat
   const drawnRatio = DRAWN.w / DRAWN.h;
   const ratio = node ? node.w / node.h : 0;
   check("at the proportion it was drawn, not squared", node && Math.abs(ratio - drawnRatio) < 0.06, `drawn ${DRAWN.w}×${DRAWN.h} (${drawnRatio.toFixed(2)}) → part ${node?.w}×${node?.h} (${ratio.toFixed(2)}), board zoom ${zoom.toFixed(3)}`);
-  check("at the size it was drawn", node && Math.abs(node.w * zoom - DRAWN.w) < 12, `${Math.round((node?.w ?? 0) * zoom)} screen px wide against ${DRAWN.w} drawn`);
+  check("at the size it was drawn", node && drawZoom > 0 && Math.abs(node.w * drawZoom - DRAWN.w) < 12, `${Math.round((node?.w ?? 0) * drawZoom)} screen px wide against ${DRAWN.w} drawn, at the zoom it was drawn at (${drawZoom.toFixed(3)}; the board is at ${zoom.toFixed(3)} now)`);
 }
 const part = page.locator(`[data-node-id="${node.id}"]`);
 /*
@@ -341,6 +352,9 @@ let side = null;
   await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2, { button: "right" });
   await page.waitForTimeout(650);
   await page.locator('[data-radial] [data-shard="write"]').first().click({ force: true });
+  await page.waitForTimeout(500);
+  /* The pencil opens on the one box now (tests/one-box.mjs); Words is one press further, under More. */
+  await page.locator('[data-radial] [data-shard="more"]').first().click({ force: true });
   await page.waitForTimeout(500);
   await page.locator('[data-radial] [data-shard="words"]').first().click({ force: true });
   await page.waitForTimeout(500);

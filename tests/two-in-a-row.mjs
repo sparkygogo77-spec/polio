@@ -45,7 +45,10 @@ const check = (name, ok, detail = "") => {
 
 const queueSrc = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
 const runSrc = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
-const runner = /React\.useEffect\(\(\) => \{[\s\S]*?\n  \}, \[queue, ctx\]\);/.exec(queueSrc)?.[0] ?? "";
+// The runner's effect, whatever else it comes to depend on beside the queue
+// and the context (the look it draws in, since dbb95c3).
+const runner = /React\.useEffect\(\(\) => \{[\s\S]*?\n  \}, \[queue, ctx(?:, [\w.]+)*\]\);/.exec(queueSrc)?.[0] ?? "";
+check("the runner is found where it is written", runner.length > 0);
 
 check("one job at a time, and the runner is a ref so two renders cannot both take it",
   /const running = React\.useRef<string \| null>\(null\);/.test(queueSrc) && /if \(!job \|\| running\.current\) return;/.test(runner));

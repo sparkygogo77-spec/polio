@@ -12,7 +12,7 @@
  */
 import { readFileSync } from "node:fs";
 import { oddness, stillAsks, withAnswer, ANSWER_WORDS } from "../src/features/studio/oddness.ts";
-import { pendingJobs, askingJob, nextJob } from "../src/features/studio/queue.ts";
+import { pendingJobs, askingJob, nextJob, typedSince } from "../src/features/studio/queue.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -138,12 +138,14 @@ const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
 const dq = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
 const store = readFileSync("src/features/studio/store.ts", "utf8");
 check("the run asks after the catalogue, which is free, and before the read, which is not", (() => {
-  const cat = run.indexOf("const picked = pickCoded(ctx);");
-  const ask = run.indexOf("const q = oddness(drawn, node?.prompt ?? \"\");");
+  const cat = run.indexOf(": pickCoded(ctx);");
+  const ask = run.indexOf("const q = oddness(drawn, \"\");");
   const read = run.indexOf("deps.onStep?.(\"Claude is reading the drawing…\");");
   return cat > 0 && ask > cat && read > ask;
 })());
-check("…once: a job that has its question is not asked again", /if \(!job\.question\) \{/.test(run));
+/* Nor when he said what it is before he drew it: a job that wants a cube or
+   an icon has nothing to ask. */
+check("…once: a job that has its question is not asked again", /if \(!job\.question && job\.want !== "icon" && job\.want !== "cube"\) \{/.test(run));
 /* The assignment, not the declaration. `drawn` is declared above the try
    and assigned inside it, so a throw anywhere in here is a failure the job
    can report rather than a rejection that leaves it running for ever
@@ -155,12 +157,22 @@ check("the runner leaves an asking job alone", /if \(r\.asked\) return;/.test(dq
 check("the question is put where the counter is, with the drawing and the answers as keys", /data-queue-question=\{job\.id\}/.test(dq) && /data-queue-answer=\{c\}/.test(dq) && /make it anyway/.test(dq));
 check("an answer puts the job back on the queue with it", /answerJob: \(id, answer\) =>/.test(store) && /status: "waiting" as const, question: \{ \.\.\.j\.question, answer \}/.test(store));
 check("the job remembers which question it asked, so staleness can be judged",
-  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
-check("the run folds in an answer only while its question stands",
-  /const answered = stillAsks\(job\.question, job\.sketch, node\?\.prompt \?\? ""\) \? job\.question\?\.answer : undefined;/.test(run));
+  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why, prompt: hit\?\.prompt \?\? "" \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
+/* The part's words when the question was asked travel with it: only words
+   typed after it can overrule the answer (`typedSince`). */
+check("the run folds in an answer only while its question stands, judged by words typed since it was asked",
+  /const answered = stillAsks\(job\.question, job\.sketch, typedSince\(job\.question, hit\?\.prompt\)\) \? job\.question\?\.answer : undefined;/.test(run)
+  && typedSince({ ask: "", choices: [], prompt: "a box" }, "a box") === ""
+  && typedSince({ ask: "", choices: [], prompt: "a box" }, "a flat box") === "a flat box"
+  && typedSince(null, "a box") === "");
 check("a question nobody needs any more is withdrawn while it waits, and the job goes on",
   /if \(stillAsks\(job\.question, job\.sketch, said\)\) return;/.test(dq)
-  && /updateJob\(job\.id, \{ status: "waiting", question: null \}\);/.test(dq));
+  && /updateJob\(job\.id, \{ status: "waiting", question: null, sketch: withAnswer\(job\.sketch, said\) \}\);/.test(dq));
+/* Withdrawn once, never asked again: the words that withdrew it go on with
+   the drawing, and a drawing with words has nothing to ask. Without them the
+   run asked again on its next turn and that question could not be withdrawn. */
+check("…and is not asked again once the words that withdrew it go on with the drawing",
+  oddness(withAnswer({ strokes: [scribble, wiggle], words: "" }, "the pricing table, flat"), "") === null && oddness({ strokes: [scribble, wiggle], words: "" }, "") !== null);
 
 /* ------------------------------------------------------------------ */
 /* 5. On the board: a question withdrawn by what a person typed         */
