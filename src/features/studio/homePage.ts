@@ -37,6 +37,13 @@ export interface Home {
 }
 
 const slugOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9/_-]+/g, "-").replace(/^-+|-+$/g, "");
+/*
+ * A page's own path is its file as written: an address is case-sensitive
+ * (parasiteonsol.fun's `/h/Ai66LHZ…`), so only characters no address holds
+ * are replaced. A page named only by its name is lowered, as before.
+ * `tests/path-case.mjs`.
+ */
+const pathOf = (s: string) => s.replace(/[^A-Za-z0-9/_.~-]+/g, "-").replace(/^-+|-+$/g, "");
 
 export function homeFor(pages: readonly Routed[]): Home {
   const home = homeOf(pages)?.id ?? null;
@@ -46,14 +53,15 @@ export function homeFor(pages: readonly Routed[]): Home {
   for (const page of pages) {
     if (page.id === home) continue;
     /* A page on "/" that is not Home has no route of its own: it goes by its name. */
-    const base = slugOf(bare(page.path) || bare(page.name) || page.id) || page.id;
+    const base = (bare(page.path) ? pathOf(bare(page.path)) : slugOf(bare(page.name) || page.id)) || page.id;
+    /* Two files that differ only in case are one on a disk that ignores it: the later takes the next free name. */
     let file = `${base}/index.html`;
-    for (let k = 2; used.has(file); k++) file = `${base}-${k}/index.html`;
+    for (let k = 2; used.has(file.toLowerCase()); k++) file = `${base}-${k}/index.html`;
     files.set(page.id, file);
-    used.add(file);
+    used.add(file.toLowerCase());
   }
   return {
     id: home,
-    file: (page) => files.get(page.id) ?? `${slugOf(bare(page.path) || page.id) || page.id}/index.html`,
+    file: (page) => files.get(page.id) ?? `${(bare(page.path) ? pathOf(bare(page.path)) : slugOf(page.id)) || page.id}/index.html`,
   };
 }
