@@ -33,6 +33,7 @@ import { TextureDrift } from "./TextureDrift";
 import { CarriedFonts } from "./live/CarriedFonts";
 import type { CarriedFont } from "./fonts";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
+import { BringHost } from "./FromASite";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { useBoxEntry } from "./boxEntry";
 import { hasPicture, pictureFrom, readDrop } from "./pictureDrop";
@@ -1369,6 +1370,9 @@ export function Canvas() {
       // The size it was drawn at, so the part lands there rather than
       // filling the frame: the strokes above are fractions of this box.
       drawn: { w: b.w, h: b.h },
+      /* Icon or Cube, chosen on the Draw row before drawing: carried, and
+         honoured with or without a key (`tests/draw-kind-chips.mjs`). */
+      want: (() => { const k = useStudio.getState().drawKind; return k === "icon" || k === "cube" ? k : null; })(),
       label: `Making ${drawn.words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
     });
     useStudio.getState().removeShapes(group.strokeIds);
@@ -2045,6 +2049,8 @@ export function Canvas() {
       {/* The panel for the one part picked inside an open black hole, and the surfaces forming (`SpaceLayer.tsx`). */}
       <SpaceSide />
       <SpaceForming />
+      {/* A repository's import, run out of sight: no space, no panel (`FromASite.tsx`). */}
+      <BringHost />
     </div>
   );
 }

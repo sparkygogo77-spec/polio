@@ -486,6 +486,18 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       </Tooltip>
       <span className="mx-1 h-4 w-px bg-border" />
       <ToolPicker tool={tool} setTool={setTool} />
+      {/* Draw a space, with its name on it: the one tool the owner could not find again once an import stopped opening it (`tests/space-command.mjs`). */}
+      <button
+        type="button"
+        data-draw-space-button=""
+        aria-pressed={tool === "space"}
+        title="Draw a space (S): draw a closed shape on the page, and its panel opens on the right"
+        onClick={() => setTool(tool === "space" ? "select" : "space")}
+        className={cn("tactile ml-1 inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-small [&_svg]:size-3.5", tool === "space" ? "border-[oklch(0.62_0.19_25)] text-fg" : "border-border text-fg-muted hover:text-fg")}
+      >
+        <TriangleDashed />
+        <span>Draw a space</span>
+      </button>
 
       {/* The tool in hand, and its own settings: the pen's colour, the select tool's checkbox. See `toolOptions.tsx`. */}
       <ToolOptions tool={tool} />

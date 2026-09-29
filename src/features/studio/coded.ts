@@ -103,7 +103,8 @@ const CUBE: CodedPart = {
     const words = (node?.prompt ?? "").trim() || sketch.words.trim();
     const faces = facesFrom(plain(node?.content), words);
     const n = written({ faces });
-    const asBox = !saysCube(`${sketch.words ?? ""} ${node?.prompt ?? ""}`) && kindOfSketch(sketch, node?.prompt ?? "", lone ?? true).why.includes("four corners");
+    // Read off the typed words only: a part's saved description asks for nothing (`reshapeRun.ts`).
+    const asBox = !saysCube(sketch.words ?? "") && kindOfSketch(sketch, "", lone ?? true).why.includes("four corners");
     /*
      * The proportion it was drawn at is kept: a square box is a cube and a
      * wide one is a wide box, which is what "the drawn ratio locking" means

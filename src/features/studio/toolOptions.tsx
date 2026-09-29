@@ -133,9 +133,9 @@ function InkRow({ compact }: { compact?: boolean }) {
  * disappearing.
  *
  * Every chip is wired to a path that already exists (`DRAW_KINDS` in the
- * store says which). `Button` is not here, and its absence is the point: a
- * preset kind means coded and pressable the moment it lands, and until that
- * is true a Button chip would be a control that lies.
+ * store says which). Button is here now that it is real: a preset kind
+ * means coded and pressable the moment it lands. Icon and Cube go with the
+ * ink's Make real and with the drawing disc, which says which it is using.
  */
 export function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean }) {
   const [open, setOpen] = React.useState(false);

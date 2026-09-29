@@ -78,6 +78,7 @@ export function generateSurface(spaceId: string): Generated {
       sketch: drawn,
       picture: pictureOf(strokes),
       drawn: { w: b.w, h: b.h },
+      quiet: true,
       label: `Making ${nameFrom(words) || describeSketch({ strokes, words: "" })}`,
     });
     useStudio.getState().removeShapes(g.strokeIds);

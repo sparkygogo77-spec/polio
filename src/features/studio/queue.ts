@@ -58,7 +58,11 @@ export interface DrawJob {
    * `asking`: it waits on the person, not on the queue, and other drawings
    * go past it.
    */
-  question?: { ask: string; choices: readonly string[]; answer?: string; why?: "cube" | "kind" } | null;
+  question?: {
+    ask: string; choices: readonly string[]; answer?: string; why?: "cube" | "kind";
+    /** The part's own words when the question was asked: only words typed after it count as an answer (`typedSince`). */
+    prompt?: string;
+  } | null;
   /**
    * The iteration this job is making, landed the moment it was queued.
    *
@@ -70,6 +74,24 @@ export interface DrawJob {
    * because there was nothing else to write it on.
    */
   threadId?: string;
+  /**
+   * The part the drawing was made on, when it lands as a new part over it
+   * rather than changing it (`drawTarget.ts`). Said in the message that
+   * tells him where it landed.
+   */
+  over?: string | null;
+  /**
+   * The drawing is meant to change the part it was made on, said by the
+   * door itself: only "draw it again" on the timeline, which redraws a part
+   * a drawing made. Every other door changes a part only when the words
+   * typed with the drawing ask for it.
+   */
+  reshape?: boolean;
+  /**
+   * A space's Generate: the surface forming on the board is the message, so
+   * the queue does not say each landing out loud (`tests/create-flow.mjs`).
+   */
+  quiet?: boolean;
   /** What the counter and the book call it. */
   label: string;
   status: JobStatus;
@@ -106,4 +128,18 @@ export function trimQueue(q: DrawJob[]): DrawJob[] {
   if (over.length <= QUEUE_KEEP) return q;
   const cut = new Set(over.slice(0, over.length - QUEUE_KEEP).map((j) => j.id));
   return q.filter((j) => !cut.has(j.id));
+}
+
+/**
+ * What was typed on the part since the question was asked, or nothing.
+ *
+ * A part's saved words are not an answer: every part sink captures says
+ * "…The box, the words…", and reading that as something said withdrew the
+ * question the moment it was asked, and the drawing asked it again, for
+ * ever (`tests/draw-on-captured-part.mjs`). Only a change to the words
+ * after the question is someone answering it in words.
+ */
+export function typedSince(question: DrawJob["question"], prompt: string | null | undefined): string {
+  const now = prompt ?? "";
+  return question && now !== (question.prompt ?? "") ? now : "";
 }

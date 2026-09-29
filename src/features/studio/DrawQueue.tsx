@@ -22,7 +22,7 @@ import { LoaderCircle } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
-import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, type DrawJob } from "./queue";
+import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, typedSince, type DrawJob } from "./queue";
 import { stillAsks } from "./oddness";
 import { runDrawJob } from "./reshapeRun";
 import { progressOf } from "./formation";
@@ -36,6 +36,18 @@ export function DrawQueue() {
   const queue = useStudio((s) => s.queue);
   const ctx = useActions();
   const running = React.useRef<string | null>(null);
+  /*
+   * A second look, asked for by a run that has just let go.
+   *
+   * A run that stops to ask marks its job `asking` before it returns, and
+   * the queue changing re-runs this effect while the runner still looks
+   * busy. Answered quickly — before the run had returned — the job went
+   * back to `waiting` while the runner was still held, and nothing changed
+   * the queue again: the answered drawing, and every one behind it, waited
+   * for ever (`tests/draw-on-captured-part.mjs`, a scribble answered at
+   * once). Letting go now always takes one more look.
+   */
+  const [look, lookAgain] = React.useReducer((n: number) => n + 1, 0);
 
   React.useEffect(() => {
     const job = nextJob(queue);
@@ -74,6 +86,7 @@ export function DrawQueue() {
          * first thing a finished job does is let go.
          */
         running.current = null;
+        lookAgain();
         // Stopped to ask: the job is `asking` now, and the person's answer
         // puts it back on the queue. Nothing to write over.
         if (r.asked) return;
@@ -93,6 +106,25 @@ export function DrawQueue() {
          * and finishes itself when that lands.
          */
         if (!r.pending && job.threadId) useStudio.getState().markThread(job.threadId, "done");
+        /*
+         * ONE SHORT MESSAGE, SEEN: WHAT LANDED AND WHERE.
+         *
+         * Everything above goes to the news only, so a drawing that turned a
+         * part into something else did it in silence. The end of every job
+         * that put something on the board is said once, on the board, under
+         * one key so a Generate's four drawings replace each other rather
+         * than stacking. `tests/draw-change-says-undo.mjs`.
+         */
+        if (r.madeId && r.said && !job.quiet) {
+          ctx.publish({
+            key: "studio:drawing-landed",
+            title: r.ok ? "The drawing landed" : "The drawing landed, unread",
+            body: `${r.said.charAt(0).toUpperCase()}${r.said.slice(1)}. One undo takes it back.`,
+            level: r.ok ? "success" : "warn",
+            source: "studio",
+            toast: { durationMs: 6000 },
+          });
+        }
       })
       /*
        * THE ROAD THE RUN DOES NOT KNOW ABOUT.
@@ -116,6 +148,7 @@ export function DrawQueue() {
        */
       .catch((err: unknown) => {
         running.current = null;
+        lookAgain();
         const note = err instanceof Error ? err.message : "The drawing could not be worked.";
         const st = useStudio.getState();
         st.updateJob(job.id, { status: "failed", note, step: undefined, ended: Date.now() });
@@ -135,7 +168,7 @@ export function DrawQueue() {
       .finally(() => {
         running.current = null;
       });
-  }, [queue, ctx]);
+  }, [queue, ctx, look]);
 
   /*
    * A question nobody needs any more is withdrawn.
@@ -152,7 +185,7 @@ export function DrawQueue() {
   React.useEffect(() => {
     const job = askingJob(queue);
     if (!job) return;
-    const said = job.nodeId ? nodes.find((n) => n.id === job.nodeId)?.prompt ?? "" : "";
+    const said = typedSince(job.question, job.nodeId ? nodes.find((n) => n.id === job.nodeId)?.prompt : "");
     if (stillAsks(job.question, job.sketch, said)) return;
     useStudio.getState().updateJob(job.id, { status: "waiting", question: null });
   }, [queue, nodes]);

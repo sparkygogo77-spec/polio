@@ -256,3 +256,22 @@ export function roleFromWords(words: string): VectorRole | null {
 
 /** The parts a drawing may become, in the order the panel offers them. */
 export const ROLES: VectorRole[] = ["icon", "surface", "motion"];
+
+/**
+ * The strokes themselves as a vector, with no tracer asked: each stroke one
+ * open path in a 100 × 100 box. What the Icon choice lands as when nothing
+ * has been traced yet (no Replicate key, or before the tracer answers), so
+ * choosing Icon before drawing makes an icon on every road.
+ */
+export function vectorFromStrokes(strokes: readonly (readonly (readonly [number, number])[])[]): DrawnVector | null {
+  const r = (v: number) => Math.round(v * 1000) / 10;
+  const paths: VectorPath[] = strokes
+    .filter((s) => s.length >= 1)
+    .map((s) => {
+      const pts = s.length === 1 ? [s[0]!, [s[0]![0] + 0.001, s[0]![1]] as const] : s;
+      const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${r(x)} ${r(y)}`).join(" ");
+      const e = extent(d);
+      return { d, share: Math.min(1, Math.max((e.w * e.h) / 10000, (Math.max(e.w, e.h) / 100) ** 2 * 0.25)) };
+    });
+  return paths.length ? { viewBox: "0 0 100 100", paths, from: "the hand" } : null;
+}

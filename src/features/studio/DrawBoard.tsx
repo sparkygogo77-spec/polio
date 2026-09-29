@@ -44,6 +44,7 @@ import { useGround } from "./ground";
 import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
 import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { isBox } from "./shapeKind";
+import { changesThePart } from "./drawTarget";
 import { pictureOf } from "./reshapeRun";
 import { useStudio, type StudioNode } from "./store";
 import { plain } from "./parts/spans";
@@ -217,6 +218,19 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
    * queue runs them one at a time (`DrawQueue`), the counter on the toolbar
    * says how many are on their way, and the board is yours again.
    */
+  /*
+   * WHICH CHOICE THIS DISC IS USING, SAID ON IT.
+   *
+   * The Draw tool's row (Surface, Button, Icon, Cube, Part) is not on this
+   * disc, and it was still read: whatever that row last had went with the
+   * drawing unseen. Icon and Cube are carried and said here; Surface and
+   * Button are ways of drawing on the page with the Draw tool, and a disc
+   * drawing is a part, so they are not carried. `tests/draw-kind-chips.mjs`.
+   */
+  const rowKind = useStudio((s) => s.drawKind);
+  const choice = rowKind === "icon" || rowKind === "cube" ? rowKind : null;
+  const lands = node && !changesThePart(node, { words, line: false }) ? node.label : null;
+
   const makeReal = () => {
     if (blank) return;
     const drawn = sketch();
@@ -234,13 +248,13 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       /* What he chose on the row before he drew. Read now rather than when
          the answer lands, so changing the row mid-queue cannot change what
          a finished drawing turns into. */
-      want: useStudio.getState().drawKind,
+      want: choice,
       ...(landing.drawn ? { drawn: landing.drawn } : {}),
       label: node ? `Reshaping ${label}` : `Making ${label}`,
     });
-    // The drawing is on the part the moment it is queued, so nothing is lost
-    // if the read never comes back and the blueprint has it either way.
-    if (node) useStudio.getState().updateNode(node.id, { sketch: drawn });
+    /* The drawing is NOT written on the part here: it usually lands as a new
+       part over it (`drawTarget.ts`), and a part that only had a drawing made
+       on it is not a drawn part. The run writes it on whatever it lands on. */
     ctx.publish({
       key: "studio:queued",
       title: node ? `${node.label} is on the queue` : "The drawing is on the queue",
@@ -362,6 +376,16 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           );
         })}
       </div>
+
+      {/* which choice, and where it lands, above the words */}
+      <p
+        data-draw-choice={choice ?? "part"}
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-center text-fine"
+        style={{ top: size - 92, width: 200, color: CONSOLE.muted }}
+      >
+        {choice ? `Making: ${choice === "cube" ? "a cube" : "an icon"} (chosen on the Draw row)` : "Making: whatever the drawing is"}
+        {lands ? <span data-draw-lands="" className="block">{`A new part on top of ${lands}; it stays as it is`}</span> : null}
+      </p>
 
       {/* the words, in the bottom cap */}
       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: size - 66, width: 178 }}>

@@ -30,7 +30,7 @@
  * with it" is currently "it landed and was kept" — an explicit blessing
  * would be a better one, and is the obvious next thing.
  */
-import { useStudio } from "./store";
+import { useStudio, type StudioNode } from "./store";
 import { rendererHeader } from "./agent";
 import { sayPass, type Metered } from "./spend";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
@@ -39,6 +39,13 @@ import { judge, type Compare } from "./bodyRun";
 export interface RefineInput {
   /** The part that stage one put on the board. */
   nodeId: string;
+  /**
+   * Whether the drawing this pass belongs to still stands. Given by a
+   * drawing's run (`reshapeRun.ts`): once it is undone nothing is written,
+   * and while it stands the pass writes into the drawing's own undo step
+   * rather than taking one of its own. Absent: the old behaviour.
+   */
+  still?: () => boolean;
   /** What stage one left on the part, which the refined body is written over. */
   code: PartCode;
   /**
@@ -118,6 +125,12 @@ export interface RefineResult {
   reason?: string;
   /** What came back, as bare base64, so a later step can start from it. */
   image?: string;
+}
+
+/** A pass's write: into the drawing's own step when it has one (`still`), and never once that was undone. */
+function write(input: RefineInput, patch: Partial<StudioNode>) {
+  if (!input.still) { useStudio.getState().updateNode(input.nodeId, patch); return; }
+  if (input.still()) useStudio.getState().updateNodeQuiet(input.nodeId, patch);
 }
 
 /** A data URL down to its bytes, which is all the route takes. */
@@ -221,6 +234,9 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
    * model was thinking has said something louder than this pass has.
    */
   const node = useStudio.getState().nodes.find((n) => n.id === input.nodeId);
+  if (input.still && !input.still()) {
+    return { ok: false, reason: "undone", ms: meter.ms, cost: meter.dollars, line: "second pass · the drawing was undone, so nothing was written" };
+  }
   if (!node) {
     return { ok: false, reason: "gone", ms: meter.ms, cost: meter.dollars, line: "second pass · came back to a part that was no longer there" };
   }
@@ -234,7 +250,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
    * score, because a silhouette is not what a solid is for.
    */
   if (solid && answer.mesh) {
-    useStudio.getState().updateNode(input.nodeId, {
+    write(input, {
       featureId: "mesh-3d",
       custom: false,
       // A solid cannot live inside a still silhouette, the same way a cube
@@ -299,7 +315,10 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
       at: Date.now(),
     },
   };
-  useStudio.getState().updateNode(input.nodeId, { code });
+  if (input.still && !input.still()) {
+    return { ok: false, reason: "undone", ms: meter.ms, cost: meter.dollars, line: "second pass · the drawing was undone, so nothing was written" };
+  }
+  write(input, { code });
 
   // What this drawing became is what the next drawing is shown.
   const after = bare(answer.image);

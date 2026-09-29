@@ -3141,6 +3141,8 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
       frameWidth,
       sketch,
       picture: pictureOf(sketch.strokes),
+      // "Draw it again" redraws the part this drawing made: the one door that changes a part without words asking.
+      reshape: true,
       label: `Reshaping ${label.trim() || node.label}`,
     });
   };

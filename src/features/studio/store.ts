@@ -804,6 +804,13 @@ interface StudioState extends Doc {
   /* nodes */
   addNode: (featureId: string, x: number, y: number, patch?: Partial<StudioNode>) => string;
   updateNode: (id: string, patch: Partial<StudioNode>) => void;
+  /**
+   * A write that is part of an edit already in the undo history, not an
+   * edit of its own: a drawing's traced body arriving after the drawing
+   * landed (`reshapeRun.ts`). No checkpoint, so one undo still takes the
+   * whole drawing back.
+   */
+  updateNodeQuiet: (id: string, patch: Partial<StudioNode>) => void;
   updateNodes: (ids: string[], patch: Partial<StudioNode>) => void;
   /**
    * Give boxes the heights their words drew at, and move what is under
@@ -875,7 +882,13 @@ interface StudioState extends Doc {
    * being a part at all, and a surface is marked as one so the blueprint
    * and Build know it holds what is placed on it.
    */
-  applyDrawnKind: (nodeId: string, role: DrawnRole, said?: string) => { kind: DrawnKind; did: string };
+  /**
+   * What the drawn shape does. `fresh`: the part was made by this drawing a
+   * moment ago. Only a fresh part may be replaced by the chain a line
+   * draws; a part that was on the page before is never removed by a
+   * drawing (`tests/draw-line-keeps-part.mjs`).
+   */
+  applyDrawnKind: (nodeId: string, role: DrawnRole, said?: string, opts?: { fresh?: boolean }) => { kind: DrawnKind; did: string };
   /**
    * Change one face of a cube: its words, its colour, or clear it.
    *
@@ -992,8 +1005,8 @@ interface StudioState extends Doc {
   }[];
   addDraw: (d: Omit<StudioState["draws"][number], "id" | "at">) => void;
   removeDraw: (id: string) => void;
-  bringRepo: { space: string; repo: string } | null;
-  setBringRepo: (v: { space: string; repo: string } | null) => void;
+  bringRepo: { space: string; repo: string; pageId?: string } | null;
+  setBringRepo: (v: { space: string; repo: string; pageId?: string } | null) => void;
   /**
    * Make the surface: lock every element in it where it was drawn, and set
    * it forming. The layout is the specification, so this is where it stops
@@ -1751,6 +1764,8 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }));
         },
 
+        updateNodeQuiet: (id, patch) => set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) })),
+
         updateNodes: (ids, patch) => {
           push();
           const set_ = new Set(ids);
@@ -2041,7 +2056,7 @@ export const useStudio = create<StudioState>()(
             nodes: s.nodes.map((n) => (n.id === nodeId && n.mesh ? { ...n, mesh: { ...n.mesh, turn } } : n)),
           })),
 
-        applyDrawnKind: (nodeId, role, said = "") => {
+        applyDrawnKind: (nodeId, role, said = "", opts = {}) => {
           const s0 = get();
           const node = s0.nodes.find((n) => n.id === nodeId);
           if (!node) return { kind: role.kind, did: "" };
@@ -2063,6 +2078,11 @@ export const useStudio = create<StudioState>()(
             return { kind: "container", did: "a container, with nothing in it yet" };
           }
 
+          if (role.kind === "connector" && !opts.fresh) {
+            /* A part that was here before the line: never removed, only marked. */
+            set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "connector" } : n)) }));
+            return { kind: "connector", did: "" };
+          }
           if (role.kind === "connector") {
             // The two parts nearest each end. The drawing's box is the
             // part's box, so the ends are two corners of it, and which two

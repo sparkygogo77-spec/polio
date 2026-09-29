@@ -192,6 +192,38 @@ export function ImportStrip() {
   );
 }
 
+/** The id a repository's import runs under: no space in the store, and no panel on screen. */
+export const HEADLESS = "bring_";
+const isHeadless = (space: Space) => space.id.startsWith(HEADLESS);
+
+/**
+ * A REPOSITORY COMES IN WITHOUT A SPACE.
+ *
+ * The importer lives in this component, and this component lived only on a
+ * space's panel, so every Bring drew a square space on the board, picked
+ * it, and opened its panel on the right: a drawing tool's box and menu the
+ * owner never asked for, left locked round the page afterwards
+ * (`docs/audits/drawing-and-import-sequence.md`, B). Here the same importer
+ * runs out of sight, over a surface that is the page itself — the whole
+ * width from the top, exactly the box the space was stretched to before —
+ * so every part lands where it did. What it is doing is said in the toast
+ * and the strip across the top of the board, as it already was.
+ * `tests/bring-no-space.mjs`.
+ */
+export function BringHost() {
+  const handed = useStudio((st) => st.bringRepo);
+  const [host, setHost] = React.useState<Space | null>(null);
+  React.useEffect(() => {
+    if (!handed || !handed.space.startsWith(HEADLESS) || host?.id === handed.space) return;
+    const st = useStudio.getState();
+    const fw = st.frameWidth || 1440;
+    const h = Math.round(fw * 0.625);
+    setHost({ id: handed.space, pageId: handed.pageId ?? st.activePageId, boundary: [[0, 0], [fw, 0], [fw, h], [0, h]], at: Date.now(), since: null, prompt: "", label: "" });
+  }, [handed, host?.id]);
+  if (!host) return null;
+  return <div hidden data-bring-host={host.id}><FromASite key={host.id} space={host} /></div>;
+}
+
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
   const [repoText, setRepoText] = React.useState("");
@@ -730,14 +762,15 @@ export function FromASite({ space }: { space: Space }) {
     lockNow(space.id);
     // Adding picks what was added, which would swap this panel for the
     // last part's. The space stays picked, so the line under this is read
-    // where it was asked for, with the parts on the board beside it.
-    useStudio.getState().setSelection([space.id]);
+    // where it was asked for, with the parts on the board beside it. A
+    // repository's import has no space (`BringHost`): nothing is picked.
+    useStudio.getState().setSelection(isHeadless(space) ? [] : [space.id]);
     play("confirm");
     /* Thin is said, with the better address when one is known. */
     const thin = thinSays(landed.length, source.kind === "site"
       ? { url: source.url, why: source.read?.why ?? "hand", isMadeHere: source.read?.isMadeHere ?? false }
       : { url: null, why: "none", isMadeHere: false });
-    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${landed.length} block${landed.length === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: `In the space named after it, and in the shelf under “${categoryFor(of).label}”.${thin}`, level: thin ? "warn" : "success", source: "studio", toast: { durationMs: thin ? 10000 : 7000 } });
+    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${landed.length} block${landed.length === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: `${isHeadless(space) ? "On the page" : "In the space named after it"}, and in the shelf under “${categoryFor(of).label}”.${thin}`, level: thin ? "warn" : "success", source: "studio", toast: { durationMs: thin ? 10000 : 7000 } });
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${

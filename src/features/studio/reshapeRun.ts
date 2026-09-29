@@ -26,15 +26,15 @@ import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
-import { ownsOthers } from "./holds";
-import type { DrawJob } from "./queue";
+import { changesThePart } from "./drawTarget";
+import { typedSince, type DrawJob } from "./queue";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";
 import { refinePart } from "./refineRun";
 import type { PartCode } from "./snippet";
 import { drawBody } from "./drawRun";
-import { nearlyCoded, pickCoded } from "./coded";
+import { CODED, nearlyCoded, pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
-import { roleFromWords } from "./vector";
+import { roleFromWords, vectorFromStrokes } from "./vector";
 import { claudeSpend, sayBill, sayPass } from "./spend";
 import { tidySteps } from "./space";
 import { oddness, stillAsks, withAnswer } from "./oddness";
@@ -98,6 +98,24 @@ export interface RunResult {
    * iteration is over. Whoever finishes last marks it done.
    */
   pending?: boolean;
+  /**
+   * What landed and where, in a line: the message the queue shows when the
+   * job is over (`DrawQueue.tsx`). `tests/draw-change-says-undo.mjs`.
+   */
+  said?: string;
+}
+
+/** What landed, and where, for the one message a finished drawing shows. */
+function sayWhere(label: string, node: StudioNode | null, over: StudioNode | null): string {
+  if (node) return `${node.label} changed, as the words asked`;
+  const what = `a new part, “${label}”`;
+  return over ? `${what}, on top of ${over.label}; ${over.label} is as it was` : what;
+}
+
+/** The Icon choice, on a road with no reader to pin it: the strokes themselves, as the drawn icon. */
+function asIcon(id: string, drawn: Sketch) {
+  const vector = vectorFromStrokes(drawn.strokes);
+  useStudio.getState().updateNode(id, { featureId: "drawn-icon", custom: false, outline: null, shape: null, options: { "drawn as": "line" }, ...(vector ? { vector } : {}) });
 }
 
 /**
@@ -256,12 +274,54 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
    * drawing's own proportion, and the part keeps its size and its kind.
    * `tests/draw-on-section.mjs`.
    */
-  const holdsASection = !!hit?.from?.selector?.trim() && ownsOthers(s.nodes, hit);
-  if (hit && holdsASection) {
+  /*
+   * …AND SINCE THE AUDIT, A DRAWING ON ANY PART IS MADE OVER IT.
+   *
+   * The guard above held the hero, and only parts that wholly hold another:
+   * a ribbon whose words run past its edges, a full-width strip, the title,
+   * the buy button and the contract address were all still resized, moved,
+   * turned into a cube or deleted by a drawing made on them
+   * (`docs/audits/drawing-and-import-sequence.md`). So the rule is the same
+   * for every part, captured or placed, container or single item, and for
+   * the reader with a key as much as without: the drawing lands as a new
+   * part at the drawing and the part is left exactly as it was — unless it
+   * is a blank idea dropped to be drawn on, the door is "draw it again", or
+   * the words typed with the drawing ask for this part to change
+   * (`drawTarget.ts`). A straight line never changes a part: it is a line
+   * put on top. `tests/draw-on-captured-part.mjs`, `tests/draw-line-keeps-part.mjs`.
+   */
+  const line = kindOfSketch({ strokes: job.sketch.strokes, words: "" }, "", true).kind === "connector";
+  const onItself = !!hit && changesThePart(hit, { words: job.sketch.words ?? "", reshape: job.reshape, line });
+  if (hit && !onItself) {
     const size = fitToSketch(job.sketch, Math.min(hit.w, 360), Math.min(hit.h, 360), job.frameWidth);
-    job = { ...job, nodeId: null, at: job.at ?? { x: hit.x + hit.w / 2, y: hit.y + hit.h / 2 }, drawn: job.drawn ?? size };
+    job = { ...job, nodeId: null, over: hit.id, at: job.at ?? { x: hit.x + hit.w / 2, y: hit.y + hit.h / 2 }, drawn: job.drawn ?? size };
   }
-  const node = holdsASection ? null : hit;
+  const node = onItself ? hit : null;
+  const over = !onItself && hit ? hit : null;
+  /*
+   * ONE DRAWING IS ONE UNDO STEP.
+   *
+   * Landing a drawing writes the part two or three times (its size, then
+   * what the catalogue made of it, then what the shape does), and each
+   * write was its own checkpoint: undoing a cube took two presses. Every
+   * checkpoint the landing takes is folded into the first (`oneStepSince`,
+   * the import's own), and the checkpoint that survives is the drawing's
+   * token: while it is still in the history the drawing still stands, and
+   * the traced body arriving later writes into it without a checkpoint of
+   * its own. Once it has been undone, nothing later writes at all.
+   * `tests/draw-one-undo.mjs`.
+   */
+  let mark = useStudio.getState().historyMark();
+  let token: unknown = null;
+  let madeId: string | null = null;
+  const oneStep = (id: string) => {
+    madeId = id;
+    const st = useStudio.getState();
+    const took = st.historyMark() - mark;
+    st.oneStepSince(mark);
+    if (took > 0) token = useStudio.getState().past[useStudio.getState().past.length - 1] ?? null;
+  };
+  const still = () => token === null || useStudio.getState().past.includes(token as never);
   /*
    * The answer, but only if the question it answers still stands.
    *
@@ -286,7 +346,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
   let drawn: Sketch = job.sketch;
 
   try {
-    const answered = stillAsks(job.question, job.sketch, node?.prompt ?? "") ? job.question?.answer : undefined;
+    const answered = stillAsks(job.question, job.sketch, typedSince(job.question, hit?.prompt)) ? job.question?.answer : undefined;
     drawn = withAnswer(job.sketch, answered);
     const feature = node ? getFeature(node.featureId) : null;
     const { frameWidth } = job;
@@ -301,9 +361,25 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      * through is still there; it is no longer the only road.
      */
     const lone = loneDrawing(node, job);
-    const drawnRole = kindOfSketch(drawn, node?.prompt ?? "", lone);
-    const ctx = { sketch: drawn, prompt: node?.prompt ?? "", node, lone };
-    const picked = pickCoded(ctx);
+    /*
+     * ONLY THE WORDS TYPED WITH THE DRAWING ASK FOR A KIND.
+     *
+     * The part's own saved description was read beside the drawing, and
+     * every part sink captures says "…The box, the words, the colours…": a
+     * bare "box", which is how a cube is asked for. So any closed shape
+     * drawn on any captured part became a 3D cube with nothing typed at all
+     * — the trumpmorty ribbon cut to 349px on the published page. The
+     * description says what the part is; it asks for nothing.
+     * `tests/draw-captured-prompt-not-cube.mjs`.
+     */
+    const drawnRole = kindOfSketch(drawn, "", lone);
+    const ctx = { sketch: drawn, prompt: "", node, lone };
+    /*
+     * What he chose on the drawing row before he drew, honoured on every
+     * road and not only when a reader answers: Cube is the catalogue's cube,
+     * with or without a key. `tests/draw-kind-chips.mjs`.
+     */
+    const picked = job.want === "cube" ? { part: CODED.find((c) => c.id === "cube")!, score: 1 } : job.want === "icon" ? null : pickCoded(ctx);
     /*
      * What it nearly was, said out loud.
      *
@@ -322,6 +398,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       // gave it, not the size it had before the drawing.
       const { patch, did } = picked.part.configure({ ...ctx, node: useStudio.getState().nodes.find((n) => n.id === made.id) ?? node });
       useStudio.getState().updateNode(made.id, patch);
+      oneStep(made.id);
       const label = patch.featureId ? getFeature(patch.featureId)?.name ?? made.label : made.label;
       useStudio.getState().landThread({
         id: job.threadId,
@@ -345,7 +422,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      return { ok: true, madeId: made.id, note: did };
+      return { ok: true, madeId: made.id, note: did, said: sayWhere(label, node, over) };
     }
 
     /*
@@ -359,12 +436,13 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      * to guess at the first paid call. After the catalogue, which is free
      * and needs no question; before the read, which is neither.
      */
-    if (!job.question) {
-      const q = oddness(drawn, node?.prompt ?? "");
+    // Nothing to ask when he said what it is before he drew it.
+    if (!job.question && job.want !== "icon" && job.want !== "cube") {
+      const q = oddness(drawn, "");
       if (q) {
         // `why` travels with it: a question is only worth answering while
         // the same one would still be asked (`stillAsks`).
-        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why }, step: undefined });
+        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why, prompt: hit?.prompt ?? "" }, step: undefined });
         /*
          * The one sound this app makes. A job that is `asking` waits on the
          * person, not on the queue \u2014 the run has stopped and will not go on
@@ -387,7 +465,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      */
     if (plan.steps && !plan.steps.includes("read")) {
       const made = applyProportion(drawn, node, job);
-      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words, { fresh: !node });
+      if (job.want === "icon") asIcon(made.id, drawn);
+      oneStep(made.id);
       const landed = useStudio.getState().landThread({
         id: job.threadId,
         mode: "drawing",
@@ -406,9 +486,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed, still) : NOTHING_MADE;
       if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
-      return { ok: true, madeId: made.id, pending: bodied.pending, note: [role.did, bodied.note].filter(Boolean).join(" · ") };
+      return { ok: true, madeId: made.id, pending: bodied.pending, note: [role.did, bodied.note].filter(Boolean).join(" · "), said: sayWhere(made.label, node, over) };
     }
 
     deps.onStep?.("Claude is reading the drawing…");
@@ -455,6 +535,8 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       usage?: { model?: string; input?: number; output?: number; cached?: number };
     };
     const readCost = claudeSpend(data.usage, Date.now() - readFrom);
+    // Anything he did while the read was out is his own step, not the drawing's.
+    mark = useStudio.getState().historyMark();
     if (data.ok && data.patch) {
       const made = apply(data.patch, drawn, node, job);
       // A drawing read is an API call that landed, so it is a thread too:
@@ -513,8 +595,10 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       });
       // The shape said what the part looks like; it also said what it does.
       // The clip is already on, and this adds behaviour on top of it.
-      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
-      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
+      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words, { fresh: !node });
+      if (job.want === "icon") asIcon(made.id, drawn);
+      oneStep(made.id);
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed, still) : NOTHING_MADE;
       /*
        * What it cost, said where the person is looking — and the iteration
        * marked finished, which is the same moment.
@@ -525,14 +609,16 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
        * and it does both there.
        */
       if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
-      return { ok: true, madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · ") };
+      return { ok: true, madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · "), said: sayWhere(made.label, node, over) };
     }
 
     // No key, a refusal, a bad reply: the drawing still shapes the part, and
     // what the shape means is read here rather than asked for, so behaviour
     // survives a locked keys panel exactly as the crop does.
     const made = applyProportion(drawn, node, job);
-    const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+    const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words, { fresh: !node });
+    if (job.want === "icon") asIcon(made.id, drawn);
+    oneStep(made.id);
     // A drawing that made a part is an iteration whether or not a reader
     // was involved: the shape, the crop, the behaviour and the traced body
     // all happened, and the timeline is where what happened is written.
@@ -549,8 +635,10 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     if (data.reason === "no-key") deps.onNoKey();
     const body =
       data.reason === "no-key"
-        ? noKeyMessage("For now the part took the drawing's proportion and the drawing went into the blueprint.")
-        : data.message ?? "Claude couldn't read it, so the part took the drawing's proportion.";
+        ? noKeyMessage(node
+          ? `For now ${made.label} took the drawing's proportion, read off the lines, and the drawing went into the blueprint.`
+          : `For now the drawing was made${over ? ` as a new part on top of ${over.label}` : " as a new part"}, read off the lines, and ${over ? `${over.label} was left as it was` : "it went into the blueprint"}.`)
+        : data.message ?? (node ? "Claude couldn't read it, so the part took the drawing's proportion." : "Claude couldn't read it, so the drawing was made from its lines alone.");
     deps.publish({
       key: `studio:reshape:${made.id}`,
       title: node ? `Reshaped ${made.label} from the drawing` : `Drew ${made.label} from the drawing`,
@@ -562,16 +650,25 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // The body does not need a reader either. Tracing the drawing is
     // Claude-free from end to end, so a locked keys panel costs the description
     // and nothing else.
-    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
+    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed, still) : NOTHING_MADE;
     // The reader was missing, not the work: the shape, the behaviour and
     // the traced body all landed, so this iteration finished — unless a
     // later pass is still going, which finishes it itself.
     if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
-    return { ok: false, madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · ") };
+    /*
+     * DONE, NOT FAILED, WHEN ALL THAT WAS MISSING WAS A KEY. The drawing
+     * landed — the shape, the kind, the body — and only the description was
+     * missing; it was marked failed, in red beside a part plainly on the
+     * board (`tests/draw-no-key-wording.mjs`). A reader that fell over is
+     * still a failure of the read (`tests/two-in-a-row.mjs`).
+     */
+    return { ok: data.reason === "no-key", madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · "), said: `${sayWhere(made.label, node, over)}, without a reader` };
   } catch (err) {
     // The request itself failed. The drawing is still worth keeping, and the
     // proportion it says is still the part's.
-    const made = applyProportion(drawn, node, job);
+    /* Only once: when the part was already made before the throw, it is not reshaped or made a second time. */
+    const made = madeId ? { id: madeId } : applyProportion(drawn, node, job);
+    if (!madeId) oneStep(made.id);
     const body = err instanceof Error ? err.message : "Couldn't reach the reshape route.";
     deps.publish({
       key: `studio:reshape:${made.id}`,
@@ -653,7 +750,11 @@ async function bodyFor(
   deps: RunDeps,
   plan: Planned = { steps: null, model: null, options: null },
   threadId?: string,
+  /** Whether the drawing still stands (not undone): nothing is written once it does not. */
+  still: () => boolean = () => true,
 ): Promise<{ note: string; pending: boolean }> {
+  /* The drawing's own step, written into without a checkpoint of its own, and never after it was undone. */
+  const later = (patch: Partial<StudioNode>) => { if (still()) useStudio.getState().updateNodeQuiet(nodeId, patch); };
   const s = useStudio.getState();
   const node = s.nodes.find((n) => n.id === nodeId);
   if (!node || node.featureId !== "custom-idea") return NOTHING_MADE;
@@ -668,9 +769,9 @@ async function bodyFor(
   if (plan.steps && !plan.steps.includes("first")) {
     useStudio.getState().notePass("first pass · left out by the plan", threadId);
     const role = roleFromWords([node.prompt, drawn.words].filter(Boolean).join(" "));
-    if (role) useStudio.getState().updateNode(nodeId, { role });
+    if (role) later({ role });
     const code: PartCode = node.code ?? { html: "", overlap: 0, attempts: 0, at: Date.now(), source: "renderer", kind: "vectorize" };
-    const going = laterPasses(nodeId, node, drawn, code, bare(pictureOf(drawn.strokes)), role, deps, plan, threadId);
+    const going = laterPasses(nodeId, node, drawn, code, bare(pictureOf(drawn.strokes)), role, deps, plan, threadId, still);
     return { note: "no first pass, as planned", pending: going };
   }
   const palette = s.look?.palette as Record<string, string> | undefined;
@@ -731,7 +832,8 @@ async function bodyFor(
    */
   const said = [node.prompt, drawn.words].filter(Boolean).join(" ");
   const role = roleFromWords(said);
-  useStudio.getState().updateNode(nodeId, {
+  if (!still()) return NOTHING_MADE;
+  later({
     code: written.code,
     ...(written.vector ? { vector: written.vector } : {}),
     ...(role ? { role } : {}),
@@ -752,7 +854,7 @@ async function bodyFor(
    * could not render, which the first pass has already said on the card.
    */
   const kept = written.attempts.reduce<Attempt | null>((a, b) => (!a || b.overlap > a.overlap ? b : a), null);
-  const going = laterPasses(nodeId, node, drawn, written.code, bare(kept?.shot), role, deps, plan, threadId);
+  const going = laterPasses(nodeId, node, drawn, written.code, bare(kept?.shot), role, deps, plan, threadId, still);
   return {
     note: [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · "),
     pending: going,
@@ -792,6 +894,7 @@ function laterPasses(
   deps: RunDeps,
   plan: Planned,
   threadId?: string,
+  still: () => boolean = () => true,
 ): boolean {
   if (!first) return false;
   /*
@@ -818,6 +921,7 @@ function laterPasses(
     for (const step of stages) {
       const r = await refinePart({
         nodeId,
+        still,
         code: base,
         first: picture,
         step,

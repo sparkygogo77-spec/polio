@@ -19,7 +19,7 @@
  */
 import { holdImportMark, useStudio } from "./store";
 import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
-import { clearImportLine } from "./FromASite";
+import { HEADLESS, clearImportLine } from "./FromASite";
 
 /** Where a request waits for the board: this tab only, and taken once. */
 const KEPT = "builder.bring";
@@ -30,7 +30,15 @@ export function boardIsHere(): boolean {
   return !!document.querySelector("[data-studio-pane]") && useStudio.persist.hasHydrated();
 }
 
-/** Make the space, hand it the repository, pick it. Returns the space. */
+/**
+ * Hand the repository to the importer. Returns the id it runs under.
+ *
+ * It made a space for it, handed the request to that space and picked it,
+ * because the importer lived on a space's panel: every Bring drew a square
+ * box on the board and opened its panel on the right. The importer runs
+ * out of sight now (`BringHost` in `FromASite.tsx`), so nothing is drawn,
+ * nothing is picked, and what lands on the page is what landed before.
+ */
 export function placeBring(want: string): string | null {
   const repo = readRepo(want);
   if (!repo) return null;
@@ -38,16 +46,8 @@ export function placeBring(want: string): string | null {
   clearImportLine();
   const st = useStudio.getState();
   holdImportMark(st.historyMark());
-  const id = st.addSpace({
-    pageId: st.activePageId,
-    boundary: [[240, 160], [1240, 160], [1240, 860], [240, 860]],
-    prompt: "",
-    label: repoName(repo),
-  });
-  st.setBringRepo({ space: id, repo: want });
-  /* Picked, because the importer lives on the space's own panel and that
-     panel only mounts for a picked space. */
-  st.setSelection([id]);
+  const id = `${HEADLESS}${Date.now().toString(36)}`;
+  st.setBringRepo({ space: id, repo: want, pageId: st.activePageId });
   return id;
 }
 
@@ -132,10 +132,10 @@ export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: st
    */
   if (boardIsHere()) {
     placeBring(placed);
-    o.say({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands in a space on the board, and the space's panel says how it is going." });
+    o.say({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands on the page; this message and the line across the top of the board say how it is going." });
   } else {
     keepBringForBoard(placed);
-    o.say({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands in a space there, and the space's panel says how it is going." });
+    o.say({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands on the page there; the line across the top of the board says how it is going." });
     o.toBoard();
   }
   return { ok: true };

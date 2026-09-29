@@ -225,6 +225,14 @@ export const studio = defineFeature({
     { id: "studio.restoreLibrary", label: "Builder: put every removed part back", group: "Builder", icon: RotateCcw, run: () => useStudio.getState().restoreAllFeatures() },
     { id: "studio.live", label: "Builder: open the live preview", group: "Builder", icon: Eye, run: (c) => c.navigate(livePath()) },
     { id: "studio.board", label: "Builder: back to the board", group: "Builder", icon: LayoutTemplate, when: onPreview, run: (c) => c.navigate("/builder") },
+    /*
+     * DRAW A SPACE, FINDABLE. The space — the box a closed line becomes, with
+     * its own panel on the right — had no command at all: the owner met it
+     * only through the repository import, and once the import stopped making
+     * one there was no way to it but the S key and a menu inside the tool
+     * picker. `tests/space-command.mjs`.
+     */
+    { id: "studio.drawSpace", label: "Builder: Draw a space", group: "Builder", icon: CircleDashed, keywords: ["space", "surface", "black hole", "box", "area", "from a site", "generate", "create"], run: (c) => { if (!onStudio()) c.navigate("/builder"); useStudio.getState().setTool("space"); } },
     { id: "studio.newIdea", label: "Builder: drop a new idea", group: "Builder", icon: Lightbulb, when: onStudio, run: () => { addFeatureToCanvas("custom-idea"); } },
     { id: "studio.undo", label: "Builder: undo", group: "Builder", icon: Undo2, when: onStudio, run: () => useStudio.getState().undo() },
     { id: "studio.redo", label: "Builder: redo", group: "Builder", icon: Redo2, when: onStudio, run: () => useStudio.getState().redo() },

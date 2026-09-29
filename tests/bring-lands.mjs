@@ -163,13 +163,14 @@ const before = await doc();
 check("his own part is on the page before the import", before.nodes === 1, `${before.nodes} parts`);
 await bring("him/page");
 let landed = before;
-for (let i = 0; i < 90 && (landed.nodes === before.nodes || landed.spaces === 0); i++) { await page.waitForTimeout(1000); landed = await doc(); }
+for (let i = 0; i < 90 && landed.nodes <= before.nodes; i++) { await page.waitForTimeout(1000); landed = await doc(); }
 await page.waitForTimeout(1200);
 landed = await doc();
-const placed = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { his: s.nodes.some((n) => n.id === "n_his"), ids: s.nodes.map((n) => n.featureId), space: (s.spaces ?? [])[0]?.boundary ?? null, frame: s.frameWidth }; });
+const placed = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { his: s.nodes.some((n) => n.id === "n_his"), ids: s.nodes.map((n) => n.featureId), box: s.nodes.length ? [Math.min(...s.nodes.map((n) => n.x)), Math.min(...s.nodes.map((n) => n.y)), Math.max(...s.nodes.map((n) => n.x + n.w))] : null, frame: s.frameWidth }; });
 check("a repository with a page in it lands as parts on the board, with nothing more pressed", landed.nodes >= 2, `${before.nodes} → ${landed.nodes} parts`);
 check("and it replaces what was on the page: his own part is gone", !placed.his, placed.ids.join(", "));
-check("in one space, from the top of the page at its full width", landed.spaces === 1 && !!placed.space && placed.space[0][0] === 0 && placed.space[0][1] === 0 && placed.space[1][0] >= (placed.frame || 1440) - 1, JSON.stringify(placed.space));
+/* With no space since the audit (tests/bring-no-space.mjs): the parts themselves are the page, from the top at its full width. */
+check("with no space, from the top of the page at its full width", landed.spaces === 0 && !!placed.box && placed.box[0] === 0 && placed.box[1] === 0 && placed.box[2] >= (placed.frame || 1440) - 1, JSON.stringify(placed.box));
 check("and its elements go to the shelf under the repository's name", landed.brought.includes("page"), landed.brought.join(", ") || "none");
 await page.waitForTimeout(1500);
 const line1 = await said();
@@ -179,6 +180,8 @@ check("two blocks is thin, and the panel says so", /Only 2 blocks came from it: 
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
 
 /* 1b. The same, pressed from the Builds page: the board opens and it lands there. */
+/* The same page again has the same number of parts: the replace is watched for by its ids changing. */
+const idsBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.map((n) => n.id).join());
 await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await bring("him/page");
@@ -186,8 +189,8 @@ await page.waitForTimeout(1500);
 check("pressed on the Builds page, Bring it opens the board", /\/builder/.test(page.url()), page.url());
 check("and says so, step by step, from the board", await toast("him/page"));
 let again = landed;
-for (let i = 0; i < 90 && again.nodes === landed.nodes; i++) { await page.waitForTimeout(1000); again = await doc(); }
-check("and the page lands there, replacing the page again, in one space", again.nodes >= 2 && again.spaces === 1, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
+for (let i = 0; i < 90 && (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.map((n) => n.id).join())) === idsBefore; i++) { await page.waitForTimeout(1000); again = await doc(); }
+check("and the page lands there, replacing the page again, with no space", again.nodes >= 2 && again.spaces === 0, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
 landed = again;
 
 /* 1c. A page with nothing on it: said as a toast, not only on the aside. */
@@ -378,8 +381,8 @@ let strip = null;
 for (let i = 0; i < 20 && !(strip && strip.kind === "refused"); i++) { await short.waitForTimeout(500); strip = await short.evaluate(() => { const e = document.querySelector("[data-import-strip]"); if (!e) return null; const r = e.getBoundingClientRect(); return { kind: e.getAttribute("data-import-strip"), text: e.textContent, top: Math.round(r.top), bottom: Math.round(r.bottom), inner: innerHeight }; }); }
 check("on a short window with toasts off, the ending is still on screen: a strip across the top of the board, in the same words", !!strip && strip.kind === "refused" && /him\/sources: There is no page in this repository to open/.test(strip.text ?? ""), JSON.stringify(strip));
 check("and it is inside the window, not below it", !!strip && strip.top >= 0 && strip.bottom <= strip.inner, strip ? `${strip.top}..${strip.bottom} of ${strip.inner}` : "-");
-const aside = await short.evaluate(() => { const e = document.querySelector("[data-from-a-site]"); if (!e) return null; const r = e.getBoundingClientRect(); return { top: Math.round(r.top), inner: innerHeight }; });
-check("which matters because the panel's own copy sits below the fold there", !!aside && aside.top > aside.inner - 40, aside ? `section at ${aside.top} in ${aside.inner}` : "no section");
+/* The import has no panel of its own on screen now (tests/bring-no-space.mjs): the strip is the only place it is said with toasts off. */
+check("which matters because no space's panel is open to say it", (await short.locator("[data-space-panel]").count()) === 0);
 await short.locator("[data-import-strip-dismiss]").click(); await short.waitForTimeout(300);
 check("and it goes when dismissed", (await short.locator("[data-import-strip]").count()) === 0);
 await short.close();
