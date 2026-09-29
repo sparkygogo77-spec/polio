@@ -23,7 +23,10 @@
  *     moving, every section simply there, the dot lit.
  *
  * Writes a strip of the exported hero (the marquee and the parallax, frame
- * by frame) to docs/shots/captured-behaviours-strip.png.
+ * by frame) to .screenshots/captured-behaviours-strip.png (ignored; SHOTS
+ * names another folder). docs/shots/captured-behaviours-strip.png is the
+ * committed record and is never written by a run: copy a new strip over it
+ * by hand when the record should change.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/captured-behaviours.mjs http://127.0.0.1:3013 <path to a sink checkout>
@@ -242,7 +245,7 @@ const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(
   /* The strip, one frame under the other. */
   const strip = await browser.newPage({ viewport: { width: 1440, height: 580 * frames.length } });
   await strip.setContent(`<body style="margin:0;background:#000">${frames.map((f) => `<img style="display:block;width:1440px" src="data:image/png;base64,${f.toString("base64")}">`).join("")}</body>`);
-  const shots = join(here, "..", "docs", "shots");
+  const shots = process.env.SHOTS ?? join(here, "..", ".screenshots");
   mkdirSync(shots, { recursive: true });
   await strip.screenshot({ path: join(shots, "captured-behaviours-strip.png"), fullPage: true, type: "png" });
   await strip.close();
