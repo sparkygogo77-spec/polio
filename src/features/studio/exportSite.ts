@@ -576,7 +576,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (!el || !p || !el.parentElement || el.parentElement.closest("[data-live-node]")) continue;
     const hold = el.ownerDocument.createElement("div");
     hold.setAttribute("data-sticky-hold", "");
-    hold.style.cssText = `position:absolute;left:0;top:${box.top}px;width:100%;height:${box.height}px;pointer-events:none;z-index:2`;
+    /* Over the parts that flow past it, under a band that sticks to the whole page (the header, z-index 2): stuck under the header, it goes under it, as on the page. */
+    hold.style.cssText = `position:absolute;left:0;top:${box.top}px;width:100%;height:${box.height}px;pointer-events:none;z-index:1`;
     el.parentElement.insertBefore(hold, el);
     hold.appendChild(el);
     el.style.marginTop = `${p.y - box.top}px`;
