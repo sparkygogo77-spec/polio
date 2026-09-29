@@ -129,6 +129,10 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   const picture = node.picture
     ? { pic: node.picture, src: pictureAt ? pictureAt(node.picture) : found.src }
     : null;
+  /* A captured video's own file, found as a picture is (tests/video-part.mjs). */
+  const mediaNode = (node as { media?: NodeMedia | null }).media ?? null;
+  const mediaFound = usePicture(mediaNode?.file ?? null);
+  const media = mediaNode ? { ...mediaNode, local: mediaNode.file ? (pictureAt ? pictureAt(mediaNode.file) : mediaFound.src) : undefined } : null;
   // A part can repaint any of the six roles for itself, set its own type and
   // say how its words sit; everything else follows the site.
   //
@@ -254,7 +258,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       cube={node.cube}
       /* A box inside a box of its own: the outer one paints the picture, padding and all. */
       picture={boxed && node.featureId === "box" ? null : picture}
-      media={(node as { media?: NodeMedia | null }).media ?? null}
+      media={media}
       pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}

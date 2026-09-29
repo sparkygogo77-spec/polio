@@ -199,7 +199,8 @@ export function headPictures(head: SiteHead | null | undefined): Picture[] {
 export function namedPictures(doc: { nodes?: unknown; head?: unknown; brief?: unknown; pages?: unknown }): Picture[] {
   const out = new Map<string, Picture>();
   const add = (p: Picture | null | undefined) => { if (p && typeof p.id === "string" && typeof p.path === "string" && !out.has(p.id)) out.set(p.id, p); };
-  for (const n of Array.isArray(doc.nodes) ? (doc.nodes as { picture?: Picture | null }[]) : []) add(n?.picture);
+  /* A part's picture, and a captured video's own file (carried and published as a picture is). */
+  for (const n of Array.isArray(doc.nodes) ? (doc.nodes as { picture?: Picture | null; media?: { file?: Picture } | null }[]) : []) { add(n?.picture); add(n?.media?.file); }
   const heads = [doc.head, (doc.brief as { head?: unknown } | undefined)?.head, ...(Array.isArray(doc.pages) ? (doc.pages as { head?: unknown }[]).map((p) => p?.head) : [])];
   for (const h of heads) if (h && typeof h === "object") headPictures(h as SiteHead).forEach(add);
   return [...out.values()];

@@ -22,6 +22,7 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const { Block } = await jiti.import(join(here, "..", "src", "features", "studio", "blocks.tsx"));
 const { themeFrom, resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "parts", "theme.ts"));
+const { namedPictures } = await jiti.import(join(here, "..", "src", "features", "studio", "siteHead.ts"));
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -41,6 +42,10 @@ check("…with the captured picture as its poster", video.includes('poster="asse
 check("…with controls, and not playing by itself (as live)", /\bcontrols=""/.test(video) && !/autoplay/i.test(video) && !/\bloop/.test(video), video);
 const auto = (draw(node({ kind: "video", src: "https://example.com/loop.webm", autoplay: true, loop: true, muted: true, playsinline: true }), "live").match(/<video[^>]*>/) ?? [""])[0];
 check("a video the page autoplayed plays by itself, muted, looped, inline", /autoplay=""/i.test(auto) && /loop=""/.test(auto) && /muted=""/.test(auto) && /playsinline=""/i.test(auto), auto);
+const file = { id: "vid_1", path: "assets/pictures/vid_1.mp4", type: "video/mp4", w: 1094, h: 615, bytes: 4209182, alt: "", from: "upload" };
+const own = (draw(node({ ...story, file }), "live").match(/<video[^>]*>/) ?? [""])[0];
+check("a video whose file came with the site plays that file, not the source site's address", own.includes('src="assets/pictures/vid_1.mp4"') && !own.includes("parasiteonsol.fun"), own);
+check("…and the file is one the site carries (brought in and published like a picture)", namedPictures({ nodes: [node({ ...story, file })] }).some((p) => p.id === "vid_1"));
 check("control: on the board it is the picture", !/<video/.test(draw(node(story), "board")) && /<img/.test(draw(node(story), "board")));
 check("control: a picture with no media is a picture", !/<video/.test(draw(node(undefined), "live")));
 

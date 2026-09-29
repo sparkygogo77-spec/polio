@@ -251,4 +251,8 @@ export interface NodeMedia {
   muted?: boolean;
   controls?: boolean;
   playsinline?: boolean;
+  /** The video's own file, carried with the site like a picture (sink downloads it); played in place of `src`. */
+  file?: Picture;
+  /** Where that file is here: resolved by the part's Block, as a picture's is. */
+  local?: string;
 }

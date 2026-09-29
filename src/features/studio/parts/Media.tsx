@@ -52,12 +52,12 @@ export function Picture({ id, label, theme: t, picture, media, mode }: PartProps
    * muted, looped and inline, as browsers allow autoplay. The board keeps
    * the picture. `tests/video-part.mjs`.
    */
-  if (media?.kind === "video" && media.src && mode === "live") {
+  if (media?.kind === "video" && (media.local || media.src) && mode === "live") {
     const auto = !!media.autoplay;
     return (
       <Fill t={t} data-part={id} data-part-video="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius }}>
         <video
-          src={media.src}
+          src={media.local ?? media.src}
           poster={picture?.src ?? media.poster}
           controls={!!media.controls}
           autoPlay={auto}
