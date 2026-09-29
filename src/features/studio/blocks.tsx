@@ -11,11 +11,12 @@
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
-import { applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
+import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
+import { usesOf } from "./library/works";
 import { usePicture, type Picture } from "./pictures";
 import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
 
@@ -85,6 +86,20 @@ function wordsSet(node: StudioNode): NodeText | null | undefined {
 }
 
 /**
+ * A running line told where to sit in its band: the marquee's "Centre in its
+ * band" and "Text size" (library/behaviours.ts), read wherever the part is
+ * drawn, so the board, the Preview and the published page agree. Null when
+ * the part runs no marquee, or its switch is off.
+ */
+function bandOf(node: StudioNode): { middle: boolean; size: number | null } | null {
+  const use = usesOf((node as { work?: Parameters<typeof usesOf>[0] }).work).find((u) => u.id === "marquee" && !u.off);
+  if (!use) return null;
+  const size = Number(use.inputs?.size);
+  const middle = use.inputs?.middle === "yes";
+  return middle || (Number.isFinite(size) && size > 0) ? { middle, size: Number.isFinite(size) && size > 0 ? size : null } : null;
+}
+
+/**
  * A PART'S WINDOW DOES NOT TURN WITH THE PART. The capture cuts a part to the
  * box it hangs out of (`art.clipPath`); written on the box that also runs the
  * part's own animation, the cut turned with it (trumpmorty.fun's spinning
@@ -122,7 +137,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // nothing at all — the edge is the box wrapper's below — it only carries
   // the fact, so a part that draws its own edge can stand aside for his.
   // See `NodeSaid` in `parts/theme.ts`.
-  const painted = applyCaptured(applyLayout(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font, { captured: !!node.from?.selector?.trim() }), wordsSet(node)), node.pad), node.edge), node.layout), { from: node.from, h: size?.h ?? node.h });
+  const band = bandOf(node);
+  const painted = applyBand(applyCaptured(applyLayout(applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font, { captured: !!node.from?.selector?.trim() }), wordsSet(node)), node.pad), node.edge), node.layout), { from: node.from, h: size?.h ?? node.h }), band);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {
@@ -284,7 +300,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
         {drawn}
       </div>
       </StillCut>

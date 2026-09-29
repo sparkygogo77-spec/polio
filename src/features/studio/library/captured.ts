@@ -82,9 +82,11 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
   if (!b || typeof b !== "object" || b.version !== 1) return [...nodes];
   const out = nodes.map((n) => ({ ...n }));
   const byId = new Map(out.map((n) => [n.id, n]));
+  /* What the document already says of a feature (the owner's ribbons: "Centre in its band", a text size) stands over what the capture says of it. */
   const give = (id: unknown, use: WorkUse) => {
     const n = typeof id === "string" ? byId.get(id) : undefined;
-    if (n) n.work = withWork(n.work, use);
+    const had = n ? usesOf(n.work).find((u) => u.id === use.id) : undefined;
+    if (n) n.work = withWork(n.work, had ? { ...use, inputs: { ...(use.inputs ?? {}), ...had.inputs }, ...(had.off ? { off: true } : {}) } : use);
     return !!n;
   };
   /** The parts inside a part: every one on its page whose element sits under its element. */

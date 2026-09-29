@@ -80,6 +80,8 @@ export interface Theme {
   letterSpacing?: string;
   /** The node's own box sets its words in its middle (a grid `place-items: center`): across, down, or both. `applyLayout`. */
   centred?: { x: boolean; y: boolean };
+  /** Its words sit in the middle of their band (a marquee's "Centre in its band"): the line trimmed to its capitals, centred down. `applyBand`. */
+  band?: { middle: boolean };
   /**
    * What this node said about itself, as against what the site says. Unset
    * when the node said nothing, which is every hand-placed part. See
@@ -243,6 +245,8 @@ export interface NodeArt {
   maskOptions?: string[];
   /** It cut what pokes out of it (`hidden`, `clip`): recorded on the box, drawn on its parts as their `clipPath`. */
   overflow?: string;
+  /** Turned only because the part it sits in is turned (its `from.selector`), with its own transform apart from that: the export draws it inside that part where the part follows the window (the ribbon's words). */
+  turnsWith?: { selector: string; own?: string; origin?: string };
 }
 /** The four, as a node carries them. */
 export interface NodeBox {
@@ -363,6 +367,22 @@ export function applyLayout(t: Theme, layout: NodeLayout | null | undefined): Th
   const x = layout.display === "grid" ? mid(layout.items) : column ? mid(layout.align) : mid(layout.justify);
   const y = layout.display === "grid" ? mid(layout.align) : column ? mid(layout.justify) : mid(layout.align);
   return x || y ? { ...t, centred: { x, y } } : t;
+}
+
+/**
+ * The theme for words told to sit in the middle of their band, and at a size
+ * of their own. The owner's ribbons: the page padded the red ribbon's words
+ * 12px above and 6px below, so they leaned toward its top. In the middle,
+ * the line is its capitals alone (`text-box: trim-both cap alphabetic`,
+ * `parts/Text.tsx`) centred down the part's box, whose own padding above and
+ * below is dropped (`blocks.tsx`); a captured ribbon's track is the band's
+ * inside, so that is the band's middle. `tests/ribbon-band.mjs`.
+ */
+export function applyBand(t: Theme, band: { middle: boolean; size: number | null } | null): Theme {
+  if (!band) return t;
+  const sized = band.size && band.size > 0 ? { fontPx: band.size } : null;
+  if (!band.middle) return sized ? { ...t, ...sized } : t;
+  return { ...t, ...sized, band: { middle: true }, centred: { x: t.centred?.x ?? false, y: true } };
 }
 
 /**

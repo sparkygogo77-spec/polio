@@ -585,6 +585,37 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     el.style.marginBottom = "0px";
     if (el.style.pointerEvents !== "none") el.style.pointerEvents = "auto";
   }
+  /*
+   * WHAT TURNS WITH ITS HOLDER IS DRAWN INSIDE IT. A part the page turned
+   * only because its holder is turned (sink: `art.turnsWith`; trumpmorty's
+   * ribbon words, a track in a rotate(-2.5deg) row) is drawn flat with the
+   * holder's tilt about its own centre. That agrees at the capture's width
+   * and drifts where the holder is placed in shares of the window: the row
+   * is -5% to 105% wide, its middle moves, and at 2000 the words sat 12px off
+   * the band's middle. So where the holder's width follows the window, the
+   * part goes inside the holder's turned box, keeps only its own transform
+   * (the marquee's slide) and the holder's own window cuts it, as the page
+   * did. `tests/ribbon-band.mjs`.
+   */
+  const bySelector = new Map([...nodes.values()].filter((n) => n.from?.selector).map((n) => [n.from!.selector!.trim(), n]));
+  for (const el of live ? [] : Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
+    if (el.parentElement?.closest("[data-live-node]")) continue;
+    const node = nodes.get(el.getAttribute("data-live-node") ?? "");
+    const tw = node?.art?.turnsWith;
+    const holder = tw ? bySelector.get(tw.selector.trim()) : undefined;
+    const hk = holder ? k.get(holder.id) : undefined;
+    if (!node || !tw || !holder || !hk || (!hk.width.css && Math.abs(hk.width.k) < 1e-9)) continue;
+    const turned = (box: HTMLElement) => [box, ...Array.from(box.querySelectorAll<HTMLElement>("*"))].find((e) => !!e.style.transform && e.style.transform !== "none");
+    const hEl = elOf(holder.id), into = hEl ? turned(hEl) : undefined, mine = turned(el);
+    if (!into || !mine || into.contains(el)) continue;
+    if (!into.style.position || into.style.position === "static") into.style.position = "relative";
+    into.appendChild(el);
+    el.style.left = `${node.x - holder.x}px`;
+    el.style.top = `${node.y - holder.y}px`;
+    mine.style.transform = tw.own ?? "none";
+    mine.style.transformOrigin = tw.origin ?? "";
+    mine.style.clipPath = "";
+  }
   /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
   const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
   for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }

@@ -308,6 +308,9 @@ const MARQUEE: Work = {
       { id: "direction", label: "Runs", kind: "one", default: "left", values: ["left", "right"], heard: "\\b(left|right)\\b" },
       { id: "pause", label: "Pause under the mouse", kind: "one", default: "yes", values: ["yes", "no"] },
       { id: "gap", label: "Gap between loops (px)", kind: "number", default: "40" },
+      /* Where its words sit in the band they run along (a ribbon): as the page set them, or in its middle, at the size asked. Drawn by the part itself (blocks.tsx#bandOf), so the board shows it too. */
+      { id: "middle", label: "Centre in its band", kind: "one", default: "no", values: ["no", "yes"] },
+      { id: "size", label: "Text size (px; blank keeps it)", kind: "number", default: "", advanced: true },
       { id: "boost", label: "Speeds up with the scroll (px a frame, per px scrolled a frame)", kind: "number", default: "0", advanced: true },
       { id: "cap", label: "Speeds up by at most (px a frame)", kind: "number", default: "14", advanced: true },
     ],

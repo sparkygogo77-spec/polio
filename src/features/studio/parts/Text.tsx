@@ -11,6 +11,39 @@ import { num, opt, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
 
+/**
+ * IN THE MIDDLE OF ITS BAND, BY ITS DRAWN CAPITALS. A line told to sit in
+ * the middle of its band (`applyBand`) is one em tall and moved by how far
+ * its capitals' ink sits off that em's middle, read off the face itself
+ * (`measureText` on the line's own capitals and figures): a face's declared
+ * cap height is not its letters' (Luckiest Guy's left the owner's red ribbon
+ * 1.5px high). In em, so type that grows with the window keeps it. 0 until
+ * the face has loaded. `tests/ribbon-band.mjs`.
+ */
+function useCapsNudge(on: boolean, family: string, weight: number | undefined, size: number, text: string): number {
+  const font = `${weight ?? 400} ${size}px ${family}`;
+  const [loaded, setLoaded] = React.useState(0);
+  React.useEffect(() => {
+    if (!on || typeof document === "undefined" || !document.fonts) return;
+    let live = true;
+    document.fonts.load(font, text.slice(0, 80)).then(() => { if (live) setLoaded((n) => n + 1); }, () => {});
+    return () => { live = false; };
+  }, [on, font, text]);
+  /* Read while drawing, not after: the published page is written from one drawing, with no second pass. */
+  return React.useMemo(() => {
+    if (!on || typeof document === "undefined") return 0;
+    const g = document.createElement("canvas").getContext("2d");
+    if (!g) return 0;
+    g.font = font;
+    const m = g.measureText((text.match(/[A-Z0-9]/g) ?? ["H"]).slice(0, 80).join(""));
+    const base = (size - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent;
+    const middle = base + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2;
+    return +((size / 2 - middle) / size).toFixed(4);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on, font, size, text, loaded]);
+}
+const capsOnly = (t: { band?: { middle: boolean } }, nudge: number): React.CSSProperties => (t.band?.middle ? { lineHeight: 1, position: "relative", top: `${nudge}em` } : {});
+
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
 export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: PartProps) {
   // Paragraphs break on lines, and only on lines. A comma inside prose is
@@ -32,6 +65,8 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
   const [word, setWord] = React.useState(0);
   const firstWords = String(paras[0] ?? "").split(" ");
   useTicker(mode, 300, () => setWord((v) => (v + 1) % Math.max(1, firstWords.length)), kinetic);
+
+  const nudge = useCapsNudge(!!t.band?.middle, t.bodyFamily, t.fontWeight, t.fontPx, content);
 
   if (quote) {
     return (
@@ -135,12 +170,12 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
           carries runs, so nothing hand-typed goes down this path.
         */}
         {runParas ? runParas.map((line, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
+          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
             <Runs spans={line} t={t} mode={mode} onNavigate={onNavigate} />
           </p>
         )) : null}
         {runParas ? null : paras.map((p, i) => (
-          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
+          <p key={i} style={{ margin: 0, color: i === 0 ? t.text : t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight, ...capsOnly(t, nudge) }}>
             {dropCap && i === 0 ? (
               <>
                 <span style={{ float: "left", fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 3.2, lineHeight: 0.82, paddingRight: 8, color: t.accent }}>{p.charAt(0)}</span>
