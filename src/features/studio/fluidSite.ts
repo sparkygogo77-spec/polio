@@ -284,7 +284,9 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
         const width = `min(${C.maxw}px, ${grown})`;
         const l0 = css(plus(pk.left, px(inL - P.x), 1, W), W).replace(/^calc/, "");
         const centred = Math.abs(left - right) <= E;
-        k = { width: { c: C.w, k: 0, css: width }, left: { c: C.x, k: 0, css: centred ? `calc(${l0} + (${inside} - ${width}) / 2)` : `calc(${l0} + ${left}px)` } };
+        /* The free space shared as the capture shared it: the browser's own rounding kept (SOLCINERATOR's 1280 row at 242, not 241.5, in 1763), so at W it is exactly where it was. */
+        const share = inR - inL - C.w > 0 ? (C.x - inL) / (inR - inL - C.w) : 0.5;
+        k = { width: { c: C.w, k: 0, css: width }, left: { c: C.x, k: 0, css: centred ? `calc(${l0} + (${inside} - ${width}) * ${+share.toFixed(6)})` : `calc(${l0} + ${left}px)` } };
       }
       else if (!lost && L?.display === "grid" && (L.columns ?? 0) > 1) {
         const n = L.columns!;

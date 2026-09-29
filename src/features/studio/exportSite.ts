@@ -539,7 +539,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (!node || !u || !block || !bk || block.position === "fixed" || block.position === "sticky") continue;
     const isHero = block === heroPart && heroPx > 0;
     if (!isHero && !bk.width.css && Math.abs(bk.width.k) < 1e-9) continue;
-    const top = isHero ? `${block.y}px` : (heroPart && heroPx > 0 ? vhShift(block, heroPart, heroPx, block, heroH) : null) ?? `${block.y}px`;
+    const top = isHero ? `${block.y}px` : (heroPart && heroPx > 0 ? vhShift(block, heroPart, heroBase, block, heroH) : null) ?? `${block.y}px`;
     const pic = !!(node as { picture?: unknown }).picture || node.featureId === "picture";
     const st = layerStyle(u, { left: lenCss(bk.left, W), top, width: lenCss(bk.width, W), height: isHero ? heroH : `${block.h}px` }, node.w, node.h, pic && node.w > 0 ? node.h / node.w : null);
     if (!st) continue;
@@ -636,7 +636,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   const fits = H > 0 && bottom <= H + 1;
   for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
     pg.style.width = "100%";
-    const grown = [heroPart && heroPx > 0 ? `(${heroH} - ${heroPx}px)` : null, typed.pageGrow].filter(Boolean);
+    const grown = [heroPart && heroPx > 0 ? `(${heroH} - ${heroBase}px)` : null, typed.pageGrow].filter(Boolean);
     pg.style.height = fits ? `max(100vh, ${bottom}px)` : grown.length ? `calc(${bottom}px + ${grown.join(" + ")})` : `${bottom}px`;
   }
 }
