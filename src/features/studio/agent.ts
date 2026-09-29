@@ -10,6 +10,7 @@ import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
 import { MERGED_FILES } from "./library/contract";
 import { publishedHead, type SiteHead } from "./siteHead";
+import { standInOn } from "./standIn";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 export type Device = "desktop" | "tablet" | "phone";
@@ -623,6 +624,8 @@ export function publishedDoc(): Record<string, unknown> {
     brief: { ...(d.brief ?? {}), master: "", gimmick: "", ...(d.brief?.head ? { head: publishedHead(d.brief.head as SiteHead) } : {}) },
     look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}) } : d.look,
     shapes: (d.shapes ?? []).map((sh) => ("prompt" in sh ? { ...sh, prompt: "" } : sh)),
+    /* The recorded reads and their samples go up only with the Build option Stand-in server on (`standIn.ts`). */
+    ...(() => { const s = useStudio.getState(); return standInOn(s.format, s.standIn) ? { standIn: s.standIn } : {}; })(),
   };
 }
 

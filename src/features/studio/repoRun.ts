@@ -23,6 +23,7 @@
  * named, and nothing is half-brought.
  */
 import { handoffFrom } from "./polioMd";
+import { MOST_CHARS, MOST_READS } from "./standIn";
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
@@ -226,6 +227,9 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
   document.source = { repo: `${repo.owner}/${repo.name}`, dir: repo.dir ?? null, branch: ref, commit: await commitOf(repo, token, ref) };
   const report = await handoffOf(repo, token, blobs);
   if (report) document.handoff = report;
+  /* The reads the capture recorded and their samples (sink `api/map.json`), for the Build option Stand-in server (`standIn.ts`). */
+  const standIn = await standInOf(repo, token, blobs, document, say);
+  if (standIn) document.standIn = standIn;
   const brief = document.brief as { name?: unknown } | undefined;
   const name = (typeof brief?.name === "string" && brief.name.trim()) || repo.name;
 
@@ -250,6 +254,34 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
     pictures.push({ ...p, bytes });
   }
   return { document, name, pages, parts: nodes.length, pictures, lost, ref };
+}
+
+/** A capture's API map with each read's sample read in, within the stand-in's limits; null when the capture recorded none. */
+async function standInOf(repo: Repo, token: string, blobs: { path: string; sha: string; size?: number }[], document: Record<string, unknown>, say: (line: string) => void): Promise<Record<string, unknown> | null> {
+  const mapAt = (document.api as { map?: unknown } | undefined)?.map;
+  if (typeof mapAt !== "string" || !/^[\w./-]+\.json$/.test(mapAt) || mapAt.includes("..")) return null;
+  const text = async (path: string, most: number): Promise<string | null> => {
+    const at = blobs.find((e) => e.path === pathIn(repo.dir, path));
+    if (!at || (at.size ?? 0) > most) return null;
+    const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
+    if (isNo(blob)) return null;
+    const it = blob as { content?: string; encoding?: string };
+    return it.encoding === "base64" && typeof it.content === "string" ? new TextDecoder().decode(unbase64(it.content)) : null;
+  };
+  let map: { site?: unknown; endpoints?: Record<string, unknown>[] };
+  try { map = JSON.parse((await text(mapAt, 4 * 1024 * 1024)) ?? "null"); } catch { return null; }
+  if (!map || !Array.isArray(map.endpoints)) return null;
+  const dir = mapAt.includes("/") ? mapAt.slice(0, mapAt.lastIndexOf("/") + 1) : "";
+  const reads = map.endpoints.filter((e) => e.read === true && typeof e.sample === "string" && /^[\w./-]+\.json$/.test(e.sample as string) && !(e.sample as string).includes(".."));
+  const endpoints: Record<string, unknown>[] = [];
+  let chars = 0;
+  for (const e of reads.slice(0, MOST_READS)) {
+    say(`Reading its recorded answers… ${endpoints.length + 1} of ${Math.min(reads.length, MOST_READS)}`);
+    const got = await text(`${dir}${e.sample as string}`, 512 * 1024);
+    if (!got || chars + got.length > MOST_CHARS) continue;
+    try { endpoints.push({ ...e, sample: JSON.parse(got) }); chars += got.length; } catch { /* not JSON */ }
+  }
+  return endpoints.length ? { site: typeof map.site === "string" ? map.site : null, endpoints } : null;
 }
 
 /** The commit a ref names now, or null when GitHub will not say. */

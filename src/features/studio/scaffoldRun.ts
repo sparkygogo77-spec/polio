@@ -27,6 +27,7 @@ import { resolvePalette } from "./parts/theme";
 import { placeNodes } from "./live/layout";
 import { scaffold, type ScaffoldFile, type ScaffoldPart } from "./scaffold";
 import { useStudio } from "./store";
+import { standInOn } from "./standIn";
 
 export interface ScaffoldResult {
   files: ScaffoldFile[];
@@ -135,6 +136,8 @@ export function buildScaffold(): ScaffoldResult {
       : undefined,
     veil: theme.veil,
     backdrop: theme.backdrop || undefined,
+    // The recorded reads answered with their samples, only with the Build option Stand-in server on.
+    standIn: standInOn(s.format as Record<string, unknown>, s.standIn) ? s.standIn : null,
   });
 
   return {

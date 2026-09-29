@@ -26,6 +26,7 @@
 import { paintRoles, roleVars } from "./bodyPaint.ts";
 import { auraStyle, entranceCss, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette } from "./look.ts";
 import { homeOf } from "./homePage.ts";
+import { standInFiles, type StandIn } from "./standIn.ts";
 
 export interface ScaffoldFile {
   path: string;
@@ -134,6 +135,8 @@ export interface ScaffoldInput {
   veil?: string;
   /** The backdrop chosen with no texture: a gradient, a grid, or the page colour. */
   backdrop?: string;
+  /** The recorded reads and their samples, when the Build option Stand-in server is on (`standIn.ts`). */
+  standIn?: StandIn | null;
 }
 
 /**
@@ -383,6 +386,8 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
     const dir = page.path === "/" ? "app" : `app/${slug(page.path)}`;
     files.push({ path: `${dir}/page.tsx`, content: pageTsx(page, parts, input) });
   }
+  /* The stand-in server, only when it is asked for: the runtime and the samples, loaded before the page's scripts. */
+  if (input.standIn?.reads.length) files.push(...standInFiles(input.standIn));
   files.push({ path: "BUILD.md", content: buildMd(input) });
   return files;
 }
@@ -580,7 +585,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+${input.standIn?.reads.length ? `      {/* The stand-in server (public/stand-in.js): recorded reads answered with samples until a real backend exists. */}
+      <head><script src="/stand-in.js" /></head>
+` : ""}      <body>{children}</body>
     </html>
   );
 }
@@ -1202,7 +1209,11 @@ body written for it. Nothing about the look was inferred.
   narrower screen.${input.parts.some((p) => p.mesh?.glb) ? `
 - ${input.parts.filter((p) => p.mesh?.glb).length} solid${input.parts.filter((p) => p.mesh?.glb).length === 1 ? "" : "s"} you can turn, written as components that load three.js in the
   browser: the one dependency this build needs, \`npm install three\`. Without it
-  each shows its still and says so.` : ""}
+  each shows its still and says so.` : ""}${input.standIn?.reads.length ? `
+- \`public/stand-in.js\`, the stand-in server: the ${input.standIn.reads.length} read${input.standIn.reads.length === 1 ? "" : "s"} the capture
+  recorded (${[...new Set(input.standIn.reads.map((r) => r.host))].join(", ")}) answered with their samples, so lists and
+  buttons behave before a real backend exists. Writes and anything unrecorded
+  go to the network. Turn it off with the Build option Stand-in server.` : ""}
 
 Re-running Build regenerates exactly these files, byte for byte, from the
 same document.

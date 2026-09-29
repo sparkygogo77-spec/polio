@@ -15,6 +15,7 @@
  * containment and adjacency, so where you put something is part of the spec.
  */
 import { LEARN_DEFAULT, type LearnState } from "./learn";
+import type { StandIn } from "./standIn";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { readDoc, writeDoc, unpackFrom } from "./docStore";
@@ -1022,6 +1023,8 @@ interface StudioState extends Doc {
   /** Learn on click: the presses a capture held back and the ones asked for (`learn.ts`). Kept with the board, never published. */
   learn: LearnState;
   setLearn: (next: LearnState | ((was: LearnState) => LearnState)) => void;
+  /** The reads a capture recorded, with their samples (`standIn.ts`): answered by a built or published site only with the Build option Stand-in server on. */
+  standIn: StandIn | null;
   setBringRepo: (v: { space: string; repo: string; pageId?: string; keep?: boolean } | null) => void;
   /**
    * Make the surface: lock every element in it where it was drawn, and set
@@ -2249,6 +2252,7 @@ export const useStudio = create<StudioState>()(
         bringRepo: null,
         learn: LEARN_DEFAULT,
         setLearn: (next) => set((s) => ({ learn: typeof next === "function" ? next(s.learn ?? LEARN_DEFAULT) : next })),
+        standIn: null,
         setBringRepo: (v) => set({ bringRepo: v }),
         addSpace: (space) => {
           const id = uid("sp");
@@ -3148,6 +3152,7 @@ function docOnly(s: StudioState) {
         shapes: s.shapes,
         spaces: s.spaces,
         learn: s.learn,
+        standIn: s.standIn ?? null,
         format: s.format,
         brief: s.brief,
         look: s.look,

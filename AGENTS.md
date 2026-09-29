@@ -2778,6 +2778,19 @@ a kicker with a rule, and label-and-value rows that copy.
   polyline, a box, a triangle or an ellipse and replaces it with the clean
   shape; `smooth` averages it; `raw` keeps it. The mode is the setting
   `studio.drawMode` and the switch on the board's rim.
+- **The stand-in server.** sink's capture records every data request a page
+  makes on its own as an API map with one sample answer per read
+  (`sites/<name>/api/map.json`, sink `network.mjs`); Bring reads it in beside
+  the document (`repoRun.ts` `standInOf`, `document.standIn`) and the store
+  keeps it with the board (`standIn`, never in `studioDoc`). The advanced
+  Build option **Stand-in server** (`build.standIn`, off by default) makes a
+  built site (`public/stand-in.js`, loaded first by the layout) and a
+  published one (`publishedDoc` carries it, `PublishedPage` installs it)
+  answer those reads with their samples: method, host and path, `:id` any
+  one piece, a JSON-RPC or GraphQL read by its operation. Writes and anything
+  unrecorded go to the network. One copy of the answering:
+  `standIn.ts` `STAND_IN_RUNTIME`. sink's capturer now declares
+  `capturer.learn`, so Learn on click (`learn.ts`) sends. `tests/stand-in.mjs`.
 
 ---
 

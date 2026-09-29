@@ -10,6 +10,7 @@
 import { captureNotes, sourceNote } from "./polioMd.ts";
 import { attachCaptured } from "./library/captured.ts";
 import { learnFromDoc, type LearnState } from "./learn.ts";
+import { standInFromDoc, type StandIn } from "./standIn.ts";
 import { isTaken } from "./reimport.ts";
 export interface DocIn {
   pages?: { id: string }[];
@@ -119,6 +120,8 @@ export function takeDoc<P extends DocPrev>(
     motion: doc.motion ?? s.motion,
     /* What the capture held back, and what a later one learned: beside the document, never in what is published (`learn.ts`). */
     learn: learnFromDoc(doc as Record<string, unknown>, (s as { learn?: LearnState }).learn),
+    /* The capture's recorded reads and their samples, for the Stand-in server option; a new capture replaces them, a document with none keeps what was there. */
+    standIn: standInFromDoc(doc as Record<string, unknown>) ?? ((doc as Record<string, unknown>).capturer ? null : (s as { standIn?: StandIn | null }).standIn ?? null),
     taken: isTaken(doc.taken) ? doc.taken : null,
     frameWidth: width,
     activePageId: pages[0]!.id,

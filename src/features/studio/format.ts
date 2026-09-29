@@ -156,6 +156,8 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("build.analytics", "build", "Analytics", false, { advanced: true }),
   bool("build.i18n", "build", "Multiple languages", false, { advanced: true }),
   bool("build.tests", "build", "Tests", false, { advanced: true }),
+  /* Off by default: a built or published site answers the reads its capture recorded with their samples (`standIn.ts`). */
+  bool("build.standIn", "build", "Stand-in server", false, { advanced: true, hint: "Answer the reads the capture recorded with its sample data, until a real backend exists." }),
 ];
 
 export type FormatValues = Record<string, string | number | boolean>;

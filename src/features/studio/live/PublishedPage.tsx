@@ -12,6 +12,13 @@ import type { RouteProps } from "@/core/types";
 import { hasPublished, PUBLISHED } from "../published";
 import { useStudio, useStudioHydration, type StudioPage } from "../store";
 import { PreviewPage } from "./PreviewPage";
+import { installStandIn, standInFromDoc } from "../standIn";
+
+/* The stand-in server, before anything on the page asks: the published document carries it only when the owner turned it on (`standIn.ts`). */
+if (typeof window !== "undefined") {
+  const standIn = standInFromDoc(PUBLISHED as unknown as Record<string, unknown>);
+  if (standIn) installStandIn(standIn);
+}
 
 export function PublishedPage(props: RouteProps) {
   useStudioHydration();
