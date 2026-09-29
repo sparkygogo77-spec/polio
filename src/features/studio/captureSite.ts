@@ -132,7 +132,7 @@ async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Recor
  * 204 and names no run, so the newest workflow_dispatch run of this
  * workflow created after the call is it.
  */
-export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; findEveryMs?: number; findTries?: number } & Pipes): Promise<Started> {
+export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; learn?: unknown; findEveryMs?: number; findTries?: number } & Pipes): Promise<Started> {
   const f = o.fetch ?? fetch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let address: URL;
@@ -152,7 +152,7 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
     const since = Date.now() - 5_000;
     const d = await f(`${base}/actions/workflows/${WORKFLOW}/dispatches`, {
       method: "POST", headers: { ...h, "content-type": "application/json" },
-      body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/" } }),
+      body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/", ...(o.learn ? { learn: JSON.stringify(o.learn) } : {}) } }),
     });
     if (!d.ok) return { ok: false, status: d.status, says: await refusal(d, { f, base, h, repo: o.repo, ref, url: address.href, name }) };
     for (let tries = 0; tries < (o.findTries ?? 10); tries++) {

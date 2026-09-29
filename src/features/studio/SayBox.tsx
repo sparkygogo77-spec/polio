@@ -12,6 +12,7 @@
  *
  * The orange ! on the board opens straight onto this.
  */
+import { LearnRow } from "./LearnPanel";
 import * as React from "react";
 import { Ellipsis, Info, Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
@@ -178,6 +179,8 @@ export function SayPlate({ node, plate, onMore }: { node: StudioNode; plate: Sla
             </div>
           );
         })}
+        {/* Learn on click, for a part the capture held a server call on; nothing at all otherwise (`LearnPanel.tsx`). */}
+        <LearnRow node={node} />
       </div>
     </PlateQuad>
   );

@@ -39,6 +39,8 @@ export interface Plan {
   lands: { ref: string; path: string };
   /** Said when `lands.ref` is not the branch the site came from. */
   branchNote: string | null;
+  /** Learn on click: the held presses to make, once each (`learn.ts`). Sent only to a capturer that says it can press. */
+  learn?: unknown;
 }
 
 /** The slowest GitHub is asked while a run goes. */
@@ -94,7 +96,7 @@ export async function runRecapture(o: {
   onProgress: (p: Progress) => void;
   onStarted?: (htmlUrl: string) => void;
 } & Pipes): Promise<Recaptured> {
-  const common = { repo: o.repo, token: o.token, url: o.plan.url, name: o.plan.name, pages: o.plan.pages, fetch: o.fetch, sleep: o.sleep, findEveryMs: EVERY_MS, findTries: 6 };
+  const common = { repo: o.repo, token: o.token, url: o.plan.url, name: o.plan.name, pages: o.plan.pages, ...(o.plan.learn ? { learn: o.plan.learn } : {}), fetch: o.fetch, sleep: o.sleep, findEveryMs: EVERY_MS, findTries: 6 };
   let note: string | null = null;
   let started = await startCapture({ ...common, ref: o.plan.ref });
   if (!started.ok && started.status === 404 && o.plan.ref) {

@@ -34,6 +34,8 @@ import { CarriedFonts } from "./live/CarriedFonts";
 import type { CarriedFont } from "./fonts";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { BringHost } from "./FromASite";
+import { LearnBadge } from "./LearnPanel";
+import { heldSays, partLearned } from "./learn";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { useBoxEntry } from "./boxEntry";
 import { hasPicture, pictureFrom, readDrop } from "./pictureDrop";
@@ -197,7 +199,9 @@ export function Canvas() {
     return runWorks(ref.current, useStudio.getState().nodes.filter((n) => n.pageId === useStudio.getState().activePageId), { board: true });
   }, [boardMoves]);
   /* The parts still waiting on a decision: each wears the orange ! (`library/badge.ts`). */
-  const decide = React.useMemo(() => new Map(decisions(nodes).map((d) => [d.id, d.why])), [nodes]);
+  /* A part whose held presses have all been learned loses its ! (`learn.ts`); every other ! is as it was. */
+  const learnState = useStudio((s) => s.learn);
+  const decide = React.useMemo(() => new Map(decisions(nodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [nodes, learnState]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
    *
@@ -2051,6 +2055,8 @@ export function Canvas() {
       <SpaceForming />
       {/* A repository's import, run out of sight: no space, no panel (`FromASite.tsx`). */}
       <BringHost />
+      {/* The Learn queue, one press for all of it (`LearnPanel.tsx`). */}
+      <LearnBadge />
     </div>
   );
 }
@@ -2896,7 +2902,10 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
  * one box (`SayBox.tsx`) on that part; answering it takes the ! away.
  */
 function DecideBadge({ node, why, chipScale }: { node: StudioNode; why: Decision["why"]; chipScale: number }) {
-  const say = why === "live" ? "Live data: say where it comes from" : "Goes nowhere yet: say what it does";
+  /* Why a capture held its press back, said on hover after the ask (`learn.ts`). */
+  const held = useStudio((s) => (s.learn ? heldSays(s.learn, node.id) : null));
+  const said = why === "live" ? "Live data: say where it comes from" : "Goes nowhere yet: say what it does";
+  const say = held ? `${said}. ${held.charAt(0).toUpperCase()}${held.slice(1)}` : said;
   return (
     <button
       type="button"

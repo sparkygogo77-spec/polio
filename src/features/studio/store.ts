@@ -14,6 +14,7 @@
  * Position is meaningful: the compiler reads x/y to infer reading order,
  * containment and adjacency, so where you put something is part of the spec.
  */
+import { LEARN_DEFAULT, type LearnState } from "./learn";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { readDoc, writeDoc, unpackFrom } from "./docStore";
@@ -1006,6 +1007,9 @@ interface StudioState extends Doc {
   addDraw: (d: Omit<StudioState["draws"][number], "id" | "at">) => void;
   removeDraw: (id: string) => void;
   bringRepo: { space: string; repo: string; pageId?: string } | null;
+  /** Learn on click: the presses a capture held back and the ones asked for (`learn.ts`). Kept with the board, never published. */
+  learn: LearnState;
+  setLearn: (next: LearnState | ((was: LearnState) => LearnState)) => void;
   setBringRepo: (v: { space: string; repo: string; pageId?: string } | null) => void;
   /**
    * Make the surface: lock every element in it where it was drawn, and set
@@ -2229,6 +2233,8 @@ export const useStudio = create<StudioState>()(
         addDraw: (d) => set((st) => ({ draws: [{ ...d, id: `dw_${Math.random().toString(36).slice(2, 10)}`, at: Date.now() }, ...st.draws].slice(0, 40) })),
         removeDraw: (id) => set((st) => ({ draws: st.draws.filter((d) => d.id !== id) })),
         bringRepo: null,
+        learn: LEARN_DEFAULT,
+        setLearn: (next) => set((s) => ({ learn: typeof next === "function" ? next(s.learn ?? LEARN_DEFAULT) : next })),
         setBringRepo: (v) => set({ bringRepo: v }),
         addSpace: (space) => {
           const id = uid("sp");
@@ -3127,6 +3133,7 @@ function docOnly(s: StudioState) {
         groups: s.groups,
         shapes: s.shapes,
         spaces: s.spaces,
+        learn: s.learn,
         format: s.format,
         brief: s.brief,
         look: s.look,

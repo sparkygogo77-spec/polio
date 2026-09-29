@@ -9,6 +9,7 @@
  */
 import { captureNotes, sourceNote } from "./polioMd.ts";
 import { attachCaptured } from "./library/captured.ts";
+import { learnFromDoc, type LearnState } from "./learn.ts";
 export interface DocIn {
   pages?: { id: string }[];
   nodes?: unknown[];
@@ -113,6 +114,8 @@ export function takeDoc<P extends DocPrev>(
       return Array.isArray(look.texture) ? { ...look, texture: pictureLayersOff(doc.nodes ?? s.nodes, look.texture) } : look;
     })(),
     motion: doc.motion ?? s.motion,
+    /* What the capture held back, and what a later one learned: beside the document, never in what is published (`learn.ts`). */
+    learn: learnFromDoc(doc as Record<string, unknown>, (s as { learn?: LearnState }).learn),
     frameWidth: width,
     activePageId: pages[0]!.id,
     selection: [] as string[],
