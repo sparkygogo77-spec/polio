@@ -836,7 +836,10 @@ const PRESS_SHOWS: Work = {
   var group = all[key] || (all[key] = []);
   var me = { el: el, shows: ids(inputs.shows), hides: ids(inputs.hides) };
   group.push(me);
-  var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (p) p.style.display = on ? "flex" : "none"; }); };
+  /* A picture that plays (a screen's frames, as an svg) plays from the press: shown, it is asked for again under a new fragment, which starts its clock. */
+  var isSvg = function (src) { return /[.]svg([#?]|$)/i.test(src) || src.indexOf("data:image/svg") === 0; };
+  var replay = function (p) { try { Array.prototype.forEach.call(p.querySelectorAll("img"), function (im) { var src = im.getAttribute("src") || ""; if (isSvg(src)) im.setAttribute("src", src.split("#")[0] + "#p" + Date.now()); }); } catch (e) { /* a picture never stops the press */ } };
+  var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (!p) return; p.style.display = on ? "flex" : "none"; if (on) replay(p); }); };
   function press() {
     group.forEach(function (o) { if (o !== me) { set(o.shows, false); set(o.hides, true); } });
     set(me.hides, false);
