@@ -923,11 +923,17 @@ siteFeatures.define("world-dialogs", function (el) {
   if (stageJson) {
     var stageData = null; try { stageData = JSON.parse(stageJson.textContent || "{}"); } catch (x) { stageData = null; }
     var stage = stageData ? runStage(layer, stageData) : null;
+    /* A tab's words are a part of their own over its button: a press anywhere in the tab's box is the tab's. */
     if (stage) (stageData.scenes || []).forEach(function (sc, i) {
       if (!sc.tab) return;
       var root = el.ownerDocument || document, t = root.getElementById(sc.tab) || root.querySelector('[data-live-node="' + sc.tab + '"]');
       if (!t) { try { t = root.querySelector(sc.tab); } catch (x) { t = null; } }
-      if (t) { t.style.cursor = "pointer"; t.addEventListener("click", function () { stage.setScene(i); }); }
+      if (!t) return;
+      t.style.cursor = "pointer";
+      root.addEventListener("click", function (e) {
+        var r = t.getBoundingClientRect();
+        if (r.width && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) stage.setScene(i);
+      });
     });
   }
   var img = stageJson ? null : el.querySelector("img");
