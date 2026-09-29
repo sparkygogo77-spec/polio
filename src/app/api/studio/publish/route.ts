@@ -63,6 +63,8 @@ const API = process.env.GITHUB_API?.replace(/\/$/, "") || "https://api.github.co
  */
 const MAX_FILES = 2000;
 const MAX_BYTES = 25 * 1024 * 1024;
+/** A file put back together from pieces (`assemble`): under GitHub's own 100 MB for a file, since no one request carried it. */
+const MAX_ASSEMBLED = 95 * 1024 * 1024;
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
@@ -356,6 +358,16 @@ async function mergeContract(token: string, repo: string, baseSha: string, files
 type Staged = { path: string; sha: string };
 type FileOut = { path: string; content: string; encoding: "utf-8" | "base64" };
 
+/** The document says which repository it belongs to, so a copy made from it later can tell, and a publish into the wrong place has a record. */
+function stampDoc(f: FileOut, repo: string, branch: string): void {
+  if (f.path !== "site/document.json" || f.encoding !== "utf-8") return;
+  try {
+    const doc = JSON.parse(f.content) as Record<string, unknown>;
+    doc.publishedTo = { repo, branch, at: new Date().toISOString() };
+    f.content = JSON.stringify(doc, null, 2) + "\n";
+  } catch { /* not a document: pushed as it came */ }
+}
+
 /** The sha git gives a file's bytes, worked out here: the same bytes already in the repository need not go up again. */
 function blobSha(f: FileOut): string {
   const bytes = Buffer.from(f.content, f.encoding === "base64" ? "base64" : "utf8");
@@ -563,11 +575,12 @@ export async function POST(request: Request) {
    * the file is the same bytes, and it is still one commit and one deployment
    * (`tests/publish-big-picture.mjs`).
    */
-  const assemble: { path: string; parts: string[] }[] = Array.isArray(body.assemble)
-    ? body.assemble.flatMap((a: { path?: unknown; parts?: unknown }) => {
+  /* `gzip`: the pieces are packed text (the site document past one request, 3.5 MB even packed on parasiteonsol.fun), unpacked once joined. */
+  const assemble: { path: string; parts: string[]; gzip: boolean }[] = Array.isArray(body.assemble)
+    ? body.assemble.flatMap((a: { path?: unknown; parts?: unknown; gzip?: unknown }) => {
         const path = safePath(a?.path);
         const parts = Array.isArray(a?.parts) ? a.parts.filter((x): x is string => typeof x === "string" && /^[\w-]{1,64}$/.test(x)) : [];
-        return path && parts.length && parts.length === (a.parts as unknown[]).length && parts.length <= 64 ? [{ path, parts }] : [];
+        return path && parts.length && parts.length === (a.parts as unknown[]).length && parts.length <= 64 ? [{ path, parts, gzip: a.gzip === true }] : [];
       })
     : [];
   if (!files.length && !staged.length && !assemble.length) return NextResponse.json({ ok: false, reason: "empty", message: "Nothing to publish." }, { status: 400 });
@@ -617,16 +630,8 @@ export async function POST(request: Request) {
   const message = (typeof body.message === "string" && body.message.trim() ? body.message.trim() : "Builder: publish the site").slice(0, 500);
 
   const repo = target;
-  /* The document says which repository it belongs to, so a copy made from
-     it later can tell, and a publish into the wrong place has a record. */
-  for (const f of files) {
-    if (f.path !== "site/document.json" || f.encoding !== "utf-8") continue;
-    try {
-      const doc = JSON.parse(f.content) as Record<string, unknown>;
-      doc.publishedTo = { repo, branch, at: new Date().toISOString() };
-      f.content = JSON.stringify(doc, null, 2) + "\n";
-    } catch { /* not a document: pushed as it came */ }
-  }
+  /* The document says where it was published (`stampDoc`); one put back together from pieces is stamped as it is joined. */
+  for (const f of files) stampDoc(f, repo, branch);
   /* A repository this call made a moment ago is empty; any other is looked in first. */
   if (!created) {
     try {
@@ -668,7 +673,24 @@ export async function POST(request: Request) {
           pieces.push(Buffer.from(got.content.replace(/\s+/g, ""), got.encoding === "base64" ? "base64" : "utf8"));
         }
         const bytes = Buffer.concat(pieces);
-        if (bytes.length > MAX_BYTES) return NextResponse.json({ ok: false, reason: "too-big", message: `“${a.path}” is over ${MAX_BYTES / 1024 / 1024} MB.` }, { status: 400 });
+        const tooBig = NextResponse.json({ ok: false, reason: "too-big", message: `“${a.path}” is over ${MAX_ASSEMBLED / 1024 / 1024} MB, more than GitHub keeps in one file.` }, { status: 400 });
+        if (a.gzip) {
+          let text: string;
+          try {
+            text = gunzipSync(bytes, { maxOutputLength: MAX_ASSEMBLED + 1 }).toString("utf8");
+          } catch (err) {
+            const over = err instanceof RangeError || (err as { code?: string })?.code === "ERR_BUFFER_TOO_LARGE";
+            if (over) return tooBig;
+            return NextResponse.json({ ok: false, reason: "bad-request", message: `“${a.path}” could not be unpacked once put back together.` }, { status: 400 });
+          }
+          if (Buffer.byteLength(text, "utf8") > MAX_ASSEMBLED) return tooBig;
+          /* The document says where it was published, as it does when it comes in one request. */
+          const out: FileOut = { path: a.path, content: text, encoding: "utf-8" };
+          stampDoc(out, repo, branch);
+          whole.push(out);
+          continue;
+        }
+        if (bytes.length > MAX_ASSEMBLED) return tooBig;
         whole.push({ path: a.path, content: bytes.toString("base64"), encoding: "base64" });
       }
       const made = await blobsOf(token, repo, [...files, ...whole], known, clock.blobs);

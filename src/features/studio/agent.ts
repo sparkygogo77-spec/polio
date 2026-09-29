@@ -925,19 +925,23 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
     }
 
     /*
-     * A FILE BIGGER THAN ONE REQUEST GOES IN PIECES. parasiteonsol.fun's
-     * picture was 5.1 MB encoded and a request carries 4.5 MB, so Go live was
-     * refused. A binary file past the budget is cut into pieces (whole base64
-     * quads, so each piece is its own bytes), each staged as a blob, and the
-     * route joins them back into the file's own blob (`assemble`). The pieces
-     * are kept out of the commit; the file is the same bytes.
-     * `tests/publish-big-picture.mjs`.
+     * A FILE BIGGER THAN ONE REQUEST GOES IN PIECES, WHATEVER IT IS.
+     * parasiteonsol.fun's picture was 5.1 MB encoded and a request carries
+     * 4.5 MB, so Go live was refused; then its site document was, at 3.5 MB
+     * even packed (10,683 parts on 12 pages). Any file past the budget, a
+     * picture or packed text, the document included, is cut into pieces
+     * (whole base64 quads, so each piece is its own bytes), each staged as a
+     * blob, and the route joins them back into the file's own blob
+     * (`assemble`), unpacking packed text and writing the document's
+     * `publishedTo` as it would have in the last request. The pieces are
+     * kept out of the commit; the file is the same bytes.
+     * `tests/publish-big-picture.mjs`, `tests/publish-big-document.mjs`.
      */
-    const splittable = (f: Sent) => f.encoding === "base64" && !COMMITTED_LAST.has(f.path);
+    const splittable = (f: Sent) => (f.encoding === "base64" || f.encoding === "gzip") && !MERGED_FILES.has(f.path);
     const over = files.find((f) => weight(f) > REQUEST_BUDGET && !splittable(f));
     if (over) return { ok: false, reason: "too-big", message: `“${over.path}” is ${(weight(over) / 1e6).toFixed(1)} MB even packed, more than one request to the Builder carries.` };
     const big = files.filter((f) => weight(f) > REQUEST_BUDGET && splittable(f));
-    const last = files.filter((f) => COMMITTED_LAST.has(f.path));
+    const last = files.filter((f) => COMMITTED_LAST.has(f.path) && !big.includes(f));
     const parts: Sent[][] = [];
     let part: Sent[] = [], size = 0;
     for (const f of files.filter((x) => !COMMITTED_LAST.has(x.path) && !big.includes(x))) {
@@ -962,7 +966,7 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
         if (!sha) return { ok: false, message: `A piece of “${f.path}” did not go up.` };
         shas.push(sha);
       }
-      const got = await carry([], () => ({ stage: true, assemble: [{ path: f.path, parts: shas }] }));
+      const got = await carry([], () => ({ stage: true, assemble: [{ path: f.path, parts: shas, ...(f.encoding === "gzip" ? { gzip: true } : {}) }] }));
       if (!got.ok) return failed(got, created);
       if (!staged.has(f.path)) return { ok: false, message: `“${f.path}” could not be put back together.` };
     }
