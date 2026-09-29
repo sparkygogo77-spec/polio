@@ -224,7 +224,7 @@ export interface NodeEdge {
   shadow?: string;
 }
 /** How the words inside are set: where they sit and their case. */
-export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize" }
+export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize"; wrap?: "balance" | "pretty" }
 /** The artistic properties a capture recorded, as the browser computed them (sink `node.art`). Drawn as written; none is invented. */
 export interface NodeArt {
   blend?: string;
@@ -510,6 +510,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
   if (x?.transform) s.textTransform = x.transform;
+  /* Its lines evened out as the page set them (trendtrader.pro's "Build a global private / hedge fund around TTP."): inherited by the words inside. */
+  if (x?.wrap) (s as Record<string, string>).textWrap = x.wrap;
   return s;
 }
 

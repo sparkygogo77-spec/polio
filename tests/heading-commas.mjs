@@ -8,7 +8,8 @@
  * one sentence: it breaks only where its words have a line of their own.
  * gotchi.gg and stonkfun.xyz each had two headings cut the same way.
  * And a captured heading the page broke with a `<br>` (sink writes it as
- * a line break in its words) draws each of its lines, broken there.
+ * a line break in its words) draws each of its lines, broken there; and
+ * one set `text-wrap: balance` (sink `text.wrap`) is drawn balanced.
  *
  *   node tests/heading-commas.mjs
  */
@@ -47,6 +48,8 @@ const typed = words(node("v", "Fast, private, yours"));
 check("a heading typed by hand with commas is drawn whole too", typed.includes("Fast, private, yours"), typed);
 const broken = renderToStaticMarkup(React.createElement(Block, { node: node("b", "What’s next for\nTrendTrader Pro & TTP.", captured), t, palette, mode: "live", size: { w: 750, h: 112 } }));
 check("a captured heading broken by the page (a <br>, \\n in its words) draws both lines, broken there", /What’s next for<br\/>TrendTrader Pro &amp; TTP\./.test(broken), broken.replace(/style="[^"]*"/g, "").slice(0, 300));
+const balanced = renderToStaticMarkup(React.createElement(Block, { node: node("w", "Build a global private hedge fund around TTP.", { ...captured, text: { wrap: "balance" } }), t, palette, mode: "live", size: { w: 389, h: 67 } }));
+check("a captured heading set text-wrap: balance is drawn balanced", /text-wrap:\s*balance/.test(balanced), balanced.replace(/<p[^>]*>.*$/, "").slice(0, 300));
 const lines = words(node("l", "The first line\nThe second line"));
 check("control: words typed on lines of their own still draw their first line as the sentence", lines.includes("The first line") && !lines.includes("The second line"), lines);
 check("control: an empty value-prop shows its placeholder sentence", /One sentence/.test(words(node("e", ""))));
