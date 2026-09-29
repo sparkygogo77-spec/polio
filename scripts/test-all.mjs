@@ -21,7 +21,8 @@
  *   --timeout S    seconds before a test is stopped and counted failed (default 600)
  *   --out FILE     also write the table, as Markdown, to FILE
  *   --list         say which server and arguments each test gets, and run nothing
- *   SINK=path      the sink checkout (default ../sink)
+ *   SINK=path      the sink checkout (default ../sink); tests are given
+ *                  its sites/trumpmorty-fun as SINK, which is what they read
  *
  * The stand-ins each test serves (GitHub on 4333, Vercel on 4334, 4335 for
  * publish-big-picture, 4336 for publish-changed, …) are the tests' own; the
@@ -67,6 +68,7 @@ const SKIP = {
 /* Arguments a header names in words the rules below do not read. */
 const ARGS = {
   "sticky-in-section": (url) => [url, join(SINK, "sites", "gotchi-gg")],
+  "motion-sampled": (url) => [url, SINK],
 };
 
 /* Never a real token: a test that needs one serves a stand-in and says so. */
@@ -162,7 +164,12 @@ function run(cmd, args, { env, timeout, cwd = ROOT } = {}) {
 }
 
 function baseEnv() {
-  const env = { ...process.env, SINK, NODE_NO_WARNINGS: "1" };
+  /*
+   * SINK, to a test, is the trumpmorty.fun capture's folder (the drawing
+   * fixture and site-colours read it so); the few that want the checkout
+   * itself are handed it as an argument.
+   */
+  const env = { ...process.env, SINK: join(SINK, "sites", "trumpmorty-fun"), NODE_NO_WARNINGS: "1" };
   for (const k of UNSET) delete env[k];
   return env;
 }
