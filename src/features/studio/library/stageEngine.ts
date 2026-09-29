@@ -160,7 +160,7 @@ function runStage(layer, data) {
             a.x = a.home + (a.x > a.home ? 1 : -1) * a.range; a.dir *= -1;
             a.pause = M.pause[0] + Math.random() * (M.pause[1] - M.pause[0]);
           } else if (Math.random() < dt * M.stop) {
-            a.pause = 1 + Math.random() * 3;
+            a.pause = M.pause[0] + Math.random() * (M.pause[1] - M.pause[0]);
             if (Math.random() < 0.35) a.dir *= -1;
           }
         }
