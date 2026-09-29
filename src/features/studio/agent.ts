@@ -780,6 +780,8 @@ export async function watchDeploy(
  * the blobs the parts made, into one commit (`tests/publish-big-site.mjs`).
  */
 const REQUEST_BUDGET = 3_500_000;
+/** One piece of a file bigger than a request: base64 characters, a multiple of four so each piece decodes on its own. */
+const PIECE = 3_000_000;
 /** How many times one call carries on after stopping part-way: ~230 pictures at GitHub's pace is three or four. */
 const RESUMES = 12;
 type Answer = PublishResult & { staged?: { path: string; sha: string }[]; pending?: string[]; wait?: number };
@@ -868,12 +870,23 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
       return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
     }
 
-    const over = files.find((f) => weight(f) > REQUEST_BUDGET);
+    /*
+     * A FILE BIGGER THAN ONE REQUEST GOES IN PIECES. parasiteonsol.fun's
+     * picture was 5.1 MB encoded and a request carries 4.5 MB, so Go live was
+     * refused. A binary file past the budget is cut into pieces (whole base64
+     * quads, so each piece is its own bytes), each staged as a blob, and the
+     * route joins them back into the file's own blob (`assemble`). The pieces
+     * are kept out of the commit; the file is the same bytes.
+     * `tests/publish-big-picture.mjs`.
+     */
+    const splittable = (f: Sent) => f.encoding === "base64" && !COMMITTED_LAST.has(f.path);
+    const over = files.find((f) => weight(f) > REQUEST_BUDGET && !splittable(f));
     if (over) return { ok: false, reason: "too-big", message: `“${over.path}” is ${(weight(over) / 1e6).toFixed(1)} MB even packed, more than one request to the Builder carries.` };
+    const big = files.filter((f) => weight(f) > REQUEST_BUDGET && splittable(f));
     const last = files.filter((f) => COMMITTED_LAST.has(f.path));
     const parts: Sent[][] = [];
     let part: Sent[] = [], size = 0;
-    for (const f of files.filter((x) => !COMMITTED_LAST.has(x.path))) {
+    for (const f of files.filter((x) => !COMMITTED_LAST.has(x.path) && !big.includes(x))) {
       if (size + weight(f) > REQUEST_BUDGET && part.length) { parts.push(part); part = []; size = 0; }
       part.push(f);
       size += weight(f);
@@ -882,6 +895,22 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
     for (const p of parts) {
       const got = await carry(p, () => ({ stage: true }));
       if (!got.ok) return failed(got, created);
+    }
+    /* After the ordinary files, so the repository has something in it to put blobs beside. */
+    for (const f of big) {
+      const shas: string[] = [];
+      for (let at = 0, n = 0; at < f.content.length; at += PIECE, n++) {
+        const name = `${f.path}.piece${n}`;
+        const got = await carry([{ path: name, content: f.content.slice(at, at + PIECE), encoding: "base64" }], () => ({ stage: true }));
+        if (!got.ok) return failed(got, created);
+        const sha = staged.get(name);
+        staged.delete(name);
+        if (!sha) return { ok: false, message: `A piece of “${f.path}” did not go up.` };
+        shas.push(sha);
+      }
+      const got = await carry([], () => ({ stage: true, assemble: [{ path: f.path, parts: shas }] }));
+      if (!got.ok) return failed(got, created);
+      if (!staged.has(f.path)) return { ok: false, message: `“${f.path}” could not be put back together.` };
     }
     const done = await carry(last, () => ({ staged: all() }));
     return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);

@@ -58,7 +58,7 @@ import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { PROCESS } from "./threads";
-import { studioDoc } from "./agent";
+import { publish, studioDoc } from "./agent";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
@@ -1083,6 +1083,8 @@ export function StudioPage() {
     w.__studioUndoDepth = () => useStudio.getState().past.length;
     // The document exactly as Publish sends it, for checks that say "what publish sends" and used to read storage instead.
     w.__studioPublishDoc = () => studioDoc();
+    // The push itself, with files a check hands it, the way Go live sends them (tests/publish-big-picture.mjs: a picture bigger than one request).
+    (w as unknown as { __studioPublish?: typeof publish }).__studioPublish = (input) => publish(input);
     // A document put on the board whole, the way an import does (tests/big-document.mjs: one past localStorage's quota).
     (w as unknown as { __studioLoadDoc?: (doc: Record<string, unknown>) => void }).__studioLoadDoc = (doc) => useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
     // A drawing put on the queue the way the draw board puts one (DrawBoard.tsx#makeReal), for a check that draws on a given part (tests/draw-on-section.mjs).

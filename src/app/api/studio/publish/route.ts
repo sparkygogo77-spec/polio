@@ -463,7 +463,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "no-github", message: "No GitHub token. Put one in the Keys panel — it stays in this browser — or set GITHUB_TOKEN on the server. Until then, download the files and commit them by hand." });
   }
 
-  let body: { files?: FileIn[]; message?: string; deploy?: boolean; repo?: unknown; branch?: unknown; create?: unknown; boundTo?: unknown; sources?: unknown; stage?: unknown; staged?: unknown };
+  let body: { files?: FileIn[]; message?: string; deploy?: boolean; repo?: unknown; branch?: unknown; create?: unknown; boundTo?: unknown; sources?: unknown; stage?: unknown; staged?: unknown; assemble?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -548,8 +548,28 @@ export async function POST(request: Request) {
     if (real > MAX_BYTES) return NextResponse.json({ ok: false, reason: "too-big", message: `“${path}” is over ${MAX_BYTES / 1024 / 1024} MB.` }, { status: 400 });
     files.push({ path, content: f.content, encoding: b64 ? "base64" : "utf-8" });
   }
-  if (!files.length && !staged.length) return NextResponse.json({ ok: false, reason: "empty", message: "Nothing to publish." }, { status: 400 });
-  const stage = body.stage === true;
+  /*
+   * A FILE BIGGER THAN ONE REQUEST, PUT BACK TOGETHER HERE.
+   *
+   * parasiteonsol.fun's picture was 3.8 MB, 5.1 MB once encoded, and a
+   * request to the Builder carries 4.5 MB: Go live was refused. So a file
+   * past what one request carries comes up in pieces, each piece staged as a
+   * blob of its own like any other file, and a last small `stage` call names
+   * the pieces in order (`assemble`): they are read back from the repository
+   * they were just written to, joined byte for byte, and made the file's real
+   * blob. The pieces are never in any tree, so nothing of them is committed;
+   * the file is the same bytes, and it is still one commit and one deployment
+   * (`tests/publish-big-picture.mjs`).
+   */
+  const assemble: { path: string; parts: string[] }[] = Array.isArray(body.assemble)
+    ? body.assemble.flatMap((a: { path?: unknown; parts?: unknown }) => {
+        const path = safePath(a?.path);
+        const parts = Array.isArray(a?.parts) ? a.parts.filter((x): x is string => typeof x === "string" && /^[\w-]{1,64}$/.test(x)) : [];
+        return path && parts.length && parts.length === (a.parts as unknown[]).length && parts.length <= 64 ? [{ path, parts }] : [];
+      })
+    : [];
+  if (!files.length && !staged.length && !assemble.length) return NextResponse.json({ ok: false, reason: "empty", message: "Nothing to publish." }, { status: 400 });
+  const stage = body.stage === true || assemble.length > 0;
   /* Nowhere to push yet, but a name to make one under: this is a site's first
      publish, so it gets its repository here rather than being sent away to
      make one by hand. */
@@ -627,7 +647,8 @@ export async function POST(request: Request) {
     try {
       const base = await tipOf(token, repo, branch);
       if (!base) {
-        const seed = files[0]!;
+        const seed = files[0];
+        if (!seed) return NextResponse.json({ ok: false, reason: "empty", message: "There is nothing in the repository yet to put the pieces of a big file beside." }, { status: 400 });
         await gh(token, "PUT", `/repos/${repo}/contents/${seed.path.split("/").map(encodeURIComponent).join("/")}`, {
           message,
           branch,
@@ -636,7 +657,19 @@ export async function POST(request: Request) {
       }
       const known = await knownBlobs(token, repo, base);
       for (const s of staged) known.add(s.sha);
-      const made = await blobsOf(token, repo, files, known, clock.blobs);
+      const whole: FileOut[] = [];
+      for (const a of assemble) {
+        const pieces: Buffer[] = [];
+        for (const sha of a.parts) {
+          const got = await gh<{ content?: string; encoding?: string }>(token, "GET", `/repos/${repo}/git/blobs/${sha}`);
+          if (typeof got.content !== "string") throw new GitHubError(`A piece of “${a.path}” could not be read back.`, 404);
+          pieces.push(Buffer.from(got.content.replace(/\s+/g, ""), got.encoding === "base64" ? "base64" : "utf8"));
+        }
+        const bytes = Buffer.concat(pieces);
+        if (bytes.length > MAX_BYTES) return NextResponse.json({ ok: false, reason: "too-big", message: `“${a.path}” is over ${MAX_BYTES / 1024 / 1024} MB.` }, { status: 400 });
+        whole.push({ path: a.path, content: bytes.toString("base64"), encoding: "base64" });
+      }
+      const made = await blobsOf(token, repo, [...files, ...whole], known, clock.blobs);
       return NextResponse.json({ ok: true, stage: true, repo, branch, ...(created ? { created } : {}), staged: made });
     } catch (error) {
       if (error instanceof Resume) return resumed(error, token, branch, repo, created);
