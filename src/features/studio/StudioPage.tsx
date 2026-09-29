@@ -1204,7 +1204,7 @@ export function StudioPage() {
                     </span>
                   ),
                   label: (
-                    <span data-tab-word="" className={sideTab === t.value ? "whitespace-nowrap text-[10px]" : "sr-only"}>
+                    <span data-tab-word="" className={sideTab === t.value ? "whitespace-nowrap text-small" : "sr-only"}>
                       {t.label}
                     </span>
                   ),

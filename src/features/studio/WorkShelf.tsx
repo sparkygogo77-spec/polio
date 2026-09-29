@@ -206,7 +206,7 @@ export function FeatureOffers() {
               <div className="mt-2 flex flex-col gap-1.5">
                 <Code title="manifest.json" attr="data-offer-manifest">{o.manifestText}</Code>
                 <Code title="script.js" attr="data-offer-script">{o.script}</Code>
-                <div data-offer-diff="" className="max-h-40 overflow-auto rounded-sm border border-border bg-bg p-1.5 font-mono text-[10px] leading-snug">
+                <div data-offer-diff="" className="max-h-40 overflow-auto rounded-sm border border-border bg-bg p-1.5 font-mono text-small leading-snug">
                   <div className="mb-1 text-fine uppercase tracking-wider text-fg-faint">diff against the library</div>
                   {o.diff.map((l, i) => (
                     <div key={i} data-diff-op={l.op} className="whitespace-pre" style={{ color: l.op === "+" ? "oklch(0.8 0.15 150)" : l.op === "-" ? "oklch(0.72 0.16 25)" : undefined, opacity: l.op === " " ? 0.55 : 1 }}>
@@ -239,7 +239,7 @@ export function FeatureOffers() {
 
 function Code({ title, attr, children }: { title: string; attr: string; children: string }) {
   return (
-    <div {...{ [attr]: "" }} className="max-h-40 overflow-auto rounded-sm border border-border bg-bg p-1.5 font-mono text-[10px] leading-snug">
+    <div {...{ [attr]: "" }} className="max-h-40 overflow-auto rounded-sm border border-border bg-bg p-1.5 font-mono text-small leading-snug">
       <div className="mb-1 text-fine uppercase tracking-wider text-fg-faint">{title}</div>
       <pre className="whitespace-pre-wrap break-words">{children}</pre>
     </div>

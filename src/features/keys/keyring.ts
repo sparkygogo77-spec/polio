@@ -26,7 +26,7 @@
  * WHAT IT DOES NOT STOP, said plainly so nobody is told otherwise. Code
  * running on this origin. An injected script, an extension with page access,
  * or the person's own console can call `unwrap` exactly as the app does, for
- * as long as this browser holds the IndexedDB key. It is not a vault, it is
+ * as long as this browser holds the IndexedDB key. It is not a safe, it is
  * not protection from the machine's owner, and it is not a substitute for the
  * key living on a server. The only thing that keeps a key from code on the
  * page is a secret that is not stored at all, which is what the PIN

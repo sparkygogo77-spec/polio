@@ -18,7 +18,7 @@ import { afterSend, heldOn, isLearned, keyOf, LEARN_DEFAULT, learnable, learnReq
 import { readCaptureRecord, recapturePlan, runRecapture } from "./recapture";
 import { heldKeys } from "@/features/keys/store";
 
-const key = "rounded-sm border px-1.5 py-0.5 text-[10px]";
+const key = "rounded-sm border px-1.5 py-0.5 text-small";
 const keyStyle = { borderColor: SCREEN.line, color: SCREEN.ink, background: SCREEN.key };
 
 export function LearnRow({ node }: { node: StudioNode }) {
@@ -38,23 +38,23 @@ export function LearnRow({ node }: { node: StudioNode }) {
         return (
           <div key={k} className="flex flex-col gap-1">
             <div className="flex items-center gap-1">
-              <span className="min-w-0 flex-1 truncate font-mono text-[9px]" style={{ color: SCREEN.dim }} title={h.hook ?? h.selector}>held: {h.why}{h.control ? ` · ${h.control}` : ""}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-fine" style={{ color: SCREEN.dim }} title={h.hook ?? h.selector}>held: {h.why}{h.control ? ` · ${h.control}` : ""}</span>
               {done ? (
                 <button type="button" data-learn-again={k} className={key} style={keyStyle} onClick={() => { play("tick"); set((s) => queued(s, [h], true)); }}>Learn again</button>
               ) : inQueue ? (
-                <span data-learn-queued={k} className="text-[9px]" style={{ color: SCREEN.dim }}>queued</span>
+                <span data-learn-queued={k} className="text-fine" style={{ color: SCREEN.dim }}>queued</span>
               ) : (
                 <button type="button" data-learn={k} className={key} style={keyStyle} onClick={() => { play("tick"); if (h.form) setAsking(k); else set((s) => queued(s, [h])); }}>Learn</button>
               )}
             </div>
             {asking === k ? (
               <div data-learn-values={k} className="flex flex-col gap-1">
-                <p className="text-[9px]" style={{ color: SCREEN.dim }}>It sends a form. The values to send, one name=value a line:</p>
+                <p className="text-fine" style={{ color: SCREEN.dim }}>It sends a form. The values to send, one name=value a line:</p>
                 <textarea
                   data-learn-values-input=""
                   rows={3}
                   defaultValue={learn.values[k] ?? ""}
-                  className="rounded-sm border bg-transparent p-1 font-mono text-[10px] outline-none"
+                  className="rounded-sm border bg-transparent p-1 font-mono text-small outline-none"
                   style={{ borderColor: SCREEN.line, color: SCREEN.ink }}
                   onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) => { const v = e.target.value; set((s) => ({ ...s, values: { ...s.values, [k]: v } })); }}
@@ -104,7 +104,7 @@ export function LearnBadge() {
     <div data-learn-badge={learn.queue.length} className="pointer-events-auto absolute bottom-3 left-3 z-30 flex max-w-[320px] flex-col gap-1 rounded-md border px-2 py-1.5 text-small" style={{ background: SCREEN.key, borderColor: SCREEN.line, color: SCREEN.ink }}>
       <div className="flex items-center gap-1.5">
         <button type="button" data-learn-send="" disabled={busy} className={key} style={keyStyle} onClick={() => void send()}>Learn ({learn.queue.length})</button>
-        <label className="flex items-center gap-1 text-[10px]" style={{ color: SCREEN.dim }}>
+        <label className="flex items-center gap-1 text-small" style={{ color: SCREEN.dim }}>
           at most
           <input
             data-learn-cap=""
@@ -114,15 +114,15 @@ export function LearnBadge() {
             value={learn.cap}
             onKeyDown={(e) => e.stopPropagation()}
             onChange={(e) => { const n = Math.max(0, Math.min(500, Math.round(Number(e.target.value) || 0))); set((s) => ({ ...s, cap: n })); }}
-            className="w-10 rounded-sm border bg-transparent px-1 text-[10px]"
+            className="w-10 rounded-sm border bg-transparent px-1 text-small"
             style={{ borderColor: SCREEN.line, color: SCREEN.ink }}
           />
           a day
         </label>
-        <button type="button" data-learn-clear="" className="text-[10px]" style={{ color: SCREEN.dim }} onClick={() => { set((s) => ({ ...s, queue: [] })); setSaid(null); }}>clear</button>
+        <button type="button" data-learn-clear="" className="text-small" style={{ color: SCREEN.dim }} onClick={() => { set((s) => ({ ...s, queue: [] })); setSaid(null); }}>clear</button>
       </div>
-      {!learn.supported ? <p data-learn-waiting="" className="text-[10px]" style={{ color: SCREEN.dim }}>{WAITING}</p> : null}
-      {said && said !== WAITING ? <p data-learn-said="" className="text-[10px]">{said}</p> : null}
+      {!learn.supported ? <p data-learn-waiting="" className="text-small" style={{ color: SCREEN.dim }}>{WAITING}</p> : null}
+      {said && said !== WAITING ? <p data-learn-said="" className="text-small">{said}</p> : null}
     </div>
   );
 }
