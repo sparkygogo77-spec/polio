@@ -780,6 +780,9 @@ export async function watchDeploy(
  * the blobs the parts made, into one commit (`tests/publish-big-site.mjs`).
  */
 const REQUEST_BUDGET = 3_500_000;
+/** How many times one call carries on after stopping part-way: ~230 pictures at GitHub's pace is three or four. */
+const RESUMES = 12;
+type Answer = PublishResult & { staged?: { path: string; sha: string }[]; pending?: string[]; wait?: number };
 /** What the route reads as it commits, so it goes in the last request, never a part. */
 const COMMITTED_LAST = new Set(["site/document.json", ...MERGED_FILES]);
 
@@ -803,7 +806,7 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
   /* The site's open edit branch, unless the caller names one: main is
      never pushed to by accident while a branch is open. */
   const branch = input.branch ?? useStudio.getState().siteBranch;
-  const send = async (repo: string | undefined, extra: Record<string, unknown>): Promise<PublishResult & { staged?: { path: string; sha: string }[] }> => {
+  const send = async (repo: string | undefined, extra: Record<string, unknown>): Promise<Answer> => {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
       headers: { "content-type": "application/json", ...publisherHeader() },
@@ -822,7 +825,7 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
         ...extra,
       }),
     });
-    const data = (await res.json().catch(() => null)) as (PublishResult & { staged?: { path: string; sha: string }[] }) | null;
+    const data = (await res.json().catch(() => null)) as Answer | null;
     return data ?? { ok: false, message: res.status === 413 ? "The push was more than the Builder's server takes in one request." : `The Builder's server answered ${res.status}.` };
   };
   /* A failure keeps what the route made: without `created` the site never
@@ -832,11 +835,38 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
     const made = (data.ok ? undefined : data.created) ?? created;
     return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(made ? { created: made } : {}), ...(data.repo ?? made ? { repo: data.repo ?? made } : {}) };
   };
+  let repo = input.repo;
+  let created: string | undefined;
+  const staged = new Map<string, string>();
+  /*
+   * A CALL THAT STOPPED PART-WAY CARRIES ON. The route makes blobs one at a
+   * time and stops inside Vercel's time limit, or on a GitHub rate limit
+   * longer than it can wait, answering `resume` with what went up
+   * (`staged`) and what did not (`pending`). The same call goes again with
+   * only the pending files, after the wait GitHub asked for: nothing is sent
+   * twice and it is still one commit at the end (`tests/publish-steady.mjs`).
+   */
+  const carry = async (files: Sent[], extra: () => Record<string, unknown>) => {
+    let left = files;
+    for (let n = 0; ; n++) {
+      const got = await send(repo, { ...extra(), files: left });
+      if (got.created) { created = got.created; repo = got.created; }
+      for (const s of got.staged ?? []) staged.set(s.path, s.sha);
+      if (got.ok || got.reason !== "resume" || n >= RESUMES) return got;
+      const pending = new Set(got.pending ?? []);
+      left = left.filter((f) => pending.has(f.path));
+      await new Promise((r) => setTimeout(r, Math.min(got.wait ?? 0, 180) * 1000));
+    }
+  };
+  const all = () => [...staged].map(([path, sha]) => ({ path, sha }));
   try {
     const files = await Promise.all(input.files.map(packed));
     const weight = (f: Sent) => f.content.length + f.path.length + 64;
     const total = files.reduce((a, f) => a + weight(f), 0);
-    if (total <= REQUEST_BUDGET) return failed(await send(input.repo, { files }));
+    if (total <= REQUEST_BUDGET) {
+      const done = await carry(files, () => ({ staged: all() }));
+      return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
+    }
 
     const over = files.find((f) => weight(f) > REQUEST_BUDGET);
     if (over) return { ok: false, reason: "too-big", message: `“${over.path}” is ${(weight(over) / 1e6).toFixed(1)} MB even packed, more than one request to the Builder carries.` };
@@ -849,16 +879,11 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
       size += weight(f);
     }
     if (part.length) parts.push(part);
-    let repo = input.repo;
-    let created: string | undefined;
-    const staged: { path: string; sha: string }[] = [];
     for (const p of parts) {
-      const got = await send(repo, { stage: true, files: p });
+      const got = await carry(p, () => ({ stage: true }));
       if (!got.ok) return failed(got, created);
-      if (got.created) { created = got.created; repo = got.created; }
-      staged.push(...(got.staged ?? []));
     }
-    const done = await send(repo, { files: last, staged });
+    const done = await carry(last, () => ({ staged: all() }));
     return done.ok ? { ...done, ...(created && !done.created ? { created } : {}) } : failed(done, created);
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
