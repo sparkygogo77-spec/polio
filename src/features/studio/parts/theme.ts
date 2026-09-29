@@ -238,6 +238,8 @@ export interface NodeArt {
   paintOrder?: string;
   background?: string;
   backgroundOptions?: string[];
+  /** `text`: the background is seen only through the words (a gradient title, sink `bgclip`). */
+  backgroundClip?: string;
   /** The point it turns about, px from its box's top left, where an animation turns it (the antenna's rods: their feet). */
   origin?: string;
   /** A mask the page painted it through, as computed, with its size, position and repeat. */
@@ -498,6 +500,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
       if (a.backgroundOptions?.[0]) s.backgroundSize = a.backgroundOptions[0];
       if (a.backgroundOptions?.[1]) s.backgroundPosition = a.backgroundOptions[1];
       if (a.backgroundOptions?.[2]) s.backgroundRepeat = a.backgroundOptions[2];
+      /* Seen only through its letters: trendtrader.pro's gradient "TTP" drew as a teal box without it (tests/text-fill.mjs). */
+      if (a.backgroundClip) (s as Record<string, string>).backgroundClip = (s as Record<string, string>).WebkitBackgroundClip = a.backgroundClip;
     }
     if (a.textShadow) s.textShadow = a.textShadow;
     if (a.textStroke && a.textStroke.w > 0) s.WebkitTextStroke = `${a.textStroke.w}px ${a.textStroke.color}`;
