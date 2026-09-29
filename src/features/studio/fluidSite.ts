@@ -327,12 +327,13 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
  * never narrower than 1280, as `frameCss` has it. `tests/fluid-wide.mjs`.
  */
 export function fluidClip(clip: string, p: { x: number; w: number }, tx: number, W: number): string | null {
-  const m = /^inset\(\s*(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s*\)$/.exec(clip.trim());
+  /* Its rounded corners, when the box that cut it was rounded, ride along as written. */
+  const m = /^inset\(\s*(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px(\s+round\s[^)]*)?\s*\)$/.exec(clip.trim());
   if (!m) return null;
-  const [t, r, b, l] = m.slice(1).map(Number) as [number, number, number, number];
+  const [t, r, b, l] = m.slice(1, 5).map(Number) as [number, number, number, number];
   const edge = p.x + p.w - r + tx;
   if (Math.abs(edge - W) > 4) return null;
-  return `inset(${t}px max(0px, calc(${r}px - (max(100vw, ${Math.min(W, 1280)}px) - ${W}px))) ${b}px ${l}px)`;
+  return `inset(${t}px max(0px, calc(${r}px - (max(100vw, ${Math.min(W, 1280)}px) - ${W}px))) ${b}px ${l}px${m[5] ?? ""})`;
 }
 
 /**

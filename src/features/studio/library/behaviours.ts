@@ -321,16 +321,23 @@ const MARQUEE: Work = {
   el.setAttribute("data-marquee", "");
   var speed = Math.max(5, Number(inputs.speed) || 60), right = inputs.direction === "right";
   var gap = Math.max(0, Number(inputs.gap)); if (!isFinite(gap) || inputs.gap === "") gap = 40;
+  /* A part drawn turned or cut (a ribbon's words, tilted, seen through the ribbon's window) keeps its box, turn and window still: only the words inside it run, clipped in their own frame. Sliding the whole part slid its window off the ribbon, and a clip on the untilted box outside cut the tilted words level. */
+  var host = el;
+  for (var q = el; q && q.children.length === 1; q = q.children[0]) {
+    var qs = getComputedStyle(q);
+    if (q !== el && ((qs.transform && qs.transform !== "none") || (qs.clipPath && qs.clipPath !== "none"))) { host = q.children[0]; break; }
+  }
   var track = document.createElement("div"), one = document.createElement("div");
+  track.setAttribute("data-marquee-track", "");
   track.style.cssText = "display:flex;width:max-content;height:100%;align-items:center;white-space:nowrap;will-change:transform";
   one.style.cssText = "display:flex;flex:none;align-items:center;padding-right:" + gap + "px";
-  while (el.firstChild) one.appendChild(el.firstChild);
-  track.appendChild(one); el.appendChild(track);
-  el.style.overflow = "hidden";
+  while (host.firstChild) one.appendChild(host.firstChild);
+  track.appendChild(one); host.appendChild(track);
+  host.style.overflow = "hidden";
   var anim = null, held = false;
   function build() {
     while (track.children.length > 1) track.removeChild(track.lastChild);
-    var w = one.getBoundingClientRect().width, need = Math.max(1, Math.ceil(el.clientWidth / Math.max(1, w)));
+    var w = one.offsetWidth || one.getBoundingClientRect().width, need = Math.max(1, Math.ceil(host.clientWidth / Math.max(1, w)));
     for (var i = 0; i < need; i++) {
       var c = one.cloneNode(true);
       c.setAttribute("aria-hidden", "true");

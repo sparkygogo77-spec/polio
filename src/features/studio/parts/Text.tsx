@@ -81,6 +81,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
    * `tests/padded-one-line.mjs`.
    */
   const padY = (typeof box.padding === "number" ? box.padding * 2 : 0) + (t.padY ?? 0);
+  const mid = t.centred;
   const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
   return (
     /*
@@ -106,7 +107,8 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
      * move half the inset right, and a right-set one past the box. Nothing is
      * stored and no part moves. `tests/inset-room.mjs`.
      */
-    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)), ...(Number(box.padding ?? 0) < 2 && (t.textAlign === "left" || t.textAlign === "justify") ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginRight: -(2 - Number(box.padding ?? 0)) } : {}) }}>
+    /* Centred by its own box (a grid's `place-items: center`, `applyLayout`): the words sit in the middle, down and across, with no inset to move them off it. */
+    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 && (t.textAlign === "left" || t.textAlign === "justify") ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginRight: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
@@ -117,7 +119,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
       */}
-      <div style={{ maxWidth: t.measurePx, marginLeft: t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div style={{ maxWidth: mid?.x ? "100%" : t.measurePx, width: mid?.x ? "fit-content" : undefined, marginLeft: mid?.x || t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: mid?.x || t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>

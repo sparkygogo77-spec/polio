@@ -2660,6 +2660,19 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
         ...(lift ? { "--lift-shadow": lift.shadow, "--lift-sheen": lift.sheen } : null),
       } as React.CSSProperties}
     >
+      {/*
+        WHAT ITS BOX CUTS OFF, FAINTLY, WHILE IT IS PICKED. A part cut to the
+        rounded box it sits in (`art.clipPath`: the picture in the TV's screen,
+        the CA bar's yellow ends) is drawn cut, as the site draws it; picked,
+        the rest of it shows at a quarter strength under it, so what is being
+        moved or resized is the whole part and not only its window. It takes
+        no pointer and is not the part (`tests/clips-and-turns.mjs`).
+      */}
+      {selected && node.art?.clipPath ? (
+        <div data-cut-ghost="" aria-hidden inert className="pointer-events-none absolute inset-0 flex flex-col" style={{ opacity: 0.25 }}>
+          <Block node={{ ...node, art: { ...node.art, clipPath: undefined } }} t={theme} palette={palette} light={light} page={page} layers={layers} mode="board" />
+        </div>
+      ) : null}
       {/* the part itself, at real size */}
       {/* The selected part runs its own clocks, so you can see what it does. */}
       <div

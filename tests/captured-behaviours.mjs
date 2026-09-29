@@ -163,7 +163,7 @@ let loaderInPreview = "";
 for (let i = 0; i < 40 && !loaderInPreview; i++) { await page.waitForTimeout(150); loaderInPreview = await page.evaluate(() => document.querySelector("[data-crt]")?.textContent ?? ""); }
 check("Preview: the CRT loader stands first", /CH 47/.test(loaderInPreview) && /TUNING/.test(loaderInPreview), loaderInPreview.slice(0, 80));
 for (let i = 0; i < 40 && (await page.evaluate(() => !!document.querySelector("[data-crt]"))); i++) await page.waitForTimeout(250);
-const trackX = (id) => page.evaluate((id) => { const el = document.querySelector(`[data-live-node="${id}"] [data-marquee] > div, [data-live-node="${id}"][data-marquee] > div`); return el ? new DOMMatrix(getComputedStyle(el).transform).m41 : null; }, id);
+const trackX = (id) => page.evaluate((id) => { const el = document.querySelector(`[data-live-node="${id}"] [data-marquee-track]`); return el ? new DOMMatrix(getComputedStyle(el).transform).m41 : null; }, id);
 const r1 = await trackX(RED), n1 = await trackX(NAVY);
 await page.waitForTimeout(600);
 const r2 = await trackX(RED), n2 = await trackX(NAVY);
@@ -199,7 +199,7 @@ const open = async (reducedMotion) => {
   return { ctx, p, errs };
 };
 const css = (p, id, k) => p.evaluate(([id, k]) => { const el = document.getElementById(id); return el ? getComputedStyle(el)[k] : null; }, [id, k]);
-const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(`#${id}[data-marquee] > div`); return el ? new DOMMatrix(getComputedStyle(el).transform).m41 : null; }, id);
+const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(`#${id}[data-marquee] [data-marquee-track]`); return el ? new DOMMatrix(getComputedStyle(el).transform).m41 : null; }, id);
 
 {
   const { ctx, p, errs } = await open("no-preference");

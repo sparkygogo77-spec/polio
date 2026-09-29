@@ -92,9 +92,12 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
     /* Captured, the box is his heading's own and it had no padding and its
        own leading (`applyCaptured`): padded, a heading as wide as its words
        wrapped, and the page under it moved (tests/captured-words.mjs). */
-    /* A captured title's letters rise above a tight line (0.86) and wobble past it, as they did on the page: not clipped. */
-    <Fill t={t} data-part={id} overflow={hasLetters(spans) ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
-      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
+    /* A captured title's letters rise above a tight line (0.86) and wobble past it, as they did on the page: not clipped. Nor
+       is any captured heading: the page never cut one, and its outline (a 4px text-stroke) and caps reach past a 0.9 line
+       and the box's left edge, so the H of HOW TO BUY lost its left side and every cap its top (tests/heading-whole.mjs). */
+    <Fill t={t} data-part={id} overflow={hasLetters(spans) || t.captured ? "visible" : "hidden"} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight || t.captured ? 0 : t.fontPx * 0.5 }}>
+      {/* The node's weight where it named one: a face with only a 400 (Luckiest Guy) set at 700 is drawn bolder by the browser, and its letters change shape. */}
+      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
         {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : (
           <>

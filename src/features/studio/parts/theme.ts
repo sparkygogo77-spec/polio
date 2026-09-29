@@ -78,6 +78,8 @@ export interface Theme {
   /** Set only when a part has its own type; `Fill` puts them on the root and text inherits them. */
   fontWeight?: number;
   letterSpacing?: string;
+  /** The node's own box sets its words in its middle (a grid `place-items: center`): across, down, or both. `applyLayout`. */
+  centred?: { x: boolean; y: boolean };
   /**
    * What this node said about itself, as against what the site says. Unset
    * when the node said nothing, which is every hand-placed part. See
@@ -201,6 +203,8 @@ export interface NodeLayout {
   /** `align-items` and `justify-content`, as CSS says them. */
   align?: string;
   justify?: string;
+  /** A grid's `justify-items`: where each child sits across its own cell (`center`: the step's emoji). */
+  items?: string;
   /** Pixels between the children. */
   gap?: number;
   wrap?: boolean;
@@ -232,6 +236,13 @@ export interface NodeArt {
   paintOrder?: string;
   background?: string;
   backgroundOptions?: string[];
+  /** The point it turns about, px from its box's top left, where an animation turns it (the antenna's rods: their feet). */
+  origin?: string;
+  /** A mask the page painted it through, as computed, with its size, position and repeat. */
+  mask?: string;
+  maskOptions?: string[];
+  /** It cut what pokes out of it (`hidden`, `clip`): recorded on the box, drawn on its parts as their `clipPath`. */
+  overflow?: string;
 }
 /** The four, as a node carries them. */
 export interface NodeBox {
@@ -247,6 +258,8 @@ export interface NodeBox {
   radius?: number | null;
   /** Each corner, top-left clockwise, where they differ (trumpmorty.fun's remote, 48 48 70 70). */
   radii?: readonly number[] | null;
+  /** Each corner's radius down, where a corner is an ellipse (the TV screen's 28px / 34px); `radii` then holds the ones across. */
+  radiiY?: readonly number[] | null;
 }
 
 /**
@@ -336,6 +349,23 @@ export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
 }
 
 /**
+ * The theme, told where the node's own box sets what it holds. A box laid
+ * out as a grid or a flex row that centres its child centres its words too:
+ * his step icons are a 68px circle, `display: grid; place-items: center`,
+ * with an emoji in it and no element round the emoji, so the words are the
+ * grid's one child. Drawn as a paragraph at the top left of the box they sat
+ * up and to the left (tests/words-centred.mjs).
+ */
+export function applyLayout(t: Theme, layout: NodeLayout | null | undefined): Theme {
+  if (!layout || (layout.display !== "grid" && layout.display !== "flex")) return t;
+  const mid = (v: string | undefined) => v === "center" || v === "safe center";
+  const column = layout.display === "flex" && layout.direction === "column";
+  const x = layout.display === "grid" ? mid(layout.items) : column ? mid(layout.align) : mid(layout.justify);
+  const y = layout.display === "grid" ? mid(layout.align) : column ? mid(layout.justify) : mid(layout.align);
+  return x || y ? { ...t, centred: { x, y } } : t;
+}
+
+/**
  * The theme, told that the node named an edge of its own.
  *
  * The edge itself is drawn by the `[data-part-box]` wrapper `blocks.tsx`
@@ -403,6 +433,7 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (l.direction) s.flexDirection = l.direction;
     if (l.align) s.alignItems = l.align;
     if (l.justify) s.justifyContent = l.justify;
+    if (l.items) s.justifyItems = l.items;
     if (typeof l.gap === "number" && Number.isFinite(l.gap)) s.gap = Math.max(0, l.gap);
     if (l.wrap) s.flexWrap = "wrap";
     if (l.display === "grid" && typeof l.columns === "number" && l.columns > 0) s.gridTemplateColumns = `repeat(${Math.round(l.columns)}, minmax(0, 1fr))`;
@@ -422,7 +453,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   }
   /* The corners as the page rounded them, on the board and the published page alike. */
   if (typeof n.radius === "number" && Number.isFinite(n.radius) && n.radius > 0) s.borderRadius = n.radius;
-  if (Array.isArray(n.radii) && n.radii.length === 4 && n.radii.every((r) => typeof r === "number" && Number.isFinite(r) && r >= 0) && n.radii.some((r) => r > 0)) s.borderRadius = n.radii.map((r) => `${r}px`).join(" ");
+  const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0);
+  if (four(n.radii) && n.radii.some((r) => r > 0)) s.borderRadius = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
   /* The clothes an artistic page wore: transparency, blending, filters, a rotation, a gradient, outlined and shadowed type. */
   if (typeof n.opacity === "number" && Number.isFinite(n.opacity) && n.opacity >= 0 && n.opacity < 1) s.opacity = n.opacity;
   const a = n.art;
@@ -432,6 +464,15 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (a.backdrop) s.backdropFilter = a.backdrop;
     if (a.clipPath) s.clipPath = a.clipPath;
     if (a.transform && a.transform !== "none" && a.transform !== "matrix(1, 0, 0, 1, 0, 0)") s.transform = a.transform;
+    /* Turned about its own point, so the page's keyframes turn it where they did. */
+    if (a.origin) s.transformOrigin = a.origin;
+    if (a.mask) {
+      const m = s as Record<string, string>;
+      m.maskImage = m.WebkitMaskImage = a.mask;
+      if (a.maskOptions?.[0]) m.maskSize = m.WebkitMaskSize = a.maskOptions[0];
+      if (a.maskOptions?.[1]) m.maskPosition = m.WebkitMaskPosition = a.maskOptions[1];
+      if (a.maskOptions?.[2]) m.maskRepeat = m.WebkitMaskRepeat = a.maskOptions[2];
+    }
     if (a.background) {
       s.backgroundImage = a.background;
       if (a.backgroundOptions?.[0]) s.backgroundSize = a.backgroundOptions[0];

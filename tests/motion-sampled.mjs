@@ -244,7 +244,7 @@ await page.mouse.move(5, 5, { steps: 6 });
 await page.waitForTimeout(500);
 check("Preview: …and settles back when the pointer leaves", !/rotate/.test(await page.evaluate((id) => document.querySelector(`[data-live-node="${id}"]`)?.style.transform ?? "", CARD)));
 await page.mouse.move(700, 600);
-const rate = () => page.evaluate((id) => { const t = document.querySelector(`[data-live-node="${id}"] [data-marquee] > div, [data-live-node="${id}"][data-marquee] > div`); const a = t?.getAnimations()[0]; return a ? a.playbackRate : null; }, TRACK);
+const rate = () => page.evaluate((id) => { const t = document.querySelector(`[data-live-node="${id}"] [data-marquee-track]`); const a = t?.getAnimations()[0]; return a ? a.playbackRate : null; }, TRACK);
 const grown = () => page.evaluate((id) => Number(document.querySelector(`[data-live-node="${id}"]`)?.getAttribute("data-grown") ?? NaN), LINE);
 const rest1 = await rate(), g1 = await grown();
 let fastest = 0;
@@ -299,7 +299,7 @@ const pt = await pub.p.evaluate(({ card, inner }) => [card, ...inner].map((id) =
 check("published: the card and its heading tilt together toward the pointer", pt.every((t) => /rotateY\(-\d/.test(t)) && new Set(pt.map((t) => t.split(")").slice(0, 3).join(")"))).size === 1, J(pt));
 await pub.p.mouse.move(cb.x - 40, cb.y - 60, { steps: 4 });
 await pub.p.waitForTimeout(300);
-const prate = () => pub.p.evaluate((id) => document.querySelector(`#${id} [data-marquee] > div, #${id}[data-marquee] > div`)?.getAnimations()[0]?.playbackRate ?? null, TRACK);
+const prate = () => pub.p.evaluate((id) => document.querySelector(`#${id} [data-marquee-track]`)?.getAnimations()[0]?.playbackRate ?? null, TRACK);
 const pg = () => pub.p.evaluate((id) => Number(document.getElementById(id)?.getAttribute("data-grown") ?? NaN), LINE);
 const prest = await prate(), pg1 = await pg();
 let pfast = 0;
