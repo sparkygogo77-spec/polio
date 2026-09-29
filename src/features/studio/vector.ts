@@ -38,6 +38,14 @@ export interface DrawnVector {
   at?: number;
   /** Where it came from, for the record: the model, or the hand. */
   from?: string;
+  /**
+   * How its outlines are drawn, when a captured icon drew them otherwise
+   * than 2 wide and round (sink check-svg-paint.mjs: a 3-wide square-capped
+   * menu). Absent, the drawn icon's own.
+   */
+  stroke?: { width: number; cap?: string; join?: string } | null;
+  /** Drawn on the pixel grid (a captured `shape-rendering: crispEdges`, gotchi.gg's pixel icons): its edges stay hard. */
+  crisp?: boolean;
 }
 
 /** How small a path has to be before it is noise rather than a line. */
@@ -190,6 +198,9 @@ export function weigh(v: DrawnVector): { paths: number; real: number; bytes: num
   };
 }
 
+const CAPS = new Set(["butt", "round", "square"]);
+const JOINS = new Set(["miter", "round", "bevel", "arcs", "miter-clip"]);
+
 /**
  * The drawing as markup, at any size, in whatever colour it is standing in.
  *
@@ -198,12 +209,17 @@ export function weigh(v: DrawnVector): { paths: number; real: number; bytes: num
  * a button, in a heading, anywhere.
  */
 export function vectorMarkup(v: DrawnVector, opts: { stroke?: boolean; width?: number } = {}): string {
+  /* The captured icon's own width, caps and joins, when it had them; only values SVG takes, since they come from a document. */
+  const k = v.stroke;
+  const width = k && Number.isFinite(k.width) && k.width > 0 && k.width <= 64 ? +k.width : opts.width ?? 2;
+  const cap = k?.cap && CAPS.has(k.cap) ? k.cap : "round";
+  const join = k?.join && JOINS.has(k.join) ? k.join : "round";
   const inner = v.paths
     .map((p) => (opts.stroke
-      ? `<path d="${p.d}" fill="none" stroke="currentColor" stroke-width="${opts.width ?? 2}" stroke-linecap="round" stroke-linejoin="round"/>`
+      ? `<path d="${p.d}" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="${cap}" stroke-linejoin="${join}"/>`
       : `<path d="${p.d}" fill="currentColor"/>`))
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${v.viewBox}" preserveAspectRatio="xMidYMid meet" fill="currentColor" aria-hidden="true" focusable="false">${inner}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${v.viewBox}" preserveAspectRatio="xMidYMid meet"${v.crisp === true ? ' shape-rendering="crispEdges"' : ""} fill="currentColor" aria-hidden="true" focusable="false">${inner}</svg>`;
 }
 
 /* ------------------------------------------------------------------ */
