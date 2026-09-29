@@ -77,7 +77,14 @@ function Caret({ t, mode }: { t: Theme; mode: PartProps["mode"] }) {
  * wrongly the moment anything changes width.
  */
 export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNavigate }: PartProps) {
-  const line = items(content, ["One sentence that says what this is and who it's for."])[0]!;
+  // One sentence, never a list: it breaks at a line of its own, not at a
+  // comma. Read as a comma list, trendtrader.pro's "50% · $5,000 in market
+  // buys" drew as "50% · $5" (tests/heading-commas.mjs).
+  // A captured heading's line breaks are the page's own `<br>`s (sink writes
+  // them into its words): all its lines are drawn, broken where it broke.
+  const typedLines = String(content ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const line = typedLines[0] ?? "One sentence that says what this is and who it's for.";
+  const brokenLines = t.captured && typedLines.length > 1 ? typedLines : null;
   // A captured box one line tall holds one line. The capture rounds a width
   // down, so a heading as wide as its words ("PnL Over Time", 156.03 in a
   // box of 156) wrapped by a hair and doubled; `Text` holds prose the same way,
@@ -99,7 +106,7 @@ export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNa
       {/* The node's weight where it named one: a face with only a 400 (Luckiest Guy) set at 700 is drawn bolder by the browser, and its letters change shape. */}
       <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: t.fontWeight ?? 700, fontSize: t.fontPx * 1.6, lineHeight: lh, maxWidth: t.measurePx, whiteSpace: oneLine ? "nowrap" : undefined, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {/* Runs of their own (a captured title's letters, a sentence in two inks) are drawn as they are; the turn is for a plain line. */}
-        {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : (
+        {spans?.length && turn === "none" ? <Runs spans={spans} t={t} mode={mode} onNavigate={onNavigate} /> : brokenLines && turn === "none" ? brokenLines.map((l, i) => <React.Fragment key={i}>{i ? <br /> : null}{l}</React.Fragment>) : (
           <>
             {parts.head}
             {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
