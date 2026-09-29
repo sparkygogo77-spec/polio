@@ -25,18 +25,22 @@ import { goLive, useGoLive } from "./goLive";
 import { useStudio } from "./store";
 
 export function GoLiveButton() {
-  const refused = useGoLive((s) => s.refused);
+  const said = useGoLive((s) => s.refused);
+  const activeId = useBuilds((s) => s.activeId);
   const button = <GoLiveControl />;
+  /* Only this site's refusal, and named: another site's never shows here. */
+  const refused = said && (!said.siteId || said.siteId === activeId) ? said : null;
   if (!refused) return button;
   /* WHY IT DID NOT GO LIVE, beside the button and without hovering: the
      first real Go live was refused by Vercel and the owner saw nothing. */
-  const full = refused.hint ? `${refused.message} ${refused.hint}` : refused.message;
+  const who = refused.site ? `${refused.site}: ` : "";
+  const full = `${who}${refused.hint ? `${refused.message} ${refused.hint}` : refused.message}`;
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       {button}
       <Tooltip content={full}>
-        <span data-go-live-said="" role="status" className="max-w-[min(420px,32vw)] truncate text-small text-down">
-          {refused.message}{refused.hint ? <span className="text-fg-muted"> {refused.hint}</span> : null}
+        <span data-go-live-said="" data-go-live-said-site={refused.siteId ?? ""} role="status" className="max-w-[min(420px,32vw)] truncate text-small text-down">
+          {who}{refused.message}{refused.hint ? <span className="text-fg-muted"> {refused.hint}</span> : null}
         </span>
       </Tooltip>
     </span>

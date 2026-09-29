@@ -32,7 +32,24 @@ export interface Pushed { url: string; files: number; deployed: boolean; hook: b
  * line on the likely fix. Shown on the top-bar button and in the book's row:
  * the first real Go live was refused by Vercel and nothing said so.
  */
-export interface Refused { message: string; hint?: string }
+export interface Refused {
+  message: string;
+  hint?: string;
+  /**
+   * The site it belongs to. A refusal stayed in the top bar after a later
+   * publish went through and after switching to another site: parasite's
+   * "5.1 MB even packed" was still there while gotchi published. It is shown
+   * only on its own site, named, and cleared by the next publish that goes
+   * through or a switch to another site (`tests/builds-publish-state.mjs`).
+   */
+  siteId?: string | null;
+  site?: string;
+}
+
+/** The last refusal is over: a publish went through. */
+export function clearRefused(): void {
+  if (useGoLive.getState().refused) useGoLive.setState({ refused: null });
+}
 
 /** How the Go live in flight, or the last one, is getting on. */
 export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null; refused: Refused | null }>(() => ({
@@ -226,7 +243,8 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
   const setBusy = (busy: string | null) => set({ busy });
   set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null });
   /* A refusal is said once, on the row and the top bar (`refused`), not again in the book's note. */
-  const refuse = (message: string, hint?: string) => set({ refused: { message, ...(hint ? { hint } : {}) } });
+  const here = activeProject();
+  const refuse = (message: string, hint?: string) => set({ refused: { message, ...(hint ? { hint } : {}), siteId: here?.id ?? null, site: here?.name?.trim() || o.siteName.trim() || undefined } });
   const { say, siteName } = o;
   try {
     const { project, repo, branch, create, boundTo, sources, refused } = pushTo(siteName);
@@ -293,4 +311,16 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
   } finally {
     setBusy(null);
   }
+}
+
+/* A switch to another site ends the last site's refusal here: it is that site's, not this one's. And a push that went through, from any door, ends it. */
+if (typeof window !== "undefined") {
+  window.addEventListener("studio:published", clearRefused);
+  let was = useBuilds.getState().activeId;
+  useBuilds.subscribe((st) => {
+    if (st.activeId === was) return;
+    was = st.activeId;
+    const r = useGoLive.getState().refused;
+    if (r && r.siteId !== st.activeId) useGoLive.setState({ refused: null });
+  });
 }

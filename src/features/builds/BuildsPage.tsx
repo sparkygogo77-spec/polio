@@ -42,7 +42,7 @@ import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
-import { docOf, repoLabel as labelOf, sourceOf, useBuilds, type Project } from "./store";
+import { docOf, docOfStored, shapeOf, repoLabel as labelOf, sourceOf, useBuilds, type Project } from "./store";
 import { SitePreview } from "@/features/studio/SitePreview";
 
 /** "owner/name" if it looks like one, else nothing. */
@@ -75,8 +75,25 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
 
   // Read on every render rather than held: a switch changes what is in the
   // live key, and a document from before the switch is the wrong one.
-  const doc = docOf(project.id, active);
-  const shape = { pages: doc?.pages?.length ?? 0, parts: doc?.nodes?.length ?? 0 };
+  const quick = docOf(project.id, active);
+  /*
+   * A SITE TOO BIG FOR THE MIRROR IS STILL COUNTED AND DRAWN. Its mirror is
+   * a pointer that carries its page and part counts, and its document is in
+   * IndexedDB: the counts come off the pointer at once, and the document is
+   * read for the picture. Reading only the mirror's document, these cards
+   * said "nothing in it yet" over thousands of parts.
+   */
+  const pointed = quick ? null : shapeOf(project.id, active);
+  const [stored, setStored] = React.useState<{ id: string; doc: ReturnType<typeof docOf> } | null>(null);
+  React.useEffect(() => {
+    if (quick || !pointed?.parts) return;
+    let alive = true;
+    void docOfStored(project.id, active).then((d) => { if (alive) setStored({ id: project.id, doc: d }); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, active, project.updatedAt, !!quick, pointed?.parts]);
+  const doc = quick ?? (stored?.id === project.id ? stored.doc : null);
+  const shape = doc ? { pages: doc.pages?.length ?? 0, parts: doc.nodes?.length ?? 0 } : { pages: pointed?.pages ?? 0, parts: pointed?.parts ?? 0 };
 
   // The preview is scaled to the card, so it has to know how wide the card
   // turned out — which is a grid's business, not this component's.

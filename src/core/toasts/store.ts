@@ -138,7 +138,10 @@ export const useToasts = create<ToastState>()((set, get) => ({
         updatedAt: now,
         expiresAt: now + duration,
         heldAt: existing.heldAt,
-        count: existing.count + 1,
+        /* ×N counts the same message said again, not the steps of one: an
+           import saying "Fetching its pictures… 12 of 179" on one card read
+           as ×179, which looked like a loop (tests/builds-publish-state.mjs). */
+        count: existing.title === input.title ? existing.count + 1 : existing.count,
         rev: existing.rev + 1,
       };
       toasts = toasts.map((t) => (t.id === existing.id ? target : t));

@@ -150,6 +150,23 @@ export function docOf(id: string, active = false): StudioDoc | null {
   }
 }
 
+/**
+ * The document of a site too big for the mirror, out of IndexedDB where it
+ * lives. `docOf` answers null for those (the mirror holds only a pointer),
+ * and the Builds card read that null as "nothing in it yet": StonkFun,
+ * gotchi and parasiteonsol.fun, thousands of parts each
+ * (`tests/builds-publish-state.mjs`). Null when there is nothing to read.
+ */
+export async function docOfStored(id: string, active = false): Promise<StudioDoc | null> {
+  try {
+    const raw = await readDoc(active ? LIVE : slot(id));
+    if (!raw) return null;
+    return (JSON.parse(unpackDocText(raw)) as { state?: StudioDoc }).state ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function shapeOf(id: string, active = false): Shape {
   const shape = shapeOfRaw(readMirror(active ? LIVE : slot(id)));
   return { pages: shape?.pages ?? 0, parts: shape?.parts ?? 0 };

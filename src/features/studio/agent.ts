@@ -805,6 +805,13 @@ async function packed(f: GeneratedFile): Promise<Sent> {
 }
 
 export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string; boundTo?: string; sources?: string[] }): Promise<PublishResult> {
+  const r = await pushed(input);
+  /* Whoever pressed it, a push that went through ends the last refusal (`goLive.ts`, `studio:published`). */
+  if (r.ok && typeof window !== "undefined") window.dispatchEvent(new Event("studio:published"));
+  return r;
+}
+
+async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResult> {
   /* The site's open edit branch, unless the caller names one: main is
      never pushed to by accident while a branch is open. */
   const branch = input.branch ?? useStudio.getState().siteBranch;
