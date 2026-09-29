@@ -170,8 +170,9 @@ for (const L of LIVE) {
 /* The Preview, its view sized to the same window. */
 for (const L of LIVE) {
   await page.setViewportSize({ width: L.w, height: L.h + 200 });
-  await page.goto(`${BASE}/builder/preview`, { waitUntil: "networkidle" });
+  /* Asked for before the page opens, as the export's context is: asked for after, the first visit ran the loader and held the hero's words 40px low for its intro. */
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${BASE}/builder/preview`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   const bars = await page.evaluate(() => document.querySelector("[data-live-scroller]").getBoundingClientRect().top);
   await page.setViewportSize({ width: L.w, height: Math.round(L.h + bars) });
@@ -180,6 +181,22 @@ for (const L of LIVE) {
   check(`Preview ${L.w} × ${L.h}: its view is the window's size`, view[0] === L.w && view[1] === L.h, J(view));
   holds(`Preview ${L.w} × ${L.h}`, L, await read(page, "data-live-node"));
   if (SHOTS) { const t = await page.evaluate(() => document.querySelector("[data-live-scroller]").getBoundingClientRect().top); await page.screenshot({ path: join(SHOTS, `preview-${L.w}x${L.h}.png`), clip: { x: 0, y: t, width: L.w, height: L.h } }); }
+}
+/* With motion: the loader and the intro play, and once they end the words stand where live's do. */
+{
+  const L = LIVE[0];
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: L.w, height: L.h + 200 });
+  await page.goto(`${BASE}/builder/preview`, { waitUntil: "networkidle" });
+  const bars = await page.evaluate(() => document.querySelector("[data-live-scroller]").getBoundingClientRect().top);
+  await page.setViewportSize({ width: L.w, height: Math.round(L.h + bars) });
+  const early = await read(page, "data-live-node");
+  check(`Preview ${L.w} × ${L.h} with motion: the intro holds the title low while the loader stands`, (early.box.title?.y ?? 0) > L.title + 10, String(early.box.title?.y));
+  await page.waitForFunction(() => !document.querySelector("[data-crt]"), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  const r = await read(page, "data-live-node");
+  for (const k of ["title", "ca"]) check(`Preview ${L.w} × ${L.h} with motion, the intro over: the ${k === "ca" ? "CA line" : k} stands at ${L[k]}, within 2px of live`, Math.abs((r.box[k]?.y ?? NaN) - L[k]) <= 2, String(r.box[k]?.y));
+  await page.emulateMedia({ reducedMotion: "reduce" });
 }
 /* The board keeps the px it was captured at. */
 await page.setViewportSize({ width: 1600, height: 1000 });
