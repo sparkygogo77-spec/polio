@@ -156,7 +156,7 @@ function unfacet(base: MergeNode, f: Map<string, unknown>): MergeNode {
   const ordered: Rec = {};
   for (const k of Object.keys(b)) if (k in out) ordered[k] = out[k];
   for (const k of Object.keys(out)) if (!(k in ordered)) ordered[k] = out[k];
-  return ordered as MergeNode;
+  return ordered as unknown as MergeNode;
 }
 
 /* ------------------------------------------------------------------ */
