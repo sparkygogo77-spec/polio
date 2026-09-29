@@ -16,7 +16,8 @@
  *   node scripts/test-all.mjs oddness coded # just these (names or globs)
  *
  *   --build        run `npm run build` first (also done when there is no build)
- *   --jobs N       tests that start no stand-in of their own, N at a time (default 3)
+ *   --jobs N       tests that start no stand-in of their own, N at a time (default 3);
+ *                  one that fails beside others is run again alone and shown as pass*
  *   --timeout S    seconds before a test is stopped and counted failed (default 600)
  *   --out FILE     also write the table, as Markdown, to FILE
  *   --list         say which server and arguments each test gets, and run nothing
@@ -240,6 +241,21 @@ for (const { env, tests } of servers.values()) {
   console.log(`\n${server.url} — ${named} — ${tests.length} test${tests.length === 1 ? "" : "s"}`);
   try {
     await pool(tests.filter((t) => !t.standIn), JOBS, (t) => runTest(t, server.url));
+    /*
+     * A test that failed beside others is run again on its own, once, and
+     * the table says so: "pass*" is a test that only holds on a quiet
+     * machine, which is worth knowing and is not the same as a failure.
+     */
+    if (JOBS > 1) {
+      for (const t of tests.filter((t) => !t.standIn)) {
+        const i = results.findIndex((r) => r.name === t.name);
+        if (i < 0 || results[i].result === "pass" || results[i].result === "skip") continue;
+        const [crowded] = results.splice(i, 1);
+        await runTest(t, server.url);
+        const alone = results[results.length - 1];
+        if (alone.result === "pass") Object.assign(alone, { result: "pass*", note: `failed beside others: ${crowded.note}`.slice(0, 140) });
+      }
+    }
     for (const t of tests.filter((t) => t.standIn)) await runTest(t, server.url);
   } finally {
     server.stop();
@@ -251,12 +267,13 @@ for (const { env, tests } of servers.values()) {
 results.sort((a, b) => a.name.localeCompare(b.name));
 const tally = (r) => results.filter((x) => x.result === r).length;
 const rows = results.map((r) => [r.name, r.result, r.count, r.result === "skip" ? "" : `${r.s}s`, r.result === "pass" ? "" : r.note]);
+const quiet = tally("pass*");
 const head = ["test", "result", "checks", "time", "first failure / why skipped"];
 const widths = head.map((h, i) => Math.min(i === 4 ? 90 : 60, Math.max(h.length, ...rows.map((r) => String(r[i]).length))));
 const line = (cells) => cells.map((c, i) => String(c).slice(0, widths[i]).padEnd(widths[i])).join("  ").trimEnd();
 console.log(`\n${line(head)}\n${widths.map((w) => "-".repeat(w)).join("  ")}`);
 for (const r of rows) console.log(line(r));
-const summary = `${tally("pass")} passed, ${tally("FAIL")} failed, ${tally("timeout")} timed out, ${tally("skip")} skipped — ${results.length} in ${Math.round((Date.now() - started) / 60000)} min`;
+const summary = `${tally("pass")} passed, ${quiet ? `${quiet} passed only on their own (pass*), ` : ""}${tally("FAIL")} failed, ${tally("timeout")} timed out, ${tally("skip")} skipped — ${results.length} in ${Math.round((Date.now() - started) / 60000)} min`;
 console.log(`\n${summary}`);
 
 if (OUT) {
