@@ -55,6 +55,8 @@ export interface FluidPart {
   inset?: { top?: number; right?: number; bottom?: number; left?: number } | null;
   layout?: { display?: string; direction?: string; justify?: string; align?: string; gap?: number; columns?: number } | null;
   pad?: { left?: number; right?: number } | null;
+  /** Its border's width (sink `node.edge.width`): its inside starts inside it, so a child against the border is against the edge (`tests/fluid-edges.mjs`). */
+  edge?: number | null;
   /** The px max-width the page gave it (sink `node.maxw`): it grows with the window no further (`tests/fluid-maxwidth.mjs`). */
   maxw?: number | null;
   /** The press that shows it (sink `behaviours.states`, `group:option`), or none: the page as it opens. */
@@ -224,6 +226,28 @@ export function stickyFlow(inOrder: readonly FluidPart[]): Map<string, number> {
 }
 
 /** Every part's left and width, for one page captured at width W. */
+/**
+ * A grid's columns as its children stand in them, when they are not all one
+ * width: each child's span, joined where they overlap, one column each, and
+ * only when that makes exactly `n`. The widest (to 1.5px) grow; the rest keep
+ * their width. Null when the columns are equal or cannot be told apart, and
+ * the grid is shared evenly as before.
+ */
+export function gridTracks(kids: readonly FluidPart[], n: number, inL: number, inR: number): { x0: number; x1: number; grows: boolean }[] | null {
+  const spans = kids.map((k) => [k.x, k.x + k.w] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const joined: [number, number][] = [];
+  for (const [a, b] of spans) {
+    const last = joined[joined.length - 1];
+    if (last && a < last[1] - E) last[1] = Math.max(last[1], b);
+    else joined.push([a, b]);
+  }
+  if (joined.length !== n || inR <= inL) return null;
+  const widths = joined.map(([a, b]) => b - a);
+  const widest = Math.max(...widths);
+  if (widths.every((w) => Math.abs(w - widest) <= E)) return null;
+  return joined.map(([a, b], i) => ({ x0: a, x1: b, grows: Math.abs(widths[i]! - widest) <= E }));
+}
+
 export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, Fluid> {
   const out = new Map<string, Fluid>();
   const caught = parts.filter((p) => p.selector);
@@ -251,7 +275,8 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
     /* How much P has grown: its width now less its width at W. */
     const grow: Len = pk.width.css ? { c: 0, k: 0, css: `(${css(pk.width, W).replace(/^calc/, "")} - ${P.w}px)` } : { c: pk.width.c - P.w, k: pk.width.k };
     const still = !grow.css && Math.abs(grow.k) < 1e-9;
-    const padL = P.pad?.left ?? 0, padR = P.pad?.right ?? 0;
+    const border = Math.max(0, P.edge ?? 0);
+    const padL = (P.pad?.left ?? 0) + border, padR = (P.pad?.right ?? 0) + border;
     const inL = P.x + padL, inR = P.x + P.w - padR;
     const L = P.layout;
     const row = L?.display === "flex" && L.direction !== "column";
@@ -290,10 +315,29 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       }
       else if (!lost && L?.display === "grid" && (L.columns ?? 0) > 1) {
         const n = L.columns!;
-        const colW = (inR - inL + gapPx) / n;
-        const c0 = Math.max(0, Math.min(n - 1, Math.round(left / colW)));
-        const across = Math.max(1, Math.min(n - c0, Math.round((C.w + gapPx) / colW)));
-        k = at(c0 / n, across / n);
+        const tracks = gridTracks(kids, n, inL, inR);
+        if (tracks) {
+          /*
+           * COLUMNS OF THEIR OWN WIDTHS (parasiteonsol.fun's hero: an 82px
+           * sidebar beside a 1251px stage, `grid-template-columns: auto 1fr`):
+           * read off where the children stand, the widest columns take the
+           * growth between them and a narrow one keeps its width, so the
+           * sidebar stays at the left at its size (`tests/fluid-edges.mjs`).
+           */
+          const i0 = tracks.findIndex((t) => C.x + C.w / 2 >= t.x0 - E && C.x + C.w / 2 <= t.x1 + E);
+          const c0 = i0 < 0 ? 0 : i0;
+          const growers = tracks.filter((t) => t.grows).length || 1;
+          const before = tracks.slice(0, c0).filter((t) => t.grows).length;
+          const endAt = tracks.findIndex((t) => C.x + C.w <= t.x1 + E);
+          const last = endAt < 0 ? tracks.length - 1 : Math.max(c0, endAt);
+          const inside = tracks.slice(c0, last + 1).filter((t) => t.grows).length;
+          k = at(before / growers, inside / growers);
+        } else {
+          const colW = (inR - inL + gapPx) / n;
+          const c0 = Math.max(0, Math.min(n - 1, Math.round(left / colW)));
+          const across = Math.max(1, Math.min(n - c0, Math.round((C.w + gapPx) / colW)));
+          k = at(c0 / n, across / n);
+        }
       } else if (!lost && fills) {
         if (C === grower) { k = at(0, 1); pastGrower = true; } else k = at(pastGrower ? 1 : 0);
       } else if (!lost && row && L?.justify === "space-between" && kids.length > 1 && !spans) k = at(i / (kids.length - 1));
