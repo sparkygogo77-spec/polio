@@ -463,6 +463,23 @@ export function vhShift(p: { y: number; h: number }, hero: { y: number; h: numbe
 }
 
 /**
+ * WHAT FILLS THE HERO GROWS WITH IT. parasiteonsol.fun's slide is
+ * `clamp(520px, calc(100svh - 168px), 900px)`: 732 at the capture's 900
+ * window, 842 at 1010. Its world (a grid row of `1fr`) and the canvas that
+ * fills the world (`inset: 0; height: 100%`) are as much taller: 816 and 813
+ * at 1010 where they were 706 and 702. A part inside the hero that reaches
+ * from its upper part down to its foot (to within its padding and border:
+ * `edge` px) and takes at least half its height is one of those: it keeps
+ * its top and grows by what the hero grew. Null for any other part, which
+ * `vhShift` moves instead. `tests/world-height.mjs`.
+ */
+export function vhStretch(p: { y: number; h: number }, hero: { y: number; h: number }, px: number, height = `max(100svh, ${px}px)`, edge = 40): string | null {
+  const foot = hero.y + hero.h, bottom = p.y + p.h;
+  if (p.y < hero.y - 0.5 || bottom > foot + 0.5 || foot - bottom > edge || p.h < hero.h * 0.5) return null;
+  return `calc(${p.h}px + (${height} - ${px}px))`;
+}
+
+/**
  * HOW TALL A WINDOW-HEIGHT HERO IS: as the page wrote it (`vh.height`:
  * parasiteonsol.fun's `clamp(520px, -168px + 100svh, 900px)`, 732 at 900;
  * `vh.minHeight`: trumpmorty's 100svh). Where the page wrote a minimum it is

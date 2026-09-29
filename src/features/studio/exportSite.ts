@@ -70,7 +70,7 @@ import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
-import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
@@ -530,6 +530,13 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
       const group = p.selector && hs && p.selector.startsWith(`${hs} > `)
         ? byId.get([...byId.values()].find((q) => q.selector && q.selector === `${hs} > ${p.selector!.slice(hs.length + 3).split(" > ")[0]}`)?.id ?? "") ?? p
         : p;
+      /* One that fills the hero (a world and its canvas in the slide's row) keeps its top and grows with it (`fluidSite.ts#vhStretch`). */
+      const tall = vhStretch(p, heroPart, heroBase, heroH);
+      if (tall) {
+        el.style.height = tall; el.style.minHeight = tall;
+        for (const box of Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]"))) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; }
+        continue;
+      }
       const top = vhShift(p, heroPart, heroBase, group, heroH);
       if (top) el.style.top = top;
     }
