@@ -77,6 +77,8 @@ export interface StageScene {
   tab?: string | null;
   /** Backgrounds, back to front: a piece of an image, stood `bottom` art px above the foot, repeated across or placed from one side. */
   layers: { img: number; sx: number; sy: number; sw: number; sh: number; w: number; h: number; bottom: number; repeat: boolean; side: "left" | "right" | "centre"; x: number }[];
+  /** The ground the page painted behind its characters, as captured at each scale (its widest box): drawn instead of `layers` and `props`, which it already holds. */
+  backgrounds?: { img: number; w: number; h: number; px: number }[];
   /** Things that stand still and flicker (a chest, a fire): their frames, each shown `every` ms. */
   props: { frames: string[]; every: number; side: "left" | "right"; x: number; bottom: number }[];
 }

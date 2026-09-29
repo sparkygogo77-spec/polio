@@ -46,13 +46,15 @@ const svg = (w, h, body) => `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns
 const sheet = svg(46, 16, `<rect x="0" y="0" width="20" height="16" fill="#ff0000"/><rect x="20" y="0" width="8" height="6" fill="#0000ff"/><rect x="28" y="0" width="6" height="6" fill="#ffff00"/><rect x="34" y="0" width="12" height="10" fill="#ff00ff"/>`);
 const meadow = svg(100, 40, `<rect width="100" height="40" fill="#44aa44"/>`);
 const beach = svg(100, 40, `<rect width="100" height="40" fill="#eecc88"/>`);
+/* The ground the page painted at scale 3 (its widest box, 480 art px): a sky band over a dark foot, as sink keeps it. */
+const painted = svg(480, 200, `<rect width="480" height="200" fill="#223366"/><rect y="180" width="480" height="20" fill="#123456"/>`);
 const stage = {
   px: 3, scaleAt: [[0, 1.5], [700, 3], [1900, 4]], art: { w: 400, h: 200 },
-  images: [sheet, meadow, beach],
+  images: [sheet, meadow, beach, painted],
   sprites: { host: [0, 0, 0, 20, 16], rider: [0, 20, 0, 8, 6], prop: [0, 28, 0, 6, 6], sea: [0, 34, 0, 12, 10] },
   scenes: [
     { name: "Swamp", sky: "#aaddff", tab: "n_tab_swamp", layers: [{ img: 1, sx: 0, sy: 0, sw: 100, sh: 40, w: 100, h: 40, bottom: 0, repeat: true, side: "centre", x: 0 }], props: [{ frames: ["prop"], every: 200, side: "right", x: 10, bottom: 4 }] },
-    { name: "Beach", sky: "#bbeeff", tab: "n_tab_beach", layers: [{ img: 2, sx: 0, sy: 0, sw: 100, sh: 40, w: 100, h: 40, bottom: 0, repeat: true, side: "centre", x: 0 }], props: [] },
+    { name: "Beach", sky: "#bbeeff", tab: "n_tab_beach", backgrounds: [{ img: 3, w: 480, h: 200, px: 3 }], layers: [{ img: 2, sx: 0, sy: 0, sw: 100, sh: 40, w: 100, h: 40, bottom: 0, repeat: true, side: "centre", x: 0 }], props: [] },
   ],
   label: { font: "8px monospace", fg: "#000000", bg: "#ffffff", edge: "#000000", h: 9, pad: 2 },
   motion: { speed: 40, pause: [0.2, 0.5], stop: 0.3 },
@@ -132,6 +134,8 @@ try {
   const sea = await find(narrow, MAG), gone = await find(narrow, RED);
   const shown = await narrow.evaluate(() => ({ host: getComputedStyle(document.querySelector('[data-world-hit="0"]')).visibility, sea: getComputedStyle(document.querySelector('[data-world-hit="2"]')).visibility }));
   check("the Beach tab pans to the beach: its pet shown, the swamp's gone, and only its press area standing", !!sea.box && !gone.box && shown.sea === "visible" && shown.host === "hidden", JSON.stringify({ sea: sea.box, gone: gone.box, shown }));
+  const band = await narrow.evaluate(() => { const c = document.querySelector("canvas[data-world-canvas]"), d = c.getContext("2d").getImageData(5, c.height - 5, 1, 1).data, u = c.getContext("2d").getImageData(5, 20, 1, 1).data; return [[d[0], d[1], d[2]], [u[0], u[1], u[2]]]; });
+  check("…drawn on the ground the page painted there, as captured at this scale (its layers left for it)", JSON.stringify(band) === "[[18,52,86],[34,51,102]]", JSON.stringify(band));
   await narrow.click("#n_tab_swamp");
   await narrow.waitForTimeout(1200);
   check("…and the Swamp tab back", !!(await find(narrow, RED)).box && !(await find(narrow, MAG)).box);

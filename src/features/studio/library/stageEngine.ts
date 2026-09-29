@@ -86,6 +86,25 @@ function runStage(layer, data) {
   }
   function ground(sc, x0) {
     g.fillStyle = sc.sky || "#000"; g.fillRect(x0, 0, b, T);
+    /*
+     * The ground the page painted, as captured at this scale (its widest box):
+     * stood on the foot, centred, cut to the box; a box wider or taller than it
+     * is filled by drawing its edge columns and top row out.
+     */
+    var bgs = (sc.backgrounds || []).filter(function (q) { return ready(q.img); });
+    if (bgs.length) {
+      var at = bgs.filter(function (q) { return q.px === S; });
+      var pool = at.length ? at : bgs;
+      var bg = pool.filter(function (q) { return q.w >= b; })[0] || pool[pool.length - 1];
+      var im = imgs[bg.img], x = x0 + Math.round((b - bg.w) / 2), y = T - bg.h;
+      g.save(); g.beginPath(); g.rect(x0, 0, b, T); g.clip();
+      g.drawImage(im, x, y);
+      if (x > x0) { g.drawImage(im, 0, 0, 1, bg.h, x0, y, x - x0, bg.h); }
+      if (x + bg.w < x0 + b) { g.drawImage(im, bg.w - 1, 0, 1, bg.h, x + bg.w, y, x0 + b - x - bg.w, bg.h); }
+      if (y > 0) { g.drawImage(im, 0, 0, bg.w, 1, x, 0, bg.w, y); if (x > x0) g.drawImage(im, 0, 0, 1, 1, x0, 0, x - x0, y); if (x + bg.w < x0 + b) g.drawImage(im, bg.w - 1, 0, 1, 1, x + bg.w, 0, x0 + b - x - bg.w, y); }
+      g.restore();
+      return;
+    }
     (sc.layers || []).forEach(function (L) {
       if (!ready(L.img)) return;
       var y = T - L.bottom - L.h;
