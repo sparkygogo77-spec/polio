@@ -532,6 +532,8 @@ interface Doc {
   look: Look;
   /** Keyframe sets waiting to be interpolated. See `motion.ts`. */
   motion: MotionAsset[];
+  /** The board as it was brought in (`reimport.ts`): undone with the import that recorded it. */
+  taken?: Taken | null;
 }
 
 /**
@@ -1355,6 +1357,7 @@ function snapshot(s: StudioState): Doc {
     brief: s.brief,
     look: s.look,
     motion: s.motion,
+    taken: s.taken ?? null,
   };
 }
 
@@ -1584,7 +1587,7 @@ export const useStudio = create<StudioState>()(
                board was called. It used to read "the board as you started it"
                beside a silhouette of grey rectangles. */
             changes: ["the site before the first change"],
-            doc: snapshot(st) as ThreadDoc,
+            doc: { ...snapshot(st), taken: undefined } as ThreadDoc,
             state: "done" as const,
             pieces: [],
           }, ...st.threads],
@@ -2765,7 +2768,7 @@ export const useStudio = create<StudioState>()(
                   ask: ask.trim(), answer: answer.trim(), changes: changes ?? t.changes,
                   ...(sketch ? { sketch } : {}),
                   ...(madeId ? { madeId } : {}),
-                  doc: snapshot(s) as ThreadDoc,
+                  doc: { ...snapshot(s), taken: undefined } as ThreadDoc,
                   form: (state ?? "done") === "done" ? { ...(t.form ?? { p: 0, gen: 1 }), p: 1 } : t.form,
                 }
                 : t)),
@@ -2795,7 +2798,7 @@ export const useStudio = create<StudioState>()(
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
                 ...(madeId ? { madeId } : {}),
-                doc: snapshot(s) as ThreadDoc,
+                doc: { ...snapshot(s), taken: undefined } as ThreadDoc,
                 // What was vined to the call is what the thread was about.
                 pieces: [...s.draftPieces],
               },
