@@ -8,7 +8,7 @@
  * (`doc.learned`, `doc.capturer.learn`). Held here, on STANDIN data shaped
  * exactly as sink writes it:
  *   1. only reads with a sample are kept, within the limits;
- *   2. the runtime answers a recorded read (an id in the path, a JSON-RPC
+ *   2. the runtime answers a recorded read, by fetch or XMLHttpRequest (an id in the path, a JSON-RPC
  *      (remote procedure call) read by its method) with its sample, and lets
  *      a write or anything unrecorded go to the network;
  *   3. the Build option is advanced and off by default: off, a built site
@@ -73,6 +73,43 @@ await win.fetch("https://api.standin.example/v1/coins/a/b/holders");
 check("2. a recorded read with any id is answered with its sample", a.status === 200 && (await a.json()).holders[0].owner === "STANDIN_OWNER_1" && a.headers["x-stand-in"] === "sample");
 check("2. a JSON-RPC read is answered by its method", b.status === 200 && (await b.json()).result.value === 1234);
 check("2. a write, an unrecorded address and a longer path go to the network untouched", J(network) === J(["POST https://rpc.standin.example/", "GET https://api.standin.example/v1/other", "GET https://api.standin.example/v1/coins/a/b/holders"]), J(network));
+
+/* 2b. XMLHttpRequest: a stand-in of the browser's, recording what would have gone out. */
+{
+  const sent = [];
+  class FakeXhr {
+    constructor() { this.readyState = 0; this.status = 0; this.responseType = ""; this.responseText = ""; this.response = ""; this.listeners = {}; }
+    open(method, url) { this.method = method; this.url = url; this.readyState = 1; }
+    send(body) { sent.push(`${this.method} ${this.url}`); this.real = true; }
+    addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
+    dispatchEvent(ev) { (this.listeners[ev.type] ?? []).forEach((f) => f.call(this, ev)); if (typeof this[`on${ev.type}`] === "function") this[`on${ev.type}`](ev); return true; }
+  }
+  const xw = { location: { href: "https://mysite.standin.example/" }, XMLHttpRequest: FakeXhr, Event: class { constructor(type) { this.type = type; } } };
+  xw.window = xw;
+  runInNewContext(S.STAND_IN_RUNTIME, { window: xw, globalThis: xw, URL, JSON, Promise, String, Array, Object, setTimeout });
+  const undo = xw.__standIn.install(map);
+  const xhr = (method, url, body, type = "") => new Promise((done) => {
+    const x = new xw.XMLHttpRequest();
+    x.open(method, url);
+    x.responseType = type;
+    const seen = [];
+    x.onreadystatechange = () => seen.push(`rsc${x.readyState}`);
+    x.addEventListener("load", () => seen.push("load"));
+    x.onloadend = () => { seen.push("loadend"); done({ x, seen }); };
+    x.send(body ?? null);
+    if (x.real) done({ x, seen, real: true });
+  });
+  const g1 = await xhr("GET", "https://api.standin.example/v1/coins/STANDIN0MINT0000000000000000000003/holders?limit=5");
+  check("2b. an XMLHttpRequest read is answered with its sample: status, text, header and its events in order", !g1.real && g1.x.status === 200 && g1.x.readyState === 4 && JSON.parse(g1.x.responseText).holders[0].owner === "STANDIN_OWNER_1" && g1.x.getResponseHeader("X-Stand-In") === "sample" && J(g1.seen) === J(["rsc4", "load", "loadend"]), J({ status: g1.x.status, seen: g1.seen }));
+  const g2 = await xhr("POST", "https://rpc.standin.example/", J({ jsonrpc: "2.0", id: 3, method: "getBalance", params: ["STANDIN_WALLET"] }), "json");
+  check("2b. …a JSON-RPC read by its method, as JSON when asked for JSON", !g2.real && g2.x.response?.result?.value === 1234);
+  const g3 = await xhr("POST", "https://rpc.standin.example/", J({ jsonrpc: "2.0", id: 4, method: "sendTransaction", params: ["STANDIN_TX"] }));
+  const g4 = await xhr("GET", "https://api.standin.example/v1/other");
+  check("2b. a write and an unrecorded read go out untouched", g3.real && g4.real && J(sent) === J(["POST https://rpc.standin.example/", "GET https://api.standin.example/v1/other"]), J(sent));
+  undo();
+  const g5 = await xhr("GET", "https://api.standin.example/v1/coins/STANDIN0MINT0000000000000000000003/holders");
+  check("2b. taken away, XMLHttpRequest is the browser's own again", g5.real);
+}
 
 /* 3 */
 const field = FORMAT_FIELDS.find((f) => f.id === "build.standIn");

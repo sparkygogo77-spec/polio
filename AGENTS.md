@@ -2786,7 +2786,7 @@ a kicker with a rule, and label-and-value rows that copy.
   Build option **Stand-in server** (`build.standIn`, off by default) makes a
   built site (`public/stand-in.js`, loaded first by the layout) and a
   published one (`publishedDoc` carries it, `PublishedPage` installs it)
-  answer those reads with their samples: method, host and path, `:id` any
+  answer those reads with their samples, by fetch or XMLHttpRequest: method, host and path, `:id` any
   one piece, a JSON-RPC or GraphQL read by its operation. Writes and anything
   unrecorded go to the network. One copy of the answering:
   `standIn.ts` `STAND_IN_RUNTIME`. sink's capturer now declares

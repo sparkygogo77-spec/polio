@@ -9,7 +9,7 @@
  *
  * With the advanced Build option **Stand-in server** on (`build.standIn`,
  * off by default), a built or published site answers those reads itself:
- * a request whose method, host and path match a recorded read (`:id`
+ * a request (fetch or XMLHttpRequest) whose method, host and path match a recorded read (`:id`
  * matching any one piece of the path, a JSON-RPC (remote procedure call) or
  * GraphQL read matched by its operation too) gets the sample, and a list or
  * a price shows something real-looking before a backend exists. Anything
@@ -79,8 +79,8 @@ export const standInOn = (format: Record<string, unknown> | null | undefined, s:
 /**
  * The answering, as plain JavaScript: `window.__standIn = { answer, install }`.
  * `answer(map, method, url, body)` is the sample for a recorded read, or
- * undefined; `install(map)` puts it in front of `fetch` and returns how to
- * take it away. It reads nothing but its arguments and `location`.
+ * undefined; `install(map)` puts it in front of `fetch` and XMLHttpRequest
+ * and returns how to take it away. It reads nothing but its arguments and `location`.
  */
 export const STAND_IN_RUNTIME = `(function (w) {
   if (w.__standIn) return;
@@ -113,20 +113,56 @@ export const STAND_IN_RUNTIME = `(function (w) {
     }
     return undefined;
   }
+  /* An XMLHttpRequest answered with a sample: its state set as a finished request's, and its events fired as the browser fires them. */
+  function answerXhr(x, got) {
+    var text = JSON.stringify(got), type = x.responseType;
+    var own = function (k, v) { try { Object.defineProperty(x, k, { value: v, configurable: true }); } catch (e) { /* read-only here */ } };
+    own("readyState", 4); own("status", 200); own("statusText", "OK"); own("responseURL", x.__standInUrl || "");
+    own("responseText", type === "" || type === "text" ? text : "");
+    own("response", type === "json" ? JSON.parse(text) : type === "" || type === "text" ? text : null);
+    own("getResponseHeader", function (n) { n = String(n).toLowerCase(); return n === "content-type" ? "application/json" : n === "x-stand-in" ? "sample" : null; });
+    own("getAllResponseHeaders", function () { return "content-type: application/json\\r\\nx-stand-in: sample\\r\\n"; });
+    setTimeout(function () {
+      ["readystatechange", "load", "loadend"].forEach(function (t) {
+        var ev; try { ev = new w.Event(t); } catch (e) { ev = { type: t }; }
+        x.dispatchEvent(ev);
+      });
+    }, 0);
+  }
   function install(map) {
+    var undo = [];
     var real = w.fetch;
-    if (!real) return function () {};
-    w.fetch = function (input, init) {
-      try {
-        var url = typeof input === "string" ? input : input && input.url ? input.url : String(input);
-        var method = (init && init.method) || (input && input.method) || "GET";
-        var body = init && typeof init.body === "string" ? init.body : null;
-        var got = answer(map, method, url, body);
-        if (got !== undefined) return Promise.resolve(new w.Response(JSON.stringify(got), { status: 200, headers: { "content-type": "application/json", "x-stand-in": "sample" } }));
-      } catch (e) { /* the page's own request goes on */ }
-      return real.apply(this, arguments);
-    };
-    return function () { w.fetch = real; };
+    if (real) {
+      w.fetch = function (input, init) {
+        try {
+          var url = typeof input === "string" ? input : input && input.url ? input.url : String(input);
+          var method = (init && init.method) || (input && input.method) || "GET";
+          var body = init && typeof init.body === "string" ? init.body : null;
+          var got = answer(map, method, url, body);
+          if (got !== undefined) return Promise.resolve(new w.Response(JSON.stringify(got), { status: 200, headers: { "content-type": "application/json", "x-stand-in": "sample" } }));
+        } catch (e) { /* the page's own request goes on */ }
+        return real.apply(this, arguments);
+      };
+      undo.push(function () { w.fetch = real; });
+    }
+    /* XMLHttpRequest: open() is remembered, send() answers a recorded read and sends nothing; anything else goes on as it was. */
+    var X = w.XMLHttpRequest && w.XMLHttpRequest.prototype;
+    if (X) {
+      var open = X.open, send = X.send;
+      X.open = function (method, url) {
+        try { this.__standInMethod = String(method || "GET"); this.__standInUrl = String(url); } catch (e) { /* */ }
+        return open.apply(this, arguments);
+      };
+      X.send = function (body) {
+        try {
+          var got = this.__standInUrl ? answer(map, this.__standInMethod, this.__standInUrl, typeof body === "string" ? body : null) : undefined;
+          if (got !== undefined) { answerXhr(this, got); return; }
+        } catch (e) { /* the page's own request goes on */ }
+        return send.apply(this, arguments);
+      };
+      undo.push(function () { X.open = open; X.send = send; });
+    }
+    return function () { undo.forEach(function (f) { f(); }); };
   }
   w.__standIn = { answer: answer, install: install };
 })(typeof window !== "undefined" ? window : globalThis);`;
