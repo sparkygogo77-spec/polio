@@ -101,6 +101,8 @@ const vc = http.createServer(async (req, res) => {
 
 /* ------------------------------------------------------------ GitHub */
 const ghSeen = [];
+/** The paths each pushed tree carried. */
+const trees = [];
 let commits = 0;
 /** A commit's sha, shaped as GitHub's are: forty hex characters. */
 const shaOf = (n) => n.toString(16).padStart(40, "0");
@@ -118,7 +120,7 @@ const gh = http.createServer(async (req, res) => {
   if (rest.startsWith("/git/ref/heads/")) return send(200, { object: { sha: shaOf(commits) } });
   if (rest.startsWith("/git/commits/")) return send(200, { tree: { sha: "tree0" } });
   if (rest === "/git/blobs") return send(201, { sha: `b${ghSeen.length}` });
-  if (rest === "/git/trees") return send(201, { sha: "tree1" });
+  if (rest === "/git/trees") { trees.push((JSON.parse(body || "{}").tree ?? []).map((t) => t.path)); return send(201, { sha: "tree1" }); }
   if (rest === "/git/commits" && req.method === "POST") { commits++; return send(201, { sha: shaOf(commits), html_url: `https://example.invalid/${shaOf(commits)}` }); }
   /* The branch moves: that is the push the Git integration sees. */
   if (rest.startsWith("/git/refs")) { const sha = JSON.parse(body || "{}").sha; pushed(m[1], sha); return send(200, { object: { sha } }); }
@@ -139,6 +141,7 @@ const stop = () => { gh.close(); vc.close(); };
     process.exit(2);
   }
   ghSeen.length = 0;
+  trees.length = 0;
   vcSeen.length = 0;
 }
 
@@ -195,6 +198,9 @@ console.log("1. Go live on a site with no Vercel project");
   const p = await project();
   check("one production deployment", made.length === 1, made.map((d) => `${d.id} by ${d.by} of ${d.sha}`).join(", ") || "none");
   check("the site is live at its address", p?.live?.url === ADDRESS, `live = ${p?.live?.url ?? null}`);
+  /* POLIO.md rides in that one push, beside the pages (tests/polio-md.mjs). */
+  const pushed = trees.at(-1) ?? [];
+  check("the push carried POLIO.md beside the pages, in one tree", trees.length === 1 && pushed.includes("POLIO.md") && pushed.includes("index.html"), `${trees.length} tree(s); ${pushed.filter((x) => /\.(md|html)$/.test(x)).join(", ")}`);
 }
 for (const n of [1, 2]) {
   console.log(`${n + 1}. Update live site, press ${n}`);

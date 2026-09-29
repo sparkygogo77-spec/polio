@@ -22,6 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
+import { handoffFrom } from "./polioMd";
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
@@ -219,6 +220,12 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
   const pages = Array.isArray(document.pages) ? (document.pages as unknown[]).length : 0;
   const nodes = Array.isArray(document.nodes) ? (document.nodes as unknown[]) : [];
   if (!pages || !Array.isArray(document.nodes)) return null;
+  /* Where it came from, to the commit, and the capture's hand-off when its
+     repository keeps a report beside it (sink `docs/fidelity/<site>.md`):
+     both ride on the site into POLIO.md at every Go live (`polioMd.ts`). */
+  document.source = { repo: `${repo.owner}/${repo.name}`, dir: repo.dir ?? null, branch: ref, commit: await commitOf(repo, token, ref) };
+  const report = await handoffOf(repo, token, blobs);
+  if (report) document.handoff = report;
   const brief = document.brief as { name?: unknown } | undefined;
   const name = (typeof brief?.name === "string" && brief.name.trim()) || repo.name;
 
@@ -243,6 +250,26 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
     pictures.push({ ...p, bytes });
   }
   return { document, name, pages, parts: nodes.length, pictures, lost, ref };
+}
+
+/** The commit a ref names now, or null when GitHub will not say. */
+async function commitOf(repo: Repo, token: string, ref: string): Promise<string | null> {
+  if (/^[0-9a-f]{40}$/.test(ref)) return ref;
+  const got = await gh(`/repos/${repo.owner}/${repo.name}/commits/${encodeURIComponent(ref)}`, token);
+  const sha = isNo(got) ? null : (got as { sha?: unknown }).sha;
+  return typeof sha === "string" && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+}
+
+/** The "Functions not captured" hand-off of the capture's report, when the repository has one for this site's folder. */
+async function handoffOf(repo: Repo, token: string, blobs: { path: string; sha: string; size?: number }[]): Promise<string | null> {
+  const site = repo.dir?.split("/").filter(Boolean).pop();
+  const at = site ? blobs.find((e) => e.path === `docs/fidelity/${site}.md`) : undefined;
+  if (!at || (at.size ?? 0) > 512 * 1024) return null;
+  const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
+  if (isNo(blob)) return null;
+  const it = blob as { content?: string; encoding?: string };
+  if (it.encoding !== "base64" || typeof it.content !== "string") return null;
+  return handoffFrom(new TextDecoder().decode(unbase64(it.content)));
 }
 
 /**

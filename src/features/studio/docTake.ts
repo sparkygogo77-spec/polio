@@ -7,6 +7,7 @@
  * visitor who did not build it, the frame width too. Pure, so the rule can
  * be held without a browser.
  */
+import { captureNotes, sourceNote } from "./polioMd.ts";
 import { attachCaptured } from "./library/captured.ts";
 export interface DocIn {
   pages?: { id: string }[];
@@ -23,6 +24,10 @@ export interface DocIn {
   /** What the captured page's scripts did (sink `doc.behaviours`): attached to its parts as features, then dropped. */
   behaviours?: unknown;
   frameWidth?: unknown;
+  /** The capture's "Functions not captured" hand-off, read beside the document at Bring (`repoRun.ts`). */
+  handoff?: unknown;
+  /** Where the document was brought in from: repository, folder, branch and commit (`repoRun.ts`). */
+  source?: unknown;
   /** What the captured site said about itself in its head (sink `doc.head`): kept on the brief. Each page's own is on the page. */
   head?: unknown;
 }
@@ -101,7 +106,10 @@ export function takeDoc<P extends DocPrev>(
     look: (() => {
       const took = (doc.look ? { ...defaults.look(), ...doc.look } : s.look) as object & { texture?: { id: string; on?: boolean }[] };
       /* A capture writes the page's @keyframes beside the look; they travel in it, for the parts that name them. */
-      const look = Array.isArray(doc.keyframes) ? { ...took, keyframes: doc.keyframes } : took;
+      const framed = Array.isArray(doc.keyframes) ? { ...took, keyframes: doc.keyframes } : took;
+      /* What POLIO.md needs of the capture once its behaviours are dropped: each record and its part, the presses, the hand-off, the source (`polioMd.ts`). */
+      const notes = captureNotes(doc.behaviours, { handoff: typeof doc.handoff === "string" ? doc.handoff : null, source: sourceNote(doc.source) });
+      const look = notes ? { ...framed, capture: notes } : framed;
       return Array.isArray(look.texture) ? { ...look, texture: pictureLayersOff(doc.nodes ?? s.nodes, look.texture) } : look;
     })(),
     motion: doc.motion ?? s.motion,

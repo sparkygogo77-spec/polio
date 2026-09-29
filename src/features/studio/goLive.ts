@@ -22,6 +22,7 @@ import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 import { contractFiles } from "./library/contract";
+import { polioMd, POLIO_MD } from "./polioMd";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
 export interface Pushed { url: string; files: number; deployed: boolean; hook: boolean; note?: string }
@@ -192,7 +193,21 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
    */
   const st = useStudio.getState();
   const contract = contractFiles(st.nodes, st.pages).filter((f) => !described.some((d) => d.path === f.path));
-  return [...pages, ...shots, ...contract, ...described];
+  /*
+   * And POLIO.md: what the site is and what still needs code, for a backend
+   * chat opened on the repository later (`polioMd.ts`). In this same push,
+   * so one press is still one deployment.
+   */
+  const came = activeProject()?.source;
+  const polio: GeneratedFile = {
+    path: POLIO_MD,
+    content: polioMd({
+      brief: st.brief, pages: st.pages, nodes: st.nodes, format: st.format as Record<string, unknown>, look: st.look, frameWidth: st.frameWidth,
+      source: came ? { repo: `${came.owner}/${came.name}`, dir: came.dir ?? null, branch: came.branch, commit: null } : null,
+      address: address ?? null,
+    }),
+  };
+  return [...pages, ...shots, ...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described];
 }
 
 /**
