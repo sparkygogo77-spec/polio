@@ -8,7 +8,8 @@
  * (`doc.learned`, `doc.capturer.learn`). Held here, on STANDIN data shaped
  * exactly as sink writes it:
  *   1. only reads with a sample are kept, within the limits;
- *   2. the runtime answers a recorded read, by fetch or XMLHttpRequest (an id in the path, a JSON-RPC
+ *   2. the runtime answers a recorded read, by fetch or XMLHttpRequest, and
+ *      replays a recorded live feed at its pace in a loop (an id in the path, a JSON-RPC
  *      (remote procedure call) read by its method) with its sample, and lets
  *      a write or anything unrecorded go to the network;
  *   3. the Build option is advanced and off by default: off, a built site
@@ -109,6 +110,45 @@ check("2. a write, an unrecorded address and a longer path go to the network unt
   undo();
   const g5 = await xhr("GET", "https://api.standin.example/v1/coins/STANDIN0MINT0000000000000000000003/holders");
   check("2b. taken away, XMLHttpRequest is the browser's own again", g5.real);
+}
+
+/* 2c. Live feeds: a recorded socket and event stream replayed at their pace, in a loop; anything else the browser's own. */
+{
+  const FEED = { ...MAP, endpoints: [...MAP.endpoints,
+    { key: "WS stream.standin.example/ws", method: "WS", host: "stream.standin.example", path: "/ws", read: true, kind: "websocket", stream: { kind: "websocket", count: 3, everyMs: 40 }, sample: { messages: [{ t: 0, data: { price: 1.01 } }, { t: 40, data: { price: 1.02 } }, { t: 80, data: "STANDIN tick" }, { t: 120, data: { binary: 12 } }] } },
+    { key: "GET stream.standin.example/trades/:id", method: "GET", host: "stream.standin.example", path: "/trades/:id", read: true, kind: "eventsource", stream: { kind: "eventsource", count: 2 }, sample: { messages: [{ t: 0, type: "trade", data: { side: "buy" } }, { t: 30, data: { ping: 1 } }] } },
+  ] };
+  const fm = S.standInFromDoc({ standIn: FEED });
+  check("2c. feeds are kept apart from reads, bytes left out", fm.streams?.length === 2 && fm.reads.length === 2 && fm.streams[0].messages.length === 3 && fm.streams[1].kind === "eventsource", J(fm.streams));
+  check("2c. a document with only a feed still has a stand-in, and turns it on", S.standInOn({ "build.standIn": true }, S.standInFromDoc({ standIn: { endpoints: [FEED.endpoints[5]] } })));
+  const made = [];
+  class RealWS { constructor(url) { made.push(`ws ${url}`); } }
+  class RealES { constructor(url) { made.push(`es ${url}`); } }
+  const fw = { location: { href: "https://mysite.standin.example/" }, WebSocket: RealWS, EventSource: RealES };
+  fw.window = fw;
+  runInNewContext(S.STAND_IN_RUNTIME, { window: fw, globalThis: fw, URL, JSON, Promise, String, Array, Object, Math, setTimeout, clearTimeout });
+  const undo = fw.__standIn.install(fm);
+  const got = [], evs = [];
+  const sock = new fw.WebSocket("wss://stream.standin.example/ws?token=STANDIN");
+  sock.onopen = () => got.push("open");
+  sock.addEventListener("message", (e) => got.push(e.data));
+  sock.send(J({ op: "subscribe" }));
+  const es = new fw.EventSource("https://stream.standin.example/trades/STANDIN0MINT01");
+  es.addEventListener("trade", (e) => evs.push(`trade ${e.data}`));
+  es.onmessage = (e) => evs.push(`message ${e.data}`);
+  new fw.WebSocket("wss://other.standin.example/ws");
+  new fw.EventSource("https://stream.standin.example/elsewhere");
+  await new Promise((r) => setTimeout(r, 300));
+  const count = got.length;
+  sock.close(); es.close();
+  await new Promise((r) => setTimeout(r, 150));
+  check("2c. the socket opens and its messages come in order, then again from the first", got[0] === "open" && got[1] === J({ price: 1.01 }) && got[2] === J({ price: 1.02 }) && got[3] === "STANDIN tick" && got[4] === J({ price: 1.01 }) && count >= 6, J(got));
+  check("2c. at the recorded pace: about 40 ms apart, not all at once", count <= 12, `${count} in 300ms`);
+  check("2c. the event stream's named events and plain messages, replayed", evs[0] === `trade ${J({ side: "buy" })}` && evs[1] === `message ${J({ ping: 1 })}` && evs.length >= 4, J(evs));
+  check("2c. closed, nothing more comes", got.length === count);
+  check("2c. what the page sends goes nowhere; unrecorded feeds are the browser's own", J(made) === J(["ws wss://other.standin.example/ws", "es https://stream.standin.example/elsewhere"]), J(made));
+  undo();
+  check("2c. taken away, WebSocket and EventSource are the browser's own again", fw.WebSocket === RealWS && fw.EventSource === RealES);
 }
 
 /* 3 */

@@ -2788,7 +2788,10 @@ a kicker with a rule, and label-and-value rows that copy.
   published one (`publishedDoc` carries it, `PublishedPage` installs it)
   answer those reads with their samples, by fetch or XMLHttpRequest: method, host and path, `:id` any
   one piece, a JSON-RPC or GraphQL read by its operation. Writes and anything
-  unrecorded go to the network. One copy of the answering:
+  unrecorded go to the network. A recorded live feed (WebSocket or
+  EventSource, sink's `stream`) is replayed at its recorded pace in a loop;
+  what the page sends on it goes nowhere, and an unrecorded feed is the
+  browser's own. One copy of the answering:
   `standIn.ts` `STAND_IN_RUNTIME`. sink's capturer now declares
   `capturer.learn`, so Learn on click (`learn.ts`) sends. `tests/stand-in.mjs`.
 

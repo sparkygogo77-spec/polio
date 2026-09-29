@@ -26,7 +26,7 @@
 import { paintRoles, roleVars } from "./bodyPaint.ts";
 import { auraStyle, entranceCss, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette } from "./look.ts";
 import { homeOf } from "./homePage.ts";
-import { standInFiles, type StandIn } from "./standIn.ts";
+import { standInFiles, standInHas, type StandIn } from "./standIn.ts";
 
 export interface ScaffoldFile {
   path: string;
@@ -387,7 +387,7 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
     files.push({ path: `${dir}/page.tsx`, content: pageTsx(page, parts, input) });
   }
   /* The stand-in server, only when it is asked for: the runtime and the samples, loaded before the page's scripts. */
-  if (input.standIn?.reads.length) files.push(...standInFiles(input.standIn));
+  if (standInHas(input.standIn)) files.push(...standInFiles(input.standIn));
   files.push({ path: "BUILD.md", content: buildMd(input) });
   return files;
 }
@@ -585,7 +585,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-${input.standIn?.reads.length ? `      {/* The stand-in server (public/stand-in.js): recorded reads answered with samples until a real backend exists. */}
+${standInHas(input.standIn) ? `      {/* The stand-in server (public/stand-in.js): recorded reads answered with samples until a real backend exists. */}
       <head><script src="/stand-in.js" /></head>
 ` : ""}      <body>{children}</body>
     </html>
@@ -1209,9 +1209,9 @@ body written for it. Nothing about the look was inferred.
   narrower screen.${input.parts.some((p) => p.mesh?.glb) ? `
 - ${input.parts.filter((p) => p.mesh?.glb).length} solid${input.parts.filter((p) => p.mesh?.glb).length === 1 ? "" : "s"} you can turn, written as components that load three.js in the
   browser: the one dependency this build needs, \`npm install three\`. Without it
-  each shows its still and says so.` : ""}${input.standIn?.reads.length ? `
-- \`public/stand-in.js\`, the stand-in server: the ${input.standIn.reads.length} read${input.standIn.reads.length === 1 ? "" : "s"} the capture
-  recorded (${[...new Set(input.standIn.reads.map((r) => r.host))].join(", ")}) answered with their samples, so lists and
+  each shows its still and says so.` : ""}${standInHas(input.standIn) ? `
+- \`public/stand-in.js\`, the stand-in server: the ${input.standIn.reads.length} read${input.standIn.reads.length === 1 ? "" : "s"}${input.standIn.streams?.length ? ` and ${input.standIn.streams.length} live feed${input.standIn.streams.length === 1 ? "" : "s"} (replayed at their recorded pace, in a loop)` : ""} the capture
+  recorded (${[...new Set([...input.standIn.reads, ...(input.standIn.streams ?? [])].map((r) => r.host))].join(", ")}) answered with their samples, so lists and
   buttons behave before a real backend exists. Writes and anything unrecorded
   go to the network. Turn it off with the Build option Stand-in server.` : ""}
 
