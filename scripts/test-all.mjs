@@ -26,7 +26,8 @@
  * The stand-ins each test serves (GitHub on 4333, Vercel on 4334, 4335 for
  * publish-big-picture, 4336 for publish-changed, …) are the tests' own; the
  * server for them is pointed there by the header. Tests that start a
- * stand-in run one at a time, since two of them would want the same port.
+ * stand-in run one at a time, since two of them would want the same port,
+ * each on a fresh server, since a server remembers what GitHub told it.
  *
  * Exit code 0 when every test that ran passed.
  */
@@ -134,7 +135,7 @@ for (const t of plan) {
 }
 
 if (LIST) {
-  let port = 3100;
+  let port = 3200;
   for (const { env, tests } of servers.values()) {
     const url = `http://127.0.0.1:${port++}`;
     console.log(`\n${url} — ${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ") || "no stand-ins"}`);
@@ -227,27 +228,28 @@ if (BUILD || !existsSync(join(ROOT, ".next", "BUILD_ID"))) {
 for (const t of plan) if (SKIP[t.name]) results.push({ name: t.name, result: "skip", count: "", s: 0, note: SKIP[t.name] });
 
 const started = Date.now();
-let port = 3100;
+/* Clear of every port a suite claims for itself (3011–3015, 3101, 4319–4341). */
+let port = 3200;
 for (const { env, tests } of servers.values()) {
   const named = Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ") || "no stand-ins";
-  let server;
-  try {
-    server = await startServer(port++, env);
-  } catch (e) {
-    for (const t of tests) results.push({ name: t.name, result: "FAIL", count: "", s: 0, note: `server did not start (${named})` });
-    console.error(String(e.message ?? e));
-    continue;
+  const shared = tests.filter((t) => !t.standIn);
+  console.log(`\n${named} — ${tests.length} test${tests.length === 1 ? "" : "s"}`);
+  let server = null;
+  if (shared.length) {
+    try { server = await startServer(port++, env); } catch (e) {
+      for (const t of shared) results.push({ name: t.name, result: "FAIL", count: "", s: 0, note: `server did not start (${named})` });
+      console.error(String(e.message ?? e));
+    }
   }
-  console.log(`\n${server.url} — ${named} — ${tests.length} test${tests.length === 1 ? "" : "s"}`);
-  try {
-    await pool(tests.filter((t) => !t.standIn), JOBS, (t) => runTest(t, server.url));
+  if (server) try {
+    await pool(shared, JOBS, (t) => runTest(t, server.url));
     /*
      * A test that failed beside others is run again on its own, once, and
      * the table says so: "pass*" is a test that only holds on a quiet
      * machine, which is worth knowing and is not the same as a failure.
      */
     if (JOBS > 1) {
-      for (const t of tests.filter((t) => !t.standIn)) {
+      for (const t of shared) {
         const i = results.findIndex((r) => r.name === t.name);
         if (i < 0 || results[i].result === "pass" || results[i].result === "skip") continue;
         const [crowded] = results.splice(i, 1);
@@ -256,10 +258,24 @@ for (const { env, tests } of servers.values()) {
         if (alone.result === "pass") Object.assign(alone, { result: "pass*", note: `failed beside others: ${crowded.note}`.slice(0, 140) });
       }
     }
-    for (const t of tests.filter((t) => t.standIn)) await runTest(t, server.url);
   } finally {
     server.stop();
     await new Promise((r) => setTimeout(r, 500));
+  }
+  /*
+   * A test with a stand-in of its own gets a server of its own. The server
+   * remembers what GitHub answered (under the one placeholder token every
+   * suite uses), so a stand-in served by the test before it answered for
+   * this one: repo-menu passed alone and failed after publish-empty.
+   */
+  for (const t of tests.filter((t) => t.standIn)) {
+    let own;
+    try { own = await startServer(port++, env); } catch (e) {
+      results.push({ name: t.name, result: "FAIL", count: "", s: 0, note: `server did not start (${named})` });
+      console.error(String(e.message ?? e));
+      continue;
+    }
+    try { await runTest(t, own.url); } finally { own.stop(); await new Promise((r) => setTimeout(r, 500)); }
   }
 }
 
