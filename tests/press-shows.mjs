@@ -12,6 +12,7 @@
  */
 import { attachCaptured } from "../src/features/studio/library/captured.ts";
 import { BEHAVIOURS } from "../src/features/studio/library/behaviours.ts";
+import * as fluidSite from "../src/features/studio/fluidSite.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -34,6 +35,12 @@ check("…in place of the page's own", use?.inputs?.hides === "name_mochi,card_p
 check("…with its group, so the presses take turns", use?.inputs?.group === "page_home:g1", JSON.stringify(use?.inputs));
 check("the shown parts keep their state mark", out.filter((n) => n.state).length === 2);
 check("the feature is in the library, with a script", BEHAVIOURS.some((w) => w.manifest.id === "press-shows" && /siteFeatures\.define\("press-shows"/.test(w.script)));
+{
+  const open = attachCaptured(nodes, { version: 1, states: [...behaviours.states, { page: "page_home", group: "page_home:g1", option: 0, name: "mochi", part: "card_mochi", opening: true, shows: ["name_mochi"], hides: [] }] });
+  const m = open.find((n) => n.id === "card_mochi");
+  const mu = (m?.work?.uses ?? (m?.work ? [m.work] : [])).find((u) => u?.id === "press-shows");
+  check("the card chosen as the page opens carries Show on press, marked the opening press, showing the page's own parts", mu?.inputs?.opening === "yes" && mu?.inputs?.shows === "name_mochi", JSON.stringify(m?.work));
+}
 check("control: a document with no states attaches nothing new", !attachCaptured(nodes, { version: 1 }).some((n) => n.work));
 
 /* The script itself, run on a stand-in page: a press shows parts holding a PNG sprite and an animated svg. */
@@ -55,6 +62,62 @@ check("control: a document with no states attaches nothing new", !attachCaptured
   check("a press on the stand-in runs without an error", threw === null, threw ?? "");
   check("…shows its parts and hides the page's own", parts.card_on.style.display === "flex" && parts.lcd_on.style.display === "flex" && parts.card.style.display === "none", JSON.stringify(Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.style.display]))));
   check("…and starts the shown svg's frames again (a new fragment), leaving the PNG as it is", /lcd\.svg#p\d+/.test(img.last["assets/pictures/lcd.svg"] ?? "") && !img.last["assets/pictures/pup.png"], JSON.stringify(img.last));
+}
+
+/* The opening press: mochi, chosen as the page opens, shows the page's own parts; pressed after pup, it puts back exactly the page as it opened. */
+{
+  const script = BEHAVIOURS.find((w) => w.manifest.id === "press-shows").script;
+  let fn = null;
+  const part = (id, on) => ({ id, style: { display: on ? "flex" : "none" }, querySelectorAll: () => [] });
+  const parts = { panel: part("panel", true), name_mochi: part("name_mochi", true), card_mochi_on: part("card_mochi_on", true), name_pup: part("name_pup", false), card_pup_on: part("card_pup_on", false) };
+  const clicks = [];
+  const root = { getElementById: (id) => parts[id] ?? null, querySelector: () => null, addEventListener: (t, f) => { if (t === "click") clicks.push(f); } };
+  const box = (x) => ({ ownerDocument: root, style: {}, getBoundingClientRect: () => ({ left: x, top: 0, right: x + 100, bottom: 100 }) });
+  globalThis.window = {}; globalThis.document = root;
+  new Function("siteFeatures", script)({ define: (_id, f) => { fn = f; } });
+  fn(box(0), { shows: "panel,name_mochi,card_mochi_on", hides: "", group: "g4", opening: "yes" });
+  fn(box(200), { shows: "name_pup,card_pup_on", hides: "name_mochi,card_mochi_on", group: "g4" });
+  const press = (x) => clicks.forEach((f) => f({ clientX: x, clientY: 50, target: null }));
+  const seen = () => Object.entries(parts).filter(([, p]) => p.style.display === "flex").map(([k]) => k).sort().join(",");
+  press(250);
+  check("pressing pup shows pup's parts in place of mochi's", seen() === "card_pup_on,name_pup,panel", seen());
+  press(50);
+  check("…and pressing mochi, the opening press, puts back exactly the page as it opened", seen() === "card_mochi_on,name_mochi,panel", seen());
+}
+
+/*
+ * A PANEL A PRESS SHOWS WHOLE. gotchi.gg's starter panel is sticky (top 80)
+ * inside the starter grid. Pressing boo grows the panel's own box, so boo's
+ * press keeps a panel of its own at the page's panel's path, its words
+ * inside. Published, boo's words went into the page's panel (the one boo's
+ * press hides) and boo's panel stood empty, up over "how it works"; and every
+ * panel stuck against the whole page, sliding out of its section.
+ */
+{
+  const { bandMoves, stickyFlow } = fluidSite;
+  const stickyHolds = fluidSite.stickyHolds ?? (() => new Map());
+  const S = "body > main > section:nth-of-type(5) > div", P = `${S} > div:nth-of-type(2)`;
+  const fp = (id, x, y, w, h, selector, extra = {}) => ({ id, x, y, w, h, selector, ...extra });
+  const parts = [
+    fp("header", 0, 0, 1440, 67, "body > header", { position: "sticky", inset: { top: 0 } }),
+    fp("title", 146, 1797, 400, 60, `${S} > h2`),
+    fp("grid", 146, 1894, 533, 578, `${S} > div:nth-of-type(1)`),
+    fp("panel", 707, 1894, 587, 484, P, { position: "sticky", inset: { top: 80 } }),
+    fp("name_mochi", 728, 1915, 92, 35, `${P} > div > h3`),
+    fp("name_pup", 728, 1915, 60, 35, `${P} > div > h3`, { state: "g4:1" }),
+    fp("panel_boo", 707, 1894, 587, 453, P, { position: "sticky", inset: { top: 80 }, state: "g4:5" }),
+    fp("name_boo", 728, 1915, 60, 35, `${P} > div > h3`, { state: "g4:5" }),
+    fp("footer", 0, 4000, 1440, 200, "body > footer"),
+  ];
+  const moves = bandMoves(parts, 1440);
+  check("boo's words go into boo's own panel, not the page's (which boo's press hides)", moves.get("name_boo")?.band === "panel_boo", JSON.stringify(moves.get("name_boo")));
+  check("…pup's, whose press keeps the page's panel, into the page's panel", moves.get("name_pup")?.band === "panel", JSON.stringify(moves.get("name_pup")));
+  check("…and the page's own words never into a press's panel", moves.get("name_mochi")?.band === "panel", JSON.stringify(moves.get("name_mochi")));
+  const holds = stickyHolds(parts, 4200);
+  check("both panels stick inside the starter grid's box, as on the page, not the whole page", holds.get("panel")?.top === 1797 && holds.get("panel")?.height === 2472 - 1797 && holds.get("panel_boo")?.top === 1797, JSON.stringify([...holds]));
+  check("…while the header, whose parent is the page, sticks in the page's flow as before", !holds.has("header"));
+  const flow = stickyFlow(parts);
+  check("unheld (the Preview), boo's panel stands at the page's panel's place, not after it", flow.get("panel_boo") === flow.get("panel") && flow.get("panel") === 1894, JSON.stringify([...flow]));
 }
 
 const failed = results.filter((r) => !r).length;

@@ -55,6 +55,8 @@ export interface FluidPart {
   inset?: { top?: number; right?: number; bottom?: number; left?: number } | null;
   layout?: { display?: string; direction?: string; justify?: string; align?: string; gap?: number; columns?: number } | null;
   pad?: { left?: number; right?: number } | null;
+  /** The press that shows it (sink `behaviours.states`, `group:option`), or none: the page as it opens. */
+  state?: string | null;
 }
 
 /**
@@ -141,16 +143,56 @@ export function bandMoves(parts: readonly FluidPart[], W = 0): Map<string, BandM
   const fixed = parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.selector!);
   const inFixed = (p: FluidPart) => p.position === "fixed" || fixed.some((f) => within(p.selector!, f));
   const bands = parts.filter((p) => p.selector && p.position === "sticky");
-  /* The nearest band first: the longest path owns most closely. */
-  bands.sort((a, b) => b.selector!.length - a.selector!.length);
+  /*
+   * WHICH BAND, WHEN A PRESS SHOWS ONE. gotchi.gg's starter panel is sticky;
+   * pressing boo changes the panel's own height, so the capture keeps boo's
+   * panel as a band of its own at the same path as the page's. Every part
+   * under that path went into the page's panel, the one boo's press hides,
+   * and boo's panel was an empty box. A part goes into a band of its own
+   * press first; else into one of the page as it opens (pup's press keeps
+   * the page's panel and changes what is in it); never into another
+   * press's band, and a part of the page as it opens never into a press's.
+   */
+  const key = (p: FluidPart) => p.state ?? null;
+  for (const p of parts) {
+    if (!p.selector || p.position === "sticky" || inFixed(p)) continue;
+    const own = bands.filter((b) => b !== p && within(p.selector!, b.selector!) && (key(b) === key(p) || key(b) === null));
+    if (!own.length) continue;
+    /* Its own press's band first, then the nearest: the longest path owns most closely. */
+    own.sort((a, b) => Number(key(b) === key(p)) - Number(key(a) === key(p)) || b.selector!.length - a.selector!.length);
+    const band = own[0]!;
+    const full = band.x === 0 && (W <= 0 || Math.abs(band.w - W) <= 1);
+    out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x, inside: full ? null : { left: `${p.x - band.x}px`, width: `${p.w}px` } });
+  }
+  return out;
+}
+
+/**
+ * WHAT A STICKY BAND STICKS INSIDE. On the page a sticky element sticks
+ * within its parent: gotchi.gg's starter panel within the starter grid, so
+ * it travels at most the grid's height and stops at its foot. In the export
+ * the band stands in the frame's flow, so it stuck against the whole page:
+ * scrolled down, it slid out of its section and over the next ones. A band
+ * whose parent is less than the page is held in a box of its own standing
+ * where the parent stood (its top and height: the parent's part, or else
+ * the parts inside the parent), and sticks inside that. So is a band a
+ * press shows, and the page's own band of the same path, so that each
+ * stands at its own place whichever of them is showing, not after the other.
+ * `pageH` is the page's height; the result is each held band's box.
+ */
+export function stickyHolds(parts: readonly FluidPart[], pageH: number): Map<string, { top: number; height: number }> {
+  const out = new Map<string, { top: number; height: number }>();
+  const bands = parts.filter((p) => p.selector && p.position === "sticky");
+  const pressed = new Set(bands.filter((b) => b.state).map((b) => b.selector!));
   for (const band of bands) {
-    for (const p of parts) {
-      if (p === band || !p.selector || out.has(p.id)) continue;
-      if (p.position === "sticky" || inFixed(p)) continue;
-      if (!within(p.selector, band.selector!)) continue;
-      const full = band.x === 0 && (W <= 0 || Math.abs(band.w - W) <= 1);
-      out.set(p.id, { band: band.id, top: p.y - band.y, dx: band.x, inside: full ? null : { left: `${p.x - band.x}px`, width: `${p.w}px` } });
-    }
+    const parent = up(band.selector!);
+    const same = (q: FluidPart) => !q.state || q.state === band.state;
+    const inParent = parts.filter((q) => q.selector && same(q) && (q.selector === parent || within(q.selector, parent)));
+    const top = inParent.length && parent ? Math.min(...inParent.map((q) => q.y)) : 0;
+    const foot = inParent.length && parent ? Math.max(...inParent.map((q) => q.y + q.h)) : pageH;
+    const whole = top <= E && foot >= pageH - E;
+    if (whole && !band.state && !pressed.has(band.selector!)) continue;
+    out.set(band.id, { top, height: Math.max(band.h, foot - top) });
   }
   return out;
 }
@@ -167,8 +209,12 @@ export function bandMoves(parts: readonly FluidPart[], W = 0): Map<string, BandM
 export function stickyFlow(inOrder: readonly FluidPart[]): Map<string, number> {
   const out = new Map<string, number>();
   let cursor = 0;
+  /* Where the flow stood before the page's own band of each path: a band a press shows in its place stands from there, and moves nothing after it. */
+  const before = new Map<string, number>();
   for (const p of inOrder) {
     if (p.position !== "sticky") continue;
+    if (p.state) { out.set(p.id, p.y - (before.get(p.selector ?? "") ?? cursor)); continue; }
+    if (p.selector) before.set(p.selector, cursor);
     out.set(p.id, p.y - cursor);
     cursor = p.y;
   }

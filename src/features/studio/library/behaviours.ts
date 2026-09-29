@@ -814,7 +814,9 @@ const SCROLL_GROW: Work = {
  * marked `state` and not drawn where the page opens. A press anywhere on
  * this part (its words and pictures are parts of their own, laid over it)
  * shows its parts and hides the page's own that they stand in for, and puts
- * back whatever another press of the same group showed. Nothing is fetched
+ * back whatever another press of the same group showed. The card chosen as
+ * the page opens is a press too (sink's opening press, `opening: true`): it
+ * shows the page's own parts, so it can be chosen again. Nothing is fetched
  * and nothing is kept: a press shows what the page showed when it was
  * captured.
  */
@@ -828,6 +830,7 @@ const PRESS_SHOWS: Work = {
       { id: "shows", label: "Shows (parts)", kind: "text", default: "", placeholder: "part ids, comma-separated" },
       { id: "hides", label: "In place of (parts)", kind: "text", default: "", placeholder: "part ids, comma-separated", advanced: true },
       { id: "group", label: "Group", kind: "text", default: "", placeholder: "presses that take turns", advanced: true },
+      { id: "opening", label: "The page as it opens", kind: "one", default: "no", values: ["yes", "no"], advanced: true },
     ],
     needs: "none",
     says: ["show on press", "tabs", "switch panel", "select card", "choose one", "press to show", "click to show"],
@@ -841,14 +844,15 @@ const PRESS_SHOWS: Work = {
   var all = window.__pressShows || (window.__pressShows = {});
   var key = String(inputs.group || "").trim() || ("own:" + Math.random());
   var group = all[key] || (all[key] = []);
-  var me = { el: el, shows: ids(inputs.shows), hides: ids(inputs.hides) };
+  /* The opening press shows the page's own parts: another press undoing it leaves them showing, and hides only what it says it hides. */
+  var me = { el: el, shows: ids(inputs.shows), hides: ids(inputs.hides), opening: String(inputs.opening || "") === "yes" };
   group.push(me);
   /* A picture that plays (a screen's frames, as an svg) plays from the press: shown, it is asked for again under a new fragment, which starts its clock. */
   var isSvg = function (src) { return /[.]svg([#?]|$)/i.test(src) || src.indexOf("data:image/svg") === 0; };
   var replay = function (p) { try { Array.prototype.forEach.call(p.querySelectorAll("img"), function (im) { var src = im.getAttribute("src") || ""; if (isSvg(src)) im.setAttribute("src", src.split("#")[0] + "#p" + Date.now()); }); } catch (e) { /* a picture never stops the press */ } };
   var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (!p) return; p.style.display = on ? "flex" : "none"; if (on) replay(p); }); };
   function press() {
-    group.forEach(function (o) { if (o !== me) { set(o.shows, false); set(o.hides, true); } });
+    group.forEach(function (o) { if (o !== me) { set(o.shows, o.opening); set(o.hides, true); } });
     set(me.hides, false);
     set(me.shows, true);
   }

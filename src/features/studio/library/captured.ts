@@ -216,7 +216,7 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const shows = (Array.isArray(st.shows) ? st.shows : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
     const hides = (Array.isArray(st.hides) ? st.hides : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
     if (!shows.length || typeof st.part !== "string") continue;
-    give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? "") } });
+    give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? ""), ...(st.opening === true ? { opening: "yes" } : {}) } });
   }
 
   /* ---------------------------------------------------------------- motion sampled (sink `behaviours.motion`) */

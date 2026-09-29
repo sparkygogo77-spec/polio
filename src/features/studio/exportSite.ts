@@ -70,7 +70,7 @@ import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
-import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, typeShifts, vhShift, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { layerStyle, type Units } from "./layerUnits";
 import { featureFiles, pageFeatureTags } from "./library/works";
@@ -462,6 +462,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     selector: n.from?.selector?.trim() || null, position: n.from?.position ?? null, inset: n.from?.inset ?? null,
     layout: (n as { layout?: FluidPart["layout"] }).layout ?? null,
     pad: (n as { pad?: FluidPart["pad"] }).pad ?? null,
+    state: n.state ? `${n.state.group}:${n.state.option}` : null,
   }));
   const k = fluidParts(parts, W);
   const H = captureHeight(parts);
@@ -568,8 +569,23 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (m.inside) { el.style.left = m.inside.left; el.style.width = m.inside.width; }
     else if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
   }
+  /* A band that sticks inside less than the page, or that a press shows or hides, is held in a box where its parent stood and sticks inside it (fluidSite.ts#stickyHolds). */
+  const holds = live ? new Map<string, { top: number; height: number }>() : stickyHolds(parts, Math.max(0, ...parts.map((p) => p.y + p.h)));
+  for (const [id, box] of holds) {
+    const el = elOf(id), p = byId.get(id);
+    if (!el || !p || !el.parentElement || el.parentElement.closest("[data-live-node]")) continue;
+    const hold = el.ownerDocument.createElement("div");
+    hold.setAttribute("data-sticky-hold", "");
+    hold.style.cssText = `position:absolute;left:0;top:${box.top}px;width:100%;height:${box.height}px;pointer-events:none;z-index:2`;
+    el.parentElement.insertBefore(hold, el);
+    hold.appendChild(el);
+    el.style.marginTop = `${p.y - box.top}px`;
+    /* Its height is not taken back: nothing flows after it in its box, and a margin under it would let it stick past the box's foot. */
+    el.style.marginBottom = "0px";
+    if (el.style.pointerEvents !== "none") el.style.pointerEvents = "auto";
+  }
   /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
-  const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
+  const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
   for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }
   /*
    * THE PAGE IS AS TALL AS WHAT IS ON IT. The preview's page runs 160px past
