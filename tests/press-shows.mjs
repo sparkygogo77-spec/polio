@@ -72,6 +72,7 @@ check("control: a document with no states attaches nothing new", !attachCaptured
   const parts = { panel: part("panel", true), name_mochi: part("name_mochi", true), card_mochi_on: part("card_mochi_on", true), name_pup: part("name_pup", false), card_pup_on: part("card_pup_on", false) };
   const clicks = [];
   const root = { getElementById: (id) => parts[id] ?? null, querySelector: () => null, addEventListener: (t, f) => { if (t === "click") clicks.push(f); } };
+  globalThis.window = { scrollX: 0, scrollY: 0 };
   const box = (x) => ({ ownerDocument: root, style: {}, getBoundingClientRect: () => ({ left: x, top: 0, right: x + 100, bottom: 100 }) });
   globalThis.window = {}; globalThis.document = root;
   new Function("siteFeatures", script)({ define: (_id, f) => { fn = f; } });
@@ -83,6 +84,16 @@ check("control: a document with no states attaches nothing new", !attachCaptured
   check("pressing pup shows pup's parts in place of mochi's", seen() === "card_pup_on,name_pup,panel", seen());
   press(50);
   check("…and pressing mochi, the opening press, puts back exactly the page as it opened", seen() === "card_mochi_on,name_mochi,panel", seen());
+  /* pup's press hides mochi's own card (a copy stands in its place): a press where mochi's card stood is still mochi's. */
+  const card = box(0), hidden = { on: true };
+  card.getBoundingClientRect = () => (hidden.on ? { left: 0, top: 0, right: 100, bottom: 100 } : { left: 0, top: 0, right: 0, bottom: 0 });
+  const before = clicks.length;
+  fn(card, { shows: "panel,name_mochi,card_mochi_on", hides: "", group: "g4b", opening: "yes" });
+  fn(box(200), { shows: "name_pup,card_pup_on", hides: "name_mochi,card_mochi_on", group: "g4b" });
+  const pressB = (x) => clicks.slice(before).forEach((f) => f({ clientX: x, clientY: 50, target: null }));
+  pressB(250); hidden.on = false;
+  pressB(50);
+  check("…even when pup's press hid mochi's own card: a press where it stood chooses mochi", seen() === "card_mochi_on,name_mochi,panel", seen());
 }
 
 /*

@@ -856,9 +856,20 @@ const PRESS_SHOWS: Work = {
     set(me.hides, false);
     set(me.shows, true);
   }
-  /* The part's words and pictures sit over it as parts of their own: a press anywhere inside its box is its press. */
+  /*
+   * The part's words and pictures sit over it as parts of their own: a press anywhere inside its box is its press.
+   * Another press may hide the part itself and show a copy in its place (gotchi.gg's mochi card, untilted once pup is chosen):
+   * a press where it last stood is still its press, so the card chosen as the page opens can be chosen again.
+   */
+  var last = null;
+  var boxOf = function () {
+    var r = el.getBoundingClientRect(), sx = window.scrollX || 0, sy = window.scrollY || 0;
+    if (r.right > r.left && r.bottom > r.top) { last = { left: r.left + sx, top: r.top + sy, right: r.right + sx, bottom: r.bottom + sy }; return r; }
+    return last ? { left: last.left - sx, top: last.top - sy, right: last.right - sx, bottom: last.bottom - sy } : r;
+  };
+  boxOf();
   root.addEventListener("click", function (e) {
-    var r = el.getBoundingClientRect();
+    var r = boxOf();
     if (!(e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom)) return;
     var t = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     if (t) return;
