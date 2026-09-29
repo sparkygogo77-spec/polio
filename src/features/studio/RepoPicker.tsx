@@ -434,7 +434,20 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
    * branch. A repo any site was brought in from, this one included, is
    * never a publish target. Moving a bound site to another repo asks first.
    */
-  const connect = (full: string, how: "connected" | "made" = "connected"): boolean => {
+  /*
+   * THE ASK IS ON THE PANEL, NOT A BROWSER DIALOG. It was `window.confirm`,
+   * and a confirm the browser does not show (dialogs blocked for the tab, or
+   * dismissed by whatever is driving it) answers "no" in silence: pressing a
+   * repo under "Or move it to another of your repos" did nothing at all, and a
+   * repo made for a site that already published was made and never pointed
+   * at. A site that has not published yet moves at once; one that has asks
+   * here, in words, with the two answers as keys (`tests/publish-target.mjs`).
+   */
+  const [moving, setMoving] = React.useState<{ full: string; how: "connected" | "made"; from: string } | null>(null);
+  const [asking, setAsking] = React.useState<{ name: string; from: string | null } | null>(null);
+  const owner = mine?.find((r) => r.name.includes("/"))?.name.split("/")[0] ?? null;
+
+  const connect = (full: string, how: "connected" | "made" = "connected", confirmed = false): boolean => {
     const repo = repoFrom(full, onBranch);
     if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be published to.`); return false; }
     let p = activeProject();
@@ -443,24 +456,49 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     const theirs = sourceOf(full);
     if (theirs) { setSaid(`${full} is where ${theirs.id === p.id ? "this site" : `the site ${theirs.name}`} was brought in from, and a site never publishes into that.`); return false; }
     const current = p.repo ? `${p.repo.owner}/${p.repo.name}` : null;
-    if (current && current.toLowerCase() !== full.toLowerCase()) {
-      if (!window.confirm(`Move this site from ${current} to ${full}? Publishes go to ${full} from now on, and ${current} is left as it is.`)) return false;
+    const published = !!p.live || !!p.pending;
+    if (current && current.toLowerCase() !== full.toLowerCase() && published && !confirmed) {
+      setMoving({ full, how, from: current });
+      setSaid(null);
+      return false;
     }
+    setMoving(null);
     const ok = useBuilds.getState().setRepo(p.id, repo, how);
-    if (ok) setSaid(`This site publishes to ${full} on ${onBranch} now. The board is as it was.`);
+    if (ok) setSaid(current && current.toLowerCase() !== full.toLowerCase()
+      ? `This site publishes to ${full} on ${onBranch} now, not ${current}. ${current} is left as it is, and the board is as it was.`
+      : `This site publishes to ${full} on ${onBranch} now. The board is as it was.`);
+    else setSaid(`${full} could not be made this site's publish target.`);
     return ok;
   };
 
-  const make = async () => {
-    const refusal = nameRefusal(name);
+  /*
+   * ONE ASK BEFORE A REPO IS MADE, WITH THE NAME IT WILL HAVE. The name box
+   * comes filled in, and a click into it followed by typing put the typing
+   * in the middle of that name: one press of Make it made a private repo
+   * with a garbled name. The box selects itself on focus, and Make it first
+   * shows the whole name and where the site will publish, and asks.
+   */
+  const askMake = () => {
+    const final = name.trim();
+    const refusal = nameRefusal(final);
+    if (refusal) { setSaid(refusal); return; }
+    const p = activeProject();
+    setAsking({ name: final, from: p?.repo ? `${p.repo.owner}/${p.repo.name}` : null });
+    setSaid(null);
+  };
+
+  const make = async (final: string) => {
+    setAsking(null);
+    const refusal = nameRefusal(final);
     if (refusal) { setSaid(refusal); return; }
     setMaking(true);
     setSaid(null);
     try {
-      const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name }) });
+      const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name: final }) });
       const a = await res.json();
       if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
-      if (connect(String(a.name), "made")) setSaid(`Made ${a.name}. This site publishes to it on ${onBranch}.`);
+      /* He said yes to the name and to publishing there, so the switch is not asked again. */
+      if (connect(String(a.name), "made", true)) setSaid(`Made ${a.name}. This site publishes to it on ${onBranch}.`);
     } catch {
       setSaid("Could not reach GitHub from here.");
     } finally {
@@ -561,6 +599,17 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
 
       <div>
         <p className="text-small text-fg-faint">{own ? "Or move it to another of your repos" : "Choose one of your repos"}</p>
+        {moving ? (
+          <div data-repo-move-confirm={moving.full} className="my-1 rounded-md border px-2 py-1.5" style={warn}>
+            <p className="text-small text-fg">
+              This site has published to <span className="font-mono">{moving.from}</span>. Publish to <span className="font-mono">{moving.full}</span> from now on? {moving.from} is left as it is.
+            </p>
+            <div className="mt-1 flex gap-1.5">
+              <Button size="sm" variant="primary" data-repo-move-go="" onClick={() => void connect(moving.full, moving.how, true)}>Move to {moving.full.split("/")[1]}</Button>
+              <Button size="sm" variant="ghost" data-repo-move-keep="" onClick={() => setMoving(null)}>Keep {moving.from.split("/")[1]}</Button>
+            </div>
+          </div>
+        ) : null}
         {mine === null ? (
           <p className="text-small text-fg-muted">Your repos are listed once GitHub answers.</p>
         ) : (
@@ -573,7 +622,7 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
                     type="button"
                     data-repo-publish-pick={r.name}
                     disabled={!!brought}
-                    onClick={() => void connect(r.name)}
+                    onClick={() => { setAsking(null); void connect(r.name); }}
                     title={brought ? `${r.name} is where ${brought.name} was brought in from, and a site never publishes into that` : `Publish this site to ${r.name} on ${onBranch}`}
                     className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-plain disabled:opacity-40", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
                   >
@@ -597,13 +646,28 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
             aria-label="Name for the new repo"
             placeholder="a-name"
             className="h-6 text-plain"
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void make(); } }}
+            /* The whole name is selected on the way in, by a click as much as by Tab: the mouse-up that would put the caret mid-name is the one that is stopped. */
+            onFocus={(e) => { e.currentTarget.select(); e.currentTarget.dataset.fresh = "1"; }}
+            onMouseUp={(e) => { if (e.currentTarget.dataset.fresh) { e.preventDefault(); e.currentTarget.select(); delete e.currentTarget.dataset.fresh; } }}
+            onChange={(e) => { delete e.currentTarget.dataset.fresh; setName(e.target.value); setAsking(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); askMake(); } }}
           />
-          <Button size="sm" variant="outline" data-repo-make="" disabled={making} onClick={() => void make()}>
+          <Button size="sm" variant="outline" data-repo-make="" disabled={making || !!asking} onClick={askMake}>
             {making ? "Making…" : "Make it"}
           </Button>
         </div>
+        {asking ? (
+          <div data-repo-make-confirm={asking.name} className="mt-1 rounded-md border px-2 py-1.5" style={warn}>
+            <p className="text-small text-fg">
+              Make a private repo named <span data-repo-make-final="" className="font-mono">{owner ? `${owner}/` : ""}{asking.name}</span>
+              {asking.from ? <>, and publish this site there instead of <span className="font-mono">{asking.from}</span>?</> : ", and publish this site there?"}
+            </p>
+            <div className="mt-1 flex gap-1.5">
+              <Button size="sm" variant="primary" data-repo-make-go="" onClick={() => void make(asking.name)}>Make {asking.name}</Button>
+              <Button size="sm" variant="ghost" data-repo-make-cancel="" onClick={() => setAsking(null)}>Not now</Button>
+            </div>
+          </div>
+        ) : null}
         <p className="mt-0.5 text-small text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
       </div>
 

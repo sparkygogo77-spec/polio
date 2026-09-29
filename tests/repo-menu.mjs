@@ -218,6 +218,9 @@ await section(async () => {
   await pub.locator("[data-repo-new]").fill("fresh-one");
   await pub.locator("[data-repo-publish-branch]").fill("preview");
   await pub.locator("[data-repo-make]").click();
+  /* Make it asks once, with the final name (tests/publish-target.mjs). */
+  await page.waitForTimeout(300);
+  if (await pub.locator("[data-repo-make-go]").count()) await pub.locator("[data-repo-make-go]").click();
   await page.waitForTimeout(1200);
   const b = await builds(page);
   check("a new repo, made by name, becomes where this site publishes, on the branch given", made.includes("fresh-one") && JSON.stringify(b.projects?.[0]?.repo) === JSON.stringify({ owner: "him", name: "fresh-one", branch: "preview" }), `${made.join()} ${JSON.stringify(b.projects?.[0]?.repo)}`);
