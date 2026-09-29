@@ -39,7 +39,7 @@ export function boardIsHere(): boolean {
  * out of sight now (`BringHost` in `FromASite.tsx`), so nothing is drawn,
  * nothing is picked, and what lands on the page is what landed before.
  */
-export function placeBring(want: string): string | null {
+export function placeBring(want: string, keep = false): string | null {
   const repo = readRepo(want);
   if (!repo) return null;
   /* Every press starts from a clear strip: the last press's ending is not this one's. */
@@ -47,7 +47,7 @@ export function placeBring(want: string): string | null {
   const st = useStudio.getState();
   holdImportMark(st.historyMark());
   const id = `${HEADLESS}${Date.now().toString(36)}`;
-  st.setBringRepo({ space: id, repo: want, pageId: st.activePageId });
+  st.setBringRepo({ space: id, repo: want, pageId: st.activePageId, ...(keep ? { keep: true } : {}) });
   return id;
 }
 
@@ -105,6 +105,8 @@ export interface Bringing {
   hasToken: () => boolean;
   /** A folder of the repository holding the site (`sites/<name>`, the Capture dialog's), when it is not at the root. */
   path?: string | null;
+  /** Bring it in over the board, keeping what the owner changed since it was last brought in (`reimport.ts`). On the board only. */
+  keep?: boolean;
 }
 
 export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: string } {
@@ -131,7 +133,7 @@ export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: st
    * instead, and the Builder opened.
    */
   if (boardIsHere()) {
-    placeBring(placed);
+    placeBring(placed, !!o.keep);
     o.say({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands on the page; this message and the line across the top of the board say how it is going." });
   } else {
     keepBringForBoard(placed);

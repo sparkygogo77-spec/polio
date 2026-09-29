@@ -171,7 +171,7 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
     if (picked) read(picked, b);
   };
 
-  const run = (want: string, path: string | null, own: string | null = from) => {
+  const run = (want: string, path: string | null, own: string | null = from, keep = false) => {
     setPulling(true);
     try {
       /* One door, shared by every way in: the stale check, the refusals, the space, the toast and the navigation all live there. */
@@ -183,6 +183,7 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
         stale: () => !!staleBuild(),
         staleSays,
         hasToken: () => !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN,
+        keep,
       });
       if (!out.ok) { setRefused(out.says ?? "It could not be brought in."); return; }
       onDone();
@@ -371,6 +372,11 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
           <p className="text-small text-fg">
             Replacing this site takes away its {partCount} part{partCount === 1 ? "" : "s"} on {pageCount} page{pageCount === 1 ? "" : "s"} ({listPages(pageNames)}) and brings in <span className="font-mono">{whole(asking.want.split("@")[1] ?? "")}</span>. One Ctrl+Z puts this board back. Or bring it into a new site and keep this one.
           </p>
+          {!asking.other && from ? (
+            <p data-repo-bring-keepsays="" className="mt-1 text-small text-fg">
+              Or bring it in over this board and keep what you changed by hand since it was last brought in: parts you moved or edited, feature settings, words, parts you added or deleted. Everything else takes the new capture.
+            </p>
+          ) : null}
           {asking.other ? (
             <p data-repo-bring-other="" className="mt-1 text-small text-fg">
               That is not where this site came from ({from}{source ? ` on ${source.branch}` : ""}). Replacing makes it this site&apos;s source from now on.
@@ -378,6 +384,8 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
           ) : null}
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Button size="sm" variant="primary" data-repo-bring-newsite="" onClick={() => intoNewSite(asking.want, asking.path)}>Make a new site for it</Button>
+            {/* The same source brought in again (a new capture of it): laid over the board, what he changed since kept (`reimport.ts`). */}
+            {!asking.other && from ? <Button size="sm" variant="outline" data-repo-bring-keepmine="" onClick={() => { const a = asking; setAsking(null); setAgainSays(null); run(a.want, a.path, from, true); }}>Bring it in, keep my changes</Button> : null}
             <Button size="sm" variant="outline" data-repo-bring-go="" onClick={() => { const a = asking; setAsking(null); setAgainSays(null); run(a.want, a.path, a.other ? null : from); }}>Replace this one</Button>
             <Button size="sm" variant="ghost" data-repo-bring-keep="" onClick={() => setAsking(null)}>Keep my board</Button>
           </div>

@@ -22,6 +22,7 @@ import { uid } from "@/core/lib/ids";
 import { getFeature, setBrought } from "./catalog";
 import { Boxes } from "lucide-react";
 import { takeDoc, pictureLayersOff } from "./docTake";
+import type { Taken } from "./reimport";
 import type { SiteHead } from "./siteHead";
 import { formatDefaults, type FormatValues } from "./format";
 import { swapColour, swapFont, type ColourUse, type FaceTo } from "./siteColours";
@@ -852,6 +853,14 @@ interface StudioState extends Doc {
    */
   swept?: number | null;
   /**
+   * THE BOARD AS IT WAS BROUGHT IN, as hashes (`reimport.ts#fingerprint`):
+   * recorded at the end of every import, after the sweep and the palette,
+   * so bringing the site in again can tell what the owner changed since
+   * from what the machine wrote, and keep his. Null on a board nobody
+   * brought in, or one brought in before this was kept.
+   */
+  taken?: Taken | null;
+  /**
    * WHAT THE SWEEP ON OPEN DID, IN WORDS, UNTIL SOMEBODY HAS SAID IT.
    *
    * Nothing in this file can publish a line of news, and hydration may
@@ -1006,11 +1015,12 @@ interface StudioState extends Doc {
   }[];
   addDraw: (d: Omit<StudioState["draws"][number], "id" | "at">) => void;
   removeDraw: (id: string) => void;
-  bringRepo: { space: string; repo: string; pageId?: string } | null;
+  /** `keep`: bring it in over the board keeping what the owner changed (`reimport.ts`). */
+  bringRepo: { space: string; repo: string; pageId?: string; keep?: boolean } | null;
   /** Learn on click: the presses a capture held back and the ones asked for (`learn.ts`). Kept with the board, never published. */
   learn: LearnState;
   setLearn: (next: LearnState | ((was: LearnState) => LearnState)) => void;
-  setBringRepo: (v: { space: string; repo: string; pageId?: string } | null) => void;
+  setBringRepo: (v: { space: string; repo: string; pageId?: string; keep?: boolean } | null) => void;
   /**
    * Make the surface: lock every element in it where it was drawn, and set
    * it forming. The layout is the specification, so this is where it stops
@@ -1644,6 +1654,7 @@ export const useStudio = create<StudioState>()(
         hiddenFeatures: [],
         brought: [],
         broughtParts: [],
+        taken: null,
         mode: "design",
         companion: { device: "phone", x: -18, y: -18, open: false },
         trail: [],
@@ -3142,6 +3153,8 @@ function docOnly(s: StudioState) {
         /* Saved, because "once per document" is a promise that has to
            survive the reload it is protecting against. */
         swept: s.swept,
+        /* The record a later "keep my changes" import reads; part of the site, like the sweep's mark. */
+        taken: s.taken ?? null,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,

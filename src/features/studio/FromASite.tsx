@@ -48,6 +48,8 @@ import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { landPalette } from "./paletteFrom";
 import { takeImportMark, useStudio, type StudioNode } from "./store";
+import { fingerprint, isTaken, keepOwnerEdits, keptSays, type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "./reimport";
+import { sourceNote } from "./polioMd";
 import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
@@ -197,6 +199,60 @@ export const HEADLESS = "bring_";
 const isHeadless = (space: Space) => space.id.startsWith(HEADLESS);
 
 /**
+ * A document laid on the board as an import lays it: loaded, swept once in
+ * the sweep's order, its palette landed. The board it leaves is the board
+ * "as brought in", which `reimport.ts` records.
+ */
+function landAsBrought(doc: Record<string, unknown>): void {
+  useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
+  /*
+   * PUT RIGHT BY THE SWEEP, IN THE SWEEP'S ORDER, AND BY NOTHING ELSE.
+   *
+   * Measured through this door with sink's document: the sweep never ran
+   * on an import. The empty site it lands on had been opened, and a board
+   * with nothing captured on it is marked swept; `loadDoc` kept the mark,
+   * so the imported document arrived "already swept" and the grow step,
+   * the duplicate pass and the repaint never reached it. What ran instead
+   * were a sentence join and `fitWrappers`, called here on their own.
+   *
+   * And those two cannot simply run first. Fitting before the sweep shrank
+   * his rail to the box of the nav inside it, and the sweep's duplicate
+   * pass — which reads the document AS SAVED so it only ever deletes for
+   * something the capture said — then read a height this code had chosen
+   * as a twin and deleted the nav. So the mark the document came with is
+   * the only one it keeps (a published document carries none), and the
+   * sweep does all of it. Its sentence is said here, in this import's own
+   * line, rather than a second time under "put right when it opened".
+   */
+  useStudio.setState({ swept: (doc as { swept?: number | null }).swept ?? null });
+  useStudio.getState().sweepDocument();
+  /*
+   * THE SITE'S OWN COLOURS, AND HIS PARTS TIED TO THEM (`paletteFrom.ts`).
+   *
+   * After the sweep, never before it: the sweep's repaint reads a
+   * control's ink as a colour to mix, and a role's name is not one. So the
+   * six roles are picked off the board as the sweep left it, and each part
+   * colour that is exactly a role's colour is written as the role's name.
+   * The board draws the same; moving a role now moves what wore it.
+   */
+  {
+    const now = useStudio.getState();
+    const captured = (doc as { look?: { palette?: Record<string, string> } }).look?.palette ?? {};
+    const landed = landPalette(now.nodes, captured);
+    useStudio.setState({ nodes: landed.nodes, look: { ...now.look, palette: landed.palette, paletteFrom: landed.from } });
+  }
+}
+
+/** The board's document as the merge reads it. */
+function boardNow(): MergeDoc<StudioNode & MergeNodeOf> {
+  const s = useStudio.getState();
+  return { nodes: s.nodes, format: s.format, brief: s.brief, look: s.look };
+}
+
+/** What a "keep my changes" import keeps from: the board's own record, or the document it was brought in from. */
+export interface KeepFrom { taken: Taken | null; base: RepoCopy | null; from: string | null }
+
+/**
  * A REPOSITORY COMES IN WITHOUT A SPACE.
  *
  * The importer lives in this component, and this component lived only on a
@@ -268,10 +324,11 @@ export function FromASite({ space }: { space: Space }) {
      * wait for: it runs at once.
      */
     const r = readRepo(handed.repo);
+    const keep = !!handed.keep;
     useStudio.getState().setBringRepo(null);
     setRepoText(handed.repo);
     /* An exception anywhere in the read is an ending too, said by name. */
-    void readRepository(r).catch((err: unknown) => refuse(`stopped before it could finish: ${err instanceof Error ? err.message : String(err)}`, r));
+    void readRepository(r, keep).catch((err: unknown) => refuse(`stopped before it could finish: ${err instanceof Error ? err.message : String(err)}`, r));
   }, [handed, space.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
@@ -326,7 +383,7 @@ export function FromASite({ space }: { space: Space }) {
    * panel mounted, 0 requests, nothing said. A function that reads its
    * input from state it has just set is a function that runs once too early.
    */
-  const readRepository = async (given?: Repo | null) => {
+  const readRepository = async (given?: Repo | null, keep = false) => {
     const r = given ?? repo;
     if (!r) return;
     bringing.current = r;
@@ -337,6 +394,24 @@ export function FromASite({ space }: { space: Space }) {
     /* Reading one of the owner's repositories is when the features a code chat built there are offered back (`library/repoFeatures.ts`). */
     void checkRepoFeatures({ owner: r.owner, name: r.name, ref: r.ref ?? null }, token);
     const got = await readRepoSite(r, token, (says) => busy(says));
+    if (isCopy(got) && keep) {
+      /*
+       * KEEPING WHAT HE CHANGED (`reimport.ts`). The board's own record of
+       * itself as brought in, else the document it was brought in from, read
+       * at the commit it was read at; with neither, the careful merge.
+       */
+      const st = useStudio.getState();
+      const taken = isTaken(st.taken) ? st.taken : null;
+      const src = sourceNote((st.look as { capture?: { source?: unknown } }).capture?.source);
+      let base: RepoCopy | null = null;
+      if (!taken && src?.commit) {
+        const [owner, name] = src.repo.split("/");
+        const was = await readRepoSite({ owner: owner!, name: name!, ref: src.commit, dir: src.dir ?? null }, token, (says) => busy(`As this board was first brought in: ${says}`));
+        if (isCopy(was)) base = was;
+      }
+      copySite(got, r, { taken, base, from: src ? `${src.repo}${src.dir ? `/${src.dir}` : ""}@${src.commit ?? src.branch ?? ""}` : null });
+      return;
+    }
     if (isCopy(got)) { copySite(got, r); return; }
     if (refused(got)) {
       /*
@@ -409,7 +484,7 @@ export function FromASite({ space }: { space: Space }) {
    * document becomes the repository's, whole, the site takes its name and
    * its repository, and one undo brings the old board back.
    */
-  const copySite = (copy: RepoCopy, of: Repo) => {
+  const copySite = (copy: RepoCopy, of: Repo, keep?: KeepFrom | null) => {
     const st = useStudio.getState();
     /* One undo takes the whole import back: the spaces cleared, the document
        loaded, the sweep and the palette are one step, not three. */
@@ -422,43 +497,27 @@ export function FromASite({ space }: { space: Space }) {
     const here = activeProject();
     if (!here) { builds.adopt(); }
     const id = activeProject()?.id ?? null;
-    useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
-    /*
-     * PUT RIGHT BY THE SWEEP, IN THE SWEEP'S ORDER, AND BY NOTHING ELSE.
-     *
-     * Measured through this door with sink's document: the sweep never ran
-     * on an import. The empty site it lands on had been opened, and a board
-     * with nothing captured on it is marked swept; `loadDoc` kept the mark,
-     * so the imported document arrived "already swept" and the grow step,
-     * the duplicate pass and the repaint never reached it. What ran instead
-     * were a sentence join and `fitWrappers`, called here on their own.
-     *
-     * And those two cannot simply run first. Fitting before the sweep shrank
-     * his rail to the box of the nav inside it, and the sweep's duplicate
-     * pass — which reads the document AS SAVED so it only ever deletes for
-     * something the capture said — then read a height this code had chosen
-     * as a twin and deleted the nav. So the mark the document came with is
-     * the only one it keeps (a published document carries none), and the
-     * sweep does all of it. Its sentence is said here, in this import's own
-     * line, rather than a second time under "put right when it opened".
-     */
-    useStudio.setState({ swept: (copy.document as { swept?: number | null }).swept ?? null });
-    useStudio.getState().sweepDocument();
-    /*
-     * THE SITE'S OWN COLOURS, AND HIS PARTS TIED TO THEM (`paletteFrom.ts`).
-     *
-     * After the sweep, never before it: the sweep's repaint reads a
-     * control's ink as a colour to mix, and a role's name is not one. So the
-     * six roles are picked off the board as the sweep left it, and each part
-     * colour that is exactly a role's colour is written as the role's name.
-     * The board draws the same; moving a role now moves what wore it.
-     */
-    {
-      const now = useStudio.getState();
-      const captured = (copy.document as { look?: { palette?: Record<string, string> } }).look?.palette ?? {};
-      const landed = landPalette(now.nodes, captured);
-      useStudio.setState({ nodes: landed.nodes, look: { ...now.look, palette: landed.palette, paletteFrom: landed.from } });
+    /* Kept first, the board as it stands and its record, when the owner asked to keep what he changed (`reimport.ts`). */
+    const board = keep ? boardNow() : null;
+    let taken = keep ? keep.taken : null;
+    /* No record on the board: the document it was brought in from, taken in the same way, is the record. */
+    if (keep && !taken && keep.base) {
+      landAsBrought(keep.base.document);
+      taken = fingerprint(boardNow(), keep.from);
     }
+    landAsBrought(copy.document);
+    /* The board as brought in, recorded; and, keeping, the owner's changes laid back over it. */
+    const src = sourceNote((copy.document as { source?: unknown }).source);
+    const brought = boardNow();
+    const record = fingerprint(brought, src ? `${src.repo}${src.dir ? `/${src.dir}` : ""}@${src.commit ?? src.branch ?? copy.ref}` : `${of.owner}/${of.name}@${copy.ref}`);
+    let keptLine = "";
+    if (board) {
+      const { doc, kept } = keepOwnerEdits(board, taken, brought);
+      type S = ReturnType<typeof useStudio.getState>;
+      useStudio.setState({ nodes: doc.nodes, format: doc.format as S["format"], brief: doc.brief as S["brief"], look: doc.look as S["look"] });
+      keptLine = ` Brought in again over your board: ${keptSays(kept)}`;
+    }
+    useStudio.setState({ taken: record });
     useStudio.getState().oneStepSince(mark);
     const sweptSays = useStudio.getState().sweepNote ?? "";
     useStudio.setState({ sweepNote: null });
@@ -484,7 +543,7 @@ export function FromASite({ space }: { space: Space }) {
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       /* Said out loud, and by name where a part he had moved was replaced:
          that naming is how he checks the ruling was read right. */
-      const sentencesSaid = sweptSays ? ` ${sweptSays}` : "";
+      const sentencesSaid = `${sweptSays ? ` ${sweptSays}` : ""}${keptLine}`;
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,

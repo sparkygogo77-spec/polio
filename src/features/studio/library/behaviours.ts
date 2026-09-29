@@ -306,14 +306,16 @@ const MARQUEE: Work = {
     blurb: "The part's contents run round continuously, like a ticker.",
     inputs: [
       { id: "speed", label: "Speed (px a second)", kind: "number", default: "60" },
+      /* Moved by so much every frame the screen draws, as a page's own script does it (trumpmorty.fun's ribbons: 0.6 px): as fast as the original on any screen, 60 Hz or 144 Hz. Set, it is used instead of Speed. */
+      { id: "step", label: "Step (px a frame; blank uses Speed)", kind: "number", default: "" },
       { id: "direction", label: "Runs", kind: "one", default: "left", values: ["left", "right"], heard: "\\b(left|right)\\b" },
       { id: "pause", label: "Pause under the mouse", kind: "one", default: "yes", values: ["yes", "no"] },
       { id: "gap", label: "Gap between loops (px)", kind: "number", default: "40" },
       /* Where its words sit in the band they run along (a ribbon): as the page set them, or in its middle, at the size asked. Drawn by the part itself (blocks.tsx#bandOf), so the board shows it too. */
       { id: "middle", label: "Centre in its band", kind: "one", default: "no", values: ["no", "yes"] },
       { id: "size", label: "Text size (px; blank keeps it)", kind: "number", default: "", advanced: true },
-      { id: "boost", label: "Speeds up with the scroll (px a frame, per px scrolled a frame)", kind: "number", default: "0", advanced: true },
-      { id: "cap", label: "Speeds up by at most (px a frame)", kind: "number", default: "14", advanced: true },
+      { id: "boost", label: "Scroll boost (px a frame, per px scrolled a frame)", kind: "number", default: "0" },
+      { id: "cap", label: "Scroll boost at most (px a frame)", kind: "number", default: "14" },
     ],
     needs: "none",
     says: ["marquee", "marquee loop", "ticker", "scrolling ticker", "news ticker", "scrolling text", "loop text"],
@@ -339,6 +341,8 @@ const MARQUEE: Work = {
   track.appendChild(one); host.appendChild(track);
   host.style.overflow = "hidden";
   var anim = null, held = false;
+  /* By the frame: stepped in a frame loop of its own, the scroll's boost added to each step, wrapped at one copy's width. */
+  var perFrame = Number(inputs.step), byFrame = inputs.step !== "" && inputs.step !== undefined && isFinite(perFrame) && perFrame > 0, loopW = 1, fx = 0;
   function build() {
     while (track.children.length > 1) track.removeChild(track.lastChild);
     var w = one.offsetWidth || one.getBoundingClientRect().width, need = Math.max(1, Math.ceil(host.clientWidth / Math.max(1, w)));
@@ -349,6 +353,8 @@ const MARQUEE: Work = {
       track.appendChild(c);
     }
     if (anim) anim.cancel();
+    loopW = Math.max(1, w);
+    if (byFrame) return;
     var a = "translateX(0px)", b = "translateX(" + -w + "px)";
     anim = track.animate([{ transform: right ? b : a }, { transform: right ? a : b }], { duration: Math.max(1, w / speed * 1000), iterations: Infinity });
     if (held) anim.pause();
@@ -362,6 +368,23 @@ const MARQUEE: Work = {
   }
   /* The scroll hurries it: its step a frame is its own plus the scroll's pace (eased, as the page measured it) times the boost, never more than the cap. */
   var boost = Math.max(0, Number(inputs.boost) || 0), cap = Math.max(0, Number(inputs.cap)); if (!isFinite(cap) || inputs.cap === "" || inputs.cap === undefined) cap = 14;
+  if (byFrame) {
+    var fbox = null;
+    for (var fq = el.parentElement; fq && fq !== document.body; fq = fq.parentElement) { var fov = getComputedStyle(fq).overflowY; if ((fov === "auto" || fov === "scroll") && fq.scrollHeight > fq.clientHeight) { fbox = fq; break; } }
+    var fy0 = fbox ? fbox.scrollTop : window.scrollY, fvel = 0, dir = right ? 1 : -1;
+    (function run() {
+      if (!el.isConnected) return;
+      var y = fbox ? fbox.scrollTop : window.scrollY;
+      fvel = fvel * 0.9 + (y - fy0) * 0.1; fy0 = y;
+      if (!held) {
+        fx += dir * (perFrame + Math.min(Math.abs(fvel) * boost, cap));
+        if (fx <= -loopW) fx += loopW; else if (fx > 0) fx -= loopW;
+        track.style.transform = "translateX(" + fx + "px)";
+      }
+      requestAnimationFrame(run);
+    })();
+    return;
+  }
   if (boost > 0) {
     var sbox = null;
     for (var q = el.parentElement; q && q !== document.body; q = q.parentElement) { var ov = getComputedStyle(q).overflowY; if ((ov === "auto" || ov === "scroll") && q.scrollHeight > q.clientHeight) { sbox = q; break; } }
@@ -434,6 +457,8 @@ const CRT: Work = {
       { id: "channel", label: "Channel", kind: "text", default: "CH 47" },
       { id: "label", label: "Label", kind: "text", default: "TUNING" },
       { id: "hold", label: "Shown at least (seconds)", kind: "number", default: "1.8" },
+      /* The moment the original switched off, from the navigation's start (sink `loader.nav.off`): set, it goes then, on the visitor's own clock, however late its script ran. */
+      { id: "at", label: "Switches off at (seconds after the page is asked for; blank uses Shown at least)", kind: "number", default: "", advanced: true },
     ],
     needs: "none",
     says: ["crt loader", "crt", "tv loader", "tuning screen", "loading screen", "preloader"],
@@ -446,6 +471,8 @@ const CRT: Work = {
   var title = String(inputs.title || "").trim() || String(el.textContent || "").replace(/\\s+/g, " ").trim();
   var ticker = String(inputs.ticker || "").trim(), pic = String(inputs.picture || "").trim() || (img && img.currentSrc) || "";
   var hold = Math.max(0.3, Number(inputs.hold) || 1.8) * 1000;
+  /* Timed from the navigation (performance.now's own origin), as the original was: the ramp ends 350 ms before it and the switch-off starts on it. Blank: from when this script ran, for Shown at least. */
+  var at = inputs.at === "" || inputs.at === undefined ? NaN : Number(inputs.at) * 1000, byNav = isFinite(at) && at > 0 && !!(window.performance && performance.now);
   var green = "#b8ff6a", glow = "0 0 8px rgba(160,255,90,.8),2px 2px 0 #000", mono = "ui-monospace,SFMono-Regular,Menlo,monospace";
   function add(parent, tag, css, text) { var n = document.createElement(tag); n.style.cssText = css; if (text) n.textContent = text; parent.appendChild(n); return n; }
   var o = document.createElement("div");
@@ -486,16 +513,23 @@ const CRT: Work = {
   root.style.overflow = "hidden";
   var t0 = Date.now(), shown = 0, done = false, loaded = document.readyState === "complete";
   window.addEventListener("load", function () { loaded = true; });
-  setTimeout(function () { loaded = true; }, hold + 6000);
+  setTimeout(function () { loaded = true; }, (byNav ? Math.max(0, at - performance.now()) + 1500 : hold + 6000));
   (function tick() {
     if (done) return;
-    var cap = Math.min(loaded ? 100 : 90, (Date.now() - t0) / hold * 100);
-    shown += (cap - shown) * 0.12;
-    if (shown > 99.4 && loaded) shown = 100;
+    if (byNav) {
+      /* Its own clock: the bar full 350 ms before the moment, then off on it; a page still loading holds it at most 1.5 s more. */
+      var now = performance.now(), ramp = Math.max(1, at - 350);
+      shown = Math.min(loaded ? 100 : 90, now / ramp * 100);
+      if (now >= ramp && loaded) shown = 100;
+    } else {
+      var cap = Math.min(loaded ? 100 : 90, (Date.now() - t0) / hold * 100);
+      shown += (cap - shown) * 0.12;
+      if (shown > 99.4 && loaded) shown = 100;
+    }
     lab.textContent = String(inputs.label || "") + " " + Math.round(shown) + "%";
     bar.style.width = shown + "%";
     cv.style.opacity = String(0.55 - shown / 100 * 0.4);
-    if (shown >= 100) { done = true; setTimeout(off, 350); return; }
+    if (shown >= 100) { done = true; setTimeout(off, byNav ? Math.max(0, at - performance.now()) : 350); return; }
     requestAnimationFrame(tick);
   })();
   function off() {

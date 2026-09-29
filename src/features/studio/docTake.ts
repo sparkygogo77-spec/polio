@@ -10,6 +10,7 @@
 import { captureNotes, sourceNote } from "./polioMd.ts";
 import { attachCaptured } from "./library/captured.ts";
 import { learnFromDoc, type LearnState } from "./learn.ts";
+import { isTaken } from "./reimport.ts";
 export interface DocIn {
   pages?: { id: string }[];
   nodes?: unknown[];
@@ -31,6 +32,8 @@ export interface DocIn {
   source?: unknown;
   /** What the captured site said about itself in its head (sink `doc.head`): kept on the brief. Each page's own is on the page. */
   head?: unknown;
+  /** The board as it was brought in (`reimport.ts`), when the document carries one: a document without it has none, never the last board's. */
+  taken?: unknown;
 }
 
 export interface DocPrev {
@@ -116,6 +119,7 @@ export function takeDoc<P extends DocPrev>(
     motion: doc.motion ?? s.motion,
     /* What the capture held back, and what a later one learned: beside the document, never in what is published (`learn.ts`). */
     learn: learnFromDoc(doc as Record<string, unknown>, (s as { learn?: LearnState }).learn),
+    taken: isTaken(doc.taken) ? doc.taken : null,
     frameWidth: width,
     activePageId: pages[0]!.id,
     selection: [] as string[],

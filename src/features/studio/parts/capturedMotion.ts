@@ -13,7 +13,7 @@
  *     `[data-part-box]` wrapper `blocks.tsx` puts round it, which also
  *     wears its captured transform, so an animation of `transform` replaces
  *     it exactly as it did on the page);
- *   · a `:hover` / `:focus` rule on the part's own box when the element
+ *   · a `:hover` / `:active` / `:focus` rule on the part's own box when the element
  *     itself was hovered (`self`), and, when an ancestor was (`.tv:hover
  *     .knob`), keyed on that ancestor: the part that holds it by selector,
  *     and every part inside that one, since hovering anything inside the TV
@@ -31,13 +31,15 @@ import type { NodeLink } from "./types";
 export interface MotionAnimation { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }
 /** One transitioned property. */
 export interface MotionTransition { property: string; duration?: string; timing?: string; delay?: string }
-/** A rule that applies while the element (`self`) or an ancestor is hovered or focused. */
+/** A rule that applies while the element (`self`) or an ancestor is hovered, pressed or focused. */
 export interface MotionState { selector?: string; self?: boolean; state?: string; style?: Record<string, string> }
 /** What a node does over time (sink `node.motion`). */
 export interface NodeMotion {
   animation?: MotionAnimation[];
   transition?: MotionTransition[];
   hover?: MotionState[];
+  /** Pressed (`:active`): its own state, written after the hover so a press wins over the hover it happens under. */
+  active?: MotionState[];
   focus?: MotionState[];
   /** The animation every letter of a folded title shares. */
   letter?: { animation?: MotionAnimation[] } | null;
@@ -118,7 +120,7 @@ export function keyframesCss(list: readonly CapturedKeyframes[] | undefined): st
 /** Does this node move, or embed, so it needs a box to carry it? */
 export function hasMotion(n: { motion?: NodeMotion | null; embed?: NodeEmbed | null }): boolean {
   const m = n.motion;
-  return !!(m && (m.animation?.length || m.transition?.length || m.hover?.length || m.focus?.length)) || !!n.embed?.src;
+  return !!(m && (m.animation?.length || m.transition?.length || m.hover?.length || m.active?.length || m.focus?.length)) || !!n.embed?.src;
 }
 
 /** The class a node's box wears, so the stylesheet can reach it on every surface (the export keeps classes). */
@@ -137,7 +139,7 @@ export function hoverHost(node: MotionNode, rule: MotionState, nodes: readonly M
   const sel = node.from?.selector;
   if (!sel) return null;
   const compounds = (rule.selector ?? "").split(/\s*[\s>+~]\s*/).filter(Boolean);
-  const at = compounds.findIndex((c) => /:(hover|focus)/.test(c));
+  const at = compounds.findIndex((c) => /:(hover|active|focus)/.test(c));
   const up = at >= 0 ? Math.max(1, compounds.length - 1 - at) : 1;
   const depth = (s: string) => s.split(" > ").length;
   const mine = depth(sel);
@@ -184,11 +186,11 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
     if (own.length) rules.push(`${box} { ${own.join("; ")}; }`);
     const kids = inside(n, nodes);
     const moveTrans = transitionValue((m.transition ?? []).filter((t) => t.property === "all" || MOVES.has(t.property)));
-    for (const [kind, list] of [["hover", m.hover], ["focus", m.focus]] as const) {
+    for (const [kind, list] of [["hover", m.hover], ["active", m.active], ["focus", m.focus]] as const) {
       for (const r of list ?? []) {
         const decl = declarations(r.style, true);
         if (!decl) continue;
-        const pseudo = kind === "hover" ? ":hover" : r.state === "focus-visible" ? ":focus-visible" : ":focus-within";
+        const pseudo = kind === "hover" ? ":hover" : kind === "active" ? ":active" : r.state === "focus-visible" ? ":focus-visible" : ":focus-within";
         const host = r.self !== false ? n : hoverHost(n, r, nodes);
         if (!host || !ID.test(host.id)) continue;
         const group = [host, ...inside(host, nodes)];

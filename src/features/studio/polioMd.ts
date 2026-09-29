@@ -179,7 +179,7 @@ interface Part {
   task?: string | null;
   work?: WorkUse | null;
   from?: { url?: string; host?: string; selector?: string; at?: number } | null;
-  motion?: { animation?: { name?: string; duration?: string; timing?: string; iterations?: string }[]; transition?: { property?: string }[]; hover?: unknown[]; focus?: unknown[] } | null;
+  motion?: { animation?: { name?: string; duration?: string; timing?: string; iterations?: string }[]; transition?: { property?: string }[]; hover?: unknown[]; active?: unknown[]; focus?: unknown[] } | null;
   state?: { group?: string; option?: number } | null;
   radius?: number | null;
   radii?: number[] | null;
@@ -452,15 +452,15 @@ export function polioMd(site: PolioSite): string {
     say("");
   }
   /* Focus alone is the page's one focus ring on everything: not motion. */
-  const styled = nodes.filter((n) => n.motion && ((n.motion.animation?.length ?? 0) + (n.motion.transition?.length ?? 0) + (n.motion.hover?.length ?? 0)) > 0);
+  const styled = nodes.filter((n) => n.motion && ((n.motion.animation?.length ?? 0) + (n.motion.transition?.length ?? 0) + (n.motion.hover?.length ?? 0) + (n.motion.active?.length ?? 0)) > 0);
   if (styled.length) {
-    say("### Motion and hover from the stylesheet", "", "Written into `assets/site.css` against each part's id; the keyframes are prefixed `cap-`. Parts moving the same way are one row.", "", "| Animation | Transition | Hover / focus | Parts |", "|---|---|---|---|");
+    say("### Motion and hover from the stylesheet", "", "Written into `assets/site.css` against each part's id; the keyframes are prefixed `cap-`. Parts moving the same way are one row.", "", "| Animation | Transition | Hover / press / focus | Parts |", "|---|---|---|---|");
     const rows = new Map<string, { anim: string; tr: string; hv: string; ids: string[] }>();
     for (const n of styled) {
       const m = n.motion!;
       const anim = (m.animation ?? []).map((a) => [a.name, a.duration, a.timing, a.iterations === "infinite" ? "loops" : ""].filter(Boolean).join(" ")).join("; ");
       const tr = (m.transition ?? []).map((t) => t.property ?? "").filter(Boolean).join(", ");
-      const hv = [(m.hover?.length ?? 0) ? "hover" : "", (m.focus?.length ?? 0) ? "focus" : ""].filter(Boolean).join(", ");
+      const hv = [(m.hover?.length ?? 0) ? "hover" : "", (m.active?.length ?? 0) ? "press" : "", (m.focus?.length ?? 0) ? "focus" : ""].filter(Boolean).join(", ");
       const k = `${anim}\u0000${tr}\u0000${hv}`;
       const row = rows.get(k) ?? { anim, tr, hv, ids: [] };
       row.ids.push(n.id);

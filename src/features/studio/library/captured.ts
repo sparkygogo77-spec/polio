@@ -121,10 +121,13 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const pic = out.find((n) => n.featureId === "picture" && want.some((w) => { const s = stem(n.data); return !!s && (s === w || s.startsWith(`${w}-`)); }));
     const host = pic ?? out[0];
     const off = num((loader.off as Rec | undefined)?.afterMs) ?? num(loader.lastedMs);
+    /* When it switched off from the navigation's start (sink `loader.nav.off`): the moment the page showed through on the original, on a visitor's clock. */
+    const at = num((loader.nav as Rec | undefined)?.off);
     if (host) give(host.id, { id: "crt-loader", inputs: {
       title: String(loader.title ?? ""), ticker: String(loader.ticker ?? ""),
       channel: String(loader.channel ?? ""), label: String(loader.label ?? ""),
       ...(off ? { hold: String(round(off / 1000, 10)) } : {}),
+      ...(at && at > 0 ? { at: String(round(at / 1000, 100)) } : {}),
     } });
   }
 
@@ -162,7 +165,9 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     if (l.kind !== "marquee" || !l.part || l.folded) continue;
     const perFrame = num(l.perFrame);
     const speed = perFrame !== null ? perFrame * 60 : num(l.speed) ?? 60;
-    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), direction: l.direction === "right" ? "right" : "left", pause: "no", gap: "0" } });
+    /* Stepped by the page every frame (sink `clock: "frame"`, told apart by sampling at two frame rates): so much a frame here too, so a 144 Hz screen runs it as fast as the original did there. */
+    const step = l.clock === "frame" && perFrame ? { step: str(perFrame) } : {};
+    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: "0" } });
   }
 
   /* Layers that follow the pointer and the scroll. */
