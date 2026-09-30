@@ -68,7 +68,8 @@ const l = await page.evaluate(() => {
 
 check("there is one layer, not four", l.n === 1, `${l.n}`);
 check("nothing records having been laid again", l.laidAt === null, "no data-laid-at, because nothing is re-laid");
-check("it runs for ever, at a constant rate", l.iter === "infinite" && l.timing === "linear" && l.name === "ground-drift", `${l.name} ${l.timing} ${l.iter}`);
+/* One whole pixel a step (ground.ts): steps(period) over a slide of exactly period px is the same constant rate, landing on the pixel grid. */
+check("it runs for ever, at a constant rate, a whole pixel a step", l.iter === "infinite" && l.timing === `steps(${Math.round(l.gx)})` && l.name === "ground-drift", `${l.name} ${l.timing} ${l.iter}`);
 const spare = l.box.width - l.board;
 check("it slides sideways only", l.gy === 0, `${l.gx},${l.gy}`);
 check(

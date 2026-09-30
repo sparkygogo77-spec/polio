@@ -113,8 +113,11 @@ console.log("0. On the board");
     const img = document.querySelector(`[data-node-id="${id}"] img`);
     return img ? getComputedStyle(img).borderTopWidth : null;
   }, id);
+  /* Read at 1:1: the board draws its page with CSS zoom (Canvas.tsx), so a computed length there is the zoomed one (a 1px edge reads 1.75px at 0.57). */
+  const zoomWas = await page.evaluate(() => { const z = document.querySelector("[data-board-zoom]"); const was = z?.style.zoom ?? ""; if (z) z.style.zoom = "1"; return was; });
   check("the captured SolWorks logo draws no border on the board", (await edge(LOGO.id)) === "0px", `${LOGO.id}: ${await edge(LOGO.id)}`);
   check("a picture placed by hand keeps its default border", (await edge(HAND)) === "1px", `${HAND}: ${await edge(HAND)}`);
+  await page.evaluate((was) => { const z = document.querySelector("[data-board-zoom]"); if (z) z.style.zoom = was; }, zoomWas);
   const mark = await page.evaluate(() => document.querySelector("[data-site-mark] [data-picture-id]")?.getAttribute("data-picture-id") ?? null);
   check("the Builder's top-bar mark is the SolWorks logo", mark === "pic_cc8659c3", String(mark));
 }
@@ -348,7 +351,7 @@ console.log("5. The head");
     check(`${tag}: the description`, head.description === DESCRIPTION, String(head.description));
     check(`${tag}: Open Graph title, description and type`, !!head.ogTitle && head.ogDescription === DESCRIPTION && head.ogType === "website", JSON.stringify([head.ogTitle, head.ogDescription, head.ogType]));
     check(`${tag}: og:image is the site's picture at the site's address`, head.ogImage === `${LIVE}/assets/pictures/pic_cc8659c3.png`, String(head.ogImage));
-    check(`${tag}: og:url is this page at the site's address`, head.ogUrl === `${LIVE}/${slug(p)}`, String(head.ogUrl));
+    check(`${tag}: og:url is this page at the site's address`, head.ogUrl === `${LIVE}${addr(p)}`, String(head.ogUrl));
   }
   await v.close();
 }

@@ -41,7 +41,10 @@ check("…and a row with nothing before its words is the same object", L.withLea
 const doc = await trumpmorty();
 if (!doc) { console.log("the trumpmorty capture was not found; the page half did not run"); process.exit(results.every(Boolean) ? 0 : 1); }
 const leads = L.leadInsets(doc.nodes);
-check("on trumpmorty.fun the badge is the one row it moves", leads.size === 1 && leads.get("n_prose_143") === 37, JSON.stringify([...leads]));
+/* Found by its words and its dot, not by id: a newer capture numbers parts afresh, and writes the badge's inset itself (then no inset is added). */
+const badge = doc.nodes.find((n) => n.content === "LIVE FROM THE YELLOW DIMENSION");
+const lead = badge && doc.nodes.find((n) => n.from?.selector === `${badge.from?.selector} > i`);
+check("on trumpmorty.fun the badge's words stand past its dot and the gap", !!badge && !!lead && L.withLead(badge, leads).pad?.left === lead.x + lead.w - badge.x + 10 && [...leads.keys()].every((id) => id === badge.id), JSON.stringify({ badge: badge?.id, dot: lead?.id, pad: badge?.pad, leads: [...leads] }));
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
@@ -65,11 +68,12 @@ const MEASURE = ({ root, badge, dot, scaleBy }) => {
   const x = (v) => Math.round((v - f.left) / z);
   return { words: x(r.getBoundingClientRect().left), dotRight: x(d.getBoundingClientRect().right) };
 };
-const board = await page.evaluate(MEASURE, { root: "[data-frame]", badge: '[data-node-id="n_prose_143"]', dot: '[data-node-id="n_box_144"]', scaleBy: 1440 });
+const board = await page.evaluate(MEASURE, { root: "[data-frame]", badge: `[data-node-id="${badge?.id}"]`, dot: `[data-node-id="${lead?.id}"]`, scaleBy: 1440 });
 check("on the board the words start after the dot and the gap (live: 136)", !!board && Math.abs(board.words - 136) <= 2 && board.words > board.dotRight, JSON.stringify(board));
 
 const files = await page.evaluate(async () => await window.__studioExport());
-const out = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+/* Less motion asked: the site's loader and the badge's reveal (it comes in scaled) skip themselves, so the page is read at rest. */
+const out = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
 await out.route("http://export.local/**", (r) => {
   const p = decodeURIComponent(new URL(r.request().url()).pathname).replace(/^\/+/, "") || "index.html";
   const f = files.find((x) => x.path === p);
@@ -80,7 +84,7 @@ await out.route("http://export.local/**", (r) => {
 await out.route(/^(?!http:\/\/export\.local\/).*/, (r) => r.fulfill({ status: 404, body: "" }));
 await out.goto("http://export.local/index.html", { waitUntil: "networkidle" }).catch(() => {});
 await out.waitForTimeout(1500);
-const exp = await out.evaluate(MEASURE, { root: "body", badge: "#n_prose_143", dot: "#n_box_144", scaleBy: 0 });
+const exp = await out.evaluate(MEASURE, { root: "body", badge: `#${badge?.id}`, dot: `#${lead?.id}`, scaleBy: 0 });
 check("in the export too", !!exp && Math.abs(exp.words - 136) <= 2 && exp.words > exp.dotRight, JSON.stringify(exp));
 await out.screenshot({ path: join(here, "..", ".scratch", "lead-export.png"), clip: { x: 80, y: 130, width: 420, height: 100 } }).catch(() => {});
 

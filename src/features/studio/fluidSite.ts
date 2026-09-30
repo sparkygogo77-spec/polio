@@ -308,7 +308,8 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       else if (C.maxw && C.maxw > 0 && C.w <= C.maxw + E && (spans || (C.w >= C.maxw - E && Math.abs(left - right) <= E))) {
         const inside = css(plus(px(inR - inL), grow, 1, W), W).replace(/^calc/, "");
         const grown = css(plus(px(C.w), grow, 1, W), W).replace(/^calc/, "");
-        const width = `min(${C.maxw}px, ${grown})`;
+        /* Grown with what holds it only when it filled it; a row narrower than what holds it (SOLCINERATOR's 1280 header row in a 1731 band) is as wide as the room, up to its max-width. */
+        const width = `min(${C.maxw}px, ${spans ? grown : inside})`;
         const l0 = css(plus(pk.left, px(inL - P.x), 1, W), W).replace(/^calc/, "");
         const centred = Math.abs(left - right) <= E;
         /* The free space shared as the capture shared it: the browser's own rounding kept (SOLCINERATOR's 1280 row at 242, not 241.5, in 1763), so at W it is exactly where it was. */
@@ -371,8 +372,10 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
        * is seen centred. Placed at 720 it sat right of the middle in any
        * wider window. Where it is seen (its box and its move across) decides:
        * centred in the window, it keeps its offset from the window's middle.
+       * A band that spans what holds it (a fixed header or footer) is centred
+       * too, but it stretches with the window, as `spans` placed it.
        */
-      if (C.position === "fixed" && !fixed && Math.abs(C.x + (C.shiftX ?? 0) + C.w / 2 - W / 2) <= Math.max(E, 2)) k = at(0.5);
+      if (C.position === "fixed" && !fixed && !spans && Math.abs(C.x + (C.shiftX ?? 0) + C.w / 2 - W / 2) <= Math.max(E, 2)) k = at(0.5);
       let f = fixed;
       if (!f && C.position === "fixed") {
         /*

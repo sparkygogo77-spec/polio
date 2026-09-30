@@ -50,11 +50,13 @@ const node = (id, f, content, x, y, w, h, extra = {}) => ({
   ...extra,
 });
 
-/* A paragraph measured at a height its words do not fit in on this machine,
-   with three bullets under it at the y the capture recorded — his shape. */
+/* A paragraph measured two lines tall, whose words need three here, with
+   three bullets under it at the y the capture recorded — his shape. (One
+   line tall, it is drawn on one line and never grows: parts/Text.tsx,
+   the one-line rule, docs/HANDOVER-HEALING.md.) */
 const PARA = "Playwright is built to enable cross-browser web automation that is ever-green, capable, reliable and fast, across every modern rendering engine including Chromium, WebKit and Firefox.";
 const page = (from) => [
-  node("para", "prose", PARA, 40, 100, 684, 40, from),
+  node("para", "prose", PARA, 40, 100, 684, 50, from),
   node("b1", "prose", "Install the library", 40, 152, 684, 28, from),
   node("b2", "prose", "Write your first test", 40, 188, 684, 28, from),
   node("b3", "prose", "Run it in CI", 40, 224, 684, 28, from),
@@ -131,7 +133,7 @@ check("the captured page drew all four parts", Object.keys(caught.drawn).length 
 const cross = crossings(caught.drawn);
 check("nothing on it crosses anything else", cross.length === 0, cross.join("; ") || "no pairs cross");
 check("the paragraph is written down at the height it actually drew, not the height it was captured at",
-  (caught.saved.para?.h ?? 0) > 40, `${caught.saved.para?.h ?? "?"} against the captured 40`);
+  (caught.saved.para?.h ?? 0) > 50, `${caught.saved.para?.h ?? "?"} against the captured 50`);
 check("…and every bullet under it moved down by the growth",
   (caught.saved.b1?.y ?? 0) > 152 && (caught.saved.b2?.y ?? 0) > 188 && (caught.saved.b3?.y ?? 0) > 224,
   `152→${caught.saved.b1?.y}, 188→${caught.saved.b2?.y}, 224→${caught.saved.b3?.y}`);
@@ -148,7 +150,7 @@ check("and it settles rather than drifting: the parts have stopped moving",
 const hand = await open(byHand);
 check("a page he placed by hand draws the same four parts", Object.keys(hand.drawn).length === 4);
 check("…and not one of them has been moved or resized",
-  hand.saved.para.h === 40 && hand.saved.b1.y === 152 && hand.saved.b2.y === 188 && hand.saved.b3.y === 224,
+  hand.saved.para.h === 50 && hand.saved.b1.y === 152 && hand.saved.b2.y === 188 && hand.saved.b3.y === 224,
   `para h ${hand.saved.para.h}, bullets at ${hand.saved.b1.y}, ${hand.saved.b2.y}, ${hand.saved.b3.y}`);
 
 
@@ -212,7 +214,7 @@ check("…and a wrapper still holds its child rather than being pulled off it",
 const withMine = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Documentation", path: "/", prompt: "", scroll: "inherit" }],
   nodes: [
-    node("para", "prose", PARA, 40, 100, 684, 40, { from: FROM }),
+    node("para", "prose", PARA, 40, 100, 684, 50, { from: FROM }),
     /* He dragged this one a long way down, and said so. */
     node("his", "prose", "Moved here on purpose", 40, 700, 684, 28, { from: FROM, byHand: true }),
     node("other", "prose", "Ordinary", 40, 152, 684, 28, { from: FROM }),

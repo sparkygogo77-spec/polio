@@ -140,7 +140,9 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const ft = await rect(v, nodeBy(FOOTER).id);
   check(`${width}: the footer bar pinned to the window's foot, the window's width`, ft && near(ft.b, height) && near(ft.x, 0) && near(ft.r, iw) && near(ft.h, footer.h), JSON.stringify(ft));
   const fr = await rect(v, nodeBy(FROW).id);
-  check(`${width}: the footer's contents centred like the header's`, fr && near(fr.x, (iw - fr.w) / 2) && near(fr.w, rowW), JSON.stringify(fr));
+  /* Inside the footer's own padding and border, as the capture records them (a 1px border all round, which the header has not). */
+  const fRowW = Math.min(px(bySel.get(FROW).maxw), iw - footer.pad[1] - footer.pad[3] - 2 * (px(footer.border ?? "0") || 0));
+  check(`${width}: the footer's contents centred like the header's`, fr && near(fr.x, (iw - fr.w) / 2) && near(fr.w, fRowW), JSON.stringify(fr));
   const version = s.nodes.find((n) => n.pageId === "page_home" && /v2\.0\.0/.test(JSON.stringify(n.content ?? "")));
   const vr = version ? await rect(v, version.id) : null;
   check(`${width}: "v2.0.0 | A SolWorks project" on screen, right of the footer's centre`, !!vr && vr.b <= height && vr.x > width / 2 && vr.r <= iw, JSON.stringify(vr));
