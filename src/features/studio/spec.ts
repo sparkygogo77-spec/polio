@@ -561,7 +561,10 @@ export function compileSpec(input: CompileInput): Spec {
     format: formatRows,
     look: look ? describeLook(look, resolvePalette(format, look)) : [],
     // Only a crate with something to interpolate is worth briefing.
-    motion: (motion ?? []).filter((m) => filled(m).length >= 2).map((m) => motionBrief(m)),
+    motion: (motion ?? []).filter((m) => filled(m).length >= 2 && !m.off).map((m) => {
+      const on = m.part ? nodes.find((n) => n.id === m.part) : undefined;
+      return motionBrief(m, undefined, on ? on.label || on.featureId : null);
+    }),
     pages: pageSpecs,
     stats: {
       pages: pages.length,

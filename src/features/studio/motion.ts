@@ -39,8 +39,19 @@ export interface MotionAsset {
    */
   gaps: number[];
   ease: MotionEase;
-  /** What wears it, in the reader's words. Goes straight into the brief. */
+  /**
+   * What wears it, in the reader's words. Goes straight into the brief. Once
+   * the crate is put on a part (`part`), the brief says that part instead.
+   */
   use: string;
+  /**
+   * The part that wears it: the crate plays as that part's picture on the
+   * board, in the preview and on the published site (`crateLayer.tsx`).
+   * Null, or a part since deleted, and it plays only in its own editor.
+   */
+  part?: string | null;
+  /** Turned off in the Motion tab: kept, with its sleeves and timing, and played nowhere. */
+  off?: boolean;
 }
 
 export const SLEEVES = 5;
@@ -57,6 +68,7 @@ export function newMotion(name = "Motion 1"): MotionAsset {
     gaps: Array.from({ length: SLEEVES }, () => 1),
     ease: "ease",
     use: "background layer",
+    part: null,
   };
 }
 
@@ -72,6 +84,24 @@ export function gapCount(asset: MotionAsset): number {
   const n = filled(asset).length;
   if (n < 2) return 0;
   return asset.loop === "wrap" ? n : n - 1;
+}
+
+/**
+ * The sleeve number a keyframe sits in, counted from 1, which is the number
+ * the sleeve wears. Keyframes are counted over the filled sleeves only, so
+ * with sleeves 1, 3 and 5 filled the third keyframe is sleeve 5, and every
+ * label the owner reads says 5.
+ */
+export function sleeveOf(asset: MotionAsset, key: number): number {
+  const keys = filled(asset);
+  return (keys[key]?.at ?? key) + 1;
+}
+
+/** One gap, by the sleeves at its two ends: "1 → 3", "5 → 1". */
+export function gapLabel(asset: MotionAsset, gap: number): string {
+  const n = filled(asset).length;
+  if (!n) return `${gap + 1}`;
+  return `${sleeveOf(asset, gap % n)} → ${sleeveOf(asset, (gap + 1) % n)}`;
 }
 
 export function totalFrames(asset: MotionAsset): number {
@@ -151,11 +181,39 @@ export function playOrder(asset: MotionAsset, plan: Tween[]): Tween[] {
 /* The brief                                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What each way of playing is called, everywhere: the control, its choices
+ * and the brief. The control used to show "Wrap" and be named "Loop" to a
+ * screen reader, two names for one thing.
+ */
+export const LOOP_NAME: Record<MotionLoop, string> = {
+  wrap: "Round and round",
+  "ping-pong": "There and back",
+  once: "Once",
+};
+
 const LOOP_WORD: Record<MotionLoop, string> = {
-  wrap: "wrap (the last gap returns to keyframe 1, seamless)",
-  "ping-pong": "ping-pong (plays forward then back)",
+  wrap: "round and round (the last gap returns to the first keyframe, seamless)",
+  "ping-pong": "there and back (plays forward, then back the way it came)",
   once: "once (stops on the last keyframe)",
 };
+
+/**
+ * The frames a part plays, at most `max` of them: every one while they fit,
+ * else an even sample across the whole sequence, which keeps its length and
+ * its checkpoints' places and loses only in-betweens. A part's picture is a
+ * strip of these (`crateLayer.tsx`), so the cap is what keeps it light.
+ */
+export function sampledPlan(asset: MotionAsset, max: number): Tween[] {
+  const plan = playOrder(asset, planFrames(asset));
+  if (plan.length <= max) return plan;
+  return Array.from({ length: max }, (_, i) => plan[Math.floor((i * plan.length) / max)]!);
+}
+
+/** Seconds one pass of the played sequence takes, ping-pong's way back included. */
+export function playSeconds(asset: MotionAsset): number {
+  return playOrder(asset, planFrames(asset)).length / Math.max(1, asset.fps);
+}
 
 /**
  * What an AI is handed so it can produce these in-betweens properly.
@@ -166,7 +224,7 @@ const LOOP_WORD: Record<MotionLoop, string> = {
  * be, in the terms `docs/MOTION.md` set out, and a generator fills the gaps
  * to the same timing the crate is already playing.
  */
-export function motionBrief(asset: MotionAsset, size?: { w: number; h: number }): string {
+export function motionBrief(asset: MotionAsset, size?: { w: number; h: number }, wornBy?: string | null): string {
   const keys = filled(asset);
   const gaps = gapCount(asset);
   const total = totalFrames(asset);
@@ -177,14 +235,14 @@ export function motionBrief(asset: MotionAsset, size?: { w: number; h: number })
     `MOTION ASSET BRIEF, ${asset.name}`,
     `Keyframes: ${keys.length} images in order at ${dims}. Each is a checkpoint the animation passes`,
     `through exactly (pixel-faithful on its frame). Duration ${asset.duration}s at ${asset.fps} fps = ${total} frames.`,
-    `Loop: ${LOOP_WORD[asset.loop]}.`,
+    `Plays: ${LOOP_WORD[asset.loop]}.`,
     `Timing: ${gaps} gap${gaps === 1 ? "" : "s"}${even ? " of equal length" : ` weighted ${weights.join(":")}`}; hold each keyframe ${asset.hold} frames;`,
     `${asset.ease === "linear" ? "linear" : "ease-in-out"} per gap.`,
     "In-between frames must: keep one continuous subject; introduce nothing absent from both",
     "neighbouring keyframes; morph shapes along the shortest path; interpolate colour in OKLCH;",
     "keep edges crisp (no ghosting or double exposure); move each background layer at its own",
     "parallax speed; match the style of the keyframes in line weight, palette, grain and lighting.",
-    `Used as: ${asset.use}.`,
+    `Used as: ${wornBy ? `the picture of the part "${wornBy}", where it plays on the published site as a strip of frames` : asset.use}.`,
     "Output: WebM (VP9, alpha if the keyframes carry alpha) + MP4 fallback + a one-row sprite",
     "sheet for hover states; poster = keyframe 1.",
     "Quality gate: reject any frame with artifacts, drift from its keyframe above 2% of pixels, or",

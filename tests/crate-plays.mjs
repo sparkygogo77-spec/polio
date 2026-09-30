@@ -18,6 +18,9 @@
  * 264 × 148; the sheet of 360 (60 fps, 6 s) downloads, inside the canvas limit, with room
  * for every frame; and the crate is still there after a reload.
  *
+ * The crate is edited in its own wide pop-out now (`[data-crate-editor]`),
+ * which a new crate opens straight into; the frame rate reads "30 a second".
+ *
  *   node tests/crate-plays.mjs [url]
  */
 import { existsSync, readFileSync, mkdtempSync } from "node:fs";
@@ -43,11 +46,12 @@ await page.evaluate(async () => { localStorage.clear(); for (const d of (await i
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 
-const panel = page.locator("[data-motion-panel]");
+const side = page.locator("[data-motion-panel]");
+const panel = page.locator("[data-crate-editor]");
 const openMotion = async () => { await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Motion" }).first().click(); await page.waitForTimeout(400); };
 await openMotion();
-await panel.getByRole("button", { name: /Crate/ }).click();
-await page.waitForTimeout(300);
+await side.getByRole("button", { name: /^Crate$/ }).click();
+await page.waitForTimeout(500);
 
 /* Five keyframes: a coloured block walking left to right. */
 const pngs = await page.evaluate(() => ["#e33", "#3a3", "#33e", "#ee3", "#e3e"].map((c, i) => {
@@ -62,7 +66,7 @@ for (let i = 0; i < 5; i++) {
 }
 await page.waitForTimeout(500);
 
-const counter = panel.locator(".num").filter({ hasText: "/" }).first();
+const counter = panel.locator("[data-crate-counter]");
 const frameNo = async () => Number((await counter.innerText()).split("/")[0]);
 const total = async () => Number((await counter.innerText()).split("/")[1]);
 check("five keyframes and 1.5 s at 30 fps is 45 frames", (await total()) === 45, await counter.innerText().catch(() => "no counter"));
@@ -123,7 +127,7 @@ const small = await sheet();
 check("the sheet of 45 downloads as one row, 264 × 45 by 148", small?.w === 264 * 45 && small?.h === 148, small ? `${small.w}×${small.h}` : "no download");
 
 /* 60 fps, 6 s, the longest the panel offers: 360 frames. */
-await panel.locator("[role=radio]").filter({ hasText: "60 fps" }).first().click();
+await panel.locator("[role=radio]").filter({ hasText: "60 a second" }).first().click();
 const length = panel.locator("[role=slider]").nth(1);
 await length.focus();
 await page.keyboard.press("End");
@@ -142,6 +146,8 @@ check("…and says how it is laid out", /360 frames/.test(note) && /\d+ rows/.te
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await openMotion();
+await side.getByRole("button", { name: /Open editor/ }).first().click();
+await page.waitForTimeout(800);
 const sleeves = await panel.locator("[style*=background-image], img").count();
 check("the crate survives a reload, all five sleeves and its timing", sleeves >= 5 && (await total()) === 360, `${sleeves} pictures, ${await counter.innerText().catch(() => "no counter")}`);
 check("no page error", errors.length === 0, errors.join(" | "));

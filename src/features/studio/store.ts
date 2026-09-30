@@ -943,8 +943,8 @@ interface StudioState extends Doc {
    * wants the Pages panel open on the new page's name. The panel that
    * answers clears it.
    */
-  wanted: { panel: "inspector" | "pages" | "look"; focus?: "words" | "name"; id?: string; at: number } | null;
-  want: (w: { panel: "inspector" | "pages" | "look"; focus?: "words" | "name"; id?: string } | null) => void;
+  wanted: { panel: "inspector" | "pages" | "look" | "motion"; focus?: "words" | "name"; id?: string; at: number } | null;
+  want: (w: { panel: "inspector" | "pages" | "look" | "motion"; focus?: "words" | "name"; id?: string } | null) => void;
   hold: (nodeId: string | null) => void;
   /**
    * When he last opened the timeline.
@@ -1120,6 +1120,8 @@ interface StudioState extends Doc {
   removeMotion: (id: string) => void;
   setMotionFrame: (id: string, at: number, src: string | null) => void;
   moveMotionFrame: (id: string, at: number, delta: number) => void;
+  /** Put a crate on a part, where it plays as the part's picture; null takes it off. */
+  attachMotion: (id: string, part: string | null) => void;
   addTexture: (layer: TextureLayer) => void;
   updateTexture: (id: string, patch: Partial<TextureLayer>) => void;
   removeTexture: (id: string) => void;
@@ -1218,6 +1220,8 @@ const HISTORY_LIMIT = 60;
 export const EDIT_RUN_MS = 1500;
 /** The fields a person types into on a part. A write to only these is an edit; anything else is a step of its own. */
 const TYPED_FIELDS = new Set(["prompt", "content", "data", "label"]);
+/** A crate's settings that are typed or dragged: a run of writes to one is one edit. The rest (on or off, how it plays) is a step each. */
+const MOTION_RUNS = new Set(["name", "duration", "hold", "gaps", "use"]);
 
 /**
  * An updated thread forms again.
@@ -2496,21 +2500,30 @@ export const useStudio = create<StudioState>()(
           set((st) => ({ motion: [...st.motion, asset] }));
           return asset.id;
         },
-        updateMotion: (id, patch) =>
-          set((st) => ({ motion: st.motion.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
+        /* Every change to a crate is one undo step: a run of writes to the same
+           setting (a slider dragged, a name typed) is one edit, as a part's words are. */
+        updateMotion: (id, patch) => {
+          const keys = Object.keys(patch);
+          if (keys.length && keys.every((k) => MOTION_RUNS.has(k))) pushEdit(`motion:${id}:${keys.sort().join(",")}`);
+          else push();
+          set((st) => ({ motion: st.motion.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+        },
         removeMotion: (id) => {
           push();
           set((st) => ({ motion: st.motion.filter((m) => m.id !== id) }));
         },
-        setMotionFrame: (id, at, src) =>
+        setMotionFrame: (id, at, src) => {
+          push();
           set((st) => ({
             motion: st.motion.map((m) =>
               m.id === id ? { ...m, frames: m.frames.map((f, i) => (i === at ? src : f)) } : m,
             ),
-          })),
+          }));
+        },
         // Sleeves swap rather than shuffle: pulling one out and putting it back
         // one place along is what reordering a crate actually is.
-        moveMotionFrame: (id, at, delta) =>
+        moveMotionFrame: (id, at, delta) => {
+          push();
           set((st) => ({
             motion: st.motion.map((m) => {
               if (m.id !== id) return m;
@@ -2520,7 +2533,15 @@ export const useStudio = create<StudioState>()(
               [frames[at], frames[to]] = [frames[to]!, frames[at]!];
               return { ...m, frames };
             }),
-          })),
+          }));
+        },
+        /* A part wears one crate at a time: putting a second on it takes the first off. One undo. */
+        attachMotion: (id, part) => {
+          push();
+          set((st) => ({
+            motion: st.motion.map((m) => (m.id === id ? { ...m, part } : part && m.part === part ? { ...m, part: null } : m)),
+          }));
+        },
         historyMark: () => pushes,
         oneStepSince: (mark) => {
           /* Every checkpoint taken since `mark` after the first is folded into

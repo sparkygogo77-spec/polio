@@ -1,148 +1,411 @@
 "use client";
 /**
- * The crate — frame interpolation, on the left.
+ * The Motion tab: every moving part on the page, and the crates.
  *
- * Five sleeves. Drop a picture in each, and the Builder fills in every frame
- * between them: it holds each keyframe for a beat, then eases from one to the
- * next across the gap, on the timing the panel says. That is real
- * interpolation, running here, at the frame rate you chose — you can scrub it,
- * play it, and take it away as a sprite sheet or a WebM.
+ * MOVING PARTS. Everything on the current page that moves, grouped by kind
+ * (`motionInventory.ts`): reveals on scroll, parts that follow the pointer or
+ * tilt, what happens on hover and on press, loops and blinks, ribbons,
+ * canvas effects, crates worn as pictures and the page-wide behaviours. Each
+ * row has the part's plain name; pressing it selects the part and brings it
+ * into view on the board. Beside it, play (the one movement, run on the board
+ * at its real strength), off and on, and how fast where the kind has a
+ * number for it. Each change is one undo step and is written where the
+ * preview and the export already read it (`motionWrite.ts`).
  *
- * It is a cross-dissolve, and it says so. A dissolve is exactly right for a
+ * THE CRATE — frame interpolation. Five sleeves. Drop a picture in each, and
+ * the Builder fills in every frame between them: it holds each keyframe for a
+ * beat, then eases from one to the next across the gap, mixing the two in
+ * OKLab (`oklab.ts`) so a middle is as bright as its ends. You can scrub it,
+ * play it, take it away as a sprite sheet or a WebM, and put it on a part,
+ * where it plays as that part's picture on the board, in the preview and on
+ * the published site (`crateLayer.tsx`). The panel is 228 px wide, so a
+ * crate is a card here and opens in a wide editor of its own.
+ *
+ * It is still a dissolve, and it says so. A dissolve is exactly right for a
  * fade, a colour turn, a light coming up; it is not what a shape morphing
- * along its shortest path looks like. So the same panel writes the brief
+ * along its shortest path looks like. So the editor writes the brief
  * (`motionBrief`) that tells a generator what the in-betweens ought to be, on
- * the identical timing — the Builder's own pass is the floor, the brief is the
- * ceiling, and both go into the blueprint. That is where a crate stops: no
- * live part plays one yet, and the panel says so (`data-motion-reach`).
- *
- * Everything is drawn to one canvas so nothing is stored twice: the frames are
- * computed, never kept.
+ * the identical timing, and it goes into the blueprint.
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronLeft, ChevronRight, ClipboardCopy, Download, Film, Pause, Play, Plus, Trash2, X } from "lucide-react";
-import { useStudio } from "./store";
 import {
-  filled, gapCount, motionBrief, planFrames, playOrder, SLEEVES, totalFrames,
+  ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Film, Maximize2, Pause, Play, Plus, Power, Trash2, X,
+} from "lucide-react";
+import { BACKGROUND_ID, useStudio } from "./store";
+import {
+  filled, gapCount, gapLabel, LOOP_NAME, motionBrief, planFrames, playOrder, sleeveOf, SLEEVES, totalFrames,
   type MotionAsset, type MotionEase, type MotionLoop,
 } from "./motion";
+import { byKind, movingParts, partName, type MoveRow } from "./motionInventory";
+import { setRowOn, setRowSpeed } from "./motionWrite";
+import { fit, loadImage, tweenPixels, type Fitted } from "./crateDraw";
+import { runWorks } from "./live/runWorks";
+import { AMBIENT } from "./library/behaviours";
 import { ImageWell } from "./ImageIntake";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
+import { Dialog } from "@/core/ui/dialog";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
 import { Slider } from "@/core/ui/slider";
 import { Segmented } from "@/core/ui/segmented";
 import { Tooltip } from "@/core/ui/tooltip";
 
-/* ------------------------------------------------------------------ */
-/* Drawing one frame                                                   */
-/* ------------------------------------------------------------------ */
-
 /** The widest or tallest sprite sheet drawn: inside every browser's canvas. */
 const SHEET_MAX = 16384;
 
-/** Keep loaded keyframes around; a rAF loop cannot wait on an `onload`. */
-function useImages(srcs: (string | null)[]) {
-  const [images, setImages] = React.useState<(HTMLImageElement | null)[]>([]);
-  React.useEffect(() => {
-    let live = true;
-    const out: (HTMLImageElement | null)[] = srcs.map(() => null);
-    let left = srcs.filter(Boolean).length;
-    if (!left) { setImages(out); return; }
-    srcs.forEach((src, i) => {
-      if (!src) return;
-      const img = new Image();
-      img.onload = img.onerror = () => {
-        out[i] = img.naturalWidth ? img : null;
-        if (--left === 0 && live) setImages([...out]);
-      };
-      img.src = src;
-    });
-    return () => { live = false; };
-  }, [srcs]);
-  return images;
-}
-
-/** Contain: the whole keyframe, centred, never cropped. */
-function drawFitted(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number, alpha: number) {
-  const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-  const dw = img.naturalWidth * scale;
-  const dh = img.naturalHeight * scale;
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-  ctx.globalAlpha = 1;
-}
-
 /* ------------------------------------------------------------------ */
-/* The panel                                                           */
+/* The tab                                                             */
 /* ------------------------------------------------------------------ */
+
+/** A crate whose editor stepped aside for Pick on the board, to open again when the tab comes back. */
+let comeBack: string | null = null;
 
 export function MotionPanel() {
   const assets = useStudio(useShallow((s) => s.motion));
-  const [openId, setOpenId] = React.useState<string | null>(null);
-  const asset = assets.find((a) => a.id === openId) ?? assets[0] ?? null;
+  const [editing, setEditing] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!comeBack) return;
+    const id = comeBack;
+    comeBack = null;
+    setEditing(id);
+  }, []);
+  /* A crate waiting for a part to be pressed on the board. */
+  const [picking, setPicking] = React.useState<string | null>(null);
+  const open = assets.find((a) => a.id === editing) ?? null;
+
+  /* PICK ON THE BOARD: the editor steps aside, the next part pressed wears the crate, and the editor comes back. */
+  React.useEffect(() => {
+    if (!picking) return;
+    /* Nothing selected to start with, so pressing the part that was already selected still counts. */
+    useStudio.getState().setSelection([]);
+    const was = "";
+    let done = false;
+    const off = useStudio.subscribe((s) => {
+      const ids = s.selection;
+      if (done || ids.join(",") === was || ids.length !== 1 || ids[0] === BACKGROUND_ID) return;
+      /* Once: attaching writes the store, and this listener hears that write too. */
+      done = true;
+      off();
+      useStudio.getState().attachMotion(picking, ids[0]!);
+      play("confirm");
+      setPicking(null);
+      /*
+       * The part is chosen on the press, and pressing a part opens its
+       * Element panel, which takes this tab away with the editor in it. So
+       * once the press is over the Motion tab is asked back, and the crate's
+       * editor opens with it (`comeBack`, read as the tab mounts).
+       */
+      comeBack = picking;
+      let back = false;
+      const reopen = () => {
+        if (back) return;
+        back = true;
+        window.removeEventListener("pointerup", later);
+        setTimeout(() => {
+          const id = comeBack;
+          useStudio.getState().want({ panel: "motion" });
+          setEditing(id);
+          /* The tab never went (or came back already): nothing is left waiting for the next one. */
+          setTimeout(() => { if (comeBack === id) comeBack = null; }, 500);
+        }, 0);
+      };
+      const later = () => reopen();
+      window.addEventListener("pointerup", later, { once: true });
+      setTimeout(reopen, 600);
+    });
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { setEditing(picking); setPicking(null); } };
+    window.addEventListener("keydown", esc);
+    return () => { off(); window.removeEventListener("keydown", esc); };
+  }, [picking]);
 
   return (
-    <div data-motion-panel="" className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
-      <div className="flex items-center justify-between">
-        <span className="text-plain font-semibold text-fg">Frame interpolation</span>
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() => { play("confirm"); setOpenId(useStudio.getState().addMotion()); }}
-        >
-          <Plus />
-          Crate
-        </Button>
-      </div>
-      <p data-motion-reach="" className="text-fine leading-snug text-fg-faint">
-        A crate plays here and goes into the blueprint as a brief. No part of the page plays it yet, so
-        the preview does not show it.
-      </p>
+    <div data-motion-panel="" className="min-h-0 flex-1 space-y-3 overflow-y-auto p-2">
+      <MovingParts />
 
-      {assets.length > 1 ? (
-        <div className="flex flex-wrap gap-1">
-          {assets.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setOpenId(a.id)}
-              aria-pressed={a.id === asset?.id}
-              className={cn(
-                "tactile rounded-full border px-2 py-0.5 text-small",
-                a.id === asset?.id ? "border-accent/60 bg-accent-soft text-accent" : "border-border text-fg-muted hover:text-fg",
-              )}
-            >
-              {a.name}
-            </button>
-          ))}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-plain font-semibold text-fg">Frame interpolation</span>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => { play("confirm"); const id = useStudio.getState().addMotion(); setEditing(id); }}
+          >
+            <Plus />
+            Crate
+          </Button>
         </div>
-      ) : null}
-
-      {asset ? (
-        <Crate key={asset.id} asset={asset} />
-      ) : (
-        <p className="rounded-md border border-dashed border-border p-3 text-small leading-snug text-fg-muted">
-          A crate holds five keyframes. Drop a picture in each sleeve and the Builder works out every
-          frame in between, 45 of them in a second and a half, which you can scrub, play, and take
-          away as a sprite sheet. The brief that goes with it tells whoever renders it properly what
-          the in-betweens have to look like.
+        <p data-motion-reach="" className="text-fine leading-snug text-fg-faint">
+          A crate plays in its editor, goes into the blueprint as a brief, and, put on a part, plays as that
+          part&apos;s picture on the board, in the preview and on the published page.
         </p>
-      )}
+        {picking ? (
+          <div data-crate-picking="" className="flex items-center gap-1 rounded-md border border-accent/60 bg-accent-soft p-1.5 text-small text-accent">
+            <Crosshair className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 leading-snug">Press a part on the board to put the crate on it.</span>
+            <Button size="iconXs" variant="ghost" aria-label="Stop picking" onClick={() => { setEditing(picking); setPicking(null); }}>
+              <X />
+            </Button>
+          </div>
+        ) : null}
+        {assets.length ? (
+          assets.map((a) => <CrateCard key={a.id} asset={a} onOpen={() => setEditing(a.id)} />)
+        ) : (
+          <p className="rounded-md border border-dashed border-border p-3 text-small leading-snug text-fg-muted">
+            A crate holds five keyframes. Drop a picture in each sleeve and the Builder works out every
+            frame in between, 45 of them in a second and a half, which you can scrub, play, take away as a
+            sprite sheet, or put on a part to play as its picture.
+          </p>
+        )}
+      </section>
+
+      <Dialog
+        open={!!open}
+        onOpenChange={(v) => { if (!v) setEditing(null); }}
+        title={open ? `Crate: ${open.name}` : "Crate"}
+        description="Five sleeves, every frame between them worked out, on the timing you set."
+        size="lg"
+        className="max-h-[92vh] overflow-y-auto"
+      >
+        {open ? <CrateEditor key={open.id} asset={open} onPick={() => { setPicking(open.id); setEditing(null); }} /> : null}
+      </Dialog>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* One crate                                                           */
+/* Moving parts                                                        */
 /* ------------------------------------------------------------------ */
 
-function Crate({ asset }: { asset: MotionAsset }) {
+/** Selects the part and brings it into view on the board. */
+function goTo(nodeId: string) {
+  const s = useStudio.getState();
+  if (s.mode !== "design") s.setMode("design");
+  s.setSelection([nodeId]);
+  requestAnimationFrame(() => {
+    document.querySelector(`[data-node-id="${CSS.escape(nodeId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  });
+}
+
+/** Restarts every CSS animation on and inside an element: a captured part's own, or a crate's strip. */
+function restart(el: Element | null) {
+  for (const a of el?.getAnimations?.({ subtree: true }) ?? []) { a.cancel(); a.play(); }
+}
+
+/**
+ * Plays one row on the board. A library feature is run once, on the part's
+ * drawn layer, at its real strength, and put back after a few seconds; what
+ * already moves by itself on the board (a spin, a float, the dust) is left
+ * playing. A captured animation or a crate starts again from its first frame.
+ * A page-wide behaviour only happens on a page, so the preview is opened.
+ */
+function playRow(row: MoveRow): string | null {
+  const s = useStudio.getState();
+  goTo(row.nodeId);
+  const box = document.querySelector(`[data-node-id="${CSS.escape(row.nodeId)}"]`);
+  if (row.source === "work" && row.workId) {
+    if ((AMBIENT as readonly string[]).includes(row.workId)) return "It already plays on the board.";
+    const stop = runWorks(document.body, s.nodes.filter((n) => n.id === row.nodeId), { board: true, only: { part: row.nodeId, feature: row.workId } });
+    setTimeout(stop, 4000);
+    return row.kind === "follow" || row.kind === "tilt" || row.kind === "hover"
+      ? "Playing for four seconds: move the pointer over it."
+      : row.kind === "press" ? "Playing for four seconds: press it on the board." : null;
+  }
+  if (row.source === "captured" || row.source === "crate") {
+    restart(box?.querySelector(row.source === "crate" ? ".crate-play" : ".mo") ?? null);
+    return row.kind === "hover" || row.kind === "press" ? "It moves under the pointer: try it in Preview." : null;
+  }
+  s.setMode("preview");
+  return "It runs across the whole page, so Preview is open.";
+}
+
+function MovingParts() {
+  const nodes = useStudio((s) => s.nodes);
+  const crates = useStudio((s) => s.motion);
+  const pageId = useStudio((s) => s.activePageId);
+  const selection = useStudio(useShallow((s) => s.selection));
+  const rows = React.useMemo(() => movingParts(nodes, crates, pageId), [nodes, crates, pageId]);
+  const groups = React.useMemo(() => byKind(rows), [rows]);
+  const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
+
+  return (
+    <section data-moving-parts="" className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-plain font-semibold text-fg">Moving parts on this page</span>
+        <span className="num text-small text-fg-faint">{rows.length}</span>
+      </div>
+      {!rows.length ? (
+        <p className="rounded-md border border-dashed border-border p-2 text-small leading-snug text-fg-muted">
+          Nothing on this page moves yet. A part moves when it carries a movement from the library (reveal on
+          scroll, tilt, spin and the rest), when it was captured moving, or when it wears a crate.
+        </p>
+      ) : (
+        groups.map((g) => (
+          <div key={g.kind} data-move-kind={g.kind} className="space-y-1">
+            <div className="flex items-baseline justify-between text-small font-medium uppercase tracking-wider text-fg-faint">
+              <span>{g.name}</span>
+              <span className="num">{g.rows.length}</span>
+            </div>
+            {g.rows.map((r) => (
+              <MoveRowView
+                key={r.key}
+                row={r}
+                selected={selection.includes(r.nodeId)}
+                note={note?.key === r.key ? note.says : null}
+                onNote={(says) => setNote(says ? { key: r.key, says } : null)}
+              />
+            ))}
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+/** A speed as words, its unit spelled out: the panel is read, not decoded. */
+const UNIT_WORDS: Record<string, string> = { ms: "milliseconds", s: "seconds", "px/s": "pixels a second", "px/frame": "pixels a frame", "×": "times as fast" };
+function speedText(v: number | string, unit: string): string {
+  if (typeof v === "string") return v;
+  const n = Math.round(v * 100) / 100;
+  return `${n} ${UNIT_WORDS[unit] ?? unit}`;
+}
+
+function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; selected: boolean; note: string | null; onNote: (says: string | null) => void }) {
+  const sp = row.speed;
+  /* The slider follows the hand from here; the part is written once, where the hand lets go: one undo step. */
+  const [drag, setDrag] = React.useState<number | null>(null);
+  const shown = drag ?? (typeof sp?.value === "number" ? sp.value : 0);
+  return (
+    <div
+      data-move-row={row.key}
+      data-move-off={row.off ? "" : undefined}
+      data-move-selected={selected ? "" : undefined}
+      className={cn("space-y-1 rounded-md border p-1", selected ? "border-accent/60 bg-accent-soft/40" : "border-border", row.off && "opacity-60")}
+    >
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          data-move-go=""
+          onClick={() => { play("tap"); goTo(row.nodeId); }}
+          className="tactile min-h-6 min-w-0 flex-1 rounded-sm px-1 text-left hover:bg-hover"
+          title="Select it and show it on the board"
+        >
+          <span className="block truncate text-small text-fg">{row.name}</span>
+          <span className="block truncate text-fine text-fg-faint">{row.what}{row.off ? ", turned off" : ""}</span>
+        </button>
+        <Button
+          size="iconXs"
+          variant="ghost"
+          aria-label={`Play ${row.what} on ${row.name}`}
+          disabled={row.off}
+          onClick={() => onNote(playRow(row))}
+        >
+          <Play />
+        </Button>
+        <Button
+          size="iconXs"
+          variant="ghost"
+          aria-pressed={!row.off}
+          aria-label={row.off ? `Turn on ${row.what} on ${row.name}` : `Turn off ${row.what} on ${row.name}`}
+          className={row.off ? "text-fg-faint" : "text-accent"}
+          onClick={() => { play("tap"); setRowOn(row, row.off); }}
+        >
+          <Power />
+        </Button>
+      </div>
+      {sp && !row.off ? (
+        sp.unit === "pick" ? (
+          <Segmented
+            size="xs"
+            className="w-full [&>*]:flex-1"
+            value={String(sp.value)}
+            onChange={(v) => setRowSpeed(row, v)}
+            options={(sp.choices ?? []).map((c) => ({ value: c, label: c }))}
+            aria-label={`${sp.label} of ${row.name}`}
+          />
+        ) : (
+          <div className="space-y-0.5 px-1" data-move-speed="">
+            <div className="flex items-baseline justify-between gap-1 text-fine">
+              <span className="text-fg-muted">{sp.label}</span>
+              <span className="num truncate text-fg-faint">{speedText(shown, sp.unit)}</span>
+            </div>
+            <Slider
+              value={[shown]}
+              min={sp.min}
+              max={sp.max}
+              step={sp.step}
+              onValueChange={(v) => setDrag(v[0] ?? shown)}
+              onValueCommit={(v) => { setDrag(null); setRowSpeed(row, v[0] ?? shown); }}
+              aria-label={`${sp.label} of ${row.what} on ${row.name}`}
+            />
+          </div>
+        )
+      ) : null}
+      {note ? <p className="px-1 text-fine leading-snug text-fg-muted">{note}</p> : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* A crate, as a card in the narrow panel                              */
+/* ------------------------------------------------------------------ */
+
+function CrateCard({ asset, onOpen }: { asset: MotionAsset; onOpen: () => void }) {
+  const wearer = useStudio((s) => (asset.part ? s.nodes.find((n) => n.id === asset.part) : undefined));
+  const first = filled(asset)[0]?.src ?? null;
+  return (
+    <div data-crate-card={asset.id} className="space-y-1.5 rounded-md border border-border p-1.5">
+      <div className="flex items-center gap-1.5">
+        <div className="h-9 w-14 shrink-0 overflow-hidden rounded-sm border border-border bg-elevated">
+          {first ? <img src={first} alt="" className="h-full w-full object-contain" /> : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-small text-fg">{asset.name}</div>
+          <div data-crate-worn="" className="truncate text-fine text-fg-faint">
+            {wearer ? `On ${partName(wearer)}${asset.off ? ", turned off" : ""}` : "Not on a part yet"}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-1">
+        <Button size="xs" variant="outline" className="flex-1" onClick={onOpen}>
+          <Maximize2 />
+          Open editor
+        </Button>
+        <Button size="iconXs" variant="ghost" aria-label={`Remove ${asset.name}`} onClick={() => useStudio.getState().removeMotion(asset.id)}>
+          <Trash2 />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* One crate, in its wide editor                                       */
+/* ------------------------------------------------------------------ */
+
+/** Every keyframe fitted into the editor's frame once, as pixels and OKLab. */
+function useFitted(asset: MotionAsset, w: number, h: number): (Fitted | null)[] {
+  const keys = React.useMemo(() => filled(asset), [asset]);
+  const srcs = keys.map((k) => k.src).join("\n");
+  const [out, setOut] = React.useState<(Fitted | null)[]>([]);
+  React.useEffect(() => {
+    let live = true;
+    const list = srcs ? srcs.split("\n") : [];
+    void Promise.all(list.map((src) => loadImage(src))).then((imgs) => {
+      if (live) setOut(imgs.map((img) => (img ? fit(img, w, h) : null)));
+    });
+    return () => { live = false; };
+  }, [srcs, w, h]);
+  return out;
+}
+
+function CrateEditor({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
   const s = () => useStudio.getState();
-  const images = useImages(asset.frames);
+  const W = 264;
+  const H = 148;
+  const fitted = useFitted(asset, W, H);
   const keys = React.useMemo(() => filled(asset), [asset]);
   const plan = React.useMemo(() => playOrder(asset, planFrames(asset)), [asset]);
   const ready = keys.length >= 2;
@@ -160,18 +423,14 @@ function Crate({ asset }: { asset: MotionAsset }) {
     const el = canvas.current;
     const ctx = el?.getContext("2d");
     if (!el || !ctx) return;
-    const w = el.width;
-    const h = el.height;
-    ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, el.width, el.height);
     const step = plan[index];
     if (!step) return;
-    const a = images[keys[step.from]?.at ?? -1] ?? null;
-    const b = images[keys[step.to]?.at ?? -1] ?? null;
-    // The in-between: the frame it is leaving, fading out under the frame it
-    // is arriving at. At t = 0 that is the keyframe itself, exactly.
-    if (a) drawFitted(ctx, a, w, h, 1);
-    if (b && step.t > 0) drawFitted(ctx, b, w, h, step.t);
-  }, [images, keys, plan]);
+    // The in-between: the two keyframes it sits between, mixed in OKLab.
+    // At t = 0 that is the keyframe itself, exactly.
+    const img = ctx.createImageData(el.width, el.height);
+    if (tweenPixels(step, fitted, img.data)) ctx.putImageData(img, 0, 0);
+  }, [fitted, plan]);
 
   React.useEffect(() => { paint(at); }, [paint, at]);
 
@@ -187,13 +446,14 @@ function Crate({ asset }: { asset: MotionAsset }) {
        step had passed since the last one lost the remainder every time: at
        60 Hz a 33 ms step took three repaints, so "30 fps" played 20 and a
        1.5 s crate ran for 2.3 s. What is owed carries over, and a slow
-       repaint catches up by more than one frame. */
+       repaint catches up by more than one frame. "Once" stops on its end. */
     const tick = (now: number) => {
       owed += now - last;
       last = now;
       const due = Math.floor(owed / step);
       if (due > 0) {
         owed -= due * step;
+        if (asset.loop === "once" && cursor + due >= plan.length - 1) { setAt(plan.length - 1); setPlaying(false); return; }
         cursor = (cursor + due) % plan.length;
         setAt(cursor);
       }
@@ -204,7 +464,7 @@ function Crate({ asset }: { asset: MotionAsset }) {
     // `at` is deliberately not a dependency: it would restart the loop every
     // frame. Playback picks up wherever the scrubber left it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, ready, plan.length, asset.fps]);
+  }, [playing, ready, plan.length, asset.fps, asset.loop]);
 
   /* ------------------------------------------------------------ taking it away */
   const sheet = async () => {
@@ -270,10 +530,11 @@ function Crate({ asset }: { asset: MotionAsset }) {
     setNote(`${(blob.size / 1024).toFixed(0)} KB of WebM.`);
   };
 
+  const wearer = useStudio((st) => (asset.part ? st.nodes.find((n) => n.id === asset.part) : undefined));
   const copyBrief = async () => {
     const el = canvas.current;
     try {
-      await navigator.clipboard.writeText(motionBrief(asset, el ? { w: el.width, h: el.height } : undefined));
+      await navigator.clipboard.writeText(motionBrief(asset, el ? { w: el.width, h: el.height } : undefined, wearer ? partName(wearer) : null));
       setNote("The brief is on the clipboard.");
       play("confirm");
     } catch {
@@ -285,160 +546,160 @@ function Crate({ asset }: { asset: MotionAsset }) {
   const step = plan[at];
 
   return (
-    <div className="space-y-2 rounded-md border border-border p-2">
+    <div data-crate-editor={asset.id} className="space-y-3">
       <div className="flex items-center gap-1">
         <Input
           inputSize="sm"
           value={asset.name}
           onChange={(e) => s().updateMotion(asset.id, { name: e.target.value })}
-          aria-label="Motion name"
-        />
-        <Button variant="ghost" size="iconXs" aria-label="Remove this crate" onClick={() => s().removeMotion(asset.id)}>
-          <Trash2 />
-        </Button>
-      </div>
-
-      {/* ------------------------------------------------------ the sleeves */}
-      <div className="grid grid-cols-5 gap-1">
-        {Array.from({ length: SLEEVES }, (_, i) => (
-          <Sleeve key={i} asset={asset} at={i} live={keys.some((k) => k.at === i)} />
-        ))}
-      </div>
-
-      {/* ------------------------------------------------------ the result */}
-      <div className="space-y-1 rounded-md border border-border bg-elevated/50 p-1.5">
-        <canvas
-          ref={canvas}
-          width={264}
-          height={148}
-          data-motion-canvas=""
-          className="w-full rounded-sm"
-          style={{ background: "var(--bg)", imageRendering: "auto" }}
-        />
-        {ready ? (
-          <>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="iconXs"
-                variant="ghost"
-                aria-label={playing ? "Pause" : "Play the sequence"}
-                onClick={() => { play("tap"); setPlaying((v) => !v); }}
-              >
-                {playing ? <Pause /> : <Play />}
-              </Button>
-              <div className="min-w-0 flex-1">
-                <Slider
-                  value={[at]}
-                  min={0}
-                  max={Math.max(0, plan.length - 1)}
-                  step={1}
-                  onValueChange={(v) => { setPlaying(false); setAt(v[0] ?? 0); }}
-                  aria-label="Scrub the sequence"
-                />
-              </div>
-              <span className="num shrink-0 text-small text-fg-muted">
-                {at + 1}/{plan.length}
-              </span>
-            </div>
-            <p className="text-fine leading-snug text-fg-faint">
-              {step?.holding
-                ? `Holding keyframe ${(step.from ?? 0) + 1}`
-                : `Between ${(step?.from ?? 0) + 1} and ${(step?.to ?? 0) + 1}, ${Math.round((step?.t ?? 0) * 100)}% across`}
-              {" · "}
-              {totalFrames(asset)} frames at {asset.fps} fps
-            </p>
-          </>
-        ) : (
-          <p className="p-1 text-small leading-snug text-fg-muted">
-            Two sleeves filled and it starts moving.
-          </p>
-        )}
-      </div>
-
-      {/* ------------------------------------------------------ the timing */}
-      <Row label="Length" value={`${asset.duration.toFixed(1)}s`}>
-        <Slider
-          value={[Math.round(asset.duration * 10)]}
-          min={4}
-          max={60}
-          step={1}
-          onValueChange={(v) => s().updateMotion(asset.id, { duration: (v[0] ?? 15) / 10 })}
-        />
-      </Row>
-      <div className="flex items-center gap-1">
-        <Segmented
-          className="flex-1 [&>*]:flex-1"
-          size="xs"
-          value={String(asset.fps)}
-          onChange={(v) => s().updateMotion(asset.id, { fps: Number(v) })}
-          options={[{ value: "30", label: "30 fps" }, { value: "60", label: "60 fps" }]}
-          aria-label="Frame rate"
-        />
-        <Select
-          className="w-28"
-          value={asset.loop}
-          onChange={(v) => s().updateMotion(asset.id, { loop: v as MotionLoop })}
-          options={[
-            { value: "wrap", label: "Wrap" },
-            { value: "ping-pong", label: "Ping-pong" },
-            { value: "once", label: "Once" },
-          ]}
-          aria-label="Loop"
+          aria-label="Crate name"
         />
       </div>
-      <Row label="Hold each keyframe" value={`${asset.hold} frames`}>
-        <Slider
-          value={[asset.hold]}
-          min={0}
-          max={8}
-          step={1}
-          onValueChange={(v) => s().updateMotion(asset.id, { hold: v[0] ?? 2 })}
-        />
-      </Row>
-      <Select
-        className="w-full"
-        value={asset.ease}
-        onChange={(v) => s().updateMotion(asset.id, { ease: v as MotionEase })}
-        options={[{ value: "ease", label: "Ease in and out of each gap" }, { value: "linear", label: "Linear, no easing" }]}
-        aria-label="Easing"
-      />
 
-      {/* --------------------------------------------------------- the gaps */}
-      {gaps > 0 ? (
-        <div className="space-y-1 rounded-md border border-border p-1.5">
-          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Gaps</div>
-          <p className="text-fine leading-snug text-fg-faint">
-            How long each one takes, next to the others. Turn one up and the motion lingers there.
-          </p>
-          {Array.from({ length: gaps }, (_, i) => (
-            <Row key={i} label={`${i + 1} → ${((i + 1) % keys.length) + 1}`} value={`×${(asset.gaps[i] ?? 1).toFixed(1)}`}>
-              <Slider
-                value={[Math.round((asset.gaps[i] ?? 1) * 10)]}
-                min={2}
-                max={40}
-                step={1}
-                onValueChange={(v) => {
-                  const gapsNext = [...asset.gaps];
-                  gapsNext[i] = (v[0] ?? 10) / 10;
-                  s().updateMotion(asset.id, { gaps: gapsNext });
-                }}
-              />
-            </Row>
-          ))}
+      <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+        <div className="space-y-2">
+          {/* ------------------------------------------------------ the sleeves */}
+          <div className="grid grid-cols-5 gap-1.5">
+            {Array.from({ length: SLEEVES }, (_, i) => (
+              <Sleeve key={i} asset={asset} at={i} live={keys.some((k) => k.at === i)} />
+            ))}
+          </div>
+
+          {/* ------------------------------------------------------ the result */}
+          <div className="space-y-1 rounded-md border border-border bg-elevated/50 p-1.5">
+            <canvas
+              ref={canvas}
+              width={W}
+              height={H}
+              data-motion-canvas=""
+              className="w-full rounded-sm"
+              style={{ background: "var(--bg)", imageRendering: "auto" }}
+            />
+            {ready ? (
+              <>
+                <div className="flex items-center gap-1.5" data-crate-scrub="">
+                  <Button
+                    size="iconXs"
+                    variant="ghost"
+                    aria-label={playing ? "Pause" : "Play the sequence"}
+                    onClick={() => { play("tap"); if (!playing && asset.loop === "once" && at >= plan.length - 1) setAt(0); setPlaying((v) => !v); }}
+                  >
+                    {playing ? <Pause /> : <Play />}
+                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <Slider
+                      value={[at]}
+                      min={0}
+                      max={Math.max(0, plan.length - 1)}
+                      step={1}
+                      onValueChange={(v) => { setPlaying(false); setAt(v[0] ?? 0); }}
+                      aria-label="Scrub the sequence"
+                    />
+                  </div>
+                  <span data-crate-counter="" className="num shrink-0 text-small text-fg-muted">
+                    {at + 1}/{plan.length}
+                  </span>
+                </div>
+                <p data-crate-where="" className="text-fine leading-snug text-fg-faint">
+                  {step?.holding
+                    ? `Holding sleeve ${sleeveOf(asset, step.from ?? 0)}`
+                    : `Between sleeves ${sleeveOf(asset, step?.from ?? 0)} and ${sleeveOf(asset, step?.to ?? 0)}, ${Math.round((step?.t ?? 0) * 100)}% across`}
+                  {" · "}
+                  {totalFrames(asset)} frames at {asset.fps} frames a second
+                </p>
+              </>
+            ) : (
+              <p className="p-1 text-small leading-snug text-fg-muted">
+                Two sleeves filled and it starts moving.
+              </p>
+            )}
+          </div>
         </div>
-      ) : null}
 
-      <Input
-        inputSize="sm"
-        value={asset.use}
-        onChange={(e) => s().updateMotion(asset.id, { use: e.target.value })}
-        aria-label="Used as"
-        placeholder="background layer, hero visual, button hover…"
-      />
+        <div className="space-y-2">
+          {/* ------------------------------------------------------ the timing */}
+          <Row label="Length" value={`${asset.duration.toFixed(1)} seconds`}>
+            <Slider
+              value={[Math.round(asset.duration * 10)]}
+              min={4}
+              max={60}
+              step={1}
+              onValueChange={(v) => s().updateMotion(asset.id, { duration: (v[0] ?? 15) / 10 })}
+              aria-label="Length"
+            />
+          </Row>
+          <Row label="Frames a second">
+            <Segmented
+              className="w-full [&>*]:flex-1"
+              size="md"
+              value={String(asset.fps)}
+              onChange={(v) => s().updateMotion(asset.id, { fps: Number(v) })}
+              options={[{ value: "30", label: "30 a second" }, { value: "60", label: "60 a second" }]}
+              aria-label="Frames a second"
+            />
+          </Row>
+          <Row label="Plays">
+            <Select
+              className="w-full"
+              value={asset.loop}
+              onChange={(v) => s().updateMotion(asset.id, { loop: v as MotionLoop })}
+              options={(Object.keys(LOOP_NAME) as MotionLoop[]).map((k) => ({ value: k, label: LOOP_NAME[k] }))}
+              aria-label="Plays"
+            />
+          </Row>
+          <Row label="Hold each keyframe" value={`${asset.hold} frames`}>
+            <Slider
+              value={[asset.hold]}
+              min={0}
+              max={8}
+              step={1}
+              onValueChange={(v) => s().updateMotion(asset.id, { hold: v[0] ?? 2 })}
+              aria-label="Hold each keyframe"
+            />
+          </Row>
+          <Select
+            className="w-full"
+            value={asset.ease}
+            onChange={(v) => s().updateMotion(asset.id, { ease: v as MotionEase })}
+            options={[{ value: "ease", label: "Ease in and out of each gap" }, { value: "linear", label: "Even pace, no easing" }]}
+            aria-label="Easing"
+          />
+
+          {/* --------------------------------------------------------- the gaps */}
+          {gaps > 0 ? (
+            <div className="space-y-1 rounded-md border border-border p-1.5" data-crate-gaps="">
+              <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Gaps</div>
+              <p className="text-fine leading-snug text-fg-faint">
+                How long each one takes, next to the others, named by the sleeves at its two ends. Turn one
+                up and the motion lingers there.
+              </p>
+              {Array.from({ length: gaps }, (_, i) => (
+                <Row key={i} label={`Sleeve ${gapLabel(asset, i)}`} value={`×${(asset.gaps[i] ?? 1).toFixed(1)}`}>
+                  <Slider
+                    value={[Math.round((asset.gaps[i] ?? 1) * 10)]}
+                    min={2}
+                    max={40}
+                    step={1}
+                    onValueChange={(v) => {
+                      const gapsNext = [...asset.gaps];
+                      gapsNext[i] = (v[0] ?? 10) / 10;
+                      s().updateMotion(asset.id, { gaps: gapsNext });
+                    }}
+                    aria-label={`Gap from sleeve ${gapLabel(asset, i)}`}
+                  />
+                </Row>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------ the part that wears it */}
+      <WornBy asset={asset} onPick={onPick} />
 
       {/* -------------------------------------------------- taking it away */}
       <div className="flex flex-wrap gap-1">
-        <Tooltip content="Every frame on one PNG: one row, or rows of frames left to right when one row would be too wide." side="top">
+        <Tooltip content="Every frame in one PNG (Portable Network Graphics) picture: one row, or rows of frames left to right when one row would be too wide." side="top">
           <Button size="xs" variant="outline" disabled={!ready} onClick={() => void sheet()}>
             <Download />
             Sprite sheet
@@ -456,60 +717,101 @@ function Crate({ asset }: { asset: MotionAsset }) {
             Brief
           </Button>
         </Tooltip>
+        <Button size="xs" variant="ghost" className="ml-auto" aria-label="Remove this crate" onClick={() => s().removeMotion(asset.id)}>
+          <Trash2 />
+          Remove
+        </Button>
       </div>
       {note ? <p className="text-fine text-fg-muted">{note}</p> : null}
       <p className="text-fine leading-snug text-fg-faint">
-        The Builder dissolves between your keyframes on this timing. That is exactly right for a fade
-        or a colour turn, and a floor for anything that has to morph, the brief carries the timing
-        over to whoever renders those frames properly.
+        The Builder mixes your keyframes in OKLab, a colour space where equal steps look equal, so a middle is
+        as bright as its ends. That is exactly right for a fade or a colour turn, and a floor for anything that
+        has to morph: the brief carries the timing over to whoever renders those frames properly.
       </p>
     </div>
   );
 }
 
-/** One sleeve: a picture, or a place for one. */
+/** Which part wears the crate: picked on the board, or found by name. */
+function WornBy({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
+  const pageId = useStudio((s) => s.activePageId);
+  const nodes = useStudio((s) => s.nodes);
+  const wearer = asset.part ? nodes.find((n) => n.id === asset.part) : undefined;
+  const [find, setFind] = React.useState("");
+  const onPage = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
+  const q = find.trim().toLowerCase();
+  const matches = React.useMemo(
+    () => (q ? onPage.filter((n) => partName(n).toLowerCase().includes(q)) : onPage).slice(0, 40),
+    [onPage, q],
+  );
+  const more = (q ? onPage.filter((n) => partName(n).toLowerCase().includes(q)).length : onPage.length) - matches.length;
+  const put = (id: string | null) => { play("confirm"); useStudio.getState().attachMotion(asset.id, id); };
+  return (
+    <div data-crate-wear="" className="space-y-1.5 rounded-md border border-border p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-small font-medium text-fg">Put it on a part</span>
+        <Button size="xs" variant="outline" onClick={onPick}>
+          <Crosshair />
+          Pick on the board
+        </Button>
+      </div>
+      <p data-crate-worn="" className="text-fine leading-snug text-fg-muted">
+        {wearer
+          ? `Plays as the picture of ${partName(wearer)}, on the board, in the preview and on the published page${asset.off ? ", once it is turned back on in the list above" : ""}.`
+          : "Not on a part yet. Put it on one and it plays as that part's picture, on the board, in the preview and on the published page."}
+      </p>
+      {wearer ? (
+        <Button size="xs" variant="ghost" onClick={() => put(null)}>
+          <X />
+          Take it off {partName(wearer)}
+        </Button>
+      ) : null}
+      <Input inputSize="sm" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a part on this page by name" aria-label="Find a part by name" />
+      <div className="max-h-40 overflow-y-auto rounded-sm border border-border" role="listbox" aria-label="Parts on this page">
+        {matches.map((n) => (
+          <button
+            key={n.id}
+            type="button"
+            role="option"
+            aria-selected={n.id === asset.part}
+            data-crate-part={n.id}
+            onClick={() => put(n.id)}
+            className={cn("tactile flex min-h-7 w-full items-center px-2 text-left text-small hover:bg-hover", n.id === asset.part ? "bg-accent-soft text-accent" : "text-fg")}
+          >
+            <span className="truncate">{partName(n)}</span>
+          </button>
+        ))}
+        {!matches.length ? <p className="p-2 text-fine text-fg-faint">No part by that name on this page.</p> : null}
+      </div>
+      {more > 0 ? <p className="text-fine text-fg-faint">{more} more: type to narrow the list.</p> : null}
+    </div>
+  );
+}
+
+/** One sleeve: a picture, or a place for one; its buttons are 24 px and always there. */
 function Sleeve({ asset, at, live }: { asset: MotionAsset; at: number; live: boolean }) {
   const s = () => useStudio.getState();
   return (
-    <div className="group/sleeve space-y-0.5">
+    <div className="space-y-1" data-sleeve={at + 1}>
       <ImageWell
         compact
         src={asset.frames[at]}
-        label={`frame ${at + 1}`}
+        label={`sleeve ${at + 1}`}
         onImage={(src) => s().setMotionFrame(asset.id, at, src)}
       />
-      <div className="flex items-center justify-between gap-0.5">
-        <span className={cn("num shrink-0 text-fine", live ? "text-accent" : "text-fg-faint")}>{at + 1}</span>
-        <span className="flex shrink-0 opacity-0 transition-opacity group-hover/sleeve:opacity-100 focus-within:opacity-100">
-          <button
-            type="button"
-            aria-label={`Move frame ${at + 1} earlier`}
-            disabled={at === 0}
-            onClick={() => s().moveMotionFrame(asset.id, at, -1)}
-            className="tactile rounded-sm p-0.5 text-fg-faint hover:text-fg disabled:opacity-30"
-          >
-            <ChevronLeft className="size-3" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Move frame ${at + 1} later`}
-            disabled={at === SLEEVES - 1}
-            onClick={() => s().moveMotionFrame(asset.id, at, 1)}
-            className="tactile rounded-sm p-0.5 text-fg-faint hover:text-fg disabled:opacity-30"
-          >
-            <ChevronRight className="size-3" />
-          </button>
-          {asset.frames[at] ? (
-            <button
-              type="button"
-              aria-label={`Empty sleeve ${at + 1}`}
-              onClick={() => s().setMotionFrame(asset.id, at, null)}
-              className="tactile rounded-sm p-0.5 text-fg-faint hover:text-fg"
-            >
-              <X className="size-3" />
-            </button>
-          ) : null}
-        </span>
+      <div className={cn("num text-center text-small", live ? "text-accent" : "text-fg-faint")}>{at + 1}</div>
+      <div className="flex flex-wrap justify-center gap-0.5">
+        <Button size="iconXs" variant="ghost" aria-label={`Move sleeve ${at + 1} earlier`} disabled={at === 0} onClick={() => s().moveMotionFrame(asset.id, at, -1)}>
+          <ChevronLeft />
+        </Button>
+        <Button size="iconXs" variant="ghost" aria-label={`Move sleeve ${at + 1} later`} disabled={at === SLEEVES - 1} onClick={() => s().moveMotionFrame(asset.id, at, 1)}>
+          <ChevronRight />
+        </Button>
+        {asset.frames[at] ? (
+          <Button size="iconXs" variant="ghost" aria-label={`Empty sleeve ${at + 1}`} onClick={() => s().setMotionFrame(asset.id, at, null)}>
+            <X />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -519,7 +821,7 @@ function Row({ label, value, children }: { label: string; value?: string; childr
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between">
-        <label className="text-small text-fg-muted">{label}</label>
+        <span className="text-small text-fg-muted">{label}</span>
         {value ? <span className="num text-small text-fg-faint">{value}</span> : null}
       </div>
       {children}

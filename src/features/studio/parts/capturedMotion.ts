@@ -49,6 +49,8 @@ export interface NodeMotion {
   focus?: MotionState[];
   /** The animation every letter of a folded title shares. */
   letter?: { animation?: MotionAnimation[] } | null;
+  /** Turned off in the Motion tab: kept as captured, and played nowhere. */
+  off?: boolean;
 }
 /** A frame of another page (sink `node.embed`). */
 export interface NodeEmbed { src: string; allow?: string; sandbox?: string; title?: string; loading?: string; size?: { w: number; h: number } }
@@ -126,6 +128,7 @@ export function keyframesCss(list: readonly CapturedKeyframes[] | undefined): st
 /** Does this node move, or embed, so it needs a box to carry it? */
 export function hasMotion(n: { motion?: NodeMotion | null; embed?: NodeEmbed | null }): boolean {
   const m = n.motion;
+  if (m?.off) return !!n.embed?.src;
   return !!(m && (m.animation?.length || m.transition?.length || m.hover?.length || m.active?.length || m.focus?.length)) || !!n.embed?.src;
 }
 
@@ -297,7 +300,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
   };
   for (const n of nodes) {
     const m = n.motion;
-    if (!m || !ID.test(n.id)) continue;
+    if (!m || m.off || !ID.test(n.id)) continue;
     const box = `.mo-${n.id}`;
     const own: string[] = [];
     const anim = animationsValue(m.animation);

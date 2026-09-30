@@ -222,7 +222,8 @@ export function Marquee({ id, content, options, theme: t, mode }: PartProps) {
         style={{
           display: "flex", gap: 32, whiteSpace: "nowrap", fontFamily: t.headingFamily, fontWeight: 700,
           fontSize: t.fontPx * 1.1, color: t.muted, paddingLeft: 32,
-          animation: mode === "live" ? `marquee-scroll ${seconds}s linear infinite` : undefined,
+          /* "still": turned off in the Motion tab, the words stand where they start. */
+          animation: mode === "live" && speed !== "still" ? `marquee-scroll ${seconds}s linear infinite` : undefined,
         }}
       >
         {run.map((w, i) => (

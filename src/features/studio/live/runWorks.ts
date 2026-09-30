@@ -60,11 +60,24 @@ function softly(feature: string, inputs: Record<string, string>): Record<string,
 }
 
 /** Runs every feature switched on for the page's parts; returns what undoes it. `board`: the board's own, softly (above). */
-export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?: unknown }[], opts: { board?: boolean } = {}): () => void {
+export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?: unknown }[], opts: { board?: boolean; only?: { part: string; feature: string } } = {}): () => void {
   const all = pageFeatures(nodes as { id: string; work?: null }[]);
   const board = !!opts.board;
-  const bindings = board ? all.bindings.filter((b) => (AMBIENT as readonly string[]).includes(b.feature)) : all.bindings;
-  const scripts = board ? all.scripts.filter((s) => (AMBIENT as readonly string[]).includes(s.replace(/\.js$/, ""))) : all.scripts;
+  /*
+   * ONE, PLAYED ON PURPOSE. The Motion tab's play button runs a single
+   * feature on a single part, on the board, at its real strength: somebody
+   * asked to see that one, so it is not the board's soft ambient loop, and
+   * whatever it is (a reveal, a tilt) runs as the page would run it.
+   */
+  const only = opts.only;
+  const ambient = (id: string) => (AMBIENT as readonly string[]).includes(id);
+  const bindings = only
+    ? all.bindings.filter((b) => b.part === only.part && b.feature === only.feature)
+    : board ? all.bindings.filter((b) => ambient(b.feature)) : all.bindings;
+  const scripts = only
+    ? all.scripts.filter((s) => s === "runtime.js" || s.replace(/\.js$/, "") === only.feature)
+    : board ? all.scripts.filter((s) => ambient(s.replace(/\.js$/, ""))) : all.scripts;
+  const gentle = board && !only;
   if (!bindings.length) return () => {};
   const rt = runtime();
   if (!rt) return () => {};
@@ -85,7 +98,7 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
     if (!touched.some((t) => t.el === el)) touched.push({ el, style: el.getAttribute("style") });
     if (board) el.setAttribute("data-board-moves", b.feature);
     try {
-      const r = fn(el, board ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);
+      const r = fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);
       if (typeof r === "number") timers.push(r);
     } catch { /* as the runtime does: the part keeps what it was drawn as */ }
   }

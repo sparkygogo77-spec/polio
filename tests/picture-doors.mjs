@@ -85,9 +85,11 @@ await side("Motion");
 await page.waitForTimeout(500);
 const panel = page.locator("[data-motion-panel]");
 await panel.getByRole("button", { name: /crate/i }).first().click();
+/* A new crate opens straight into its own wide editor (MotionPanel.tsx). */
+const crate = page.locator("[data-crate-editor]");
 await page.waitForTimeout(500);
-const sleeve = panel.locator("input[type=file]").first();
-const note = async () => (await panel.locator("[data-picture-note]").allInnerTexts()).join(" ").replace(/\s+/g, " ").trim();
+const sleeve = crate.locator("input[type=file]").first();
+const note = async () => (await crate.locator("[data-picture-note]").allInnerTexts()).join(" ").replace(/\s+/g, " ").trim();
 
 await sleeve.setInputFiles({ name: "loop.gif", mimeType: "image/gif", buffer: ANIMATED });
 await page.waitForTimeout(1500);
@@ -112,6 +114,8 @@ check("the same picture with no transparent pixel is WebP, as before", (solid ??
 check("and smaller for it", !!cut && !!solid && solid.length < cut.length, `${Math.round((solid?.length ?? 0) / 1024)} KB against ${Math.round((cut?.length ?? 0) / 1024)} KB`);
 
 /* 2. The Texture section, by a drag that carries a URL and no file. */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
 await side("Look");
 await page.waitForTimeout(500);
 const zone = page.locator("[data-look-texture]");

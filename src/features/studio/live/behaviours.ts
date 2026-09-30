@@ -62,6 +62,8 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviou
   };
   for (const n of nodes) {
     if (!isBehaviour(n.featureId)) continue;
+    /* Turned off in the Motion tab: kept on the board, done nowhere. */
+    if (n.options?.off === "yes") continue;
     b.any = true;
     const o = n.options;
     switch (n.featureId) {

@@ -77,6 +77,8 @@ import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
 import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "./library/works";
+import { CRATE_CSS, crateOn, setCrateHref } from "./crateLayer";
+import { cellFor, crateSheet, type CrateSheet } from "./crateDraw";
 
 export type ExportFile = SiteFile | SiteBinary;
 
@@ -451,6 +453,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
   /* So is the page's motion: in the stylesheet, reaching each part by its id. */
   for (const el of Array.from(root.querySelectorAll("style[data-motion-css]"))) el.remove();
+  /* And a crate's rule (crateLayer.tsx): once, in the stylesheet. */
+  for (const el of Array.from(root.querySelectorAll("style[data-crate-css]"))) el.remove();
   for (const el of Array.from(root.querySelectorAll("*"))) {
     const node = el.getAttribute("data-live-node");
     const isPage = el.hasAttribute("data-live-page");
@@ -919,26 +923,50 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   }
   const sheetFile = (key: string) => `assets/motion/${key.replace(/[^\w-]/g, "_")}.css`;
 
+  /*
+   * THE CRATES PARTS WEAR. Each is made into its strip of frames before any
+   * page is drawn, so the page is drawn with it in the same pass, and each
+   * strip is a file of its own under assets/crates/, played by one rule in
+   * the stylesheet (`crateLayer.tsx`). A site whose parts wear none carries
+   * none of it.
+   */
+  const crates = new Map<string, CrateSheet>();
+  for (const n of s.nodes) {
+    if (only && !only.includes(n.pageId)) continue;
+    const m = crateOn(s.motion, n.id);
+    if (!m || crates.has(m.id)) continue;
+    const cell = cellFor(n.w, n.h);
+    const sheet = await crateSheet(m, cell.w, cell.h);
+    if (sheet) crates.set(m.id, sheet);
+  }
+  const crateFile = (id: string, sheet: CrateSheet) => `assets/crates/${id}.${sheet.ext}`;
+
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
     const up = upOf(page, home);
-    const { html } = markupOf(
-      React.createElement(LiveSite, {
-        pages: s.pages,
-        nodes: s.nodes,
-        pageId: page.id,
-        device: "desktop" as const,
-        frameWidth: width,
-        format: s.format,
-        look: s.look,
-        siteName: s.brief.name,
-        published: true,
-        shapes: s.shapes,
-        pictureAt: (pic) => `${up}${pic.path}`,
-      }),
-      width,
-      [],
-    );
+    setCrateHref((m, sheet) => `${up}${crateFile(m.id, sheet)}`);
+    let html = "";
+    try {
+      ({ html } = markupOf(
+        React.createElement(LiveSite, {
+          pages: s.pages,
+          nodes: s.nodes,
+          pageId: page.id,
+          device: "desktop" as const,
+          frameWidth: width,
+          format: s.format,
+          look: s.look,
+          siteName: s.brief.name,
+          published: true,
+          shapes: s.shapes,
+          pictureAt: (pic) => `${up}${pic.path}`,
+        }),
+        width,
+        [],
+      ));
+    } finally {
+      setCrateHref(null);
+    }
     const title = page.name?.trim() ? (page.id === home.id ? name : `${page.name.trim()} · ${name}`) : name;
     files.push({
       path: pageFile(page, home),
@@ -984,6 +1012,9 @@ ${frameCss(width, fluidAt !== null)}
 ${motion ? `
 /* The site's own motion, as captured: its keyframes (prefixed cap-); each page's parts move in assets/motion/<page>.css. */
 ${motion}
+` : ""}${crates.size ? `
+/* A crate a part wears: its frames in one strip, stepped through (assets/crates/). */
+${CRATE_CSS}
 ` : ""}`;
   files.push({ path: "assets/site.css", content: css });
   for (const [key, sheet] of motionSheets) files.push({ path: sheetFile(key), content: `/* The motion of this page's parts and its panels', as captured: each part's animation, transitions and hover (keyframes in site.css). */\n${sheet}\n` });
@@ -991,6 +1022,7 @@ ${motion}
   files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
   files.push(...featureFiles(s.nodes));
+  for (const [id, sheet] of crates) files.push({ path: crateFile(id, sheet), content: await base64(sheet.blob), encoding: "base64" });
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */
   /* The heads' share pictures and icons are among the site's pictures (`sitePictures`), so they are served beside the pages. */
   if (icons) files.push(...icons.files);

@@ -1,18 +1,18 @@
 /**
- * A motion crate says where it reaches (inventory B27).
+ * A motion crate says where it reaches (inventory B27), and now it reaches
+ * the page.
  *
- * The Motion panel builds a crate: five keyframes, the Builder dissolves
- * between them, you scrub it, play it, take it away as a sprite sheet. The
- * crate then goes into the blueprint as a brief, and that is as far as it
- * goes: no live part on the page plays a crate, no part can be told to wear
- * one. Nothing in the panel said so, so a person who filled a crate and then
- * looked at the preview for it was left to guess. This holds the panel to
- * the code:
+ * The Motion panel builds a crate: five keyframes, the Builder mixes between
+ * them, you scrub it, play it, take it away as a sprite sheet. It goes into
+ * the blueprint as a brief and, put on a part, plays as that part's picture
+ * on the board, in the preview and on the published page
+ * (`crateLayer.tsx`). This holds the panel to the code:
  *
- *   · that no renderer reads a crate is derived from the renderers' own
- *     source (a source read, named as one);
+ *   · that the renderer draws a part's crate, and the export writes its
+ *     strip, is read off their own source (a source read, named as one);
  *   · the blueprint carries the crate (a browser read of the compiled brief);
- *   · the panel says both, with a crate open and with none.
+ *   · the panel says all of it, with a crate and with none, and a crate on
+ *     no part says it is on no part yet.
  *
  *   node tests/motion-reach.mjs [url]      # default http://localhost:3000
  */
@@ -34,17 +34,12 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-/* 1. Who reads a crate, off the source. */
-const files = (dir) => readdirSync(dir).filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `${dir}/${f}`);
-const RENDERERS = [...files("src/features/studio/live"), ...files("src/features/studio/parts"), "src/features/studio/blocks.tsx"];
-/* A crate is the studio's `motion` list, read off the store. A part's own
-   `motion` — what a captured run did on the page it came from (a span's
-   `s.motion.animation`, parts/capturedMotion.ts) — is not a crate, and
-   reading it is not playing one. */
-const readers = RENDERERS.filter((f) => /MotionAsset|useStudio\([^)]*\.motion\b|getState\(\)\.motion\b/.test(readFileSync(f, "utf8")));
-check(`no renderer reads a crate: ${RENDERERS.length} renderer files, ${readers.length} mention one (source read)`, readers.length === 0, readers.join(", ") || "none");
+/* 1. Who plays a crate, off the source. */
+const blocks = readFileSync("src/features/studio/blocks.tsx", "utf8");
+check("every part is drawn with the crate it wears, on every surface (source read)", /<CrateOn\b/.test(blocks));
+check("the export writes each worn crate's strip as a file and its rule into the stylesheet (source read)", /assets\/crates\//.test(readFileSync("src/features/studio/exportSite.ts", "utf8")) && /CRATE_CSS/.test(readFileSync("src/features/studio/exportSite.ts", "utf8")));
 const consumers = ["src/features/studio/spec.ts", "src/features/studio/BriefDialog.tsx"].filter((f) => /\bmotion\b/.test(readFileSync(f, "utf8")));
-check("the blueprint compiler and its dialog do (source read)", consumers.length === 2, consumers.join(", "));
+check("the blueprint compiler and its dialog read it too (source read)", consumers.length === 2, consumers.join(", "));
 
 /* 2. The panel, with no crate. */
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
@@ -61,8 +56,8 @@ const panel = page.locator("[data-motion-panel]");
 check("the Motion panel opens", (await panel.count()) === 1);
 const reach = () => panel.locator("[data-motion-reach]");
 const says = async () => ((await reach().count()) ? (await reach().first().innerText()).replace(/\s+/g, " ").trim() : "");
-const honest = (t) => /blueprint/i.test(t) && /(preview|page)/i.test(t) && /(does not|no part|nothing)/i.test(t);
-check("with no crate it says where a crate reaches: the blueprint, and no part of the page plays it", honest(await says()), (await says()) || "no such line");
+const honest = (t) => /blueprint/i.test(t) && /part/i.test(t) && /board/i.test(t) && /preview/i.test(t) && /published/i.test(t);
+check("with no crate it says where a crate reaches: the blueprint, and the part it is put on, on the board, in the preview and published", honest(await says()), (await says()) || "no such line");
 
 /* 3. A crate, two sleeves filled: the line stays, the blueprint carries it. */
 const PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -76,8 +71,15 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
 if (await tab.count()) await tab.click().catch(() => {});
 await page.waitForTimeout(500);
-check("a crate with two sleeves filled plays in the panel", (await panel.locator("[data-motion-canvas]").count()) === 1 && (await panel.getByLabel(/play the sequence|pause/i).count()) === 1);
-check("and the same line stands under it", honest(await says()), (await says()) || "no such line");
+check("and the same line stands over it", honest(await says()), (await says()) || "no such line");
+check("the crate's card says it is on no part yet", /Not on a part yet/.test(await panel.locator("[data-crate-card] [data-crate-worn]").innerText().catch(() => "")));
+await panel.getByRole("button", { name: /Open editor/ }).first().click();
+await page.waitForTimeout(700);
+const editor = page.locator("[data-crate-editor]");
+check("a crate with two sleeves filled plays in its editor", (await editor.locator("[data-motion-canvas]").count()) === 1 && (await editor.getByLabel(/play the sequence|pause/i).count()) === 1);
+check("…which says where it would play once put on a part", /Not on a part yet.*board.*preview.*published/i.test((await editor.locator("[data-crate-worn]").innerText().catch(() => "")).replace(/\s+/g, " ")));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
 
 await page.keyboard.press("Control+Enter");
 await page.waitForTimeout(1500);

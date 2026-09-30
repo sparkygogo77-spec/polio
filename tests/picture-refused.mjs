@@ -53,23 +53,27 @@ await side("Motion");
 await page.waitForTimeout(500);
 const panel = page.locator("[data-motion-panel]");
 await panel.getByRole("button", { name: /crate/i }).first().click();
+/* A new crate opens straight into its own wide editor (MotionPanel.tsx). */
+const crate = page.locator("[data-crate-editor]");
 await page.waitForTimeout(500);
-const sleeve = panel.locator("input[type=file]").first();
+const sleeve = crate.locator("input[type=file]").first();
 await sleeve.setInputFiles({ name: "photo.heic", mimeType: "image/heic", buffer: JUNK });
 await page.waitForTimeout(1500);
 let m = (await doc()).motion?.[0];
 const kept = m?.frames?.filter(Boolean).map((f) => f.length) ?? [];
 check("a 3 MB file the browser cannot open lands in no sleeve", kept.length === 0, kept.length ? `kept ${kept.map((n) => `${Math.round(n / 1024)} KB`).join(", ")}` : "nothing kept");
-const said = (await panel.locator("[data-picture-refused]").allInnerTexts()).join(" ").trim();
+const said = (await crate.locator("[data-picture-refused]").allInnerTexts()).join(" ").trim();
 check("and the well says so, in the import flow's own sentence", /cannot open that picture/i.test(said), said || "nothing said");
 
 await sleeve.setInputFiles({ name: "dot.png", mimeType: "image/png", buffer: PX });
 await page.waitForTimeout(1500);
 m = (await doc()).motion?.[0];
 check("a real picture by the same door still lands", typeof m?.frames?.[0] === "string" && m.frames[0].startsWith("data:image/"), m?.frames?.[0]?.slice(0, 22) ?? "no frame");
-check("and the refusal is gone", (await panel.locator("[data-picture-refused]").count()) === 0);
+check("and the refusal is gone", (await crate.locator("[data-picture-refused]").count()) === 0);
 
 /* 2. The Texture section, by a drop. */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
 await side("Look");
 await page.waitForTimeout(500);
 const zone = page.locator("[data-look-texture]");

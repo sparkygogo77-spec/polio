@@ -18,6 +18,7 @@ import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usesOf } from "./library/works";
 import { usePicture, type Picture } from "./pictures";
+import { CrateOn } from "./crateLayer";
 import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
 import type { NodeMedia } from "./parts/types";
 import type { NodeWorld } from "./parts/World";
@@ -313,6 +314,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       </div>
       </StillCut>
     ) : drawn}
+    {/* A crate put on this part plays over it, as its picture, wherever the part is drawn (crateLayer.tsx). */}
+    <CrateOn nodeId={node.id} w={node.w} h={node.h} />
     </>
   );
   /*
