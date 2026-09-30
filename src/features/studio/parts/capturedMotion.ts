@@ -31,8 +31,14 @@ import type { NodeLink } from "./types";
 export interface MotionAnimation { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }
 /** One transitioned property. */
 export interface MotionTransition { property: string; duration?: string; timing?: string; delay?: string }
-/** A rule that applies while the element (`self`) or an ancestor is hovered, pressed or focused. */
-export interface MotionState { selector?: string; self?: boolean; state?: string; style?: Record<string, string> }
+/**
+ * A rule that applies while the element (`self`) or an ancestor is hovered,
+ * pressed or focused. `pseudo` (`::before`, `::after`): it paints that
+ * pseudo-element of the element, one not drawn at rest, whose look at rest
+ * is `base`. On a pseudo-element's own part, `of` says whose state paints
+ * it: the element that bears it (`host`) or one that element sits in.
+ */
+export interface MotionState { selector?: string; self?: boolean; state?: string; style?: Record<string, string>; pseudo?: string; base?: Record<string, string>; of?: string }
 /** What a node does over time (sink `node.motion`). */
 export interface NodeMotion {
   animation?: MotionAnimation[];
@@ -138,6 +144,14 @@ export const motionClass = (id: string): string | null => (ID.test(id) ? `mo mo-
 export function hoverHost(node: MotionNode, rule: MotionState, nodes: readonly MotionNode[]): MotionNode | null {
   const sel = node.from?.selector;
   if (!sel) return null;
+  /* A pseudo-element's part (`… > a::before`): the element that bears it is hovered, or one that element sits in. */
+  const cut = sel.indexOf("::");
+  if (cut > 0) {
+    const own = sel.slice(0, cut);
+    const bearer = nodes.find((n) => n.id !== node.id && n.pageId === node.pageId && n.from?.selector === own) ?? null;
+    if (rule.of === "host") return bearer;
+    return hoverHost({ ...node, from: { ...node.from, selector: own } }, rule, nodes) ?? bearer;
+  }
   const compounds = (rule.selector ?? "").split(/\s*[\s>+~]\s*/).filter(Boolean);
   const at = compounds.findIndex((c) => /:(hover|active|focus)/.test(c));
   const up = at >= 0 ? Math.max(1, compounds.length - 1 - at) : 1;
@@ -206,7 +220,31 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
         const host = r.self !== false ? n : hoverHost(n, r, nodes);
         if (!host || !ID.test(host.id)) continue;
         const group = [host, ...inside(host, nodes)];
-        const when = group.length === 1 ? `${box}${pseudo}` : `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")}) ${box}`;
+        /*
+         * The part's own element is its box and everything drawn in its
+         * frame with it: a link stretched over the part (`link-fills-part`)
+         * sits over the box, and the pointer on it was on the box too
+         * (trumpmorty.fun's nav: `.nav a:hover` paints a yellow pill behind
+         * "How to buy", and under the stretched link nothing matched).
+         */
+        const own = kind === "focus" ? `${box}${pseudo}` : `${at(host.id)}${pseudo} ${box}, ${box}${pseudo}`;
+        const when = group.length === 1 ? own : `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")}) ${box}`;
+        /*
+         * A pseudo-element the state brings (`.nav a:hover::before`, a pill
+         * not drawn at rest): drawn from its look at rest and the state's,
+         * inside the part's box as it was inside the element. One there at
+         * rest (content, however faint) is drawn at rest too, so the state
+         * eases from it over its own transition.
+         */
+        if (r.pseudo === "::before" || r.pseudo === "::after") {
+          const base = declarations(r.base, false);
+          const there = !!r.base?.content && !/^(none|normal)$/.test(r.base.content.trim());
+          const on = when.split(/,\s*(?![^()]*\))/).map((w) => `${w}${r.pseudo}`).join(", ");
+          rules.push(`${box} { position: relative; }`);
+          if (there && base) rules.push(`${box}${r.pseudo} { ${base}; }`);
+          rules.push(`${on} { ${[base, decl].filter(Boolean).join("; ")}; }`);
+          continue;
+        }
         rules.push(`${when} { ${decl}; }`);
         /* What it moves, the parts inside it move with it. */
         const moves = Object.fromEntries(Object.entries(r.style ?? {}).filter(([k]) => MOVES.has(k)));

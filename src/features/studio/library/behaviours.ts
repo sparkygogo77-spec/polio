@@ -114,6 +114,7 @@ const COPY: Work = {
     inputs: [
       { id: "text", label: "Copies", kind: "text", default: "", placeholder: "the part's own words" },
       { id: "toast", label: "Toast says", kind: "text", default: "Copied" },
+      { id: "quiet", label: "No toast of its own (the page's own shows)", kind: "one", default: "no", values: ["yes", "no"], advanced: true },
     ],
     needs: "none",
     says: ["copy with toast", "click to copy", "copy to clipboard", "copy address", "copy contract address", "copy ca", "copy button", "copyable"],
@@ -157,7 +158,9 @@ const COPY: Work = {
     if (!t) return;
     var p;
     try { p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : fallback(t); } catch (x) { p = fallback(t); }
-    p.then(null, function () { return fallback(t); }).then(function () { toast(say); }, function () { toast("Could not copy"); });
+    /* A captured page's own "COPIED!" and toast are its press's to show (\`press-shows\`): none of this one's over them. */
+    var quiet = inputs.quiet === "yes";
+    p.then(null, function () { return fallback(t); }).then(function () { if (!quiet) toast(say); }, function () { toast("Could not copy"); });
   }
   if (!/^(A|BUTTON|INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0");
   if (!el.getAttribute("role") && el.tagName !== "BUTTON") el.setAttribute("role", "button");
@@ -717,14 +720,27 @@ const BLINK: Work = {
     inputs: [
       { id: "every", label: "Every (seconds)", kind: "number", default: "1" },
       { id: "how", label: "How", kind: "one", default: "steps", values: ["steps", "fade"], heard: "\\b(fade|fades|fading)\\b" },
+      { id: "css", label: "The page's own blink", kind: "text", default: "", placeholder: "1s steps(2) 0s infinite normal none cap-blink", advanced: true },
     ],
     needs: "none",
     says: ["blink", "blinking", "blinking light", "live dot", "flash", "flashing", "on air light"],
     look: { sample: "● LIVE", caption: "blink" },
     version: 1,
   },
+  /*
+   * A CAPTURED BLINK PLAYS AS THE PAGE WROTE IT. trumpmorty.fun's LIVE dots
+   * are `blink 1s steps(2)` over `50% { opacity: 0 }`: a timing function
+   * steps each stretch between two stops, so they run 1, .5, 0, .5, three
+   * stages. The two ends played here ran 1, 0. So a blink the capture
+   * carried is its own animation, every longhand, over the page's own
+   * keyframes (`cap-<name>`, in the stylesheet `capturedMotion.ts` writes),
+   * and the two made-up ones are for a part the owner asked to blink.
+   */
   script: `siteFeatures.define("blink", function (el, inputs) {
-  if (${CALM} || !el.animate) return;
+  if (${CALM}) return;
+  var own = String(inputs.css || "").trim();
+  if (own && /^[\\w\\s().,%-]+$/.test(own) && /\\bcap-[\\w-]+\\b/.test(own)) { el.style.animation = own; return; }
+  if (!el.animate) return;
   var t = Number(inputs.every); if (!isFinite(t) || t <= 0) t = 1;
   var frames = inputs.how === "fade"
     ? [{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }]
@@ -901,6 +917,7 @@ const PRESS_SHOWS: Work = {
       { id: "hides", label: "In place of (parts)", kind: "text", default: "", placeholder: "part ids, comma-separated", advanced: true },
       { id: "group", label: "Group", kind: "text", default: "", placeholder: "presses that take turns", advanced: true },
       { id: "opening", label: "The page as it opens", kind: "one", default: "no", values: ["yes", "no"], advanced: true },
+      { id: "timing", label: "How long each shows, and where it comes in from", kind: "text", default: "", placeholder: '[{"part":"n_1","lasts":1600,"from":{"y":220}}]', advanced: true },
     ],
     needs: "none",
     says: ["show on press", "tabs", "switch panel", "select card", "choose one", "press to show", "click to show"],
@@ -925,6 +942,45 @@ const PRESS_SHOWS: Work = {
     group.forEach(function (o) { if (o !== me) { set(o.shows, o.opening); set(o.hides, true); } });
     set(me.hides, false);
     set(me.shows, true);
+    flash();
+  }
+  /*
+   * WHAT A PRESS FLASHES (sink presses.mjs): trumpmorty.fun's CA bar turns
+   * its label to "COPIED!" for 1600 ms and slides a toast up from below the
+   * window for 1900 ms. Each part the press showed or stood in for goes
+   * back after its own time (\`lasts\`, from the press); one that came in
+   * from somewhere (\`from\`: a move and an opacity) comes that way, over the
+   * transition the page gave it, and leaves the same way back.
+   */
+  var timing = [];
+  try { timing = JSON.parse(String(inputs.timing || "[]")); if (!Array.isArray(timing)) timing = []; } catch (e) { timing = []; }
+  var calm = ${CALM};
+  var ease = function (p) {
+    var box = p.querySelector(".mo") || p, c = getComputedStyle(box), cut = /,\\s*(?![^()]*\\))/;
+    var P = c.transitionProperty.split(cut), D = c.transitionDuration.split(cut), T = c.transitionTimingFunction.split(cut);
+    for (var i = 0; i < P.length; i++) if (P[i] === "transform" || P[i] === "translate" || P[i] === "all") return { ms: parseFloat(D[i % D.length]) * (/ms$/.test(D[i % D.length]) ? 1 : 1000) || 300, curve: T[i % T.length] };
+    return { ms: 300, curve: "ease" };
+  };
+  var come = function (p, from, back, done) {
+    if (calm || !p.animate) { if (done) done(); return; }
+    var e = ease(p), a = { translate: (Number(from.x) || 0) + "px " + (Number(from.y) || 0) + "px", opacity: from.opacity == null ? 1 : Number(from.opacity) }, z = { translate: "0px 0px", opacity: 1 };
+    var run = p.animate(back ? [z, a] : [a, z], { duration: e.ms, easing: e.curve, fill: back ? "forwards" : "none" });
+    run.onfinish = function () { if (done) done(); if (back) run.cancel(); };
+  };
+  function flash() {
+    timing.forEach(function (t) {
+      var p = t && find(String(t.part || ""));
+      if (!p) return;
+      var shown = me.shows.indexOf(t.part) >= 0;
+      if (shown && t.from) come(p, t.from, false);
+      clearTimeout(p.__flash);
+      var ms = Number(t.lasts);
+      if (!(ms >= 0)) return;
+      p.__flash = setTimeout(function () {
+        if (!shown) { p.style.display = "flex"; return; }
+        if (t.from) come(p, t.from, true, function () { p.style.display = "none"; }); else p.style.display = "none";
+      }, ms);
+    });
   }
   /*
    * The part's words and pictures sit over it as parts of their own: a press anywhere inside its box is its press.
@@ -946,6 +1002,76 @@ const PRESS_SHOWS: Work = {
     press();
   });
   el.style.cursor = "pointer";
+});
+`,
+};
+
+/*
+ * HOW A PAGE GOES TO ITS OWN PLACES (sink glide.mjs, `behaviours.glide`).
+ * trumpmorty.fun's nav and remote keys glide to their sections by its
+ * script, over `min(1600, 500 + distance × 0.25)` ms on an ease-in-out
+ * cubic, a header's height short; a copy that jumped there was another
+ * page. A link that goes to a part of this page glides the same way: the
+ * time for its distance, the page's own curve (named, or as the shape the
+ * capture measured), and where it stops against the place. A page that
+ * glided by its stylesheet (`scroll-behavior: smooth`) gets that back.
+ */
+const GLIDE: Work = {
+  manifest: {
+    id: "glide",
+    name: "Glide to its place",
+    category: "motion",
+    blurb: "A link to a place on the page scrolls there smoothly, over the time and curve the page itself took.",
+    inputs: [
+      { id: "to", label: "Goes to (part)", kind: "text", default: "", placeholder: "the part the link goes to" },
+      { id: "how", label: "How", kind: "one", default: "script", values: ["script", "css"], advanced: true },
+      { id: "base", label: "Takes (ms)", kind: "number", default: "600" },
+      { id: "perPx", label: "And per px of distance (ms)", kind: "number", default: "0", advanced: true },
+      { id: "max", label: "At most (ms)", kind: "number", default: "", advanced: true },
+      { id: "ease", label: "Curve", kind: "one", default: "ease-in-out-cubic", values: ["ease-in-out-cubic", "ease-in-out-quad", "ease-in-out-quart", "ease-in-out-sine", "ease-out-quad", "ease-out-cubic", "ease-out-quart", "ease-out-expo", "linear", "measured"], advanced: true },
+      { id: "curve", label: "The measured curve", kind: "text", default: "", placeholder: "21 shares of the distance, comma-separated", advanced: true },
+      { id: "offset", label: "Stops short of the place (px)", kind: "number", default: "0", advanced: true },
+    ],
+    needs: "none",
+    says: ["smooth scroll", "scroll smoothly", "glide to section", "smooth anchor", "scroll to section"],
+    look: { sample: "↧ glide", caption: "in-page link · glide" },
+    version: 1,
+  },
+  script: `siteFeatures.define("glide", function (el, inputs) {
+  var root = el.ownerDocument || document;
+  if (inputs.how === "css") { root.documentElement.style.scrollBehavior = ${CALM} ? "auto" : "smooth"; return; }
+  var to = String(inputs.to || "").trim();
+  var num = function (v, d) { var n = Number(v); return v === "" || v == null || !isFinite(n) ? d : n; };
+  var E = {
+    "linear": function (p) { return p; },
+    "ease-in-out-quad": function (p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; },
+    "ease-in-out-cubic": function (p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; },
+    "ease-in-out-quart": function (p) { return p < 0.5 ? 8 * p * p * p * p : 1 - Math.pow(-2 * p + 2, 4) / 2; },
+    "ease-in-out-sine": function (p) { return -(Math.cos(Math.PI * p) - 1) / 2; },
+    "ease-out-quad": function (p) { return 1 - (1 - p) * (1 - p); },
+    "ease-out-cubic": function (p) { return 1 - Math.pow(1 - p, 3); },
+    "ease-out-quart": function (p) { return 1 - Math.pow(1 - p, 4); },
+    "ease-out-expo": function (p) { return p >= 1 ? 1 : 1 - Math.pow(2, -10 * p); }
+  };
+  var pts = String(inputs.curve || "").split(",").map(Number).filter(isFinite);
+  var shape = E[inputs.ease] || (pts.length > 2 ? function (p) { var x = p * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(x)); return pts[i] + (pts[i + 1] - pts[i]) * (x - i); } : E["ease-in-out-cubic"]);
+  var scroller = function (n) { for (var a = n && n.parentElement; a && a !== root.body && a !== root.documentElement; a = a.parentElement) { var o = getComputedStyle(a).overflowY; if ((o === "auto" || o === "scroll") && a.scrollHeight > a.clientHeight) return a; } return null; };
+  el.addEventListener("click", function (e) {
+    var t = to && (root.getElementById(to) || root.querySelector('[data-live-node="' + to + '"]'));
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    var box = scroller(t), win = root.defaultView || window;
+    var now = box ? box.scrollTop : win.scrollY, view = box ? box.clientHeight : win.innerHeight;
+    var most = (box ? box.scrollHeight : root.documentElement.scrollHeight) - view;
+    var top = t.getBoundingClientRect().top - (box ? box.getBoundingClientRect().top : 0) + now;
+    var y = Math.max(0, Math.min(most, top + num(inputs.offset, 0))), dist = y - now;
+    var go = function (v) { if (box) box.scrollTop = v; else win.scrollTo(0, v); };
+    if (${CALM} || !dist) { go(y); return; }
+    var ms = num(inputs.base, 600) + num(inputs.perPx, 0) * Math.abs(dist), cap = num(inputs.max, 0);
+    if (cap > 0) ms = Math.min(cap, ms);
+    var t0 = performance.now();
+    (function step(n) { var p = Math.min(1, (n - t0) / ms); go(now + dist * shape(p)); if (p < 1) requestAnimationFrame(step); })(t0);
+  });
 });
 `,
 };
@@ -1088,7 +1214,7 @@ siteFeatures.define("world-dialogs", function (el) {
 `,
 };
 
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS, WORLD_DIALOGS];
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS, GLIDE, WORLD_DIALOGS];
 
 /** The ones that move on their own, with nobody touching anything: the only ones the board plays (live/runWorks.ts). */
 export const AMBIENT = ["spin", "float", "dust-canvas"] as const;

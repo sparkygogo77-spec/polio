@@ -30,7 +30,8 @@ interface Node {
   x?: number; y?: number; w?: number; h?: number;
   from?: { selector?: string } | null;
   art?: Rec | null;
-  motion?: { animation?: { name?: string; duration?: string; timing?: string }[] } & Rec;
+  motion?: { animation?: { name?: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[] } & Rec;
+  link?: { kind?: string; target?: string } | null;
   work?: WorkUse | null;
 }
 
@@ -70,6 +71,14 @@ function transitionOf(t: unknown): { duration: string | null; ease: string | nul
   const d = /(\d*\.?\d+)(ms|s)\b/.exec(one);
   const e = /(cubic-bezier\([^)]*\)|steps\([^)]*\)|ease-in-out|ease-in|ease-out|ease|linear)/.exec(one.replace(/^transform\s+/, ""));
   return { duration: d ? String(Math.round(Number(d[1]) * (d[2] === "s" ? 1000 : 1))) : null, ease: e ? e[1]! : null };
+}
+
+/** A captured animation as one `animation` value under the name its keyframes are written by (`cap-<name>`, parts/capturedMotion.ts); null when anything in it is not a plain value. */
+function capturedAnimation(a: { name?: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }): string | null {
+  if (!a.name || !/^[A-Za-z_][\w-]{0,63}$/.test(a.name)) return null;
+  const rest = [a.duration, a.timing, a.delay, a.iterations, a.direction, a.fill].filter((v): v is string => typeof v === "string" && v.trim() !== "");
+  if (rest.some((v) => !/^[\w\s().,%-]+$/.test(v))) return null;
+  return [...rest, `cap-${a.name}`].join(" ");
 }
 
 /**
@@ -208,7 +217,9 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     if (!n) continue;
     const anim = (n.motion?.animation ?? []).find((a) => a.name === i.name);
     const ms = num(i.duration) ?? (anim?.duration ? parseFloat(anim.duration) * (/ms$/.test(anim.duration) ? 1 : 1000) : 1000);
-    give(n.id, { id: "blink", inputs: { every: str(ms / 1000), how: /steps/.test(anim?.timing ?? "steps") ? "steps" : "fade" } });
+    /* The page's own animation, every longhand, over its own keyframes: a `steps(2)` over one 50% stop is three stages, not two (library/behaviours.ts, BLINK). */
+    const css = anim ? capturedAnimation(anim) : null;
+    give(n.id, { id: "blink", inputs: { every: str(ms / 1000), how: /steps/.test(anim?.timing ?? "steps") ? "steps" : "fade", ...(css ? { css } : {}) } });
     if (n.motion?.animation) {
       const rest = n.motion.animation.filter((a) => a.name !== i.name);
       const { animation: _gone, ...m } = n.motion;
@@ -223,7 +234,37 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const shows = (Array.isArray(st.shows) ? st.shows : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
     const hides = (Array.isArray(st.hides) ? st.hides : []).filter((id) => typeof id === "string" && byId.has(id)) as string[];
     if (!shows.length || typeof st.part !== "string") continue;
-    give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? ""), ...(st.opening === true ? { opening: "yes" } : {}) } });
+    /* What it flashed (sink presses.mjs): each part's time and where it came in from. */
+    const timing = (Array.isArray(st.timing) ? (st.timing as Rec[]) : []).filter((t) => typeof t.part === "string" && byId.has(t.part)).map((t) => {
+      const from = t.from && typeof t.from === "object" ? (t.from as Rec) : null;
+      const f = from ? Object.fromEntries(["x", "y", "opacity"].map((k) => [k, num(from[k])]).filter(([, v]) => v !== null)) : null;
+      return { part: t.part as string, ...(num(t.lasts) !== null ? { lasts: num(t.lasts)! } : {}), ...(f && Object.keys(f).length ? { from: f } : {}) };
+    });
+    give(st.part, { id: "press-shows", inputs: { shows: shows.join(","), hides: hides.join(","), group: String(st.group ?? ""), ...(st.opening === true ? { opening: "yes" } : {}), ...(timing.length ? { timing: JSON.stringify(timing) } : {}) } });
+  }
+
+  /* ---------------------------------------------------------------- what a press copied (sink `behaviours.presses`) */
+  /* The copy itself; quiet where the page's own flash was captured, which then says it (a "COPIED!", a toast), not a toast of the library's. */
+  const flashes = new Set((Array.isArray(b.states) ? (b.states as Rec[]) : []).filter((st) => Array.isArray(st.timing) && st.timing.length).map((st) => String(st.part)));
+  for (const c of Array.isArray(b.presses) ? (b.presses as Rec[]) : []) {
+    if (c.does !== "copy" || typeof c.part !== "string" || typeof c.copy !== "string" || !byId.has(c.part)) continue;
+    give(c.part, { id: "copy-toast", inputs: { text: c.copy, ...(flashes.has(c.part) ? { quiet: "yes" } : {}) } });
+  }
+
+  /* ---------------------------------------------------------------- how a link goes to its place (sink `behaviours.glide`) */
+  const g = b.glide && typeof b.glide === "object" ? (b.glide as Rec) : null;
+  if (g && (g.how === "script" || g.how === "css")) {
+    const ms = (g.ms && typeof g.ms === "object" ? g.ms : {}) as Rec;
+    const curve = Array.isArray(g.curve) ? (g.curve as unknown[]).map(num).filter((v): v is number => v !== null) : [];
+    const inputs: Record<string, string> = g.how === "css" ? { how: "css" } : {
+      how: "script",
+      base: str(num(ms.base) ?? 600), perPx: str(num(ms.perPx) ?? 0),
+      ...(num(ms.max) ? { max: str(num(ms.max)!) } : {}),
+      ease: typeof g.ease === "string" ? g.ease : curve.length > 2 ? "measured" : "ease-in-out-cubic",
+      ...(curve.length > 2 && typeof g.ease !== "string" ? { curve: curve.join(",") } : {}),
+      offset: str(num(g.offset) ?? 0),
+    };
+    for (const n of out) if (n.link?.kind === "node" && typeof n.link.target === "string" && byId.has(n.link.target)) give(n.id, { id: "glide", inputs: { to: n.link.target, ...inputs } });
   }
 
   /* ---------------------------------------------------------------- a canvas world's characters (sink `behaviours.worlds`, the part's `world`) */
