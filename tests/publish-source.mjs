@@ -107,11 +107,17 @@ const publishRoute = async (body) => {
 /* ------------------------------------------------------------------ */
 
 const DOC = readFileSync(new URL("./fixtures/sink-pages.json", import.meta.url));
+/* One transparent pixel, standing in for each picture. */
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const doc = JSON.parse(DOC.toString("utf8"));
 const tree = [
   { path: "package.json", type: "blob", sha: "pkg", size: 10 },
   { path: "site/document.json", type: "blob", sha: "doc", size: DOC.length },
   { path: "site/capture/home.json", type: "blob", sha: "cap", size: 2 },
+  /* The pictures the fixture's pages show. A publish now refuses a page that
+     points at a file nothing provides (tests/publish-complete.mjs), so the
+     board has to arrive whole for the rest of this to be about sources. */
+  ...[...new Set(DOC.toString("utf8").match(/assets\/pictures\/pic_[a-z0-9]+\.png/g) ?? [])].map((path) => ({ path, type: "blob", sha: "pic", size: PNG.length })),
 ];
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
@@ -129,6 +135,7 @@ await page.route("https://api.github.com/**", (r) => {
   if (!rest) return j({ default_branch: "main", homepage: "" });
   if (rest.startsWith("/git/trees/")) return j({ tree });
   if (rest === "/git/blobs/doc") return j({ encoding: "base64", content: DOC.toString("base64") });
+  if (rest === "/git/blobs/pic") return j({ encoding: "base64", content: PNG.toString("base64") });
   return j({ message: "no" }, 404);
 });
 /* The list the Bring dialog shows, answered here rather than by GitHub. */
