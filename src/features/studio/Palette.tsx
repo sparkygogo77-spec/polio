@@ -21,12 +21,13 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronUp, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import {
   CATEGORIES, SUBGROUPS, allCategories, getFeature, searchFeatures, type CategoryDef,
   type CategoryId, type FeatureDef,
 } from "./catalog";
-import { useStudio } from "./store";
+import { useStudio, type StudioNode } from "./store";
+import { plain } from "./parts/spans";
 import { WorkShelf } from "./WorkShelf";
 import { planetOf } from "./planets";
 import { moonFor } from "./moons";
@@ -48,16 +49,60 @@ export function dropPoint() {
 }
 
 /**
+ * The middle of the page as it is on screen now, in the page's own pixels,
+ * or null when the page is not drawn (Preview, the timeline).
+ *
+ * Read off the drawn page window rather than off the pan and zoom, so it
+ * holds whatever scrolled or zoomed: the part lands where the person is
+ * looking, not at the foot of a long page two screens down.
+ */
+export function visibleMiddle(): { x: number; y: number } | null {
+  if (typeof document === "undefined") return null;
+  const win = document.querySelector<HTMLElement>("[data-page-window]");
+  const pane = document.querySelector<HTMLElement>("[data-studio-pane]");
+  if (!win) return null;
+  const r = win.getBoundingClientRect();
+  const fw = useStudio.getState().frameWidth;
+  const scale = r.width / Math.max(1, fw);
+  if (!scale) return null;
+  /* What of the pane is not under the shelf that stands over its foot. */
+  const p = pane?.getBoundingClientRect() ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+  const band = document.querySelector<HTMLElement>("[data-studio-band]")?.getBoundingClientRect();
+  const bottom = band && band.top > p.top ? Math.min(p.bottom, band.top) : p.bottom;
+  const left = Math.max(p.left, r.left);
+  const right = Math.min(p.right, r.right);
+  const top = Math.max(p.top, r.top);
+  const foot = Math.min(bottom, r.bottom);
+  const cx = right > left ? (left + right) / 2 : r.left + r.width / 2;
+  const cy = foot > top ? (top + foot) / 2 : r.top;
+  return { x: (cx - r.left) / scale, y: (cy - r.top) / scale };
+}
+
+/**
  * Click-to-add places the part inside the frame the way a page grows: full-width
  * parts span the frame, everything else is centred, and it lands just below
  * whatever is lowest so the page stacks downward.
+ *
+ * A NEW IDEA IS THE EXCEPTION, and `at` for anything placed on purpose. On a
+ * captured page of 259 parts the foot is screens away, so pressing New idea
+ * made part 260 somewhere nobody was looking and nothing on the canvas moved.
+ * An idea lands centred where the person is looking (or on `at`, the point
+ * they right-clicked), picked, so its outline says where it went.
  */
-export function addFeatureToCanvas(featureId: string) {
+export function addFeatureToCanvas(featureId: string, opts?: { at?: { x: number; y: number } }) {
   const state = useStudio.getState();
   const feature = getFeature(featureId);
   const fw = state.frameWidth;
   const w = Math.min(feature?.w ?? 420, fw);
   const h = feature?.h ?? 88;
+  const aim = opts?.at ?? (featureId === "custom-idea" ? visibleMiddle() : null);
+  if (aim) {
+    const x = Math.round(Math.max(0, Math.min(fw - w, aim.x - w / 2)));
+    const y = Math.round(Math.max(0, aim.y - h / 2));
+    const id = state.addNode(featureId, x, y, { w, h });
+    play("confirm");
+    return id;
+  }
   const onPage = state.nodes.filter((n) => n.pageId === state.activePageId);
   const bottom = onPage.reduce((m, n) => Math.max(m, n.y + n.h), 0);
   const x = w >= fw ? 0 : Math.round((fw - w) / 2);
@@ -194,7 +239,22 @@ export function useShelfOpen(): boolean {
  * other half of the same sentence.
  */
 const SHELF_MIN = 132;
-const shelfMax = () => Math.round((typeof window === "undefined" ? 900 : window.innerHeight) * 0.72);
+/*
+ * A THIRD OF THE CANVAS, AT MOST.
+ *
+ * It was 72% of the window, and opening a category took half the canvas
+ * before anyone asked for more: the page being built is the subject and the
+ * shelf is where you reach. So however it is grown, with the wheel or the
+ * grip on its top edge, the shelf stops at about a third of the canvas's
+ * height (`tests/shelf-strip.mjs`).
+ */
+export const SHELF_SHARE = 0.34;
+const canvasHeight = () => {
+  if (typeof window === "undefined") return 812;
+  const pane = document.querySelector<HTMLElement>("[data-studio-pane]");
+  return pane?.clientHeight || window.innerHeight - 88;
+};
+const shelfMax = () => Math.max(SHELF_MIN, Math.round(canvasHeight() * SHELF_SHARE));
 /** Null means "whatever opening a category asks for"; a number is his choice. */
 let shelfTall: number | null = null;
 function setShelfTall(px: number | null) {
@@ -203,6 +263,34 @@ function setShelfTall(px: number | null) {
   shelfTall = next;
   shelfWatchers.forEach((w) => w());
 }
+/*
+ * FOLDED TO A STRIP, AND REMEMBERED.
+ *
+ * The shelf was always there, 248px of it, about a fifth of the screen
+ * whether or not anything was being added. Folded, it is a thin strip that
+ * says where it went and opens again with one press, and the choice is kept
+ * in this browser across reloads, because it is about how this person likes
+ * to work rather than about the site.
+ */
+const SHUT_KEY = "builder.shelf.folded";
+let shelfFolded = (() => {
+  try { return typeof window !== "undefined" && window.localStorage.getItem(SHUT_KEY) === "1"; } catch { return false; }
+})();
+export function setShelfFolded(v: boolean) {
+  if (shelfFolded === v) return;
+  shelfFolded = v;
+  try { window.localStorage.setItem(SHUT_KEY, v ? "1" : "0"); } catch { /* a private window keeps it for the tab */ }
+  shelfWatchers.forEach((w) => w());
+}
+/** True while the shelf is folded down to its strip. */
+export function useShelfFolded(): boolean {
+  return React.useSyncExternalStore(
+    (w) => { shelfWatchers.add(w); return () => { shelfWatchers.delete(w); }; },
+    () => shelfFolded,
+    () => false,
+  );
+}
+
 /** The height he has set the shelf to, or null while he has not said. */
 export function useShelfTall(): number | null {
   return React.useSyncExternalStore(
@@ -213,6 +301,29 @@ export function useShelfTall(): number | null {
 }
 
 export function Palette() {
+  const folded = useShelfFolded();
+  if (folded) return <ShelfStrip />;
+  return <OpenShelf />;
+}
+
+/** The shelf folded away: one strip, and the way back. */
+function ShelfStrip() {
+  return (
+    <div data-drawer="" data-shelf-folded="" className="flex h-full items-center gap-2 border-t border-border bg-panel/50 px-3">
+      <button
+        type="button"
+        onClick={() => { play("select"); setShelfFolded(false); }}
+        aria-label="Open the parts shelf"
+        className="tactile flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-small text-fg-muted hover:bg-hover hover:text-fg"
+      >
+        <ChevronUp className="size-3.5" />
+        Parts shelf
+      </button>
+    </div>
+  );
+}
+
+function OpenShelf() {
   const [query, setQuery] = React.useState("");
   /*
    * Which category is open. One at a time, and it may be none.
@@ -235,6 +346,37 @@ export function Palette() {
   React.useEffect(() => { setShelfOpen(open.length > 0); }, [open]);
   React.useEffect(() => () => setShelfOpen(false), []);
   const [showRemoved, setShowRemoved] = React.useState(false);
+  /*
+   * ESCAPE PUTS THE OPEN CATEGORY AWAY.
+   *
+   * It did nothing here. The board's own Escape steps out of a picked part,
+   * so the shelf answers first only when it was the last thing touched, or
+   * when the board has nothing picked to step out of. Escape in the search
+   * clears it first. Listened to in the capture phase so it is asked before
+   * the board, and it says it took the key (`preventDefault`).
+   */
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const touched = React.useRef(false);
+  React.useEffect(() => {
+    const down = (e: PointerEvent) => { touched.current = !!rootRef.current?.contains(e.target as Node); };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.querySelector("[data-radial], [data-words-in-place]")) return;
+      const t = e.target as HTMLElement | null;
+      const inShelf = !!t && !!rootRef.current?.contains(t);
+      if (inShelf && t instanceof HTMLInputElement && t.value) return;   // the field's own: clears it
+      const s = useStudio.getState();
+      const boardIdle = !s.selection.length && s.tool === "select";
+      if (!shelfOpen || !(inShelf || touched.current || boardIdle)) return;
+      e.preventDefault();
+      play("close");
+      setOpen([]);
+      if (inShelf) t?.blur();
+    };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("keydown", key, true);
+    return () => { window.removeEventListener("pointerdown", down, true); window.removeEventListener("keydown", key, true); };
+  }, []);
   const toggleCat = React.useCallback((id: CategoryId) => {
     play("select");
     setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
@@ -288,6 +430,9 @@ export function Palette() {
   );
   const words = useSiteWords();
   const removeCard = React.useCallback((id: string) => { play("deny"); useStudio.getState().hideFeature(id); }, []);
+  /* What is already on this page answers first (`onThisPage`). */
+  const pageNodes = useStudio(useShallow((s) => s.nodes.filter((n) => n.pageId === s.activePageId)));
+  const here = React.useMemo(() => (searching ? onThisPage(pageNodes, query) : []), [searching, pageNodes, query]);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -465,7 +610,8 @@ export function Palette() {
   const behind = "var(--bg)";
 
   return (
-    <div data-drawer="" className="relative flex h-full flex-col border-t border-border bg-panel/50">
+    <div ref={rootRef} data-drawer="" className="relative flex h-full flex-col border-t border-border bg-panel/50">
+      <ShelfGrip />
       {/*
         The search, across the whole shelf and on a screen of its own.
         
@@ -476,14 +622,15 @@ export function Palette() {
         is the one colour on the shelf that is not the shelf, and it is as
         wide as the thing it searches.
       */}
-      <div data-parts-search="" className="shrink-0 px-2 pt-2">
-        <div className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5" style={{ ...screenFace, color: SCREEN.ink }}>
+      <div data-parts-search="" className="flex shrink-0 items-center gap-1 px-2 pt-2">
+        <div className="relative flex min-w-0 flex-1 items-center gap-2 rounded-md px-2.5 py-1.5" style={{ ...screenFace, color: SCREEN.ink }}>
           <Search className="size-4 shrink-0" style={{ color: SCREEN.dim }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search parts"
             placeholder="Search parts…"
+            onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); e.stopPropagation(); setQuery(""); } }}
             className="min-w-0 flex-1 bg-transparent font-mono text-large tracking-tight outline-none placeholder:opacity-45"
             style={{ color: SCREEN.ink }}
           />
@@ -499,6 +646,16 @@ export function Palette() {
             </button>
           ) : null}
         </div>
+        <Tooltip content="Fold the shelf down to a strip" side="top">
+          <button
+            type="button"
+            onClick={() => { play("select"); setShelfFolded(true); }}
+            aria-label="Fold the parts shelf away"
+            className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg"
+          >
+            <ChevronDown className="size-4" />
+          </button>
+        </Tooltip>
       </div>
 
       {/* --------------------------------------- only what is not a category */}
@@ -541,8 +698,12 @@ export function Palette() {
              rule; this is the half of it the shelf owns. */
           className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden overscroll-y-contain">
         {searching ? (
-          found.length ? (
+          found.length || here.length ? (
             <div className="relative z-[1] px-3 py-3">
+              {here.length ? <OnThisPage hits={here} /> : null}
+              {found.length && here.length ? (
+                <div data-shelf-results="" className="mb-2 mt-1 text-small font-medium text-fg-muted">Add from the shelf</div>
+              ) : null}
               {found.map(({ category, items }) => (
                 <Band key={category.id} title={category.label} hue={category.hue}>
                   <div className="flex flex-wrap items-stretch" style={{ gap: GAP }}>
@@ -780,6 +941,15 @@ function CategorySection({
           {React.createElement(planetOf(category.id), { size: 14 })}
           {category.label}
         </span>
+        {/* Beside the name it closes, not at the far end of the row. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${category.label}`}
+          className="tactile shrink-0 rounded-sm p-0.5 text-fg-muted hover:bg-hover hover:text-fg"
+        >
+          <X className="size-3.5" />
+        </button>
         <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {subs.map((g) => {
             const on = sub === g.id;
@@ -804,14 +974,6 @@ function CategorySection({
           })}
         </div>
         {category.id === "motion" ? <SeeMotionTab className="shrink-0 text-fine" /> : null}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={`Close ${category.label}`}
-          className="tactile shrink-0 rounded-sm p-0.5 text-fg-muted hover:bg-hover hover:text-fg"
-        >
-          <X className="size-3.5" />
-        </button>
       </div>
       <div className="px-3 py-2">
         <WorkShelf category={category} width={cardWidth} words={words} gap={gap} />
@@ -837,6 +999,124 @@ function Band({ title, children, hue, mark }: { title: string; children: React.R
         <span className="h-px flex-1 bg-border" />
       </div>
       {children}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The grip on the shelf's top edge                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Drag the shelf's top edge to make it taller or shorter, up to a third of
+ * the canvas (`shelfMax`). The wheel over the shelf still does the same.
+ */
+function ShelfGrip() {
+  const start = React.useRef<{ y: number; h: number } | null>(null);
+  return (
+    <div
+      data-shelf-grip=""
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Drag to make the shelf taller or shorter"
+      className="absolute inset-x-0 -top-1 z-[3] h-2 cursor-row-resize touch-none hover:bg-accent/30"
+      onPointerDown={(e) => {
+        const band = (e.currentTarget.closest("[data-studio-band]") as HTMLElement | null) ?? e.currentTarget.parentElement;
+        if (!band) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        start.current = { y: e.clientY, h: band.getBoundingClientRect().height };
+      }}
+      onPointerMove={(e) => {
+        const s = start.current;
+        if (!s) return;
+        setShelfTall(s.h - (e.clientY - s.y));
+      }}
+      onPointerUp={() => { start.current = null; }}
+      onPointerCancel={() => { start.current = null; }}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Search: what is on this page first                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The parts of this page that answer a search, best first.
+ *
+ * "Search parts" searched the catalogue alone, so typing "copy" with a COPY
+ * button on the page found nothing on the page. A part answers by its
+ * words, its name or its kind; words that start with what was typed come
+ * before words that merely contain it.
+ */
+export function onThisPage(nodes: readonly StudioNode[], query: string): StudioNode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const scored: { n: StudioNode; score: number }[] = [];
+  for (const n of nodes) {
+    const words = plain(n.content).toLowerCase();
+    const name = (n.label ?? "").toLowerCase();
+    const kind = `${getFeature(n.featureId)?.name ?? ""} ${n.featureId}`.toLowerCase();
+    const at = (text: string) => { const i = text.indexOf(q); return i < 0 ? -1 : i === 0 || /\W/.test(text[i - 1]!) ? 0 : 1; };
+    const w = at(words), l = at(name), k = at(kind);
+    const score = w === 0 ? 0 : l === 0 ? 1 : w === 1 ? 2 : l === 1 ? 3 : k >= 0 ? 4 : -1;
+    if (score >= 0) scored.push({ n, score });
+  }
+  return scored.sort((a, b) => a.score - b.score || a.n.y - b.n.y || a.n.x - b.n.x).map((x) => x.n);
+}
+
+/** Pick a part and bring it into view on the board. */
+export function goToPart(id: string) {
+  const s = useStudio.getState();
+  s.setSelection([id]);
+  s.want({ panel: "inspector", id });
+  play("select");
+  const el = document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`);
+  const pane = document.querySelector<HTMLElement>("[data-studio-pane]");
+  if (!el || !pane) return;
+  const r = el.getBoundingClientRect();
+  const p = pane.getBoundingClientRect();
+  const band = document.querySelector<HTMLElement>("[data-studio-band]")?.getBoundingClientRect();
+  const seen = band && band.top > p.top ? band.top - p.top : p.height;
+  /* Its top a third of the way down what is not under the shelf. */
+  pane.scrollTop += r.top - p.top - Math.max(24, Math.min(seen / 3, seen - r.height - 24));
+  /* Across is the board's pan. */
+  if (r.right < p.left || r.left > p.right) {
+    const { pan } = useStudio.getState();
+    useStudio.getState().setPan({ x: pan.x + (p.left + p.width / 2) - (r.left + r.width / 2), y: pan.y });
+  }
+}
+
+const ON_PAGE_MAX = 40;
+
+function OnThisPage({ hits }: { hits: StudioNode[] }) {
+  const shown = hits.slice(0, ON_PAGE_MAX);
+  return (
+    <section data-page-results="" className="mb-4">
+      <div className="mb-2 text-small font-medium text-fg-muted">On this page</div>
+      <div className="flex flex-col gap-0.5">
+        {shown.map((n) => {
+          const words = plain(n.content).replace(/\s+/g, " ").trim();
+          const kind = getFeature(n.featureId)?.name ?? "Part";
+          return (
+            <button
+              key={n.id}
+              type="button"
+              data-page-hit={n.id}
+              onClick={() => goToPart(n.id)}
+              className="tactile flex min-w-0 items-center gap-2 rounded-sm px-2 py-1 text-left text-small hover:bg-hover"
+            >
+              <span className="shrink-0 rounded-xs border border-border px-1 text-fine text-fg-faint">{kind}</span>
+              <span className="shrink-0 font-medium text-fg">{n.label}</span>
+              {words && words !== n.label ? <span className="min-w-0 truncate text-fg-muted">{words}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+      {hits.length > shown.length ? (
+        <div className="mt-1 px-2 text-fine text-fg-faint">and {hits.length - shown.length} more; type more to narrow it</div>
+      ) : null}
     </section>
   );
 }

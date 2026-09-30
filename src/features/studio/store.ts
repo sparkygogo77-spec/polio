@@ -1059,6 +1059,8 @@ interface StudioState extends Doc {
   pasteBackground: () => boolean;
   /** Cut takes what is selected — parts or the background — and paste puts back whatever was cut last. */
   cutNodes: (ids: string[]) => boolean;
+  /** Hold a copy of these parts for paste, leaving them where they are. */
+  copyNodes: (ids: string[]) => boolean;
   pasteNodes: () => boolean;
   cut: () => boolean;
   paste: () => boolean;
@@ -2436,6 +2438,12 @@ export const useStudio = create<StudioState>()(
           if (!nodes.length) return false;
           held = { kind: "nodes", nodes };
           s.removeNodes(nodes.map((n) => n.id));
+          return true;
+        },
+        copyNodes: (ids) => {
+          const nodes = get().nodes.filter((n) => ids.includes(n.id));
+          if (!nodes.length) return false;
+          held = { kind: "nodes", nodes };
           return true;
         },
         pasteNodes: () => {

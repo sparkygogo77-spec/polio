@@ -2,8 +2,9 @@
 /**
  * PRESS A PART TWICE AND TYPE: THE WORDS CHANGE, NO SHORTCUT FIRES.
  *
- * A double press on a text part opens the Element panel on its words with
- * the caret in them; typing then edits the words and never reaches the
+ * A double press on a text part opens its words with the caret in them, on
+ * the canvas where they are drawn (`tests/select-owner.mjs`), else in the
+ * Element panel's words box; typing then edits the words and never reaches the
  * letter shortcuts (e erased, d drew, t opened a tweet console, which took
  * the page down on a status it did not expect). One press on a part opens
  * the Element panel, whose tabs say their names. Add page asks for a name.
@@ -51,9 +52,11 @@ check("…out loud, not only to a screen reader", ["Element", "Format", "Pages"]
 
 /* two presses: the words */
 await part.dblclick(); await page.waitForTimeout(600);
-check("two presses put the caret in the words", /textarea/.test(await active()) && /words|content|text/i.test(await active()), await active());
+check("two presses put the caret in the words", (/textarea/.test(await active()) || /div/.test(await active())) && /words|content|text/i.test(await active()), await active());
 await page.keyboard.press("End");
 await page.keyboard.type(" edt");
+/* Typed on the canvas, Enter keeps it; in the panel it is already kept. */
+if (/^div/.test(await active())) await page.keyboard.press("Enter");
 await page.waitForTimeout(400);
 check("typing edits the words", plain(await words()) === "PnL Over Time edt", JSON.stringify(await words()));
 check("…and no letter shortcut fired: the select tool is still up", await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.tool ?? "select") === "select");

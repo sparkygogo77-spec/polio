@@ -28,6 +28,7 @@
  * the board for whatever is picked inside an open hole (`SpacePanel.tsx`).
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { Box as BoxIcon, Circle, Sparkles } from "lucide-react";
 import { play } from "@/core/audio/engine";
@@ -207,7 +208,7 @@ export function SpaceInk({ zoom }: { zoom: number }) {
  * so this is drawn on the line the hand just let go of, and fades on its
  * own rather than needing to be dismissed.
  */
-export function SpaceRefused({ at, zoom }: { at: { points: Pt[]; at: number } | null; zoom: number }) {
+export function SpaceRefused({ at, zoom }: { at: { points: Pt[]; at: number; hand?: { x: number; y: number } } | null; zoom: number }) {
   const [gone, setGone] = React.useState(false);
   React.useEffect(() => {
     setGone(false);
@@ -230,22 +231,59 @@ export function SpaceRefused({ at, zoom }: { at: { points: Pt[]; at: number } | 
           stroke="oklch(0.7 0.19 27 / 0.5)" strokeWidth={1.2 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`}
         />
       </svg>
-      <div
-        data-space-refused=""
-        role="status"
-        className="absolute whitespace-nowrap rounded-md px-2 py-1 text-plain font-medium shadow-lg"
-        style={{
-          left: box.w / 2,
-          top: -6,
-          transform: `translate(-50%, -100%) scale(${Math.max(1, 1 / zoom)})`,
-          background: "oklch(0.16 0.04 25)",
-          border: "1px solid oklch(0.7 0.19 27)",
-          color: "oklch(0.95 0.06 30)",
-        }}
-      >
-        A space is a closed line. Come back to where you started.
-      </div>
+      {at.hand ? <RefusedNote hand={at.hand} /> : (
+        <div data-space-refused="" role="status" className="absolute whitespace-nowrap rounded-md px-2 py-1 text-plain font-medium shadow-lg"
+          style={{ left: box.w / 2, top: -6, transform: `translate(-50%, -100%) scale(${Math.max(1, 1 / zoom)})`, ...REFUSED_LOOK }}>
+          {REFUSED_WORDS}
+        </div>
+      )}
     </div>
+  );
+}
+
+const REFUSED_WORDS = "A space is a closed line. Come back to where you started.";
+const REFUSED_LOOK: React.CSSProperties = { background: "oklch(0.16 0.04 25)", border: "1px solid oklch(0.7 0.19 27)", color: "oklch(0.95 0.06 30)" };
+
+/**
+ * The refusal beside the hand that let go, in the window's own pixels.
+ *
+ * Centred over the line's box, it ran off the right edge of the window
+ * whenever the line was drawn near it ("A space is a closed line. Come back
+ * to st…"). Beside the pointer, and turned to the other side of it when the
+ * window's edge is near, it is always whole and always where the eye is.
+ */
+function RefusedNote({ hand }: { hand: { x: number; y: number } }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [place, setPlace] = React.useState<{ left: number; top: number } | null>(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const gap = 14;
+    const room = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = hand.x + gap;
+    if (left + w > vw - room) left = hand.x - gap - w;
+    left = Math.max(room, Math.min(vw - room - w, left));
+    let top = hand.y + gap;
+    if (top + h > vh - room) top = hand.y - gap - h;
+    top = Math.max(room, Math.min(vh - room - h, top));
+    setPlace({ left, top });
+  }, [hand.x, hand.y]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={ref}
+      data-space-refused=""
+      role="status"
+      className="pointer-events-none fixed z-[80] w-max max-w-[calc(100vw-16px)] rounded-md px-2 py-1 text-plain font-medium shadow-lg"
+      style={{ left: place?.left ?? hand.x + 14, top: place?.top ?? hand.y + 14, visibility: place ? "visible" : "hidden", ...REFUSED_LOOK }}
+    >
+      {REFUSED_WORDS}
+    </div>,
+    document.body,
   );
 }
 

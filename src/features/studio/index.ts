@@ -17,6 +17,8 @@ import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
 import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
+import { ridersOf } from "./owner";
+import { play } from "@/core/audio/engine";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
@@ -26,6 +28,14 @@ const onDesign = onBoard;
 
 /** Right-click position in canvas space, so "add here" really means here. */
 function canvasPoint(target: ContextTarget) {
+  /* Read off the drawn page, so the scroll, the zoom and the room above the
+     page are all in it: "here" is the point that was right-clicked. */
+  const win = typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-page-window]");
+  if (win) {
+    const r = win.getBoundingClientRect();
+    const k = r.width / Math.max(1, useStudio.getState().frameWidth);
+    if (k > 0) return { x: (target.x - r.left) / k, y: (target.y - r.top) / k };
+  }
   const { pan, zoom } = useStudio.getState();
   const rect = target.element.getBoundingClientRect();
   return { x: (target.x - rect.left - pan.x) / zoom, y: (target.y - rect.top - pan.y) / zoom };
@@ -267,8 +277,16 @@ export const studio = defineFeature({
     { keys: "mod+a", label: "Select everything", group: "Builder", when: onDesign, run: () => useStudio.getState().selectAll() },
     // Cut takes the parts that are selected, or the background when that is
     // what is picked; paste puts back whatever was cut last.
+    /* Copy holds the picked parts and leaves them where they are; a button
+       is copied with the words and icon it holds (`owner.ts`). Only while
+       parts are picked, so a copy of words anywhere else is left alone. */
+    {
+      keys: "mod+c", label: "Copy", group: "Builder",
+      when: () => onDesign() && useStudio.getState().selection.some((id) => useStudio.getState().nodes.some((n) => n.id === id)),
+      run: () => { const s = useStudio.getState(); s.copyNodes([...s.selection, ...ridersOf(s.nodes, s.selection)]); play("tap"); },
+    },
     { keys: "mod+x", label: "Cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().cut(); } },
-    { keys: "mod+v", label: "Paste what was cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().paste(); } },
+    { keys: "mod+v", label: "Paste what was copied or cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().paste(); } },
     {
       keys: "backspace",
       label: "Delete selection",
@@ -462,7 +480,7 @@ export const studio = defineFeature({
           },
           ...(nodesHeld ? [{ id: "studio.canvas.paste", label: `Paste ${nodesHeld.nodes.length === 1 ? nodesHeld.nodes[0]!.label : `${nodesHeld.nodes.length} parts`}`, icon: ClipboardPaste, shortcut: "mod+v", onSelect: () => s.pasteNodes() } satisfies MenuEntry] : []),
           addFeatureMenu(at),
-          { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { s.addNode("custom-idea", at.x - 66, at.y - 38); } },
+          { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { addFeatureToCanvas("custom-idea", { at }); } },
           { id: "studio.canvas.note", label: "Pin a note here", icon: Wand2, onSelect: () => { s.addNode("note", at.x - 66, at.y - 38); } },
           // A space is the third thing a press on the page can put down: not
           // a part yet, an area set aside to become one. The same point the

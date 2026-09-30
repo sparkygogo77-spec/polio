@@ -275,6 +275,25 @@ same boxes as everywhere else, in the screen's colours.
   link to `repository` in `site.config.ts`, never a login. A "Try it" beside
   the key asks Anthropic whether it works, so a silent prompt has a first
   answer.
+- **One press picks the control; two presses type its words where they
+  are.** A press on words inside a button, a link or a card picks that
+  button, link or card (`owner.ts`), and moving it carries what it holds.
+  A second press, or Enter, opens the words on the canvas in the part's own
+  face (`WordsInPlace.tsx`); Enter or a press elsewhere keeps them, Escape
+  puts them back, and the edit is one undo. Words drawn in several places
+  still open in the panel. `tests/select-owner.mjs`.
+- **Escape climbs out one level at a time**: out of the words, a drawing
+  tool back to Select, a part to the part that holds it, then nothing
+  picked. The arrows nudge a pixel (ten with Shift), one undo per run;
+  Ctrl+C copies what is picked. `tests/board-keys.mjs`.
+- **A new idea lands where the person is looking**, centred on the visible
+  canvas or on the point right-clicked, and picked. A refusal is said beside
+  the pointer, whole. `tests/new-idea-here.mjs`.
+- **The shelf gives the canvas back.** It folds to a strip (kept in this
+  browser), an open category is never more than about a third of the canvas
+  however it is grown, Escape puts it away, its close button sits by its
+  name, and a search lists this page's parts before the shelf's.
+  `tests/shelf-strip.mjs`.
 
 ## 3. The drawing board
 

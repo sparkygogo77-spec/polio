@@ -44,6 +44,8 @@ import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
 import { ownsOthers } from "./holds";
+import { ownerOf, parentOf, ridersOf, wordsIn, wordsOf } from "./owner";
+import { editingWords, openWords, WordsInPlace } from "./WordsInPlace";
 import {
   activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -160,6 +162,8 @@ interface Drag {
   snapped?: boolean;
   /** A marquee begun on a part that holds others: released without a drag, that part is picked. */
   from?: string;
+  /** Parts carried because a moving control holds them: they keep their place on it, never snapped on their own. */
+  riders?: string[];
   /** A locked group being resized: its id, its box and its members as they were when the hand went down. */
   groupId?: string;
   box?: HeldBox;
@@ -438,7 +442,7 @@ export function Canvas() {
   const marqueeRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
   // The last line that was not a closed one, so the board can say so where it was drawn.
-  const [refused, setRefused] = React.useState<{ points: [number, number][]; at: number } | null>(null);
+  const [refused, setRefused] = React.useState<{ points: [number, number][]; at: number; hand?: { x: number; y: number } } | null>(null);
   // A wire that has just joined two parts: the wire draws itself on and
   // both parts ring once. Kept for half a second, then forgotten.
   const [fresh, setFresh] = React.useState<{ wire: string; nodes: string[] } | null>(null);
@@ -966,6 +970,75 @@ export function Canvas() {
     return () => cancelAnimationFrame(frame);
   }, [drag?.kind]);
 
+  /* ------------------------------------------------------------- keys
+   *
+   * THE BOARD'S OWN KEYS, for what is picked on it.
+   *
+   *  · Escape steps out one level at a time: out of the words being typed
+   *    (the editor's own), a drawing tool back to Select, then from a part
+   *    to the part that holds it, then to nothing picked. It did nothing
+   *    with a part picked, and Draw a space stayed in the hand.
+   *  · Enter goes into the words: a part's own, or the words a button holds.
+   *  · The arrows nudge what is picked a pixel, ten with Shift. A run of
+   *    nudges is one step of undo.
+   *
+   * Only when nothing else has the key: a field being typed in, the wheel,
+   * a dialog, the lamp being placed and the shelf all answer Escape first.
+   * `tests/board-keys.mjs`.
+   */
+  const lastNudge = React.useRef(0);
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey) return;
+      if (!["Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (editingWords()) return;
+      /* Something standing over the board has the key. */
+      /* A part on the page may draw a menu or a dialog of its own; those are the site's, not over the board. */
+      /* A closed console or keys panel stays in the page, hidden and inert: only an open one counts. */
+      const over = (el: Element) => !el.closest("[data-node-id], [aria-hidden='true'], [inert]") && (el as HTMLElement).getClientRects().length > 0;
+      if ([...document.querySelectorAll("[data-radial], [role='dialog'], [role='menu']")].some(over)) return;
+      const s = useStudio.getState();
+      if (s.mode !== "design" || s.placingLight) return;
+      const picked = s.selection.map((id) => s.nodes.find((n) => n.id === id)).filter((n): n is StudioNode => !!n && n.pageId === s.activePageId);
+
+      if (e.key === "Escape") {
+        if (s.tool !== "select") { s.setTool("select"); play("tap"); return; }
+        if (s.handling) { s.hold(null); return; }
+        if (!s.selection.length) return;
+        const one = picked.length === 1 && s.selection.length === 1 ? picked[0]! : null;
+        const up = one ? parentOf(s.nodes, one) : null;
+        if (up) s.setSelection([up.id]);
+        else s.clearSelection();
+        play("tap");
+        return;
+      }
+      if (e.key === "Enter") {
+        if (picked.length !== 1 || e.shiftKey) return;
+        const into = wordsIn(s.nodes, picked[0]!) ?? picked[0]!;
+        if (openWords(into.id)) { e.preventDefault(); play("select"); }
+        return;
+      }
+      /* The arrows. A page with nothing picked scrolls as it always did. */
+      if (!picked.length) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+      const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+      const ids = picked.map((n) => n.id);
+      const all = [...ids, ...ridersOf(s.nodes, ids)];
+      if (e.timeStamp - lastNudge.current > 800) s.commit();
+      lastNudge.current = e.timeStamp;
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const n of s.nodes) if (all.includes(n.id) && !n.locked) positions[n.id] = { x: n.x + dx, y: n.y + dy };
+      s.setPositions(positions);
+      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (positions[n.id] && !n.byHand ? { ...n, byHand: true } : n)) });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ------------------------------------------------------------- pointer */
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button === 2) return;
@@ -1036,8 +1109,43 @@ export function Canvas() {
 
     if (tool === "select") {
       if (nodeEl?.dataset.nodeId) {
-        const id = nodeEl.dataset.nodeId;
-        const node = store.nodes.find((n) => n.id === id);
+        /* What the hand is on, and what a press on it picks (see below). */
+        const hitId = nodeEl.dataset.nodeId;
+        const hit = store.nodes.find((n) => n.id === hitId);
+        {
+          const prior = pressed.current;
+          const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
+          /*
+           * TWO PRESSES ON WORDS OPEN THE WORDS, ON THE CANVAS.
+           *
+           * The second press goes into the words that were pressed, even
+           * when the first press picked the button that owns them: typed
+           * where they are drawn (`WordsInPlace.tsx`), or in the panel's
+           * WORDS box where they are not drawn as one piece of text. A solid
+           * still opens for turning on its own second press, below.
+           */
+          if (twice && hit && !e.shiftKey && !HANDS_ON.has(hit.featureId) && (wordsOf(hit) || (hit.id === store.selection[0] && store.selection.length === 1 && getFeature(hit.featureId)?.content))) {
+            pressed.current = null;
+            const opened = openWords(hitId);
+            /* The press's own default would move the caret back off the words it just opened. */
+            if (opened) { e.preventDefault(); play("select"); return; }
+          }
+        }
+        /*
+         * ONE PRESS PICKS THE CONTROL THAT OWNS WHAT WAS PRESSED.
+         *
+         * A button on a captured page is the button and its words, two parts,
+         * and the words are on top: a press on BUY picked the words and a
+         * drag slid them off their button. So a press on a part inside a
+         * button, a link or a card picks that button, link or card
+         * (`owner.ts`), and a drag moves it with everything it holds. The
+         * words are one more press away, or Enter; Escape climbs back out.
+         * Shift-clicking, and a press on something already picked, still
+         * take exactly what is under the hand.
+         */
+        const owner = hit && !e.shiftKey && !store.selection.includes(hitId) ? ownerOf(store.nodes, hit) : null;
+        const id = owner?.id ?? hitId;
+        const node = owner ?? hit;
         /*
          * A PART THAT HOLDS OTHERS IS DRAWN ACROSS, NOT MOVED.
          *
@@ -1057,9 +1165,9 @@ export function Canvas() {
          * goes where it points.
          */
         const prior = pressed.current;
-        const twice = !!prior && prior.id === id && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
+        const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
         if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && ownsOthers(store.nodes, node)) {
-          pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
+          pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
           capture();
           marqueeRef.current = null;
           setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id });
@@ -1097,21 +1205,16 @@ export function Canvas() {
          * the part at all.
          */
         const last = pressed.current;
-        const again = !!last && last.id === id && e.timeStamp - last.at < DOUBLE_MS && Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_SLOP;
-        pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
+        const again = !!last && last.id === hitId && id === hitId && e.timeStamp - last.at < DOUBLE_MS && Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_SLOP;
+        pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
         if (again && node && !node.locked && HANDS_ON.has(node.featureId) && ids.length === 1) {
           store.hold(id);
           return;
         }
-        /*
-         * TWO PRESSES ON A PART WITH WORDS OPEN ITS WORDS. The panel takes
-         * the caret, so what is typed next goes into the words and never
-         * reaches a letter shortcut (`tests/words-on-press.mjs`).
-         */
-        if (again && node && ids.length === 1 && getFeature(node.featureId)?.content) {
-          store.want({ panel: "inspector", focus: "words", id });
-          return;
-        }
+        /* TWO PRESSES ON A PART WITH WORDS OPEN ITS WORDS: handled at the
+           top of this branch, on the canvas where they are drawn, else in
+           the panel's WORDS box (`tests/words-on-press.mjs`,
+           `tests/select-owner.mjs`). */
         /*
          * A BUTTON IN THE BUILDER IS PRESSABLE IN THE BUILDER.
          *
@@ -1151,9 +1254,12 @@ export function Canvas() {
           return;
         }
         capture();
+        /* A button moves with its words and its icon: what it holds rides along (`owner.ts`). */
+        const riders = ridersOf(store.nodes, ids);
+        const carried = [...ids, ...riders];
         const origin: Drag["origin"] = {};
-        for (const n of store.nodes) if (ids.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
-        setDrag({ kind: "node", startX: p.x, startY: p.y, ids, origin });
+        for (const n of store.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
+        setDrag({ kind: "node", startX: p.x, startY: p.y, ids: carried, origin, riders });
         return;
       }
       // Drawings, regions and wires select on click too — not only by marquee.
@@ -1390,7 +1496,7 @@ export function Canvas() {
     });
   }, [frameWidth, news]);
 
-  const onPointerUp = () => {
+  const onPointerUp = (e?: React.PointerEvent) => {
     if (!drag) return;
     const store = useStudio.getState();
     // The rectangle as the last move left it, rendered or not (see `marqueeRef`).
@@ -1423,7 +1529,14 @@ export function Canvas() {
         nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)),
       });
       // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
-      if (!drag.snapped) {
+      if (!drag.snapped && drag.riders?.length) {
+        /* A control and what it holds snap as one: the lead's step to the grid, taken by all. */
+        const ids = new Set(drag.ids ?? []);
+        const lead = useStudio.getState().nodes.find((n) => n.id === drag.ids![0]);
+        const sx = lead ? snapGrid(lead.x) - lead.x : 0;
+        const sy = lead ? snapGrid(lead.y) - lead.y : 0;
+        useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (ids.has(n.id) && !n.locked ? { ...n, x: n.x + sx, y: n.y + sy } : n)) });
+      } else if (!drag.snapped) {
         const ids = new Set(drag.ids ?? [drag.nodeId!]);
         useStudio.setState({
           nodes: useStudio.getState().nodes.map((n) =>
@@ -1497,7 +1610,7 @@ export function Canvas() {
            feed still gets the line, and the message itself is drawn on the
            line that was refused (`SpaceRefused`). */
         play("deny");
-        setRefused({ points: drag.points, at: Date.now() });
+        setRefused({ points: drag.points, at: Date.now(), hand: e ? { x: e.clientX, y: e.clientY } : handAt.current ?? undefined });
         news.publish({ key: "studio:space", title: "A space is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
       }
     } else if (drag.kind === "draw" && tool === "pen" && store.drawKind === "surface" && drag.points && drag.points.length >= 2) {
@@ -1517,7 +1630,7 @@ export function Canvas() {
       if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         play("deny");
-        setRefused({ points: drag.points, at: Date.now() });
+        setRefused({ points: drag.points, at: Date.now(), hand: e ? { x: e.clientX, y: e.clientY } : handAt.current ?? undefined });
         news.publish({ key: "studio:space", title: "A surface is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
       }
     } else if (drag.kind === "draw" && tool === "pen" && store.drawKind === "button" && drag.points && drag.points.length >= 2) {
@@ -1605,6 +1718,7 @@ export function Canvas() {
        * of it.
        */
       className="relative w-full shrink-0 touch-none select-none"
+      data-board-tool={tool}
       style={{ cursor, height: boardH }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
@@ -1871,6 +1985,8 @@ export function Canvas() {
             decide={decide.get(n.id) ?? null}
           />
         ))}
+        {/* Words typed where they are drawn (`WordsInPlace.tsx`). */}
+        <WordsInPlace zoom={zoom} />
 
         {/*
           A held group, picked: one frame round the whole arrangement and

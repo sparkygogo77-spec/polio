@@ -26,7 +26,7 @@ import { siteLogo } from "./siteMark";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette, useShelfOpen, useShelfTall } from "./Palette";
+import { Palette, useShelfFolded, useShelfOpen, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { RenderPanel } from "./RenderPanel";
@@ -87,7 +87,15 @@ const BAND_H = "clamp(132px, 32vh, 248px)";
  * window is a sibling of the pane rather than a child, so it does not move
  * when this changes — which is checked rather than assumed.
  */
-const SHELF_OPEN_H = "clamp(320px, 54vh, 640px)";
+/*
+ * Now about a third of the canvas: an open category that took half of it
+ * (54% of the window) left the page being built as the smaller thing on
+ * screen. The canvas is the window less the bar; the grip and the wheel
+ * stop at the same share (`SHELF_SHARE` in `Palette.tsx`).
+ */
+const SHELF_OPEN_H = "max(200px, calc((100vh - 88px) * 0.34))";
+/** The shelf folded down to its strip (`Palette.tsx`, `useShelfFolded`). */
+const SHELF_STRIP_H = "30px";
 /** The band when the backend is up: room for a transcript worth reading. */
 const WORK_H = "clamp(320px, 54vh, 640px)";
 
@@ -1044,6 +1052,7 @@ export function StudioPage() {
   const detailTab = useDetailTab();
   const shelfOpen = useShelfOpen();
   const shelfTall = useShelfTall();
+  const shelfFolded = useShelfFolded();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -1457,10 +1466,11 @@ export function StudioPage() {
                 data-studio-band=""
                 data-band-over=""
                 data-band-set={shelfTall == null ? undefined : "1"}
+                data-band-folded={shelfFolded ? "" : undefined}
                 className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg"
                 /* His height if he has set one with the wheel over the
                    categories, otherwise the two the band has always had. */
-                style={{ height: shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
+                style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
               >
                 <Palette />
               </div>
