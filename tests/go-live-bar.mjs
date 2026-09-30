@@ -200,8 +200,9 @@ console.log("4. Pressed: the same Go live, the same progress, and the address");
   await bar().first().click();
   for (let i = 0; i < 300 && !(deployments[n]?.polls >= 1); i++) await sleep(100);
   const busyState = await state();
-  const busyLabel = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
-  check("the button shows the run in progress", busyState === "busy" && /Building|Queued|Waiting|Asking/.test(busyLabel), `${busyState}: ${JSON.stringify(busyLabel)}`);
+  /* The button says it is working; the step, in plain words, is the line beside it (tests/publish-status-line.mjs). */
+  const busyLabel = `${(await bar().first().innerText()).replace(/\s+/g, " ").trim()} | ${await page.evaluate(() => document.querySelector("header [data-go-live-step]")?.textContent ?? "")}`;
+  check("the button shows the run in progress", busyState === "busy" && /Going live…|Updating…/.test(busyLabel) && /waiting for Vercel|Saving to GitHub/.test(busyLabel), `${busyState}: ${JSON.stringify(busyLabel)}`);
   await page.evaluate(() => window.__studioOpenBrief?.());
   await page.waitForTimeout(1200);
   const book = await page.evaluate(() => {
@@ -254,8 +255,8 @@ console.log("5. Live: the button updates the site, and the address is a link bes
   await bar().first().click().catch(() => {});
   for (let i = 0; i < 300 && !(deployments[n]?.polls >= 1); i++) await sleep(100);
   const busyState = await state();
-  const busyLabel = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
-  check("pressed, it shows the same progress", busyState === "busy" && /Building|Queued|Waiting|Asking|Pushing|Writing/.test(busyLabel), `${busyState}: ${JSON.stringify(busyLabel)}`);
+  const busyLabel = `${(await bar().first().innerText()).replace(/\s+/g, " ").trim()} | ${await page.evaluate(() => document.querySelector("header [data-go-live-step]")?.textContent ?? "")}`;
+  check("pressed, it shows the same progress", busyState === "busy" && /Updating…/.test(busyLabel) && /waiting for Vercel|Saving to GitHub/.test(busyLabel), `${busyState}: ${JSON.stringify(busyLabel)}`);
   for (let i = 0; i < 60 && (await state()) === "busy"; i++) await sleep(500);
   await page.waitForTimeout(800);
   const pushed = ghSeen.filter((l) => /POST \/repos\/.*\/git\/commits$/.test(l)).length - commits;
