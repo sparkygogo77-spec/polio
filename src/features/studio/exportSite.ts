@@ -70,7 +70,7 @@ import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
-import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
@@ -658,6 +658,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
   const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
   for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }
+  /* Every part on a whole pixel, once its place is final (`fluidSite.ts#snapPlace`). */
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) snapPlace(el, live);
   /*
    * THE PAGE IS AS TALL AS WHAT IS ON IT. The preview's page runs 160px past
    * its last part, and the published page scrolled by that much where the
@@ -751,7 +753,9 @@ function frameCss(width: number, fluid: boolean): string {
 .site-root { width: 100%; min-width: ${Math.min(width, 1280)}px; }
 /* Scrolling, never a scrollbar: the original shows none (the owner's ruling). */
 html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
-::-webkit-scrollbar { display: none; width: 0; height: 0; }`;
+::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* Each part on a whole pixel, where the browser can round (fluidSite.ts#snapPlace). */
+${SNAP_CSS}`;
   return `html, body { background: var(--bg); }
 body { container-type: inline-size; overflow-x: clip; }
 .site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }`;

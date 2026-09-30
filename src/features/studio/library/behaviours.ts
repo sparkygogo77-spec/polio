@@ -30,6 +30,26 @@ import { STAGE_ENGINE } from "./stageEngine.ts";
 /** Every script starts by asking this. */
 const CALM = `window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches`;
 
+/**
+ * THE TRANSITIONS THE PART ALREADY HAS, from the stylesheet. A script that
+ * writes an inline `transition` replaces every one the stylesheet gave the
+ * part, and the stylesheet is where a captured part keeps the move it makes
+ * with the box it sits in (`capturedMotion.ts`: trumpmorty.fun's CA and COPY
+ * ends ease back with the CA bar when the pointer leaves). The reveal wrote
+ * its own and the ends snapped home while the bar eased, so the bar's white
+ * fill showed round them for a fifth of a second. A script adds its own to
+ * these, and gives the inline value back when it is done.
+ */
+const SHEET_TRANSITION = `function sheetTransition(el) {
+    var s = el.style, was = s.transition; s.transition = "";
+    var c = getComputedStyle(el), cut = /,\\s*(?![^()]*\\))/;
+    var P = c.transitionProperty.split(cut), D = c.transitionDuration.split(cut), T = c.transitionTimingFunction.split(cut), L = c.transitionDelay.split(cut);
+    s.transition = was;
+    var out = [];
+    for (var i = 0; i < P.length; i++) { var d = D[i % D.length]; if (P[i] === "none" || !(parseFloat(d) > 0)) continue; out.push(P[i] + " " + d + " " + T[i % T.length] + " " + L[i % L.length]); }
+    return out.join(", ");
+  }`;
+
 const REVEAL: Work = {
   manifest: {
     id: "reveal",
@@ -64,11 +84,12 @@ const REVEAL: Work = {
   var delay = Math.max(0, Number(inputs.delay) || 0), once = inputs.once !== "no", s = el.style;
   var was = { opacity: s.opacity, translate: s.translate, scale: s.scale, transition: s.transition, origin: s.transformOrigin };
   function hide() { s.transition = "none"; s.opacity = "0"; s.translate = from; if (k !== 1) { s.scale = String(k); if (inputs.origin) s.transformOrigin = inputs.origin; } }
+  ${SHEET_TRANSITION}
   function show() {
-    var move = ms + "ms " + ease + " " + delay + "ms";
-    s.transition = "opacity " + Math.round(ms * 0.86) + "ms ease " + delay + "ms, translate " + move + (k !== 1 ? ", scale " + move : "");
+    var move = ms + "ms " + ease + " " + delay + "ms", own = sheetTransition(el);
+    s.transition = (own ? own + ", " : "") + "opacity " + Math.round(ms * 0.86) + "ms ease " + delay + "ms, translate " + move + (k !== 1 ? ", scale " + move : "");
     s.opacity = was.opacity; s.translate = was.translate; if (k !== 1) s.scale = was.scale;
-    if (inputs.origin) setTimeout(function () { s.transformOrigin = was.origin; }, delay + ms + 50);
+    setTimeout(function () { if (inputs.origin) s.transformOrigin = was.origin; if (s.opacity === was.opacity) s.transition = was.transition; }, delay + ms + 50);
   }
   /* Set to start after the loader: held until the tuning screen has gone. */
   function when(go) { if (inputs.after !== "loader") return go(); (function wait() { if (document.querySelector("[data-crt]")) setTimeout(wait, 80); else go(); })(); }
@@ -789,7 +810,9 @@ const HOVER_LIFT: Work = {
   var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
   var lift = num(inputs.lift, 4), x = num(inputs.x, 0), turn = num(inputs.turn, 0), k = num(inputs.scale, 1), ms = Math.max(0, num(inputs.pace, 200));
   var s = el.style, was = { translate: s.translate, rotate: s.rotate, scale: s.scale, transition: s.transition };
-  s.transition = (was.transition ? was.transition + ", " : "") + "translate " + ms + "ms ease, rotate " + ms + "ms ease, scale " + ms + "ms ease";
+  ${SHEET_TRANSITION}
+  var own = was.transition || sheetTransition(el);
+  s.transition = (own ? own + ", " : "") + "translate " + ms + "ms ease, rotate " + ms + "ms ease, scale " + ms + "ms ease";
   el.addEventListener("pointerenter", function () { s.translate = x + "px " + (-lift) + "px"; if (turn) s.rotate = turn + "deg"; if (k !== 1) s.scale = String(k); });
   el.addEventListener("pointerleave", function () { s.translate = was.translate; s.rotate = was.rotate; s.scale = was.scale; });
 });

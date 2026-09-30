@@ -427,6 +427,41 @@ export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H
 }
 
 /**
+ * A PART STANDS ON A WHOLE PIXEL. A place that follows the window lands on
+ * half a pixel where the window's width is odd (trumpmorty.fun's CA bar at
+ * 1763: 748.5). The browser snaps a box's fill and border to the pixel grid
+ * but cuts by a part's `clip-path` where it really is, so a part clipped to
+ * the rounded inside of the box it sits in (the CA and COPY ends) stopped
+ * half a pixel short of the box's border, and the box's own white fill
+ * showed in that gap: a fringe along the ends. On the page the ends were
+ * inside the box and snapped with it. Here each part is its own element, so
+ * each is placed on a whole pixel, and all of them the same way: the box
+ * and what is in it keep the offsets they were captured at.
+ *
+ * `round()` is newer than the rest of the page's CSS, so the published page
+ * keeps the exact place as `--at-x` / `--at-y` and rounds it only where the
+ * browser can (`SNAP_CSS`); the Preview runs in the Builder's own browser
+ * and rounds inline when it can. A place already in whole px is left as it
+ * is. `tests/part-whole-pixel.mjs`.
+ */
+export const SNAP_CSS = `@supports (left: round(1px, 1px)) { [style*="--at-x:"] { left: round(var(--at-x), 1px) !important; top: round(var(--at-y), 1px) !important; } }`;
+const WHOLE = /^-?\d+px$/;
+export function snapPlace(el: HTMLElement, inline: boolean): boolean {
+  const st = el.style;
+  if (st.position !== "absolute" || !st.left || !st.top || (WHOLE.test(st.left) && WHOLE.test(st.top))) return false;
+  /* Already placed so (the Preview lays the page out again after a render that left this part alone). */
+  if (st.left.startsWith("round(") || st.left === "var(--at-x)") return false;
+  if (inline) {
+    if (typeof CSS === "undefined" || !CSS.supports?.("left", "round(1px, 1px)")) return false;
+    st.left = `round(${st.left}, 1px)`; st.top = `round(${st.top}, 1px)`;
+    return true;
+  }
+  st.setProperty("--at-x", st.left); st.setProperty("--at-y", st.top);
+  st.left = "var(--at-x)"; st.top = "var(--at-y)";
+  return true;
+}
+
+/**
  * A CUT WINDOW AS WIDE AS THE PAGE. The capture cuts a part to the box it
  * hangs out of as an `inset()` in px in the part's own frame (trumpmorty.fun's
  * marquee tracks, cut to their ribbons). Where the window's right edge falls on

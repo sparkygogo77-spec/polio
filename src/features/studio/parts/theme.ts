@@ -284,6 +284,8 @@ export interface NodeBox {
   radii?: readonly number[] | null;
   /** Each corner's radius down, where a corner is an ellipse (the TV screen's 28px / 34px); `radii` then holds the ones across. */
   radiiY?: readonly number[] | null;
+  /** Where it was captured from: a captured box's padding is where its words were measured (`boxStyle`). */
+  from?: { selector?: string } | null;
 }
 
 /**
@@ -380,6 +382,14 @@ export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
  * grid's one child. Drawn as a paragraph at the top left of the box they sat
  * up and to the left (tests/words-centred.mjs).
  */
+/** Does a box laid out so centre what it holds down its height? */
+export function centresDown(layout: NodeLayout): boolean {
+  if (layout.display !== "grid" && layout.display !== "flex") return false;
+  const mid = (v: string | undefined) => v === "center" || v === "safe center";
+  const column = layout.display === "flex" && layout.direction === "column";
+  return layout.display === "grid" ? mid(layout.align) : column ? mid(layout.justify) : mid(layout.align);
+}
+
 export function applyLayout(t: Theme, layout: NodeLayout | null | undefined): Theme {
   if (!layout || (layout.display !== "grid" && layout.display !== "flex")) return t;
   const mid = (v: string | undefined) => v === "center" || v === "safe center";
@@ -480,8 +490,28 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   }
   const p = n.pad;
   if (p) {
-    const px = (v: number | undefined) => `${typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0}px`;
-    s.padding = `${px(p.top)} ${px(p.right)} ${px(p.bottom)} ${px(p.left)}`;
+    const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0);
+    let top = num(p.top), bottom = num(p.bottom);
+    /*
+     * A CAPTURED BOX THAT CENTRES ITS WORDS DOWN IS AS TALL AS IT WAS. The
+     * capture reads a box's padding off where its words sat, and in a box
+     * that centres them in a height of its own that is the centring, not a
+     * floor: trumpmorty.fun's remote keys are 96 tall (`min-height: 96px`,
+     * padding 8/4) and their word, under a number that is a part of its own,
+     * was read 53 from the top and 21 from the foot, round glyphs 14 tall.
+     * Drawn as a 23px line inside 53 + 21 it made the key 105, three rows of
+     * keys made the remote 27 taller, and everything under it (the footer's
+     * CA bar) 34 lower with the step icons' 6. Only the difference is kept,
+     * on the side that had more: centred in what is left, the words' middle
+     * is where it was measured, and the box grows only if they need more
+     * than its captured height. A box placed by hand keeps its padding.
+     * `tests/centred-pad.mjs`.
+     */
+    if (n.from?.selector?.trim() && l && centresDown(l)) {
+      const d = top - bottom;
+      top = Math.max(0, d); bottom = Math.max(0, -d);
+    }
+    s.padding = `${top}px ${num(p.right)}px ${bottom}px ${num(p.left)}px`;
   }
   const e = n.edge;
   if (e) {

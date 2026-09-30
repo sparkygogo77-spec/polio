@@ -862,6 +862,24 @@ numbers are measured against whatever face resolved that day; a face that
 resolves wider later makes them too small, and the CSS floor is what keeps
 the words visible when they are.
 
+**A captured box that centres its words down is as tall as it was**
+(`theme.ts#boxStyle`, `tests/ca-bar-seams.mjs`). The capture reads padding
+off where the words sat; in a box that centres them in a height of its own
+that is the centring, not a floor. trumpmorty.fun's remote keys (96 tall,
+words read 53 from the top and 21 from the foot) drew 105 and put the footer
+34px low. Only the difference goes on, on the side that had more, so the
+words' middle is where it was read. A box placed by hand keeps its padding.
+
+**A rounded box and the parts painted in it meet without a seam**
+(`tests/ca-bar-seams.mjs`). On the page the CA bar's ends were inside the
+bar; here they are parts of their own, cut to its rounded inside. So every
+part stands on a whole pixel (`fluidSite.ts#snapPlace`: the fill snaps to the
+grid and a `clip-path` does not, and half a pixel of the bar's white showed),
+and a behaviour that writes an inline `transition` adds to the part's own
+from the stylesheet and gives it back when it is done
+(`library/behaviours.ts#SHEET_TRANSITION`), or the ends snap home while the
+bar eases back and its white flashes round them.
+
 **A captured page's boxes arrive the same way** (`boxEntry.ts`,
 `tests/boxes-land.mjs`). `FromASite` lands every block it read in one
 synchronous loop, and they all appeared in the same frame, which reads as a
