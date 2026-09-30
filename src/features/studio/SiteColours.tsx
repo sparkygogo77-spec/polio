@@ -18,7 +18,7 @@ import * as React from "react";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, tallyFonts, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
+import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
 import { partName } from "./partNames";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
@@ -333,12 +333,14 @@ const faceStyle = (key: string): React.CSSProperties =>
 export function SiteFontsSection() {
   const nodes = useStudio((s) => s.nodes);
   const carried = useStudio((s) => s.look.fonts);
-  const fonts = React.useMemo(() => tallyFonts(nodes), [nodes]);
+  const pages = useStudio((s) => s.pages);
+  /* In page order: by where each face is first used, top of the site to the bottom (`fontsInPageOrder`). */
+  const fonts = React.useMemo(() => fontsInPageOrder(nodes, pages.map((p) => p.id)), [nodes, pages]);
   const [open, setOpen] = React.useState<string | null>(null);
   const [to, setTo] = React.useState<string>("");
   const [done, setDone] = React.useState<number | null>(null);
   if (!fonts.length || (fonts.length === 1 && fonts[0]!.key === SITE_TYPE)) return null;
-  const faces = [...new Set([...(carried ?? []).map((f) => f.family), ...fonts.map((f) => f.key).filter((k) => k && !FAMILY[k])])];
+  const faces = [...new Set([...fonts.map((f) => f.key).filter((k) => k && !FAMILY[k]), ...(carried ?? []).map((f) => f.family)])];
   const targets: { id: string; label: string; to: FaceTo }[] = [
     { id: "site", label: "The site's type", to: { site: true } },
     ...faces.map((f) => ({ id: `face:${f}`, label: f, to: { face: f } as FaceTo })),
@@ -349,7 +351,7 @@ export function SiteFontsSection() {
     <section data-site-fonts="" className="space-y-2 border-b border-border p-3">
       <div>
         <h3 data-look-heading className="text-plain font-semibold text-fg">Fonts on this site</h3>
-        <p className="text-small leading-snug text-fg-muted">Each face the words are set in, and how many parts use it. Press one to swap it everywhere it is used.</p>
+        <p className="text-small leading-snug text-fg-muted">Each face the words are set in, top of the site to the bottom, and how many parts use it. Press one to swap it everywhere it is used.</p>
       </div>
       <div className="space-y-1">
         {fonts.map((f) => (
@@ -361,7 +363,14 @@ export function SiteFontsSection() {
             onClick={() => { play("select"); setDone(null); setTo(""); setOpen((o) => (o === f.key ? null : f.key)); }}
             className={cn("tactile flex w-full items-baseline gap-2 rounded-md border px-2 py-1.5 text-left", open === f.key ? "border-accent" : "border-border hover:bg-hover")}
           >
-            <span className="min-w-0 flex-1 truncate text-plain text-fg" style={faceStyle(f.key)}>{f.key || "The site's type"}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-plain text-fg" style={faceStyle(f.key)}>{f.key || "The site's type"}</span>
+              {f.first ? (
+                <span data-site-font-first="" className="block truncate text-fine text-fg-faint">
+                  {firstSays(f.first)}{pages.length > 1 && f.first.pageId !== pages[0]?.id ? `, on ${pages.find((p) => p.id === f.first!.pageId)?.name ?? "another page"}` : ""}
+                </span>
+              ) : null}
+            </span>
             <span className="num shrink-0 text-small text-fg-muted">{f.parts} part{f.parts === 1 ? "" : "s"}</span>
           </button>
         ))}

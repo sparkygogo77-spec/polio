@@ -14,6 +14,11 @@
  *      what it sits on, as one undo step. Outlined lettering is measured by
  *      its outline, so the site's white-edged-in-black headings are not
  *      "fixed" into plain dark ones.
+ *   4  FONTS IN PAGE ORDER. "Fonts on this site" lists the faces as a person
+ *      meets them scrolling the site: by where each is first used, the first
+ *      page first, top to bottom; each keeps its count and says where it
+ *      first appears. The Format swap and the part panel's face list follow
+ *      the same order.
  *
  * Nothing leaves the machine: the picture model is answered here.
  *
@@ -150,6 +155,43 @@ await readable.locator("[data-made-readable] button").click();
 await wait(500);
 const back = await stored();
 check("3 Undo puts every one back", fixes.every((f) => back.nodes.find((n) => n.id === f.id)?.colour?.text === f.from));
+
+/* 4 Fonts on this site, in page order */
+/*
+ * Worked out here from the capture itself, not from the panel's function:
+ * each face's first part is the one highest on the first page it is used on
+ * (runs set in another face count their part too), and the rows must come in
+ * that order, each keeping its count of parts.
+ */
+const faceOfNode = (n) => (n.font?.face?.trim().replace(/['"]/g, "") || n.font?.family || "");
+const hasWords = (n) => (typeof n.content === "string" ? n.content.trim().length > 0 : Array.isArray(n.content) && n.content.length > 0);
+const pageRank = new Map(doc.pages.map((p, i) => [p.id, i]));
+const firstOf = new Map();
+const countOf = new Map();
+for (const n of doc.nodes) {
+  if (!hasWords(n) && !n.font) continue;
+  const faces = new Set([faceOfNode(n), ...(Array.isArray(n.content) ? n.content.filter((r) => r?.face).map((r) => r.face.replace(/['"]/g, "")) : [])]);
+  for (const f of faces) {
+    countOf.set(f, (countOf.get(f) ?? 0) + 1);
+    const at = [pageRank.get(n.pageId) ?? 99, n.y, n.x];
+    const was = firstOf.get(f);
+    if (!was || at[0] < was[0] || (at[0] === was[0] && (at[1] < was[1] || (at[1] === was[1] && at[2] < was[2])))) firstOf.set(f, at);
+  }
+}
+const expected = [...firstOf.entries()].sort((a, b) => a[1][0] - b[1][0] || a[1][1] - b[1][1] || a[1][2] - b[1][2]).map(([f]) => f || "site");
+await tab("Look");
+const fontRows = side.locator("[data-site-fonts] [data-site-font]");
+const shown = await fontRows.evaluateAll((els) => els.map((e) => e.getAttribute("data-site-font")));
+check("4 Fonts on this site run top of the site to the bottom, by where each is first used", JSON.stringify(shown) === JSON.stringify(expected), `${shown.join(" > ")} (expected ${expected.join(" > ")}; by count it would be ${[...countOf.entries()].sort((a, b) => b[1] - a[1]).map(([f]) => f || "site").join(" > ")})`);
+const counts = await fontRows.evaluateAll((els) => els.map((e) => Number((e.textContent.match(/(\d+) parts?/) ?? [])[1])));
+check("4 …each row keeps how many parts use it", shown.every((f, i) => counts[i] === countOf.get(f === "site" ? "" : f)), shown.map((f, i) => `${f} ${counts[i]}`).join(", "));
+const hints = await side.locator("[data-site-fonts] [data-site-font-first]").allInnerTexts();
+check("4 …and says where it first appears", hints.length === shown.length && hints.every((h) => /^First (on .+|in “.+|on the page)/.test(h)) && new Set(hints).size === hints.length, hints.join(" | "));
+await fontRows.first().click();
+await wait(400);
+const listed = await side.locator("[data-site-font-detail] [data-site-part]").count();
+check("4 pressing a row still lists the parts set in it", listed === countOf.get(shown[0] === "site" ? "" : shown[0]), `${listed} of ${countOf.get(shown[0])}`);
+await page.screenshot({ path: `${SHOTS}/after-fonts-order.png` });
 
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 await browser.close();

@@ -35,6 +35,7 @@
  * Pure: no store, no DOM, so a test reads it against a real capture.
  */
 import { contrast, parseColor, ROLES, toHex, type Palette, type RoleId } from "./look.ts";
+import { partName, quoted, sectionOf, type Named } from "./partNames.ts";
 
 export type ColourUse = "text" | "fill" | "border" | "shadow" | "accent";
 export const COLOUR_USES: readonly ColourUse[] = ["text", "fill", "border", "shadow", "accent"];
@@ -308,6 +309,44 @@ export function tallyFonts(nodes: readonly Worn[]): SiteFont[] {
     if (Array.isArray(n.content)) for (const s of n.content as { face?: string }[]) if (s?.face) put(s.face.replace(/['"]/g, ""), n);
   }
   return [...map.values()].sort((a, b) => b.parts - a.parts || a.key.localeCompare(b.key));
+}
+
+/** Where a face is first seen: the part, its page, and the section it sits in. */
+export interface FontFirst { id: string; pageId: string; y: number; section: string | null; name: string }
+
+/**
+ * THE FACES IN PAGE ORDER, as a person meets them scrolling the site: by
+ * where each is first used, the first page first (in the site's own page
+ * order), then top to bottom, then left to right. Counted as `tallyFonts`
+ * counts, so every row keeps how many parts use it. The owner's ask: a list
+ * led by the face on 65 parts told him nothing about the page; the order
+ * the page itself sets does.
+ */
+export function fontsInPageOrder(nodes: readonly (Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: number; from?: unknown; prompt?: string; featureId?: string })[], pageOrder: readonly string[] = []): (SiteFont & { first: FontFirst | null })[] {
+  const rank = (pageId: string | undefined) => { const i = pageOrder.indexOf(pageId ?? ""); return i < 0 ? pageOrder.length : i; };
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const before = (a: typeof nodes[number], b: typeof nodes[number]) =>
+    rank(a.pageId) - rank(b.pageId) || (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0);
+  return tallyFonts(nodes)
+    .map((f) => {
+      const first = f.ids.map((id) => byId.get(id)!).filter(Boolean).sort(before)[0];
+      if (!first) return { ...f, first: null };
+      const page = nodes.filter((n) => n.pageId === first.pageId) as Named[];
+      return { ...f, first: { id: first.id, pageId: first.pageId ?? "", y: first.y ?? 0, section: sectionOf(first as Named, page), name: partName(first as Named, page) } };
+    })
+    .sort((a, b) => {
+      if (!a.first || !b.first) return a.first ? -1 : b.first ? 1 : b.parts - a.parts;
+      return before(byId.get(a.first.id)!, byId.get(b.first.id)!) || b.parts - a.parts;
+    });
+}
+
+/** Where a face first appears, in a few words: its first part, and the section that part sits in. */
+export function firstSays(first: FontFirst | null): string {
+  if (!first) return "";
+  const name = first.name.length > 28 ? `${first.name.slice(0, 27).trimEnd()}…` : first.name;
+  const own = name ? `on ${quoted(name)}` : "";
+  const where = first.section && !name.includes(first.section) ? `in “${first.section}”` : "";
+  return `First ${[own, where].filter(Boolean).join(", ") || "on the page"}`;
 }
 
 /** A face to set: a real face by name (carried with the site), or one of the app's families. */

@@ -34,7 +34,7 @@ import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { WorkFields } from "./WorkFields";
 import { capturedFrom, insideControl, isMachineLabel, partName, wordsOf } from "./partNames";
-import { tallyFonts, faceOf } from "./siteColours";
+import { fontsInPageOrder, faceOf } from "./siteColours";
 import { parseColor, toHex } from "./look";
 import { wordsIn } from "./owner";
 import { decisionSays } from "./library/badge";
@@ -913,7 +913,9 @@ export function Inspector() {
 function FontField({ node, base }: { node: StudioNode; base: number }) {
   const nodes = useStudio((s) => s.nodes);
   const carried = useStudio((s) => s.look.fonts);
-  const faces = React.useMemo(() => [...new Set([...(carried ?? []).map((f) => f.family), ...tallyFonts(nodes).map((f) => f.key).filter(Boolean)])], [carried, nodes]);
+  const pages = useStudio((s) => s.pages);
+  /* The site's faces in page order, then any it carries that no part uses (`fontsInPageOrder`). */
+  const faces = React.useMemo(() => [...new Set([...fontsInPageOrder(nodes, pages.map((p) => p.id)).map((f) => f.key).filter(Boolean), ...(carried ?? []).map((f) => f.family)])], [carried, nodes, pages]);
   if (!wordsOf(node) && !node.font) return null;
   const face = faceOf(node);
   const size = typeof node.font?.size === "number" ? node.font.size : 1;

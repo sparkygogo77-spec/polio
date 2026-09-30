@@ -26,7 +26,7 @@ import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "./format";
 import { useStudio } from "./store";
 import { FAMILY, resolvePalette } from "./parts/theme";
 import { isCaptured, readSiteFormat, type Reading } from "./siteFormat";
-import { tallyFonts, type FaceTo } from "./siteColours";
+import { fontsInPageOrder, type FaceTo } from "./siteColours";
 import { formatSwitchKeys, formatSwitches, formatSwitchOn } from "./shelfFacts";
 import { parseColor, toHex } from "./look";
 import { cn } from "@/core/lib/cn";
@@ -116,9 +116,11 @@ function FaceSwap({ from }: { from: string }) {
   const carried = useStudio((s) => s.look.fonts);
   const [to, setTo] = React.useState("");
   const [done, setDone] = React.useState<number | null>(null);
-  const fonts = React.useMemo(() => tallyFonts(nodes), [nodes]);
+  const pages = useStudio((s) => s.pages);
+  /* The site's faces in page order, then any it carries that no part uses (`fontsInPageOrder`). */
+  const fonts = React.useMemo(() => fontsInPageOrder(nodes, pages.map((p) => p.id)), [nodes, pages]);
   const parts = fonts.find((f) => f.key === from)?.parts ?? 0;
-  const faces = [...new Set([...(carried ?? []).map((f) => f.family), ...fonts.map((f) => f.key).filter((k) => k && !FAMILY[k])])].filter((f) => f !== from);
+  const faces = [...new Set([...fonts.map((f) => f.key).filter((k) => k && !FAMILY[k]), ...(carried ?? []).map((f) => f.family)])].filter((f) => f !== from);
   const targets: { id: string; label: string; to: FaceTo }[] = [
     ...faces.map((f) => ({ id: `face:${f}`, label: f, to: { face: f } as FaceTo })),
     ...Object.keys(FAMILY).filter((k) => k !== from).map((k) => ({ id: `family:${k}`, label: k, to: { family: k } as FaceTo })),
