@@ -399,11 +399,13 @@ async function ladder() {
              · Finish          — a count is a reading
            Builds keeps its word deliberately: it is the only way out of the
            Builder and the only wayfinding in the bar, and a bare stack of
-           layers at the far left is a guess. */
+           layers at the far left is a guess. Draw a space keeps its name for
+           the owner's reason: it is the one tool he could not find again by
+           its icon (`tests/space-command.mjs`). */
         wordy: [...document.querySelectorAll("[data-studio-bar] button")]
           .filter((b) => !b.closest("[data-page-strip]") && !b.closest("[data-tool-search]")
             && !b.matches("[data-tool-search]") && !b.closest("[data-finish]")
-            && !b.classList.contains("num") && !/Builds/.test(b.innerText))
+            && !b.classList.contains("num") && !/Builds/.test(b.innerText) && !b.matches("[data-draw-space-button]"))
           .filter((b) => b.innerText.trim() && b.querySelector("svg"))
           .map((b) => b.innerText.replace(/\s+/g, " ").trim()).join(" | "),
       };

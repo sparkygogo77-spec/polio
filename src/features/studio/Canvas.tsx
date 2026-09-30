@@ -1127,7 +1127,10 @@ export function Canvas() {
            * WORDS box where they are not drawn as one piece of text. A solid
            * still opens for turning on its own second press, below.
            */
-          if (twice && hit && !e.shiftKey && !HANDS_ON.has(hit.featureId) && (wordsOf(hit) || (hit.id === store.selection[0] && store.selection.length === 1 && getFeature(hit.featureId)?.content))) {
+          /* A part that points somewhere goes there on two presses (below,
+             `tests/press-in-builder.mjs`): its words are Enter away. */
+          const goes = !!hit?.link && isLinkable(hit.featureId);
+          if (twice && hit && !goes && !e.shiftKey && !HANDS_ON.has(hit.featureId) && (wordsOf(hit) || (hit.id === store.selection[0] && store.selection.length === 1 && getFeature(hit.featureId)?.content))) {
             pressed.current = null;
             const opened = openWords(hitId);
             /* The press's own default would move the caret back off the words it just opened. */

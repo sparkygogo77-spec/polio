@@ -82,9 +82,11 @@ await page.waitForTimeout(800);
 const part = page.locator("[data-node-id]").last();
 check("a part can be dropped on the phone-wide board", (await part.count()) === 1);
 await part.click({ force: true });
-await page.waitForTimeout(400);
-await toggle.click();
 await page.waitForTimeout(500);
+/* A pick opens the sheet on its own on a narrow window (StudioPage: "the
+   toggle, the tour and a pick open it"); the toggle is pressed only if it
+   did not, since pressing it on an open sheet puts the sheet away. */
+if (!(await onScreen(panel))) { await toggle.click(); await page.waitForTimeout(500); }
 const elementTab = panel.locator("[role=radio]").filter({ hasText: "Element" }).first();
 check("a picked part has its Element tab in the panel", (await elementTab.count()) === 1 && await onScreen(elementTab));
 await elementTab.click().catch(() => {});

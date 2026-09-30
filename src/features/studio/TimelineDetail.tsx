@@ -129,7 +129,11 @@ export function TimelineDetail() {
   return (
     <section
       data-timeline-detail=""
-      className="flex w-full flex-col border-t"
+      /* As tall as the band it stands in: under the backend the band has a
+         height of its own, and a section only as tall as its tabs left the
+         transcript 61px of a 540px band (`tests/backend-surface.mjs`). In the
+         ordinary band, which is as tall as what it holds, this is auto. */
+      className="flex h-full w-full flex-col border-t"
       style={{ background: FIELD.face, borderColor: FIELD.rim }}
     >
       {/* Two menus, side by side and separate: this iteration, and the site. */}

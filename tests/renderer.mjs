@@ -72,12 +72,14 @@ check("a tall one asks for a tall frame", recraftSize(300, 900).split("x")[0] < 
 check("flux is asked in ratios", fluxRatio(320, 320) === "1:1" && fluxRatio(1600, 900) === "16:9" && fluxRatio(600, 900) === "2:3",
   [fluxRatio(320, 320), fluxRatio(1600, 900), fluxRatio(600, 900)].join(" "));
 {
-  const closed = renderPrompt({ kind: "vector", prompt: "a helix of sentences", closed: true });
-  const open = renderPrompt({ kind: "vector", prompt: "a helix of sentences", closed: false });
+  /* The framing is added only when a frame is asked for; bare, what he typed is what goes (renderer.ts). */
+  const closed = renderPrompt({ kind: "vector", prompt: "a helix of sentences", closed: true, frame: true });
+  const open = renderPrompt({ kind: "vector", prompt: "a helix of sentences", closed: false, frame: true });
+  check("asked for no frame, the words go as typed", renderPrompt({ kind: "vector", prompt: "a helix of sentences" }) === "a helix of sentences");
   check("the words say to fill the frame", /edge to edge/.test(closed) && /nothing floating small/.test(closed), closed.slice(0, 80));
   check("an open line is asked for as a band", /band following a single open line/.test(open));
   check("and nothing is asked to sit on a plate", /no background plate/.test(closed) && /no watermark/.test(closed));
-  const painted = renderPrompt({ kind: "vector", prompt: "a crest", palette: { accent: "#b8ff24", text: "#eee", bg: "#000" } });
+  const painted = renderPrompt({ kind: "vector", prompt: "a crest", frame: true, palette: { accent: "#b8ff24", text: "#eee", bg: "#000" } });
   check("the site's colours go with it", /#b8ff24/.test(painted) && /#000/.test(painted));
 }
 
@@ -199,10 +201,13 @@ await page.waitForTimeout(700);
   await row.locator('input[type="password"]').fill(SECRET);
   await page.getByRole("button", { name: /Save to this browser/i }).click();
   await page.waitForTimeout(900);
-  const held = await page.evaluate(() => {
-    const raw = localStorage.getItem("builder.keys.plain") ?? sessionStorage.getItem("builder.keys.session") ?? "";
-    return raw.includes("REPLICATE_API_TOKEN");
-  });
+  /* Held sealed, never in the clear: `builder.keys` is the one entry, and the
+     readable copy it once had beside it is gone for good (AGENTS.md, Keys). */
+  const held = await page.evaluate((secret) => {
+    const sealed = localStorage.getItem("builder.keys") ?? sessionStorage.getItem("builder.keys.session") ?? "";
+    const clear = [localStorage, sessionStorage].some((st) => Object.keys(st).some((k) => (st.getItem(k) ?? "").includes(secret)));
+    return !!sealed && !clear;
+  }, SECRET);
   check("a pasted token is held in this browser, beside the Claude one", held);
   const after = (await row.first().innerText()).replace(/\s+/g, " ");
   check("and the card says it is held here", /held here|held for this tab/.test(after), after.slice(0, 90));

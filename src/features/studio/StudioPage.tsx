@@ -10,7 +10,7 @@ import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { ImportStrip } from "./FromASite";
@@ -487,33 +487,40 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       )}
     >
       <SiteHead />
-      <span className="mx-1 h-4 w-px bg-border" />
+      <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       <PageChips />
-      <span className="mx-1 h-4 w-px bg-border" />
+      <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       <Tooltip content={libraryOpen ? "Hide the side panel" : "Show the side panel"} shortcut="l">
         <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle the side panel" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
           <PanelLeft />
         </Button>
       </Tooltip>
-      <span className="mx-1 h-4 w-px bg-border" />
+      <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       <ToolPicker tool={tool} setTool={setTool} />
       {/* Draw a space, with its name on it: the one tool the owner could not find again once an import stopped opening it (`tests/space-command.mjs`). */}
       <button
         type="button"
         data-draw-space-button=""
+        aria-label="Draw a space"
         aria-pressed={tool === "space"}
         title="Draw a space (S): draw a closed shape on the page, and its panel opens on the right"
         onClick={() => setTool(tool === "space" ? "select" : "space")}
-        className={cn("tactile ml-1 inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-small [&_svg]:size-3.5", tool === "space" ? "border-[oklch(0.62_0.19_25)] text-fg" : "border-border text-fg-muted hover:text-fg")}
+        className={cn("tactile ml-1 hidden h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 md:inline-flex text-small [&_svg]:size-3.5", tool === "space" ? "border-[oklch(0.62_0.19_25)] text-fg" : "border-border text-fg-muted hover:text-fg")}
       >
         <TriangleDashed />
-        <span>Draw a space</span>
+        {/* Below 768 the button is not in the bar at all: the tool picker
+            holds Draw a space too, and S takes it; on a phone-wide bar the
+            button cost Preview and Finish a third row
+            (`tests/phone-way-out.mjs`). And while the pen's row is out, the
+            word waits for a wide bar: at 1281 the row and the word left the
+            search no room for its own words (`tests/menu-pass.mjs`). */}
+        <span className={tool === "pen" || tool === "arrow" ? "hidden 2xl:inline" : "inline"}>Draw a space</span>
       </button>
 
       {/* The tool in hand, and its own settings: the pen's colour, the select tool's checkbox. See `toolOptions.tsx`. */}
       <ToolOptions tool={tool} />
 
-      <span className="mx-1 h-4 w-px bg-border" />
+      <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       <DeviceSwitch width={frameWidth} />
 
       {/*
@@ -624,7 +631,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
 
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
-      <span className="mx-1 h-4 w-px bg-border" />
+      <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} /> : null}
       {/* THE WAY IN, and it lives in the bar because a row above the board
           would move the board — which is the one thing the Builder promises
@@ -634,8 +641,13 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           and for "site", and there was none: the Builds page's field only
           binds where Publish pushes, and the GitHub control draws nothing
           at all until a site already has a repository or a token. */}
+      {/* On a phone-wide bar Capture sits behind More tools: in the bar it
+          helped push Preview and Finish onto a third row
+          (`tests/phone-way-out.mjs`). Bring stays, being the way in on a
+          phone too (`tests/bring-repo-door.mjs`). The capture dialog stays
+          mounted either way; it is drawn in a portal, and More opens it. */}
       <BringRepoDoor />
-      <CaptureSiteDoor />
+      <span className="hidden md:contents"><CaptureSiteDoor /></span>
       <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
       <ProcessCounter />
@@ -682,6 +694,11 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
             <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
           </div>
           <ToolOptions tool={tool as Tool} compact />
+          {/* Folded here below 768, where the bar has no room for them. */}
+          <div className={cn(row, "md:hidden")}>
+            <Button variant="ghost" size="iconXs" aria-label="Capture a site" onClick={() => { setOpen(false); window.dispatchEvent(new Event("studio:capture-site")); }}><Camera /></Button>
+            <span className="flex-1">Capture a site</span>
+          </div>
           <div className={row}>
             <SearchTools always />
             <Tooltip content="What has landed, and what is new to use">
@@ -831,11 +848,14 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2")}
+        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:min-w-[6.5rem] xl:flex-1 xl:justify-start xl:px-2")}
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
-        <span className={cn("min-w-0 flex-1 truncate text-left", always ? "inline" : "hidden xl:inline")}>Search commands…</span>
+        {/* From 1280 up its words are the rung (`tests/menu-pass.mjs`): kept at
+            least a word wide, so a full bar takes the room from what can
+            truncate rather than squeezing the search to its icon. */}
+        <span className={cn("min-w-0 flex-1 truncate text-left", always ? "inline" : "hidden xl:inline xl:min-w-[4.5rem]")}>Search commands…</span>
       </button>
     </Tooltip>
   );

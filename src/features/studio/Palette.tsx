@@ -1030,6 +1030,8 @@ function Band({ title, children, hue, mark }: { title: string; children: React.R
 /**
  * Drag the shelf's top edge to make it taller or shorter, up to a third of
  * the canvas (`shelfMax`). The wheel over the shelf still does the same.
+ * Inside the shelf's own edge, never over the board: a part's resize handle
+ * at the shelf's edge is the part's (`tests/hand-steady.mjs`).
  */
 function ShelfGrip() {
   const start = React.useRef<{ y: number; h: number } | null>(null);
@@ -1039,7 +1041,7 @@ function ShelfGrip() {
       role="separator"
       aria-orientation="horizontal"
       aria-label="Drag to make the shelf taller or shorter"
-      className="absolute inset-x-0 -top-1 z-[3] h-2 cursor-row-resize touch-none hover:bg-accent/30"
+      className="absolute inset-x-0 top-0 z-[3] h-1.5 cursor-row-resize touch-none hover:bg-accent/30"
       onPointerDown={(e) => {
         const band = (e.currentTarget.closest("[data-studio-band]") as HTMLElement | null) ?? e.currentTarget.parentElement;
         if (!band) return;

@@ -57,14 +57,21 @@ await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1600);
 
 const frame = await page.locator("[data-frame]").first().boundingBox();
+/* A bare spot ON the frame, found rather than computed from the pane's edge:
+   how far in the frame starts depends on the fit, and a point worked out
+   from the pane's edge landed on the ground beside the page, whose press is
+   the ground's menu, not the page's wheel. */
 const bare = await page.evaluate(() => {
   const f = document.querySelector("[data-frame]").getBoundingClientRect();
-  const mid = document.querySelector("[data-studio-scroll]").getBoundingClientRect();
-  return { x: Math.round((mid.x + f.x) / 2), y: Math.round(f.y + f.height / 2) };
+  for (const fy of [0.5, 0.35, 0.65, 0.2, 0.8]) for (const fx of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+    const x = Math.round(f.x + f.width * fx), y = Math.round(f.y + f.height * fy);
+    if (document.elementFromPoint(x, y)?.hasAttribute("data-frame")) return { x, y };
+  }
+  return { x: Math.round(f.x + 40), y: Math.round(f.y + f.height / 2) };
 });
 void frame;
 /* On the frame, which is the page's own wheel. */
-await page.mouse.click(bare.x + 80, bare.y, { button: "right" });
+await page.mouse.click(bare.x, bare.y, { button: "right" });
 await page.waitForTimeout(700);
 const wheel = page.locator("[data-radial]");
 check("the page's wheel opens", (await wheel.count()) === 1);

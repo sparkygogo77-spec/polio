@@ -64,7 +64,11 @@ const scroller = page.locator("[data-live-scroller]");
 check("p flips the board to Preview", (await scroller.count()) === 1);
 const box = async (id) => page.locator(`[data-live-node="${id}"]`).first().boundingBox();
 const desk = await box("n_text");
-check("on the desktop the text part is the size it was drawn", !!desk && Math.round(desk.width) === 1200 && Math.round(desk.height) === 80, desk ? `${Math.round(desk.width)} × ${Math.round(desk.height)}` : "not placed");
+/* The drawn height is a minimum, not a height: a part grows past it when its
+   words need the room (`parts/primitives.tsx`), so on the desktop it is the
+   drawn width, at least the drawn height, and nothing is cut off. */
+const deskClip = await page.locator('[data-live-node="n_text"] [data-part]').first().evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight })).catch(() => null);
+check("on the desktop the text part is the width it was drawn, at least its height, words whole", !!desk && Math.round(desk.width) === 1200 && Math.round(desk.height) >= 80 && !!deskClip && deskClip.scroll <= deskClip.client + 2, desk ? `${Math.round(desk.width)} × ${Math.round(desk.height)}, content ${deskClip?.scroll} in ${deskClip?.client}` : "not placed");
 
 await scroller.click({ button: "right", position: { x: 40, y: 40 } });
 await page.waitForTimeout(400);

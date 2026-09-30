@@ -99,6 +99,8 @@ const LOOK = () => {
     board: Math.round(board.getBoundingClientRect().height),
     shelf: shelf ? Math.round(shelf.getBoundingClientRect().top) : null,
     travel: pane.scrollHeight - pane.clientHeight,
+    /* How far the part in hand hangs past the board's foot, on screen. */
+    over: (() => { const n = document.querySelector('[data-node-id="n0"]'); if (!n) return 0; return Math.max(0, Math.round(n.getBoundingClientRect().bottom - board.getBoundingClientRect().bottom)); })(),
     y: d?.state?.nodes?.find((n) => n.id === "n0")?.y ?? null,
   };
 };
@@ -136,11 +138,18 @@ for (let i = 1; i <= 6; i++) {
 const moved = during[during.length - 1];
 check("the part moved, which is the point of the gesture", moved.y > rest.y + 100,
   `y ${rest.y} → ${moved.y}`);
-for (const [what, key] of [["the preview box", "preview"], ["the page", "page"], ["the board", "board"], ["the categories", "shelf"], ["the pane's travel", "travel"]])
+for (const [what, key] of [["the preview box", "preview"], ["the page", "page"], ["the board", "board"], ["the categories", "shelf"]])
   check(`and ${what} did not move under the hand`,
     during.every((d) => d[key] === rest[key]),
     `${rest[key]} → ${[...new Set(during.map((d) => d[key]))].join(", ")}`);
 
+/* The pane's travel grows by the part hanging past the held page's foot, and
+   by nothing else: that overhang is what lets the edge scroll carry a part
+   on down (Canvas, THE EDGE SCROLL), so the page is not grown under the hand
+   but the part is never cut off by the pane either. */
+check("and the pane's travel grew by no more than the part hangs past the page",
+  during.every((d) => d.travel >= rest.travel && d.travel - rest.travel <= d.over + 2),
+  during.map((d) => `+${d.travel - rest.travel} for ${d.over} over`).join(", "));
 await page.mouse.up();
 await page.waitForTimeout(700);
 const after = await page.evaluate(LOOK);
@@ -175,7 +184,10 @@ if (await handles.count() === 0) check("a part has a handle to pull", false, "no
 else {
   /* The bottom edge: the one that makes the site taller. */
   const boxes = await handles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }));
-  const low = boxes.reduce((m, b) => (b.y > m.y ? b : m), boxes[0]);
+  /* The lowest handle a person can see: one behind the shelf is not there to be pressed, and a press there is on the shelf. */
+  const bandTop = await two.evaluate(() => document.querySelector("[data-studio-band]")?.getBoundingClientRect().top ?? Infinity);
+  const seen = boxes.filter((b) => b.y < bandTop - 6);
+  const low = (seen.length ? seen : boxes).reduce((m, b) => (b.y > m.y ? b : m), (seen.length ? seen : boxes)[0]);
   await two.mouse.move(low.x, low.y);
   await two.mouse.down();
   const pulled = [];

@@ -843,12 +843,41 @@ export function Timeline() {
     const colTop = Math.min(...cards.map((b) => b.y));
     const colBottom = Math.max(...cards.map((b) => b.y + b.h));
     to.pan.y = hold(to.pan.y, colTop * to.zoom, colBottom * to.zoom, room, SETTLE_MARGIN);
+    /*
+     * AND THE LANES AS DRAWN, once the view has landed.
+     *
+     * Everything above reasons about the lanes' nominal rects, and a lane as
+     * drawn can stand lower than its rect says (it hangs off the box as the
+     * box is really drawn). Measured with eight updates at 1600x1000 under
+     * the backend's band: the red lane's foot 14px under the band's top edge
+     * with the column wholly clear (`tests/column-inside.mjs`). So the drawn
+     * lanes are read back and the view lifted by what still overhangs, never
+     * further than the column's top can go without leaving the frame: the
+     * column never gives.
+     */
+    const clearLanes = () => {
+      const frame = box.getBoundingClientRect();
+      const bandEl = box.parentElement?.querySelector<HTMLElement>("[data-studio-band][data-band-over]");
+      const bandTop = bandEl ? bandEl.getBoundingClientRect().top : frame.bottom;
+      const floor = Math.min(frame.bottom, bandTop > frame.top ? bandTop : frame.bottom) - 4;
+      const lanes = [...box.querySelectorAll<HTMLElement>("[data-lane-box]")].map((e) => e.getBoundingClientRect().bottom);
+      const tops = [...box.querySelectorAll<HTMLElement>("[data-box]")].map((e) => e.getBoundingClientRect().top);
+      if (!lanes.length || !tops.length) return;
+      const over = Math.max(...lanes) - floor;
+      const up = Math.min(over, Math.min(...tops) - (frame.top + 8));
+      if (!(up >= 1)) return;
+      const v = viewAt.current;
+      const pan = { x: v.pan.x, y: v.pan.y - up };
+      viewAt.current = { ...v, pan };
+      setPan(pan);
+    };
     const from = viewAt.current;
-    if (sameView(from, to)) return;
+    if (sameView(from, to)) { requestAnimationFrame(clearLanes); return; }
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     if (still) {
       setPan(to.pan);
       setZoom(to.zoom);
+      requestAnimationFrame(() => requestAnimationFrame(clearLanes));
       return;
     }
     const grid = plot.current;
@@ -877,6 +906,7 @@ export function Timeline() {
       grid.style.willChange = "";
       setPan(to.pan);
       setZoom(to.zoom);
+      requestAnimationFrame(() => requestAnimationFrame(clearLanes));
     };
     settling.current = requestAnimationFrame(step);
   }, [stopSettle]);

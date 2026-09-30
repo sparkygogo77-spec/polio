@@ -38,9 +38,9 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 const look = () => page.evaluate(() => {
   const strip = document.querySelector("[data-queue-strip]");
   // The strip is in the top bar's status slot, which sits ahead of the
-  // controls; the sound key is the first of them. (It used to be measured
-  // against the news bell, which has gone.)
-  const bell = document.querySelector("[aria-label='Toggle sound']")?.getBoundingClientRect() ?? null;
+  // controls; the theme key is the first of them. (It was measured against
+  // the news bell, then the sound key; both have gone from the bar.)
+  const bell = document.querySelector("[aria-label='Toggle theme']")?.getBoundingClientRect() ?? null;
   if (!strip) return { there: false, bell: !!bell };
   const bars = [...strip.querySelectorAll("[data-queue-bar]")].map((e) => {
     const r = e.getBoundingClientRect();

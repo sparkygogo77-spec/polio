@@ -46,6 +46,41 @@ export function PreviewWindow() {
   const boxW = SIZES[size];
   const scale = boxW / width;
 
+  /*
+   * ABOVE THE BAND AT THE COLUMN'S FOOT, NEVER OVER IT.
+   *
+   * The window is kept from the column's bottom corner, and the band at the
+   * foot (the shelf, or the backend with its prompt box and Send key) stands
+   * over the bottom of the column: at the backend's height the window sat on
+   * the Send key and nothing could press it (`tests/backend-surface.mjs`).
+   * So its foot is lifted clear of whatever band is standing there, measured
+   * as it changes, and the offset the hand gave it is kept for when the band
+   * is lower again.
+   */
+  const [lift, setLift] = React.useState(0);
+  React.useEffect(() => {
+    const parent = ref.current?.offsetParent as HTMLElement | null;
+    if (!parent) return;
+    let band: HTMLElement | null = null;
+    const ro = new ResizeObserver(() => measure());
+    const measure = () => {
+      const now = parent.querySelector<HTMLElement>("[data-studio-band][data-band-over]");
+      if (now !== band) { if (band) ro.unobserve(band); band = now; if (band) ro.observe(band); }
+      if (!band) { setLift(0); return; }
+      const p = parent.getBoundingClientRect();
+      const b = band.getBoundingClientRect();
+      setLift(Math.max(0, Math.round(p.bottom - b.top)));
+    };
+    measure();
+    /* A band comes and goes with the view: looked for again, once a frame at most. */
+    let queued = 0;
+    const soon = () => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; measure(); }); };
+    const mo = new MutationObserver(soon);
+    mo.observe(parent, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-band-over"] });
+    ro.observe(parent);
+    return () => { mo.disconnect(); ro.disconnect(); cancelAnimationFrame(queued); };
+  }, []);
+
   /* ------------------------------------------------------------- dragging */
   React.useEffect(() => {
     if (!drag) return;
@@ -87,7 +122,7 @@ export function PreviewWindow() {
       ref={ref}
       data-preview-window=""
       className="absolute z-20 flex flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-panel"
-      style={{ right: -x, bottom: -y, width: open ? boxW : 132 }}
+      style={{ right: -x, bottom: Math.max(-y, lift + 8), width: open ? boxW : 132 }}
     >
       <header
         className="flex h-7 shrink-0 cursor-grab items-center gap-1 border-b border-border px-1.5 active:cursor-grabbing"

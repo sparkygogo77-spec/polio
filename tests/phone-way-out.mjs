@@ -111,7 +111,7 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
   /* 2. Every control on the way out is wholly on screen. */
   const WAYS = {
     "zoom out": '[aria-label="Zoom out"]', "zoom in": '[aria-label="Zoom in"]',
-    "the readout, which is fit": '[aria-label="Zoom readout"]',
+    "the readout, which is fit": '[data-studio-bar] [data-fit-readout]',
     Desktop: '[aria-label*="Desktop" i]', Tablet: '[aria-label*="Tablet" i]', Phone: '[aria-label*="Phone" i]',
   };
   const missing = [];
@@ -148,7 +148,7 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
   check(`${tag}: zoom in reaches a bigger view than the one it opens at`,
     !noIn && big.page > fresh.page * 1.5,
     noIn ? `the zoom-in key is ${noIn}` : `${fresh.page} (${fresh.pct}) → ${big.page} (${big.pct})`);
-  const noFit = await press('[aria-label="Zoom readout"]', 1, 800);
+  const noFit = await press('[data-studio-bar] [data-fit-readout]', 1, 800);
   const back = await size();
   check(`${tag}: and one press of the readout puts it back inside the pane`,
     !noFit && back.page <= back.pane && Math.abs(back.page - fresh.page) <= 2,
