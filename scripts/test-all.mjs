@@ -171,6 +171,10 @@ function baseEnv() {
    */
   const env = { ...process.env, SINK: join(SINK, "sites", "trumpmorty-fun"), NODE_NO_WARNINGS: "1" };
   for (const k of UNSET) delete env[k];
+  /* The browser that is here, for the suites that take one by name: without
+     it they ask Playwright for its own build, which may not be installed. */
+  const here = ["/opt/pw-browsers/chromium"].find((p) => existsSync(p));
+  if (here) { env.PLAYWRIGHT_CHROMIUM ??= here; env.CHROMIUM ??= here; }
   return env;
 }
 
