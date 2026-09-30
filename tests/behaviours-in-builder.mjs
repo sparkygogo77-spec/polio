@@ -52,29 +52,36 @@ const part = page.locator(`[data-node-id="${HEAD.id}"]`).first();
 await part.scrollIntoViewIfNeeded();
 await part.click();
 await wait(500);
-const WHERE = { reveal: "motion", tilt: "motion", marquee: "motion", "dust-canvas": "motion", "copy-toast": "interact", "follow-pointer": "interact", embed: "media", "crt-loader": "hero" };
-const onShelf = {};
-for (const cat of ["hero", "media", "motion", "interact"]) {
-  await page.locator(`[data-category="${cat}"]`).first().click();
+/* Each is on the shelf as a card of its own, or as a version of the card that does the same (Lane I, `shelfPlan.ts`). */
+const WHERE = { reveal: ["motion", "reveal-on-scroll"], tilt: ["motion", "hover-tilt"], marquee: ["content", "marquee"], "dust-canvas": ["media", null], "copy-toast": ["interact", "copy-button"], "follow-pointer": ["motion", "parallax"], embed: ["media", null], "crt-loader": ["motion", "page-load"] };
+/** Open a feature's detail: its own card, or its item's card and then its version. */
+const openFeature = async (id) => {
+  const [cat, item] = WHERE[id];
+  if (!(await page.locator(`[data-category-open="${cat}"]`).count())) await page.locator(`[data-category="${cat}"]`).first().click();
   await wait(500);
-  onShelf[cat] = await page.evaluate(() => [...document.querySelectorAll("[data-work-card]")].map((c) => c.getAttribute("data-work-card")));
+  if (!item) { await page.locator(`[data-work-card="${id}"]`).click(); await wait(400); return true; }
+  await page.locator(`[data-tile="${item}"]`).click();
+  await wait(400);
+  const v = page.locator(`[data-part-detail] [data-version="work:${id}"]`);
+  if (!(await v.count())) return false;
+  await v.click();
+  await wait(300);
+  return true;
+};
+for (const id of Object.keys(WHERE)) {
+  const ok = await openFeature(id);
+  check(`${id} is on the shelf, under ${WHERE[id][0]}${WHERE[id][1] ? `, as a version of ${WHERE[id][1]}` : ""}`, ok);
+  await page.keyboard.press("Escape");
+  await wait(300);
 }
-for (const [id, cat] of Object.entries(WHERE)) check(`${id} is on the shelf, under ${cat}`, (onShelf[cat] ?? []).includes(id), (onShelf[cat] ?? []).join(", "));
 
 /* ------------------------------------------------ attaching, stacking */
-await page.locator(`[data-category="motion"]`).first().click();
-await wait(400);
 /* A card opens its detail card; the part picked on the board is offered there (\`ShelfCards.tsx\`). */
-await page.locator('[data-work-card="reveal"]').click();
-await wait(400);
+await openFeature("reveal");
 await page.locator('[data-work-put="reveal"]').click();
 await wait(400);
 check("pressed with a part picked, Reveal on scroll goes on that part", ids((await node(HEAD.id))?.work).join() === "reveal", JSON.stringify((await node(HEAD.id))?.work));
-await page.locator(`[data-category="interact"]`).first().click();
-await wait(400);
-/* A card opens its detail card; the part picked on the board is offered there (\`ShelfCards.tsx\`). */
-await page.locator('[data-work-card="copy-toast"]').click();
-await wait(400);
+await openFeature("copy-toast");
 await page.locator('[data-work-put="copy-toast"]').click();
 await wait(400);
 check("…and Copy with toast joins it, not replacing it", ids((await node(HEAD.id))?.work).join() === "reveal,copy-toast", JSON.stringify((await node(HEAD.id))?.work));

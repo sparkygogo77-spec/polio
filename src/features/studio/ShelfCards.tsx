@@ -804,6 +804,7 @@ function ItemBody({ start, add }: { start: string; add: (featureId: string) => s
           <button
             type="button"
             data-add-to-page={v.site ? `site:${v.site.host}` : addKey}
+            data-work-put={work && picked && !v.site ? work.manifest.id : undefined}
             onClick={onAdd}
             className="tactile flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-small font-medium text-accent-fg"
           >

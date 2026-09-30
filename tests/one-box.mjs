@@ -189,8 +189,16 @@ if (!(await planet.count())) {
   await page.waitForTimeout(700);
 }
 const cards = await page.evaluate(() => [...document.querySelectorAll("[data-work-card]")].map((c) => ({ id: c.getAttribute("data-work-card"), text: c.textContent })));
-check("the shelf's Data category holds the working features", ["sol-price", "token-price"].every((id) => cards.some((c) => c.id === id)), cards.map((c) => c.id).join(", "));
-check("…each with a look of what a part carrying it shows", cards.some((c) => /\$142\.37/.test(c.text ?? "")) && cards.some((c) => /Live token price/.test(c.text ?? "")), cards.map((c) => c.text).join(" | "));
+/* Live prices are one card (Lane I): the price of SOL, with any token by its address as a version. */
+check("the shelf's Data category holds the working features", cards.some((c) => c.id === "sol-price"), cards.map((c) => c.id).join(", "));
+check("…with a look of what a part carrying it shows", cards.some((c) => /\$142\.37/.test(c.text ?? "")), cards.map((c) => c.text).join(" | "));
+if (cards.some((c) => c.id === "sol-price")) {
+  await page.locator('[data-work-card="sol-price"]').click();
+  await page.waitForTimeout(500);
+  check("…and any token's price is a version of it", (await page.locator('[data-part-detail] [data-version="work:token-price"]').count()) === 1);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+}
 if (SHOTS && cards.length) {
   await page.locator("[data-work-card]").first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(SHOTS, "4-shelf.png") });

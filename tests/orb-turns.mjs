@@ -70,10 +70,14 @@ if (!(await page.evaluate(() => { const c = document.createElement("canvas"); re
  */
 await page.locator('input[placeholder*="Search parts"]').first().fill("orb");
 await page.waitForTimeout(900);
-const tile = page.getByText("Orb, turnable", { exact: true }).first();
-check("the orb in 3D is in the shelf", (await tile.count()) === 1);
+/* The three orbs are one card with three versions (Lane I): the orb in 3D is "Real light and depth". */
+const tile = page.locator('[data-tile="orb-css"]').first();
 await tile.click({ force: true });
 await page.waitForTimeout(600);
+const version = page.locator('[data-part-detail] [data-version="orb-webgl"]');
+check("the orb in 3D is in the shelf", (await version.count()) === 1);
+await version.click({ force: true });
+await page.waitForTimeout(400);
 /* A card opens its detail card; Add to page there is what puts it on the board. */
 await page.locator('[data-add-to-page="orb-webgl"]').click({ force: true });
 await page.waitForTimeout(1400);
