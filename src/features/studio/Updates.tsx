@@ -64,6 +64,7 @@ function askUpdates(): Promise<UpdatesAnswer | null> {
 
 /** One day's changes: a card of its own, the timeline's own material, one line each. */
 type Day = { day: string; changes: Landed[] };
+const PER_CARD = 10;
 
 /**
  * A press outside or Escape closes it, and it stands over nearly everything.
@@ -84,10 +85,12 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
 
   /* Newest first, one line each, under the day it landed. */
   const rows = React.useMemo(() => {
-    const out: Day[] = [];
+    /* A busy day is several cards of at most PER_CARD lines, never one wall: the old boxes stopped at twelve for the same reason. */
+    const out: (Day & { key: string; more: boolean })[] = [];
     for (const c of answer.changes) {
       const d = dayOf(c.when);
-      if (out.at(-1)?.day !== d) out.push({ day: d, changes: [] });
+      const last = out.at(-1);
+      if (!last || last.day !== d || last.changes.length >= PER_CARD) out.push({ day: d, changes: [], key: `${d}:${out.length}`, more: last?.day === d });
       out.at(-1)!.changes.push(c);
     }
     return out;
@@ -143,10 +146,10 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
                 className="mx-auto w-full max-w-[1100px]"
                 items={rows}
                 estimateSize={120}
-                getKey={(r) => r.day}
+                getKey={(r) => r.key}
                 renderItem={(r, i) => (
-                  <div data-updates-day={r.day} className="pb-2.5">
-                    <Row skin={FIELD} seed={r.day} at={i} icon={<CalendarDays className="size-3" />} title={r.day}>
+                  <div data-updates-day={r.more ? undefined : r.day} className="pb-2.5">
+                    <Row skin={FIELD} seed={r.key} at={i} icon={<CalendarDays className="size-3" />} title={r.more ? `${r.day}, continued` : r.day}>
                       <div className="flex flex-col gap-0.5">
                         {r.changes.map((c) => (
                           <p key={c.id} data-change="" className="rounded-md px-1.5 py-0.5 text-[12.5px] leading-snug" style={{ color: FIELD.text }}>{c.says}</p>
