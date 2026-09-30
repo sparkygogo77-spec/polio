@@ -39,9 +39,28 @@ const nextConfig: NextConfig = {
    * packages go in entire — a few megabytes of code beside a browser that is
    * already fifty.
    */
-  outputFileTracingIncludes: {
-    "/api/studio/**": ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
-    "/api/tweets/**": ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+  /*
+   * ...into the routes that open a browser, and no other.
+   *
+   * Vercel bills Functions Storage as every deployment's functions, each
+   * carrying what its trace holds, and this was `/api/studio/**` and
+   * `/api/tweets/**` whole: 80 to 92 MB in each of 18 functions, 1449 MB a
+   * deployment, polio alone past the free plan's 10 GB (220 GB on Sep 22,
+   * with many deployments kept). Five routes open the browser, each through
+   * `api/studio/headless.ts`; the list is theirs (`scripts/function-sizes.mjs`
+   * measures it, `tests/function-sizes.mjs` holds it).
+   */
+  outputFileTracingIncludes: Object.fromEntries(
+    ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"].map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"]]),
+  ),
+  /*
+   * And nothing of the repository's own that no route reads: its checks,
+   * their fixtures and screenshots, the docs and their pictures, the scripts
+   * and the local captures. A route that reads a file off disk names it; none
+   * of these is one.
+   */
+  outputFileTracingExcludes: {
+    "*": ["./tests/**", "./docs/**", "./scripts/**", "./.screenshots/**", "./screenshots/**", "./**/*.png", "./**/*.jpg", "./**/*.mp4", "./**/*.webm", "./.git/**", "./.claude/**", "./node_modules/typescript/**", "./node_modules/@swc/**", "./node_modules/@esbuild/**", "./node_modules/esbuild/**"],
   },
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.
