@@ -55,12 +55,16 @@ const nextConfig: NextConfig = {
   ),
   /*
    * And nothing of the repository's own that no route reads: its checks,
-   * their fixtures and screenshots, the docs and their pictures, the scripts
-   * and the local captures. A route that reads a file off disk names it; none
-   * of these is one.
+   * their fixtures and screenshots, the docs and their pictures, the scripts.
+   * Folders of the repository only, never `node_modules`: an exclude of
+   * `@swc/**`, meant for the compiler, took `@swc/helpers` with it, which
+   * Next's own launcher requires (next/setup-node-env.js ← console.js), and
+   * every route on fd301ea answered 500. What the runtime needs is the
+   * tracer's to find; `tests/function-sizes.mjs` resolves the launcher's
+   * require chain against each function's trace.
    */
   outputFileTracingExcludes: {
-    "*": ["./tests/**", "./docs/**", "./scripts/**", "./.screenshots/**", "./screenshots/**", "./**/*.png", "./**/*.jpg", "./**/*.mp4", "./**/*.webm", "./.git/**", "./.claude/**", "./node_modules/typescript/**", "./node_modules/@swc/**", "./node_modules/@esbuild/**", "./node_modules/esbuild/**"],
+    "*": ["./tests/**", "./docs/**", "./scripts/**", "./.screenshots/**", "./screenshots/**", "./.git/**", "./.claude/**"],
   },
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.
