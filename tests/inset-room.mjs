@@ -13,8 +13,9 @@
  * On a fresh import the one-line net already holds those on one line. Where
  * it does not apply, a box the healing already grew to two lines, as on
  * his board, the words wrap in a box exactly as wide as they are. That is
- * the case this reads, alongside the guard: the words stay where they were
- * drawn (the same 2px in), and no stored box changes.
+ * the case this reads, alongside the guard: the words start at the box's
+ * left edge, where the page set them (the inset is outside the box), and no
+ * stored box changes.
  *
  * Every expected number is the fixture's or the page's.
  *
@@ -93,10 +94,18 @@ const plain = Object.entries(read).filter(([, r]) => r.pad === 0 && r.room !== n
 const short = plain.filter(([, r]) => (r.align === "none" || r.align === "left") && r.room < room(r) - 0.5);
 check("every plain paragraph set from the left has the whole width of its box to set its words in (or the site's line length, where that is narrower)", plain.length > 0 && short.length === 0,
   `${plain.length} read; ${short.length} short, e.g. ${short.slice(0, 2).map(([id, r]) => `${id} ${r.room} of ${room(r)}`).join(", ")}`);
-/* Set from the left: centred and right-set words start where their alignment puts them (tests/centred-text.mjs). */
-const moved = plain.filter(([, r]) => (r.align === "none" || r.align === "left") && Math.abs(r.fromLeft - 2) > 0.6);
-check("…and words set from the left start where they did, 2px in from the box's left edge", moved.length === 0,
-  moved.slice(0, 3).map(([id, r]) => `${id} at ${r.fromLeft}`).join(", ") || `all ${plain.length} at 2px`);
+/*
+ * Set from the left, the words start at the box's left edge: the box a capture
+ * records is where the page set them. They were held 2px in, and against
+ * share.xyz itself that put 70 runs 2px right of the page's; the inset now
+ * sits outside the box. Centred and right-set words start where their
+ * alignment puts them (tests/centred-text.mjs).
+ */
+/* A part whose own box centres its words across (a flex row or grid set to the middle, `applyLayout`) is not set from the left: the ledger's "No PnL data…" in its 1457px panel. */
+const acrossMid = (id) => { const l = doc.nodes.find((n) => n.id === id)?.layout; const mid = (v) => v === "center" || v === "safe center"; return !!l && (l.display === "grid" ? mid(l.items) : l.display === "flex" ? (l.direction === "column" ? mid(l.align) : mid(l.justify)) : false); };
+const moved = plain.filter(([id, r]) => (r.align === "none" || r.align === "left") && !acrossMid(id) && Math.abs(r.fromLeft) > 0.6);
+check("…and words set from the left start at the box's left edge, where the page set them", moved.length === 0,
+  moved.slice(0, 3).map(([id, r]) => `${id} at ${r.fromLeft}`).join(", ") || `all ${plain.length} at 0px`);
 const byId = new Map(grown.nodes.map((n) => [n.id, n]));
 /* The sentence rejoin widens the part it keeps to the whole line, on trunk too; those are left to it. */
 const changed = Object.entries(read).filter(([id, r]) => { const n = byId.get(id); return n && !r.runs && (n.x !== r.x || n.w !== r.w); });

@@ -134,16 +134,24 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
      * a fresh import of sink: 64 one-line parts looked short of their words,
      * almost all by 2 to 2.5px, and the wordmark, 216px of words in a 216px
      * box, needed 218. The boxes were right. So the drawn surface reaches the
-     * inset's width past the box on the right: the words start where they
-     * did and have the box's whole width to set in. A matching negative
-     * right margin keeps its outer size the box's, so a part that centres its
-     * own contents (a captured flex row, justify centre) does not shift it by
-     * half the inset. Only words set from the left: a centred line would
-     * move half the inset right, and a right-set one past the box. Nothing is
-     * stored and no part moves. `tests/inset-room.mjs`.
+     * inset's width past the box, and its outer size stays the box's, so a
+     * part that centres its own contents (a captured flex row, justify
+     * centre) does not shift it by half the inset. Nothing is stored and no
+     * part moves. `tests/inset-room.mjs`.
+     *
+     * AND THE INSET IS OUTSIDE THE BOX, NOT INSIDE IT. It reached past the
+     * right edge, so the words still began 2px in from the left, and the box
+     * a capture records is where the page set its words: against share.xyz
+     * itself (1440 and 2000 wide), 70 of its runs sat 2px right of the
+     * page's, left-set and centred alike ("Markets Move Fast.", the banner's
+     * line, every card's date). Now the surface starts the inset left of the
+     * box: the first glyph's side bearing is still inside what `Fill` clips,
+     * the words start at the box's edge, and a line set from the left, the
+     * middle or the right has exactly the box's width, where the page had
+     * it.
      */
     /* Centred by its own box (a grid's `place-items: center`, `applyLayout`): the words sit in the middle, down and across, with no inset to move them off it. */
-    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 && (t.textAlign === "left" || t.textAlign === "justify") ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginRight: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
+    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a

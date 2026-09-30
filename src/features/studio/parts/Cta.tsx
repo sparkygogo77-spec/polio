@@ -17,7 +17,12 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
    * their own, drawn over it, and a stand-in would be white words under them.
    */
   const spoke = !!t.said || !!t.tight;
-  const label = items(content, spoke ? [""] : [id === "follow" ? "Follow" : id === "quick-action" ? "Buy now" : "Get started"])[0]!;
+  /*
+   * A captured control's words are one label, commas and all: read as a list
+   * by its commas, share.xyz's outcome rows said "June 30" for "June 30, 2027"
+   * and "December 31" for "December 31, 2026". `tests/button-label-whole.mjs`.
+   */
+  const label = spoke ? (content.split("\n").map((s) => s.trim()).find(Boolean) ?? "") : items(content, [id === "follow" ? "Follow" : id === "quick-action" ? "Buy now" : "Get started"])[0]!;
   const variant = opt(options, "variant", "solid");
   const size = opt(options, "size", "medium");
   const [done, setDone] = React.useState(false);
@@ -89,6 +94,10 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
     fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1), whiteSpace: "nowrap",
     // His weight, else the library's. `t.fontWeight` is only ever his.
     fontWeight: t.fontWeight ?? 700,
+    // A <button> does not inherit the case or the spacing its part sets (the
+    // browser's own `text-transform: none; letter-spacing: normal`):
+    // share.xyz's YES / NO keys read "Yes" / "No", set tighter than the page.
+    textTransform: "inherit", letterSpacing: "inherit",
     // The words sit where he set them, else in the middle. Read off `said`
     // and not off `t.textAlign`, which carries the SITE's setting and would
     // un-centre every hand-placed button on a left-set page.
