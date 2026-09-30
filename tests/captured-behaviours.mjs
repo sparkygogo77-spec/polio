@@ -18,7 +18,9 @@
  *   · the export plays them: the CRT loader ("CH 47", "TUNING n%") stands and
  *     goes, the red ribbon runs left and the navy right, the layers follow
  *     the pointer, the header takes its yellow bar and black edge once
- *     scrolled, a section waits hidden and comes in, the LIVE dot blinks;
+ *     scrolled, a section waits hidden and comes in, the LIVE dot blinks,
+ *     and every light's blink goes 1, 0, 1 (the remote's LED too, which its
+ *     card's Reveal holds hidden until scrolled to);
  *   · and for a visitor who asked for less motion: no loader, nothing
  *     moving, every section simply there, the dot lit.
  *
@@ -202,6 +204,10 @@ const open = async (reducedMotion) => {
   return { ctx, p, errs };
 };
 const css = (p, id, k) => p.evaluate(([id, k]) => { const el = document.getElementById(id); return el ? getComputedStyle(el)[k] : null; }, [id, k]);
+/* How much of a part shows: its box's opacity times its drawing's (a blink runs on the drawing, library/behaviours.ts BLINK). */
+const shown = (p, id) => p.evaluate((id) => { const el = document.getElementById(id); if (!el) return null; let o = Number(getComputedStyle(el).opacity); if (el.children.length === 1) o *= Number(getComputedStyle(el.firstElementChild).opacity); return Math.round(o * 100) / 100; }, id);
+/* The opacity at each stop of the blink a part runs, on whichever of its box and drawing runs it. */
+const stops = (p, id) => p.evaluate((id) => { const el = document.getElementById(id); if (!el) return null; const a = [el, ...el.children].flatMap((x) => x.getAnimations()).find((a) => /blink/.test(a.animationName ?? "")); return a ? a.effect.getKeyframes().map((k) => Number(k.opacity)) : null; }, id);
 const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(`#${id}[data-marquee] [data-marquee-track]`); return el ? new DOMMatrix(getComputedStyle(el).transform).m41 : null; }, id);
 
 {
@@ -230,16 +236,35 @@ const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(
   const late1 = Number(await css(p, LATE, "opacity"));
   check("export: a section further down waits, hidden", late1 === 0, String(late1));
   const dots = new Set();
-  for (let i = 0; i < 10; i++) { dots.add(Number(await css(p, DOT, "opacity"))); await p.waitForTimeout(120); }
+  for (let i = 0; i < 10; i++) { dots.add(await shown(p, DOT)); await p.waitForTimeout(120); }
   check("export: the LIVE dot blinks", dots.has(0) && dots.has(1), [...dots].join(","));
+  /*
+   * EVERY LIGHT'S BLINK GOES 1, 0, 1, whatever else holds its box. The
+   * remote's LED sits in a card that is revealed on scroll; the card's Reveal
+   * is carried onto the LED's box, holding it at opacity 0 until scrolled to,
+   * and a blink on that box read 0 at every stop (its rule has no 0% or 100%
+   * of its own). Read at the top of the page, the LED not yet scrolled to.
+   */
+  const LIGHTS = [...new Set(B.idle.filter((i) => i.name === "blink" && i.part && !i.folded && !i.pseudo).map((i) => i.part))];
+  const at = {};
+  for (const id of LIGHTS) at[id] = await stops(p, id);
+  check("export: every light's blink goes 1, 0, 1 at every stop's own opacity, read before any is scrolled to", LIGHTS.length === 3 && LIGHTS.every((id) => J(at[id]) === J([1, 0, 1])), J(at));
   check("export: the header has no bar at the top", (await css(p, HEADER, "backgroundColor")) === "rgba(0, 0, 0, 0)", await css(p, HEADER, "backgroundColor"));
   await p.evaluate(() => window.scrollTo(0, 120));
-  await p.waitForTimeout(600);
+  /* Its 0.3 s transition, given up to 2 s to settle: a busy page hears the scroll late. */
+  for (let i = 0; i < 20 && (await css(p, HEADER, "backgroundColor")) !== "rgb(243, 212, 64)"; i++) await p.waitForTimeout(100);
+  await p.waitForTimeout(300);
   check("…and once scrolled, the yellow bar with the black bottom edge", (await css(p, HEADER, "backgroundColor")) === "rgb(243, 212, 64)" && /rgb\(26, 15, 11\) 0px 4px 0px/.test(await css(p, HEADER, "boxShadow")), `${await css(p, HEADER, "backgroundColor")} ${await css(p, HEADER, "boxShadow")}`);
   await p.screenshot({ path: join(out, "f-scrolled.png") });
   await p.evaluate((id) => document.getElementById(id)?.scrollIntoView({ block: "center" }), LATE);
   await p.waitForTimeout(1600);
   check("…and the section comes in when scrolled to", Number(await css(p, LATE, "opacity")) === 1, await css(p, LATE, "opacity"));
+  const LED = B.idle.find((i) => i.name === "blink" && i.duration === 1400)?.part;
+  await p.evaluate((id) => document.getElementById(id)?.scrollIntoView({ block: "center" }), LED);
+  await p.waitForTimeout(1500);
+  const led = new Set();
+  for (let i = 0; i < 12; i++) { led.add(await shown(p, LED)); await p.waitForTimeout(150); }
+  check("…and the remote's LED, scrolled to, blinks on and off", led.has(0) && led.has(1), `${LED}: ${[...led].join(",")}`);
   check("export: no script error", errs.length === 0, errs.join(" | "));
   await ctx.close();
   /* The strip, one frame under the other. */
@@ -257,7 +282,7 @@ const track = (p, id) => p.evaluate((id) => { const el = document.querySelector(
   check("less motion: no loader", await p.evaluate(() => !document.querySelector("[data-crt]")));
   check("…the ribbons hold still", (await track(p, RED)) === null);
   const lit = new Set();
-  for (let i = 0; i < 8; i++) { lit.add(Number(await css(p, DOT, "opacity"))); await p.waitForTimeout(120); }
+  for (let i = 0; i < 8; i++) { lit.add(await shown(p, DOT)); await p.waitForTimeout(120); }
   check("…the dot stays lit", lit.size === 1 && lit.has(1), [...lit].join(","));
   check("…every section simply there", Number(await css(p, LATE, "opacity")) === 1);
   await p.mouse.move(200, 200); await p.waitForTimeout(300); await p.mouse.move(1300, 800); await p.waitForTimeout(500);

@@ -95,7 +95,8 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
       : root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(b.part)}"]`);
     const fn = rt.defs.get(b.feature);
     if (!el || !fn) continue;
-    if (!touched.some((t) => t.el === el)) touched.push({ el, style: el.getAttribute("style") });
+    /* The part and the layers directly inside it: a feature may run on its drawing (a blink). */
+    for (const x of [el, ...Array.from(el.children)] as HTMLElement[]) if (!touched.some((t) => t.el === x)) touched.push({ el: x, style: x.getAttribute("style") });
     if (board) el.setAttribute("data-board-moves", b.feature);
     try {
       const r = fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);

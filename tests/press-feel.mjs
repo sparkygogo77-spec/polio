@@ -152,7 +152,9 @@ await page.mouse.move(600, 500);
 /* (4) The blink's stages. */
 const stages = await page.evaluate(() => new Promise((done) => {
   const el = document.getElementById("n_dot"), seen = new Set(), t0 = performance.now();
-  (function go() { seen.add(Number(getComputedStyle(el).opacity).toFixed(2)); if (performance.now() - t0 < 1100) requestAnimationFrame(go); else done([...seen].sort()); })();
+  /* What shows: the dot's box times its drawing (the blink runs on the red layer the box holds, library/behaviours.ts BLINK). */
+  const shows = () => [el, ...el.children].reduce((o, x) => o * Number(getComputedStyle(x).opacity), 1);
+  (function go() { seen.add(shows().toFixed(2)); if (performance.now() - t0 < 1100) requestAnimationFrame(go); else done([...seen].sort()); })();
 }));
 check("(4) the LIVE dot runs three stages, 1, .5 and 0, not two", J(stages) === J(["0.00", "0.50", "1.00"]), J(stages));
 

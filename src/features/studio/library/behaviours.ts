@@ -735,17 +735,34 @@ const BLINK: Work = {
    * carried is its own animation, every longhand, over the page's own
    * keyframes (`cap-<name>`, in the stylesheet `capturedMotion.ts` writes),
    * and the two made-up ones are for a part the owner asked to blink.
+   *
+   * IT BLINKS THE PART'S DRAWING, NOT ITS BOX. The page's rule has no 0% or
+   * 100% (`50% { opacity: 0 }`): those stops are the element's own opacity.
+   * On trumpmorty.fun the remote's LED sits in a card that is revealed, so
+   * the card's opacity is what goes 0 to 1 and the LED's own stays 1. Here
+   * every part is a box of its own and the card's Reveal is carried onto the
+   * LED's box too, where it holds `opacity: 0` until scrolled to; a blink on
+   * that box read 0 at every stop. So when the box paints nothing itself and
+   * holds one layer that draws the part (an exported part's, a `.mo`
+   * layer's), the blink runs on that layer, and the two multiply as they did
+   * on the page. A box that paints the light itself blinks itself.
    */
   script: `siteFeatures.define("blink", function (el, inputs) {
   if (${CALM}) return;
+  function bare(x) {
+    var c = getComputedStyle(x), t = x.childNodes;
+    for (var i = 0; i < t.length; i++) if (t[i].nodeType === 3 && /\\S/.test(t[i].nodeValue)) return false;
+    return (c.backgroundColor === "transparent" || /^rgba\\(.*,\\s*0\\)$/.test(c.backgroundColor)) && c.backgroundImage === "none" && c.boxShadow === "none" && !parseFloat(c.borderTopWidth) && !parseFloat(c.borderRightWidth) && !parseFloat(c.borderBottomWidth) && !parseFloat(c.borderLeftWidth) && c.outlineStyle === "none";
+  }
+  var at = el.children && el.children.length === 1 && el.firstElementChild.style && bare(el) ? el.firstElementChild : el;
   var own = String(inputs.css || "").trim();
-  if (own && /^[\\w\\s().,%-]+$/.test(own) && /\\bcap-[\\w-]+\\b/.test(own)) { el.style.animation = own; return; }
-  if (!el.animate) return;
+  if (own && /^[\\w\\s().,%-]+$/.test(own) && /\\bcap-[\\w-]+\\b/.test(own)) { at.style.animation = own; return; }
+  if (!at.animate) return;
   var t = Number(inputs.every); if (!isFinite(t) || t <= 0) t = 1;
   var frames = inputs.how === "fade"
     ? [{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }]
     : [{ opacity: 1 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }];
-  el.animate(frames, { duration: t * 1000, iterations: Infinity, easing: inputs.how === "fade" ? "ease-in-out" : "linear" });
+  at.animate(frames, { duration: t * 1000, iterations: Infinity, easing: inputs.how === "fade" ? "ease-in-out" : "linear" });
 });
 `,
 };
