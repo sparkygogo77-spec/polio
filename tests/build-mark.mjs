@@ -60,8 +60,10 @@ const updates = page.getByRole("button", { name: "Updates" }).first();
 check("the Updates key is in the bar at this width", await updates.isVisible());
 await updates.click();
 await page.waitForTimeout(700);
-const inPanel = page.locator("[data-updates-panel] [data-build-mark]").first();
-check("the Updates panel wears the same mark", (await inPanel.count()) === 1 && (await inPanel.innerText()).replace(/\s+/g, " ").trim() === said, (await inPanel.innerText().catch(() => "")).replace(/\s+/g, " ").trim() || "-");
+/* The Updates panel leads with the live version and how old its build is (tests/updates-current.mjs): the same age as the mark. */
+const inPanel = page.locator("[data-updates-panel] [data-updates-live]").first();
+const age = (said.match(/built [^·]*/) ?? [""])[0].trim();
+check("the Updates panel says the same build age", (await inPanel.count()) === 1 && !!age && (await inPanel.innerText()).includes(age), `${(await inPanel.innerText().catch(() => "")).replace(/\s+/g, " ").trim() || "-"} vs ${age}`);
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

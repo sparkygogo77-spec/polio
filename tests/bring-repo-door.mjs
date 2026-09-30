@@ -66,7 +66,7 @@ check("the GitHub control keeps no copy of its own: it opens the one menu",
 check("and the menu goes through the one door, so there is no second importer",
   /bringRepoIn\(want, \{/.test(picker) && !/placeBring\(/.test(picker));
 check("the picker lists what he has rather than asking him to type a name",
-  /fetch\("\/api\/studio\/repo"/.test(picker) && /data-repo-pick=\{r\.name\}/.test(picker));
+  /(fetch|askRoute<[^>]*>)\("\/api\/studio\/repo"/.test(picker) && /data-repo-pick=\{r\.name\}/.test(picker));
 check("a site already bound offers only its own repository, and says why",
   /const barred = !!own && r\.name\.toLowerCase\(\) !== own\.toLowerCase\(\);/.test(picker));
 /* His ruling that the two actions stop pretending to be one. Read off the
