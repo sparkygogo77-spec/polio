@@ -18,6 +18,7 @@ import * as React from "react";
 import { useStudio, type StudioNode } from "./store";
 import { plain, reword } from "./parts/spans";
 import { getFeature } from "./catalog";
+import { partName } from "./partNames";
 import { play } from "@/core/audio/engine";
 
 /* ------------------------------------------------------------ which part */
@@ -181,7 +182,7 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
       ref={box}
       data-words-in-place={id}
       role="textbox"
-      aria-label={`Words of ${node.label}`}
+      aria-label={`Words of ${partName(node)}`}
       aria-multiline="true"
       contentEditable="plaintext-only"
       suppressContentEditableWarning

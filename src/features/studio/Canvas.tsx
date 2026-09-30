@@ -44,6 +44,7 @@ import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
 import { ownsOthers } from "./holds";
+import { partName } from "./partNames";
 import { ownerOf, parentOf, ridersOf, wordsIn, wordsOf } from "./owner";
 import { editingWords, openWords, WordsInPlace } from "./WordsInPlace";
 import {
@@ -205,6 +206,8 @@ export function Canvas() {
   /* The parts still waiting on a decision: each wears the orange ! (`library/badge.ts`). */
   /* A part whose held presses have all been learned loses its ! (`learn.ts`); every other ! is as it was. */
   const learnState = useStudio((s) => s.learn);
+  /* The names the side panel prints, worked out once for the page: the tag over a part says the same. */
+  const names = React.useMemo(() => new Map(nodes.map((n) => [n.id, partName(n, nodes, (id) => getFeature(id)?.name)])), [nodes]);
   const decide = React.useMemo(() => new Map(decisions(nodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [nodes, learnState]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
@@ -1983,6 +1986,7 @@ export function Canvas() {
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
             decide={decide.get(n.id) ?? null}
+            name={names.get(n.id) ?? n.label}
           />
         ))}
         {/* Words typed where they are drawn (`WordsInPlace.tsx`). */}
@@ -2642,7 +2646,7 @@ function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElement | nul
   return asks ? missing : [];
 }
 
-const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide }: { node: StudioNode; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null }) {
+const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -2940,7 +2944,8 @@ const NodeView = React.memo(function NodeView({ node, selected, inHeldGroup, the
         style={{ top: -6, transform: `translateY(-100%) scale(${chipScale})` }}
       >
         {node.glyph ? <span>{node.glyph}</span> : Icon ? <Icon className="size-3" style={{ color: `oklch(0.8 0.15 ${hue})` }} /> : null}
-        <span className="font-medium">{node.label}</span>
+        {/* The side panel's readable name (`partNames.ts`), never the capture's "div · 1 inside". */}
+        <span data-part-tag="" className="font-medium">{name}</span>
         <span className="num text-fg-faint">{node.w}×{node.h}</span>
         {/* What the drawing was read as, on the part it made: a box says it is a box. */}
         {node.kind === "cube" ? <span data-kind-chip="cube" className="rounded-xs border border-border px-1 text-fine text-fg-faint">box · cube</span> : null}

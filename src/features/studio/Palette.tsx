@@ -41,6 +41,7 @@ import { play } from "@/core/audio/engine";
 import { SCREEN, screenFace } from "@/core/ui/void";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
+import { partName } from "./partNames";
 
 /** Where a right-click "add here" lands when no cursor is involved. */
 export function dropPoint() {
@@ -1064,7 +1065,7 @@ export function onThisPage(nodes: readonly StudioNode[], query: string): StudioN
   const scored: { n: StudioNode; score: number }[] = [];
   for (const n of nodes) {
     const words = plain(n.content).toLowerCase();
-    const name = (n.label ?? "").toLowerCase();
+    const name = partName(n, nodes, (id) => getFeature(id)?.name).toLowerCase();
     const kind = `${getFeature(n.featureId)?.name ?? ""} ${n.featureId}`.toLowerCase();
     const at = (text: string) => { const i = text.indexOf(q); return i < 0 ? -1 : i === 0 || /\W/.test(text[i - 1]!) ? 0 : 1; };
     const w = at(words), l = at(name), k = at(kind);
@@ -1100,6 +1101,9 @@ const ON_PAGE_MAX = 40;
 
 function OnThisPage({ hits }: { hits: StudioNode[] }) {
   const shown = hits.slice(0, ON_PAGE_MAX);
+  /* Each part by the side panel's readable name (`partNames.ts`). */
+  const all = useStudio(useShallow((s) => s.nodes.filter((n) => n.pageId === s.activePageId)));
+  const names = React.useMemo(() => new Map(shown.map((n) => [n.id, partName(n, all, (id) => getFeature(id)?.name)])), [shown, all]);
   return (
     <section data-page-results="" className="mb-4">
       <div className="mb-2 text-small font-medium text-fg-muted">On this page</div>
@@ -1116,8 +1120,8 @@ function OnThisPage({ hits }: { hits: StudioNode[] }) {
               className="tactile flex min-w-0 items-center gap-2 rounded-sm px-2 py-1 text-left text-small hover:bg-hover"
             >
               <span className="shrink-0 rounded-xs border border-border px-1 text-fine text-fg-faint">{kind}</span>
-              <span className="shrink-0 font-medium text-fg">{n.label}</span>
-              {words && words !== n.label ? <span className="min-w-0 truncate text-fg-muted">{words}</span> : null}
+              <span className="shrink-0 font-medium text-fg">{names.get(n.id)}</span>
+              {words && words !== names.get(n.id) ? <span className="min-w-0 truncate text-fg-muted">{words}</span> : null}
             </button>
           );
         })}

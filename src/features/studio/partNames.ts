@@ -45,6 +45,8 @@ export interface Named {
 export function isMachineLabel(label: string | undefined | null): boolean {
   const s = (label ?? "").trim();
   if (!s) return true;
+  /* The capture's count of what a box holds is machinery whatever comes before it: "link “BUY” · 4 inside". */
+  if (/·\s*\d+\s+inside(\s*\([\w\s]+\))?$/.test(s)) return true;
   if (/^n_[a-z]+_\d+$/i.test(s) || /^(node|box|part)[_-]?\d+$/i.test(s)) return true;
   /* "div · 1 inside", "::after · 0 inside", "main · 7 inside (h)", "section", "span" */
   const m = /^(::?[\w-]+|[a-z][a-z0-9-]*)(\s*·\s*\d+\s+inside)?(\s*\([\w\s]+\))?$/.exec(s);
