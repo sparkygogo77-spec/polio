@@ -201,7 +201,13 @@ await pressAndWait();
 {
   const said = await page.evaluate(() => document.querySelector("header [data-go-live-said]")?.textContent?.replace(/\s+/g, " ").trim() ?? "");
   const visible = await page.locator("header [data-go-live-said]").first().isVisible().catch(() => false);
-  check("the top bar shows the refusal without hovering, in Vercel's words, with the hint", visible && /You don't have permission to create the project/.test(said) && /team|scope|GitHub app/i.test(said), JSON.stringify(said));
+  /* In plain words now, with the fix beside it; Vercel's own words one press away under "details" (tests/publish-status-line.mjs). */
+  check("the top bar shows the refusal without hovering, in plain words, with the hint", visible && /saved on GitHub, but Vercel would not build it/.test(said) && /team|scope|GitHub app/i.test(said), JSON.stringify(said));
+  await page.locator("header [data-go-live-details]").click();
+  await page.waitForTimeout(400);
+  const folded = await page.evaluate(() => document.querySelector("[data-go-live-detail]")?.textContent ?? "");
+  check("…and Vercel's own words are under 'details'", /You don't have permission to create the project/.test(folded), JSON.stringify(folded));
+  await page.keyboard.press("Escape");
   await page.evaluate(() => window.__studioOpenBrief?.());
   await page.waitForTimeout(1200);
   const row = await page.evaluate(() => document.querySelector("[data-brief-publish] [data-live-refused]")?.textContent?.replace(/\s+/g, " ").trim() ?? "");

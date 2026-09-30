@@ -24,6 +24,7 @@ import {
   Compass,
   Copy,
   ExternalLink,
+  Eye,
   FolderGit2,
   LayoutTemplate,
   Layers,
@@ -42,8 +43,10 @@ import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
-import { docOf, docOfStored, shapeOf, repoLabel as labelOf, sourceOf, useBuilds, type Project } from "./store";
+import { docOf, docOfStored, shapeOf, repoLabel as labelOf, sharedTargetSays, sourceOf, sourceWords, targetKey, targetWords, useBuilds, type Project } from "./store";
 import { SitePreview } from "@/features/studio/SitePreview";
+import { Dialog } from "@/core/ui/dialog";
+import { SiteThumb, ThumbMaker } from "./thumbs";
 
 /** "owner/name" if it looks like one, else nothing. */
 function parseRepo(text: string): { owner: string; name: string } | null {
@@ -68,10 +71,10 @@ const repoLabel = (p: Project) => (p.repo ? `${p.repo.owner}/${p.repo.name}` : "
  */
 function SiteCard({ project, active }: { project: Project; active: boolean }) {
   const { open, rename, duplicate, remove } = useBuilds();
+  const sharedSays = useBuilds((s) => sharedTargetSays(s.projects, project.id));
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(project.name);
-  const box = React.useRef<HTMLButtonElement>(null);
-  const [w, setW] = React.useState(0);
+  const [preview, setPreview] = React.useState(false);
 
   // Read on every render rather than held: a switch changes what is in the
   // live key, and a document from before the switch is the wrong one.
@@ -95,17 +98,6 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
   const doc = quick ?? (stored?.id === project.id ? stored.doc : null);
   const shape = doc ? { pages: doc.pages?.length ?? 0, parts: doc.nodes?.length ?? 0 } : { pages: pointed?.pages ?? 0, parts: pointed?.parts ?? 0 };
 
-  // The preview is scaled to the card, so it has to know how wide the card
-  // turned out — which is a grid's business, not this component's.
-  React.useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
-
   const commit = () => {
     rename(project.id, draft);
     setEditing(false);
@@ -123,12 +115,12 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
           picture is the door, and a picture you cannot press is a poster. */}
       <button
         type="button"
-        ref={box}
         onClick={() => (active ? undefined : open(project.id))}
         aria-label={active ? `${project.name}, the open site` : `Switch to ${project.name}`}
         className="relative block h-[168px] w-full cursor-pointer overflow-hidden border-b border-border bg-elevated/40 p-0 text-left"
       >
-        <SitePreview doc={doc} width={w} height={168} />
+        {/* A picture of the site, made once and kept (`thumbs.tsx`): one image, never a keyboard stop. The live render is Preview's. */}
+        <SiteThumb id={project.id} doc={doc} />
         {project.live ? (
           <a
             href={project.live.url}
@@ -201,6 +193,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
         {project.source ? (
           <p data-card-source="" className="min-w-0 truncate text-small text-fg-faint">from {labelOf(project.source)}</p>
         ) : null}
+        {sharedSays ? <p data-card-shared="" title={sharedSays} className="line-clamp-2 text-small text-warning">{sharedSays}</p> : null}
 
         {/* The options bar. Everything that can be done to this site, in one
             row under it, rather than appearing on hover somewhere else. Pushed
@@ -229,7 +222,13 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
               <Trash2 />
             </Button>
           </Tooltip>
+          <Tooltip content="Preview: the site drawn live, closed with Escape">
+            <Button variant="ghost" size="iconXs" aria-label={`Preview ${project.name}`} data-card-preview="" disabled={!doc?.pages?.length} onClick={() => setPreview(true)}>
+              <Eye />
+            </Button>
+          </Tooltip>
           <span className="flex-1" />
+          {preview ? <PreviewDialog name={project.name} doc={doc} onClose={() => setPreview(false)} /> : null}
           {active ? (
             <Button asChild size="sm" variant="primary">
               <Link href="/builder">
@@ -246,6 +245,22 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * The site drawn live, on demand: the render the card used to carry all the
+ * time, now only while someone is looking at it. Escape or a press outside
+ * closes it, and it is gone from the page again.
+ */
+function PreviewDialog({ name, doc, onClose }: { name: string; doc: ReturnType<typeof docOf>; onClose: () => void }) {
+  const [width] = React.useState(() => (typeof window === "undefined" ? 960 : Math.max(280, Math.min(990, window.innerWidth - 64))));
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }} size="xl" title={`Preview of ${name}`} description="The site as it is drawn now. Escape closes it.">
+      <div data-site-preview-live="" className="max-h-[72vh] overflow-y-auto overflow-x-hidden rounded-md border border-border">
+        <SitePreview doc={doc} width={width} height={Math.round(width * 0.6)} whole />
+      </div>
+    </Dialog>
   );
 }
 
@@ -273,6 +288,13 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
   React.useEffect(() => { setDraft(repoLabel(project)); setBranch(project.repo?.branch ?? "main"); }, [project]);
 
   const parsed = parseRepo(draft);
+  const shared = useBuilds((s) => sharedTargetSays(s.projects, project.id));
+  /* A target another site already publishes to is refused here in words, as the store refuses it. */
+  const takenBy = useBuilds((s) => {
+    if (!parsed) return null;
+    const key = targetKey({ ...parsed, branch: branch.trim() || "main" });
+    return s.projects.find((p) => p.id !== project.id && targetKey(p.repo) === key) ?? null;
+  });
   /* A repository a site was brought in from is never a publish target: the
      owner's ruling, polio never writes to a capture repository. Refused
      here in words, and by the store and the publish route behind it. */
@@ -281,7 +303,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
   const commit = () => {
     if (!changed) return;
     if (!draft.trim()) { setRepo(project.id, undefined); }
-    else if (parsed && !from) { if (!setRepo(project.id, { ...parsed, branch: branch.trim() || "main" })) return; }
+    else if (parsed && !from && !takenBy) { if (!setRepo(project.id, { ...parsed, branch: branch.trim() || "main" })) return; }
     else return;
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1200);
@@ -317,7 +339,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           className="h-7 w-28 text-xs"
           aria-label={`Publish ${project.name} to this branch`}
         />
-        <Button size="xs" variant={changed ? "primary" : "outline"} disabled={!changed || (!!draft.trim() && (!parsed || !!from))} onClick={commit}>
+        <Button size="xs" variant={changed ? "primary" : "outline"} disabled={!changed || (!!draft.trim() && (!parsed || !!from || !!takenBy))} onClick={commit}>
           {saved ? <Check /> : null}
           {/* IT IS NOT THE ATTACH CONTROL AND MUST STOP READING LIKE ONE.
               "Use this" on a field called Repos is what he pressed expecting
@@ -345,16 +367,19 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           <span className="text-down">A repository is owner/name.</span>
         ) : from && changed ? (
           <span data-repo-refused="" className="text-down">{labelOf(from.source)} is where {from.id === project.id ? "this site" : from.name} was brought in from, and Publish never writes back into that. Name a repository of its own, or leave it empty and the first Publish makes one.</span>
+        ) : takenBy && changed ? (
+          <span data-repo-taken="" className="text-down">{takenBy.name} already publishes to {parsed!.owner}/{parsed!.name} on {branch.trim() || "main"}. Two sites on one repository and branch replace each other&apos;s live site: choose another.</span>
         ) : saveFailed ? (
           <span className="text-down">This browser would not keep the change: its storage is full. Remove a site or its pictures, then set it again.</span>
         ) : project.repo ? (
-          <>Publish pushes this site to <span className="text-fg">{repoLabel(project)}</span> on <span className="text-fg">{project.repo.branch}</span>.</>
+          <span data-repo-line="">{targetWords(project)}</span>
         ) : (
-          <span data-repo-none="">No repository of its own yet. The first Publish makes a private one named after this site, or set one here.</span>
+          <span data-repo-none="">{targetWords(project)} Or set one here.</span>
         )}
         {project.source ? (
-          <span data-repo-source="" className="block text-fg-faint">Brought in from {labelOf(project.source)}. Bring reads it; Publish never writes to it.</span>
+          <span data-repo-source="" className="block text-fg-faint">{sourceWords(project)}</span>
         ) : null}
+        {shared ? <span data-repo-shared="" className="mt-1 block text-warning">{shared}</span> : null}
       </p>
     </li>
   );
@@ -378,6 +403,8 @@ export function BuildsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10" {...ctxProps("builds", "page", null)}>
+      {/* Where the card pictures are drawn, one site at a time, off screen (`thumbs.tsx`). */}
+      {view === "sites" ? <ThumbMaker /> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-fg sm:text-3xl">Builds</h1>

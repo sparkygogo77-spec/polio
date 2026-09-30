@@ -25,7 +25,7 @@ import { heldKeys, useKeys } from "@/features/keys/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn, type Bringing } from "./bringRepo";
 import { activeSource } from "@/features/builds/store";
-import { captureName, capturePlace, captureWant, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
+import { captureBranch, captureName, capturePlace, captureWant, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
 
 /** Where the capturer lives: remembered in this browser, the sink repository by default. */
 const CAPTURER = "builder.capturer";
@@ -48,7 +48,11 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   const [typedName, setTypedName] = React.useState(false);
   const [pages, setPages] = React.useState("/");
   const [capturer, setCapturer] = React.useState(DEFAULT_CAPTURER);
+  /* The branch a capture lands on: its own, made for it, until someone types another (`captureBranch`). */
   const [branch, setBranch] = React.useState("");
+  const [typedBranch, setTypedBranch] = React.useState(false);
+  /* Main changes only with the owner's say-so, ticked here, never by default. */
+  const [mainOk, setMainOk] = React.useState(false);
   const [stage, setStage] = React.useState<Stage>({ at: "ask" });
   const [said, setSaid] = React.useState<string | null>(null);
   const [starting, setStarting] = React.useState(false);
@@ -61,6 +65,9 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   React.useEffect(() => () => { alive.current = false; }, []);
   /* The name follows the address until he types one himself. */
   React.useEffect(() => { if (!typedName) setName(nameFrom(url) ?? ""); }, [url, typedName]);
+  /* The branch follows the name until he types one himself. */
+  React.useEffect(() => { if (!typedBranch) setBranch(captureBranch(name || nameFrom(url) || "site")); }, [name, url, typedBranch]);
+  const onMain = isMainBranch(branch);
 
   const repo = (): { owner: string; name: string } | null => {
     const m = capturer.trim().match(/^([\w.-]+)\/([\w.-]+)$/);
@@ -75,13 +82,14 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
     setSaid(null);
     setStarting(true);
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
-    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch });
+    if (onMain && !mainOk) { setStarting(false); setSaid(`Capturing on ${branch.trim() || "the default branch"} changes ${capturer.trim()}'s main line. Tick that the owner said yes, or use a new branch.`); return; }
+    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch.trim(), makeBranch: !onMain });
     setStarting(false);
     if (!alive.current) return;
     if (!started.ok) { setSaid(started.says); return; }
     setStage({ at: "running", runId: started.runId, htmlUrl: started.htmlUrl, name: started.name, step: "Starting" });
     const end = await watchCapture({
-      repo: r, token, runId: started.runId, name: started.name,
+      repo: r, token, runId: started.runId, name: started.name, ranOn: started.ref,
       onProgress: (p: Progress) => { if (alive.current) setStage((s) => (s.at === "running" ? { ...s, step: p.step || (p.status === "queued" ? "Waiting for a runner" : "Running") } : s)); },
     });
     if (!alive.current) return;
@@ -89,7 +97,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
     ctx.publish({ key: `studio:capture:${started.name}`, title: end.ok ? `${started.name} is captured` : `${started.name} did not capture`, body: end.ok ? `It is at ${end.path} on ${end.ref}. Bring it in from the dialog.` : end.says, level: end.ok ? "info" : "warn", source: "studio", toast: { durationMs: 6000 } });
   };
 
-  const bringIn = (siteName: string) => {
+  const bringIn = (siteName: string, ref?: string) => {
     const r = repo();
     if (!r) return;
     const place = capturePlace(siteName);
@@ -102,12 +110,12 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
       staleSays,
       hasToken: () => !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN,
     };
-    const out = bringRepoIn(captureWant(r, siteName), o);
+    const out = bringRepoIn(captureWant(r, siteName, ref), o);
     if (out.ok) { onOpenChange(false); reset(); return; }
     setSaid(out.says ?? "It could not be brought in.");
   };
 
-  const reset = () => { setStage({ at: "ask" }); setUrl(""); setName(""); setTypedName(false); setPages("/"); setSaid(null); };
+  const reset = () => { setStage({ at: "ask" }); setUrl(""); setName(""); setTypedName(false); setTypedBranch(false); setMainOk(false); setPages("/"); setSaid(null); };
   const nameOk = !name.trim() || captureName(name) !== null;
 
   return (
@@ -118,11 +126,11 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
       description="Paste an address. It is captured page by page in your own repository and kept beside your other captures, ready to bring in."
       footer={
         stage.at === "ask" ? (
-          <Button onClick={() => void start()} loading={starting} disabled={!url.trim() || !nameOk || !unlocked} data-capture-start="">
+          <Button onClick={() => void start()} loading={starting} disabled={!url.trim() || !nameOk || !unlocked || (onMain && !mainOk)} data-capture-start="">
             <Camera /> Capture
           </Button>
         ) : stage.at === "done" && stage.end.ok ? (
-          <Button onClick={() => bringIn(stage.name)} data-capture-import="">Bring {stage.end.path} in</Button>
+          <Button onClick={() => bringIn(stage.name, stage.end.ok ? stage.end.ref : undefined)} data-capture-import="">Bring {stage.end.path} in</Button>
         ) : stage.at === "done" ? (
           <Button variant="outline" onClick={reset}>Try again</Button>
         ) : null
@@ -140,6 +148,9 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
             <Input value={name} onChange={(e) => { setTypedName(true); setName(e.target.value); }} placeholder={nameFrom(url) ?? "my-site"} data-capture-name="" />
           </label>
           {!nameOk ? <p className="text-xs text-warning">A name is letters, digits and dashes, and not a path.</p> : null}
+          <p data-capture-where="" className="text-xs text-fg-muted">
+            It lands on {onMain ? "" : "a new branch, "}<span className="font-mono">{branch.trim() || "the default branch"}</span>, in {capturer.trim() || "the capturer"}. Changes to sink&apos;s main line need the owner&apos;s OK.
+          </p>
           <details className="rounded-lg border border-border bg-elevated p-3">
             <summary className="cursor-pointer text-xs text-fg-muted">Advanced</summary>
             <div className="mt-2 flex flex-col gap-2">
@@ -152,9 +163,15 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
                 <Input value={capturer} onChange={(e) => setCapturer(e.target.value)} placeholder={DEFAULT_CAPTURER} mono />
               </label>
               <label className="flex flex-col gap-1 text-xs text-fg-muted">
-                Its branch <span className="text-fg-subtle">— empty means the repository&apos;s default</span>
-                <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" mono />
+                Branch it lands on <span className="text-fg-subtle">: a new branch, made for this capture</span>
+                <Input value={branch} onChange={(e) => { setTypedBranch(true); setMainOk(false); setBranch(e.target.value); }} placeholder={captureBranch(name || "site")} mono data-capture-branch="" />
               </label>
+              {onMain ? (
+                <label data-capture-main-ok="" className="flex items-start gap-2 text-xs text-warning">
+                  <input type="checkbox" checked={mainOk} onChange={(e) => setMainOk(e.target.checked)} className="mt-0.5" />
+                  <span>This changes {capturer.trim() || "the capturer"}&apos;s main line. The owner said yes to that.</span>
+                </label>
+              ) : null}
             </div>
           </details>
           {said ? <p className="text-xs text-warning" role="status">{said}</p> : null}

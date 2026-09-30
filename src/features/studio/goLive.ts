@@ -15,7 +15,7 @@
  */
 import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
-import { activeProject, allSources, repoLabel, useBuilds } from "@/features/builds/store";
+import { activeProject, allSources, repoLabel, sharedTargetSays, useBuilds } from "@/features/builds/store";
 import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { exportSite, publishedAt } from "./exportSite";
@@ -23,6 +23,7 @@ import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 import { contractFiles } from "./library/contract";
 import { polioMd, POLIO_MD } from "./polioMd";
+import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "./publishWords";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
 export interface Pushed { url: string; files: number; deployed: boolean; hook: boolean; note?: string }
@@ -44,20 +45,27 @@ export interface Refused {
    */
   siteId?: string | null;
   site?: string;
+  /** The same refusal in plain words (`publishWords.ts`): what the bar shows, with `message` behind "details". */
+  plain?: PlainFailure;
 }
 
 /** The last refusal is over: a publish went through. */
 export function clearRefused(): void {
   if (useGoLive.getState().refused) useGoLive.setState({ refused: null });
+  /* An old failure's line goes with it: a later success never sits beside an earlier error. */
+  if (useGoLive.getState().step?.at === "failed") useGoLive.setState({ step: null });
 }
 
 /** How the Go live in flight, or the last one, is getting on. */
-export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null; refused: Refused | null }>(() => ({
+export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null; refused: Refused | null;
+  /** Where the last publish got to, in the three steps a person follows (`publishWords.ts`), and whose site it was. */
+  step: (PublishStep & { siteId?: string | null }) | null }>(() => ({
   busy: null,
   run: null,
   note: null,
   pushed: null,
   refused: null,
+  step: null,
 }));
 
 /*
@@ -123,7 +131,8 @@ export function pushTo(siteName: string) {
        for it if it ever does. */
     refused: repo && sources.some((r) => r.toLowerCase() === repo.toLowerCase())
       ? `${repo} is where a site here was brought in from, and Publish never writes back into that. Clear it on the Builds page and the next Publish makes this site a repository of its own.`
-      : null,
+      /* Held here as well as on the button: a press from any door stops before anything is sent. */
+      : sharedTargetSays(useBuilds.getState().projects, project?.id),
     /* No repository yet: what to call the one this publish will make.
        Nobody is asked for a name — the site already has one. */
     create: repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
@@ -241,15 +250,21 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
   const set = useGoLive.setState;
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
-  set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null });
+  const here0 = activeProject();
+  set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null, step: { at: "saving", siteId: here0?.id ?? null } });
   /* A refusal is said once, on the row and the top bar (`refused`), not again in the book's note. */
   const here = activeProject();
-  const refuse = (message: string, hint?: string) => set({ refused: { message, ...(hint ? { hint } : {}), siteId: here?.id ?? null, site: here?.name?.trim() || o.siteName.trim() || undefined } });
+  const refuse = (message: string, hint?: string, failed?: Failed) => {
+    const plain = plainFailure(failed ?? { stage: "vercel", message });
+    set({ refused: { message, ...(hint ? { hint } : {}), siteId: here?.id ?? null, site: here?.name?.trim() || o.siteName.trim() || undefined, plain },
+      step: { at: "failed", failure: plain, siteId: here?.id ?? null } });
+    return plain.says;
+  };
   const { say, siteName } = o;
   try {
     const { project, repo, branch, create, boundTo, sources, refused } = pushTo(siteName);
     if (refused) {
-      refuse(refused);
+      refuse(refused, undefined, { stage: "github", message: refused, reason: "blocked" });
       say({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
       return;
     }
@@ -268,11 +283,13 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
     if (!pushed.ok) {
       const says = refusedTarget(project, pushed);
-      refuse(`GitHub: ${says}`);
-      say({ key: "studio:publish", title: "Publish failed", body: says, level: "error", source: "studio", toast: true });
+      const plainly = refuse(`GitHub: ${says}`, undefined, { stage: "github", message: says, reason: pushed.reason, serverStatus: pushed.serverStatus, status: pushed.status });
+      say({ key: "studio:publish", title: "Not saved", body: plainly, level: "error", source: "studio", toast: true });
       return;
     }
-    set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook } });
+    if (project) useBuilds.getState().setPublished(project.id, pushed.repo, pushed.branch);
+    set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook }, step: { at: "waiting", saved: { repo: pushed.repo, branch: pushed.branch }, siteId: here?.id ?? null } });
+    const saved = { repo: pushed.repo, branch: pushed.branch };
     /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */
     if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
     useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
@@ -284,9 +301,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
        itself, and that deployment is followed rather than a second made. */
     const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch, name: siteName.trim() || project?.name?.trim() || undefined, sources, sha: pushed.sha });
     if (!started.ok) {
-      refuse(started.message, started.hint);
+      const plainly = refuse(started.message, started.hint, { stage: "vercel", message: started.message, hint: started.hint, reason: started.reason, status: started.status, code: started.code, reset: started.reset, serverStatus: started.serverStatus, saved });
       useStudio.getState().noteThread([`Vercel would not build it: ${started.message}`]);
-      say({ key: "studio:live", title: "Not deployed", body: started.hint ? `${started.message} ${started.hint}` : started.message, level: "error", source: "studio", toast: true });
+      say({ key: "studio:live", title: "Saved, not live yet", body: plainly, level: "error", source: "studio", toast: true });
       return;
     }
     if (started.created) useStudio.getState().noteThread([`Made the Vercel project ${started.created}, connected to ${started.repo}: every push to it deploys on its own now`]);
@@ -302,13 +319,14 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       ? await followDeployment(project.id, { id: started.id, team: started.team }, onState)
       : await watchDeploy(started.id, { team: started.team, onState });
     if (end.state === "READY" && end.url) {
+      set({ refused: null, step: { at: "live", url: end.url, when: Date.now(), siteId: here?.id ?? null } });
       useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
       say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
     } else {
       const ended = end.state ? end.state.toLowerCase() : "ended without a state";
-      refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`);
+      const plainly = refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`, undefined, { stage: end.state === "NOT_STARTED" ? "vercel" : "build", reason: end.reason ?? (end.state === "NOT_STARTED" ? "not-started" : undefined), message: end.message ?? `The Vercel build ${ended}.`, saved });
       useStudio.getState().noteThread([`The Vercel build ${ended}`]);
-      say({ key: "studio:live", title: `The build ${ended}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
+      say({ key: "studio:live", title: "Saved, not live yet", body: plainly, level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
     }
   } finally {
     setBusy(null);
@@ -324,5 +342,7 @@ if (typeof window !== "undefined") {
     was = st.activeId;
     const r = useGoLive.getState().refused;
     if (r && r.siteId !== st.activeId) useGoLive.setState({ refused: null });
+    const step = useGoLive.getState().step;
+    if (step && step.siteId !== st.activeId && !useGoLive.getState().busy) useGoLive.setState({ step: null });
   });
 }

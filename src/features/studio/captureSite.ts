@@ -61,9 +61,29 @@ export function capturePlace(name: string): { ref: string; path: string } {
   return { ref: `captures/${name}`, path: `sites/${name}` };
 }
 
-/** The `want` string `bringRepoIn` reads: the repository at the capture's branch. */
-export function captureWant(repo: CaptureRepo, name: string): string {
-  return `${repo.owner}/${repo.name}@${capturePlace(name).ref}`;
+/** The `want` string `bringRepoIn` reads: the repository at the capture's branch (the one it landed on, when known). */
+export function captureWant(repo: CaptureRepo, name: string, ref?: string): string {
+  return `${repo.owner}/${repo.name}@${ref || capturePlace(name).ref}`;
+}
+
+/*
+ * A CAPTURE STARTS ON A BRANCH OF ITS OWN.
+ *
+ * The dialog's advanced defaults ran the workflow on the capturer's default
+ * branch, sink's main, and a workflow that commits to the branch it runs on
+ * changed main with nobody asked. So the capture runs on a new branch made
+ * for it, `capture/<name>-<date>`, cut from the default branch (where the
+ * workflow lives), and main changes only when someone types it on purpose,
+ * with the owner's say-so (`CaptureSiteDialog.tsx`).
+ */
+export function captureBranch(name: string, now = new Date()): string {
+  return `capture/${captureName(name) ?? "site"}-${now.toISOString().slice(0, 10)}`;
+}
+
+/** Whether a branch is one the owner has to agree to changing: the default one, or main or master by name. */
+export function isMainBranch(ref: string, defaultBranch?: string | null): boolean {
+  const r = ref.trim().toLowerCase();
+  return !r || r === "main" || r === "master" || (!!defaultBranch && r === defaultBranch.toLowerCase());
 }
 
 const headers = (token: string): Record<string, string> => ({
@@ -72,7 +92,7 @@ const headers = (token: string): Record<string, string> => ({
   "X-GitHub-Api-Version": "2022-11-28",
 });
 
-export type Started = { ok: true; runId: number; htmlUrl: string; name: string } | { ok: false; says: string; status?: number };
+export type Started = { ok: true; runId: number; htmlUrl: string; name: string; /** The branch the workflow ran on. */ ref?: string; /** Set when this call made that branch. */ madeBranch?: boolean } | { ok: false; says: string; status?: number };
 
 /**
  * A key that may not run the capture, said so it can be put right: the
@@ -132,7 +152,9 @@ async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Recor
  * 204 and names no run, so the newest workflow_dispatch run of this
  * workflow created after the call is it.
  */
-export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; learn?: unknown; findEveryMs?: number; findTries?: number } & Pipes): Promise<Started> {
+export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; learn?: unknown; findEveryMs?: number; findTries?: number;
+  /** Make `ref` first, from the default branch, when it is not there: the capture's own branch. Never main. */
+  makeBranch?: boolean } & Pipes): Promise<Started> {
   const f = o.fetch ?? fetch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let address: URL;
@@ -144,10 +166,21 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
   const h = headers(o.token);
   let ref = o.ref?.trim() || "";
   try {
-    if (!ref) {
+    let made = false;
+    if (!ref || o.makeBranch) {
       const r = await f(base, { headers: h });
       if (!r.ok) return { ok: false, says: r.status === 404 ? `${o.repo.owner}/${o.repo.name} is not a repository the token can see.` : `GitHub answered ${r.status} when asked about ${o.repo.owner}/${o.repo.name}.` };
-      ref = ((await r.json()) as { default_branch?: string }).default_branch ?? "main";
+      const main = ((await r.json()) as { default_branch?: string }).default_branch ?? "main";
+      if (!ref) ref = main;
+      else if (!isMainBranch(ref, main)) {
+        /* The capture's own branch, cut from the default branch's tip. One that is already there (a second capture today) is used as it is. */
+        const tip = await f(`${base}/git/ref/heads/${main.split("/").map(encodeURIComponent).join("/")}`, { headers: h });
+        if (!tip.ok) return { ok: false, status: tip.status, says: `GitHub would not say where ${main} is on ${o.repo.owner}/${o.repo.name} (${tip.status}), so no branch was made for the capture.` };
+        const sha = ((await tip.json()) as { object?: { sha?: string } }).object?.sha;
+        const mk = await f(`${base}/git/refs`, { method: "POST", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ ref: `refs/heads/${ref}`, sha }) });
+        if (mk.ok) made = true;
+        else if (mk.status !== 422) return { ok: false, status: mk.status, says: mk.status === 403 || mk.status === 404 ? `This GitHub key may not make the branch ${ref} on ${o.repo.owner}/${o.repo.name}: it needs Contents: Read and write there.` : `GitHub would not make the branch ${ref} (${mk.status}).` };
+      }
     }
     const since = Date.now() - 5_000;
     const d = await f(`${base}/actions/workflows/${WORKFLOW}/dispatches`, {
@@ -160,7 +193,7 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
       if (r.ok) {
         const runs = ((await r.json()) as { workflow_runs?: { id: number; html_url: string; created_at: string }[] }).workflow_runs ?? [];
         const mine = runs.find((run) => Date.parse(run.created_at) >= since);
-        if (mine) return { ok: true, runId: mine.id, htmlUrl: mine.html_url, name };
+        if (mine) return { ok: true, runId: mine.id, htmlUrl: mine.html_url, name, ref, ...(made ? { madeBranch: true } : {}) };
       }
       await sleep(o.findEveryMs ?? 2_000);
     }
@@ -197,7 +230,9 @@ export type Progress = { done: false; status: string; step: string; htmlUrl: str
 export type Ended = { done: true; ok: true; ref: string; path: string; htmlUrl: string } | { done: true; ok: false; says: string; htmlUrl: string };
 
 /** Watch a run to its end, saying the step it is on as it goes. */
-export async function watchCapture(o: { repo: CaptureRepo; token: string; runId: number; name: string; onProgress: (p: Progress) => void; everyMs?: number } & Pipes): Promise<Ended> {
+export async function watchCapture(o: { repo: CaptureRepo; token: string; runId: number; name: string; onProgress: (p: Progress) => void; everyMs?: number;
+  /** The branch the run was started on: asked first for the site, since a workflow may commit to the branch it runs on. */
+  ranOn?: string } & Pipes): Promise<Ended> {
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const every = o.everyMs ?? 5_000;
   let htmlUrl = "";
@@ -210,6 +245,18 @@ export async function watchCapture(o: { repo: CaptureRepo; token: string; runId:
     await sleep(every);
   }
   /* The read that saw it complete is the answer: asking again straight away was a second read inside the same breath. */
-  if (run.conclusion === "success") return { done: true, ok: true, ...capturePlace(o.name), htmlUrl };
+  if (run.conclusion === "success") return { done: true, ok: true, ...(await landedOn(o)), htmlUrl };
   return { done: true, ok: false, says: `The capture failed (${run.conclusion ?? "no conclusion"}). Its log says why.`, htmlUrl };
+}
+
+/** Where the finished capture actually is: on the branch it ran on when the site is there, else the workflow's `captures/<name>`. */
+async function landedOn(o: { repo: CaptureRepo; token: string; name: string; ranOn?: string } & Pipes): Promise<{ ref: string; path: string }> {
+  const place = capturePlace(o.name);
+  if (!o.ranOn || o.ranOn === place.ref) return place;
+  const f = o.fetch ?? fetch;
+  try {
+    const r = await f(`${API}/repos/${o.repo.owner}/${o.repo.name}/contents/${place.path}?ref=${encodeURIComponent(o.ranOn)}`, { headers: headers(o.token), cache: "no-store" } as RequestInit);
+    if (r.ok) return { ref: o.ranOn, path: place.path };
+  } catch { /* asked below */ }
+  return place;
 }

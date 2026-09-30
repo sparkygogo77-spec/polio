@@ -65,6 +65,13 @@ export interface Project {
    * READY (`BriefDialog.tsx`, `tests/live-resume.mjs`).
    */
   pending?: { id: string; team: string | null; at: number };
+  /**
+   * The last push that went through from this site: where, and when. It is
+   * what decides which site keeps a publish target two sites name
+   * (`sharedTarget`); `live.at` stands in for a site that published before
+   * this was kept.
+   */
+  published?: { at: number; repo: string; branch: string };
 }
 
 /** What a project's document says about itself, for the row that lists it. */
@@ -104,6 +111,8 @@ interface Builds {
   setLive: (id: string, url: string) => void;
   /** The deployment being waited on, or none. */
   setPending: (id: string, pending: Project["pending"]) => void;
+  /** A push from this site went through, to this repository and branch. */
+  setPublished: (id: string, repo: string, branch: string) => void;
   /** Write the open document back to its own slot. */
   save: () => Promise<void>;
 }
@@ -261,7 +270,10 @@ export const useBuilds = create<Builds>()(
         const copy = uid();
         await write(slot(copy), await read(slot(id)));
         set((s) => ({
-          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined }, ...s.projects],
+          /* A copy never shares its original's publish target: two sites on
+             one repository and branch replace each other's live site. Its
+             first publish makes a repository of its own (`sharedTarget`). */
+          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined }, ...s.projects],
         }));
       },
 
@@ -288,6 +300,8 @@ export const useBuilds = create<Builds>()(
       setRepo: (id, repo, bound) => {
         if (bound === "import") { get().setSource(id, repo); return true; }
         if (repo && sourceOf(repoLabel(repo)!)) return false;
+        /* Never a target another site already publishes to: one press would replace that site's live site. */
+        if (repo && targetTakenBy(id, repo)) return false;
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? (p.bound === "import" ? undefined : p.bound) ?? "connected") : undefined } : p)) }));
         return true;
       },
@@ -303,6 +317,9 @@ export const useBuilds = create<Builds>()(
 
       setPending: (id, pending) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, pending } : p)) })),
+
+      setPublished: (id, repo, branch) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, published: { at: Date.now(), repo, branch } } : p)) })),
     }),
     {
       name: "builder.builds",
@@ -457,4 +474,93 @@ function carryRepos(): void {
      repository a site was brought in from. */
   const next = settle(carried);
   if (changed || unsettled || next.some((p, i) => p !== carried[i])) { unsettled = false; useBuilds.setState({ projects: next }); }
+}
+
+/*
+ * TWO SITES NEVER SHARE A PUBLISH TARGET.
+ *
+ * A target is a repository and a branch. Two sites naming the same one
+ * replace each other's live site with every press: SOLCINERATOR and
+ * Trump & Morty both named sparkygogo77-spec/trump-morty-trorty on main, so
+ * one press on SOLCINERATOR would have put it up in place of Trump & Morty.
+ *
+ * The site that last published there keeps it (its `published`, or `live`
+ * for a site that published before that was kept) and every other site
+ * naming it is held back, with the name of the one that keeps it. When none
+ * of them has published there, none may until one of them is given another
+ * target: there is no fair way to pick. Nothing here changes a site's
+ * stored target; the owner chooses.
+ */
+
+/** A target as one comparable string: `owner/name@branch`, lower case. */
+export const targetKey = (repo: Project["repo"] | undefined): string | null =>
+  repo ? `${repo.owner}/${repo.name}@${repo.branch || "main"}`.toLowerCase() : null;
+
+/** When a site last published to its current target, or 0. */
+export function lastPublishedTo(p: Project): number {
+  const key = targetKey(p.repo);
+  if (!key) return 0;
+  if (p.published && `${p.published.repo}@${p.published.branch}`.toLowerCase() === key) return p.published.at;
+  if (p.published) return 0;
+  return p.live?.at ?? 0;
+}
+
+export interface SharedTarget {
+  /** `owner/name`, and the branch, as the words say them. */
+  repo: string;
+  branch: string;
+  /** The site that keeps the target, or null when none of them has published there. */
+  keeper: Project | null;
+  /** Every other site naming the same target. */
+  others: Project[];
+}
+
+/** The target `id` shares with another site, or null when it is its own. */
+export function sharedTarget(projects: Project[], id: string | null | undefined): SharedTarget | null {
+  const me = projects.find((p) => p.id === id);
+  const key = targetKey(me?.repo);
+  if (!me || !key) return null;
+  const all = projects.filter((p) => targetKey(p.repo) === key);
+  if (all.length < 2) return null;
+  const ranked = [...all].sort((a, b) => lastPublishedTo(b) - lastPublishedTo(a));
+  const top = ranked[0]!;
+  const keeper = lastPublishedTo(top) > 0 && lastPublishedTo(top) !== lastPublishedTo(ranked[1]!) ? top : null;
+  return { repo: `${me.repo!.owner}/${me.repo!.name}`, branch: me.repo!.branch || "main", keeper, others: all.filter((p) => p.id !== me.id) };
+}
+
+/** Why this site may not publish to its target, in plain words, or null when it may. */
+export function sharedTargetSays(projects: Project[], id: string | null | undefined): string | null {
+  const shared = sharedTarget(projects, id);
+  if (!shared || shared.keeper?.id === id) return null;
+  const where = `${shared.repo} on ${shared.branch}`;
+  const how = "Choose another repository or branch for this site in the repository menu (the GitHub button) or on Builds, Repos";
+  if (shared.keeper) return `${shared.keeper.name} already publishes to ${where}, so Update live site is off for this site: it would replace ${shared.keeper.name}'s live site. ${how}.`;
+  const list = [projects.find((p) => p.id === id)?.name, ...shared.others.map((p) => p.name)].filter(Boolean) as string[];
+  return `${list.join(" and ")} ${list.length === 2 ? "both" : "all"} publish to ${where}, and none has published there yet, so Update live site is off for each until one of them has another target. ${how}.`;
+}
+
+/** The site that already publishes to this target, when it is not `id`. */
+export function targetTakenBy(id: string, repo: Project["repo"]): Project | null {
+  const key = targetKey(repo);
+  return useBuilds.getState().projects.find((p) => p.id !== id && targetKey(p.repo) === key) ?? null;
+}
+
+/** The same, as a hook: why the open site may not publish, or null. */
+export function useSharedTargetSays(id?: string | null): string | null {
+  return useBuilds((s) => sharedTargetSays(s.projects, id === undefined ? s.activeId : id));
+}
+
+/*
+ * THE WORDS FOR WHERE A SITE GOES, IN ONE PLACE. The repository menu and
+ * Builds, Repos said it two ways ("Publish pushes this site to…", a big name
+ * with "on main" under it); both read these now.
+ */
+export function targetWords(p: Project | null | undefined): string {
+  if (!p?.repo) return "No repository of its own yet. The first Update live site makes a private one named after this site.";
+  return `Update live site writes to ${p.repo.owner}/${p.repo.name} on ${p.repo.branch || "main"}.`;
+}
+
+/** Where it was brought in from, and that nothing is written back there. */
+export function sourceWords(p: Project | null | undefined): string | null {
+  return p?.source ? `Brought in from ${repoLabel(p.source)}; Update live site never writes to it.` : null;
 }

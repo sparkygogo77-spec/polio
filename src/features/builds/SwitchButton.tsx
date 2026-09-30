@@ -15,7 +15,7 @@ import { Button } from "@/core/ui/button";
 import { Popover } from "@/core/ui/popover";
 import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
-import { useBuilds } from "./store";
+import { sharedTarget, useBuilds } from "./store";
 
 export function SwitchButton() {
   const projects = useBuilds((s) => s.projects);
@@ -43,6 +43,9 @@ export function SwitchButton() {
           <ul className="max-h-72 overflow-y-auto">
             {projects.map((p) => {
               const on = p.id === activeId;
+              /* A site held back because another keeps its target says so here, before it is opened and pressed. */
+              const shared = sharedTarget(projects, p.id);
+              const held = shared && shared.keeper?.id !== p.id;
               return (
                 <li key={p.id}>
                   <button
@@ -62,6 +65,11 @@ export function SwitchButton() {
                         {p.repo ? `${p.repo.owner}/${p.repo.name}` : "no repository"}
                         {on ? "" : ` · ${fmtAge(p.updatedAt)} ago`}
                       </span>
+                      {held ? (
+                        <span data-switch-shared="" className="block truncate text-small text-warning" title={shared.keeper ? `${shared.keeper.name} publishes to ${shared.repo} on ${shared.branch}` : undefined}>
+                          {shared.keeper ? `Update live site off: ${shared.keeper.name} uses this target` : "Update live site off: shares its target"}
+                        </span>
+                      ) : null}
                     </span>
                     {p.repo ? <FolderGit2 className="size-3 shrink-0 text-fg-faint" /> : null}
                   </button>

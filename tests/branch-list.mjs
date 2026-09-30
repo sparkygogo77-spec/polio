@@ -6,7 +6,10 @@
  * away from. The repo control lists them now, each with the two facts he
  * decides on: whether main already has its work, and if not, how many
  * updates and how many lines. Delete is the one thing there that cannot be
- * undone, so it wears the Merge button's red ring and asks by name.
+ * undone, so it wears a red ring and asks by name. Merge into main is on
+ * the row of the branch Update live site writes to, when that is not main,
+ * and is not red: it was a big red box over an edit branch no publish used
+ * (`tests/repo-dialog-words.mjs`).
  *
  * GitHub is answered by this file: a stub on a port of its own, and a
  * server started against it. No token is used; the header the browser
@@ -90,7 +93,7 @@ await page.addInitScript(() => { window.confirm = (m) => { window.__asked(m); re
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.evaluate(() => {
   const env = (state) => JSON.stringify({ state, version: 0 });
-  localStorage.setItem("builder.builds", env({ projects: [{ id: "s1", name: "Site 1", updatedAt: Date.now(), repo: { owner: "him", name: "site", branch: "main" } }], activeId: "s1" }));
+  localStorage.setItem("builder.builds", env({ projects: [{ id: "s1", name: "Site 1", updatedAt: Date.now(), repo: { owner: "him", name: "site", branch: "edit/site-2026-09-20" } }], activeId: "s1" }));
   localStorage.setItem("builder.studio", env({ nodes: [], siteBranch: "edit/site-2026-09-20" }));
 });
 await page.reload({ waitUntil: "networkidle" });
@@ -107,11 +110,11 @@ const rows = await page.evaluate(() => Array.from(document.querySelectorAll("[da
 check("the list is on the repo control, one row per branch besides main", rows.length === 4, rows.map((r) => r.name).join(", "));
 const open = rows.find((r) => r.name === "edit/site-2026-09-20");
 check("a branch carrying unmerged work says how many updates and lines", !!open && open.unmerged === "1" && /2 updates not in main/.test(open.text) && /\+40/.test(open.text) && /−3/.test(open.text), open?.text);
-check("and is marked as the branch this site's edits are on", /open here/.test(open?.text ?? ""));
+check("and is marked as the branch Update live site writes to", /Update live site writes here/.test(open?.text ?? ""));
 const done = rows.find((r) => r.name === "old/done");
 check("a branch main already has reads differently, in words", !!done && done.unmerged === "0" && /everything in main/.test(done.text), done?.text);
-const mergeRing = await page.evaluate(() => getComputedStyle(document.querySelector("[data-repo-merge]")).borderColor);
-check("Delete wears the same red ring as Merge", rows.every((r) => r.ring === mergeRing) && mergeRing !== "", `${rows[0]?.ring} vs ${mergeRing}`);
+const mergeRing = await page.evaluate(() => { const m = document.querySelector("[data-repo-merge]"); return m ? { ring: getComputedStyle(m).borderColor, row: m.closest("[data-repo-branch-row]")?.getAttribute("data-repo-branch-row") } : null; });
+check("Delete wears one red ring on every row, and Merge sits on the branch it publishes to without it", rows.every((r) => r.ring === rows[0].ring) && !!mergeRing && mergeRing.row === "edit/site-2026-09-20" && mergeRing.ring !== rows[0].ring, `${rows[0]?.ring} vs ${JSON.stringify(mergeRing)}`);
 
 /* Saying no is honoured. */
 await page.evaluate(() => { window.__answer = false; });

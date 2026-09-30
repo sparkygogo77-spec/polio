@@ -71,8 +71,10 @@ const keysIn = async (page, fill) => {
   const card = page.locator("li").filter({ hasText: "Parasite" }).first();
   const text = (await card.innerText().catch(() => "")).replace(/\s+/g, " ");
   check("a big site's card counts its pages and parts, not \"nothing in it yet\"", /2 pages · 3000 parts/.test(text) && !/nothing in it yet/.test(text), text.slice(0, 120));
-  const drawn = await card.evaluate((c) => { const b = c.querySelector("button"); return b ? b.querySelectorAll("*").length : 0; }).catch(() => 0);
-  check("…and draws the site in its picture", drawn > 40, `${drawn} elements in the picture`);
+  /* The card's picture is one image now, made from the site off screen (tests/builds-thumbs.mjs). */
+  let drawn = 0;
+  for (let i = 0; i < 40 && !drawn; i++) { drawn = await card.evaluate((c) => { const i = c.querySelector("img[data-site-thumb]"); return i && i.naturalWidth ? i.naturalWidth : 0; }).catch(() => 0); if (!drawn) await page.waitForTimeout(250); }
+  check("…and draws the site in its picture", drawn > 0, `picture ${drawn} px wide`);
   const small = (await page.locator("li").filter({ hasText: "Small" }).first().innerText()).replace(/\s+/g, " ");
   check("a small site's card is as it was", /1 page · 0 parts/.test(small), small.slice(0, 80));
   await ctx.close();
@@ -106,7 +108,7 @@ const keysIn = async (page, fill) => {
   await page.locator("header [data-go-live]").click({ force: true });
   let line = null;
   for (let i = 0; i < 40 && !line; i++) { await page.waitForTimeout(250); line = await said(); }
-  check("a refused Go live is said beside the button, naming its site", /^Parasite: .*5\.1 MB even packed/.test(line ?? ""), J(line));
+  check("a refused Go live is said beside the button, naming its site", /^Parasite: Nothing was saved: .*5\.1 MB even packed/.test(line ?? ""), J(line));
   /* A push that goes through, from another door. */
   fail = false;
   await page.evaluate(() => window.__studioPublish?.({ files: [{ path: "index.html", content: "<p>ok" }], message: "ok", deploy: false, repo: "him/parasite", branch: "main" }));

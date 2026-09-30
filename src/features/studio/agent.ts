@@ -652,7 +652,7 @@ export type PublishResult =
       changed?: number; total?: number }
   /* A failure can still have made the repository, and says so, so the next
      press goes to the one that exists rather than making another. */
-  | { ok: false; message: string; reason?: string; created?: string; repo?: string };
+  | { ok: false; message: string; reason?: string; created?: string; repo?: string; /** Set when the Builder's own server failed rather than answering. */ serverStatus?: number; status?: number };
 
 /* ------------------------------------------------------------------ */
 /* Going live                                                          */
@@ -704,7 +704,9 @@ export async function productionAddress(input: { repo?: string; sources?: string
 
 export type DeployStart =
   | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null; /** Set when this call made the Vercel project. */ created?: string; note?: string }
-  | { ok: false; message: string; reason?: string; /** One line on the likely fix, when the route has one. */ hint?: string };
+  | { ok: false; message: string; reason?: string; /** One line on the likely fix, when the route has one. */ hint?: string;
+      /** Vercel's status, code and a limit's reset, passed on by the route; `serverStatus` when the Builder's own server failed. */
+      status?: number; code?: string; reset?: number; serverStatus?: number };
 
 /**
  * Ask Vercel to build the repository's branch. Returns as soon as it is queued.
@@ -721,10 +723,15 @@ export async function deploy(input: { repo?: string; branch?: string; project?: 
       headers: { "content-type": "application/json", ...vercelHeader(), ...publisherHeader() },
       body: JSON.stringify({ ...input, team: input.team ?? heldTeam() }),
     });
-    const data = (await res.json()) as DeployStart;
-    return data.ok ? data : { ok: false, message: data.message ?? "The deploy failed.", reason: data.reason, ...(data.hint ? { hint: data.hint } : {}) };
+    const data = (await res.json().catch(() => null)) as DeployStart | null;
+    /* Not an answer at all (a gateway's error page, a crash): the Builder's own server failed, and says with which status. */
+    if (!data) return { ok: false, message: `The Builder's server answered ${res.status}.`, reason: "server", serverStatus: res.status };
+    if (data.ok) return data;
+    return { ok: false, message: data.message ?? "The deploy failed.", reason: data.reason, ...(data.hint ? { hint: data.hint } : {}),
+      ...(data.status ? { status: data.status } : {}), ...(data.code ? { code: data.code } : {}), ...(data.reset ? { reset: data.reset } : {}),
+      ...(!res.ok && res.status >= 500 ? { serverStatus: res.status } : {}) };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
+    return { ok: false, message: err instanceof Error ? err.message : "Request failed.", reason: "builder-unreachable" };
   }
 }
 
@@ -868,14 +875,15 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
       }),
     });
     const data = (await res.json().catch(() => null)) as Answer | null;
-    return data ?? { ok: false, message: res.status === 413 ? "The push was more than the Builder's server takes in one request." : `The Builder's server answered ${res.status}.` };
+    return data ?? { ok: false, message: res.status === 413 ? "The push was more than the Builder's server takes in one request." : `The Builder's server answered ${res.status}.`, ...(res.status >= 500 ? { reason: "server", serverStatus: res.status } : {}) };
   };
   /* A failure keeps what the route made: without `created` the site never
      learns the repository exists, and the next press makes a second one
      with a suffix (tests/publish-made-kept.mjs). */
   const failed = (data: PublishResult, created?: string): PublishResult => {
     const made = (data.ok ? undefined : data.created) ?? created;
-    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(made ? { created: made } : {}), ...(data.repo ?? made ? { repo: data.repo ?? made } : {}) };
+    return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason, ...(made ? { created: made } : {}), ...(data.repo ?? made ? { repo: data.repo ?? made } : {}),
+      ...(data.serverStatus ? { serverStatus: data.serverStatus } : {}), ...(data.status ? { status: data.status } : {}) };
   };
   let repo = input.repo;
   let created: string | undefined;
@@ -976,6 +984,6 @@ async function pushed(input: Parameters<typeof publish>[0]): Promise<PublishResu
     const done = await carry(last, () => ({ staged: all() }));
     return done.ok ? withCounts({ ...done, ...(created && !done.created ? { created } : {}) }) : failed(done, created);
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
+    return { ok: false, message: err instanceof Error ? err.message : "Request failed.", reason: "builder-unreachable" };
   }
 }

@@ -53,15 +53,28 @@ function token(request: Request): { token: string | null; source: "server" | "br
 }
 
 
-async function vercel<T>(tok: string, path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: { message?: string } } }> {
+/** What Vercel says when it refuses: its words, its code, and for a limit, when it resets. */
+type VercelError = { message?: string; code?: string; limit?: { reset?: number; resetMs?: number } };
+
+async function vercel<T>(tok: string, path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: VercelError }; reset?: number }> {
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${tok}`, ...(init?.body ? { "content-type": "application/json" } : {}), ...(init?.headers ?? {}) },
     cache: "no-store",
   });
-  const data = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-  return { ok: res.ok, status: res.status, data };
+  const data = (await res.json().catch(() => ({}))) as T & { error?: VercelError };
+  /* A limit's reset, from the body where Vercel puts it or its header, so the Builder can say when it lifts. */
+  const header = Number(res.headers.get("x-ratelimit-reset"));
+  const reset = data.error?.limit?.resetMs ?? data.error?.limit?.reset ?? (header > 0 ? header : undefined);
+  return { ok: res.ok, status: res.status, data, ...(reset ? { reset } : {}) };
 }
+
+/** A refusal passed on whole: the words for the details fold, and the code and reset the Builder turns into plain words (`publishWords.ts`). */
+const refusalOf = (r: { status: number; data: { error?: VercelError }; reset?: number }) => ({
+  status: r.status,
+  ...(r.data.error?.code ? { code: r.data.error.code } : {}),
+  ...(r.reset ? { reset: r.reset } : {}),
+});
 
 /**
  * The project connected to this repository, or the one named.
@@ -275,6 +288,7 @@ export async function GET(request: Request) {
         ok: true,
         state: late ? "NOT_STARTED" : null,
         done: late,
+        ...(late ? { reason: "not-started" } : {}),
         url: null,
         inspectorUrl: null,
         message: late
@@ -289,7 +303,7 @@ export async function GET(request: Request) {
     `/v13/deployments/${encodeURIComponent(depId)}${query(team)}`,
   );
   if (!ok) {
-    return NextResponse.json({ ok: false, reason: "vercel", message: data.error?.message ?? `Vercel answered ${status}.` });
+    return NextResponse.json({ ok: false, reason: "vercel", status, ...(data.error?.code ? { code: data.error.code } : {}), message: data.error?.message ?? `Vercel answered ${status}.` });
   }
   // A deployment Vercel has not put a state on is reported as none, not
   // as "QUEUED": the two are told apart in the dialog.
@@ -494,7 +508,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       reason: "vercel",
-      status,
+      ...refusalOf(started),
       message: data.error?.message ?? `Vercel would not start the build (${status}).`,
     });
   }

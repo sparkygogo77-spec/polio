@@ -18,38 +18,92 @@ import { ExternalLink, Globe, Loader2 } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
-import { useBuilds } from "@/features/builds/store";
+import { sharedTargetSays, useBuilds, useSharedTargetSays } from "@/features/builds/store";
 import { keysReady, useKeys } from "@/features/keys/store";
 import { deployStatus, publishStatus } from "./agent";
 import { goLive, useGoLive } from "./goLive";
+import { stepWords } from "./publishWords";
+import { Popover } from "@/core/ui/popover";
+import { openRepoPicker } from "./RepoPicker";
 import { useStudio } from "./store";
 
 export function GoLiveButton() {
   const said = useGoLive((s) => s.refused);
+  const step = useGoLive((s) => s.step);
+  const busy = useGoLive((s) => s.busy);
   const activeId = useBuilds((s) => s.activeId);
+  const shared = useSharedTargetSays();
+  const [fold, setFold] = React.useState(false);
   const button = <GoLiveControl />;
   /* Only this site's refusal, and named: another site's never shows here. */
   const refused = said && (!said.siteId || said.siteId === activeId) ? said : null;
-  if (!refused) return button;
-  /* WHY IT DID NOT GO LIVE, beside the button and without hovering: the
-     first real Go live was refused by Vercel and the owner saw nothing. */
-  const who = refused.site ? `${refused.site}: ` : "";
-  const full = `${who}${refused.hint ? `${refused.message} ${refused.hint}` : refused.message}`;
-  return (
-    <span className="flex min-w-0 items-center gap-1.5">
-      {button}
-      <Tooltip content={full}>
-        <span data-go-live-said="" data-go-live-said-site={refused.siteId ?? ""} role="status" className="max-w-[min(420px,32vw)] truncate text-small text-down">
-          {who}{refused.message}{refused.hint ? <span className="text-fg-muted"> {refused.hint}</span> : null}
+  const mine = step && (!step.siteId || step.siteId === activeId) ? step : null;
+  const line = "max-w-[min(440px,34vw)] truncate text-small";
+
+  /* TWO SITES, ONE TARGET: said beside the button, before anything is pressed (`builds/store.ts`, sharedTarget). */
+  if (shared && !busy) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5">
+        {button}
+        <Tooltip content={shared}>
+          <span data-go-live-shared="" role="status" className={`${line} text-warning`}>{shared}</span>
+        </Tooltip>
+      </span>
+    );
+  }
+  /*
+   * WHY IT DID NOT GO LIVE, beside the button and without hovering, in plain
+   * words (`publishWords.ts`): what happened to the change and what to do.
+   * What the provider said, word for word, is one press away under
+   * "details", never the line itself.
+   */
+  if (refused) {
+    const who = refused.site ? `${refused.site}: ` : "";
+    const plain = refused.plain?.says ?? refused.message;
+    const detail = refused.plain?.detail ?? refused.message;
+    return (
+      <span className="flex min-w-0 items-center gap-1.5">
+        {button}
+        <span data-go-live-said="" data-go-live-said-site={refused.siteId ?? ""} data-go-live-kind={refused.plain?.kind ?? ""} role="status" title={`${who}${plain}`} className={`${line} text-down`}>
+          {who}{plain}
         </span>
-      </Tooltip>
-    </span>
-  );
+        {detail && detail !== plain ? (
+          <Popover
+            open={fold}
+            onOpenChange={setFold}
+            align="end"
+            className="w-[min(420px,90vw)] bg-panel p-2.5"
+            content={<p data-go-live-detail="" className="whitespace-pre-wrap break-words font-mono text-small text-fg-muted">{detail}</p>}
+          >
+            <button type="button" data-go-live-details="" className="tactile shrink-0 text-small text-fg-muted underline underline-offset-2 hover:text-fg">details</button>
+          </Popover>
+        ) : null}
+      </span>
+    );
+  }
+  /* The steps as they happen, and Live with its time and address once it is up. */
+  if (mine && (busy || mine.at === "live")) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5">
+        {button}
+        {mine.at === "live" ? (
+          <a data-go-live-step="live" href={mine.url} target="_blank" rel="noopener noreferrer" role="status" className={`${line} text-up hover:underline`}>
+            {stepWords(mine)}, open {mine.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+          </a>
+        ) : (
+          <span data-go-live-step={mine.at} role="status" className={`${line} text-fg-muted`}>{stepWords(mine)}</span>
+        )}
+      </span>
+    );
+  }
+  return button;
 }
 
 function GoLiveControl() {
   const ctx = useActions();
   const busy = useGoLive((s) => s.busy);
+  /* Another site keeps this target: off, and the line beside says which and what to do. */
+  const shared = useBuilds((s) => sharedTargetSays(s.projects, s.activeId));
   const liveAt = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.live?.url ?? null);
   /* The board is what goes up, so there must be one loaded to press this. */
   const [board, setBoard] = React.useState(() => useStudio.persist.hasHydrated());
@@ -109,7 +163,8 @@ function GoLiveControl() {
       <Tooltip content={`Going live: ${busy}`}>
         <span>
           <Button variant="outline" size="sm" data-go-live="" data-go-live-state="busy" disabled aria-label={`Go live: ${busy}`}>
-            <Loader2 className="animate-spin" /> {busy.replace(/…$/, "")}…
+            {/* The step itself is the line beside the button (`GoLiveButton`); the button only says it is working, and the tooltip says the detail. */}
+            <Loader2 className="animate-spin" /> {liveAt ? "Updating" : "Going live"}…
           </Button>
         </span>
       </Tooltip>
@@ -119,7 +174,9 @@ function GoLiveControl() {
   const missingOf = (k: Keys | null) => (k ? [!k.github && "GitHub", !k.vercel && "Vercel"].filter(Boolean) as string[] : []);
   const whyOf = (k: Keys | null) => {
     const m = missingOf(k);
-    return !board
+    return shared
+      ? shared
+      : !board
       ? "Open the Builder to go live: the board is what goes up."
       : k === null
         ? "Checking the keys…"
@@ -137,8 +194,9 @@ function GoLiveControl() {
     /* NEVER A DEAD BUTTON. With something missing the press says what,
        beside the button, and opens the keys panel where it goes. */
     if (reason) {
-      ctx.publish({ key: "studio:go-live-needs", title: "Go live", body: reason, level: "warn", source: "studio", toast: { durationMs: 8000 } });
-      if (gone.length) ctx.togglePanel("keys");
+      ctx.publish({ key: "studio:go-live-needs", title: shared ? "Update live site is off for this site" : "Go live", body: reason, level: "warn", source: "studio", toast: { durationMs: 8000 } });
+      if (shared) openRepoPicker();
+      else if (gone.length) ctx.togglePanel("keys");
       return;
     }
     const name = useStudio.getState().brief?.name ?? "";
@@ -158,8 +216,8 @@ function GoLiveControl() {
           variant="outline"
           size="sm"
           data-go-live=""
-          data-go-live-state={board && keys === null ? "checking" : why ? "blocked" : liveAt ? "live" : "ready"}
-          aria-disabled={why && keys !== null ? true : undefined}
+          data-go-live-state={shared ? "shared" : board && keys === null ? "checking" : why ? "blocked" : liveAt ? "live" : "ready"}
+          aria-disabled={shared || (why && keys !== null) ? true : undefined}
           onClick={() => { void press(); }}
         >
           <Globe /> {liveAt ? "Update live site" : "Go live"}

@@ -632,6 +632,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         sources,
       });
       remember(project, r.created, r.ok ? r.branch : branch);
+      if (r.ok && project) useBuilds.getState().setPublished(project.id, r.repo, r.branch);
       if (r.ok) {
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
         // Written on the live thread's card, because this is what that

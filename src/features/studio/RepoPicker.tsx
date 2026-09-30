@@ -40,7 +40,7 @@ import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
 import { heldKeys, useKeys } from "@/features/keys/store";
-import { activeProject, repoFrom, repoLabel, sourceOf, useBuilds } from "@/features/builds/store";
+import { activeProject, repoFrom, repoLabel, sharedTargetSays, sourceOf, sourceWords, targetKey, targetTakenBy, useBuilds } from "@/features/builds/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import type { BranchRow } from "@/app/api/studio/branches/route";
 import { bringRepoIn } from "./bringRepo";
@@ -56,6 +56,31 @@ const token = (): Record<string, string> => {
   const t = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
   return t ? { "x-github-token": t } : {};
 };
+
+/*
+ * ASK THE BUILDER'S OWN ROUTE, AND SAY WHICH SIDE FAILED.
+ *
+ * Every call here goes to the Builder's server, which asks GitHub. A 500
+ * with no JSON used to throw at `res.json()` and land in the catch that said
+ * "GitHub could not be reached from this browser": the browser never asks
+ * GitHub, and GitHub was fine. A server that failed says so, with its status;
+ * a fetch that never got an answer says the Builder's server was not reached.
+ */
+type Said = { ok?: boolean; message?: string };
+export function serverFailed(status: number): string {
+  return `The Builder's server failed (status ${status}), so GitHub was not asked. Try again in a minute.`;
+}
+async function askRoute<T>(url: string, init?: RequestInit): Promise<T & Said> {
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch {
+    return { ok: false, message: "The Builder's server could not be reached from this browser. Check the connection and try again." } as T & Said;
+  }
+  const data = (await res.json().catch(() => null)) as (T & Said) | null;
+  if (res.status >= 500 && (!data || data.ok !== false || !data.message)) return { ...(data ?? {}), ok: false, message: serverFailed(res.status) } as T & Said;
+  return data ?? ({ ok: false, message: `The Builder's server answered ${res.status} with nothing GitHub said.` } as T & Said);
+}
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
 const warn = { borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" };
@@ -88,14 +113,12 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
     let alive = true;
     setSaid(null);
     setMine(null);
-    void fetch("/api/studio/repo", { headers: token(), cache: "no-store" })
-      .then((r) => r.json())
-      .then((a: { ok?: boolean; repos?: Mine[]; message?: string }) => {
+    void askRoute<{ repos?: Mine[] }>("/api/studio/repo", { headers: token(), cache: "no-store" })
+      .then((a) => {
         if (!alive) return;
         if (a.ok && a.repos) { setMine(a.repos); listedWithKey.current = unlocked; }
         else setSaid(a.message ?? "GitHub did not answer with a list.");
-      })
-      .catch(() => { if (alive) setSaid("GitHub could not be reached from this browser."); });
+      });
     return () => { alive = false; };
   }, [open, unlocked]);
 
@@ -147,14 +170,12 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
   const read = React.useCallback((name: string, ref?: string) => {
     setChoicesSaid(null);
     const q = `repo=${encodeURIComponent(name)}${ref ? `&ref=${encodeURIComponent(ref)}` : ""}`;
-    void fetch(`/api/studio/repo/choices?${q}`, { headers: token(), cache: "no-store" })
-      .then((r) => r.json())
-      .then((a: { ok?: boolean; message?: string } & Partial<Choices>) => {
+    void askRoute<Partial<Choices>>(`/api/studio/repo/choices?${q}`, { headers: token(), cache: "no-store" })
+      .then((a) => {
         if (!a.ok) { setChoicesSaid(a.message ?? "GitHub would not say what is in it."); return; }
         setChoices({ base: a.base ?? "main", ref: a.ref ?? a.base ?? "main", branches: a.branches ?? [], sites: a.sites ?? [] });
         setFolder((f) => ((a.sites ?? []).includes(f) ? f : ""));
-      })
-      .catch(() => setChoicesSaid("GitHub could not be reached from this browser."));
+      });
   }, []);
 
   const pick = (name: string) => {
@@ -425,6 +446,8 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
   const ownBranch = project?.repo?.branch ?? "main";
   const siteName = useStudio((s) => s.brief?.name ?? "");
   const siteBranch = useStudio((s) => s.siteBranch);
+  const shared = useBuilds((s) => sharedTargetSays(s.projects, s.activeId));
+  const allProjects = useBuilds((s) => s.projects);
   const canPush = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
   const [branch, setBranch] = React.useState(ownBranch);
   React.useEffect(() => { setBranch(ownBranch); }, [ownBranch]);
@@ -471,6 +494,8 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
       return false;
     }
     setMoving(null);
+    const holder = targetTakenBy(p.id, repo);
+    if (holder) { setSaid(`${holder.name} already publishes to ${full} on ${onBranch}. Two sites on one repository and branch replace each other's live site, so choose another repository or branch.`); return false; }
     const ok = useBuilds.getState().setRepo(p.id, repo, how);
     if (ok) setSaid(current && current.toLowerCase() !== full.toLowerCase()
       ? `This site publishes to ${full} on ${onBranch} now, not ${current}. ${current} is left as it is, and the board is as it was.`
@@ -502,13 +527,12 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     setMaking(true);
     setSaid(null);
     try {
-      const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name: final }) });
-      const a = await res.json();
+      const a = await askRoute<{ name?: string }>("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name: final }) });
       if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
       /* He said yes to the name and to publishing there, so the switch is not asked again. */
       if (connect(String(a.name), "made", true)) setSaid(`Made ${a.name}. This site publishes to it on ${onBranch}.`);
     } catch {
-      setSaid("Could not reach GitHub from here.");
+      setSaid("The Builder's server could not be reached from this browser.");
     } finally {
       setMaking(false);
     }
@@ -519,31 +543,31 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     if (!own) { setBranches(null); return; }
     setBranchSaid(null);
     try {
-      const res = await fetch(`/api/studio/branches?repo=${encodeURIComponent(own)}`, { headers: token(), cache: "no-store" });
-      const a = await res.json();
+      const a = await askRoute<{ base?: string; branches?: BranchRow[]; more?: number }>(`/api/studio/branches?repo=${encodeURIComponent(own)}`, { headers: token(), cache: "no-store" });
       if (!a.ok) { setBranches(null); setBranchSaid(a.message ?? "GitHub would not list the branches."); return; }
       setBranches({ base: String(a.base ?? "main"), rows: (a.branches ?? []) as BranchRow[], more: Number(a.more ?? 0) });
     } catch {
       setBranches(null);
-      setBranchSaid("Could not reach GitHub from here.");
+      setBranchSaid("The Builder's server could not be reached from this browser.");
     }
   }, [own]);
   React.useEffect(() => { void listBranches(); }, [listBranches]);
 
   /* Main moves here and nowhere else, by his hand, and it asks first: it cannot be undone. */
+  /* Only a site that truly publishes to a branch other than the repository's main one has anything to merge. */
+  const base = branches?.base ?? "main";
+  const mergeFrom = own && ownBranch.toLowerCase() !== base.toLowerCase() ? ownBranch : null;
   const merge = async () => {
-    if (!own || !siteBranch || merging) return;
+    if (!own || !mergeFrom || merging) return;
     setMerging(true);
     setSaid(null);
     try {
-      const res = await fetch("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: siteBranch }) });
-      const a = await res.json();
+      const a = await askRoute("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: mergeFrom }) });
       if (!a.ok) { setSaid(a.message ?? "GitHub would not merge it."); return; }
-      useStudio.getState().setSiteBranch(null);
-      setSaid(a.message ?? `Merged ${siteBranch}.`);
+      setSaid(a.message ?? `Merged ${mergeFrom} into ${base}.`);
       void listBranches();
     } catch {
-      setSaid("Could not reach GitHub from here.");
+      setSaid("The Builder's server could not be reached from this browser.");
     } finally {
       setMerging(false);
     }
@@ -558,14 +582,13 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     setRemoving(row.name);
     setBranchSaid(null);
     try {
-      const res = await fetch("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: row.name }) });
-      const a = await res.json();
+      const a = await askRoute("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: row.name }) });
       if (!a.ok) { setBranchSaid(a.message ?? `GitHub would not delete ${row.name}.`); return; }
       if (row.name === siteBranch) useStudio.getState().setSiteBranch(null);
       setBranches((b) => (b ? { ...b, rows: b.rows.filter((r) => r.name !== row.name) } : b));
       setBranchSaid(a.message ?? `Deleted ${row.name}.`);
     } catch {
-      setBranchSaid("Could not reach GitHub from here.");
+      setBranchSaid("The Builder's server could not be reached from this browser.");
     } finally {
       setRemoving(null);
     }
@@ -575,30 +598,24 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     <section data-repo-section="publish" data-repo-panel-publish="" className="flex flex-col gap-2">
       <div>
         <p className={head}>Publish to</p>
-        {/* A site with none says so in words, never a blank. */}
-        <p data-repo-points="" data-repo-own={own ?? ""} className={cn("truncate text-large font-medium", own ? "text-fg" : "text-fg-muted")}>
-          {own ?? "No repo of its own yet"}
+        {/*
+          ONE LINE, THE SAME WORDS AS BUILDS, REPOS (`targetWords`). There was
+          a big repository name, a line under it, and a red box saying "Edits
+          are on a branch edit/<site>-<date>… Merge into main" while Update
+          live site wrote to main all along: the edit branch was never where a
+          publish went. A site with none says so in words, never a blank.
+        */}
+        <p data-repo-line="" className="text-plain text-fg">
+          {own ? (
+            <>Update live site writes to <span data-repo-points="" data-repo-own={own} className="font-mono font-medium">{own}</span> on <span className="font-mono font-medium">{ownBranch}</span>.</>
+          ) : (
+            <><span data-repo-points="" data-repo-own="" className="font-medium">No repo of its own yet</span>. The first Update live site makes a private repository named after this site, unless you choose one below.</>
+          )}
         </p>
-        <p className="text-small text-fg-muted">
-          {own
-            ? `on ${ownBranch}${canPush ? "" : ". No token in this browser, so a publish cannot push yet"}`
-            : "The first publish makes a private repo named after this site, unless you choose one here."}
-        </p>
+        {project?.source ? <p data-repo-line-source="" className="text-small text-fg-muted">{sourceWords(project)}</p> : null}
+        {own && !canPush ? <p className="text-small text-fg-muted">No GitHub key in this browser, so Update live site cannot write yet.</p> : null}
+        {shared ? <p data-repo-shared="" className="mt-1 rounded-md border px-2 py-1.5 text-small text-fg" style={warn}>{shared}</p> : null}
       </div>
-
-      {siteBranch && own ? (
-        <div data-repo-branch={siteBranch} className="rounded-md border px-2 py-1.5" style={warn}>
-          <p className={head}>Edits are on a branch</p>
-          <p className="truncate font-mono text-plain text-fg" title={siteBranch}>{siteBranch}</p>
-          <p className="mt-0.5 text-small text-fg-muted">
-            The running site stays on main until you merge. Look first:{" "}
-            <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${own}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>.
-          </p>
-          <Button size="sm" variant="outline" data-repo-merge="" disabled={merging} className="mt-1.5 w-full" style={red} onClick={() => { if (window.confirm(`Merge ${siteBranch} into main? The running site changes.`)) void merge(); }}>
-            {merging ? "Merging…" : "Merge into main"}
-          </Button>
-        </div>
-      ) : null}
 
       <label className="flex items-center gap-2 text-small text-fg-muted">
         <span className="shrink-0">Branch to publish to</span>
@@ -624,18 +641,20 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
           <ul className="max-h-[160px] overflow-y-auto">
             {mine.map((r) => {
               const brought = sourceOf(r.name);
+              /* Taken: another site already publishes to this repository on this branch. */
+              const taken = !brought ? allProjects.find((p) => p.id !== project?.id && targetKey(p.repo) === `${r.name}@${onBranch}`.toLowerCase()) ?? null : null;
               return (
                 <li key={r.name}>
                   <button
                     type="button"
                     data-repo-publish-pick={r.name}
-                    disabled={!!brought}
+                    disabled={!!brought || !!taken}
                     onClick={() => { setAsking(null); void connect(r.name); }}
-                    title={brought ? `${r.name} is where ${brought.name} was brought in from, and a site never publishes into that` : `Publish this site to ${r.name} on ${onBranch}`}
+                    title={brought ? `${r.name} is where ${brought.name} was brought in from, and a site never publishes into that` : taken ? `${taken.name} already publishes to ${r.name} on ${onBranch}: choose another repository or branch` : `Publish this site to ${r.name} on ${onBranch}`}
                     className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-plain disabled:opacity-40", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
                   >
                     <span className="truncate">{r.name}</span>
-                    <span className="shrink-0 text-fine text-fg-faint">{brought ? "brought in from" : own === r.name ? "publishes here" : r.private ? "private" : ""}</span>
+                    <span className="shrink-0 text-fine text-fg-faint">{brought ? "brought in from" : taken ? `used by ${taken.name}` : own === r.name ? "publishes here" : r.private ? "private" : ""}</span>
                   </button>
                 </li>
               );
@@ -694,7 +713,7 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
                   <li key={r.name} data-repo-branch-row={r.name} data-repo-branch-unmerged={unmerged ? "1" : "0"} className="flex items-center gap-1.5 py-0.5">
                     <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: unmerged ? "oklch(0.8 0.15 75)" : "oklch(0.6 0.02 260 / 0.5)" }} />
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block truncate font-mono text-small", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{r.name === siteBranch ? " · open here" : ""}</span>
+                      <span className={cn("block truncate font-mono text-small", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{r.name === ownBranch ? " · Update live site writes here" : ""}</span>
                       <span className="block text-small text-fg-faint">
                         {r.updates < 0
                           ? "GitHub would not compare it"
@@ -703,6 +722,11 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
                             : `everything in ${branches.base}`}
                       </span>
                     </span>
+                    {r.name === mergeFrom && unmerged ? (
+                      <Button size="xs" variant="outline" data-repo-merge="" disabled={merging} className="shrink-0" onClick={() => { if (window.confirm(`Merge ${mergeFrom} into ${base}? What ${own} shows on ${base} changes.`)) void merge(); }}>
+                        {merging ? "Merging…" : `Merge into ${base}`}
+                      </Button>
+                    ) : null}
                     <Button size="xs" variant="outline" data-repo-branch-delete={r.name} disabled={removing !== null} className="shrink-0" style={red} onClick={() => void remove(r)}>
                       {removing === r.name ? "Deleting…" : "Delete"}
                     </Button>

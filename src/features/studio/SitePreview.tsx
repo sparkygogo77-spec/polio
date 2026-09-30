@@ -64,9 +64,13 @@ export interface SitePreviewProps {
   width: number;
   /** How tall the card is. The page is cut off at the bottom, like a real fold. */
   height: number;
+  /** Draw only the parts that start above the fold: what a picture of the card needs, and nothing it cannot show (`builds/thumbs.tsx`). */
+  fold?: boolean;
+  /** The whole page, as tall as it is at this width, for a preview that scrolls. */
+  whole?: boolean;
 }
 
-export function SitePreview({ doc, width, height }: SitePreviewProps) {
+export function SitePreview({ doc, width, height, fold, whole }: SitePreviewProps) {
   const view = React.useMemo(() => {
     if (!doc || !doc.pages?.length) return null;
     const page = doc.pages.find((p) => p.id === doc.activePageId) ?? doc.pages[0]!;
@@ -105,9 +109,10 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
   // The whole width, always: a thumbnail that cropped the sides would be
   // showing you a column of one site and a column of another.
   const scale = width / view.frameW;
+  const shown = fold && scale > 0 ? view.nodes.filter((n) => n.y < height / scale) : view.nodes;
 
   return (
-    <div className="relative size-full overflow-hidden rounded-[5px]" style={{ background: view.theme.backdrop }}>
+    <div className={whole ? "relative w-full overflow-hidden rounded-[5px]" : "relative size-full overflow-hidden rounded-[5px]"} style={{ background: view.theme.backdrop, ...(whole ? { height: Math.ceil(view.frameH * scale) } : {}) }}>
       <div
         aria-hidden
         // Inert and unscrollable: a card is a picture of a site, and a part
@@ -118,7 +123,7 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
         style={{ width: view.frameW, height: view.frameH, transform: `scale(${scale})`, ...(view.theme.surfaceStyle ?? { background: view.theme.backdrop }) }}
       >
         {view.wash ? <div className="absolute inset-0" style={{ backgroundImage: view.wash }} /> : null}
-        {view.nodes.map((n) => (
+        {shown.map((n) => (
           <div key={n.id} className="absolute overflow-hidden" style={{ left: n.x, top: n.y, width: n.w, height: n.h }}>
             <Block
               node={n}
@@ -138,7 +143,7 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
       ) : null}
       {/* The fold: the page runs on past the card, and says so rather than
           stopping dead on a cut-off part. */}
-      {view.frameH * scale > height ? (
+      {!whole && view.frameH * scale > height ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/45 to-transparent" />
       ) : null}
     </div>

@@ -2869,14 +2869,32 @@ carry why a thing arrived.
   defaults on every other page.
 - **The same list is in the top bar** (`SwitchButton`, a `topBarItems`
   contribution) and is not there until there are two sites to switch between.
-- **A card leads with the site, not with its counts.** `SitePreview` renders
-  the project's own document — real parts, real palette, real texture, real
-  light — at the frame's true width, scaled to the card, in `board` mode. It
-  is the render, not a picture of it: nothing to store, nothing to go stale,
-  and a project whose colour changed looks changed. The name and the options
-  bar sit under it, and the bar is pushed to the foot (`mt-auto`) so the bars
-  line up across a row whatever each card had to say above them.
-
+- **A card leads with the site, not with its counts, as a picture.** The
+  card used to draw the whole site live (`SitePreview`): with the owner's
+  sites that was 30,890 page elements and 470 keyboard stops on one page.
+  Now each site is drawn once, off screen, inert, down to the card's fold,
+  turned into a small WebP (`builds/thumbs.tsx`: the markup and the page's
+  styles in an SVG `foreignObject`, pictures inlined as data) and kept in
+  IndexedDB with a signature of the document, so it is made again only when
+  the site changes. The card's Preview opens the live render on demand in a
+  dialog Escape closes. The name and the options bar sit under it, and the
+  bar is pushed to the foot (`mt-auto`) so the bars line up across a row.
+  `tests/builds-thumbs.mjs`.
+- **Two sites never share a publish target** (`sharedTarget` in
+  `builds/store.ts`). A target is a repository and a branch. The site that
+  last published there keeps it (`published`, else `live`); every other
+  site naming it has Update live site off with a sentence naming the keeper,
+  flagged in the repository menu, the site switcher, the card and Builds,
+  Repos. `setRepo` refuses a target another site holds, and a duplicate
+  starts with none. Nothing changes a site's stored target on its own.
+  `tests/shared-target.mjs`.
+- **A publish is said in plain steps** (`studio/publishWords.ts`): Saving to
+  GitHub…, Saved to GitHub ✓ waiting for Vercel…, Live ✓ with the time and
+  the address. A failure is one sentence saying whether the change is saved
+  and what to do (Vercel's daily limit with its reset time, the Builder's
+  own server with its status code, a missing key, GitHub unreachable); what
+  the provider said is behind "details". `tests/publish-status-line.mjs`,
+  `tests/publish-words.mjs`.
 ---
 
 ## 2b-iii. The tour (`src/features/tour`)
@@ -3209,17 +3227,19 @@ remove it from `src/features/index.ts` when you're sure.
   with one `<span data-molten="" />` inside it carrying the edge, the flare
   and the ember. `tests/molten.mjs` holds the whole of it, including that
   no other file declares one.
-- **What has landed is read, not written** (`scripts/passes.mjs`, `npm run
-  passes`). There is no changelog file and there will not be one: writing a
-  line per commit is a chore that was killed on purpose and stays dead. The
-  Updates slide over is generated out of git — a **pass** is one merge into
-  the branch (or one day of commits that landed straight on it), and the
-  commits it carried are the lines, because merge subjects say nothing you
-  could use. Run `npm run passes` after a merge: the deployed build has no
-  `.git`, so the answer is checked in as `passes.generated.ts` and must not
-  be hand-edited. The panel leads with the feature and folds the specifics;
-  it borrows the timeline's own cards (`FIELD`, `Row` from `TimelineDetail`)
-  rather than inventing a second way to show a list of things that happened.
+- **What has landed is read, not written, and current on its own**
+  (`/api/updates`, `studio/landed.ts`). There is no changelog file and there
+  will not be one. The Updates slide over asks `/api/updates` when it opens:
+  GitHub's commits API from the very commit the deployment was built from
+  (`VERCEL_GIT_COMMIT_SHA`, repository from `VERCEL_GIT_REPO_OWNER`/`SLUG`),
+  so the list is exactly what is live whatever depth Vercel cloned at; a
+  list for one commit is kept for the function's life and cached ten
+  minutes at the edge. Where GitHub cannot answer it reads `git log`, and
+  last the checked-in snapshot `passes.generated.ts` (`npm run passes`),
+  saying which it used. One plain line per change, newest first, under its
+  day, with the live version and build time on top; merges, a check
+  committed red, repeats and lines about the making (`aboutTheSite`) are
+  left out. `tests/updates-current.mjs`.
 - **Ask the deployment, not a dev server** (`tests/deploy-check.mjs`, `npm run
   check:deploy`). Every other suite here talks to localhost, which is how a
   cube drawn on the live site did nothing: the work had never reached trunk

@@ -95,9 +95,13 @@ check("…and ten of them makes the point move, so v0.9 is followed by v1.0", ((
   const at = (n) => `v${Math.floor(n / 10)}.${n % 10}`;
   return at(9) === "v0.9" && at(10) === "v1.0" && at(11) === "v1.1" && at(1) === "v0.1";
 })());
-check("a box leads with the version and not with the date", (() => {
+/* The panel no longer shows the snapshot's numbered boxes: the owner read
+   "V1.6" as where the history stopped. It shows one line per change under
+   the day it landed, asked of `/api/updates` (tests/updates-current.mjs);
+   the snapshot is what it falls back to, and the checks above hold it. */
+check("the panel shows no numbered boxes", (() => {
   const src = readFileSync("src/features/studio/Updates.tsx", "utf8");
-  return /title=\{`\$\{versionOf\(pass\)\}/.test(src) && !/\$\{pass\.day\}/.test(src);
+  return !/versionOf\(/.test(src) && /\/api\/updates/.test(src);
 })());
 check("no pass is a wall: twelve lines at most, the rest counted",
   PASSES.every((p) => p.changes.length <= 12 && p.more >= 0));
@@ -138,13 +142,14 @@ check("and there are no specifics folded under it to blow that out",
 /* ------------------------------------------------------------------ */
 
 const panel = readFileSync("src/features/studio/Updates.tsx", "utf8");
-check("it borrows the timeline's cards rather than inventing a second way",
-  /from "\.\/TimelineDetail"/.test(panel) && /\bRow\b/.test(panel) && /\bFIELD\b/.test(panel));
+check("it borrows the timeline's colours rather than inventing a second way",
+  /from "\.\/TimelineDetail"/.test(panel) && /\bFIELD\b/.test(panel));
+check("a list that can run past a hundred lines is windowed", /VirtualList/.test(panel));
 check("it is a slide over standing on nearly the whole screen",
   /fixed/.test(panel) && /w-\[calc\(100vw-1\.5rem\)\]/.test(panel) && /100dvh/.test(panel));
 check("the lines stay in a column a person can read", /max-w-\[1100px\]/.test(panel));
 check("Escape and a press outside close it", /D\.Root/.test(panel) && /D\.Overlay/.test(panel));
-check("there is nothing to fold, so nothing holds an open state", !/React\.useState\(false\)/.test(panel));
+check("there is nothing to fold, so nothing holds an open state", !/const \[(open|folded|expanded|unfolded)\w*, set/i.test(panel) && !/<details/.test(panel));
 
 const bar = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
 check("one control was added to the bar, no more",
