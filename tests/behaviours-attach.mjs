@@ -151,8 +151,9 @@ const rawIds = new Set(JSON.parse(raw).nodes.map((x) => x.id));
 const added = nodes.filter((n) => !rawIds.has(n.id));
 const particles = (B.motion?.canvases ?? []).filter((c) => c.kind === "particles").length;
 check("control: the only parts added are the Dust layers, one for each repainted canvas", added.length === particles && added.every((n) => usesOf(n.work).some((u) => u.id === "dust-canvas") && n.inert === true), J(added.map((n) => n.id)));
-const moved = nodes.filter((n) => rawIds.has(n.id)).filter((n) => { const o = JSON.parse(raw).nodes.find((x) => x.id === n.id); const { work, motion, art, ...a } = n; const { work: w2, motion: m2, art: a2, ...b } = o; return J(a) !== J(b); });
-check("control: attaching changes nothing about a part but its features (and a light's handed-over blink)", moved.length === 0, moved.map((n) => n.id).join());
+const moved = nodes.filter((n) => rawIds.has(n.id)).filter((n) => { const o = JSON.parse(raw).nodes.find((x) => x.id === n.id); const { work, motion, art, ...a } = n; const { work: w2, motion: m2, art: a2, ...b } = o; if (lights.includes(n.id) && !("opacity" in a)) delete b.opacity; return J(a) !== J(b); });
+/* A light's captured opacity is read mid-blink, so attaching drops it (library/captured.ts, "A LOOP'S STOPS ARE THE RULE'S"): dropped is allowed, changed is not. */
+check("control: attaching changes nothing about a part but its features (and a light's handed-over blink and mid-blink opacity)", moved.length === 0, moved.map((n) => n.id).join());
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
