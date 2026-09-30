@@ -293,10 +293,22 @@ await pub.p.waitForTimeout(900);
 const er2 = await at(pub.p, DISC, "rotate"), ef2 = await at(pub.p, MOON, "translate"), ec2 = await canvasSum(pub.p, `#${DUST} canvas[data-feature-layer]`);
 check("published: the disc turns, the moon floats, the dust drifts", er1 !== er2 && ef1 !== ef2 && ec1 !== null && ec1 !== ec2, J({ er1, er2, ef1, ef2, ec1, ec2 }));
 const cb = await pub.p.locator(`#${CARD}`).boundingBox();
+/*
+ * The published page puts the parts a tilting card owns inside the card
+ * (exportSite.ts#carryOwned, 9924e53): the card's one turn turns them, and
+ * the tilt turns only what is not inside it already. So a part inside the
+ * card carries no turn of its own (a second would turn it twice) and its
+ * box goes with the card's; a part outside carries the card's turn, as the
+ * Preview's do.
+ */
+const boxes = () => pub.p.evaluate((ids) => ids.map((id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? [r.x, r.y, r.width, r.height] : null; }), [CARD, ...inCard]);
+const rest = await boxes();
 await pub.p.mouse.move(cb.x + cb.width * 0.2, cb.y + cb.height * 0.2, { steps: 6 });
 await pub.p.waitForTimeout(400);
-const pt = await pub.p.evaluate(({ card, inner }) => [card, ...inner].map((id) => document.getElementById(id)?.style.transform ?? ""), { card: CARD, inner: inCard });
-check("published: the card and its heading tilt together toward the pointer", pt.every((t) => /rotateY\(-\d/.test(t)) && new Set(pt.map((t) => t.split(")").slice(0, 3).join(")"))).size === 1, J(pt));
+const pt = await pub.p.evaluate(({ card, inner }) => { const c = document.getElementById(card); return [card, ...inner].map((id) => { const el = document.getElementById(id); return { t: el?.style.transform ?? "", inside: !!el && el !== c && c.contains(el) }; }); }, { card: CARD, inner: inCard });
+const turned = await boxes();
+const own = pt[0].t, moved = (i) => !!rest[i] && !!turned[i] && rest[i].some((v, k) => Math.abs(v - turned[i][k]) > 0.5);
+check("published: the card and its heading tilt together toward the pointer", /rotateY\(-\d/.test(own) && pt.slice(1).every((p, i) => (p.inside ? p.t === "" : p.t.split(")").slice(0, 3).join(")") === own.split(")").slice(0, 3).join(")")) && moved(i + 1)) && moved(0), J({ pt, rest, turned }));
 await pub.p.mouse.move(cb.x - 40, cb.y - 60, { steps: 4 });
 await pub.p.waitForTimeout(300);
 const prate = () => pub.p.evaluate((id) => document.querySelector(`#${id} [data-marquee-track]`)?.getAnimations()[0]?.playbackRate ?? null, TRACK);
