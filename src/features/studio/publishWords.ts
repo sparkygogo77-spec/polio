@@ -19,7 +19,9 @@
 export type PublishStep =
   | { at: "saving"; site?: string }
   | { at: "waiting"; site?: string; saved?: { repo: string; branch: string } }
-  | { at: "live"; site?: string; url: string; when: number }
+  | { at: "live"; site?: string; url: string; when: number;
+      /** Vercel's page for this deployment, and GitHub's page for the commit it built: both what the publish itself answered. */
+      deployment?: string | null; commit?: string | null }
   | { at: "failed"; site?: string; failure: PlainFailure };
 
 export type FailureKind = "vercel-limit" | "server" | "no-key" | "github-unreachable" | "github" | "vercel" | "build" | "not-started" | "blocked";

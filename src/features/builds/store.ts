@@ -56,8 +56,22 @@ export interface Project {
   source?: { owner: string; name: string; branch: string; dir?: string | null };
   /** The new-site offer was answered: nothing to offer again. */
   offered?: boolean;
-  /** Where it went live, the last time it did. */
-  live?: { url: string; at: number };
+  /**
+   * Where it went live, the last time it did, and Vercel's own page for
+   * that deployment when the publish brought one back (`inspectorUrl`).
+   */
+  live?: { url: string; at: number; inspectorUrl?: string | null };
+  /**
+   * When a person last changed the board (`builds/edits.ts`): an edit, an
+   * undo, a redo. Kept here, beside the name, so the Builds page can say
+   * whether there are changes not yet published without reading the
+   * document. Absent on a site nobody has changed since this was kept.
+   */
+  editedAt?: number;
+  /** When this site was last downloaded as a backup file (`studio/backup.ts`). */
+  backedUpAt?: number;
+  /** The one reminder to back it up or publish it has been shown. */
+  nudged?: boolean;
   /**
    * A deployment Go live started and has not seen end. Kept here, not in
    * the page, so a reload or a closed tab does not lose it: the Builder
@@ -71,7 +85,13 @@ export interface Project {
    * (`sharedTarget`); `live.at` stands in for a site that published before
    * this was kept.
    */
-  published?: { at: number; repo: string; branch: string };
+  published?: {
+    at: number; repo: string; branch: string;
+    /** The commit the push made, and its page on GitHub: what the publish itself answered, nothing asked again. */
+    sha?: string; commitUrl?: string;
+    /** The board's `editedAt` when its pages were written for this push: a later edit is not in it. */
+    editedAt?: number;
+  };
 }
 
 /** What a project's document says about itself, for the row that lists it. */
@@ -108,11 +128,19 @@ interface Builds {
   setSource: (id: string, source: Project["source"]) => void;
   /** The new site's offer was taken or declined. */
   setOffered: (id: string) => void;
-  setLive: (id: string, url: string) => void;
+  setLive: (id: string, url: string, inspectorUrl?: string | null) => void;
+  /** A person changed the open board at this time. */
+  setEdited: (id: string, at: number) => void;
+  /** It was downloaded as a backup just now. */
+  setBackedUp: (id: string) => void;
+  /** The reminder to back it up has been shown, and is not shown again. */
+  setNudged: (id: string) => void;
+  /** A site read out of a backup file, as a new site beside the rest (`studio/backup.ts`). Its id. */
+  restore: (p: Omit<Project, "id">, raw: string) => Promise<string>;
   /** The deployment being waited on, or none. */
   setPending: (id: string, pending: Project["pending"]) => void;
   /** A push from this site went through, to this repository and branch. */
-  setPublished: (id: string, repo: string, branch: string) => void;
+  setPublished: (id: string, repo: string, branch: string, more?: { sha?: string; commitUrl?: string; editedAt?: number }) => void;
   /** Write the open document back to its own slot. */
   save: () => Promise<void>;
 }
@@ -273,7 +301,7 @@ export const useBuilds = create<Builds>()(
           /* A copy never shares its original's publish target: two sites on
              one repository and branch replace each other's live site. Its
              first publish makes a repository of its own (`sharedTarget`). */
-          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined }, ...s.projects],
+          projects: [{ ...from, id: copy, name: `${from.name} copy`, updatedAt: Date.now(), live: undefined, pending: undefined, published: undefined, repo: undefined, bound: undefined, backedUpAt: undefined, nudged: undefined }, ...s.projects],
         }));
       },
 
@@ -312,14 +340,31 @@ export const useBuilds = create<Builds>()(
       setOffered: (id) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, offered: true } : p)) })),
 
-      setLive: (id, url) =>
-        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, live: { url, at: Date.now() } } : p)) })),
+      setLive: (id, url, inspectorUrl) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, live: { url, at: Date.now(), ...(inspectorUrl ? { inspectorUrl } : {}) } } : p)) })),
+
+      setEdited: (id, at) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, editedAt: at } : p)) })),
+
+      setBackedUp: (id) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, backedUpAt: Date.now() } : p)) })),
+
+      setNudged: (id) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, nudged: true } : p)) })),
+
+      /* Beside the others, never over one: a backup loaded is a new site, and the one open stays as it is. */
+      restore: async (p, raw) => {
+        const id = uid();
+        await write(slot(id), raw);
+        set((s) => ({ projects: [{ ...p, id, updatedAt: Date.now() }, ...s.projects] }));
+        return id;
+      },
 
       setPending: (id, pending) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, pending } : p)) })),
 
-      setPublished: (id, repo, branch) =>
-        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, published: { at: Date.now(), repo, branch } } : p)) })),
+      setPublished: (id, repo, branch, more) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, published: { at: Date.now(), repo, branch, ...(more ?? {}) } } : p)) })),
     }),
     {
       name: "builder.builds",

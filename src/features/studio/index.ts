@@ -1,4 +1,4 @@
-import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Wand2, ZoomIn } from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
@@ -6,6 +6,7 @@ import { GoLiveButton } from "./GoLiveButton";
 import { openRepoPicker, RepoMenuHost } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
+import { SaveLine } from "./SaveLine";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
@@ -175,6 +176,8 @@ export const studio = defineFeature({
     /* Work in flight goes on the near side of the bell, where the eye already
        looks to find out what is happening; the repository link is a control
        and stays over with the rest of them. */
+    /* Whether the board is kept, and its backups: a glance, before the work in flight (`SaveLine.tsx`). */
+    { id: "studio.saved", order: 5, slot: "status", component: SaveLine },
     { id: "studio.queue", order: 10, slot: "status", component: QueueStrip },
     { id: "studio.github", order: 20, component: GithubButton },
     /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
@@ -185,6 +188,33 @@ export const studio = defineFeature({
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },
+    /* The board as one file, and back again (`backup.ts`): also on the save line and on each card on Builds. */
+    {
+      id: "studio.backup.download",
+      label: "Download a backup of this site",
+      group: "Builder",
+      icon: Download,
+      keywords: ["backup", "save", "export", "file", "keep", "copy"],
+      run: async (c) => {
+        const { downloadBackup } = await import("./backup");
+        const { useBuilds } = await import("@/features/builds/store");
+        const id = useBuilds.getState().activeId;
+        const r = id ? await downloadBackup(id) : { ok: false, says: "No site is open, so there is nothing to back up." };
+        c.publish({ key: "studio:backup", title: r.ok ? "Backup downloaded" : "No backup made", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
+      },
+    },
+    {
+      id: "studio.backup.load",
+      label: "Load a backup as a new site",
+      group: "Builder",
+      icon: Upload,
+      keywords: ["backup", "restore", "import", "file", "open", "load"],
+      run: async (c) => {
+        const { pickAndLoadBackup } = await import("./backup");
+        const r = await pickAndLoadBackup();
+        if (r) c.publish({ key: "studio:backup-load", title: r.ok ? "Backup loaded" : "Not loaded", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
+      },
+    },
     /* He searched the palette for "import" and for "site" and found nothing
        but "put every removed part back". Both words are keywords here. */
     {

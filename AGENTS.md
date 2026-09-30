@@ -2936,6 +2936,26 @@ carry why a thing arrived.
   own server with its status code, a missing key, GitHub unreachable); what
   the provider said is behind "details". `tests/publish-status-line.mjs`,
   `tests/publish-words.mjs`.
+- **Whether a site has changes not yet published is read off the site, not
+  the document** (`builds/publishState.ts`, `builds/edits.ts`). The studio
+  store tells `onBoardEdit` listeners when a person changes the board (a
+  checkpoint, a typing run, undo, redo, a jump in the history; never the
+  board settling itself), and the time is written on the site as
+  `editedAt`. A push records the `editedAt` its pages were written from,
+  with the commit's sha and page (`published`), and a READY deployment
+  keeps Vercel's page for it (`live.inspectorUrl`), all from what the
+  publish already answered. The card says "Changes not published yet: last
+  change …, last publish …" and carries the two links; nothing on Builds
+  opens a document or asks a route for it. `tests/builds-changes.mjs`.
+- **A site goes to one file and back** (`studio/backup.ts`). Download a
+  backup (the save line in the top bar, each card, ⌘K) writes
+  `{ kind: "polio-board-backup", version, site, document, pictures }`:
+  the document envelope exactly as the store persists it, and every
+  picture's bytes found anywhere in it. Load a backup always makes a new
+  site beside the others and never takes another site's publish target. A
+  newer `version` is refused in words; bump it only when an older reader
+  would misread the file, so a later server-side home can read the same
+  files. Nothing from the Keys panel is ever in one. `tests/board-backup.mjs`.
 ---
 
 ## 2b-iii. The tour (`src/features/tour`)
@@ -3240,6 +3260,18 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **Undo names its step, and the steps are a list** (`HistoryControls.tsx`,
+  `historyNames.ts`). A step is named by comparing the two documents either
+  side of it, never by the action that took the checkpoint, so every kind
+  of edit has a name without saying one: "Undo: move COPY CA". The list
+  beside the keys shows the last fifty, newest first; a press goes there in
+  one change of state (`travel`), not fifty undos. A new kind of edit that
+  reads as "an edit" wants a line in `stepName`. `tests/undo-history.mjs`.
+- **The save line** (`SaveLine.tsx`, a `status` item in the top bar, only in
+  the Builder) says "Saved in this browser, 12:04" off `docStore.ts`'s
+  `onSave`, never "Saving…" on every edit, and red when the browser would
+  not keep it. It opens the backups, and once per site that was never
+  backed up or published it opens by itself after ten edits (`nudged`).
 - **One molten surface, not two reds that nearly match**
   (`src/core/ui/molten.css`, handle in `src/core/ui/molten.ts`). Glowing
   constructs — the timeline's iteration boxes, the element cards — are one

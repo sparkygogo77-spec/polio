@@ -53,12 +53,13 @@ async function idbGet(key: string): Promise<string | null> {
   if (!ok()) return null;
   try { const v = await ask((await shelf("readonly")).get(key)); return typeof v === "string" ? v : null; } catch { return null; }
 }
-async function idbSet(key: string, value: string | null): Promise<void> {
-  if (!ok()) return;
+async function idbSet(key: string, value: string | null): Promise<boolean> {
+  if (!ok()) return false;
   try {
     const s = await shelf("readwrite");
     if (value === null) await ask(s.delete(key)); else await ask(s.put(value, key));
-  } catch { /* storage off: the mirror is what there is */ }
+    return true;
+  } catch { /* storage off: the mirror is what there is */ return false; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -188,15 +189,39 @@ export function mirrorText(value: string, max = MIRROR_MAX): { kind: "full" | "p
 export function readMirror(key: string): string | null {
   try { return store()?.getItem(key) ?? null; } catch { return null; }
 }
-function writeMirror(key: string, value: string | null): void {
+/** True when localStorage holds the whole document (not only a pointer to it). */
+function writeMirror(key: string, value: string | null): boolean {
   const ls = store();
-  if (!ls) return;
+  if (!ls) return false;
   try {
-    if (value === null) { ls.removeItem(key); return; }
+    if (value === null) { ls.removeItem(key); return true; }
     const m = mirrorText(value);
-    try { ls.setItem(key, m.text); return; } catch { /* over quota all the same: a pointer, below */ }
+    try { ls.setItem(key, m.text); return m.kind !== "pointer"; } catch { /* over quota all the same: a pointer, below */ }
     if (m.kind !== "pointer") ls.setItem(key, pointerFor(value));
   } catch { /* private mode, or nothing left: IndexedDB holds it */ }
+  return false;
+}
+
+/*
+ * WHETHER THE WORK ON SCREEN IS KEPT, for the line in the top bar
+ * (`SaveLine.tsx`). A key is "saving" from the write until IndexedDB has it,
+ * then "saved" with the time, or "failed" when neither IndexedDB nor
+ * localStorage would take the whole document.
+ */
+export interface SaveState { state: "saving" | "saved" | "failed"; at: number }
+const saves = new Map<string, SaveState>();
+const saveListeners = new Set<() => void>();
+function said(key: string, st: SaveState): void {
+  saves.set(key, st);
+  for (const fn of saveListeners) { try { fn(); } catch { /* its own trouble */ } }
+}
+/** How the last write of this key went, or null when nothing has been written this visit. */
+export function saveStateOf(key: string): SaveState | null {
+  return saves.get(key) ?? null;
+}
+export function onSave(fn: () => void): () => void {
+  saveListeners.add(fn);
+  return () => { saveListeners.delete(fn); };
 }
 
 /* ------------------------------------------------------------------ */
@@ -234,13 +259,17 @@ export function readDoc(key: string): string | null | Promise<string | null> {
 const pending = new Map<string, string | null>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 let inFlight: Promise<void> = Promise.resolve();
+const mirrored = new Map<string, boolean>();
 function flushKey(key: string): void {
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
   if (!pending.has(key)) return;
   const value = pending.get(key) ?? null;
   pending.delete(key);
-  inFlight = inFlight.then(() => idbSet(key, value));
+  inFlight = inFlight.then(async () => {
+    const kept = await idbSet(key, value);
+    if (!pending.has(key)) said(key, kept || mirrored.get(key) ? { state: "saved", at: Date.now() } : { state: "failed", at: Date.now() });
+  });
 }
 /** Every write not yet in IndexedDB, written. */
 export async function flushDocs(): Promise<void> {
@@ -253,7 +282,8 @@ if (typeof document !== "undefined") {
 
 /** A document written: the mirror now, IndexedDB a moment later. */
 export function writeDoc(key: string, value: string | null): void {
-  writeMirror(key, value);
+  mirrored.set(key, writeMirror(key, value));
+  if (saves.get(key)?.state !== "saving") said(key, { state: "saving", at: Date.now() });
   pending.set(key, value);
   const t = timers.get(key);
   if (t) clearTimeout(t);
@@ -261,9 +291,10 @@ export function writeDoc(key: string, value: string | null): void {
 }
 /** A document written and in IndexedDB before this returns: for moving one between keys. */
 export async function writeDocNow(key: string, value: string | null): Promise<void> {
-  writeMirror(key, value);
+  const whole = writeMirror(key, value);
   pending.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
-  await idbSet(key, value);
+  const kept = await idbSet(key, value);
+  said(key, kept || whole ? { state: "saved", at: Date.now() } : { state: "failed", at: Date.now() });
 }

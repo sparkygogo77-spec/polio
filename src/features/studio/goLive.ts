@@ -16,6 +16,7 @@
 import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, sharedTargetSays, useBuilds } from "@/features/builds/store";
+import { flushEdits, lastEdit } from "@/features/builds/edits";
 import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { exportSite, publishedAt } from "./exportSite";
@@ -96,7 +97,7 @@ export async function followDeployment(projectId: string, dep: { id: string; tea
   if (builds.projects.find((p) => p.id === projectId)?.pending?.id !== dep.id) builds.setPending(projectId, { id: dep.id, team: dep.team, at: Date.now() });
   try {
     const end = await watchDeploy(dep.id, { team: dep.team, onState });
-    if (end.state === "READY" && end.url) useBuilds.getState().setLive(projectId, end.url);
+    if (end.state === "READY" && end.url) useBuilds.getState().setLive(projectId, end.url, end.inspectorUrl);
     if (end.state === "READY" || end.state === "ERROR" || end.state === "CANCELED") useBuilds.getState().setPending(projectId, undefined);
     return end;
   } finally {
@@ -303,6 +304,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
      * no og:url, and the next publish, once live, fills them.
      */
     const address = publishedAt() ? null : await productionAddress({ repo, sources });
+    /* The board's last change as the pages are written: an edit after this is not in the push (`builds/publishState.ts`). */
+    flushEdits();
+    const carried = lastEdit() ?? Date.now();
     /* Files the pages point at that nothing provides: a warning beside the status, never a stop (`siteRefs.ts`). */
     const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
       set({ warned: { says, siteId: here?.id ?? null } });
@@ -317,7 +321,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       say({ key: "studio:publish", title: "Not saved", body: plainly, level: "error", source: "studio", toast: true });
       return;
     }
-    if (project) useBuilds.getState().setPublished(project.id, pushed.repo, pushed.branch);
+    if (project) useBuilds.getState().setPublished(project.id, pushed.repo, pushed.branch, { sha: pushed.sha, commitUrl: pushed.commitUrl, editedAt: carried });
     set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook }, step: { at: "waiting", saved: { repo: pushed.repo, branch: pushed.branch }, siteId: here?.id ?? null } });
     const saved = { repo: pushed.repo, branch: pushed.branch };
     /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */
@@ -349,7 +353,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       ? await followDeployment(project.id, { id: started.id, team: started.team }, onState)
       : await watchDeploy(started.id, { team: started.team, onState });
     if (end.state === "READY" && end.url) {
-      set({ refused: null, step: { at: "live", url: end.url, when: Date.now(), siteId: here?.id ?? null } });
+      set({ refused: null, step: { at: "live", url: end.url, when: Date.now(), deployment: end.inspectorUrl ?? started.inspectorUrl ?? null, commit: pushed.commitUrl ?? null, siteId: here?.id ?? null } });
       useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
       say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
     } else {

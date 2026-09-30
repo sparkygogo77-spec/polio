@@ -1214,6 +1214,12 @@ interface StudioState extends Doc {
   loadDoc: (doc: Partial<Doc> & { frameWidth?: number }) => void;
   undo: () => void;
   redo: () => void;
+  /**
+   * Go back (negative) or forward (positive) this many steps at once, as one
+   * change of state: the history list's press. Fifty undos in a row would be
+   * fifty saves of the whole document.
+   */
+  travel: (steps: number) => void;
   commit: () => void;
 }
 
@@ -1355,7 +1361,8 @@ function inherit(
   };
 }
 
-function snapshot(s: StudioState): Doc {
+/** The document as a step in the history holds it: what undo puts back. */
+export function snapshot(s: StudioState): Doc {
   return {
     pages: s.pages,
     nodes: s.nodes,
@@ -1551,6 +1558,22 @@ function shelve(repos: BroughtRepo[], parts: BroughtPart[]): void {
   );
 }
 
+/*
+ * WHEN THE BOARD WAS LAST CHANGED BY A PERSON, told to whoever asks.
+ *
+ * Every edit takes a checkpoint (`push`) or rides one (`pushEdit`), and undo,
+ * redo and a jump in the history change the board too; each of those calls
+ * this. What the board does to itself (a settle, a quiet write) does not,
+ * so "changed since it was published" means a person changed it. The Builds
+ * page reads the time off the site (`builds/edits.ts`), never the document.
+ */
+const editListeners = new Set<() => void>();
+export function onBoardEdit(fn: () => void): () => void {
+  editListeners.add(fn);
+  return () => { editListeners.delete(fn); };
+}
+const edited = () => { for (const fn of editListeners) { try { fn(); } catch { /* a listener's trouble is its own */ } } };
+
 export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
@@ -1608,6 +1631,7 @@ export const useStudio = create<StudioState>()(
         seed();
         run = null;
         pushes++;
+        edited();
         set((s) => ({
           past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
           future: [],
@@ -1632,7 +1656,7 @@ export const useStudio = create<StudioState>()(
       let run: { key: string; at: number } | null = null;
       const pushEdit = (key: string) => {
         const now = Date.now();
-        if (run && run.key === key && now - run.at < EDIT_RUN_MS) { run.at = now; return; }
+        if (run && run.key === key && now - run.at < EDIT_RUN_MS) { run.at = now; edited(); return; }
         push();
         run = { key, at: now };
       };
@@ -3024,6 +3048,7 @@ export const useStudio = create<StudioState>()(
           set((s) => {
             const prev = s.past[s.past.length - 1];
             if (!prev) return {};
+            edited();
             // Whatever was being typed is over: the next letter is a new edit.
             run = null;
             return {
@@ -3039,6 +3064,7 @@ export const useStudio = create<StudioState>()(
           set((s) => {
             const next = s.future[0];
             if (!next) return {};
+            edited();
             run = null;
             return {
               ...next,
@@ -3046,6 +3072,38 @@ export const useStudio = create<StudioState>()(
               future: s.future.slice(1),
               selection: [],
               activePageId: next.pages.some((p) => p.id === s.activePageId) ? s.activePageId : next.pages[0]!.id,
+            };
+          }),
+
+        travel: (steps) =>
+          set((s) => {
+            if (!steps || (steps < 0 ? !s.past.length : !s.future.length)) return {};
+            run = null;
+            edited();
+            const doc = snapshot(s);
+            if (steps < 0) {
+              const n = Math.min(-steps, s.past.length);
+              if (!n) return {};
+              const to = s.past[s.past.length - n]!;
+              /* The documents stepped over go onto redo in order: nearest first. */
+              const over = [...s.past.slice(s.past.length - n + 1), doc];
+              return {
+                ...to,
+                past: s.past.slice(0, s.past.length - n),
+                future: [...over, ...s.future].slice(0, HISTORY_LIMIT),
+                selection: [],
+                activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,
+              };
+            }
+            const n = Math.min(steps, s.future.length);
+            if (!n) return {};
+            const to = s.future[n - 1]!;
+            return {
+              ...to,
+              past: [...s.past, doc, ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
+              future: s.future.slice(n),
+              selection: [],
+              activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,
             };
           }),
 

@@ -10,8 +10,9 @@ import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
+import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
 import { ImportStrip } from "./FromASite";
 import { BringRepoDoor } from "./RepoPicker";
@@ -57,7 +58,6 @@ import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
-import { PROCESS } from "./threads";
 import { publish, studioDoc } from "./agent";
 
 /**
@@ -380,8 +380,6 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const inkHue = useStudio((s) => s.inkHue);
   const frameWidth = useStudio((s) => s.frameWidth);
   const showWires = useStudio((s) => s.showWires);
-  const past = useStudio((s) => s.past.length);
-  const future = useStudio((s) => s.future.length);
   const shape = useStudio((s) => s.menuShape);
   const menuOpen = useRadialOpen();
   const router = useRouter();
@@ -574,28 +572,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
-      {/* Back is red, forward is green — the same pair as every process
-          state in the app, because undo and redo are the same question:
-          is this going back or going on. Only when there is something to
-          undo: a disabled control that still wears a colour is a lie. */}
-      <Tooltip content="Undo" shortcut="mod+z">
-        <Button
-          variant="ghost" size="iconXs" aria-label="Undo" disabled={!past}
-          style={past ? { color: PROCESS.open } : undefined}
-          onClick={() => useStudio.getState().undo()}
-        >
-          <Undo2 />
-        </Button>
-      </Tooltip>
-      <Tooltip content="Redo" shortcut="mod+shift+z">
-        <Button
-          variant="ghost" size="iconXs" aria-label="Redo" disabled={!future}
-          style={future ? { color: PROCESS.done } : undefined}
-          onClick={() => useStudio.getState().redo()}
-        >
-          <Redo2 />
-        </Button>
-      </Tooltip>
+      {/* Undo and redo, each naming its step, and the list of steps behind them (`HistoryControls.tsx`). */}
+      <HistoryControls />
 
       {/* `shrink-0` so the three are one thing. Cut in half is the worst of
           the three states: at 375 the minus was on screen and the plus was

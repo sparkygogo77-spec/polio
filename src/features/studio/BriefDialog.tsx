@@ -23,6 +23,7 @@
  * Nothing needs a key to work: without one you copy or download the same
  * things and hand them to any agent, and the book says so where it matters.
  */
+import { flushEdits, lastEdit } from "@/features/builds/edits";
 import * as React from "react";
 import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Pin, PinOff, Search, Sparkles, Wand2, X } from "lucide-react";
 import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
@@ -618,6 +619,9 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       ctx.publish({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
       return;
     }
+    /* The board's last change as its pages are written: what this push carries (`builds/publishState.ts`). */
+    flushEdits();
+    const carried = lastEdit() ?? Date.now();
     const going = await everything();
     setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
@@ -632,7 +636,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         sources,
       });
       remember(project, r.created, r.ok ? r.branch : branch);
-      if (r.ok && project) useBuilds.getState().setPublished(project.id, r.repo, r.branch);
+      if (r.ok && project) useBuilds.getState().setPublished(project.id, r.repo, r.branch, { sha: r.sha, commitUrl: r.commitUrl, editedAt: carried });
       if (r.ok) {
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
         // Written on the live thread's card, because this is what that

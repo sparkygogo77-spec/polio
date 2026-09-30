@@ -23,6 +23,7 @@ import { keysReady, useKeys } from "@/features/keys/store";
 import { deployStatus, publishStatus } from "./agent";
 import { goLive, useGoLive } from "./goLive";
 import { stepWords } from "./publishWords";
+import { PublishLinks } from "./PublishLinks";
 import { Popover } from "@/core/ui/popover";
 import { openRepoPicker } from "./RepoPicker";
 import { useStudio } from "./store";
@@ -93,9 +94,13 @@ export function GoLiveButton() {
       <span className="flex min-w-0 items-center gap-1.5">
         {button}
         {mine.at === "live" ? (
-          <a data-go-live-step="live" href={mine.url} target="_blank" rel="noopener noreferrer" role="status" className={`${line} text-up hover:underline`}>
-            {stepWords(mine)}, open {mine.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-          </a>
+          <>
+            <a data-go-live-step="live" href={mine.url} target="_blank" rel="noopener noreferrer" role="status" className={`${line} text-up hover:underline`}>
+              {stepWords(mine)}, open {mine.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+            </a>
+            {/* What this publish made, each on its own page: the links the publish itself answered with, nothing asked again. */}
+            <PublishLinks deployment={mine.deployment} commit={mine.commit} />
+          </>
         ) : (
           <span data-go-live-step={mine.at} role="status" className={`${line} text-fg-muted`}>{stepWords(mine)}</span>
         )}
@@ -238,3 +243,4 @@ function GoLiveControl() {
     </Tooltip>
   );
 }
+

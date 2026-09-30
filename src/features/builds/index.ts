@@ -73,5 +73,7 @@ export const builds = defineFeature({
     void import("./store").then((m) => {
       void m.useBuilds.persist.rehydrate()?.then?.(() => m.useBuilds.getState().adopt());
     });
+    /* The board's last change, written on its site as it happens (`edits.ts`). */
+    void import("./edits").then((m) => m.startEditClock());
   },
 });

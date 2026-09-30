@@ -23,6 +23,7 @@ import {
   Check,
   Compass,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   FolderGit2,
@@ -31,6 +32,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
 } from "lucide-react";
 import site from "@site";
 import { BuildMark } from "./BuildMark";
@@ -47,6 +49,10 @@ import { docOf, docOfStored, shapeOf, repoLabel as labelOf, sharedTargetSays, so
 import { SitePreview } from "@/features/studio/SitePreview";
 import { Dialog } from "@/core/ui/dialog";
 import { SiteThumb, ThumbMaker } from "./thumbs";
+import { changeState } from "./publishState";
+import { useActions } from "@/core/actions";
+import { PublishLinks } from "@/features/studio/PublishLinks";
+import { downloadBackup, pickAndLoadBackup } from "@/features/studio/backup";
 
 /** "owner/name" if it looks like one, else nothing. */
 function parseRepo(text: string): { owner: string; name: string } | null {
@@ -71,6 +77,7 @@ const repoLabel = (p: Project) => (p.repo ? `${p.repo.owner}/${p.repo.name}` : "
  */
 function SiteCard({ project, active }: { project: Project; active: boolean }) {
   const { open, rename, duplicate, remove } = useBuilds();
+  const ctx = useActions();
   const sharedSays = useBuilds((s) => sharedTargetSays(s.projects, project.id));
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(project.name);
@@ -101,6 +108,15 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
   const commit = () => {
     rename(project.id, draft);
     setEditing(false);
+  };
+  const changes = changeState(project);
+  const [backingUp, setBackingUp] = React.useState(false);
+  const backup = async () => {
+    setBackingUp(true);
+    try {
+      const r = await downloadBackup(project.id);
+      ctx.publish({ key: "builds:backup", title: r.ok ? "Backup downloaded" : "No backup made", body: r.says, level: r.ok ? "success" : "warn", source: "builds", toast: true });
+    } finally { setBackingUp(false); }
   };
 
   return (
@@ -194,6 +210,12 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
           <p data-card-source="" className="min-w-0 truncate text-small text-fg-faint">from {labelOf(project.source)}</p>
         ) : null}
         {sharedSays ? <p data-card-shared="" title={sharedSays} className="line-clamp-2 text-small text-warning">{sharedSays}</p> : null}
+        {/* Changed since it was published? Off the site's own record, never the document (`publishState.ts`). */}
+        <p data-card-changes={changes.kind} title={changes.says} className={cn("line-clamp-2 text-small", changes.kind === "unpublished" ? "text-warning" : "text-fg-faint")}>
+          {changes.says}
+        </p>
+        {/* The last publish's two pages, from what that publish answered. */}
+        <PublishLinks deployment={project.live?.inspectorUrl} commit={project.published?.commitUrl} />
 
         {/* The options bar. Everything that can be done to this site, in one
             row under it, rather than appearing on hover somewhere else. Pushed
@@ -220,6 +242,11 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
               className="hover:text-down"
             >
               <Trash2 />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Download a backup: one file with this site and its pictures">
+            <Button variant="ghost" size="iconXs" aria-label={`Download a backup of ${project.name}`} data-card-backup="" loading={backingUp} onClick={() => void backup()}>
+              <Download />
             </Button>
           </Tooltip>
           <Tooltip content="Preview: the site drawn live, closed with Escape">
@@ -392,6 +419,11 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
 export function BuildsPage() {
   const { projects, activeId, adopt, create } = useBuilds();
   const [view, setView] = React.useState("sites");
+  const [loaded, setLoaded] = React.useState<{ ok: boolean; says: string } | null>(null);
+  const loadOne = async () => {
+    const r = await pickAndLoadBackup();
+    if (r) setLoaded(r);
+  };
 
   // The store persists itself, and the first visit has to take whatever the
   // Builder is already holding rather than list nothing beside it.
@@ -421,12 +453,19 @@ export function BuildsPage() {
             <Compass />
             Take the tour
           </Button>
+          <Tooltip content="Load a backup file as a new site beside these">
+            <Button size="md" variant="outline" data-builds-load-backup="" onClick={() => void loadOne()}>
+              <Upload />
+              Load a backup
+            </Button>
+          </Tooltip>
           <Button size="md" variant="primary" onClick={() => create()}>
             <Plus />
             New site
           </Button>
         </div>
       </div>
+      {loaded ? <p data-builds-loaded="" role="status" className={cn("mt-2 text-plain", loaded.ok ? "text-up" : "text-down")}>{loaded.says}</p> : null}
 
       <div data-builds-views="" className="mt-6 flex items-center justify-between gap-3 border-b border-border pb-3">
         <Segmented
@@ -439,7 +478,7 @@ export function BuildsPage() {
             { value: "repos", label: "Repos", icon: <FolderGit2 /> },
           ]}
         />
-        <span className="text-plain text-fg-faint">
+        <span className="text-plain text-fg-faint" title="Sites are kept in this browser only: clearing its data loses them. Download a backup from a card to keep a copy anywhere.">
           <span className="num">{projects.length}</span> {projects.length === 1 ? "site" : "sites"} in this browser
         </span>
       </div>
