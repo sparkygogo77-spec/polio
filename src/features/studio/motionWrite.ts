@@ -1,53 +1,48 @@
 "use client";
 /**
- * Changing a moving part from the Motion tab: on or off, and how fast.
+ * Changing moving parts from the Motion tab: on or off, and how fast, for
+ * one part or for a whole kind or bunch of them at once.
  *
  * Each change is written where the part's renderers already read it, so it
  * reaches the board, the preview and the export by the roads they have:
  * a library feature's switch and inputs (`node.work`), a captured part's
- * own motion (`node.motion`), a part's options, a crate's settings. Every
- * write is one undo step (`updateNode`, `updateMotion`).
+ * own motion (`node.motion`), a part's options, a crate's settings. However
+ * many parts it touches, a change is one undo step.
  */
-import { useStudio } from "./store";
+import { useStudio, type StudioNode } from "./store";
 import { withInput, withSwitch, usesOf } from "./library/works";
 import { seconds, workSpeedInput, type MoveRow } from "./motionInventory";
 
 const trim = (n: number) => String(Math.round(n * 1000) / 1000);
 
-export function setRowOn(row: MoveRow, on: boolean): void {
-  const s = useStudio.getState();
-  const node = s.nodes.find((n) => n.id === row.nodeId);
-  if (row.source === "crate" && row.crateId) { s.updateMotion(row.crateId, { off: !on }); return; }
-  if (!node) return;
-  if (row.source === "work" && row.workId) { s.updateNode(node.id, { work: withSwitch(node.work, row.workId, on) }); return; }
+/** What turning one row on or off writes on its part. */
+function onPatch(node: StudioNode, row: MoveRow, on: boolean): Partial<StudioNode> {
+  if (row.source === "work" && row.workId) return { work: withSwitch(node.work, row.workId, on) };
   if (row.source === "captured" && node.motion) {
     const { off: _off, ...rest } = node.motion;
     void _off;
-    s.updateNode(node.id, { motion: on ? rest : { ...rest, off: true } });
-    return;
+    return { motion: on ? rest : { ...rest, off: true } };
   }
   if (row.source === "part") {
     const o = { ...node.options };
-    if (node.featureId === "marquee") o.speed = on ? (o.speedWas || "medium") : "still";
-    else if (node.featureId === "carousel") o.autoplay = on ? "yes" : "no";
+    if (node.featureId === "marquee") {
+      /* A ticker turned back on goes at the speed it had. */
+      if (on) { o.speed = o.speedWas || "medium"; delete o.speedWas; }
+      else { o.speedWas = o.speed && o.speed !== "still" ? o.speed : "medium"; o.speed = "still"; }
+    } else if (node.featureId === "carousel") o.autoplay = on ? "yes" : "no";
     else if (on) delete o.off;
     else o.off = "yes";
-    /* A ticker turned back on goes at the speed it had. */
-    if (node.featureId === "marquee") { if (!on) o.speedWas = node.options?.speed && node.options.speed !== "still" ? node.options.speed : "medium"; else delete o.speedWas; }
-    s.updateNode(node.id, { options: o });
+    return { options: o };
   }
+  return {};
 }
 
-export function setRowSpeed(row: MoveRow, value: number | string): void {
-  const s = useStudio.getState();
-  if (row.source === "crate" && row.crateId) { s.updateMotion(row.crateId, { duration: Number(value) }); return; }
-  const node = s.nodes.find((n) => n.id === row.nodeId);
-  if (!node) return;
+/** What setting one row's speed writes on its part; `value` is the new number, or `scale` times the old. */
+function speedPatch(node: StudioNode, row: MoveRow, value: number | string): Partial<StudioNode> {
   if (row.source === "work" && row.workId) {
     const use = usesOf(node.work).find((u) => u.id === row.workId);
     const input = workSpeedInput(row.workId, use?.inputs ?? {});
-    if (input) s.updateNode(node.id, { work: withInput(node.work, row.workId, input, trim(Number(value))) });
-    return;
+    return input ? { work: withInput(node.work, row.workId, input, trim(Number(value))) } : {};
   }
   if (row.source === "captured" && node.motion?.animation?.length) {
     /* Every animation the part has keeps its pace against the first: the whole of it goes faster or slower together. */
@@ -57,8 +52,38 @@ export function setRowSpeed(row: MoveRow, value: number | string): void {
       const d = seconds(a.duration);
       return d === null ? a : { ...a, duration: `${trim(d * k)}s` };
     });
-    s.updateNode(node.id, { motion: { ...node.motion, animation } });
-    return;
+    return { motion: { ...node.motion, animation } };
   }
-  if (row.source === "part" && node.featureId === "marquee") s.updateNode(node.id, { options: { ...node.options, speed: String(value) } });
+  if (row.source === "part" && node.featureId === "marquee") return { options: { ...node.options, speed: String(value) } };
+  return {};
 }
+
+/** Every row's patch on its part, a part with several rows taking them in turn; then the crates; one undo step for the lot. */
+function writeAll(rows: readonly MoveRow[], nodeFn: (n: StudioNode, r: MoveRow) => Partial<StudioNode>, crateFn: (id: string, r: MoveRow) => void): void {
+  const s = useStudio.getState();
+  const mark = s.historyMark();
+  const byNode = new Map<string, MoveRow[]>();
+  for (const r of rows) if (r.source !== "crate") byNode.set(r.nodeId, [...(byNode.get(r.nodeId) ?? []), r]);
+  if (byNode.size) {
+    s.patchNodes([...byNode.keys()], (n) => {
+      let cur = n;
+      for (const r of byNode.get(n.id) ?? []) cur = { ...cur, ...nodeFn(cur, r) };
+      const patch: Partial<StudioNode> = {};
+      for (const k of ["work", "motion", "options"] as const) if (cur[k] !== n[k]) (patch as Record<string, unknown>)[k] = cur[k];
+      return patch;
+    });
+  }
+  for (const r of rows) if (r.source === "crate" && r.crateId) crateFn(r.crateId, r);
+  useStudio.getState().oneStepSince(mark);
+}
+
+export function setRowsOn(rows: readonly MoveRow[], on: boolean): void {
+  writeAll(rows, (n, r) => onPatch(n, r, on), (id) => useStudio.getState().updateMotion(id, { off: !on }));
+}
+
+export function setRowsSpeed(rows: readonly MoveRow[], value: number | string): void {
+  writeAll(rows, (n, r) => speedPatch(n, r, value), (id) => useStudio.getState().updateMotion(id, { duration: Number(value) }));
+}
+
+export const setRowOn = (row: MoveRow, on: boolean) => setRowsOn([row], on);
+export const setRowSpeed = (row: MoveRow, value: number | string) => setRowsSpeed([row], value);

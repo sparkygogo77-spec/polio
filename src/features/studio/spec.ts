@@ -25,6 +25,7 @@ function describeDelay(v: number | string | null | undefined): string {
 }
 import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
+import { partName as readableName } from "./partNames";
 import { resolvePalette } from "./parts/theme";
 import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
 import { CUBE_SIDES } from "./parts/cubeFaces";
@@ -563,7 +564,7 @@ export function compileSpec(input: CompileInput): Spec {
     // Only a crate with something to interpolate is worth briefing.
     motion: (motion ?? []).filter((m) => filled(m).length >= 2 && !m.off).map((m) => {
       const on = m.part ? nodes.find((n) => n.id === m.part) : undefined;
-      return motionBrief(m, undefined, on ? on.label || on.featureId : null);
+      return motionBrief(m, undefined, on ? readableName(on, nodes.filter((n) => n.pageId === on.pageId)) : null);
     }),
     pages: pageSpecs,
     stats: {

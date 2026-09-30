@@ -22,6 +22,7 @@ import { getFeature } from "./catalog";
 import { getWork, usesOf } from "./library/works";
 import { filled, type MotionAsset } from "./motion";
 import type { StudioNode } from "./store";
+import { kindOf, partName as readableName, sectionOf, type Named } from "./partNames";
 
 export type MoveKind = "reveal" | "follow" | "tilt" | "hover" | "press" | "loop" | "ribbon" | "canvas" | "crate" | "page";
 
@@ -67,6 +68,10 @@ export interface MoveRow {
   crateId?: string;
   off: boolean;
   speed?: MoveSpeed;
+  /** The heading of the section the part sits in, when the page has one: where a bunch of alike parts is said to be. */
+  section: string | null;
+  /** Its settings, as one string: rows with the same one move the same way and fold into one bunch. */
+  sig: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -155,16 +160,30 @@ export function seconds(v: string | undefined): number | null {
 /* The list                                                            */
 /* ------------------------------------------------------------------ */
 
-/** A part's plain name: what the owner called it, else what it is. */
-export function partName(n: Pick<StudioNode, "label" | "featureId">): string {
-  return n.label?.trim() || getFeature(n.featureId)?.name || n.featureId;
+const featureName = (id: string) => getFeature(id)?.name;
+
+/**
+ * A part's plain name: the side panel's (`partNames.ts`), so a captured part
+ * is "Buy $TRORTY" or "Picture in “Meet Trumpmorty”", never "div · 2 inside".
+ * Words with no letter in them ("0", "↑", "2") are not a name on their own:
+ * they are said as what the part is, in quotes, and where it sits.
+ */
+export function partName(n: StudioNode, all: readonly StudioNode[] = []): string {
+  const base = readableName(n as Named, all as readonly Named[], featureName);
+  if (/\p{L}/u.test(base)) return base;
+  const kind = kindOf(n as Named, featureName);
+  const section = all.length ? sectionOf(n as Named, all as readonly Named[]) : null;
+  return section ? `${kind} “${base}” in “${section}”` : `${kind} “${base}”`;
 }
 
 export function movingParts(nodes: readonly StudioNode[], crates: readonly MotionAsset[], pageId: string): MoveRow[] {
-  const rows: MoveRow[] = [];
-  for (const n of nodes) {
-    if (n.pageId !== pageId) continue;
-    const name = partName(n);
+  const rows: Omit<MoveRow, "section" | "sig">[] = [];
+  const page = nodes.filter((n) => n.pageId === pageId);
+  const names = new Map<string, string>();
+  const nameOf = (n: StudioNode) => { let v = names.get(n.id); if (v === undefined) { v = partName(n, page); names.set(n.id, v); } return v; };
+  for (const n of page) {
+    if (!movesAtAll(n, crates)) continue;
+    const name = nameOf(n);
     for (const u of usesOf(n.work)) {
       const kind = WORK_KIND[u.id];
       if (!kind) continue;
@@ -209,7 +228,76 @@ export function movingParts(nodes: readonly StudioNode[], crates: readonly Motio
       });
     }
   }
-  return rows;
+  const byId = new Map(page.map((n) => [n.id, n]));
+  const sections = new Map<string, string | null>();
+  return rows.map((r) => {
+    if (!sections.has(r.nodeId)) { const n = byId.get(r.nodeId); sections.set(r.nodeId, n ? sectionOf(n as Named, page as readonly Named[]) : null); }
+    const n = byId.get(r.nodeId);
+    const inputs = r.source === "work" ? usesOf(n?.work).find((u) => u.id === r.workId)?.inputs ?? {} : {};
+    const settings = r.source === "work" ? Object.keys(inputs).sort().map((k) => `${k}=${inputs[k]}`).join("&") : "";
+    return { ...r, section: sections.get(r.nodeId) ?? null, sig: [r.kind, r.source, r.workId ?? "", r.what, settings, r.speed?.value ?? "", r.off ? "off" : "on"].join("|") };
+  });
+}
+
+/** Whether a part moves in any of the four ways: the rest are not named at all, which on a big page is most of the work saved. */
+function movesAtAll(n: StudioNode, crates: readonly MotionAsset[]): boolean {
+  if (usesOf(n.work).some((u) => WORK_KIND[u.id])) return true;
+  const m = n.motion;
+  if (m && (m.animation?.length || m.hover?.length || m.active?.length || m.focus?.length || m.transition?.length)) return true;
+  if (PART_KIND[n.featureId]) return true;
+  return crates.some((c) => c.part === n.id);
+}
+
+/* ------------------------------------------------------------------ */
+/* Folding                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Rows that move the same way in the same section: said once, changed together, opened to the parts. */
+export interface MoveBunch { key: string; section: string | null; rows: MoveRow[] }
+
+export function bunches(rows: readonly MoveRow[]): MoveBunch[] {
+  const out = new Map<string, MoveBunch>();
+  for (const r of rows) {
+    const key = `${r.sig}#${r.section ?? ""}`;
+    const b = out.get(key);
+    if (b) b.rows.push(r);
+    else out.set(key, { key, section: r.section, rows: [r] });
+  }
+  return [...out.values()];
+}
+
+/** What a set of rows comes to, for the line that stands for all of them. */
+export interface MoveSummary {
+  /** How many parts, each counted once however many ways it moves. */
+  parts: number;
+  allOff: boolean;
+  anyOff: boolean;
+  /**
+   * How fast, for all of them: the same number when they all share one
+   * (`value`), else the range they span; `shared` when every row is set in
+   * the same unit, so one number can be written to all of them.
+   */
+  speed: (MoveSpeed & { shared: true; mixed: boolean; low: number; high: number }) | null;
+}
+
+export function summarise(rows: readonly MoveRow[]): MoveSummary {
+  const parts = new Set(rows.map((r) => r.nodeId)).size;
+  const allOff = rows.every((r) => r.off);
+  const anyOff = rows.some((r) => r.off);
+  const sp = rows.map((r) => r.speed);
+  const first = sp[0];
+  let speed: MoveSummary["speed"] = null;
+  if (first && first.unit !== "pick" && sp.every((x) => x && x.unit === first.unit && typeof x.value === "number")) {
+    const vals = sp.map((x) => x!.value as number);
+    const low = Math.min(...vals), high = Math.max(...vals);
+    const min = Math.max(...sp.map((x) => x!.min ?? 0)), max = Math.min(...sp.map((x) => x!.max ?? high));
+    speed = {
+      ...first, label: sp.every((x) => x!.label === first.label) ? first.label : "Speed",
+      value: low === high ? low : Math.round((low + high) / 2 / (first.step ?? 1)) * (first.step ?? 1),
+      min: Math.min(min, low), max: Math.max(max, high), shared: true, mixed: low !== high, low, high,
+    };
+  }
+  return { parts, allOff, anyOff, speed };
 }
 
 /** The rows by kind, in the tab's order, the empty kinds left out. */

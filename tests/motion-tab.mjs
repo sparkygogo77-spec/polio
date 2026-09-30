@@ -93,7 +93,9 @@ const panel = page.locator("[data-motion-panel]");
 await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Motion" }).first().click();
 await wait(600);
 
-/* ------------------------------------------------------------ the list */
+/* ------------------------------------------------------------ the list: each kind folded first, then opened */
+check("each kind starts as one folded line, its parts not yet listed", (await panel.locator("[data-move-fold=kind]").count()) === 3 && (await panel.locator("[data-move-row]").count()) === 0, `${await panel.locator("[data-move-fold=kind]").count()} kinds, ${await panel.locator("[data-move-row]").count()} rows`);
+for (const b of await panel.locator("[data-move-fold=kind] [data-move-open]").all()) { await b.click(); await wait(150); }
 const kinds = await panel.locator("[data-move-kind]").evaluateAll((els) => els.map((e) => e.getAttribute("data-move-kind")));
 check("the tab lists moving parts by kind: reveal, loops, crates", ["reveal", "loop", "crate"].every((k) => kinds.includes(k)), kinds.join(", "));
 const rowKeys = await panel.locator("[data-move-row]").evaluateAll((els) => els.map((e) => e.getAttribute("data-move-row")));

@@ -37,8 +37,9 @@ import {
   filled, gapCount, gapLabel, LOOP_NAME, motionBrief, planFrames, playOrder, sleeveOf, SLEEVES, totalFrames,
   type MotionAsset, type MotionEase, type MotionLoop,
 } from "./motion";
-import { byKind, movingParts, partName, type MoveRow } from "./motionInventory";
-import { setRowOn, setRowSpeed } from "./motionWrite";
+import { bunches, byKind, movingParts, partName, summarise, type MoveBunch, type MoveRow } from "./motionInventory";
+import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed } from "./motionWrite";
+import { VirtualList } from "@/core/ui/virtual-list";
 import { fit, loadImage, tweenPixels, type Fitted } from "./crateDraw";
 import { runWorks } from "./live/runWorks";
 import { AMBIENT } from "./library/behaviours";
@@ -229,12 +230,23 @@ function MovingParts() {
   const rows = React.useMemo(() => movingParts(nodes, crates, pageId), [nodes, crates, pageId]);
   const groups = React.useMemo(() => byKind(rows), [rows]);
   const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
+  const parts = React.useMemo(() => new Set(rows.map((r) => r.nodeId)).size, [rows]);
+
+  const rowView = (r: MoveRow) => (
+    <MoveRowView
+      key={r.key}
+      row={r}
+      selected={selection.includes(r.nodeId)}
+      note={note?.key === r.key ? note.says : null}
+      onNote={(says) => setNote(says ? { key: r.key, says } : null)}
+    />
+  );
 
   return (
     <section data-moving-parts="" className="space-y-2">
       <div className="flex items-baseline justify-between">
         <span className="text-plain font-semibold text-fg">Moving parts on this page</span>
-        <span className="num text-small text-fg-faint">{rows.length}</span>
+        <span className="num text-small text-fg-faint" title={`${rows.length} movements on ${parts} parts`}>{parts}</span>
       </div>
       {!rows.length ? (
         <p className="rounded-md border border-dashed border-border p-2 text-small leading-snug text-fg-muted">
@@ -242,25 +254,112 @@ function MovingParts() {
           scroll, tilt, spin and the rest), when it was captured moving, or when it wears a crate.
         </p>
       ) : (
-        groups.map((g) => (
-          <div key={g.kind} data-move-kind={g.kind} className="space-y-1">
-            <div className="flex items-baseline justify-between text-small font-medium uppercase tracking-wider text-fg-faint">
-              <span>{g.name}</span>
-              <span className="num">{g.rows.length}</span>
-            </div>
-            {g.rows.map((r) => (
-              <MoveRowView
-                key={r.key}
-                row={r}
-                selected={selection.includes(r.nodeId)}
-                note={note?.key === r.key ? note.says : null}
-                onNote={(says) => setNote(says ? { key: r.key, says } : null)}
-              />
-            ))}
-          </div>
-        ))
+        groups.map((g) => <KindBlock key={g.kind} kind={g.kind} name={g.name} rows={g.rows} rowView={rowView} />)
       )}
     </section>
+  );
+}
+
+/** Many rows, drawn only where they are seen once there are more than a screenful. */
+function Rows<T>({ items, keyOf, view }: { items: T[]; keyOf: (t: T) => string; view: (t: T) => React.ReactNode }) {
+  if (items.length <= 30) return <div className="space-y-1">{items.map((t) => <React.Fragment key={keyOf(t)}>{view(t)}</React.Fragment>)}</div>;
+  return <VirtualList items={items} getKey={keyOf} renderItem={(t) => <div className="pb-1">{view(t)}</div>} estimateSize={64} className="h-80" />;
+}
+
+/**
+ * A line that stands for many: how many parts, how fast, and the controls
+ * that change all of them at once, one undo step however many there are.
+ * `title` says what they are; the chevron opens them.
+ */
+function FoldLine({ rows, title, open, onOpen, level }: { rows: MoveRow[]; title: string; open: boolean; onOpen: () => void; level: "kind" | "bunch" }) {
+  const sum = summarise(rows);
+  const sp = sum.speed;
+  const [drag, setDrag] = React.useState<number | null>(null);
+  const shown = drag ?? (typeof sp?.value === "number" ? sp.value : 0);
+  const pace = sp ? (sp.mixed && drag === null ? `${speedText(sp.low, sp.unit).replace(/ .*/, "")} to ${speedText(sp.high, sp.unit)}` : speedText(shown, sp.unit)) : null;
+  const count = `${sum.parts} part${sum.parts === 1 ? "" : "s"}`;
+  const all = sum.parts === 1 ? "it" : `all ${sum.parts}`;
+  return (
+    <div
+      data-move-fold={level}
+      data-move-off={sum.allOff ? "" : undefined}
+      className={cn("space-y-1 rounded-md border p-1", level === "kind" ? "border-border bg-elevated/40" : "border-border/70", sum.allOff && "opacity-60")}
+    >
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          data-move-open=""
+          aria-expanded={open}
+          onClick={() => { play("tap"); onOpen(); }}
+          className="tactile flex min-h-6 min-w-0 flex-1 items-center gap-1 rounded-sm px-0.5 text-left hover:bg-hover"
+        >
+          <ChevronRight className={cn("size-4 shrink-0 text-fg-faint transition-transform", open && "rotate-90")} />
+          <span className="min-w-0">
+            <span data-move-title="" className={cn("block truncate", level === "kind" ? "text-small font-medium text-fg" : "text-small text-fg")}>{title}</span>
+            <span data-move-says="" className="block truncate text-fine text-fg-faint">
+              {[count, pace, sum.allOff ? "all turned off" : sum.anyOff ? "some turned off" : null].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+        </button>
+        <Button
+          size="iconXs"
+          variant="ghost"
+          aria-pressed={!sum.allOff}
+          aria-label={sum.allOff ? `Turn on ${all}: ${title}` : `Turn off ${all}: ${title}`}
+          className={sum.allOff ? "text-fg-faint" : "text-accent"}
+          onClick={() => { play("tap"); setRowsOn(rows, sum.allOff); }}
+        >
+          <Power />
+        </Button>
+      </div>
+      {sp && !sum.allOff ? (
+        <div className="space-y-0.5 px-1" data-move-speed-all="">
+          <div className="flex items-baseline justify-between gap-1 text-fine">
+            <span className="text-fg-muted">{sp.label}, for {all}</span>
+            <span className="num truncate text-fg-faint">{pace}</span>
+          </div>
+          <Slider
+            value={[shown]}
+            min={sp.min}
+            max={sp.max}
+            step={sp.step}
+            onValueChange={(v) => setDrag(v[0] ?? shown)}
+            onValueCommit={(v) => { setDrag(null); setRowsSpeed(rows, v[0] ?? shown); }}
+            aria-label={`${sp.label}, for ${all}: ${title}`}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** One kind: folded to its line first; opened, its bunches of alike parts, and a part on its own as a row. */
+function KindBlock({ kind, name, rows, rowView }: { kind: string; name: string; rows: MoveRow[]; rowView: (r: MoveRow) => React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  const groups = React.useMemo(() => bunches(rows), [rows]);
+  return (
+    <div data-move-kind={kind} className="space-y-1">
+      <FoldLine rows={rows} title={name} open={open} onOpen={() => setOpen((v) => !v)} level="kind" />
+      {open ? (
+        <div className="space-y-1 border-l border-border pl-1.5" data-move-list="">
+          <Rows items={groups} keyOf={(b) => b.key} view={(b) => (b.rows.length === 1 ? rowView(b.rows[0]!) : <BunchBlock bunch={b} rowView={rowView} />)} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Parts that move the same way in the same section: one line, opened to the parts. */
+function BunchBlock({ bunch, rowView }: { bunch: MoveBunch; rowView: (r: MoveRow) => React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  /* Under its kind's own line, so the kind is not said again: where they are, which is what tells bunches apart. */
+  const what = bunch.rows[0]!.what;
+  const title = bunch.section ? `In “${bunch.section}”` : `${what}, set alike`;
+  return (
+    <div data-move-bunch={bunch.key} className="space-y-1">
+      <FoldLine rows={bunch.rows} title={title} open={open} onOpen={() => setOpen((v) => !v)} level="bunch" />
+      {open ? <div className="border-l border-border pl-1.5"><Rows items={bunch.rows} keyOf={(r) => r.key} view={rowView} /></div> : null}
+    </div>
   );
 }
 
@@ -354,6 +453,7 @@ function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; selected: 
 
 function CrateCard({ asset, onOpen }: { asset: MotionAsset; onOpen: () => void }) {
   const wearer = useStudio((s) => (asset.part ? s.nodes.find((n) => n.id === asset.part) : undefined));
+  const nodes = useStudio((s) => s.nodes);
   const first = filled(asset)[0]?.src ?? null;
   return (
     <div data-crate-card={asset.id} className="space-y-1.5 rounded-md border border-border p-1.5">
@@ -364,7 +464,7 @@ function CrateCard({ asset, onOpen }: { asset: MotionAsset; onOpen: () => void }
         <div className="min-w-0 flex-1">
           <div className="truncate text-small text-fg">{asset.name}</div>
           <div data-crate-worn="" className="truncate text-fine text-fg-faint">
-            {wearer ? `On ${partName(wearer)}${asset.off ? ", turned off" : ""}` : "Not on a part yet"}
+            {wearer ? `On ${partName(wearer, nodes.filter((n) => n.pageId === wearer.pageId))}${asset.off ? ", turned off" : ""}` : "Not on a part yet"}
           </div>
         </div>
       </div>
@@ -534,7 +634,7 @@ function CrateEditor({ asset, onPick }: { asset: MotionAsset; onPick: () => void
   const copyBrief = async () => {
     const el = canvas.current;
     try {
-      await navigator.clipboard.writeText(motionBrief(asset, el ? { w: el.width, h: el.height } : undefined, wearer ? partName(wearer) : null));
+      await navigator.clipboard.writeText(motionBrief(asset, el ? { w: el.width, h: el.height } : undefined, wearer ? partName(wearer, useStudio.getState().nodes.filter((n) => n.pageId === wearer.pageId)) : null));
       setNote("The brief is on the clipboard.");
       play("confirm");
     } catch {
@@ -739,12 +839,13 @@ function WornBy({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
   const wearer = asset.part ? nodes.find((n) => n.id === asset.part) : undefined;
   const [find, setFind] = React.useState("");
   const onPage = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
+  /* The side panel's names, worked out once for the page: never "div · 2 inside". */
+  const names = React.useMemo(() => new Map(onPage.map((n) => [n.id, partName(n, onPage)])), [onPage]);
+  const nameOf = (n: { id: string }) => names.get(n.id) ?? "";
   const q = find.trim().toLowerCase();
-  const matches = React.useMemo(
-    () => (q ? onPage.filter((n) => partName(n).toLowerCase().includes(q)) : onPage).slice(0, 40),
-    [onPage, q],
-  );
-  const more = (q ? onPage.filter((n) => partName(n).toLowerCase().includes(q)).length : onPage.length) - matches.length;
+  const found = React.useMemo(() => (q ? onPage.filter((n) => (names.get(n.id) ?? "").toLowerCase().includes(q)) : onPage), [onPage, names, q]);
+  const matches = found.slice(0, 40);
+  const more = found.length - matches.length;
   const put = (id: string | null) => { play("confirm"); useStudio.getState().attachMotion(asset.id, id); };
   return (
     <div data-crate-wear="" className="space-y-1.5 rounded-md border border-border p-2">
@@ -757,13 +858,13 @@ function WornBy({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
       </div>
       <p data-crate-worn="" className="text-fine leading-snug text-fg-muted">
         {wearer
-          ? `Plays as the picture of ${partName(wearer)}, on the board, in the preview and on the published page${asset.off ? ", once it is turned back on in the list above" : ""}.`
+          ? `Plays as the picture of ${nameOf(wearer) || partName(wearer)}, on the board, in the preview and on the published page${asset.off ? ", once it is turned back on in the list above" : ""}.`
           : "Not on a part yet. Put it on one and it plays as that part's picture, on the board, in the preview and on the published page."}
       </p>
       {wearer ? (
         <Button size="xs" variant="ghost" onClick={() => put(null)}>
           <X />
-          Take it off {partName(wearer)}
+          Take it off {nameOf(wearer) || partName(wearer)}
         </Button>
       ) : null}
       <Input inputSize="sm" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a part on this page by name" aria-label="Find a part by name" />
@@ -778,7 +879,7 @@ function WornBy({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
             onClick={() => put(n.id)}
             className={cn("tactile flex min-h-7 w-full items-center px-2 text-left text-small hover:bg-hover", n.id === asset.part ? "bg-accent-soft text-accent" : "text-fg")}
           >
-            <span className="truncate">{partName(n)}</span>
+            <span className="truncate">{nameOf(n)}</span>
           </button>
         ))}
         {!matches.length ? <p className="p-2 text-fine text-fg-faint">No part by that name on this page.</p> : null}
