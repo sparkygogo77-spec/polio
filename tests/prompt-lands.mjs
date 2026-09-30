@@ -86,6 +86,8 @@ const drop = async (search, label) => {
   const tile = page.getByText(label, { exact: true }).first();
   if (!(await tile.count())) return null;
   await tile.click({ force: true });
+  await page.waitForTimeout(500);
+  await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
   await page.waitForTimeout(1100);
   return page.evaluate((l) => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.nodes ?? []).find((n) => n.label === l) ?? null, label);
 };
@@ -159,6 +161,9 @@ if (btn) {
   }, { node: btn, content: THREE.join("\n"), prompt: ASK });
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(2000);
+  /* The badge rides the picked part's chip, and only while it is picked (Canvas.tsx, `useUnshown`): pick it, as he would to look. */
+  await page.locator(`[data-node-id="${btn.id}"]`).first().click({ force: true });
+  await page.waitForTimeout(900);
 
   const drawn = await page.evaluate(() => document.querySelector("[data-node-id] [data-part]")?.innerText ?? "");
   const short = missingCopy(ASK, drawn);

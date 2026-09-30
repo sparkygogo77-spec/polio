@@ -80,6 +80,8 @@ check("searching the shelf for a cube finds one", (await tile.count()) === 1);
 check("and the shelf tile is a cube, not an icon of one", (await page.locator("[data-part-preview] [data-cube], [data-cube]").count()) >= 1);
 
 await tile.click({ force: true });
+await page.waitForTimeout(500);
+await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
 await page.waitForTimeout(1400);
 const read = () => page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};

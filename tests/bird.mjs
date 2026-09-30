@@ -214,6 +214,8 @@ await page.waitForTimeout(1400);
 await page.locator('input[placeholder*="Search parts"]').first().fill("main button");
 await page.waitForTimeout(900);
 await page.getByText("Main button", { exact: true }).first().click({ force: true });
+await page.waitForTimeout(500);
+await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
 await page.waitForTimeout(1500);
 const buttonId = (await read()).find((n) => n.f === "cta-primary")?.id;
 check("there is a button to drop it on", !!buttonId);

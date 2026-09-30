@@ -175,8 +175,18 @@ if (said) note(`the message is a toast at ${Math.round(said.x)},${Math.round(sai
 // Put a real part on the board the way a person does: search the shelf, click it.
 await page.locator("[data-shelf-search], [data-palette-search], input[placeholder*='Search parts']").first().fill("main button");
 await page.waitForTimeout(700);
-const tile = page.locator("[data-part-tile], [role='button']").filter({ hasText: /Main button/i }).first();
-if (await tile.count()) { await tile.click({ force: true }); await page.waitForTimeout(700); }
+/* A card's name sits under its picture now, beside the button that is the picture (ShelfCards.tsx). */
+const tile = page.locator("[data-shelf-card]").filter({ hasText: /Main button/i }).locator("[data-tile]").first();
+if (await tile.count()) {
+  /* Carried onto the middle of the board, which places it where it is let
+     go in one move. A press opens the card's detail card and Add to page
+     puts the part at the page's top edge, too near the pane's edge to draw
+     a loop round it (ShelfCards.tsx). */
+  const frame = page.locator("[data-frame]").first();
+  const fb = await frame.boundingBox();
+  await tile.dragTo(frame, { targetPosition: { x: Math.round(fb.width * 0.5), y: Math.round(Math.min(fb.height, PANE.height) * 0.45) } });
+  await page.waitForTimeout(900);
+}
 const parts = await page.locator("[data-node-id]").count();
 check("a part is on the board to draw round", parts > 0, `${parts} parts`);
 
@@ -327,6 +337,13 @@ await draw(loop(spot[0], spot[1], 90, 26), { step: 12 });
 await page.waitForTimeout(1800);
 await page.keyboard.press("v");
 await page.waitForTimeout(300);
+/* HIS WORDS (Canvas.tsx, `madeASpace`): a space he has just drawn skips the
+   "This space" press and is picked at once, so its panel is already open. */
+check("a hole just drawn opens its own panel without a press", (await page.locator("[data-space-panel]").count()) > 0);
+/* The key is for a space he comes back to: let go of it, and it is there. */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+if (await page.locator("[data-space-panel]").count()) { await page.keyboard.press("Escape"); await page.waitForTimeout(300); }
 const fill = page.locator("[data-space-fill]").first();
 check("an empty hole offers one key: the way to its own panel", (await fill.count()) > 0);
 if (await fill.count()) {

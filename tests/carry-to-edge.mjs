@@ -51,6 +51,8 @@ await page.waitForTimeout(800);
 const tile = page.getByText("Main button", { exact: true }).first();
 check("there is a part to carry", (await tile.count()) === 1);
 await tile.click({ force: true });
+await page.waitForTimeout(500);
+await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
 await page.waitForTimeout(1100);
 
 const node = () => page.evaluate(() => {
@@ -101,6 +103,13 @@ const letGo = async () => { await page.mouse.up(); await page.waitForTimeout(500
 
 /* Down first: the page has to have somewhere to go. */
 const view = page.viewportSize();
+/* The board opens fitted to the whole page now, so an empty 900-tall page
+   has nowhere to scroll at 1500×900. Worked on close up, as he does, it
+   does: zoom in until the page is taller than the window. */
+for (let i = 0; i < 12 && (await paneRoom()) <= 40; i++) {
+  await page.locator('[aria-label="Zoom in"]').first().click({ force: true });
+  await page.waitForTimeout(150);
+}
 await page.evaluate(() => { const p = document.querySelector("[data-studio-pane]"); if (p) p.scrollTop = 0; });
 await page.waitForTimeout(300);
 const room = await paneRoom();

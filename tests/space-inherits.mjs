@@ -102,7 +102,8 @@ check("a loop drawn by hand becomes a black hole that has consumed its area",
   (await page.locator("[data-space-horizon][data-space-open]").count()) === 1);
 
 await tool("v");
-await page.locator("[data-space-fill]").first().click({ force: true });
+/* A space just drawn is picked and its panel open already (Canvas.tsx, `madeASpace`); the key is for one he comes back to. */
+if (!(await page.locator("[data-space-panel]").count())) await page.locator("[data-space-fill]").first().click({ force: true });
 await page.waitForTimeout(500);
 const panel = page.locator("[data-space-panel]");
 check("the empty hole opens its own panel", (await panel.count()) === 1);

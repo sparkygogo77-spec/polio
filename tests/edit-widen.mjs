@@ -67,6 +67,11 @@ await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 
 await page.waitForTimeout(650);
 await page.locator('[data-radial] [data-shard="write"]').first().click({ force: true });
 await page.waitForTimeout(500);
+/* Write leads with one box (Say it) now; Contents is one press away under More (RadialMenu.tsx, `writeMore`). */
+if (!(await page.locator('[data-radial] [data-shard="contents"]').count())) {
+  await page.locator('[data-radial] [data-shard="more"]').first().click({ force: true });
+  await page.waitForTimeout(500);
+}
 await page.locator('[data-radial] [data-shard="contents"]').first().click({ force: true });
 await page.waitForTimeout(600);
 const field = page.locator("textarea").filter({ hasText: "" }).last();

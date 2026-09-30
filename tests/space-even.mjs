@@ -71,24 +71,30 @@ check("a space was drawn", made === 1, `${made} spaces`);
  * Four rather than one because a drawn space is not a perfect circle and a
  * single approach could cross a band at a glancing angle and miss its step.
  */
-const rings = await page.evaluate(async ({ cx, cy, R }) => {
+/*
+ * WHAT IS ON THE SCREEN, not what one canvas holds. The hole is drawn by
+ * more than one canvas now, one of them WebGL, which reads back as black to
+ * a copy; and the first canvas under the middle is the board's ground. So the
+ * circle is photographed as a person sees it and the walk is made on that.
+ */
+const shotB64 = (await page.screenshot({ clip: { x: cx - R, y: cy - R, width: R * 2, height: R * 2 } })).toString("base64");
+const rings = await page.evaluate(async ({ b64, R }) => {
+  const img = new Image();
+  await new Promise((ok) => { img.onload = ok; img.src = `data:image/png;base64,${b64}`; });
   const shot = document.createElement("canvas");
-  const all = [...document.querySelectorAll("canvas")].filter((c) => c.width > 200 && c.height > 200);
-  const src = all.map((c) => ({ c, r: c.getBoundingClientRect() })).find(({ r }) => cx > r.left && cx < r.right && cy > r.top && cy < r.bottom);
-  if (!src) return null;
-  const { c: canvas, r } = src;
-  shot.width = canvas.width; shot.height = canvas.height;
+  shot.width = img.width; shot.height = img.height;
   const g = shot.getContext("2d", { willReadFrequently: true });
-  g.drawImage(canvas, 0, 0);
-  const sx = canvas.width / r.width, sy = canvas.height / r.height;
+  g.drawImage(img, 0, 0);
+  const k = img.width / (R * 2);
   const at = (x, y) => {
-    const d = g.getImageData(Math.round((x - r.left) * sx), Math.round((y - r.top) * sy), 1, 1).data;
+    const d = g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data;
     return 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2];
   };
   const out = { rings: 0, worst: 0, walks: [] };
   for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
     const walk = [];
-    for (let d = 4; d < R - 10; d++) walk.push(at(cx + Math.cos(a) * (R - d), cy + Math.sin(a) * (R - d)));
+    /* In from past the lit rim, which is the edge and meant to be there. */
+    for (let d = 16; d < R - 10; d++) walk.push(at(R + Math.cos(a) * (R - d), R + Math.sin(a) * (R - d)));
     let run = 0;
     for (let i = 1; i < walk.length; i++) {
       const step = Math.abs(walk[i] - walk[i - 1]);
@@ -99,9 +105,9 @@ const rings = await page.evaluate(async ({ cx, cy, R }) => {
     out.walks.push(Math.round(walk[0]) + "→" + Math.round(walk[walk.length - 1]));
   }
   return out;
-}, { cx, cy, R });
+}, { b64: shotB64, R });
 
-check("the space's own canvas was found and walked", !!rings, rings ? `edge→centre on four radii: ${rings.walks.join(", ")}` : "no canvas under the space");
+check("the space was photographed and walked", !!rings, rings ? `edge→centre on four radii: ${rings.walks.join(", ")}` : "nothing to walk");
 if (rings) {
   check(
     "the inside of a drawn space has no rings in it",

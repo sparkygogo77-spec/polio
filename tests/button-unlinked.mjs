@@ -47,6 +47,8 @@ await page.waitForTimeout(1300);
 await page.locator('input[placeholder*="Search parts"]').first().fill("main button");
 await page.waitForTimeout(700);
 await page.getByText("Main button", { exact: true }).first().click({ force: true });
+await page.waitForTimeout(500);
+await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
 await page.waitForTimeout(1300);
 
 const node = () => page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.nodes ?? [])[0] ?? null);

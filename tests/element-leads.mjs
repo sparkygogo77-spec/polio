@@ -93,11 +93,24 @@ check("and it does not send you to Looks to find out what to do", !/open looks/i
 
 /* Two parts, placed the way a person places them: category, sub-group, card. */
 const place = async () => {
-  await page.locator("[data-drawer] button", { hasText: "Layout" }).first().click({ force: true });
-  await page.waitForTimeout(400);
-  await page.locator("[data-drawer] button", { hasText: "Page shape" }).first().click({ force: true });
-  await page.waitForTimeout(400);
+  /* Opened once: a second press on an open category closes it. */
+  if (!(await page.locator('[data-category-open="structure"]').count())) {
+    await page.locator("[data-drawer] button", { hasText: "Layout" }).first().click({ force: true });
+    await page.waitForTimeout(400);
+  }
+  /* A sub-group whose parts leave page either side of them: Add to page
+     scrolls the board to what it placed, and two full-width sections fill
+     the whole view with no bare page left to press. Pressed once; a second
+     press on a chip lets it go. */
+  const chip = page.locator("[data-drawer] button", { hasText: "Grids of cards" }).first();
+  if ((await chip.getAttribute("aria-pressed")) !== "true") {
+    await chip.click({ force: true });
+    await page.waitForTimeout(400);
+  }
   await page.locator("[data-shelf] [data-ctx='studio-palette']").first().click({ force: true });
+  await page.waitForTimeout(500);
+  /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
+  await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true });
   await page.waitForTimeout(700);
 };
 await place();

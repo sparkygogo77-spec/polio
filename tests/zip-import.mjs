@@ -350,7 +350,8 @@ await page.waitForTimeout(300);
 await draw(box(B.x, B.y, B.w, B.h));
 await page.keyboard.press("v");
 await page.waitForTimeout(1900);
-await page.locator("[data-space-fill]").first().click({ force: true });
+/* A space just drawn is picked and its panel open already (Canvas.tsx, `madeASpace`); the key is for one he comes back to. */
+if (!(await page.locator("[data-space-panel]").count())) await page.locator("[data-space-fill]").first().click({ force: true });
 await page.waitForTimeout(400);
 const panel = page.locator("[data-space-panel]");
 check("the space's panel has a well for a zip beside the address", (await panel.locator("[data-zip-file]").count()) === 1);
@@ -463,7 +464,8 @@ await one.waitForTimeout(300);
 await oneDraw(box(S1.x, S1.y, S1.w, S1.h));
 await one.keyboard.press("v");
 await one.waitForTimeout(1900);
-await one.locator("[data-space-fill]").first().click({ force: true });
+/* A space just drawn is picked and its panel open already (Canvas.tsx, `madeASpace`); the key is for one he comes back to. */
+if (!(await one.locator("[data-space-panel]").count())) await one.locator("[data-space-fill]").first().click({ force: true });
 await one.waitForTimeout(400);
 const onePanel = one.locator("[data-space-panel]");
 await onePanel.locator("[data-zip-file]").setInputFiles({ name: "harbour.zip", mimeType: "application/zip", buffer: HARBOUR });

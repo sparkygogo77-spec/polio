@@ -335,7 +335,11 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       role="link"
       tabIndex={0}
       aria-label={`Go to ${whole.target}`}
-      style={{ width: "100%", height: "100%", cursor: "pointer" }}
+      /* The whole box, not only as tall as the cards: the live page gives a
+         part a minimum height in a flex box, where a percentage height
+         resolves to its content and a press under the last card went
+         nowhere (`tests/links-go.mjs`). Stretched and grown, it fills. */
+      style={{ width: "100%", height: "100%", flex: "1 1 auto", alignSelf: "stretch", display: "flex", flexDirection: "column", cursor: "pointer" }}
       onClickCapture={(e) => { e.stopPropagation(); onNavigate?.(whole); }}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onNavigate?.(whole); } }}
     >

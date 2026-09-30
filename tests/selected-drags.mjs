@@ -56,6 +56,8 @@ async function drop(search, name) {
   await page.locator('input[placeholder*="Search parts"]').first().fill(search);
   await page.waitForTimeout(700);
   await page.getByText(name, { exact: true }).first().click({ force: true });
+  await page.waitForTimeout(500);
+  await page.locator("[data-part-detail] [data-add-to-page]").first().click({ force: true }); /* A press on a card opens its detail card; Add to page is what places it (ShelfCards.tsx). */
   await page.waitForTimeout(1300);
   return page.evaluate(() => document.querySelector("[data-node-id]")?.dataset.nodeId ?? null);
 }
