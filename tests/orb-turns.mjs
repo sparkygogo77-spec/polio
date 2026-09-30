@@ -20,6 +20,8 @@
  *   · part of a ring is drawn over the sphere, and the rest of it behind.
  *
  *   node tests/orb-turns.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: drags the 3D orb and reads its turn frame by frame; known to fail beside others (owner's note R15).
  */
 import { createRequire } from "node:module";
 

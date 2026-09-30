@@ -22,6 +22,8 @@
  *
  *   node tests/cube-second.mjs [url]            # questions 1 to 3, and --make if WRITE_DOC=1
  *   node tests/cube-second.mjs [url] --visit    # question 4, after a build
+ *
+ * Runs alone: reads two cubes' settled poses after a reload; under load one had not come to rest.
  */
 import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";

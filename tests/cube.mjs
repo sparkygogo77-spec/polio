@@ -25,6 +25,8 @@
  *     snapshot of one angle.
  *
  *   node tests/cube.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: reads the rest pose a turn's settling animation reaches; under load it had not come to rest.
  */
 import { createRequire } from "node:module";
 import { corners, isBox, isCube, kindOfSketch } from "../src/features/studio/shapeKind.ts";

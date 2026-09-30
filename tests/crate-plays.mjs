@@ -22,6 +22,8 @@
  * which a new crate opens straight into; the frame rate reads "30 a second".
  *
  *   node tests/crate-plays.mjs [url]
+ *
+ * Runs alone: counts a crate's frames a second (about 30 at 30 fps); under load it played 25.
  */
 import { existsSync, readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";

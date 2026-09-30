@@ -12,6 +12,8 @@
  *
  *   node tests/formation.mjs [url]     # default http://localhost:3000
  *   SHOTS=/dir node tests/formation.mjs   # also writes the two screenshots
+ *
+ * Runs alone: reads a box's forming animation to its end; under load it was still forming when read.
  */
 import { readFileSync } from "node:fs";
 import { FORM, formOf, formVars, progressOf, stageOf, within } from "../src/features/studio/formation.ts";

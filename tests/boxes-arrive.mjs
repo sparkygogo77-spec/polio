@@ -21,6 +21,8 @@
  * arriving, so what is timed is what is drawn.
  *
  *   node tests/boxes-arrive.mjs [url]
+ *
+ * Runs alone: times how the boxes start (all inside a second and a half); under load the first to last took 2758ms.
  */
 import { createRequire } from "node:module";
 import { STAGGER_MS } from "../src/features/studio/timelineView.ts";

@@ -26,6 +26,8 @@
  * a little of the edge in it.
  *
  *   node tests/ink-on-cards.mjs [url]     # default http://localhost:3000
+ *
+ * Runs alone: photographs marks at set phases of the cloud's cycle; under load the phases drift and nothing is measured.
  */
 import { readFileSync } from "node:fs";
 

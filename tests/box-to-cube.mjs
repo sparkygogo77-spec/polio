@@ -28,6 +28,8 @@
  * measured, and the vendor is never reached from a test.
  *
  *   node tests/box-to-cube.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: reads where a released cube's settling animation leaves it; under load it had not come to rest.
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";

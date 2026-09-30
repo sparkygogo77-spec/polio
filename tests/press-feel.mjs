@@ -25,6 +25,8 @@
  *       its three stages, 1, .5, 0, .5, not two.
  *
  *   node tests/press-feel.mjs
+ *
+ * Runs alone: times a press's feel (its lift and release over frames); known to fail beside others (owner's note R15).
  */
 import http from "node:http";
 import { existsSync } from "node:fs";

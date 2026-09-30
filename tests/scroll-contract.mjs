@@ -26,6 +26,8 @@
  * which is a 2048x1152 CSS viewport, with the site at 88%.
  *
  *   node tests/scroll-contract.mjs [url]
+ *
+ * Runs alone: drags an edge in sixteen steps and reads each frame; under load a step overran by 36px.
  */
 import { createRequire } from "node:module";
 

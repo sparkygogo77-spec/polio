@@ -27,6 +27,8 @@
  *
  *     npx next start -p 3013
  *     node --experimental-strip-types tests/vine-alive.mjs http://127.0.0.1:3013
+ *
+ * Runs alone: photographs the vine over six frames to see it still; under load the frames differed.
  */
 import { createRequire } from "node:module";
 import { DROP, PICK, REST, letGo, pickUp, step, still } from "../src/features/studio/tugSpring.ts";

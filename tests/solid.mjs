@@ -20,6 +20,8 @@
  * queue, the routing, the part, the GL context or the turning.
  *
  *   node tests/solid.mjs [url]        # default http://localhost:3000
+ *
+ * Runs alone: drags a solid and reads the turn written after it settles; under load the drawing's queue was read mid-run.
  */
 import { chromium } from "playwright-core";
 import { isSolid, makingOf } from "../src/features/studio/imageRoute.ts";

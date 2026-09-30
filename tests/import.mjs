@@ -14,6 +14,8 @@
  * the frame, and the choice of where it goes.
  *
  *   node tests/import.mjs [url]
+ *
+ * Runs alone: scrubs a capture's frames and compares them; under load the scrubber showed the same frame twice.
  */
 import { createRequire } from "node:module";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";

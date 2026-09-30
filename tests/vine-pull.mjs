@@ -17,6 +17,8 @@
  *
  *     npx next start -p 3013
  *     node tests/vine-pull.mjs http://127.0.0.1:3013
+ *
+ * Runs alone: photographs the vine parting at the middle frame by frame; under load that frame was missed.
  */
 import { createRequire } from "node:module";
 import { strandMiddle, strandPath } from "../src/features/studio/strand.ts";

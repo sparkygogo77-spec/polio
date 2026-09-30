@@ -19,6 +19,8 @@
  * black edge he is asking to have taken off.
  *
  *   node tests/portal.mjs [url]
+ *
+ * Runs alone: counts the portal's motion at its start and end; under load the counts crossed.
  */
 import { createRequire } from "node:module";
 

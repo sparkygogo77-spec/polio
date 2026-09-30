@@ -21,6 +21,8 @@
  * actually sees.
  *
  *   node tests/boxes-land.mjs [url]
+ *
+ * Runs alone: reads which frame each box is painted in; under load the gaps stretched to 358ms.
  */
 import { createRequire, registerHooks } from "node:module";
 

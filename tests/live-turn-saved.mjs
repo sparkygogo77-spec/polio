@@ -8,6 +8,8 @@
  * died with the page, and a solid's turn was kept nowhere.
  *
  *   node tests/live-turn-saved.mjs [url]
+ *
+ * Runs alone: turns a cube with the arrow key and reads the pose written after its settle; under load it read before the write.
  */
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";

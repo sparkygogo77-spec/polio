@@ -18,6 +18,8 @@
  *   · and all of it survives a reload and goes into the document.
  *
  *   node tests/cube-part.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: reads the three-quarter pose a released cube settles into; under load it had not come to rest.
  */
 import { createRequire } from "node:module";
 import { REST, facesFrom } from "../src/features/studio/parts/cubeFaces.ts";

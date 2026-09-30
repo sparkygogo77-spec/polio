@@ -23,6 +23,8 @@
  *   2. The set fills the room to the margin, top and bottom.
  *
  *   node tests/fit-margin.mjs [url]
+ *
+ * Runs alone: reads the board's fit after its settling animation; under load it measured mid-move, 134px under the band.
  */
 import { createRequire } from "node:module";
 import { SETTLE_MARGIN, zoomCeiling } from "../src/features/studio/timelineView.ts";

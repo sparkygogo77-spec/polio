@@ -21,6 +21,8 @@
  * not that a particular machine hits a particular millisecond.
  *
  *   node tests/board-speed.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: measures stalls while dragging (the longest frame gap); under load one ran to 176ms.
  */
 import { createRequire } from "node:module";
 

@@ -15,6 +15,8 @@
  * the difference between the two boards is what is being measured.
  *
  *   node tests/space-speed.mjs [url]
+ *
+ * Runs alone: measures a pan's frame times (p95); under load it was 38ms against 15ms.
  */
 import { createRequire } from "node:module";
 import { roundBoundary } from "../src/features/studio/space.ts";

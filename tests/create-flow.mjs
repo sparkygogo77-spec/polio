@@ -17,6 +17,8 @@
  *
  *   node tests/create-flow.mjs [url]
  *   SHOTS=1 node tests/create-flow.mjs
+ *
+ * Runs alone: watches a box form frame by frame, rim first; under load the frames it watches are missed.
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";

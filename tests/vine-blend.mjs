@@ -34,6 +34,8 @@
  * at. What bites is where the change sits, not how steep it is.
  *
  *   node tests/vine-blend.mjs [url]
+ *
+ * Runs alone: reads the vine's hue as it passes from green to red; under load the hue was read mid-change.
  */
 const req = (await import("node:module")).createRequire(import.meta.url);
 const { chromium } = (() => {

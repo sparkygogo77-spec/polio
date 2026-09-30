@@ -9,6 +9,8 @@
  * frame.
  *
  *   node tests/timeline-centre.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: counts the views the timeline animates through as it arrives; under load it saw one.
  */
 import { createRequire } from "node:module";
 

@@ -21,6 +21,8 @@
  *    in it answers what you have in your hand.
  *
  *   node tests/board-layout.mjs [url]      # default http://localhost:3000
+ *
+ * Runs alone: measures how fast the timeline's floor slides (pixels a second over two seconds); under load it took 28 steps where six a second allows 11.
  */
 import { createRequire } from "node:module";
 
