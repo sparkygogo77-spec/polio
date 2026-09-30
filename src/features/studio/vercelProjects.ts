@@ -11,7 +11,7 @@
 export interface VercelProject {
   id: string;
   name: string;
-  link?: { type?: string; org?: string; repo?: string; repoId?: number };
+  link?: { type?: string; org?: string; repo?: string; repoId?: number; /** The branch Vercel builds to production; a push to any other makes a preview. */ productionBranch?: string };
   targets?: { production?: { alias?: string[] } };
 }
 

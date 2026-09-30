@@ -20,7 +20,14 @@
  *       asked for, as before;
  *   (4) a site with no project: the project is made after the push, so one
  *       deployment is asked for, as before;
- *   (5) polio's own vercel.json deploys trunk from Git and no lane branch.
+ *   (5) polio's own vercel.json deploys trunk from Git and no lane branch;
+ *   (6) a project the Builder makes holds the static-site settings itself,
+ *       not only the first deployment request, so Vercel's later Git builds
+ *       read them (the 30 September check of the Git path against the old
+ *       direct deploy);
+ *   (7) a connected site that publishes to a branch Vercel does not build to
+ *       production asks for a production deployment, as the direct deploy
+ *       did, rather than following a preview and calling it the live site.
  *
  *   npm run build
  *   env -u GITHUB_TOKEN -u GITHUB_REPO -u VERCEL_TOKEN -u VERCEL_PROJECT -u VERCEL_TEAM \
@@ -47,6 +54,8 @@ const projects = [
 ];
 const deployments = [];
 const asked = [];
+const made = [];
+const targets = [];
 const shown = (d) => { const ready = d.polls >= 2; return { uid: d.id, id: d.id, readyState: ready ? "READY" : "BUILDING", url: `${d.project}-${d.id}.vercel.app`, created: d.at, meta: { githubCommitSha: d.sha, githubCommitRef: "main" }, ...(ready ? { alias: [`${d.project}.vercel.app`] } : {}) }; };
 const add = (project, s, by) => { const d = { id: `dpl_${deployments.length + 1}`, project, sha: s, by, polls: 0, at: Date.now() }; deployments.push(d); return d; };
 const vc = http.createServer(async (req, res) => {
@@ -57,6 +66,7 @@ const vc = http.createServer(async (req, res) => {
   if (url.pathname === "/v9/projects") return send(200, { projects, pagination: { next: null } });
   if (/^\/v\d+\/projects$/.test(url.pathname) && req.method === "POST") {
     const p = JSON.parse(body);
+    made.push(p);
     const [org, repo] = p.gitRepository.repo.split("/");
     const made = { id: `prj_${p.name}`, name: p.name, link: { type: "github", org, repo, repoId: 9 } };
     projects.push(made);
@@ -66,6 +76,7 @@ const vc = http.createServer(async (req, res) => {
   if (url.pathname === "/v13/deployments" && req.method === "POST") {
     const p = JSON.parse(body);
     asked.push(p.project);
+    targets.push(p.target);
     const d = add(p.project, p.gitSource?.sha ?? "head", "api");
     return send(200, { id: d.id, readyState: "QUEUED", url: `${d.project}-${d.id}.vercel.app` });
   }
@@ -121,6 +132,19 @@ console.log("4. A site with no project yet");
 {
   const start = await post({ repo: "standin/fresh", branch: "main", name: "fresh", sha: sha(5) });
   check("the project is made and one deployment asked for", start.ok && start.created === "fresh" && asked.length === 2 && asked[1] === "prj_fresh", J({ start, asked }));
+}
+
+console.log("6. A project the Builder makes holds the static-site settings");
+{
+  const p = made.find((x) => x.name === "fresh");
+  check("the project is made with no framework, build, install or output setting of its own", !!p && "framework" in p && p.framework === null && p.buildCommand === null && p.installCommand === null && p.outputDirectory === null, J(p));
+}
+
+console.log("7. A connected site that publishes to a branch that is not production");
+{
+  const n = asked.length;
+  const start = await post({ repo: "standin/linked", branch: "preview", project: "linked", sha: sha(7) });
+  check("a production deployment of that branch is asked for, never a preview followed", start.ok && asked.length === n + 1 && asked.at(-1) === "prj_linked" && targets.at(-1) === "production" && !start.followed, J({ start, targets }));
 }
 
 console.log("5. polio's own Git deployments");

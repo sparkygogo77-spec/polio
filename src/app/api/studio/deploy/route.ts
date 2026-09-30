@@ -193,7 +193,11 @@ async function makeProject(tok: string, team: string | null, repo: string, wante
     const { ok, status, data } = await vercel<VercelProject & { error?: { code?: string; message?: string } }>(
       tok,
       `/v11/projects${query(team)}`,
-      { method: "POST", body: JSON.stringify({ name, gitRepository: { type: "github", repo } }) },
+      /* The project holds the static-site settings itself, not only the first
+         deployment request: every later build is Vercel's own Git build of a
+         push, which reads what the project stores (the check of 30 September:
+         the direct deploy passed these per request and nothing kept them). */
+      { method: "POST", body: JSON.stringify({ name, gitRepository: { type: "github", repo }, ...STATIC_SITE }) },
     );
     if (ok && data.id) {
       const note = clash ? `Vercel already has a project named ${clash}, so this one is ${name}.` : null;
@@ -439,7 +443,14 @@ export async function POST(request: Request) {
    * deployed it: one is asked for, as for a project not connected to the
    * repository (`tests/go-live-linked.mjs`).
    */
-  const linked = !made && project.link?.type === "github" && !!project.link.org && !!project.link.repo && `${project.link.org}/${project.link.repo}`.toLowerCase() === repo.toLowerCase();
+  /* Only a push to the branch Vercel builds to production deploys the live
+     site by itself; a push to any other branch makes a preview, behind a
+     sign-in, and following it would record a preview as the live address.
+     So a site that publishes to another branch still asks for a production
+     deployment of that branch, as the direct deploy always did. */
+  const productionBranch = project.link?.productionBranch ?? "main";
+  const linked = !made && project.link?.type === "github" && !!project.link.org && !!project.link.repo && `${project.link.org}/${project.link.repo}`.toLowerCase() === repo.toLowerCase()
+    && branch.toLowerCase() === productionBranch.toLowerCase();
   if (linked) {
     const since = Date.now();
     const until = since + PUSH_WAIT_MS;
