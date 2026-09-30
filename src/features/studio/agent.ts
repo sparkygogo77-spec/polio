@@ -603,6 +603,37 @@ export async function publishStatus(): Promise<PublishStatus> {
  * by its path and no control by its notes. A published board carries no
  * wrappers already; this is that, written down.
  */
+/*
+ * THE CAPTURE'S OWN RECORDS, WHEREVER THEY SIT. The fields above are the ones
+ * measured; a capture taken since carries more of the same kind in new places
+ * (each keyframe rule's stylesheet address, `keyframes[].sheet`; the block a
+ * part's units are taken of, by its element path, `units.of.selector`), and
+ * a list of places is always one short. So after them, the whole document is
+ * swept for the shapes a capture records, by what they are and not where:
+ * an element path under `selector`, a stylesheet address under `sheet`, and a
+ * `from` that says where something was taken (an address, a host, an element
+ * path, a sheet), which keeps only a part's `position`. Nothing downstream
+ * reads any of them (a part's units keep the part and box they are of).
+ */
+/* An element path as a capture writes it: from the body down (a rule's own selector, `.card:hover > span`, is the site's and stays). */
+const PATH = /^\s*(?:html\s*>\s*)?body(?:\s*>|\s*$)/;
+function unrecorded(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(unrecorded);
+  if (!v || typeof v !== "object") return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    if (k === "selector" && typeof x === "string" && PATH.test(x)) continue;
+    if (k === "sheet" && typeof x === "string") continue;
+    if (k === "from" && x && typeof x === "object" && !Array.isArray(x) && ["url", "host", "selector", "sheet"].some((f) => f in (x as object))) {
+      const pos = (x as { position?: unknown }).position;
+      if (pos !== undefined) out.from = { position: pos };
+      continue;
+    }
+    out[k] = unrecorded(x);
+  }
+  return out;
+}
+
 export function publishedDoc(): Record<string, unknown> {
   const d = studioDoc() as {
     nodes?: (Record<string, unknown> & { from?: { position?: unknown } | null })[];
@@ -617,7 +648,7 @@ export function publishedDoc(): Record<string, unknown> {
   const hosts = [...new Set((d.nodes ?? []).map((n) => { const u = (n.from as { url?: unknown } | null)?.url; try { return typeof u === "string" ? new URL(u).host : ""; } catch { return ""; } }).filter(Boolean))];
   const capture = d.look?.capture as ({ handoff?: unknown } & Record<string, unknown>) | undefined;
   const cleanCapture = capture && typeof capture.handoff === "string" ? { ...capture, handoff: unmade(capture.handoff, hosts) } : capture;
-  return {
+  const { standIn: _standIn, ...rest } = unrecorded({
     ...d,
     nodes: (d.nodes ?? []).map((n) => ({
       ...n,
@@ -630,7 +661,11 @@ export function publishedDoc(): Record<string, unknown> {
     brief: { ...(d.brief ?? {}), master: "", gimmick: "", ...(d.brief?.head ? { head: publishedHead(d.brief.head as SiteHead) } : {}) },
     look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}), ...(cleanCapture ? { capture: cleanCapture } : {}) } : d.look,
     shapes: (d.shapes ?? []).map((sh) => ("prompt" in sh ? { ...sh, prompt: "" } : sh)),
-    /* The recorded reads and their samples go up only with the Build option Stand-in server on (`standIn.ts`). */
+  }) as Record<string, unknown>;
+  void _standIn;
+  return {
+    ...rest,
+    /* The recorded reads and their samples go up only with the Build option Stand-in server on (`standIn.ts`), as recorded. */
     ...(() => { const s = useStudio.getState(); return standInOn(s.format, s.standIn) ? { standIn: s.standIn } : {}; })(),
   };
 }

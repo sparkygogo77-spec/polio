@@ -127,7 +127,14 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const logo = s.nodes.find((n) => n.pageId === "page_home" && n.picture?.id === "pic_cc8659c3");
   const lg = await rect(v, logo.id);
   /* Centred in the row in the capture (its centre is the row's, ${row.x + row.w / 2}), so centred in it at any width. */
-  check(`${width}: the SOL WORKS logo centred in the row, at ${logo.w}px, at its captured height`, near(logo.x + logo.w / 2, row.x + row.w / 2) && lg && rw && near(lg.x + lg.w / 2, rw.x + rw.w / 2) && near(lg.w, logo.w) && near(lg.y, logo.y), JSON.stringify(lg));
+  /*
+   * Seen centred in the row, as the real site draws it at every width. A
+   * capture taken since boxes are measured untransformed records its box
+   * (left: 50%) and its own move back (translate(-50%)) apart: where it is
+   * seen is the box moved by that transform, read off the drawn picture.
+   */
+  const shift = (() => { const m = /matrix\(([^)]+)\)/.exec(logo.art?.transform ?? ""); return m ? Number(m[1].split(",")[4]) : 0; })();
+  check(`${width}: the SOL WORKS logo centred in the row, at ${logo.w}px, at its captured height`, near(logo.x + shift + logo.w / 2, row.x + row.w / 2) && lg && rw && near(lg.x + shift + lg.w / 2, rw.x + rw.w / 2) && near(lg.w, logo.w) && near(lg.y, logo.y), JSON.stringify({ ...lg, shift }));
   const sd = await rect(v, nodeBy(ASIDE).id);
   check(`${width}: the sidebar flush left, ${sideW}px, the window's height between the bars`, sd && near(sd.x, 0) && near(sd.w, sideW) && near(sd.y, px(aside.ins[0])) && near(sd.b, height - px(aside.ins[2])), JSON.stringify(sd));
   const mn = await rect(v, nodeBy(MAIN).id);
@@ -140,8 +147,9 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const ft = await rect(v, nodeBy(FOOTER).id);
   check(`${width}: the footer bar pinned to the window's foot, the window's width`, ft && near(ft.b, height) && near(ft.x, 0) && near(ft.r, iw) && near(ft.h, footer.h), JSON.stringify(ft));
   const fr = await rect(v, nodeBy(FROW).id);
-  /* Inside the footer's own padding and border, as the capture records them (a 1px border all round, which the header has not). */
-  const fRowW = Math.min(px(bySel.get(FROW).maxw), iw - footer.pad[1] - footer.pad[3] - 2 * (px(footer.border ?? "0") || 0));
+  /* Its sides as the capture records them (`bsides`, clockwise from the top; sink check-border-sides.mjs), else one edge all round. */
+  const sidesW = Array.isArray(footer.bsides) ? footer.bsides[1] + footer.bsides[3] : 2 * (px(footer.border ?? "0") || 0);
+  const fRowW = Math.min(px(bySel.get(FROW).maxw), iw - footer.pad[1] - footer.pad[3] - sidesW);
   check(`${width}: the footer's contents centred like the header's`, fr && near(fr.x, (iw - fr.w) / 2) && near(fr.w, fRowW), JSON.stringify(fr));
   const version = s.nodes.find((n) => n.pageId === "page_home" && /v2\.0\.0/.test(JSON.stringify(n.content ?? "")));
   const vr = version ? await rect(v, version.id) : null;

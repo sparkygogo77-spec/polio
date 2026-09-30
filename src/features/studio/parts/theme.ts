@@ -458,7 +458,15 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
   // width took those 2px back (tests/inset-room.mjs).
   const next: Theme = { ...t, captured: true, measurePx: 100_000 };
   const tag = (selector.split(">").pop() ?? "").trim().split(/[:.#[]/)[0]!.toLowerCase();
-  if (INLINE.has(tag) && node.h > 0 && node.h < t.fontPx * t.lineHeight) next.lineHeight = node.h / t.fontPx;
+  /*
+   * Its line as tall as its box, written as the page's stylesheet keeps it.
+   * A style is written out at six figures, so 20 / 14 = 1.4285714… went up as
+   * 1.42857, a line of 19.99998px the published page laid at 19.984 where
+   * the preview laid 20, and every letter in it stood a pixel higher
+   * (tests/export-page.mjs). Rounded up at the fifth place, it is written as
+   * it is, and never shorter than the box.
+   */
+  if (INLINE.has(tag) && node.h > 0 && node.h < t.fontPx * t.lineHeight) next.lineHeight = Math.ceil((node.h / t.fontPx) * 1e5) / 1e5;
   return next;
 }
 

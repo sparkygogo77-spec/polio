@@ -15,7 +15,8 @@
  *   npm run build && npx next start -p 3013
  *   node tests/site-picture.mjs http://127.0.0.1:3013 <path to a sink checkout>
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { bringSink } from "./fixtures/bring-sink.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
@@ -27,6 +28,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
+const sinkDoc = JSON.parse(readFileSync(join(SINK, "site/document.json"), "utf8"));
 const { browser, page, state } = await bringSink(BASE, SINK);
 await page.waitForTimeout(3000);
 const s = await state();
@@ -34,8 +36,17 @@ const s = await state();
 /* The contract a fresh sink import holds. */
 const kinds = {};
 for (const n of s.nodes ?? []) kinds[n.featureId] = (kinds[n.featureId] ?? 0) + 1;
-const want = { box: 243, "cta-primary": 109, "drawn-icon": 132, picture: 20, prose: 111, "value-prop": 22 };
-check("sink lands whole: 637 parts", (s.nodes ?? []).length === 637 && Object.entries(want).every(([k, v]) => kinds[k] === v), `${(s.nodes ?? []).length} ${JSON.stringify(kinds)}`);
+/*
+ * The contract, read from the capture: every picture, icon, button and
+ * value-prop part in sink's document lands as that kind, and the boxes and
+ * words together land 354 (the import folds a word into its neighbour and
+ * leaves an empty wrapper out; SOLCINERATOR, taken on 2026-09-22 or re-taken
+ * on 2026-09-30, lands 637 either way).
+ */
+const docKinds = {};
+for (const n of (sinkDoc.state ?? sinkDoc).nodes) docKinds[n.featureId] = (docKinds[n.featureId] ?? 0) + 1;
+const want = Object.fromEntries(Object.entries(docKinds).filter(([k]) => k !== "box" && k !== "prose"));
+check("sink lands whole: 637 parts", (s.nodes ?? []).length === 637 && (kinds.box ?? 0) + (kinds.prose ?? 0) === 354 && Object.entries(want).every(([k, v]) => kinds[k] === v), `${(s.nodes ?? []).length} ${JSON.stringify(kinds)}`);
 
 /* Every candidate, as the rule sees it. */
 const by = new Map();

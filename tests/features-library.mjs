@@ -204,6 +204,9 @@ if (!existsSync(join(SINK, "site/document.json"))) {
   const at = (sel) => home.filter((n) => (n.from?.selector ?? "").endsWith(sel));
   /* A ! on an icon's own control counts for the icon: one control, one !. */
   const onIt = (n) => marked.has(n.id) || home.some((c) => marked.has(c.id) && c.from?.selector && (n.from?.selector ?? "").startsWith(`${c.from.selector} >`));
+  const inHeader = (n) => /^body > div > header\b/.test(n.from?.selector ?? "");
+  /* A shortened address and how long ago ("3G8S...EGjn 13s ago"), on a button. */
+  const isTxChip = (n) => /button$/.test(n.from?.selector ?? "") && /\w{4}\.\.\.\w{4} \d+\s?\w+ ago/.test(n.label ?? "");
   const expect = [
     ["the header's first icon button (profile)", at("div:nth-of-type(3) > button:nth-of-type(1) > svg")],
     ["the header's second icon button", at("div:nth-of-type(3) > button:nth-of-type(2) > svg")],
@@ -211,9 +214,10 @@ if (!existsSync(join(SINK, "site/document.json"))) {
     ["the time-range buttons", home.filter((n) => ["1D", "1W", "1M", "3M", "1Y", "ALL"].includes(words(n.id)))],
     ["refresh", at("div:nth-of-type(1) > div > button > svg")],
     ["the wallet chip", home.filter((n) => words(n.id) === "kgER...9oP7")],
-    ["the latest-transaction chip", home.filter((n) => /button$/.test(n.from?.selector ?? "") && /3G8S/.test(n.label))],
-    ["the price", home.filter((n) => words(n.id) === "$116.59")],
-    ["the price's change", home.filter((n) => words(n.id) === "-1.94%")],
+    /* Live figures, found by their shape in the header, not their value: the price, its change and the latest transaction move between captures. */
+    ["the latest-transaction chip", home.filter(isTxChip)],
+    ["the price", home.filter((n) => inHeader(n) && /^\$[\d,]+\.\d+$/.test(words(n.id)))],
+    ["the price's change", home.filter((n) => inHeader(n) && /^[-+]?\d+(\.\d+)?%$/.test(words(n.id)))],
     ["the stat numbers", home.filter((n) => /^[+]?\d+\.\d{4} SOL$/.test(words(n.id)))],
   ];
   for (const [what, ns] of expect) {
@@ -226,7 +230,7 @@ if (!existsSync(join(SINK, "site/document.json"))) {
   check("…and on no part that already goes somewhere", linked.every((n) => !marked.has(n.id)), `${linked.length} linked`);
   const inLinked = home.filter((n) => n.featureId === "drawn-icon" && linked.some((l) => (n.from?.selector ?? "").startsWith(`${l.from?.selector} >`)));
   check("…nor on an icon inside one (the sidebar's)", inLinked.length > 0 && inLinked.every((n) => !marked.has(n.id)), `${inLinked.length} icons`);
-  const chip = home.find((n) => /3G8S/.test(n.label) && /button$/.test(n.from?.selector ?? ""));
+  const chip = home.find(isTxChip);
   const inChip = home.filter((n) => chip && (n.from?.selector ?? "").startsWith(`${chip.from.selector} >`));
   check("…nor twice on one control: the chip carries it, not each thing inside it", inChip.length > 0 && inChip.every((n) => !marked.has(n.id)), `${inChip.length} inside`);
   const labels = home.filter((n) => ["Total PnL", "Total Earned", "PnL Over Time", "SOLCINERATOR"].includes(words(n.id)));
@@ -235,8 +239,9 @@ if (!existsSync(join(SINK, "site/document.json"))) {
   check("each ! says why: somewhere to go, or live data", sorted.every((d) => d.why === "nowhere" || d.why === "live"), [...new Set(sorted.map((d) => d.why))].join(", "));
   const answered = home.map((n) => (marked.has(n.id) ? { ...n, link: { kind: "url", target: "https://x.com" } } : n));
   check("once each is answered, every ! is gone", decisions(answered).length === 0, `${decisions(answered).length} left`);
-  const worked = home.map((n) => (words(n.id) === "$116.59" ? { ...n, work: { id: "sol-price", inputs: {} } } : n));
-  check("a live spot with a feature attached is answered", !decisions(worked).some((d) => words(d.id) === "$116.59"));
+  const price = home.find((n) => inHeader(n) && /^\$[\d,]+\.\d+$/.test(words(n.id)));
+  const worked = home.map((n) => (n.id === price?.id ? { ...n, work: { id: "sol-price", inputs: {} } } : n));
+  check("a live spot with a feature attached is answered", !!price && marked.has(price.id) && !decisions(worked).some((d) => d.id === price.id), price?.id ?? "no price");
   const tasked = home.map((n) => (words(n.id) === "kgER...9oP7" ? { ...n, task: "connect the wallet" } : n));
   check("a spot with a task written for it is answered", !decisions(tasked).some((d) => words(d.id) === "kgER...9oP7"));
   console.log(`  (${marked.size} marked on Creator Hub)`);

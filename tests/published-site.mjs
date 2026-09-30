@@ -25,12 +25,14 @@
  *   node tests/published-site.mjs http://127.0.0.1:3013 <path to a sink checkout> [screenshot dir]
  */
 import http from "node:http";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { bringSink } from "./fixtures/bring-sink.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
+/* The icons the captured page names for itself, if it named any (sink's doc.head, a capture taken since 2026-09-30): the published head writes those first (siteHead.ts). */
+const CAPTURED_ICONS = (() => { try { return JSON.parse(readFileSync(join(SINK, "site/document.json"), "utf8")).head?.icons ?? []; } catch { return []; } })();
 const SHOTS = process.argv[4] ?? null;
 const GH_PORT = Number(process.env.GH_PORT ?? 4341);
 const SERVE = Number(process.env.SERVE_PORT ?? 4342);
@@ -379,11 +381,17 @@ console.log("6. Pictures and icons");
     };
     const og = document.querySelector('meta[property="og:image"]')?.getAttribute("content") ?? "";
     const ogLocal = await load(new URL(og).pathname.replace(/^\//, ""));
-    return { small: await one('link[rel="icon"][sizes="32x32"]'), touch: await one('link[rel="apple-touch-icon"]'), og: ogLocal ? [ogLocal.naturalWidth, ogLocal.naturalHeight] : null, ogw: document.querySelector('meta[property="og:image:width"]')?.getAttribute("content") ?? null };
+    return { own: await one('link[rel="icon"]'), small: await one('link[rel="icon"][sizes="32x32"]'), touch: await one('link[rel="apple-touch-icon"]'), og: ogLocal ? [ogLocal.naturalWidth, ogLocal.naturalHeight] : null, ogw: document.querySelector('meta[property="og:image:width"]')?.getAttribute("content") ?? null };
   });
   /* Off by a few levels in 255 at most: the same picture, scaled by another hand. */
-  check("a 32px icon, the SolWorks logo at that size", !!icons.small && icons.small.w === 32 && icons.small.h === 32 && icons.small.off <= 8, JSON.stringify(icons.small));
-  check("a 180px icon for a phone's home screen, the same logo", !!icons.touch && icons.touch.w === 180 && icons.touch.h === 180 && icons.touch.sizes === "180x180" && icons.touch.off <= 8, JSON.stringify(icons.touch));
+  if (CAPTURED_ICONS.length) {
+    /* The site named its own icon (the 1024px SolWorks logo): published as it named it, from the copy's own picture, and the same logo. */
+    check("the site's own icon, as the capture names it: the SolWorks logo, from the copy", !!icons.own && /(^|\/)assets\/pictures\/pic_cc8659c3\./.test(icons.own.href ?? "") && icons.own.off <= 8, JSON.stringify(icons.own));
+    check("…and no icon made in its place", !icons.small && !icons.touch, JSON.stringify({ small: icons.small, touch: icons.touch }));
+  } else {
+    check("a 32px icon, the SolWorks logo at that size", !!icons.small && icons.small.w === 32 && icons.small.h === 32 && icons.small.off <= 8, JSON.stringify(icons.small));
+    check("a 180px icon for a phone's home screen, the same logo", !!icons.touch && icons.touch.w === 180 && icons.touch.h === 180 && icons.touch.sizes === "180x180" && icons.touch.off <= 8, JSON.stringify(icons.touch));
+  }
   check("og:image is the 1024 original", !!icons.og && icons.og[0] === 1024 && icons.og[1] === 1024 && icons.ogw === "1024", JSON.stringify(icons.og) + ` width ${icons.ogw}`);
   await v.close();
 }

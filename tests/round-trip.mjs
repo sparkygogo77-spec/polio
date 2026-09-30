@@ -44,7 +44,8 @@ const check = (name, ok, detail = "") => {
 const doc = JSON.parse(readFileSync(join(SINK, "site/document.json"), "utf8"));
 const words = (n) => (typeof n.content === "string" ? n.content : (n.content ?? []).map((s) => s.text).join(""));
 const home = doc.nodes.filter((n) => n.pageId === "page_home");
-const PRICE = home.find((n) => words(n) === "$116.59");
+/* The price, found by its shape in the header, not its value: it moves between captures ($116.59 on 2026-09-22, $118.00 on 2026-09-30). */
+const PRICE = home.find((n) => /^body > div > header\b/.test(n.from?.selector ?? "") && /^\$[\d,]+\.\d+$/.test(words(n)));
 const WALLET = home.find((n) => words(n) === "kgER...9oP7");
 const TASK = "show the latest transaction hashes from the connected wallet";
 for (const n of doc.nodes) {

@@ -362,7 +362,13 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
         k = { width: { c: C.w, k: 0, css: width }, left: { c: C.x, k: 0, css: `calc(${css(l0, W).replace(/^calc/, "")} + (${insideCss} - ${width}) * ${+share.toFixed(6)})` } };
       } else if (Math.abs(right) <= E && left > E) k = at(1);
       /* Placed absolutely (a decoration: trumpmorty.fun's ringed planet, the site's `right: 36%`): it moves by where its centre stood across what holds it, so it stays by what it sits over (`tests/fluid-wide.mjs`). */
-      else if (C.position === "absolute" && inR - inL > 0) k = at(Math.max(0, Math.min(1, (C.x + C.w / 2 - inL) / (inR - inL))));
+      /*
+       * Where it is SEEN decides, its own transform's move included: SOLCINERATOR's
+       * logo is `left: 50%` with `translate(-50%)`, its box right of the middle
+       * and drawn on it. Read by its box it drifted 1.4px off the middle of a
+       * narrower row; by where it is seen it stays on it, as on the page.
+       */
+      else if (C.position === "absolute" && inR - inL > 0) k = at(Math.max(0, Math.min(1, (C.x + (C.shiftX ?? 0) + C.w / 2 - inL) / (inR - inL))));
       else if (lost && C.x + C.w / 2 > (inL + inR) / 2) k = at(1);
       else k = at(0);
       /*
