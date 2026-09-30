@@ -481,19 +481,27 @@ function OpenShelf() {
       if (!shelfOpen) { mode = null; return; }      // shut, it is a row of planets
       /* What is ASKED FOR and what is DRAWN are not the same number once the
          shelf is near its floor, and the difference is the signal used below. */
-      const now = Math.round(el.getBoundingClientRect().height);
+      /*
+       * THE BAND'S HEIGHT, NOT THE LIST'S. The list sits under the search row
+       * inside the band, so it is always shorter than the band, and measured
+       * against the cap (a third of the canvas) it always "could grow": every
+       * wheel was taken as a resize that changed nothing, and the open
+       * category could not be scrolled at all (`tests/shelf-wheel.mjs`).
+       */
+      const band = el.closest<HTMLElement>("[data-studio-band]") ?? el;
+      const now = Math.round(band.getBoundingClientRect().height);
       const down = e.deltaY > 0;
       /* A pause ends the gesture: 220ms is longer than the gap between
          notches of one flick and shorter than a person changing their mind. */
       if (e.timeStamp - last > 220) mode = null;
       last = e.timeStamp;
       if (mode === null) {
-        const canGrow = down && now < shelfMax();
+        const canGrow = down && now < shelfMax() - 1;
         const canShrink = !down && el.scrollTop <= 0 && now > SHELF_MIN;
         mode = canGrow || canShrink ? "resize" : "list";
       }
       if (mode === "list") return;                  // the cards have it
-      if (down && now >= shelfMax()) { mode = "list"; return; }
+      if (down && now >= shelfMax() - 1) { mode = "list"; return; }
       /*
        * THE BOTTOM OF THE TRAVEL PUTS THE CATEGORIES AWAY.
        *
@@ -522,8 +530,11 @@ function OpenShelf() {
        * that, and a wheel gesture that closed the category at the floor was
        * tried here and did not fire reliably, so it is not pretended at.
        */
-      e.preventDefault();
+      /* A resize that would change nothing is not a resize: the list has the wheel. */
+      const was = shelfTall;
       setShelfTall(now + e.deltaY);
+      if (shelfTall === was && Math.abs((was ?? now) - now) < 2) { mode = "list"; return; }
+      e.preventDefault();
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
