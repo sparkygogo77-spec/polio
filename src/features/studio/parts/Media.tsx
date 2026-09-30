@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, standIn, withAlpha } from "./theme";
+import { cardStyle, items, standIn, withAlpha, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 import { isWorld, WorldLayer } from "./World";
 
@@ -16,7 +16,7 @@ import { isWorld, WorldLayer } from "./World";
  * AND THE REASON THEY WERE GREY, WHICH IS NOT THE REASON ANYBODY THOUGHT.
  *
  * This built its colours by sticking a hex alpha on the end of the theme's
- * own: `${t.accent}33`. The theme's colours are `oklch(...)`, so that made
+ * own: `${tint(t.accent, 0.2)}`. The theme's colours are `oklch(...)`, so that made
  * `oklch(0.7 0.1 150)33` \u2014 not a colour \u2014 and one bad colour in a
  * `background` shorthand throws the whole declaration away. Measured on a
  * gallery cell: `background-image: none`. Those cells were not painting a
@@ -189,7 +189,7 @@ export function Carousel({ id, content, options, theme: t, mode }: PartProps) {
             aria-label={`Go to slide ${j + 1}`}
             aria-current={j === i ? "true" : undefined}
             onClick={() => setI(j)}
-            style={{ width: j === i ? 18 : 8, height: 8, borderRadius: 999, border: "none", cursor: "pointer", background: j === i ? t.accent : `${t.muted}88`, transition: "width 200ms" }}
+            style={{ width: j === i ? 18 : 8, height: 8, borderRadius: 999, border: "none", cursor: "pointer", background: j === i ? t.accent : `${tint(t.muted, 0.533)}`, transition: "width 200ms" }}
           />
         ))}
       </div>
@@ -219,8 +219,8 @@ export function BeforeAfter({ id, content, theme: t }: PartProps) {
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${pct}%`, width: 2, background: t.accent }}>
           <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: t.surface, border: `2px solid ${t.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: t.text }}>⇔</span>
         </div>
-        <span style={{ position: "absolute", left: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${t.surface}cc`, padding: "2px 8px", borderRadius: 999 }}>{labels[0]}</span>
-        <span style={{ position: "absolute", right: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${t.surface}cc`, padding: "2px 8px", borderRadius: 999 }}>{labels[1]}</span>
+        <span style={{ position: "absolute", left: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999 }}>{labels[0]}</span>
+        <span style={{ position: "absolute", right: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999 }}>{labels[1]}</span>
       </div>
     </Fill>
   );
@@ -239,7 +239,7 @@ export function Player({ id, content, theme: t, mode }: PartProps) {
       <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "auto" }}>
         {eps.map((e, i) => (
           <button key={e + i} type="button" aria-current={i === current ? "true" : undefined} onClick={() => { setCurrent(i); setPlaying(true); }} style={{ ...cardStyle(t), display: "flex", alignItems: "center", gap: 10, padding: t.fontPx * 0.6, cursor: "pointer", color: t.text, font: "inherit", textAlign: "left", borderColor: i === current ? t.accent : t.line }}>
-            <span aria-hidden style={{ width: 26, height: 26, borderRadius: 999, background: i === current && playing ? t.accent : `${t.accent}33`, color: i === current && playing ? t.accentText : t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
+            <span aria-hidden style={{ width: 26, height: 26, borderRadius: 999, background: i === current && playing ? t.accent : `${tint(t.accent, 0.2)}`, color: i === current && playing ? t.accentText : t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
               {i === current && playing ? "❚❚" : "▶"}
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>{e}</span>
@@ -268,7 +268,7 @@ export function Player({ id, content, theme: t, mode }: PartProps) {
         {playing ? "❚❚" : "▶"}
       </button>
       <div style={{ flex: audio ? 1 : undefined, display: "flex", alignItems: "center", gap: 8, padding: audio ? 0 : `0 ${t.fontPx}px ${t.fontPx}px` }}>
-        <div style={{ flex: 1, height: 4, borderRadius: 999, background: `${t.muted}55`, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 4, borderRadius: 999, background: `${tint(t.muted, 0.333)}`, overflow: "hidden" }}>
           <div style={{ width: `${pos}%`, height: "100%", background: t.accent }} />
         </div>
         <span className="num" style={{ color: audio ? t.muted : t.text, fontSize: t.fontPx * 0.75 }}>{String(Math.floor(pos / 10)).padStart(2, "0")}:{String(Math.floor(pos) % 60).padStart(2, "0")}</span>
@@ -283,7 +283,7 @@ export function Viewer({ id, content, theme: t }: PartProps) {
   const label = items(content, [id === "map-embed" ? "Map" : "3D model"])[0]!;
   return (
     <Fill t={t} data-part={id} style={{ position: "relative", borderRadius: t.radius, overflow: "hidden", border: `1px solid ${t.line}` }}>
-      <div style={{ position: "absolute", inset: 0, background: id === "map-embed" ? `linear-gradient(${t.muted}22 1px, transparent 1px) 0 0 / ${24 * zoom}px ${24 * zoom}px, linear-gradient(90deg, ${t.muted}22 1px, transparent 1px) 0 0 / ${24 * zoom}px ${24 * zoom}px, ${t.bg}` : swatch(t, 3), display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.85, transition: "background-size 200ms" }}>
+      <div style={{ position: "absolute", inset: 0, background: id === "map-embed" ? `linear-gradient(${tint(t.muted, 0.133)} 1px, transparent 1px) 0 0 / ${24 * zoom}px ${24 * zoom}px, linear-gradient(90deg, ${tint(t.muted, 0.133)} 1px, transparent 1px) 0 0 / ${24 * zoom}px ${24 * zoom}px, ${t.bg}` : swatch(t, 3), display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.85, transition: "background-size 200ms" }}>
         {id === "map-embed" ? <span style={{ color: t.accent, fontSize: t.fontPx * 1.6 }}>◉</span> : <span style={{ transform: `scale(${zoom})`, transition: "transform 200ms" }}>{label}</span>}
       </div>
       <div style={{ position: "absolute", top: 8, right: 8, display: "flex", flexDirection: "column", gap: 4 }}>

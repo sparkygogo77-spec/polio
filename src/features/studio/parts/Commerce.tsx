@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 const money = (n: number) => "$" + n.toFixed(2);
@@ -86,7 +86,7 @@ export function ProductDetail({ id, content, theme: t, mode, emit, w, picture }:
               aria-label={`View ${i + 1}`}
               aria-pressed={shot === i}
               onClick={() => setShot(i)}
-              style={{ width: t.fontPx * 2.6, height: t.fontPx * 2.6, borderRadius: Math.min(t.radius, 8), border: `2px solid ${shot === i ? t.accent : t.line}`, background: `linear-gradient(140deg, ${t.accent}22, ${t.muted}18)`, cursor: "pointer", padding: 0 }}
+              style={{ width: t.fontPx * 2.6, height: t.fontPx * 2.6, borderRadius: Math.min(t.radius, 8), border: `2px solid ${shot === i ? t.accent : t.line}`, background: `linear-gradient(140deg, ${tint(t.accent, 0.133)}, ${tint(t.muted, 0.094)})`, cursor: "pointer", padding: 0 }}
             />
           ))}
         </div>
@@ -103,7 +103,7 @@ export function ProductDetail({ id, content, theme: t, mode, emit, w, picture }:
               role="radio"
               aria-checked={variant === v}
               onClick={() => setVariant(v)}
-              style={{ padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.8}px`, borderRadius: Math.min(t.radius, 999), cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.85, border: `1px solid ${variant === v ? t.accent : t.line}`, background: variant === v ? `${t.accent}1e` : "transparent", color: variant === v ? t.accent : t.text }}
+              style={{ padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.8}px`, borderRadius: Math.min(t.radius, 999), cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.85, border: `1px solid ${variant === v ? t.accent : t.line}`, background: variant === v ? `${tint(t.accent, 0.118)}` : "transparent", color: variant === v ? t.accent : t.text }}
             >
               {v}
             </button>
@@ -147,7 +147,7 @@ export function Cart({ id, content, theme: t, emit, onNavigate, link }: PartProp
         {lines.length === 0 ? <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>Your cart is empty.</span> : null}
         {lines.map((l) => (
           <div key={l.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: Math.min(t.radius, 6), background: `linear-gradient(140deg, ${t.accent}2a, ${t.muted}1f)`, flexShrink: 0 }} />
+            <span style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: Math.min(t.radius, 6), background: `linear-gradient(140deg, ${tint(t.accent, 0.165)}, ${tint(t.muted, 0.122)})`, flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, fontSize: t.fontPx * 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.name}</span>
             <Stepper t={t} value={l.qty} onChange={(q) => setLines((xs) => xs.map((x) => (x.name === l.name ? { ...x, qty: q } : x)))} label={l.name} />
             <span style={{ width: t.fontPx * 3.6, textAlign: "right", fontSize: t.fontPx * 0.9 }}>{money(l.price * l.qty)}</span>
@@ -284,7 +284,7 @@ export function Pricing({ id, content, options, theme: t, mode, emit, w }: PartP
           const price = yearly ? Math.round(base * 0.8) : base;
           return (
             <div key={tier.title} style={{ ...cardStyle(t), border: `1px solid ${i === hot ? t.accent : t.line}`, padding: t.fontPx * 1.1, display: "flex", flexDirection: "column", gap: t.fontPx * 0.45, minHeight: 0 }}>
-              {i === hot ? <span style={{ alignSelf: "flex-start", background: `${t.accent}22`, color: t.accent, borderRadius: 999, padding: "1px 8px", fontSize: t.fontPx * 0.7, fontWeight: 700 }}>Recommended</span> : null}
+              {i === hot ? <span style={{ alignSelf: "flex-start", background: `${tint(t.accent, 0.133)}`, color: t.accent, borderRadius: 999, padding: "1px 8px", fontSize: t.fontPx * 0.7, fontWeight: 700 }}>Recommended</span> : null}
               <span style={{ fontWeight: 700, fontFamily: t.headingFamily }}>{tier.title}</span>
               <span style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2 }}>
                 ${price}
@@ -353,7 +353,7 @@ export function Testimonials({ id, content, theme: t, w }: PartProps) {
             <span aria-hidden style={{ color: t.accent, fontFamily: t.headingFamily, fontSize: t.fontPx * 1.8, lineHeight: 0.6 }}>&ldquo;</span>
             <blockquote style={{ margin: 0, flex: 1, fontSize: t.fontPx * 0.95 }}>{q}</blockquote>
             <figcaption style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span aria-hidden style={{ width: t.fontPx * 1.9, height: t.fontPx * 1.9, borderRadius: 999, background: `${t.accent}40`, color: t.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 0.72, fontWeight: 700 }}>{who.initials}</span>
+              <span aria-hidden style={{ width: t.fontPx * 1.9, height: t.fontPx * 1.9, borderRadius: 999, background: `${tint(t.accent, 0.251)}`, color: t.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 0.72, fontWeight: 700 }}>{who.initials}</span>
               <span style={{ fontSize: t.fontPx * 0.85 }}>
                 <strong style={{ display: "block", fontWeight: 600 }}>{who.name}</strong>
                 <span style={{ color: t.muted }}>{who.role}</span>
@@ -455,7 +455,7 @@ export function Subscription({ id, content, theme: t, emit }: PartProps) {
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx, display: "flex", flexDirection: "column", gap: t.fontPx * 0.6 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.05 }}>Your plan</strong>
-        <span style={{ marginLeft: "auto", background: `${t.accent}22`, color: t.accent, borderRadius: 999, padding: "1px 9px", fontSize: t.fontPx * 0.75, fontWeight: 700 }}>{current}</span>
+        <span style={{ marginLeft: "auto", background: `${tint(t.accent, 0.133)}`, color: t.accent, borderRadius: 999, padding: "1px 9px", fontSize: t.fontPx * 0.75, fontWeight: 700 }}>{current}</span>
       </div>
       <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>Renews on the 1st. Cancel any time.</span>
       <div role="radiogroup" aria-label="Plan" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -466,7 +466,7 @@ export function Subscription({ id, content, theme: t, emit }: PartProps) {
             role="radio"
             aria-checked={current === p.title}
             onClick={() => { setCurrent(p.title); emit?.({ type: "toast", text: `Switched to ${p.title}`, level: "success" }); }}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: t.fontPx * 0.55, borderRadius: Math.min(t.radius, 8), border: `1px solid ${current === p.title ? t.accent : t.line}`, background: current === p.title ? `${t.accent}14` : "transparent", color: t.text, font: "inherit", fontSize: t.fontPx * 0.9, cursor: "pointer", textAlign: "left" }}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: t.fontPx * 0.55, borderRadius: Math.min(t.radius, 8), border: `1px solid ${current === p.title ? t.accent : t.line}`, background: current === p.title ? `${tint(t.accent, 0.078)}` : "transparent", color: t.text, font: "inherit", fontSize: t.fontPx * 0.9, cursor: "pointer", textAlign: "left" }}
           >
             <span style={{ width: t.fontPx * 0.8, height: t.fontPx * 0.8, borderRadius: 999, border: `2px solid ${current === p.title ? t.accent : t.line}`, background: current === p.title ? t.accent : "transparent" }} />
             <span style={{ flex: 1 }}>{p.title}</span>

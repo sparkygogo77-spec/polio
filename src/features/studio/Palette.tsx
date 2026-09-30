@@ -33,7 +33,7 @@ import { planetOf } from "./planets";
 import { moonFor } from "./moons";
 import { shapeOf } from "./showcase";
 import { switchOf, type SiteWords } from "./shelfFacts";
-import { PartDetail, SeeMotionTab, ShelfCard, WorkShelfCard, useSiteVersions, useSiteWords, versionsOf } from "./ShelfCards";
+import { PartDetail, SeeMotionTab, ShelfCard, UsedByPicked, WorkShelfCard, useSiteVersions, useSiteWords, versionsOf } from "./ShelfCards";
 import { itemOf, shelfOf } from "./shelfPlan";
 import { isWorkKey, workIdOf } from "./shelfGroups";
 import { allWorks, getWork } from "./library/works";
@@ -755,6 +755,8 @@ function OpenShelf() {
              shelf. Two scroll regions that never push each other is the
              rule; this is the half of it the shelf owns. */
           className="no-bars relative z-[1] flex h-full flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain">
+        {/* R14: with one part picked, what on the shelf that part uses; its cards wear a mark too. */}
+        <UsedByPicked />
         {searching ? (
           found.length || here.length ? (
             <div className="relative z-[1] px-3 py-3">

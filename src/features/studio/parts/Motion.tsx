@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
-import { cardStyle, items, type Theme, ghostStyle} from "./theme";
+import { cardStyle, items, type Theme, ghostStyle, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 /** What each motion does, in one line, for anyone who has not met the name. */
@@ -32,14 +32,14 @@ const NOTE: Record<string, string> = {
 
 function Stage({ t, children }: { t: Theme; children: React.ReactNode }) {
   return (
-    <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", borderRadius: Math.min(t.radius, 8), background: `${t.muted}12`, border: `1px solid ${t.line}` }}>
+    <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", borderRadius: Math.min(t.radius, 8), background: `${tint(t.muted, 0.071)}`, border: `1px solid ${t.line}` }}>
       {children}
     </div>
   );
 }
 
 const block = (t: Theme, extra?: React.CSSProperties): React.CSSProperties => ({
-  borderRadius: 3, background: `${t.accent}66`, ...extra,
+  borderRadius: 3, background: `${tint(t.accent, 0.4)}`, ...extra,
 });
 
 /** The scene for one id. Every animation is named `mo-*` in globals.css. */
@@ -62,7 +62,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
       return (
         <Stage t={t}>
           {[0.35, 0.6, 1].map((depth, i) => (
-            <div key={i} style={{ position: "absolute", left: 0, right: 0, top: `${8 + i * 26}%`, height: "26%", ...block(t, { opacity: 0.25 + depth * 0.5, background: i === 2 ? t.accent : `${t.accent}55` }), animation: `mo-drift ${5 / depth}s ease-in-out infinite alternate` }} />
+            <div key={i} style={{ position: "absolute", left: 0, right: 0, top: `${8 + i * 26}%`, height: "26%", ...block(t, { opacity: 0.25 + depth * 0.5, background: i === 2 ? t.accent : `${tint(t.accent, 0.333)}` }), animation: `mo-drift ${5 / depth}s ease-in-out infinite alternate` }} />
           ))}
         </Stage>
       );
@@ -91,7 +91,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
           <div style={{ position: "absolute", top: 8, bottom: 8, left: 6, display: "flex", gap: 5, ...loop("mo-slide-x", 5, "ease-in-out") }}>
             {[0, 1, 2, 3, 4].map((i) => <span key={i} style={{ width: 34, ...block(t, { opacity: i === 0 ? 1 : 0.5 }) }} />)}
           </div>
-          <span style={{ position: "absolute", left: 6, right: 6, bottom: 3, height: 2, borderRadius: 999, background: `${t.muted}44` }} />
+          <span style={{ position: "absolute", left: 6, right: 6, bottom: 3, height: 2, borderRadius: 999, background: `${tint(t.muted, 0.267)}` }} />
         </Stage>
       );
     case "scroll-progress":
@@ -127,7 +127,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
     case "smooth-scroll":
       return (
         <Stage t={t}>
-          <span style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 2, marginLeft: -1, borderRadius: 999, background: `${t.muted}44` }} />
+          <span style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 2, marginLeft: -1, borderRadius: 999, background: `${tint(t.muted, 0.267)}` }} />
           <span style={{ position: "absolute", left: "50%", top: 8, width: 10, height: 10, marginLeft: -5, borderRadius: 999, background: t.accent, "--mo-travel": "38px", ...loop("mo-ease-down", 3) } as React.CSSProperties} />
         </Stage>
       );
@@ -136,7 +136,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
       return (
         <Stage t={t}>
           {[0, 1, 2].map((i) => (
-            <span key={i} style={{ position: "absolute", width: style === "spotlight" ? 34 : 10 - i * 2, height: style === "spotlight" ? 34 : 10 - i * 2, borderRadius: 999, background: style === "spotlight" ? `radial-gradient(circle, ${t.accent}55, transparent 70%)` : t.accent, opacity: 1 - i * 0.3, animation: `mo-trail 3.4s ease-in-out ${i * 0.12}s infinite` }} />
+            <span key={i} style={{ position: "absolute", width: style === "spotlight" ? 34 : 10 - i * 2, height: style === "spotlight" ? 34 : 10 - i * 2, borderRadius: 999, background: style === "spotlight" ? `radial-gradient(circle, ${tint(t.accent, 0.333)}, transparent 70%)` : t.accent, opacity: 1 - i * 0.3, animation: `mo-trail 3.4s ease-in-out ${i * 0.12}s infinite` }} />
           ))}
         </Stage>
       );
@@ -186,7 +186,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
     case "physics":
       return (
         <Stage t={t}>
-          <span style={{ position: "absolute", left: 6, right: 6, bottom: 8, height: 2, borderRadius: 999, background: `${t.muted}44` }} />
+          <span style={{ position: "absolute", left: 6, right: 6, bottom: 8, height: 2, borderRadius: 999, background: `${tint(t.muted, 0.267)}` }} />
           {[0, 1].map((i) => (
             <span key={i} style={{ position: "absolute", left: `${28 + i * 30}%`, bottom: 10, width: 14, height: 14, borderRadius: 999, background: i ? t.highlight : t.accent, "--mo-travel": i ? "-22px" : "-34px", animation: `mo-bounce ${1.1 + i * 0.35}s infinite` } as React.CSSProperties} />
           ))}
@@ -195,7 +195,7 @@ function Scene({ id, t, options }: { id: string; t: Theme; options: Record<strin
     default:
       return (
         <Stage t={t}>
-          <span style={{ position: "absolute", inset: "30%", borderRadius: 5, background: `${t.accent}55`, ...loop("mo-press", 2.4) }} />
+          <span style={{ position: "absolute", inset: "30%", borderRadius: 5, background: `${tint(t.accent, 0.333)}`, ...loop("mo-press", 2.4) }} />
         </Stage>
       );
   }

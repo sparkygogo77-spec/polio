@@ -164,6 +164,17 @@ same boxes as everywhere else, in the screen's colours.
   pair of words and ground is held to 4.5 to 1; when the site's pair fails
   it takes the closest readable pair of the site's own, else plain light
   on dark. `tests/shelf-readable.mjs` on three captured sites.
+- **The shelf answers "what does this part use".** With one part picked,
+  a strip at the top of the shelf names every card it uses: what it is (at
+  its version), each feature it carries, what its page gave it (a hover, a
+  loop, a page inside it), and those cards wear a "This part" mark
+  (`library/usedBy.ts`). A card's "On this page" count picks the parts and
+  opens their list by name, each a link to one part. R14,
+  `tests/used-by-part.mjs`.
+- **A see-through colour is `tint(colour, alpha)`, never digits glued on.**
+  `${t.accent}22` is a colour only for six-digit hex; on oklch, rgb, a name
+  or a var() the browser drops the declaration. `parts/tint.ts` is
+  color-mix with transparent. `tests/tint-glue.mjs` fails on a glued one.
 - **A shelf card is a promise about the thing, so it says what it is.**
   Its name, one line of what it does, whether it works now or is an idea
   that needs building, and what it needs (a key, a backend, money). Its

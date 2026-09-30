@@ -83,6 +83,7 @@ const inkOf = async (clip) => {
 const BLANK = 0.02;
 
 const blank = [];
+const offScreen = [];
 const every = [];
 let seen = 0;
 for (const id of cats) {
@@ -96,10 +97,34 @@ for (const id of cats) {
     const t = tiles.nth(i);
     await t.scrollIntoViewIfNeeded().catch(() => {});
     await page.waitForTimeout(90);
+    /*
+     * AT REST, NOT MID-PASS. A motion card plays its effect once as it comes
+     * into view (`ShelfCards.tsx`, `useWake`), and a frame of that pass is
+     * not the tile's picture: the opening wipe's first half is the accent
+     * laid over everything with the name still fading in, 1.7% ink, while
+     * at rest the same tile is the wipe half drawn over a page and its cards.
+     * Which frame the shot landed on decided pass or fail. So a tile that is
+     * playing is waited for until its pass ends.
+     */
+    await t.evaluate((el) => new Promise((done) => {
+      const until = Date.now() + 2500;
+      const tick = () => (!el.querySelector(".md-anim") || Date.now() > until ? done(null) : setTimeout(tick, 100));
+      tick();
+    }));
     const box = await t.boundingBox();
     if (!box || box.width < 8 || box.height < 8) continue;
     /* The picture only: the name under it is text and would count as ink. */
-    const clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.max(8, Math.round(box.height - 14)) };
+    let clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.max(8, Math.round(box.height - 14)) };
+    /* A scroll that did not land (the shelf was still settling) leaves the tile off screen: bring it in once more, and name it if it still is not. */
+    const vp = page.viewportSize();
+    const out = (c) => c.y < 0 || c.x < 0 || c.y + c.height > vp.height || c.x + c.width > vp.width;
+    if (out(clip)) {
+      await page.waitForTimeout(400);
+      await t.scrollIntoViewIfNeeded().catch(() => {});
+      const b2 = await t.boundingBox();
+      if (b2) clip = { x: Math.round(b2.x), y: Math.round(b2.y), width: Math.round(b2.width), height: Math.max(8, Math.round(b2.height - 14)) };
+    }
+    if (out(clip)) { offScreen.push(await t.getAttribute("data-tile")); continue; }
     const { share } = await inkOf(clip);
     seen++;
     const tid = await t.getAttribute("data-tile");
@@ -111,6 +136,7 @@ for (const id of cats) {
 }
 
 /* One card per thing since Lane I (its near-copies are versions on its detail card): every catalogue card on the shelf. */
+check("every tile could be brought on screen to be looked at", offScreen.length === 0, offScreen.join(", "));
 check("every tile in the shelf was looked at", seen >= 150, `${seen} tiles across ${cats.length} categories`);
 check(
   "every element in the shelf shows what it is, rather than a grey rectangle",

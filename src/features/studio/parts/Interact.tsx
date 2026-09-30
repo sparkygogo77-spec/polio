@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, FAMILY, type Theme, ghostStyle} from "./theme";
+import { cardStyle, items, titled, FAMILY, type Theme, ghostStyle, tint } from "./theme";
 import type { PartProps } from "./types";
 
 const soft = (t: Theme): React.CSSProperties => ({ ...cardStyle(t), padding: t.fontPx * 0.7 });
@@ -52,7 +52,7 @@ export function CommandPalette({ id, content, theme: t, mode, emit }: PartProps)
               aria-selected={i === cursor}
               onMouseEnter={() => setCursor(i)}
               onClick={() => run(c)}
-              style={{ width: "100%", textAlign: "left", display: "flex", gap: 8, alignItems: "center", padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.5}px`, borderRadius: Math.min(t.radius, 7), border: "none", background: i === cursor ? `${t.accent}1c` : "transparent", color: t.text, font: "inherit", fontSize: t.fontPx * 0.88, cursor: mode === "live" ? "pointer" : "default" }}
+              style={{ width: "100%", textAlign: "left", display: "flex", gap: 8, alignItems: "center", padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.5}px`, borderRadius: Math.min(t.radius, 7), border: "none", background: i === cursor ? `${tint(t.accent, 0.11)}` : "transparent", color: t.text, font: "inherit", fontSize: t.fontPx * 0.88, cursor: mode === "live" ? "pointer" : "default" }}
             >
               <span aria-hidden style={{ color: t.accent }}>›</span>
               {c}
@@ -138,7 +138,7 @@ export function SoundCues({ id, content, options, theme: t, mode }: PartProps) {
       >
         Try it
       </button>
-      <span key={ping} aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: on ? t.accent : `${t.muted}55`, animation: ping && mode === "live" ? "pop var(--motion-base, 160ms) ease-out" : undefined }} />
+      <span key={ping} aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: on ? t.accent : `${tint(t.muted, 0.333)}`, animation: ping && mode === "live" ? "pop var(--motion-base, 160ms) ease-out" : undefined }} />
     </Fill>
   );
 }
@@ -255,7 +255,7 @@ export function HoverCard({ id, content, theme: t, mode }: PartProps) {
         </button>
         {open ? (
           <span id={`${id}-card`} role="tooltip" style={{ position: "absolute", left: "50%", top: "calc(100% + 8px)", transform: "translateX(-50%)", width: 200, ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", gap: 8, boxShadow: `0 12px 30px ${t.light ? "oklch(0 0 0 / .14)" : "oklch(0 0 0 / .45)"}`, zIndex: 3, textAlign: "left" }}>
-            <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: 999, background: `${t.accent}44`, flexShrink: 0 }} />
+            <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: 999, background: `${tint(t.accent, 0.267)}`, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>
               <strong style={{ display: "block", fontSize: t.fontPx * 0.85 }}>{name}</strong>
               <span style={{ color: t.muted, fontSize: t.fontPx * 0.76 }}>{rest[0] ?? unwritten(mode, () => sample.sentence(rng(hash(name!)), 8), name!, t.published)}</span>
@@ -305,7 +305,7 @@ export function Skeletons({ id, content, theme: t, mode }: PartProps) {
   useTicker(mode, 2600, () => setLoaded((v) => !v));
   const shimmer: React.CSSProperties = {
     borderRadius: 4,
-    background: `linear-gradient(90deg, ${t.muted}1f 25%, ${t.muted}3a 37%, ${t.muted}1f 63%)`,
+    background: `linear-gradient(90deg, ${tint(t.muted, 0.122)} 25%, ${tint(t.muted, 0.227)} 37%, ${tint(t.muted, 0.122)} 63%)`,
     backgroundSize: "200% 100%",
     animation: mode === "live" ? "shimmer 1.4s linear infinite" : undefined,
   };
@@ -394,9 +394,9 @@ export function Gamification({ id, content, theme: t, emit }: PartProps) {
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.3, fontVariantNumeric: "tabular-nums" }}>{points.toLocaleString()}</strong>
         <span style={{ color: t.muted, fontSize: t.fontPx * 0.8 }}>{pointsName}</span>
-        <span style={{ marginLeft: "auto", background: `${t.accent}22`, color: t.accent, borderRadius: 999, padding: "1px 8px", fontSize: t.fontPx * 0.72, fontWeight: 700 }}>{rest[0] ?? `Level ${level}`}</span>
+        <span style={{ marginLeft: "auto", background: `${tint(t.accent, 0.133)}`, color: t.accent, borderRadius: 999, padding: "1px 8px", fontSize: t.fontPx * 0.72, fontWeight: 700 }}>{rest[0] ?? `Level ${level}`}</span>
       </div>
-      <span role="progressbar" aria-valuenow={within} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to next level" style={{ height: 6, borderRadius: 999, background: `${t.muted}26`, overflow: "hidden" }}>
+      <span role="progressbar" aria-valuenow={within} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to next level" style={{ height: 6, borderRadius: 999, background: `${tint(t.muted, 0.149)}`, overflow: "hidden" }}>
         <span style={{ display: "block", width: `${within}%`, height: "100%", background: `linear-gradient(90deg, ${t.accent}, ${t.highlight})`, transition: "width 240ms" }} />
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -417,7 +417,7 @@ export function WorkflowBuilder({ id, content, theme: t, emit }: PartProps) {
       {steps.map((step, i) => (
         <React.Fragment key={step + i}>
           <div style={{ ...cardStyle(t), padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.6}px`, display: "flex", alignItems: "center", gap: 8, fontSize: t.fontPx * 0.85 }}>
-            <span aria-hidden style={{ width: t.fontPx * 1.4, height: t.fontPx * 1.4, borderRadius: 999, background: i === 0 ? t.accent : `${t.accent}2a`, color: i === 0 ? t.accentText : t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 0.7, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+            <span aria-hidden style={{ width: t.fontPx * 1.4, height: t.fontPx * 1.4, borderRadius: 999, background: i === 0 ? t.accent : `${tint(t.accent, 0.165)}`, color: i === 0 ? t.accentText : t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 0.7, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
             <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{step}</span>
             <button type="button" aria-label={`Remove ${step}`} onClick={() => setSteps((xs) => xs.filter((_, j) => j !== i))} style={{ border: "none", background: "transparent", color: t.muted, cursor: "pointer", font: "inherit" }}>×</button>
           </div>
@@ -485,7 +485,7 @@ export function Onboarding({ id, content, theme: t, mode, emit }: PartProps) {
   if (tour) {
     const current = steps[Math.min(step, steps.length - 1)]!;
     return (
-      <Fill t={t} data-part={id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: Math.min(t.radius, 10), background: `${t.muted}12` }}>
+      <Fill t={t} data-part={id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: Math.min(t.radius, 10), background: `${tint(t.muted, 0.071)}` }}>
         <span aria-hidden style={{ position: "absolute", left: `${18 + step * 26}%`, top: "26%", width: t.fontPx * 3, height: t.fontPx * 3, borderRadius: 8, boxShadow: `0 0 0 9999px ${t.light ? "oklch(0 0 0 / .45)" : "oklch(0 0 0 / .6)"}`, border: `2px solid ${t.accent}`, transition: "left 220ms" }} />
         <div style={{ position: "absolute", left: "8%", right: "8%", bottom: "8%", ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", alignItems: "center", gap: 8, zIndex: 2 }}>
           <span style={{ flex: 1, minWidth: 0 }}>
@@ -560,7 +560,7 @@ export function EasterEgg({ id, content, theme: t, mode, emit }: PartProps) {
         type="button"
         aria-label="A mark"
         onClick={() => { const n = taps + 1; setTaps(n); if (n === 3) emit?.({ type: "toast", text: prize!, level: "success" }); }}
-        style={{ width: t.fontPx * 2.6, height: t.fontPx * 2.6, borderRadius: found ? 8 : 999, border: "none", cursor: mode === "live" ? "pointer" : "default", background: found ? `linear-gradient(135deg, ${t.accent}, ${t.highlight})` : `${t.muted}2a`, color: found ? t.accentText : t.muted, fontSize: t.fontPx * 1.1, transition: "border-radius 220ms, background 220ms" }}
+        style={{ width: t.fontPx * 2.6, height: t.fontPx * 2.6, borderRadius: found ? 8 : 999, border: "none", cursor: mode === "live" ? "pointer" : "default", background: found ? `linear-gradient(135deg, ${t.accent}, ${t.highlight})` : `${tint(t.muted, 0.165)}`, color: found ? t.accentText : t.muted, fontSize: t.fontPx * 1.1, transition: "border-radius 220ms, background 220ms" }}
       >
         {found ? "★" : "◆"}
       </button>

@@ -7,12 +7,12 @@
 import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, titled, FAMILY, type Theme } from "./theme";
+import { cardStyle, items, titled, FAMILY, type Theme, tint } from "./theme";
 import type { PartProps } from "./types";
 
 function Bar({ t, pct, colour }: { t: Theme; pct: number; colour?: string }) {
   return (
-    <span style={{ display: "block", height: 5, borderRadius: 999, background: `${t.muted}26`, overflow: "hidden" }}>
+    <span style={{ display: "block", height: 5, borderRadius: 999, background: `${tint(t.muted, 0.149)}`, overflow: "hidden" }}>
       <span style={{ display: "block", width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: colour ?? t.accent }} />
     </span>
   );
@@ -29,7 +29,7 @@ export function MetaPreview({ id, content, theme: t }: PartProps) {
         <span style={{ color: t.muted, fontSize: t.fontPx * 0.82 }}>{description}</span>
       </div>
       <div style={{ ...cardStyle(t), overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <span style={{ height: t.fontPx * 3.4, background: `linear-gradient(120deg, ${t.accent}44, ${t.highlight}33)` }} />
+        <span style={{ height: t.fontPx * 3.4, background: `linear-gradient(120deg, ${tint(t.accent, 0.267)}, ${tint(t.highlight, 0.2)})` }} />
         <span style={{ padding: t.fontPx * 0.5, display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ color: t.muted, fontSize: t.fontPx * 0.68, textTransform: "uppercase", letterSpacing: 0.5 }}>example.com</span>
           <span style={{ fontWeight: 600, fontSize: t.fontPx * 0.88 }}>{title}</span>
@@ -114,7 +114,7 @@ export function Api({ id, content, theme: t, mode }: PartProps) {
             type="button"
             aria-pressed={picked === route}
             onClick={() => setPicked(route)}
-            style={{ display: "flex", gap: 8, alignItems: "center", background: picked === route ? `${t.accent}14` : "transparent", border: "none", borderRadius: Math.min(t.radius, 6), padding: `${t.fontPx * 0.25}px ${t.fontPx * 0.35}px`, color: t.text, font: "inherit", cursor: mode === "live" ? "pointer" : "default", textAlign: "left" }}
+            style={{ display: "flex", gap: 8, alignItems: "center", background: picked === route ? `${tint(t.accent, 0.078)}` : "transparent", border: "none", borderRadius: Math.min(t.radius, 6), padding: `${t.fontPx * 0.25}px ${t.fontPx * 0.35}px`, color: t.text, font: "inherit", cursor: mode === "live" ? "pointer" : "default", textAlign: "left" }}
           >
             <span style={{ color: colourOf(route), fontWeight: 700, width: t.fontPx * 3 }}>{verb}</span>
             <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.muted }}>{pathParts.join(" ")}</span>
@@ -277,8 +277,8 @@ export function Versions({ id, content, theme: t, emit }: PartProps) {
       {entries.map((e, i) => {
         const draft = /draft/i.test(e.title);
         return (
-          <div key={e.title + i} style={{ display: "flex", alignItems: "center", gap: 8, padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.4}px`, borderRadius: Math.min(t.radius, 8), background: current === i ? `${t.accent}12` : undefined, fontSize: t.fontPx * 0.85 }}>
-            <span style={{ background: draft ? "oklch(0.75 0.16 70 / .18)" : `${t.accent}22`, color: draft ? "oklch(0.8 0.15 70)" : t.accent, borderRadius: 999, padding: "0 7px", fontSize: t.fontPx * 0.66, fontWeight: 700 }}>
+          <div key={e.title + i} style={{ display: "flex", alignItems: "center", gap: 8, padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.4}px`, borderRadius: Math.min(t.radius, 8), background: current === i ? `${tint(t.accent, 0.071)}` : undefined, fontSize: t.fontPx * 0.85 }}>
+            <span style={{ background: draft ? "oklch(0.75 0.16 70 / .18)" : `${tint(t.accent, 0.133)}`, color: draft ? "oklch(0.8 0.15 70)" : t.accent, borderRadius: 999, padding: "0 7px", fontSize: t.fontPx * 0.66, fontWeight: 700 }}>
               {draft ? "DRAFT" : "LIVE"}
             </span>
             <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: t.muted }}>{e.body ?? e.title}</span>
@@ -302,7 +302,7 @@ export function Integration({ id, content, theme: t, emit }: PartProps) {
     <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: "column", gap: t.fontPx * 0.5, overflow: "auto" }}>
       {services.map((s) => (
         <div key={s.title} style={{ ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", alignItems: "center", gap: 9 }}>
-          <span aria-hidden style={{ width: t.fontPx * 2, height: t.fontPx * 2, borderRadius: Math.min(t.radius, 8), background: `${t.accent}22`, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", color: t.accent, fontWeight: 700, fontSize: t.fontPx * 0.8 }}>
+          <span aria-hidden style={{ width: t.fontPx * 2, height: t.fontPx * 2, borderRadius: Math.min(t.radius, 8), background: `${tint(t.accent, 0.133)}`, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", color: t.accent, fontWeight: 700, fontSize: t.fontPx * 0.8 }}>
             {s.title[0]}
           </span>
           <span style={{ flex: 1, minWidth: 0 }}>

@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, radiusFor, ghostStyle} from "./theme";
+import { cardStyle, items, radiusFor, ghostStyle, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -176,7 +176,7 @@ export function FileDrop({ id, content, theme: t, emit }: PartProps) {
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); add(Array.from(e.dataTransfer.files).map((f) => f.name)); }}
-      style={{ ...ghostStyle(t, over ? t.accent : t.line), background: over ? `${t.accent}12` : "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: t.fontPx, textAlign: "center" }}
+      style={{ ...ghostStyle(t, over ? t.accent : t.line), background: over ? `${tint(t.accent, 0.071)}` : "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: t.fontPx, textAlign: "center" }}
     >
       <span aria-hidden style={{ fontSize: t.fontPx * 1.6, color: t.accent }}>⤓</span>
       <span style={{ fontSize: t.fontPx * 0.92 }}>{label}</span>
@@ -278,7 +278,7 @@ export function Rating({ id, theme: t, emit }: PartProps) {
           onMouseEnter={() => setHover(n)}
           onMouseLeave={() => setHover(0)}
           onClick={() => { setValue(n); emit?.({ type: "toast", text: `Rated ${n}/5`, level: "success" }); }}
-          style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontSize: t.fontPx * 1.5, lineHeight: 1, color: n <= shown ? t.accent : `${t.muted}66` }}
+          style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontSize: t.fontPx * 1.5, lineHeight: 1, color: n <= shown ? t.accent : `${tint(t.muted, 0.4)}` }}
         >
           ★
         </button>

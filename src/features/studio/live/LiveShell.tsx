@@ -8,6 +8,7 @@
  */
 import * as React from "react";
 import type { Behaviours } from "./behaviours";
+import { tint } from "../parts/theme";
 
 interface Props {
   behaviours: Behaviours;
@@ -182,7 +183,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
             width: b.cursor === "spotlight" ? 220 : 16, height: b.cursor === "spotlight" ? 220 : 16,
             marginLeft: b.cursor === "spotlight" ? -110 : -8, marginTop: b.cursor === "spotlight" ? -110 : -8,
             borderRadius: 999, mixBlendMode: b.cursor === "spotlight" ? "screen" : "difference",
-            background: b.cursor === "spotlight" ? `radial-gradient(circle, ${accent}44, transparent 70%)` : accent,
+            background: b.cursor === "spotlight" ? `radial-gradient(circle, ${tint(accent, 0.267)}, transparent 70%)` : accent,
             transition: b.cursor === "trail" ? "left 140ms ease-out, top 140ms ease-out" : undefined,
           }}
         />
@@ -213,7 +214,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
       ))}
 
       {b.described.length ? (
-        <span data-live-described="" style={{ position: "absolute", left: 12, top: view.top + view.height - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${accent}44`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
+        <span data-live-described="" style={{ position: "absolute", left: 12, top: view.top + view.height - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${tint(accent, 0.267)}`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
           Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
         </span>
       ) : null}

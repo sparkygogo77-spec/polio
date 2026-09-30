@@ -6,7 +6,7 @@ import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { splitTurn } from "./Hero";
 import { simplify, vectorMarkup } from "../vector";
-import { cardStyle, items, radiusFor, saidRole, titled } from "./theme";
+import { cardStyle, items, radiusFor, saidRole, titled, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 export function Cta({ id, content, options, theme: t, mode, link, vector, onNavigate, emit }: PartProps) {
@@ -88,7 +88,7 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
    * of its inside. A weight alone is not enough to count: `button-own.mjs`
    * holds a weight-only node to the library's edge.
    */
-  const fill = outline ? "transparent" : ghost ? `${t.accent}22` : following ? t.surface : t.accent;
+  const fill = outline ? "transparent" : ghost ? `${tint(t.accent, 0.133)}` : following ? t.surface : t.accent;
   const style: React.CSSProperties = {
     width: "100%", height: "100%", display: "flex", alignItems: "center", cursor: "pointer",
     fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1), whiteSpace: "nowrap",

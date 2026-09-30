@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme, tint } from "./theme";
 import type { PartProps } from "./types";
 
 function Avatar({ t, who, size = 2.2 }: { t: Theme; who: { name: string; initials: string }; size?: number }) {
@@ -46,7 +46,7 @@ export function Profile({ id, content, theme: t, mode, emit }: PartProps) {
 
   return (
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ height: "32%", minHeight: t.fontPx * 3, background: `linear-gradient(120deg, ${t.accent}55, ${t.highlight}33)` }} />
+      <div style={{ height: "32%", minHeight: t.fontPx * 3, background: `linear-gradient(120deg, ${tint(t.accent, 0.333)}, ${tint(t.highlight, 0.2)})` }} />
       <div style={{ flex: 1, padding: t.fontPx, display: "flex", flexDirection: "column", gap: t.fontPx * 0.4, marginTop: -t.fontPx * 1.6, minHeight: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
           <span style={{ borderRadius: 999, border: `3px solid ${t.surface}` }}><Avatar t={t} who={who} size={3.2} /></span>
@@ -140,7 +140,7 @@ export function Reactions({ id, content, theme: t, mode }: PartProps) {
           style={{
             display: "inline-flex", alignItems: "center", gap: 5, cursor: mode === "live" ? "pointer" : "default",
             padding: `${t.fontPx * 0.25}px ${t.fontPx * 0.6}px`, borderRadius: 999, font: "inherit", fontSize: t.fontPx * 0.85,
-            border: `1px solid ${mine[i] ? t.accent : t.line}`, background: mine[i] ? `${t.accent}1e` : "transparent", color: t.text,
+            border: `1px solid ${mine[i] ? t.accent : t.line}`, background: mine[i] ? `${tint(t.accent, 0.118)}` : "transparent", color: t.text,
           }}
         >
           <span aria-hidden>{e}</span>
@@ -165,7 +165,7 @@ export function ShareSheet({ id, content, theme: t, emit }: PartProps) {
             onClick={() => emit?.({ type: "toast", text: `Shared to ${w}` })}
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: t.fontPx * 0.4, border: "none", background: "transparent", cursor: "pointer", font: "inherit", color: t.text }}
           >
-            <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: Math.min(t.radius, 12), background: `${t.accent}22`, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", color: t.accent, fontWeight: 700 }}>{w[0]}</span>
+            <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: Math.min(t.radius, 12), background: `${tint(t.accent, 0.133)}`, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", color: t.accent, fontWeight: 700 }}>{w[0]}</span>
             <span style={{ fontSize: t.fontPx * 0.7, color: t.muted }}>{w}</span>
           </button>
         ))}
@@ -240,7 +240,7 @@ export function Chat({ id, content, options, theme: t, mode, emit }: PartProps) 
             style={{
               alignSelf: m.mine ? "flex-end" : "flex-start", maxWidth: "78%",
               padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.7}px`, borderRadius: t.fontPx * 0.9,
-              background: m.mine ? t.accent : `${t.muted}26`, color: m.mine ? t.accentText : t.text,
+              background: m.mine ? t.accent : `${tint(t.muted, 0.149)}`, color: m.mine ? t.accentText : t.text,
               fontSize: t.fontPx * 0.88,
             }}
           >
@@ -310,7 +310,7 @@ export function Moderation({ id, content, theme: t, emit }: PartProps) {
       </div>
       {queue.length === 0 ? <span style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}>Nothing left in the queue.</span> : null}
       {queue.map((r) => (
-        <div key={r.id} style={{ ...cardStyle(t), background: `${t.muted}10`, padding: t.fontPx * 0.55, display: "flex", alignItems: "center", gap: 8, fontSize: t.fontPx * 0.85 }}>
+        <div key={r.id} style={{ ...cardStyle(t), background: `${tint(t.muted, 0.063)}`, padding: t.fontPx * 0.55, display: "flex", alignItems: "center", gap: 8, fontSize: t.fontPx * 0.85 }}>
           <Avatar t={t} who={r.who} size={1.8} />
           <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.text}</span>
           <Btn t={t} label="Allow" primary={false} onClick={() => act(r.id, "Allowed")} style={{ fontSize: t.fontPx * 0.72, padding: `${t.fontPx * 0.2}px ${t.fontPx * 0.5}px` }} />
@@ -331,7 +331,7 @@ export function Badges({ id, content, theme: t, w }: PartProps) {
         const got = i < earned;
         return (
           <div key={b.title} style={{ ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, textAlign: "center", opacity: got ? 1 : 0.45, minHeight: 0 }}>
-            <span aria-hidden style={{ width: t.fontPx * 2.4, height: t.fontPx * 2.4, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 1.1, background: got ? `radial-gradient(circle at 35% 30%, ${t.highlight}, ${t.accent})` : `${t.muted}22`, color: got ? t.accentText : t.muted }}>
+            <span aria-hidden style={{ width: t.fontPx * 2.4, height: t.fontPx * 2.4, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx * 1.1, background: got ? `radial-gradient(circle at 35% 30%, ${t.highlight}, ${t.accent})` : `${tint(t.muted, 0.133)}`, color: got ? t.accentText : t.muted }}>
               {got ? "★" : "🔒"}
             </span>
             <span style={{ fontSize: t.fontPx * 0.78, fontWeight: 600 }}>{b.title}</span>
@@ -379,7 +379,7 @@ export function CollabCursors({ id, content, theme: t, mode }: PartProps) {
     return { name, x: 12 + r() * 70, y: 14 + r() * 66, hue: hash(name) % 360 };
   });
   return (
-    <Fill t={t} data-part={id} style={{ ...cardStyle(t), background: `${t.muted}0d`, overflow: "hidden" }}>
+    <Fill t={t} data-part={id} style={{ ...cardStyle(t), background: `${tint(t.muted, 0.051)}`, overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.8 }}>
         {names.length} people here
       </div>

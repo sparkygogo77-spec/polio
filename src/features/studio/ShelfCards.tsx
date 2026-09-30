@@ -27,7 +27,7 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ArrowUpRight, Check, CornerDownRight, KeyRound, Plus, StickyNote, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
 import { getFeature, categoryOf, type FeatureDef } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
 import { PartPreview } from "./PartPreview";
@@ -40,6 +40,8 @@ import { parseColor } from "./look";
 import { paintedPalette, readableTheme } from "./shelfTheme";
 import { getWork, usesOf, withWork, type Work } from "./library/works";
 import { siteVersions, type SiteVersion } from "./library/siteVersions";
+import { usedByPart, type Use } from "./library/usedBy";
+import { partName } from "./partNames";
 import { VARIANTS, itemOf, publishOf } from "./shelfPlan";
 import { isWorkKey, workIdOf } from "./shelfGroups";
 import {
@@ -290,19 +292,145 @@ export function NeedBadge({ need }: { need: Need }) {
   );
 }
 
-/** "On this page: 3 parts", which jumps to them. */
+/**
+ * "On this page: 3 parts". Pressed, it picks them all and brings the first
+ * into view; its arrow opens the list of them by name, each a link to that
+ * one part (R14: the count links to the parts using it).
+ */
 function UsedLine({ ids, what }: { ids: string[]; what?: string }) {
+  const [open, setOpen] = React.useState(false);
+  const names = useStudio(useShallow((s) => {
+    if (!open || !ids.length) return [] as string[];
+    const page = s.nodes.filter((n) => n.pageId === s.activePageId);
+    return ids.map((id) => {
+      const n = page.find((x) => x.id === id);
+      return n ? partName(n, page, (f) => getFeature(f)?.name) : id;
+    });
+  }));
   if (!ids.length) return null;
   return (
-    <button
-      type="button"
-      data-used-on-page={ids.length}
-      onClick={(e) => { e.stopPropagation(); play("select"); jumpTo(ids); }}
-      className="tactile inline-flex items-center gap-1 self-start rounded-sm text-fine font-medium text-accent hover:underline"
-    >
-      On this page: {ids.length === 1 ? (what ?? "1 part") : `${ids.length} parts`}
-      <ArrowUpRight className="size-3" />
-    </button>
+    <div className="flex flex-col gap-0.5 self-start" onClick={(e) => e.stopPropagation()}>
+      <span className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          data-used-on-page={ids.length}
+          onClick={() => { play("select"); jumpTo(ids); }}
+          className="tactile inline-flex items-center gap-1 rounded-sm text-fine font-medium text-accent hover:underline"
+        >
+          On this page: {ids.length === 1 ? (what ?? "1 part") : `${ids.length} parts`}
+          <ArrowUpRight className="size-3" />
+        </button>
+        <button
+          type="button"
+          data-used-list-toggle=""
+          aria-expanded={open}
+          aria-label={open ? "Hide which parts" : "Show which parts"}
+          onClick={() => { play("tap"); setOpen((v) => !v); }}
+          className="tactile rounded-sm p-0.5 text-fg-muted hover:text-fg"
+        >
+          <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} />
+        </button>
+      </span>
+      {open ? (
+        <ul data-used-list="" className="flex max-h-28 flex-col gap-0.5 overflow-y-auto pl-1">
+          {ids.map((id, i) => (
+            <li key={id}>
+              <button
+                type="button"
+                data-used-part={id}
+                onClick={() => { play("select"); jumpTo([id]); }}
+                className="tactile max-w-full truncate text-left text-fine text-fg-muted hover:text-accent hover:underline"
+              >
+                {names[i] ?? id}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* What the picked part uses (R14)                                     */
+/* ------------------------------------------------------------------ */
+
+/** The shelf items the one picked part uses, or none when zero or several parts are picked. */
+export function usePickedUses(): { id: string; name: string; uses: Use[] } | null {
+  const key = useStudio((s) => {
+    if (s.selection.length !== 1) return "";
+    const n = s.nodes.find((x) => x.id === s.selection[0]);
+    if (!n) return "";
+    const frames = (s.look as { keyframes?: unknown }).keyframes;
+    const uses = usedByPart(n, Array.isArray(frames) ? (frames as Parameters<typeof usedByPart>[1]) : []);
+    return JSON.stringify({ id: n.id, uses });
+  });
+  /* The name is read when the pick changes, not on every frame of a drag. */
+  return React.useMemo(() => {
+    if (!key) return null;
+    const { id, uses } = JSON.parse(key) as { id: string; uses: Use[] };
+    const s = useStudio.getState();
+    const n = s.nodes.find((x) => x.id === id);
+    const name = n ? partName(n, s.nodes.filter((x) => x.pageId === n.pageId), (f) => getFeature(f)?.name) : id;
+    return { id, name, uses };
+  }, [key]);
+}
+
+/** Whether the picked part uses this shelf item. */
+function usePickedUsesItem(item: string): boolean {
+  return useStudio((s) => {
+    if (s.selection.length !== 1 || !item) return false;
+    const n = s.nodes.find((x) => x.id === s.selection[0]);
+    if (!n) return false;
+    const frames = (s.look as { keyframes?: unknown }).keyframes;
+    return usedByPart(n, Array.isArray(frames) ? (frames as Parameters<typeof usedByPart>[1]) : []).some((u) => u.item === item);
+  });
+}
+
+const VIA: Record<Use["via"], string> = { is: "is this", carries: "carries it", captured: "from its page" };
+
+/** The mark on a card the picked part uses. */
+function PickedMark() {
+  return (
+    <span data-used-by-picked="" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-px text-fine font-medium" style={{ background: "oklch(0.78 0.14 150 / 0.2)", color: "oklch(0.88 0.12 150)" }}>
+      <MousePointerClick className="size-3" /> This part
+    </span>
+  );
+}
+
+/**
+ * The strip at the top of the shelf while one part is picked: every shelf
+ * item that part uses, what it is, what it carries, what its page gave it.
+ * A press opens that card at the version the part uses.
+ */
+export function UsedByPicked() {
+  const picked = usePickedUses();
+  if (!picked || !picked.uses.length) return null;
+  return (
+    <div data-used-by-part={picked.id} className="flex shrink-0 flex-wrap items-center gap-1.5 px-3 py-1.5 text-fine" style={{ background: "oklch(0.2 0.03 150 / 0.55)", boxShadow: "inset 0 -1px 0 var(--border)" }}>
+      <span className="font-medium text-fg">Used by this part</span>
+      <span className="max-w-48 truncate text-fg-muted">({picked.name})</span>
+      {picked.uses.map((u) => {
+        const isWork = isWorkKey(u.item);
+        const name = isWork ? getWork(workIdOf(u.item))?.manifest.name : getFeature(u.item)?.name;
+        const c = categoryOf(isWork ? getWork(workIdOf(u.item))?.manifest.category ?? "" : getFeature(u.item)?.category ?? "");
+        return (
+          <button
+            key={u.item}
+            type="button"
+            data-used-item={u.item}
+            data-via={u.via}
+            onClick={() => { play("select"); openDetail(isWorkKey(u.version) ? { kind: "work", id: workIdOf(u.version) } : { kind: "part", id: u.version }); }}
+            className="tactile inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium"
+            style={{ background: `oklch(0.72 0.15 ${c.hue} / 0.16)`, color: `oklch(0.86 0.12 ${c.hue})`, boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${c.hue} / 0.4)` }}
+          >
+            {React.createElement(planetOf(c.id), { size: 11 })}
+            {name}{u.label && u.version !== u.item ? `: ${u.label}` : ""}
+            <span className="opacity-60">{VIA[u.via]}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -430,6 +558,7 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
   const { awake, wake, rest, shown } = useWake();
   const sw = switchOf(feature.id);
   const used = useUsedByItem(feature.basedOn ? "" : feature.id, { notSelf: !!sw });
+  const pickedUses = usePickedUsesItem(feature.basedOn ? "" : feature.id);
   const status = sw ? switchStatus(feature.id) : statusOf(feature);
   const needs = needsOf(feature);
   const open = () => { play("select"); openDetail({ kind: "part", id: feature.id }); };
@@ -477,6 +606,7 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
           <StatusBadge status={status} />
           {needs.map((n) => <NeedBadge key={n} need={n} />)}
           <VersionsLine count={versions} hosts={hosts} />
+          {pickedUses ? <PickedMark /> : null}
         </div>
         {sw ? <SwitchRow featureId={feature.id} compact /> : null}
         <UsedLine ids={used} />
@@ -508,6 +638,7 @@ export function WorkShelfCard({ work, width, words, picture, versions = 1, hosts
   const m = work.manifest;
   const { awake, wake, rest, shown } = useWake();
   const used = useUsedByItem(`work:${m.id}`);
+  const pickedUses = usePickedUsesItem(`work:${m.id}`);
   const t = useSiteTheme();
   const need = WORK_NEED[m.needs] ?? null;
   const open = () => { play("select"); openDetail({ kind: "work", id: m.id }); };
@@ -537,6 +668,7 @@ export function WorkShelfCard({ work, width, words, picture, versions = 1, hosts
           <StatusBadge status={statusOf(`work:${m.id}`, m.needs)} />
           {need ? <NeedBadge need={need} /> : null}
           <VersionsLine count={versions} hosts={hosts} />
+          {pickedUses ? <PickedMark /> : null}
         </div>
         <UsedLine ids={used} />
       </div>

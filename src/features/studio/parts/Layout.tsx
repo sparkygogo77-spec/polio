@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder } from "./primitives";
 import { rng, hash, sample, unwritten } from "./sample";
-import { boxPicture, cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
+import { boxPicture, cardStyle, items, titled, type Theme, ghostStyle, tint } from "./theme";
 import { opt, set, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
@@ -126,7 +126,7 @@ export function Split({ id, content, options, theme: t, mode, w }: PartProps) {
           aria-current={i === active ? "true" : undefined}
           onClick={() => setActive(i)}
           style={{
-            background: i === active ? `${t.accent}22` : "transparent", border: "none", cursor: "pointer", textAlign: "left",
+            background: i === active ? `${tint(t.accent, 0.133)}` : "transparent", border: "none", cursor: "pointer", textAlign: "left",
             color: i === active ? t.text : t.muted, font: "inherit", fontSize: t.fontPx * 0.9,
             padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.5}px`, borderRadius: Math.min(t.radius, 8), whiteSpace: "nowrap",
           }}

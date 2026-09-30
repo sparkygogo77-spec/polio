@@ -4,7 +4,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, PictureSlot, useTicker } from "./primitives";
-import { items, type Theme } from "./theme";
+import { items, type Theme, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 import { splitTurn } from "./turn";
 import { Runs } from "./Runs";
@@ -26,11 +26,11 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, p
   const background =
     id === "hero-gradient"
       /* Tints through color-mix: a colour written as oklch() takes no hex alpha, and `${colour}40` dropped the whole background. */
-      ? `radial-gradient(90% 90% at 20% 20%, ${tint(t.accent, 25)}, transparent 65%), ${t.bg}`
+      ? `radial-gradient(90% 90% at 20% 20%, ${tint(t.accent, 0.25)}, transparent 65%), ${t.bg}`
       : id === "hero-video"
-        ? `linear-gradient(160deg, ${tint(t.muted, 20)}, ${t.bg})`
+        ? `linear-gradient(160deg, ${tint(t.muted, 0.2)}, ${t.bg})`
         : id === "hero-particles"
-          ? `radial-gradient(60% 60% at 70% 30%, ${tint(t.accent, 13)}, transparent 70%), ${t.bg}`
+          ? `radial-gradient(60% 60% at 70% 30%, ${tint(t.accent, 0.13)}, transparent 70%), ${t.bg}`
           : t.bg;
 
   return (
@@ -134,7 +134,3 @@ export function ProofStrip({ id, content, theme: t }: PartProps) {
   );
 }
 
-/** A colour at a share of its strength, however the colour is written. */
-function tint(colour: string, percent: number): string {
-  return `color-mix(in oklab, ${colour} ${percent}%, transparent)`;
-}

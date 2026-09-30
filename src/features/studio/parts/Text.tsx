@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Fill, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { boxStyles, cardStyle, FAMILY, items, titled } from "./theme";
+import { boxStyles, cardStyle, FAMILY, items, titled, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
@@ -195,7 +195,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
               ))
             ) : id === "highlight" && i === 0 ? (
               <>
-                <mark style={{ background: `${t.accent}33`, color: t.text, padding: "0 3px", borderRadius: 3 }}>{p.split(" ").slice(0, 4).join(" ")}</mark>{" "}
+                <mark style={{ background: `${tint(t.accent, 0.2)}`, color: t.text, padding: "0 3px", borderRadius: 3 }}>{p.split(" ").slice(0, 4).join(" ")}</mark>{" "}
                 {p.split(" ").slice(4).join(" ")}
               </>
             ) : (
@@ -291,7 +291,7 @@ export function ArticleList({ id, content, theme: t, mode, onNavigate, w }: Part
     return (
       <Fill t={t} data-part={id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: 2 }}>
         {items(content, ["design", "process", "notes"]).map((tag, i) => (
-          <button key={tag + i} type="button" onClick={() => onNavigate?.({ kind: "page", target: tag })} style={{ background: `${t.accent}1e`, color: t.accent, border: `1px solid ${t.accent}44`, borderRadius: 999, padding: `${t.fontPx * 0.2}px ${t.fontPx * 0.65}px`, cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.8 }}>
+          <button key={tag + i} type="button" onClick={() => onNavigate?.({ kind: "page", target: tag })} style={{ background: `${tint(t.accent, 0.118)}`, color: t.accent, border: `1px solid ${tint(t.accent, 0.267)}`, borderRadius: 999, padding: `${t.fontPx * 0.2}px ${t.fontPx * 0.65}px`, cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.8 }}>
             {tag}
           </button>
         ))}

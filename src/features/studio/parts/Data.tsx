@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 
 /** Title and body share the same header treatment across this file. */
@@ -118,7 +118,7 @@ export function Pie({ id, content, theme: t, mode }: PartProps) {
   const total = raw.reduce((a, b) => a + b, 0);
   const shares = raw.map((v) => v / total);
   const [hot, setHot] = React.useState<number | null>(null);
-  const hues = [t.accent, t.highlight, `${t.accent}88`, `${t.highlight}88`, `${t.muted}99`];
+  const hues = [t.accent, t.highlight, `${tint(t.accent, 0.533)}`, `${tint(t.highlight, 0.533)}`, `${tint(t.muted, 0.6)}`];
   let acc = 0;
   const stops = shares.map((s, i) => {
     const from = acc * 100;
@@ -174,7 +174,7 @@ export function Heatmap({ id, content, theme: t, mode }: PartProps) {
                 key={i}
                 onMouseEnter={mode === "live" ? () => setTip(`${row} · ${Math.round(v * 100)}`) : undefined}
                 onMouseLeave={() => setTip(null)}
-                style={{ flex: 1, height: "100%", minWidth: 4, borderRadius: 2, background: v < 0.12 ? `${t.muted}22` : t.accent, opacity: v < 0.12 ? 1 : 0.2 + v * 0.8 }}
+                style={{ flex: 1, height: "100%", minWidth: 4, borderRadius: 2, background: v < 0.12 ? `${tint(t.muted, 0.133)}` : t.accent, opacity: v < 0.12 ? 1 : 0.2 + v * 0.8 }}
               />
             ))}
           </div>
@@ -199,7 +199,7 @@ export function StatTiles({ id, content, options, theme: t, w }: PartProps) {
     return (
       <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx, display: "flex", flexDirection: "column", gap: t.fontPx * 0.5, justifyContent: "center" }}>
         <Head t={t} title={tiles[0]?.title ?? "Progress"} right={`${Math.round(pct)}%`} />
-        <div role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={tiles[0]?.title ?? "Progress"} style={{ height: t.fontPx * 0.7, borderRadius: 999, background: `${t.muted}28`, overflow: "hidden" }}>
+        <div role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={tiles[0]?.title ?? "Progress"} style={{ height: t.fontPx * 0.7, borderRadius: 999, background: `${tint(t.muted, 0.157)}`, overflow: "hidden" }}>
           <div style={{ width: `${pct}%`, height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${t.accent}, ${t.highlight})` }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", color: t.muted, fontSize: t.fontPx * 0.8 }}>
@@ -293,7 +293,7 @@ export function DataTable({ id, content, options, theme: t, mode, emit, h }: Par
         <div style={{ height: view.length * rowH, position: "relative" }}>
           <div style={{ position: "absolute", top: first * rowH, left: 0, right: 0 }}>
             {slice.map((row, i) => (
-              <div key={first + i} style={{ display: "grid", gridTemplateColumns: grid, gap: 8, alignItems: "center", height: rowH, padding: `0 ${t.fontPx * 0.7}px`, borderBottom: `1px solid ${t.line}`, background: (first + i) % 2 && dense ? `${t.muted}0c` : undefined }}>
+              <div key={first + i} style={{ display: "grid", gridTemplateColumns: grid, gap: 8, alignItems: "center", height: rowH, padding: `0 ${t.fontPx * 0.7}px`, borderBottom: `1px solid ${t.line}`, background: (first + i) % 2 && dense ? `${tint(t.muted, 0.047)}` : undefined }}>
                 {cols.map((c, ci) => (
                   <span key={c} style={{ color: ci === 0 ? t.text : t.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{row[c]}</span>
                 ))}
@@ -314,9 +314,9 @@ export function Leaderboard({ id, content, theme: t }: PartProps) {
   return (
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", flexDirection: "column", gap: 2, overflow: "auto" }}>
       {rows.map((row, i) => (
-        <div key={row.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.4}px`, borderRadius: Math.min(t.radius, 8), background: i === 0 ? `${t.accent}14` : undefined, fontSize: t.fontPx * 0.9 }}>
+        <div key={row.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: `${t.fontPx * 0.35}px ${t.fontPx * 0.4}px`, borderRadius: Math.min(t.radius, 8), background: i === 0 ? `${tint(t.accent, 0.078)}` : undefined, fontSize: t.fontPx * 0.9 }}>
           <span style={{ width: t.fontPx * 1.6, textAlign: "right", color: i < 3 ? t.accent : t.muted, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{i + 1}</span>
-          <span aria-hidden style={{ width: t.fontPx * 1.6, height: t.fontPx * 1.6, borderRadius: 999, background: `${t.accent}33`, flexShrink: 0 }} />
+          <span aria-hidden style={{ width: t.fontPx * 1.6, height: t.fontPx * 1.6, borderRadius: 999, background: `${tint(t.accent, 0.2)}`, flexShrink: 0 }} />
           <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>
           <span style={{ color: row.move > 0 ? t.accent : row.move < 0 ? "oklch(0.7 0.19 25)" : t.muted, fontSize: t.fontPx * 0.75 }}>
             {row.move > 0 ? `▲${row.move}` : row.move < 0 ? `▼${-row.move}` : "–"}
@@ -422,7 +422,7 @@ export function Kanban({ id, content, theme: t, mode, emit }: PartProps) {
           key={col}
           onDragOver={mode === "live" ? (e) => e.preventDefault() : undefined}
           onDrop={mode === "live" ? (e) => { e.preventDefault(); const n = Number(e.dataTransfer.getData("text/plain")); if (Number.isFinite(n)) move(n, ci); } : undefined}
-          style={{ ...cardStyle(t), background: `${t.muted}10`, padding: t.fontPx * 0.5, display: "flex", flexDirection: "column", gap: t.fontPx * 0.4, minHeight: 0 }}
+          style={{ ...cardStyle(t), background: `${tint(t.muted, 0.063)}`, padding: t.fontPx * 0.5, display: "flex", flexDirection: "column", gap: t.fontPx * 0.4, minHeight: 0 }}
         >
           <span style={{ color: t.muted, fontSize: t.fontPx * 0.75, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
             {col} <span style={{ opacity: 0.7 }}>{cards.filter((c) => c.col === ci).length}</span>

@@ -734,6 +734,8 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   };
 }
 
+export { tint } from "./tint";
+
 /** "a, b, c" → ["a","b","c"], with a fallback list when nothing is typed. */
 export function items(content: string, fallback: string[]): string[] {
   /*

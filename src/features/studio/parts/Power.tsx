@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Fill, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, titled, FAMILY } from "./theme";
+import { cardStyle, items, titled, FAMILY, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 /** Thousands of rows, only the visible ones in the DOM. */
@@ -89,7 +89,7 @@ export function Presets({ id, content, theme: t, mode, emit }: PartProps) {
             role="radio"
             aria-checked={active === p.title}
             onClick={() => { setActive(p.title); emit?.({ type: "toast", text: `${p.title} applied` }); }}
-            style={{ padding: `${t.fontPx * 0.3}px ${t.fontPx * 0.7}px`, borderRadius: 999, cursor: mode === "live" ? "pointer" : "default", font: "inherit", fontSize: t.fontPx * 0.82, border: `1px solid ${active === p.title ? t.accent : t.line}`, background: active === p.title ? `${t.accent}1e` : "transparent", color: active === p.title ? t.accent : t.text }}
+            style={{ padding: `${t.fontPx * 0.3}px ${t.fontPx * 0.7}px`, borderRadius: 999, cursor: mode === "live" ? "pointer" : "default", font: "inherit", fontSize: t.fontPx * 0.82, border: `1px solid ${active === p.title ? t.accent : t.line}`, background: active === p.title ? `${tint(t.accent, 0.118)}` : "transparent", color: active === p.title ? t.accent : t.text }}
           >
             {p.title}
           </button>
@@ -118,7 +118,7 @@ export function HotkeyFirst({ id, content, theme: t, mode }: PartProps) {
       </div>
       {rows.map((row) => (
         <div key={row.title} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: t.fontPx * 0.85 }}>
-          <kbd style={{ fontFamily: FAMILY.monospace, fontSize: t.fontPx * 0.75, padding: `2px ${t.fontPx * 0.4}px`, borderRadius: 5, border: `1px solid ${t.line}`, background: `${t.muted}18`, minWidth: t.fontPx * 2 , textAlign: "center" }}>{row.title}</kbd>
+          <kbd style={{ fontFamily: FAMILY.monospace, fontSize: t.fontPx * 0.75, padding: `2px ${t.fontPx * 0.4}px`, borderRadius: 5, border: `1px solid ${t.line}`, background: `${tint(t.muted, 0.094)}`, minWidth: t.fontPx * 2 , textAlign: "center" }}>{row.title}</kbd>
           <span style={{ color: t.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.body ?? "does something"}</span>
         </div>
       ))}

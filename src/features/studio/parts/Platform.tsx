@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Btn, Fill, focusRing, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, FAMILY, type Theme, ghostStyle} from "./theme";
+import { cardStyle, items, FAMILY, type Theme, ghostStyle, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 
 const field = (t: Theme): React.CSSProperties => ({
@@ -27,7 +27,7 @@ export function Auth({ id, content, theme: t, emit }: PartProps) {
   if (who) {
     return (
       <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx, display: "flex", alignItems: "center", gap: 10 }}>
-        <span aria-hidden style={{ width: t.fontPx * 2.4, height: t.fontPx * 2.4, borderRadius: 999, background: `${t.accent}44`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{who[0]?.toUpperCase()}</span>
+        <span aria-hidden style={{ width: t.fontPx * 2.4, height: t.fontPx * 2.4, borderRadius: 999, background: `${tint(t.accent, 0.267)}`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{who[0]?.toUpperCase()}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: t.fontPx * 0.95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{who}</strong>
           <span style={{ color: t.muted, fontSize: t.fontPx * 0.78 }}>Signed in</span>
@@ -54,7 +54,7 @@ export function Auth({ id, content, theme: t, emit }: PartProps) {
             role="tab"
             aria-selected={mode === m}
             onClick={() => setMode(m)}
-            style={{ flex: 1, padding: t.fontPx * 0.35, borderRadius: Math.min(t.radius, 8), border: "none", cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.85, fontWeight: 600, background: mode === m ? `${t.accent}1e` : "transparent", color: mode === m ? t.accent : t.muted }}
+            style={{ flex: 1, padding: t.fontPx * 0.35, borderRadius: Math.min(t.radius, 8), border: "none", cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.85, fontWeight: 600, background: mode === m ? `${tint(t.accent, 0.118)}` : "transparent", color: mode === m ? t.accent : t.muted }}
           >
             {m === "in" ? "Sign in" : "Create account"}
           </button>
@@ -163,7 +163,7 @@ export function Languages({ id, content, theme: t, emit }: PartProps) {
             type="button"
             aria-pressed={lang === l}
             onClick={() => { setLang(l); emit?.({ type: "toast", text: l }); }}
-            style={{ padding: `${t.fontPx * 0.25}px ${t.fontPx * 0.6}px`, borderRadius: 999, cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.78, border: `1px solid ${lang === l ? t.accent : t.line}`, background: lang === l ? `${t.accent}1e` : "transparent", color: lang === l ? t.accent : t.muted }}
+            style={{ padding: `${t.fontPx * 0.25}px ${t.fontPx * 0.6}px`, borderRadius: 999, cursor: "pointer", font: "inherit", fontSize: t.fontPx * 0.78, border: `1px solid ${lang === l ? t.accent : t.line}`, background: lang === l ? `${tint(t.accent, 0.118)}` : "transparent", color: lang === l ? t.accent : t.muted }}
           >
             {l}
           </button>
@@ -186,7 +186,7 @@ export function ThemePicker({ id, content, options, theme: t, emit }: PartProps)
   return (
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx * 0.8, display: "flex", flexDirection: "column", gap: t.fontPx * 0.5, justifyContent: "center" }}>
       <span style={{ color: t.muted, fontSize: t.fontPx * 0.78 }}>{darkOnly ? "Appearance" : "Theme"}</span>
-      <div role="radiogroup" aria-label="Appearance" style={{ display: "flex", gap: 4, background: `${t.muted}18`, borderRadius: Math.min(t.radius, 999), padding: 3 }}>
+      <div role="radiogroup" aria-label="Appearance" style={{ display: "flex", gap: 4, background: `${tint(t.muted, 0.094)}`, borderRadius: Math.min(t.radius, 999), padding: 3 }}>
         {modes.map((m) => (
           <button
             key={m}
@@ -286,7 +286,7 @@ export function WeatherTime({ id, content, theme: t, mode }: PartProps) {
   const glyph = { night: "🌙", morning: "🌅", afternoon: "☀️", evening: "🌆" }[part];
   const typed = items(content, []);
   return (
-    <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx * 0.8, display: "flex", alignItems: "center", gap: t.fontPx * 0.8, background: `linear-gradient(120deg, ${t.accent}1c, transparent)` }}>
+    <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx * 0.8, display: "flex", alignItems: "center", gap: t.fontPx * 0.8, background: `linear-gradient(120deg, ${tint(t.accent, 0.11)}, transparent)` }}>
       <span aria-hidden style={{ fontSize: t.fontPx * 2.2 }}>{glyph}</span>
       <span style={{ minWidth: 0 }}>
         <strong style={{ display: "block", fontFamily: t.headingFamily, fontSize: t.fontPx * 1.15 }}>
@@ -328,7 +328,7 @@ export function Responsive({ id, content, theme: t }: PartProps) {
       {devices.map(([name, w, h], i) => (
         <span key={name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
           <span style={{ width: w * (t.fontPx / 16), height: h * (t.fontPx / 16), borderRadius: Math.min(t.radius, 8), border: `2px solid ${t.line}`, background: t.surface, padding: 4, display: "grid", gridTemplateColumns: `repeat(${i + 1}, 1fr)`, gap: 3, alignContent: "start" }}>
-            {Array.from({ length: (i + 1) * 3 }, (_, k) => <span key={k} style={{ height: 10, borderRadius: 2, background: k === 0 ? t.accent : `${t.muted}33` }} />)}
+            {Array.from({ length: (i + 1) * 3 }, (_, k) => <span key={k} style={{ height: 10, borderRadius: 2, background: k === 0 ? t.accent : `${tint(t.muted, 0.2)}` }} />)}
           </span>
           <span style={{ color: t.muted, fontSize: t.fontPx * 0.7 }}>{name} · {note[i] ?? ""}</span>
         </span>

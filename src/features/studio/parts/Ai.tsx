@@ -8,13 +8,13 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
 import { hash, rng, sample, unwritten } from "./sample";
-import { cardStyle, items, titled, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme, tint } from "./theme";
 import type { PartProps } from "./types";
 
 /** A little "made by a model" mark, so a reader always knows. */
 function Mark({ t, label = "AI" }: { t: Theme; label?: string }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${t.highlight}22`, color: t.highlight, borderRadius: 999, padding: "1px 7px", fontSize: t.fontPx * 0.68, fontWeight: 700, letterSpacing: 0.3, flexShrink: 0 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${tint(t.highlight, 0.133)}`, color: t.highlight, borderRadius: 999, padding: "1px 7px", fontSize: t.fontPx * 0.68, fontWeight: 700, letterSpacing: 0.3, flexShrink: 0 }}>
       <span aria-hidden>✦</span>
       {label}
     </span>
@@ -101,12 +101,12 @@ export function AiChat({ id, content, options, theme: t, mode }: PartProps) {
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, overflow: "auto", minHeight: 0 }}>
         {messages.map((m) => (
-          <span key={m.id} style={{ alignSelf: m.mine ? "flex-end" : "flex-start", maxWidth: "80%", padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.7}px`, borderRadius: t.fontPx * 0.9, background: m.mine ? t.accent : `${t.muted}26`, color: m.mine ? t.accentText : t.text, fontSize: t.fontPx * 0.88 }}>
+          <span key={m.id} style={{ alignSelf: m.mine ? "flex-end" : "flex-start", maxWidth: "80%", padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.7}px`, borderRadius: t.fontPx * 0.9, background: m.mine ? t.accent : `${tint(t.muted, 0.149)}`, color: m.mine ? t.accentText : t.text, fontSize: t.fontPx * 0.88 }}>
             {m.text}
           </span>
         ))}
         {pending !== null ? (
-          <span style={{ alignSelf: "flex-start", maxWidth: "80%", padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.7}px`, borderRadius: t.fontPx * 0.9, background: `${t.muted}26`, fontSize: t.fontPx * 0.88 }}>
+          <span style={{ alignSelf: "flex-start", maxWidth: "80%", padding: `${t.fontPx * 0.4}px ${t.fontPx * 0.7}px`, borderRadius: t.fontPx * 0.9, background: `${tint(t.muted, 0.149)}`, fontSize: t.fontPx * 0.88 }}>
             {shown || "…"}<span style={{ color: t.accent }}>▍</span>
           </span>
         ) : null}
@@ -226,10 +226,10 @@ export function AiModeration({ id, content, theme: t, emit }: PartProps) {
       {items_.map((x) => {
         const risky = x.score > 55;
         return (
-          <div key={x.id} style={{ ...cardStyle(t), background: `${t.muted}10`, padding: t.fontPx * 0.55, display: "flex", flexDirection: "column", gap: 5, fontSize: t.fontPx * 0.85, opacity: x.decided ? 0.5 : 1 }}>
+          <div key={x.id} style={{ ...cardStyle(t), background: `${tint(t.muted, 0.063)}`, padding: t.fontPx * 0.55, display: "flex", flexDirection: "column", gap: 5, fontSize: t.fontPx * 0.85, opacity: x.decided ? 0.5 : 1 }}>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.text}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ flex: 1, height: 5, borderRadius: 999, background: `${t.muted}28`, overflow: "hidden" }}>
+              <span style={{ flex: 1, height: 5, borderRadius: 999, background: `${tint(t.muted, 0.157)}`, overflow: "hidden" }}>
                 <span style={{ display: "block", width: `${x.score}%`, height: "100%", background: risky ? "oklch(0.68 0.19 25)" : t.accent }} />
               </span>
               <span style={{ color: risky ? "oklch(0.72 0.18 25)" : t.accent, fontSize: t.fontPx * 0.72, whiteSpace: "nowrap" }}>{x.score}% {risky ? "risk" : "clear"}</span>
@@ -275,7 +275,7 @@ export function AiVoice({ id, content, theme: t, mode, emit }: PartProps) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
         <div aria-hidden style={{ display: "flex", alignItems: "center", gap: 3, height: t.fontPx * 1.6 }}>
           {level.map((v, i) => (
-            <span key={i} style={{ flex: 1, height: `${listening ? v : 14}%`, minHeight: 3, borderRadius: 999, background: listening ? t.accent : `${t.muted}55`, transition: "height 120ms linear" }} />
+            <span key={i} style={{ flex: 1, height: `${listening ? v : 14}%`, minHeight: 3, borderRadius: 999, background: listening ? t.accent : `${tint(t.muted, 0.333)}`, transition: "height 120ms linear" }} />
           ))}
         </div>
         <span aria-live="polite" style={{ color: shown ? t.text : t.muted, fontSize: t.fontPx * 0.88, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

@@ -126,7 +126,7 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     var dot = document.createElement("span");
     dot.setAttribute("aria-hidden", "true");
     dot.style.cssText = "position:fixed;left:0;top:0;z-index:2147483002;pointer-events:none;border-radius:999px;width:" + size + "px;height:" + size + "px;margin:" + (-size / 2) + "px 0 0 " + (-size / 2) + "px;display:none;" +
-      (spot ? "mix-blend-mode:screen;background:radial-gradient(circle," + c.accent + "44,transparent 70%)" : "mix-blend-mode:difference;background:" + c.accent) +
+      (spot ? "mix-blend-mode:screen;background:radial-gradient(circle,color-mix(in srgb," + c.accent + " 26.7%,transparent),transparent 70%)" : "mix-blend-mode:difference;background:" + c.accent) +
       (c.cursor === "trail" ? ";transition:transform 140ms ease-out" : "");
     document.body.appendChild(dot);
     if (!spot) document.body.style.cursor = "none";
