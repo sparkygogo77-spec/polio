@@ -12,7 +12,8 @@
     "check": "npm run typecheck && npm run build",
     "check:deploy": "node tests/deploy-check.mjs",
     "passes": "node --experimental-strip-types scripts/passes.mjs",
-    "test:all": "node scripts/test-all.mjs"
+    "test:all": "node scripts/test-all.mjs",
+    "test:changed": "node scripts/test-all.mjs --changed"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

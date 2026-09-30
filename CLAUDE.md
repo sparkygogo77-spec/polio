@@ -13,6 +13,7 @@ npm run typecheck      # tsc --noEmit
 npm run build          # next build (must pass before you push)
 npm run new:feature X  # scaffold src/features/X and register it
 npm run test:all       # every test in tests/, each on the server its header asks for, then a pass/fail table
+npm run test:changed   # only the tests the change since trunk touches, plus the smoke set
 ```
 
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.

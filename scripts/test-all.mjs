@@ -14,23 +14,56 @@
  *   npm run build                           # once; --build does it for you
  *   node scripts/test-all.mjs               # everything, then the table
  *   node scripts/test-all.mjs oddness coded # just these (names or globs)
+ *   node scripts/test-all.mjs --changed     # only what the change touches, and the smoke set
  *
  *   --build        run `npm run build` first (also done when there is no build)
- *   --jobs N       tests that start no stand-in of their own, N at a time (default 3);
- *                  one that fails beside others is run again alone and shown as pass*
+ *   --jobs N       how many run at once in the parallel batch (default 3)
  *   --timeout S    seconds before a test is stopped and counted failed (default 600)
- *   --out FILE     also write the table, as Markdown, to FILE
- *   --list         say which server and arguments each test gets, and run nothing
+ *   --changed [R]  only the tests that touch a file changed since R (default: where
+ *                  this branch left trunk), tests changed themselves, and the smoke set
+ *   --no-smoke     with --changed, leave the smoke set out
+ *   --out FILE     also write the table and the summary, as Markdown, to FILE
+ *   --json FILE    also write every result, with its time, as JSON
+ *   --list         say which server, arguments and phase each test gets, and run nothing
  *   SINK=path      the sink checkout (default ../sink); tests are given
  *                  its sites/trumpmorty-fun as SINK, which is what they read
  *
- * The stand-ins each test serves (GitHub on 4333, Vercel on 4334, 4335 for
- * publish-big-picture, 4336 for publish-changed, …) are the tests' own; the
- * server for them is pointed there by the header. Tests that start a
- * stand-in run one at a time, since two of them would want the same port,
- * each on a fresh server, since a server remembers what GitHub told it.
+ * HOW A RUN GOES, AND WHY (owner's note R15). The whole suite took about
+ * 103 minutes three at a time, and a run under load reported 46 failures
+ * that mostly passed when run alone: a table nobody could trust, slowly.
  *
- * Exit code 0 when every test that ran passed.
+ *   1. The parallel batch. Every test not tagged to run alone, longest
+ *      first (the times the last runs took, `scripts/test-timings.json`, so
+ *      the long ones do not start last and hold the run open). Tests that
+ *      share a server share one; a test that serves a stand-in of its own
+ *      (GitHub on 4333, Vercel on 4334, …) gets a fresh server, and runs
+ *      beside the others but never beside another such test, since two of
+ *      them would want the same port.
+ *   2. Again, alone. A test that failed in the batch runs once more on its
+ *      own. Passing then, it is FLAKY: it holds on a quiet machine and not
+ *      beside others, which is worth knowing and is not a pass. Failing
+ *      again, it failed. No check is loosened for this; only the load moves.
+ *   3. The ones tagged to run alone. A header line starting `Runs alone:`
+ *      (and saying why) keeps a test out of the batch: it measures time or
+ *      motion, and a busy machine changes what it measures. These run one
+ *      at a time after the batch, where their result is the result.
+ *
+ * At the end: the table (every test, its result, its checks, its time) and
+ * a short summary: passed, failed, flaky, timed out, skipped, the wall
+ * time, and the slowest ten. The times go into `.test-timings.json`
+ * (untracked) so the next run orders by them.
+ *
+ * --changed reads what changed (commits since R, the working tree and new
+ * files), and picks every test whose own file changed, or whose source names
+ * a changed file: by its path, its import path, or its name (a route by its
+ * address, `index.ts` and `route.ts` by their folder). A header line
+ * `Covers: path, path` adds files a test exercises without naming them. The
+ * smoke set (SMOKE below) always runs as well, as a quick check that the
+ * Builder as a whole still comes up.
+ *
+ * Exit code 0 when no test failed or timed out. A flaky test is named in the
+ * summary, every time, but does not fail the run: it passed when given the
+ * machine to itself, as the old pass* did.
  */
 import { spawn, execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -43,10 +76,23 @@ const TESTS = join(ROOT, "tests");
 /* ------------------------------------------------------------ options */
 const argv = process.argv.slice(2);
 const opt = (name, dflt) => { const i = argv.indexOf(name); if (i < 0) return dflt; const v = argv[i + 1]; argv.splice(i, 2); return v; };
+/* An option whose value may be left off: `--changed` alone, or `--changed REF`. */
+const optMaybe = (name) => {
+  const i = argv.indexOf(name);
+  if (i < 0) return undefined;
+  const v = argv[i + 1];
+  if (v !== undefined && !v.startsWith("--") && !existsSync(join(TESTS, `${v}.mjs`)) && gitOk(["rev-parse", "--verify", "--quiet", `${v}^{commit}`])) { argv.splice(i, 2); return v; }
+  argv.splice(i, 1);
+  return null;
+};
 const flag = (name) => { const i = argv.indexOf(name); if (i < 0) return false; argv.splice(i, 1); return true; };
+function gitOk(args) { try { execFileSync("git", args, { cwd: ROOT, stdio: "ignore" }); return true; } catch { return false; } }
 const JOBS = Math.max(1, Number(opt("--jobs", process.env.JOBS ?? 3)));
 const TIMEOUT = Math.max(10, Number(opt("--timeout", process.env.TEST_TIMEOUT ?? 600))) * 1000;
 const OUT = opt("--out", null);
+const JSON_OUT = opt("--json", null);
+const CHANGED = optMaybe("--changed");
+const NO_SMOKE = flag("--no-smoke");
 const BUILD = flag("--build");
 const LIST = flag("--list");
 const SINK = resolve(ROOT, process.env.SINK ?? "../sink");
@@ -70,6 +116,13 @@ const ARGS = {
   "sticky-in-section": (url) => [url, join(SINK, "sites", "gotchi-gg")],
   "motion-sampled": (url) => [url, SINK],
 };
+/*
+ * THE SMOKE SET: always run by --changed. Quick, and between them they open
+ * the Builder, its bar and panels, the Builds page, publishing's words and
+ * its key handling, so a change that breaks the app as a whole is caught
+ * whatever it touched.
+ */
+const SMOKE = ["bar-survives", "cards", "publish-words", "site-refs", "go-live-keys-ready", "builds-publish-state", "no-plain-key"];
 
 /* Never a real token: a test that needs one serves a stand-in and says so. */
 const UNSET = ["GITHUB_TOKEN", "GH_TOKEN", "GITHUB_REPO", "GITHUB_BRANCH", "VERCEL_TOKEN", "VERCEL_PROJECT", "VERCEL_TEAM", "REPLICATE_API_TOKEN", "ANTHROPIC_API_KEY"];
@@ -114,41 +167,92 @@ function argsOf(name, header, src, url) {
   return [];
 }
 
+
+/** A header line `Runs alone: why` keeps a test out of the parallel batch. */
+const aloneOf = (header) => /^\s*Runs alone\s*:\s*(.+)$/mi.exec(header)?.[1]?.trim() ?? null;
+/** A header line `Covers: path, path` names files a test exercises without naming them in its source. */
+const coversOf = (header) => (/^\s*Covers\s*:\s*(.+)$/mi.exec(header)?.[1] ?? "").split(/[,\s]+/).map((s) => s.replace(/[`.]+$/, "").replace(/^`/, "")).filter(Boolean);
+
+/* ------------------------------------------------------------ what changed */
+const TRUNK = "origin/claude/template-ui-website-builder-11bfgl";
+function git(args) { return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); }
+/** Every file changed since `ref` (default: where this branch left trunk): commits, the working tree, and new files. */
+function changedSince(ref) {
+  let base = ref;
+  if (!base) {
+    try { base = git(["merge-base", "HEAD", TRUNK]).trim(); } catch { base = "HEAD~1"; }
+    if (base && git(["rev-parse", "HEAD"]).trim() === base) base = "HEAD~1";
+  }
+  const tracked = git(["diff", "--name-only", base]).split("\n").filter(Boolean);
+  const fresh = git(["ls-files", "--others", "--exclude-standard"]).split("\n").filter(Boolean);
+  return { base, files: [...new Set([...tracked, ...fresh])] };
+}
+/* A stem this common names nothing on its own: `store.ts` is read as `studio/store`, a route by its address. */
+const GENERIC = new Set(["index", "route", "store", "page", "layout", "types", "utils", "util", "theme", "constants", "helpers", "main", "config"]);
+/** The words a test would use for a changed file, if it exercises it. */
+function namesOf(file) {
+  const noExt = file.replace(/\.[^./]+$/, "");
+  const parts = noExt.split("/");
+  const stem = parts.at(-1);
+  const dir = parts.at(-2) ?? "";
+  const out = [file, noExt, noExt.replace(/^src\//, "@/")];
+  const route = /^src\/app\/(api\/.+)\/route$/.exec(noExt);
+  if (route) out.push(`/${route[1]}`);
+  if (stem && !GENERIC.has(stem) && stem.length >= 4) out.push(stem);
+  else if (dir) out.push(`${dir}/${stem}`);
+  return out;
+}
+/** The tests a change reaches, and why each was picked. */
+function pickChanged(all, changed) {
+  const why = new Map();
+  for (const f of all) {
+    const name = f.replace(/\.mjs$/, "");
+    const src = readFileSync(join(TESTS, f), "utf8");
+    const covers = coversOf(headerOf(src));
+    for (const c of changed) {
+      if (c === `tests/${f}`) { why.set(name, "the test itself changed"); break; }
+      if (!/^(src|tests|scripts|public)\//.test(c) && !/^(next\.config|site\.config|package)\b/.test(c)) continue;
+      if (c.startsWith("scripts/test-all")) continue;
+      /* Another test's file is that test's business; a fixture is anyone's who names it. */
+      if (/^tests\/[^/]+\.mjs$/.test(c)) continue;
+      if (covers.some((p) => c.startsWith(p))) { why.set(name, `covers ${c}`); break; }
+      const hit = namesOf(c).find((n) => new RegExp(`(^|[^\\w-])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\w-]|$)`).test(src));
+      if (hit) { why.set(name, `names ${c}`); break; }
+    }
+  }
+  return why;
+}
+
 /* ------------------------------------------------------------ the plan */
 const files = readdirSync(TESTS).filter((f) => f.endsWith(".mjs")).sort();
 const glob = (p) => new RegExp(`^${p.replace(/\.mjs$/, "").replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
-const picked = only.length ? files.filter((f) => only.some((p) => glob(basename(p)).test(f.replace(/\.mjs$/, "")))) : files;
-if (!picked.length) { console.error(`No test matches ${only.join(" ")}`); process.exit(2); }
+let picked = only.length ? files.filter((f) => only.some((p) => glob(basename(p)).test(f.replace(/\.mjs$/, "")))) : files;
+const pickedWhy = new Map();
+if (CHANGED !== undefined) {
+  const { base, files: changed } = changedSince(CHANGED);
+  const why = pickChanged(picked, changed);
+  if (!NO_SMOKE) for (const s of SMOKE) if (!why.has(s) && files.includes(`${s}.mjs`)) why.set(s, "smoke set");
+  for (const [k, v] of why) pickedWhy.set(k, v);
+  picked = picked.filter((f) => why.has(f.replace(/\.mjs$/, "")));
+  console.log(`--changed since ${base.slice(0, 9)}: ${changed.length} file${changed.length === 1 ? "" : "s"} changed, ${picked.length} test${picked.length === 1 ? "" : "s"} picked (${[...why.values()].filter((v) => v === "smoke set").length} of them the smoke set)`);
+}
+if (!picked.length) { console.error(only.length ? `No test matches ${only.join(" ")}` : "No test to run."); process.exit(only.length ? 2 : 0); }
 
 const plan = picked.map((f) => {
   const name = f.replace(/\.mjs$/, "");
   const src = readFileSync(join(TESTS, f), "utf8");
   const header = headerOf(src);
-  return { name, src, header, env: serverOf(header), standIn: /\bcreateServer\(/.test(src) };
+  return { name, src, header, env: serverOf(header), standIn: /\bcreateServer\(/.test(src), alone: aloneOf(header) };
 });
 
-/* One server per distinct env; the plain one for everything that names none. */
-const servers = new Map();
-for (const t of plan) {
-  if (SKIP[t.name]) continue;
-  const key = JSON.stringify(Object.entries(t.env).sort());
-  if (!servers.has(key)) servers.set(key, { env: t.env, tests: [] });
-  servers.get(key).tests.push(t);
-}
-
-if (LIST) {
-  let port = 3200;
-  for (const { env, tests } of servers.values()) {
-    const url = `http://127.0.0.1:${port++}`;
-    console.log(`\n${url} — ${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ") || "no stand-ins"}`);
-    for (const t of tests) { const a = argsOf(t.name, t.header, t.src, url); console.log(`  ${t.name}${t.standIn ? " (one at a time)" : ""}: ${Array.isArray(a) ? a.join(" ") : `needs ${a.needs}`}`); }
-  }
-  for (const t of plan) if (SKIP[t.name]) console.log(`  skip ${t.name}: ${SKIP[t.name]}`);
-  process.exit(0);
-}
-
-/* ------------------------------------------------------------ running */
-const results = [];
+/* ------------------------------------------------------------ how long each took last time */
+const TIMINGS = join(ROOT, "scripts", "test-timings.json");
+const LOCAL_TIMINGS = join(ROOT, ".test-timings.json");
+const readJson = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return {}; } };
+const timings = { ...readJson(TIMINGS), ...readJson(LOCAL_TIMINGS) };
+/* A test never timed is guessed at a minute: long enough to start early, not so long it jumps the real long ones. */
+const est = (name) => timings[name] ?? 60;
+const envKey = (env) => JSON.stringify(Object.entries(env).sort());
 const clean = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 function run(cmd, args, { env, timeout, cwd = ROOT } = {}) {
@@ -208,20 +312,66 @@ function countOf(out) {
   return ok + fail ? `${ok}/${ok + fail}` : "";
 }
 
-async function runTest(t, url) {
+
+/* ------------------------------------------------------------ one test */
+const results = [];
+async function runOnce(t, url) {
   const args = argsOf(t.name, t.header, t.src, url);
-  if (!Array.isArray(args)) { results.push({ name: t.name, result: "skip", count: "", s: 0, note: `needs ${args.needs}` }); return; }
+  if (!Array.isArray(args)) return { name: t.name, result: "skip", count: "", s: 0, note: `needs ${args.needs}` };
   const r = await run(process.execPath, [join("tests", `${t.name}.mjs`), ...args], { env: baseEnv(), timeout: TIMEOUT });
   const result = r.code === 0 ? "pass" : r.code === 124 ? "timeout" : "FAIL";
   const firstFail = r.code === 0 ? "" : (/^\s*FAIL\b.*$/m.exec(r.out)?.[0].trim().replace(/^FAIL\s+/, "") ?? r.out.trim().split("\n").filter(Boolean).slice(-1)[0] ?? "");
-  results.push({ name: t.name, result, count: countOf(r.out), s: Math.round(r.ms / 1000), note: firstFail.slice(0, 140) });
-  process.stdout.write(`${result === "pass" ? "  pass" : ` ${result.padStart(5)}`}  ${t.name}${countOf(r.out) ? ` (${countOf(r.out)})` : ""}\n`);
   if (result !== "pass" && process.env.VERBOSE) process.stdout.write(r.out.split("\n").map((l) => `        ${l}`).join("\n") + "\n");
+  return { name: t.name, result, count: countOf(r.out), s: Math.round(r.ms / 1000), note: firstFail.slice(0, 140) };
 }
+const say = (rec, where) => process.stdout.write(`${rec.result === "pass" ? "  pass" : ` ${rec.result.padStart(5)}`}  ${rec.name}${rec.count ? ` (${rec.count})` : ""} ${rec.s}s${where ? `  [${where}]` : ""}\n`);
 
-async function pool(items, n, fn) {
-  const queue = [...items];
-  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length) await fn(queue.shift()); }));
+/* ------------------------------------------------------------ servers */
+/* Clear of every port a suite claims for itself (3011–3018, 3101, 4319–4345). */
+let nextPort = 3200;
+const shared = new Map();
+/** The server every test with this env shares, started the first time one asks. */
+function sharedServer(env) {
+  const key = envKey(env);
+  if (!shared.has(key)) shared.set(key, startServer(nextPort++, env));
+  return shared.get(key);
+}
+/*
+ * A test with a stand-in of its own gets a server of its own. The server
+ * remembers what GitHub answered (under the one placeholder token every
+ * suite uses), so a stand-in served by the test before it answered for
+ * this one: repo-menu passed alone and failed after publish-empty.
+ */
+async function runOwn(t) {
+  let own;
+  try { own = await startServer(nextPort++, t.env); } catch (e) {
+    console.error(String(e.message ?? e));
+    return { name: t.name, result: "FAIL", count: "", s: 0, note: "its server did not start" };
+  }
+  try { return await runOnce(t, own.url); } finally { own.stop(); await new Promise((r) => setTimeout(r, 500)); }
+}
+async function runShared(t) {
+  let server;
+  try { server = await sharedServer(t.env); } catch (e) {
+    console.error(String(e.message ?? e));
+    return { name: t.name, result: "FAIL", count: "", s: 0, note: "its server did not start" };
+  }
+  return runOnce(t, server.url);
+}
+const runIt = (t) => (t.standIn ? runOwn(t) : runShared(t));
+
+/* ------------------------------------------------------------ the list */
+if (LIST) {
+  const batch = plan.filter((t) => !SKIP[t.name] && !t.alone).sort((a, b) => est(b.name) - est(a.name));
+  const alone = plan.filter((t) => !SKIP[t.name] && t.alone);
+  const named = (t) => Object.entries(t.env).map(([k, v]) => `${k}=${v}`).join(" ") || "no stand-ins";
+  console.log(`\n1. The parallel batch, ${JOBS} at a time, longest first — ${batch.length} tests, about ${Math.round(batch.reduce((n, t) => n + est(t.name), 0) / 60)} min of work`);
+  for (const t of batch) { const a = argsOf(t.name, t.header, t.src, "<url>"); console.log(`  ${String(est(t.name)).padStart(4)}s  ${t.name}${t.standIn ? " (its own server)" : ""} — ${named(t)}${Array.isArray(a) ? "" : `; needs ${a.needs}`}${pickedWhy.has(t.name) ? `; ${pickedWhy.get(t.name)}` : ""}`); }
+  console.log(`\n2. Any that failed in the batch, again, alone`);
+  console.log(`\n3. Tagged to run alone — ${alone.length} tests`);
+  for (const t of alone) console.log(`  ${String(est(t.name)).padStart(4)}s  ${t.name} — ${t.alone}`);
+  for (const t of plan) if (SKIP[t.name]) console.log(`  skip ${t.name}: ${SKIP[t.name]}`);
+  process.exit(0);
 }
 
 /* ------------------------------------------------------------ go */
@@ -237,79 +387,109 @@ if (BUILD || !existsSync(join(ROOT, ".next", "BUILD_ID"))) {
 }
 
 for (const t of plan) if (SKIP[t.name]) results.push({ name: t.name, result: "skip", count: "", s: 0, note: SKIP[t.name] });
-
 const started = Date.now();
-/* Clear of every port a suite claims for itself (3011–3015, 3101, 4319–4341). */
-let port = 3200;
-for (const { env, tests } of servers.values()) {
-  const named = Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ") || "no stand-ins";
-  const shared = tests.filter((t) => !t.standIn);
-  console.log(`\n${named} — ${tests.length} test${tests.length === 1 ? "" : "s"}`);
-  let server = null;
-  if (shared.length) {
-    try { server = await startServer(port++, env); } catch (e) {
-      for (const t of shared) results.push({ name: t.name, result: "FAIL", count: "", s: 0, note: `server did not start (${named})` });
-      console.error(String(e.message ?? e));
+const phase = {};
+
+/* 1. The parallel batch: longest first, a stand-in test never beside another. */
+{
+  const t0 = Date.now();
+  const queue = plan.filter((t) => !SKIP[t.name] && !t.alone).sort((a, b) => est(b.name) - est(a.name));
+  console.log(`\n1. The parallel batch — ${queue.length} tests, ${JOBS} at a time, longest first`);
+  let ownBusy = false;
+  const worker = async () => {
+    for (;;) {
+      const i = queue.findIndex((t) => !t.standIn || !ownBusy);
+      if (i < 0) { if (!queue.length) return; await new Promise((r) => setTimeout(r, 300)); continue; }
+      const [t] = queue.splice(i, 1);
+      if (t.standIn) ownBusy = true;
+      let rec;
+      try { rec = await runIt(t); } finally { if (t.standIn) ownBusy = false; }
+      results.push({ ...rec, where: "batch" });
+      say(rec);
     }
-  }
-  if (server) try {
-    await pool(shared, JOBS, (t) => runTest(t, server.url));
-    /*
-     * A test that failed beside others is run again on its own, once, and
-     * the table says so: "pass*" is a test that only holds on a quiet
-     * machine, which is worth knowing and is not the same as a failure.
-     */
-    if (JOBS > 1) {
-      for (const t of shared) {
-        const i = results.findIndex((r) => r.name === t.name);
-        if (i < 0 || results[i].result === "pass" || results[i].result === "skip") continue;
-        const [crowded] = results.splice(i, 1);
-        await runTest(t, server.url);
-        const alone = results[results.length - 1];
-        if (alone.result === "pass") Object.assign(alone, { result: "pass*", note: `failed beside others: ${crowded.note}`.slice(0, 140) });
-      }
-    }
-  } finally {
-    server.stop();
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  /*
-   * A test with a stand-in of its own gets a server of its own. The server
-   * remembers what GitHub answered (under the one placeholder token every
-   * suite uses), so a stand-in served by the test before it answered for
-   * this one: repo-menu passed alone and failed after publish-empty.
-   */
-  for (const t of tests.filter((t) => t.standIn)) {
-    let own;
-    try { own = await startServer(port++, env); } catch (e) {
-      results.push({ name: t.name, result: "FAIL", count: "", s: 0, note: `server did not start (${named})` });
-      console.error(String(e.message ?? e));
-      continue;
-    }
-    try { await runTest(t, own.url); } finally { own.stop(); await new Promise((r) => setTimeout(r, 500)); }
-  }
+  };
+  await Promise.all(Array.from({ length: JOBS }, worker));
+  phase.batch = Date.now() - t0;
 }
+
+/*
+ * 2. A test that failed beside others runs again, alone, once. Passing now it
+ * is FLAKY: it holds on a quiet machine and not in company. Failing again, the
+ * failure alone is the one reported.
+ */
+{
+  const t0 = Date.now();
+  const failed = results.filter((r) => r.where === "batch" && (r.result === "FAIL" || r.result === "timeout"));
+  if (JOBS > 1 && failed.length) {
+    console.log(`\n2. Again, alone — ${failed.length} that failed in the batch`);
+    for (const crowded of failed) {
+      const t = plan.find((p) => p.name === crowded.name);
+      const alone = await runIt(t);
+      results.splice(results.indexOf(crowded), 1);
+      const rec = alone.result === "pass"
+        ? { ...alone, result: "flaky", crowded: crowded.s, note: `failed beside others (${crowded.result === "timeout" ? "timed out" : crowded.note}), passed alone`.slice(0, 140) }
+        : alone;
+      results.push({ ...rec, where: "again alone" });
+      say(rec, "alone");
+    }
+  }
+  phase.again = Date.now() - t0;
+}
+
+/* 3. The ones tagged to run alone, one at a time. */
+{
+  const t0 = Date.now();
+  const alone = plan.filter((t) => !SKIP[t.name] && t.alone);
+  if (alone.length) {
+    console.log(`\n3. Tagged to run alone — ${alone.length} tests`);
+    for (const t of alone) {
+      const rec = await runIt(t);
+      results.push({ ...rec, where: "alone (tagged)" });
+      say(rec, "alone");
+    }
+  }
+  phase.alone = Date.now() - t0;
+}
+for (const p of shared.values()) { try { (await p).stop(); } catch { /* never started */ } }
+const wall = Date.now() - started;
 
 /* ------------------------------------------------------------ the table */
 results.sort((a, b) => a.name.localeCompare(b.name));
 const tally = (r) => results.filter((x) => x.result === r).length;
-const rows = results.map((r) => [r.name, r.result, r.count, r.result === "skip" ? "" : `${r.s}s`, r.result === "pass" ? "" : r.note]);
-const quiet = tally("pass*");
-const head = ["test", "result", "checks", "time", "first failure / why skipped"];
-const widths = head.map((h, i) => Math.min(i === 4 ? 90 : 60, Math.max(h.length, ...rows.map((r) => String(r[i]).length))));
+const rows = results.map((r) => [r.name, r.result, r.count, r.result === "skip" ? "" : `${r.s}s${r.crowded !== undefined ? ` (${r.crowded}s beside others)` : ""}`, r.where ?? "", r.result === "pass" ? "" : r.note]);
+const head = ["test", "result", "checks", "time", "run", "first failure / why skipped"];
+const widths = head.map((h, i) => Math.min(i === 5 ? 90 : 60, Math.max(h.length, ...rows.map((r) => String(r[i]).length))));
 const line = (cells) => cells.map((c, i) => String(c).slice(0, widths[i]).padEnd(widths[i])).join("  ").trimEnd();
 console.log(`\n${line(head)}\n${widths.map((w) => "-".repeat(w)).join("  ")}`);
 for (const r of rows) console.log(line(r));
-const summary = `${tally("pass")} passed, ${quiet ? `${quiet} passed only on their own (pass*), ` : ""}${tally("FAIL")} failed, ${tally("timeout")} timed out, ${tally("skip")} skipped — ${results.length} in ${Math.round((Date.now() - started) / 60000)} min`;
+
+const min = (ms) => `${(ms / 60000).toFixed(1)} min`;
+const ran = results.filter((r) => r.result !== "skip");
+const slowest = [...ran].sort((a, b) => b.s - a.s).slice(0, 10);
+const names = (r) => results.filter((x) => x.result === r).map((x) => x.name);
+const summary = [
+  `SUMMARY: ${tally("pass")} passed, ${tally("FAIL")} failed, ${tally("flaky")} flaky (failed beside others, passed alone), ${tally("timeout")} timed out, ${tally("skip")} skipped — ${results.length} tests in ${min(wall)}`,
+  `  batch ${min(phase.batch)} (${JOBS} at a time), again alone ${min(phase.again)}, tagged to run alone ${min(phase.alone)}; ${Math.round(ran.reduce((n, r) => n + r.s, 0) / 60)} min of test time in all`,
+  ...(tally("FAIL") + tally("timeout") ? [`  failed: ${[...names("FAIL"), ...names("timeout")].join(", ")}`] : []),
+  ...(tally("flaky") ? [`  flaky: ${names("flaky").join(", ")} (tag one "Runs alone:" in its header if it measures time or motion)`] : []),
+  `  slowest ten: ${slowest.map((r) => `${r.name} ${r.s}s`).join(", ")}`,
+].join("\n");
 console.log(`\n${summary}`);
 
 if (OUT) {
-  const md = [`| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${r.map((c) => String(c).replace(/\|/g, "\\|")).join(" | ")} |`), "", summary, ""].join("\n");
+  const md = [`| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${r.map((c) => String(c).replace(/\|/g, "\\|")).join(" | ")} |`), "", "```", summary, "```", ""].join("\n");
   writeFileSync(resolve(OUT), md);
+}
+if (JSON_OUT) writeFileSync(resolve(JSON_OUT), `${JSON.stringify({ wall: Math.round(wall / 1000), jobs: JOBS, phases: Object.fromEntries(Object.entries(phase).map(([k, v]) => [k, Math.round(v / 1000)])), results }, null, 2)}\n`);
+/* The times, for the next run's order: untracked, so a run never changes the tree. */
+{
+  const next = readJson(LOCAL_TIMINGS);
+  for (const r of ran) if (r.s > 0) next[r.name] = r.s;
+  try { writeFileSync(LOCAL_TIMINGS, `${JSON.stringify(next, null, 1)}\n`); } catch { /* not kept */ }
 }
 
 const after = treeState();
-const changed = [...after].filter((l) => !before.has(l));
-if (changed.length) console.log(`\nThe run changed the tree (a test should not):\n${changed.join("\n")}`);
+const changedTree = [...after].filter((l) => !before.has(l));
+if (changedTree.length) console.log(`\nThe run changed the tree (a test should not):\n${changedTree.join("\n")}`);
 
 process.exit(tally("FAIL") + tally("timeout") ? 1 : 0);

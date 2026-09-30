@@ -3404,6 +3404,27 @@ remove it from `src/features/index.ts` when you're sure.
 
 ---
 
+## 10b. Running the tests
+
+`npm run test:all` runs every file in `tests/`, each on the server its own
+header asks for (`scripts/test-all.mjs` says how it reads them). A run is
+three phases: a parallel batch, longest first by the times the last runs
+took (`scripts/test-timings.json`, then the untracked `.test-timings.json`);
+anything that failed in the batch run again alone, and reported **flaky** if
+it passes then; and last, one at a time, the tests whose header has a line
+`Runs alone: <why>`. Tag a test that way when it measures time, frames or
+motion and a busy machine changes what it measures, never to hide a
+failure: its checks stay as they are and its result alone is the result.
+The run ends with a summary: passed, failed, flaky, timed out, skipped, the
+phases' times and the slowest ten.
+
+`npm run test:changed` (`--changed [ref]`) runs only the tests that touch a
+file changed since the ref (default: where the branch left trunk), picked by
+path, import path or name, plus a header line `Covers: path, path` for files
+a test exercises without naming them, and the smoke set (`SMOKE` in the
+script), which always runs. Run it while working; run the whole suite before
+asking for a merge.
+
 ## 11. More than one session works this repository
 
 Sessions run in parallel on their own branches, so the code you are looking at
