@@ -64,7 +64,7 @@ function askUpdates(): Promise<UpdatesAnswer | null> {
 
 /** One day's changes: a card of its own, the timeline's own material, one line each. */
 type Day = { day: string; changes: Landed[] };
-const PER_CARD = 10;
+const PER_CARD = 6;
 
 /**
  * A press outside or Escape closes it, and it stands over nearly everything.
@@ -152,7 +152,7 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
                     <Row skin={FIELD} seed={r.key} at={i} icon={<CalendarDays className="size-3" />} title={r.more ? `${r.day}, continued` : r.day}>
                       <div className="flex flex-col gap-0.5">
                         {r.changes.map((c) => (
-                          <p key={c.id} data-change="" className="rounded-md px-1.5 py-0.5 text-[12.5px] leading-snug" style={{ color: FIELD.text }}>{c.says}</p>
+                          <p key={c.id} data-change="" className="rounded-md px-1.5 py-0.5 text-[12.5px] leading-snug" style={{ color: FIELD.text }}><span>{c.says}</span></p>
                         ))}
                       </div>
                     </Row>
