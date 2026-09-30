@@ -32,6 +32,7 @@ import http from "node:http";
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { MODELS } from "../src/features/studio/imageRoute.ts";
+import { openGenerate } from "./fixtures/openGenerate.mjs";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const PORT = Number(process.env.REPLICATE_PORT ?? 4335);
@@ -98,9 +99,8 @@ await page.waitForTimeout(400);
 await keys.getByRole("button", { name: "Close keys" }).click();
 await page.waitForTimeout(400);
 
-const side = page.locator("[data-side-panel]");
-await side.locator("[role=radio]").filter({ hasText: "Generate" }).first().click();
-await page.waitForTimeout(500);
+/* Inside a part's "Make a picture" now (tests/side-panel-h.mjs): everything below is read inside the tool itself. */
+const side = await openGenerate(page);
 const picker = (name) => side.getByRole("combobox", { name, exact: true });
 check("the Model picker is named", (await picker("Model").count()) === 1);
 check("…and so are Output and Aspect ratio", (await picker("Output").count()) === 1 && (await picker("Aspect ratio").count()) === 1);

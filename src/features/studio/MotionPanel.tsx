@@ -31,7 +31,8 @@ import { SeeOnShelf } from "./ShelfCards";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Film, Maximize2, Pause, Play, Plus, Power, Trash2, X,
+  ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Eye, Film, Globe, Hand, Maximize2, MousePointer2, Pause, Play, Plus, Pointer,
+  Power, Repeat, Rotate3d, Sparkles, Trash2, Waves, X,
 } from "lucide-react";
 import { BACKGROUND_ID, useStudio } from "./store";
 import {
@@ -64,6 +65,7 @@ const SHEET_MAX = 16384;
 
 /** A crate whose editor stepped aside for Pick on the board, to open again when the tab comes back. */
 let comeBack: string | null = null;
+let cratesKept = false;
 
 export function MotionPanel() {
   const assets = useStudio(useShallow((s) => s.motion));
@@ -77,6 +79,9 @@ export function MotionPanel() {
   /* A crate waiting for a part to be pressed on the board. */
   const [picking, setPicking] = React.useState<string | null>(null);
   const open = assets.find((a) => a.id === editing) ?? null;
+  /* Frame interpolation is its own folded section at the foot; opened once, it stays open for the visit. */
+  const [cratesOpen, setCratesOpen] = React.useState(() => cratesKept);
+  React.useEffect(() => { cratesKept = cratesOpen; }, [cratesOpen]);
 
   /* PICK ON THE BOARD: the editor steps aside, the next part pressed wears the crate, and the editor comes back. */
   React.useEffect(() => {
@@ -129,9 +134,15 @@ export function MotionPanel() {
       <SeeOnShelf category="motion">See every motion on the shelf</SeeOnShelf>
       <MovingParts />
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-plain font-semibold text-fg">Frame interpolation</span>
+      <details data-motion-crates="" className="group rounded-md border border-border" open={cratesOpen || !!picking} onToggle={(e) => { const now = (e.currentTarget as HTMLDetailsElement).open; if (now !== cratesOpen) { play(now ? "open" : "close"); setCratesOpen(now); } }}>
+        <summary className="tactile flex h-8 cursor-pointer list-none items-center gap-2 px-2 [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="size-3.5 shrink-0 text-fg-faint transition-transform group-open:rotate-90" />
+          <Film className="size-3.5 shrink-0 text-fg-muted" />
+          <span className="min-w-0 flex-1 truncate text-small font-semibold uppercase tracking-[0.08em] text-fg">Frame interpolation</span>
+          <span className="num shrink-0 text-fine text-fg-faint">{assets.length ? `${assets.length} crate${assets.length === 1 ? "" : "s"}` : "none yet"}</span>
+        </summary>
+      <section className="space-y-2 border-t border-border p-2">
+        <div className="flex items-center justify-end">
           <Button
             size="xs"
             variant="outline"
@@ -164,6 +175,7 @@ export function MotionPanel() {
           </p>
         )}
       </section>
+      </details>
 
       <Dialog
         open={!!open}
@@ -263,6 +275,11 @@ function MovingParts() {
   );
 }
 
+/** Each kind's mark, so the list of kinds reads at a glance. */
+const KIND_MARK: Record<string, React.ComponentType<{ className?: string }>> = {
+  reveal: Eye, follow: MousePointer2, tilt: Rotate3d, hover: Hand, press: Pointer, loop: Repeat, ribbon: Waves, canvas: Sparkles, crate: Film, page: Globe,
+};
+
 /** Many rows, drawn only where they are seen once there are more than a screenful. */
 function Rows<T>({ items, keyOf, view }: { items: T[]; keyOf: (t: T) => string; view: (t: T) => React.ReactNode }) {
   if (items.length <= 30) return <div className="space-y-1">{items.map((t) => <React.Fragment key={keyOf(t)}>{view(t)}</React.Fragment>)}</div>;
@@ -274,7 +291,8 @@ function Rows<T>({ items, keyOf, view }: { items: T[]; keyOf: (t: T) => string; 
  * that change all of them at once, one undo step however many there are.
  * `title` says what they are; the chevron opens them.
  */
-function FoldLine({ rows, title, open, onOpen, level }: { rows: MoveRow[]; title: string; open: boolean; onOpen: () => void; level: "kind" | "bunch" }) {
+function FoldLine({ rows, title, open, onOpen, level, kind }: { rows: MoveRow[]; title: string; open: boolean; onOpen: () => void; level: "kind" | "bunch"; kind?: string }) {
+  const Mark = kind ? KIND_MARK[kind] : undefined;
   const sum = summarise(rows);
   const sp = sum.speed;
   const [drag, setDrag] = React.useState<number | null>(null);
@@ -286,7 +304,7 @@ function FoldLine({ rows, title, open, onOpen, level }: { rows: MoveRow[]; title
     <div
       data-move-fold={level}
       data-move-off={sum.allOff ? "" : undefined}
-      className={cn("space-y-1 rounded-md border p-1", level === "kind" ? "border-border bg-elevated/40" : "border-border/70", sum.allOff && "opacity-60")}
+      className={cn("space-y-1 rounded-md border", level === "kind" ? "border-border bg-elevated/40 px-1 py-0.5" : "border-border/70 p-1", sum.allOff && "opacity-60")}
     >
       <div className="flex items-center gap-1">
         <button
@@ -297,12 +315,23 @@ function FoldLine({ rows, title, open, onOpen, level }: { rows: MoveRow[]; title
           className="tactile flex min-h-6 min-w-0 flex-1 items-center gap-1 rounded-sm px-0.5 text-left hover:bg-hover"
         >
           <ChevronRight className={cn("size-4 shrink-0 text-fg-faint transition-transform", open && "rotate-90")} />
-          <span className="min-w-0">
-            <span data-move-title="" className={cn("block truncate", level === "kind" ? "text-small font-medium text-fg" : "text-small text-fg")}>{title}</span>
-            <span data-move-says="" className="block truncate text-fine text-fg-faint">
-              {[count, pace, sum.allOff ? "all turned off" : sum.anyOff ? "some turned off" : null].filter(Boolean).join(" · ")}
+          {Mark ? <Mark className="size-3.5 shrink-0 text-fg-muted" /> : null}
+          {level === "kind" ? (
+            /* One compact row for a kind: its mark, its name, how many, and the one switch. */
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+              <span data-move-title="" className="min-w-0 flex-1 truncate text-small font-medium text-fg">{title}</span>
+              <span data-move-says="" className="num shrink-0 text-fine text-fg-faint" title={[count, pace, sum.allOff ? "all turned off" : sum.anyOff ? "some turned off" : null].filter(Boolean).join(" · ")}>
+                {sum.allOff ? "off · " : ""}{count}
+              </span>
             </span>
-          </span>
+          ) : (
+            <span className="min-w-0">
+              <span data-move-title="" className="block truncate text-small text-fg">{title}</span>
+              <span data-move-says="" className="block truncate text-fine text-fg-faint">
+                {[count, pace, sum.allOff ? "all turned off" : sum.anyOff ? "some turned off" : null].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+          )}
         </button>
         <Button
           size="iconXs"
@@ -315,7 +344,7 @@ function FoldLine({ rows, title, open, onOpen, level }: { rows: MoveRow[]; title
           <Power />
         </Button>
       </div>
-      {sp && !sum.allOff ? (
+      {sp && !sum.allOff && (level === "bunch" || open) ? (
         <div className="space-y-0.5 px-1" data-move-speed-all="">
           <div className="flex items-baseline justify-between gap-1 text-fine">
             <span className="text-fg-muted">{sp.label}, for {all}</span>
@@ -342,7 +371,7 @@ function KindBlock({ kind, name, rows, rowView }: { kind: string; name: string; 
   const groups = React.useMemo(() => bunches(rows), [rows]);
   return (
     <div data-move-kind={kind} className="space-y-1">
-      <FoldLine rows={rows} title={name} open={open} onOpen={() => setOpen((v) => !v)} level="kind" />
+      <FoldLine rows={rows} title={name} open={open} onOpen={() => setOpen((v) => !v)} level="kind" kind={kind} />
       {open ? (
         <div className="space-y-1 border-l border-border pl-1.5" data-move-list="">
           <Rows items={groups} keyOf={(b) => b.key} view={(b) => (b.rows.length === 1 ? rowView(b.rows[0]!) : <BunchBlock bunch={b} rowView={rowView} />)} />
@@ -374,7 +403,7 @@ function speedText(v: number | string, unit: string): string {
   return `${n} ${UNIT_WORDS[unit] ?? unit}`;
 }
 
-function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; selected: boolean; note: string | null; onNote: (says: string | null) => void }) {
+export function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; selected: boolean; note: string | null; onNote: (says: string | null) => void }) {
   const sp = row.speed;
   /* The slider follows the hand from here; the part is written once, where the hand lets go: one undo step. */
   const [drag, setDrag] = React.useState<number | null>(null);

@@ -422,6 +422,9 @@ let side = null;
   await page.locator(`[data-node-id="${node.id}"]`).click({ force: true });
   await page.waitForTimeout(400);
   await openElement();
+  /* The prompt is a folded section of the part's panel (tests/side-panel-g.mjs). */
+  const promptSection = page.locator('[data-side-panel] [data-part-section="prompt"]');
+  if ((await promptSection.count()) && (await promptSection.getAttribute("data-open")) === null) { await promptSection.locator("[data-section-head]").click(); await page.waitForTimeout(300); }
   const promptBox = page.locator('[data-side-panel] textarea[aria-label="Element prompt"]').first();
   await promptBox.click();
   await page.keyboard.type("three pillars, spinning");
@@ -466,8 +469,8 @@ let side = null;
   check("it names the routed model, read off the same table", (await card.getAttribute("data-solid-model")) === "tencent/hunyuan3d-2mv", await card.getAttribute("data-solid-model"));
   // The "Where it goes" card reads the part, not its words: a cube is a solid, in one step, to the same model.
   // It sits under the closed "Make a picture"; opened to be read.
-  const pictureFold = page.locator('[data-fold="make-picture"]').first();
-  if ((await pictureFold.count()) && !(await pictureFold.evaluate((d) => d.open))) { await pictureFold.locator("summary").click(); await page.waitForTimeout(300); }
+  const pictureFold = page.locator('[data-part-section="make-picture"]').first();
+  if ((await pictureFold.count()) && (await pictureFold.getAttribute("data-open")) === null) { await pictureFold.locator("[data-section-head]").click(); await page.waitForTimeout(300); }
   const what = (await page.locator("[data-audit-what]").first().innerText().catch(() => "")).trim();
   const steps = (await page.locator("[data-audit-steps]").first().innerText().catch(() => "")).replace(/\s+/g, " ").trim();
   check("and Where it goes says a solid for a cube, not a mark", what.includes("an object you can turn"), what || "-");

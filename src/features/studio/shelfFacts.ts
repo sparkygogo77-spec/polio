@@ -353,3 +353,13 @@ export function exampleContent(feature: FeatureDef, w: SiteWords): string | unde
   if (/^label$/.test(label)) return w.buttons[0] ?? fallback;
   return fallback;
 }
+
+/** The Format fields that are whole-site switches on the shelf, in the shelf's order: what the Format panel lists under "Whole-site features". */
+export function formatSwitchKeys(): string[] {
+  return formatSwitches().map((s) => s.key);
+}
+
+/** The same switches with the values that mean on and off, so a choice (the accessibility bar) switches as the shelf does. */
+export function formatSwitches(): Extract<SiteSwitch, { kind: "format" }>[] {
+  return Object.values(SWITCHES).flatMap((s) => (s.kind === "format" ? [s] : []));
+}

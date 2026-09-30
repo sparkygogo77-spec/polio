@@ -32,6 +32,7 @@ import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
 import { GENERATION } from "./threads";
 import { useStudio } from "./store";
+import { drop as dropPicture, put as putPicture } from "./pictures";
 
 /**
  * The models that DRAW a picture, which is what this panel is for.
@@ -63,7 +64,12 @@ function choices(card: ModelCard | undefined, name: string): string[] {
   return f && f.kind === "enum" ? [...(f.values ?? [])] : [];
 }
 
-export function RenderPanel() {
+/**
+ * The drawing tool, inside a part's "Make a picture" (it was a tab of its own
+ * that mostly sat empty beside the same thing in the part's panel). With
+ * `forNode`, each picture it draws can be put on that part in one press.
+ */
+export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const models = React.useMemo(drawingModels, []);
   const [slug, setSlug] = React.useState(models[0]?.slug ?? "");
   const card = models.find((m) => m.slug === slug);
@@ -90,6 +96,8 @@ export function RenderPanel() {
   const [over, setOver] = React.useState(false);
   /** Which picture was just copied, so the control can say it happened. */
   const [copied, setCopied] = React.useState<string | null>(null);
+  /** Which picture was just put on the part. */
+  const [put, setPut] = React.useState<string | null>(null);
   /*
    * The work lives in the document, not in this component.
    *
@@ -445,6 +453,23 @@ export function RenderPanel() {
                   <Copy className="size-2.5" />
                   {copied === d.id ? "Copied" : copied === `${d.id}:no` ? "Cannot" : "Copy"}
                 </button>
+                {forNode ? (
+                  <button
+                    type="button"
+                    data-render-put={d.id}
+                    onClick={async () => {
+                      const blob = await (await fetch(d.image)).blob();
+                      const made = await putPicture(blob, { alt: d.prompt.slice(0, 120), from: "drawn" });
+                      const had = useStudio.getState().nodes.find((n) => n.id === forNode)?.picture;
+                      useStudio.getState().updateNode(forNode, { picture: made });
+                      if (had) void dropPicture(had);
+                      setPut(d.id);
+                    }}
+                    className="tactile rounded-sm border border-accent/60 bg-accent-soft px-1 py-0.5 text-small text-accent"
+                  >
+                    {put === d.id ? "On this part" : "Put it on this part"}
+                  </button>
+                ) : null}
                 <a data-render-download={d.id} href={d.image} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
                 <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
                 <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>

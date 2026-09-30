@@ -85,7 +85,9 @@ await wait(800);
 /* ------------------------------------------------------------ folded first */
 const reveal = panel.locator('[data-move-kind="reveal"]');
 const line = reveal.locator("[data-move-fold=kind]").first();
-const lineText = (await line.innerText()).replace(/\s+/g, " ");
+/* A kind is one compact row: its name and count on the row, its pace in the count's title (tests/side-panel-g.mjs). */
+const lineSays = async () => `${(await line.innerText()).replace(/\s+/g, " ")} ${await line.locator("[data-move-says]").first().getAttribute("title")}`;
+const lineText = await lineSays();
 check("Reveal on scroll is one folded line: its name, 180 parts, 800 milliseconds", /Reveal on scroll/.test(lineText) && /180 parts/.test(lineText) && /800 milliseconds/.test(lineText), lineText);
 check("…and no part is listed until it is opened", (await panel.locator("[data-move-row], [data-move-bunch]").count()) === 0, `${await panel.locator("[data-move-row], [data-move-bunch]").count()} shown`);
 check("the spins are their own folded line", /2 parts/.test(await panel.locator('[data-move-kind="loop"] [data-move-fold=kind]').innerText()));
@@ -98,7 +100,7 @@ await wait(500);
 let r = await reveals();
 check("turn all off switches off all 180 reveals", r.length === 180 && r.every((n) => n.work.off === true), `${r.filter((n) => n.work.off).length} of ${r.length} off`);
 check("…as one undo step", (await depth()) === d0 + 1, `${d0} → ${await depth()}`);
-check("…and the line says so", /all turned off/.test(await line.innerText()));
+check("…and the line says so", /all turned off/.test(await lineSays()));
 const files = await page.evaluate(async () => (await window.__studioExport()).map((f) => ({ path: f.path, content: typeof f.content === "string" ? f.content : "" })));
 const home = files.find((f) => f.path === "index.html")?.content ?? "";
 check("…and the export ships no reveal", !/"feature":\s*"reveal"/.test(home) && /"feature":\s*"spin"/.test(home));
@@ -108,6 +110,9 @@ await wait(600);
 r = await reveals();
 check("one undo turns all 180 back on", r.every((n) => !n.work.off), `${r.filter((n) => n.work.off).length} still off`);
 
+/* The all-at-once speed is inside the kind, once it is opened. */
+await line.locator("[data-move-open]").click();
+await wait(500);
 d0 = await depth();
 const all = line.locator("xpath=..").locator("[data-move-speed-all] [role=slider]").first();
 await all.focus();
@@ -119,8 +124,6 @@ check("…as one undo step", (await depth()) === d0 + 1, `${d0} → ${await dept
 check("…and the line reads it out", /850 milliseconds/.test(await line.innerText()), (await line.innerText()).replace(/\s+/g, " "));
 
 /* ------------------------------------------------------------ opened: bunches by section */
-await line.locator("[data-move-open]").click();
-await wait(500);
 const bunchTitles = await reveal.locator("[data-move-bunch] [data-move-title]").allInnerTexts();
 check("opened, the parts set alike are one bunch per section", bunchTitles.length === 3 && SECTIONS.every((t) => bunchTitles.some((b) => b.includes(`“${t}”`))), bunchTitles.join(" | "));
 const roadmap = reveal.locator("[data-move-bunch]").filter({ hasText: "Roadmap" }).first();

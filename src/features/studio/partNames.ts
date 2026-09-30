@@ -63,6 +63,9 @@ export function wordsOf(n: Pick<Named, "content">): string {
   return raw.replace(/\s+/g, " ").trim();
 }
 
+/** Words in curly quotes, once: a name that already quotes its words ("Link “BUY”") is not quoted again. */
+export const quoted = (s: string) => (/[“”]/.test(s) ? s : `“${s}”`);
+
 const clip = (s: string, max = 40) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
 
 /** What the browser computed the part to be, and the name it gave it, when the capture wrote that down. */
@@ -207,7 +210,7 @@ export function capturedFrom(n: Named, all: readonly Named[] = []): { says: stri
   const own = partName(n, []);
   const hasOwn = own !== kindOf(n);
   const where = hasOwn
-    ? `“${own}”${section && section !== own ? ` in the “${section}” section` : ""}`
+    ? `${quoted(own)}${section && section !== own && !own.includes(`“${section}”`) ? ` in the “${section}” section` : ""}`
     : section ? `the “${section}” section` : own.toLowerCase();
   return { says: `From ${host}, ${where}`, prefix: m?.[0] ?? "", rest: m ? prompt.slice(m[0].length) : prompt };
 }

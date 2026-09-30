@@ -10,7 +10,7 @@ import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
@@ -31,7 +31,6 @@ import { UpdatesPanel } from "./Updates";
 import { Palette, useShelfFolded, useShelfOpen, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
-import { RenderPanel } from "./RenderPanel";
 import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
@@ -912,13 +911,8 @@ const SIDE_TABS = [
   { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
   { value: "look", label: "Look", icon: <PaletteIcon />, hue: 320 },
   { value: "motion", label: "Motion", icon: <Clapperboard />, hue: 170 },
-  /* Replicate, in the product. His words: "provide a panel tab where i can use
-     replicate models exactly as i do on their site" \u2014 so he never has to
-     leave it to draw something. */
-  /* HIS WORD: "change it from 'Draw' to Generate". Draw is what the pen does
-     on the board; this tab asks a model for a picture, and the two being
-     called the same thing is one name doing two jobs. */
-  { value: "render", label: "Generate", icon: <ImageIcon />, hue: 60 },
+  /* Generate was a tab of its own: it went into each part's "Make a picture",
+     the one place a picture is made (tests/side-panel-h.mjs). */
 ] as const;
 
 /*
@@ -929,7 +923,7 @@ const SIDE_TABS = [
  * and used to get nothing at all: no Element, no Look, no Pages. Same
  * element, same tabs, same hooks; only where it stands changes.
  */
-const SHEET = "relative flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:relative md:inset-auto md:z-auto md:max-h-none md:w-[228px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
+const SHEET = "relative flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:relative md:inset-auto md:z-auto md:max-h-none md:w-[300px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
 
 /*
  * THE PANEL'S WIDTH IS THE PERSON'S.
@@ -942,12 +936,14 @@ const SHEET = "relative flex flex-col border-border bg-panel/95 fixed inset-x-0 
  * room the tabs say all their names.
  */
 export const SIDE_MIN = 228;
+/* Where it starts: wide enough for a name, a value and a Change on one line. */
+export const SIDE_DEFAULT = 300;
 const SIDE_KEY = "builder.sidePanelWidth";
 const sideMax = () => Math.max(SIDE_MIN, Math.round((typeof window === "undefined" ? 1440 : window.innerWidth) * 0.5));
 const clampSide = (w: number) => Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, w)));
 
 function useSideWidth(): [number, (w: number) => void] {
-  const [w, setW] = React.useState(SIDE_MIN);
+  const [w, setW] = React.useState(SIDE_DEFAULT);
   React.useEffect(() => {
     try {
       const kept = Number(localStorage.getItem(SIDE_KEY));
@@ -1000,7 +996,7 @@ function SideEdge({ width, onWidth }: { width: number; onWidth: (w: number) => v
         setDragging(false);
         try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* already let go */ }
       }}
-      onDoubleClick={() => onWidth(SIDE_MIN)}
+      onDoubleClick={() => onWidth(SIDE_DEFAULT)}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
@@ -1043,7 +1039,7 @@ export function StudioPage() {
   const [sideWidth, setSideWidth] = useSideWidth();
   const sideStyle = narrow ? undefined : { width: sideWidth };
   /* Room for every tab's name, not only the open one's. */
-  const tabWords = !narrow && sideWidth >= 420;
+  const tabWords = !narrow && sideWidth >= 440;
   const viewportDevice = useViewportDevice();
   // A sheet is asked for, never left lying over the board: on a narrow
   // window it starts closed and the toggle, the tour and a pick open it.
@@ -1279,34 +1275,31 @@ export function StudioPage() {
           <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             {narrow ? null : <SideEdge width={sideWidth} onWidth={setSideWidth} />}
-            <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
+            <div className="flex shrink-0 items-center gap-1 border-b border-border px-1.5 py-1">
               <Segmented
-                className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-none [&>*]:justify-center [&>*]:px-1.5 [&>[data-state=on]]:flex-1"
+                /* Every tab says its name, always: six words on one row when
+                   there is room for them, three to a row when there is not.
+                   An icon row with one word lit was a row of pictures to
+                   learn; the owner asked for the names back. */
+                className={cn(
+                  "min-w-0 flex-1 gap-0.5 [&>*]:min-w-0 [&>*]:justify-center [&>*]:px-1",
+                  tabWords ? "[&>*]:flex-1" : "grid h-auto grid-cols-3 [&>*]:h-6",
+                )}
                 size="xs"
                 value={sideTab}
                 onChange={setLeftPanel}
-                /* An icon on every tab, and the word on the one you are on.
-                   73e2549 took the icons off so that six words would fit the
-                   215px column, and six 9px words read as a row of small print
-                   with nothing to find a panel by at a glance. HIS ASK: the
-                   icons back, and the active tab says its word. The other five
-                   keep theirs as a tooltip and as the name a screen reader
-                   reads, so every tab is still named by its word; only the
-                   four you are not reading stop printing it. */
                 options={SIDE_TABS.map((t) => ({
                   value: t.value,
                   title: t.label,
-                  /* The mark wears the panel's colour at both states.
-                     Dimmed when you are not on it rather than drained to
-                     grey: the hue is what says which panel this is, so it
-                     never goes away, it only stands back. */
+                  /* The mark wears the panel's colour at both states: the hue
+                     says which panel this is, so it never goes away. */
                   icon: (
                     <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
                       {t.icon}
                     </span>
                   ),
                   label: (
-                    <span data-tab-word="" className={sideTab === t.value || tabWords ? "whitespace-nowrap text-small" : "sr-only"}>
+                    <span data-tab-word="" className="truncate whitespace-nowrap text-small">
                       {t.label}
                     </span>
                   ),
@@ -1319,8 +1312,7 @@ export function StudioPage() {
                   gone and the bar's toggle is the whole story. */}
             </div>
             <div className="no-bars min-h-0 flex-1 overflow-y-auto">
-              {sideTab === "render" ? <RenderPanel />
-                : sideTab === "inspector" ? <Inspector />
+              {sideTab === "inspector" ? <Inspector />
                 : sideTab === "format" ? <FormatPanel />
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />

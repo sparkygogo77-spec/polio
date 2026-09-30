@@ -18,7 +18,7 @@ import * as React from "react";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, tallyColours, tallyFonts, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
+import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, tallyFonts, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
 import { partName } from "./partNames";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
@@ -524,8 +524,18 @@ function WordsReadable() {
   const { nodes, palette, look } = useSite();
   const rows = React.useMemo(() => (look.paletteFrom || nodes.some((n) => n.from) ? wordsContrast(nodes, palette) : []), [nodes, palette, look.paletteFrom]);
   const [open, setOpen] = React.useState(false);
-  if (!rows.length) return null;
-  const hard = rows.filter((r) => r.ratio < 3).sort((a, b) => a.ratio - b.ratio);
+  const [fixed, setFixed] = React.useState<number | null>(null);
+  if (!rows.length && fixed === null) return null;
+  const hard = rows.filter((r) => r.ratio < HARD_TO_READ).sort((a, b) => a.ratio - b.ratio);
+  /* One press, one undo step: each hard part's words take the site's own colour that reads on its fill. */
+  const makeReadable = () => {
+    const fixes = readableFixes(nodes, palette);
+    if (!fixes.length) { play("deny"); setFixed(0); return; }
+    const to = new Map(fixes.map((f) => [f.id, f.to]));
+    useStudio.getState().patchNodes([...to.keys()], (n) => ({ colour: { ...(n.colour ?? {}), text: to.get(n.id)! } }));
+    play("confirm");
+    setFixed(fixes.length);
+  };
   const small = rows.filter((r) => r.ratio >= 3 && r.ratio < 4.5).length;
   return (
     <div data-words-readable="" className="rounded-md border border-border p-2 text-small">
@@ -542,7 +552,21 @@ function WordsReadable() {
             <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} /> Which ones
           </button>
           {open ? <div className="mt-1"><PartsList spots={hard.map((r) => ({ id: r.id, where: `${r.ratio} to 1` }))} /></div> : null}
+          <Button data-make-readable="" size="xs" variant="primary" className="mt-1.5 w-full" onClick={makeReadable}>
+            Make {hard.length === 1 ? "it" : `all ${hard.length}`} readable
+          </Button>
+          <p className="mt-1 text-fine leading-snug text-fg-faint">Each takes the site&apos;s own word colour that reads best on what it sits on.</p>
         </>
+      ) : null}
+      {fixed !== null ? (
+        <p data-made-readable={fixed} className="mt-1 flex items-center gap-2 text-fg-muted">
+          {fixed ? `${fixed} part${fixed === 1 ? "" : "s"} made readable.` : "None of the site's own colours reads better there."}
+          {fixed ? (
+            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setFixed(null); play("close"); }}>
+              <Undo2 className="size-3" /> Undo
+            </button>
+          ) : null}
+        </p>
       ) : null}
     </div>
   );

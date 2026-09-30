@@ -91,7 +91,7 @@ const elementTab = panel.locator("[role=radio]").filter({ hasText: "Element" }).
 check("a picked part has its Element tab in the panel", (await elementTab.count()) === 1 && await onScreen(elementTab));
 await elementTab.click().catch(() => {});
 await page.waitForTimeout(300);
-check("and the panel scrolls to the part's own fields", await onScreen(panel.locator('textarea[aria-label="Element prompt"]')) || (await panel.locator('textarea[aria-label="Element prompt"]').count()) === 1);
+check("and the panel scrolls to the part's own fields", await onScreen(panel.locator('[data-part-section="content"]')) || (await panel.locator('[data-part-panel]').count()) === 1);
 await shot("2-element");
 await toggle.click();
 await page.waitForTimeout(400);

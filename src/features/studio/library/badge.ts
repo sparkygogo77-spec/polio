@@ -31,6 +31,8 @@ interface Part {
   task?: string | null;
   /** The owner typed this part's words in the one box: a live-data spot showing them is decided. */
   settled?: boolean;
+  /** The owner said it goes nowhere on purpose. */
+  nowhere?: boolean;
   work?: { id: string } | null;
   from?: { selector?: string | null } | null;
 }
@@ -74,7 +76,7 @@ function controlOf(sel: string): string | null {
 }
 
 export function answered(n: Part): boolean {
-  return !!n.link || !!n.work || !!(n.task && n.task.trim());
+  return !!n.link || !!n.work || !!(n.task && n.task.trim()) || n.nowhere === true;
 }
 
 export function isLiveWords(words: string): boolean {
@@ -103,4 +105,17 @@ export function decisions(nodes: readonly Part[]): Decision[] {
     if (!WORDLESS.has(n.featureId ?? "") && isLiveWords(wordsOf(n.content))) out.push({ id: n.id, why: "live" });
   }
   return out;
+}
+
+/**
+ * What the decision is, in the words the side panel lists it with: the kind
+ * of thing, what is missing, and what to do about it. `kind` is the part's
+ * kind in a word ("Button", "Link"), from `partNames.kindOf`.
+ */
+export function decisionSays(why: Decision["why"], kind: string): string {
+  const k = kind.toLowerCase();
+  const thing = k === "link" ? "a link" : k === "button" ? "a button" : k === "picture" ? "a pressable picture" : "a pressable part";
+  return why === "live"
+    ? "a number frozen when the site was captured: say where the live value comes from"
+    : `${thing} that goes nowhere yet: choose where it leads`;
 }

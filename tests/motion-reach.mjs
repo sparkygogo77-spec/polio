@@ -54,6 +54,9 @@ if (await tab.count()) await tab.click().catch(() => {});
 await page.waitForTimeout(500);
 const panel = page.locator("[data-motion-panel]");
 check("the Motion panel opens", (await panel.count()) === 1);
+/* Frame interpolation is its own folded section at the foot (tests/side-panel-g.mjs): opened to read it. */
+const openCrates = async () => { const d = panel.locator("[data-motion-crates]"); if ((await d.count()) && !(await d.evaluate((e) => e.open))) { await d.locator("summary").click(); await page.waitForTimeout(300); } };
+await openCrates();
 const reach = () => panel.locator("[data-motion-reach]");
 const says = async () => ((await reach().count()) ? (await reach().first().innerText()).replace(/\s+/g, " ").trim() : "");
 const honest = (t) => /blueprint/i.test(t) && /part/i.test(t) && /board/i.test(t) && /preview/i.test(t) && /published/i.test(t);
@@ -71,6 +74,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
 if (await tab.count()) await tab.click().catch(() => {});
 await page.waitForTimeout(500);
+await openCrates();
 check("and the same line stands over it", honest(await says()), (await says()) || "no such line");
 check("the crate's card says it is on no part yet", /Not on a part yet/.test(await panel.locator("[data-crate-card] [data-crate-worn]").innerText().catch(() => "")));
 await panel.getByRole("button", { name: /Open editor/ }).first().click();

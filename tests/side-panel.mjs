@@ -12,18 +12,18 @@
  *                             comic.example, …" with no element path; the
  *                             name is readable; one Delete, not two; words
  *                             in a link are a label, with no measure.
- *   Format                    the theme, accent, fonts and corners are the
- *                             site's, the stack and the rest that change
- *                             nothing are hidden, and a hint is never
+ *   Format                    the page colour, accent, fonts and corners are
+ *                             the site's, the stack and the rest that change
+ *                             nothing are folded away, and a hint is never
  *                             squeezed to a word per line. Settings > This
  *                             site says the same.
  *   Look                      "On this site" leads; hovering a part's name
  *                             outlines it on the board; close shades merge
  *                             in one undo step; no role-pair "text 1.2"
  *                             alarm; the role numbers are explained.
- *   Width                     the panel's edge drags from 228px to about
- *                             half the window, is kept in this browser, and
- *                             the tabs say their names when there is room.
+ *   Width                     the panel starts at 300px, its edge drags from
+ *                             228px to about half the window, is kept in this
+ *                             browser, and the tabs always say their names.
  *
  * Parts are picked from the panel's own list of parts, never by a click on
  * the board: how the board selects is another lane's.
@@ -96,7 +96,7 @@ const tab = async (name) => { await side.getByRole("radio", { name }).first().cl
 
 /* ------------------------------------------------ width */
 const width = async () => Math.round((await side.boundingBox()).width);
-check("the panel starts at its narrowest, 228px", Math.abs((await width()) - 228) <= 1, `${await width()}px`);
+check("the panel starts about 300px wide (tests/side-panel-g.mjs)", Math.abs((await width()) - 300) <= 1, `${await width()}px`);
 const edge = page.locator("[data-side-edge]");
 check("its edge can be taken hold of", (await edge.count()) === 1);
 const drag = async (dx) => {
@@ -108,7 +108,7 @@ const drag = async (dx) => {
   await page.waitForTimeout(400);
 };
 await drag(300);
-check("dragging the edge widens it", Math.abs((await width()) - 528) <= 4, `${await width()}px`);
+check("dragging the edge widens it", Math.abs((await width()) - 600) <= 4, `${await width()}px`);
 await drag(3000);
 check("…never past about half the window", (await width()) <= 996 && (await width()) >= 990, `${await width()}px of 1992`);
 await drag(-3000);
@@ -118,7 +118,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 check("the width is kept in this browser", Math.abs((await width()) - 480) <= 4, `${await width()}px after a reload`);
 const words = await side.locator("[data-tab-word]").evaluateAll((els) => els.filter((e) => !e.classList.contains("sr-only")).length);
-check("with room, every tab says its name", words === 6, `${words} of 6 named`);
+check("every tab says its name", words === 5, `${words} of 5 named`);
 
 /* ------------------------------------------------ Element, nothing picked */
 await tab("Element");
@@ -136,8 +136,11 @@ const pickRow = async (text) => { await side.locator("[data-element-row]", { has
 check("the list of parts names them readably", !(await side.locator("[data-element-row]").allInnerTexts()).some((t) => /inside|n_box|::/.test(t)), (await side.locator("[data-element-row]").allInnerTexts()).join(" | "));
 await pickRow("Box “A weekly strip");
 check("picked from the list, the header names it readably", (await side.locator("[data-element-name]").innerText()) === "Box “A weekly strip about a crew of misfits.”", await side.locator("[data-element-name]").innerText().catch(() => "none"));
-const fold = side.locator('[data-fold="make-picture"]');
-check("the picture settings are under a closed \"Make a picture\"", (await fold.count()) === 1 && !(await fold.evaluate((d) => d.open)) && !(await side.locator("[data-audit-panel]").isVisible()));
+const fold = side.locator('[data-part-section="make-picture"]');
+check("the picture settings are under a closed \"Make a picture\"", (await fold.count()) === 1 && (await fold.getAttribute("data-open")) === null && !(await side.locator("[data-audit-panel]").isVisible()));
+/* The prompt is a folded section of the part's panel (tests/side-panel-g.mjs): opened to read it. */
+await side.locator('[data-part-section="prompt"] [data-section-head]').click();
+await page.waitForTimeout(300);
 const said = await side.locator("[data-captured-from]").innerText().catch(() => "");
 check("the prompt says where the part came from, plainly", said === "From comic.example, the “Meet the Crew” section", said);
 const promptValue = await side.getByLabel("Element prompt").inputValue();
@@ -147,7 +150,7 @@ await page.waitForTimeout(300);
 const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.id === "n_box_3").prompt);
 check("…while the document keeps the capture's record whole", kept.startsWith(`Captured from ${"comic.example"}/ as body > main`) && kept.endsWith("Tilt it a little."), kept);
 check("one Delete, not two", (await side.getByRole("button", { name: "Delete", exact: true }).count()) === 1, `${await side.getByRole("button", { name: "Delete", exact: true }).count()} Delete buttons`);
-await fold.locator("summary").click();
+await fold.locator("[data-section-head]").click();
 await page.waitForTimeout(300);
 check("opened, \"Make a picture\" holds the model's options", await side.locator("[data-audit-panel]").isVisible());
 /* The model's own prompt field says where the part came from in the same plain words, never the path. */
@@ -160,7 +163,8 @@ const planned = await page.evaluate(() => JSON.parse(localStorage.getItem("build
 check("…and written, what the model is sent keeps the capture's sentence whole", planned.startsWith("Captured from comic.example/ as body > main") && planned.endsWith("Bold outlines.") && !planned.includes("From comic.example,"), planned.slice(0, 120));
 await page.screenshot({ path: `${SHOTS}/side-panel-picture-prompt.png` });
 await page.screenshot({ path: `${SHOTS}/side-panel-element.png` });
-await fold.locator("summary").click();
+await fold.locator("[data-section-head]").click();
+await side.locator('[data-part-section="prompt"] [data-section-head]').click();
 
 /* A fresh visit has nothing picked: the summary's list is there again. */
 await page.reload({ waitUntil: "networkidle" });
@@ -174,18 +178,20 @@ check("…and its Words box says it is a one-line label, not paragraphs", /one l
 await page.screenshot({ path: `${SHOTS}/side-panel-label.png` });
 
 /* ------------------------------------------------ Format */
+/* Format is This site, Whole-site features and a folded brief (tests/side-panel-g.mjs). */
 await tab("Format");
-const row = (id) => side.locator(`[data-format-field="${id}"]`);
-const reads = async (id) => (await row(id).locator("[data-site-reads]").innerText().catch(() => "")).trim();
-check("the theme is the site's: light, not dark", (await reads("palette.mode")) === "light", await reads("palette.mode"));
+const reads = async (id) => (await side.locator(`[data-site-row="${id}"] [data-site-reads]`).innerText().catch(() => "")).trim();
+check("the page's colour is the site's: light yellow, not dark", (await reads("page-colour")) === "light yellow", await reads("page-colour"));
 check("the heading font is the site's face", (await reads("type.headingFamily")) === "Bangers", await reads("type.headingFamily"));
 check("the corner radius is the site's", (await reads("layout.radius")) === "24px", await reads("layout.radius"));
-const hue = Number((await reads("palette.accentHue")).replace("°", ""));
-check("the accent hue is the site's yellow, not 265°", hue > 60 && hue < 120, `${hue}°`);
-check("the stack is hidden, and the panel says why", (await row("build.stack").count()) === 0 && (await side.locator("[data-format-hidden]").count()) === 1);
+check("the accent is the site's yellow, not violet", /yellow/.test(await reads("accent")), await reads("accent"));
+check("the stack is folded away with the brief, and the fold says it changes nothing here", (await side.locator('[data-format-field="build.stack"]').count()) === 0 && /changes the captured page/.test(await side.locator("[data-brief-fold]").innerText()));
+await side.locator("[data-brief-fold]").click();
+await page.waitForTimeout(300);
+const row = (id) => side.locator(`[data-format-field="${id}"]`);
 await side.getByLabel("Search format options").fill("line length");
 await page.waitForTimeout(300);
-const hint = await row("type.measure").evaluate((li) => { const d = li.querySelector(".min-w-\\[9rem\\]") ?? li.firstElementChild; return Math.round(d.getBoundingClientRect().width); });
+const hint = await row("type.measure").evaluate((li) => Math.round(li.firstElementChild.getBoundingClientRect().width));
 check("a hint keeps a readable width, never a word per line", hint >= 140, `${hint}px wide`);
 await side.getByLabel("Search format options").fill("");
 await page.waitForTimeout(200);

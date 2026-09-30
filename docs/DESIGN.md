@@ -234,8 +234,44 @@ same boxes as everywhere else, in the screen's colours.
   site already says (light or dark, accent, faces, corners) and hide what
   changes nothing on it (`siteFormat.ts`). Picture settings live under a
   closed "Make a picture"; a status line is short, with the ids in its
-  details. The panel's edge drags from 228px to half the window.
+  details. The panel starts at 300px and its edge drags from 228px to half
+  the window; every tab says its name, three to a row when narrow.
   `tests/side-panel.mjs` and `tests/side-panel-reads.mjs` hold this.
+- **Format is a short page, in three parts.** "This site" (heading and
+  body fonts, base size, corners, page colour, accent), each read once off
+  the parts with a Change that changes it where the site has it; "Whole-site
+  features", the shelf's switches with their state; and everything a
+  generator reads folded under one closed "Brief for a new build". No
+  BRIEF tags, never a value shown twice. A part's `font.size` is a multiple
+  of the base size, and the page's colour and accent are what the page
+  paints most by area, not the body behind it, read by `paintedPalette`
+  (`shelfTheme.ts`), the one function the shelf's previews use too, sampled
+  on the page only: what hangs past its edge paints nothing.
+- **The Element tab is the page's parts in page order.** With nothing
+  picked: the counts, then a tree, top to bottom, sections then what is
+  inside, with kind icons; hovering a row outlines the part, pressing it
+  picks it, scrolls to it and opens its panel (`partTree.ts`,
+  `PartTreePanel.tsx`). A count that names parts (needing a decision,
+  links) opens the list of exactly those parts in place, each saying what
+  the decision is with the fix inline: where it leads, or nowhere on
+  purpose (`node.nowhere`). A part's own panel is a breadcrumb with a way
+  back, its name and kind, then Content, Position and size, Look, Motion,
+  and the prompt and Make a picture folded; sections remember being folded.
+  A link's words are edited on the label inside it. `tests/side-panel-g.mjs`.
+- **A picture is made in one place**: a part's "Make a picture", which holds
+  the drawing tool and puts what it draws on the part. There is no Generate
+  tab, and a picture's "Draw one" opens that section rather than being a
+  second generator. `tests/side-panel-h.mjs`.
+- **Pages shows the link as it will be shared**: the card a pasted link
+  draws, from exactly what the head will say (`pageHead`'s rule: the typed
+  description), and a character count on the name (60) and the description
+  (50 to 160) that says in words what happens past it.
+- **Hard-to-read words are one press from readable**, in the site's own
+  word colours, as one undo step (`readableFixes`). Outlined lettering is
+  measured by its outline, so a site's edged headings are never "fixed".
+- **Motion lists kinds as compact rows**: icon, name, count, one switch;
+  the all-at-once speed is inside when opened. Frame interpolation is its
+  own folded section at the foot.
 - **No em dashes in anything a person reads.** A dash is a pause a designer
   reaches for when a sentence has two halves and no punctuation chosen for
   them. On a screen it reads as a machine's tic, and there are hundreds of

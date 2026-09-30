@@ -3061,6 +3061,8 @@ function DecideBadge({ node, why, chipScale }: { node: StudioNode; why: Decision
         e.stopPropagation();
         play("open");
         useStudio.getState().setSelection([node.id]);
+        /* The part's own panel opens beside it, with the decision and its fix at the top. */
+        useStudio.getState().want({ panel: "inspector" });
         openRadial(node.id, e.clientX, e.clientY, null, "write");
       }}
       className="tactile pointer-events-auto absolute right-0 top-0 z-[4] flex items-center justify-center rounded-full font-bold leading-none"

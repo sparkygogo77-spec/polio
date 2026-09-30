@@ -192,6 +192,8 @@ await wait(800);
 /* ------------------------------------------------------------ the wide editor */
 await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Motion" }).first().click().catch(() => {});
 await wait(300);
+/* Frame interpolation is its own folded section at the foot (tests/side-panel-g.mjs). */
+if (!(await panel.locator("[data-motion-crates]").evaluate((e) => e.open))) { await panel.locator("[data-motion-crates] summary").click(); await wait(300); }
 await panel.locator('[data-crate-card="mo_walk"]').getByRole("button", { name: /Open editor/ }).click();
 await wait(700);
 const editor = page.locator('[data-crate-editor="mo_walk"]');

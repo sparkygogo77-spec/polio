@@ -6,14 +6,11 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Box, Brush, ChevronRight, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Palette as PaletteIcon, Pencil, Play, SlidersHorizontal, Sparkles, Trash2, Type, Unlock, Wand2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
-import { speedWord } from "./look";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { drop as dropPicture, put as putPicture, usePicture } from "./pictures";
-import { RENDER_COST } from "./renderer";
-import { rendererHeader } from "./agent";
 import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
@@ -31,16 +28,20 @@ import { Segmented } from "@/core/ui/segmented";
 import { Select } from "@/core/ui/select";
 import { Slider } from "@/core/ui/slider";
 import { Switch } from "@/core/ui/switch";
-import { Badge } from "@/core/ui/badge";
-import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
-import { VirtualList } from "@/core/ui/virtual-list";
 import { linkReason } from "./links";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { WorkFields } from "./WorkFields";
 import { capturedFrom, insideControl, isMachineLabel, partName, wordsOf } from "./partNames";
-import { decisions } from "./library/badge";
+import { tallyFonts, faceOf } from "./siteColours";
+import { parseColor, toHex } from "./look";
+import { wordsIn } from "./owner";
+import { decisionSays } from "./library/badge";
+import { movingParts } from "./motionInventory";
+import { MoveRowView } from "./MotionPanel";
+import { RenderPanel } from "./RenderPanel";
+import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, PartsTree, kindWord, useDecisions } from "./PartTreePanel";
 import { PartFields } from "./PartFields";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
@@ -123,46 +124,6 @@ function OptionSet({ option, value, onChange }: { option: FeatureOption; value?:
 }
 
 /**
- * What has been set on a thing, as a row of coloured keys.
- *
- * Every design decision the wheel writes — an entrance, an aura, a font, a
- * colour, a texture, a link, the options, a drawing; the page's fill, veil,
- * colour and layers — is tracked here where it can be seen, each marked
- * with an icon in its own colour, so nothing set on the board is invisible
- * in the panel.
- */
-interface Design { icon: React.ReactNode; label: string; hue: number }
-function Designs({ items }: { items: Design[] }) {
-  if (!items.length) return null;
-  return (
-    <div data-designs="" className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
-      {items.map((it, i) => (
-        <span key={i} data-design="" className="flex h-5 items-center gap-1 rounded-[4px] bg-elevated pl-0.5 pr-1.5 text-small text-fg" style={{ border: "1px solid var(--border)" }}>
-          <span className="flex size-4 items-center justify-center rounded-[3px] [&_svg]:size-2.5" style={{ background: `oklch(0.66 0.17 ${it.hue})`, color: "oklch(0.99 0 0)" }}>
-            {it.icon}
-          </span>
-          {it.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-function nodeDesigns(n: StudioNode): Design[] {
-  const out: Design[] = [];
-  if (n.anim) out.push({ icon: <Play />, label: `${n.anim.replace(/^el-/, "")} · ${speedWord(n.animSpeed)}`, hue: 205 });
-  if (n.aura) out.push({ icon: <Sparkles />, label: `aura · ${n.auraStyle}`, hue: 330 });
-  if (n.font) out.push({ icon: <Type />, label: n.font.face ?? n.font.family ?? "type", hue: 62 });
-  if (n.colour && Object.keys(n.colour).length) out.push({ icon: <PaletteIcon />, label: "colour", hue: 150 });
-  if (n.texture) out.push({ icon: <Grid2x2 />, label: n.texture === "none" ? "no texture" : "texture", hue: 278 });
-  if (n.link) out.push({ icon: <Link2 />, label: `links to a ${n.link.kind}`, hue: 22 });
-  const opts = Object.keys(n.options ?? {}).length;
-  if (opts) out.push({ icon: <SlidersHorizontal />, label: `${opts} option${opts === 1 ? "" : "s"}`, hue: 100 });
-  if (n.sketch?.strokes.length) out.push({ icon: <Brush />, label: "drawn", hue: 245 });
-  if (n.kind === "cube") out.push({ icon: <Box />, label: "a box, made a cube", hue: 190 });
-  if (n.prompt.trim()) out.push({ icon: <Wand2 />, label: "words", hue: 350 });
-  return out;
-}
-/**
  * The picture a part holds: choose one, see it, take it away.
  *
  * WHERE THE BYTES ARE, because it changes what he should expect. Not in the
@@ -175,97 +136,12 @@ function nodeDesigns(n: StudioNode): Design[] {
  * know that.
  */
 
-/* ------------------------------------------------------------------ */
-/* The row of six                                                      */
-/* ------------------------------------------------------------------ */
-
-/**
- * WHAT ELEMENT IS BUILT AGAINST: the wheel, not a form.
- *
- * His complaint was "this element tab does not make sense", and the panel it
- * was said about held 27 labelled fields in a column — the most generic thing
- * a panel can be, and the same thing he meant by "the side panel left side is
- * extremely generic". The wheel is the benchmark he set: everything reachable
- * fast, the most used nearest, colour doing real work, and a control showing
- * what it does rather than naming it.
- *
- * So the panel is a row of six marks and one open field. The order is how
- * often he reaches for them, which he gave himself: prompt, looks, link,
- * size, motion, delete.
- *
- * ON THE COLOURS, because copying the wheel literally would have been wrong.
- * The wheel is one flat blue for all seven pieces on purpose — DESIGN.md:
- * "so the wheel reads as one object" — with red kept for Delete alone. Six
- * blue marks in a row would read as one object too, and this row is not one
- * object: it is six different places to go. So it takes the wheel's RULE
- * rather than its literal hue — colour means where this goes, red is still
- * only Delete — and each mark wears the hue of the thing it opens, the same
- * hues the side-panel tabs use, so the app says one thing twice.
- *
- * EVERY MARK WEARS ITS STATE, which is the "shows what it does" half:
- *
- *   prompt   lit once there are words in it, so an unwritten part says so
- *   looks    painted in the part's OWN colour, so it is a swatch, not a word
- *   link     dim when it points nowhere, lit when it does
- *   size     carries the part's width as a fraction of the frame
- *   motion   plays the part's entrance once when the pointer touches it
- *   delete   the one red thing, as on the wheel
- */
-type MarkId = "prompt" | "looks" | "link" | "size" | "motion" | "delete";
-
-const MARK_HUE: Record<Exclude<MarkId, "looks">, number> = {
-  /* The wheel's own Write hue. */
-  prompt: 258,
-  /* Where a thing goes — the hue Pages and Navigation already use. */
-  link: 230,
-  /* Layout, which is Format's hue. */
-  size: 200,
-  /* Motion's own hue, in the catalogue and in the tab strip. */
-  motion: 170,
-  /* The wheel's red, reserved for this and nothing else. */
-  delete: 18,
-};
-
-function Mark({
-  id, label, hue, on, lit, note, icon, onPress, onTouch,
-}: {
-  id: MarkId; label: string; hue: number; on: boolean; lit: boolean;
-  note?: string; icon: React.ReactNode; onPress: () => void; onTouch?: () => void;
-}) {
-  return (
-    <Tooltip content={note ? `${label} — ${note}` : label} side="bottom">
-      <button
-        type="button"
-        data-mark={id}
-        data-on={on ? "1" : undefined}
-        data-lit={lit ? "1" : undefined}
-        aria-label={label}
-        aria-pressed={on}
-        onClick={onPress}
-        onPointerEnter={onTouch}
-        className="tactile flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-sm py-1 transition-[background,box-shadow] duration-150"
-        style={{
-          /* Never drab, on or off: the hue is what the mark IS, so it only
-             ever stands back, it does not drain away. A mark with nothing in
-             it yet is the same colour at lower light, not grey. */
-          color: `oklch(${lit ? 0.84 : 0.66} ${lit ? 0.16 : 0.09} ${hue})`,
-          background: on ? `oklch(0.7 0.15 ${hue} / 0.18)` : undefined,
-          boxShadow: on ? `inset 0 0 0 1px oklch(0.75 0.15 ${hue} / 0.5)` : undefined,
-        }}
-      >
-        <span className="flex size-4 items-center justify-center">{icon}</span>
-        <span className="num text-[8px] leading-none opacity-80">{note ?? "\u00a0"}</span>
-      </button>
-    </Tooltip>
-  );
-}
-
 /** THE WORDS, FIRST. Two presses on the part put the caret here (`wanted`). */
-function WordsField({ node, content, label }: { node: StudioNode; content: { label: string; placeholder?: string }; label?: "link" | "button" }) {
+function WordsField({ node, content, label, alsoFor }: { node: StudioNode; content: { label: string; placeholder?: string }; label?: "link" | "button"; alsoFor?: string }) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
   const wanted = useStudio((s) => s.wanted);
   React.useEffect(() => {
-    if (!wanted || wanted.focus !== "words" || wanted.id !== node.id) return;
+    if (!wanted || wanted.focus !== "words" || (wanted.id !== node.id && wanted.id !== alsoFor)) return;
     /* After the press that asked: the board takes the keys back on its
        pointerup, so the caret lands once that has happened. */
     const t = window.setTimeout(() => {
@@ -276,7 +152,7 @@ function WordsField({ node, content, label }: { node: StudioNode; content: { lab
       useStudio.getState().want(null);
     }, 160);
     return () => window.clearTimeout(t);
-  }, [wanted, node.id]);
+  }, [wanted, node.id, alsoFor]);
   return (
     <Field label="Words" hint={label ? `The ${label}'s label: one line, read as part of the ${label}. The board draws exactly this.` : `${content.label}. The board draws exactly this.`}>
       <Textarea
@@ -296,50 +172,7 @@ function PictureField({ node }: { node: StudioNode }) {
   const pic = node.picture ?? null;
   const { src, looked } = usePicture(pic);
   const [busy, setBusy] = React.useState(false);
-  const [asking, setAsking] = React.useState(false);
-  const [want, setWant] = React.useState("");
-  const [drawn, setDrawn] = React.useState<string | null>(null);
   const file = React.useRef<HTMLInputElement>(null);
-
-  /**
-   * Draw one with his own key.
-   *
-   * The same renderer that draws a part's body, asked for a picture instead,
-   * and what comes back lands exactly where an uploaded one lands: a file in
-   * this browser's storage, a path on the part, and the same publish. What
-   * it really cost comes back with it and is said, because the guess before
-   * the press was a guess.
-   */
-  const draw = async () => {
-    const say = want.trim();
-    if (!say) return;
-    setBusy(true);
-    setDrawn(null);
-    try {
-      const res = await fetch("/api/studio/image", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...rendererHeader() },
-        body: JSON.stringify({ kind: "raster", prompt: say, label: node.label, w: Math.round(node.w), h: Math.round(node.h) }),
-      });
-      const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
-      if (!r.ok || !r.image) {
-        setDrawn(r.message ?? "The renderer could not draw it.");
-        return;
-      }
-      const blob = await (await fetch(r.image)).blob();
-      const made = await putPicture(blob, { alt: say, from: "drawn" });
-      const had = node.picture;
-      useStudio.getState().updateNode(node.id, { picture: made });
-      if (had) void dropPicture(had);
-      setDrawn(typeof r.cost === "number" ? `Drawn. It cost $${r.cost.toFixed(2)}.` : "Drawn. The renderer reported no price for it.");
-      setAsking(false);
-      setWant("");
-    } catch (err) {
-      setDrawn(err instanceof Error ? err.message : "The renderer could not be reached.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const choose = async (f: File | undefined) => {
     if (!f) return;
@@ -389,41 +222,11 @@ function PictureField({ node }: { node: StudioNode }) {
           <Button variant="outline" size="xs" disabled={busy} onClick={() => file.current?.click()}>
             {pic ? "Choose another" : "Choose a picture"}
           </Button>
-          <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking((v) => !v)}>
+          <Button variant="ghost" size="xs" disabled={busy} data-draw-one="" onClick={() => openSection("make-picture")}>
             <Sparkles className="size-3" /> Draw one
           </Button>
           {pic ? <Button variant="ghost" size="xs" onClick={clear}>Remove</Button> : null}
         </div>
-        {asking ? (
-          <div className="space-y-2 rounded-md border border-border bg-elevated/50 p-2">
-            <Input
-              inputSize="sm"
-              autoFocus
-              value={want}
-              placeholder="what the picture should be"
-              onChange={(e) => setWant(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && want.trim()) void draw(); }}
-            />
-            {/*
-              The price before the press, not after it. It is his key and his
-              money, and the rate is the renderer's published one; what it
-              actually cost comes back with the picture and replaces this.
-            */}
-            <p className="text-small leading-relaxed text-fg-muted">
-              Drawn with your own Replicate key, about <span className="num text-fg">${RENDER_COST.raster.toFixed(2)}</span> a
-              go at the model&rsquo;s published rate. It lands as a file on this part, the same as one you chose yourself.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="primary" size="xs" disabled={busy || !want.trim()} loading={busy} onClick={() => void draw()}>
-                Draw it
-              </Button>
-              <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking(false)}>Cancel</Button>
-            </div>
-          </div>
-        ) : null}
-        {/* What it really cost, said after, and outside the box that closes
-            when it worked — it was set and then hidden with the asking. */}
-        {drawn ? <p className="text-small leading-relaxed text-fg-muted">{drawn}</p> : null}
         {pic ? (
           <p className="text-small leading-relaxed text-fg-muted">
             {pic.published
@@ -469,60 +272,6 @@ export function HuePicker({ value, onChange }: { value: number | null; onChange:
         />
       ))}
     </div>
-  );
-}
-
-/**
- * The elements on this page, as a roll you can pick from.
- *
- * It is here because the Element tab has to say something about elements
- * when none is picked, and the truest thing it can say is which ones there
- * are. Pressing a row picks that part, which fills this same panel with its
- * editor, so the roll is a way INTO the tab rather than a second screen
- * beside it.
- *
- * Virtualised because a page has no ceiling on parts, and a list in this
- * panel that is fine at nine rows and stutters at three hundred is the kind
- * of thing nobody finds until a real site is on the board.
- */
-function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
-  return (
-    <VirtualList
-      items={nodes}
-      getKey={(n) => n.id}
-      estimateSize={34}
-      className="px-2 py-1"
-      empty={
-        <p className="px-4 text-center text-plain text-fg-muted">
-          Nothing on this page yet. Open the parts drawer under the board, place a part, then pick it to say what it should be.
-        </p>
-      }
-      renderItem={(n) => {
-        const feature = getFeature(n.featureId);
-        const cat = feature ? categoryOf(feature.category) : null;
-        const hue = n.hue ?? cat?.hue ?? 265;
-        return (
-          <Button
-            variant="ghost"
-            size="sm"
-            data-element-row=""
-            className="h-8 w-full justify-start gap-2 px-2"
-            onClick={() => useStudio.getState().setSelection([n.id])}
-          >
-            <span
-              className="flex size-5 shrink-0 items-center justify-center rounded-sm"
-              style={{ background: `oklch(0.7 0.14 ${hue} / 0.16)`, color: `oklch(0.8 0.15 ${hue})` }}
-            >
-              {n.glyph ? <span className="text-small">{n.glyph}</span> : feature ? <feature.icon className="size-3" /> : <Frame className="size-3" />}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-left text-plain text-fg">{partName(n, nodes, featureName)}</span>
-            {n.prompt.trim() ? (
-              <Wand2 className="size-3 shrink-0 text-fg-faint" aria-label="has words" />
-            ) : null}
-          </Button>
-        );
-      }}
-    />
   );
 }
 
@@ -576,17 +325,20 @@ function Fold({ id, title, note, children }: { id: string; title: string; note?:
 function PageSummary({ nodes }: { nodes: StudioNode[] }) {
   const pages = useStudio((s) => s.pages);
   const links = nodes.filter((n) => !!n.link).length;
-  const open = React.useMemo(() => decisions(nodes), [nodes]);
+  const open = useDecisions(nodes);
   const nowhere = open.filter((d) => d.why === "nowhere").length;
   const live = open.length - nowhere;
-  const pick = (ids: string[]) => { if (ids.length) { play("select"); useStudio.getState().setSelection(ids); } };
-  const Stat = ({ n, one, many, onPress, id }: { n: number; one: string; many: string; onPress?: () => void; id: string }) => (
+  /* A count that names parts opens the list of exactly those parts, here; it used to pick them all at once and show nothing. */
+  const [behind, setBehind] = React.useState<"decide" | "links" | null>(null);
+  const show = (w: "decide" | "links") => { play(behind === w ? "close" : "open"); setBehind((b) => (b === w ? null : w)); };
+  const Stat = ({ n, one, many, onPress, id, on }: { n: number; one: string; many: string; onPress?: () => void; id: string; on?: boolean }) => (
     <button
       type="button"
       data-summary={id}
+      aria-expanded={on === undefined ? undefined : on}
       disabled={!onPress || !n}
       onClick={onPress}
-      className="tactile flex flex-col items-start rounded-md border border-border px-2 py-1.5 text-left enabled:hover:bg-hover disabled:cursor-default"
+      className={cn("tactile flex flex-col items-start rounded-md border px-2 py-1.5 text-left enabled:hover:bg-hover disabled:cursor-default", on ? "border-accent bg-accent-soft" : "border-border")}
     >
       <span className="num text-large font-semibold text-fg">{n}</span>
       <span className="text-small text-fg-muted">{n === 1 ? one : many}</span>
@@ -598,12 +350,12 @@ function PageSummary({ nodes }: { nodes: StudioNode[] }) {
         <Stat id="parts" n={nodes.length} one="part on this page" many="parts on this page" />
         <Stat id="pages" n={pages.length} one="page on the site" many="pages on the site"
           onPress={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "pages" }))} />
-        <Stat id="links" n={links} one="link on this page" many="links on this page"
-          onPress={() => pick(nodes.filter((n) => !!n.link).map((n) => n.id))} />
-        <Stat id="open" n={open.length} one="part needs a decision" many="parts need a decision"
-          onPress={() => pick(open.map((d) => d.id))} />
+        <Stat id="links" n={links} one="link on this page" many="links on this page" on={behind === "links"}
+          onPress={() => show("links")} />
+        <Stat id="open" n={open.length} one="part needs a decision" many="parts need a decision" on={behind === "decide"}
+          onPress={() => show("decide")} />
       </div>
-      {open.length ? (
+      {open.length && !behind ? (
         <p data-summary-says="" className="text-small leading-snug text-fg-muted">
           {[
             nowhere ? `${nowhere} ${nowhere === 1 ? "is a button or link that goes" : "are buttons or links that go"} nowhere yet` : "",
@@ -611,12 +363,7 @@ function PageSummary({ nodes }: { nodes: StudioNode[] }) {
           ].filter(Boolean).join("; ")}. They wear an orange ! on the board.
         </p>
       ) : null}
-      {nodes.length ? (
-        <div className="space-y-1">
-          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Parts</div>
-          <div className="h-56 rounded-md border border-border"><ElementRoll nodes={nodes} /></div>
-        </div>
-      ) : null}
+      {behind ? <PartsBehind which={behind} nodes={nodes} onClose={() => { play("close"); setBehind(null); }} /> : null}
     </div>
   );
 }
@@ -630,10 +377,14 @@ export function Inspector() {
   const frameWidth = useStudio((s) => s.frameWidth);
   /* Which mark is open. None is the resting state, and the prompt is
      always there under it — see the row below. */
-  const [mark, setMark] = React.useState<MarkId | null>(null);
+  /* The back arrow on a part's panel shows the tree with the part still picked; picking another part opens its panel. */
+  const [backTo, setBackTo] = React.useState<string | null>(null);
+  const selKey = selection.join(",");
+  React.useEffect(() => { setBackTo((b) => (b && selKey === b ? b : null)); }, [selKey]);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const openDecisions = useDecisions(nodes);
 
   const selNodes = nodes.filter((n) => selection.includes(n.id));
   const selShapes = shapes.filter((s) => selection.includes(s.id));
@@ -667,9 +418,7 @@ export function Inspector() {
             {nodes.length ? `${nodes.length} element${nodes.length === 1 ? "" : "s"} on this page. Pick one to prompt it.` : "The page itself is picked."}
           </div>
         </div>
-        <div className="min-h-0 flex-1">
-          <ElementRoll nodes={nodes} />
-        </div>
+        <PartsTree nodes={nodes} className="flex-1" />
         <div className="flex items-center gap-2 border-t border-border px-3 py-2">
           <span
             className="flex size-6 shrink-0 items-center justify-center rounded-sm"
@@ -692,22 +441,36 @@ export function Inspector() {
   }
 
   /* ------------------------------------------------------- nothing picked */
-  if (selNodes.length === 0 && selShapes.length === 0) {
+  /*
+   * With nothing picked, or with one part picked and the back arrow pressed:
+   * where you are (the counts), then the page's parts as a tree in page
+   * order, the picked one lit. The page's own prompt is folded at the foot.
+   */
+  const single = selNodes.length === 1 && selShapes.length === 0 ? selNodes[0]! : null;
+  if ((selNodes.length === 0 && selShapes.length === 0) || (single && backTo === single.id)) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-border px-3 py-2">
           <div className="text-plain font-semibold text-fg">{page.name}</div>
-          <div className="text-small text-fg-muted">Nothing is picked. Press a part on the board to change it.</div>
+          <div className="text-small text-fg-muted">
+            {single ? <>Picked: <button type="button" data-back-to-part="" className="text-fg underline-offset-2 hover:underline" onClick={() => { play("open"); setBackTo(null); }}>{partName(single, nodes, featureName)}</button></> : "Press a part here or on the board to open it."}
+          </div>
         </div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div className="shrink-0 space-y-3 p-3 pb-2">
           {/*
-            A SUMMARY FIRST, the prompt folded. With nothing picked this tab
-            used to open on the page's picture-making prompt: which model the
-            route would send it to and its four steps, a thing almost nobody
-            came here for. What a person wants on arriving is where they are:
-            how many parts, pages and links, and what still needs deciding.
+            A SUMMARY FIRST, the prompt folded. What a person wants on
+            arriving is where they are: how many parts, pages and links, and
+            what still needs deciding, each count a press away from the parts
+            it counts.
           */}
           <PageSummary nodes={nodes} />
+          <div className="flex items-center justify-between">
+            <span className="text-small font-semibold uppercase tracking-[0.08em] text-fg">Parts, top to bottom</span>
+            <span className="num text-fine text-fg-faint">{nodes.length}</span>
+          </div>
+        </div>
+        <PartsTree nodes={nodes} picked={single?.id ?? null} className="mx-1.5 min-h-40 flex-1 rounded-md border border-border" />
+        <div className="shrink-0 p-3 pt-2">
           <Fold id="page-prompt" title="This page's prompt" note={page.prompt.trim() ? "written" : "empty"}>
           <Field label="This page should…" hint="Applies to everything on this page.">
             <Textarea
@@ -726,13 +489,6 @@ export function Inspector() {
             />
           </Field>
           </Fold>
-          {/*
-            The "select something to prompt it" block stood here and told the
-            reader what they were already doing. A prompt lives on the element
-            and in the trail, where it can be read against what it produced;
-            a panel that nags about the absence of a selection is not a place
-            prompts live.
-          */}
         </div>
       </div>
     );
@@ -924,10 +680,17 @@ export function Inspector() {
   const cat = feature ? categoryOf(feature.category) : null;
   const group = groups.find((g) => g.id === node.groupId);
   const shownName = partName(node, nodes, featureName);
+  const kind = kindWord(node);
   /* Words inside a button or a link are that control's label: one line, no
      measure, not "long-form text with proper rhythm". */
   const isLabel = !!feature && (TEXTY.has(feature.id) || (feature.id === "box" && !!wordsOf(node))) && insideControl(node);
   const captured = capturedFrom(node, nodes);
+  /* A link or a button whose words sit on a part inside it: the words are edited here, on the part that draws them. */
+  const wordsPart = wordsIn(nodes, node);
+  const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
+  const control = kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId);
+  const decision = openDecisions.find((d) => d.id === node.id) ?? null;
+  const featureOptions = feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))) ?? [];
   /*
    * Typing a number into X, Y, W or H is his hand on the box exactly as a
    * drag is, so it marks the part his and the healing leaves it alone from
@@ -940,340 +703,293 @@ export function Inspector() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        {feature ? (
-          <span
-            className="flex size-6 shrink-0 items-center justify-center rounded-sm"
-            style={{ background: `oklch(0.7 0.14 ${node.hue ?? cat?.hue ?? 265} / 0.16)`, color: `oklch(0.8 0.15 ${node.hue ?? cat?.hue ?? 265})` }}
-          >
-            {node.glyph ? <span className="text-xs">{node.glyph}</span> : <feature.icon className="size-3.5" />}
+    <div className="flex h-full min-h-0 flex-col" data-part-panel={node.id}>
+      <div className="shrink-0 space-y-1 border-b border-border px-3 pb-2 pt-1.5">
+        <Crumbs node={node} nodes={nodes} pageName={page.name} onBack={() => setBackTo(node.id)} />
+        <div className="flex items-center gap-2">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+            {node.glyph ? <span className="text-xs">{node.glyph}</span> : <KindIcon kind={kind} className="size-4" />}
           </span>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div data-element-name="" className="truncate text-plain font-semibold text-fg">{shownName}</div>
-          <div data-element-kind="" className="truncate text-small text-fg-muted">{isLabel ? (insideLink(node) ? "Label on a link" : "Label on a button") : cat?.label ?? "Custom"}</div>
+          <div className="min-w-0 flex-1">
+            <div data-element-name="" className="truncate text-plain font-semibold text-fg" title={shownName}>{shownName}</div>
+            <div data-element-kind="" className="truncate text-small text-fg-muted">{isLabel ? (insideLink(node) ? "Label on a link" : "Label on a button") : kind}</div>
+          </div>
+          <Tooltip content={node.locked ? "Unlock" : "Lock position"}>
+            <Button variant="ghost" size="iconXs" aria-label="Lock" onClick={() => update({ locked: !node.locked })}>
+              {node.locked ? <Lock /> : <Unlock />}
+            </Button>
+          </Tooltip>
+          {/* One Delete, not two. */}
+          <Tooltip content="Delete">
+            <Button variant="ghost" size="iconXs" aria-label="Delete" className="text-danger" onClick={() => useStudio.getState().removeNodes([node.id])}>
+              <Trash2 />
+            </Button>
+          </Tooltip>
         </div>
-        {/* One Delete, not two: the red mark in the row below is it. */}
-        <Tooltip content={node.locked ? "Unlock" : "Lock position"}>
-          <Button variant="ghost" size="iconXs" aria-label="Lock" onClick={() => update({ locked: !node.locked })}>
-            {node.locked ? <Lock /> : <Unlock />}
-          </Button>
-        </Tooltip>
       </div>
 
-      <Designs items={nodeDesigns(node)} />
-
-      {/* The six. Pressing one opens it and closes whatever was open, so the
-          panel is never a column of everything at once — which is what it
-          was. Pressing the open one again closes it, leaving the prompt. */}
-      <div className="flex shrink-0 items-stretch gap-0.5 border-b border-border px-1.5 pb-1.5">
-        <Mark
-          id="prompt" label="Prompt" hue={MARK_HUE.prompt} icon={<Pencil className="size-4" />}
-          on={mark === "prompt"} lit={node.prompt.trim().length > 0}
-          note={node.prompt.trim() ? "written" : undefined}
-          onPress={() => setMark((m) => (m === "prompt" ? null : "prompt"))}
-        />
-        <Mark
-          id="looks" label="Looks"
-          /* The part's own colour when it has one — the mark IS the swatch.
-             With none set it takes the category's hue, which is what the
-             part is actually drawn in, so it is never a colour that lies. */
-          hue={node.hue ?? cat?.hue ?? 320}
-          icon={<PaletteIcon className="size-4" />}
-          on={mark === "looks"} lit={node.hue != null || node.colour != null}
-          note={node.hue != null || node.colour != null ? "set" : undefined}
-          onPress={() => setMark((m) => (m === "looks" ? null : "looks"))}
-        />
-        <Mark
-          id="link" label="Link" hue={MARK_HUE.link} icon={<Link2 className="size-4" />}
-          on={mark === "link"} lit={!!node.link}
-          note={node.link ? (node.link.kind === "url" ? "web" : node.link.kind) : undefined}
-          onPress={() => setMark((m) => (m === "link" ? null : "link"))}
-        />
-        <Mark
-          id="size" label="Size" hue={MARK_HUE.size} icon={<Frame className="size-4" />}
-          on={mark === "size"} lit
-          note={`${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}%`}
-          onPress={() => setMark((m) => (m === "size" ? null : "size"))}
-        />
-        <Mark
-          id="motion" label="Motion" hue={MARK_HUE.motion} icon={<Play className="size-4" />}
-          on={mark === "motion"} lit={!!node.anim}
-          note={node.anim ? String(node.anim) : undefined}
-          onPress={() => setMark((m) => (m === "motion" ? null : "motion"))}
-          /* Touching it plays the part's entrance once on the board, which is
-             the only honest way to show what an entrance is. */
-          onTouch={() => { if (node.anim) window.dispatchEvent(new CustomEvent("studio:replay", { detail: node.id })); }}
-        />
-        <Mark
-          id="delete" label="Delete" hue={MARK_HUE.delete} icon={<Trash2 className="size-4" />}
-          on={false} lit
-          onPress={() => useStudio.getState().removeNodes([node.id])}
-        />
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-        {/*
-          THE PROMPT IS THE ONE THING ALWAYS OPEN. It is what he reaches for
-          every time, and every other control on this panel is one press away
-          behind its own mark.
-        */}
-        {/* THE WORDS COME FIRST: they are what a first owner came to change.
-            Two presses on the part land the caret here (`wanted`). Under
-            them, where the part goes and what it does. */}
-        {feature?.content ? <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} /> : null}
-        {/* Once, not twice: the Link mark below shows the same field when it is open. */}
-        {isLinkable(node.featureId) && mark !== "link" ? <LinkField node={node} /> : null}
-        <WorkFields node={node} />
-        <Field
-          label="Prompt for this element"
-          hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
-        >
-          {/* Where a captured part came from, said the way a person would: the
-              site and the section, never the element path the capture used to
-              find it. The path stays in the prompt the document keeps. */}
-          {captured ? <span data-captured-from="" className="mb-1 block text-small text-fg-muted">{captured.says}</span> : null}
-          <Textarea
-            autoGrow
-            rows={5}
-            aria-label="Element prompt"
-            value={captured ? captured.rest : node.prompt}
-            placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
-            onChange={(e) => update({ prompt: captured ? `${captured.prefix}${e.target.value}` : e.target.value })}
-          />
-        </Field>
-
-        {/* The words stay fields, by his ruling: the part is not edited in
-            place. Name and contents are what the board draws, so they sit
-            with the prompt rather than behind a mark. */}
-        <Field label="Name">
-          {/* A capture's own name for its box ("div · 1 inside") is not shown
-              as if it were a name: the field is empty with the readable name
-              as its placeholder, and typing gives the part a real one. */}
-          <Input
-            value={isMachineLabel(node.label) ? "" : node.label}
-            placeholder={shownName}
-            aria-label="Name"
-            onChange={(e) => update({ label: e.target.value })}
-          />
-        </Field>
-        <PictureField node={node} />
-
-
-        {mark === "size" ? (
-        <div className="rounded-md border border-border p-2">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-small font-medium uppercase tracking-wider text-fg-faint">Size & position</span>
-            <span className="num text-small text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of frame</span>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {decision ? (
+          <div data-part-decision={decision.why} className="mx-3 mt-3 space-y-1.5 rounded-md border p-2" style={{ borderColor: "oklch(0.74 0.18 55 / 0.6)", background: "oklch(0.74 0.18 55 / 0.08)" }}>
+            <p className="flex items-start gap-1.5 text-small leading-snug text-fg">
+              <span className="mt-px shrink-0 font-bold" style={{ color: "oklch(0.74 0.18 55)" }}>!</span>
+              <span>This is {decisionSays(decision.why, kind)}.</span>
+            </p>
+            {decision.why === "nowhere" ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-small text-fg-muted">Choose it under Links to, below, or:</span>
+                <Button size="xs" variant="outline" data-nowhere-on-purpose="" onClick={() => { play("confirm"); update({ nowhere: true }); }}>It goes nowhere, on purpose</Button>
+              </div>
+            ) : null}
           </div>
-          <div className="grid grid-cols-4 gap-1">
-            {(["x", "y", "w", "h"] as const).map((k) => (
-              <label key={k} className="flex flex-col gap-0.5">
-                <span className="text-fine uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}</span>
-                <Input
-                  type="number"
-                  inputSize="sm"
-                  className="px-1"
-                  value={String(Math.round(node[k]))}
-                  aria-label={k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (!Number.isFinite(v)) return;
-                    update({ [k]: k === "w" ? Math.max(40, v) : k === "h" ? Math.max(24, v) : v } as Partial<typeof node>);
-                  }}
-                />
-              </label>
-            ))}
+        ) : null}
+
+        <PanelSection id="content" title="Content" icon={<Type />} note={wordsOf(wordsHere ?? node) ? undefined : node.picture ? "a picture" : undefined}>
+          {/* THE WORDS COME FIRST: they are what a first owner came to change.
+              Two presses on the part land the caret here (`wanted`). */}
+          {wordsHere ? (
+            <WordsField node={wordsHere} content={{ label: "Its words" }} label={kind === "Button" ? "button" : "link"} alsoFor={node.id} />
+          ) : feature?.content ? (
+            <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} />
+          ) : null}
+          {/* While it goes nowhere, the box at the top is where it is decided; the other half, saying what it should do, stays here. */}
+          {control || decision?.why === "nowhere" ? <LinkField node={node} /> : null}
+          {node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node) ? <PictureField node={node} /> : null}
+          <WorkFields node={node} />
+          {node.vector ? <Role node={node} /> : null}
+          {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
+          {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
+          {/* The shelf item's versions, read off the item's data (`partOptions.ts`): switching one swaps the part that draws. */}
+          <PartFields node={node} only={VERSION_ONLY} />
+          {featureOptions.length ? (
+            <div className="space-y-2">
+              <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
+              {featureOptions.map((opt) =>
+                opt.kind === "set" ? (
+                  <OptionSet key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
+                ) : opt.kind === "range" ? (
+                  <OptionRange key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
+                ) : (
+                  <div key={opt.id} className="flex items-center justify-between gap-2">
+                    <span className="text-plain text-fg">{opt.label}</span>
+                    <Select className="w-32" value={node.options[opt.id] ?? opt.values[0]!} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
+                      options={opt.values.map((v) => ({ value: v, label: v }))} aria-label={opt.label} />
+                  </div>
+                ),
+              )}
+            </div>
+          ) : null}
+        </PanelSection>
+
+        <PanelSection id="place" title="Position and size" icon={<Frame />} note={`${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% wide`}>
+          <div className="grid grid-cols-2 gap-1.5" data-place="">
+            {(["x", "y", "w", "h"] as const).map((k) => {
+              const word = k === "w" ? "Width" : k === "h" ? "Height" : k === "x" ? "Across" : "Down";
+              return (
+                <label key={k} className="flex items-center gap-1.5">
+                  <span className="w-12 shrink-0 text-small text-fg-muted">{word}</span>
+                  <Input
+                    type="number"
+                    inputSize="sm"
+                    className="min-w-0 flex-1 px-1.5"
+                    value={String(Math.round(node[k]))}
+                    aria-label={k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      update({ [k]: k === "w" ? Math.max(40, v) : k === "h" ? Math.max(24, v) : v } as Partial<typeof node>);
+                    }}
+                  />
+                </label>
+              );
+            })}
           </div>
-          <div className="mt-1.5 flex gap-1">
-            <Tooltip content="Span the whole frame">
+          <p className="text-fine text-fg-faint">In pixels, from the page&apos;s top left corner.</p>
+          <div className="flex gap-1">
+            <Tooltip content="Span the whole page">
               <Button size="xs" variant="outline" className="flex-1" onClick={() => update({ x: 0, w: frameWidth })}>Full width</Button>
             </Tooltip>
-            <Tooltip content="Flush left in the frame">
+            <Tooltip content="Against the left edge">
               <Button size="xs" variant="outline" className="flex-1" aria-label="Flush left" onClick={() => update({ x: 0 })}><AlignLeft /></Button>
             </Tooltip>
-            <Tooltip content="Centre in the frame">
+            <Tooltip content="In the middle">
               <Button size="xs" variant="outline" className="flex-1" aria-label="Centre" onClick={() => update({ x: Math.round((frameWidth - node.w) / 2) })}><AlignCenter /></Button>
             </Tooltip>
-            <Tooltip content="Flush right in the frame">
+            <Tooltip content="Against the right edge">
               <Button size="xs" variant="outline" className="flex-1" aria-label="Flush right" onClick={() => update({ x: frameWidth - node.w })}><AlignRight /></Button>
             </Tooltip>
           </div>
-        </div>
-        ) : null}
+        </PanelSection>
 
-        {/*
-          Under the prompt, not beside it: what the words are handed to. The
-          panel had four prompt boxes and nothing about the model any of them
-          reached, which is the half `AuditPanel` adds. It writes `node.plan`,
-          the field create space's right panel edits, through the one writer
-          both use.
-        */}
-        {/* MAKE A PICTURE, closed. The model, its thinking, the prompt
-            enhancer, ratio, resolution, seed, format and quality were some
-            twenty-five rows on every part, a text label among them, for the
-            one time in many a part is handed to a picture model. */}
-        <Fold id="make-picture" title="Make a picture" note={node.plan ? "set by you" : "the route decides"}>
-          <Field label="Where it goes" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
-            <AuditPanel node={node} />
+        <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+          <Field label="Colour">
+            <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
           </Field>
-        </Fold>
-
-        {mark === "looks" ? (
-        <Field label="Shape" hint="What the part is cut to. A circle drawn round it on the board sets this.">
-          <Segmented
-            size="xs"
-            value={node.shape ?? "box"}
-            onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
-            options={NODE_SHAPES.map((v) => ({ value: v, label: v }))}
-          />
-        </Field>
-
-        ) : null}
-        {mark === "looks" ? (
-        <Field label="Priority">
-          <Segmented
-            size="xs"
-            value={node.priority}
-            onChange={(v) => update({ priority: v as "must" })}
-            options={[
-              { value: "must", label: "Must have" },
-              { value: "nice", label: "Nice" },
-              { value: "idea", label: "Idea" },
-            ]}
-          />
-        </Field>
-        ) : null}
-
-        {/* The shelf item's versions, read off the item's data (`partOptions.ts`): switching one swaps the part that draws. */}
-        <PartFields node={node} only={VERSION_ONLY} />
-
-        {feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))).length ? (
-          <div className="space-y-2 rounded-md border border-border p-2">
-            <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
-            {feature.options.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))).map((opt) =>
-              opt.kind === "set" ? (
-                <OptionSet
-                  key={opt.id}
-                  option={opt}
-                  value={node.options[opt.id]}
-                  onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                />
-              ) : opt.kind === "range" ? (
-                <OptionRange
-                  key={opt.id}
-                  option={opt}
-                  value={node.options[opt.id]}
-                  onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                />
-              ) : (
-                <div key={opt.id} className="flex items-center justify-between gap-2">
-                  <span className="text-plain text-fg">{opt.label}</span>
-                  <Select
-                    className="w-32"
-                    value={node.options[opt.id] ?? opt.values[0]!}
-                    onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                    options={opt.values.map((v) => ({ value: v, label: v }))}
-                    aria-label={opt.label}
-                  />
-                </div>
-              ),
-            )}
-          </div>
-        ) : null}
-
-        <Field
-          label="Data"
-          hint="What this shows or does, in your words, the values and actions the backend has to provide. Wires pointing at this part fill it in."
-        >
-          <Textarea
-            autoGrow
-            rows={2}
-            aria-label="Data"
-            value={node.data}
-            placeholder="e.g. live coin price, trader P&L, time left, or: join duel"
-            onChange={(e) => update({ data: e.target.value })}
-          />
-        </Field>
-
-        {node.vector ? <Role node={node} /> : null}
-
-        {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
-        {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
-
-        {mark === "link" && isLinkable(node.featureId) ? <LinkField node={node} /> : null}
-        {mark === "link" && !isLinkable(node.featureId) ? (
-          <p className="text-small text-fg-muted">This part does not send anyone anywhere, so it has nothing to point at.</p>
-        ) : null}
-
-        {mark === "looks" ? (
-        <>
-        <Field label="Colour" hint="This part only. Naming a role keeps it inside the site's palette.">
-          <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
-        </Field>
-
-        <Field label="Glyph" hint="Give a new idea its own mark so you can spot it on the canvas.">
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => update({ glyph: null })}
-              className={cn("tactile size-6 rounded-sm border text-small", node.glyph === null ? "border-accent" : "border-border")}
-            >
-              <PaletteIcon className="mx-auto size-3" />
-            </button>
-            {GLYPHS.map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => update({ glyph: g })}
-                className={cn("tactile size-6 rounded-sm border text-xs", node.glyph === g ? "border-accent" : "border-border")}
-              >
-                {g}
+          <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} />
+          <EdgeField node={node} />
+          <Field label="Shape" hint="What the part is cut to.">
+            <Segmented size="xs" value={node.shape ?? "box"} onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
+              options={NODE_SHAPES.map((v) => ({ value: v, label: v }))} />
+          </Field>
+          <Field label="Mark" hint="Give a new idea its own mark so you can spot it on the board.">
+            <div className="flex flex-wrap gap-1">
+              <button type="button" onClick={() => update({ glyph: null })} className={cn("tactile size-6 rounded-sm border text-small", node.glyph === null ? "border-accent" : "border-border")}>
+                <PaletteIcon className="mx-auto size-3" />
               </button>
-            ))}
-          </div>
-        </Field>
-        </>
-        ) : null}
-
-        {group ? (
-          <div className="rounded-md border border-border p-2">
-            <div className="mb-1 flex items-center gap-1.5 text-small uppercase tracking-wider text-fg-faint">
-              <Layers className="size-3" />
-              In group
+              {GLYPHS.map((g) => (
+                <button key={g} type="button" onClick={() => update({ glyph: g })} className={cn("tactile size-6 rounded-sm border text-xs", node.glyph === g ? "border-accent" : "border-border")}>{g}</button>
+              ))}
             </div>
-            <div className="mb-1.5 text-plain font-medium text-fg">{group.label}</div>
+          </Field>
+        </PanelSection>
+
+        <PanelSection id="motion" title="Motion" icon={<Play />} note={undefined}>
+          <PartMotions node={node} />
+        </PanelSection>
+
+        <PanelSection id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>
+          <Field label="Prompt for this part" hint="Mention the parts beside it by name and the builder will keep them together.">
+            {/* Where a captured part came from, said the way a person would: the
+                site and the section, never the element path the capture used to
+                find it. The path stays in the prompt the document keeps. */}
+            {captured ? <span data-captured-from="" className="mb-1 block text-small text-fg-muted">{captured.says}</span> : null}
             <Textarea
               autoGrow
-              rows={2}
-              value={group.prompt}
-              placeholder="Prompt for the whole group…"
-              onChange={(e) => useStudio.getState().updateGroup(group.id, { prompt: e.target.value })}
+              rows={4}
+              aria-label="Element prompt"
+              value={captured ? captured.rest : node.prompt}
+              placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the part on its left and shares its colour.`}
+              onChange={(e) => update({ prompt: captured ? `${captured.prefix}${e.target.value}` : e.target.value })}
             />
-          </div>
-        ) : null}
-
-        {feature ? (
-          <div className="rounded-md border border-border bg-elevated/50 p-2">
-            <div className="mb-1 flex items-center gap-1.5 text-small uppercase tracking-wider text-fg-faint">
-              <Lightbulb className="size-3" />
-              What this usually means
-            </div>
-            <p data-element-means="" className="text-plain leading-relaxed text-fg-muted">
+          </Field>
+          <Field label="Name">
+            {/* A capture's own name for its box ("div · 1 inside") is not shown
+                as if it were a name: the field is empty with the readable name
+                as its placeholder, and typing gives the part a real one. */}
+            <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
+          </Field>
+          <Field label="What it shows or does" hint="The values and actions the backend has to provide, in your words. Wires pointing at this part fill it in.">
+            <Textarea autoGrow rows={2} aria-label="Data" value={node.data} placeholder="e.g. live coin price, trader profit and loss, time left, or: join duel" onChange={(e) => update({ data: e.target.value })} />
+          </Field>
+          <Field label="Priority">
+            <Segmented size="xs" value={node.priority} onChange={(v) => update({ priority: v as "must" })}
+              options={[{ value: "must", label: "Must have" }, { value: "nice", label: "Nice" }, { value: "idea", label: "Idea" }]} />
+          </Field>
+          {group ? (
+            <Field label={`In the group ${group.label}`}>
+              <Textarea autoGrow rows={2} value={group.prompt} placeholder="Prompt for the whole group…" onChange={(e) => useStudio.getState().updateGroup(group.id, { prompt: e.target.value })} />
+            </Field>
+          ) : null}
+          {feature ? (
+            <p data-element-means="" className="text-small leading-relaxed text-fg-muted">
+              <Lightbulb className="mr-1 inline size-3 text-fg-faint" />
               {isLabel ? `The words on ${insideLink(node) ? "a link" : "a button"}: its label, kept on one line and read as part of the control.` : feature.blurb}
+              {cat ? <span className="text-fg-faint"> ({cat.label})</span> : null}
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {isLabel ? null : <Badge size="sm" variant="outline">{feature.id}</Badge>}
-              <Badge size="sm">{cat?.label}</Badge>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </PanelSection>
 
-        <div className="text-small text-fg-faint">
-          Row order comes from where it sits in the frame. Width and height are built exactly, not reflowed.
-        </div>
+        {/* MAKE A PICTURE, closed. The model and its settings, for the one
+            time in many a part is handed to a picture model. */}
+        <PanelSection id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
+          {/* The one place a picture is made: draw one here and put it on
+              this part. It was also a Generate tab, mostly empty, and a
+              second "Draw one" on the picture field. */}
+          <div data-make-picture="" className="-mx-3">
+            <RenderPanel forNode={node.id} />
+          </div>
+          <div data-fold="make-picture">
+            <Field label="Where a picture of this part is sent" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
+              <AuditPanel node={node} />
+            </Field>
+          </div>
+        </PanelSection>
       </div>
+    </div>
+  );
+}
+
+/** The face and size a part's words are set in, and a way to change both. */
+function FontField({ node, base }: { node: StudioNode; base: number }) {
+  const nodes = useStudio((s) => s.nodes);
+  const carried = useStudio((s) => s.look.fonts);
+  const faces = React.useMemo(() => [...new Set([...(carried ?? []).map((f) => f.family), ...tallyFonts(nodes).map((f) => f.key).filter(Boolean)])], [carried, nodes]);
+  if (!wordsOf(node) && !node.font) return null;
+  const face = faceOf(node);
+  const size = typeof node.font?.size === "number" ? node.font.size : 1;
+  const set = (font: StudioNode["font"]) => useStudio.getState().updateNode(node.id, { font });
+  return (
+    <Field label="Font">
+      <div className="flex items-center gap-1.5" data-part-font="">
+        <Select
+          className="min-w-0 flex-1"
+          aria-label="Face"
+          value={face || "site"}
+          onChange={(v) => {
+            const { stack: _s, face: _f, family: _fam, ...rest } = (node.font ?? {}) as NonNullable<StudioNode["font"]> & { stack?: unknown };
+            void _s; void _f; void _fam;
+            set(v === "site" ? (Object.keys(rest).length ? rest : null) : { ...rest, face: v });
+          }}
+          options={[{ value: "site", label: "The site's type" }, ...faces.map((f) => ({ value: f, label: f }))]}
+        />
+        <Input
+          type="number"
+          inputSize="sm"
+          className="w-16 px-1.5"
+          aria-label="Size in pixels"
+          value={String(Math.round(base * size))}
+          onChange={(e) => { const px = Number(e.target.value); if (Number.isFinite(px) && px > 0) set({ ...(node.font ?? {}), size: px / base }); }}
+        />
+        <span className="text-small text-fg-muted">px</span>
+      </div>
+    </Field>
+  );
+}
+
+const toHexish = (v: string | undefined) => { const c = v ? parseColor(v) : null; return c ? toHex(c) : "#000000"; };
+
+/** This part's border and shadow. */
+function EdgeField({ node }: { node: StudioNode }) {
+  const edge = node.edge ?? null;
+  const set = (patch: Partial<NonNullable<StudioNode["edge"]>> | null) => useStudio.getState().updateNode(node.id, { edge: patch === null ? null : { ...(edge ?? {}), ...patch } });
+  const width = edge?.style === "none" ? 0 : edge?.width ?? 0;
+  return (
+    <>
+      <Field label="Border">
+        <div className="flex items-center gap-1.5" data-part-border="">
+          <Input type="number" inputSize="sm" className="w-14 px-1.5" aria-label="Border width in pixels" value={String(width)}
+            onChange={(e) => { const w = Number(e.target.value); if (Number.isFinite(w) && w >= 0) set({ width: w, style: w ? (edge?.style && edge.style !== "none" ? edge.style : "solid") : "none" }); }} />
+          <span className="text-small text-fg-muted">px</span>
+          <Select className="min-w-0 flex-1" aria-label="Border style" value={edge?.style && edge.style !== "none" ? edge.style : "solid"}
+            onChange={(v) => set({ style: v as "solid", width: width || 1 })}
+            options={["solid", "dashed", "dotted", "double"].map((v) => ({ value: v, label: v }))} />
+          <input type="color" aria-label="Border colour" className="h-7 w-8 shrink-0 cursor-pointer rounded-sm border border-border bg-transparent"
+            value={toHexish(edge?.colour)} onChange={(e) => set({ colour: e.target.value, width: width || 1, style: edge?.style && edge.style !== "none" ? edge.style : "solid" })} />
+        </div>
+      </Field>
+      <Field label="Shadow">
+        <div className="flex items-center gap-1.5" data-part-shadow="">
+          <span className="min-w-0 flex-1 truncate text-small text-fg-muted">{edge?.shadow ? "A shadow the page gave it" : "None"}</span>
+          {edge?.shadow ? <Button size="xs" variant="outline" onClick={() => set({ shadow: undefined })}>Remove</Button>
+            : <Button size="xs" variant="outline" onClick={() => set({ shadow: "0 6px 18px rgb(0 0 0 / 0.25)" })}>Add a soft one</Button>}
+        </div>
+      </Field>
+    </>
+  );
+}
+
+/** This part's own motions: the rows the Motion tab lists for it, with the same controls. */
+function PartMotions({ node }: { node: StudioNode }) {
+  const nodes = useStudio((s) => s.nodes);
+  const crates = useStudio((s) => s.motion);
+  const rows = React.useMemo(() => movingParts(nodes, crates, node.pageId).filter((r) => r.nodeId === node.id), [nodes, crates, node.pageId, node.id]);
+  const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
+  if (!rows.length) {
+    return <p className="text-small leading-snug text-fg-muted">This part does not move. Motions from the shelf&apos;s Motion category, or the wheel&apos;s Animation piece, put one on it.</p>;
+  }
+  return (
+    <div className="space-y-1" data-part-motions="">
+      {rows.map((r) => <MoveRowView key={r.key} row={r} selected note={note?.key === r.key ? note.says : null} onNote={(says) => setNote(says ? { key: r.key, says } : null)} />)}
     </div>
   );
 }
@@ -1595,24 +1311,28 @@ function LinkField({ node }: { node: StudioNode }) {
   // A link drawn as an arrow points at another part; it is named here by
   // that part's name, where before no UI showed it at all.
   const other = useStudio((s) => (node.link?.kind === "node" ? s.nodes.find((n) => n.id === node.link!.target) ?? null : null));
+  const nodesHere = useStudio(useShallow(pageNodes));
+  const sections = React.useMemo(() => nodesHere.filter((n) => n.id !== node.id && kindWord(n) === "Section").sort((a, b) => a.y - b.y), [nodesHere, node.id]);
   const link = node.link;
-  const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : "node";
+  const toSection = link?.kind === "node" && sections.some((n) => n.id === link.target);
+  const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : toSection ? `node:${link.target}` : "node";
   const set = (l: StudioNode["link"]) => useStudio.getState().updateNode(node.id, { link: l });
   return (
     <Field label="Links to" hint="Where this sends people in the live preview and the finished site.">
       <div data-link-field="">
       <Select
         value={value}
-        onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : v === "node" ? undefined : set({ kind: "page", target: v.slice(5) }))}
+        onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : v === "node" ? undefined : v.startsWith("node:") ? set({ kind: "node", target: v.slice(5) }) : set({ kind: "page", target: v.slice(5) }))}
         options={[
           { value: "none", label: "Nowhere" },
           ...pages.map((p) => ({ value: `page:${p.id}`, label: `${p.name}  ${p.path}` })),
+          ...sections.map((n) => ({ value: `node:${n.id}`, label: `Section: ${partName(n, nodesHere, featureName).replace(/^Section\s+/, "")}` })),
           { value: "url", label: "Web address…" },
-          ...(link?.kind === "node" ? [{ value: "node", label: `The part ${other?.label ?? link.target}, on this page` }] : []),
+          ...(link?.kind === "node" && !toSection ? [{ value: "node", label: `The part ${other?.label ?? link.target}, on this page` }] : []),
         ]}
         aria-label="Links to"
       />
-      {link?.kind === "node" ? (
+      {link?.kind === "node" && !toSection ? (
         <p className="mt-1 text-small leading-snug text-fg-faint" data-link-node="">
           Drawn as an arrow to the part {other?.label ?? link.target}: pressing this scrolls to it. Pick a page or an address above to send people elsewhere.
         </p>

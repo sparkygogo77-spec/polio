@@ -101,10 +101,19 @@ export function paintedPalette(parts: readonly PaintedPart[], declared: Partial<
     .map((p) => ({ p, fill: resolve(p.colour?.bg ?? p.colour?.surface, declared), area: Math.max(0, p.w) * Math.max(0, p.h) }))
     .filter((b) => b.area > 0);
   if (!boxes.length) return null;
-  const right = Math.max(...boxes.map((b) => b.p.x + b.p.w));
+  /*
+   * The page, not everything drawn: the site clips at its own edge
+   * (`pageClip`), so what hangs past it paints nothing a visitor sees.
+   * trumpmorty.fun's ticker line is 5660px wide on a 1440px page; sampled to
+   * its end, three quarters of the points were past the edge and read as the
+   * navy body, and the page came out navy after all. The page's width is the
+   * widest part standing at its left edge; its top is 0.
+   */
+  const atEdge = boxes.filter((b) => Math.abs(b.p.x) <= 1).map((b) => b.p.w);
+  const left = 0;
+  const top = 0;
+  const right = atEdge.length ? Math.max(...atEdge) : Math.max(...boxes.map((b) => b.p.x + b.p.w));
   const bottom = Math.max(...boxes.map((b) => b.p.y + b.p.h));
-  const left = Math.min(0, ...boxes.map((b) => b.p.x));
-  const top = Math.min(0, ...boxes.map((b) => b.p.y));
   const W = right - left;
   const H = bottom - top;
   if (W <= 0 || H <= 0) return null;
@@ -137,7 +146,13 @@ export function paintedPalette(parts: readonly PaintedPart[], declared: Partial<
       letterCount.set(k, e);
     }
   }
-  const fills = [...fillCount.values()].sort((a, b) => b.n - a.n).map((e) => ({ c: e.c, share: e.n / Math.max(1, points) }));
+  /* Shades nobody could tell apart are one colour: each is folded into the most painted one within a hair of it (`SAME_SHADE`). */
+  const merged: { c: Oklch; n: number }[] = [];
+  for (const e of [...fillCount.values()].sort((a, b) => b.n - a.n)) {
+    const near = merged.find((m) => dist(m.c, e.c) < SAME_SHADE);
+    if (near) near.n += e.n; else merged.push({ ...e });
+  }
+  const fills = merged.map((e) => ({ c: e.c, share: e.n / Math.max(1, points) }));
   const words = [...letterCount.values()].sort((a, b) => b.n - a.n).map((e) => ({ c: e.c, share: e.n / Math.max(1, letters) }));
   if (!fills.length) return null;
 
@@ -160,6 +175,9 @@ export function paintedPalette(parts: readonly PaintedPart[], declared: Partial<
     words: words.map((w) => ({ colour: css(w.c), share: w.share })),
   };
 }
+
+/** Two fills closer than this in OKLab are one colour to a viewer (a section's yellow and its card's yellow a shade paler). */
+const SAME_SHADE = 0.03;
 
 /* ------------------------------------------------------------------ */
 /* Every word readable                                                 */

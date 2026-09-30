@@ -149,6 +149,9 @@ if (n > 0) {
   await rows.first().click({ force: true });
   await page.waitForTimeout(600);
   check("pressing a row picks that part", (await page.locator("[data-page-picked]").count()) === 0);
+  /* The prompt is folded by design in the part panel: open its section first. */
+  const promptHead = page.locator('[data-part-section="prompt"]:not([data-open]) [data-section-head]');
+  if (await promptHead.count()) { await promptHead.first().click(); await page.waitForTimeout(300); }
   check("and the tab is now that part's own editor", (await page.locator('[aria-label="Element prompt"]').count()) >= 1);
 } else {
   check("pressing a row picks that part", false, "no rows to press");

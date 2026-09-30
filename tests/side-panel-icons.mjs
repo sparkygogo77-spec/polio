@@ -28,7 +28,8 @@ const check = (name, ok, detail = "") => {
   results.push(ok === true);
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
-const WORDS = ["Element", "Format", "Pages", "Look", "Motion", "Generate"];
+/* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
+const WORDS = ["Element", "Format", "Pages", "Look", "Motion"];
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
@@ -63,22 +64,23 @@ const read = () => row.evaluate((r) => {
 });
 
 let tabs = await read();
-check("six tabs on the row", tabs.length === 6, tabs.map((t) => t.name).join(", "));
-check("every tab wears an icon", tabs.length === 6 && tabs.every((t) => t.svg), tabs.filter((t) => !t.svg).map((t) => t.name).join(", ") || "all six");
-check("…each in its panel's own hue, not one colour for all", new Set(tabs.map((t) => t.hue)).size === 6, tabs.map((t) => t.hue).join(" "));
+check("five tabs", tabs.length === WORDS.length, tabs.map((t) => t.name).join(", "));
+check("every tab wears an icon", tabs.length === WORDS.length && tabs.every((t) => t.svg), tabs.filter((t) => !t.svg).map((t) => t.name).join(", ") || "all of them");
+check("…each in its panel's own hue, not one colour for all", new Set(tabs.map((t) => t.hue)).size === WORDS.length, tabs.map((t) => t.hue).join(" "));
 check("every tab is named by its word", JSON.stringify(tabs.map((t) => t.name)) === JSON.stringify(WORDS), tabs.map((t) => t.name).join(", "));
+/* THE OWNER'S LATER ASK: tab names always visible, not icons only (tests/side-panel-g.mjs). */
 const on = tabs.filter((t) => t.on);
-check("the tab you are on draws its word", on.length === 1 && on[0].wordW > 12 && on[0].text === on[0].name, on.map((t) => `${t.name} ${Math.round(t.wordW)}px`).join());
-check("the other five do not draw theirs", tabs.filter((t) => !t.on).every((t) => t.wordW <= 1), tabs.filter((t) => !t.on && t.wordW > 1).map((t) => `${t.name} ${Math.round(t.wordW)}px`).join(", ") || "none drawn");
-check("…and carry it as a tooltip", tabs.filter((t) => !t.on).every((t) => t.title === t.name), tabs.filter((t) => !t.on).map((t) => `${t.name}:${t.title}`).join(", "));
+check("one tab is on", on.length === 1, on.map((t) => t.name).join());
+check("every tab draws its word, whole", tabs.every((t) => t.wordW > 12 && t.text === t.name), tabs.map((t) => `${t.name} ${Math.round(t.wordW)}px`).join(", "));
+check("…and carries it as a tooltip", tabs.every((t) => t.title === t.name), tabs.map((t) => `${t.name}:${t.title}`).join(", "));
 check("the row fits its column, nothing run over or clipped", tabs.every((t) => t.inside && !t.clipped), tabs.filter((t) => !t.inside || t.clipped).map((t) => t.name).join(", ") || "all inside");
 
-for (const word of ["Look", "Generate", "Element"]) {
+for (const word of ["Look", "Motion", "Element"]) {
   await page.getByRole("radio", { name: word }).first().click();
   await page.waitForTimeout(300);
   tabs = await read();
   const now = tabs.find((t) => t.on);
-  check(`pressing ${word} moves the word to it`, now?.name === word && now.wordW > 12 && tabs.filter((t) => !t.on).every((t) => t.wordW <= 1), `${now?.name} ${Math.round(now?.wordW ?? 0)}px`);
+  check(`pressing ${word} turns it on, every word still drawn`, now?.name === word && tabs.every((t) => t.wordW > 12), `${now?.name}`);
 }
 check("the tab's word still finds it by text, as the other suites do", (await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Motion" }).count()) === 1);
 check("no page error", errors.length === 0, errors.join(" | "));

@@ -371,6 +371,13 @@ export interface StudioNode {
    */
   worn?: Worn | null;
   /**
+   * The owner said this pressable part goes nowhere on purpose (a label drawn
+   * as a button, a decoration shaped like a link). It answers the orange !
+   * (`library/badge.ts`), and the blueprint builds it as a thing that is not
+   * a link rather than a placeholder waiting for one.
+   */
+  nowhere?: boolean;
+  /**
    * The owner typed this part's words in the one box. A live-data spot whose
    * words were chosen that way is decided, and loses its orange !
    * (`library/badge.ts`).

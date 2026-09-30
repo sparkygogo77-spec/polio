@@ -337,7 +337,7 @@ export function compileSpec(input: CompileInput): Spec {
   // captured part is left out (`siteFormat.ts`, the same reading the Format
   // panel shows).
   const captured = isCaptured({ nodes, look });
-  const readings = captured ? readSiteFormat({ nodes, look }, look ? resolvePalette(format, look).bg : null) : {};
+  const readings = captured ? readSiteFormat({ nodes, look, format }, look ? resolvePalette(format, look).bg : null) : {};
   const formatRows = FORMAT_FIELDS.flatMap((field) => {
     const changed = field.id in format && format[field.id] !== field.default;
     const said = siteSays(field.id, captured, readings, format, field.default);
@@ -404,7 +404,7 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           // A part that sends people somewhere and has nowhere to send them yet
           // says so, so the agent builds a placeholder rather than a guess.
-          link: describeLink(n.link, pages, input.nodes) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
+          link: describeLink(n.link, pages, input.nodes) ?? ((n as { nowhere?: boolean }).nowhere ? "nowhere, on purpose: build it as something that is not a link and does nothing when pressed" : null) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
           colour: describeColour(n.colour),
           font: describeFont(n.font),
           box: describeBox(n),

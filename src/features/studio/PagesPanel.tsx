@@ -15,7 +15,7 @@ import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useActions } from "@/core/actions";
-import { PageLinkPreview, SiteLinkPreview } from "./LinkPreview";
+import { CharGuide, DESCRIPTION_LIMIT, DESCRIPTION_MIN, NAME_LIMIT, PageLinkPreview, SharedCard, SiteLinkPreview } from "./LinkPreview";
 
 const SCROLL_OPTIONS = [
   { value: "inherit", label: "Site default" },
@@ -55,11 +55,14 @@ export function PagesPanel() {
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Site name</span>
           <Input value={brief.name} placeholder="Untitled" aria-label="Site name" onChange={(e) => useStudio.getState().setBrief({ name: e.target.value })} />
+          <CharGuide value={brief.name} limit={NAME_LIMIT} what="name" />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Description</span>
           <Input value={brief.description ?? ""} placeholder="The line under its name in a link preview" aria-label="Description" onChange={(e) => useStudio.getState().setBrief({ description: e.target.value })} />
+          <CharGuide value={brief.description ?? ""} limit={DESCRIPTION_LIMIT} min={DESCRIPTION_MIN} what="description" />
         </label>
+        <SharedCard />
         <SiteLinkPreview />
         <label className="flex flex-col gap-1">
           <span className="text-small uppercase tracking-wider text-fg-faint">Central idea</span>

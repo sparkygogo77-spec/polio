@@ -22,6 +22,7 @@
  *   node tests/queue-bar.mjs [url]
  */
 import { createRequire } from "node:module";
+import { openGenerate } from "./fixtures/openGenerate.mjs";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -70,10 +71,8 @@ await page.route("**/api/studio/**", async (route) => {
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1300);
 
-const tab = page.locator('[aria-label="Side panel"] button', { hasText: /Generate/i }).first();
-await tab.click({ force: true });
-await page.waitForTimeout(600);
-const panel = page.locator("[data-render-panel]").first();
+/* Inside a part's "Make a picture" now (tests/side-panel-h.mjs). */
+const panel = await openGenerate(page);
 
 /** Queue one, by typing it and pressing the button. */
 const queue = async (words) => {

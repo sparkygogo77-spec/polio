@@ -31,7 +31,8 @@
  * Pure: no store, no DOM.
  */
 import { parseColor } from "./look.ts";
-import { chromatic, faceOf, tallyColours, type Worn } from "./siteColours.ts";
+import { faceOf, type Worn } from "./siteColours.ts";
+import { paintedPalette, type PaintedPart } from "./shelfTheme.ts";
 
 export interface Reading {
   /** The value the Format field would hold, where one of its own fits; else null. */
@@ -40,6 +41,8 @@ export interface Reading {
   shows: string;
   /** How it was read, in a phrase ("the page's colour"). */
   from: string;
+  /** The colour itself, for a reading that is one. */
+  colour?: string;
 }
 
 /** Fields that do nothing to a captured site and cannot be read off it. */
@@ -58,6 +61,12 @@ export function isCaptured(doc: { nodes: readonly Part[]; look?: { paletteFrom?:
 }
 
 const hasWords = (n: Part) => (typeof n.content === "string" ? n.content.trim().length > 0 : Array.isArray(n.content) && n.content.length > 0);
+
+const wordsIn = (n: Part) => {
+  const c = n.content;
+  const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((r) => (r && typeof r === "object" && "text" in r ? String((r as { text: unknown }).text) : "")).join(" ") : "";
+  return Math.max(1, text.trim().split(/\s+/).length);
+};
 
 /** The value most parts share, by count, with the count. */
 function most<T>(xs: readonly T[]): { value: T; count: number } | null {
@@ -82,36 +91,48 @@ function familyOf(face: string, heading: boolean): string | null {
  * Every Format value the captured site says, keyed by the field's id.
  * Empty for a site made here.
  */
-export function readSiteFormat(doc: { nodes: readonly Part[]; look?: { paletteFrom?: unknown } | null }, pageColour: string | null | undefined): Record<string, Reading> {
+export function readSiteFormat(
+  doc: { nodes: readonly Part[]; look?: { paletteFrom?: unknown } | null; format?: Record<string, unknown> | null },
+  pageColour: string | null | undefined,
+): Record<string, Reading> {
   if (!isCaptured(doc)) return {};
   const out: Record<string, Reading> = {};
   const nodes = doc.nodes;
 
-  const page = parseColor(pageColour ?? "");
+  /* The colour behind most of the page, read off the parts that span it; the page's own fill only when none does. */
+  const behind = pageColourOf(nodes, pageColour);
+  const page = parseColor(behind?.colour ?? pageColour ?? "");
   if (page) {
     const mode = page.l >= 0.6 ? "light" : "dark";
-    out["palette.mode"] = { value: mode, shows: mode, from: "the page's colour" };
+    out["palette.mode"] = { value: mode, shows: mode, colour: behind?.colour ?? pageColour ?? undefined, from: behind ? "the colour behind most of the page" : "the page's colour" };
   }
 
-  const accents = tallyColours(nodes).byUse.accent.filter((c) => chromatic(c.value));
-  const top = accents[0] ? parseColor(accents[0].value) : null;
-  if (top) {
+  /* The accent the shelf draws with too: the coloured fill and words that cover most after the page. */
+  const top = behind?.accent ? parseColor(behind.accent) : null;
+  if (top && top.c >= 0.05) {
     const h = Math.round(top.h) % 360;
-    out["palette.accentHue"] = { value: h, shows: `${h}°`, from: `the colour worn most (${accents[0]!.parts} part${accents[0]!.parts === 1 ? "" : "s"})` };
+    out["palette.accentHue"] = { value: h, shows: `${h}°`, colour: behind!.accent, from: "the colour that covers most of the page after its background" };
   }
 
   const worded = nodes.filter((n) => hasWords(n) && faceOf(n));
-  const sized = worded.filter((n) => typeof n.font?.size === "number");
+  /*
+   * A part's `font.size` is a multiple of the site's base size, never pixels
+   * (`parts/theme.ts` draws it as base × size). Read as pixels, every
+   * captured word was "1px" and none was ever big enough to be a heading.
+   */
+  const base = Number(doc.format?.["type.baseSize"]) > 0 ? Number(doc.format!["type.baseSize"]) : 16;
+  const px = (n: Part) => base * n.font!.size!;
+  const sized = worded.filter((n) => typeof n.font?.size === "number" && n.font.size > 0);
   if (sized.length) {
-    const biggest = Math.max(...sized.map((n) => n.font!.size!));
-    const heads = sized.filter((n) => n.font!.size! >= Math.max(24, biggest * 0.6));
+    const biggest = Math.max(...sized.map(px));
+    const heads = sized.filter((n) => px(n) >= Math.max(24, biggest * 0.6));
     const head = most((heads.length ? heads : sized).map((n) => faceOf(n)));
     if (head) out["type.headingFamily"] = { value: familyOf(head.value, true), shows: head.value, from: "the face on the biggest words" };
-    const rest = sized.filter((n) => n.font!.size! < 24);
-    const body = most((rest.length ? rest : worded).map((n) => faceOf(n)));
+    const rest = sized.filter((n) => px(n) < 24);
+    /* By how much each face sets, not how many parts: forty one-word buttons are not the body text. */
+    const body = most((rest.length ? rest : worded).flatMap((n) => Array(Math.min(400, wordsIn(n))).fill(faceOf(n)) as string[]));
     if (body) out["type.bodyFamily"] = { value: familyOf(body.value, false), shows: body.value, from: "the face on most of the words" };
-    const size = most(rest.map((n) => Math.round(n.font!.size!)));
-    if (size) out["type.baseSize"] = { value: size.value, shows: `${size.value}px`, from: "the size most words are set at" };
+    out["type.baseSize"] = { value: base, shows: `${base}px`, from: "every word on the site is sized from it" };
   } else {
     const face = most(worded.map((n) => faceOf(n)));
     if (face) {
@@ -122,10 +143,28 @@ export function readSiteFormat(doc: { nodes: readonly Part[]; look?: { paletteFr
 
   const radii = nodes.map((n) => (typeof n.radius === "number" ? Math.round(n.radius) : null)).filter((r): r is number => r !== null && r > 0 && r < 200);
   const round = most(radii);
-  if (round) out["layout.radius"] = { value: Math.min(32, round.value), shows: `${round.value}px`, from: `the corners most rounded boxes have (${round.count})` };
+  if (round) out["layout.radius"] = { value: Math.min(32, round.value), shows: `${round.value}px`, from: `on most of its rounded boxes (${round.count})` };
   else if (nodes.some((n) => n.from)) out["layout.radius"] = { value: 0, shows: "square", from: "no box on the site has rounded corners" };
 
   return out;
+}
+
+/**
+ * The colour behind most of the page, and the accent: what the page paints
+ * most by area, asked of `paintedPalette` (shelfTheme.ts), the same function
+ * the shelf draws its previews in, so Format's "This site" and the shelf can
+ * never disagree about a site's colours. A captured page's own background is
+ * often a colour no visitor sees (trumpmorty.fun's body is navy under yellow
+ * sections). Read on the page with the most parts. Null when nothing is filled.
+ */
+export function pageColourOf(nodes: readonly Part[], declaredBg?: string | null): { colour: string; share: number; accent: string } | null {
+  const placed = nodes as readonly (Part & { x?: number; y?: number; w?: number; h?: number; pageId?: string })[];
+  const count = new Map<string, number>();
+  for (const n of placed) count.set(n.pageId ?? "", (count.get(n.pageId ?? "") ?? 0) + 1);
+  const page = [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  const parts = placed.filter((n) => (n.pageId ?? "") === page).map((n) => ({ ...n, x: n.x ?? 0, y: n.y ?? 0, w: n.w ?? 0, h: n.h ?? 0 })) as PaintedPart[];
+  const painted = paintedPalette(parts, {}, declaredBg ?? null);
+  return painted ? { colour: painted.bg, share: painted.fills[0]?.share ?? 0, accent: painted.accent } : null;
 }
 
 /** What one Format field says for this document: the owner's value, the site's reading, or hidden. */

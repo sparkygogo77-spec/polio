@@ -10,7 +10,8 @@
  *   · which fields the live renderers read is derived from their source,
  *     not from a list somebody keeps (a source read, named as one);
  *   · every field carries `live` exactly when a renderer reads it;
- *   · the panel marks every field that is brief only, and none that is live.
+ *   · the panel keeps the fields no renderer reads under one closed "Brief
+ *     for a new build", and shows only live ones under This site.
  *
  *   node tests/format-live.mjs [url]      # default http://localhost:3000
  */
@@ -62,15 +63,20 @@ await page.waitForTimeout(1000);
 const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Format" }).first();
 if (await tab.count()) await tab.click().catch(() => {});
 await page.waitForTimeout(400);
-const all = page.locator("[data-side-panel] input[type=checkbox], [data-side-panel] [role=switch]").filter({ hasText: "" });
-const allToggle = page.getByLabel(/all options|advanced/i).first();
-if (await allToggle.count()) { await allToggle.click({ force: true }).catch(() => {}); await page.waitForTimeout(400); }
-const chips = await page.locator("[data-brief-only]").count();
-check("the panel marks every brief-only field, and no other", chips === briefOnly.length, `${chips} marked, ${briefOnly.length} brief only`);
-const liveRow = page.locator("[data-format-field=\"type.baseSize\"]");
-check("a field the preview draws carries no such mark", (await liveRow.count()) === 1 && (await liveRow.locator("[data-brief-only]").count()) === 0);
+/*
+ * THE OWNER'S LATER RULING: no BRIEF tag on each field. The panel is This
+ * site (what the preview draws), Whole-site features, and one closed "Brief
+ * for a new build" holding the rest (tests/side-panel-g.mjs). So what was a
+ * tag per field is now where the field sits.
+ */
+const siteRows = await page.locator("[data-format-section=site] [data-site-row]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-row")));
+const siteFields = siteRows.map((id) => (id === "accent" ? "palette.accentHue" : id)).filter((id) => ids.has(id));
+check("every field This site shows is one the preview draws", siteFields.length >= 4 && siteFields.every((id) => read.has(id)), siteFields.join(", "));
+await page.locator("[data-brief-fold]").click();
+await page.waitForTimeout(300);
+check("no field carries a BRIEF tag, even with the brief open", (await page.locator("[data-brief-only]").count()) === 0 && (await page.locator("[data-format-field]").count()) > 20);
 const briefRow = page.locator("[data-format-field=\"type.dropCap\"]");
-check("and one it does not is marked, with a hint saying what that means", (await briefRow.locator("[data-brief-only]").count()) === 1 && /blueprint/i.test((await briefRow.locator("[data-brief-only]").getAttribute("title")) ?? ""));
+check("a field the preview does not draw sits in the brief, which says what that means", (await briefRow.count()) === 1 && /builder is told/i.test(await page.locator("[data-brief-fold]").innerText()));
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

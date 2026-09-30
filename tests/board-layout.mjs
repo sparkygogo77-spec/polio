@@ -365,8 +365,9 @@ async function toTheFoot(page) {
      the thing this check is actually about still bites: a tab that goes
      missing with the selection, or moves in the order, fails it exactly as
      it did before. */
-  const tabs = () => page.locator("[data-side-panel] [role=radio]").evaluateAll((els) => els.map((e) => e.textContent?.trim()));
-  const ROW = "Element,Format,Pages,Look,Motion,Generate";
+  const tabs = () => page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio]').evaluateAll((els) => els.map((e) => e.textContent?.trim()));
+  /* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
+  const ROW = "Element,Format,Pages,Look,Motion";
   const before = await tabs();
   check("with nothing picked it is the whole row, in order", before.join(",") === ROW, before.join(" · "));
 
@@ -378,10 +379,11 @@ async function toTheFoot(page) {
   // Picking does not move the tab (`StudioPage.tsx`: the tab you are on is
   // the tab you stay on), so Element is pressed, and then the panel's name
   // field has to hold the picked part's own name.
-  await page.locator("[data-side-panel] [role=radio]").first().click();
+  await page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio]').first().click();
   await page.waitForTimeout(400);
-  const named = await page.locator("[data-side-panel] input").evaluateAll((els) => els.map((e) => e.value));
-  check("and Element, pressed, is showing it", named.includes("Join"), `fields: ${named.map((v) => JSON.stringify(v)).join(", ")}`);
+  /* The part's words lead its panel now (tests/side-panel-g.mjs), in a box of their own. */
+  const named = (await page.locator("[data-side-panel] [data-element-name]").innerText().catch(() => "")).trim();
+  check("and Element, pressed, is showing it", named === "Join", `named: ${JSON.stringify(named)}`);
 
   const win = await page.locator("[data-page-window]").boundingBox();
   check("the frame is still a whole screen here", win.width > 300 && win.height > 200, `${Math.round(win.width)}×${Math.round(win.height)}`);

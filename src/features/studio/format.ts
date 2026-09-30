@@ -78,7 +78,7 @@ export const FORMAT_FIELDS: FormatField[] = [
   sel("pages.footer", "pages", "Footer", ["standard", "minimal", "rich sitemap", "none"], { advanced: true }),
   bool("pages.breadcrumbs", "pages", "Breadcrumbs", false, { advanced: true }),
   bool("pages.search", "pages", "Site search", false),
-  sel("pages.notFound", "pages", "404 page", ["helpful", "playful", "plain", "redirect home"], { advanced: true }),
+  sel("pages.notFound", "pages", "Page not found screen (404)", ["helpful", "playful", "plain", "redirect home"], { advanced: true }),
   /* The owner's allow-list for links off the site (`parts/offsite.ts`): a page of the site is always a link; anywhere else only as this says. */
   { ...txt("links.offsite", "pages", "Links off the site", { advanced: true, live: true, placeholder: DEFAULT_OFFSITE, hint: "Comma-separated, first match decides: a host allows it (pump.fun), ! denies (!x.com), * is one path segment (!dexscreener.com/*/* keeps token pages out), share:own lets Share run for the site's own page. Anything not named stays a control that does nothing and says where it went." }), default: DEFAULT_OFFSITE },
 
@@ -90,7 +90,7 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("scroll.parallax", "scroll", "Parallax layers", false),
   bool("scroll.backToTop", "scroll", "Back to top", false, { advanced: true }),
   bool("scroll.infinite", "scroll", "Infinite scroll", false, { advanced: true }),
-  bool("scroll.anchors", "scroll", "Deep-linkable anchors", true, { advanced: true }),
+  bool("scroll.anchors", "scroll", "Links straight to a section", true, { advanced: true }),
   sel("scroll.header", "scroll", "Header on scroll", ["stays", "shrinks", "hides then shows", "blurs", "none"], { advanced: true }),
 
   /* type & text boxes */
@@ -149,10 +149,10 @@ export const FORMAT_FIELDS: FormatField[] = [
   /* build */
   sel("build.stack", "build", "Stack", ["extend this template (Next.js + Tailwind)", "fresh Next.js app", "static HTML/CSS/JS", "Astro", "Vite + React", "SvelteKit", "whatever fits best"]),
   sel("build.data", "build", "Data", ["none / static", "local JSON", "database", "external API", "CMS", "user-generated"]),
-  bool("build.auth", "build", "Accounts & auth", false),
-  sel("build.a11y", "build", "Accessibility bar", ["WCAG AA", "WCAG AAA", "best effort"], { advanced: true }),
+  bool("build.auth", "build", "Accounts and sign-in", false),
+  sel("build.a11y", "build", "Accessibility bar (Web Content Accessibility Guidelines, WCAG)", ["WCAG AA", "WCAG AAA", "best effort"], { advanced: true }),
   sel("build.perf", "build", "Performance bar", ["fast on mid-range mobile", "desktop first", "no constraint"], { advanced: true }),
-  bool("build.seo", "build", "SEO & metadata", true, { advanced: true }),
+  bool("build.seo", "build", "Search listing (search engine optimisation, SEO)", true, { advanced: true }),
   bool("build.analytics", "build", "Analytics", false, { advanced: true }),
   bool("build.i18n", "build", "Multiple languages", false, { advanced: true }),
   bool("build.tests", "build", "Tests", false, { advanced: true }),

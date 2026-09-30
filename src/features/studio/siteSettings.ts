@@ -43,7 +43,7 @@ function siteReading(id: string) {
   const f = field(id);
   /* Read once per document state, however many rows ask. */
   if (!lastRead || lastRead.nodes !== s.nodes || lastRead.look !== s.look || lastRead.format !== s.format) {
-    lastRead = { nodes: s.nodes, look: s.look, format: s.format, readings: readSiteFormat({ nodes: s.nodes, look: s.look }, resolvePalette(s.format, s.look).bg) };
+    lastRead = { nodes: s.nodes, look: s.look, format: s.format, readings: readSiteFormat({ nodes: s.nodes, look: s.look, format: s.format }, resolvePalette(s.format, s.look).bg) };
   }
   const said = siteSays(id, captured, lastRead.readings, s.format, f.default);
   return said.kind === "read" ? { shows: said.reading.shows, from: said.reading.from } : null;

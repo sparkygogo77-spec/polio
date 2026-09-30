@@ -45,7 +45,8 @@ const active = () => page.evaluate(() => { const a = document.activeElement; ret
 /* one press: the Element panel */
 await part.click(); await page.waitForTimeout(500);
 const tabs = await page.locator('[aria-label="Side panel"] button, [role=tablist] button').evaluateAll((bs) => bs.map((b) => b.textContent.trim()).filter(Boolean));
-check("one press opens the Element panel", await page.locator('[data-side-panel] [aria-label="Element prompt"]').count() === 1);
+/* The part's own panel (its prompt is a folded section of it now, tests/side-panel-g.mjs). */
+check("one press opens the Element panel", await page.locator('[data-side-panel] [data-part-panel]').count() === 1);
 check("…and every tab says its name", ["Element", "Format", "Pages", "Look"].every((t) => tabs.includes(t)), tabs.join(", "));
 const visibleWords = await page.locator('[aria-label="Side panel"] button span:not(.sr-only)').evaluateAll((es) => es.map((e) => e.textContent.trim()).filter(Boolean));
 /* The open tab says its word on screen; the others wear their icon and keep their name as a tooltip, by the owner's ask (d8bedd3c), and say it on screen too once the panel is wide enough (StudioPage.tsx, tabWords). */

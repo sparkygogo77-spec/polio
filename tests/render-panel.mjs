@@ -18,6 +18,7 @@
  *   node tests/render-panel.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
+import { openGenerate } from "./fixtures/openGenerate.mjs";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -56,15 +57,11 @@ await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1400);
 
 /* ------------------------------------------------------------------ */
-/* 1. It is reachable, as a tab                                        */
+/* 1. It is reachable, in a part's "Make a picture" (it was a tab; tests/side-panel-h.mjs) */
 /* ------------------------------------------------------------------ */
 
-const tab = page.locator('[aria-label="Side panel"] button', { hasText: /Draw/ }).first();
-const anyTab = (await tab.count()) ? tab : page.locator('[aria-label="Side panel"] button').last();
-await anyTab.click({ force: true });
-await page.waitForTimeout(700);
-const panel = page.locator("[data-render-panel]").first();
-check("there is a tab in the side panel that opens it", (await panel.count()) === 1);
+const panel = await openGenerate(page);
+check("a part's Make a picture opens it", (await panel.count()) === 1);
 if (!(await panel.count())) { await browser.close(); process.exit(1); }
 
 /* ------------------------------------------------------------------ */
@@ -253,13 +250,10 @@ check("with a way to save it, tweak it and run it again", (await panel.locator("
 check("and it can be dragged onto the page", (await panel.locator("[data-render-drag]").count()) === 1);
 
 /* Leave the tab for another, come back, and it is all still there. */
-const tabs = page.locator('[aria-label="Side panel"] button');
-await tabs.first().click({ force: true });
+await page.locator('[aria-label="Side panel"] [role=radio]').filter({ hasText: "Look" }).first().click({ force: true });
 await page.waitForTimeout(500);
 check("leaving the tab closes the panel", (await page.locator("[data-render-panel]").count()) === 0);
-await anyTab.click({ force: true });
-await page.waitForTimeout(700);
-const back = page.locator("[data-render-panel]").first();
+const back = await openGenerate(page);
 check(
   "and coming back shows the work again, with a fresh slot on top",
   (await back.locator("[data-render-iteration]").count()) === 1 && (await back.locator("[data-render-image]").count()) === 1,

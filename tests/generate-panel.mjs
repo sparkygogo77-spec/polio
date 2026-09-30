@@ -18,6 +18,7 @@
  *   node tests/generate-panel.mjs [url]
  */
 import { createRequire } from "node:module";
+import { openGenerate } from "./fixtures/openGenerate.mjs";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -58,14 +59,11 @@ await page.waitForTimeout(1300);
 /* 1. The tab is called Generate                                       */
 /* ------------------------------------------------------------------ */
 
+/* Generate is no longer a tab: it is inside each part's "Make a picture" (tests/side-panel-h.mjs). */
 const tabs = await page.locator('[aria-label="Side panel"] button').allInnerTexts();
-check("the tab is called Generate", tabs.some((t) => /Generate/i.test(t)), tabs.map((t) => t.trim()).filter(Boolean).join(" · "));
-check("and nothing is still called Draw", !tabs.some((t) => /^\s*Draw\s*$/i.test(t)), tabs.map((t) => t.trim()).filter(Boolean).join(" · "));
+check("nothing in the tabs is still called Draw", !tabs.some((t) => /^\s*Draw\s*$/i.test(t)), tabs.map((t) => t.trim()).filter(Boolean).join(" · "));
 
-const tab = page.locator('[aria-label="Side panel"] button', { hasText: /Generate/i }).first();
-await tab.click({ force: true });
-await page.waitForTimeout(700);
-const panel = page.locator("[data-render-panel]").first();
+const panel = await openGenerate(page);
 check("it opens the panel", (await panel.count()) === 1);
 
 /* ------------------------------------------------------------------ */

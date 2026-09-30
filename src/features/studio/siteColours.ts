@@ -459,7 +459,7 @@ export function closeShades(list: readonly SiteColour[], use: ColourUse, within 
 /* Words against what they sit on                                      */
 /* ------------------------------------------------------------------ */
 
-type Placed = Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: number };
+type Placed = Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: number; art?: { textStroke?: { w: number; color: string } | null } | null };
 
 /**
  * How readable each part's words are against the fill they actually sit on:
@@ -469,7 +469,7 @@ type Placed = Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: 
  * worn together at all: trumpmorty.fun's "text 1.2" was near-black words
  * against a near-black role no word sits on. This measures what is worn.
  */
-export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; ratio: number }[] {
+export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; ratio: number; ground: string }[] {
   const read = (v: string | undefined | null) => {
     const s = (v ?? "").trim();
     if (!s) return null;
@@ -482,20 +482,67 @@ export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette
   };
   const filled = nodes.filter((n) => opaque(n) && (n.w ?? 0) > 0 && (n.h ?? 0) > 0);
   const page = read(palette.bg);
-  const out: { id: string; ratio: number }[] = [];
+  const out: { id: string; ratio: number; ground: string }[] = [];
   for (const n of nodes) {
     if (!hasWords(n)) continue;
     const ink = read(n.colour?.text);
     if (!ink) continue;
     let ground = opaque(n) ? read(n.colour?.bg) : null;
+    let groundCss = ground ? (isRole(n.colour!.bg!) ? palette[n.colour!.bg as RoleId] ?? "" : n.colour!.bg!) : "";
     if (!ground) {
       const under = filled
         .filter((m) => m.id !== n.id && m.pageId === n.pageId && (m.x ?? 0) <= (n.x ?? 0) + 1 && (m.y ?? 0) <= (n.y ?? 0) + 1 && (m.x ?? 0) + (m.w ?? 0) >= (n.x ?? 0) + (n.w ?? 0) - 1 && (m.y ?? 0) + (m.h ?? 0) >= (n.y ?? 0) + (n.h ?? 0) - 1)
         .sort((a, b) => a.w! * a.h! - b.w! * b.h!)[0];
       ground = under ? read(under.colour?.bg) : page;
+      groundCss = under ? (isRole(under.colour!.bg!) ? palette[under.colour!.bg as RoleId] ?? "" : under.colour!.bg!) : palette.bg ?? "";
     }
     if (!ground) continue;
-    out.push({ id: n.id, ratio: Math.round(contrast(ink, ground) * 10) / 10 });
+    /*
+     * Outlined letters are read by their outline: trumpmorty.fun's white
+     * "HOW TO BUY" on yellow is edged in near-black 4px deep, and reads at a
+     * glance. So a part with an outline a pixel or more wide is measured by
+     * whichever reads better against the ground, its fill or its outline.
+     */
+    const stroke = n.art?.textStroke && n.art.textStroke.w >= 1 ? read(n.art.textStroke.color) : null;
+    const best = Math.max(contrast(ink, ground), stroke ? contrast(stroke, ground) : 0);
+    out.push({ id: n.id, ratio: Math.round(best * 10) / 10, ground: groundCss });
+  }
+  return out;
+}
+
+/** Under this, words are hard to read at any size: the count the Look panel shows. */
+export const HARD_TO_READ = 3;
+/** At or over this, words read at any size. */
+export const READS = 4.5;
+
+/**
+ * MAKE READABLE: for each part whose words are hard to read on what they sit
+ * on, the colour from the site's own words that reads best there. The site's
+ * word colours are tried first, most worn first, and the first that reads at
+ * any size wins, so a fix looks like the rest of the site rather than like
+ * white on everything; failing that, the site's fills; failing both, the one
+ * of them that reads best. Nothing is invented: every colour offered is one
+ * the site already wears. Pure; the Look panel writes all of them as one
+ * undo step (`patchNodes`).
+ */
+export function readableFixes(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; from: string; to: string; was: number; now: number }[] {
+  const hard = wordsContrast(nodes, palette).filter((r) => r.ratio < HARD_TO_READ);
+  if (!hard.length) return [];
+  const tally = tallyColours(nodes as readonly Worn[], palette);
+  const solid = (c: SiteColour) => !/^rgba\(/.test(c.key) && !!parseColor(c.value);
+  const words = tally.byUse.text.filter(solid).map((c) => c.value);
+  const fills = tally.byUse.fill.filter(solid).map((c) => c.value).filter((v) => !words.includes(v));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const out: { id: string; from: string; to: string; was: number; now: number }[] = [];
+  for (const r of hard) {
+    const g = parseColor(r.ground);
+    if (!g) continue;
+    const score = (v: string) => { const c = parseColor(v); return c ? contrast(c, g) : 0; };
+    const pick = words.find((v) => score(v) >= READS) ?? fills.find((v) => score(v) >= READS)
+      ?? [...words, ...fills].sort((a, b) => score(b) - score(a))[0];
+    if (!pick || score(pick) <= r.ratio) continue;
+    const from = byId.get(r.id)?.colour?.text ?? "";
+    out.push({ id: r.id, from, to: pick, was: r.ratio, now: Math.round(score(pick) * 10) / 10 });
   }
   return out;
 }
