@@ -498,6 +498,9 @@ export function fluidPage(root: ParentNode, pageId: string, nodes: Map<string, S
   fluid(root, pageId, nodes, W, true);
 }
 
+/** The move across in a captured `matrix(a, b, c, d, e, f)`: e. */
+const shiftOf = (t: string | undefined): number | null => { const m = /matrix\(([^)]+)\)/.exec(t ?? ""); const e = m ? Number(m[1]!.split(",")[4]) : NaN; return Number.isFinite(e) ? e : null; };
+
 function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>, W: number, live = false): void {
   const parts: FluidPart[] = [...nodes.values()].filter((n) => n.pageId === pageId).map((n) => ({
     id: n.id, x: n.x ?? 0, y: n.y ?? 0, w: n.w, h: n.h,
@@ -507,6 +510,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     edge: (n as { edge?: { width?: number } | null }).edge?.width ?? null,
     maxw: (n as { maxw?: number }).maxw ?? null,
     state: n.state ? `${n.state.group}:${n.state.option}` : null,
+    shiftX: shiftOf((n as { art?: { transform?: string } | null }).art?.transform),
   }));
   const k = fluidParts(parts, W);
   const H = captureHeight(parts);

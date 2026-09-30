@@ -210,6 +210,8 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
   /* The lights: an idle loop taking the part to no opacity. The captured blink is handed over, so the switch stops it. */
   const frames = new Map<string, Rec[]>();
   for (const k of Array.isArray(keyframes) ? (keyframes as Rec[]) : []) if (typeof k.name === "string" && Array.isArray(k.frames)) frames.set(k.name, k.frames as Rec[]);
+  /* The loops handed to a feature, by part: their stops are still the rule's (below). */
+  const handed = new Map<string, string[]>();
   const goesDark = (name: string) => (frames.get(name) ?? []).some((f) => { const o = num((f.style as Rec | undefined)?.opacity); return o !== null && o <= 0.05; });
   for (const i of (b.idle as Rec[]) ?? []) {
     if (!i.part || i.folded || i.pseudo || typeof i.name !== "string" || !goesDark(i.name)) continue;
@@ -220,6 +222,7 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     /* The page's own animation, every longhand, over its own keyframes: a `steps(2)` over one 50% stop is three stages, not two (library/behaviours.ts, BLINK). */
     const css = anim ? capturedAnimation(anim) : null;
     give(n.id, { id: "blink", inputs: { every: str(ms / 1000), how: /steps/.test(anim?.timing ?? "steps") ? "steps" : "fade", ...(css ? { css } : {}) } });
+    handed.set(n.id, [...(handed.get(n.id) ?? []), i.name]);
     if (n.motion?.animation) {
       const rest = n.motion.animation.filter((a) => a.name !== i.name);
       const { animation: _gone, ...m } = n.motion;
@@ -227,6 +230,28 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
       n.motion = rest.length ? { ...m, animation: rest } : m;
     }
     if (n.art?.animation === i.name) { const { animation: _a, ...art } = n.art; void _a; n.art = art; }
+  }
+
+  /*
+   * A LOOP'S STOPS ARE THE RULE'S, NOT THE MOMENT'S. A keyframe rule with no
+   * 0% or 100% of its own (`blink`, `50% { opacity: 0 }`) starts from and
+   * returns to the element's own opacity, and the part's captured opacity is
+   * drawn on its box. A light read while its blink held it dark came in at 0
+   * (the remote's LED): drawn so, every stop of its blink was 0 and it never
+   * showed. So a part running a loop that takes its opacity somewhere with an
+   * open end keeps no captured opacity: what it starts from is the element's
+   * own, as the page's rule says, and a value read mid-loop is the loop's.
+   */
+  {
+    const open = (name: string) => {
+      const fr = frames.get(name) ?? [];
+      const keys = fr.flatMap((f) => String(f.key ?? "").split(",").map((k) => k.trim())).map((k) => (k === "from" ? "0%" : k === "to" ? "100%" : k));
+      return fr.some((f) => (f.style as Rec | undefined)?.opacity !== undefined) && (!keys.includes("0%") || !keys.includes("100%"));
+    };
+    for (const n of out) {
+      const names = [...(n.motion?.animation ?? []).map((a) => a.name ?? ""), ...(handed.get(n.id) ?? [])];
+      if (typeof (n as { opacity?: unknown }).opacity === "number" && names.some(open)) delete (n as { opacity?: unknown }).opacity;
+    }
   }
 
   /* ---------------------------------------------------------------- what a press shows (sink `behaviours.states`) */

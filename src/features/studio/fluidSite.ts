@@ -61,6 +61,8 @@ export interface FluidPart {
   maxw?: number | null;
   /** The press that shows it (sink `behaviours.states`, `group:option`), or none: the page as it opens. */
   state?: string | null;
+  /** How far its own transform moves it across, in px (a toast's `translate(-50%, 0)`): where it is seen is `x + shiftX`. */
+  shiftX?: number | null;
 }
 
 /**
@@ -362,10 +364,27 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
       else if (C.position === "absolute" && inR - inL > 0) k = at(Math.max(0, Math.min(1, (C.x + C.w / 2 - inL) / (inR - inL))));
       else if (lost && C.x + C.w / 2 > (inL + inR) / 2) k = at(1);
       else k = at(0);
+      /*
+       * A FIXED PART CENTRED IN THE WINDOW STAYS CENTRED. trumpmorty.fun's
+       * toast is `left: 50%; transform: translate(-50%, 0)`: its box starts at
+       * 720 in the 1440 window and its move takes half its width back, so it
+       * is seen centred. Placed at 720 it sat right of the middle in any
+       * wider window. Where it is seen (its box and its move across) decides:
+       * centred in the window, it keeps its offset from the window's middle.
+       */
+      if (C.position === "fixed" && !fixed && Math.abs(C.x + (C.shiftX ?? 0) + C.w / 2 - W / 2) <= Math.max(E, 2)) k = at(0.5);
       let f = fixed;
       if (!f && C.position === "fixed") {
+        /*
+         * ONE EDGE, THE NEAREST, unless it runs the window's height. The toast
+         * stands 28 px above the window's foot, touching neither edge, and
+         * anchored at both it was stretched from its top to 28 px off the
+         * foot, a 221 × 441 slab. Only a band as tall as half the window (a
+         * sidebar) keeps both.
+         */
         const top = C.y <= E, bottom = H > 0 && Math.abs(C.y + C.h - H) <= E;
-        f = top ? "top" : bottom ? "bottom" : "both";
+        const tall = H > 0 && C.h >= H / 2;
+        f = top ? "top" : bottom ? "bottom" : tall ? "both" : H > 0 && H - (C.y + C.h) < C.y ? "bottom" : "top";
       }
       if (f) k.fixed = f === "both" && C.position !== "fixed" ? "top" : f;
       /*

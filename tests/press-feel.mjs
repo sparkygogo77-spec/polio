@@ -33,7 +33,9 @@ import { attachCaptured } from "../src/features/studio/library/captured.ts";
 import { motionCss } from "../src/features/studio/parts/capturedMotion.ts";
 import { featureFiles, pageFeatureTags, usesOf } from "../src/features/studio/library/works.ts";
 import { createJiti } from "jiti";
-const { carryOwned } = await createJiti(import.meta.url).import("../src/features/studio/carry.ts");
+const jiti = createJiti(import.meta.url);
+const { carryOwned } = await jiti.import("../src/features/studio/carry.ts");
+const { fluidParts, captureHeight } = await jiti.import("../src/features/studio/fluidSite.ts");
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${ok === true || !detail ? "" : ` — ${String(detail).slice(0, 600)}`}`); };
@@ -80,6 +82,29 @@ check("(4) the dot's blink is the page's own animation, every longhand", use("n_
   const moving = out.map((n) => (n.id === "n_bar" ? { ...n, motion: { hover: [{ selector: ".ca:hover", self: true, style: { transform: "translate(-2px, -2px)" } }] } } : n));
   const carried = carryOwned(moving).get("n_bar") ?? [];
   check("(2) a bar that moves carries its own words, never the COPIED! its press shows in their place", carried.includes("n_ca") && !carried.includes("n_copied"), J(carried));
+}
+
+{
+  /* The remote's LED, read while its blink held it dark: a loop whose rule has no 0% or 100% of its own starts from the element's own opacity, never the moment's. */
+  const led = { id: "n_led", pageId: P, featureId: "box", x: 0, y: 0, w: 16, h: 16, opacity: 0, from: { selector: "body > div > span" }, motion: { animation: [{ name: "blink", duration: "1.4s", timing: "steps(2)", delay: "0s", iterations: "infinite", direction: "normal", fill: "none" }] } };
+  const kept = { ...led, id: "n_dim", opacity: 0.4, motion: { animation: [{ name: "spin", duration: "2s", timing: "linear", delay: "0s", iterations: "infinite", direction: "normal", fill: "none" }] } };
+  const got = attachCaptured([led, kept], { version: 1, idle: [{ part: "n_led", name: "blink", css: true, duration: 1400 }] }, [...keyframes, { name: "spin", frames: [{ key: "to", style: { transform: "rotate(360deg)" } }] }]);
+  const g = (id) => got.find((n) => n.id === id);
+  check("(4) a light caught dark keeps no captured opacity: its blink's stops are the rule's, 1, .5, 0", g("n_led").opacity === undefined && usesOf(g("n_led").work).some((u) => u.id === "blink"), J(g("n_led")));
+  check("(4) …and a part whose loop does not touch its opacity keeps its own", g("n_dim").opacity === 0.4, J(g("n_dim").opacity));
+}
+{
+  /* The toast: fixed, 28 px above the foot of a 900 px window, `left: 50%` taken back by half its width. */
+  const parts = [
+    { id: "n_layer", x: 0, y: 0, w: 1440, h: 900, selector: "body > div:nth-of-type(2)", position: "fixed" },
+    { id: "n_toast", x: 720, y: 809, w: 221, h: 63, selector: "body > div:nth-of-type(1)", position: "fixed", shiftX: -110.5 },
+    { id: "n_side", x: 0, y: 120, w: 200, h: 700, selector: "body > aside", position: "fixed" },
+  ];
+  const k = fluidParts(parts, 1440);
+  const t = k.get("n_toast");
+  check("(2) a fixed toast keeps one vertical anchor, the nearest edge (the foot), and is not stretched between both", captureHeight(parts) === 900 && t?.fixed === "bottom", J(t));
+  check("(2) …and seen centred in the window, it stays centred in a wider one", t?.left?.c === 720 && Math.abs(t?.left?.k - 0.5) < 1e-9, J(t?.left));
+  check("(2) a fixed band that runs most of the window's height still keeps both", k.get("n_side")?.fixed === "both", J(k.get("n_side")));
 }
 
 /* ------------------------------------------------------------ the page */
