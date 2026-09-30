@@ -54,7 +54,7 @@ const projects = [
 ];
 const deployments = [];
 const asked = [];
-const made = [];
+const madeBodies = [];
 const targets = [];
 const shown = (d) => { const ready = d.polls >= 2; return { uid: d.id, id: d.id, readyState: ready ? "READY" : "BUILDING", url: `${d.project}-${d.id}.vercel.app`, created: d.at, meta: { githubCommitSha: d.sha, githubCommitRef: "main" }, ...(ready ? { alias: [`${d.project}.vercel.app`] } : {}) }; };
 const add = (project, s, by) => { const d = { id: `dpl_${deployments.length + 1}`, project, sha: s, by, polls: 0, at: Date.now() }; deployments.push(d); return d; };
@@ -66,7 +66,7 @@ const vc = http.createServer(async (req, res) => {
   if (url.pathname === "/v9/projects") return send(200, { projects, pagination: { next: null } });
   if (/^\/v\d+\/projects$/.test(url.pathname) && req.method === "POST") {
     const p = JSON.parse(body);
-    made.push(p);
+    madeBodies.push(p);
     const [org, repo] = p.gitRepository.repo.split("/");
     const made = { id: `prj_${p.name}`, name: p.name, link: { type: "github", org, repo, repoId: 9 } };
     projects.push(made);
@@ -136,7 +136,7 @@ console.log("4. A site with no project yet");
 
 console.log("6. A project the Builder makes holds the static-site settings");
 {
-  const p = made.find((x) => x.name === "fresh");
+  const p = madeBodies.find((x) => x.name === "fresh");
   check("the project is made with no framework, build, install or output setting of its own", !!p && "framework" in p && p.framework === null && p.buildCommand === null && p.installCommand === null && p.outputDirectory === null, J(p));
 }
 
