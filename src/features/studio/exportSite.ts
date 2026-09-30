@@ -77,6 +77,8 @@ import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
 import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "./library/works";
+import { PARTS_JS, SITE_MOTION_JS, pageTransitionCss, partKeyframesFor, partsTags, siteMotionTags } from "./library/siteMotion";
+import { deriveBehaviours, isBehaviour as isBehaviourPart } from "./live/behaviours";
 import { CRATE_CSS, crateOn, setCrateHref } from "./crateLayer";
 import { cellFor, crateSheet, type CrateSheet } from "./crateDraw";
 
@@ -941,6 +943,10 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   }
   const crateFile = (id: string, sheet: CrateSheet) => `assets/crates/${id}.${sheet.ext}`;
 
+  /* What the pages ask of the two small scripts (`library/siteMotion.ts`), and the markup each page drew, for the keyframes it names. */
+  let anyMotion = false;
+  let anyParts = false;
+  const drawn: string[] = [];
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
     const up = upOf(page, home);
@@ -967,6 +973,23 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
     } finally {
       setCrateHref(null);
     }
+    drawn.push(html);
+    /*
+     * THE WHOLE-SITE MOTIONS AND THE PARTS THAT ANSWER A PRESS. The preview
+     * runs them with React; here they are two small scripts, shipped only
+     * where a page asks (`library/siteMotion.ts`), so a card that says
+     * "Works when published" is true of the published page.
+     */
+    const onPage = s.nodes.filter((n) => n.pageId === page.id);
+    const b = deriveBehaviours(onPage, page.scroll);
+    const motionTags = siteMotionTags({
+      progress: b.progress, backToTop: b.backToTop, reveal: b.reveal, parallax: b.parallax, smooth: b.smooth, snap: b.snap,
+      intro: b.intro, cursor: b.cursor, tilt: b.tilt, parts: onPage.filter((n) => !isBehaviourPart(n.featureId)).map((n) => n.id),
+      accent: palette.accent, surface: palette.surface,
+    }, up);
+    if (motionTags) anyMotion = true;
+    const partTags = partsTags(onPage, up);
+    if (partTags) anyParts = true;
     const title = page.name?.trim() ? (page.id === home.id ? name : `${page.name.trim()} · ${name}`) : name;
     files.push({
       path: pageFile(page, home),
@@ -983,7 +1006,7 @@ ${pageHead({ title, name, description, icon, icons, up, address: pageAddress(pag
 ${clean(html, page, s.pages, home, nodes, roles, fluidAt, atOf, shared)}
 </div>
 ${pageFeatureTags(carriedFeatures(s.nodes.filter((n) => n.pageId === page.id), fluidAt !== null), up)}
-${inPlaceScript(page, inPlace.get(page.id), home)}
+${inPlaceScript(page, inPlace.get(page.id), home)}${motionTags ? `\n${motionTags}` : ""}${partTags ? `\n${partTags}` : ""}
 </body>
 </html>
 `,
@@ -992,6 +1015,9 @@ ${inPlaceScript(page, inPlace.get(page.id), home)}
 
   const vars = ROLES.map((r) => `  --${r}: ${palette[r]};`).join("\n");
   const frames = keyframesCss(s.look.keyframes);
+  /* Keyframes the parts' own style names, which only the app's stylesheet held; and the browser's fade between pages when the site has more than one. */
+  const partFrames = partKeyframesFor(drawn);
+  const between = s.pages.length > 1 ? pageTransitionCss(s.format?.["pages.transition"]) : "";
   const motion = frames || motionSheets.size ? [frames, "@media (prefers-reduced-motion: reduce) { .mo, .mo *, .mo-l { animation: none !important; transition: none !important; } }"].filter(Boolean).join("\n") : "";
   const css = `/* The site's palette: every colour on the pages that is one of these is written as var(--name). */
 :root {
@@ -1012,6 +1038,12 @@ ${frameCss(width, fluidAt !== null)}
 ${motion ? `
 /* The site's own motion, as captured: its keyframes (prefixed cap-); each page's parts move in assets/motion/<page>.css. */
 ${motion}
+` : ""}${partFrames ? `
+/* Keyframes the parts name in their own style. */
+${partFrames}
+` : ""}${between ? `
+/* From one page to the next, the browser's own fade. */
+${between}
 ` : ""}${crates.size ? `
 /* A crate a part wears: its frames in one strip, stepped through (assets/crates/). */
 ${CRATE_CSS}
@@ -1022,6 +1054,8 @@ ${CRATE_CSS}
   files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */
   files.push(...featureFiles(s.nodes));
+  if (anyMotion) files.push({ path: "assets/site-motion.js", content: SITE_MOTION_JS });
+  if (anyParts) files.push({ path: "assets/parts.js", content: PARTS_JS });
   for (const [id, sheet] of crates) files.push({ path: crateFile(id, sheet), content: await base64(sheet.blob), encoding: "base64" });
   /* The icons are drawn from the picture, not the picture: they go up whatever the caller does with the pictures. */
   /* The heads' share pictures and icons are among the site's pictures (`sitePictures`), so they are served beside the pages. */

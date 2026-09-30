@@ -9,10 +9,11 @@
  *
  *   · WHAT DOES IT DO? One line, always (`doesOf`). It was a hover tooltip
  *     for some and nothing for most.
- *   · DOES IT WORK, OR IS IT AN IDEA? (`statusOf`). The shelf mixes two
- *     kinds of thing: parts the published page draws and runs as they are,
- *     and parts that are a picture of a feature plus a brief for a later
- *     build (a checkout, a chat, a login). They looked the same.
+ *   · DOES IT WORK WHEN PUBLISHED? (`statusOf`). The shelf mixes parts
+ *     the published page draws and runs as they are, parts it shows still
+ *     until a build makes them real, parts that wait on an outside service,
+ *     and notes for the builder. The badge says which, read off what the
+ *     export really does (`shelfPlan.ts#PUBLISH`).
  *   · WHAT DOES IT NEED? (`needsOf`): a key, a backend, money. Said where it
  *     is true, never guessed at from the name.
  *   · IS IT A PART, OR A SETTING FOR THE WHOLE SITE? (`switchOf`). Snap
@@ -27,22 +28,35 @@
  * General by construction: nothing here names a site.
  */
 import type { FeatureDef } from "./catalog.ts";
+import { publishOf } from "./shelfPlan.ts";
+import { isWorkKey } from "./shelfGroups.ts";
 import { BAND_LABEL, bandOf, shapeOf, type Shape } from "./showcase.ts";
 
 /* ------------------------------------------------------------------ */
-/* Works now, or an idea                                               */
+/* Works when published, needs a build, needs a key or backend          */
 /* ------------------------------------------------------------------ */
 
-export type Status = "works" | "idea";
+/**
+ * The badge a card wears. It says what the PUBLISHED page does, because that
+ * is the promise a card makes (`shelfPlan.ts#PUBLISH`): the export is plain
+ * HTML, so a part that only does its job under a press or a timer does it
+ * there only when a script for it ships. `tests/shelf-publish.mjs` exports
+ * every item that says it works and checks the page carries what it needs.
+ */
+export type Status = "works" | "build" | "service" | "note";
 
 export const STATUS_LABEL: Record<Status, string> = {
-  works: "Works now",
-  idea: "Idea, needs building",
+  works: "Works when published",
+  build: "Needs a build",
+  service: "Needs a key or backend",
+  note: "For the builder only",
 };
 
 export const STATUS_MEANS: Record<Status, string> = {
-  works: "The published site draws this and runs it as you see it.",
-  idea: "The published site shows a picture of it. The working version is written into the blueprint for a later build.",
+  works: "Put it on a page and publish: the published site draws it and does what it shows, with any script it needs.",
+  build: "The published site shows it still. What it does is written into the blueprint for a build to make real.",
+  service: "It waits on something outside the page: a key to an outside service, or a backend (a server that keeps and sends things). Until then the published site shows it still.",
+  note: "Words for whoever builds the site. They go into the blueprint and never onto the published page.",
 };
 
 /**
@@ -59,9 +73,8 @@ export const PICTURE_ONLY: ReadonlySet<string> = new Set([
 
 /**
  * Whole-page motions the live page runs (`deriveBehaviours` in
- * `live/behaviours.ts`). The other motions on the shelf are named in the
- * preview's corner rather than run, which is an idea by this file's
- * reading.
+ * `live/behaviours.ts`) and the published page runs too
+ * (`library/siteMotion.ts`).
  */
 export const RUN_MOTIONS: ReadonlySet<string> = new Set([
   "scroll-progress", "back-to-top", "reveal-on-scroll", "parallax", "smooth-scroll",
@@ -121,13 +134,14 @@ export function needsOf(feature: Pick<FeatureDef, "id" | "basedOn">): Need[] {
   return NEEDS[feature.id] ?? NEEDS[feature.basedOn ?? ""] ?? [];
 }
 
-/** Works now, or an idea that needs building. */
-export function statusOf(feature: Pick<FeatureDef, "id" | "basedOn">): Status {
-  const id = feature.basedOn ?? feature.id;
-  if (PICTURE_ONLY.has(id) || NAMED_MOTIONS.has(id)) return "idea";
-  /* A part that cannot do its job without something the published page does not have is a picture of that job. */
-  if (needsOf(feature).length) return "idea";
-  return "works";
+/** The badge for a catalogue part, a preset of one, or a `work:<id>` key. */
+export function statusOf(feature: Pick<FeatureDef, "id" | "basedOn"> | string, workNeeds?: string): Status {
+  const key = typeof feature === "string" ? feature : feature.basedOn ?? feature.id;
+  const p = publishOf(key);
+  if (p.kind === "note") return "note";
+  const needs = isWorkKey(key) ? (workNeeds && workNeeds !== "none" ? [workNeeds] : []) : needsOf({ id: key });
+  if (needs.length) return "service";
+  return p.kind === "draws" || p.kind === "runs" ? "works" : "build";
 }
 
 /* ------------------------------------------------------------------ */
@@ -146,15 +160,32 @@ export function statusOf(feature: Pick<FeatureDef, "id" | "basedOn">): Status {
  *     carries to the build (and, for page transitions, the live page runs).
  */
 export type SiteSwitch =
-  | { kind: "parts" }
+  | { kind: "parts"; mirror?: { key: string; on: string | boolean; off: string | boolean } }
   | { kind: "format"; key: string; on: string | boolean; off: string | boolean };
 
+/**
+ * A motion switch keeps the Format field that says the same thing in step
+ * (`mirror`), so the brief and the shelf never disagree about whether the
+ * site has a scroll bar.
+ */
+const MIRROR: Record<string, { key: string; on: string | boolean; off: string | boolean }> = {
+  "scroll-progress": { key: "scroll.progress", on: true, off: false },
+  "back-to-top": { key: "scroll.backToTop", on: true, off: false },
+  parallax: { key: "scroll.parallax", on: true, off: false },
+  "reveal-on-scroll": { key: "scroll.reveal", on: "fade up", off: "none" },
+  "cursor-effects": { key: "feel.cursor", on: "custom dot", off: "default" },
+};
+
 const SWITCHES: Record<string, SiteSwitch> = {
-  ...Object.fromEntries([...RUN_MOTIONS].map((id) => [id, { kind: "parts" } as SiteSwitch])),
+  ...Object.fromEntries([...RUN_MOTIONS].map((id) => [id, { kind: "parts", ...(MIRROR[id] ? { mirror: MIRROR[id] } : {}) } as SiteSwitch])),
   "page-transitions": { kind: "format", key: "pages.transition", on: "fade", off: "none" },
   "dark-mode": { kind: "format", key: "build.darkLight", on: true, off: false },
   print: { kind: "format", key: "build.print", on: true, off: false },
   i18n: { kind: "format", key: "build.i18n", on: true, off: false },
+  seo: { kind: "format", key: "build.seo", on: true, off: false },
+  a11y: { kind: "format", key: "build.a11y", on: "WCAG AA", off: "best effort" },
+  perf: { kind: "format", key: "build.perf", on: "fast on mid-range mobile", off: "no constraint" },
+  auth: { kind: "format", key: "build.auth", on: true, off: false },
   "cookie-consent": { kind: "format", key: "build.cookieConsent", on: true, off: false },
   analytics: { kind: "format", key: "build.analytics", on: true, off: false },
   testing: { kind: "format", key: "build.tests", on: true, off: false },
@@ -166,16 +197,13 @@ export function switchOf(featureId: string): SiteSwitch | null {
   return SWITCHES[featureId] ?? null;
 }
 
-/** Page transitions run on the live page from the Format field; the rest of the format switches are written into the brief. */
+/** A switch's badge is the same question as any card's: what does the published page do with it. */
 export function switchStatus(featureId: string): Status {
-  if (featureId === "page-transitions") return "works";
-  const s = SWITCHES[featureId];
-  if (s?.kind === "parts") return "works";
-  return "idea";
+  return statusOf(featureId);
 }
 
 /** Whether a format switch reads as on. A select is on at anything but its off value. */
-export function formatSwitchOn(s: Extract<SiteSwitch, { kind: "format" }>, value: unknown): boolean {
+export function formatSwitchOn(s: { on: string | boolean; off: string | boolean }, value: unknown): boolean {
   if (typeof s.on === "boolean") return value === true;
   return value !== undefined && value !== null && value !== s.off;
 }

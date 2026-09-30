@@ -14,6 +14,7 @@
  * and copied into the build brief.
  */
 import type { LucideIcon } from "lucide-react";
+import { SHELF_GROUPS, isWorkKey } from "./shelfGroups.ts";
 import {
   Accessibility, Activity, AlignLeft, Archive, ArrowDown, AtSign, Award, BadgeCheck, BarChart3,
   Bell, Blend, Bookmark, BookOpen, Bot, Box, Boxes, Brain, Brush, Calendar, Camera, CaseSensitive,
@@ -679,6 +680,10 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "logo-cloud": { w: 1200, h: 100, content: { label: "Logos", placeholder: "Acme, Globex, Initech, Umbrella" } },
   prose: { w: 720, h: 320, content: { label: "Paragraphs", placeholder: "Type the actual words, one paragraph per line" } },
   "pull-quote": { w: 720, h: 160, content: { label: "The quote", placeholder: "One line worth setting large" } },
+  /* Words to set: without a field for them the part published empty, whatever was meant. */
+  highlight: { w: 720, h: 160, content: { label: "The paragraph", placeholder: "A paragraph whose first line is marked…" } },
+  footnotes: { w: 720, h: 220, content: { label: "The paragraph", placeholder: "A paragraph with its notes below…" } },
+  "reading-time": { w: 720, h: 160, content: { label: "The article", placeholder: "The article whose reading time is shown…" } },
   "drop-cap": { w: 720, h: 260, content: { label: "Opening paragraph", placeholder: "The first paragraph…" } },
   "textbox-format": { w: 720, h: 200, content: { label: "Sample text", placeholder: "A paragraph to show the box style" } },
   marquee: { w: 1440, h: 56, options: [{ id: "speed", label: "Speed", values: ["slow", "medium", "fast"] }], content: { label: "Phrases", placeholder: "Ships fast, Reads well, Feels right" } },
@@ -1030,99 +1035,19 @@ export function categoryOf(id: CategoryId): CategoryDef {
   return allCategories().find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
 
-/** Sub-groups inside a category, so 230 parts are reachable in three clicks. `tests/shelf-reach.mjs` holds every id to one. */
+/**
+ * Sub-groups inside a category, so all 230 parts are reachable in three clicks: a card, or a version on a card's detail.
+ * Projected from `shelfGroups.ts`, which says where every item sits and in
+ * what order; a group lists only catalogue ids here (the working features it
+ * also holds are `work:` keys there). An id missing from every group is a
+ * variation of an item that is listed, or was taken off the shelf, and
+ * `shelfPlan.ts` says which. `tests/shelf-reach.mjs` holds every id to one.
+ */
 export interface SubGroup { id: string; emoji: string; label: string; ids: string[] }
 
-export const SUBGROUPS: Record<string, SubGroup[]> = {
-  "structure": [
-    { id: "page-shape", emoji: "\ud83e\uddf1", label: "Whole-page layouts", ids: ["section-stack", "holy-grail", "container-width", "multi-page", "waypoint", "scan-region", "box"] },
-    { id: "grids", emoji: "\ud83d\udd32", label: "Grids of cards", ids: ["card-grid", "bento-grid", "masonry"] },
-    { id: "split-layouts", emoji: "\u2194\ufe0f", label: "Side by side", ids: ["split-screen", "sidebar-layout"] },
-    { id: "switchers", emoji: "\ud83d\uddc2\ufe0f", label: "Tabs and folding rows", ids: ["tabs-panel", "accordion"] },
-    { id: "overlays", emoji: "\ud83e\ude9f", label: "Pop-ups and slide-ins", ids: ["modal", "drawer"] },
-    { id: "footer", emoji: "\ud83e\uddb6", label: "Footer", ids: ["footer"] },
-  ],
-  "nav": [
-    { id: "top-bars", emoji: "\ud83e\udded", label: "Menu bars", ids: ["sticky-header", "mega-menu", "mobile-nav", "home-anchor"] },
-    { id: "finding-things", emoji: "\ud83d\udd0e", label: "Search", ids: ["search-nav"] },
-    { id: "where-am-i", emoji: "\ud83e\ude9c", label: "Show where you are", ids: ["breadcrumbs", "scrollspy-nav", "toc", "sitemap-page"] },
-    { id: "between-pages", emoji: "\ud83d\udcc4", label: "Page numbers", ids: ["pagination"] },
-  ],
-  "hero": [
-    { id: "heroes", emoji: "\ud83c\udf05", label: "Opening banners", ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"] },
-    { id: "the-pitch", emoji: "\ud83d\udcac", label: "One-line pitch", ids: ["value-prop"] },
-    { id: "the-button", emoji: "\ud83d\ude80", label: "Main buttons", ids: ["cta-primary", "invite-panel"] },
-    { id: "proof", emoji: "\ud83c\udfc5", label: "Trust strip", ids: ["social-proof-strip"] },
-    { id: "persuasion", emoji: "\u2b50", label: "Reviews, logos and deadlines", ids: ["testimonials", "countdown", "trust-badges", "logo-cloud"] },
-  ],
-  "content": [
-    { id: "body-text", emoji: "\ud83d\udcd6", label: "Paragraphs", ids: ["prose", "drop-cap", "reading-time", "footnotes", "micro-copy", "textbox-format"] },
-    { id: "type-treatment", emoji: "\ud83d\udd20", label: "Headings and emphasis", ids: ["heading-scale", "fluid-type", "kinetic-type", "highlight", "pull-quote", "eyebrow-rule"] },
-    { id: "lists-of-things", emoji: "\ud83d\udcf0", label: "Article lists", ids: ["blog-index", "changelog", "tagging", "docs", "rss"] },
-    { id: "boxes", emoji: "\ud83d\udca1", label: "Notes, code and questions", ids: ["callout", "code-block", "faq", "marquee"] },
-    { id: "your-notes", emoji: "\ud83d\udcdd", label: "Notes for the builder", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
-  ],
-  "media": [
-    { id: "pictures", emoji: "\ud83d\uddbc\ufe0f", label: "Pictures", ids: ["picture", "gallery", "lightbox", "image-blur-up", "photo-credit"] },
-    { id: "moving-through", emoji: "\ud83c\udfa0", label: "Slideshows", ids: ["carousel", "before-after"] },
-    { id: "sound-and-video", emoji: "\u25b6\ufe0f", label: "Video and sound", ids: ["video-player", "audio-player", "podcast"] },
-    { id: "embeds", emoji: "\ud83c\udf0d", label: "Maps and models", ids: ["map-embed", "3d-viewer"] },
-    { id: "generated", emoji: "\ud83c\udfa8", label: "Decoration", ids: ["generative-art", "avatar-stack", "corner-glow"] },
-    { id: "orbs", emoji: "\ud83d\udd2e", label: "Glowing spheres", ids: ["orb-css", "orb-webgl", "orb-image"] },
-    { id: "solids", emoji: "\ud83e\uddca", label: "Shapes you can turn", ids: ["cube-3d", "mesh-3d"] },
-    { id: "drawn", emoji: "\u270f\ufe0f", label: "Your drawings", ids: ["drawn-icon"] },
-  ],
-  "motion": [
-    { id: "on-scroll", emoji: "\ud83d\udcdc", label: "As you scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },
-    { id: "on-pointer", emoji: "\ud83d\uddb1\ufe0f", label: "Follows the mouse", ids: ["cursor-effects", "hover-tilt"] },
-    { id: "moments", emoji: "\u2728", label: "Openings and one-off effects", ids: ["page-load", "page-transitions", "back-to-top", "morph-transition", "confetti", "physics"] },
-  ],
-  "interact": [
-    { id: "keyboard-and-menus", emoji: "\u2328\ufe0f", label: "Keyboard and menus", ids: ["context-menus", "command-palette", "shortcuts", "hotkey-first", "presets", "quick-action"] },
-    { id: "feedback", emoji: "\ud83d\udd14", label: "Messages and feedback", ids: ["toasts", "optimistic-ui", "sound-cues", "haptics", "skeletons"] },
-    { id: "direct-handling", emoji: "\u270b", label: "Drag, edit and copy", ids: ["drag-drop", "inline-edit", "undo-redo", "copy-button"] },
-    { id: "on-hover", emoji: "\ud83d\udc40", label: "On hover", ids: ["hover-card", "tooltips", "magnetic-buttons"] },
-    { id: "first-run", emoji: "\ud83e\uddd1\u200d\ud83c\udfeb", label: "First visit help", ids: ["onboarding-tour", "compass-onboard", "graduation", "empty-states"] },
-    { id: "play", emoji: "\ud83c\udfae", label: "Games and extras", ids: ["gamification", "easter-egg", "workflow-builder", "cog-settings"] },
-    { id: "privacy", emoji: "\ud83d\udd76\ufe0f", label: "Hide private numbers", ids: ["blur-privacy"] },
-  ],
-  "forms": [
-    { id: "forms", emoji: "\u2709\ufe0f", label: "Forms", ids: ["contact-form", "multi-step-form", "inline-validation", "autosave", "booking", "survey"] },
-    { id: "inputs", emoji: "\ud83d\udce5", label: "Form fields", ids: ["file-upload", "date-picker", "rating", "filter-panel", "search-autocomplete"] },
-    { id: "signup", emoji: "\ud83d\udce7", label: "Email sign-up", ids: ["newsletter"] },
-    { id: "protection", emoji: "\ud83d\udee1\ufe0f", label: "Spam protection", ids: ["captcha"] },
-    { id: "browsing", emoji: "\ud83d\udecd\ufe0f", label: "Products", ids: ["product-grid", "product-detail", "wishlist", "comparison-table"] },
-    { id: "buying", emoji: "\ud83d\uded2", label: "Cart and checkout", ids: ["cart-drawer", "checkout", "discount", "invoice"] },
-    { id: "plans", emoji: "\ud83d\udcb3", label: "Prices and plans", ids: ["pricing-table", "subscription"] },
-    { id: "economy", emoji: "\ud83e\ude99", label: "Referrals and points", ids: ["affiliate", "coin-economy"] },
-  ],
-  "data": [
-    { id: "charts", emoji: "\ud83d\udcc8", label: "Charts", ids: ["charts", "pie-breakdown", "sparkline", "heatmap"] },
-    { id: "numbers", emoji: "\ud83d\udd22", label: "Key numbers", ids: ["stat-tiles", "progress-tracker", "leaderboard"] },
-    { id: "tables", emoji: "\ud83d\udccb", label: "Tables", ids: ["data-table", "export", "details-table"] },
-    { id: "arrangements", emoji: "\ud83d\uddfa\ufe0f", label: "Boards, timelines, calendars", ids: ["dashboard", "timeline", "kanban", "network-graph", "calendar-view"] },
-    { id: "live", emoji: "\ud83d\udce1", label: "Live updates", ids: ["live-feed"] },
-    { id: "dense-views", emoji: "\ud83d\udcca", label: "Very long lists", ids: ["dense-tables", "virtualised-list", "multi-column-feed", "realtime-stream"] },
-    { id: "terminal", emoji: "\ud83d\udda5\ufe0f", label: "Command line", ids: ["terminal-console", "status-bar", "split-panes", "diff-view"] },
-  ],
-  "social": [
-    { id: "people", emoji: "\ud83e\uddd1", label: "Profiles and badges", ids: ["profiles", "community-badges", "activity-feed"] },
-    { id: "talking", emoji: "\ud83d\udcac", label: "Comments and chat", ids: ["comments", "chat", "forum", "guestbook", "mentions"] },
-    { id: "reacting", emoji: "\u2764\ufe0f", label: "Likes, shares, follows", ids: ["reactions", "share-sheet", "follow"] },
-    { id: "keeping-order", emoji: "\ud83d\udee0\ufe0f", label: "Moderation and shared cursors", ids: ["moderation", "collab-cursors"] },
-  ],
-  "ai": [
-    { id: "conversation", emoji: "\ud83e\udd16", label: "Talk to it", ids: ["ai-chat", "ai-prompt-box", "ai-voice"] },
-    { id: "writing", emoji: "\u270d\ufe0f", label: "Writes for you", ids: ["ai-generate-content", "ai-summarize", "ai-translate"] },
-    { id: "suggesting", emoji: "\ud83c\udfaf", label: "Finds and suggests", ids: ["ai-recommend", "ai-search", "ai-autofill"] },
-    { id: "keeping-order", emoji: "\ud83d\udee0\ufe0f", label: "Screens posts for you", ids: ["ai-moderation"] },
-  ],
-  "platform": [
-    { id: "appearance", emoji: "\ud83c\udfa8", label: "Themes, phones and print", ids: ["dark-mode", "theming", "responsive", "brand-system", "print"] },
-    { id: "reach", emoji: "\ud83c\udf10", label: "Languages, search engines, access", ids: ["i18n", "seo", "a11y"] },
-    { id: "accounts-and-data", emoji: "\ud83d\udd10", label: "Accounts and saved data", ids: ["auth", "database", "api", "versioning", "cms"] },
-    { id: "running-it", emoji: "\ud83d\udcc9", label: "Visitor stats, speed, tests", ids: ["analytics", "perf", "testing", "error-handling", "pwa"] },
-    { id: "talking-out", emoji: "\ud83d\udcec", label: "Email, cookies, outside services", ids: ["email", "cookie-consent", "integration", "qr-bridge", "weather-time", "archive-mode"] },
-  ],
-};
-
+export const SUBGROUPS: Record<string, SubGroup[]> = Object.fromEntries(
+  Object.entries(SHELF_GROUPS).map(([category, groups]) => [
+    category,
+    groups.map((g) => ({ id: g.id, emoji: g.emoji, label: g.label, ids: g.items.filter((i) => !isWorkKey(i)) })),
+  ]),
+);

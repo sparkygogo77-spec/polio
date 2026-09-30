@@ -5,7 +5,8 @@
  *   1. an open category keeps every category's name on the row;
  *   2. the sub-group names are plain purpose words, and none repeats;
  *   3. an open category is grouped by purpose, footprint is a small tag;
- *   4. every card says Works now or Idea, needs building, and what it needs;
+ *   4. every card says Works when published, Needs a build, Needs a key or
+ *      backend, or For the builder only, and what it needs;
  *   5. a preview shows the thing on the site's own page, a motion moving;
  *   6. every card has a one-line "what it does", and previews use the site's
  *      words, never invented filler;
@@ -29,8 +30,10 @@ import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/catalog.
 import { FORMAT_FIELDS } from "../src/features/studio/format.ts";
 import { LIBRARY } from "../src/features/studio/library/works.ts";
 import {
-  PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
+  PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, STATUS_LABEL, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
 } from "../src/features/studio/shelfFacts.ts";
+import { SHELF_GROUPS } from "../src/features/studio/shelfGroups.ts";
+import { itemOf } from "../src/features/studio/shelfPlan.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -76,12 +79,12 @@ const runs = [...live.slice(live.indexOf("export function deriveBehaviours")).ma
 check("4. the motions called Works now are the ones the live page runs", runs.length === RUN_MOTIONS.size && runs.every((id) => RUN_MOTIONS.has(id)), runs.join(", "));
 const described = /DESCRIBE_ONLY = new Set\(\[([^\]]*)\]/.exec(live)?.[1] ?? "";
 const namedOnly = [...described.matchAll(/"([^"]+)"/g)].map((m) => m[1]).filter((id) => id !== "page-transitions");
-check("4. and the ones it only names are ideas", namedOnly.every((id) => NAMED_MOTIONS.has(id) && statusOf({ id }) === "idea"), namedOnly.join(", "));
+check("4. and the ones it only names need a build", namedOnly.every((id) => NAMED_MOTIONS.has(id) && statusOf({ id }) === "build"), namedOnly.join(", "));
 
 const paid = ["checkout", "subscription", "ai-chat", "ai-summarize", "auth", "email", "analytics"];
 const unpaid = paid.filter((id) => !needsOf({ id }).includes("money"));
 check("4. Stripe, accounts, emails, analytics and every model call say they cost money", unpaid.length === 0, unpaid.join(", ") || paid.join(", "));
-check("4. and anything that needs something is an idea until it is built", FEATURES.filter((f) => needsOf(f).length && statusOf(f) !== "idea").length === 0);
+check("4. and anything that needs something says it needs a key or backend", FEATURES.filter((f) => needsOf(f).length && statusOf(f) !== "service").length === 0);
 check("4. a tab strip, a footer and a gallery work now and need nothing", ["tabs-panel", "footer", "gallery"].every((id) => statusOf({ id }) === "works" && needsOf({ id }).length === 0));
 
 const WHOLE = ["scroll-snap", "smooth-scroll", "cursor-effects", "page-transitions", "dark-mode", "print", "i18n", "cookie-consent", "analytics", "testing", "error-handling", "pwa"];
@@ -90,7 +93,7 @@ check("8. the whole-site features he listed are switches", notSwitch.length === 
 const keys = new Set(FORMAT_FIELDS.map((f) => f.id));
 const noField = WHOLE.map((id) => switchOf(id)).filter((s) => s?.kind === "format" && !keys.has(s.key));
 check("8. and every switch kept in Format has its field there, so the brief carries it", noField.length === 0, noField.map((s) => s.key).join(", "));
-check("8. a switch the live page runs is Works now; one only the brief carries is an idea", switchStatus("scroll-snap") === "works" && switchStatus("page-transitions") === "works" && switchStatus("analytics") === "idea");
+check("8. a switch the published page runs works; one only the brief carries needs a build", switchStatus("scroll-snap") === "works" && switchStatus("page-transitions") === "works" && switchStatus("testing") === "build" && switchStatus("analytics") === "service");
 
 /* The site's own words, never filler. */
 const FILLER = /\b(warm|summit|quick|canvas|signal|bright|orbit|ledger|harbour|meadow|lantern)\b/i;
@@ -124,8 +127,8 @@ if (!URL_) {
     }
     throw new Error("No Playwright found. npm i -D playwright, or set PLAYWRIGHT_MODULE.");
   })();
-  mkdirSync(".screenshots/lane-e", { recursive: true });
-  const shot = (page, n) => page.screenshot({ path: `.screenshots/lane-e/shelf-cards-${n}.png` });
+  mkdirSync(".screenshots/lane-i", { recursive: true });
+  const shot = (page, n) => page.screenshot({ path: `.screenshots/lane-i/shelf-cards-${n}.png` });
 
   const doc = JSON.parse(readFileSync(new URL("../site/document.json", import.meta.url), "utf8"));
   /* Reveal on scroll carried by some of its parts, the way a captured site carries it. */
@@ -172,8 +175,8 @@ if (!URL_) {
     does: e.querySelector("[data-card-does]")?.textContent?.trim() ?? "",
     badge: e.querySelector("[data-status-badge]")?.textContent?.trim() ?? "",
   })));
-  check("6. every card on the open category says what it does, under its name", cards.length > 10 && cards.every((c) => c.does.length > 8), cards.filter((c) => c.does.length <= 8).map((c) => c.id).join(", ") || `${cards.length} cards`);
-  check("4. and wears Works now or Idea, needs building", cards.every((c) => c.badge === "Works now" || c.badge === "Idea, needs building"));
+  check("6. every card on the open category says what it does, under its name", cards.length > 5 && cards.every((c) => c.does.length > 8), cards.filter((c) => c.does.length <= 8).map((c) => c.id).join(", ") || `${cards.length} cards`);
+  check("4. and wears one of the four badges", cards.every((c) => Object.values(STATUS_LABEL).includes(c.badge)), [...new Set(cards.map((c) => c.badge))].join(", "));
   const layoutText = await page.locator("[data-category-open]").innerText();
   check("6. no filler words on the open category", !FILLER.test(layoutText), (layoutText.match(FILLER) ?? [""])[0]);
   const ember = await page.$$eval("[data-category-open] .ember", (els) => els.length);
@@ -191,7 +194,7 @@ if (!URL_) {
   check("7. and adds nothing to the page", (await state()).nodes.length === before, `${before} parts`);
   const detailText = await dialog.innerText();
   check("7. the detail card says what it does, whether it works, what it needs and where it goes",
-    /What it does/i.test(detailText) && /Works now/.test(detailText) && /What it needs/i.test(detailText) && /Added at the foot of/.test(detailText));
+    /What it does/i.test(detailText) && /Works when published/.test(detailText) && /What it needs/i.test(detailText) && /Added at the foot of/.test(detailText));
   await shot(page, "detail");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
@@ -231,7 +234,8 @@ if (!URL_) {
   check("5. motion cards show a page of the site moving, never an empty box", demos.length >= 10 && demos.every((n) => n > 5), `${demos.length} demos, ${demos.filter((n) => n <= 5).length} without words`);
 
   /* 9 */
-  const reveal = page.locator('[data-shelf-card="work:reveal"] [data-used-on-page]');
+  /* Reveal on scroll on one part is a version of Appear on scroll: the card counts the parts that use any of its versions. */
+  const reveal = page.locator('[data-shelf-card="reveal-on-scroll"] [data-used-on-page]');
   const said = Number(await reveal.getAttribute("data-used-on-page"));
   check("9. a card used on the page says how many parts use it", said === revealed.length, `${said} said, ${revealed.length} carry it`);
   await reveal.click();
@@ -260,17 +264,22 @@ if (!URL_) {
   check("8. analytics is a switch kept in the brief's Format", (await state()).format?.["build.analytics"] === true && (await an.getAttribute("data-on")) === "1");
   await shot(page, "engine");
 
-  /* 11 */
+  /* 11: the library's features on the shelf: a card of their own, or a version of the card that does the same */
   const SAMPLES = new Map(LIBRARY.map((w) => [w.manifest.id, w.manifest.look.sample]));
-  const WHERE = [...new Set(LIBRARY.map((w) => w.manifest.category))];
+  const OWN = Object.entries(SHELF_GROUPS).flatMap(([cat, gs]) => gs.flatMap((g) => g.items.filter((k) => k.startsWith("work:")).map((k) => ({ id: k.slice(5), cat }))));
   const worksSeen = [];
   let playedOnShow = 0;
-  for (const cat of WHERE) {
+  for (const cat of [...new Set(OWN.map((o) => o.cat))]) {
     await page.locator(`[data-category="${cat}"]`).first().click();
     /* Shown, and not hovered: a card that plays on its own has played because it was shown. */
     await page.mouse.move(2, 2);
     await page.waitForTimeout(350);
-    playedOnShow += await page.$$eval("[data-category-open] [data-work-card] .md-anim", (els) => els.length);
+    /* Grouped by purpose, a feature's card may sit below the fold: each is brought into view, and plays as it arrives. */
+    for (const id of await page.$$eval("[data-category-open] [data-work-card]", (els) => els.map((e) => e.getAttribute("data-work-card")))) {
+      await page.locator(`[data-work-card="${id}"]`).scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      playedOnShow += await page.locator(`[data-work-card="${id}"] .md-anim`).count();
+    }
     const cardsHere = await page.$$eval("[data-category-open] [data-work-card]", (els) => els.map((e) => ({
       id: e.getAttribute("data-work-card"),
       demo: e.querySelector("[data-motion-demo]")?.getAttribute("data-motion-demo") ?? null,
@@ -281,16 +290,20 @@ if (!URL_) {
   }
   const ours = worksSeen.filter((c) => SAMPLES.has(c.id));
   const bare = ours.filter((c) => !c.demo || c.demo === "named" || c.words.trim() === SAMPLES.get(c.id));
-  check("11. every working feature's card shows its effect on a piece of the site, never a symbol and a word",
-    ours.length === LIBRARY.length && bare.length === 0, `${ours.length} of ${LIBRARY.length} cards${bare.length ? `; bare: ${bare.map((c) => `${c.id}=${c.demo}`)}` : `: ${ours.map((c) => `${c.id}→${c.demo}`).join(", ")}`}`);
+  check("11. every working feature with a card of its own shows its effect on a piece of the site, never a symbol and a word",
+    ours.length === OWN.length && bare.length === 0, `${ours.length} of ${OWN.length} cards${bare.length ? `; bare: ${bare.map((c) => `${c.id}=${c.demo}`)}` : `: ${ours.map((c) => `${c.id}→${c.demo}`).join(", ")}`}`);
+  const versioned = LIBRARY.map((w) => w.manifest.id).filter((id) => !OWN.some((o) => o.id === id));
+  check("11. and every other one is a version of the card that does the same", versioned.every((id) => itemOf(`work:${id}`) && itemOf(`work:${id}`) !== `work:${id}`), versioned.map((id) => `${id} → ${itemOf(`work:${id}`)}`).join(", "));
   const SITE = /BLACKORB|Power in the dark|Built for the next block|\$BORB|Chain 4663/;
   const unsited = ours.filter((c) => !["price"].includes(c.demo) && !SITE.test(c.words));
   check("11. and the piece is drawn from the open site, its name and its own words", unsited.length === 0, unsited.map((c) => c.id).join(", ") || "all");
   check("11. cards play their effect once when they are shown", playedOnShow > 0, `${playedOnShow} playing on arrival`);
 
-  await open("interact");
+  await open("motion");
   const card = page.locator('[data-work-card="hover-lift"]');
   await card.scrollIntoViewIfNeeded();
+  /* Away first: a card scrolled in under a resting pointer has not been entered, and only entering wakes it. */
+  await page.mouse.move(2, 2);
   await page.waitForTimeout(2000);
   const still = await card.locator(".md-anim").count();
   await card.hover();
@@ -305,10 +318,20 @@ if (!URL_) {
   await shot(page, "work-detail");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
-  for (const id of ["copy-toast", "press-shows"]) {
-    await page.locator(`[data-work-card="${id}"]`).click();
-    await page.waitForTimeout(900);
-    await shot(page, `work-${id}`);
+  /* A feature that is a version: its card's detail offers it, and picking it shows its effect. */
+  for (const [item, cat, version] of [["copy-button", "interact", "work:copy-toast"], ["tabs-panel", "structure", "work:press-shows"]]) {
+    await open(cat);
+    await page.locator(`[data-tile="${item}"]`).click();
+    await page.waitForTimeout(600);
+    const chip = page.locator(`[data-part-detail="${item}"] [data-version="${version}"]`);
+    check(`11. ${version.slice(5)} is offered as a version of ${item}`, (await chip.count()) === 1);
+    if (await chip.count()) {
+      await chip.click();
+      await page.waitForTimeout(700);
+      const demo = await page.locator(`[data-part-detail="${item}"] [data-motion-demo]`).first().getAttribute("data-motion-demo").catch(() => null);
+      check(`11. and picking it shows its effect`, !!demo && demo !== "named", demo ?? "none");
+    }
+    await shot(page, `work-${version.slice(5)}`);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
   }

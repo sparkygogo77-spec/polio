@@ -214,7 +214,8 @@ export function ContextMenus({ id, content, theme: t, mode, emit }: PartProps) {
 
 /** One click to copy, and a moment of proof. */
 export function CopyButton({ id, content, theme: t, mode, emit }: PartProps) {
-  const value = items(content, ["npm create polio@latest"])[0]!;
+  /* Nothing typed: a sample on the board, nothing on the published page (never this tool's own command). */
+  const value = items(content, [unwritten(mode, () => "npm create site@latest", "the value to copy", t.published)])[0] ?? "";
   const [copied, setCopied] = React.useState(false);
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", gap: 6 }}>

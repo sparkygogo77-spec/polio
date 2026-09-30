@@ -25,11 +25,12 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, p
 
   const background =
     id === "hero-gradient"
-      ? `radial-gradient(90% 90% at 20% 20%, ${t.accent}40, transparent 65%), ${t.bg}`
+      /* Tints through color-mix: a colour written as oklch() takes no hex alpha, and `${colour}40` dropped the whole background. */
+      ? `radial-gradient(90% 90% at 20% 20%, ${tint(t.accent, 25)}, transparent 65%), ${t.bg}`
       : id === "hero-video"
-        ? `linear-gradient(160deg, ${t.muted}33, ${t.bg})`
+        ? `linear-gradient(160deg, ${tint(t.muted, 20)}, ${t.bg})`
         : id === "hero-particles"
-          ? `radial-gradient(60% 60% at 70% 30%, ${t.accent}22, transparent 70%), ${t.bg}`
+          ? `radial-gradient(60% 60% at 70% 30%, ${tint(t.accent, 13)}, transparent 70%), ${t.bg}`
           : t.bg;
 
   return (
@@ -49,8 +50,9 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, p
         </h1>
         {subline ? <p dir="auto" style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 1.15, maxWidth: t.measurePx }}>{subline}</p> : null}
         <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-          <Btn t={t} label="Get started" onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: "Get started" }))} />
-          <Btn t={t} label="Learn more" primary={false} onClick={() => emit?.({ type: "toast", text: "Learn more" })} />
+          {/* Buttons nobody pointed anywhere are the board's sample: on the published page only a button with a link is drawn. */}
+          {!t.published || link ? <Btn t={t} label="Get started" onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: "Get started" }))} /> : null}
+          {!t.published ? <Btn t={t} label="Learn more" primary={false} onClick={() => emit?.({ type: "toast", text: "Learn more" })} /> : null}
         </div>
       </div>
       {split ? <div style={{ flex: 1, height: "100%" }}><PictureSlot t={t} pic={picture?.pic} src={picture?.src} label={visualLabel} mode={mode} /></div> : null}
@@ -77,6 +79,8 @@ function Caret({ t, mode }: { t: Theme; mode: PartProps["mode"] }) {
  * wrongly the moment anything changes width.
  */
 export function ValueProp({ id, content, spans, options, h, theme: t, mode, onNavigate }: PartProps) {
+  /* The central idea is a note for whoever builds the site, drawn as a pitch on the board: never on the published page. */
+  if (id === "gimmick" && t.published) return null;
   // One sentence, never a list: it breaks at a line of its own, not at a
   // comma. Read as a comma list, trendtrader.pro's "50% · $5,000 in market
   // buys" drew as "50% · $5" (tests/heading-commas.mjs).
@@ -128,4 +132,9 @@ export function ProofStrip({ id, content, theme: t }: PartProps) {
       {names.map((n, i) => <span key={n + i}>{n}</span>)}
     </Fill>
   );
+}
+
+/** A colour at a share of its strength, however the colour is written. */
+function tint(colour: string, percent: number): string {
+  return `color-mix(in oklab, ${colour} ${percent}%, transparent)`;
 }

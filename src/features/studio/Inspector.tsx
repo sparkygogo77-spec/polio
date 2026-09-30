@@ -41,6 +41,10 @@ import { growToWords } from "./growToWords";
 import { WorkFields } from "./WorkFields";
 import { capturedFrom, insideControl, isMachineLabel, partName, wordsOf } from "./partNames";
 import { decisions } from "./library/badge";
+import { PartFields } from "./PartFields";
+
+/** The Element panel draws only the Version row from the fields data; its other rows are its own. */
+const VERSION_ONLY = ["version"] as const;
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -1141,6 +1145,9 @@ export function Inspector() {
           />
         </Field>
         ) : null}
+
+        {/* The shelf item's versions, read off the item's data (`partOptions.ts`): switching one swaps the part that draws. */}
+        <PartFields node={node} only={VERSION_ONLY} />
 
         {feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))).length ? (
           <div className="space-y-2 rounded-md border border-border p-2">

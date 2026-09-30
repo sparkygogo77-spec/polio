@@ -27,15 +27,21 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ArrowUpRight, Check, CornerDownRight, Plus, X } from "lucide-react";
+import { ArrowUpRight, Check, CornerDownRight, KeyRound, Plus, StickyNote, X } from "lucide-react";
 import { getFeature, categoryOf, type FeatureDef } from "./catalog";
-import { useStudio } from "./store";
+import { useStudio, type StudioNode } from "./store";
 import { PartPreview } from "./PartPreview";
 import { MotionDemo, hasDemo } from "./MotionDemo";
 import { shapeOf } from "./showcase";
 import { planetOf } from "./planets";
 import { themeFrom } from "./blocks";
+import { resolvePalette, type Theme } from "./parts/theme";
+import { parseColor } from "./look";
+import { paintedPalette, readableTheme } from "./shelfTheme";
 import { getWork, usesOf, withWork, type Work } from "./library/works";
+import { siteVersions, type SiteVersion } from "./library/siteVersions";
+import { VARIANTS, itemOf, publishOf } from "./shelfPlan";
+import { isWorkKey, workIdOf } from "./shelfGroups";
 import {
   NEED_LABEL, NEED_MEANS, STATUS_LABEL, STATUS_MEANS, doesOf, exampleContent, footprintOf, formatSwitchOn,
   needsOf, siteWordsOf, statusOf, switchOf, switchStatus, whereOf, type Need, type SiteWords, type Status,
@@ -80,11 +86,64 @@ export function useSiteWords(): SiteWords {
   return React.useMemo(() => JSON.parse(key) as SiteWords, [key]);
 }
 
-export function useSiteTheme() {
+/**
+ * The theme the shelf's previews are drawn in: the site's, in the colours
+ * its page actually paints most when it was captured, with every pair of
+ * words and ground held readable (`shelfTheme.ts`).
+ *
+ * Recounted when the page, its number of parts or the site's colours
+ * change, never on a drag: the painted count walks the whole page.
+ */
+export function useSiteTheme(): Theme {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const siteName = useStudio((s) => s.brief.name);
-  return React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
+  const pageKey = useStudio((s) => `${s.activePageId}:${s.nodes.length}`);
+  return React.useMemo(() => shelfThemeOf(useStudio.getState(), format, look, siteName), [format, look, siteName, pageKey]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** The shelf's theme for a document: pure but for `themeFrom`, so a check can call it with a document of its own. */
+export function shelfThemeOf(
+  s: { nodes: readonly StudioNode[]; activePageId: string },
+  format: Parameters<typeof themeFrom>[0],
+  look: Parameters<typeof themeFrom>[1],
+  siteName: string,
+): Theme {
+  let t = themeFrom(format, look, siteName);
+  const captured = s.nodes.some((n) => !!n.from) || !!(look as { paletteFrom?: unknown } | undefined)?.paletteFrom;
+  let colours: string[] = [];
+  if (captured) {
+    const declared = resolvePalette(format, look);
+    const onPage = s.nodes.filter((n) => n.pageId === s.activePageId);
+    const painted = paintedPalette(onPage.length ? onPage : s.nodes, declared, declared.bg);
+    if (painted) {
+      const light = (parseColor(painted.bg)?.l ?? 0) >= 0.6;
+      const { fills: _f, words: _w, ...roles } = painted;
+      void _f; void _w;
+      t = themeFrom({ ...format, "palette.mode": light ? "light" : "dark" }, { ...(look ?? {}), palette: roles } as Parameters<typeof themeFrom>[1], siteName);
+      colours = [...painted.fills.slice(0, 8).map((f) => f.colour), ...painted.words.slice(0, 8).map((w) => w.colour)];
+    }
+  }
+  /* A preview shows the thing on the site's page, not the site's textures over it: they are drawn in colours no pair was checked against. */
+  const r = readableTheme({ ...t, surfaceStyle: undefined, surfacePaint: undefined, overlayStyle: undefined, partGround: undefined }, colours);
+  return { ...r, backdrop: r.bg };
+}
+
+/**
+ * The parts on the open page that are this shelf item in any of its
+ * versions: the parts it stands for, or a library feature that is one of
+ * its versions, carried by a part.
+ */
+export function useUsedByItem(item: string, opts: { notSelf?: boolean } = {}): string[] {
+  const plan = VARIANTS[item];
+  /* A whole-site switch's own parts are the switch, said by the switch; what is counted is the parts using its other versions. */
+  const keys = (plan ? [item, ...plan.more.map((m) => m.key)] : [item]).filter((k) => !(opts.notSelf && k === item));
+  const partIds = new Set(keys.filter((k) => !isWorkKey(k)));
+  const workIds = new Set(keys.filter(isWorkKey).map(workIdOf));
+  const key = useStudio((s) => s.nodes
+    .filter((n) => n.pageId === s.activePageId && (partIds.has(n.featureId) || usesOf(n.work).some((u) => workIds.has(u.id) && !u.off)))
+    .map((n) => n.id).join(","));
+  return React.useMemo(() => (key ? key.split(",") : []), [key]);
 }
 
 /** The parts on the open page that are this catalogue part, or carry this working feature. */
@@ -93,6 +152,50 @@ export function useUsedBy(kind: "part" | "work", id: string): string[] {
     .filter((n) => n.pageId === s.activePageId && (kind === "part" ? n.featureId === id : usesOf(n.work).some((u) => u.id === id && !u.off)))
     .map((n) => n.id).join(","));
   return React.useMemo(() => (key ? key.split(",") : []), [key]);
+}
+
+/**
+ * What the open site's capture brought that the shelf offers again: its own
+ * versions of shelf items (`library/siteVersions.ts`), filed under the item
+ * each is a version of.
+ */
+export function useSiteVersions(): Map<string, SiteVersion[]> {
+  const nodes = useStudio((s) => s.nodes);
+  const keyframes = useStudio((s) => (s.look as { keyframes?: unknown }).keyframes);
+  const name = useStudio((s) => s.brief.name);
+  return React.useMemo(() => {
+    const by = new Map<string, SiteVersion[]>();
+    const frames = Array.isArray(keyframes) ? (keyframes as Parameters<typeof siteVersions>[1]) : [];
+    for (const v of siteVersions(nodes, frames, name)) by.set(v.item, [...(by.get(v.item) ?? []), v]);
+    return by;
+  }, [nodes, keyframes, name]);
+}
+
+/** An item's versions: its own, the near-copies it stands for, and the open site's. */
+export interface Version { id: string; key: string; label: string; site?: SiteVersion }
+export function versionsOf(item: string, site: Map<string, SiteVersion[]>): Version[] {
+  const plan = VARIANTS[item];
+  const own: Version[] = plan ? [{ id: item, key: item, label: plan.self }, ...plan.more.map((m) => ({ id: m.key, key: m.key, label: m.label }))] : [{ id: item, key: item, label: "" }];
+  const theirs = (site.get(item) ?? []).map((v) => ({
+    id: `site:${v.host}`,
+    key: v.take.kind === "work" ? `work:${v.take.id}` : item,
+    label: v.label,
+    site: v,
+  }));
+  return [...own, ...theirs];
+}
+
+/** "3 versions", and "From example.com" when the open site brought its own. */
+function VersionsLine({ count, hosts }: { count: number; hosts: string[] }) {
+  if (count < 2 && !hosts.length) return null;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {count >= 2 ? <span data-versions={count} className="whitespace-nowrap rounded-full px-1.5 py-px text-fine text-fg-muted" style={{ boxShadow: "inset 0 0 0 1px var(--border)" }}>{count} versions</span> : null}
+      {hosts.map((h) => (
+        <span key={h} data-from-site={h} className="whitespace-nowrap rounded-full px-1.5 py-px text-fine font-medium" style={{ background: "oklch(0.78 0.14 150 / 0.14)", color: "oklch(0.86 0.13 150)" }}>From {h}</span>
+      ))}
+    </span>
+  );
 }
 
 /** A whole-site switch's state: on everywhere, on some pages, or off. */
@@ -117,6 +220,8 @@ export function setSwitch(featureId: string, on: boolean) {
   const st = useStudio.getState();
   play(on ? "confirm" : "close");
   if (sw.kind === "format") { st.setFormat(sw.key, on ? sw.on : sw.off); return; }
+  /* The Format field that says the same thing follows, so the brief and the shelf agree. */
+  if (sw.mirror) st.setFormat(sw.mirror.key, on ? sw.mirror.on : sw.mirror.off);
   if (!on) { st.removeNodes(st.nodes.filter((n) => n.featureId === featureId).map((n) => n.id)); return; }
   const f = getFeature(featureId);
   for (const p of st.pages) {
@@ -161,7 +266,7 @@ export function jumpTo(ids: string[]) {
 /* Badges                                                              */
 /* ------------------------------------------------------------------ */
 
-const STATUS_HUE: Record<Status, number> = { works: 150, idea: 75 };
+const STATUS_HUE: Record<Status, number> = { works: 150, build: 75, service: 250, note: 300 };
 
 export function StatusBadge({ status }: { status: Status }) {
   const hue = STATUS_HUE[status];
@@ -171,7 +276,7 @@ export function StatusBadge({ status }: { status: Status }) {
       className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-px text-fine font-medium"
       style={{ background: `oklch(0.78 0.14 ${hue} / 0.16)`, color: `oklch(0.86 0.13 ${hue})`, boxShadow: `inset 0 0 0 1px oklch(0.78 0.14 ${hue} / 0.45)` }}
     >
-      {status === "works" ? <Check className="size-3" /> : <CornerDownRight className="size-3" />}
+      {status === "works" ? <Check className="size-3" /> : status === "note" ? <StickyNote className="size-3" /> : status === "service" ? <KeyRound className="size-3" /> : <CornerDownRight className="size-3" />}
       {STATUS_LABEL[status]}
     </span>
   );
@@ -307,6 +412,7 @@ export function ThingPreview({ feature, width, height, words, playing, loop }: {
       height={height}
       play={playing || loop}
       ground="page"
+      theme={t}
       /* A thin strip is drawn narrower still, so the words on it are big enough to read. */
       drawWidth={shapeOf(feature) === "strip" ? 720 : 960}
       content={feature.preset?.content ? undefined : exampleContent(feature, words)}
@@ -314,12 +420,16 @@ export function ThingPreview({ feature, width, height, words, playing, loop }: {
   );
 }
 
-export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, onRemove }: {
+export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, onRemove, versions = 1, hosts = [] }: {
   feature: FeatureDef; width: number; words: SiteWords; onRemove?: () => void;
+  /** How many versions the item offers, its own included. */
+  versions?: number;
+  /** Sites whose own version of it the open board carries. */
+  hosts?: string[];
 }) {
   const { awake, wake, rest, shown } = useWake();
-  const used = useUsedBy("part", feature.basedOn ? "" : feature.id);
   const sw = switchOf(feature.id);
+  const used = useUsedByItem(feature.basedOn ? "" : feature.id, { notSelf: !!sw });
   const status = sw ? switchStatus(feature.id) : statusOf(feature);
   const needs = needsOf(feature);
   const open = () => { play("select"); openDetail({ kind: "part", id: feature.id }); };
@@ -366,8 +476,10 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
         <div className="mt-auto flex flex-wrap items-center gap-1 pt-0.5">
           <StatusBadge status={status} />
           {needs.map((n) => <NeedBadge key={n} need={n} />)}
+          <VersionsLine count={versions} hosts={hosts} />
         </div>
-        {sw ? <SwitchRow featureId={feature.id} compact /> : <UsedLine ids={used} />}
+        {sw ? <SwitchRow featureId={feature.id} compact /> : null}
+        <UsedLine ids={used} />
       </div>
       {onRemove ? (
         <button
@@ -390,10 +502,12 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
 const WORK_NEED: Record<string, Need | null> = { none: null, wallet: "wallet", backend: "backend", key: "key" };
 
 /** A working feature, taken from one of his sites: the same card, with its own preview. */
-export function WorkShelfCard({ work, width, words, picture }: { work: Work; width: number; words: SiteWords; picture?: (w: number, h: number) => React.ReactNode }) {
+export function WorkShelfCard({ work, width, words, picture, versions = 1, hosts = [] }: {
+  work: Work; width: number; words: SiteWords; picture?: (w: number, h: number) => React.ReactNode; versions?: number; hosts?: string[];
+}) {
   const m = work.manifest;
   const { awake, wake, rest, shown } = useWake();
-  const used = useUsedBy("work", m.id);
+  const used = useUsedByItem(`work:${m.id}`);
   const t = useSiteTheme();
   const need = WORK_NEED[m.needs] ?? null;
   const open = () => { play("select"); openDetail({ kind: "work", id: m.id }); };
@@ -402,7 +516,7 @@ export function WorkShelfCard({ work, width, words, picture }: { work: Work; wid
     <div
       data-shelf-card={`work:${m.id}`}
       data-work-card={m.id}
-      data-status="works"
+      data-status={statusOf(`work:${m.id}`, m.needs)}
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-md border border-border bg-panel transition-colors hover:border-fg-faint"
       style={{ width }}
       ref={shown}
@@ -420,8 +534,9 @@ export function WorkShelfCard({ work, width, words, picture }: { work: Work; wid
         </div>
         <p data-card-does="" className="line-clamp-2 text-fine leading-snug text-fg-muted">{m.blurb}</p>
         <div className="mt-auto flex flex-wrap items-center gap-1 pt-0.5">
-          <StatusBadge status="works" />
+          <StatusBadge status={statusOf(`work:${m.id}`, m.needs)} />
           {need ? <NeedBadge need={need} /> : null}
+          <VersionsLine count={versions} hosts={hosts} />
         </div>
         <UsedLine ids={used} />
       </div>
@@ -464,7 +579,7 @@ export function PartDetail({ add }: { add: (featureId: string) => string }) {
   if (!o) return null;
   return (
     <div data-part-detail-backdrop="" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" onPointerDown={(e) => { if (e.target === e.currentTarget) openDetail(null); }}>
-      {o.kind === "part" ? <PartBody id={o.id} add={add} /> : <WorkBody id={o.id} add={add} />}
+      <ItemBody key={`${o.kind}:${o.id}`} start={o.kind === "work" ? `work:${o.id}` : o.id} add={add} />
     </div>
   );
 }
@@ -550,112 +665,151 @@ export function SeeOnShelf({ category, children }: { category: string; children:
   );
 }
 
-function PartBody({ id, add }: { id: string; add: (featureId: string) => string }) {
-  const feature = getFeature(id);
+/**
+ * Put a library feature on the picked part, or on a new line of text when
+ * nothing is picked. It has no look of its own: the part keeps its look.
+ */
+function putWork(id: string, inputs: Record<string, string>, add: (featureId: string) => string) {
+  const st = useStudio.getState();
+  const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) ?? null : null;
+  if (picked) {
+    st.updateNode(picked.id, { work: withWork(picked.work, { id, inputs }) });
+    play("confirm");
+    openDetail(null);
+    jumpTo([picked.id]);
+    return;
+  }
+  const at = add("prose");
+  useStudio.getState().updateNode(at, { content: getWork(id)?.manifest.look.sample ?? "", work: { id, inputs }, w: 240, h: 40 });
+  openDetail(null);
+  jumpTo([at]);
+}
+
+/** Put a site's own version on the picked part, or on a new part when nothing is picked. */
+function putSiteVersion(v: SiteVersion, add: (featureId: string) => string) {
+  const take = v.take;
+  if (take.kind === "work") { putWork(take.id, take.inputs, add); return; }
+  const st = useStudio.getState();
+  const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) ?? null : null;
+  const target = picked?.id ?? add(take.kind === "embed" ? "box" : "prose");
+  const node = useStudio.getState().nodes.find((n) => n.id === target);
+  if (take.kind === "motion") {
+    const before = (node?.motion ?? {}) as Record<string, unknown>;
+    useStudio.getState().updateNode(target, { motion: { ...before, ...take.motion } as StudioNode["motion"] });
+  } else {
+    useStudio.getState().updateNode(target, { embed: take.embed as unknown as StudioNode["embed"] });
+  }
+  play("confirm");
+  openDetail(null);
+  jumpTo([target]);
+}
+
+/**
+ * One detail card for any shelf item, with its versions.
+ *
+ * The versions are the near-copies the item stands for (`shelfPlan.ts`)
+ * and the open site's own (`library/siteVersions.ts`). Picking one shows
+ * it, says what it does and whether it works published, and is what Add
+ * puts on the page.
+ */
+function ItemBody({ start, add }: { start: string; add: (featureId: string) => string }) {
+  const item = itemOf(start) ?? start;
+  const site = useSiteVersions();
+  const versions = React.useMemo(() => versionsOf(item, site), [item, site]);
+  const [pick, setPick] = React.useState(() => (versions.some((v) => v.id === start) ? start : versions[0]!.id));
+  const v = versions.find((x) => x.id === pick) ?? versions[0]!;
   const words = useSiteWords();
-  const used = useUsedBy("part", feature?.basedOn ? "" : id);
+  const t = useSiteTheme();
   const pageName = useStudio((s) => s.pages.find((p) => p.id === s.activePageId)?.name ?? "this page");
-  if (!feature) return null;
-  const sw = switchOf(id);
-  const status = sw ? switchStatus(id) : statusOf(feature);
-  const needs = needsOf(feature);
+  const picked = useStudio(useShallow((s) => (s.selection.length === 1 ? s.nodes.find((n) => n.id === s.selection[0]) ?? null : null)));
+  const isWork = isWorkKey(v.key);
+  const work = isWork ? getWork(workIdOf(v.key)) : undefined;
+  const feature = isWork ? undefined : getFeature(v.key);
+  const head = isWorkKey(item) ? getWork(workIdOf(item))?.manifest : getFeature(item);
+  const used = useUsedBy(isWork ? "work" : "part", isWork ? workIdOf(v.key) : feature?.basedOn ? "" : v.key);
+  if (!head || (!work && !feature)) return null;
+  const title = "name" in head ? head.name : "";
+  const category = "category" in head ? head.category : "";
+  const sw = !isWork && !v.site ? switchOf(v.key) : null;
+  const needs: Need[] = work ? (WORK_NEED[work.manifest.needs] ? [WORK_NEED[work.manifest.needs]!] : []) : needsOf(feature!);
+  const status: Status = work ? statusOf(`work:${work.manifest.id}`, work.manifest.needs) : statusOf(feature!);
+  const does = work ? work.manifest.blurb : feature!.explain ?? doesOf(feature!);
+  const p = publishOf(v.key);
+  const addKey = isWork ? v.key : v.key;
+  const onAdd = () => {
+    if (v.site) { putSiteVersion(v.site, add); return; }
+    if (work) { putWork(work.manifest.id, {}, add); return; }
+    addAndShow(v.key, add);
+  };
+  const preview = (w: number, h: number, on: boolean) => (work
+    ? <WorkPreview work={work} t={t} words={words} width={w} height={h} playing={on} />
+    : <ThingPreview feature={feature!} width={w} height={h} words={words} playing={on} />);
   return (
     <Shell
-      title={feature.name}
-      category={feature.category}
-      attr={{ "data-part-detail": id }}
-      preview={<Played>{(on) => <ThingPreview feature={feature} width={440} height={280} words={words} playing={on} />}</Played>}
+      title={title}
+      category={category}
+      attr={{ "data-part-detail": start, "data-item": item }}
+      preview={<Played>{(on) => preview(440, 280, on)}</Played>}
     >
+      {versions.length > 1 ? (
+        <Row title="Versions">
+          <div data-versions-row="" className="flex flex-wrap gap-1.5">
+            {versions.map((x) => {
+              const on = x.id === v.id;
+              return (
+                <button
+                  key={x.id}
+                  type="button"
+                  data-version={x.id}
+                  aria-pressed={on}
+                  onClick={() => { play("select"); setPick(x.id); }}
+                  className="tactile rounded-full px-2.5 py-1 text-small font-medium"
+                  style={{
+                    background: on ? "oklch(0.78 0.14 150 / 0.22)" : "oklch(1 0 0 / 0.04)",
+                    color: on ? "oklch(0.9 0.1 150)" : undefined,
+                    boxShadow: `inset 0 0 0 1px ${on ? "oklch(0.78 0.14 150 / 0.6)" : "var(--border)"}`,
+                  }}
+                >
+                  {x.label || title}
+                </button>
+              );
+            })}
+          </div>
+        </Row>
+      ) : null}
       <Row title="What it does">
-        <p className="text-plain text-fg">{feature.explain ?? doesOf(feature)}</p>
+        <p className="text-plain text-fg">{does}</p>
+        {v.site ? <p data-site-version="" className="text-fine text-fg-muted">The version {v.site.host} uses, with the settings measured on its page: {v.site.parts.length} part{v.site.parts.length === 1 ? "" : "s"} there carry it.</p> : null}
+        {work?.from ? <p className="text-fine text-fg-faint">Taken from {work.from}.</p> : null}
       </Row>
       <Row title="On your site">
         <p className="text-small text-fg-muted">
           {sw
             ? "A setting for the whole site: every page gets it, and nothing is placed on a page."
-            : `Added at the foot of ${pageName}, ${footprintOf(feature).toLowerCase()}. It usually sits: ${whereOf(feature).toLowerCase()}. Drag its card onto the board to put it anywhere.`}
+            : work || v.site
+              ? `It goes onto a part and that part keeps its look. ${picked ? `The picked part, “${picked.label}”, can take it.` : "Pick a part on the board first to put it there, or add it on a new part."}`
+              : `Added at the foot of ${pageName}, ${footprintOf(feature!).toLowerCase()}. It usually sits: ${whereOf(feature!).toLowerCase()}. Drag its card onto the board to put it anywhere.`}
         </p>
-        {feature.category === "motion" ? <SeeMotionTab className="self-start" /> : null}
+        {category === "motion" ? <SeeMotionTab className="self-start" /> : null}
       </Row>
-      <Row title="Works now, or needs building">
-        <div className="flex items-start gap-2 text-small text-fg-muted"><StatusBadge status={status} /><span>{STATUS_MEANS[status]}</span></div>
+      <Row title="When published">
+        <div className="flex items-start gap-2 text-small text-fg-muted">
+          <StatusBadge status={v.site ? "works" : status} />
+          <span>{v.site ? "Runs on the published site, as it ran on the site it came from." : p.kind === "still" && status === "build" ? `The published site shows it still: it waits on ${p.waits}, which a build makes real.` : STATUS_MEANS[v.site ? "works" : status]}</span>
+        </div>
       </Row>
       <NeedsRow needs={needs} />
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        {sw ? <div className="min-w-[260px] flex-1"><SwitchRow featureId={id} /></div> : (
+        {sw ? <div className="min-w-[260px] flex-1"><SwitchRow featureId={v.key} /></div> : (
           <button
             type="button"
-            data-add-to-page={id}
-            onClick={() => addAndShow(id, add)}
+            data-add-to-page={v.site ? `site:${v.site.host}` : addKey}
+            onClick={onAdd}
             className="tactile flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-small font-medium text-accent-fg"
           >
-            <Plus className="size-3.5" /> Add to page
+            {(work || v.site) && picked ? <><Check className="size-3.5" /> Put on “{picked.label}”</> : <><Plus className="size-3.5" /> Add to page</>}
           </button>
         )}
-        <UsedLine ids={used} />
-      </div>
-    </Shell>
-  );
-}
-
-function WorkBody({ id, add }: { id: string; add: (featureId: string) => string }) {
-  const work = getWork(id);
-  const words = useSiteWords();
-  const t = useSiteTheme();
-  const used = useUsedBy("work", id);
-  const picked = useStudio(useShallow((s) => (s.selection.length === 1 ? s.nodes.find((n) => n.id === s.selection[0]) ?? null : null)));
-  if (!work) return null;
-  const m = work.manifest;
-  const need = WORK_NEED[m.needs] ?? null;
-  const onPicked = () => {
-    if (!picked) return;
-    useStudio.getState().updateNode(picked.id, { work: withWork(picked.work, { id, inputs: {} }) });
-    play("confirm");
-    openDetail(null);
-    jumpTo([picked.id]);
-  };
-  const onNew = () => {
-    const at = add("prose");
-    useStudio.getState().updateNode(at, { content: m.look.sample, work: { id, inputs: {} }, w: 240, h: 40 });
-    openDetail(null);
-    jumpTo([at]);
-  };
-  return (
-    <Shell
-      title={m.name}
-      category={m.category}
-      attr={{ "data-part-detail": `work:${id}` }}
-      preview={<Played>{(on) => <WorkPreview work={work} t={t} words={words} width={440} height={280} playing={on} />}</Played>}
-    >
-      <Row title="What it does">
-        <p className="text-plain text-fg">{m.blurb}</p>
-        {work.from ? <p className="text-fine text-fg-faint">Taken from {work.from}.</p> : null}
-      </Row>
-      <Row title="On your site">
-        <p className="text-small text-fg-muted">
-          It has no look of its own: it goes onto a part and that part keeps its look. {picked ? `The picked part, “${picked.label}”, can take it.` : "Pick a part on the board first to put it there, or add it on a new line of text."}
-        </p>
-        {m.category === "motion" ? <SeeMotionTab className="self-start" /> : null}
-      </Row>
-      <Row title="Works now, or needs building">
-        <div className="flex items-start gap-2 text-small text-fg-muted"><StatusBadge status="works" /><span>Runs on the published site as it is.</span></div>
-      </Row>
-      <NeedsRow needs={need ? [need] : []} />
-      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        {picked ? (
-          <button type="button" data-work-put={id} onClick={onPicked} className="tactile flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-small font-medium text-accent-fg">
-            <Check className="size-3.5" /> Put on “{picked.label}”
-          </button>
-        ) : null}
-        <button
-          type="button"
-          data-add-to-page={`work:${id}`}
-          onClick={onNew}
-          className={cn("tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-small font-medium", picked ? "text-fg-muted hover:text-fg" : "bg-accent text-accent-fg")}
-          style={picked ? { boxShadow: "inset 0 0 0 1px var(--border)" } : undefined}
-        >
-          <Plus className="size-3.5" /> Add to page
-        </button>
         <UsedLine ids={used} />
       </div>
     </Shell>

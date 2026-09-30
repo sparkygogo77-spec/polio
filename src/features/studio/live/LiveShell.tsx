@@ -11,12 +11,19 @@ import type { Behaviours } from "./behaviours";
 
 interface Props {
   behaviours: Behaviours;
+  /**
+   * On the published page the chrome this draws is drawn by the page's own
+   * script (`library/siteMotion.ts`), so none of it is written into the
+   * markup: an opening wipe frozen over the page, a "described, not
+   * simulated" note about how the Builder works, a bar stuck at 0.
+   */
+  published?: boolean;
   accent: string;
   surface: string;
   children: React.ReactNode;
 }
 
-export function LiveShell({ behaviours: b, accent, surface, children }: Props) {
+export function LiveShell({ behaviours: b, accent, surface, children, published = false }: Props) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [progress, setProgress] = React.useState(0);
   const [past, setPast] = React.useState(false);
@@ -135,6 +142,7 @@ export function LiveShell({ behaviours: b, accent, surface, children }: Props) {
     return () => window.removeEventListener("builder:success", onWin);
   }, [b.confetti]);
 
+  if (published) return <div ref={rootRef} data-live-shell="" style={{ display: "contents" }}>{children}</div>;
   return (
     <div
       ref={rootRef}

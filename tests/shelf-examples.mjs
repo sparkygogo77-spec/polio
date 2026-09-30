@@ -110,7 +110,8 @@ for (const id of cats) {
   await page.waitForTimeout(250);
 }
 
-check("every tile in the shelf was looked at", seen > 200, `${seen} tiles across ${cats.length} categories`);
+/* One card per thing since Lane I (its near-copies are versions on its detail card): every catalogue card on the shelf. */
+check("every tile in the shelf was looked at", seen >= 150, `${seen} tiles across ${cats.length} categories`);
 check(
   "every element in the shelf shows what it is, rather than a grey rectangle",
   blank.length === 0,

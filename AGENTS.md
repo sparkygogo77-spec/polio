@@ -136,7 +136,18 @@ src/features/studio/
                  repo), roundTrip.ts + repoFeatures.ts (features/ folders read
                  back from the owner's own repos, offered for review; never
                  run), useLibrary.ts (accepted features, kept across sites)
-  WorkShelf.tsx  the shelf's Working band and the review card for offers
+  WorkShelf.tsx  the review card for features offered from a repository
+  shelfGroups.ts where every shelf item sits: groups by purpose, in order
+  shelfPlan.ts   near-copies as versions of one card, what was taken off,
+                 and what the published page does with each id (badges)
+  shelfTheme.ts  the colours a captured page paints most, by area, and
+                 every preview pair held to 4.5 to 1
+  partOptions.ts every part's editable fields as data (version, words,
+                 link, options, colours, speed, feature inputs) by panel
+                 section; PartFields.tsx is the small reader
+  library/siteMotion.ts  what the export ships so whole-site motions,
+                 folding rows, tabs and Copy work published
+  library/siteVersions.ts a capture's effects as versions of shelf cards
   SayBox.tsx     the one box on the pencil: type, it applies, "understood as …"
   index.ts       routes, commands, shortcuts, and every context menu
 ```

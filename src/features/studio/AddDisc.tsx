@@ -31,7 +31,8 @@ import { Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
-import { CATEGORIES, featuresByCategory, searchFeatures, SUBGROUPS, type CategoryId, type FeatureDef } from "./catalog";
+import { CATEGORIES, featuresByCategory, getFeature, searchFeatures, SUBGROUPS, type CategoryId, type FeatureDef } from "./catalog";
+import { itemOf } from "./shelfPlan";
 import { RimButton } from "./DrawBoard";
 import { useGround } from "./ground";
 import { BOARD_R } from "./menuGeometry";
@@ -100,7 +101,15 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
   const rows = React.useMemo<Row[]>(() => {
     const keep = (f: FeatureDef) => !hidden.includes(f.id);
     if (searching) {
-      const found = searchFeatures(query).filter(keep);
+      /* One row per shelf item: a version is found as the item it belongs to, and what was taken off the shelf is not offered (`shelfPlan.ts`). */
+      const seen = new Set<string>();
+      const found = searchFeatures(query).filter(keep).flatMap((f) => {
+        const item = f.basedOn ? f.id : itemOf(f.id);
+        const it = item && !item.startsWith("work:") ? getFeature(item) : undefined;
+        if (!it || seen.has(it.id)) return [];
+        seen.add(it.id);
+        return [it];
+      });
       return [{ kind: "head", id: "found", label: found.length ? `${found.length} found` : "Nothing by that name" }, ...found.map((f) => ({ kind: "part" as const, id: f.id, feature: f }))];
     }
     const inCategory = featuresByCategory(category).filter(keep);
@@ -113,7 +122,7 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
       out.push({ kind: "head", id: g.id, label: g.label });
       for (const f of parts) { out.push({ kind: "part", id: f.id, feature: f }); placed.add(f.id); }
     }
-    for (const f of inCategory) if (!placed.has(f.id)) out.push({ kind: "part", id: f.id, feature: f });
+    for (const f of inCategory) if (!placed.has(f.id) && (f.basedOn || !groups.length)) out.push({ kind: "part", id: f.id, feature: f });
     return out;
   }, [category, query, searching, hidden]);
   /** The rows that can be chosen, as indexes into `rows`. */

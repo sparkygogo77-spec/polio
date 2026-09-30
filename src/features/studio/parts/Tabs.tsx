@@ -7,8 +7,9 @@ import * as React from "react";
 import { Fill } from "./primitives";
 import { cardStyle, items, titled } from "./theme";
 import { opt, type PartProps } from "./types";
+import { unwritten } from "./sample";
 
-export function Tabs({ id, content, options, theme: t }: PartProps) {
+export function Tabs({ id, content, options, theme: t, mode }: PartProps) {
   const tabs = items(content, ["Overview", "Details", "Reviews"]).map(titled);
   const style = opt(options, "style", "underline");
   const [active, setActive] = React.useState(0);
@@ -45,7 +46,7 @@ export function Tabs({ id, content, options, theme: t }: PartProps) {
               role="tab"
               id={`${uid}-tab-${i}`}
               aria-selected={on}
-              aria-controls={`${uid}-panel`}
+              aria-controls={`${uid}-panel-${i}`}
               tabIndex={on ? 0 : -1}
               onClick={() => setActive(i)}
               onKeyDown={onKey}
@@ -65,14 +66,19 @@ export function Tabs({ id, content, options, theme: t }: PartProps) {
           );
         })}
       </div>
-      <div
-        role="tabpanel"
-        id={`${uid}-panel`}
-        aria-labelledby={`${uid}-tab-${idx}`}
-        style={{ flex: 1, minHeight: 0, marginTop: t.fontPx * 0.6, ...cardStyle(t), padding: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.9, overflow: "auto" }}
-      >
-        {tabs[idx]?.body ?? `${tabs[idx]?.title} content`}
-      </div>
+      {/* Every panel is drawn, the others hidden, so the published page (no React) can switch them (`library/siteMotion.ts`). */}
+      {tabs.map((tab, i) => (
+        <div
+          key={tab.title + i}
+          role="tabpanel"
+          id={`${uid}-panel-${i}`}
+          aria-labelledby={`${uid}-tab-${i}`}
+          hidden={i !== idx}
+          style={{ flex: 1, minHeight: 0, marginTop: t.fontPx * 0.6, ...cardStyle(t), padding: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.9, overflow: "auto" }}
+        >
+          {tab.body ?? unwritten(mode, () => `${tab.title} content`, tab.title, t.published)}
+        </div>
+      ))}
     </Fill>
   );
 }

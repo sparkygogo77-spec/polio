@@ -347,6 +347,8 @@ const MARK: Record<string, string> = {
 
 /** Notes, ideas, moods and rules — written to the board, not to the site. */
 export function Note({ id, label, content, theme: t }: PartProps) {
+  /* Words for whoever builds the site: in the blueprint, never on a page a stranger reads. */
+  if (t.published) return null;
   const body = content.trim();
   const kind = id === "constraint" ? "Rule" : id === "mood" ? "Reference" : id === "note" ? "Note" : id === "wildcard" ? "Surprise me" : "Idea";
   return (

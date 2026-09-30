@@ -30,6 +30,7 @@ import type { SiteWords } from "./shelfFacts";
 import { Block, themeFrom } from "./blocks";
 import { overrideTheme, resolvePalette, type NodeColour } from "./parts/theme";
 import { allWorks, type WorkPicture } from "./library/works";
+import { placedWorks } from "./shelfPlan";
 import { useLibrary } from "./library/useLibrary";
 import { checkRepoFeatures } from "./library/repoFeatures";
 
@@ -79,18 +80,26 @@ export function WorkShelf({ category, width = 232, words, gap = 10 }: { category
   const checking = useLibrary((s) => s.checking);
   const repo = useBuilds((s) => s.projects.find((p) => p.id === s.activeId)?.repo ?? null);
   // Recomputed when the library changes: `accepted` is what `allWorks` reads.
-  const works = React.useMemo(() => allWorks().filter((w) => w.manifest.category === category.id), [accepted, category.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /*
+   * Only the features the shelf plan does not already show. The library's
+   * own each have their place, as a card or as a version of one
+   * (`shelfPlan.ts`); what is left is what came back from a repository.
+   */
+  const works = React.useMemo(() => {
+    const placed = new Set(placedWorks());
+    return allWorks().filter((w) => w.manifest.category === category.id && !placed.has(w.manifest.id));
+  }, [accepted, category.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const isData = category.id === "data";
-  if (!works.length && !isData) return null;
+  if (!works.length && !(isData && repo)) return null;
   const check = () => {
     if (!repo) return;
     play("tap");
     void checkRepoFeatures({ owner: repo.owner, name: repo.name, ref: repo.branch }, heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "");
   };
   return (
-    <section data-shelf-group="Works now, taken from your sites" className="mb-4">
+    <section data-shelf-group="Taken from your repositories" className="mb-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="shrink-0 text-small font-medium" style={{ color: `oklch(0.86 0.1 ${category.hue})` }}>Works now, taken from your sites</span>
+        <span className="shrink-0 text-small font-medium" style={{ color: `oklch(0.86 0.1 ${category.hue})` }}>Taken from your repositories</span>
         <span className="h-px flex-1 bg-border" />
         {isData && repo ? (
           <button

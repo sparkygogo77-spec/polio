@@ -246,7 +246,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       <CarriedFonts fonts={look?.fonts} />
       {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}
       {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
-      <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
+      <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface} published={published}>
         <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
           {/* The pool the lamp puts on the page ("Light on the page"), as the
               board draws it (Canvas, data-frame-light): under the parts, so

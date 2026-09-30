@@ -21,6 +21,7 @@
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";
+import type { Theme } from "./parts/theme";
 import type { FeatureDef } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
 import { previewContent } from "./showcase";
@@ -57,8 +58,10 @@ export function previewHeight(feature: FeatureDef, width: number): number {
  * the part on every change — so it always starts from the beginning and is
  * always left at rest, never halfway through.
  */
-export function PartPreview({ feature, width, height, round, play, ground = "surface", content, drawWidth }: {
+export function PartPreview({ feature, width, height, round, play, ground = "surface", content, drawWidth, theme: given }: {
   feature: FeatureDef; width: number; height: number; round?: boolean; play?: boolean;
+  /** The theme to draw in, when the caller has one of its own (the shelf's readable one, `shelfTheme.ts`). */
+  theme?: Theme;
   /**
    * What the part stands on. `surface` (the default) is the add disc's
    * reading, below. `page` is the parts shelf's: the site's own page
@@ -78,7 +81,7 @@ export function PartPreview({ feature, width, height, round, play, ground = "sur
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const siteName = useStudio((s) => s.brief.name);
-  const site = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
+  const site = React.useMemo(() => given ?? themeFrom(format, look, siteName), [given, format, look, siteName]);
   // Everything the part would paint as "the page" becomes the surface instead.
   const theme = React.useMemo(
     () => (ground === "page" ? site : { ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined, partGround: undefined, overlayStyle: undefined }),

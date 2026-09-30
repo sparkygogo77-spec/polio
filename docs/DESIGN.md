@@ -139,9 +139,31 @@ same boxes as everywhere else, in the screen's colours.
   would look for it (Persuasion beside Proof on First screen, Shop inside
   Forms, the terminal with Data). Regrouping never moves an id: a saved
   page holds ids, not categories, and the drawing board's reader validates
-  ids, so the library can be re-sorted without a migration. Collapsing
-  ids into fewer parts, or moving the behaviours into the page's wheel,
-  are separate decisions and were not approved.
+  ids, so the library can be re-sorted without a migration. Near-copies are
+  one card with versions (Lane I, `shelfPlan.ts`): the ids stay, a saved
+  page still draws each, and the card's detail offers them. Moving the
+  behaviours into the page's wheel is a separate decision, not approved.
+- **One card per thing; its near-copies are its versions.** Six opening
+  banners that differed in what stands behind the headline are one Opening
+  banner with six versions; a built-in whole-site motion and the library
+  feature that does it to one part are one card; a captured site's own
+  version of an effect is one more version, "As on <site>", on the card
+  that does the same (`library/siteVersions.ts`). What is not a part of a
+  page (a principle, a Format setting drawn as a specimen, a board tool)
+  is off the shelf, with where it lives instead. Groups are ordered by
+  what a person is trying to do, most useful first (`shelfGroups.ts`).
+  `tests/shelf-plan.mjs`.
+- **The badge says what the published page does.** Works when published
+  (drawn complete, or its script ships: `library/siteMotion.ts`), Needs a
+  build (shown still), Needs a key or backend, or For the builder only
+  (never on the page). A card never says it works when the exported page
+  would only show a picture of it; `tests/shelf-publish.mjs` exports every
+  one that says so and presses it.
+- **Every word on a preview reads.** The shelf draws in the colours the
+  captured page actually paints most, by area (`shelfTheme.ts`), and every
+  pair of words and ground is held to 4.5 to 1; when the site's pair fails
+  it takes the closest readable pair of the site's own, else plain light
+  on dark. `tests/shelf-readable.mjs` on three captured sites.
 - **A shelf card is a promise about the thing, so it says what it is.**
   Its name, one line of what it does, whether it works now or is an idea
   that needs building, and what it needs (a key, a backend, money). Its

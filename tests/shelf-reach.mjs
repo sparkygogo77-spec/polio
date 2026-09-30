@@ -13,6 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/catalog.ts";
+import { REMOVED, VARIANT_OF } from "../src/features/studio/shelfPlan.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -26,8 +27,14 @@ for (const [category, subs] of Object.entries(SUBGROUPS)) {
   for (const g of subs) for (const id of g.ids) grouped.set(id, (grouped.get(id) ?? []).concat(`${category}/${g.id}`));
 }
 
-const unreachable = [...ids].filter((id) => !grouped.has(id));
-check("every part is in a sub-group, so the drawer can reach it", unreachable.length === 0, `${ids.size} parts, ${unreachable.length} in none${unreachable.length ? `: ${unreachable.join(", ")}` : ""}`);
+/*
+ * Lane I: a near-copy is a version of the card that stands for it (its
+ * detail card offers it), and what is not a part of a page was taken off
+ * with a reason (`shelfPlan.ts`). Either way it is accounted for.
+ */
+const versionOf = (id) => VARIANT_OF.get(id);
+const unreachable = [...ids].filter((id) => !grouped.has(id) && !(versionOf(id) && grouped.has(versionOf(id))) && !REMOVED[id]);
+check("every part is in a sub-group, a version of a card that is, or taken off with a reason", unreachable.length === 0, `${ids.size} parts, ${unreachable.length} in none${unreachable.length ? `: ${unreachable.join(", ")}` : ""}`);
 
 const twice = [...grouped].filter(([, where]) => where.length > 1);
 check("and in one sub-group only", twice.length === 0, twice.map(([id, w]) => `${id} in ${w.join(" and ")}`).join("; "));

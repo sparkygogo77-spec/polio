@@ -23,7 +23,7 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, ChevronUp, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import {
-  CATEGORIES, SUBGROUPS, allCategories, getFeature, searchFeatures, type CategoryDef,
+  CATEGORIES, allCategories, getFeature, searchFeatures, type CategoryDef,
   type CategoryId, type FeatureDef,
 } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
@@ -33,7 +33,11 @@ import { planetOf } from "./planets";
 import { moonFor } from "./moons";
 import { shapeOf } from "./showcase";
 import { switchOf, type SiteWords } from "./shelfFacts";
-import { PartDetail, SeeMotionTab, ShelfCard, useSiteWords } from "./ShelfCards";
+import { PartDetail, SeeMotionTab, ShelfCard, WorkShelfCard, useSiteVersions, useSiteWords, versionsOf } from "./ShelfCards";
+import { itemOf, shelfOf } from "./shelfPlan";
+import { isWorkKey, workIdOf } from "./shelfGroups";
+import { allWorks, getWork } from "./library/works";
+import type { SiteVersion } from "./library/siteVersions";
 import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -422,12 +426,52 @@ function OpenShelf() {
   const brought = useStudio(useShallow((s) => s.brought));
 
   const all = React.useMemo(() => searchFeatures(query), [query, brought]);
-  const live = React.useMemo(() => all.filter((f) => !hiddenSet.has(f.id)), [all, hiddenSet]);
+  /*
+   * ONE CARD PER THING. A part that is a version of another shelf item is
+   * shown as that item (a search for "questions" finds Folding rows, whose
+   * versions hold Questions and answers), and one taken off the shelf is not
+   * shown at all (`shelfPlan.ts`). A repository's parts are their own.
+   */
+  const live = React.useMemo(() => {
+    const out = new Map<string, FeatureDef>();
+    for (const f of all) {
+      if (hiddenSet.has(f.id)) continue;
+      if (f.basedOn || String(f.category).startsWith("repo:")) { out.set(f.id, f); continue; }
+      const item = itemOf(f.id);
+      if (!item || isWorkKey(item) || hiddenSet.has(item)) continue;
+      const it = getFeature(item);
+      if (it) out.set(item, it);
+    }
+    return [...out.values()];
+  }, [all, hiddenSet]);
+  /* The library's working features the shelf places, matched the same way: by their name, what they do and the words that attach them. */
+  const liveWorks = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const keys = new Set<string>();
+    for (const w of allWorks()) {
+      const m = w.manifest;
+      if (q && ![m.name, m.blurb, m.id, ...m.says].some((x) => x.toLowerCase().includes(q))) continue;
+      const item = itemOf(`work:${m.id}`);
+      if (item) keys.add(item);
+    }
+    return keys;
+  }, [query]);
+  const siteVersions = useSiteVersions();
 
   const shelf = React.useMemo(() => allCategories(), [brought]);
+  /* A category's items as the shelf shows them: the plan's groups, what the search left in each. */
+  const itemsOf = React.useCallback((categoryId: string): { id: string; label: string; keys: string[] }[] => {
+    const plan = shelfOf(categoryId);
+    if (!plan.length) return [{ id: categoryId, label: "", keys: live.filter((f) => f.category === categoryId).map((f) => f.id) }];
+    return plan.map(({ group, entries }) => ({
+      id: group.id,
+      label: group.label,
+      keys: entries.map((e) => e.key).filter((k) => (isWorkKey(k) ? liveWorks.has(k) : live.some((f) => f.id === k)) || (!isWorkKey(k) && liveWorks.has(k))),
+    })).filter((g) => g.keys.length);
+  }, [live, liveWorks]);
   const categories = React.useMemo(
-    () => shelf.filter((c) => live.some((f) => f.category === c.id)),
-    [live, shelf],
+    () => shelf.filter((c) => itemsOf(c.id).length),
+    [itemsOf, shelf],
   );
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
 
@@ -436,8 +480,8 @@ function OpenShelf() {
      same way an open category is, by size and shape. */
   /* Searching crosses every category, so the results are grouped by the category each belongs to: by purpose, like an open one. */
   const found = React.useMemo(
-    () => (searching ? shelf.map((category) => ({ category, items: live.filter((f) => f.category === category.id) })).filter((g) => g.items.length) : []),
-    [searching, live, shelf],
+    () => (searching ? shelf.map((category) => ({ category, keys: itemsOf(category.id).flatMap((g) => g.keys) })).filter((g) => g.keys.length) : []),
+    [searching, itemsOf, shelf],
   );
   const words = useSiteWords();
   const removeCard = React.useCallback((id: string) => { play("deny"); useStudio.getState().hideFeature(id); }, []);
@@ -718,10 +762,10 @@ function OpenShelf() {
               {found.length && here.length ? (
                 <div data-shelf-results="" className="mb-2 mt-1 text-small font-medium text-fg-muted">Add from the shelf</div>
               ) : null}
-              {found.map(({ category, items }) => (
+              {found.map(({ category, keys }) => (
                 <Band key={category.id} title={category.label} hue={category.hue}>
                   <div className="flex flex-wrap items-stretch" style={{ gap: GAP }}>
-                    {items.map((f) => <ShelfCard key={f.id} feature={f} width={widthOf(f)} words={words} onRemove={() => removeCard(f.id)} />)}
+                    {keys.map((k) => <EntryCard key={k} entry={k} widthOf={widthOf} cardWidth={layout.width} words={words} onRemove={removeCard} site={siteVersions} />)}
                   </div>
                 </Band>
               ))}
@@ -787,7 +831,7 @@ function OpenShelf() {
                           with no names. The rail gives back the disc's size
                           and the count, never the name. */}
                       <span data-category-name="" className={cn("text-center leading-tight", anyOpen ? "text-fine" : "text-small")}>{c.label}</span>
-                      {anyOpen ? null : <span className="num text-fine text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>}
+                      {anyOpen ? null : <span className="num text-fine text-fg-faint">{itemsOf(c.id).reduce((n, g) => n + g.keys.length, 0)}</span>}
                     </button>
                   </Tooltip>
                 );
@@ -844,7 +888,8 @@ function OpenShelf() {
               <CategorySection
                 key={c.id}
                 category={c}
-                live={live}
+                groups={itemsOf(c.id)}
+                site={siteVersions}
                 widthOf={widthOf}
                 cardWidth={layout.width}
                 words={words}
@@ -901,10 +946,12 @@ function OpenShelf() {
  * only thing the wheel talks to.
  */
 function CategorySection({
-  category, live, widthOf, cardWidth, words, onRemove, gap, onClose,
+  category, groups: all, site, widthOf, cardWidth, words, onRemove, gap, onClose,
 }: {
   category: CategoryDef;
-  live: FeatureDef[];
+  /** The category's groups as the shelf shows them, each with the items the search left in it. */
+  groups: { id: string; label: string; keys: string[] }[];
+  site: Map<string, SiteVersion[]>;
   widthOf: (f: FeatureDef) => number;
   cardWidth: number;
   words: SiteWords;
@@ -916,52 +963,20 @@ function CategorySection({
   /*
    * PRESSING A CATEGORY DOES NOT SCROLL ANYTHING. It opens the category.
    *
-   * This used to scroll the shelf to bring the opening section to the top,
-   * and before that it called `scrollIntoView`, which scrolls every
-   * scrollable ancestor and so took the pane with it — the site jumping
-   * upward on its own the moment a planet was pressed. Scrolling the shelf
-   * by hand fixed the pane and left the complaint: the view still moved when
-   * all that was asked for was for a category to open.
+   * With one category open at a time the planets shrink to a rail
+   * (`PLANET_DISC` in this file), which frees enough of the strip that the
+   * section's header is on screen the moment it opens. So there is nothing
+   * to scroll to, and nothing scrolls. The shelf moves when it is pushed,
+   * never on its own.
    *
-   * The reason it moved was real, and it is fixed at the cause rather than
-   * papered over. The planets filled the shelf's box on their own, so a
-   * section opening underneath them opened off the bottom and a planet
-   * looked like a dead button. With one category open at a time the planets
-   * shrink to a rail (`PLANET_DISC` in this file), which frees enough of the
-   * strip that the section's header is on screen the moment it opens. So
-   * there is nothing to scroll to, and nothing scrolls.
-   *
-   * The wheel still works, and the person still drives it. That is the
-   * whole of it: the shelf moves when it is pushed, never on its own.
+   * GROUPED BY PURPOSE, the most useful first (`shelfGroups.ts`): what the
+   * parts are for, never their footprint, which is a small tag on each card.
+   * A category a repository brought has no plan: its parts are whatever
+   * that page was made of, in the order the page had them.
    */
-  const subs = React.useMemo(
-    () => (SUBGROUPS[category.id] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id))),
-    [category.id, live],
-  );
-  const shown = React.useMemo(() => {
-    /* A category the catalogue wrote has sub-groups, and they are the
-       reading order. A category a repository brought has none — its parts
-       are whatever that page turned out to be made of — so it shows all of
-       them, in the order the page had them. */
-    if (!subs.length) return live.filter((f) => f.category === category.id);
-    const group = subs.find((g) => g.id === sub);
-    const ids = group ? group.ids : subs.flatMap((g) => g.ids);
-    return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
-  }, [live, sub, subs, category.id]);
-  /*
-   * GROUPED BY PURPOSE. The sub-groups are what the parts are for, so they
-   * are the groups; footprint was the grouping ("Full width, shallow", "A
-   * quarter each") and it answered a question nobody choosing a part asks.
-   * It is a small tag on each card now.
-   */
-  const groups = React.useMemo(() => {
-    const byId = new Map(shown.map((f) => [f.id, f]));
-    if (!subs.length) return [{ id: category.id, label: category.label, items: shown }];
-    return subs
-      .filter((g) => !sub || g.id === sub)
-      .map((g) => ({ id: g.id, label: g.label, items: g.ids.map((id) => byId.get(id)).filter((f): f is FeatureDef => !!f) }))
-      .filter((g) => g.items.length);
-  }, [shown, subs, sub, category.id, category.label]);
+  const planned = all.length > 1 || (all[0] && all[0].id !== category.id);
+  const subs = planned ? all : [];
+  const groups = React.useMemo(() => all.filter((g) => !sub || g.id === sub), [all, sub]);
 
   return (
     /* As tall as the shelf leaves it, never shorter than its cards: an open
@@ -1003,7 +1018,7 @@ function CategorySection({
               >
                 {React.createElement(moonFor(g.id), { size: 12 })}
                 <span className="whitespace-nowrap">{g.label}</span>
-                <span className="num text-fine opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
+                <span className="num text-fine opacity-60">{g.keys.length}</span>
               </button>
             );
           })}
@@ -1013,16 +1028,31 @@ function CategorySection({
       <div className="px-3 py-2">
         <WorkShelf category={category} width={cardWidth} words={words} gap={gap} />
         {groups.map((g) => (
-          <Band key={g.id} title={g.label} hue={category.hue} mark={subs.length ? moonFor(g.id) : undefined}>
+          <Band key={g.id} title={g.label || category.label} hue={category.hue} mark={subs.length ? moonFor(g.id) : undefined}>
             {/* Stretched to the row, so every card in a row ends on one line. */}
             <div className="flex flex-wrap items-stretch" style={{ gap }}>
-              {g.items.map((f) => <ShelfCard key={f.id} feature={f} width={widthOf(f)} words={words} onRemove={() => onRemove(f.id)} />)}
+              {g.keys.map((k) => <EntryCard key={k} entry={k} widthOf={widthOf} cardWidth={cardWidth} words={words} onRemove={onRemove} site={site} />)}
             </div>
           </Band>
         ))}
       </div>
     </section>
   );
+}
+
+/** One shelf item's card: a catalogue part or a library feature, with its versions and the open site's. */
+function EntryCard({ entry, widthOf, cardWidth, words, onRemove, site }: {
+  entry: string; widthOf: (f: FeatureDef) => number; cardWidth: number; words: SiteWords; onRemove: (id: string) => void; site: Map<string, SiteVersion[]>;
+}) {
+  const versions = versionsOf(entry, site);
+  const plan = versions.filter((v) => !v.site).length;
+  const hosts = [...new Set(versions.flatMap((v) => (v.site ? [v.site.host] : [])))];
+  if (isWorkKey(entry)) {
+    const w = getWork(workIdOf(entry));
+    return w ? <WorkShelfCard work={w} width={cardWidth} words={words} versions={plan} hosts={hosts} /> : null;
+  }
+  const f = getFeature(entry);
+  return f ? <ShelfCard feature={f} width={widthOf(f)} words={words} onRemove={() => onRemove(f.id)} versions={plan} hosts={hosts} /> : null;
 }
 
 function Band({ title, children, hue, mark }: { title: string; children: React.ReactNode; hue?: number; mark?: (p: { size?: number }) => React.ReactNode }) {

@@ -576,6 +576,11 @@ export const MOON: Record<string, (p: IconProps) => React.ReactElement> = {
   "accounts-and-data": AccountsAndData,
   "running-it": RunningIt,
   "talking-out": TalkingOut,
+  /* Groups the shelf plan added: marks borrowed from the nearest kind. */
+  "moving-words": TypeTreatment,
+  "on-its-own": Moments,
+  "press-to-show": DirectHandling,
+  together: People,
 };
 
 export function moonFor(id: string) {
