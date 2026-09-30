@@ -162,6 +162,17 @@ export function scrub(s: string): string {
   return out;
 }
 
+/**
+ * Text carried into the file with how the site was made taken out: an element
+ * path the capture found a thing at ("body > main > div"), and the addresses
+ * it was captured from. What the text says about the function stays.
+ */
+export function unmade(s: string, hosts: readonly string[] = []): string {
+  let out = s.replace(/\b(?:html\s*>\s*)?body(?:\s*>\s*[\w.#:()\[\]="'-]+)+/g, "the part on the page");
+  for (const h of hosts) out = out.split(h).join("the site");
+  return out.replace(/Captured from/g, "Taken from");
+}
+
 /* ------------------------------------------------------------------ */
 /* The file                                                            */
 /* ------------------------------------------------------------------ */
@@ -263,6 +274,8 @@ export function polioMd(site: PolioSite): string {
   const where = (n: Part) => `${code(fileOf(n.pageId))} ${code(`#${n.id}`)}`;
   const look = site.look ?? {};
   const capture = look.capture ?? null;
+  /* The hosts the parts were captured from: taken out of anything carried into the file. */
+  const captureHosts = [...new Set(nodes.map((n) => { try { return n.from?.url ? new URL(n.from.url).host : ""; } catch { return ""; } }).filter(Boolean))];
   const name = one(site.brief?.name ?? "") || "This site";
   const out: string[] = [];
   const say = (...lines: string[]) => out.push(...lines);
@@ -341,8 +354,11 @@ export function polioMd(site: PolioSite): string {
       .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0) || cmp(a.id, b.id));
     say(`### ${cell(p.name || p.id)}`, "", `- Path: ${code(p.path?.trim() || "/")}`, `- File: ${code(home.file(p))}`, `- Parts: ${on.length}${captured ? `, of which ${main.length} sit ${MAIN_DEPTH} or fewer levels deep in the captured page and are listed here` : ""}`, "");
     if (!main.length) { say("No parts.", ""); continue; }
-    say("| Part id | Kind | Shows | Selector | Captured as |", "|---|---|---|---|---|");
-    for (const n of main.slice(0, MOST_PARTS)) say(`| ${code(n.id)} | ${cell(n.featureId ?? "part", 24)} | ${partSays(n)} | ${code(`#${n.id}`)} | ${n.from?.selector ? code(cell(n.from.selector, 120)) : "—"} |`);
+    /* The selector a part is at in the published page, never the element path
+       it was captured at: that path is how the site was made, and a published
+       repository says nothing about that (tests/publish-leak.mjs, round-trip). */
+    say("| Part id | Kind | Shows | Selector |", "|---|---|---|---|");
+    for (const n of main.slice(0, MOST_PARTS)) say(`| ${code(n.id)} | ${cell(n.featureId ?? "part", 24)} | ${partSays(n)} | ${code(`#${n.id}`)} |`);
     if (main.length > MOST_PARTS) say("", `And ${main.length - MOST_PARTS} more; each is ${code("#<part id>")} in ${code(home.file(p))}.`);
     say("");
   }
@@ -478,7 +494,7 @@ export function polioMd(site: PolioSite): string {
   say("## 4. Not captured, for the backend", "");
   if (capture?.handoff) {
     say("### Functions not captured (the capture's hand-off)", "", "Carried over from the capture's own report: the function, its inputs and states, the calls it makes and the parts to attach it to.", "");
-    say(...scrub(capture.handoff).split("\n").map((l) => (/^#{1,5}\s/.test(l) ? `#${l}` : l)), "");
+    say(...unmade(scrub(capture.handoff), captureHosts).split("\n").map((l) => (/^#{1,5}\s/.test(l) ? `#${l}` : l)), "");
   }
   const tasks = nodes.filter((n) => n.task?.trim());
   if (tasks.length) {
@@ -504,16 +520,14 @@ export function polioMd(site: PolioSite): string {
   /* ---------------------------------------------------------- 5. Source */
   say("## 5. Source", "");
   const src = capture?.source ?? site.source ?? null;
-  const hosts = [...new Set(nodes.map((n) => n.from?.url ? n.from.url : "").filter(Boolean))].sort();
-  const taken = nodes.map((n) => n.from?.at).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
   if (src) {
     say(`- Repository: ${code(cell(src.repo, 120))}`);
     if (src.dir) say(`- Folder: ${code(cell(src.dir, 120))}`);
     say(`- Branch: ${code(cell(src.branch || "the default branch", 120))}`);
     say(`- Commit: ${src.commit ? code(src.commit) : "not recorded"}`);
   } else say("- Made in the Builder: not brought in from a repository.");
-  if (hosts.length) say(`- Captured from: ${hosts.slice(0, 8).map((h) => cell(h, 120)).join(", ")}${hosts.length > 8 ? `, and ${hosts.length - 8} more addresses` : ""}`);
-  if (taken.length) say(`- Captured on: ${new Date(Math.min(...taken)).toISOString().slice(0, 10)}`);
+  /* Where the parts were captured from, and when, are not said: a published
+     repository holds the site, not how it was made. */
   if (site.address) say(`- Live at: ${cell(site.address, 120)}`);
   say("");
   return `${out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd()}\n`;

@@ -497,8 +497,12 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
     await cat.click();
     await page.waitForTimeout(900);
     const open = await room();
-    check(`${tag}: opening a category grows the shelf's box`,
-      open.shelfBox > shut.shelfBox, `the band ${shut.band} → ${open.band}, the shelf's box ${shut.shelfBox} → ${open.shelfBox}`);
+    /* An open category stops at about a third of the canvas (d71dd55, the
+       owner's rule); on a phone-sized window a third is about what the shut
+       band takes, so what is held is that opening never gives the cards LESS
+       room than none open, which it did (248 → 242 at 400×800). */
+    check(`${tag}: opening a category never shrinks the shelf's box`,
+      open.shelfBox >= shut.shelfBox, `the band ${shut.band} → ${open.band}, the shelf's box ${shut.shelfBox} → ${open.shelfBox}`);
     check(`${tag}: and the categories still end on the fold`,
       Math.abs(open.drawerBottom - open.fold) <= 1, `the shelf ends at ${open.drawerBottom} in a ${open.fold} window`);
     const sh = await page.locator("[data-shelf]").boundingBox();
@@ -733,7 +737,9 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
   /* Away from the home page: the same rules, and it arrives at the top
      rather than keeping where the last page was left. */
   await wheel("[data-studio-pane]", 400, 20);
-  const other = page.locator('button:has-text("About"), [data-page-id="page_about"]').first();
+  /* The pages are one switcher on the bar now: the current page's name, which opens the list of pages. */
+  if (await page.locator("[data-page-current]").count()) { await page.locator("[data-page-current]").first().click(); await page.waitForTimeout(400); }
+  const other = page.locator('[data-page-menu] button:has-text("About"), button:has-text("About"), [data-page-id="page_about"]').first();
   if (await other.count()) {
     await other.click();
     await page.waitForTimeout(1300);
@@ -810,8 +816,10 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
     await cat.click();
     await page.waitForTimeout(900);
     const open = await look();
-    check("opening a category gives the shelf a much larger box to scroll in",
-      open.shelf.h >= shut.shelf.h * 2,
+    /* Larger, up to about a third of the canvas: no longer double, since the
+       owner capped an open category there (d71dd55, tests/shelf-strip.mjs). */
+    check("opening a category gives the shelf a larger box to scroll in, up to about a third of the canvas",
+      open.shelf.h > shut.shelf.h * 1.3 && open.band.h <= Math.round((open.fold - 88) * 0.34) + 2,
       `the band ${shut.band.h} → ${open.band.h}, the shelf's own box ${shut.shelf.h} → ${open.shelf.h}`);
     check("and it scrolls on its own, without the pane moving",
       open.shelfTravel > 0 && open.paneAt === shut.paneAt,

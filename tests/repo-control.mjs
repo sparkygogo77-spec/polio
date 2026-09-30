@@ -83,7 +83,9 @@ check("the choice is kept on the site in the builds store, the one place everyth
   /repo\?: \{ owner: string; name: string; branch: string \}/.test(builds) && /export const activeRepo/.test(builds));
 check("and not on the document any more", !/siteRepo: s\.siteRepo/.test(store) && !/setSiteRepo/.test(store));
 check("connecting and making both write there, with the branch",
-  /useBuilds\.getState\(\)\.setRepo\(p\.id, repo, how\)/.test(menu0) && !/setSiteRepo/.test(menu0) && /repoFrom\(full, onBranch\)/.test(menu0) && /connect\(r\.name\)/.test(menu0) && /connect\(String\(a\.name\), "made"\)/.test(menu0));
+  /useBuilds\.getState\(\)\.setRepo\(p\.id, repo, how\)/.test(menu0) && !/setSiteRepo/.test(menu0) && /repoFrom\(full, onBranch\)/.test(menu0) && /connect\(r\.name\)/.test(menu0) && /connect\(String\(a\.name\), "made"(, true)?\)/.test(menu0)
+  /* …and neither may take a target another site already publishes to (the shared-target guard). */
+  && /targetTakenBy\(p\.id, repo\)/.test(menu0));
 check("an edit opens its branch by asking the same place", /activeRepo\(\) && !s\.siteBranch/.test(store));
 check("a document that still names one is copied across once", /takeCarriedRepo/.test(store) && /function carryRepos/.test(builds));
 

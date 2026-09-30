@@ -137,7 +137,8 @@ await page.mouse.up();
 await page.waitForTimeout(450);
 await page.keyboard.press("v");
 await page.waitForTimeout(1900);
-await page.locator("[data-space-fill]").first().click({ force: true });
+/* A space just drawn opens picked, with its panel up; the key in its middle is only drawn for an unpicked empty space, so it is pressed only when it is there. */
+if (!(await page.locator("[data-space-panel]").count()) && (await page.locator("[data-space-fill]").count())) await page.locator("[data-space-fill]").first().click({ force: true });
 await page.waitForTimeout(400);
 const panel = page.locator("[data-space-panel]").first();
 check("the space's panel offers a repository", (await panel.locator("[data-repo-name]").count()) === 1 && (await panel.locator("[data-repo-read]").count()) === 1);
@@ -148,16 +149,21 @@ check("the space's panel offers a repository", (await panel.locator("[data-repo-
 
 await panel.locator("[data-repo-name]").fill("harbourworks/harbourline");
 await panel.locator("[data-repo-read]").click();
-await panel.locator("[data-site-take-all]").waitFor({ state: "visible", timeout: 90_000 }).catch(() => undefined);
-const opened = (await panel.locator("[data-site-take-all]").count()) > 0;
+/* A repository's page lands whole on its own now (tests/repo-import.mjs: the
+   automatic landing never passes through the picking stage); a page that
+   still offers the choice is taken whole below. */
+const landedWhole = () => panel.locator("[data-site-said]").innerText().then((t) => /real parts of the library|copied whole|landed/.test(t)).catch(() => false);
+for (let i = 0; i < 180 && !(await panel.locator("[data-site-take-all]").count()) && !(await landedWhole()); i++) await page.waitForTimeout(500);
+const offered = (await panel.locator("[data-site-take-all]").count()) > 0;
+const opened = offered || (await landedWhole());
 check("the page in the repository opens", opened, (await panel.locator("[data-site-said]").innerText().catch(() => "")).slice(0, 160));
 check("its files were fetched from GitHub by the browser, not by our server", asked.some((p) => p.includes("/git/trees/")) && asked.filter((p) => p.includes("/git/blobs/")).length >= 2, asked.join(" "));
 check("and the readme and node_modules were left where they were", asked.filter((p) => p.includes("/git/blobs/")).length === 2, `${asked.filter((p) => p.includes("/git/blobs/")).length} files fetched`);
 
-if (opened) {
+if (offered) {
   await panel.locator("[data-site-take-all]").click();
   await page.waitForTimeout(9000);
-}
+} else if (opened) await page.waitForTimeout(3000);
 
 const st = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {});
 const nodes = st.nodes ?? [];
@@ -213,7 +219,10 @@ const wasThere = (await page.evaluate(() => (JSON.parse(localStorage.getItem("bu
 const repoCard = page.locator(`[data-shelf] [data-ctx-id^="repo:"]`).first();
 if (await repoCard.count()) {
   await repoCard.click({ force: true });
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(700);
+  /* A press on a card opens its detail card and adds nothing (tests/shelf-cards.mjs); Add to page there puts it down. */
+  const addIt = page.locator("[data-part-detail] [data-add-to-page]").first();
+  if (await addIt.count()) { await addIt.click(); await page.waitForTimeout(900); }
 }
 const afterDrop = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {});
 const added = (afterDrop.nodes ?? []).slice(wasThere);

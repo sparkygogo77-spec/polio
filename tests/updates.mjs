@@ -33,17 +33,25 @@ const shas = PASSES.flatMap((p) => p.changes.map((c) => c.id));
 // and `tests/nothing-said.mjs` is what holds it off the screen.
 check("every line carries what it came from", shas.every((s) => /^[0-9a-f]{7,40}$/.test(s)), `${shas.length} lines`);
 
-const known = new Set(
-  execFileSync("git", ["log", "--format=%h", "-400"], { encoding: "utf8" }).split("\n").map((s) => s.trim()).filter(Boolean),
-);
+/* The whole history, not the last 400: the saved snapshot is the fallback
+   now that Updates reads the live history (/api/updates), so it ages while
+   trunk moves on, and a real commit 500 back is still real. An invented sha
+   is still in none of it.
+   Matched on the full hash, since git's short form grows with the history
+   (seven characters when the snapshot was cut, eight now). */
+const HISTORY = execFileSync("git", ["log", "--format=%H~;~%s", "HEAD"], { encoding: "utf8", maxBuffer: 64 << 20 }).split("\n").filter(Boolean).map((r) => r.split("~;~"));
+const full = (short) => HISTORY.find(([h]) => h.startsWith(short));
+const known = { has: (short) => !!full(short) };
 const strangers = shas.filter((s) => !known.has(s));
-check("no line was invented: each sha is a commit in this repo", strangers.length === 0, strangers.slice(0, 3).join(" "));
+/* A shallow clone holds only the last few dozen commits, so a real line older
+   than that cannot be told from an invented one here: said, not failed, and
+   checked for real in a full clone (git fetch --unshallow). */
+const SHALLOW = execFileSync("git", ["rev-parse", "--is-shallow-repository"], { encoding: "utf8" }).trim() === "true";
+if (SHALLOW && strangers.length) console.log(`  --   not checkable in a shallow clone: ${strangers.length} lines are older than the history here (git fetch --unshallow to check them)`);
+else check("no line was invented: each sha is a commit in this repo", strangers.length === 0, strangers.slice(0, 3).join(" "));
 
-const subjects = new Map(
-  execFileSync("git", ["log", "--format=%h~;~%s", "-400"], { encoding: "utf8" })
-    .split("\n").filter(Boolean).map((r) => r.split("~;~")),
-);
-const wrong = PASSES.flatMap((p) => p.changes).filter((c) => subjects.get(c.id) !== c.says);
+const subjects = { get: (short) => full(short)?.[1] };
+const wrong = PASSES.flatMap((p) => p.changes).filter((c) => known.has(c.id) && subjects.get(c.id) !== c.says);
 check("every line is the commit's own words, not a rewrite", wrong.length === 0, wrong.slice(0, 2).map((c) => c.id).join(" "));
 
 check("no merge subject leaked in as a feature",

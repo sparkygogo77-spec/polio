@@ -275,7 +275,7 @@ await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 await page.locator("[data-builds-switch]").first().click(); await page.waitForTimeout(400);
 await page.getByRole("button", { name: /New site/ }).first().click(); await page.waitForTimeout(900);
 const offer = await page.evaluate(() => { const e = document.querySelector("[data-new-site-offer]"); return e ? { text: e.textContent, bring: !!e.querySelector("[data-offer-bring]"), make: !!e.querySelector("[data-offer-make]"), later: !!e.querySelector("[data-offer-later]") } : null; });
-check("a new site is offered an import straight away, with both doors and a way to say not now", !!offer && /no repo yet/.test(offer.text ?? "") && offer.bring && offer.make && offer.later, JSON.stringify(offer));
+check("a new site is offered an import straight away, with both doors and a way to say not now", !!offer && /not on GitHub yet/.test(offer.text ?? "") && offer.bring && offer.make && offer.later, JSON.stringify(offer));
 await page.locator("[data-offer-bring]").click(); await page.waitForTimeout(700);
 check("the bring door opens the one repo menu, with the hand in Bring in", await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Find a repository" && !!document.activeElement.closest('[data-repo-section="bring"]')));
 /* On the new site, publishing to the repository another site was brought in from is refused. */

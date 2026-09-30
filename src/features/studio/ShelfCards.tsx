@@ -42,6 +42,7 @@ import {
 } from "./shelfFacts";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
+import { ctxProps } from "@/core/context-menu/ctx";
 
 /* ------------------------------------------------------------------ */
 /* Which card is open                                                  */
@@ -325,6 +326,10 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
   const inner = Math.max(120, Math.round(width) - 2);
   return (
     <div
+      /* The card is what a person right-clicks on the shelf, so it carries the
+         shelf's scope (AGENTS.md: ctxProps on anything right-clickable); the
+         card that came before this one did, and its menu went with it. */
+      {...ctxProps("studio-palette", feature.id, feature)}
       data-shelf-card={feature.id}
       data-status={status}
       data-site-wide={sw ? "1" : undefined}

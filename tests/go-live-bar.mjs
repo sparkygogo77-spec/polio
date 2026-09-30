@@ -41,6 +41,7 @@ const readBody = (req) => new Promise((ok) => { const c = []; req.on("data", (d)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ghSeen = [];
+let lastCommit = "c0ffee0000";
 const gh = http.createServer(async (req, res) => {
   const body = await readBody(req);
   const path = new URL(req.url, "http://x").pathname;
@@ -56,8 +57,15 @@ const gh = http.createServer(async (req, res) => {
   if (rest.startsWith("/git/commits/")) return send(200, { tree: { sha: "tree0" } });
   if (rest === "/git/blobs") return send(201, { sha: `b${ghSeen.length}` });
   if (rest === "/git/trees") return send(201, { sha: "tree1" });
-  if (rest === "/git/commits") return send(201, { sha: "commit1", html_url: "https://example.invalid/c" });
-  if (rest.startsWith("/git/refs")) return send(200, { object: { sha: "commit1" } });
+  if (rest === "/git/commits") { lastCommit = `c0ffee${String(ghSeen.length).padStart(4, "0")}`; return send(201, { sha: lastCommit, html_url: "https://example.invalid/c" }); }
+  if (rest.startsWith("/git/refs")) {
+    /* Vercel's Git link, played: a push to a repository a project is linked to
+       deploys that project on its own, a moment later (tests/go-live-linked.mjs). */
+    const [org, name] = m[1].split("/");
+    const linked = projects.find((p) => p.link?.org === org && p.link?.repo === name);
+    if (linked && req.method !== "GET") { const s = lastCommit; setTimeout(() => deployments.push({ id: `dpl_${deployments.length + 1}`, polls: 0, by: "git", project: linked.id, sha: s, at: Date.now() }), 600); }
+    return send(200, { object: { sha: lastCommit } });
+  }
   return send(404, { message: "Not Found" });
 });
 
@@ -79,9 +87,14 @@ const vc = http.createServer(async (req, res) => {
     projects.push(p);
     return send(200, p);
   }
+  /* The list the route reads to find a push's own deployment, by its commit. */
+  if (/^\/v\d+\/deployments$/.test(path) && req.method === "GET") {
+    const projectId = new URL(req.url, "http://x").searchParams.get("projectId");
+    return send(200, { deployments: deployments.filter((x) => x.by === "git" && x.project === projectId).map((x) => ({ uid: x.id, id: x.id, readyState: x.polls >= 5 ? "READY" : "BUILDING", url: `top-bar-${x.id}.vercel.app`, created: x.at, meta: { githubCommitSha: x.sha, githubCommitRef: "main" } })) });
+  }
   if (path === "/v13/deployments" && req.method === "POST") {
     const id = `dpl_${deployments.length + 1}`;
-    deployments.push({ id, polls: 0 });
+    deployments.push({ id, polls: 0, by: "api" });
     return send(200, { id, readyState: "QUEUED", url: `top-bar-${id}.vercel.app` });
   }
   const d = path.match(/^\/v13\/deployments\/(dpl_\d+)$/);
@@ -251,6 +264,7 @@ console.log("5. Live: the button updates the site, and the address is a link bes
     localStorage.setItem("builder.studio", JSON.stringify(raw));
   });
   const commits = ghSeen.filter((l) => /POST \/repos\/.*\/git\/commits$/.test(l)).length;
+  const askedBefore = vcSeen.filter((l) => l === "POST /v13/deployments").length;
   const n = deployments.length;
   await bar().first().click().catch(() => {});
   for (let i = 0; i < 300 && !(deployments[n]?.polls >= 1); i++) await sleep(100);
@@ -260,7 +274,12 @@ console.log("5. Live: the button updates the site, and the address is a link bes
   for (let i = 0; i < 60 && (await state()) === "busy"; i++) await sleep(500);
   await page.waitForTimeout(800);
   const pushed = ghSeen.filter((l) => /POST \/repos\/.*\/git\/commits$/.test(l)).length - commits;
-  check("…and pushes the board again and redeploys it", pushed === 1 && deployments.length === n + 1 && projects.length === 1, `${pushed} commits, ${deployments.length - n} deployments, ${projects.length} projects`);
+  /* Once the project is linked to the repository, the push is the deployment:
+     the Builder follows it and never asks for a second one (two a press is
+     what spent the plan's hundred a day). */
+  const askedAgain = vcSeen.filter((l) => l === "POST /v13/deployments").length - askedBefore;
+  check("…and pushes the board again, and the push's own deployment puts it live", pushed === 1 && deployments.length === n + 1 && deployments[n]?.by === "git" && deployments[n]?.polls >= 1 && projects.length === 1, `${pushed} commits, ${deployments.length - n} deployments (${deployments.slice(n).map((d) => d.by).join(", ")}), ${projects.length} projects`);
+  check("…without asking Vercel for a second deployment", askedAgain === 0, `${askedAgain} asked for`);
   const after = (await bar().first().innerText()).replace(/\s+/g, " ").trim();
   const p = await project();
   check("then it is Update live site again, the address still recorded", after === "Update live site" && p?.live?.url === ADDRESS, `${JSON.stringify(after)}, ${p?.live?.url}`);

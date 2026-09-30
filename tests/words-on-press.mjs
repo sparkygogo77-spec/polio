@@ -48,7 +48,9 @@ const tabs = await page.locator('[aria-label="Side panel"] button, [role=tablist
 check("one press opens the Element panel", await page.locator('[data-side-panel] [aria-label="Element prompt"]').count() === 1);
 check("…and every tab says its name", ["Element", "Format", "Pages", "Look"].every((t) => tabs.includes(t)), tabs.join(", "));
 const visibleWords = await page.locator('[aria-label="Side panel"] button span:not(.sr-only)').evaluateAll((es) => es.map((e) => e.textContent.trim()).filter(Boolean));
-check("…out loud, not only to a screen reader", ["Element", "Format", "Pages"].every((t) => visibleWords.includes(t)), visibleWords.join(", "));
+/* The open tab says its word on screen; the others wear their icon and keep their name as a tooltip, by the owner's ask (d8bedd3c), and say it on screen too once the panel is wide enough (StudioPage.tsx, tabWords). */
+const titled = await page.locator('[aria-label="Side panel"] button').evaluateAll((bs) => bs.map((b) => b.getAttribute("title") ?? "").filter(Boolean));
+check("…out loud, not only to a screen reader: the open one on screen, every one as its tooltip", visibleWords.includes("Element") && ["Element", "Format", "Pages", "Look"].every((t) => titled.includes(t) || visibleWords.includes(t)), `${visibleWords.join(", ")} | titles ${titled.join(", ")}`);
 
 /* two presses: the words */
 await part.dblclick(); await page.waitForTimeout(600);

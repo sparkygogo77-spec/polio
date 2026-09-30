@@ -31,7 +31,8 @@ const { chromium } = (() => {
 })();
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
-const PORT = Number(process.env.STUB_PORT ?? 4329);
+/* The port the header starts the server against (4329 is publish-source's). */
+const PORT = Number(process.env.STUB_PORT ?? 4319);
 const SERVE = Number(process.env.SERVE_PORT ?? 4330);
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -72,18 +73,27 @@ const doc = JSON.stringify({ state: {
 const blobs = new Map();
 const committed = new Map();
 let n = 0;
+let seeded = false;
+/** Every call the route made, for the line that says why nothing was committed. */
+const calls = [];
 const stub = http.createServer(async (rq, res) => {
   const body = await new Promise((ok) => { const c = []; rq.on("data", (d) => c.push(d)); rq.on("end", () => ok(Buffer.concat(c).toString("utf8"))); });
   const path = new URL(rq.url, `http://127.0.0.1:${PORT}`).pathname;
-  const send = (s, o) => { res.writeHead(s, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
+  const send = (s, o) => { calls.push(`${rq.method} ${path} ${s}`); res.writeHead(s, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
   if (!/^Bearer .+/.test(rq.headers.authorization ?? "")) return send(401, { message: "Bad credentials" });
   if (path === "/user/repos" && rq.method === "POST") return send(201, { full_name: `someone/${JSON.parse(body || "{}").name}` });
   if (/^\/repos\/[^/]+\/[^/]+$/.test(path) && rq.method === "GET") return send(200, { default_branch: "main" });
-  if (path.includes("/git/ref/") && rq.method === "GET") return send(409, { message: "Git Repository is empty." });
+  /* An empty repository, as GitHub keeps one: the git data calls are 409 until
+     the contents API writes the first file, which is how the route seeds it. */
+  if (path.includes("/contents/") && rq.method === "PUT") { const b = JSON.parse(body); committed.set(decodeURIComponent(path.split("/contents/")[1]), Buffer.from(b.content ?? "", "base64").toString("utf8")); seeded = true; return send(201, { commit: { sha: "seed1" } }); }
+  if (path.includes("/contents/")) return send(404, { message: "Not Found" });
+  if (path.includes("/git/ref/") && rq.method === "GET") return seeded ? send(200, { object: { sha: "seed1" } }) : send(409, { message: "Git Repository is empty." });
+  if (/\/git\/commits\/[^/]+$/.test(path) && rq.method === "GET") return send(200, { tree: { sha: "tree-seed" } });
   if (path.endsWith("/git/blobs") && rq.method === "POST") { const sha = `b${++n}`; blobs.set(sha, JSON.parse(body).content); return send(201, { sha }); }
   if (path.endsWith("/git/trees") && rq.method === "POST") { for (const t of JSON.parse(body).tree ?? []) committed.set(t.path, blobs.get(t.sha) ?? ""); return send(201, { sha: "t1" }); }
   if (path.endsWith("/git/commits") && rq.method === "POST") return send(201, { sha: "c1", html_url: "https://example.invalid/c/1" });
   if (path.endsWith("/git/refs") && rq.method === "POST") return send(201, { object: { sha: "c1" } });
+  if (path.includes("/git/refs/heads/") && rq.method === "PATCH") return send(200, { object: { sha: "c1" } });
   return send(404, { message: "no" });
 });
 await new Promise((ok) => stub.listen(PORT, "127.0.0.1", ok));
@@ -99,7 +109,8 @@ await page.waitForTimeout(3000);
 const wordsOf = (p, sel) => p.evaluate((s) => {
   const out = {};
   for (const el of document.querySelectorAll(s)) {
-    const id = el.getAttribute("data-node-id") || el.getAttribute("data-live-node");
+    /* The published page keeps a part's id as its `id` and none of the Builder's data attributes. */
+    const id = el.getAttribute("data-node-id") || el.getAttribute("data-live-node") || el.id;
     /* The part's own body, never the whole box: on the BOARD a selected part
        also carries a label chip with its id and size in it, and reading that
        as the part's words is how a check ends up measuring the chrome. */
@@ -161,7 +172,10 @@ for (let go = 0; go < 3; go++) {
   await page.waitForTimeout(800);
 }
 const keys = page.locator('[role="dialog"][aria-label="Keys"]').first();
-await keys.locator('input[type="password"]').nth(2).fill("github_pat_NOTATOKEN_space_0001");
+/* By its service, as the other checks put a key in, and past the PIN offer when there is one. */
+const skipPin = keys.getByRole("button", { name: /Skip the PIN|Hold the key for this tab/ });
+if (await skipPin.count()) { await skipPin.first().click(); await page.waitForTimeout(300); }
+await keys.locator('[data-service="github"] input[type="password"]').first().fill("github_pat_NOTATOKEN_space_0001");
 const save = keys.getByRole("button", { name: /Save to this browser|Hold in this tab/ }).first();
 if (await save.count()) await save.click();
 await page.waitForTimeout(600);
@@ -171,7 +185,8 @@ await page.evaluate(() => window.__studioOpenBrief?.());
 await page.waitForTimeout(1200);
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
 if (await push.count()) { await push.click(); await page.waitForTimeout(8000); }
-check("a page was committed", committed.has("index.html"), [...committed.keys()].join(", ") || "nothing");
+const panelSays = (await page.locator("[data-brief-publish]").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
+check("a page was committed", committed.has("index.html"), [...committed.keys()].join(", ") || `nothing; GitHub was asked: ${calls.slice(0, 12).join(", ") || "nothing"}; the panel says: ${panelSays || "-"}; Push to GitHub ${await push.count() ? "was there" : "was not there"}`);
 
 const site = http.createServer((rq, res) => {
   let f = new URL(rq.url, `http://127.0.0.1:${SERVE}`).pathname.replace(/^\/+/, "");
@@ -186,7 +201,7 @@ const out = await context.newPage();
 await out.goto(`http://127.0.0.1:${SERVE}/`, { waitUntil: "networkidle" });
 await out.waitForTimeout(1500);
 
-const shipped = await wordsOf(out, "[data-live-node]");
+const shipped = await wordsOf(out, '[data-live-node], [id^="n_"]');
 check("the PUBLISHED page draws the price line with its space",
   shipped.n_prose_92?.trim() === "$ 116.59 -1.94 %", JSON.stringify(shipped.n_prose_92));
 check("…and the coloured sentence with its space",
@@ -198,6 +213,7 @@ check("…and nowhere along the way did a space become two",
 /* The serialised markup, said plainly, because it is the thing that would
    silently drop it: adjacent spans with the space inside one of them. */
 const html = committed.get("index.html") ?? "";
+console.log(`    how the part is marked: ${((html.match(/<[^>]*n_prose_92[^>]*>/) ?? ["none"])[0]).slice(0, 300)}`);
 console.log(`    the shipped markup around the price line: ${((html.match(/.{0,40}116\.59.{0,60}/) ?? [""])[0]).replace(/\s+/g, " ")}`);
 
 await browser.close();

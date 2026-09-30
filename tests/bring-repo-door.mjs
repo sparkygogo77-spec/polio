@@ -59,7 +59,8 @@ const builds = read("src/features/builds/BuildsPage.tsx");
 
 check("there is one door, and it holds the whole decision", /export function bringRepoIn\(/.test(bring)
   && /REPO_REFUSAL_SAYS\["not-a-repo"\]/.test(bring) && /REPO_REFUSAL_SAYS\["no-token"\]/.test(bring)
-  && /boardIsHere\(\)/.test(bring) && /keepBringForBoard\(asked\)/.test(bring));
+  /* What is kept for the board is the name as asked, with the site's folder when it lives in one (`placed`, the Capture dialog's sites/<name>). */
+  && /boardIsHere\(\)/.test(bring) && /keepBringForBoard\((asked|placed)\)/.test(bring) && /const placed = o\.path \? repoName\(repo\) : asked/.test(bring));
 /* One repo menu now (tests/repo-menu.mjs): the GitHub control opens it rather than holding a panel, so it keeps no importer of its own at all. */
 check("the GitHub control keeps no copy of its own: it opens the one menu",
   /openRepoPicker/.test(button) && !/bringRepoIn\(/.test(button) && !/placeBring\(/.test(button) && !/keepBringForBoard\(/.test(button));

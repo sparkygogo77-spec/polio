@@ -93,7 +93,10 @@ const BAND_H = "clamp(132px, 32vh, 248px)";
  * screen. The canvas is the window less the bar; the grip and the wheel
  * stop at the same share (`SHELF_SHARE` in `Palette.tsx`).
  */
-const SHELF_OPEN_H = "max(200px, calc((100vh - 88px) * 0.34))";
+/* Never shorter than the band shut: on a phone-sized window a third of the
+   canvas (242px at 400×800) was less than the 248 the row of planets takes,
+   so opening a category gave the cards less room than none open. */
+const SHELF_OPEN_H = "max(clamp(132px, 32vh, 248px), calc((100vh - 88px) * 0.34))";
 /** The shelf folded down to its strip (`Palette.tsx`, `useShelfFolded`). */
 const SHELF_STRIP_H = "30px";
 /** The band when the backend is up: room for a transcript worth reading. */

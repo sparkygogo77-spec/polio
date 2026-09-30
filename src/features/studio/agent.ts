@@ -5,6 +5,7 @@
  * to GitHub. Each one asks first whether the server can, and says so in
  * words when it cannot, so nothing here is load-bearing.
  */
+import { unmade } from "./polioMd";
 import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
@@ -611,6 +612,11 @@ export function publishedDoc(): Record<string, unknown> {
     shapes?: Record<string, unknown>[];
   } & Record<string, unknown>;
   const siteUrl = (d.brief?.head as SiteHead | undefined)?.url;
+  /* The capture's hand-off rides in `look.capture` for POLIO.md; its element
+     paths and the addresses the parts came from go the way of the parts' own. */
+  const hosts = [...new Set((d.nodes ?? []).map((n) => { const u = (n.from as { url?: unknown } | null)?.url; try { return typeof u === "string" ? new URL(u).host : ""; } catch { return ""; } }).filter(Boolean))];
+  const capture = d.look?.capture as ({ handoff?: unknown } & Record<string, unknown>) | undefined;
+  const cleanCapture = capture && typeof capture.handoff === "string" ? { ...capture, handoff: unmade(capture.handoff, hosts) } : capture;
   return {
     ...d,
     nodes: (d.nodes ?? []).map((n) => ({
@@ -622,7 +628,7 @@ export function publishedDoc(): Record<string, unknown> {
     /* A head keeps what it says and not where it was captured from (`publishedHead`). */
     pages: (d.pages ?? []).map((p) => ({ ...p, prompt: "", ...(p.head ? { head: publishedHead(p.head as SiteHead, [siteUrl]) } : {}) })),
     brief: { ...(d.brief ?? {}), master: "", gimmick: "", ...(d.brief?.head ? { head: publishedHead(d.brief.head as SiteHead) } : {}) },
-    look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}) } : d.look,
+    look: d.look ? { ...d.look, ...(d.look.fonts ? { fonts: d.look.fonts.map(({ from: _from, ...f }) => f) } : {}), ...(cleanCapture ? { capture: cleanCapture } : {}) } : d.look,
     shapes: (d.shapes ?? []).map((sh) => ("prompt" in sh ? { ...sh, prompt: "" } : sh)),
     /* The recorded reads and their samples go up only with the Build option Stand-in server on (`standIn.ts`). */
     ...(() => { const s = useStudio.getState(); return standInOn(s.format, s.standIn) ? { standIn: s.standIn } : {}; })(),

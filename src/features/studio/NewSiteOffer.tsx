@@ -28,7 +28,7 @@ export function NewSiteOffer() {
   if (!project || project.repo || project.offered || parts > 0) return null;
   return (
     <div data-new-site-offer="" role="status" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5 text-plain" style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}>
-      <span className="min-w-0 flex-1">This site has no repo yet. Bring one in to build from, or make a new one for it to publish to.</span>
+      <span className="min-w-0 flex-1">This site is not on GitHub yet. Bring a site in from GitHub to build from, or make a new place on GitHub for it to publish to.</span>
       <button type="button" data-offer-bring="" onClick={() => openPanel("bring")} className="tactile inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium" style={{ borderColor: VOID.rim }}>
         <GitBranch className="size-3" /> Bring one in
       </button>

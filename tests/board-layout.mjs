@@ -199,7 +199,13 @@ async function toTheFoot(page) {
   }
 
   const win = await page.locator("[data-page-window]").boundingBox();
+  /* The board is zoomed with CSS zoom on [data-board-zoom] (crisp text at any
+     size), not a transform on the window's parent as it once was: read
+     whichever is there, the zoom first. */
   const zoom = Number((await page.locator("[data-page-window]").evaluate((el) => {
+    const z = el.closest("[data-board-zoom]");
+    const css = z ? Number(getComputedStyle(z).zoom) : NaN;
+    if (Number.isFinite(css) && css > 0 && css !== 1) return String(css);
     const m = /matrix\(([\d.]+)/.exec(getComputedStyle(el.parentElement).transform);
     return m ? m[1] : "1";
   })));

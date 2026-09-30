@@ -103,7 +103,7 @@ const panel = await page.evaluate(() => ({
   points: document.querySelector("[data-repo-points]")?.textContent?.trim() ?? null,
   words: (document.querySelector("[data-repo-panel]")?.innerText ?? "").replace(/\s+/g, " "),
 }));
-check("and its panel says no repo of its own yet, and what the first publish does", panel.points === "No repo of its own yet" && /first publish makes a private one/i.test(panel.words) && !/him\/real/.test(panel.words), panel.points ?? "-");
+check("and its panel says no repo of its own yet (his word for them, tests/repo-control.mjs), and what the first publish does", panel.points === "No repo of its own yet" && /first Update live site makes a private repository/i.test(panel.words) && !/him\/real/.test(panel.words), panel.points ?? "-");
 await page.keyboard.press("Escape");
 
 /* ---------------------------------------------------- the Builds page */
@@ -112,8 +112,8 @@ await page.waitForTimeout(800);
 await page.getByText("Repos", { exact: true }).first().click({ timeout: 5000 });
 await page.waitForTimeout(500);
 const row = await page.evaluate(() => {
-  const field = document.querySelector("input[aria-label^='Repository for']");
-  const branch = document.querySelector("input[aria-label^='Branch for']");
+  const field = document.querySelector("input[aria-label^='Publish'][aria-label$='to this repository']");
+  const branch = document.querySelector("input[aria-label^='Publish'][aria-label$='to this branch']");
   const li = field?.closest("li");
   return { placeholder: field?.getAttribute("placeholder"), value: field?.value, branch: branch?.value, none: !!li?.querySelector("[data-repo-none]"), text: li?.innerText.replace(/\s+/g, " ") ?? "" };
 });
@@ -122,7 +122,7 @@ check("its branch field reads main, not the server's branch", row.branch === "ma
 check("and the line under it says the site has none of its own yet", row.none && /No repository of its own yet/.test(row.text) && !/him\/real/.test(row.text), row.text);
 
 /* Typed, then blurred by a click elsewhere: the gesture from the field. */
-const field = page.locator("input[aria-label^='Repository for']").first();
+const field = page.locator("input[aria-label^='Publish'][aria-label$='to this repository']").first();
 await field.fill("him/other");
 await page.locator("h1").first().click();
 await page.waitForTimeout(400);
@@ -133,7 +133,7 @@ await page.waitForTimeout(800);
 check("and is still there after a reload", (await held()) === "him/other@main", await held());
 await page.getByText("Repos", { exact: true }).first().click({ timeout: 5000 });
 await page.waitForTimeout(400);
-const shown = await page.evaluate(() => document.querySelector("input[aria-label^='Repository for']")?.value ?? null);
+const shown = await page.evaluate(() => document.querySelector("input[aria-label^='Publish'][aria-label$='to this repository']")?.value ?? null);
 check("and the field shows it", shown === "him/other", shown ?? "-");
 
 /* The status the button reads follows the keys, not the first page load. */

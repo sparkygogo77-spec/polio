@@ -40,6 +40,7 @@ const readBody = (req) => new Promise((ok) => { const c = []; req.on("data", (d)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const ghSeen = [];
+let lastCommit = "c0ffee0000";
 const blobs = new Map();
 /** Each push's files, path → text. */
 const trees = [];
@@ -58,8 +59,15 @@ const gh = http.createServer(async (req, res) => {
   if (rest.startsWith("/git/commits/")) return send(200, { tree: { sha: "tree0" } });
   if (rest === "/git/blobs") { const sha = `b${ghSeen.length}`; const b = JSON.parse(body || "{}"); blobs.set(sha, b.encoding === "base64" ? Buffer.from(b.content ?? "", "base64").toString("utf8") : String(b.content ?? "")); return send(201, { sha }); }
   if (rest === "/git/trees") { const t = JSON.parse(body || "{}"); trees.push(Object.fromEntries((t.tree ?? []).map((e) => [e.path, e.content ?? blobs.get(e.sha) ?? null]))); return send(201, { sha: "tree1" }); }
-  if (rest === "/git/commits") return send(201, { sha: "commit1", html_url: "https://example.invalid/c" });
-  if (rest.startsWith("/git/refs")) return send(200, { object: { sha: "commit1" } });
+  if (rest === "/git/commits") { lastCommit = `c0ffee${String(ghSeen.length).padStart(4, "0")}`; return send(201, { sha: lastCommit, html_url: "https://example.invalid/c" }); }
+  if (rest.startsWith("/git/refs")) {
+    /* Vercel's Git link, played: a push to a repository a project is linked to
+       deploys that project on its own, a moment later (tests/go-live-linked.mjs). */
+    const [org, name] = m[1].split("/");
+    const linked = projects.find((p) => p.link?.org === org && p.link?.repo === name);
+    if (linked && req.method !== "GET") { const s = lastCommit; setTimeout(() => deployments.push({ id: `dpl_${deployments.length + 1}`, polls: 0, by: "git", project: linked.id, sha: s, at: Date.now() }), 600); }
+    return send(200, { object: { sha: lastCommit } });
+  }
   return send(404, { message: "Not Found" });
 });
 
@@ -87,9 +95,14 @@ const vc = http.createServer(async (req, res) => {
     projects.push(p);
     return send(200, p);
   }
+  /* The list the route reads to find a push's own deployment, by its commit. */
+  if (/^\/v\d+\/deployments$/.test(path) && req.method === "GET") {
+    const projectId = new URL(req.url, "http://x").searchParams.get("projectId");
+    return send(200, { deployments: deployments.filter((x) => x.by === "git" && x.project === projectId).map((x) => ({ uid: x.id, id: x.id, readyState: x.polls >= 5 ? "READY" : "BUILDING", url: `top-bar-${x.id}.vercel.app`, created: x.at, meta: { githubCommitSha: x.sha, githubCommitRef: "main" } })) });
+  }
   if (path === "/v13/deployments" && req.method === "POST") {
     const id = `dpl_${deployments.length + 1}`;
-    deployments.push({ id, polls: 0 });
+    deployments.push({ id, polls: 0, by: "api" });
     return send(200, { id, readyState: "QUEUED", url: `top-bar-${id}.vercel.app` });
   }
   const d = path.match(/^\/v13\/deployments\/(dpl_\d+)$/);
@@ -176,7 +189,7 @@ const press = async () => {
   for (let i = 0; i < 600 && !(trees.length > n && deployments.length > d && deployments.at(-1).polls >= 5); i++) await sleep(100);
   for (let i = 0; i < 120 && (await state()) === "busy"; i++) await sleep(500);
   await page.waitForTimeout(1500);
-  return { pushes: trees.length - n, deployments: deployments.length - d, html: indexOf(trees[n] ?? {}) };
+  return { pushes: trees.length - n, deployments: deployments.length - d, by: deployments.slice(d).map((x) => x.by).join(", "), html: indexOf(trees[n] ?? {}) };
 };
 
 console.log("1. A repository whose project is connected and never deployed");
@@ -185,7 +198,8 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 {
   const r = await press();
-  check("one push, one deployment", r.pushes === 1 && r.deployments === 1, `${r.pushes} pushes, ${r.deployments} deployments`);
+  /* Connected: the push is the deployment, and none is asked for (tests/go-live-linked.mjs). */
+  check("one push, one deployment: the push's own", r.pushes === 1 && r.deployments === 1 && r.by === "git", `${r.pushes} pushes, ${r.deployments} deployments (${r.by})`);
   check("the push says og:url on the project's production domain, not the branch's or a redirect", metaIn(r.html, "og:url") === "https://earlier-site.vercel.app/", metaIn(r.html, "og:url"));
 }
 
@@ -203,7 +217,8 @@ await page.waitForTimeout(1500);
   const p = await project();
   check("the address is recorded once live", p?.live?.url === ADDRESS, p?.live?.url);
   const again = await press();
-  check("the next press, once live, says og:url on it, in one deployment", again.pushes === 1 && again.deployments === 1 && metaIn(again.html, "og:url") === `${ADDRESS}/`, `${again.pushes} pushes, ${again.deployments} deployments, ${metaIn(again.html, "og:url")}`);
+  /* The first press made the project, linked to the repository, so this push deploys itself. */
+  check("the next press, once live, says og:url on it, in one deployment", again.pushes === 1 && again.deployments === 1 && again.by === "git" && metaIn(again.html, "og:url") === `${ADDRESS}/`, `${again.pushes} pushes, ${again.deployments} deployments (${again.by}), ${metaIn(again.html, "og:url")}`);
 }
 check("no page error on the way", errors.length === 0, errors.join(" / "));
 

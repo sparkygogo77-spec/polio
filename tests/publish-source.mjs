@@ -175,6 +175,16 @@ const pushToGitHub = async () => {
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: /Push to GitHub/ }).first().click({ timeout: 15000 });
   for (let i = 0; i < 120 && asked.length === n; i++) await page.waitForTimeout(500);
+  /* Files go up one at a time with a gap (the route's pacing under GitHub's
+     rate limit, tests/publish-steady.mjs), so a publish takes seconds: wait
+     for it to end, the branch moved or the route stopped writing, rather
+     than a fixed moment that it has since outgrown. */
+  let quiet = 0, last = seen.length;
+  for (let i = 0; i < 180 && quiet < 6 && !seen.slice(before).some((l) => /\/git\/refs/.test(l) && !l.startsWith("GET")); i++) {
+    await page.waitForTimeout(500);
+    quiet = seen.length === last ? quiet + 1 : 0;
+    last = seen.length;
+  }
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
@@ -282,11 +292,22 @@ const part = (id, y) => ({
 });
 const MINE = [part("mine_a", 100), part("mine_b", 300), part("mine_c", 500)];
 const mineHeld = async () => { const ids = await nodeIds(); return ids.length === MINE.length && MINE.every((n) => ids.includes(n.id)); };
+/* Choosing a repository opens its branch and folder, and "Bring it in" is
+   the press that asks; a site whose record has no folder chooses one first
+   (RepoPicker.tsx, bringAgain). The whole repo, as sink's board came from. */
+const bringChosen = async () => {
+  const go = page.locator("[data-repo-bring-chosen]").first();
+  await go.waitFor({ state: "visible", timeout: 15000 });
+  const whole = page.locator('[data-repo-folder=""]').first();
+  if (await whole.count()) { await whole.click(); await page.waitForTimeout(200); }
+  await go.click();
+};
 const doors = [
-  { name: "the GitHub panel's Bring beside the source", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700); await page.locator("[data-repo-bring-own]").click(); } },
+  { name: "the GitHub panel's Bring beside the source", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700); await page.locator("[data-repo-bring-own]").click(); await page.waitForTimeout(600); if (!(await page.locator("[data-repo-bring-confirm]").count())) await bringChosen(); } },
   { name: "the GitHub panel's typed field", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700); await page.locator("[data-repo-bring]").fill(SINK); await page.locator("[data-repo-pull]").click(); } },
-  { name: "the GitHub panel's list of repos", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(1200); await page.locator(`[data-repo-connect="${SINK}"]`).click(); } },
-  { name: "the Bring a repository in dialog", press: async () => { await page.locator("[data-bring-repo]").first().click(); await page.waitForTimeout(900); await page.locator(`[data-repo-pick="${SINK}"]`).click(); } },
+  /* The GitHub panel's list is the one repository menu's list now. */
+  { name: "the GitHub panel's list of repos", press: async () => { await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(1200); await page.locator(`[data-repo-pick="${SINK}"]`).click(); await bringChosen(); } },
+  { name: "the Bring a repository in dialog", press: async () => { await page.locator("[data-bring-repo]").first().click(); await page.waitForTimeout(900); await page.locator(`[data-repo-pick="${SINK}"]`).click(); await bringChosen(); } },
 ];
 for (const d of doors) {
   /* The shape an import left before this change, which the change reads as brought in from sink. */

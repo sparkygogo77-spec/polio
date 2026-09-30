@@ -91,7 +91,7 @@ export function GithubButton() {
       : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
     : name
       ? `${name} · ${project?.repo?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
-      : `No repo of its own yet. The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
+      : `No repo of its own yet. The first Update live site makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
   /* Nothing to open and nothing yet to describe: before a site is published
      and with no token anywhere, this button has nothing to say. */

@@ -164,9 +164,27 @@ const tipFiles = (repo) => { const r = repos.get(repo); const c = r?.commits.fin
 console.log("1. The route");
 {
   const files = Array.from({ length: 250 }, (_, i) => ({ path: `assets/pictures/p${i}.txt`, content: `picture ${i}` }));
-  const r = await post({ files: [{ path: "index.html", content: "<p>hi</p>" }, ...files], create: "many-files", deploy: false });
+  /* Blobs go up one at a time with a gap, under GitHub's rate limit, and a
+     call stops at its time budget with `resume`: the browser's next call
+     carries on from what was staged (tests/publish-steady.mjs). So the route
+     is followed the way the browser follows it, and what is held is the end:
+     every file in ONE commit on ONE repository, however many calls it took. */
+  const all = [{ path: "index.html", content: "<p>hi</p>" }, ...files];
+  let r = await post({ files: all, create: "many-files", deploy: false });
+  let calls = 1;
+  /* Each answer names what THAT call put up; the browser keeps the running whole (agent.ts), and so does this. */
+  const staged = new Map();
+  while (r.ok === false && r.reason === "resume" && calls < 12) {
+    for (const x of r.staged ?? []) staged.set(x.path, x.sha);
+    if (r.wait) await new Promise((ok) => setTimeout(ok, r.wait * 1000));
+    const pending = new Set(r.pending ?? []);
+    r = await post({ files: all.filter((f) => pending.has(f.path)), staged: [...staged].map(([path, sha]) => ({ path, sha })), repo: r.repo, branch: r.branch, deploy: false });
+    calls++;
+  }
   const up = tipFiles("someone/many-files");
-  check("251 files: all go up, and the answer says 251", r.ok === true && r.files === 251 && up.size === 251, `${r.ok ? `files ${r.files}` : r.message}; ${up.size} in the commit`);
+  const commits = repos.get("someone/many-files")?.commits.filter((c) => !c.seed).length ?? 0;
+  check("251 files: all go up, and the answer says 251", r.ok === true && r.files === 251 && up.size === 251, `${r.ok ? `files ${r.files}` : r.message}; ${up.size} in the commit, over ${calls} call${calls === 1 ? "" : "s"}`);
+  check("…in one commit on one repository, however many calls it took", commits === 1 && made.filter((x) => x === "many-files").length === 1, `${commits} commits, ${made.length} repositories made`);
 }
 {
   const big = "<p>" + "a long page of parts ".repeat(150_000) + "</p>";

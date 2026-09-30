@@ -26,7 +26,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { polioMd, captureNotes, handoffFrom, sourceNote, scrub, POLIO_MD } from "../src/features/studio/polioMd.ts";
+import { polioMd, captureNotes, handoffFrom, sourceNote, scrub, unmade, POLIO_MD } from "../src/features/studio/polioMd.ts";
 import { takeDoc } from "../src/features/studio/docTake.ts";
 import { attachCaptured } from "../src/features/studio/library/captured.ts";
 import { usesOf } from "../src/features/studio/library/works.ts";
@@ -161,7 +161,9 @@ check("…radii, and spacing", style.includes("| `12px` | 1 |") && style.include
 const pagesMd = sectionOf(md, 2);
 const home = homeFor(pages);
 check("Pages: each page, its path and its file", pages.every((p) => pagesMd.includes(`### ${p.name}`) && pagesMd.includes(`Path: \`${p.path}\``) && pagesMd.includes(`File: \`${home.file(p)}\``)) && pagesMd.includes("`shop/index.html`"));
-check("…its main parts, by id, with the selector each is at and where it was captured", pagesMd.includes("| `n_main` | box | main | `#n_main` | `body > main` |") && pagesMd.includes("| `n_burn` | cta-primary | burn it | `#n_burn` | — |"));
+check("…its main parts, by id, with the selector each is at in the published page", pagesMd.includes("| `n_main` | box | main | `#n_main` |") && pagesMd.includes("| `n_burn` | cta-primary | burn it | `#n_burn` |"));
+/* A published repository says nothing of how the site was made (tests/publish-leak.mjs, round-trip): not the element path a part was captured at. */
+check("…and never the element path a part was captured at", !/body > /.test(md) && !/Captured as/.test(md), (md.match(/.{0,40}body > .{0,40}/) ?? [""])[0]);
 
 const behaviour = sectionOf(md, 3);
 for (const b of took.look.capture.behaviours) check(`Captured behaviour: ${b.kind} on ${b.part}`, new RegExp(`\\| ${b.kind} \\| \`${b.part}\` \\|`).test(behaviour));
@@ -181,7 +183,8 @@ check("…the owner's asks, pointing at TASKS.md", not.includes("TASKS.md") && n
 
 const source = sectionOf(md, 5);
 check("Source: the repository, folder, branch and commit", source.includes("`sparkygogo77-spec/sink`") && source.includes("`sites/gotchi-gg`") && source.includes("`claude/fervent-carson-30yt59`") && source.includes(`\`${SHA}\``));
-check("…and the address it was captured from, and when", source.includes("https://gotchi.gg/") && source.includes("2026-09-28"));
+check("…and never the address it was captured from, nor when", !md.includes("gotchi.gg") && !/Captured (from|on)/.test(md), (md.match(/.{0,40}(gotchi\.gg|Captured (from|on)).{0,40}/) ?? [""])[0]);
+check("text carried in from the capture loses its element paths and addresses, and keeps what it says", (() => { const t = unmade("Captured from gotchi.gg: POST /api/auth/start on body > main > div:nth-of-type(2) > button.", ["gotchi.gg"]); return !/body >|gotchi\.gg|Captured from/.test(t) && t.includes("POST /api/auth/start"); })());
 check("a site made here says so", sectionOf(polioMd({ pages, nodes: [], look: {} }), 5).includes("Made in the Builder"));
 
 check("nothing secret, no bytes and no script in the file", leaks(md).length === 0, leaks(md).join(", "));
