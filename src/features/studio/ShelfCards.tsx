@@ -32,6 +32,7 @@ import { getFeature, categoryOf, type FeatureDef } from "./catalog";
 import { useStudio } from "./store";
 import { PartPreview } from "./PartPreview";
 import { MotionDemo, hasDemo } from "./MotionDemo";
+import { shapeOf } from "./showcase";
 import { planetOf } from "./planets";
 import { themeFrom } from "./blocks";
 import { getWork, usesOf, withWork, type Work } from "./library/works";
@@ -252,6 +253,11 @@ function useWake() {
   return { awake, wake, rest };
 }
 
+/** Parts that are made from something of the owner's, and what each becomes once it has it. */
+const FROM_YOURS: Record<string, string> = {
+  "mesh-3d": "Draw a shape on the board and it becomes a solid you can turn.",
+};
+
 /** The thing itself, fitted whole into a box, on the site's page. */
 export function ThingPreview({ feature, width, height, words, playing, loop }: {
   feature: FeatureDef; width: number; height: number; words: SiteWords; playing?: boolean; loop?: boolean;
@@ -261,6 +267,16 @@ export function ThingPreview({ feature, width, height, words, playing, loop }: {
   if (hasDemo(id) && (feature.category === "motion" || switchOf(id))) {
     return <MotionDemo id={id} t={t} words={words} width={width} height={height} play={playing} loop={loop} />;
   }
+  const yours = FROM_YOURS[id];
+  if (yours) {
+    /* A part made from something of his draws nothing until it has it: say what it becomes, on his page, rather than show an empty box. */
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 px-4 text-center" style={{ width, height, background: t.bg }}>
+        <span className="text-[26px] leading-none" style={{ color: t.accent }}>✎ → ◆</span>
+        <span className="text-small" style={{ color: t.text, fontFamily: t.bodyFamily }}>{yours}</span>
+      </div>
+    );
+  }
   return (
     <PartPreview
       feature={feature}
@@ -268,7 +284,8 @@ export function ThingPreview({ feature, width, height, words, playing, loop }: {
       height={height}
       play={playing || loop}
       ground="page"
-      drawWidth={960}
+      /* A thin strip is drawn narrower still, so the words on it are big enough to read. */
+      drawWidth={shapeOf(feature) === "strip" ? 720 : 960}
       content={feature.preset?.content ? undefined : exampleContent(feature, words)}
     />
   );

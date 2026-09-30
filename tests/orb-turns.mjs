@@ -73,6 +73,9 @@ await page.waitForTimeout(900);
 const tile = page.getByText("Orb, turnable", { exact: true }).first();
 check("the orb in 3D is in the shelf", (await tile.count()) === 1);
 await tile.click({ force: true });
+await page.waitForTimeout(600);
+/* A card opens its detail card; Add to page there is what puts it on the board. */
+await page.locator('[data-add-to-page="orb-webgl"]').click({ force: true });
 await page.waitForTimeout(1400);
 const seed = await page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.nodes ?? []).find((n) => n.featureId === "orb-webgl") ?? null);
 check("dropping it puts an orb on the board", !!seed, seed ? `${seed.w}\u00d7${seed.h}` : "nothing");
