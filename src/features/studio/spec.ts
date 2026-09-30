@@ -8,6 +8,7 @@
  * specification rather than decoration.
  */
 import { describeWork } from "./library/works";
+import type { Worn } from "./wornShape";
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable, resolvePart } from "./parts";
 import { FORMAT_FIELDS, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
@@ -84,6 +85,8 @@ interface NodeSpec {
   shape: string | null;
   /** The exact line it is cut to, when a drawing gave it one no shape name covers. */
   outline: string | null;
+  /** A shape drawn wearing a site's style kit, in words. */
+  worn: string | null;
   /** What the drawn shape means the part does. */
   kind: string | null;
   /** The six faces, when it is a cube: what is on each, and what is blank. */
@@ -436,6 +439,7 @@ export function compileSpec(input: CompileInput): Spec {
                 return `${side} ${said ? `"${said}"${f?.colour ? ` (${f.colour})` : ""}` : "blank"}${why ? `, for: ${why}` : ""}`;
               }).join("; ")}. A blank face is blank on purpose; do not fill it in. The object is ${n.w} × ${n.h} and as deep as its shorter side: a square box is a cube, a wider one is a wider box.`
             : null,
+          worn: n.worn ? wornWords(n.worn) : null,
           outline: n.outline
             ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points, the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
             : null,
@@ -706,6 +710,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
         if (e.outline) L.push(`  - outline: ${e.outline}`);
+        if (e.worn) L.push(`  - drawn shape: ${e.worn}`);
         if (e.kind) L.push(`  - the shape means: ${e.kind}`);
         if (e.faces) L.push(`  - faces: ${e.faces}`);
         if (e.body) L.push(`  - body: ${e.body}`);
@@ -806,4 +811,25 @@ export function specToMarkdown(spec: Spec): string {
 
 export function specToJson(spec: Spec): string {
   return JSON.stringify(spec, null, 2);
+}
+
+/**
+ * A drawn shape wearing a style kit, said so an agent can build it: the
+ * outline and where it is kept, and each layer of the kit with its values.
+ */
+function wornWords(w: Worn): string {
+  const k = w.kit;
+  const parts = [
+    `wears "${k.name}"${k.host ? ` (read off ${k.count} part${k.count === 1 ? "" : "s"} of ${k.host})` : ""}`,
+    `${w.snap ? `a clean ${w.snap}` : "a hand-drawn outline"} of ${w.pts.length} points, kept at this element's \`worn.pts\` in a 0..1 box, ${w.smooth ? "curved through them" : `straight between them with corners rounded ${k.radius}px`}`,
+    `filled ${w.fill ? w.fill : k.fill.kind === "solid" || k.fill.kind === "none" ? k.fill.colour : `with a ${k.fill.kind} gradient`}`,
+    k.border ? `a ${k.border.width}px ${k.border.style} border in ${k.border.colour} traced inside the outline` : "",
+    k.shadows.length ? `shadow${k.shadows.length > 1 ? "s" : ""} ${k.shadows.map((s) => `${s.dx}px ${s.dy}px${s.blur ? ` blurred ${s.blur}px` : " hard"} in ${s.colour}`).join(", ")}, each the outline itself moved, never its box` : "",
+    w.bar ? `a lighting bar of ${w.bar.colour} at ${w.bar.opacity} ${w.bar.kind === "gloss" ? `laid ${w.bar.edge ?? 0}px inside its lit edge along the long axis` : `${w.bar.size}px deep on the lit side`}, clipped inside the outline` : "",
+    w.motion ? `moves with "${w.motion.name}" at ${w.motion.speed}x speed and ${Math.round(w.motion.strength * 100)}% strength (not for visitors who ask for less motion)` : "",
+    w.hover ? "lifts under the pointer" : "",
+    w.press ? "sinks when pressed" : "",
+    w.what ? `it is ${w.what === "frame" ? "a picture frame (a picture clipped to the outline)" : `a ${w.what}`}` : "",
+  ];
+  return parts.filter(Boolean).join("; ");
 }

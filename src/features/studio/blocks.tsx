@@ -19,6 +19,7 @@ import type { StudioNode } from "./store";
 import { usesOf } from "./library/works";
 import { usePicture, type Picture } from "./pictures";
 import { CrateOn } from "./crateLayer";
+import { WornShape } from "./WornShape";
 import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
 import type { NodeMedia } from "./parts/types";
 import type { NodeWorld } from "./parts/World";
@@ -167,6 +168,12 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   const t = light?.on && page
     ? liftTheme(dressed, light, (node.x + (size?.w ?? node.w) / 2) / Math.max(1, page.w), (node.y + (size?.h ?? node.h) / 2) / Math.max(1, page.h))
     : dressed;
+  /*
+   * A shape drawn wearing a style kit draws itself whole: its shadow is
+   * outside its line, so it is never cut to it (`WornShape.tsx`). After every
+   * hook above, so a part that gains or loses the record keeps its hooks.
+   */
+  if (node.worn) return <WornShape node={node} mode={mode} size={size} picture={picture?.src} onNavigate={onNavigate} />;
   /*
    * A body written for this part stands in for the part. The drawing asked
    * for something no entry in the library is — a helix of sentences — and

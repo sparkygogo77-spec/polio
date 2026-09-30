@@ -43,6 +43,8 @@ import { put as putPicture } from "./pictures";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
+import { useDrawKit } from "./DrawKits";
+import { nearlyClosed, shapeFromLine, toBox, wornFor } from "./wornShape";
 import { ownsOthers } from "./holds";
 import { partName } from "./partNames";
 import { ownerOf, parentOf, ridersOf, wordsIn, wordsOf } from "./owner";
@@ -1610,7 +1612,24 @@ export function Canvas() {
       play("tap");
     } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
       // The space tool: a closed line is a placeholder (`space.ts`), an open one is nothing, and says so.
-      if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
+      /*
+       * WEARING A STYLE. With a kit picked (`DrawKits.tsx`), a closed line
+       * is not a space: it is a part in that shape, wearing the kit
+       * (`wornShape.ts`), closed if its end came back near its start, and
+       * snapped clean when the hand nearly drew a circle, triangle, box or
+       * star. Its own popover opens beside it for colour and motion.
+       */
+      const wearing = useDrawKit.getState().kit;
+      if (wearing && nearlyClosed(drag.points)) {
+        const line = shapeFromLine(drag.points, { snap: useDrawKit.getState().snap });
+        const shaped = toBox(line.pts);
+        const raw = line.snap ? toBox(line.raw) : null;
+        const worn = wornFor(wearing, { pts: shaped.pts, smooth: line.smooth, snap: line.snap }, raw, null);
+        const id = store.addNode("box", shaped.box.x, shaped.box.y, { w: Math.max(16, shaped.box.w), h: Math.max(16, shaped.box.h), worn, label: `${wearing.name} shape`, byHand: true });
+        store.setSelection([id]);
+        play("confirm");
+        news.publish({ key: "studio:worn", title: `Drawn wearing ${wearing.name}`, body: line.snap ? `Snapped to a clean ${line.snap}; its panel can put the line back as drawn.` : "Its colour and motion are in the panel beside it.", level: "success", source: "studio", toast: false });
+      } else if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         /* Said where the hand was, not in the corner of the window: the
            feed still gets the line, and the message itself is drawn on the
@@ -2824,7 +2843,7 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
            trumpmorty.fun's roadmap cards) is drawn whole where it moved, as
            Preview and the export draw it; clipped here it lost its lower 22px
            (`tests/board-turned.mjs`). */
-        className={cn("relative flex w-full flex-col", node.art?.transform ? "overflow-visible" : "overflow-hidden")}
+        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : "overflow-hidden")}
         data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}

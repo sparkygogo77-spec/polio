@@ -14,6 +14,7 @@ import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Imag
 import { Bakers } from "./Bakers";
 import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
+import { WornPopover } from "./DrawKits";
 import { ImportStrip } from "./FromASite";
 import { BringRepoDoor } from "./RepoPicker";
 import { CaptureSiteDoor } from "./CaptureSiteDialog";
@@ -1413,7 +1414,11 @@ export function StudioPage() {
             className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
           >
             {design ? (
-              <Canvas />
+              <>
+                <Canvas />
+                {/* A drawn shape wearing a style: its own popover, beside it while it is picked (`DrawKits.tsx`). */}
+                <WornPopover />
+              </>
             ) : book ? (
               <Timeline />
             ) : (

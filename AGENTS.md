@@ -2866,6 +2866,57 @@ a kicker with a rule, and label-and-value rows that copy.
   `standIn.ts` `STAND_IN_RUNTIME`. sink's capturer now declares
   `capturer.learn`, so Learn on click (`learn.ts`) sends. `tests/stand-in.mjs`.
 
+- **Drawing with a site's style (style kits).** The owner: "if I have this
+  theme of buttons on the Trump & Morty site, I should be able to select the
+  theme for the button I'm drawing, so a cone would come out with the same
+  shadow behind it, a lighting bar on it maybe, and then decide after it's
+  drawn what colour and how it behaves". Four files, two pure:
+  - `styleKits.ts` (pure) reads **kits** off every board's real parts:
+    buttons, cards, panels and badges (`roleOf`), each kit its fill or
+    gradient, border (an opaque inset ring counts), outer shadows (offset,
+    blur, spread, colour, hard when unblurred), **lighting bar** (an inset
+    light band, or a `::before` gloss strip laid inside the part: the Trorty
+    remote keys' white at 0.35, 10px down, 12px in), shade, rim, corners,
+    how its words are set, and its own `:hover` / `:active`. Parts that
+    differ only in fill are one kit with those fills as swatches; at most
+    four kits a role; named "<site> <role>" and then by what differs
+    ("Trorty button, shadow to the corner"). The site's short name is its
+    `$TICKER` when it has one (`siteShortName`). `motionsFromDoc` lists a
+    board's captured animations that move, turn, scale or fade (never a
+    background scroll or a clip wipe), plus its script marquee as a slide.
+  - `wornShape.ts` (pure) is the drawn shape's record, `node.worn` (a copy
+    of the kit, so the page never depends on the board it came from), and
+    the geometry that makes a kit right on a non-rectangle: the **shadow is
+    the outline moved**, never the box; an inset band is the outline less
+    itself moved, turned with the shape's long axis and kept on the lit
+    side; a gloss is a strip parallel to the long axis cut to the outline
+    pulled in. Also the drawing basics: `nearlyClosed` / `closeLine`,
+    smoothing, `snapOutline` (circle, ellipse, triangle, box, star; a blob
+    stays), and `wornCss`, the part's own stylesheet (motion under
+    `prefers-reduced-motion: no-preference`, hover and press).
+  - `WornShape.tsx` draws it as one SVG in the part's pixels; `blocks.tsx`
+    hands a node with `worn` to it after every hook. It is not cut with
+    `clip-path` (that would cut the shadow off). The board draws it still;
+    the Preview and the export play it, and the export is its own markup
+    and `<style>`, nothing of the Builder's.
+  - `DrawKits.tsx`: the picker is the space tool's tenant on the tool
+    options bar (`toolOptions.tsx`): this site's kits, then every other site
+    in Builds, then Plain (a space, exactly as before, and the default).
+    With a kit in hand, a closed line drawn with S is a part wearing it
+    (`Canvas.tsx`). `WornPopover` opens beside the shape while it is picked:
+    what it is (button with where it leads, following the site's list of
+    places links may go; picture frame; decoration; section), words, colour
+    (the site's roles first, then the kit's swatches, words switched to a
+    readable colour under 4.5 to 1), kit swap with a live preview, lighting
+    bar, a motion list from every board with speed and strength, hover and
+    press, undo the snap, edit points. **When Lane G's part panel lands,
+    these move to its Look and Motion sections**; the popover is the
+    interim home.
+  `tests/style-kits.mjs` (three sink boards, no browser) and
+  `tests/draw-with-kit.mjs` (a cone drawn by hand on trumpmorty.fun, in
+  geometry and in pixels, and exported) hold it. Committed shots:
+  `docs/shots/lane-j-*.png`.
+
 ---
 
 ## 2b-ii. Builds (`src/features/builds`)

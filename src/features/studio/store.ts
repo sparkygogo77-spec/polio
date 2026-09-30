@@ -56,6 +56,7 @@ import type { WorkUse } from "./library/works";
 import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
 import type { NodeEmbed, NodeMotion } from "./parts/capturedMotion";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
+import type { Worn } from "./wornShape";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
 import type { DrawnVector, VectorRole } from "./vector";
@@ -360,6 +361,15 @@ export interface StudioNode {
    * ("button, named …") and that is not a task anybody asked for.
    */
   task?: string | null;
+  /**
+   * A shape drawn with the space tool while a style kit was picked
+   * (`wornShape.ts`): its outline, the kit it wears (a copy, so the page
+   * draws the same when the board it came from is gone), its colour, its
+   * lighting bar, the motion it took from a board and what it is for.
+   * Drawn by `WornShape.tsx` in place of the part. Optional: absent on every
+   * part that was not drawn this way.
+   */
+  worn?: Worn | null;
   /**
    * The owner typed this part's words in the one box. A live-data spot whose
    * words were chosen that way is decided, and loses its orange !
@@ -3301,6 +3311,8 @@ function mergeDoc(persisted: unknown, current: StudioState): StudioState {
             // Speed and delay were words once; a saved board still has them.
             animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
             shape: n.shape ?? null,
+            /* A drawn shape's record, checked: an outline of fewer than three points draws nothing. */
+            worn: n.worn && typeof n.worn === "object" && Array.isArray((n.worn as Worn).pts) && (n.worn as Worn).pts.length >= 3 && (n.worn as Worn).kit ? (n.worn as Worn) : null,
             outline: n.outline && typeof n.outline === "object" && typeof (n.outline as OutlineClip).cut === "string" ? (n.outline as OutlineClip) : null,
             code: n.code && typeof n.code === "object" && typeof (n.code as PartCode).html === "string" ? (n.code as PartCode) : null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,

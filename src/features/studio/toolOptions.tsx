@@ -31,6 +31,7 @@ import { Popover } from "@/core/ui/popover";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Link2, Link2Off, Lock } from "lucide-react";
 import { DRAW_KINDS, HUES, useStudio, type Tool } from "./store";
+import { KitPicker } from "./DrawKits";
 
 type Entry = { id: string; tools: readonly Tool[]; order: number } & (
   | { kind: "toggle"; setting: string; label: string; hint: string }
@@ -41,6 +42,11 @@ export const TOOL_OPTIONS: readonly Entry[] = [
   {
     id: "draw-kind", tools: ["pen", "arrow"], order: 1, kind: "custom",
     render: ({ compact }) => <InkRow compact={compact} />,
+  },
+  {
+    /* The space tool's tenant: the style a drawn shape wears (`DrawKits.tsx`). */
+    id: "space-kit", tools: ["space"], order: 1, kind: "custom",
+    render: ({ compact }) => <KitPicker compact={compact} />,
   },
   {
     id: "group-scale", tools: ["select"], order: 1, kind: "toggle",
