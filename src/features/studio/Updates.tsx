@@ -34,13 +34,13 @@
  */
 import * as React from "react";
 import { Dialog as D } from "radix-ui";
-import { History, X } from "lucide-react";
+import { CalendarDays, History, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { VirtualList } from "@/core/ui/virtual-list";
 import { heldKeys } from "@/features/keys/store";
 import { ageOf } from "@/features/builds/BuildMark";
-import { FIELD } from "./TimelineDetail";
+import { FIELD, Row } from "./TimelineDetail";
 import { PASSES } from "./passes.ts";
 import { dayOf, shapeLines, type Landed, type UpdatesAnswer } from "./landed";
 
@@ -62,7 +62,8 @@ function askUpdates(): Promise<UpdatesAnswer | null> {
   return answer;
 }
 
-type Row = { kind: "day"; day: string } | { kind: "line"; change: Landed };
+/** One day's changes: a card of its own, the timeline's own material, one line each. */
+type Day = { day: string; changes: Landed[] };
 
 /**
  * A press outside or Escape closes it, and it stands over nearly everything.
@@ -83,12 +84,11 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
 
   /* Newest first, one line each, under the day it landed. */
   const rows = React.useMemo(() => {
-    const out: Row[] = [];
-    let day = "";
+    const out: Day[] = [];
     for (const c of answer.changes) {
       const d = dayOf(c.when);
-      if (d !== day) { out.push({ kind: "day", day: d }); day = d; }
-      out.push({ kind: "line", change: c });
+      if (out.at(-1)?.day !== d) out.push({ day: d, changes: [] });
+      out.at(-1)!.changes.push(c);
     }
     return out;
   }, [answer]);
@@ -142,13 +142,19 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
               <VirtualList
                 className="mx-auto w-full max-w-[1100px]"
                 items={rows}
-                estimateSize={26}
-                getKey={(r, i) => (r.kind === "day" ? `d:${r.day}:${i}` : r.change.id)}
-                renderItem={(r) => (r.kind === "day" ? (
-                  <p data-updates-day="" className="px-1.5 pb-1 pt-3 text-small font-medium uppercase tracking-[0.1em]" style={{ color: FIELD.dim }}>{r.day}</p>
-                ) : (
-                  <p data-change="" className="rounded-md px-1.5 py-1 text-[12.5px] leading-snug" style={{ color: FIELD.text }}>{r.change.says}</p>
-                ))}
+                estimateSize={120}
+                getKey={(r) => r.day}
+                renderItem={(r, i) => (
+                  <div data-updates-day={r.day} className="pb-2.5">
+                    <Row skin={FIELD} seed={r.day} at={i} icon={<CalendarDays className="size-3" />} title={r.day}>
+                      <div className="flex flex-col gap-0.5">
+                        {r.changes.map((c) => (
+                          <p key={c.id} data-change="" className="rounded-md px-1.5 py-0.5 text-[12.5px] leading-snug" style={{ color: FIELD.text }}>{c.says}</p>
+                        ))}
+                      </div>
+                    </Row>
+                  </div>
+                )}
               />
             ) : (
               <p className="p-6 text-center text-large" style={{ color: FIELD.dim }}>

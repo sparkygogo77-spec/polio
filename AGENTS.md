@@ -3236,8 +3236,8 @@ remove it from `src/features/index.ts` when you're sure.
   list for one commit is kept for the function's life and cached ten
   minutes at the edge. Where GitHub cannot answer it reads `git log`, and
   last the checked-in snapshot `passes.generated.ts` (`npm run passes`),
-  saying which it used. One plain line per change, newest first, under its
-  day, with the live version and build time on top; merges, a check
+  saying which it used. One plain line per change, newest first, on a card
+  per day (the timeline's `Row`), with the live version and build time on top; merges, a check
   committed red, repeats and lines about the making (`aboutTheSite`) are
   left out. `tests/updates-current.mjs`.
 - **Ask the deployment, not a dev server** (`tests/deploy-check.mjs`, `npm run

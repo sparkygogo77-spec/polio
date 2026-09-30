@@ -142,8 +142,8 @@ check("and there are no specifics folded under it to blow that out",
 /* ------------------------------------------------------------------ */
 
 const panel = readFileSync("src/features/studio/Updates.tsx", "utf8");
-check("it borrows the timeline's colours rather than inventing a second way",
-  /from "\.\/TimelineDetail"/.test(panel) && /\bFIELD\b/.test(panel));
+check("it borrows the timeline's cards rather than inventing a second way: one per day",
+  /from "\.\/TimelineDetail"/.test(panel) && /\bRow\b/.test(panel) && /\bFIELD\b/.test(panel));
 check("a list that can run past a hundred lines is windowed", /VirtualList/.test(panel));
 check("it is a slide over standing on nearly the whole screen",
   /fixed/.test(panel) && /w-\[calc\(100vw-1\.5rem\)\]/.test(panel) && /100dvh/.test(panel));

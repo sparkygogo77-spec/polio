@@ -97,7 +97,7 @@ await page.waitForSelector("[data-updates-panel][data-updates-source='github']",
 const panel = await page.evaluate(() => ({
   live: document.querySelector("[data-updates-live]")?.textContent ?? null,
   lines: [...document.querySelectorAll("[data-change]")].map((e) => e.textContent),
-  days: [...document.querySelectorAll("[data-updates-day]")].map((e) => e.textContent),
+  days: [...document.querySelectorAll("[data-updates-day]")].map((e) => e.getAttribute("data-updates-day")),
   text: document.querySelector("[data-updates-panel]")?.textContent ?? "",
 }));
 check("on top: the live version and when it was built", /^Live version abc1234, built /.test(panel.live ?? ""), J(panel.live));
