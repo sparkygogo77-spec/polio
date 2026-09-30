@@ -247,7 +247,8 @@ export const PUBLISH: Record<string, Publish> = {
   "blog-index": draws, changelog: draws, tagging: draws, "archive-mode": draws, rss: still("a feed address"),
   callout: draws, "empty-states": draws, "code-block": runs("parts"), "diff-view": draws,
   "heading-scale": brief, "fluid-type": brief, "textbox-format": brief, "micro-copy": brief,
-  "custom-idea": note, note, mood: note, constraint: note, wildcard: note,
+  /* A new idea is the owner's own part: its name and words publish, and a builder makes the rest from its prompt (`Note`). */
+  "custom-idea": brief, note, mood: note, constraint: note, wildcard: note,
   /* Media */
   picture: draws, gallery: draws, "photo-credit": draws, lightbox: still(PRESS), "image-blur-up": still("loading pictures in"),
   carousel: still(PRESS), "before-after": still("dragging the handle"),

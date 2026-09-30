@@ -345,11 +345,32 @@ const MARK: Record<string, string> = {
   TikTok: "Tk", Discord: "D", Mastodon: "M", Bluesky: "B", RSS: "≈", Email: "@",
 };
 
-/** Notes, ideas, moods and rules — written to the board, not to the site. */
+/**
+ * Notes, ideas, moods and rules, on the board.
+ *
+ * On the published page two kinds part ways. A note, a mood, a rule and a
+ * "surprise me" are words for whoever builds the site: in the blueprint,
+ * never on a page a stranger reads. A NEW IDEA is not: it is a part of the
+ * site the owner designed and named ("JOIN THE TRANSMISSION", a card that
+ * invites people to follow on X), waiting to be built from its prompt, and
+ * its name and words are what the page says there meanwhile. It publishes
+ * them plainly, without the board's dashed edge or its "Idea" tag
+ * (`tests/nothing-dropped.mjs`, where it once went missing whole).
+ */
 export function Note({ id, label, content, theme: t }: PartProps) {
-  /* Words for whoever builds the site: in the blueprint, never on a page a stranger reads. */
-  if (t.published) return null;
   const body = content.trim();
+  if (t.published) {
+    if (id !== "custom-idea") return null;
+    /* The shelf's own name for it ("New idea", `catalog.ts`) is the Builder's word, not the owner's: it is not printed. */
+    const name = label.trim() === "New idea" ? "" : label.trim();
+    if (!name && !body) return null;
+    return (
+      <Fill t={t} data-part={id} style={{ padding: t.fontPx, display: "flex", flexDirection: "column", gap: 6 }}>
+        {name ? <span style={{ fontWeight: 700, fontFamily: t.headingFamily }}>{name}</span> : null}
+        {body ? <span style={{ color: t.muted, fontSize: t.fontPx * 0.9, whiteSpace: "pre-wrap" }}>{body}</span> : null}
+      </Fill>
+    );
+  }
   const kind = id === "constraint" ? "Rule" : id === "mood" ? "Reference" : id === "note" ? "Note" : id === "wildcard" ? "Surprise me" : "Idea";
   return (
     <Fill
