@@ -186,7 +186,22 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { c
     next.fontPx = opts.captured ? Math.round(px * 10000) / 10000 : Math.round(px * 10) / 10;
   }
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
-  if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) next.letterSpacing = `${Math.max(-0.05, Math.min(0.3, font.spacing)).toFixed(3)}em`;
+  /*
+   * A CAPTURED PART'S SPACING, AT THE SIZE ITS WORDS ARE DRAWN. The spacing is
+   * set on the part's box in em, and an em resolves there, at the box's own
+   * size, and is inherited as that length: stonkfun.xyz's headline (48px,
+   * -0.055em) is a value-prop drawn at 1.6 × its box's 30px, so its words
+   * were spaced -1.5px where the page spaced them -2.64px, 22px wider over
+   * the line. Captured with the size it was drawn at (`font.px`), the
+   * spacing is set in px at that size, and the page's own value, past the
+   * control's -0.05: a tight headline is how the page was made
+   * (tests/captured-spacing.mjs). A size set with the window (`fluid`)
+   * keeps em, so its spacing grows with it.
+   */
+  if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) {
+    const em = opts.captured ? Math.max(-0.3, Math.min(1, font.spacing)) : Math.max(-0.05, Math.min(0.3, font.spacing));
+    next.letterSpacing = opts.captured && typeof font.px === "number" && font.px > 0 && !font.fluid ? `${Math.round(em * font.px * 1000) / 1000}px` : `${em.toFixed(3)}em`;
+  }
   if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(leadMin, Math.min(leadMax, font.leading));
   return next;
 }
