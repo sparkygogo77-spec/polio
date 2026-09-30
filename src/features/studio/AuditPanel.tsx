@@ -34,7 +34,9 @@ import { ModelOptions, type OptionRow } from "./ModelOptions";
 import {
   choicesFor, clearOption, readingOf, routeFills, valueOf, writeOption, writePlan,
 } from "./planEdit";
-import type { StudioNode } from "./store";
+import { useShallow } from "zustand/react/shallow";
+import { pageNodes, useStudio, type StudioNode } from "./store";
+import { capturedFrom } from "./partNames";
 
 /* ------------------------------------------------------------------ */
 /* A part                                                              */
@@ -46,14 +48,28 @@ export function AuditPanel({ node }: { node: StudioNode }) {
   const picked = reading.model;
   const filled = React.useMemo(() => (picked ? routeFills(picked, node, reading) : {}), [picked, node, reading]);
 
+  /*
+   * THE CAPTURE'S SENTENCE STAYS INSIDE HERE TOO. A captured part's prompt
+   * begins "Captured from <site> as <element path>.", and the route hands
+   * the prompt on as it is, so the model's prompt field showed the path the
+   * Element prompt above it had just stopped showing. Shown here in the same
+   * plain words ("From <site>, the <section> section."), and put back whole
+   * when the field is written, so what the model is sent is unchanged.
+   */
+  const nodes = useStudio(useShallow(pageNodes));
+  const captured = React.useMemo(() => capturedFrom(node, nodes), [node, nodes]);
+  const plainWords = captured?.prefix ? `${captured.says}. ` : null;
+  const shown = React.useCallback((v: unknown) => (plainWords && typeof v === "string" && v.includes(captured!.prefix) ? v.split(captured!.prefix).join(plainWords) : v), [plainWords, captured]);
+  const kept = React.useCallback((v: unknown) => (plainWords && typeof v === "string" && v.includes(plainWords) ? v.split(plainWords).join(captured!.prefix) : v), [plainWords, captured]);
+
   const rows: OptionRow[] = React.useMemo(() => {
     if (!picked) return [];
-    return picked.fields.map((f) => ({ field: f, ...valueOf(f, node, filled) }));
-  }, [picked, node, filled]);
+    return picked.fields.map((f) => { const r = valueOf(f, node, filled); return { field: f, ...r, value: shown(r.value) }; });
+  }, [picked, node, filled, shown]);
 
   const set = React.useCallback(
-    (name: string, value: unknown) => writeOption(node, reading, picked?.slug ?? null, name, value),
-    [node, reading, picked],
+    (name: string, value: unknown) => writeOption(node, reading, picked?.slug ?? null, name, kept(value)),
+    [node, reading, picked, kept],
   );
   const clear = React.useCallback((name: string) => clearOption(node, reading, name), [node, reading]);
 

@@ -257,7 +257,7 @@ function Mark({
 }
 
 /** THE WORDS, FIRST. Two presses on the part put the caret here (`wanted`). */
-function WordsField({ node, content }: { node: StudioNode; content: { label: string; placeholder?: string } }) {
+function WordsField({ node, content, label }: { node: StudioNode; content: { label: string; placeholder?: string }; label?: "link" | "button" }) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
   const wanted = useStudio((s) => s.wanted);
   React.useEffect(() => {
@@ -274,7 +274,7 @@ function WordsField({ node, content }: { node: StudioNode; content: { label: str
     return () => window.clearTimeout(t);
   }, [wanted, node.id]);
   return (
-    <Field label="Words" hint={`${content.label}. The board draws exactly this.`}>
+    <Field label="Words" hint={label ? `The ${label}'s label: one line, read as part of the ${label}. The board draws exactly this.` : `${content.label}. The board draws exactly this.`}>
       <Textarea
         ref={ref}
         autoGrow
@@ -1018,7 +1018,7 @@ export function Inspector() {
         {/* THE WORDS COME FIRST: they are what a first owner came to change.
             Two presses on the part land the caret here (`wanted`). Under
             them, where the part goes and what it does. */}
-        {feature?.content ? <WordsField node={node} content={feature.content} /> : null}
+        {feature?.content ? <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} /> : null}
         {/* Once, not twice: the Link mark below shows the same field when it is open. */}
         {isLinkable(node.featureId) && mark !== "link" ? <LinkField node={node} /> : null}
         <WorkFields node={node} />

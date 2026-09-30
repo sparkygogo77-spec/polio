@@ -134,8 +134,8 @@ await page.screenshot({ path: `${SHOTS}/side-panel-summary.png` });
 /* ------------------------------------------------ Element, a part picked */
 const pickRow = async (text) => { await side.locator("[data-element-row]", { hasText: text }).first().click(); await page.waitForTimeout(600); };
 check("the list of parts names them readably", !(await side.locator("[data-element-row]").allInnerTexts()).some((t) => /inside|n_box|::/.test(t)), (await side.locator("[data-element-row]").allInnerTexts()).join(" | "));
-await pickRow("Box in “Meet the Crew”");
-check("picked from the list, the header names it readably", (await side.locator("[data-element-name]").innerText()) === "Box in “Meet the Crew”", await side.locator("[data-element-name]").innerText().catch(() => "none"));
+await pickRow("Box “A weekly strip");
+check("picked from the list, the header names it readably", (await side.locator("[data-element-name]").innerText()) === "Box “A weekly strip about a crew of misfits.”", await side.locator("[data-element-name]").innerText().catch(() => "none"));
 const fold = side.locator('[data-fold="make-picture"]');
 check("the picture settings are under a closed \"Make a picture\"", (await fold.count()) === 1 && !(await fold.evaluate((d) => d.open)) && !(await side.locator("[data-audit-panel]").isVisible()));
 const said = await side.locator("[data-captured-from]").innerText().catch(() => "");
@@ -150,6 +150,15 @@ check("one Delete, not two", (await side.getByRole("button", { name: "Delete", e
 await fold.locator("summary").click();
 await page.waitForTimeout(300);
 check("opened, \"Make a picture\" holds the model's options", await side.locator("[data-audit-panel]").isVisible());
+/* The model's own prompt field says where the part came from in the same plain words, never the path. */
+const modelPrompt = side.locator('[data-audit-panel] [data-model-field="prompt"] textarea').first();
+const modelSays = await modelPrompt.inputValue().catch(() => "");
+check("the picture prompt says where from in plain words, with no element path", modelSays.startsWith("From comic.example, the “Meet the Crew” section.") && !/body|nth-of-type|Captured from/.test(modelSays), modelSays.slice(0, 90));
+await modelPrompt.fill(`${modelSays} Bold outlines.`);
+await page.waitForTimeout(300);
+const planned = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.id === "n_box_3").plan?.options?.prompt ?? "");
+check("…and written, what the model is sent keeps the capture's sentence whole", planned.startsWith("Captured from comic.example/ as body > main") && planned.endsWith("Bold outlines.") && !planned.includes("From comic.example,"), planned.slice(0, 120));
+await page.screenshot({ path: `${SHOTS}/side-panel-picture-prompt.png` });
 await page.screenshot({ path: `${SHOTS}/side-panel-element.png` });
 await fold.locator("summary").click();
 
@@ -160,6 +169,9 @@ await tab("Element");
 await pickRow("Buy the comic");
 check("words inside a link are a label", /Label on a link/.test(await side.locator("[data-element-kind]").innerText()), await side.locator("[data-element-kind]").innerText());
 check("…with no measure and no \"long-form text\"", !(await side.getByLabel("Measure").count()) && !/Long-form/i.test(await side.innerText()));
+const wordsHint = await side.getByLabel("Words", { exact: true }).first().locator("xpath=ancestor::label[1]").innerText();
+check("…and its Words box says it is a one-line label, not paragraphs", /one line/.test(wordsHint) && !/Paragraphs/.test(wordsHint), wordsHint.replace(/\s+/g, " ").slice(0, 120));
+await page.screenshot({ path: `${SHOTS}/side-panel-label.png` });
 
 /* ------------------------------------------------ Format */
 await tab("Format");

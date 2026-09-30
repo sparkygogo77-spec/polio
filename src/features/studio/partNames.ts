@@ -120,21 +120,44 @@ const isHeadingish = (n: Named) => {
   return (n.font?.size ?? 0) >= 24;
 };
 
+/** The parts drawn inside `box` on its page, top to bottom, then left to right. */
+function within(box: Named, all: readonly Named[]): Named[] {
+  return all
+    .filter((m) => m.id !== box.id && (!box.pageId || m.pageId === box.pageId) && contains(box, m) && (m.w ?? 0) * (m.h ?? 0) < (box.w ?? 0) * (box.h ?? 0))
+    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+}
+
+/** The first heading inside a part: a section is named by its own heading, never the page's. */
+function firstHeading(box: Named, all: readonly Named[]): string | null {
+  const h = within(box, all).find(isHeadingish);
+  return h ? clip(wordsOf(h)) : null;
+}
+
+/** A part's own title when it holds others: its first heading, else its first words. */
+function ownTitle(box: Named, all: readonly Named[]): string | null {
+  const inside = within(box, all);
+  if (!inside.length) return null;
+  const h = inside.find(isHeadingish) ?? inside.find((m) => !!wordsOf(m));
+  return h ? clip(wordsOf(h)) : null;
+}
+
+/** Kinds that are a place on the page, not a thing in a section: never "Footer in …". */
+const LANDMARKS = new Set(["Section", "Header", "Footer", "Menu", "Page body", "Form", "List"]);
+
 /**
- * The heading of the section a part sits in: the biggest short words inside
- * the smallest part that holds it and has a heading, else the nearest
- * heading above it on its page. Null when the page has none.
+ * The heading of the section a part sits in: the first heading inside the
+ * smallest part that holds it and has one, else the nearest heading above
+ * it on its page. Null when the page has none.
  */
 export function sectionOf(n: Named, all: readonly Named[]): string | null {
   const page = all.filter((m) => m.id !== n.id && (!n.pageId || m.pageId === n.pageId));
-  const heads = page.filter(isHeadingish);
-  if (!heads.length) return null;
+  if (!page.some(isHeadingish)) return null;
   const holders = page.filter((m) => contains(m, n) && (m.w ?? 0) * (m.h ?? 0) > (n.w ?? 0) * (n.h ?? 0)).sort((a, b) => (a.w! * a.h!) - (b.w! * b.h!));
   for (const box of holders) {
-    const inside = heads.filter((h) => contains(box, h)).sort((a, b) => (b.font?.size ?? 0) - (a.font?.size ?? 0) || (a.y ?? 0) - (b.y ?? 0));
-    if (inside.length) return clip(wordsOf(inside[0]!));
+    const h = firstHeading(box, all);
+    if (h) return h;
   }
-  const above = heads.filter((h) => (h.y ?? 0) <= (n.y ?? 0)).sort((a, b) => (b.y ?? 0) - (a.y ?? 0));
+  const above = page.filter((h) => isHeadingish(h) && (h.y ?? 0) <= (n.y ?? 0)).sort((a, b) => (b.y ?? 0) - (a.y ?? 0));
   return above.length ? clip(wordsOf(above[0]!)) : null;
 }
 
@@ -148,6 +171,10 @@ export function partName(n: Named, all: readonly Named[] = [], featureName?: (id
   if (as?.name) return clip(`${kind} “${as.name}”`);
   const alt = n.picture?.alt?.trim();
   if (alt) return clip(`${kind} “${alt}”`);
+  /* A part that holds others is named by what it holds: "Section “The Lore”". */
+  const title = ownTitle(n, all);
+  if (title) return clip(`${kind} “${title}”`, 60);
+  if (LANDMARKS.has(kind)) return kind;
   const section = sectionOf(n, all);
   return section ? clip(`${kind} in “${section}”`, 60) : kind;
 }
@@ -169,6 +196,9 @@ export function capturedFrom(n: Named, all: readonly Named[] = []): { says: stri
   const rawHost = m?.[1] ?? n.from?.host ?? n.from?.url ?? "";
   const host = rawHost.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   if (!host) return null;
+  /* A section is from its own heading. */
+  const heading = firstHeading(n, all);
+  if (heading && !wordsOf(n)) return { says: `From ${host}, the “${heading}” section`, prefix: m?.[0] ?? "", rest: m ? prompt.slice(m[0].length) : prompt };
   const section = sectionOf(n, all);
   /* The part's own name when it has one (its words, its label, the name the
      browser gave it); the section it sits in when it has only a kind. */

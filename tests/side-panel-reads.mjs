@@ -54,9 +54,31 @@ check("…and a name an owner gives is not", !isMachineLabel("Hero card") && !is
 const names = Object.fromEntries(nodes.map((n) => [n.id, partName(n, nodes)]));
 check("a part with words is named by them", names.n_box_2 === "Meet the Crew" && names.n_box_5 === "Buy the comic", J(names));
 check("a part the browser named is named that way", names.n_box_7 === "Button “Open menu”", names.n_box_7);
-check("a box with nothing of its own is named by what it is and its section", names.n_box_3 === "Box in “Meet the Crew”", names.n_box_3);
+check("a box that holds words is named by them", names.n_box_3 === "Box “A weekly strip.”", names.n_box_3);
 check("a ::after is a decoration in its section", names.n_box_4 === "Decoration in “Meet the Crew”", names.n_box_4);
 check("no name printed is machinery", Object.values(names).every((s) => !/inside|n_box|::|·/.test(s)), J(names));
+
+/* A long page like Trump & Morty's, made up: a hero heading, then sections with their own headings, and a footer. */
+const TITLES = ["The Lore", "How to buy", "Live chart", "Roadmap", "Join the crew"];
+const longPage = [
+  { id: "hero", pageId: "q", label: "section · 2 inside", x: 0, y: 0, w: 1440, h: 800, from: { selector: "body > main > section:nth-of-type(1)" } },
+  { id: "hero-h", pageId: "q", label: "h1 · 0 inside", content: "PORTAL PALS", font: { size: 96 }, x: 100, y: 100, w: 900, h: 120, from: { selector: "body > main > section:nth-of-type(1) > h1" } },
+  { id: "hero-pic", pageId: "q", label: "div · 0 inside", x: 900, y: 300, w: 400, h: 400, from: { selector: "body > main > section:nth-of-type(1) > div" } },
+  ...TITLES.flatMap((t, i) => [
+    { id: `s${i}`, pageId: "q", label: "section · 3 inside", x: 0, y: 900 + i * 900, w: 1440, h: 800, from: { selector: `body > main > section:nth-of-type(${i + 2})` } },
+    { id: `s${i}-h`, pageId: "q", label: "h2 · 0 inside", content: t, font: { size: 48 }, x: 100, y: 960 + i * 900, w: 600, h: 60, from: { selector: `body > main > section:nth-of-type(${i + 2}) > h2` } },
+    { id: `s${i}-big`, pageId: "q", label: "span · 0 inside", content: `${(i + 1) * 100}%`, font: { size: 72 }, x: 800, y: 1100 + i * 900, w: 300, h: 90, from: { selector: `body > main > section:nth-of-type(${i + 2}) > span` } },
+    { id: `s${i}-card`, pageId: "q", label: "div · 0 inside", x: 100, y: 1300 + i * 900, w: 400, h: 200, from: { selector: `body > main > section:nth-of-type(${i + 2}) > div` } },
+  ]),
+  { id: "foot", pageId: "q", label: "footer · 2 inside", x: 0, y: 5500, w: 1440, h: 200, from: { selector: "body > footer" } },
+  { id: "foot-w", pageId: "q", label: "p · 0 inside", content: "Not financial advice.", font: { size: 14 }, x: 100, y: 5560, w: 400, h: 20, from: { selector: "body > footer > p" } },
+];
+const sectionNames = TITLES.map((_, i) => partName(longPage.find((n) => n.id === `s${i}`), longPage));
+check("each section is named by its own first heading, never the page's first", sectionNames.every((nm, i) => nm === `Section “${TITLES[i]}”`), JSON.stringify(sectionNames));
+check("a part in a section takes that section's heading, not a bigger number beside it", partName(longPage.find((n) => n.id === "s3-card"), longPage) === "Box in “Roadmap”", partName(longPage.find((n) => n.id === "s3-card"), longPage));
+check("a footer is named by what it holds, never \"in\" the section above it", partName(longPage.find((n) => n.id === "foot"), longPage) === "Footer “Not financial advice.”", partName(longPage.find((n) => n.id === "foot"), longPage));
+check("an empty footer is just a footer", partName({ id: "f2", pageId: "q", label: "footer · 0 inside", x: 0, y: 6000, w: 1440, h: 100, from: { selector: "body > footer" } }, longPage) === "Footer");
+check("a captured section says it is from its own heading", capturedFrom({ ...longPage.find((n) => n.id === "s1"), prompt: "Captured from portal.example/ as body > main > section:nth-of-type(3). The box." }, longPage)?.says === "From portal.example, the “How to buy” section");
 
 /* ------------------------------------------------ where it came from */
 const from = capturedFrom(nodes[2], nodes);
@@ -105,7 +127,7 @@ const kept = { edited: [{ id: "n_box_63", label: partName(nodes[2], nodes), face
 const short = keptShort(kept);
 check("the short line is short and names nothing", short.length < 120 && !/n_[a-z]+_\d|inside|·/.test(short), short);
 const long = keptSays(kept);
-check("the details name parts readably, facets in words", /Box in “Meet the Crew” \(position, the marquee feature's middle\)/.test(long) && !/n_box/.test(long), long);
+check("the details name parts readably, facets in words", /Box “A weekly strip.” \(position, the marquee feature's middle\)/.test(long) && !/n_box/.test(long), long);
 check("a facet in words", facetSays("w") === "size" && facetSays("content") === "words");
 const sweep = "2 boxes hold nothing and were left alone: n_box_63, n_box_70. 1 duplicate box removed, each with its twin left in place: n_box_9→n_box_8. main · 7 inside (h) was fitted.";
 check("idless takes the sweep's ids and box names out", !/n_box|inside|·/.test(idless(sweep)) && /left alone\./.test(idless(sweep)), idless(sweep));
