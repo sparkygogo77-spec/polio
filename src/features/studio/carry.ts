@@ -3,7 +3,7 @@
  * capture, the same on every surface. Pure: no store, no React, so the
  * export and `tests/ca-bar-seams.mjs` run it as written.
  */
-import { inside, movesItself, underPath, type MotionNode } from "./parts/capturedMotion";
+import { insideIndex, movesItself, type MotionNode } from "./parts/capturedMotion";
 import { onUsesOf, type WorkUse } from "./library/works";
 
 /** A part, as far as these read it. */
@@ -24,19 +24,27 @@ export interface CarryNode extends MotionNode { featureId?: string; data?: unkno
  */
 export function carryOwned(nodes: readonly CarryNode[]): Map<string, string[]> {
   const tilts = (n: CarryNode) => onUsesOf(n.work).some((u) => u.id === "tilt" && u.inputs?.mode !== "scroll");
-  const hosts = nodes.filter((n) => n.from?.selector?.trim() && (movesItself(n) || tilts(n)));
+  /* Each part's nearest owner that moves, found by walking its path up (its element first, when it is a ::before or ::after). */
+  const hostAt = new Map<string, CarryNode[]>();
+  for (const h of nodes) if (h.from?.selector?.trim() && (movesItself(h) || tilts(h))) { const k = `${h.pageId ?? ""}\u0000${h.from.selector.trim()}`; hostAt.set(k, [...(hostAt.get(k) ?? []), h]); }
   const out = new Map<string, string[]>();
+  if (!hostAt.size) return out;
   for (const kid of nodes) {
     const sel = kid.from?.selector?.trim() ?? "";
+    if (!sel) continue;
     /*
      * Only a box of the same state: a press's parts (trumpmorty's "COPIED!")
      * sit at the element paths of the parts they stand in for, and carried
      * into the bar the press hides they were hidden with it.
      */
     const same = (h: CarryNode) => (h.state?.group ?? null) === (kid.state?.group ?? null) && (h.state?.option ?? null) === (kid.state?.option ?? null);
-    const owner = hosts
-      .filter((h) => h.pageId === kid.pageId && same(h) && underPath(h.from!.selector!.trim(), sel))
-      .sort((a, b) => b.from!.selector!.length - a.from!.selector!.length)[0];
+    const ups: string[] = [];
+    const pseudo = /::(before|after)$/.exec(sel);
+    if (pseudo) ups.push(sel.slice(0, pseudo.index));
+    for (let at = sel.lastIndexOf(" > "); at > 0; at = sel.lastIndexOf(" > ", at - 1)) ups.push(sel.slice(0, at));
+    ups.sort((a, b) => b.length - a.length);
+    let owner: CarryNode | undefined;
+    for (const u of ups) if ((owner = (hostAt.get(`${kid.pageId ?? ""}\u0000${u}`) ?? []).find((h) => h.id !== kid.id && same(h)))) break;
     if (owner) out.set(owner.id, [...(out.get(owner.id) ?? []), kid.id]);
   }
   return out;
@@ -57,6 +65,7 @@ export function pressable(n: CarryNode): boolean {
 /** The parts that show the pointing hand on a page: every pressable part, and every part inside one. */
 export function pointing(nodes: readonly CarryNode[]): Set<string> {
   const out = new Set<string>();
-  for (const n of nodes.filter(pressable)) { out.add(n.id); for (const k of inside(n, nodes)) out.add(k.id); }
+  const within = insideIndex(nodes);
+  for (const n of nodes.filter(pressable)) { out.add(n.id); for (const k of within(n)) out.add(k.id); }
   return out;
 }

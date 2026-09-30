@@ -179,8 +179,10 @@ async function motionChecks(p, where, tpl) {
   await p.mouse.move(5, 5); await p.waitForTimeout(300);
   await p.mouse.move(words.x, words.y); await p.waitForTimeout(400);
   const link = await tf("n_box_7");
-  const inner = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).transform, at("n_prose_8"));
-  check(`${where}: pointing at a link's words, a part of their own over its box, hovers the link, and the words move with it`, link?.tf === "matrix(1, 0, 0, 1, -3, -3)" && inner === "matrix(1, 0, 0, 1, -3, -3)", JSON.stringify({ link, inner }));
+  /* How far the words went: by a rule of their own (the preview), or inside the link that moved (the export, carry.ts). */
+  const moved = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, at("n_prose_8"));
+  const inner = { dx: +(moved.x - words.x).toFixed(2), dy: +(moved.y - words.y).toFixed(2) };
+  check(`${where}: pointing at a link's words, a part of their own over its box, hovers the link, and the words move with it`, link?.tf === "matrix(1, 0, 0, 1, -3, -3)" && Math.abs(inner.dx + 3) < 0.6 && Math.abs(inner.dy + 3) < 0.6, JSON.stringify({ link, inner }));
   const card = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.x + r.width - 20, y: r.y + r.height - 20 }; }, at("n_box_3"));
   await p.mouse.move(5, 5); await p.waitForTimeout(300);
   const knob0 = await tf("n_box_4");
@@ -198,8 +200,10 @@ await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2000);
 const out = await page.evaluate(async () => (await window.__studioExport()).map((f) => ({ path: f.path, content: typeof f.content === "string" ? f.content : null })));
 files = new Map(out.filter((f) => f.content !== null).map((f) => [f.path, f.content]));
-const css = files.get("assets/site.css") ?? "";
-check("the export's stylesheet holds the prefixed keyframes, the animation and the hover", /@keyframes cap-spin/.test(css) && /\.mo-n_box_1 \{ animation: 2s linear 0s infinite normal none cap-spin/.test(css) && /\.mo-n_ctaprimary_2:hover/.test(css), css.slice(css.indexOf("@keyframes"), css.indexOf("@keyframes") + 300));
+/* The keyframes in site.css, each page's parts' motion in its own sheet (tests/css-scale.mjs). */
+const css = [files.get("assets/site.css") ?? "", ...[...files].filter(([p]) => p.startsWith("assets/motion/")).map(([, c]) => c)].join("\n");
+check("the page loads its own motion sheet", /assets\/motion\/[\w-]+\.css/.test(files.get("index.html") ?? ""));
+check("the export's stylesheets hold the prefixed keyframes, the animation and the hover", /@keyframes cap-spin/.test(css) && /\.mo-n_box_1 \{ animation: 2s linear 0s infinite normal none cap-spin/.test(css) && /\.mo-n_ctaprimary_2:hover/.test(css), css.slice(css.indexOf("@keyframes"), css.indexOf("@keyframes") + 300));
 check("…and asks for nothing to move under reduced motion", /prefers-reduced-motion: reduce/.test(css));
 check("…and writes no keyframes rule whose frames held nothing it could write safely", !/cap-evil/.test(css) && !/display:\s*none/.test(css.slice(css.indexOf("@keyframes"))));
 check("…the page carries no motion stylesheet of its own", !/@keyframes/.test(files.get("index.html") ?? ""));

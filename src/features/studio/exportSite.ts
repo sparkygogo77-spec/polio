@@ -58,7 +58,8 @@
  * arrived.
  */
 import * as React from "react";
-import { motionCss } from "./parts/capturedMotion";
+import { keyframesCss, motionCss, pathCodes } from "./parts/capturedMotion";
+import { shareRules } from "./cssMerge";
 import { carryOwned, pointing } from "./carry";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { useStudio, type StudioNode, type StudioPage } from "./store";
@@ -429,7 +430,7 @@ function carriedFeatures(nodes: StudioNode[], fluid: boolean): StudioNode[] {
   });
 }
 
-function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null): string {
+function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null, atOf?: ReadonlyMap<string, string>, shared?: ReadonlyMap<string, readonly string[]>): string {
   const pageId = page.id;
   const tpl = document.createElement("template");
   tpl.innerHTML = html;
@@ -467,6 +468,14 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
     }
     if (node) el.setAttribute("id", node);
     if (node && pressed.has(node)) (el as HTMLElement).style.cursor = "pointer";
+    /* Its element path, where a rule fires on what stands under a path (`motionCss#trigger`). */
+    const code = node ? atOf?.get(node) : undefined;
+    if (code) el.setAttribute("data-at", code);
+    /* A part moving as others move wears, on its element and its box, the classes their one rule names (`cssMerge.ts#shareRules`). */
+    if (shared?.size) {
+      for (const x of (node && shared.get(`#${node}`)) || []) el.classList.add(x);
+      for (const c of Array.from(el.classList)) for (const x of (c.startsWith("mo-") && shared.get(c)) || []) el.classList.add(x);
+    }
     if (isPage) el.setAttribute("data-page", pageId);
     /*
      * The page frame clips, and is no scroll container. The preview's frame
@@ -873,6 +882,43 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   const description = s.brief.description?.trim() ?? "";
   const inPlace = inPlaceGroups(s.pages, s.nodes, home);
 
+  /*
+   * THE PAGE'S MOTION, IN ITS OWN SHEET. One stylesheet for every page's
+   * parts grew with the site: parasiteonsol.fun's twelve pages and their
+   * press-opened panels came to 26 MB, past what a publish carries (25). So
+   * `site.css` keeps what every page shares (the palette, the faces, the
+   * resets, the keyframes) and each page loads the motion of its own parts
+   * and its panels', `assets/motion/<page>.css`. Pages switched in place
+   * swap their parts and not their head, so a group's pages share one sheet.
+   * A group's rules name its host and the path its parts stand under
+   * (`motionCss#trigger`), and what many parts say the same way is said
+   * once, by a class they share (`cssMerge.ts`).
+   * `tests/css-scale.mjs`.
+   */
+  const nested = new Set(fluidAt !== null ? [...carryOwned(s.nodes).values()].flat() : []);
+  const sheetOf = (p: StudioPage) => (inPlace.get(p.id)?.root ?? p).id;
+  const pathCode = pathCodes(s.nodes);
+  const usedCodes = new Set<string>();
+  const motionSheets = new Map<string, string>();
+  const shared = new Map<string, string[]>();
+  let sheetNo = 0;
+  for (const key of new Set(s.pages.filter((p) => !only || only.includes(p.id)).map(sheetOf))) {
+    const on = new Set(s.pages.filter((p) => sheetOf(p) === key).map((p) => p.id));
+    const css = motionCss(s.nodes.filter((n) => on.has(n.pageId)), undefined, (id) => `#${id}`, nested, pathCode, usedCodes);
+    if (!css) continue;
+    const folded = shareRules(css, `ms${(sheetNo++).toString(36)}-`);
+    motionSheets.set(key, folded.css);
+    for (const [box, names] of folded.classes) shared.set(box, [...(shared.get(box) ?? []), ...names]);
+  }
+  /* The parts under a path a rule names wear their code (`motionCss#trigger`); no other part needs it. */
+  const atOf = new Map<string, string>();
+  if (usedCodes.size) for (const n of s.nodes) {
+    const code = pathCode(n.id);
+    if (!code) continue;
+    for (let i = code.indexOf("."); i > 0 && i < code.length - 1; i = code.indexOf(".", i + 1)) if (usedCodes.has(code.slice(0, i + 1))) { atOf.set(n.id, code); break; }
+  }
+  const sheetFile = (key: string) => `assets/motion/${key.replace(/[^\w-]/g, "_")}.css`;
+
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
     const up = upOf(page, home);
@@ -902,11 +948,11 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
 <meta charset="utf-8">
 <meta name="viewport" content="${fluidAt ? `width=${Math.min(width, 1280)}` : "width=device-width, initial-scale=1"}">
 ${pageHead({ title, name, description, icon, icons, up, address: pageAddress(page, home), live, site: siteHead, page: heldHead(page.head, held) })}
-<link rel="stylesheet" href="${up}assets/site.css">
+<link rel="stylesheet" href="${up}assets/site.css">${motionSheets.has(sheetOf(page)) ? `\n<link rel="stylesheet" href="${up}${sheetFile(sheetOf(page))}">` : ""}
 </head>
 <body>
 <div class="site-root">
-${clean(html, page, s.pages, home, nodes, roles, fluidAt)}
+${clean(html, page, s.pages, home, nodes, roles, fluidAt, atOf, shared)}
 </div>
 ${pageFeatureTags(carriedFeatures(s.nodes.filter((n) => n.pageId === page.id), fluidAt !== null), up)}
 ${inPlaceScript(page, inPlace.get(page.id), home)}
@@ -917,8 +963,8 @@ ${inPlaceScript(page, inPlace.get(page.id), home)}
   }
 
   const vars = ROLES.map((r) => `  --${r}: ${palette[r]};`).join("\n");
-  const nested = new Set(fluidAt !== null ? [...carryOwned(s.nodes).values()].flat() : []);
-  const motion = motionCss(s.nodes.filter((n) => !only || only.includes(n.pageId)), s.look.keyframes, (id) => `#${id}`, nested);
+  const frames = keyframesCss(s.look.keyframes);
+  const motion = frames || motionSheets.size ? [frames, "@media (prefers-reduced-motion: reduce) { .mo, .mo *, .mo-l { animation: none !important; transition: none !important; } }"].filter(Boolean).join("\n") : "";
   const css = `/* The site's palette: every colour on the pages that is one of these is written as var(--name). */
 :root {
 ${vars}
@@ -936,10 +982,11 @@ ${STRETCH}
 /* The page, made at one width, drawn at the window's. */
 ${frameCss(width, fluidAt !== null)}
 ${motion ? `
-/* The site's own motion, as captured: its keyframes (prefixed cap-), each part's animation, transitions and hover. */
+/* The site's own motion, as captured: its keyframes (prefixed cap-); each page's parts move in assets/motion/<page>.css. */
 ${motion}
 ` : ""}`;
   files.push({ path: "assets/site.css", content: css });
+  for (const [key, sheet] of motionSheets) files.push({ path: sheetFile(key), content: `/* The motion of this page's parts and its panels', as captured: each part's animation, transitions and hover (keyframes in site.css). */\n${sheet}\n` });
   /* Clean addresses on Vercel: tokens/index.html served at /tokens (see cleanHref). */
   files.push({ path: "vercel.json", content: `${JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2)}\n` });
   /* The features the site uses: a tiny runtime and each one's script, static, no framework (`library/works.ts`). */

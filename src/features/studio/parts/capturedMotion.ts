@@ -177,6 +177,83 @@ export function inside<N extends MotionNode>(host: N, nodes: readonly N[]): N[] 
   return nodes.filter((x) => x.id !== host.id && ID.test(x.id) && x.pageId === host.pageId && underPath(sel, x.from?.selector?.trim() ?? ""));
 }
 
+/**
+ * `inside` for every part of a page at once, by walking each part's path up
+ * rather than asking every part of every other: a page of 18,000 parts
+ * asked it 18,000 times over 18,000 parts. The same answer, in the same order.
+ */
+export function insideIndex<N extends MotionNode>(nodes: readonly N[]): (host: N) => N[] {
+  const bySel = new Map<string, N[]>();
+  for (const n of nodes) {
+    const sel = n.from?.selector?.trim();
+    if (!sel) continue;
+    const key = `${n.pageId ?? ""}\u0000${sel}`;
+    const list = bySel.get(key);
+    if (list) list.push(n); else bySel.set(key, [n]);
+  }
+  const kids = new Map<N, Set<N>>();
+  for (const x of nodes) {
+    const sel = x.from?.selector?.trim();
+    if (!sel || !ID.test(x.id)) continue;
+    const seen = new Set<string>();
+    const up = (p: string) => {
+      if (seen.has(p)) return;
+      seen.add(p);
+      for (const h of bySel.get(`${x.pageId ?? ""}\u0000${p}`) ?? []) if (h !== x && h.id !== x.id) { let s = kids.get(h); if (!s) kids.set(h, (s = new Set())); s.add(x); }
+    };
+    const pseudo = /::(before|after)$/.exec(sel);
+    if (pseudo) up(sel.slice(0, pseudo.index));
+    let at = sel.lastIndexOf(" > ");
+    while (at > 0) { up(sel.slice(0, at)); at = sel.lastIndexOf(" > ", at - 1); }
+  }
+  const order = new Map(nodes.map((n, i) => [n, i]));
+  const cache = new Map<N, N[]>();
+  return (host) => {
+    let got = cache.get(host);
+    if (!got) cache.set(host, (got = [...(kids.get(host) ?? [])].sort((a, b) => order.get(a)! - order.get(b)!)));
+    return got;
+  };
+}
+
+/**
+ * Every part's element path as a short code, one token a step (`3.1f.a2.`):
+ * a part stands under another's path exactly when its code begins with the
+ * other's and is longer, as `underPath` has it (a `::before` a step of its
+ * element). Tokens are shared by every part the codes are made for, so make
+ * them once for the whole site. Null for a part with no path.
+ */
+export function pathCodes(nodes: readonly MotionNode[]): (id: string) => string | null {
+  const token = new Map<string, string>();
+  const tok = (p: string) => { let t = token.get(p); if (!t) token.set(p, (t = token.size.toString(36))); return t; };
+  const codes = new Map<string, string>();
+  for (const n of nodes) {
+    const sel = n.from?.selector?.trim();
+    if (!sel || !ID.test(n.id)) continue;
+    const steps: string[] = [];
+    const pseudo = /::(before|after)$/.exec(sel);
+    const base = pseudo ? sel.slice(0, pseudo.index) : sel;
+    for (let at = base.indexOf(" > "); at > 0; at = base.indexOf(" > ", at + 3)) steps.push(base.slice(0, at));
+    steps.push(base);
+    if (pseudo) steps.push(sel);
+    codes.set(n.id, steps.map((p) => `${tok(p)}.`).join(""));
+  }
+  return (id) => codes.get(id) ?? null;
+}
+
+/** A selector list's selectors, split at its own commas and never at one inside `:has(…)` or `:not(…)`. */
+function topLevel(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0, from = 0;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === "," && depth === 0) { out.push(list.slice(from, i).trim()); from = i + 1; }
+  }
+  out.push(list.slice(from).trim());
+  return out;
+}
+
 export const MOVES = new Set(["transform", "translate", "rotate", "scale"]);
 
 /** Does a hover, press or focus on the part itself move it (a key that rises under the pointer and sinks when pressed)? */
@@ -198,8 +275,26 @@ export function movesItself(n: MotionNode): boolean {
  * made by the parts inside as well, about the element's own centre, with
  * the element's transition, so they travel together as they did.
  */
-export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>): string {
+export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>, pathCode?: (id: string) => string | null, usedCodes?: Set<string>): string {
   const rules: string[] = [];
+  const within = insideIndex(nodes);
+  /*
+   * WHAT FIRES A GROUP'S RULE. Said as every part of the group by name, a
+   * rule on a box with 400 parts in it (parasiteonsol.fun's panels) was 3 KB
+   * long, and 8,085 of them made the published stylesheet 24 MB of its 26.
+   * Given `pathCode`, every part wears its element path as a short code
+   * (`data-at`, which the caller writes: one token a step, `3.1f.a2.`), and
+   * the rule names the host and whatever stands under its path: the same
+   * elements (a part at the host's own path, its twin in another state, is
+   * not under it, as `inside` has it), one selector long. `usedCodes` hears
+   * which paths a rule names, so only the parts under them need the code.
+   */
+  const trigger = (host: MotionNode, group: readonly MotionNode[], pseudo: string) => {
+    const code = pathCode?.(host.id);
+    if (!code) return `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")})`;
+    usedCodes?.add(code);
+    return `:root:has(${at(host.id)}${pseudo}, [data-at^="${code}"]:not([data-at="${code}"])${pseudo})`;
+  };
   for (const n of nodes) {
     const m = n.motion;
     if (!m || !ID.test(n.id)) continue;
@@ -210,7 +305,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
     const trans = transitionValue(m.transition);
     if (trans) own.push(`transition: ${trans}`);
     if (own.length) rules.push(`${box} { ${own.join("; ")}; }`);
-    const kids = inside(n, nodes);
+    const kids = within(n);
     const moveTrans = transitionValue((m.transition ?? []).filter((t) => t.property === "all" || MOVES.has(t.property)));
     for (const [kind, list] of [["hover", m.hover], ["active", m.active], ["focus", m.focus]] as const) {
       for (const r of list ?? []) {
@@ -219,7 +314,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
         const pseudo = kind === "hover" ? ":hover" : kind === "active" ? ":active" : r.state === "focus-visible" ? ":focus-visible" : ":focus-within";
         const host = r.self !== false ? n : hoverHost(n, r, nodes);
         if (!host || !ID.test(host.id)) continue;
-        const group = [host, ...inside(host, nodes)];
+        const group = [host, ...within(host)];
         /*
          * The part's own element is its box and everything drawn in its
          * frame with it: a link stretched over the part (`link-fills-part`)
@@ -228,7 +323,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
          * "How to buy", and under the stretched link nothing matched).
          */
         const own = kind === "focus" ? `${box}${pseudo}` : `${at(host.id)}${pseudo} ${box}, ${box}${pseudo}`;
-        const when = group.length === 1 ? own : `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")}) ${box}`;
+        const when = group.length === 1 ? own : `${trigger(host, group, pseudo)} ${box}`;
         /*
          * A pseudo-element the state brings (`.nav a:hover::before`, a pill
          * not drawn at rest): drawn from its look at rest and the state's,
@@ -239,7 +334,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
         if (r.pseudo === "::before" || r.pseudo === "::after") {
           const base = declarations(r.base, false);
           const there = !!r.base?.content && !/^(none|normal)$/.test(r.base.content.trim());
-          const on = when.split(/,\s*(?![^()]*\))/).map((w) => `${w}${r.pseudo}`).join(", ");
+          const on = topLevel(when).map((w) => `${w}${r.pseudo}`).join(", ");
           rules.push(`${box} { position: relative; }`);
           if (there && base) rules.push(`${box}${r.pseudo} { ${base}; }`);
           rules.push(`${on} { ${[base, decl].filter(Boolean).join("; ")}; }`);
@@ -252,13 +347,13 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
         if (!moveDecl || !kids.length) continue;
         const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
         /* The group is never the host alone here: the parts inside it are in it. */
-        const trigger = `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")})`;
+        const fires = trigger(host, group, pseudo);
         /* A part the export puts inside the box (`nested`, exportSite.ts#carryOwned) moves with it already. */
         for (const k of kids) {
           if (nested?.has(k.id)) continue;
           const origin = `transform-origin: ${Math.round(cx - k.x)}px ${Math.round(cy - k.y)}px`;
           if (moveTrans) rules.push(`@media (prefers-reduced-motion: no-preference) { ${at(k.id)} { transition: ${moveTrans}; } }`);
-          rules.push(`${trigger} ${at(k.id)} { ${moveDecl}; ${origin} !important; }`);
+          rules.push(`${fires} ${at(k.id)} { ${moveDecl}; ${origin} !important; }`);
         }
       }
     }

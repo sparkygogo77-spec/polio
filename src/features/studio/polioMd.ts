@@ -454,7 +454,7 @@ export function polioMd(site: PolioSite): string {
   /* Focus alone is the page's one focus ring on everything: not motion. */
   const styled = nodes.filter((n) => n.motion && ((n.motion.animation?.length ?? 0) + (n.motion.transition?.length ?? 0) + (n.motion.hover?.length ?? 0) + (n.motion.active?.length ?? 0)) > 0);
   if (styled.length) {
-    say("### Motion and hover from the stylesheet", "", "Written into `assets/site.css` against each part's id; the keyframes are prefixed `cap-`. Parts moving the same way are one row.", "", "| Animation | Transition | Hover / press / focus | Parts |", "|---|---|---|---|");
+    say("### Motion and hover from the stylesheet", "", "Written into `assets/motion/<page>.css` against each part's box (`.mo-<id>`, or a class the parts moving the same way share); the keyframes are prefixed `cap-` and live in `assets/site.css`. Parts moving the same way are one row.", "", "| Animation | Transition | Hover / press / focus | Parts |", "|---|---|---|---|");
     const rows = new Map<string, { anim: string; tr: string; hv: string; ids: string[] }>();
     for (const n of styled) {
       const m = n.motion!;

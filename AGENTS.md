@@ -893,6 +893,15 @@ follow rule and no second reveal of its own. A link, a button (the
 capture's role), a call to action or a part with a pressed look shows the
 pointing hand, and so does every part inside it.
 
+**A site's stylesheets scale with it** (`cssMerge.ts`, `tests/css-scale.mjs`).
+`assets/site.css` holds what every page shares (palette, faces, resets,
+keyframes); each page loads its own parts' and its panels' motion from
+`assets/motion/<page>.css` (pages switched in place share one). A group's
+rule names its host and the element path its parts stand under (`data-at`,
+a short code per part), never every part by name, and rules saying the
+same thing are folded into one class only where no rule's order could
+decide differently. parasiteonsol.fun's 26 MB sheet is 77 KB and 418 KB.
+
 **A captured page's boxes arrive the same way** (`boxEntry.ts`,
 `tests/boxes-land.mjs`). `FromASite` lands every block it read in one
 synchronous loop, and they all appeared in the same frame, which reads as a
