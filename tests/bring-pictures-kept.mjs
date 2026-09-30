@@ -15,7 +15,7 @@
  * picture kept within a few seconds of its parts landing, and they are
  * all still there after a reload.
  *
- *   npm run build && npx next start -p 3013
+ *   npm run build && GITHUB_API=http://127.0.0.1:4333 npx next start -p 3013
  *   node tests/bring-pictures-kept.mjs http://127.0.0.1:3013
  */
 import http from "node:http";

@@ -54,6 +54,8 @@ const ROOT = small("SOLCINERATOR", 9, 27);
 const SHARE = small("SHARE", 2, 6);
 const TM = { ...tm, look: { ...tm.look, paletteFrom: undefined } };
 const blobs = { root: ROOT, tm: TM, share: SHARE };
+/* What lands: the capture's parts, plus the Dust layer attaching makes at each repainted canvas (library/captured.ts; tests/behaviours-attach.mjs). */
+const LANDS = TM.nodes.length + (TM.behaviours?.motion?.canvases ?? []).filter((c) => c.kind === "particles").length;
 const treeFor = (ref) => [
   { path: "package.json", type: "blob", sha: "pkg", size: 10 },
   { path: "site/document.json", type: "blob", sha: "root", size: 100 },
@@ -127,7 +129,7 @@ await page.locator("[data-repo-branch-pick]").selectOption(BRANCH);
 await page.waitForTimeout(600);
 await page.locator('[data-repo-folder="sites/trumpmorty-fun"]').click();
 await page.locator("[data-repo-bring-chosen]").click();
-const landed = await until(async () => (await partsNow()) === TM.nodes.length);
+const landed = await until(async () => (await partsNow()) === LANDS);
 check("the first bring lands trumpmorty.fun from its folder on its branch", landed, `${await partsNow()} parts; read ${read.join(",")}`);
 const src = (await project())?.source ?? null;
 check("1. the site's source is recorded whole: repo, branch and folder", src?.owner === OWNER && src?.name === NAME && src?.branch === BRANCH && src?.dir === "sites/trumpmorty-fun", JSON.stringify(src));
@@ -151,7 +153,7 @@ const says = (await ask.count()) ? (await ask.innerText()).replace(/\s+/g, " ") 
 check("2. Replace says what goes: this board's parts and pages", /7 parts on 3 pages/.test(says), says);
 check("2. …and what comes: the repo, the folder and the branch", new RegExp(`${OWNER}/${NAME}/sites/trumpmorty-fun`).test(says) && new RegExp(BRANCH.replace("/", "\\/")).test(says), says);
 await page.locator("[data-repo-bring-go]").click();
-const back = await until(async () => (await partsNow()) === TM.nodes.length, 60000);
+const back = await until(async () => (await partsNow()) === LANDS, 60000);
 check("1. \"again\" brings in trumpmorty.fun from its folder and branch, never the repo root of main", back && read.includes("tm") && !read.includes("root"), `${await partsNow()} parts; blobs read: ${read.join(",") || "none"}`);
 await page.waitForTimeout(1500);
 

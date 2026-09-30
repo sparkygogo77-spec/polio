@@ -118,8 +118,11 @@ await page.waitForTimeout(1200);
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
 check("the publish button is there to press", (await push.count()) > 0);
 if (await push.count()) {
+  /* Blobs go up one at a time, 750 ms apart (BLOB_GAP_MS in the publish route): wait for the answer, not a guess. */
+  const done = page.waitForResponse((r) => r.url().includes("/api/studio/publish") && r.request().method() === "POST", { timeout: 90000 }).catch(() => null);
   await push.click();
-  await page.waitForTimeout(6000);
+  await done;
+  await page.waitForTimeout(500);
 }
 
 const paths = [...committed.keys()].sort();

@@ -97,10 +97,12 @@ await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 
 /** Every part, as the page has it: how much markup and how much text. */
-const partsOf = (p) => p.evaluate(() => {
+const partsOf = (p) => p.evaluate((ids) => {
   const out = {};
-  for (const el of document.querySelectorAll("[data-live-node]")) {
-    const id = el.getAttribute("data-live-node");
+  /* The Builder marks a part `data-live-node`; the published page keeps no data-* and names it by its id (exportSite.ts). */
+  for (const el of document.querySelectorAll("[data-live-node], [data-page] [id]")) {
+    const id = el.getAttribute("data-live-node") ?? el.id;
+    if (!ids.includes(id) || out[id]) continue;
     const frames = el.querySelectorAll("iframe").length;
     out[id] = {
       html: el.innerHTML.length,
@@ -115,7 +117,7 @@ const partsOf = (p) => p.evaluate(() => {
     };
   }
   return out;
-});
+}, nodes.map((n) => n.id));
 
 /* THE PREVIEW, settled: what he sees before he presses anything. */
 await page.locator('[aria-label="Preview"]').first().click();
@@ -147,7 +149,13 @@ await page.waitForTimeout(400);
 await page.evaluate(() => window.__studioOpenBrief?.());
 await page.waitForTimeout(1200);
 const push = page.getByRole("button", { name: /Push to GitHub/ }).first();
-if (await push.count()) { await push.click(); await page.waitForTimeout(8000); }
+if (await push.count()) {
+  /* Blobs go up one at a time, 750 ms apart (BLOB_GAP_MS in the publish route): wait for the answer, not a guess. */
+  const done = page.waitForResponse((r) => r.url().includes("/api/studio/publish") && r.request().method() === "POST", { timeout: 90000 }).catch(() => null);
+  await push.click();
+  await done;
+  await page.waitForTimeout(500);
+}
 check("a page was committed", committed.has("index.html"), [...committed.keys()].join(", ") || "nothing");
 
 const site = http.createServer((rq, res) => {
