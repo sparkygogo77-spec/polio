@@ -57,22 +57,48 @@ export function previewHeight(feature: FeatureDef, width: number): number {
  * the part on every change — so it always starts from the beginning and is
  * always left at rest, never halfway through.
  */
-export function PartPreview({ feature, width, height, round, play }: { feature: FeatureDef; width: number; height: number; round?: boolean; play?: boolean }) {
+export function PartPreview({ feature, width, height, round, play, ground = "surface", content, drawWidth }: {
+  feature: FeatureDef; width: number; height: number; round?: boolean; play?: boolean;
+  /**
+   * What the part stands on. `surface` (the default) is the add disc's
+   * reading, below. `page` is the parts shelf's: the site's own page
+   * colour with the theme untouched, so words the site sets on its page
+   * are drawn on its page and stay readable, never dark on dark.
+   */
+  ground?: "surface" | "page";
+  /** Words to draw the part with, in place of its preset or its sample (`exampleContent`). */
+  content?: string;
+  /**
+   * Draw a wide part at this width before it is scaled, when narrower than
+   * its own. A 1440 header scaled into a card is a line of 5px letters; at
+   * 900 it is still a header, and the words can be read.
+   */
+  drawWidth?: number;
+}) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const siteName = useStudio((s) => s.brief.name);
   const site = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   // Everything the part would paint as "the page" becomes the surface instead.
   const theme = React.useMemo(
-    () => ({ ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined, partGround: undefined, overlayStyle: undefined }),
-    [site],
+    () => (ground === "page" ? site : { ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined, partGround: undefined, overlayStyle: undefined }),
+    [site, ground],
   );
 
-  const { w: pw, h: ph } = previewSize(feature);
+  const own = previewSize(feature);
+  const pw = drawWidth ? Math.max(320, Math.min(own.w, drawWidth)) : own.w;
+  /*
+   * On the shelf's page ground a tall part is drawn shorter, no shorter
+   * than 55% of itself, so a section stack is fitted by its width and can
+   * be read rather than shrunk until it fits by its height.
+   */
+  const ph = ground === "page" ? Math.round(Math.min(own.h, Math.max((pw * height) / Math.max(1, width), own.h * 0.55))) : own.h;
+  /* A margin round the thing on the page ground, so nothing touches the card's edge. */
+  const pad = ground === "page" ? 8 : 0;
   // Fit, never crop. Most parts are wide and short, so the width decides; a
   // tall one shrinks rather than showing its top half, which for anything
   // vertically centred is a box of empty space.
-  const scale = Math.min(width / pw, height / ph);
+  const scale = Math.min((width - pad * 2) / pw, (height - pad * 2) / ph);
 
   const node = React.useMemo<StudioNode>(
     () => ({
@@ -83,7 +109,7 @@ export function PartPreview({ feature, width, height, round, play }: { feature: 
       featureId: feature.basedOn ?? feature.id,
       label: feature.name,
       prompt: "",
-      content: feature.preset?.content ?? previewContent(feature) ?? "",
+      content: content ?? feature.preset?.content ?? previewContent(feature) ?? "",
       data: "",
       x: 0,
       y: 0,
@@ -101,7 +127,7 @@ export function PartPreview({ feature, width, height, round, play }: { feature: 
       font: (feature.preset?.font ?? null) as StudioNode["font"],
       anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, cube: null, mesh: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
     }),
-    [feature, feature.id, feature.name, pw, ph],
+    [feature, feature.id, feature.name, pw, ph, content],
   );
 
   return (
@@ -109,9 +135,9 @@ export function PartPreview({ feature, width, height, round, play }: { feature: 
       aria-hidden
       inert
       className={round ? "pointer-events-none overflow-hidden rounded-full" : "pointer-events-none overflow-hidden rounded-sm border border-border/70"}
-      style={{ width, height, background: theme.surface, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
+      style={{ width, height, background: ground === "page" ? theme.bg : theme.surface, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
     >
-      <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2) }}>
+      <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2), marginTop: ground === "page" ? Math.max(0, (height - ph * scale) / 2) : 0 }}>
         {/* Remounted when `play` turns over, so the pass starts at zero
             rather than resuming wherever the last one stopped. */}
         <Block key={play ? "live" : "rest"} node={node} t={theme} mode={play ? "live" : "board"} />

@@ -27,6 +27,7 @@
  * (`motionBrief`) that tells a generator what the in-betweens ought to be, on
  * the identical timing, and it goes into the blueprint.
  */
+import { SeeOnShelf } from "./ShelfCards";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -124,6 +125,8 @@ export function MotionPanel() {
 
   return (
     <div data-motion-panel="" className="min-h-0 flex-1 space-y-3 overflow-y-auto p-2">
+      {/* The shelf's Motion category and this tab point at each other (`ShelfCards.tsx`). */}
+      <SeeOnShelf category="motion">See every motion on the shelf</SeeOnShelf>
       <MovingParts />
 
       <section className="space-y-2">

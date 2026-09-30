@@ -142,6 +142,13 @@ same boxes as everywhere else, in the screen's colours.
   ids, so the library can be re-sorted without a migration. Collapsing
   ids into fewer parts, or moving the behaviours into the page's wheel,
   are separate decisions and were not approved.
+- **A shelf card is a promise about the thing, so it says what it is.**
+  Its name, one line of what it does, whether it works now or is an idea
+  that needs building, and what it needs (a key, a backend, money). Its
+  picture is the thing on the site's own page in the site's own words,
+  never filler, never cropped, never a glow. A click shows the detail card;
+  only Add to page (or a drag) changes the page. A feature of the whole site
+  is a switch with its state, never a box to place.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

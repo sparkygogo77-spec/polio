@@ -156,6 +156,12 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("build.analytics", "build", "Analytics", false, { advanced: true }),
   bool("build.i18n", "build", "Multiple languages", false, { advanced: true }),
   bool("build.tests", "build", "Tests", false, { advanced: true }),
+  /* Whole-site features the parts shelf shows as switches (`shelfFacts.ts`, `switchOf`): each is a line in the brief, not a box on a page. */
+  bool("build.darkLight", "build", "Dark and light versions", false, { advanced: true, hint: "Both versions, following the visitor's own setting unless they choose." }),
+  bool("build.print", "build", "Print layout", false, { advanced: true }),
+  bool("build.cookieConsent", "build", "Cookie consent", false, { advanced: true, hint: "Ask before tracking, where the law requires it." }),
+  bool("build.errorScreens", "build", "Error screens", false, { advanced: true, hint: "What visitors see when something breaks, instead of a blank page." }),
+  bool("build.offline", "build", "Works offline", false, { advanced: true, hint: "Installable to a home screen and usable with no connection." }),
   /* Off by default: a built or published site answers the reads its capture recorded with their samples (`standIn.ts`). */
   bool("build.standIn", "build", "Stand-in server", false, { advanced: true, hint: "Answer the reads the capture recorded with its sample data, until a real backend exists." }),
 ];

@@ -92,9 +92,12 @@ check("and not one of them moves when a site role changes",
 
 /* The other half, which is what stops the check above being satisfied by a
    Builder that has stopped showing him his own site at all. */
+/* A shelf preview stands on his page's own colour now (`PartPreview`, ground "page"), so it follows the Background role. */
+await setRole("Background", "#1d3a2a");
+const green = await read();
 check("while the part previews do follow it, because they are pictures of his site",
-  blue.preview !== "none" && blue.preview !== grey.preview,
-  blue.preview === "none" ? "no preview found to measure" : `${blue.preview} then ${grey.preview}`);
+  grey.preview !== "none" && green.preview !== grey.preview,
+  grey.preview === "none" ? "no preview found to measure" : `${grey.preview} then ${green.preview}`);
 
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
 await browser.close();

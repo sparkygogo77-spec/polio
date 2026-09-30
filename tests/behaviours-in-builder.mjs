@@ -64,12 +64,18 @@ for (const [id, cat] of Object.entries(WHERE)) check(`${id} is on the shelf, und
 /* ------------------------------------------------ attaching, stacking */
 await page.locator(`[data-category="motion"]`).first().click();
 await wait(400);
+/* A card opens its detail card; the part picked on the board is offered there (\`ShelfCards.tsx\`). */
 await page.locator('[data-work-card="reveal"]').click();
+await wait(400);
+await page.locator('[data-work-put="reveal"]').click();
 await wait(400);
 check("pressed with a part picked, Reveal on scroll goes on that part", ids((await node(HEAD.id))?.work).join() === "reveal", JSON.stringify((await node(HEAD.id))?.work));
 await page.locator(`[data-category="interact"]`).first().click();
 await wait(400);
+/* A card opens its detail card; the part picked on the board is offered there (\`ShelfCards.tsx\`). */
 await page.locator('[data-work-card="copy-toast"]').click();
+await wait(400);
+await page.locator('[data-work-put="copy-toast"]').click();
 await wait(400);
 check("…and Copy with toast joins it, not replacing it", ids((await node(HEAD.id))?.work).join() === "reveal,copy-toast", JSON.stringify((await node(HEAD.id))?.work));
 const chip = await page.locator(`[data-node-id="${HEAD.id}"] [data-work-chip], [data-work-chip]`).evaluateAll((cs) => cs.map((c) => c.textContent));

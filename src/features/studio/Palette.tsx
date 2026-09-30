@@ -7,18 +7,17 @@
  * the same line-art; pick one of those and the list gets out of the way,
  * leaving the parts themselves.
  *
- * The parts are laid out the way a page reads, top to bottom: what goes across
- * the top first, then the first screen, the body, further down, the foot. A
- * part takes as much of the shelf's width as it would take of a page's —
- * something full-width gets the whole row on its own, and the rest sit side by
- * side with a thin gap. That is the only way you can see what one contains.
- *
- * Nothing is in a box and nothing shows a page background: a preview is the
- * *surface* alone, floating on one dim field, each lit by its own fire —
- * red at rest, blue the moment you reach for it.
+ * The parts are grouped by what they are for (the sub-groups), each card
+ * the same shape: the thing on the site's own page, its name, one line of
+ * what it does, and whether it works now or needs building.
  *
  * Nothing here is interactive — every preview is `inert` — so a part only
- * comes alive once it is on the board. Drag it straight out, or click it.
+ * comes alive once it is on the board. Drag it straight out, or click it to
+ * open its detail card, where Add to page puts it on the page.
+ *
+ * The cards themselves, their words and badges, the detail card and the
+ * whole-site switches are `ShelfCards.tsx` and `shelfFacts.ts`; this file is
+ * the shelf they stand in.
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -29,10 +28,11 @@ import {
 } from "./catalog";
 import { useStudio } from "./store";
 import { WorkShelf } from "./WorkShelf";
-import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { moonFor } from "./moons";
-import { SHAPE_LABEL, groupIntoShapes, type Shape } from "./showcase";
+import { shapeOf } from "./showcase";
+import { switchOf, type SiteWords } from "./shelfFacts";
+import { PartDetail, SeeMotionTab, ShelfCard, useSiteWords } from "./ShelfCards";
 import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -71,139 +71,21 @@ export function addFeatureToCanvas(featureId: string) {
 /* One part                                                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * How long one pass is given before the tile is put back to rest.
- *
- * Long enough for an entrance, a sweep or a marquee to read — the motion
- * archetype's own passes sit under a second — and short enough that a tile
- * the pointer is resting on is not left running. A part with nothing to play
- * simply draws itself twice and looks unchanged, which is the right answer
- * for one that has no animation: it does not have to be asked whether it has
- * one.
- */
-const PLAY_MS = 1400;
-
-function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
-  const [dragging, setDragging] = React.useState(false);
-  /*
-   * ONE PASS ON HOVER, and forgotten on the way out.
-   *
-   * Entering wakes this tile into `live` mode, where the part is itself and
-   * its animation runs from the start. A timer puts it back to rest after
-   * one pass so nothing on the shelf is ever looping, and leaving puts it
-   * back at once and cancels the timer — so a tile is never left halfway
-   * through, and the next hover starts from the beginning rather than from
-   * wherever the last one was abandoned.
-   */
-  const [awake, setAwake] = React.useState(false);
-  const stop = React.useRef<number | null>(null);
-  React.useEffect(() => () => { if (stop.current) window.clearTimeout(stop.current); }, []);
-  /* `play` is the sound, imported at the top of this file — the state that
-     wakes a tile is `awake` so the two never shadow each other. */
-  const wake = () => {
-    if (stop.current) window.clearTimeout(stop.current);
-    setAwake(true);
-    stop.current = window.setTimeout(() => setAwake(false), PLAY_MS);
-  };
-  const rest = () => {
-    if (stop.current) { window.clearTimeout(stop.current); stop.current = null; }
-    setAwake(false);
-  };
-  /*
-   * THE CARD IS THE SLOT IT WAS GIVEN, and its height follows from its shape.
-   *
-   * It used to be the other way round: the group fixed a height cap, and a
-   * card too tall for the cap was *narrowed* until it fitted — so a
-   * full-width part was drawn at 630 of a 1188 slot and the other 558 of its
-   * row was bare. Measured on Layout at 1440x900: 9 of 11 rows had a bare
-   * gutter, two of them over 700px wide, and the shelf covered 69.6% of its
-   * own width. That is what "sorted space-inefficiently" was.
-   *
-   * The cap has not gone; it decides how many cards go across instead (see
-   * `columnsFor`). So a card is always exactly its slot, a row is always
-   * full, and a group of them tiles.
-   */
-  const width = Math.max(120, Math.round(slot));
-  /* No cap applied here. `columnsFor` already chose a column count whose
-     widest slot keeps this group's tallest card inside the cap, so capping
-     again could only letterboxing — a scaled-down preview in a box with a
-     transparent margin for the fire to come through, which is the thing the
-     narrowing was invented to avoid. `tall` is carried for the one case
-     `columnsFor` cannot solve: a part so tall that no column count fits it. */
-  const height = Math.max(44, Math.min(previewHeight(feature, width), tall));
-
-  if (removed) {
-    return (
-      <Tooltip content={`${feature.explain ?? feature.blurb}, removed`} side="top">
-        <button
-          type="button"
-          {...ctxProps("studio-palette", feature.id, feature)}
-          onClick={() => { play("confirm"); useStudio.getState().restoreFeature(feature.id); }}
-          style={{ width, height }}
-          className="tactile flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border p-2 opacity-40 hover:opacity-100"
-        >
-          <RotateCcw className="size-3.5 text-fg-faint" />
-          <span className="line-clamp-1 text-center text-small text-fg-muted">{feature.name}</span>
-        </button>
-      </Tooltip>
-    );
-  }
-
+/** A part taken out of the library, shown under "removed" so it can be put back. */
+function RemovedCard({ feature, width }: { feature: FeatureDef; width: number }) {
   return (
-    <Tooltip content={feature.explain ?? feature.blurb} side="top">
-      <div
-        className="ember group relative"
-        style={{ width }}
-        data-hot={dragging ? "1" : undefined}
-        data-playing={awake ? "1" : undefined}
-        onPointerEnter={wake}
-        onPointerLeave={rest}
-      >
-        {/* The fire this one part sits in: a rim that just clears its edges,
-            and tongues that climb out of the bottom of it. */}
-        <span aria-hidden className="ember-rim" />
-        <span aria-hidden className="ember-light">
-          <i className="ember-base" />
-          <i className="ember-lick-a" />
-          <i className="ember-lick-b" />
-          <i className="ember-hot" />
-        </span>
-        <div
-          role="button"
-          tabIndex={0}
-          draggable
-          {...ctxProps("studio-palette", feature.id, feature)}
-          onDragStart={(e) => {
-            e.dataTransfer.setData("application/x-studio-feature", feature.id);
-            e.dataTransfer.effectAllowed = "copy";
-            setDragging(true);
-            play("tap");
-          }}
-          onDragEnd={() => setDragging(false)}
-          onClick={() => addFeatureToCanvas(feature.id)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              addFeatureToCanvas(feature.id);
-            }
-          }}
-          /* Named, so a check can ask each tile what it is showing. */
-          data-tile={feature.id}
-          className="flex cursor-grab flex-col gap-1 outline-none active:cursor-grabbing"
-        >
-          <PartPreview feature={feature} width={width} height={height} play={awake} />
-          <span className="line-clamp-1 text-small leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
-        </div>
-        <button
-          type="button"
-          aria-label={`Remove ${feature.name} from the library`}
-          onClick={(e) => { e.stopPropagation(); play("deny"); useStudio.getState().hideFeature(feature.id); }}
-          className="tactile absolute right-0.5 top-0.5 hidden rounded-sm bg-panel/80 p-0.5 text-fg-faint hover:text-fg group-hover:block"
-        >
-          <X className="size-3" />
-        </button>
-      </div>
-    </Tooltip>
+    <button
+      type="button"
+      {...ctxProps("studio-palette", feature.id, feature)}
+      onClick={() => { play("confirm"); useStudio.getState().restoreFeature(feature.id); }}
+      aria-label={`Put ${feature.name} back in the library`}
+      style={{ width, height: 72 }}
+      className="tactile flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border p-2 opacity-50 hover:opacity-100"
+    >
+      <RotateCcw className="size-3.5 text-fg-faint" />
+      <span className="line-clamp-1 text-center text-small text-fg-muted">{feature.name}</span>
+      <span className="text-fine text-fg-faint">removed, press to put back</span>
+    </button>
   );
 }
 
@@ -232,6 +114,9 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
  */
 const OPEN_AT_MOST = 1;
 
+/** The narrowest a card on the shelf is drawn: wide enough for its preview to be read and its one line to fit on two. */
+const CARD_MIN = 232;
+
 /**
  * The planets, full size and shrunk to a rail.
  *
@@ -243,7 +128,8 @@ const OPEN_AT_MOST = 1;
  */
 const PLANET_DISC = { open: 30, shut: 52 } as const;
 const PLANET_MARK = { open: 22, shut: 38 } as const;
-const PLANET_CELL = { open: 40, shut: 86 } as const;
+/* Open, a cell is as wide as its name: the rail shrinks the disc, never the word (`tests/shelf-cards.mjs`). */
+const PLANET_CELL = { open: 72, shut: 86 } as const;
 
 /* ------------------------------------------------------------------ */
 
@@ -353,6 +239,17 @@ export function Palette() {
     play("select");
     setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
   }, []);
+  /* Another panel asking for a category (the Motion tab's link to the shelf's Motion). Opens it; never closes it. */
+  React.useEffect(() => {
+    const go = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (typeof id !== "string") return;
+      setQuery("");
+      setOpen([id]);
+    };
+    window.addEventListener("studio:shelf", go);
+    return () => window.removeEventListener("studio:shelf", go);
+  }, []);
 
   /* Full discs, or the rail. One reading, so the cell, the disc and the mark
      can never disagree about which of the two the row is in. */
@@ -384,7 +281,13 @@ export function Palette() {
   /* Searching is the one view that is not the accordion: a name typed in
      crosses every category, so the results are one flat list — grouped the
      same way an open category is, by size and shape. */
-  const found = React.useMemo(() => (searching ? groupIntoShapes(live) : []), [searching, live]);
+  /* Searching crosses every category, so the results are grouped by the category each belongs to: by purpose, like an open one. */
+  const found = React.useMemo(
+    () => (searching ? shelf.map((category) => ({ category, items: live.filter((f) => f.category === category.id) })).filter((g) => g.items.length) : []),
+    [searching, live, shelf],
+  );
+  const words = useSiteWords();
+  const removeCard = React.useCallback((id: string) => { play("deny"); useStudio.getState().hideFeature(id); }, []);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -512,17 +415,25 @@ export function Palette() {
    * Six across is the floor: past that a preview is a thumbnail of a
    * thumbnail, and an unreadable preview is worse than a scroll.
    */
-  const CAPS: Record<Shape, number> = { strip: 118, block: 208, half: 208, third: 168, quarter: 168 };
-  const FROM: Record<Shape, number> = { strip: 1, block: 1, half: 2, third: 3, quarter: 4 };
-  const columnsFor = React.useCallback((shape: Shape, items: FeatureDef[]) => {
-    const cap = CAPS[shape];
-    const widthAt = (per: number) => Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
-    let per = FROM[shape];
-    const tallest = (per_: number) => items.reduce((m, f) => Math.max(m, previewHeight(f, widthAt(per_))), 0);
-    while (per < 6 && tallest(per) > cap) per += 1;
-    return { width: widthAt(per), tall: cap, per };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  /*
+   * ONE CARD WIDTH FOR THE WHOLE SHELF, and a wide part takes two.
+   *
+   * Cards used to be sized from the part's footprint, grouped by it, and a
+   * group of full-width parts was a row of 1188px boxes each showing a
+   * sliver. The owner chooses by purpose, so the groups are purpose and
+   * every card is the same shape: a preview the thing is fitted whole into,
+   * its name, one line of what it does, and its badges. Something as wide
+   * as the page gets two columns, so a header can still be read as one.
+   */
+  const layout = React.useMemo(() => {
+    const per = Math.max(2, Math.floor((shelfW + GAP) / (CARD_MIN + GAP)));
+    const width = Math.floor((shelfW - GAP * (per - 1)) / per);
+    return { per, width, wide: width * 2 + GAP };
   }, [shelfW]);
+  const widthOf = React.useCallback(
+    (f: FeatureDef) => (layout.per >= 4 && !switchOf(f.id) && (shapeOf(f) === "strip" || shapeOf(f) === "block") ? layout.wide : layout.width),
+    [layout],
+  );
 
   /*
    * THE FIELD THE PREVIEWS FLOAT ON IS THE BUILDER'S, NOT THE SITE'S.
@@ -632,16 +543,13 @@ export function Palette() {
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">
-              {found.map(({ shape, items }) => {
-                const { width, tall } = columnsFor(shape, items);
-                return (
-                  <Band key={shape} title={SHAPE_LABEL[shape]}>
-                    <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                      {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
-                    </div>
-                  </Band>
-                );
-              })}
+              {found.map(({ category, items }) => (
+                <Band key={category.id} title={category.label} hue={category.hue}>
+                  <div className="flex flex-wrap items-stretch" style={{ gap: GAP }}>
+                    {items.map((f) => <ShelfCard key={f.id} feature={f} width={widthOf(f)} words={words} onRemove={() => removeCard(f.id)} />)}
+                  </div>
+                </Band>
+              ))}
               <div className="h-10" />
             </div>
           ) : (
@@ -669,7 +577,7 @@ export function Palette() {
               {[...categories].map((c) => {
                 const isOpen = open.includes(c.id);
                 return (
-                  <Tooltip key={c.id} content={anyOpen ? `${c.label} — ${c.blurb}` : c.blurb} side="top">
+                  <Tooltip key={c.id} content={c.blurb} side="top">
                     <button
                       type="button"
                       data-category={c.id}
@@ -677,7 +585,7 @@ export function Palette() {
                       aria-label={c.label}
                       onClick={() => toggleCat(c.id)}
                       className="group/cat tactile flex shrink-0 flex-col items-center gap-1 transition-[width] duration-200"
-                      style={{ color: `oklch(0.84 0.13 ${c.hue})`, width: cell }}
+                      style={{ color: `oklch(0.84 0.13 ${c.hue})`, minWidth: cell, maxWidth: 104 }}
                     >
                       <span
                         className="flex items-center justify-center rounded-full transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
@@ -700,15 +608,11 @@ export function Palette() {
                       >
                         {React.createElement(planetOf(c.id), { size: mark })}
                       </span>
-                      {/* The name and the count are what the rail gives back.
-                          Both are in the tooltip while it is a rail, so
-                          nothing is only-reachable at full size. */}
-                      {anyOpen ? null : (
-                        <>
-                          <span className="text-center text-small leading-tight">{c.label}</span>
-                          <span className="num text-fine text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
-                        </>
-                      )}
+                      {/* HIS REPORT: once a category opened the row was icons
+                          with no names. The rail gives back the disc's size
+                          and the count, never the name. */}
+                      <span data-category-name="" className={cn("text-center leading-tight", anyOpen ? "text-fine" : "text-small")}>{c.label}</span>
+                      {anyOpen ? null : <span className="num text-fine text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>}
                     </button>
                   </Tooltip>
                 );
@@ -744,7 +648,7 @@ export function Palette() {
                   }}
                   onClick={() => addFeatureToCanvas("custom-idea")}
                   className="group/cat tactile flex shrink-0 cursor-grab flex-col items-center gap-1 text-accent transition-[width] duration-200 active:cursor-grabbing"
-                  style={{ width: cell }}
+                  style={{ minWidth: cell, maxWidth: 104 }}
                 >
                   <span
                     className="flex items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
@@ -752,12 +656,8 @@ export function Palette() {
                   >
                     <Sparkles style={{ width: mark * 0.8, height: mark * 0.8 }} />
                   </span>
-                  {anyOpen ? null : (
-                    <>
-                      <span className="text-center text-small leading-tight">New idea</span>
-                      <span className="num text-fine text-fg-faint">yours</span>
-                    </>
-                  )}
+                  <span className={cn("text-center leading-tight", anyOpen ? "text-fine" : "text-small")}>New idea</span>
+                  {anyOpen ? null : <span className="num text-fine text-fg-faint">yours</span>}
                 </button>
               </Tooltip>
             </div>
@@ -770,7 +670,10 @@ export function Palette() {
                 key={c.id}
                 category={c}
                 live={live}
-                columnsFor={columnsFor}
+                widthOf={widthOf}
+                cardWidth={layout.width}
+                words={words}
+                onRemove={removeCard}
                 gap={GAP}
                 onClose={() => toggleCat(c.id)}
               />
@@ -780,7 +683,7 @@ export function Palette() {
               <div className="relative z-[1] px-3 pb-3">
                 <Band title="Removed">
                   <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                    {removed.map((f) => <Card key={f.id} feature={f} width={columnsFor("quarter", removed).width} tall={72} removed />)}
+                    {removed.map((f) => <RemovedCard key={f.id} feature={f} width={layout.width} />)}
                   </div>
                 </Band>
               </div>
@@ -791,6 +694,7 @@ export function Palette() {
         )}
         </div>
       </div>
+      <PartDetail add={addFeatureToCanvas} />
     </div>
   );
 }
@@ -804,11 +708,14 @@ export function Palette() {
  * only thing the wheel talks to.
  */
 function CategorySection({
-  category, live, columnsFor, gap, onClose,
+  category, live, widthOf, cardWidth, words, onRemove, gap, onClose,
 }: {
   category: CategoryDef;
   live: FeatureDef[];
-  columnsFor: (shape: Shape, items: FeatureDef[]) => { width: number; tall: number; per: number };
+  widthOf: (f: FeatureDef) => number;
+  cardWidth: number;
+  words: SiteWords;
+  onRemove: (id: string) => void;
   gap: number;
   onClose: () => void;
 }) {
@@ -848,7 +755,20 @@ function CategorySection({
     const ids = group ? group.ids : subs.flatMap((g) => g.ids);
     return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
   }, [live, sub, subs, category.id]);
-  const groups = React.useMemo(() => groupIntoShapes(shown), [shown]);
+  /*
+   * GROUPED BY PURPOSE. The sub-groups are what the parts are for, so they
+   * are the groups; footprint was the grouping ("Full width, shallow", "A
+   * quarter each") and it answered a question nobody choosing a part asks.
+   * It is a small tag on each card now.
+   */
+  const groups = React.useMemo(() => {
+    const byId = new Map(shown.map((f) => [f.id, f]));
+    if (!subs.length) return [{ id: category.id, label: category.label, items: shown }];
+    return subs
+      .filter((g) => !sub || g.id === sub)
+      .map((g) => ({ id: g.id, label: g.label, items: g.ids.map((id) => byId.get(id)).filter((f): f is FeatureDef => !!f) }))
+      .filter((g) => g.items.length);
+  }, [shown, subs, sub, category.id, category.label]);
 
   return (
     <section data-category-open={category.id} className="relative z-[1] border-t border-border/70">
@@ -883,6 +803,7 @@ function CategorySection({
             );
           })}
         </div>
+        {category.id === "motion" ? <SeeMotionTab className="shrink-0 text-fine" /> : null}
         <button
           type="button"
           onClick={onClose}
@@ -893,30 +814,26 @@ function CategorySection({
         </button>
       </div>
       <div className="px-3 py-2">
-        <WorkShelf category={category} />
-        {groups.map(({ shape, items }) => {
-          const { width, tall } = columnsFor(shape, items);
-          return (
-            <Band key={shape} title={SHAPE_LABEL[shape]}>
-              {/* items-start, or a flex line makes every card as tall as the
-                  tallest one in it, and the stretched-out part of a short
-                  card is empty space with the fire showing through it. */}
-              <div className="flex flex-wrap items-start" style={{ gap }}>
-                {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
-              </div>
-            </Band>
-          );
-        })}
+        <WorkShelf category={category} width={cardWidth} words={words} gap={gap} />
+        {groups.map((g) => (
+          <Band key={g.id} title={g.label} hue={category.hue} mark={subs.length ? moonFor(g.id) : undefined}>
+            {/* Stretched to the row, so every card in a row ends on one line. */}
+            <div className="flex flex-wrap items-stretch" style={{ gap }}>
+              {g.items.map((f) => <ShelfCard key={f.id} feature={f} width={widthOf(f)} words={words} onRemove={() => onRemove(f.id)} />)}
+            </div>
+          </Band>
+        ))}
       </div>
     </section>
   );
 }
 
-function Band({ title, children }: { title: string; children: React.ReactNode }) {
+function Band({ title, children, hue, mark }: { title: string; children: React.ReactNode; hue?: number; mark?: (p: { size?: number }) => React.ReactNode }) {
   return (
-    <section className="mb-4 last:mb-0">
+    <section data-shelf-group={title} className="mb-4 last:mb-0">
       <div className="mb-2 flex items-center gap-2">
-        <span className="shrink-0 text-fine uppercase tracking-wider text-fg-faint">{title}</span>
+        {mark ? <span className="shrink-0" style={{ color: hue != null ? `oklch(0.84 0.13 ${hue})` : undefined }}>{React.createElement(mark, { size: 14 })}</span> : null}
+        <span className="shrink-0 text-small font-medium" style={{ color: hue != null ? `oklch(0.86 0.1 ${hue})` : undefined }}>{title}</span>
         <span className="h-px flex-1 bg-border" />
       </div>
       {children}

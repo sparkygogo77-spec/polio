@@ -21,15 +21,15 @@ import * as React from "react";
 import { Check, GitBranch, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
-import { Tooltip } from "@/core/ui/tooltip";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
 import type { CategoryDef } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
-import { addFeatureToCanvas } from "./Palette";
+import { WorkShelfCard } from "./ShelfCards";
+import type { SiteWords } from "./shelfFacts";
 import { Block, themeFrom } from "./blocks";
 import { overrideTheme, resolvePalette, type NodeColour } from "./parts/theme";
-import { allWorks, getWork, withWork, type Work, type WorkPicture } from "./library/works";
+import { allWorks, type WorkPicture } from "./library/works";
 import { useLibrary } from "./library/useLibrary";
 import { checkRepoFeatures } from "./library/repoFeatures";
 
@@ -73,7 +73,7 @@ function WorkPictureView({ picture, width, height }: { picture: WorkPicture; wid
   );
 }
 
-export function WorkShelf({ category }: { category: CategoryDef }) {
+export function WorkShelf({ category, width = 232, words, gap = 10 }: { category: CategoryDef; width?: number; words: SiteWords; gap?: number }) {
   const accepted = useLibrary((s) => s.accepted);
   const says = useLibrary((s) => s.says);
   const checking = useLibrary((s) => s.checking);
@@ -82,28 +82,15 @@ export function WorkShelf({ category }: { category: CategoryDef }) {
   const works = React.useMemo(() => allWorks().filter((w) => w.manifest.category === category.id), [accepted, category.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const isData = category.id === "data";
   if (!works.length && !isData) return null;
-  const attach = (id: string) => {
-    const st = useStudio.getState();
-    const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) : undefined;
-    const w = getWork(id)!;
-    if (picked) {
-      st.updateNode(picked.id, { work: withWork(picked.work, { id, inputs: {} }) });
-      play("confirm");
-      return;
-    }
-    const at = addFeatureToCanvas("prose");
-    useStudio.getState().updateNode(at, { content: w.manifest.look.sample, work: { id, inputs: {} }, w: 240, h: 40 });
-    useStudio.getState().setSelection([at]);
-  };
   const check = () => {
     if (!repo) return;
     play("tap");
     void checkRepoFeatures({ owner: repo.owner, name: repo.name, ref: repo.branch }, heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "");
   };
   return (
-    <section className="mb-4">
+    <section data-shelf-group="Works now, taken from your sites" className="mb-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="shrink-0 text-fine uppercase tracking-wider text-fg-faint">Working</span>
+        <span className="shrink-0 text-small font-medium" style={{ color: `oklch(0.86 0.1 ${category.hue})` }}>Works now, taken from your sites</span>
         <span className="h-px flex-1 bg-border" />
         {isData && repo ? (
           <button
@@ -120,33 +107,18 @@ export function WorkShelf({ category }: { category: CategoryDef }) {
         ) : null}
       </div>
       {isData && says ? <p data-repo-features-says="" className="mb-2 text-fine text-fg-muted">{says}</p> : null}
-      <div className="flex flex-wrap items-start gap-2">
-        {works.map((w) => <WorkCard key={w.manifest.id} work={w} hue={category.hue} onClick={() => attach(w.manifest.id)} />)}
+      <div className="flex flex-wrap items-stretch" style={{ gap }}>
+        {works.map((w) => (
+          <WorkShelfCard
+            key={w.manifest.id}
+            work={w}
+            width={width}
+            words={words}
+            picture={w.picture ? (pw, ph) => <WorkPictureView picture={w.picture!} width={pw} height={ph} /> : undefined}
+          />
+        ))}
       </div>
     </section>
-  );
-}
-
-function WorkCard({ work, hue, onClick }: { work: Work; hue: number; onClick: () => void }) {
-  const m = work.manifest;
-  return (
-    <Tooltip content={`${m.blurb}${work.from ? ` From ${work.from}.` : ""} Pick a part first to put it there.`} side="top">
-      <button
-        type="button"
-        data-work-card={m.id}
-        onClick={onClick}
-        className="tactile flex w-[180px] flex-col items-start gap-1 rounded-md px-3 py-2 text-left"
-        style={{ background: `oklch(0.2 0.04 ${hue} / 0.7)`, boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${hue} / 0.35)` }}
-      >
-        {work.picture
-          ? <WorkPictureView picture={work.picture} width={156} height={44} />
-          : <span className="num text-[20px] font-semibold leading-none" style={{ color: `oklch(0.86 0.14 ${hue})` }}>{m.look.sample}</span>}
-        <span className="text-small font-medium text-fg">{m.name}</span>
-        <span className="text-fine text-fg-faint">
-          {m.look.caption ?? ""}{m.look.caption ? " · " : ""}{m.needs === "none" ? "runs as published" : `needs a ${m.needs}`}{work.from ? ` · from ${work.from.split("/")[1]}` : ""}
-        </span>
-      </button>
-    </Tooltip>
   );
 }
 

@@ -81,6 +81,9 @@ const addPart = async (nth) => {
   await page.click('[data-category="structure"]', { force: true });
   await page.waitForTimeout(600);
   await page.locator("[data-tile]").nth(nth).click({ force: true });
+  await page.waitForTimeout(400);
+  /* A card opens its detail card; Add to page there is what adds it. */
+  await page.locator("[data-add-to-page]").first().click({ force: true });
   await page.waitForTimeout(600);
   await page.click('[data-category="structure"]', { force: true });
   await page.waitForTimeout(300);

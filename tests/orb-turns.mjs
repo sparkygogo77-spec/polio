@@ -70,7 +70,7 @@ if (!(await page.evaluate(() => { const c = document.createElement("canvas"); re
  */
 await page.locator('input[placeholder*="Search parts"]').first().fill("orb");
 await page.waitForTimeout(900);
-const tile = page.getByText("Orb, in 3D", { exact: true }).first();
+const tile = page.getByText("Orb, turnable", { exact: true }).first();
 check("the orb in 3D is in the shelf", (await tile.count()) === 1);
 await tile.click({ force: true });
 await page.waitForTimeout(1400);

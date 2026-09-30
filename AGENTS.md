@@ -1703,7 +1703,26 @@ a kicker with a rule, and label-and-value rows that copy.
   needs a renderer**: without one it falls through to the dashed `Unknown`
   card, which paints the flat surface colour and drops `surfacePaint` on
   the floor, so the picture is on the part and invisible.
-- **The shelf is laid out like a page, in page order.** `groupIntoBands` puts
+- **A shelf card says what it offers** (`ShelfCards.tsx`, `shelfFacts.ts`,
+  `tests/shelf-cards.mjs`). The owner's walk-through of the twelve
+  categories, and the rules it left: an open category keeps every
+  category's name on the row; sub-groups are plain purpose words and are the
+  groups (footprint is a small tag, never the grouping); every card shows
+  the thing fitted whole on the site's own page colour with the site's own
+  words (`exampleContent`, never sample filler), one line of what it does
+  (`doesOf`), and a badge: **Works now** or **Idea, needs building**, plus
+  **Needs a key / a backend / Costs money** where true. A motion is shown on
+  a small page of the site doing its one thing (`MotionDemo.tsx`), once
+  under the hand, looping in the detail card. **A click opens the detail
+  card and adds nothing**; its Add to page adds, picks, outlines and scrolls
+  to the part. Dragging a card still places it at once. Whole-site features
+  are **switches** (`switchOf`): a motion the live page runs is one of its
+  parts on every page, the rest are Format fields the brief carries. A card
+  used on the open page says "On this page: N parts" and jumps to them. The
+  shelf's Motion category and the Motion tab link to each other
+  (`studio:panel` and `studio:shelf` events). No fire round the cards.
+- **The shelf is laid out like a page, in page order.** (Superseded for the
+  open category by the card rules above: grouped by purpose.) `groupIntoBands` puts
   the parts in the bands they would occupy going down a page, and `spanOf`
   decides how much of the shelf's width each takes: full-width parts get the
   row to themselves, the rest sit two, three or four across with a 10px gap.
