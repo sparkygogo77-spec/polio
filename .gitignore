@@ -37,3 +37,4 @@ undefined/
 
 # screenshots and exports some suites write while they run (lead-in, bring-again, recapture, …)
 .scratch/
+.test-timings.json
