@@ -361,7 +361,8 @@ function OpenShelf() {
     const down = (e: PointerEvent) => { touched.current = !!rootRef.current?.contains(e.target as Node); };
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
-      if (document.querySelector("[data-radial], [data-words-in-place]")) return;
+      /* The wheel, words being typed and a part's detail card each answer their own Escape first. */
+      if (document.querySelector("[data-radial], [data-words-in-place], [data-part-detail-backdrop]")) return;
       const t = e.target as HTMLElement | null;
       const inShelf = !!t && !!rootRef.current?.contains(t);
       if (inShelf && t instanceof HTMLInputElement && t.value) return;   // the field's own: clears it
