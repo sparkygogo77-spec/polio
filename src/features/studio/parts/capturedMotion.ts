@@ -150,14 +150,26 @@ export function hoverHost(node: MotionNode, rule: MotionState, nodes: readonly M
   return ancestors.find(paints) ?? ancestors[0] ?? null;
 }
 
-/** The parts inside `host` on the page, by element path (the capture's own nesting; on the board they are siblings). */
-function inside(host: MotionNode, nodes: readonly MotionNode[]): MotionNode[] {
-  const sel = host.from?.selector;
-  if (!sel) return [];
-  return nodes.filter((x) => x.id !== host.id && ID.test(x.id) && x.pageId === host.pageId && x.from?.selector?.startsWith(`${sel} > `));
+/** Is `kid`'s element path inside `parent`'s? Its pseudo-elements are its own (`a::before`: a remote key's gloss strip). As `owns.ts#under`. */
+export function underPath(parent: string, kid: string): boolean {
+  if (!parent || !kid || kid === parent) return false;
+  return kid.startsWith(`${parent} > `) || (kid.startsWith(parent) && /^::(before|after)$/.test(kid.slice(parent.length)));
 }
 
-const MOVES = new Set(["transform", "translate", "rotate", "scale"]);
+/** The parts inside `host` on the page, by element path (the capture's own nesting; on the board they are siblings). */
+export function inside<N extends MotionNode>(host: N, nodes: readonly N[]): N[] {
+  const sel = host.from?.selector?.trim();
+  if (!sel) return [];
+  return nodes.filter((x) => x.id !== host.id && ID.test(x.id) && x.pageId === host.pageId && underPath(sel, x.from?.selector?.trim() ?? ""));
+}
+
+export const MOVES = new Set(["transform", "translate", "rotate", "scale"]);
+
+/** Does a hover, press or focus on the part itself move it (a key that rises under the pointer and sinks when pressed)? */
+export function movesItself(n: MotionNode): boolean {
+  const m = n.motion;
+  return [m?.hover, m?.active, m?.focus].some((list) => (list ?? []).some((r) => r.self !== false && Object.keys(r.style ?? {}).some((k) => MOVES.has(k))));
+}
 
 /**
  * The whole stylesheet for a page's parts. `at(id)` is how a part's own
@@ -172,7 +184,7 @@ const MOVES = new Set(["transform", "translate", "rotate", "scale"]);
  * made by the parts inside as well, about the element's own centre, with
  * the element's transition, so they travel together as they did.
  */
-export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string): string {
+export function motionCss(nodes: readonly MotionNode[], keyframes: readonly CapturedKeyframes[] | undefined, at: (id: string) => string, nested?: ReadonlySet<string>): string {
   const rules: string[] = [];
   for (const n of nodes) {
     const m = n.motion;
@@ -203,7 +215,9 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
         const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
         /* The group is never the host alone here: the parts inside it are in it. */
         const trigger = `:root:has(${group.map((x) => `${at(x.id)}${pseudo}`).join(", ")})`;
+        /* A part the export puts inside the box (`nested`, exportSite.ts#carryOwned) moves with it already. */
         for (const k of kids) {
+          if (nested?.has(k.id)) continue;
           const origin = `transform-origin: ${Math.round(cx - k.x)}px ${Math.round(cy - k.y)}px`;
           if (moveTrans) rules.push(`@media (prefers-reduced-motion: no-preference) { ${at(k.id)} { transition: ${moveTrans}; } }`);
           rules.push(`${trigger} ${at(k.id)} { ${moveDecl}; ${origin} !important; }`);

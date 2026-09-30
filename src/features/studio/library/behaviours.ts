@@ -205,10 +205,17 @@ const TILT: Work = {
     /* The parts it carries turn with it, about its middle, so a thing drawn as several parts (a TV and its screen, knobs and words) turns whole. */
     var ids = String(inputs.parts || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
     var carried = [el];
-    ids.forEach(function (id) { var p = document.getElementById(id) || (el.ownerDocument || document).querySelector('[data-live-node="' + id + '"]'); if (p && p !== el) carried.push(p); });
+    /* One already inside it (the published page puts a part inside the box that carries it) turns with it as it is. */
+    ids.forEach(function (id) { var p = document.getElementById(id) || (el.ownerDocument || document).querySelector('[data-live-node="' + id + '"]'); if (p && p !== el && !el.contains(p)) carried.push(p); });
     var areaId = String(inputs.area || "").trim(), area = areaId ? (document.getElementById(areaId) || document.querySelector('[data-live-node="' + areaId + '"]')) : null;
     var bases = carried.map(function (p) { return { t: p.style.transform, o: p.style.transformOrigin, tr: p.style.transition }; });
-    carried.forEach(function (p) { if (!p.style.transition) p.style.transition = "transform " + pace + "ms ease-out"; });
+    /*
+     * All of them on one clock, set when they first move: a reveal still
+     * running when this starts writes its own transition and then gives the
+     * part's back, and the card was left with none while its words eased,
+     * so the card jumped and its words trailed after it.
+     */
+    function paced() { carried.forEach(function (p) { var t = p.style.transition; if (!/(^|,)\\s*(transform|all)\\b/.test(t)) p.style.transition = (t && t !== "none" ? t + ", " : "") + "transform " + pace + "ms ease-out"; }); }
     function pose(x, y) {
       var ry = axis === "y" ? 0 : x * across, rx = axis === "x" ? 0 : -y * down;
       return "perspective(" + persp + "px) rotateY(" + ry.toFixed(2) + "deg) rotateX(" + rx.toFixed(2) + "deg)" + (lift ? " translateY(" + (-lift) + "px)" : "") + (depth ? " translateZ(" + depth + "px)" : "");
@@ -217,6 +224,7 @@ const TILT: Work = {
       var box = null;
       el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
       el.addEventListener("pointermove", function (e) {
+        paced();
         var r = box || (box = el.getBoundingClientRect());
         s.transform = pose((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5) + (bases[0].t ? " " + bases[0].t : "");
       });
@@ -236,6 +244,7 @@ const TILT: Work = {
       var r = geo.r, dx = window.scrollX - geo.sx, dy = window.scrollY - geo.sy;
       var x = (e.clientX + dx - r.left) / r.width - 0.5, y = (e.clientY + dy - r.top) / r.height - 0.5;
       if (x < -0.5 || x > 0.5 || y < -0.5 || y > 0.5) { if (on) rest(); return; }
+      if (!on) paced();
       on = true;
       var t = pose(x, y);
       carried.forEach(function (p, i) { p.style.transformOrigin = geo.origins[i]; p.style.transform = t + (bases[i].t ? " " + bases[i].t : ""); });

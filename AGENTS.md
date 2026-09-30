@@ -883,6 +883,16 @@ inside the part it turns with keeps its width in the page's terms
 (`fluidSite.ts#pageUnits`): in `100%` of the remote, the remote's keys were
 0 wide and their words, numbers and gloss hung off them.
 
+**What moves under the pointer carries what is on it, and what can be
+pressed points over its whole box** (`carry.ts`, `tests/ca-bar-seams.mjs`).
+A captured box a hover, press or focus moves, or that tilts under the
+pointer, takes every part it owns by element path (its `::before` too)
+inside its own box on the published page, so one transform moves the key
+and its gloss, the card and its badge, together; a nested part gets no
+follow rule and no second reveal of its own. A link, a button (the
+capture's role), a call to action or a part with a pressed look shows the
+pointing hand, and so does every part inside it.
+
 **A captured page's boxes arrive the same way** (`boxEntry.ts`,
 `tests/boxes-land.mjs`). `FromASite` lands every block it read in one
 synchronous loop, and they all appeared in the same frame, which reads as a

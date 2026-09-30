@@ -59,6 +59,7 @@
  */
 import * as React from "react";
 import { motionCss } from "./parts/capturedMotion";
+import { carryOwned, pointing } from "./carry";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { useStudio, type StudioNode, type StudioPage } from "./store";
 import type { NodeLink } from "./parts/types";
@@ -74,7 +75,7 @@ import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidPa
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
-import { featureFiles, pageFeatureTags } from "./library/works";
+import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "./library/works";
 
 export type ExportFile = SiteFile | SiteBinary;
 
@@ -410,6 +411,24 @@ function pressThrough(root: DocumentFragment, nodes: Map<string, StudioNode>): n
 }
 
 /** One page's markup, the Builder's marks taken off it, its links made real and its colours tied to the roles. */
+/** A part carried inside its box leaves to the box what the box does too (a reveal, a tilt): done twice, it would travel twice as far. */
+function carriedFeatures(nodes: StudioNode[], fluid: boolean): StudioNode[] {
+  if (!fluid) return nodes;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const hostOf = new Map<string, StudioNode>();
+  for (const [h, kids] of carryOwned(nodes)) for (const k of kids) hostOf.set(k, byId.get(h)!);
+  return nodes.map((n) => {
+    const host = hostOf.get(n.id);
+    if (!host) return n;
+    const theirs = new Set(onUsesOf((host as { work?: WorkUse | null }).work).map((u) => u.id));
+    const mine = onUsesOf((n as { work?: WorkUse | null }).work);
+    const kept = mine.filter((u) => !theirs.has(u.id));
+    if (kept.length === mine.length) return n;
+    const [first, ...rest] = kept;
+    return { ...n, work: first ? { ...first, ...(rest.length ? { also: rest } : {}) } : null } as StudioNode;
+  });
+}
+
 function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null): string {
   const pageId = page.id;
   const tpl = document.createElement("template");
@@ -425,6 +444,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
   stretchLinks(partLinks, nodes);
   pressThrough(root, nodes);
   if (fluidAt) fluid(root, page.id, nodes, fluidAt);
+  /* The parts that point: every pressable part, and every part inside one. */
+  const pressed = pointing([...nodes.values()].filter((n) => n.pageId === page.id));
   /* The carried faces are declared once, in the stylesheet, not in the page. */
   for (const el of Array.from(root.querySelectorAll("style[data-carried-fonts], link[data-carried-font-link]"))) el.remove();
   /* So is the page's motion: in the stylesheet, reaching each part by its id. */
@@ -445,6 +466,7 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
       if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }
     if (node) el.setAttribute("id", node);
+    if (node && pressed.has(node)) (el as HTMLElement).style.cursor = "pointer";
     if (isPage) el.setAttribute("data-page", pageId);
     /*
      * The page frame clips, and is no scroll container. The preview's frame
@@ -660,6 +682,41 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
   /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
   const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
   for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }
+  /* What moves under the pointer carries what is on it (`carryOwned`): each part inside its box, nearest box first. */
+  if (!live) {
+    const carry = carryOwned([...nodes.values()].filter((n) => n.pageId === pageId));
+    const depth = (id: string) => nodes.get(id)?.from?.selector?.length ?? 0;
+    for (const hid of [...carry.keys()].sort((a, b) => depth(b) - depth(a))) {
+      const hostEl = elOf(hid), host = nodes.get(hid);
+      if (!hostEl || !host) continue;
+      const into = hostEl.querySelector<HTMLElement>(":scope > [data-part-box]") ?? hostEl;
+      const e = host.edge;
+      const bw = into !== hostEl && e && e.style !== "none" && typeof e.width === "number" && Number.isFinite(e.width) ? Math.max(0, e.width) : 0;
+      const turn = (box: HTMLElement) => [box, ...Array.from(box.querySelectorAll<HTMLElement>("*"))].find((x) => !!x.style.transform && x.style.transform !== "none");
+      const hostTurn = turn(into);
+      let moved = 0;
+      for (const kid of carry.get(hid)!) {
+        const el = elOf(kid);
+        if (!el || el === hostEl || el.contains(hostEl) || into.contains(el) || el.parentElement !== hostEl.parentElement) continue;
+        if (el.style.position !== "absolute" || hostEl.style.position !== "absolute" || !el.style.left || !el.style.top || !hostEl.style.left || !hostEl.style.top) continue;
+        el.style.left = pageUnits(`calc(${el.style.left} - ${hostEl.style.left} - ${bw}px)`, W);
+        el.style.top = pageUnits(`calc(${el.style.top} - ${hostEl.style.top} - ${bw}px)`, W);
+        if (el.style.width.includes("%")) el.style.width = pageUnits(el.style.width, W);
+        /* Turned as its box is turned, it is turned by its box now, not twice. */
+        const mine = turn(el);
+        if (hostTurn && mine && mine.style.transform === hostTurn.style.transform) { mine.style.transform = "none"; mine.style.transformOrigin = ""; }
+        /* Cut to its box's rounded inside, it is inside that box now, and the box cuts it as the page's did: one edge, snapped with the box's own. */
+        if (/hidden|clip/.test(host.art?.overflow ?? "") && /^inset\(/.test(nodes.get(kid)?.art?.clipPath ?? "")) for (const c of [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))]) if (c.style.clipPath) c.style.clipPath = "";
+        into.appendChild(el);
+        moved++;
+      }
+      if (moved && into !== hostEl) {
+        if (!into.style.position || into.style.position === "static") into.style.position = "relative";
+        /* What it holds hangs out of it as on the page (the card's badge over its top edge), unless the page cut it there. */
+        if (!/hidden|clip/.test(host.art?.overflow ?? "")) into.style.overflow = "visible";
+      }
+    }
+  }
   /* Every part on a whole pixel, once its place is final (`fluidSite.ts#snapPlace`). */
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) snapPlace(el, live);
   /*
@@ -847,7 +904,7 @@ ${pageHead({ title, name, description, icon, icons, up, address: pageAddress(pag
 <div class="site-root">
 ${clean(html, page, s.pages, home, nodes, roles, fluidAt)}
 </div>
-${pageFeatureTags(s.nodes.filter((n) => n.pageId === page.id), up)}
+${pageFeatureTags(carriedFeatures(s.nodes.filter((n) => n.pageId === page.id), fluidAt !== null), up)}
 ${inPlaceScript(page, inPlace.get(page.id), home)}
 </body>
 </html>
@@ -856,7 +913,8 @@ ${inPlaceScript(page, inPlace.get(page.id), home)}
   }
 
   const vars = ROLES.map((r) => `  --${r}: ${palette[r]};`).join("\n");
-  const motion = motionCss(s.nodes.filter((n) => !only || only.includes(n.pageId)), s.look.keyframes, (id) => `#${id}`);
+  const nested = new Set(fluidAt !== null ? [...carryOwned(s.nodes).values()].flat() : []);
+  const motion = motionCss(s.nodes.filter((n) => !only || only.includes(n.pageId)), s.look.keyframes, (id) => `#${id}`, nested);
   const css = `/* The site's palette: every colour on the pages that is one of these is written as var(--name). */
 :root {
 ${vars}

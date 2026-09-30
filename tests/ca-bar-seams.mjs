@@ -50,6 +50,7 @@ const fluid = await jiti.import(join(src, "fluidSite.ts"));
 const theme = await jiti.import(join(src, "parts", "theme.ts"));
 const lib = await jiti.import(join(src, "library", "behaviours.ts"));
 const motion = await jiti.import(join(src, "parts", "capturedMotion.ts"));
+const carry = await jiti.import(join(src, "carry.ts"));
 
 /* ---------- the writers, on their own ---------- */
 
@@ -239,6 +240,88 @@ for (const dpr of [1, 2]) {
     check(`${W} wide: COPY CA spans the remote's inside`, Math.abs(got.copy - 550) < 0.5, `${got.copy}px (was ${was.copy}px)`);
     await page.close();
   }
+}
+
+/*
+ * WHAT MOVES UNDER THE POINTER CARRIES WHAT IS ON IT, AND WHAT CAN BE
+ * PRESSED POINTS OVER ITS WHOLE BOX. The owner, on the published remote and
+ * the how-to-buy cards: a key's gloss strip, number and icon broke away from
+ * the key when it rose or sank; a card's coloured box tilted while its icon,
+ * words and red badge stayed behind; and the hand showed over the words of
+ * the keys, the COPY CA bar and the nav, not over the rest of them.
+ * MEASURED on the 1c44f17 export at 1992: under hover and press the CHART
+ * key's gloss stayed at dy 10.3 while the key rose 3 and sank 6; the card's
+ * parts eased over 800ms after a card that jumped; and 14 pressable parts
+ * showed the hand over fewer than 36 of 36 points of their box (the footer
+ * CA bar 0, DEX 3). Now: the gloss 7.3 / 16.3, the card's parts inside the
+ * card, every pressable part 36 of 36, and none of the 245 parts moved at
+ * rest (1440 and 1992).
+ */
+{
+  const KEY = "main > div > a:nth-of-type(4)", CARD = "main > section > article";
+  const nodes = [
+    { id: "key", pageId: "p", x: 0, y: 0, w: 173, h: 96, from: { selector: KEY }, data: "link, named “03 CHART”", featureId: "cta-primary",
+      motion: { transition: [{ property: "transform", duration: "0.12s", timing: "ease", delay: "0s" }], hover: [{ self: true, style: { transform: "translateY(-3px)" } }], active: [{ self: true, style: { transform: "translateY(6px)" } }] } },
+    { id: "gloss", pageId: "p", x: 12, y: 10, w: 149, h: 25, from: { selector: `${KEY}::before` } },
+    { id: "num", pageId: "p", x: 75, y: 27, w: 22, h: 26, from: { selector: `${KEY} > small` } },
+    { id: "card", pageId: "p", x: 0, y: 200, w: 262, h: 239, from: { selector: CARD }, work: { id: "tilt", inputs: { mode: "mouse", parts: "icon,badge" } } },
+    { id: "icon", pageId: "p", x: 26, y: 234, w: 68, h: 68, from: { selector: `${CARD} > div` } },
+    { id: "badge", pageId: "p", x: 183, y: 182, w: 60, h: 50, from: { selector: `${CARD} > span` } },
+    { id: "nav", pageId: "p", x: 0, y: 0, w: 60, h: 20, from: { selector: "header > nav > a:nth-of-type(1)" }, data: "link, named “Lore”" },
+    { id: "bar", pageId: "p", x: 0, y: 500, w: 550, h: 72, from: { selector: "main > button" }, data: "button, named “COPY CA”" },
+    { id: "barWords", pageId: "p", x: 227, y: 516, w: 96, h: 40, from: { selector: "main > button > span" } },
+    { id: "plain", pageId: "p", x: 0, y: 700, w: 100, h: 100, from: { selector: "main > div:nth-of-type(9)" } },
+  ];
+  const owned = carry.carryOwned(nodes);
+  check("a key a hover moves carries its gloss (::before) and its number", JSON.stringify(owned.get("key")) === JSON.stringify(["gloss", "num"]), JSON.stringify(owned.get("key")));
+  check("a card that tilts under the pointer carries its icon and badge", JSON.stringify(owned.get("card")) === JSON.stringify(["icon", "badge"]), JSON.stringify(owned.get("card")));
+  check("a box nothing moves carries nothing", !owned.has("plain") && !owned.has("bar"));
+  const points = carry.pointing(nodes);
+  check("keys, the nav's links, the COPY CA bar and the words on it point", ["key", "gloss", "num", "nav", "bar", "barWords"].every((id) => points.has(id)), [...points].join(","));
+  check("a box that cannot be pressed does not", !points.has("plain") && !points.has("card"));
+
+  /* The key as the export writes it, its gloss inside its box, with the motion stylesheet told so. */
+  const nested = new Set([...owned.values()].flat());
+  const css = motion.motionCss(nodes, [], (id) => `#${id}`, nested);
+  check("a part inside its box gets no rule of its own to follow the box", !/#gloss\s*\{/.test(css) && !/#num\s*\{/.test(css), css.split("\n").filter((l) => /#gloss|#num/.test(l)).join(" / "));
+  const TILT = scriptOf("tilt");
+  const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
+  await page.setContent(`<!doctype html><html><head><style>body{margin:0}${css}</style></head><body>
+<div id="key" style="position:absolute;left:100px;top:100px;width:173px;min-height:96px;display:flex;flex-direction:column;cursor:pointer">
+ <div class="mo mo-key" style="flex:1 0 auto;position:relative;border:4px solid #000;background:#ef9043;border-radius:22px">
+  <div id="gloss" style="position:absolute;left:8px;top:6px;width:149px;height:25px;background:rgba(255,255,255,.35);pointer-events:none"></div>
+  <div id="num" style="position:absolute;left:71px;top:23px;width:22px;height:26px">03</div>
+ </div></div>
+<div id="card" style="position:absolute;left:400px;top:200px;width:262px;min-height:239px;display:flex;flex-direction:column">
+ <div style="flex:1 0 auto;position:relative;border:4px solid #000;background:#f7e0a8;overflow:visible">
+  <div id="icon" style="position:absolute;left:22px;top:30px;width:68px;height:68px;background:#fff"></div>
+  <div id="badge" style="position:absolute;left:179px;top:-22px;width:60px;height:50px;background:#e33"></div>
+ </div></div>
+<script>window.siteFeatures = { define: function (n, f) { window.__tilt = f; } };</script></body></html>`);
+  await page.addScriptTag({ content: TILT });
+  await page.evaluate(() => window.__tilt(document.getElementById("card"), { mode: "mouse", strength: "10", across: "13.4", down: "11.8", lift: "6", perspective: "900", pace: "200", parts: "icon,badge" }));
+  const rel = () => page.evaluate(() => { const k = document.querySelector(".mo-key").getBoundingClientRect(), g = document.getElementById("gloss").getBoundingClientRect(), n = document.getElementById("num").getBoundingClientRect(); return { g: g.y - k.y, n: n.y - k.y, k: k.y }; });
+  const rest = await rel();
+  await page.mouse.move(260, 190); await page.waitForTimeout(400);
+  const up = await rel();
+  await page.mouse.down(); await page.waitForTimeout(400);
+  const down = await rel();
+  await page.mouse.up();
+  check("under hover the key rises and its gloss and number rise with it", up.k < rest.k - 2 && Math.abs(up.g - rest.g) < 0.1 && Math.abs(up.n - rest.n) < 0.1, `key ${rest.k}→${up.k}, gloss ${rest.g}→${up.g}`);
+  check("pressed, the key sinks and its gloss and number sink with it", down.k > rest.k + 4 && Math.abs(down.g - rest.g) < 0.1 && Math.abs(down.n - rest.n) < 0.1, `key ${rest.k}→${down.k}, gloss ${rest.g}→${down.g}`);
+  const cur = await page.evaluate(() => [[102, 102], [270, 190], [180, 110]].map(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor));
+  check("the hand shows over the key's whole box, its gloss and its number too", cur.every((c) => c === "pointer"), cur.join(","));
+  const card0 = await page.evaluate(() => ["card", "icon", "badge"].map((i) => document.getElementById(i).getBoundingClientRect().toJSON()));
+  await page.mouse.move(640, 420, { steps: 4 }); await page.waitForTimeout(60);
+  const early = await page.evaluate(() => { const c = document.getElementById("card"); return { tr: c.style.transition, t: getComputedStyle(c).transform }; });
+  await page.waitForTimeout(500);
+  const card1 = await page.evaluate(() => ["card", "icon", "badge"].map((i) => document.getElementById(i).getBoundingClientRect().toJSON()));
+  const shift = (i) => [card1[i].x - card0[i].x, card1[i].y - card0[i].y];
+  check("the tilting card eases, as its parts do", /transform/.test(early.tr), early.tr);
+  check("the card's icon and badge move with the card", card1[0].y < card0[0].y - 2 && Math.abs(shift(1)[1] - shift(0)[1]) < 3 && Math.abs(shift(2)[1] - shift(0)[1]) < 3, `card ${shift(0).map((v) => v.toFixed(1))}, icon ${shift(1).map((v) => v.toFixed(1))}, badge ${shift(2).map((v) => v.toFixed(1))}`);
+  const inlineOnKids = await page.evaluate(() => ["icon", "badge"].map((i) => document.getElementById(i).style.transform));
+  check("parts inside the card are not turned a second time", inlineOnKids.every((t) => !t), inlineOnKids.join(","));
+  await page.close();
 }
 
 await browser.close();
