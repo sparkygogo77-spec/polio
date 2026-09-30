@@ -30,6 +30,7 @@ import { useStudio } from "./store";
 export function GoLiveButton() {
   const said = useGoLive((s) => s.refused);
   const step = useGoLive((s) => s.step);
+  const warnedAll = useGoLive((s) => s.warned);
   const busy = useGoLive((s) => s.busy);
   const activeId = useBuilds((s) => s.activeId);
   const shared = useSharedTargetSays();
@@ -39,6 +40,11 @@ export function GoLiveButton() {
   const refused = said && (!said.siteId || said.siteId === activeId) ? said : null;
   const mine = step && (!step.siteId || step.siteId === activeId) ? step : null;
   const line = "max-w-[min(440px,34vw)] truncate text-small";
+  /* Published, but some files the pages point at are missing: said beside the status, the whole list on hover, never a stop. */
+  const warned = warnedAll && (!warnedAll.siteId || warnedAll.siteId === activeId) ? warnedAll : null;
+  const warning = warned ? (
+    <span data-go-live-warned="" role="status" title={warned.says} className="max-w-[min(360px,26vw)] truncate text-small text-warning">{warned.says}</span>
+  ) : null;
 
   /* TWO SITES, ONE TARGET: said beside the button, before anything is pressed (`builds/store.ts`, sharedTarget). */
   if (shared && !busy) {
@@ -93,10 +99,11 @@ export function GoLiveButton() {
         ) : (
           <span data-go-live-step={mine.at} role="status" className={`${line} text-fg-muted`}>{stepWords(mine)}</span>
         )}
+        {warning}
       </span>
     );
   }
-  return button;
+  return warning ? <span className="flex min-w-0 items-center gap-1.5">{button}{warning}</span> : button;
 }
 
 function GoLiveControl() {

@@ -17,8 +17,9 @@
  *   · one the Builder itself serves as a plain file (its `public/` folder) is
  *     copied in at the same path, so the reference works unchanged, from any
  *     page, on the published site's own address;
- *   · anything else is missing, and publish refuses with the list, in plain
- *     words, rather than putting up a site with holes in it.
+ *   · anything else is missing, and is said: the publish still goes (the
+ *     owner is never kept from going live by it), and the publish status
+ *     warns with the plain list of files and the pages that use them.
  *
  * Links between pages (`<a href>`) are addresses, not files, and are not
  * held to this; nor is anything on another site, a `data:` picture or an
@@ -134,17 +135,11 @@ export const fetchOwnFromBuilder: FetchOwn = async (path) => {
   return { base64: btoa(bin), bytes: buf.length };
 };
 
-/** The refusal, in plain words: what is missing, where it is used, and what to do. */
+/** The warning, in plain words: what will be missing on the live site, where it is used, and what to do. */
 export function missingSays(missing: Missing[], pageName: (file: string) => string = (f) => f): string {
   const one = missing.length === 1;
   const list = missing.slice(0, 12).map((m) => `${m.path} (used on ${[...new Set(m.from.map(pageName))].join(", ")})`).join("; ");
   const more = missing.length > 12 ? `; and ${missing.length - 12} more` : "";
   const pictures = missing.some((m) => /^assets\/pictures\//.test(m.path));
-  return `Not published: ${missing.length} file${one ? "" : "s"} the pages point at ${one ? "is" : "are"} not in the site, so ${one ? "it" : "they"} would be missing on the live site: ${list}${more}. ${pictures ? "Add the missing pictures again on the board, or remove the parts that show them" : "Remove the parts that use them"}, then press Update live site again.`;
-}
-
-export class SiteIncomplete extends Error {
-  readonly missing: Missing[];
-  readonly says: string;
-  constructor(missing: Missing[], says: string) { super(says); this.name = "SiteIncomplete"; this.missing = missing; this.says = says; }
+  return `Published without ${missing.length} file${one ? "" : "s"} the pages point at, so ${one ? "it is" : "they are"} missing on the live site: ${list}${more}. ${pictures ? "Add the missing pictures again on the board, or remove the parts that show them" : "Remove the parts that use them"}, then press Update live site again.`;
 }

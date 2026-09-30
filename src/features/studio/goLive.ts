@@ -23,7 +23,7 @@ import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 import { contractFiles } from "./library/contract";
 import { polioMd, POLIO_MD } from "./polioMd";
-import { completeSite, fetchOwnFromBuilder, missingSays, SiteIncomplete } from "./siteRefs";
+import { completeSite, fetchOwnFromBuilder, missingSays } from "./siteRefs";
 import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
 import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "./publishWords";
@@ -61,6 +61,8 @@ export function clearRefused(): void {
 
 /** How the Go live in flight, or the last one, is getting on. */
 export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note: string | null; pushed: Pushed | null; refused: Refused | null;
+  /** Files the last publish's pages point at that nothing provided: published anyway, and said (`siteRefs.ts`). */
+  warned: { says: string; siteId: string | null } | null;
   /** Where the last publish got to, in the three steps a person follows (`publishWords.ts`), and whose site it was. */
   step: (PublishStep & { siteId?: string | null }) | null }>(() => ({
   busy: null,
@@ -68,6 +70,7 @@ export const useGoLive = create<{ busy: string | null; run: LiveRun | null; note
   note: null,
   pushed: null,
   refused: null,
+  warned: null,
   step: null,
 }));
 
@@ -189,7 +192,7 @@ export function documentFiles(): GeneratedFile[] {
  * model, nothing asked of anybody: pressing publish is now enough to have
  * a website.
  */
-export async function collectFiles(described: GeneratedFile[], say: (note: string) => void, address?: string | null): Promise<GeneratedFile[]> {
+export async function collectFiles(described: GeneratedFile[], say: (note: string) => void, address?: string | null, /** Where a warning about files the pages point at and nothing provides goes; `say` when none. */ warn?: (says: string) => void): Promise<GeneratedFile[]> {
   let pages: GeneratedFile[] = [];
   try {
     pages = (await exportSite(undefined, { pictures: false, address })) as GeneratedFile[];
@@ -243,16 +246,18 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
    * Builder serves itself (its `public/` files: the construct faces, the
    * picture an empty part shows) is copied in at the same path; anything
    * else a page points at and nothing provides, a picture this browser has
-   * lost among them, stops the publish with the list, before a byte moves.
+   * lost among them, is said as a warning with the list; the publish still
+   * goes, as it always did, so the owner is never kept from going live.
    */
   const { added, missing } = await completeSite(all as { path: string; content: string; encoding?: string }[], { fetchOwn: fetchOwnFromBuilder, liveAddress: address ?? null });
   if (missing.length) {
     const home = homeFor(st.pages);
     const names = new Map(st.pages.map((p) => [pageFile(p, home), p.name?.trim() || p.path || "a page"]));
-    throw new SiteIncomplete(missing, missingSays(missing, (f) => names.get(f) ?? f));
+    const says = missingSays(missing, (f) => names.get(f) ?? f);
+    (warn ?? say)(says);
   }
   /* A lost picture no page points at is still said, and goes up without it. */
-  if (lostCount) say(`${lostCount} picture${lostCount === 1 ? " is" : "s are"} no longer in this browser and no page uses ${lostCount === 1 ? "it" : "them"}, so ${lostCount === 1 ? "it was" : "they were"} left out.`);
+  else if (lostCount) say(`${lostCount} picture${lostCount === 1 ? " is" : "s are"} no longer in this browser and no page uses ${lostCount === 1 ? "it" : "them"}, so ${lostCount === 1 ? "it was" : "they were"} left out.`);
   if (added.length) say(`${added.length} file${added.length === 1 ? "" : "s"} the pages use from the Builder itself went up with the site: ${added.map((f) => f.path).join(", ")}.`);
   return [...all, ...(added as GeneratedFile[])];
 }
@@ -272,7 +277,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
   const here0 = activeProject();
-  set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null, step: { at: "saving", siteId: here0?.id ?? null } });
+  set({ busy: "Writing the pages…", note: null, run: null, pushed: null, refused: null, warned: null, step: { at: "saving", siteId: here0?.id ?? null } });
   /* A refusal is said once, on the row and the top bar (`refused`), not again in the book's note. */
   const here = activeProject();
   const refuse = (message: string, hint?: string, failed?: Failed) => {
@@ -298,16 +303,11 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
      * no og:url, and the next publish, once live, fills them.
      */
     const address = publishedAt() ? null : await productionAddress({ repo, sources });
-    let going: GeneratedFile[];
-    try {
-      going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address);
-    } catch (err) {
-      if (!(err instanceof SiteIncomplete)) throw err;
-      /* Held back before anything was sent: the list is the whole message. */
-      refuse(err.says, undefined, { stage: "github", reason: "blocked", message: err.says });
-      say({ key: "studio:publish", title: "Not published", body: err.says, level: "error", source: "studio", toast: true });
-      return;
-    }
+    /* Files the pages point at that nothing provides: a warning beside the status, never a stop (`siteRefs.ts`). */
+    const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address, (says) => {
+      set({ warned: { says, siteId: here?.id ?? null } });
+      say({ key: "studio:publish-missing", title: "Some files will be missing", body: says, level: "warn", source: "studio", toast: { durationMs: 12000 } });
+    });
     setBusy(`Pushing ${going.length} files to GitHub…`);
     const pushed = await publish({ files: going, message: o.message, deploy: false, repo, branch, create, boundTo, sources });
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
@@ -374,5 +374,7 @@ if (typeof window !== "undefined") {
     if (r && r.siteId !== st.activeId) useGoLive.setState({ refused: null });
     const step = useGoLive.getState().step;
     if (step && step.siteId !== st.activeId && !useGoLive.getState().busy) useGoLive.setState({ step: null });
+    const warned = useGoLive.getState().warned;
+    if (warned && warned.siteId !== st.activeId) useGoLive.setState({ warned: null });
   });
 }

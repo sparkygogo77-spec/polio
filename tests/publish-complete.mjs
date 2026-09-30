@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * A PUBLISH CARRIES EVERY FILE ITS PAGES POINT AT, OR DOES NOT GO.
+ * A PUBLISH CARRIES EVERY FILE ITS PAGES POINT AT, AND SAYS WHICH IT COULD NOT.
  *
  * The live check of 30 September: TrendTrader's published page pointed at
  * /placeholder/scene.svg (the crop an empty picture part shows) and
@@ -8,9 +8,10 @@
  * publish never carried. In the browser, pressing Update live site:
  *   1. a site with an empty picture part goes up with placeholder/scene.svg
  *      in the push, copied from the Builder, at the path the page names;
- *   2. a site whose page shows a picture this browser no longer has is not
- *      published: nothing is sent to GitHub, and the bar says which file is
- *      missing, on which page, and what to do.
+ *   2. a site whose page shows a picture this browser no longer has still
+ *      publishes, as it always did (the owner is never kept from going live
+ *      by it), and the publish status warns which file is missing, on which
+ *      page, and what to do.
  *
  * The Builder's own routes are answered in the browser: nothing reaches
  * GitHub or Vercel and no token exists. Screenshot: .screenshots/publish-complete.png.
@@ -65,24 +66,27 @@ async function press(nodes) {
   for (let i = 0; i < 120 && (await bar.getAttribute("data-go-live-state")) === "busy"; i++) await page.waitForTimeout(250);
   await page.waitForTimeout(500);
   const said = await page.evaluate(() => document.querySelector("header [data-go-live-said]")?.textContent ?? null);
-  return { ctx, page, pushed, said };
+  const warned = await page.evaluate(() => document.querySelector("header [data-go-live-warned]")?.getAttribute("title") ?? null);
+  const live = await page.evaluate(() => document.querySelector("header [data-go-live-step='live']")?.textContent ?? null);
+  return { ctx, page, pushed, said, warned, live };
 }
 
 console.log("1. An empty picture part: the crop it shows goes up with it");
 {
-  const { ctx, pushed, said } = await press([part("n1")]);
+  const { ctx, pushed, said, warned } = await press([part("n1")]);
   check("the page goes up", pushed.includes("index.html"), J(pushed.slice(0, 6)));
   check("placeholder/scene.svg is in the push, at the path the page names", pushed.includes("placeholder/scene.svg"), J(pushed.filter((p) => !p.startsWith("assets/features"))));
-  check("nothing was refused", said === null, J(said));
+  check("nothing was refused, and nothing is warned about", said === null && warned === null, J({ said, warned }));
   await ctx.close();
 }
 
 console.log("2. A picture this browser no longer has");
 {
   const gone = { id: "pic_gone", path: "assets/pictures/pic_gone.png", type: "image/png", w: 10, h: 10, bytes: 10, alt: "", from: "upload" };
-  const { ctx, page, pushed, said } = await press([part("n2", { picture: gone })]);
-  check("nothing is sent to GitHub", pushed.length === 0, J(pushed));
-  check("the bar lists the missing file, the page that uses it, and what to do", /Not published: 1 file the pages point at is not in the site/.test(said ?? "") && /assets\/pictures\/pic_gone\.png \(used on Home\)/.test(said ?? "") && /Add the missing pictures again on the board/.test(said ?? ""), J(said));
+  const { ctx, page, pushed, said, warned, live } = await press([part("n2", { picture: gone })]);
+  check("it still publishes, as before: the page goes up and the site goes live", pushed.includes("index.html") && said === null && /^Live ✓/.test(live ?? ""), J({ pushed: pushed.slice(0, 4), said, live }));
+  check("…without the missing picture", !pushed.includes("assets/pictures/pic_gone.png"));
+  check("the publish status warns which file is missing, on which page, and what to do", /^Published without 1 file the pages point at, so it is missing on the live site/.test(warned ?? "") && /assets\/pictures\/pic_gone\.png \(used on Home\)/.test(warned ?? "") && /Add the missing pictures again on the board/.test(warned ?? ""), J(warned));
   await page.screenshot({ path: ".screenshots/publish-complete.png", clip: { x: 0, y: 0, width: 1440, height: 120 } });
   await ctx.close();
 }

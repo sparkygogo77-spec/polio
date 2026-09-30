@@ -38,7 +38,6 @@ import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMe
 import { useKeys } from "@/features/keys/store";
 import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./goLive";
 import { useBuilds } from "@/features/builds/store";
-import { SiteIncomplete } from "./siteRefs";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { Button } from "@/core/ui/button";
@@ -619,16 +618,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       ctx.publish({ key: "studio:publish", title: "Not published", body: refused, level: "error", source: "studio", toast: true });
       return;
     }
-    let going: Awaited<ReturnType<typeof everything>>;
-    try {
-      going = await everything();
-    } catch (err) {
-      /* Something a page points at is in no file going up (`siteRefs.ts`): said, and nothing sent. */
-      if (!(err instanceof SiteIncomplete)) throw err;
-      setNote(err.says);
-      ctx.publish({ key: "studio:publish", title: "Not published", body: err.says, level: "error", source: "studio", toast: true });
-      return;
-    }
+    const going = await everything();
     setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
       const r = await publish({
@@ -672,12 +662,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   };
 
   const downloadAll = async () => {
-    try {
-      for (const f of await everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
-    } catch (err) {
-      if (!(err instanceof SiteIncomplete)) throw err;
-      setNote(err.says);
-    }
+    for (const f of await everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
   };
 
   const current = MODES.find((m) => m.value === mode)!;

@@ -11,8 +11,9 @@
  *   · links between pages, canonical addresses, other sites, data: and
  *     anchors are not files and are not held to it;
  *   · what the Builder serves itself is copied in at the same path;
- *   · anything else is named, with the pages that use it, and publish is
- *     refused in plain words.
+ *   · anything else is named, with the pages that use it, in a plain
+ *     warning (the publish still goes; the owner is never kept from going
+ *     live by it).
  *
  *   node tests/site-refs.mjs
  */
@@ -55,10 +56,10 @@ check("files already going up are not asked for", !asked.some((p) => /pic_a|site
 check("the Builder's own machinery is never copied in, even if it answers", !asked.includes("api/studio/secret.png") && missing.some((m) => m.path === "api/studio/secret.png"));
 check("what nothing provides is named, with the file that uses it", J(missing) === J([{ path: "api/studio/secret.png", from: ["tokens/index.html"] }, { path: "assets/pictures/pic_gone.png", from: ["tokens/index.html"] }]), J(missing));
 const says = missingSays(missing, (f) => (f === "tokens/index.html" ? "Tokens" : f));
-check("the refusal is plain: how many, which, on which page, and what to do", /^Not published: 2 files the pages point at are not in the site/.test(says) && /assets\/pictures\/pic_gone\.png \(used on Tokens\)/.test(says) && /Add the missing pictures again on the board, or remove the parts that show them, then press Update live site again\./.test(says), says);
+check("the warning is plain: how many, which, on which page, and what to do", /^Published without 2 files the pages point at, so they are missing on the live site/.test(says) && /assets\/pictures\/pic_gone\.png \(used on Tokens\)/.test(says) && /Add the missing pictures again on the board, or remove the parts that show them, then press Update live site again\./.test(says), says);
 check("no em dash in it", !says.includes("—"));
 const clean = await completeSite([{ path: "index.html", content: '<img src="assets/pictures/a.png">' }, { path: "assets/pictures/a.png", content: "x", encoding: "base64" }], { fetchOwn });
-check("a site with nothing missing adds nothing and refuses nothing", clean.added.length === 0 && clean.missing.length === 0);
+check("a site with nothing missing adds nothing and warns of nothing", clean.added.length === 0 && clean.missing.length === 0);
 
 /* The Builder's own sources that publish these paths: each one the copy has to cover. */
 const { readFileSync, existsSync } = await import("node:fs");

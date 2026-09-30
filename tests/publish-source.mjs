@@ -114,9 +114,8 @@ const tree = [
   { path: "package.json", type: "blob", sha: "pkg", size: 10 },
   { path: "site/document.json", type: "blob", sha: "doc", size: DOC.length },
   { path: "site/capture/home.json", type: "blob", sha: "cap", size: 2 },
-  /* The pictures the fixture's pages show. A publish now refuses a page that
-     points at a file nothing provides (tests/publish-complete.mjs), so the
-     board has to arrive whole for the rest of this to be about sources. */
+  /* The pictures the fixture's pages show, so the board arrives whole and a
+     publish of it carries every file its pages point at (tests/publish-complete.mjs). */
   ...[...new Set(DOC.toString("utf8").match(/assets\/pictures\/pic_[a-z0-9]+\.png/g) ?? [])].map((path) => ({ path, type: "blob", sha: "pic", size: PNG.length })),
 ];
 

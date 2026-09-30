@@ -2907,13 +2907,14 @@ carry why a thing arrived.
   Repos. `setRepo` refuses a target another site holds, and a duplicate
   starts with none. Nothing changes a site's stored target on its own.
   `tests/shared-target.mjs`.
-- **A publish carries every file its pages point at, or does not go**
+- **A publish carries every file its pages point at, and says which it could not**
   (`studio/siteRefs.ts`, run in `collectFiles`). Every page and sheet is
   read for what it references (src, srcset, poster, stylesheet and icon
   hrefs, share pictures, every `url(…)`); what the Builder serves itself
   from `public/` (the construct faces, the empty picture's crop) is copied
-  in at the same path, and anything else nothing provides stops the publish
-  with a plain list of files and the pages that use them. Links between
+  in at the same path, and anything else nothing provides is a warning in
+  the publish status with a plain list of files and the pages that use
+  them; the publish still goes, so the owner is never kept from going live. Links between
   pages are addresses and are not held to it. `tests/site-refs.mjs`,
   `tests/publish-complete.mjs`.
 - **A publish is said in plain steps** (`studio/publishWords.ts`): Saving to
