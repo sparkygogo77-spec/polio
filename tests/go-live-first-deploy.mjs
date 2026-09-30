@@ -12,10 +12,10 @@
  * Held here, against stand-ins for GitHub and Vercel (the Vercel one answers
  * that exact 400 for a project with no deployments and no projectSettings):
  *   · a site with no project: one is made, and its first deployment starts;
- *   · a project made on an earlier press, with 0 deployments (as
- *     prj_s6ief… is): reused, no second project, and its deployment starts;
- *     and a rerun reuses it again;
- *   · a project that has deployed before and has its own framework: its
+ *   · a project named, not connected to the repository, with 0
+ *     deployments (as prj_s6ief… was): reused, no second project, and its
+ *     deployment starts; and a rerun reuses it again;
+ *   · one that has deployed before and has its own framework: its
  *     deployment carries no settings over its own.
  *
  *   npm run build
@@ -62,10 +62,16 @@ const gh = http.createServer(async (req, res) => {
 });
 
 const vcSeen = [];
-/** On the account already: one made by an earlier press and never deployed, and one that has deployed with its own framework. */
+/*
+ * On the account already: one made and never deployed, and one that has
+ * deployed with its own framework. Neither is connected to the repository:
+ * a connected project deploys each push by itself and is never asked for a
+ * deployment (tests/go-live-linked.mjs), so the deploy API, and the settings
+ * it needs for a first deployment, are for a project named that is not.
+ */
 const projects = [
-  { id: "prj_made_earlier", name: "solcinerator", framework: null, link: { type: "github", org: "someone", repo: "solcinerator", repoId: 900 }, deployments: 0 },
-  { id: "prj_framed", name: "framed", framework: "nextjs", link: { type: "github", org: "someone", repo: "framed", repoId: 901 }, deployments: 3 },
+  { id: "prj_made_earlier", name: "solcinerator", framework: null, deployments: 0 },
+  { id: "prj_framed", name: "framed", framework: "nextjs", deployments: 3 },
 ];
 const deployments = [];
 const MISSING = "The `projectSettings` object is required for new projects, but is missing in the deployment payload. If you want to use automatic framework detection, you can use the `skipAutoDetectionConfirmation=1` query parameter.";
@@ -141,21 +147,21 @@ console.log("1. A site with no project");
   check("one project is made and its first deployment starts", r.ok === true && made() === n + 1 && dep?.project === projects.at(-1).id, JSON.stringify({ ok: r.ok, reason: r.reason, message: r.message }));
   check("…as static HTML: no framework, no build, no install, served from the root", r.ok === true && same(dep?.settings, STATIC), JSON.stringify(dep?.settings ?? null));
 }
-console.log("2. A project made on an earlier press, never deployed (as prj_s6ief… is)");
+console.log("2. A project not connected to the repository, never deployed (as prj_s6ief… was)");
 for (const press of ["first", "a rerun"]) {
   const n = made();
-  const r = await route({ repo: "someone/solcinerator", branch: "main", name: "SOLCINERATOR" });
+  const r = await route({ repo: "someone/solcinerator", branch: "main", name: "SOLCINERATOR", project: "solcinerator" });
   const dep = deployments.at(-1);
   check(`${press}: reused, no second project, and its deployment starts`, r.ok === true && made() === n && dep?.project === "prj_made_earlier" && r.project === "solcinerator",
     JSON.stringify({ ok: r.ok, project: r.project, reason: r.reason, status: r.status, message: r.message, made: made() - n }));
 }
 console.log("3. A project with its own framework that has deployed before");
 {
-  const r = await route({ repo: "someone/framed", branch: "main", name: "Framed" });
+  const r = await route({ repo: "someone/framed", branch: "main", name: "Framed", project: "framed" });
   const dep = deployments.at(-1);
   check("its deployment starts, carrying no settings over its own", r.ok === true && dep?.project === "prj_framed" && dep?.settings === null, JSON.stringify({ ok: r.ok, settings: dep?.settings, message: r.message }));
 }
-check("one project made in all, never a second for the same repository", projects.length === 3 && new Set(projects.map((p) => `${p.link.org}/${p.link.repo}`)).size === 3, projects.map((p) => `${p.id}:${p.link.repo}`).join(", "));
+check("one project made in all, never a second for the same repository", projects.length === 3 && projects.filter((p) => p.link).length === 1, projects.map((p) => `${p.id}:${p.link?.repo ?? "not connected"}`).join(", "));
 
 stop();
 const bad = results.filter((r) => !r).length;

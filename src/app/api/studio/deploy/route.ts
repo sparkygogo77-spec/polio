@@ -109,8 +109,38 @@ async function findProject(tok: string, team: string | null, repo: string, named
   return hit ? { found: hit } : { found: null };
 }
 
-/** How long a push's own deployment is waited for before one is asked for instead. */
-const PUSH_WAIT_MS = 30_000;
+/** How long this call waits for a push's own deployment to appear before handing the wait to the poll. */
+const PUSH_WAIT_MS = 20_000;
+/** How long the poll waits for a Git-connected project to start the push's deployment before it says why it may not. */
+const GIT_START_MS = 5 * 60_000;
+
+type Listed = { uid?: string; id?: string; url?: string; readyState?: string; state?: string; inspectorUrl?: string; created?: number; createdAt?: number; meta?: { githubCommitSha?: string; githubCommitRef?: string } };
+
+/**
+ * The deployment Vercel's Git integration made of a push: by its commit when
+ * the push says which (a short sha matches its start), else the newest of the
+ * branch made since the push. Any target: a branch that is not the project's
+ * production branch deploys as a preview. Null while there is none yet;
+ * `listed: false` when Vercel would not give the list.
+ */
+async function pushDeployment(tok: string, team: string | null, projectId: string, sha: string | null, branch: string, since: number): Promise<{ listed: boolean; own: Listed | null }> {
+  const { ok, data } = await vercel<{ deployments?: Listed[] }>(tok, `/v6/deployments${query(team, { projectId, limit: "20" })}`);
+  if (!ok) return { listed: false, own: null };
+  const list = data.deployments ?? [];
+  const own = sha
+    ? list.find((d) => { const c = d.meta?.githubCommitSha?.toLowerCase(); return !!c && (c === sha.toLowerCase() || c.startsWith(sha.toLowerCase())); })
+    : list.filter((d) => d.meta?.githubCommitRef === branch && (d.created ?? d.createdAt ?? 0) >= since - 5_000).sort((a, b) => (b.created ?? b.createdAt ?? 0) - (a.created ?? a.createdAt ?? 0))[0];
+  return { listed: true, own: own && (own.uid ?? own.id) ? own : null };
+}
+
+/*
+ * A PUSH NOT YET DEPLOYED IS FOLLOWED BY ITS COMMIT. When a Git-connected
+ * project has not started the push's deployment by the time this call
+ * answers, the Builder is handed this in place of a deployment's id and
+ * polls it like one (`GET ?id=`): the deployment, once Vercel has made it.
+ */
+const COMMIT = /^commit:([\w-]+):([0-9a-f]{0,40}):([^:]*):(\d+)$/i;
+const commitHandle = (projectId: string, sha: string | null, branch: string, since: number) => `commit:${projectId}:${sha ?? ""}:${encodeURIComponent(branch)}:${since}`;
 
 /** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
 const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
@@ -233,9 +263,30 @@ export async function GET(request: Request) {
   if (!tok) return NextResponse.json({ ok: false, reason: "no-token", message: "No Vercel token, on the server or in this browser." });
 
   const team = url.searchParams.get("team")?.trim() || null;
+  /* A push followed by its commit: its deployment once Vercel has made one, else still waiting, and after a while, why it may not come. */
+  let depId = id;
+  const byCommit = COMMIT.exec(id);
+  if (byCommit) {
+    const [, projectId, sha, branch, since] = byCommit;
+    const { listed, own } = await pushDeployment(tok, team, projectId!, sha || null, decodeURIComponent(branch!), Number(since));
+    if (!own) {
+      const late = Date.now() - Number(since) > GIT_START_MS;
+      return NextResponse.json({
+        ok: true,
+        state: late ? "NOT_STARTED" : null,
+        done: late,
+        url: null,
+        inspectorUrl: null,
+        message: late
+          ? `Vercel has not started a deployment of ${sha ? sha.slice(0, 7) : "the push"} in ${GIT_START_MS / 60_000} minutes. Its project deploys every push to the repository by itself, so none was asked for here: its Git deployments may be rate limited (the Hobby plan allows 100 deployments a day) or switched off for this branch. The next push deploys once Vercel allows it; the project's Deployments page on Vercel says why.`
+          : listed ? "Waiting for Vercel to start the build of the push." : "Vercel would not list the project's deployments just now; asking again.",
+      });
+    }
+    depId = (own.uid ?? own.id)!;
+  }
   const { ok, status, data } = await vercel<{ readyState?: string; url?: string; alias?: string[]; inspectorUrl?: string; errorMessage?: string }>(
     tok,
-    `/v13/deployments/${encodeURIComponent(id)}${query(team)}`,
+    `/v13/deployments/${encodeURIComponent(depId)}${query(team)}`,
   );
   if (!ok) {
     return NextResponse.json({ ok: false, reason: "vercel", message: data.error?.message ?? `Vercel answered ${status}.` });
@@ -356,29 +407,31 @@ export async function POST(request: Request) {
   };
 
   /*
-   * ONE PRESS, ONE PRODUCTION DEPLOYMENT.
+   * ONE PRESS, ONE DEPLOYMENT, AND NONE ASKED FOR WHEN THE PUSH MAKES ONE.
    *
-   * A project connected to the repository deploys every push by itself:
-   * that is Vercel's Git integration, and it is what makes later pushes go
-   * live on their own. Asking for a deployment as well built the same
-   * commit twice on every press after the first (`tests/go-live-once.mjs`).
-   * So when the push's own deployment can exist (a project that was there
-   * before the push), it is looked for, by the commit, and followed.
+   * A project connected to the repository (its `link`, as Vercel lists it)
+   * deploys every push by itself: that is Vercel's Git integration. Asking
+   * for a deployment as well built the same commit twice (`tests/go-live-
+   * once.mjs`), and on the owner's Hobby plan spent two of the day's hundred
+   * deployments a press: 8627a05's own Git deployment came back "Deployment
+   * rate limited". So for a connected project the deploy API is never
+   * called. The push's own deployment is found by its commit and followed to
+   * READY; when it has not appeared by the time this answers, the Builder is
+   * handed the commit to poll (`commitHandle`), and told plainly if Vercel
+   * never starts one (`GET`, GIT_START_MS). Rate limited or not, a second
+   * deployment would only be refused the same way.
    *
-   * A project made by this call was not there when the push landed, so
-   * nothing deployed it, and one is asked for. So is one when no deployment
-   * of the commit shows up within PUSH_WAIT_MS: a project whose Git
-   * deployments are turned off still goes live.
+   * A project this call made was not there when the push landed, so nothing
+   * deployed it: one is asked for, as for a project not connected to the
+   * repository (`tests/go-live-linked.mjs`).
    */
-  if (!made && sha) {
-    const until = Date.now() + PUSH_WAIT_MS;
+  const linked = !made && project.link?.type === "github" && !!project.link.org && !!project.link.repo && `${project.link.org}/${project.link.repo}`.toLowerCase() === repo.toLowerCase();
+  if (linked) {
+    const since = Date.now();
+    const until = since + PUSH_WAIT_MS;
     for (;;) {
-      const { ok: listed, data: list } = await vercel<{ deployments?: { uid?: string; id?: string; url?: string; readyState?: string; state?: string; inspectorUrl?: string; meta?: { githubCommitSha?: string } }[] }>(
-        tok,
-        `/v6/deployments${query(team, { projectId: project.id, target: "production", limit: "20" })}`,
-      );
-      const own = listed ? (list.deployments ?? []).find((d) => d.meta?.githubCommitSha === sha) : undefined;
-      if (own && (own.uid ?? own.id)) {
+      const { listed, own } = await pushDeployment(tok, team, project.id, sha, branch, since);
+      if (own) {
         return NextResponse.json({
           ok: true,
           id: own.uid ?? own.id,
@@ -394,10 +447,23 @@ export async function POST(request: Request) {
           followed: true,
         });
       }
-      /* A list Vercel will not give is no reason to wait: one is asked for. */
       if (!listed || Date.now() >= until) break;
       await new Promise((r) => setTimeout(r, 1500));
     }
+    return NextResponse.json({
+      ok: true,
+      id: commitHandle(project.id, sha, branch, since),
+      project: project.name,
+      repo,
+      branch,
+      ...(askedBranch ? {} : { assumed: true }),
+      team,
+      state: null,
+      url: null,
+      inspectorUrl: null,
+      followed: true,
+      waiting: true,
+    });
   }
 
   /*

@@ -65,9 +65,15 @@ const gh = http.createServer(async (req, res) => {
   if (rest === "/git/blobs") return send(201, { sha: `b${ghSeen.length}` });
   if (rest === "/git/trees") return send(201, { sha: "tree1" });
   if (rest === "/git/commits") return send(201, { sha: "commit1", html_url: "https://example.invalid/c" });
-  if (rest.startsWith("/git/refs")) return send(200, { object: { sha: "commit1" } });
+  if (rest.startsWith("/git/refs")) { pushed(m[1]); return send(200, { object: { sha: "commit1" } }); }
   return send(404, { message: "Not Found" });
 });
+/* What Vercel's Git integration does: a push to a repository a project is connected to deploys it, a moment later; the Builder follows that one and asks for none (tests/go-live-linked.mjs). */
+const pushed = (repo) => {
+  const [org, name] = repo.split("/");
+  const p = projects.find((x) => x.link?.org === org && x.link?.repo === name);
+  if (p) setTimeout(() => deployments.set(`dpl_${deployments.size + 1}`, { project: p, asked: 0, failing: false, git: true, at: Date.now() }), 300);
+};
 
 /* ------------------------------------------------------------ Vercel */
 const vcSeen = [];
@@ -98,6 +104,7 @@ const vc = http.createServer(async (req, res) => {
     projects.push(p);
     return send(200, p);
   }
+  if (/^\/v\d+\/deployments$/.test(path) && req.method === "GET") return send(200, { deployments: [...deployments].filter(([, x]) => x.git && x.project?.id === url.searchParams.get("projectId")).map(([id, x]) => ({ uid: id, url: `${x.project.name}-${id}.vercel.app`, readyState: "QUEUED", created: x.at, meta: { githubCommitRef: "main" } })) });
   if (path === "/v13/deployments" && req.method === "POST") {
     const b = JSON.parse(body || "{}");
     const p = projects.find((x) => x.id === b.project);
