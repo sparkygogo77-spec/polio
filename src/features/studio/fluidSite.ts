@@ -462,6 +462,21 @@ export function snapPlace(el: HTMLElement, inline: boolean): boolean {
 }
 
 /**
+ * THE PAGE'S WIDTH, SAID WHERE `100%` IS SOMETHING ELSE. A part's place and
+ * width that follow the window are written in `100%` of the page (`D`). The
+ * export moves some parts inside another (`art.turnsWith`: trumpmorty.fun's
+ * remote keys go inside the turned remote), and there `100%` is the remote's
+ * width: `173px + (620px - 100%) / 3` gave keys 0 wide at any window, their
+ * words and numbers spilled off them and their gloss strips hung outside.
+ * The page is the window's width and never under 1280 (or its own width, if
+ * less), as `frameCss` has it; `fluidClip` says it the same way.
+ * `tests/ca-bar-seams.mjs`.
+ */
+export function pageUnits(value: string, W: number): string {
+  return value.replace(/100%/g, `max(100vw, ${Math.min(W, 1280)}px)`);
+}
+
+/**
  * A CUT WINDOW AS WIDE AS THE PAGE. The capture cuts a part to the box it
  * hangs out of as an `inset()` in px in the part's own frame (trumpmorty.fun's
  * marquee tracks, cut to their ribbons). Where the window's right edge falls on

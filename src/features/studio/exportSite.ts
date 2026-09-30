@@ -70,7 +70,7 @@ import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "./siteHead";
-import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "./fluidSite";
+import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, pageUnits, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "./fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "./layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "./parts/offsite";
@@ -649,6 +649,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (!into || !mine || into.contains(el)) continue;
     if (!into.style.position || into.style.position === "static") into.style.position = "relative";
     into.appendChild(el);
+    /* What it measured against the page it still measures against the page, not against the holder it is now in. */
+    if (el.style.width.includes("%")) el.style.width = pageUnits(el.style.width, W);
     el.style.left = `${node.x - holder.x}px`;
     el.style.top = `${node.y - holder.y}px`;
     mine.style.transform = tw.own ?? "none";

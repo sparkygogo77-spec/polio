@@ -201,6 +201,46 @@ for (const dpr of [1, 2]) {
   await page.close();
 }
 
+/*
+ * THE REMOTE'S KEYS, INSIDE THE TURNED REMOTE. The export moves a key into
+ * its holder (`art.turnsWith`) and keeps its width, written in `100%` of the
+ * page (trumpmorty.fun's CHART: 173px at a 1440 page, a third of what the
+ * remote grows by). Inside the remote `100%` is the remote's 620: the key
+ * came out 0 wide, and its words, number and gloss strip (149 wide, 12 in)
+ * stood off it. Found on trunk 2d20571 and on the publish before it
+ * (b9720d0) alike; `pageUnits` says the page's width where it is meant.
+ */
+{
+  const KEY_W = "calc(173px + (0.333333 * (-620px + min(620px, -560px + min(1180px, 100% + 0px)))))";
+  const COPY_W = "calc(-70px + min(620px, -560px + min(1180px, 100% + 0px)))";
+  check("a width moved inside another part says the page's width, not 100%", !/100%/.test(fluid.pageUnits(KEY_W, 1440)) && fluid.pageUnits(KEY_W, 1440).includes("max(100vw, 1280px)"));
+  const remote = (fix) => {
+    const w = (v) => (fix ? fluid.pageUnits(v, 1440) : v);
+    return `<!doctype html><html><head><style>body{margin:0}.site-root{width:100%;min-width:1280px}</style></head><body><div class="site-root"><div style="position:relative;width:100%;height:900px">
+<div id="remote" style="position:absolute;left:calc(50% - 310px);top:40px;width:620px;height:700px"><div id="turned" style="position:relative;width:100%;height:100%;box-sizing:border-box;border:5px solid #000;padding:30px;transform:rotate(-1.5deg);background:#223">
+<div id="key" style="position:absolute;left:35px;top:97px;width:${w(KEY_W)};min-height:96px;display:flex;flex-direction:column"><div style="flex:1 0 auto;background:#ef9043;border:4px solid #000;border-radius:22px"></div></div>
+<div id="gloss" style="position:absolute;left:47px;top:107px;width:149px;height:25px;background:rgba(255,255,255,.35)"></div>
+<div id="copy" style="position:absolute;left:35px;top:466px;width:${w(COPY_W)};min-height:72px;display:flex"><div style="flex:1 0 auto;background:#f2e281;border:4px solid #000;border-radius:999px"></div></div>
+</div></div></div></div></body></html>`;
+  };
+  for (const W of [1440, 1992]) {
+    const page = await browser.newPage({ viewport: { width: W, height: 900 } });
+    const size = async () => page.evaluate(() => {
+      const r = (id) => document.getElementById(id).getBoundingClientRect();
+      const k = document.getElementById("key"), g = document.getElementById("gloss"), c = document.getElementById("copy");
+      return { key: k.offsetWidth, copy: c.offsetWidth, glossIn: g.offsetLeft >= k.offsetLeft && g.offsetLeft + g.offsetWidth <= k.offsetLeft + k.offsetWidth, r: r("key").width };
+    });
+    await page.setContent(remote(false));
+    const was = await size();
+    await page.setContent(remote(true));
+    const got = await size();
+    check(`${W} wide: a remote key inside the turned remote is as wide as its cell`, Math.abs(got.key - 173) < 0.5, `${got.key}px (written in the remote's 100%: ${was.key}px)`);
+    check(`${W} wide: the key's gloss strip sits on the key`, got.glossIn === true && was.glossIn === false);
+    check(`${W} wide: COPY CA spans the remote's inside`, Math.abs(got.copy - 550) < 0.5, `${got.copy}px (was ${was.copy}px)`);
+    await page.close();
+  }
+}
+
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

@@ -878,7 +878,10 @@ grid and a `clip-path` does not, and half a pixel of the bar's white showed),
 and a behaviour that writes an inline `transition` adds to the part's own
 from the stylesheet and gives it back when it is done
 (`library/behaviours.ts#SHEET_TRANSITION`), or the ends snap home while the
-bar eases back and its white flashes round them.
+bar eases back and its white flashes round them. A part the export moves
+inside the part it turns with keeps its width in the page's terms
+(`fluidSite.ts#pageUnits`): in `100%` of the remote, the remote's keys were
+0 wide and their words, numbers and gloss hung off them.
 
 **A captured page's boxes arrive the same way** (`boxEntry.ts`,
 `tests/boxes-land.mjs`). `FromASite` lands every block it read in one
