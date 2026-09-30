@@ -52,7 +52,12 @@ await panel.locator('input[type="password"]').first().fill(SECRET);
 await panel.getByRole("button", { name: "Save to this browser" }).click();
 await page.waitForTimeout(500);
 check("a key can be saved", await panel.getByText("saved").isVisible().catch(() => false));
-check("it is written to this browser", await page.evaluate((s) => (localStorage.getItem("builder.keys.plain") ?? "").includes(s), SECRET));
+/* Written, sealed (93fc078a): one entry, builder.keys, and the key readable in no store. */
+check("it is written to this browser, sealed: never readable in storage", await page.evaluate((s) => {
+  if (!localStorage.getItem("builder.keys") || localStorage.getItem("builder.keys.plain") !== null) return false;
+  for (const st of [localStorage, sessionStorage]) for (let i = 0; i < st.length; i++) if ((st.getItem(st.key(i)) ?? "").includes(s)) return false;
+  return true;
+}, SECRET));
 
 // 3. A reload keeps it, with no pad.
 await page.reload({ waitUntil: "networkidle" });

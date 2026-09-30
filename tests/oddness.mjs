@@ -139,7 +139,8 @@ const dq = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
 const store = readFileSync("src/features/studio/store.ts", "utf8");
 check("the run asks after the catalogue, which is free, and before the read, which is not", (() => {
   const cat = run.indexOf(": pickCoded(ctx);");
-  const ask = run.indexOf("const q = oddness(drawn, \"\");");
+  /* Asked of the drawing as the catalogue judged it: alone, or over a part (`tests/solid.mjs`). */
+  const ask = run.indexOf("const q = oddness(drawn, \"\", lone);");
   const read = run.indexOf("deps.onStep?.(\"Claude is reading the drawing…\");");
   return cat > 0 && ask > cat && read > ask;
 })());
@@ -157,7 +158,7 @@ check("the runner leaves an asking job alone", /if \(r\.asked\) return;/.test(dq
 check("the question is put where the counter is, with the drawing and the answers as keys", /data-queue-question=\{job\.id\}/.test(dq) && /data-queue-answer=\{c\}/.test(dq) && /make it anyway/.test(dq));
 check("an answer puts the job back on the queue with it", /answerJob: \(id, answer\) =>/.test(store) && /status: "waiting" as const, question: \{ \.\.\.j\.question, answer \}/.test(store));
 check("the job remembers which question it asked, so staleness can be judged",
-  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why, prompt: hit\?\.prompt \?\? "" \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
+  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why, prompt: hit\?\.prompt \?\? "", lone \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
 /* The part's words when the question was asked travel with it: only words
    typed after it can overrule the answer (`typedSince`). */
 check("the run folds in an answer only while its question stands, judged by words typed since it was asked",

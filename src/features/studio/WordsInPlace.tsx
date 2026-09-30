@@ -84,9 +84,6 @@ export function openWords(id: string): "canvas" | "panel" | null {
   return null;
 }
 
-/** Close the words, keeping what was typed. */
-export function stopEditingWords() { setEditing(null); }
-
 /* ------------------------------------------------------------ the editor */
 
 interface Spot { x: number; y: number; w: number; h: number; style: React.CSSProperties }

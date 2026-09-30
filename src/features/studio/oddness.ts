@@ -59,7 +59,7 @@ export interface Question {
 }
 
 /** The question a drawing raises, or null when it raises none. */
-export function oddness(sketch: Sketch, said = ""): Question | null {
+export function oddness(sketch: Sketch, said = "", /** Whether it stands alone, as the catalogue judged it (`loneDrawing`): a lone bare box is claimed as the cube outright, so only one that is not is asked about. */ lone = true): Question | null {
   const words = `${sketch.words ?? ""} ${said}`.trim();
   const strokes = sketch.strokes.filter((s) => s.length >= 2);
   if (!strokes.length) return null;
@@ -74,7 +74,7 @@ export function oddness(sketch: Sketch, said = ""): Question | null {
   if (words) return null;
 
   // A box that is one word from being a cube, and nobody has said the word.
-  if (nearlyCoded({ sketch, prompt: said, node: null })) {
+  if (nearlyCoded({ sketch, prompt: said, node: null, lone })) {
     return { ask: "Is this box a cube?", choices: ["A cube", "A flat box"], why: "cube" };
   }
 
@@ -101,9 +101,10 @@ export function oddness(sketch: Sketch, said = ""): Question | null {
  * whatever was answered is dropped — the person's later words are a better
  * account of what they meant than their earlier answer.
  */
-export function stillAsks(q: { why?: Question["why"] } | null | undefined, sketch: Sketch, said = ""): boolean {
+export function stillAsks(q: { why?: Question["why"]; lone?: boolean } | null | undefined, sketch: Sketch, said = ""): boolean {
   if (!q) return false;
-  const now = oddness(sketch, said);
+  /* Judged as it was asked: a question from before `lone` was kept is judged as a drawing on its own. */
+  const now = oddness(sketch, said, q.lone ?? true);
   if (!now) return false;
   // A question from before `why` was carried is judged on the drawing alone:
   // if anything would still be asked of it, what was answered stands.

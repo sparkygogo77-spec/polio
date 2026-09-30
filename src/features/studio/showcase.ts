@@ -92,22 +92,6 @@ export function previewContent(feature: FeatureDef): string | undefined {
   return `${noun} one, ${noun} two`;
 }
 
-/** The parts of one band, in the order they would appear down a page. */
-export function groupIntoBands(features: FeatureDef[]): { band: Band; items: FeatureDef[] }[] {
-  const buckets = new Map<Band, FeatureDef[]>();
-  for (const f of features) {
-    const band = bandOf(f);
-    const list = buckets.get(band);
-    if (list) list.push(f);
-    else buckets.set(band, [f]);
-  }
-  // Widest first inside a band, so rows pack instead of leaving ragged holes.
-  return BANDS.filter((b) => buckets.has(b)).map((band) => ({
-    band,
-    items: [...buckets.get(band)!].sort((a, b) => spanOf(b) - spanOf(a)),
-  }));
-}
-
 /* ------------------------------------------------------------------ */
 /* Grouping by size and shape                                          */
 /* ------------------------------------------------------------------ */
@@ -144,14 +128,6 @@ export type Shape = "strip" | "block" | "half" | "third" | "quarter";
 
 export const SHAPES: Shape[] = ["strip", "block", "half", "third", "quarter"];
 
-export const SHAPE_LABEL: Record<Shape, string> = {
-  strip: "Full width, shallow",
-  block: "Full width",
-  half: "Half width",
-  third: "A third each",
-  quarter: "A quarter each",
-};
-
 /** Much wider than it is tall: a strip rather than a block. */
 export function isStrip(feature: FeatureDef): boolean {
   return (feature.w ?? 420) / (feature.h ?? 88) >= 5;
@@ -164,24 +140,4 @@ export function shapeOf(feature: FeatureDef, frameWidth = 1440): Shape {
   if (span >= 6) return "half";
   if (span >= 4) return "third";
   return "quarter";
-}
-
-/**
- * The shelf's groups, biggest first, and inside a group the widest-relative-to
- * -tall first — so similar shapes end up beside each other and the eye can
- * compare them.
- */
-export function groupIntoShapes(features: FeatureDef[]): { shape: Shape; items: FeatureDef[] }[] {
-  const buckets = new Map<Shape, FeatureDef[]>();
-  for (const f of features) {
-    const shape = shapeOf(f);
-    const list = buckets.get(shape);
-    if (list) list.push(f);
-    else buckets.set(shape, [f]);
-  }
-  const aspect = (f: FeatureDef) => (f.w ?? 420) / (f.h ?? 88);
-  return SHAPES.filter((sh) => buckets.has(sh)).map((shape) => ({
-    shape,
-    items: [...buckets.get(shape)!].sort((a, b) => aspect(b) - aspect(a)),
-  }));
 }

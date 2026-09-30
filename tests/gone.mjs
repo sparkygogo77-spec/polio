@@ -104,16 +104,19 @@ await page.waitForTimeout(300);
    would be about the dialog. */
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
-const sound = page.locator('[aria-label="Toggle sound"]').first();
-const canSound = (await sound.count()) > 0;
-if (canSound) {
-  await sound.click();
-  await page.waitForTimeout(700);
-  check("a toast still says what happened", (await page.locator('[role="status"]').count()) > 0, `${await page.locator('[role="status"]').count()} on screen`);
-  await sound.click();
+/* The mute it used to press is gone too (TopBar: "There was a mute here"), so
+   the press is Go live with no key held, which always says why in a toast. */
+const golive = page.locator("header [data-go-live]").first();
+if (await golive.count()) {
+  for (let i = 0; i < 40 && (await golive.getAttribute("data-go-live-state")) === "checking"; i++) await page.waitForTimeout(250);
+  await golive.click({ force: true });
+  await page.waitForTimeout(800);
+  const toasts = await page.locator('[data-toaster] [role="status"]').count();
+  check("a toast still says what happened", toasts > 0, `${toasts} on screen`);
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
 } else {
-  check("a toast still says what happened", false, "no sound control to press");
+  check("a toast still says what happened", false, "no Go live to press");
 }
 
 /* ------------------------------------------------------------------ */

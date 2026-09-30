@@ -11,6 +11,11 @@
  * what comes back, and — the one that matters — that nothing the route says
  * ever contains the token.
  *
+ * The last check measures what leaves the server, so the server is pointed
+ * at a stand-in GitHub this file serves (a token-free machine, and nothing
+ * else on 4319):
+ *
+ *   env -u GITHUB_TOKEN GITHUB_API=http://127.0.0.1:4319 npx next start -p 3013
  *   node tests/github-keys.mjs [url]
  */
 const results = [];

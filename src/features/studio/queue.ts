@@ -62,6 +62,8 @@ export interface DrawJob {
     ask: string; choices: readonly string[]; answer?: string; why?: "cube" | "kind";
     /** The part's own words when the question was asked: only words typed after it count as an answer (`typedSince`). */
     prompt?: string;
+    /** Whether the drawing stood alone when it was asked (`loneDrawing`): a later look at it judges the same drawing the same way. */
+    lone?: boolean;
   } | null;
   /**
    * The iteration this job is making, landed the moment it was queued.

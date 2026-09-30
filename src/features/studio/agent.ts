@@ -682,13 +682,40 @@ export interface DeployStatus {
   hook: boolean;
 }
 
+/*
+ * A KEY RIDES ONLY WHERE IT IS NEEDED. Whether this browser holds a Vercel
+ * token is something the browser knows, so asking whether the site can go
+ * live sends none: the route is asked only about its own, as the GitHub
+ * status read already is (`publishStatus`). A read that does need a token
+ * (following a deployment, asking a project's address) carries this
+ * browser's only when the server has none of its own (`tests/no-plain-key.mjs`).
+ */
+let serverVercel: Promise<boolean> | null = null;
+async function serverHasVercel(): Promise<boolean> {
+  serverVercel ??= fetch("/api/studio/deploy", { cache: "no-store" })
+    .then((r) => r.json() as Promise<DeployStatus>)
+    .then((d) => d.source === "server")
+    .catch(() => { serverVercel = null; return false; });
+  return serverVercel;
+}
+/** This browser's token, for a read that needs one, unless the server brings its own. */
+async function vercelHeaderIfNeeded(): Promise<Record<string, string>> {
+  const mine = vercelHeader();
+  if (!mine["x-vercel-token"]) return {};
+  return (await serverHasVercel()) ? {} : mine;
+}
+
 /** Can this put the site live at all — and off whose token? */
 export async function deployStatus(): Promise<DeployStatus> {
+  const mine = !!vercelHeader()["x-vercel-token"];
   try {
-    const res = await fetch("/api/studio/deploy", { cache: "no-store", headers: vercelHeader() });
-    return (await res.json()) as DeployStatus;
+    const res = await fetch("/api/studio/deploy", { cache: "no-store" });
+    const said = (await res.json()) as DeployStatus;
+    serverVercel = Promise.resolve(said.source === "server");
+    /* The server's own token wins; with none, the one this browser holds is the one that will be used. */
+    return said.configured || !mine ? said : { ...said, configured: true, source: "browser" };
   } catch {
-    return { configured: false, source: null, repo: null, hook: false };
+    return { configured: mine, source: mine ? "browser" : null, repo: null, hook: false };
   }
 }
 
@@ -700,7 +727,7 @@ export async function productionAddress(input: { repo?: string; sources?: string
     const team = heldTeam();
     if (team) q.set("team", team);
     for (const s of input.sources ?? []) q.append("source", s);
-    const res = await fetch(`/api/studio/deploy?${q}`, { cache: "no-store", headers: vercelHeader() });
+    const res = await fetch(`/api/studio/deploy?${q}`, { cache: "no-store", headers: await vercelHeaderIfNeeded() });
     const data = (await res.json()) as { ok?: boolean; url?: string };
     return data.ok && typeof data.url === "string" ? data.url.replace(/\/+$/, "") : null;
   } catch {
@@ -771,7 +798,7 @@ export async function watchDeploy(
     if (opts.signal?.aborted) return { ok: false, state: "ABORTED", done: true, url: null, inspectorUrl: null, message: "Stopped waiting." };
     let s: DeployState;
     try {
-      const res = await fetch(`/api/studio/deploy?${query}`, { cache: "no-store", headers: vercelHeader(), signal: opts.signal });
+      const res = await fetch(`/api/studio/deploy?${query}`, { cache: "no-store", headers: await vercelHeaderIfNeeded(), signal: opts.signal });
       s = (await res.json()) as DeployState;
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") throw err;

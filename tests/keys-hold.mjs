@@ -74,7 +74,10 @@ async function run(label, { noCrypto }) {
   await panel.getByRole("button", { name: "Hold in this tab" }).click();
   await page.waitForTimeout(500);
   check("the key is held", await panel.getByText("saved").isVisible().catch(() => false));
-  check("it is in sessionStorage, for this tab", (await page.evaluate(() => sessionStorage.getItem("builder.keys.session") ?? "")).includes(SECRET));
+  /* Sealed, for this tab (93fc078a): the tab's record is a sealed box where the browser can seal, and where it cannot, nothing is written at all. */
+  const tabRecord = await page.evaluate(() => sessionStorage.getItem("builder.keys.session"));
+  if (noCrypto) check("nothing is written for this tab: a browser that can seal nothing keeps the key in the page alone", tabRecord === null, String(tabRecord).slice(0, 40));
+  else check("it is in sessionStorage, for this tab, sealed: the key is not readable there", !!tabRecord && !tabRecord.includes(SECRET));
   check("and never in localStorage", await page.evaluate((s) => {
     for (let i = 0; i < localStorage.length; i++) if ((localStorage.getItem(localStorage.key(i)) ?? "").includes(s)) return false;
     return true;
@@ -103,6 +106,12 @@ async function run(label, { noCrypto }) {
 
   await page.reload({ waitUntil: "networkidle" });
   await openPanel();
+  if (noCrypto) {
+    /* Kept in the page alone, a reload is the end of it: held nowhere, so nothing to find. */
+    check("a reload ends it: with nothing written, the field is empty and the way in is offered again", (await panel.locator('input[type="password"]').first().inputValue().catch(() => "")) === "" && await panel.getByRole("button", { name: holdName }).isVisible(), "");
+    await context.close();
+    return;
+  }
   check("a reload keeps it", (await panel.locator('input[type="password"]').first().inputValue().catch(() => "")) === SECRET);
 
   await panel.getByRole("button", { name: "Forget", exact: true }).click();

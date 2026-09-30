@@ -287,6 +287,11 @@ const canvas = held.locator("canvas");
 check("with a real 3D context rather than a picture of one", (await canvas.count()) === 1);
 
 const box = await held.boundingBox();
+/* One press selects and moves it like any part; two open it for turning, and it has the pointer until the ground is pressed (92067230, `Canvas.tsx`). */
+await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+await page.waitForTimeout(80);
+await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+await page.waitForTimeout(500);
 await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 await page.mouse.down();
 for (let i = 1; i <= 20; i++) { await page.mouse.move(box.x + box.width / 2 + i * 6, box.y + box.height / 2 - i * 2); await page.waitForTimeout(12); }

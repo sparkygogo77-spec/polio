@@ -104,11 +104,6 @@ function seeThrough(data: ImageData): boolean {
   return false;
 }
 
-/** The picture alone, for a door with nowhere to say more. */
-export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
-  return readPicture(file, maxEdge).then((p) => p.src);
-}
-
 /**
  * What to say of a drop that carried no file: a picture dragged off another
  * web page arrives as a link, which the page cannot fetch from here.

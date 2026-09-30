@@ -81,7 +81,7 @@ should be *before* writing the prompt that says what it is.
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
 | **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
-| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. Below 768 px the whole side panel is a sheet over the foot of the board, opened by the same toggle, and the bar's folded controls sit behind one More key (`tests/phone-builder.mjs`). |
+| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. Below 768 px the whole side panel is a sheet over the foot of the board, opened by the same toggle, and the bar's folded controls sit behind one More key (`tests/phone-builder.mjs`; `docs/shots/phone-builder-1-panel.png`, `phone-builder-2-element.png`, `phone-builder-3-more.png`, `phone-builder-4-preview.png`, `phone-builder-5-tour-looks.png`, `phone-builder-5-tour-wheel.png`). |
 | **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
 The old addresses `/studio` and `/studio/design` still open the Builder.
@@ -939,7 +939,8 @@ everything — the fan included — still decides the zoom and is still held
 DOWN the page. The asymmetry is the point: a fan overhanging to the right
 is furniture you can see, a fan under the opaque band along the foot is
 furniture that is gone. The first attempt weighed the column on both axes
-and put 178px of lane under the band.
+and put 178px of lane under the band. Screenshots: `docs/shots/lanes-hanging.png`,
+`lanes-opened.png`, `lanes-carried.png` and `lanes-narrow.png`.
 
 **The fit belongs to the room, so it follows the room.** It used to be one
 attempt in one frame after the timeline mounted, and it gave up in silence

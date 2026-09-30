@@ -70,6 +70,9 @@ await page.route("https://api.github.com/**", (r) => {
   if (rest === "/git/blobs/doc") return j({ encoding: "base64", content: DOC.toString("base64") });
   return j({ message: "no" }, 404);
 });
+/* The list the menu shows and what is in the repo, answered here rather than by the Builder's route asking GitHub. */
+await page.route("**/api/studio/repo", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, repos: [{ name: "him/sink", private: false, branch: "main" }] }) }));
+await page.route("**/api/studio/repo/choices**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, base: "main", ref: "main", branches: ["main"], sites: [] }) }));
 const state = () => page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {});
 const ids = (s) => (s.nodes ?? []).map((n) => n.id);
 
@@ -104,9 +107,24 @@ check("there is a Bring for that repo beside its name, with nothing to type", (a
   `${await own.count()} found`);
 check("the typed field is still there, for bringing a different one", (await page.locator("[data-repo-bring]").count()) === 1);
 
-if (await own.count()) {
+/*
+ * A SITE WHOSE RECORD NAMES NO FOLDER CHOOSES ONE FIRST. Bring in again used
+ * to read the root of the default branch in silence, and brought SOLCINERATOR
+ * in over a trumpmorty.fun board (`RepoPicker.tsx`, bringAgain). This
+ * fixture's source names none, so the press opens the picker on its
+ * repository and he chooses the whole repo; the one line comes after that.
+ */
+const pressOwn = async () => {
   await own.click();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
+  if (await page.locator("[data-repo-again-says]").count()) {
+    await page.locator('[data-repo-folder=""]').first().click();
+    await page.locator("[data-repo-bring-chosen]").first().click();
+    await page.waitForTimeout(400);
+  }
+};
+if (await own.count()) {
+  await pressOwn();
   const ask = page.locator("[data-repo-bring-confirm]");
   const says = (await ask.count()) ? (await ask.innerText()).replace(/\s+/g, " ") : "";
   check("pressing it first says, in one line, what will be replaced and how many parts go",
@@ -118,8 +136,7 @@ if (await own.count()) {
   check("declining leaves the board as it was and the line goes",
     JSON.stringify(ids(await state())) === JSON.stringify(MINE.map((n) => n.id)) && (await page.locator("[data-repo-bring-confirm]").count()) === 0);
 
-  await own.click();
-  await page.waitForTimeout(300);
+  await pressOwn();
   await page.locator("[data-repo-bring-go]").click();
   let s = {};
   for (let i = 0; i < 60; i++) { await page.waitForTimeout(1000); s = await state(); if (ids(s).some((id) => doc.nodes.some((n) => n.id === id))) break; }

@@ -65,7 +65,10 @@ await page.waitForTimeout(1100);
 /* The first real action: drop a part. */
 await page.locator('input[placeholder*="Search parts"]').first().fill("cube");
 await page.waitForTimeout(800);
-await page.getByText("Cube", { exact: true }).first().click({ force: true });
+await page.getByRole("button", { name: "Cube: see what it does" }).first().click({ force: true });
+/* A shelf card opens its detail card first; "Add to page" there is what adds it (`ShelfCards.tsx`). */
+await page.waitForTimeout(400);
+await page.getByRole("button", { name: "Add to page" }).first().click({ force: true });
 await page.waitForTimeout(1400);
 check("the first thing you do makes iteration one", (await threadCount()) === 1, String(await threadCount()));
 {
@@ -83,7 +86,10 @@ await page.locator("[data-finish]").first().click({ force: true });
 await page.waitForTimeout(1000);
 await page.locator('input[placeholder*="Search parts"]').first().fill("cube");
 await page.waitForTimeout(700);
-await page.getByText("Cube", { exact: true }).first().click({ force: true });
+await page.getByRole("button", { name: "Cube: see what it does" }).first().click({ force: true });
+/* A shelf card opens its detail card first; "Add to page" there is what adds it (`ShelfCards.tsx`). */
+await page.waitForTimeout(400);
+await page.getByRole("button", { name: "Add to page" }).first().click({ force: true });
 await page.waitForTimeout(1200);
 check("the second thing you do does not make a second beginning", (await threadCount()) === 1, String(await threadCount()));
 

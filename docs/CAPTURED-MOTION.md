@@ -43,3 +43,11 @@ never inside one, and rise past their tight line unclipped, as on the page.
 Not done here: a `transform-origin` is not captured (the site's letters turn
 about 50% 90%); pseudo-elements and script-driven motion (the marquee,
 parallax) are not in the capture.
+
+Screenshots, before and after, in `docs/shots/`: the headline
+(`captured-motion-before-headline.png`, `captured-motion-after-headline.png`),
+the hover at rest and on (`captured-motion-before-hover-rest.png`,
+`captured-motion-after-hover-rest.png`, `captured-motion-before-hover-on.png`,
+`captured-motion-after-hover-on.png`), the embed
+(`captured-motion-before-embed.png`, `captured-motion-after-embed.png`), and the
+sampled motion played on import (`motion-sampled-strip.png`).

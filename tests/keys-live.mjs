@@ -70,6 +70,16 @@ const check = (group, name, ok, detail = "") => {
 
 /** The one header each route takes a key in. Anything else carrying a key is a leak. */
 const KEY_HEADERS = ["x-anthropic-key", "x-replicate-key", "x-github-token", "x-vercel-token"];
+/*
+ * TRY IT ASKS THE SERVICE, NOT US (9fb5219a). A key's Try it goes from this
+ * browser to the service itself, in the service's own header; only Replicate,
+ * which answers no page directly, still goes through the Builder's route. So
+ * a key on its way to its own service, in that service's header, is where it
+ * belongs, not a leak.
+ */
+const PROVIDERS = { anthropic: { at: "https://api.anthropic.com/", header: "x-api-key" } };
+const own = (url, h) => (KEY_HEADERS.includes(h) && url.startsWith(`${ORIGIN}/api/`)) || Object.values(PROVIDERS).some((p) => url.startsWith(p.at) && h === p.header);
+const carriesKey = (r) => Object.entries(r.headers).some(([h, v]) => own(r.url, h) && !!v);
 
 function watch(context, name) {
   const log = { name, requests: [], responses: [], console: [], errors: [] };
@@ -98,7 +108,7 @@ function placesHolding(log, needle) {
     if (r.url.includes(needle)) out.push(`the address of a request to ${new URL(r.url).host}`);
     if (r.body.includes(needle)) out.push(`the body of a request to ${new URL(r.url).pathname}`);
     for (const [h, v] of Object.entries(r.headers)) {
-      if (KEY_HEADERS.includes(h) && r.url.startsWith(`${ORIGIN}/api/`)) continue;
+      if (own(r.url, h)) continue;
       if (String(v).includes(needle)) out.push(`the ${h} header of a request to ${new URL(r.url).host}`);
     }
   }
@@ -128,6 +138,17 @@ const tryIt = async (page, service) => {
   const section = panelOf(page).locator(`[data-service="${service}"]`);
   const button = section.getByRole("button", { name: "Try it" });
   if (await button.isDisabled()) return { off: true, answer: "", status: 0, header: {}, json: null, hint: await section.locator("input").first().getAttribute("placeholder") };
+  const direct = PROVIDERS[service];
+  if (direct) {
+    /* Straight to the service: the request is watched whether or not the service can be reached from here. */
+    const sent = page.waitForRequest((r) => r.url().startsWith(direct.at), { timeout: 30_000 }).catch(() => null);
+    await button.click();
+    const req = await sent;
+    await page.waitForTimeout(2500);
+    const said = (await section.innerText()).split("\n").map((l) => l.trim()).filter(Boolean);
+    const answer = said.find((l) => /works|rejected|No key|No token|too short|could not reach|failed|answered/i.test(l)) ?? said.at(-1) ?? "";
+    return { answer, status: 0, header: req ? { [`x-${service}-key`]: req.headers()[direct.header] } : {}, json: null, direct: true };
+  }
   const answered = page.waitForResponse((r) => r.url().startsWith(`${ORIGIN}/api/keys/test`), { timeout: 30_000 }).catch(() => null);
   await section.getByRole("button", { name: "Try it" }).click();
   const res = await answered;
@@ -202,17 +223,22 @@ await field(a, "anthropic").fill(KEY);
 await field(a, "replicate").fill(RKEY);
 await panelOf(a).getByRole("button", { name: "Save to this browser" }).click();
 await a.waitForTimeout(500);
+/* Held, and sealed (93fc078a): one entry, builder.keys, and the key readable in no store at all. */
 const heldA = await storageHolds(a, KEY);
-check(1, "a key typed into the panel is held in this browser, and nowhere but this browser's own storage", heldA.length === 1 && heldA[0] === "builder.keys.plain", heldA.join(", ") || "not held");
+const sealedA = await a.evaluate(() => !!localStorage.getItem("builder.keys"));
+check(1, "a key typed into the panel is held in this browser, sealed, and nowhere else: no store holds it readable", sealedA && heldA.length === 0, heldA.length ? `readable in ${heldA.join(", ")}` : sealedA ? "" : "not held");
 
 /* The next call is after a reload: a fresh page, the key read back off the browser. */
 await a.reload({ waitUntil: "networkidle" });
 await openPanel(a);
+check(1, "a reload brings it back out of the sealed entry", (await field(a, "anthropic").inputValue()) === KEY);
 const tried = await tryIt(a, "anthropic");
-check(1, "the next call from this browser carries the key, in the one header the route takes it in", tried.header["x-anthropic-key"] === KEY, tried.header["x-anthropic-key"] ? "header present" : `no header (answer: ${tried.answer})`);
+check(1, "the next call from this browser carries the key, to the service itself, in the service's own header", tried.header["x-anthropic-key"] === KEY, tried.header["x-anthropic-key"] ? "header present" : `no header (answer: ${tried.answer})`);
 const reached = /rejected/i.test(tried.answer);
-check(1, "and the provider call it is for was made with it: Anthropic answered about this key", unlessServer(reached),
-  serverNote || (reached ? tried.answer : `the provider did not answer about the key: "${tried.answer}"`));
+/* A browser that cannot reach the service at all (a sandbox, a proxy) proves nothing about the key either way. */
+const offline = /could not reach/i.test(tried.answer);
+check(1, "and the provider call it is for was made with it: Anthropic answered about this key", offline ? "unproven" : unlessServer(reached),
+  offline ? `Anthropic cannot be reached from this browser: "${tried.answer}"` : serverNote || (reached ? tried.answer : `the provider did not answer about the key: "${tried.answer}"`));
 const triedR = await tryIt(a, "replicate");
 check(1, "the same for a second key: on its own call, in its own header, and Replicate answered about it", triedR.header["x-replicate-key"] === RKEY && /rejected/i.test(triedR.answer) && !("x-anthropic-key" in triedR.header && triedR.header["x-anthropic-key"] === RKEY),
   triedR.header["x-replicate-key"] === RKEY ? triedR.answer : `header ${triedR.header["x-replicate-key"] ? "wrong" : "missing"}: ${triedR.answer}`);
@@ -227,11 +253,11 @@ check(1, "a call the Builder makes for a drawing carries the key too, without th
   callA.made && callA.calls.length ? `${carried.length} of ${callA.calls.length} calls to ${[...new Set(callA.calls.map((r) => new URL(r.url).pathname))].join(", ")} carried it` : "the drawing never became a call, so nothing was watched");
 
 const leaksA = [...new Set([KEY, RKEY].flatMap((k) => placesHolding(logA, k)))];
-const withKey = logA.requests.filter((r) => KEY_HEADERS.some((h) => r.headers[h]));
-const offOrigin = withKey.filter((r) => !r.url.startsWith(`${ORIGIN}/api/`));
-check(1, "and it went nowhere else: not in an address, a body, another header, an answer, or to another host",
+const withKey = logA.requests.filter(carriesKey);
+const offOrigin = logA.requests.filter((r) => Object.entries(r.headers).some(([h, v]) => (String(v).includes(RANDOM) || String(v).includes(RRANDOM)) && !own(r.url, h)));
+check(1, "and it went nowhere else: not in an address, a body, another header, an answer, or to a host that is not its own service's",
   withKey.length >= 2 && leaksA.length === 0 && offOrigin.length === 0,
-  withKey.length >= 2 ? `${logA.requests.length} requests watched, ${withKey.length} carried a key header, all to ${ORIGIN}/api/` + (leaksA.length ? `; found in ${leaksA.join("; ")}` : "") : `only ${withKey.length} requests carried a key, too few to say`);
+  withKey.length >= 2 ? `${logA.requests.length} requests watched, ${withKey.length} carried a key header, all to ${ORIGIN}/api/ or the key's own service` + (leaksA.length ? `; found in ${leaksA.join("; ")}` : "") : `only ${withKey.length} requests carried a key, too few to say`);
 
 /* ------------------------------------------------------------------ */
 /* 2. A second browser, with no key                                     */
@@ -270,6 +296,9 @@ const askWhere = async (page) => {
     try { await open(); await page.waitForTimeout(500); } catch { continue; }
     const line = askLine(await page.evaluate(() => document.body.innerText));
     looked.push(name);
+    /* What it opened, it closes: a panel left over the board hides the bar the next step presses. */
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
     if (line) return { where: `only in ${name}, after opening it`, line };
   }
   return { where: `nowhere: not on the board${looked.length ? `, not in ${looked.join(" or ")}` : ""}`, line: "" };
@@ -313,7 +342,7 @@ await openPanel(a);
 /* ------------------------------------------------------------------ */
 
 const stackish = (s) => /\bat [\w.<>]+ \(|node_modules|TypeError|ReferenceError|\.js:\d+|\.ts:\d+|Error: /.test(s);
-check(4, "a rejected key is answered with what to check, in a sentence", unlessServer(reached && !stackish(tried.answer) && /check/i.test(tried.answer)), serverNote || tried.answer);
+check(4, "a rejected key is answered with what to check, in a sentence", offline ? "unproven" : unlessServer(reached && !stackish(tried.answer) && /check/i.test(tried.answer)), serverNote || tried.answer);
 check(4, "and the sentence does not carry the key back", !tried.answer.includes(RANDOM) && !windows(RANDOM).some((w) => tried.answer.includes(w)));
 await field(a, "anthropic").fill("sk-ant");
 await panelOf(a).getByRole("button", { name: "Save to this browser" }).click();
@@ -334,7 +363,7 @@ const everything = [
   ...logA.errors.map((c) => ["A's page errors", c]), ...logB.errors.map((c) => ["B's page errors", c]),
   ...logA.responses.map((r) => [`an answer from ${new URL(r.url).pathname}`, r.body]), ...logB.responses.map((r) => [`an answer from ${new URL(r.url).pathname}`, r.body]),
   ...logA.requests.map((r) => [`the address or body of a request to ${new URL(r.url).host}`, `${r.url} ${r.body}`]),
-  ...logA.requests.flatMap((r) => Object.entries(r.headers).filter(([h]) => !(KEY_HEADERS.includes(h) && r.url.startsWith(`${ORIGIN}/api/`))).map(([h, v]) => [`the ${h} header of a request to ${new URL(r.url).host}`, String(v)])),
+  ...logA.requests.flatMap((r) => Object.entries(r.headers).filter(([h]) => !own(r.url, h)).map(([h, v]) => [`the ${h} header of a request to ${new URL(r.url).host}`, String(v)])),
   ["the page", pageText],
 ];
 const found = new Set();
@@ -343,7 +372,7 @@ const watched = logA.console.length + logB.console.length + logA.responses.lengt
 check(5, "no eight characters of either key appear in any console line, page error, answer, address, body or other header", found.size === 0 && withKey.length >= 2,
   withKey.length >= 2 ? `${watched} things read: ${logA.console.length + logB.console.length} console lines, ${logA.responses.length + logB.responses.length} answers, ${logA.requests.length} requests` + (found.size ? `; found in ${[...found].join("; ")}` : "") : "no call ever carried a key, so there was nothing to leak");
 check(5, "nor on the page itself while the panel holds one, beyond the field's own value", !windows(RANDOM).some((w) => pageText.includes(w)));
-const headerOnly = withKey.every((r) => Object.entries(r.headers).filter(([, v]) => String(v).includes(RANDOM) || String(v).includes(RRANDOM)).every(([h]) => KEY_HEADERS.includes(h)));
+const headerOnly = withKey.every((r) => Object.entries(r.headers).filter(([, v]) => String(v).includes(RANDOM) || String(v).includes(RRANDOM)).every(([h]) => own(r.url, h)));
 check(5, "and where a key travels it is the one header and nothing else on that request", headerOnly && withKey.length >= 2, `${withKey.length} requests carried one`);
 console.log("note  5. the server's own log is not readable from here; the routes were read instead: no console line in src/app/api/keys or the studio routes writes a header or a key");
 

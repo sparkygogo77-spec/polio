@@ -16,17 +16,12 @@ export interface AudioConfig {
   hover: boolean;
 }
 
-let configSource: () => AudioConfig = () => ({
+const configSource: () => AudioConfig = () => ({
   enabled: true,
   master: 0.35,
   categories: { ui: true, feedback: true, alerts: true, feed: true },
   hover: false,
 });
-
-/** The settings layer injects the live config so this file has no store deps. */
-export function setAudioConfigSource(fn: () => AudioConfig) {
-  configSource = fn;
-}
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;

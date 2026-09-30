@@ -438,11 +438,12 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      */
     // Nothing to ask when he said what it is before he drew it.
     if (!job.question && job.want !== "icon" && job.want !== "cube") {
-      const q = oddness(drawn, "");
+      /* Asked of the drawing as the catalogue saw it: a box over a part is not claimed as a cube, so it is the one that is asked (`tests/solid.mjs`). */
+      const q = oddness(drawn, "", lone);
       if (q) {
         // `why` travels with it: a question is only worth answering while
         // the same one would still be asked (`stillAsks`).
-        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why, prompt: hit?.prompt ?? "" }, step: undefined });
+        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why, prompt: hit?.prompt ?? "", lone }, step: undefined });
         /*
          * The one sound this app makes. A job that is `asking` waits on the
          * person, not on the queue \u2014 the run has stopped and will not go on
