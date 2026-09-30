@@ -28,6 +28,26 @@
 import type { SettingDef } from "@/core/types";
 import { useStudio } from "./store";
 import { FORMAT_FIELDS } from "./format";
+import { resolvePalette } from "./parts/theme";
+import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
+
+/**
+ * What the captured site says for this field, when the owner has not
+ * changed it: the same reading the Format panel shows (`siteFormat.ts`).
+ */
+let lastRead: { nodes: unknown; look: unknown; format: unknown; readings: ReturnType<typeof readSiteFormat> } | null = null;
+function siteReading(id: string) {
+  const s = useStudio.getState();
+  const captured = isCaptured({ nodes: s.nodes, look: s.look });
+  if (!captured) return null;
+  const f = field(id);
+  /* Read once per document state, however many rows ask. */
+  if (!lastRead || lastRead.nodes !== s.nodes || lastRead.look !== s.look || lastRead.format !== s.format) {
+    lastRead = { nodes: s.nodes, look: s.look, format: s.format, readings: readSiteFormat({ nodes: s.nodes, look: s.look }, resolvePalette(s.format, s.look).bg) };
+  }
+  const said = siteSays(id, captured, lastRead.readings, s.format, f.default);
+  return said.kind === "read" ? { shows: said.reading.shows, from: said.reading.from } : null;
+}
 
 /** The field as the Format panel declares it, so the two can never drift. */
 function field(id: string) {
@@ -58,10 +78,12 @@ function fromFormat(id: string, extra: Partial<SettingDef> = {}): SettingDef {
     format: f.unit ? (v: unknown) => `${Number(v)}${f.unit}` : undefined,
     read: () => useStudio.getState().format[id] ?? f.default,
     write: (v: unknown) => useStudio.getState().setFormat(id, v as string | number | boolean),
+    /* The parts and the look too: the site's reading is taken from them. */
     subscribe: (onChange: () => void) =>
       useStudio.subscribe((now, was) => {
-        if (now.format[id] !== was.format[id]) onChange();
+        if (now.format[id] !== was.format[id] || now.nodes !== was.nodes || now.look !== was.look) onChange();
       }),
+    readout: () => siteReading(id),
     ...extra,
   };
 }

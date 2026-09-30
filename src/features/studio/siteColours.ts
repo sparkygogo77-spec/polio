@@ -34,7 +34,7 @@
  *
  * Pure: no store, no DOM, so a test reads it against a real capture.
  */
-import { parseColor, ROLES, toHex, type Palette, type RoleId } from "./look.ts";
+import { contrast, parseColor, ROLES, toHex, type Palette, type RoleId } from "./look.ts";
 
 export type ColourUse = "text" | "fill" | "border" | "shadow" | "accent";
 export const COLOUR_USES: readonly ColourUse[] = ["text", "fill", "border", "shadow", "accent"];
@@ -405,4 +405,97 @@ export function roleFollowers(nodes: readonly Worn[]): Record<RoleId, number> {
     if (Array.isArray(n.content)) for (const s of n.content as { colour?: string }[]) if (s && typeof s.colour === "string" && isRole(s.colour)) out[s.colour].add(n.id);
   }
   return Object.fromEntries(ROLES.map((r) => [r, out[r].size])) as Record<RoleId, number>;
+}
+
+/* ------------------------------------------------------------------ */
+/* Close shades, merged                                                */
+/* ------------------------------------------------------------------ */
+
+/** Distance in OKLab, where 0.02 is a shade most people cannot tell apart side by side. */
+export function oklabDistance(a: string, b: string): number {
+  const x = parseColor(a), y = parseColor(b);
+  if (!x || !y) return Infinity;
+  const lab = (c: { l: number; c: number; h: number }) => [c.l, c.c * Math.cos((c.h * Math.PI) / 180), c.c * Math.sin((c.h * Math.PI) / 180)];
+  const [l1, a1, b1] = lab(x), [l2, a2, b2] = lab(y);
+  return Math.hypot(l1! - l2!, a1! - a2!, b1! - b2!);
+}
+
+/** The default "how close": shades nearer than this read as one colour. */
+export const CLOSE_SHADES = 0.035;
+
+export interface ShadeGroup {
+  /** The shade the others become: the one most parts wear. */
+  to: SiteColour;
+  /** The shades that become it. */
+  from: SiteColour[];
+  /** Parts that would change, for this use. */
+  parts: number;
+}
+
+/**
+ * Colours of one use that sit within `within` of each other, grouped round
+ * the one most parts wear. A site brought in carries dozens of near-copies
+ * of one yellow (243,212,64 and 242,226,129 and 240,223,123 are three of
+ * them), each worn by a part or two; merging makes them one colour to change.
+ * Greedy and ordered by use, so the lead of a group is always its commonest.
+ */
+export function closeShades(list: readonly SiteColour[], use: ColourUse, within = CLOSE_SHADES): ShadeGroup[] {
+  const sorted = [...list].filter((c) => c.key !== "" && parseColor(c.value)).sort((a, b) => b.by[use] - a.by[use] || a.key.localeCompare(b.key));
+  const groups: { to: SiteColour; from: SiteColour[] }[] = [];
+  for (const c of sorted) {
+    /* A see-through colour is not a shade of an opaque one. */
+    const alpha = (v: string) => (/^rgba\(/.test(colourKey(v)) ? Number(colourKey(v).split(",")[3]) : 1);
+    const home = groups.find((g) => alpha(g.to.value) === alpha(c.value) && oklabDistance(g.to.value, c.value) <= within);
+    if (home) home.from.push(c);
+    else groups.push({ to: c, from: [] });
+  }
+  return groups.filter((g) => g.from.length).map((g) => ({
+    ...g,
+    parts: new Set(g.from.flatMap((c) => c.spots.filter((s) => use === "accent" || s.use === use).map((s) => s.id))).size,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Words against what they sit on                                      */
+/* ------------------------------------------------------------------ */
+
+type Placed = Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: number };
+
+/**
+ * How readable each part's words are against the fill they actually sit on:
+ * the part's own fill, else the smallest part under it with one, else the
+ * page. The two role swatches (Text against Background) are compared by the
+ * mixer's badge, and on a site brought in those two roles are often never
+ * worn together at all: trumpmorty.fun's "text 1.2" was near-black words
+ * against a near-black role no word sits on. This measures what is worn.
+ */
+export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; ratio: number }[] {
+  const read = (v: string | undefined | null) => {
+    const s = (v ?? "").trim();
+    if (!s) return null;
+    const c = parseColor(isRole(s) ? palette[s] ?? "" : s);
+    return c && !/^rgba\(.*,\s*0(\.0+)?\)$/.test(colourKey(isRole(s) ? palette[s] : s)) ? c : null;
+  };
+  const opaque = (n: Placed) => {
+    const k = colourKey(n.colour?.bg && isRole(n.colour.bg) ? palette[n.colour.bg as RoleId] : n.colour?.bg);
+    return !!k && !/^rgba\(/.test(k);
+  };
+  const filled = nodes.filter((n) => opaque(n) && (n.w ?? 0) > 0 && (n.h ?? 0) > 0);
+  const page = read(palette.bg);
+  const out: { id: string; ratio: number }[] = [];
+  for (const n of nodes) {
+    if (!hasWords(n)) continue;
+    const ink = read(n.colour?.text);
+    if (!ink) continue;
+    let ground = opaque(n) ? read(n.colour?.bg) : null;
+    if (!ground) {
+      const under = filled
+        .filter((m) => m.id !== n.id && m.pageId === n.pageId && (m.x ?? 0) <= (n.x ?? 0) + 1 && (m.y ?? 0) <= (n.y ?? 0) + 1 && (m.x ?? 0) + (m.w ?? 0) >= (n.x ?? 0) + (n.w ?? 0) - 1 && (m.y ?? 0) + (m.h ?? 0) >= (n.y ?? 0) + (n.h ?? 0) - 1)
+        .sort((a, b) => a.w! * a.h! - b.w! * b.h!)[0];
+      ground = under ? read(under.colour?.bg) : page;
+    }
+    if (!ground) continue;
+    out.push({ id: n.id, ratio: Math.round(contrast(ink, ground) * 10) / 10 });
+  }
+  return out;
 }

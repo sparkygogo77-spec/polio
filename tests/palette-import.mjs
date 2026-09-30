@@ -173,7 +173,7 @@ const follows = Object.fromEntries(ROLES.map((r) => [r, nodes0.filter((n) => nam
 const wrongSource = ROLES.filter((r) => {
   const s = sources[r];
   if (!s) return true;
-  return follows[r] ? s !== String(follows[r]) : !/unused/i.test(s);
+  return follows[r] ? s !== String(follows[r]) : !/not used/i.test(s);
 });
 check("every role says where it came from: the parts that follow it, or none on this site", wrongSource.length === 0,
   ROLES.map((r) => `${NAMES[r]} "${sources[r] ?? "—"}" (${follows[r]} parts name it)`).join("; "));

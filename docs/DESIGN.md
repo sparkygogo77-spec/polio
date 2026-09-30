@@ -197,6 +197,16 @@ same boxes as everywhere else, in the screen's colours.
   region as a section at its row, and says "nowhere yet" where a link is not
   decided. When a critique reports something the brief already answers, the
   brief's sentence is what gets fixed, and the route's system prompt with it.
+- **The side panel reads a captured site as a person does.** A part is
+  named by its words, the name the browser gave it, or what it is and the
+  heading of its section (`partNames.ts`), never "div · 1 inside" or an id;
+  a capture's element path stays inside the prompt, and the panel says
+  "From <site>, <section>". Format and Settings > This site show what the
+  site already says (light or dark, accent, faces, corners) and hide what
+  changes nothing on it (`siteFormat.ts`). Picture settings live under a
+  closed "Make a picture"; a status line is short, with the ids in its
+  details. The panel's edge drags from 228px to half the window.
+  `tests/side-panel.mjs` and `tests/side-panel-reads.mjs` hold this.
 - **No em dashes in anything a person reads.** A dash is a pause a designer
   reaches for when a sentence has two halves and no punctuation chosen for
   them. On a screen it reads as a machine's tic, and there are hundreds of

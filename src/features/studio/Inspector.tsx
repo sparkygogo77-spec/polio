@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Box, Brush, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Palette as PaletteIcon, Pencil, Play, SlidersHorizontal, Sparkles, Trash2, Type, Unlock, Wand2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Box, Brush, ChevronRight, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Palette as PaletteIcon, Pencil, Play, SlidersHorizontal, Sparkles, Trash2, Type, Unlock, Wand2 } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { speedWord } from "./look";
@@ -39,6 +39,8 @@ import { linkReason } from "./links";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { WorkFields } from "./WorkFields";
+import { capturedFrom, insideControl, isMachineLabel, partName, wordsOf } from "./partNames";
+import { decisions } from "./library/badge";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -509,7 +511,7 @@ function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
             >
               {n.glyph ? <span className="text-small">{n.glyph}</span> : feature ? <feature.icon className="size-3" /> : <Frame className="size-3" />}
             </span>
-            <span className="min-w-0 flex-1 truncate text-left text-plain text-fg">{n.label}</span>
+            <span className="min-w-0 flex-1 truncate text-left text-plain text-fg">{partName(n, nodes, featureName)}</span>
             {n.prompt.trim() ? (
               <Wand2 className="size-3 shrink-0 text-fg-faint" aria-label="has words" />
             ) : null}
@@ -517,6 +519,101 @@ function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
         );
       }}
     />
+  );
+}
+
+/** A catalogue part's plain name, for naming a part that has nothing better. */
+const featureName = (id: string) => getFeature(id)?.name;
+
+/** Parts that are words: inside a button or a link they are its label. */
+const TEXTY = new Set(["prose", "eyebrow-rule", "highlight", "heading-scale", "fluid-type"]);
+/** Options that mean nothing on a control's label: a label is one line. */
+const LABEL_HIDES = new Set(["measure"]);
+const insideLink = (n: StudioNode) => /(^|>)\s*a(\b|[.:#[])/.test(n.from?.selector ?? "") || /computes it as an? link/i.test(n.prompt) || (!!n.link && !/(^|>)\s*button\b/.test(n.from?.selector ?? ""));
+
+/**
+ * A closed section with a one-line head: what the side panel folds away so
+ * the things a person came for sit at the top. Remembers being opened for
+ * the length of the visit, so a person who opened it once is not made to
+ * open it again on every part.
+ */
+const OPENED = new Set<string>();
+function Fold({ id, title, note, children }: { id: string; title: string; note?: string; children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(() => OPENED.has(id));
+  return (
+    <details
+      data-fold={id}
+      open={open}
+      onToggle={(e) => {
+        const now = (e.currentTarget as HTMLDetailsElement).open;
+        if (now === open) return;
+        if (now) OPENED.add(id); else OPENED.delete(id);
+        play(now ? "open" : "close");
+        setOpen(now);
+      }}
+      className="group rounded-md border border-border"
+    >
+      <summary className="tactile flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-small font-medium text-fg [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3 shrink-0 text-fg-faint transition-transform group-open:rotate-90" />
+        <span className="min-w-0 flex-1">{title}</span>
+        {note ? <span className="shrink-0 text-fine font-normal text-fg-faint">{note}</span> : null}
+      </summary>
+      <div className="space-y-3 border-t border-border p-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The page at a glance, for when nothing is picked: its parts, the site's
+ * pages, the links on this page, and the parts still waiting on a decision
+ * (the orange ! on the board, `library/badge.ts`). Each count that leads
+ * somewhere is a press away from it.
+ */
+function PageSummary({ nodes }: { nodes: StudioNode[] }) {
+  const pages = useStudio((s) => s.pages);
+  const links = nodes.filter((n) => !!n.link).length;
+  const open = React.useMemo(() => decisions(nodes), [nodes]);
+  const nowhere = open.filter((d) => d.why === "nowhere").length;
+  const live = open.length - nowhere;
+  const pick = (ids: string[]) => { if (ids.length) { play("select"); useStudio.getState().setSelection(ids); } };
+  const Stat = ({ n, one, many, onPress, id }: { n: number; one: string; many: string; onPress?: () => void; id: string }) => (
+    <button
+      type="button"
+      data-summary={id}
+      disabled={!onPress || !n}
+      onClick={onPress}
+      className="tactile flex flex-col items-start rounded-md border border-border px-2 py-1.5 text-left enabled:hover:bg-hover disabled:cursor-default"
+    >
+      <span className="num text-large font-semibold text-fg">{n}</span>
+      <span className="text-small text-fg-muted">{n === 1 ? one : many}</span>
+    </button>
+  );
+  return (
+    <div data-page-summary="" className="space-y-2">
+      <div className="grid grid-cols-2 gap-1.5">
+        <Stat id="parts" n={nodes.length} one="part on this page" many="parts on this page" />
+        <Stat id="pages" n={pages.length} one="page on the site" many="pages on the site"
+          onPress={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "pages" }))} />
+        <Stat id="links" n={links} one="link on this page" many="links on this page"
+          onPress={() => pick(nodes.filter((n) => !!n.link).map((n) => n.id))} />
+        <Stat id="open" n={open.length} one="part needs a decision" many="parts need a decision"
+          onPress={() => pick(open.map((d) => d.id))} />
+      </div>
+      {open.length ? (
+        <p data-summary-says="" className="text-small leading-snug text-fg-muted">
+          {[
+            nowhere ? `${nowhere} ${nowhere === 1 ? "is a button or link that goes" : "are buttons or links that go"} nowhere yet` : "",
+            live ? `${live} ${live === 1 ? "shows a number" : "show numbers"} frozen when the site was captured` : "",
+          ].filter(Boolean).join("; ")}. They wear an orange ! on the board.
+        </p>
+      ) : null}
+      {nodes.length ? (
+        <div className="space-y-1">
+          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Parts</div>
+          <div className="h-56 rounded-md border border-border"><ElementRoll nodes={nodes} /></div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -596,9 +693,18 @@ export function Inspector() {
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-border px-3 py-2">
           <div className="text-plain font-semibold text-fg">{page.name}</div>
-          <div className="text-small text-fg-muted">Page-level prompt</div>
+          <div className="text-small text-fg-muted">Nothing is picked. Press a part on the board to change it.</div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+          {/*
+            A SUMMARY FIRST, the prompt folded. With nothing picked this tab
+            used to open on the page's picture-making prompt: which model the
+            route would send it to and its four steps, a thing almost nobody
+            came here for. What a person wants on arriving is where they are:
+            how many parts, pages and links, and what still needs deciding.
+          */}
+          <PageSummary nodes={nodes} />
+          <Fold id="page-prompt" title="This page's prompt" note={page.prompt.trim() ? "written" : "empty"}>
           <Field label="This page should…" hint="Applies to everything on this page.">
             <Textarea
               autoGrow
@@ -615,6 +721,7 @@ export function Inspector() {
               planned={{ label: page.name, prompt: page.prompt, featureId: "custom-idea", w: 1440, h: 800, role: null, outline: null, content: "" }}
             />
           </Field>
+          </Fold>
           {/*
             The "select something to prompt it" block stood here and told the
             reader what they were already doing. A prompt lives on the element
@@ -812,6 +919,11 @@ export function Inspector() {
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const group = groups.find((g) => g.id === node.groupId);
+  const shownName = partName(node, nodes, featureName);
+  /* Words inside a button or a link are that control's label: one line, no
+     measure, not "long-form text with proper rhythm". */
+  const isLabel = !!feature && (TEXTY.has(feature.id) || (feature.id === "box" && !!wordsOf(node))) && insideControl(node);
+  const captured = capturedFrom(node, nodes);
   /*
    * Typing a number into X, Y, W or H is his hand on the box exactly as a
    * drag is, so it marks the part his and the healing leaves it alone from
@@ -835,17 +947,15 @@ export function Inspector() {
           </span>
         ) : null}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-plain font-semibold text-fg">{node.label}</div>
-          <div className="truncate text-small text-fg-muted">{cat?.label ?? "Custom"}</div>
+          <div data-element-name="" className="truncate text-plain font-semibold text-fg">{shownName}</div>
+          <div data-element-kind="" className="truncate text-small text-fg-muted">{isLabel ? (insideLink(node) ? "Label on a link" : "Label on a button") : cat?.label ?? "Custom"}</div>
         </div>
+        {/* One Delete, not two: the red mark in the row below is it. */}
         <Tooltip content={node.locked ? "Unlock" : "Lock position"}>
           <Button variant="ghost" size="iconXs" aria-label="Lock" onClick={() => update({ locked: !node.locked })}>
             {node.locked ? <Lock /> : <Unlock />}
           </Button>
         </Tooltip>
-        <Button variant="ghost" size="iconXs" aria-label="Delete" onClick={() => useStudio.getState().removeNodes([node.id])}>
-          <Trash2 />
-        </Button>
       </div>
 
       <Designs items={nodeDesigns(node)} />
@@ -916,13 +1026,17 @@ export function Inspector() {
           label="Prompt for this element"
           hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
         >
+          {/* Where a captured part came from, said the way a person would: the
+              site and the section, never the element path the capture used to
+              find it. The path stays in the prompt the document keeps. */}
+          {captured ? <span data-captured-from="" className="mb-1 block text-small text-fg-muted">{captured.says}</span> : null}
           <Textarea
             autoGrow
             rows={5}
             aria-label="Element prompt"
-            value={node.prompt}
+            value={captured ? captured.rest : node.prompt}
             placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
-            onChange={(e) => update({ prompt: e.target.value })}
+            onChange={(e) => update({ prompt: captured ? `${captured.prefix}${e.target.value}` : e.target.value })}
           />
         </Field>
 
@@ -930,7 +1044,15 @@ export function Inspector() {
             place. Name and contents are what the board draws, so they sit
             with the prompt rather than behind a mark. */}
         <Field label="Name">
-          <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />
+          {/* A capture's own name for its box ("div · 1 inside") is not shown
+              as if it were a name: the field is empty with the readable name
+              as its placeholder, and typing gives the part a real one. */}
+          <Input
+            value={isMachineLabel(node.label) ? "" : node.label}
+            placeholder={shownName}
+            aria-label="Name"
+            onChange={(e) => update({ label: e.target.value })}
+          />
         </Field>
         <PictureField node={node} />
 
@@ -984,9 +1106,15 @@ export function Inspector() {
           the field create space's right panel edits, through the one writer
           both use.
         */}
-        <Field label="Where it goes" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
-          <AuditPanel node={node} />
-        </Field>
+        {/* MAKE A PICTURE, closed. The model, its thinking, the prompt
+            enhancer, ratio, resolution, seed, format and quality were some
+            twenty-five rows on every part, a text label among them, for the
+            one time in many a part is handed to a picture model. */}
+        <Fold id="make-picture" title="Make a picture" note={node.plan ? "set by you" : "the route decides"}>
+          <Field label="Where it goes" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
+            <AuditPanel node={node} />
+          </Field>
+        </Fold>
 
         {mark === "looks" ? (
         <Field label="Shape" hint="What the part is cut to. A circle drawn round it on the board sets this.">
@@ -1014,10 +1142,10 @@ export function Inspector() {
         </Field>
         ) : null}
 
-        {feature?.options?.length ? (
+        {feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))).length ? (
           <div className="space-y-2 rounded-md border border-border p-2">
             <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
-            {feature.options.map((opt) =>
+            {feature.options.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))).map((opt) =>
               opt.kind === "set" ? (
                 <OptionSet
                   key={opt.id}
@@ -1125,9 +1253,11 @@ export function Inspector() {
               <Lightbulb className="size-3" />
               What this usually means
             </div>
-            <p className="text-plain leading-relaxed text-fg-muted">{feature.blurb}</p>
+            <p data-element-means="" className="text-plain leading-relaxed text-fg-muted">
+              {isLabel ? `The words on ${insideLink(node) ? "a link" : "a button"}: its label, kept on one line and read as part of the control.` : feature.blurb}
+            </p>
             <div className="mt-1.5 flex flex-wrap gap-1">
-              <Badge size="sm" variant="outline">{feature.id}</Badge>
+              {isLabel ? null : <Badge size="sm" variant="outline">{feature.id}</Badge>}
               <Badge size="sm">{cat?.label}</Badge>
             </div>
           </div>

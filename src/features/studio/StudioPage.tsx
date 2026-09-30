@@ -919,7 +919,92 @@ const SIDE_TABS = [
  * and used to get nothing at all: no Element, no Look, no Pages. Same
  * element, same tabs, same hooks; only where it stands changes.
  */
-const SHEET = "flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:static md:inset-auto md:z-auto md:max-h-none md:w-[228px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
+const SHEET = "relative flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:relative md:inset-auto md:z-auto md:max-h-none md:w-[228px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
+
+/*
+ * THE PANEL'S WIDTH IS THE PERSON'S.
+ *
+ * It was 228px on every screen: on a 1992px monitor a column of squeezed
+ * words beside a board with room to spare. Its edge drags now, from 228 to
+ * about half the window, and the width is kept in this browser (it is how
+ * this person likes their screen, not something about the site). The
+ * content reflows: every panel in it is a flex column, and at a width with
+ * room the tabs say all their names.
+ */
+export const SIDE_MIN = 228;
+const SIDE_KEY = "builder.sidePanelWidth";
+const sideMax = () => Math.max(SIDE_MIN, Math.round((typeof window === "undefined" ? 1440 : window.innerWidth) * 0.5));
+const clampSide = (w: number) => Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, w)));
+
+function useSideWidth(): [number, (w: number) => void] {
+  const [w, setW] = React.useState(SIDE_MIN);
+  React.useEffect(() => {
+    try {
+      const kept = Number(localStorage.getItem(SIDE_KEY));
+      if (Number.isFinite(kept) && kept > 0) setW(clampSide(kept));
+    } catch { /* storage refused: the default stands */ }
+    const fit = () => setW((was) => clampSide(was));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  const set = React.useCallback((next: number) => {
+    const v = clampSide(next);
+    setW(v);
+    try { localStorage.setItem(SIDE_KEY, String(v)); } catch { /* kept for this visit only */ }
+  }, []);
+  return [w, set];
+}
+
+/** The panel's edge, to drag. Arrow keys move it too; a double press puts it back to the narrowest. */
+function SideEdge({ width, onWidth }: { width: number; onWidth: (w: number) => void }) {
+  const [dragging, setDragging] = React.useState(false);
+  const start = React.useRef<{ x: number; w: number } | null>(null);
+  const frame = React.useRef(0);
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Side panel width"
+      aria-valuenow={width}
+      aria-valuemin={SIDE_MIN}
+      aria-valuemax={sideMax()}
+      tabIndex={0}
+      data-side-edge=""
+      title="Drag to widen the panel. Double press to put it back."
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        start.current = { x: e.clientX, w: width };
+        setDragging(true);
+        e.preventDefault();
+      }}
+      onPointerMove={(e) => {
+        if (!start.current) return;
+        /* One width per frame, however fast the hand moves: the board refits behind it. */
+        const next = start.current.w + e.clientX - start.current.x;
+        cancelAnimationFrame(frame.current);
+        frame.current = requestAnimationFrame(() => onWidth(next));
+      }}
+      onPointerUp={(e) => {
+        start.current = null;
+        setDragging(false);
+        try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* already let go */ }
+      }}
+      onDoubleClick={() => onWidth(SIDE_MIN)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          onWidth(width + (e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? 64 : 16));
+        }
+      }}
+      className={cn(
+        "absolute inset-y-0 -right-1 z-20 hidden w-2 cursor-col-resize touch-none md:block",
+        "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors hover:after:bg-accent focus-visible:after:bg-accent focus-visible:outline-none",
+        dragging && "after:bg-accent",
+      )}
+    />
+  );
+}
 
 /** The sheet's own way out, drawn only while it is a sheet. */
 function SheetHandle({ narrow, onClose }: { narrow: boolean; onClose: () => void }) {
@@ -945,6 +1030,10 @@ export function StudioPage() {
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const narrow = useNarrow();
+  const [sideWidth, setSideWidth] = useSideWidth();
+  const sideStyle = narrow ? undefined : { width: sideWidth };
+  /* Room for every tab's name, not only the open one's. */
+  const tabWords = !narrow && sideWidth >= 420;
   const viewportDevice = useViewportDevice();
   // A sheet is asked for, never left lying over the board: on a narrow
   // window it starts closed and the toggle, the tour and a pick open it.
@@ -1164,8 +1253,9 @@ export function StudioPage() {
           the card you clicked instead of the board's tabs.
         */}
         {book && libraryOpen ? (
-          <aside data-side-panel="" data-side-panel-timeline="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
+          <aside data-side-panel="" data-side-panel-timeline="" data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
+            {narrow ? null : <SideEdge width={sideWidth} onWidth={setSideWidth} />}
             <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-small uppercase tracking-[0.14em] text-fg-muted">
               This card
             </div>
@@ -1175,8 +1265,9 @@ export function StudioPage() {
           </aside>
         ) : null}
         {design && libraryOpen ? (
-          <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
+          <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
+            {narrow ? null : <SideEdge width={sideWidth} onWidth={setSideWidth} />}
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
                 className="min-w-0 flex-1 gap-0 [&>*]:min-w-0 [&>*]:flex-none [&>*]:justify-center [&>*]:px-1.5 [&>[data-state=on]]:flex-1"
@@ -1204,7 +1295,7 @@ export function StudioPage() {
                     </span>
                   ),
                   label: (
-                    <span data-tab-word="" className={sideTab === t.value ? "whitespace-nowrap text-small" : "sr-only"}>
+                    <span data-tab-word="" className={sideTab === t.value || tabWords ? "whitespace-nowrap text-small" : "sr-only"}>
                       {t.label}
                     </span>
                   ),

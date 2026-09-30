@@ -179,6 +179,14 @@ export interface SettingDef<V = unknown> {
   read?: () => V;
   write?: (value: V) => void;
   subscribe?: (onChange: () => void) => () => void;
+  /**
+   * A value the setting's owner has read from somewhere rather than been
+   * given: a captured site's own font or corners. When this returns words the
+   * drawer shows them as the value, with a Change beside it, instead of a
+   * control holding a default that contradicts them. Null: the plain control.
+   * Re-read whenever `subscribe` fires.
+   */
+  readout?: () => { shows: string; from: string } | null;
 }
 
 export interface SettingGroupDef {

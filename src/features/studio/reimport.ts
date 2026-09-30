@@ -35,6 +35,7 @@
  *
  * Pure: no store, no React. `tests/reimport-keeps.mjs` holds it.
  */
+import { partName, type Named } from "./partNames.ts";
 
 type Rec = Record<string, unknown>;
 export interface MergeNode { id: string; pageId?: string; from?: { selector?: string } | null; byHand?: boolean; work?: unknown; label?: unknown }
@@ -254,7 +255,7 @@ export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, taken: T
     for (const p of mine) if (p.startsWith("work/") && p.split("/").length === 3 && merged.has(p)) merged.set(`work/${p.split("/")[1]}`, true);
     /* The board's id stands, so everything that names the part (a group, a thread, a feature's list of parts) still does. */
     const node = unfacet({ ...nn, id: bn.id }, merged) as unknown as N;
-    if (mine.length) kept.edited.push({ id: bn.id, label: String(bn.label ?? nn.label ?? bn.id), facets: mine });
+    if (mine.length) kept.edited.push({ id: bn.id, label: readable(bn, board.nodes), facets: mine });
     out.push(node); ids.add(node.id);
   });
 
@@ -269,7 +270,7 @@ export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, taken: T
     if (his || changed) {
       if (ids.has(bn.id)) return;
       if (his) kept.added.push(bn.id);
-      else kept.edited.push({ id: bn.id, label: String(bn.label ?? bn.id), facets: ["(the new capture has no such part)"] });
+      else kept.edited.push({ id: bn.id, label: readable(bn, board.nodes), facets: ["(the new capture has no such part)"] });
       out.push(bn); ids.add(bn.id);
       return;
     }
@@ -294,10 +295,45 @@ export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, taken: T
 }
 
 /** One line saying what was kept, for the import's toast and strip. */
+/** A part named the way a person reads it, never "n_box_63" or "main · 7 inside (h)" (`partNames.ts`). */
+function readable(n: MergeNode, all: readonly MergeNode[]): string {
+  return partName(n as unknown as Named, all as unknown as Named[]);
+}
+
+/** A facet in plain words: `x` is its position, `work/marquee/middle` the ticker's centring. */
+export function facetSays(f: string): string {
+  if (f.startsWith("(")) return f.slice(1, -1);
+  const [head, a, b] = f.split("/");
+  const plain: Record<string, string> = {
+    x: "position", y: "position", w: "size", h: "size", content: "words", prompt: "prompt", label: "name", colour: "colours",
+    font: "type", link: "link", locked: "lock", edge: "border", radius: "corners", art: "look", aura: "glow", anim: "motion",
+    picture: "picture", hidden: "hidden", options: "options", data: "data", task: "task", byHand: "position",
+  };
+  if (head === "work") return a ? `the ${a.replace(/-/g, " ")} feature${b ? `'s ${b.replace(/-/g, " ")}` : ""}` : "features";
+  return plain[head!] ?? head!.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+}
+
+/**
+ * The same report, in one short line with no names at all: how many parts
+ * kept the owner's changes, how many were added, deleted, new and gone. The
+ * status strip shows this; `keptSays` is its "details".
+ */
+export function keptShort(k: Kept): string {
+  const bits: string[] = [];
+  if (k.edited.length) bits.push(`kept your changes on ${k.edited.length} part${k.edited.length === 1 ? "" : "s"}`);
+  if (k.added.length) bits.push(`kept ${k.added.length} you added`);
+  if (k.stayDeleted) bits.push(`${k.stayDeleted} you deleted stay${k.stayDeleted === 1 ? "s" : ""} deleted`);
+  if (k.fresh) bits.push(`${k.fresh} new`);
+  if (k.gone) bits.push(`${k.gone} gone`);
+  if (!bits.length) return "Nothing on the board had been changed by hand.";
+  const line = bits.join(", ");
+  return `${line[0]!.toUpperCase()}${line.slice(1)}.`;
+}
+
 export function keptSays(k: Kept): string {
   const parts: string[] = [];
   if (k.edited.length) {
-    const named = k.edited.slice(0, 4).map((e) => `${e.label} (${e.facets.slice(0, 3).map((f) => f.replace(/^work\//, "").replace(/\//g, " ")).join(", ")}${e.facets.length > 3 ? ", …" : ""})`).join("; ");
+    const named = k.edited.slice(0, 4).map((e) => `${e.label} (${[...new Set(e.facets.map(facetSays))].slice(0, 3).join(", ")}${new Set(e.facets.map(facetSays)).size > 3 ? ", …" : ""})`).join("; ");
     parts.push(`kept your changes on ${k.edited.length} part${k.edited.length === 1 ? "" : "s"}: ${named}${k.edited.length > 4 ? `, and ${k.edited.length - 4} more` : ""}`);
   }
   if (k.added.length) parts.push(`kept ${k.added.length} part${k.added.length === 1 ? "" : "s"} you added`);

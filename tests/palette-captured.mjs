@@ -116,7 +116,7 @@ check("…and one Undo puts every one back", JSON.stringify((await state()).node
 
 const roleLabels = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-look-colour] [data-role-source]")].map((e) => [e.getAttribute("data-role-source"), e.textContent.trim()])));
 check("no role says a bare \"none\"", !Object.values(roleLabels).some((t) => /^none$/i.test(t)), JSON.stringify(roleLabels));
-check("a role the site gave nothing says \"unused\"", roleLabels.muted === "unused", roleLabels.muted);
+check("a role the site gave nothing says \"not used\"", roleLabels.muted === "not used", roleLabels.muted);
 await press('[data-look-colour] button[aria-label="Muted text"]');
 await page.waitForTimeout(300);
 check("…and why, in words", /not used on this site, so it shows the text colour/.test(await page.locator("[data-role-says]").innerText()), await page.locator("[data-role-says]").innerText());

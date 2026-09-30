@@ -26,6 +26,7 @@ function describeDelay(v: number | string | null | undefined): string {
 import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
+import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
 import { CUBE_SIDES } from "./parts/cubeFaces";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
@@ -327,8 +328,24 @@ export function compileSpec(input: CompileInput): Spec {
   // fields always, the advanced ones only when the author set them. A default
   // left out of the brief was read as "not decided", and the whole visual
   // system got inferred from six colours.
+  // On a captured site a default the site contradicts is not said: what the
+  // site shows is read off its parts instead, and what cannot change a
+  // captured part is left out (`siteFormat.ts`, the same reading the Format
+  // panel shows).
+  const captured = isCaptured({ nodes, look });
+  const readings = captured ? readSiteFormat({ nodes, look }, look ? resolvePalette(format, look).bg : null) : {};
   const formatRows = FORMAT_FIELDS.flatMap((field) => {
     const changed = field.id in format && format[field.id] !== field.default;
+    const said = siteSays(field.id, captured, readings, format, field.default);
+    if (said.kind === "hidden") return [];
+    if (said.kind === "read") {
+      return [{
+        group: FORMAT_GROUPS.find((g) => g.id === field.group)?.label ?? field.group,
+        label: field.label,
+        value: `${said.reading.shows} (as the captured site has it)`,
+        changed: false,
+      }];
+    }
     if (field.advanced && !changed) return [];
     const value = format[field.id] ?? field.default;
     if (field.type === "text" && !String(value).trim()) return [];

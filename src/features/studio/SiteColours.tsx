@@ -15,9 +15,13 @@
  * for faces. The wheel's "every part like it" is the same call.
  */
 import * as React from "react";
-import { ChevronDown, Undo2 } from "lucide-react";
+import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, tallyColours, tallyFonts, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
+import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, tallyColours, tallyFonts, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
+import { partName } from "./partNames";
+import { getFeature } from "./catalog";
+import { Slider } from "@/core/ui/slider";
 import { FAMILY, resolvePalette } from "./parts/theme";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -47,12 +51,75 @@ function useSite() {
   return { nodes, palette, look };
 }
 
-/** A name for a part a person can read: its label, else its words. */
-function nameOf(n: { label?: string; content?: unknown } | undefined, id: string): string {
+/**
+ * A name for a part a person can read: its own name, its words, the name the
+ * browser gave it, or what it is and the section it is in (`partNames.ts`),
+ * never the capture's "div · 1 inside".
+ */
+function nameOf(n: Parameters<typeof partName>[0] | undefined, id: string, all: Parameters<typeof partName>[1] = []): string {
   if (id === PAGE_ID) return "The page";
-  if (!n) return id;
-  const words = typeof n.content === "string" ? n.content : Array.isArray(n.content) ? (n.content as { text?: string }[]).map((s) => s?.text ?? "").join("") : "";
-  return (n.label || words || id).slice(0, 60);
+  if (!n) return "A part no longer on the board";
+  return partName(n, all, (f) => getFeature(f)?.name);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pointing at a part on the board                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hover a part in a list here and it is outlined on the board, so "which one
+ * is that" is answered without picking it and losing what is picked. Nothing
+ * in the document changes: the outline is drawn over the board from the
+ * part's own box on screen, and goes when the hand leaves the row.
+ */
+const POINT = "studio:point-at";
+export function pointAt(ids: string[] | null) {
+  window.dispatchEvent(new CustomEvent(POINT, { detail: ids }));
+}
+
+export function PointMarks() {
+  const [ids, setIds] = React.useState<string[] | null>(null);
+  const [boxes, setBoxes] = React.useState<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
+  /* The board's own window: the outline is clipped to it, never drawn over the parts drawer or the panel. */
+  const [clip, setClip] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  React.useEffect(() => {
+    const on = (e: Event) => setIds((e as CustomEvent<string[] | null>).detail);
+    window.addEventListener(POINT, on);
+    return () => window.removeEventListener(POINT, on);
+  }, []);
+  React.useEffect(() => {
+    if (!ids?.length) { setBoxes([]); return; }
+    let raf = 0;
+    const measure = () => {
+      const out: typeof boxes = [];
+      for (const id of ids) {
+        const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(id)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+        const r = el?.getBoundingClientRect();
+        if (r && r.width > 0 && r.height > 0) out.push({ id, x: r.left, y: r.top, w: r.width, h: r.height });
+      }
+      setBoxes((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
+      const sc = document.querySelector("[data-studio-scroll]")?.getBoundingClientRect();
+      const c = sc ? { x: sc.left, y: sc.top, w: sc.width, h: sc.height } : null;
+      setClip((was) => (JSON.stringify(was) === JSON.stringify(c) ? was : c));
+      raf = requestAnimationFrame(measure);
+    };
+    measure();
+    return () => cancelAnimationFrame(raf);
+  }, [ids]);
+  if (!boxes.length) return null;
+  return createPortal(
+    <div aria-hidden className="pointer-events-none fixed z-[60] overflow-hidden" style={clip ? { left: clip.x, top: clip.y, width: clip.w, height: clip.h } : { inset: 0 }}>
+      {boxes.map((b) => (
+        <div
+          key={b.id}
+          data-point-mark={b.id}
+          className="absolute rounded-[3px]"
+          style={{ left: b.x - 3 - (clip?.x ?? 0), top: b.y - 3 - (clip?.y ?? 0), width: b.w + 6, height: b.h + 6, outline: "2px solid white", boxShadow: "0 0 0 4px rgb(0 0 0 / 0.55), 0 0 18px 4px rgb(255 255 255 / 0.35)" }}
+        />
+      ))}
+    </div>,
+    document.body,
+  );
 }
 
 /** Pick these on the board, on the page the first of them is on. */
@@ -68,6 +135,7 @@ function pickOnBoard(ids: string[]) {
 
 function PartsList({ spots }: { spots: { id: string; where: string }[] }) {
   const nodes = useStudio((s) => s.nodes);
+  React.useEffect(() => () => pointAt(null), []);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const rows = React.useMemo(() => {
     const m = new Map<string, string[]>();
@@ -79,9 +147,13 @@ function PartsList({ spots }: { spots: { id: string; where: string }[] }) {
       type="button"
       data-site-part={r.id}
       onClick={() => pickOnBoard([r.id])}
+      onMouseEnter={() => pointAt([r.id])}
+      onMouseLeave={() => pointAt(null)}
+      onFocus={() => pointAt([r.id])}
+      onBlur={() => pointAt(null)}
       className="tactile flex w-full items-baseline gap-2 rounded px-1.5 py-1 text-left hover:bg-hover"
     >
-      <span className="min-w-0 flex-1 truncate text-small text-fg">{nameOf(byId.get(r.id), r.id)}</span>
+      <span className="min-w-0 flex-1 truncate text-small text-fg">{nameOf(byId.get(r.id), r.id, nodes)}</span>
       <span className="shrink-0 text-fine text-fg-faint">{r.where}</span>
     </button>
   );
@@ -191,18 +263,20 @@ export function SiteColoursSection() {
 
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
+      <PointMarks />
       <div>
         <h3 data-look-heading className="text-plain font-semibold text-fg">On this site</h3>
         <p className="text-small leading-snug text-fg-muted">
-          Every colour the parts wear, by what it is used for. The number is how many parts. Press one to see them and recolour just those.
+          Every colour the parts wear, by what it is used for. The number is how many parts. Press one to see them and recolour just those; hover a part&rsquo;s name to see it on the board.
         </p>
       </div>
+      <WordsReadable />
       {COLOUR_USES.map((u) => {
         const list = tally.byUse[u];
         if (!list.length) return null;
         return (
           <div key={u} data-site-group={u}>
-            <div className="mb-1 flex items-baseline justify-between text-small">
+            <div className="mb-1 flex items-baseline justify-between gap-2 text-small">
               <span className="font-medium text-fg">{USE_LABEL[u]}</span>
               <span className="text-fg-faint">{list.length} colour{list.length === 1 ? "" : "s"}</span>
             </div>
@@ -213,6 +287,7 @@ export function SiteColoursSection() {
               ))}
             </div>
             {detail(u)}
+            <MergeShades use={u} list={list} palette={palette} />
           </div>
         );
       })}
@@ -330,5 +405,142 @@ export function SiteFontsSection() {
         </p>
       ) : null}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Merge close shades                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MERGE CLOSE SHADES, per use. A captured site wears dozens of near-copies
+ * of a colour (39 fills and 26 accents on trumpmorty.fun, three of them
+ * 243,212,64 / 242,226,129 / 240,223,123), each on a part or two, so
+ * changing "the yellow" meant changing a dozen swatches. This groups the
+ * shades within a small distance round the one most parts wear, shows what
+ * would become what before anything moves, and merges them in one undo step.
+ */
+function MergeShades({ use, list, palette }: { use: ColourUse; list: SiteColour[]; palette: Palette }) {
+  const [open, setOpen] = React.useState(false);
+  const [within, setWithin] = React.useState(CLOSE_SHADES);
+  const [done, setDone] = React.useState<number | null>(null);
+  const groups = React.useMemo(() => closeShades(list, use, within), [list, use, within]);
+  const anyAtAll = React.useMemo(() => closeShades(list, use, 0.08).length > 0, [list, use]);
+  if (!anyAtAll && done === null) return null;
+  const shades = groups.reduce((n, g) => n + g.from.length, 0);
+  const apply = () => {
+    const st = useStudio.getState();
+    const mark = st.historyMark();
+    let changed = 0;
+    for (const g of groups) for (const c of g.from) changed += st.swapColourAll(c.value, g.to.value, palette, { use }).length;
+    useStudio.getState().oneStepSince(mark);
+    play(changed ? "confirm" : "deny");
+    setDone(changed);
+    setOpen(false);
+  };
+  return (
+    <div data-merge-shades={use} className="mt-1.5">
+      {!open ? (
+        <button
+          type="button"
+          data-merge-open=""
+          onClick={() => { play("open"); setDone(null); setOpen(true); }}
+          className="tactile inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-small text-fg-muted hover:text-fg"
+        >
+          <Merge className="size-3" /> Merge close shades
+        </button>
+      ) : (
+        <div data-merge-preview="" className="space-y-2 rounded-md border border-border bg-elevated p-2">
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between text-small">
+              <span className="text-fg">How close counts as the same</span>
+              <span className="text-fg-faint">{within <= 0.02 ? "nearly identical" : within <= 0.045 ? "close" : "loosely alike"}</span>
+            </div>
+            <Slider value={[Math.round(within * 1000)]} min={10} max={80} step={5} onValueChange={(v) => setWithin((v[0] ?? 35) / 1000)} aria-label="How close counts as the same" />
+          </div>
+          {groups.length ? (
+            <>
+              <p className="text-small text-fg-muted">
+                {shades} shade{shades === 1 ? "" : "s"} would become {groups.length} colour{groups.length === 1 ? "" : "s"}, on {groups.reduce((n, g) => n + g.parts, 0)} part{groups.reduce((n, g) => n + g.parts, 0) === 1 ? "" : "s"}. Each group takes the shade most parts already wear.
+              </p>
+              <ul className="max-h-48 space-y-1 overflow-y-auto">
+                {groups.map((g) => (
+                  <li key={g.to.key} data-merge-group={g.to.key} className="flex items-center gap-1">
+                    <span className="flex min-w-0 flex-1 flex-wrap gap-0.5">
+                      {g.from.map((c) => (
+                        <Tooltip key={c.key} content={c.value}>
+                          <span className="size-4 rounded-sm border border-border" style={{ background: c.value }} />
+                        </Tooltip>
+                      ))}
+                    </span>
+                    <ArrowRight className="size-3 shrink-0 text-fg-faint" />
+                    <Tooltip content={`${g.to.value}, worn by ${g.to.by[use]} part${g.to.by[use] === 1 ? "" : "s"}`}>
+                      <span className="size-5 shrink-0 rounded-sm border border-border" style={{ background: g.to.value }} />
+                    </Tooltip>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-small text-fg-muted">No two shades are that close. Loosen it to find more.</p>
+          )}
+          <div className="flex items-center gap-1">
+            <Button data-merge-apply="" size="xs" variant="outline" className="flex-1" disabled={!groups.length} onClick={apply}>
+              Merge {shades} into {groups.length}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={() => { play("close"); setOpen(false); }}>Close</Button>
+          </div>
+        </div>
+      )}
+      {done !== null ? (
+        <p data-merge-done="" className="mt-1 flex items-center gap-2 text-small text-fg-muted">
+          {done ? `Merged: ${done} part${done === 1 ? "" : "s"} changed, in one step.` : "Nothing wore those shades any more."}
+          {done ? (
+            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}>
+              <Undo2 className="size-3" /> Undo
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Words against their fill                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Whether the words can be read, measured on what they sit on. The mixer's
+ * badges compare two roles, and on a site brought in those two are often
+ * never worn together: a "text 1.2" on a site whose words all read clearly
+ * is an alarm about nothing. So a captured site gets this instead: how many
+ * parts' words stand out from their own fill, and which do not, by name.
+ */
+function WordsReadable() {
+  const { nodes, palette, look } = useSite();
+  const rows = React.useMemo(() => (look.paletteFrom || nodes.some((n) => n.from) ? wordsContrast(nodes, palette) : []), [nodes, palette, look.paletteFrom]);
+  const [open, setOpen] = React.useState(false);
+  if (!rows.length) return null;
+  const hard = rows.filter((r) => r.ratio < 3).sort((a, b) => a.ratio - b.ratio);
+  const small = rows.filter((r) => r.ratio >= 3 && r.ratio < 4.5).length;
+  return (
+    <div data-words-readable="" className="rounded-md border border-border p-2 text-small">
+      <p className="text-fg-muted">
+        <span className="text-fg">Readable words:</span>{" "}
+        {rows.length - hard.length - small} of {rows.length} parts&rsquo; words stand out clearly from the fill behind them
+        {small ? `, ${small} only at a large size` : ""}
+        {hard.length ? `, and ${hard.length} ${hard.length === 1 ? "is" : "are"} hard to read` : ""}.
+        {" "}Contrast is the difference in lightness; 4.5 to 1 reads at any size.
+      </p>
+      {hard.length ? (
+        <>
+          <button type="button" aria-expanded={open} onClick={() => { play(open ? "close" : "open"); setOpen((v) => !v); }} className="mt-1 inline-flex items-center gap-1 text-fg hover:underline">
+            <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} /> Which ones
+          </button>
+          {open ? <div className="mt-1"><PartsList spots={hard.map((r) => ({ id: r.id, where: `${r.ratio} to 1` }))} /></div> : null}
+        </>
+      ) : null}
+    </div>
   );
 }

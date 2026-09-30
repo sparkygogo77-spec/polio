@@ -239,6 +239,9 @@ if (!up) {
     await page.getByRole("radio", { name: "Element" }).first().click({ force: true });
     await page.waitForTimeout(800);
 
+    /* The picture settings sit under a closed "Make a picture" on every part; opened to be read. */
+    const fold = page.locator('[data-side-panel] [data-fold="make-picture"]');
+    if (await fold.count()) { await fold.locator("summary").click(); await page.waitForTimeout(300); }
     const panel = page.locator("[data-audit-panel]");
     check("the audit is in the left panel with the part selected", (await panel.count()) > 0);
     if (await panel.count()) {

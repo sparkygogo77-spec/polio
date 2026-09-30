@@ -8,6 +8,8 @@ import * as React from "react";
 import { RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "./format";
 import { useStudio } from "./store";
+import { resolvePalette } from "./parts/theme";
+import { isCaptured, readSiteFormat, siteSays, type Reading } from "./siteFormat";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
@@ -60,6 +62,27 @@ function Control({ field }: { field: FormatField }) {
   }
 }
 
+/** The captured site's readings, for this panel and Settings > This site alike. */
+export function useSiteFormat() {
+  const nodes = useStudio((s) => s.nodes);
+  const look = useStudio((s) => s.look);
+  const format = useStudio((s) => s.format);
+  const bg = React.useMemo(() => resolvePalette(format, look).bg, [format, look]);
+  const captured = React.useMemo(() => isCaptured({ nodes, look }), [nodes, look]);
+  const readings = React.useMemo(() => (captured ? readSiteFormat({ nodes, look }, bg) : {}), [captured, nodes, look, bg]);
+  return { captured, readings, format };
+}
+
+/** A value the site says, shown as the site's, with a way to choose another. */
+function ReadValue({ reading, onChange }: { reading: Reading; onChange: () => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span data-site-reads="" className="max-w-40 truncate rounded-sm border border-border px-1.5 py-0.5 text-small text-fg">{reading.shows}</span>
+      <Button size="xs" variant="ghost" onClick={onChange}>Change</Button>
+    </div>
+  );
+}
+
 export function FormatPanel() {
   const showAll = useStudio((s) => s.showAllFormat);
   const setShowAll = useStudio((s) => s.setShowAllFormat);
@@ -67,9 +90,16 @@ export function FormatPanel() {
   const resetFormat = useStudio((s) => s.resetFormat);
   const [q, setQ] = React.useState("");
   const query = q.trim().toLowerCase();
+  const { captured, readings } = useSiteFormat();
+  /* Fields the owner asked to change on a captured site: the control shows in place of the reading. */
+  const [editing, setEditing] = React.useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = React.useState(false);
+  const says = (x: FormatField) => siteSays(x.id, captured, readings, format, x.default);
 
+  const hiddenBySite = FORMAT_FIELDS.filter((x) => says(x).kind === "hidden");
   const visible = FORMAT_FIELDS.filter((x) => {
     const matches = !query || `${x.label} ${x.id} ${(x.options ?? []).join(" ")}`.toLowerCase().includes(query);
+    if (says(x).kind === "hidden" && !showHidden) return false;
     return matches && (showAll || !x.advanced || Boolean(query));
   });
   const changed = FORMAT_FIELDS.filter((x) => format[x.id] !== undefined && format[x.id] !== x.default).length;
@@ -115,14 +145,20 @@ export function FormatPanel() {
               <ul>
                 {fields.map((field) => {
                   const isChanged = format[field.id] !== undefined && format[field.id] !== field.default;
+                  const said = says(field);
+                  const reading = said.kind === "read" && !editing.has(field.id) ? said.reading : null;
+                  const siteHas = readings[field.id];
+                  /* Wraps rather than squeezes: in a narrow panel the control goes
+                     under the words, and the words keep a readable width, never
+                     one word to a line. */
                   return (
-                    <li key={field.id} data-format-field={field.id} className="flex items-center justify-between gap-3 px-3 py-1.5 hover:bg-hover/40">
-                      <div className="min-w-0 flex-1">
+                    <li key={field.id} data-format-field={field.id} data-format-from={reading ? "site" : undefined} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 hover:bg-hover/40">
+                      <div className="min-w-[9rem] flex-1">
                         <div className="flex items-center gap-1.5">
                           {isChanged ? <span className="size-1.5 shrink-0 rounded-full bg-accent" /> : null}
                           <span className="truncate text-plain text-fg">{field.label}</span>
                           {field.advanced ? (
-                            <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">adv</span>
+                            <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">advanced</span>
                           ) : null}
                           {/* A field the preview does not draw says so, rather than
                               letting a person watch the site not change. It still
@@ -131,10 +167,22 @@ export function FormatPanel() {
                             <span data-brief-only="" title="Reaches the blueprint; the preview does not draw it." className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">brief</span>
                           ) : null}
                         </div>
-                        {field.hint ? <div className="text-small text-fg-muted">{field.hint}</div> : null}
+                        {reading ? (
+                          <div className="text-small text-fg-muted">From the site: {reading.from}.</div>
+                        ) : field.hint ? <div className="text-small text-fg-muted">{field.hint}</div> : null}
+                        {!reading && captured && siteHas && (isChanged || editing.has(field.id)) ? (
+                          <button
+                            type="button"
+                            data-format-use-site=""
+                            className="text-small text-fg-muted underline-offset-2 hover:text-fg hover:underline"
+                            onClick={() => { useStudio.getState().setFormat(field.id, field.default); setEditing((e) => { const n = new Set(e); n.delete(field.id); return n; }); }}
+                          >
+                            Use the site&apos;s: {siteHas.shows}
+                          </button>
+                        ) : null}
                       </div>
                       <div className="shrink-0">
-                        <Control field={field} />
+                        {reading ? <ReadValue reading={reading} onChange={() => setEditing((e) => new Set(e).add(field.id))} /> : <Control field={field} />}
                       </div>
                     </li>
                   );
@@ -143,8 +191,20 @@ export function FormatPanel() {
             </section>
           );
         })}
+        {hiddenBySite.length ? (
+          <p data-format-hidden="" className="px-3 pt-3 text-small leading-snug text-fg-muted">
+            {showHidden
+              ? `${hiddenBySite.length} options are shown that change nothing on a captured site: its parts carry their own measured type, borders, shadows and spacing.`
+              : `${hiddenBySite.length} options are hidden: this site was captured, its parts carry their own measured type, borders, shadows and spacing, so these would change nothing.`}{" "}
+            <button type="button" className="text-fg underline-offset-2 hover:underline" onClick={() => setShowHidden((v) => !v)}>
+              {showHidden ? "Hide them" : "Show them anyway"}
+            </button>
+          </p>
+        ) : null}
         <p className={cn("p-3 text-small text-fg-faint")}>
-          Only options you change are written into the brief, so defaults stay out of the builder&apos;s way.
+          {captured
+            ? "Values marked as the site's are read from the captured page. Only what you change is written into the brief as your choice."
+            : "Only options you change are written into the brief, so defaults stay out of the builder\u2019s way."}
         </p>
       </div>
     </div>

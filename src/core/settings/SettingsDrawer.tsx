@@ -88,6 +88,14 @@ function Row({ def, stored, isStored, onSet, onReset }: {
     () => (def.read ? def.read() : undefined),
   );
   const value = owned ? external : stored;
+  /* A value read from the thing itself (a captured site's own face), shown as that rather than as a default. */
+  const readKey = React.useSyncExternalStore(
+    React.useCallback((fn: () => void) => (def.subscribe ? def.subscribe(fn) : () => {}), [def]),
+    () => { const r = def.readout?.(); return r ? `${r.shows}\u0000${r.from}` : ""; },
+    () => "",
+  );
+  const [changing, setChanging] = React.useState(false);
+  const readout = readKey && !changing ? { shows: readKey.split("\u0000")[0]!, from: readKey.split("\u0000")[1]! } : null;
   /* "Changed" for an owned setting is measured against its declared default,
      because there is no entry in the settings store to look for. */
   const changed = owned ? !Object.is(value, def.default) : isStored;
@@ -95,8 +103,8 @@ function Row({ def, stored, isStored, onSet, onReset }: {
   const reset = () => (owned ? def.write!(def.default) : onReset());
 
   return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-hover/40">
-      <div className="min-w-0 flex-1">
+    <li data-setting={def.id} data-setting-from={readout ? "site" : undefined} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 hover:bg-hover/40">
+      <div className="min-w-[9rem] flex-1">
         <div className="flex items-center gap-1.5">
           {changed ? (
             <Tooltip content="Changed. Click to reset.">
@@ -106,10 +114,16 @@ function Row({ def, stored, isStored, onSet, onReset }: {
           <span className="truncate text-xs text-fg">{def.label}</span>
           {def.advanced ? <span className="rounded-xs border border-border px-1 text-fine uppercase tracking-wider text-fg-faint">adv</span> : null}
         </div>
-        {def.description ? <div className="text-small text-fg-muted">{def.description}</div> : null}
+        {readout ? <div className="text-small text-fg-muted">From the site: {readout.from}.</div>
+          : def.description ? <div className="text-small text-fg-muted">{def.description}</div> : null}
       </div>
       <div className="shrink-0">
-        <Control def={def} value={value} onChange={set} />
+        {readout ? (
+          <div className="flex items-center gap-1.5">
+            <span data-setting-reads="" className="max-w-40 truncate rounded-sm border border-border px-1.5 py-0.5 text-small text-fg">{readout.shows}</span>
+            <button type="button" className="tactile rounded-sm px-1.5 py-0.5 text-small text-fg-muted hover:text-fg" onClick={() => setChanging(true)}>Change</button>
+          </div>
+        ) : <Control def={def} value={value} onChange={set} />}
       </div>
     </li>
   );

@@ -48,7 +48,8 @@ import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { landPalette } from "./paletteFrom";
 import { takeImportMark, useStudio, type StudioNode } from "./store";
-import { fingerprint, isTaken, keepOwnerEdits, keptSays, type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "./reimport";
+import { idless } from "./partNames";
+import { fingerprint, isTaken, keepOwnerEdits, keptShort, keptSays, type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "./reimport";
 import { sourceNote } from "./polioMd";
 import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
@@ -73,7 +74,7 @@ type Stage =
   | { at: "nothing" }
   | { at: "busy"; says: string }
   | Picking
-  | { at: "said"; says: string };
+  | { at: "said"; says: string; details?: string };
 
 /** Ask a route, with a deadline of our own and a sentence for every ending. */
 async function ask(url: string, init: RequestInit): Promise<Record<string, unknown>> {
@@ -184,7 +185,10 @@ export function ImportStrip() {
       style={{ borderColor: refused ? "oklch(0.72 0.17 18 / 0.6)" : VOID.rim, background: refused ? "oklch(0.72 0.17 18 / 0.08)" : VOID.box, color: VOID.text }}
     >
       {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
-      <span className="min-w-0 flex-1">{says}</span>
+      <span className="min-w-0 flex-1">
+        {says}
+        {it.stage.at === "said" && it.stage.details ? <Details text={it.stage.details} /> : null}
+      </span>
       {!busyNow ? (
         <button type="button" data-import-strip-dismiss="" aria-label="Dismiss" onClick={() => putStage(it.spaceId, NOTHING)} className="tactile shrink-0 rounded px-1" style={{ color: VOID.muted }}>
           <X className="size-3" />
@@ -511,11 +515,14 @@ export function FromASite({ space }: { space: Space }) {
     const brought = boardNow();
     const record = fingerprint(brought, src ? `${src.repo}${src.dir ? `/${src.dir}` : ""}@${src.commit ?? src.branch ?? copy.ref}` : `${of.owner}/${of.name}@${copy.ref}`);
     let keptLine = "";
+    let keptDetails = "";
     if (board) {
       const { doc, kept } = keepOwnerEdits(board, taken, brought);
       type S = ReturnType<typeof useStudio.getState>;
       useStudio.setState({ nodes: doc.nodes, format: doc.format as S["format"], brief: doc.brief as S["brief"], look: doc.look as S["look"] });
-      keptLine = ` Brought in again over your board: ${keptSays(kept)}`;
+      /* One short line with no names in it; the part-by-part account is the strip's "details". */
+      keptLine = ` Brought in again over your board: ${keptShort(kept)}`;
+      keptDetails = `Brought in again over your board: ${keptSays(kept)}`;
     }
     useStudio.setState({ taken: record });
     useStudio.getState().oneStepSince(mark);
@@ -543,7 +550,10 @@ export function FromASite({ space }: { space: Space }) {
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       /* Said out loud, and by name where a part he had moved was replaced:
          that naming is how he checks the ruling was read right. */
-      const sentencesSaid = `${sweptSays ? ` ${sweptSays}` : ""}${keptLine}`;
+      /* Short, with no internal ids: the sweep's counts, and the whole of it in "details". */
+      const sweptShort = sweptSays ? idless(sweptSays) : "";
+      const sentencesSaid = `${sweptShort ? ` ${sweptShort.length > 180 ? "Some parts were tidied as they arrived; one undo takes it back." : sweptShort}` : ""}${keptLine}`;
+      const saidDetails = [sweptShort !== sweptSays || sweptShort.length > 180 ? sweptSays : "", keptDetails].filter(Boolean).join("\n\n");
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,
@@ -557,7 +567,7 @@ export function FromASite({ space }: { space: Space }) {
          ended a step that had long finished, with a refusal on the strip
          naming this repository under whatever came next. */
       if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
-      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${sentencesSaid}${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}` });
+      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${sentencesSaid}${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}`, ...(saidDetails ? { details: saidDetails } : {}) });
       play("confirm");
     })();
   };
@@ -986,6 +996,7 @@ export function FromASite({ space }: { space: Space }) {
       {stage.at === "said" ? (
         <div data-site-said="" className="mt-1.5 rounded px-2 py-1 text-small" style={{ background: VOID.box, border: `1px solid ${VOID.rim}`, color: VOID.text }}>
           {stage.says}
+          {stage.details ? <Details text={stage.details} /> : null}
         </div>
       ) : null}
     </section>
@@ -1038,6 +1049,16 @@ function Brought() {
         );
       })}
     </ul>
+  );
+}
+
+/** The long account behind a short line, folded: read it when you want it. */
+function Details({ text }: { text: string }) {
+  return (
+    <details data-said-details="" className="mt-0.5">
+      <summary className="cursor-pointer text-small underline-offset-2 hover:underline" style={{ color: VOID.muted }}>details</summary>
+      <span className="mt-0.5 block whitespace-pre-line text-small leading-snug" style={{ color: VOID.muted }}>{text}</span>
+    </details>
   );
 }
 

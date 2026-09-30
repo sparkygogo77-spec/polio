@@ -103,7 +103,7 @@ function ContrastBadge({ a, b, label }: { a: string; b: string; label: string })
   const ok = ratio >= 4.5;
   const large = ratio >= 3;
   return (
-    <Tooltip content={ok ? "Readable at any size" : large ? "Only readable at large sizes" : "Too close to read"}>
+    <Tooltip content={`Contrast of this colour against the background, ${ratio.toFixed(1)} to 1. ${ok ? "Readable at any size" : large ? "Only readable at large sizes" : "Too close to read"}.`}>
       <span className={cn("num rounded-sm px-1 py-0.5 text-fine", ok ? "bg-accent-soft text-accent" : large ? "text-fg-muted" : "text-[oklch(0.7_0.19_25)]")}>
         {label} {ratio.toFixed(1)}
       </span>
@@ -292,22 +292,35 @@ function ColourSection() {
               />
             </Tooltip>
             {from?.[r] ? (
-              <span data-role-source={r} className="num text-center text-fine text-fg-faint">
-                {unused(r) ? "unused" : follow[r]}
+              <span data-role-source={r} className="num text-center text-fine leading-tight text-fg-faint">
+                {unused(r) ? "not used" : follow[r]}
               </span>
             ) : null}
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-between gap-2 text-small text-fg-muted">
+      {/* The number under a role is how many parts follow it; said once,
+          in words, so "154" beside "not used" never reads as "154 unused". */}
+      {from ? (
+        <p data-role-legend="" className="text-fine leading-snug text-fg-faint">
+          The number under each colour is how many parts follow it. &ldquo;Not used&rdquo; means no part wears that one, so it borrows another&rsquo;s colour.
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-small text-fg-muted">
         <span data-role-says="" className="min-w-0">
           {ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}
           {from && follow[role] ? `. Changing it repaints ${follow[role] === 1 ? "that part" : `those ${follow[role]}`}.` : ""}
         </span>
-        <span className="flex gap-1">
-          <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
-          <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
-        </span>
+        {/* On a site brought in, Text and Background are often never worn
+            together, so their ratio says nothing about the site: "text 1.2"
+            on a site whose words all read clearly. "On this site" measures
+            the words against what they really sit on instead. */}
+        {from ? null : (
+          <span className="flex gap-1">
+            <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
+            <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
+          </span>
+        )}
       </div>
 
       {/* The example goes BEFORE the mixer, because it is what the mixer is
@@ -1080,6 +1093,7 @@ function LightSection() {
 }
 
 export function LookPanel() {
+  const captured = useStudio((s) => !!s.look.paletteFrom || s.nodes.some((n) => !!n.from));
   return (
     <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
       {/*
@@ -1092,9 +1106,9 @@ export function LookPanel() {
         (Strip, and "Put the background back" in its tray) and on ⌘X / ⌘V.
         tests/look-no-background-head.mjs holds all three to it.
       */}
-      <ColourSection />
-      <SiteColoursSection />
-      <SiteFontsSection />
+      {/* A site brought in leads with what it wears; the six roles, which a
+          captured site was never painted from, come after. */}
+      {captured ? <><SiteColoursSection /><SiteFontsSection /><ColourSection /></> : <><ColourSection /><SiteColoursSection /><SiteFontsSection /></>}
       <LightSection />
       <TextureSection />
     </div>
