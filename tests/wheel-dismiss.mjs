@@ -39,8 +39,17 @@ const frame = page.locator("[data-frame]").first();
 const box = await frame.boundingBox();
 if (!box) throw new Error("No page frame on the board — cannot run.");
 
+/* A bare spot of the frame: a new idea lands in the middle of the view (tests/new-idea-here.mjs), so a fixed point may be under a part. */
+const bareSpot = () => page.evaluate(({ x, y, w, h }) => {
+  for (const fy of [0.35, 0.5, 0.65, 0.8, 0.2]) for (const fx of [0.5, 0.25, 0.75, 0.1, 0.9]) {
+    const px = x + w * fx, py = y + h * fy;
+    if (document.elementFromPoint(px, py)?.hasAttribute("data-frame")) return { px, py };
+  }
+  return { px: x + w * 0.5, py: y + h * 0.35 };
+}, { x: box.x, y: box.y, w: box.width, h: Math.min(box.height, 780 - box.y) });
 const openOnFrame = async () => {
-  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.35, { button: "right" });
+  const { px, py } = await bareSpot();
+  await page.mouse.click(px, py, { button: "right" });
   await page.waitForTimeout(450);
 };
 

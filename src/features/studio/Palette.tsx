@@ -646,16 +646,8 @@ function OpenShelf() {
             </button>
           ) : null}
         </div>
-        <Tooltip content="Fold the shelf down to a strip" side="top">
-          <button
-            type="button"
-            onClick={() => { play("select"); setShelfFolded(true); }}
-            aria-label="Fold the parts shelf away"
-            className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg"
-          >
-            <ChevronDown className="size-4" />
-          </button>
-        </Tooltip>
+        {/* Room for the fold key, which is drawn here but comes last in the shelf's order (below). */}
+        <span aria-hidden className="w-7 shrink-0" />
       </div>
 
       {/* --------------------------------------- only what is not a category */}
@@ -856,6 +848,20 @@ function OpenShelf() {
         </div>
       </div>
       <PartDetail add={addFeatureToCanvas} />
+      {/* The fold key: at the search row's end on screen, last in the order,
+          so the shelf's first control is still its first category. */}
+      <div className="absolute right-2 top-2 z-[3]">
+        <Tooltip content="Fold the shelf down to a strip" side="top">
+          <button
+            type="button"
+            onClick={() => { play("select"); setShelfFolded(true); }}
+            aria-label="Fold the parts shelf away"
+            className="tactile rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg"
+          >
+            <ChevronDown className="size-4" />
+          </button>
+        </Tooltip>
+      </div>
     </div>
   );
 }
