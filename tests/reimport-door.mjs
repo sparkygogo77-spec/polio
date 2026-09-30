@@ -155,7 +155,7 @@ const crt = now.nodes.find((n) => { const w = n.work; return w && [w, ...(w.also
 const crtIn = crt ? [crt.work, ...(crt.work.also ?? [])].find((u) => u.id === "crt-loader").inputs : null;
 check("the loader switches off at the new capture's 2.54 s from the navigation", crtIn?.at === "2.54", J(crtIn));
 const said = await page.evaluate(() => document.body.innerText);
-check("the line says what it kept", /kept your changes on \d+ parts?/.test(said), (said.match(/Brought in again[^\n]*/) ?? ["nothing said"])[0]);
+check("the line says what it kept", /kept your changes on \d+ parts?/i.test(said), (said.match(/Brought in again[^\n]*/) ?? ["nothing said"])[0]);
 
 /* With EXPORT set, the site as published after the re-import is written there, to be measured (sink site/capture/tools). */
 if (process.env.EXPORT) {

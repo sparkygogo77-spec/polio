@@ -14,7 +14,9 @@
  *   · deterministic: the same document writes the same bytes. Nothing reads
  *     the clock, and every list is sorted;
  *   · nothing secret: no token, no email, nothing shaped like a key (`scrub`);
- *     a font's bytes and a site's scripts are never copied in, only named.
+ *     a font's bytes and a site's scripts are never copied in, only named;
+ *   · nothing of how it was made: no capture address or host, no element
+ *     path, no prompt (`unmade`, and a face is never said to come from one).
  *
  * Pure: no store, no DOM. `captureNotes` is what `docTake.ts` keeps of a
  * capture's `behaviours` (which it otherwise drops once attached), so the
@@ -275,7 +277,9 @@ export function polioMd(site: PolioSite): string {
   const look = site.look ?? {};
   const capture = look.capture ?? null;
   /* The hosts the parts were captured from: taken out of anything carried into the file. */
-  const captureHosts = [...new Set(nodes.map((n) => { try { return n.from?.url ? new URL(n.from.url).host : ""; } catch { return ""; } }).filter(Boolean))];
+  const hostOf = (u?: string) => { try { return u ? new URL(u).host : ""; } catch { return ""; } };
+  const captureHosts = [...new Set([...nodes.map((n) => hostOf(n.from?.url)), ...(look.fonts ?? []).map((f) => hostOf(f.from?.url))].filter(Boolean))];
+  const onCapture = (u?: string) => !!hostOf(u) && captureHosts.includes(hostOf(u));
   const name = one(site.brief?.name ?? "") || "This site";
   const out: string[] = [];
   const say = (...lines: string[]) => out.push(...lines);
@@ -307,11 +311,12 @@ export function polioMd(site: PolioSite): string {
   const fonts = [...(look.fonts ?? [])].sort((a, b) => cmp(a.family, b.family) || cmp(a.weight ?? "", b.weight ?? "") || cmp(a.style ?? "", b.style ?? "") || cmp(a.unicodeRange ?? "", b.unicodeRange ?? ""));
   say("", "### Fonts", "");
   if (fonts.length) {
-    say("The faces the site was drawn in. A carried face's bytes are declared in `assets/site.css` as `@font-face`; the stylesheet it came from is named for reference.", "", "| Family | Weight | Style | File | Unicode range | Came from |", "|---|---|---|---|---|---|");
+    /* Where a face was captured from is how the site was made, not what it is: never named here. */
+    say("The faces the site was drawn in. A carried face's bytes are declared in `assets/site.css` as `@font-face`.", "", "| Family | Weight | Style | File | Unicode range |", "|---|---|---|---|---|");
     for (const ft of fonts) {
       const s = ft.source;
-      const file = s?.kind === "data" ? `assets/site.css (${s.format ?? "font"}, carried${typeof ft.bytes === "number" ? `, ${Math.round(ft.bytes / 1024)} KB` : ""})` : s?.kind === "url" ? text(s.url) : s?.kind === "link" ? `linked: ${text(s.href)}` : "not carried";
-      say(`| ${cell(ft.family)} | ${cell(ft.weight ?? "400")} | ${cell(ft.style ?? "normal")} | ${cell(file, 120)} | ${cell(ft.unicodeRange ?? "all", 160)} | ${cell(ft.from?.sheet ?? ft.from?.url ?? "", 120)} |`);
+      const file = s?.kind === "data" ? `assets/site.css (${s.format ?? "font"}, carried${typeof ft.bytes === "number" ? `, ${Math.round(ft.bytes / 1024)} KB` : ""})` : s?.kind === "url" ? (onCapture(s.url) ? "linked (not carried)" : text(s.url)) : s?.kind === "link" ? (onCapture(s.href) ? "linked (not carried)" : `linked: ${text(s.href)}`) : "not carried";
+      say(`| ${cell(ft.family)} | ${cell(ft.weight ?? "400")} | ${cell(ft.style ?? "normal")} | ${cell(file, 120)} | ${cell(ft.unicodeRange ?? "all", 160)} |`);
     }
   } else say("No faces carried: the site sets words in the Builder's own families.");
   const faces = tallyFonts(nodes as Parameters<typeof tallyFonts>[0]);
