@@ -7,7 +7,7 @@ import { inside, movesItself, underPath, type MotionNode } from "./parts/capture
 import { onUsesOf, type WorkUse } from "./library/works";
 
 /** A part, as far as these read it. */
-export interface CarryNode extends MotionNode { featureId?: string; data?: unknown; work?: WorkUse | null; motion?: MotionNode["motion"] }
+export interface CarryNode extends MotionNode { featureId?: string; data?: unknown; work?: WorkUse | null; motion?: MotionNode["motion"]; state?: { group?: string; option?: number } | null }
 
 /**
  * WHAT MOVES UNDER THE POINTER CARRIES WHAT IS ON IT. On the page a remote
@@ -28,8 +28,14 @@ export function carryOwned(nodes: readonly CarryNode[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
   for (const kid of nodes) {
     const sel = kid.from?.selector?.trim() ?? "";
+    /*
+     * Only a box of the same state: a press's parts (trumpmorty's "COPIED!")
+     * sit at the element paths of the parts they stand in for, and carried
+     * into the bar the press hides they were hidden with it.
+     */
+    const same = (h: CarryNode) => (h.state?.group ?? null) === (kid.state?.group ?? null) && (h.state?.option ?? null) === (kid.state?.option ?? null);
     const owner = hosts
-      .filter((h) => h.pageId === kid.pageId && underPath(h.from!.selector!.trim(), sel))
+      .filter((h) => h.pageId === kid.pageId && same(h) && underPath(h.from!.selector!.trim(), sel))
       .sort((a, b) => b.from!.selector!.length - a.from!.selector!.length)[0];
     if (owner) out.set(owner.id, [...(out.get(owner.id) ?? []), kid.id]);
   }

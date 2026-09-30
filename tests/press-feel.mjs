@@ -32,6 +32,8 @@ import { chromium } from "playwright-core";
 import { attachCaptured } from "../src/features/studio/library/captured.ts";
 import { motionCss } from "../src/features/studio/parts/capturedMotion.ts";
 import { featureFiles, pageFeatureTags, usesOf } from "../src/features/studio/library/works.ts";
+import { createJiti } from "jiti";
+const { carryOwned } = await createJiti(import.meta.url).import("../src/features/studio/carry.ts");
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${ok === true || !detail ? "" : ` — ${String(detail).slice(0, 600)}`}`); };
@@ -72,6 +74,13 @@ check("(1) …and a part with no link to a place does not", !use("n_bar", "glide
 check("(2) the CA bar copies what the page copied, quietly: the page's own flash says it", use("n_bar", "copy-toast")?.inputs?.text === "STANDIN0MINT0ADDRESS0000000001" && use("n_bar", "copy-toast")?.inputs?.quiet === "yes", J(use("n_bar", "copy-toast")));
 check("(2) …and its press shows what it flashed, each for its time", JSON.parse(use("n_bar", "press-shows")?.inputs?.timing ?? "[]").some((t) => t.part === "n_toast" && t.lasts === 1900 && t.from?.y === 220), J(use("n_bar", "press-shows")));
 check("(4) the dot's blink is the page's own animation, every longhand", use("n_dot", "blink")?.inputs?.css === "1s steps(2) 0s infinite normal none cap-blink", J(use("n_dot", "blink")));
+
+{
+  /* The bar rises under the pointer, so it carries what is in it on the published page: never a press's parts, which stand where its own words stand. */
+  const moving = out.map((n) => (n.id === "n_bar" ? { ...n, motion: { hover: [{ selector: ".ca:hover", self: true, style: { transform: "translate(-2px, -2px)" } }] } } : n));
+  const carried = carryOwned(moving).get("n_bar") ?? [];
+  check("(2) a bar that moves carries its own words, never the COPIED! its press shows in their place", carried.includes("n_ca") && !carried.includes("n_copied"), J(carried));
+}
 
 /* ------------------------------------------------------------ the page */
 const css = motionCss(out, keyframes, (id) => `#${id}`);
