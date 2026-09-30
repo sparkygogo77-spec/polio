@@ -198,10 +198,8 @@ const shelfWatchers = new Set<() => void>();
 function setShelfOpen(v: boolean) {
   if (shelfOpen === v) return;
   shelfOpen = v;
-  /* Closing gives the room back. Opening does not take a remembered height
-     with it, because the last thing he stretched the shelf to is about the
-     category he was reading then, not this one. */
-  if (!v) shelfTall = null;
+  /* The height he dragged it to is his, kept across categories and reloads
+     (`SHELF_KEY`): closing a category no longer gives it back. */
   shelfWatchers.forEach((w) => w());
 }
 /** True while at least one category is open on the parts shelf. */
@@ -241,27 +239,38 @@ export function useShelfOpen(): boolean {
  */
 const SHELF_MIN = 132;
 /*
- * A THIRD OF THE CANVAS, AT MOST.
+ * A THIRD OF THE CANVAS BY DEFAULT, MOST OF IT ON PURPOSE.
  *
  * It was 72% of the window, and opening a category took half the canvas
  * before anyone asked for more: the page being built is the subject and the
- * shelf is where you reach. So however it is grown, with the wheel or the
- * grip on its top edge, the shelf stops at about a third of the canvas's
- * height (`tests/shelf-strip.mjs`).
+ * shelf is where you reach. So it opens at about a third, and the wheel over
+ * the cards grows it no further than that before it scrolls them. Then the
+ * owner, capped there: "the shelf no longer stretches up". The grip on its
+ * top edge is the deliberate gesture, so it goes up to most of the canvas
+ * (`SHELF_GRIP_SHARE`), and where he leaves it is kept in this browser
+ * (`tests/shelf-strip.mjs`).
  */
 export const SHELF_SHARE = 0.34;
+export const SHELF_GRIP_SHARE = 0.85;
+const SHELF_KEY = "builder.shelf.height";
 const canvasHeight = () => {
   if (typeof window === "undefined") return 812;
   const pane = document.querySelector<HTMLElement>("[data-studio-pane]");
   return pane?.clientHeight || window.innerHeight - 88;
 };
 const shelfMax = () => Math.max(SHELF_MIN, Math.round(canvasHeight() * SHELF_SHARE));
+const gripMax = () => Math.max(SHELF_MIN, Math.round(canvasHeight() * SHELF_GRIP_SHARE));
 /** Null means "whatever opening a category asks for"; a number is his choice. */
-let shelfTall: number | null = null;
-function setShelfTall(px: number | null) {
-  const next = px === null ? null : Math.max(SHELF_MIN, Math.min(shelfMax(), Math.round(px)));
+let shelfTall: number | null = (() => {
+  try { const v = Number(typeof window === "undefined" ? NaN : window.localStorage.getItem(SHELF_KEY)); return Number.isFinite(v) && v >= SHELF_MIN ? v : null; } catch { return null; }
+})();
+/** The wheel grows the shelf to a third; the grip (`by: "grip"`) to most of the canvas, and is remembered. */
+function setShelfTall(px: number | null, by: "wheel" | "grip" = "wheel") {
+  const cap = by === "grip" ? gripMax() : Math.max(shelfMax(), by === "wheel" && shelfTall != null && px != null && px < shelfTall ? shelfTall : 0);
+  const next = px === null ? null : Math.max(SHELF_MIN, Math.min(cap, Math.round(px)));
   if (shelfTall === next) return;
   shelfTall = next;
+  if (by === "grip") { try { if (next == null) window.localStorage.removeItem(SHELF_KEY); else window.localStorage.setItem(SHELF_KEY, String(next)); } catch { /* kept for the tab */ } }
   shelfWatchers.forEach((w) => w());
 }
 /*
@@ -701,7 +710,7 @@ function OpenShelf() {
              pane going 261 to 635 under a pointer that never left the
              shelf. Two scroll regions that never push each other is the
              rule; this is the half of it the shelf owns. */
-          className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden overscroll-y-contain">
+          className="no-bars relative z-[1] flex h-full flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain">
         {searching ? (
           found.length || here.length ? (
             <div className="relative z-[1] px-3 py-3">
@@ -855,7 +864,10 @@ function OpenShelf() {
               </div>
             ) : null}
 
-            {open.length || removed.length ? <div className="h-10" /> : null}
+            {/* The room at the end of the list: inside the open category (its
+                own foot), so the category reaches the shelf's; here only for
+                the removed parts with nothing open. */}
+            {!open.length && removed.length ? <div className="h-10" /> : null}
           </>
         )}
         </div>
@@ -952,7 +964,10 @@ function CategorySection({
   }, [shown, subs, sub, category.id, category.label]);
 
   return (
-    <section data-category-open={category.id} className="relative z-[1] border-t border-border/70">
+    /* As tall as the shelf leaves it, never shorter than its cards: an open
+       category is the shelf's body, and a short one sat as a small box in a
+       tall shelf (`tests/shelf-strip.mjs`). */
+    <section data-category-open={category.id} className="relative z-[1] flex-[1_0_auto] border-t border-border/70 pb-10">
       <div
         className="sticky top-0 z-[2] flex items-center gap-2 px-3 py-1.5 backdrop-blur-sm"
         style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
@@ -1028,8 +1043,9 @@ function Band({ title, children, hue, mark }: { title: string; children: React.R
 /* ------------------------------------------------------------------ */
 
 /**
- * Drag the shelf's top edge to make it taller or shorter, up to a third of
- * the canvas (`shelfMax`). The wheel over the shelf still does the same.
+ * Drag the shelf's top edge to make it taller or shorter, up to most of the
+ * canvas (`gripMax`), remembered. The wheel over the shelf grows it only to
+ * a third, then scrolls the cards.
  * Inside the shelf's own edge, never over the board: a part's resize handle
  * at the shelf's edge is the part's (`tests/hand-steady.mjs`).
  */
@@ -1052,7 +1068,7 @@ function ShelfGrip() {
       onPointerMove={(e) => {
         const s = start.current;
         if (!s) return;
-        setShelfTall(s.h - (e.clientY - s.y));
+        setShelfTall(s.h - (e.clientY - s.y), "grip");
       }}
       onPointerUp={() => { start.current = null; }}
       onPointerCancel={() => { start.current = null; }}

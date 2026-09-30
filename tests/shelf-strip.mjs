@@ -9,8 +9,10 @@
  *
  *   · the shelf folds to a thin strip and opens again, and the choice is
  *     kept across a reload;
- *   · an open category is never more than about a third of the canvas, and
- *     dragging its top edge cannot take it past that;
+ *   · an open category opens at about a third of the canvas and fills the
+ *     shelf; dragging its top edge takes it taller, up to most of the
+ *     canvas, and the height is kept across a reload; the list scrolls under
+ *     the search, which stays at the top;
  *   · Escape closes the open category, and its close button sits beside its
  *     name;
  *   · a search lists this page's parts first (by words, name and kind), a
@@ -46,7 +48,7 @@ const doc = JSON.stringify({ state: {
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.removeItem("builder.shelf.folded"); sessionStorage.setItem("seeded", "1"); } }, doc);
+await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.removeItem("builder.shelf.folded"); localStorage.removeItem("builder.shelf.height"); sessionStorage.setItem("seeded", "1"); } }, doc);
 const page = await context.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
@@ -71,27 +73,84 @@ await page.getByRole("button", { name: "Open the parts shelf" }).click();
 await page.waitForTimeout(400);
 check("…and opens again with one press", (await bandH()) > 100, `${await bandH()}px`);
 
-/* an open category: a third of the canvas at most */
+/* an open category: a third of the canvas by default, taller by the grip */
 const first = page.locator("[data-planets] [data-category]").first();
 const catName = await first.getAttribute("aria-label");
 await first.click();
 await page.waitForTimeout(600);
 const cap = Math.round((await paneH()) * 0.36);
-check("an open category takes about a third of the canvas, no more", (await bandH()) <= cap, `${await bandH()} of a ${await paneH()} canvas`);
+check("an open category opens at about a third of the canvas", (await bandH()) <= cap && (await bandH()) >= Math.round((await paneH()) * 0.25), `${await bandH()} of a ${await paneH()} canvas`);
+
+/* The open category is the shelf's body: it reaches the shelf's foot. */
+const fills = await page.evaluate(() => {
+  const list = document.querySelector("[data-shelf]").getBoundingClientRect();
+  const sec = document.querySelector("[data-category-open]").getBoundingClientRect();
+  return { list: Math.round(list.bottom), sec: Math.round(sec.bottom), h: Math.round(sec.height) };
+});
+check("the open category fills the shelf's height", fills.sec >= fills.list - 2, `category ends at ${fills.sec}, the shelf at ${fills.list}`);
 const grip = await page.locator("[data-shelf-grip]").boundingBox();
 await page.mouse.move(grip.x + 200, grip.y + grip.height / 2);
 await page.mouse.down();
 await page.mouse.move(grip.x + 200, 60, { steps: 8 });
 await page.mouse.up();
 await page.waitForTimeout(300);
-check("dragging its top edge up stops at the same third", (await bandH()) <= cap && (await bandH()) > 150, `${await bandH()} of ${await paneH()}`);
+const tall = await bandH();
+check("dragging its top edge up makes it taller than a third", tall > cap + 40, `${tall} of ${await paneH()}`);
+check("…up to most of the canvas, never all of it", tall <= Math.round((await paneH()) * 0.86), `${tall} of ${await paneH()}`);
+const fillsTall = await page.evaluate(() => {
+  const list = document.querySelector("[data-shelf]").getBoundingClientRect();
+  const sec = document.querySelector("[data-category-open]").getBoundingClientRect();
+  return { list: Math.round(list.bottom), sec: Math.round(sec.bottom) };
+});
+check("…and the open category grows with it to the shelf's foot", fillsTall.sec >= fillsTall.list - 2, `category ends at ${fillsTall.sec}, the shelf at ${fillsTall.list}`);
+/* The owner's case: a SHORT category in a tall shelf. A sub-group chip is
+   the way a category gets short, so the smallest one is chosen and measured:
+   the category must still reach the shelf's foot. */
+{
+  const section = page.locator("[data-category-open]").first();
+  const chips = section.locator("button[aria-pressed]");
+  const n = await chips.count();
+  let best = null;
+  for (let i = 0; i < n; i++) {
+    await chips.nth(i).click();
+    await page.waitForTimeout(250);
+    const m = await page.evaluate(() => {
+      const sec = document.querySelector("[data-category-open]"); const list = document.querySelector("[data-shelf]");
+      const content = [...sec.children].reduce((h, k) => h + k.getBoundingClientRect().height, 0);
+      return { content: Math.round(content), room: list.clientHeight, secBottom: Math.round(sec.getBoundingClientRect().bottom), listBottom: Math.round(list.getBoundingClientRect().bottom) };
+    });
+    if (!best || m.content < best.content) best = { ...m, i };
+    await chips.nth(i).click();   // and off again
+    await page.waitForTimeout(150);
+  }
+  if (best) { await chips.nth(best.i).click(); await page.waitForTimeout(250); }
+  const now = await page.evaluate(() => { const sec = document.querySelector("[data-category-open]"); const list = document.querySelector("[data-shelf]"); return { secBottom: Math.round(sec.getBoundingClientRect().bottom), listBottom: Math.round(list.getBoundingClientRect().bottom) }; });
+  check("a short category in a tall shelf still fills it to the foot", !!best && best.content < best.room && now.secBottom >= now.listBottom - 2,
+    best ? `its cards take ${best.content}px of ${best.room}; the category ends at ${now.secBottom}, the shelf at ${now.listBottom}` : "no sub-groups to narrow it");
+  await page.screenshot({ path: ".screenshots/shelf-short-category-fills.png" });
+  if (best) { await chips.nth(best.i).click(); await page.waitForTimeout(250); }
+}
+/* The list scrolls under the search, which stays where it is. */
+const searchAt = async () => page.evaluate(() => { const r = document.querySelector("[data-parts-search]").getBoundingClientRect(); const b = document.querySelector("[data-studio-band]").getBoundingClientRect(); return { top: Math.round(r.top), inBand: r.top >= b.top - 1 && r.bottom <= b.bottom + 1 && r.height > 20 }; });
+const s0 = await searchAt();
+await page.evaluate(() => { const l = document.querySelector("[data-shelf]"); l.scrollTop = l.scrollHeight; });
+await page.waitForTimeout(300);
+const s1 = await searchAt();
+const scrolled = await page.evaluate(() => document.querySelector("[data-shelf]").scrollTop);
+check("scrolled to the end of the list, the search is still at the top of the shelf", scrolled > 0 && s1.inBand && s1.top === s0.top, `list at ${scrolled}, search at ${s0.top} then ${s1.top}`);
+await page.screenshot({ path: ".screenshots/shelf-dragged-tall.png" });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+await page.locator(`[data-planets] [data-category]`).first().click();
+await page.waitForTimeout(600);
+check("the height he dragged it to is kept across a reload", Math.abs((await bandH()) - tall) <= 2, `${tall} then ${await bandH()}`);
 const g2 = await page.locator("[data-shelf-grip]").boundingBox();
 await page.mouse.move(g2.x + 200, g2.y + g2.height / 2);
 await page.mouse.down();
 await page.mouse.move(g2.x + 200, g2.y + 80, { steps: 6 });
 await page.mouse.up();
 await page.waitForTimeout(300);
-check("…and dragging it down makes it shorter", (await bandH()) < cap - 40, `${await bandH()}`);
+check("…and dragging it down makes it shorter", (await bandH()) < tall - 40, `${tall} then ${await bandH()}`);
 
 /* the close button beside the name */
 const section = page.locator("[data-category-open]").first();
@@ -101,7 +160,13 @@ check("the close button sits beside the category's name", !!nameBox && !!closeBo
 await page.screenshot({ path: ".screenshots/shelf-category-third.png" });
 
 /* Escape closes it */
-await page.mouse.click(1420, 880);   // the ground: nothing picked on the board
+/* A press on the open category's own header: the shelf is the last thing
+   touched and nothing on the board is picked. (A fixed point low on the
+   screen is inside the shelf now it can be tall, and may be a card, whose
+   press opens its detail card: Escape then closes that first.) */
+const head = await page.locator("[data-category-open] span").filter({ hasText: catName }).first().boundingBox();
+await page.mouse.click(head.x + 4, head.y + head.height / 2);
+await page.waitForTimeout(200);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 check("Escape closes the open category", (await page.locator("[data-category-open]").count()) === 0);
