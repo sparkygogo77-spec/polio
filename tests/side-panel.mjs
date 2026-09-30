@@ -71,6 +71,12 @@ const nodes = [
   node("n_box_6", "prose", "A weekly strip about a crew of misfits.", 120, 280, 360, 40, { label: "p · 0 inside", font: { face: "Comic Neue", size: 16 }, colour: { text: "rgb(20, 20, 20)" }, from: at(`${PATH} > p`) }),
   node("n_box_7", "box", "", 900, 200, 300, 300, { label: "div · 0 inside", colour: { bg: YELLOWS[4] }, radius: 24, from: at("body > main > section:nth-of-type(1) > div:nth-of-type(2)") }),
 ];
+/* A face on 27 parts, on the second page: labels in links, machine names, the same words twice over. Pressing it lists all 27. */
+const PIXEL = Array.from({ length: 27 }, (_, i) => node(`n_px_${i}`, i % 3 ? "prose" : "box", i % 4 ? `Score ${i}` : "Play", 40, 40 + i * 30, 200, 26, {
+  pageId: "p1", label: i % 2 ? "span" : "a · 1 inside", font: { face: "Pixel Mono", size: 14 },
+  from: at(i % 2 ? `body > main > a:nth-of-type(${i}) > span` : `body > main > div:nth-of-type(${i})`),
+}));
+nodes.push(...PIXEL);
 const doc = JSON.stringify({ state: {
   pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }, { id: "p1", name: "Archive", path: "/archive", prompt: "", scroll: "inherit" }],
   nodes, groups: [], shapes: [], format: {}, brief: { name: "COMIC", gimmick: "", master: "" },
@@ -200,6 +206,13 @@ check("on a captured site, Look leads with \"On this site\"", first === "", Stri
 check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
 check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
 check("the words' contrast is measured on what they sit on", /Readable words: 3 of 3/.test(await side.locator("[data-words-readable]").innerText()), await side.locator("[data-words-readable]").innerText());
+
+await side.locator('[data-site-font="Pixel Mono"]').click();
+await page.waitForTimeout(300);
+const listed = await side.locator("[data-site-font-detail] [data-site-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-part")));
+check("pressing a face lists every part set in it, labels in links and repeated words among them", listed.length === 27 && new Set(listed).size === 27, `${listed.length} of 27`);
+await side.locator('[data-site-font="Pixel Mono"]').click();
+await page.waitForTimeout(200);
 
 const fills = side.locator('[data-site-group="fill"]');
 const before = await fills.locator("[data-site-swatch]").count();

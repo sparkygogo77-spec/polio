@@ -157,10 +157,13 @@ function PartsList({ spots }: { spots: { id: string; where: string }[] }) {
       <span className="shrink-0 text-fine text-fg-faint">{r.where}</span>
     </button>
   );
-  return rows.length > 12 ? (
+  /* Every part that wears it is in the list, not only the ones a virtual
+     window happened to draw: a face on 27 parts listed 16. Virtual only
+     past a hundred rows (AGENTS.md), where drawing them all would cost. */
+  return rows.length > 100 ? (
     <VirtualList items={rows} getKey={(r) => r.id} renderItem={row} estimateSize={26} className="h-40 rounded-md border border-border" />
   ) : (
-    <div className="rounded-md border border-border">{rows.map((r) => <React.Fragment key={r.id}>{row(r)}</React.Fragment>)}</div>
+    <div data-site-parts="" className={cn("rounded-md border border-border", rows.length > 6 && "max-h-40 overflow-y-auto")}>{rows.map((r) => <React.Fragment key={r.id}>{row(r)}</React.Fragment>)}</div>
   );
 }
 

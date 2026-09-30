@@ -26,7 +26,7 @@
  */
 import { capturedFrom, idless, insideControl, isMachineLabel, partName } from "../src/features/studio/partNames.ts";
 import { CAPTURE_HIDES, isCaptured, readSiteFormat, siteSays } from "../src/features/studio/siteFormat.ts";
-import { closeShades, oklabDistance, tallyColours, wordsContrast } from "../src/features/studio/siteColours.ts";
+import { closeShades, oklabDistance, tallyColours, tallyFonts, wordsContrast } from "../src/features/studio/siteColours.ts";
 import { facetSays, keptSays, keptShort } from "../src/features/studio/reimport.ts";
 
 const results = [];
@@ -92,6 +92,13 @@ check("a tighter distance merges less", tight.reduce((n, g) => n + g.from.length
 /* ------------------------------------------------ contrast on what the words sit on */
 const cons = wordsContrast(nodes, { bg: "rgb(20, 20, 20)", text: "rgb(20, 20, 20)" });
 check("near-black words on a yellow card read clearly, whatever the roles say", cons.length >= 2 && cons.every((c) => c.ratio >= 4.5), J(cons));
+
+/* ------------------------------------------------ a face on many parts */
+/* The walk's VT323 case, made up: 27 parts in one face, labels inside links among them, the same words on several. Every one is counted, by id, never by name. */
+const pixel = Array.from({ length: 27 }, (_, i) => ({ id: `n_px_${i}`, pageId: "p", label: i % 2 ? "span" : "a · 1 inside", content: i % 4 ? `Score ${i}` : "Play", font: { face: "Pixel Mono", size: 14 }, x: 0, y: i * 30, w: 200, h: 26, from: { selector: i % 2 ? `body > a > span` : "body > div" } }));
+const px = tallyFonts([...nodes, ...pixel]).find((f) => f.key === "Pixel Mono");
+check("a face on 27 parts counts all 27, labels in links and repeated words among them", px?.parts === 27 && new Set(px.ids).size === 27, J(px && { parts: px.parts, ids: px.ids.length }));
+check("…each one keeps a name of its own to be listed by", new Set(pixel.map((n) => n.id)).size === 27 && pixel.every((n) => partName(n, pixel) && !/inside|n_px/.test(partName(n, pixel))));
 
 /* ------------------------------------------------ the re-import line */
 const kept = { edited: [{ id: "n_box_63", label: partName(nodes[2], nodes), facets: ["x", "work/marquee/middle"] }], added: ["n_hand_1"], stayDeleted: 2, gone: 1, fresh: 3, doc: [], by: "record" };
