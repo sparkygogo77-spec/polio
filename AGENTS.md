@@ -2907,6 +2907,15 @@ carry why a thing arrived.
   Repos. `setRepo` refuses a target another site holds, and a duplicate
   starts with none. Nothing changes a site's stored target on its own.
   `tests/shared-target.mjs`.
+- **A publish carries every file its pages point at, or does not go**
+  (`studio/siteRefs.ts`, run in `collectFiles`). Every page and sheet is
+  read for what it references (src, srcset, poster, stylesheet and icon
+  hrefs, share pictures, every `url(…)`); what the Builder serves itself
+  from `public/` (the construct faces, the empty picture's crop) is copied
+  in at the same path, and anything else nothing provides stops the publish
+  with a plain list of files and the pages that use them. Links between
+  pages are addresses and are not held to it. `tests/site-refs.mjs`,
+  `tests/publish-complete.mjs`.
 - **A publish is said in plain steps** (`studio/publishWords.ts`): Saving to
   GitHub…, Saved to GitHub ✓ waiting for Vercel…, Live ✓ with the time and
   the address. A failure is one sentence saying whether the change is saved

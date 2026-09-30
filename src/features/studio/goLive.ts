@@ -23,6 +23,9 @@ import { sitePictures } from "./staticSite";
 import { useStudio } from "./store";
 import { contractFiles } from "./library/contract";
 import { polioMd, POLIO_MD } from "./polioMd";
+import { completeSite, fetchOwnFromBuilder, missingSays, SiteIncomplete } from "./siteRefs";
+import { homeFor } from "./homePage";
+import { pageFile } from "./staticSite";
 import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "./publishWords";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
@@ -204,10 +207,11 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
    * person pressing publish.
    */
   let shots: GeneratedFile[] = [];
+  let lostCount = 0;
   try {
     const { files, lost } = await sitePictures();
     shots = files;
-    if (lost.length) say(`${lost.length} picture${lost.length === 1 ? " is" : "s are"} no longer in this browser, so ${lost.length === 1 ? "it" : "they"} could not be published. Add ${lost.length === 1 ? "it" : "them"} again on the board.`);
+    lostCount = lost.length;
   } catch (err) {
     say(`The pictures could not be read out of this browser (${err instanceof Error ? err.message : "unknown"}), so the pages went up without them.`);
   }
@@ -233,7 +237,24 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
       address: address ?? null,
     }),
   };
-  return [...pages, ...shots, ...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described];
+  const all = [...pages, ...shots, ...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described];
+  /*
+   * NOTHING A PAGE POINTS AT IS LEFT BEHIND (`siteRefs.ts`). What the
+   * Builder serves itself (its `public/` files: the construct faces, the
+   * picture an empty part shows) is copied in at the same path; anything
+   * else a page points at and nothing provides, a picture this browser has
+   * lost among them, stops the publish with the list, before a byte moves.
+   */
+  const { added, missing } = await completeSite(all as { path: string; content: string; encoding?: string }[], { fetchOwn: fetchOwnFromBuilder, liveAddress: address ?? null });
+  if (missing.length) {
+    const home = homeFor(st.pages);
+    const names = new Map(st.pages.map((p) => [pageFile(p, home), p.name?.trim() || p.path || "a page"]));
+    throw new SiteIncomplete(missing, missingSays(missing, (f) => names.get(f) ?? f));
+  }
+  /* A lost picture no page points at is still said, and goes up without it. */
+  if (lostCount) say(`${lostCount} picture${lostCount === 1 ? " is" : "s are"} no longer in this browser and no page uses ${lostCount === 1 ? "it" : "them"}, so ${lostCount === 1 ? "it was" : "they were"} left out.`);
+  if (added.length) say(`${added.length} file${added.length === 1 ? "" : "s"} the pages use from the Builder itself went up with the site: ${added.map((f) => f.path).join(", ")}.`);
+  return [...all, ...(added as GeneratedFile[])];
 }
 
 /**
@@ -277,7 +298,16 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
      * no og:url, and the next publish, once live, fills them.
      */
     const address = publishedAt() ? null : await productionAddress({ repo, sources });
-    const going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address);
+    let going: GeneratedFile[];
+    try {
+      going = await collectFiles([...documentFiles(), ...(o.extra ?? [])], setNote, address);
+    } catch (err) {
+      if (!(err instanceof SiteIncomplete)) throw err;
+      /* Held back before anything was sent: the list is the whole message. */
+      refuse(err.says, undefined, { stage: "github", reason: "blocked", message: err.says });
+      say({ key: "studio:publish", title: "Not published", body: err.says, level: "error", source: "studio", toast: true });
+      return;
+    }
     setBusy(`Pushing ${going.length} files to GitHub…`);
     const pushed = await publish({ files: going, message: o.message, deploy: false, repo, branch, create, boundTo, sources });
     remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
