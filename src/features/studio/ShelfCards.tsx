@@ -241,16 +241,38 @@ function useWake() {
   const [awake, setAwake] = React.useState(false);
   const stop = React.useRef<number | null>(null);
   React.useEffect(() => () => { if (stop.current) window.clearTimeout(stop.current); }, []);
-  const wake = () => {
+  const wake = React.useCallback(() => {
     if (stop.current) window.clearTimeout(stop.current);
     setAwake(true);
     stop.current = window.setTimeout(() => setAwake(false), PLAY_MS);
-  };
+  }, []);
   const rest = () => {
     if (stop.current) { window.clearTimeout(stop.current); stop.current = null; }
     setAwake(false);
   };
-  return { awake, wake, rest };
+  /*
+   * ONCE WHEN SHOWN, as well as under the hand. A still frame of an effect
+   * is a guess at the effect; the first time a card comes into view it plays
+   * its one pass, so what it does is seen before anybody thinks to hover.
+   */
+  const seen = React.useRef(false);
+  const shown = React.useCallback((el: HTMLElement | null) => {
+    if (!el || seen.current || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting) || seen.current) return;
+      seen.current = true;
+      io.disconnect();
+      wake();
+    }, { threshold: 0.5 });
+    io.observe(el);
+  }, [wake]);
+  return { awake, wake, rest, shown };
+}
+
+/** A big preview that plays once as it is shown and again under the hand: the detail card's picture. */
+function Played({ children }: { children: (playing: boolean) => React.ReactNode }) {
+  const { awake, wake, shown } = useWake();
+  return <div ref={shown} data-played={awake ? "1" : "0"} onPointerEnter={wake}>{children(awake)}</div>;
 }
 
 /** Parts that are made from something of the owner's, and what each becomes once it has it. */
@@ -294,7 +316,7 @@ export function ThingPreview({ feature, width, height, words, playing, loop }: {
 export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, onRemove }: {
   feature: FeatureDef; width: number; words: SiteWords; onRemove?: () => void;
 }) {
-  const { awake, wake, rest } = useWake();
+  const { awake, wake, rest, shown } = useWake();
   const used = useUsedBy("part", feature.basedOn ? "" : feature.id);
   const sw = switchOf(feature.id);
   const status = sw ? switchStatus(feature.id) : statusOf(feature);
@@ -308,6 +330,7 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
       data-site-wide={sw ? "1" : undefined}
       className="group relative flex flex-col overflow-hidden rounded-md border border-border bg-panel transition-colors hover:border-fg-faint"
       style={{ width }}
+      ref={shown}
       onPointerEnter={wake}
       onPointerLeave={rest}
     >
@@ -364,7 +387,7 @@ const WORK_NEED: Record<string, Need | null> = { none: null, wallet: "wallet", b
 /** A working feature, taken from one of his sites: the same card, with its own preview. */
 export function WorkShelfCard({ work, width, words, picture }: { work: Work; width: number; words: SiteWords; picture?: (w: number, h: number) => React.ReactNode }) {
   const m = work.manifest;
-  const { awake, wake, rest } = useWake();
+  const { awake, wake, rest, shown } = useWake();
   const used = useUsedBy("work", m.id);
   const t = useSiteTheme();
   const need = WORK_NEED[m.needs] ?? null;
@@ -377,6 +400,7 @@ export function WorkShelfCard({ work, width, words, picture }: { work: Work; wid
       data-status="works"
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-md border border-border bg-panel transition-colors hover:border-fg-faint"
       style={{ width }}
+      ref={shown}
       onPointerEnter={wake}
       onPointerLeave={rest}
       onClick={open}
@@ -403,15 +427,8 @@ export function WorkShelfCard({ work, width, words, picture }: { work: Work; wid
 function WorkPreview({ work, t, words, width, height, playing, loop }: {
   work: Work; t: ReturnType<typeof themeFrom>; words: SiteWords; width: number; height: number; playing?: boolean; loop?: boolean;
 }) {
-  if (hasDemo(work.manifest.id)) return <MotionDemo id={work.manifest.id} t={t} words={words} width={width} height={height} play={playing} loop={loop} />;
-  return (
-    <div className="grid place-items-center" style={{ width, height, background: t.bg }}>
-      <span className="num max-w-[90%] truncate text-[22px] font-semibold leading-none" style={{ color: t.accent, fontFamily: t.headingFamily }}>
-        {work.manifest.look.sample}
-      </span>
-      {work.manifest.look.caption ? <span className="text-fine" style={{ color: t.muted }}>{work.manifest.look.caption}</span> : null}
-    </div>
-  );
+  /* Every working feature is shown doing its job to a piece of the open site; one this file has no scene for is shown on a card of the site, named. */
+  return <MotionDemo id={work.manifest.id} label={work.manifest.name} t={t} words={words} width={width} height={height} play={playing} loop={loop} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -542,7 +559,7 @@ function PartBody({ id, add }: { id: string; add: (featureId: string) => string 
       title={feature.name}
       category={feature.category}
       attr={{ "data-part-detail": id }}
-      preview={<ThingPreview feature={feature} width={440} height={280} words={words} loop />}
+      preview={<Played>{(on) => <ThingPreview feature={feature} width={440} height={280} words={words} playing={on} />}</Played>}
     >
       <Row title="What it does">
         <p className="text-plain text-fg">{feature.explain ?? doesOf(feature)}</p>
@@ -603,7 +620,7 @@ function WorkBody({ id, add }: { id: string; add: (featureId: string) => string 
       title={m.name}
       category={m.category}
       attr={{ "data-part-detail": `work:${id}` }}
-      preview={<WorkPreview work={work} t={t} words={words} width={440} height={280} loop />}
+      preview={<Played>{(on) => <WorkPreview work={work} t={t} words={words} width={440} height={280} playing={on} />}</Played>}
     >
       <Row title="What it does">
         <p className="text-plain text-fg">{m.blurb}</p>

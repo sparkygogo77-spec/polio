@@ -32,6 +32,10 @@ const KIND: Record<string, string> = {
   "sticky-story": "sticky", "horizontal-scroll": "sideways", "scroll-video": "film",
   "morph-transition": "morph", physics: "physics", "infinite-scroll": "more",
   "dust-canvas": "dust", glide: "glide", grow: "grow", "follow-pointer": "cursor",
+  /* The library's working behaviours, each shown doing its job to a piece of the open site. */
+  "copy-toast": "copy", "hover-lift": "lift", "press-shows": "press", "world-dialogs": "dialog",
+  "scroll-header": "header", "scroll-grow": "grow-scroll", embed: "embed",
+  "sol-price": "price", "token-price": "price",
 };
 
 export function hasDemo(id: string): boolean {
@@ -68,6 +72,18 @@ const CSS = `
 @keyframes md-more{0%,30%{height:0;opacity:0}70%,100%{height:34px;opacity:1}}
 @keyframes md-dust{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-120px);opacity:0}}
 @keyframes md-glide{0%{transform:translateY(0)}100%{transform:translateY(-38%)}}
+@keyframes md-aim{0%{transform:translate(var(--fx),var(--fy))}45%,100%{transform:translate(var(--tx),var(--ty))}}
+@keyframes md-tap{0%,44%{transform:scale(1);opacity:0}50%{transform:scale(.4);opacity:.9}70%,100%{transform:scale(1.6);opacity:0}}
+@keyframes md-lift{0%,40%{transform:translateY(0);box-shadow:0 0 0 rgba(0,0,0,0)}60%,100%{transform:translateY(-12px);box-shadow:0 18px 30px rgba(0,0,0,.45)}}
+@keyframes md-toast{0%,50%{opacity:0;transform:translate(-50%,16px)}62%,90%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@keyframes md-open{0%,50%{opacity:0;transform:scaleY(.2)}66%,100%{opacity:1;transform:scaleY(1)}}
+@keyframes md-on{0%,50%{background:transparent}51%,100%{background:var(--on)}}
+@keyframes md-pop{0%,50%{opacity:0;transform:scale(.6)}62%{transform:scale(1.05)}70%,100%{opacity:1;transform:scale(1)}}
+@keyframes md-headbar{0%,35%{background:transparent;box-shadow:none;padding-top:14px;padding-bottom:14px}55%,100%{background:var(--fill);box-shadow:0 4px 0 var(--edge);padding-top:8px;padding-bottom:8px}}
+@keyframes md-widen{0%{transform:scaleX(.15)}100%{transform:scaleX(1)}}
+@keyframes md-tick{0%,40%{opacity:1}45%{opacity:0;transform:translateY(-6px)}50%{opacity:0;transform:translateY(6px)}60%,100%{opacity:1;transform:none}}
+@keyframes md-flash{0%,48%{color:inherit}55%,80%{color:var(--up)}100%{color:inherit}}
+@keyframes md-load{0%{width:0}100%{width:100%}}
 @keyframes md-grow{0%{transform:scale(.6);opacity:.3}100%{transform:scale(1);opacity:1}}
 `;
 
@@ -89,11 +105,13 @@ const cut = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n).repl
 /**
  * The demo, drawn 400 wide and scaled into the box it is given.
  */
-export function MotionDemo({ id, t, words, width, height, play, loop }: {
+export function MotionDemo({ id, label, t, words, width, height, play, loop }: {
+  /** The feature's name, shown on the site's card when there is no scene of its own for it. */
+  label?: string;
   id: string; t: Theme; words: SiteWords; width: number; height: number; play?: boolean; loop?: boolean;
 }) {
   useSheet();
-  const kind = KIND[id] ?? "reveal";
+  const kind = KIND[id] ?? (label ? "named" : "reveal");
   /* A page as wide as a small window, as tall as the box's own shape asks: a card's strip or the detail card's picture. */
   const W = 400;
   const H = Math.max(170, Math.min(300, Math.round((W * height) / Math.max(1, width))));
@@ -109,6 +127,26 @@ export function MotionDemo({ id, t, words, width, height, play, loop }: {
   const line = cut(words.lines[0] ?? `${words.name}, as your visitors will see it.`, 70);
   const links = (words.pages.length ? words.pages : heads.filter((h) => h.split(" ").length <= 2)).slice(0, 3);
 
+  /**
+   * A mouse pointer that travels from (fx, fy) to (tx, ty) and presses there,
+   * for the behaviours that answer a press or a hover. At rest it sits on its
+   * target, so the still frame shows where the hand goes.
+   */
+  const pointer = (fx: number, fy: number, tx: number, ty: number, press = true) => (
+    <div
+      className="md-a"
+      style={{
+        position: "absolute", left: 0, top: 0, zIndex: 5,
+        ["--fx" as string]: `${fx}px`, ["--fy" as string]: `${fy}px`, ["--tx" as string]: `${tx}px`, ["--ty" as string]: `${ty}px`,
+        ...(moving ? a("md-aim") : { transform: `translate(${tx}px,${ty}px)` }),
+      } as React.CSSProperties}
+    >
+      {press ? <span className="md-a" style={{ position: "absolute", left: -14, top: -14, width: 28, height: 28, borderRadius: 99, border: `2px solid ${t.accent}`, opacity: 0, ...a("md-tap") }} /> : null}
+      <svg width="18" height="22" viewBox="0 0 18 22" style={{ position: "absolute", left: -2, top: -2 }}>
+        <path d="M1 1 L1 17 L5.5 13 L8.5 20 L11 19 L8 12 L14 12 Z" fill={t.text} stroke={t.bg} strokeWidth="1.2" />
+      </svg>
+    </div>
+  );
   const text: React.CSSProperties = { color: t.text, fontFamily: t.bodyFamily, fontSize: 13, lineHeight: 1.4 };
   const heading: React.CSSProperties = { color: t.text, fontFamily: t.headingFamily, fontWeight: 700, fontSize: 22, lineHeight: 1.15, margin: 0 };
   const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: Math.min(t.radius, 14), padding: 12 };
@@ -365,6 +403,140 @@ export function MotionDemo({ id, t, words, width, height, play, loop }: {
           {Array.from({ length: 16 }, (_, i) => (
             <span key={i} className="md-a" style={{ position: "absolute", left: `${(i * 37) % 100}%`, bottom: 10 + ((i * 53) % 120), width: 3, height: 3, borderRadius: 9, background: t.accent, ...(moving ? a("md-dust", { animationDelay: `${(i % 5) * 0.2}s` }) : { opacity: 0.7 }) }} />
           ))}
+        </>
+      );
+      break;
+    case "copy": {
+      /* A value off the site, a press on its copy mark, and the toast saying so. */
+      const value = cut(words.lines[0]?.match(/\S{8,}/)?.[0] ?? words.headings[0] ?? words.name, 22);
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 40, right: 40, top: 70, ...card, display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+            <span style={{ ...text, color: t.muted, fontSize: 12 }}>{cut(words.headings[1] ?? "Address", 14)}</span>
+            <span style={{ ...text, flex: 1, fontFamily: "ui-monospace, monospace", fontSize: 15 }}>{value}</span>
+            <span style={{ width: 28, height: 28, borderRadius: 6, display: "grid", placeItems: "center", border: `1px solid ${t.line}`, color: t.accent, fontSize: 15 }}>⧉</span>
+          </div>
+          {pointer(40, 260, 355, 97)}
+          <div className="md-a" style={{ position: "absolute", left: "50%", bottom: 22, transform: "translate(-50%,0)", background: t.text, color: t.bg, borderRadius: 8, padding: "8px 16px", fontFamily: t.bodyFamily, fontSize: 13, fontWeight: 600, ...(moving ? a("md-toast") : { opacity: 0.9 }) }}>✓ Copied</div>
+        </>
+      );
+      break;
+    }
+    case "lift":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 24, right: 24, top: 64, display: "flex", gap: 14 }}>
+            {[h2, h3].map((h, i) => (
+              <div key={i} className={i === 0 ? "md-a" : undefined} style={{ ...card, flex: 1, height: 110, ...(i === 0 ? (moving ? a("md-lift") : { transform: "translateY(-10px)", boxShadow: "0 16px 28px rgba(0,0,0,.4)" }) : {}) }}>
+                <div style={{ ...heading, fontSize: 16 }}>{h}</div>
+                <p style={{ ...text, color: t.muted, margin: "8px 0 0", fontSize: 12 }}>{cut(words.lines[i] ?? line, 60)}</p>
+              </div>
+            ))}
+          </div>
+          {pointer(300, 260, 110, 120, false)}
+        </>
+      );
+      break;
+    case "press": {
+      /* Three of the site's own headings as buttons; the pressed one lights and its panel opens. */
+      const tabs = [h1, h2, h3].map((h) => cut(h, 14));
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 24, right: 24, top: 60, display: "flex", gap: 8 }}>
+            {tabs.map((h, i) => (
+              <span key={i} className={i === 1 ? "md-a" : undefined} style={{ ...text, fontSize: 12, padding: "7px 12px", borderRadius: r, border: `1px solid ${t.line}`, ["--on" as string]: t.accent, ...(i === 1 ? (moving ? a("md-on") : { background: t.accent, color: t.accentText }) : {}) } as React.CSSProperties}>{h}</span>
+            ))}
+          </div>
+          <div className="md-a" style={{ position: "absolute", left: 24, right: 24, top: 106, ...card, height: 100, transformOrigin: "top", ...(moving ? a("md-open") : {}) }}>
+            <div style={{ ...heading, fontSize: 16 }}>{tabs[1]}</div>
+            <p style={{ ...text, color: t.muted, margin: "8px 0 0", fontSize: 12 }}>{cut(words.lines[1] ?? line, 90)}</p>
+          </div>
+          {pointer(360, 250, 150, 76)}
+        </>
+      );
+      break;
+    }
+    case "dialog":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 60, bottom: 40, width: 70, height: 70, borderRadius: 999, background: t.accent, display: "grid", placeItems: "center", fontSize: 30 }}>🐾</div>
+          <div className="md-a" style={{ position: "absolute", left: 150, right: 30, top: 70, ...card, padding: 16, transformOrigin: "left bottom", ...(moving ? a("md-pop") : {}) }}>
+            <div style={{ ...heading, fontSize: 15 }}>{h2}</div>
+            <p style={{ ...text, color: t.muted, margin: "6px 0 0", fontSize: 12 }}>{cut(words.lines[0] ?? line, 90)}</p>
+          </div>
+          {pointer(300, 270, 95, 210)}
+        </>
+      );
+      break;
+    case "header":
+      body = (
+        <>
+          {tall({ ...a("md-scroll"), paddingTop: 50 })}
+          <div className="md-a" style={{ position: "absolute", left: 0, right: 0, top: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", ["--fill" as string]: t.surface, ["--edge" as string]: t.accent, ...(moving ? a("md-headbar") : { background: t.surface, boxShadow: `0 4px 0 ${t.accent}`, padding: "8px 16px" }) } as React.CSSProperties}>
+            <span style={{ ...text, fontFamily: t.headingFamily, fontWeight: 700, color: t.accent, fontSize: 14 }}>{cut(words.name, 20)}</span>
+            <span style={{ flex: 1 }} />
+            {links.map((l) => <span key={l} style={{ ...text, fontSize: 11, color: t.muted }}>{cut(l, 12)}</span>)}
+          </div>
+        </>
+      );
+      break;
+    case "grow-scroll":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 24, right: 24, top: 64 }}>
+            <h3 style={{ ...heading, fontSize: 18 }}>{h1}</h3>
+            <div style={{ marginTop: 16, height: 14, borderRadius: 9, background: t.line, overflow: "hidden" }}>
+              <div className="md-a" style={{ height: "100%", background: t.accent, transformOrigin: "left", ...(moving ? a("md-widen") : { transform: "scaleX(.6)" }) }} />
+            </div>
+            <p style={{ ...text, color: t.muted, fontSize: 12 }}>{cut(line, 70)}</p>
+          </div>
+        </>
+      );
+      break;
+    case "embed":
+      body = (
+        <div style={{ position: "absolute", inset: 16, borderRadius: r, border: `1px solid ${t.line}`, overflow: "hidden", background: t.surface }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "6px 10px", borderBottom: `1px solid ${t.line}` }}>
+            {[0, 1, 2].map((i) => <span key={i} style={{ width: 8, height: 8, borderRadius: 9, background: t.line }} />)}
+            <span style={{ ...text, fontSize: 11, color: t.muted, marginLeft: 8 }}>https://…</span>
+          </div>
+          <div style={{ height: 3, background: t.line }}><div className="md-a" style={{ height: "100%", background: t.accent, width: "100%", ...a("md-load") }} /></div>
+          <div className="md-a" style={{ padding: 14, ...a("md-rise", { animationDelay: ".5s" }) }}>
+            <h3 style={{ ...heading, fontSize: 17 }}>{h2}</h3>
+            <p style={{ ...text, color: t.muted, fontSize: 12 }}>{cut(line, 80)}</p>
+          </div>
+        </div>
+      );
+      break;
+    case "price":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 0, right: 0, top: 60, display: "grid", placeItems: "center", gap: 6 }}>
+            <span style={{ ...text, color: t.muted, fontSize: 12 }}>{cut(words.name, 20)} · live</span>
+            <span className="md-a" style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: 40, color: t.text, ["--up" as string]: "oklch(0.8 0.18 150)", ...(moving ? a("md-flash") : {}) } as React.CSSProperties}>
+              <span className="md-a" style={{ display: "inline-block", ...(moving ? a("md-tick") : {}) }}>$142.37</span>
+            </span>
+            <span style={{ ...text, fontSize: 11, color: t.muted }}>updates every 30 seconds</span>
+          </div>
+        </>
+      );
+      break;
+    case "named":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", inset: "60px 30px 30px", display: "grid", placeItems: "center" }}>
+            <div className="md-a" style={{ ...card, padding: "16px 20px", ...a("md-pop") }}>
+              <div style={{ ...heading, fontSize: 16 }}>{h2}</div>
+              <span style={{ display: "inline-block", marginTop: 8, fontSize: 11, padding: "2px 8px", borderRadius: 99, background: t.accent, color: t.accentText, fontFamily: t.bodyFamily }}>{cut(label ?? "", 30)}</span>
+            </div>
+          </div>
         </>
       );
       break;

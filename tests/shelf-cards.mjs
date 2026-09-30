@@ -13,7 +13,11 @@
  *      it, picks it and outlines it;
  *   8. whole-site features are switches with their state;
  *   9. a card used on the page says so and jumps to those parts;
- *  10. the Motion category and the Motion tab point at each other.
+ *  10. the Motion category and the Motion tab point at each other;
+ *  11. a working feature's card, and its detail card's big picture, show the
+ *      effect done to a piece of the open site (a card that lifts, a panel
+ *      that opens on a press, the copy toast), never a symbol and a word,
+ *      and play once when shown and again under the hand.
  * The first half reads the catalogue and `shelfFacts.ts` as written; the
  * second walks the Builder with a site seeded, and photographs it.
  *
@@ -23,6 +27,7 @@ import { createRequire } from "node:module";
 import { mkdirSync, readFileSync } from "node:fs";
 import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/catalog.ts";
 import { FORMAT_FIELDS } from "../src/features/studio/format.ts";
+import { LIBRARY } from "../src/features/studio/library/works.ts";
 import {
   PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
 } from "../src/features/studio/shelfFacts.ts";
@@ -254,6 +259,59 @@ if (!URL_) {
   await page.waitForTimeout(500);
   check("8. analytics is a switch kept in the brief's Format", (await state()).format?.["build.analytics"] === true && (await an.getAttribute("data-on")) === "1");
   await shot(page, "engine");
+
+  /* 11 */
+  const SAMPLES = new Map(LIBRARY.map((w) => [w.manifest.id, w.manifest.look.sample]));
+  const WHERE = [...new Set(LIBRARY.map((w) => w.manifest.category))];
+  const worksSeen = [];
+  let playedOnShow = 0;
+  for (const cat of WHERE) {
+    await page.locator(`[data-category="${cat}"]`).first().click();
+    /* Shown, and not hovered: a card that plays on its own has played because it was shown. */
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(350);
+    playedOnShow += await page.$$eval("[data-category-open] [data-work-card] .md-anim", (els) => els.length);
+    const cardsHere = await page.$$eval("[data-category-open] [data-work-card]", (els) => els.map((e) => ({
+      id: e.getAttribute("data-work-card"),
+      demo: e.querySelector("[data-motion-demo]")?.getAttribute("data-motion-demo") ?? null,
+      words: e.querySelector("[data-motion-demo]")?.textContent ?? "",
+    })));
+    worksSeen.push(...cardsHere);
+    await page.waitForTimeout(400);
+  }
+  const ours = worksSeen.filter((c) => SAMPLES.has(c.id));
+  const bare = ours.filter((c) => !c.demo || c.demo === "named" || c.words.trim() === SAMPLES.get(c.id));
+  check("11. every working feature's card shows its effect on a piece of the site, never a symbol and a word",
+    ours.length === LIBRARY.length && bare.length === 0, `${ours.length} of ${LIBRARY.length} cards${bare.length ? `; bare: ${bare.map((c) => `${c.id}=${c.demo}`)}` : `: ${ours.map((c) => `${c.id}→${c.demo}`).join(", ")}`}`);
+  const SITE = /BLACKORB|Power in the dark|Built for the next block|\$BORB|Chain 4663/;
+  const unsited = ours.filter((c) => !["price"].includes(c.demo) && !SITE.test(c.words));
+  check("11. and the piece is drawn from the open site, its name and its own words", unsited.length === 0, unsited.map((c) => c.id).join(", ") || "all");
+  check("11. cards play their effect once when they are shown", playedOnShow > 0, `${playedOnShow} playing on arrival`);
+
+  await open("interact");
+  const card = page.locator('[data-work-card="hover-lift"]');
+  await card.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(2000);
+  const still = await card.locator(".md-anim").count();
+  await card.hover();
+  await page.waitForTimeout(200);
+  const hovered = await card.locator(".md-anim").count();
+  check("11. at rest after its pass, and it plays again under the hand", still === 0 && hovered > 0, `${still} then ${hovered}`);
+  await card.click();
+  await page.waitForTimeout(300);
+  const big = page.locator('[data-part-detail="work:hover-lift"]');
+  const bigNow = await big.evaluate((d) => ({ demo: d.querySelector("[data-motion-demo]")?.getAttribute("data-motion-demo"), played: d.querySelector("[data-played]")?.getAttribute("data-played") }));
+  check("11. the detail card's big picture is the same effect, and plays as it opens", bigNow.demo === "lift" && bigNow.played === "1", JSON.stringify(bigNow));
+  await shot(page, "work-detail");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  for (const id of ["copy-toast", "press-shows"]) {
+    await page.locator(`[data-work-card="${id}"]`).click();
+    await page.waitForTimeout(900);
+    await shot(page, `work-${id}`);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+  }
 
   await browser.close();
 }
