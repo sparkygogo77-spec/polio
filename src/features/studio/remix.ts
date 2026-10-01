@@ -26,6 +26,7 @@ import { roleOf } from "./styleKits";
 import { kindKey } from "./partKind";
 import { lookOfKit } from "./kitLook";
 import { FACETS, lookOf, lookPatch, type Facet, type PartLook } from "./partLook";
+import { membersOf } from "./library/components";
 
 /** Where a remixed part came from, the look it wore there, and whether it keeps it. */
 export interface Remixed {
@@ -72,15 +73,22 @@ export function siteLookOf(nodes: readonly Part[], kits: StyleKit[]): SiteLook {
   };
 }
 
-/** The part and what goes with it: everything drawn inside its box on its page, and the rest of its group. */
-export function componentOf(nodes: readonly Part[], part: Part, whole = true): Part[] {
+/**
+ * The part and what goes with it: what it holds, read as the saved
+ * components read it (`membersOf`, library/components.ts: the part tree of
+ * its page), and the rest of its group. `members`: a grouping handed in,
+ * which wins (Lane J's components, one button with its layers, plug in
+ * here and nowhere else).
+ */
+export function componentOf(nodes: readonly Part[], part: Part, whole = true, members?: readonly string[]): Part[] {
   if (!whole) return [part];
-  const inside = (m: Part) => m.pageId === part.pageId && m.id !== part.id && m.x >= part.x - 1 && m.y >= part.y - 1 && m.x + m.w <= part.x + part.w + 1 && m.y + m.h <= part.y + part.h + 1;
-  const group = (m: Part) => !!part.groupId && m.groupId === part.groupId && m.id !== part.id;
-  const rest = nodes.filter((m) => !(m as { inert?: boolean }).inert && (inside(m) || group(m)));
+  const held = membersOf(nodes as never, part.id, members) as unknown as Part[];
+  const ids = new Set(held.map((n) => n.id));
+  const group = part.groupId ? nodes.filter((m) => m.groupId === part.groupId && !ids.has(m.id)) : [];
+  const rest = [...held.slice(1), ...group].filter((m) => !(m as { inert?: boolean }).inert);
   /* In the order the board draws them, so what was on top stays on top. */
   const order = new Map(nodes.map((n, i) => [n.id, i]));
-  return [part, ...rest].sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+  return [part, ...rest.sort((a, b) => order.get(a.id)! - order.get(b.id)!)];
 }
 
 /** The change a part takes to wear the site it lands on. */

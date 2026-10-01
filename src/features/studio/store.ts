@@ -1137,7 +1137,7 @@ interface StudioState extends Doc {
    * they are set in added to the site's carried fonts. Returns the new ids,
    * which are picked.
    */
-  placeNodes: (nodes: StudioNode[], opts?: { group?: string; fonts?: CarriedFont[] }) => string[];
+  placeNodes: (nodes: StudioNode[], opts?: { group?: string; fonts?: CarriedFont[]; keyframes?: { name: string; frames: unknown[] }[] }) => string[];
   cut: () => boolean;
   paste: () => boolean;
   setTool: (t: Tool) => void;
@@ -2568,7 +2568,11 @@ export const useStudio = create<StudioState>()(
             const groups = gid ? [...s.groups, { id: gid, pageId: s.activePageId, label: opts.group!, prompt: "", hue: HUES[s.groups.length % HUES.length]!, locked: true }] : s.groups;
             const have = new Set((s.look.fonts ?? []).map((f) => f.id));
             const fonts = (opts.fonts ?? []).filter((f) => !have.has(f.id));
-            return { nodes: [...s.nodes, ...copies], groups, selection: ids, ...(fonts.length ? { look: { ...s.look, fonts: [...(s.look.fonts ?? []), ...fonts] } } : {}) };
+            /* The keyframes their motion names, so they move here as they did (a saved component carries them). */
+            const hadK = new Set(((s.look as { keyframes?: { name: string }[] }).keyframes ?? []).map((k) => k.name));
+            const keyframes = (opts.keyframes ?? []).filter((k) => !hadK.has(k.name));
+            const look = fonts.length || keyframes.length ? { look: { ...s.look, ...(fonts.length ? { fonts: [...(s.look.fonts ?? []), ...fonts] } : {}), ...(keyframes.length ? { keyframes: [...(((s.look as { keyframes?: unknown[] }).keyframes) ?? []), ...keyframes] } : {}) } as typeof s.look } : {};
+            return { nodes: [...s.nodes, ...copies], groups, selection: ids, ...look };
           });
           return ids;
         },

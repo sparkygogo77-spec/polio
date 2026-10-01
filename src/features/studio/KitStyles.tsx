@@ -5,6 +5,9 @@
  * it. Pointing at one dresses the part in it on the board (tryLook.ts);
  * pointing away takes it off; a click puts it on, as one undo step.
  *
+ * Under them, the styles learned from every other site you imported
+ * (library/learned.ts), for the same kind of part.
+ *
  * A kit dresses the part's fill, outline, shadow, light, corners, type and
  * hover and press (kitLook.ts); its size, words and place are its own.
  */
@@ -18,6 +21,7 @@ import { lookOfKit } from "./kitLook";
 import { lookPatch, type Facet } from "./partLook";
 import { pasteLook } from "./partLookApply";
 import { tryProps } from "./tryLook";
+import { useLearned } from "./library/useLearned";
 
 /** What a kit carries onto a part: all of its look but motion, which a kit does not hold. */
 export const KIT_FACETS: Facet[] = ["fill", "outline", "shadow", "light", "corners", "font", "hover"];
@@ -25,28 +29,43 @@ const MOST = 8;
 
 export function KitStyles({ node }: { node: StudioNode }) {
   const { here } = useBoardKits(true);
+  const lib = useLearned((s) => s.lib);
   const role = roleOf(node as unknown as KitNode);
   const kits = React.useMemo(() => {
     const mine = role ? here.filter((k) => k.role === role) : here;
     return (mine.length ? mine : here).slice(0, MOST);
   }, [here, role]);
-  if (!kits.length) return <div className="text-small text-fg-muted">This site has no styles of its own yet.</div>;
+  /* And every other site's, learned on import (library/learned.ts): builder-wide, so a style from any site is on every board. */
+  const learned = React.useMemo(() => {
+    const hereHost = here[0]?.host ?? null;
+    return Object.values(lib.sites).filter((l) => l.host !== hereHost)
+      .flatMap((l) => l.kits.filter((k) => !role || k.role === role).slice(0, 3).map((k) => ({ k, site: l.name })))
+      .slice(0, MOST);
+  }, [lib, here, role]);
+  if (!kits.length && !learned.length) return <div className="text-small text-fg-muted">This site has no styles of its own yet.</div>;
   const button = node.featureId === "cta-primary";
+  const swatch = (k: StyleKit, title: string, from: "here" | "learned") => {
+    const look = lookOfKit(k, { button });
+    return (
+      <button key={`${from}:${k.id}`} type="button" data-kit-style={k.id} data-kit-from={from} aria-label={`Wear ${title}`} title={title}
+        className="tactile flex h-8 w-14 items-center justify-center overflow-hidden"
+        {...tryProps(
+          () => ({ patches: { [node.id]: lookPatch(node as never, look, KIT_FACETS) }, what: title }),
+          () => { const n = pasteLook([node.id], look, KIT_FACETS); play(n ? "confirm" : "deny"); },
+        )}>
+        <KitSwatch kit={k} />
+      </button>
+    );
+  };
   return (
-    <div data-kit-styles="" className="flex flex-wrap gap-1.5">
-      {kits.map((k) => {
-        const look = lookOfKit(k, { button });
-        return (
-          <button key={k.id} type="button" data-kit-style={k.id} aria-label={`Wear ${k.name}`} title={k.name}
-            className="tactile flex h-8 w-14 items-center justify-center overflow-hidden"
-            {...tryProps(
-              () => ({ patches: { [node.id]: lookPatch(node as never, look, KIT_FACETS) }, what: k.name }),
-              () => { const n = pasteLook([node.id], look, KIT_FACETS); play(n ? "confirm" : "deny"); },
-            )}>
-            <KitSwatch kit={k} />
-          </button>
-        );
-      })}
+    <div className="space-y-1.5">
+      {kits.length ? <div data-kit-styles="" className="flex flex-wrap gap-1.5">{kits.map((k) => swatch(k, k.name, "here"))}</div> : null}
+      {learned.length ? (
+        <div data-kit-styles-learned="" className="space-y-1">
+          <div className="text-fine text-fg-faint">From your other sites</div>
+          <div className="flex flex-wrap gap-1.5">{learned.map(({ k, site }) => swatch(k, `${k.name}, ${site}`, "learned"))}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

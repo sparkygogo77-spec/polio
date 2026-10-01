@@ -66,7 +66,9 @@ const setRole = async (role, hex) => {
   await page.getByRole("tab", { name: "Look" }).first().click({ force: true })
     .catch(async () => { await page.getByText("Look", { exact: true }).first().click({ force: true }); });
   await page.waitForTimeout(700);
-  await page.getByRole("button", { name: role, exact: true }).first().click({ force: true });
+  /* The role's swatch in the Colours section (`PaletteRoles`, LookPanel.tsx): it opens the role's editor, and pressed again closes it, so it is pressed only when its editor is shut. */
+  const swatch = page.locator(`[data-site-colours] [data-palette-row] button[aria-label="${role}"]`).first();
+  if ((await swatch.getAttribute("aria-pressed")) !== "true") await swatch.click({ force: true });
   await page.waitForTimeout(400);
   const input = page.locator(`[aria-label="${role} colour"]`).first();
   await input.fill(hex);
@@ -74,11 +76,15 @@ const setRole = async (role, hex) => {
   await page.waitForTimeout(1100);
 };
 
-/* His two screenshots: a blue, then a grey. */
+/* His two screenshots: a blue, then a grey. The role really moves each time, or the chrome holding still would prove nothing. */
+const surface = () => page.evaluate(() => window.__studioPublishDoc?.().look?.palette?.surface ?? null);
 await setRole("Surface", "#2b5fd9");
 const blue = await read();
+const s1 = await surface();
 await setRole("Surface", "#8a8a8a");
 const grey = await read();
+const s2 = await surface();
+check("the site's Surface takes the blue, then the grey", !!s1 && !!s2 && s1 !== s2, `${s1} then ${s2}`);
 
 const CHROME = ["the shelf's field", "the shelf's band", "the side panel", "the top bar"];
 check("the Builder's surfaces are on screen to be measured",
