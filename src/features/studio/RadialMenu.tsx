@@ -46,7 +46,7 @@ import * as React from "react";
    same way: this line conflicted three times in one night otherwise.
    Sorted is not the same as union — an icon dropped on purpose stays
    dropped, and the wheel's Edit slot is why. */
-import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, CopyPlus, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -71,7 +71,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { makeSolid, showCube } from "./solidRun";
 import { lookOf } from "./partLook";
-import { pasteLook, pasteTargets, useLookClip } from "./partLookApply";
+import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "./partLookApply";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -989,6 +989,11 @@ export function RadialMenu() {
         {
           id: "paste", label: "Paste look", icon: <ClipboardPaste className="size-3" />, disabled: !heldLook,
           onClick: () => { if (!heldLook) return; const n = pasteLook(pasteTargets(node!, heldLook), heldLook, useLookClip.getState().chosen); play(n ? "confirm" : "deny"); },
+        },
+        /* Make all like this: every part of this kind on the site wears its look, with the facets and the keep-colour choice the panel holds (MakeAllLike.tsx). */
+        {
+          id: "make-all", label: "All like this", icon: <CopyPlus className="size-3" />,
+          onClick: () => { const p = useMakeAll.getState(); const n = makeAllLike(node!, p.chosen, { keepColour: p.keepColour }); play(n ? "confirm" : "deny"); ctx.publish({ key: `studio:make-all:${node!.id}`, title: n ? `Restyled ${n} more part${n === 1 ? "" : "s"} like this` : "Every part of this kind already looks like this", level: "info", source: "studio", toast: true }); },
         },
         {
           id: "same-colour", label: "All with this colour", icon: <Paintbrush className="size-3" />,

@@ -117,7 +117,7 @@ const contains = (a: Named, b: Named) =>
   (a.x ?? 0) <= (b.x ?? 0) + 1 && (a.y ?? 0) <= (b.y ?? 0) + 1 &&
   (a.x ?? 0) + (a.w ?? 0) >= (b.x ?? 0) + (b.w ?? 0) - 1 && (a.y ?? 0) + (a.h ?? 0) >= (b.y ?? 0) + (b.h ?? 0) - 1;
 
-const isHeadingish = (n: Named) => {
+export const isHeadingish = (n: Named) => {
   const words = wordsOf(n);
   if (!words || words.length > 60) return false;
   const tag = lastTag(n.from?.selector);

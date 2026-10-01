@@ -143,7 +143,12 @@ function merge(was: unknown, set: Rec): Rec | null {
  * do not own is left exactly as it was: its place, words, picture, link, its
  * other features, the rest of its edge, art and motion.
  */
-export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[]): Partial<StudioNode> {
+export interface PasteOpts {
+  /** Each part keeps its own colours (fill roles, hue, outline colour, glow colour) and takes the rest of the look. */
+  keepColour?: boolean;
+}
+
+export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[], opts: PasteOpts = {}): Partial<StudioNode> {
   const p: Rec = {};
   let edge: Rec | null | undefined = (target.edge ?? null) as Rec | null;
   let art: Rec | null | undefined = (target.art ?? null) as Rec | null;
@@ -175,6 +180,12 @@ export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[]): 
     /* A worn shape's kit only dresses a worn shape: its outline is the target's own. */
     if (v.worn && target.worn) { worn = merge(worn, v.worn as Rec); touched.add("worn"); }
   }
+  if (opts.keepColour) {
+    if ("colour" in p) { p.colour = target.colour ?? null; p.hue = target.hue ?? null; }
+    const own = (target.edge as Rec | null | undefined)?.colour;
+    if (touched.has("edge") && edge && own) edge = { ...edge, colour: own };
+    if ("aura" in p && target.aura) p.aura = target.aura;
+  }
   if (touched.has("edge")) p.edge = edge;
   if (touched.has("art")) p.art = art;
   if (touched.has("motion")) p.motion = motion;
@@ -187,9 +198,9 @@ export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[]): 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /** The facets whose paste would change anything on `target`. */
-export function lookDiffers(target: N, look: PartLook, chosen: readonly Facet[] = FACETS): Facet[] {
+export function lookDiffers(target: N, look: PartLook, chosen: readonly Facet[] = FACETS, opts: PasteOpts = {}): Facet[] {
   return chosen.filter((f) => {
-    const patch = lookPatch(target, look, [f]) as Rec;
+    const patch = lookPatch(target, look, [f], opts) as Rec;
     return Object.entries(patch).some(([k, v]) => !same((target as Rec)[k], v));
   });
 }

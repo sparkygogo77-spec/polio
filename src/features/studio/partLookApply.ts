@@ -10,7 +10,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useStudio, type StudioNode } from "./store";
-import { FACETS, lookPatch, lookDiffers, type Facet, type PartLook } from "./partLook";
+import { FACETS, lookOf, lookPatch, lookDiffers, type Facet, type PartLook, type PasteOpts } from "./partLook";
+import { sameKind } from "./partKind";
 
 interface LookClip {
   look: PartLook | null;
@@ -46,11 +47,46 @@ export function pasteTargets(node: StudioNode, look: PartLook | null = useLookCl
  * how many parts it changed: a part already wearing all of it is left out of
  * the step.
  */
-export function pasteLook(ids: readonly string[], look: PartLook, chosen: readonly Facet[]): number {
+export function pasteLook(ids: readonly string[], look: PartLook, chosen: readonly Facet[], opts: PasteOpts = {}): number {
   const st = useStudio.getState();
   const byId = new Map(st.nodes.map((n) => [n.id, n]));
-  const reach = ids.filter((id) => { const n = byId.get(id); return !!n && lookDiffers(n as never, look, chosen).length > 0; });
+  const reach = ids.filter((id) => { const n = byId.get(id); return !!n && lookDiffers(n as never, look, chosen, opts).length > 0; });
   if (!reach.length) return 0;
-  st.patchNodes(reach, (n) => lookPatch(n as never, look, chosen));
+  st.patchNodes(reach, (n) => lookPatch(n as never, look, chosen, opts));
   return reach.length;
+}
+
+/* ------------------------------------------------------------------ */
+/* Make all like this                                                   */
+/* ------------------------------------------------------------------ */
+
+interface MakeAllPrefs {
+  /** What Make all like this carries: every facet but motion, until a person chooses (a site where every button blinks is rarely meant). */
+  chosen: Facet[];
+  keepColour: boolean;
+  toggle: (f: Facet) => void;
+  setKeepColour: (on: boolean) => void;
+}
+
+export const useMakeAll = create<MakeAllPrefs>()(
+  persist(
+    (set) => ({
+      chosen: FACETS.filter((f) => f !== "motion"),
+      keepColour: false,
+      toggle: (f) => set((s) => ({ chosen: s.chosen.includes(f) ? s.chosen.filter((x) => x !== f) : FACETS.filter((x) => x === f || s.chosen.includes(x)) })),
+      setKeepColour: (keepColour) => set({ keepColour }),
+    }),
+    { name: "builder.makeAll", version: 1 },
+  ),
+);
+
+/** The parts Make all like this would change: every other part of `node`'s kind on the site that the look would change. */
+export function makeAllReach(node: StudioNode, chosen: readonly Facet[], opts: PasteOpts = {}, nodes: readonly StudioNode[] = useStudio.getState().nodes): string[] {
+  const look = lookOf(node as never);
+  return sameKind(nodes as never[], node as never).filter((m) => lookDiffers(m as never, look, chosen, opts).length > 0).map((m) => (m as StudioNode).id);
+}
+
+/** Restyle every part of `node`'s kind on the site to `node`'s look, as one undo step. Returns how many changed. */
+export function makeAllLike(node: StudioNode, chosen: readonly Facet[], opts: PasteOpts = {}): number {
+  return pasteLook(makeAllReach(node, chosen, opts), lookOf(node as never), chosen, opts);
 }

@@ -49,6 +49,7 @@ import { WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
 import { LookCopy } from "./LookCopy";
+import { MakeAllLike } from "./MakeAllLike";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 const VERSION_ONLY = ["version"] as const;
@@ -843,6 +844,9 @@ export function Inspector() {
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
           <LookCopy node={node} targets={[node.id]} />
+          <Field label="Make all like this" hint="Every part of this kind on the site, restyled to match, in one step.">
+            <MakeAllLike node={node} />
+          </Field>
           {/* A shape drawn wearing a style kit: its colour, style, lighting bar and outline (`DrawKits.tsx`). */}
           {node.worn ? <WornLook node={node} /> : null}
           {node.worn ? null : <>
