@@ -21,6 +21,8 @@ import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
 import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
 import { partName } from "./partNames";
 import { usePictureSampler } from "./pictureSampler";
+import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
+import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
 import { FAMILY, resolvePalette } from "./parts/theme";
@@ -134,7 +136,7 @@ function pickOnBoard(ids: string[]) {
   play("select");
 }
 
-function PartsList({ spots }: { spots: { id: string; where: string }[] }) {
+function PartsList({ spots, rest = null }: { spots: { id: string; where: string }[]; rest?: string[] | null }) {
   const nodes = useStudio((s) => s.nodes);
   React.useEffect(() => () => pointAt(null), []);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -149,9 +151,9 @@ function PartsList({ spots }: { spots: { id: string; where: string }[] }) {
       data-site-part={r.id}
       onClick={() => pickOnBoard([r.id])}
       onMouseEnter={() => pointAt([r.id])}
-      onMouseLeave={() => pointAt(null)}
+      onMouseLeave={() => pointAt(rest)}
       onFocus={() => pointAt([r.id])}
-      onBlur={() => pointAt(null)}
+      onBlur={() => pointAt(rest)}
       className="tactile flex w-full items-baseline gap-2 rounded px-1.5 py-1 text-left hover:bg-hover"
     >
       <span className="min-w-0 flex-1 truncate text-small text-fg">{nameOf(byId.get(r.id), r.id, nodes)}</span>
@@ -249,9 +251,218 @@ function Swatch({ c, count, on, onClick, label }: { c: SiteColour; count: number
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* The short palette, by role (siteRoles.ts)                           */
+/* ------------------------------------------------------------------ */
+
+/** A picture's main colours, sampled once in this browser and kept for the session. */
+const pictureCache = new Map<string, string[] | "loading">();
+const pictureWatchers = new Set<() => void>();
+async function samplePicture(pic: Picture): Promise<void> {
+  if (pictureCache.has(pic.id)) return;
+  pictureCache.set(pic.id, "loading");
+  try {
+    const blob = await bytesFor(pic);
+    if (!blob) { pictureCache.set(pic.id, []); return; }
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = 32; c.height = 32;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g) { pictureCache.set(pic.id, []); return; }
+    g.drawImage(bmp, 0, 0, 32, 32);
+    pictureCache.set(pic.id, mainColours(g.getImageData(0, 0, 32, 32).data));
+  } catch {
+    pictureCache.set(pic.id, []);
+  }
+  pictureWatchers.forEach((w) => w());
+}
+
+/** Each picture part's main colours, by part id, as they are sampled. */
+function usePictureColours(nodes: readonly { id: string; picture?: unknown }[]): Map<string, string[]> {
+  const [, bump] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => { pictureWatchers.add(bump); return () => { pictureWatchers.delete(bump); }; }, []);
+  React.useEffect(() => {
+    for (const n of nodes) {
+      const pic = (n.picture as { pic?: Picture } | null)?.pic ?? (n.picture as Picture | null);
+      if (pic && typeof pic === "object" && "id" in pic && "path" in pic) void samplePicture(pic as Picture);
+    }
+  }, [nodes]);
+  const out = new Map<string, string[]>();
+  for (const n of nodes) {
+    const pic = (n.picture as { pic?: Picture } | null)?.pic ?? (n.picture as Picture | null);
+    const got = pic && typeof pic === "object" && "id" in pic ? pictureCache.get((pic as Picture).id) : undefined;
+    if (Array.isArray(got) && got.length) out.set(n.id, got);
+  }
+  return out;
+}
+
+/** Bring the first of these parts into view on the board, without picking anything. */
+function showOnBoard(ids: string[]) {
+  const s = useStudio.getState();
+  const first = s.nodes.find((n) => n.id === ids[0]);
+  if (!first) return;
+  if (first.pageId !== s.activePageId) s.setActivePage(first.pageId);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(first.id)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(first.id)}"]`);
+    const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
+    if (el instanceof HTMLElement && pane instanceof HTMLElement) {
+      const r = el.getBoundingClientRect();
+      const p = pane.getBoundingClientRect();
+      pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
+    }
+  }));
+}
+
+/**
+ * One role's colour, opened: every part wearing it is outlined on the board
+ * for as long as this is open, the first is brought into view, they are
+ * listed by name, and Recolour all changes every shade of it on exactly
+ * those parts, as one undo step.
+ */
+function RoleDetail({ swatch, palette, onDone }: { swatch: RoleSwatch; palette: Palette; onDone: () => void }) {
+  const active = useStudio((s) => s.activePageId);
+  const pageOf = useStudio((s) => s.nodes);
+  const ids = React.useMemo(() => [...new Set(swatch.spots.map((x) => x.id))], [swatch]);
+  const here = React.useMemo(() => ids.filter((id) => pageOf.find((n) => n.id === id)?.pageId === active), [ids, pageOf, active]);
+  const elsewhere = ids.length - here.length;
+  const recolourable = swatch.spots.filter((x) => x.where !== "in its picture");
+  const [to, setTo] = React.useState<Oklch>(parseColor(swatch.value) ?? { l: 0.7, c: 0.15, h: 265 });
+  const [hex, setHex] = React.useState(toHex(to));
+  const [done, setDone] = React.useState<number | null>(null);
+  React.useEffect(() => { pointAt(here); return () => pointAt(null); }, [here]);
+  React.useEffect(() => { if (ids.length) showOnBoard(here.length ? here : ids); }, [swatch.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const only = [...new Set(recolourable.map((x) => x.id))];
+  const recolour = (into: string, shades: string[]) => {
+    const st = useStudio.getState();
+    const mark = st.historyMark();
+    const changed = new Set<string>();
+    for (const shade of shades) for (const id of st.swapColourAll(shade, into, palette, { use: ROLE_USE[swatch.role], only })) changed.add(id);
+    useStudio.getState().oneStepSince(mark);
+    play(changed.size ? "confirm" : "deny");
+    setDone(changed.size);
+  };
+  return (
+    <div data-role-detail={swatch.id} className="mt-2 space-y-2 rounded-md border border-border bg-elevated p-2">
+      <div className="flex items-center gap-2">
+        <span className="size-6 shrink-0 rounded border border-border" style={{ background: swatch.value }} />
+        <span className="min-w-0 flex-1 text-small text-fg">
+          <span data-role-says="">{swatch.says}</span>
+          <span className="block text-fg-muted">
+            {here.length ? `Outlined on the board: ${here.length} on this page` : "None on this page"}{elsewhere ? `, ${elsewhere} on other pages` : ""}.
+          </span>
+        </span>
+        <Button variant="ghost" size="xs" onClick={() => pickOnBoard(here.length ? here : ids)}>Pick them</Button>
+      </div>
+      {swatch.shades.length > 1 ? (
+        <div data-role-shades={swatch.shades.length} className="flex flex-wrap items-center gap-1 text-fine text-fg-muted">
+          {swatch.shades.length} shades:
+          {swatch.shades.map((k) => <Tooltip key={k} content={k}><span className="size-4 rounded-sm border border-border" style={{ background: k }} /></Tooltip>)}
+          <button type="button" data-role-one-shade="" onClick={() => recolour(swatch.value, swatch.shades.slice(1))} className="tactile ml-1 rounded-sm px-1 text-fg hover:underline">Make them one colour</button>
+        </div>
+      ) : null}
+      <PartsList spots={swatch.spots} rest={here} />
+      {swatch.fromPictures ? <p className="text-fine text-fg-faint">Colours inside a picture are the picture&rsquo;s own: they are shown here, and recolouring leaves them as they are.</p> : null}
+      {only.length ? (
+        <>
+          <div className="flex items-center gap-1">
+            <span className="size-6 shrink-0 rounded border border-border" style={{ background: css(to) }} aria-hidden />
+            <input type="color" aria-label="New colour" value={toHex(to).slice(0, 7)}
+              onChange={(e) => { const c = parseColor(e.target.value); if (c) { setTo(c); setHex(toHex(c)); } }}
+              className="h-6 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
+            <Input inputSize="sm" className="min-w-0 flex-1" value={hex} aria-label="New colour, as hex"
+              onChange={(e) => { setHex(e.target.value); const c = parseColor(e.target.value); if (c) setTo(c); }} />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button data-role-recolour="" size="xs" variant="outline" className="flex-1" onClick={() => recolour(css(to), swatch.shades)}>
+              Recolour all {only.length} part{only.length === 1 ? "" : "s"}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={onDone}>Close</Button>
+          </div>
+        </>
+      ) : <Button size="xs" variant="ghost" onClick={onDone}>Close</Button>}
+      {done !== null ? (
+        <p data-role-recoloured="" className="flex items-center gap-2 text-small text-fg-muted">
+          {done ? `Recoloured ${done} part${done === 1 ? "" : "s"}, in one step.` : "Nothing wore it any more."}
+          {done ? (
+            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}>
+              <Undo2 className="size-3" /> Undo
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** One swatch of a role: the colour and its plain sentence, which says "(3 shades)" when it stands for several; pressed, the shades are listed. */
+function RoleChip({ s, on, onClick }: { s: RoleSwatch; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      data-role-swatch={s.id}
+      data-role={s.role}
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn("tactile flex w-full items-center gap-2 rounded-md border px-1.5 py-1 text-left", on ? "border-accent bg-hover" : "border-transparent hover:bg-hover")}
+    >
+      <span className="size-6 shrink-0 rounded-md border border-border" style={{ background: s.value }} />
+      <span className="min-w-0 flex-1 text-small leading-snug text-fg">{s.says}</span>
+    </button>
+  );
+}
+
+/** The short palette and, folded, everything else. */
+function RolePalette({ roles, palette, children }: { roles: SiteRoles; palette: Palette; children: React.ReactNode }) {
+  const [open, setOpen] = React.useState<string | null>(null);
+  const [more, setMore] = React.useState(false);
+  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.more];
+  const opened = all.find((s) => s.id === open) ?? null;
+  const toggle = (id: string) => { play("select"); setOpen((o) => (o === id ? null : id)); };
+  const detail = (s: RoleSwatch) => (opened?.id === s.id ? <RoleDetail key={s.id} swatch={s} palette={palette} onDone={() => setOpen(null)} /> : null);
+  return (
+    <div data-role-palette="" className="space-y-2">
+      {roles.short.map((r) => (
+        <div key={r.role} data-role-row={r.role}>
+          <div className="mb-0.5 text-fine font-medium uppercase tracking-wider text-fg-faint">{ROLE_LABEL[r.role]}</div>
+          {r.swatches.map((s) => (
+            <React.Fragment key={s.id}>
+              <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
+              {detail(s)}
+            </React.Fragment>
+          ))}
+        </div>
+      ))}
+      <div data-role-more="">
+        <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
+          className="flex w-full items-center gap-1 text-small font-medium text-fg">
+          <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
+          More colours
+          <span className="ml-auto font-normal text-fg-faint">{roles.more.length} more</span>
+        </button>
+        {more ? (
+          <div className="mt-1 space-y-2">
+            <p className="text-fine text-fg-faint">Every other colour on parts on top of the page, by role; a colour worn by one or two parts is here too.</p>
+            {roles.more.map((s) => (
+              <React.Fragment key={s.id}>
+                <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
+                {detail(s)}
+              </React.Fragment>
+            ))}
+            {children}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function SiteColoursSection() {
   const { nodes, palette } = useSite();
+  const frameWidth = useStudio((s) => s.frameWidth);
   const tally = React.useMemo(() => tallyColours(nodes, palette), [nodes, palette]);
+  const pictureColours = usePictureColours(nodes);
+  const pictureKey = [...pictureColours.entries()].map(([k, v]) => `${k}:${v.join("")}`).join("|");
+  const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours), [nodes, palette, frameWidth, pictureKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = React.useState<{ use: ColourUse | null; key: string } | null>(null);
   const [more, setMore] = React.useState(false);
   const worn = tally.all.filter((c) => c.spots.some((s) => s.id !== PAGE_ID));
@@ -264,6 +475,7 @@ export function SiteColoursSection() {
     return c ? <ColourDetail key={`${use}:${c.key}`} colour={c} use={use} palette={palette} onDone={() => setOpen(null)} /> : null;
   };
   const toggle = (use: ColourUse | null, key: string) => { play("select"); setOpen((o) => (o && o.use === use && o.key === key ? null : { use, key })); };
+  const left = roles.left.backgroundLayers.length;
 
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
@@ -271,55 +483,58 @@ export function SiteColoursSection() {
       <div>
         <h3 data-look-heading className="text-plain font-semibold text-fg">On this site</h3>
         <p className="text-small leading-snug text-fg-muted">
-          Every colour the parts wear, by what it is used for. The number is how many parts. Press one to see them and recolour just those; hover a part&rsquo;s name to see it on the board.
+          The colours of the parts on top of the page, by what they are for. Close shades are one swatch. Press one to see every part that wears it outlined on the board, and recolour them all.
         </p>
       </div>
       <WordsReadable />
-      {COLOUR_USES.map((u) => {
-        const list = tally.byUse[u];
-        if (!list.length) return null;
-        return (
-          <div key={u} data-site-group={u}>
-            <div className="mb-1 flex items-baseline justify-between gap-2 text-small">
-              <span className="font-medium text-fg">{USE_LABEL[u]}</span>
-              <span className="text-fg-faint">{list.length} colour{list.length === 1 ? "" : "s"}</span>
-            </div>
-            <div className="grid grid-cols-8 gap-1">
-              {list.slice(0, SHOWN).map((c) => (
-                <Swatch key={c.key} c={c} count={c.by[u]} on={open?.use === u && open.key === c.key}
-                  label={`${c.by[u]} part${c.by[u] === 1 ? "" : "s"} ${USE_SAYS[u]}`} onClick={() => toggle(u, c.key)} />
-              ))}
-            </div>
-            {detail(u)}
-            <MergeShades use={u} list={list} palette={palette} />
-          </div>
-        );
-      })}
-      {rest.length ? (
-        <div data-site-group="also">
-          <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
-            className="flex w-full items-center gap-1 text-small font-medium text-fg">
-            <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
-            Also on this site
-            <span className="ml-auto font-normal text-fg-faint">{rest.length} more</span>
-          </button>
-          {more ? (
-            <div className="mt-1 grid grid-cols-8 gap-1">
-              {rest.map((c) => (
-                <Swatch key={c.key} c={c} count={c.parts} on={open?.use === null && open.key === c.key}
-                  label={`${c.parts} part${c.parts === 1 ? "" : "s"}, ${COLOUR_USES.filter((u) => c.by[u] && u !== "accent").map((u) => USE_LABEL[u].toLowerCase()).join(", ")}`}
-                  onClick={() => toggle(null, c.key)} />
-              ))}
+      <RolePalette roles={roles} palette={palette}>
+        <div data-site-by-use="" className="space-y-3 border-t border-border pt-2">
+          <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Every colour, by use, unmerged</p>
+          {COLOUR_USES.map((u) => {
+            const list = tally.byUse[u];
+            if (!list.length) return null;
+            return (
+              <div key={u} data-site-group={u}>
+                <div className="mb-1 flex items-baseline justify-between gap-2 text-small">
+                  <span className="font-medium text-fg">{USE_LABEL[u]}</span>
+                  <span className="text-fg-faint">{list.length} colour{list.length === 1 ? "" : "s"}</span>
+                </div>
+                <div className="grid grid-cols-8 gap-1">
+                  {list.slice(0, SHOWN).map((c) => (
+                    <Swatch key={c.key} c={c} count={c.by[u]} on={open?.use === u && open.key === c.key}
+                      label={`${c.by[u]} part${c.by[u] === 1 ? "" : "s"} ${USE_SAYS[u]}`} onClick={() => toggle(u, c.key)} />
+                  ))}
+                </div>
+                {detail(u)}
+                <MergeShades use={u} list={list} palette={palette} />
+              </div>
+            );
+          })}
+          {rest.length ? (
+            <div data-site-group="also">
+              <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
+                className="flex w-full items-center gap-1 text-small font-medium text-fg">
+                <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
+                Also on this site
+                <span className="ml-auto font-normal text-fg-faint">{rest.length} more</span>
+              </button>
+              {more ? (
+                <div className="mt-1 grid grid-cols-8 gap-1">
+                  {rest.map((c) => (
+                    <Swatch key={c.key} c={c} count={c.parts} on={open?.use === null && open.key === c.key}
+                      label={`${c.parts} part${c.parts === 1 ? "" : "s"}, ${COLOUR_USES.filter((u) => c.by[u] && u !== "accent").map((u) => USE_LABEL[u].toLowerCase()).join(", ")}`}
+                      onClick={() => toggle(null, c.key)} />
+                  ))}
+                </div>
+              ) : null}
+              {detail(null)}
             </div>
           ) : null}
-          {detail(null)}
         </div>
-      ) : null}
-      {tally.pictures ? (
-        <p className="text-small leading-snug text-fg-faint">
-          {tally.pictures} part{tally.pictures === 1 ? " is a picture" : "s are pictures"}: {tally.pictures === 1 ? "its" : "their"} colours are in the picture itself, so they are not listed here.
-        </p>
-      ) : null}
+      </RolePalette>
+      <p data-site-left-out="" className="text-small leading-snug text-fg-faint">
+        Left out: the page&rsquo;s own colour{left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}{roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}. A picture standing on the page adds its few main colours under Pictures on top.
+      </p>
     </section>
   );
 }

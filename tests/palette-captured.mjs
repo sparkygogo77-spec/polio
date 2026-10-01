@@ -59,6 +59,9 @@ const press = (sel) => page.locator(sel).first().evaluate((b) => b.click());
 /* 1. Grouped by use, each with its count                              */
 /* ------------------------------------------------------------------ */
 
+/* Lane I: the short palette by role comes first; every colour by use, unmerged, is under More. */
+await press("[data-role-more] > button[aria-expanded]");
+await page.waitForTimeout(300);
 const groups = await page.evaluate(() => [...document.querySelectorAll("[data-site-colours] [data-site-group]")].map((g) => ({
   use: g.getAttribute("data-site-group"),
   swatches: [...g.querySelectorAll("[data-site-swatch]")].map((s) => ({ key: s.getAttribute("data-site-swatch"), n: Number(s.textContent.trim()) })),
@@ -83,7 +86,7 @@ const worn = T.all.filter((c) => c.spots.some((s) => s.id !== C.PAGE_ID));
 const unlisted = worn.filter((c) => !listed.has(c.key));
 check(`every colour the parts wear is listed (${worn.length})`, unlisted.length === 0, unlisted.slice(0, 5).map((c) => c.key).join("; ") || `${listed.size} swatches`);
 check("the ones past each group's first eight are under \"Also on this site\"", (await page.locator('[data-site-group="also"]').count()) === 1 && /Also on this site/.test(await page.locator('[data-site-group="also"]').innerText()));
-check("pictures are said, not silently left out", /are pictures/.test(await page.locator("[data-site-colours]").innerText()));
+check("pictures are said, not silently left out", /Left out:[\s\S]*picture/.test(await page.locator("[data-site-left-out]").innerText()));
 
 /* ------------------------------------------------------------------ */
 /* 3. A swatch: who wears it, and recolour exactly them                */

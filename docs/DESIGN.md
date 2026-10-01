@@ -175,6 +175,17 @@ same boxes as everywhere else, in the screen's colours.
   `${t.accent}22` is a colour only for six-digit hex; on oklch, rgb, a name
   or a var() the browser drops the declaration. `parts/tint.ts` is
   color-mix with transparent. `tests/tint-glue.mjs` fails on a glued one.
+- **A site's colours are a few roles, in words.** "On this site" shows the
+  colours of the parts on top of the page, never the page's own colour, a
+  background band or a background picture; a picture standing on the page
+  adds its few main colours. Close shades (within 0.05 in OKLab) are one
+  swatch that says "(3 shades)". The short palette is at most eight roles a
+  person thinks in (words, main fill, buttons, panels and cards, accent,
+  outline, shadow, pictures on top), and every count says what it counts:
+  "Dark brown outline, 3 to 5 px, on 78 parts". Pressing one outlines every
+  part wearing it on the board until it is closed, brings the first into
+  view, lists them by name and recolours them all in one step. The full
+  list by use is under More (`siteRoles.ts`, `tests/site-roles.mjs`).
 - **A shelf card is a promise about the thing, so it says what it is.**
   Its name, one line of what it does, whether it works now or is an idea
   that needs building, and what it needs (a key, a backend, money). Its
