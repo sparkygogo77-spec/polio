@@ -70,6 +70,8 @@ import { auraColour, auraStyle, lands, newLayer, parseColor, textureCss, type Pa
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { makeSolid, showCube } from "./solidRun";
+import { lookOf } from "./partLook";
+import { pasteLook, pasteTargets, useLookClip } from "./partLookApply";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -481,13 +483,6 @@ function bgChoicesFor(group: SlotId, at: { x: number; y: number } | null): Choic
   }
 }
 
-/**
- * The looks carried from one part to another by the tray's Copy and Paste.
- * A module variable, not a store field: it is a hand holding something, not
- * a thing the site remembers.
- */
-type Looks = Pick<StudioNode, "colour" | "font" | "texture" | "aura" | "auraSize" | "auraStyle">;
-let carriedLooks: Looks | null = null;
 
 /* ------------------------------------------------------------------ */
 /* The menu                                                            */
@@ -509,6 +504,8 @@ export function RadialMenu() {
   const [adding, setAdding] = React.useState(false);
   // Re-renders the tray when looks are copied, so Paste lights up.
   const [, setCarried] = React.useState(0);
+  /* The look Copy look holds (partLookApply.ts), here or on another board. */
+  const heldLook = useLookClip((st) => st.look);
   const nodes = useStudio((s) => s.nodes);
   const shape = useStudio((s) => s.menuShape);
   const spin = useStudio((s) => s.menuSpin);
@@ -984,15 +981,15 @@ export function RadialMenu() {
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
         ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
+        /* The look in full (fill, outline, shadow, light, corners, font, hover and press, motion), held across boards; Paste puts the facets chosen in the panel on this part, or every picked part it is one of, in one step (partLookApply.ts). */
         {
-          id: "copy", label: "Copy looks", icon: <Pipette className="size-3" />,
-          onClick: () => {
-            const n = node!;
-            carriedLooks = { colour: n.colour, font: n.font, texture: n.texture, aura: n.aura, auraSize: n.auraSize, auraStyle: n.auraStyle };
-            setCarried((k) => k + 1);
-          },
+          id: "copy", label: "Copy look", icon: <Pipette className="size-3" />,
+          onClick: () => { useLookClip.getState().copy(lookOf(node! as never)); play("copy"); setCarried((k) => k + 1); },
         },
-        { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
+        {
+          id: "paste", label: "Paste look", icon: <ClipboardPaste className="size-3" />, disabled: !heldLook,
+          onClick: () => { if (!heldLook) return; const n = pasteLook(pasteTargets(node!, heldLook), heldLook, useLookClip.getState().chosen); play(n ? "confirm" : "deny"); },
+        },
         {
           id: "same-colour", label: "All with this colour", icon: <Paintbrush className="size-3" />,
           disabled: !colourMoves.length,

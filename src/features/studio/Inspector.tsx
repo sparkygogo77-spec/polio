@@ -48,6 +48,7 @@ import { PartFields } from "./PartFields";
 import { WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
+import { LookCopy } from "./LookCopy";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 const VERSION_ONLY = ["version"] as const;
@@ -614,6 +615,9 @@ export function Inspector() {
           <div className="truncate text-small text-fg-muted">{selNodes.map((n) => n.label).join(", ")}</div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+          <Field label="Look" hint="Paste a copied look on all of these, in one step.">
+            <LookCopy node={null} targets={selNodes.map((n) => n.id)} />
+          </Field>
           {sharedGroup ? (
             <>
               <Field label="Group name">
@@ -838,6 +842,7 @@ export function Inspector() {
         </PanelSection>
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+          <LookCopy node={node} targets={[node.id]} />
           {/* A shape drawn wearing a style kit: its colour, style, lighting bar and outline (`DrawKits.tsx`). */}
           {node.worn ? <WornLook node={node} /> : null}
           {node.worn ? null : <>

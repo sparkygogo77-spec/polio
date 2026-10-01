@@ -55,6 +55,7 @@ const NODE_FIELDS: [RegExp, string][] = [
   [/^groupId$/, "change the group of"],
   [/^pageId$/, "move to another page"],
   [/^(shape|path|outline)$/, "reshape"],
+  [/^(edge|radius|art|texture|opacity|worn|text)$/, "restyle"],
   [/^priority$/, "change the priority of"],
   [/^data$/, "edit the data of"],
 ];
