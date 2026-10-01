@@ -15,7 +15,8 @@ import { Button } from "@/core/ui/button";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "./store";
-import { FACET_WORDS, lookDiffers, lookHas, lookOf } from "./partLook";
+import { FACET_WORDS, lookDiffers, lookHas, lookOf, lookPatch } from "./partLook";
+import { tryProps } from "./tryLook";
 import { pasteLook, useLookClip } from "./partLookApply";
 
 export function LookCopy({ node, targets }: { node: StudioNode | null; targets: string[] }) {
@@ -40,12 +41,16 @@ export function LookCopy({ node, targets }: { node: StudioNode | null; targets: 
           </Button>
         ) : null}
         <Button size="sm" variant={look ? "primary" : "outline"} className="flex-1" data-look-paste-button="" disabled={!look || !reach.length}
-          onClick={() => {
-            if (!look) return;
-            const n = pasteLook(reach, look, on);
-            play(n ? "confirm" : "deny");
-            setSaid(n ? `Restyled ${n} part${n === 1 ? "" : "s"}, in one step.` : "Nothing to change.");
-          }}>
+          {...tryProps(
+            /* Pointed at, the parts it reaches wear the look on the board (tryLook.ts); the click pastes it. */
+            () => (look ? { patches: Object.fromEntries(reach.map((id) => { const n = nodes.find((x) => x.id === id)!; return [id, lookPatch(n as never, look, on)]; })), what: `the look of “${look.from.name}”` } : null),
+            () => {
+              if (!look) return;
+              const n = pasteLook(reach, look, on);
+              play(n ? "confirm" : "deny");
+              setSaid(n ? `Restyled ${n} part${n === 1 ? "" : "s"}, in one step.` : "Nothing to change.");
+            },
+          )}>
           <ClipboardPaste /> Paste look{reach.length > 1 ? ` on ${reach.length}` : ""}
         </Button>
       </div>

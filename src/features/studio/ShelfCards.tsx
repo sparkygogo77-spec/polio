@@ -28,6 +28,7 @@
 import { useLearned } from "./library/useLearned";
 import { learnedVersions } from "./library/learned";
 import * as React from "react";
+import { endTry, pickedPart, startTry, tryProps, type Trying } from "./tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
 import { getFeature, categoryOf, type FeatureDef } from "./catalog";
@@ -40,7 +41,7 @@ import { themeFrom } from "./blocks";
 import { resolvePalette, type Theme } from "./parts/theme";
 import { parseColor } from "./look";
 import { paintedPalette, readableTheme } from "./shelfTheme";
-import { getWork, usesOf, withWork, type Work } from "./library/works";
+import { getWork, inputsOf, usesOf, withWork, type Work } from "./library/works";
 import { siteVersions, type SiteVersion } from "./library/siteVersions";
 import { usedByPart, type Use } from "./library/usedBy";
 import { partName } from "./partNames";
@@ -660,9 +661,10 @@ export function WorkShelfCard({ work, width, words, picture, versions = 1, hosts
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-md border border-border bg-panel transition-colors hover:border-fg-faint"
       style={{ width }}
       ref={shown}
-      onPointerEnter={wake}
-      onPointerLeave={rest}
-      onClick={open}
+      /* Pointing at it with a part picked plays it on that part (tryLook.ts); leaving takes it off. */
+      onPointerEnter={() => { wake(); startTry(tryWork(m.id)); }}
+      onPointerLeave={() => { rest(); endTry(); }}
+      onClick={() => { endTry(); open(); }}
     >
       <button type="button" aria-label={`${m.name}: see what it does`} className="block text-left">
         {picture ? picture(inner, PREVIEW_H) : <WorkPreview work={work} t={t} words={words} width={inner} height={PREVIEW_H} playing={awake} />}
@@ -804,6 +806,13 @@ export function SeeOnShelf({ category, children }: { category: string; children:
       {children} <ArrowUpRight className="size-3" />
     </button>
   );
+}
+
+/** A library feature played on the picked part while it is pointed at (tryLook.ts); nothing when no part is picked. */
+function tryWork(id: string, inputs: Record<string, string> = {}): Trying | null {
+  const picked = pickedPart();
+  const w = getWork(id);
+  return picked && w ? { patches: {}, play: { part: picked.id, feature: id, inputs: inputsOf(w.manifest, inputs) }, what: w.manifest.name } : null;
 }
 
 /**
@@ -954,7 +963,7 @@ function ItemBody({ start, add }: { start: string; add: (featureId: string) => s
             type="button"
             data-add-to-page={v.site ? `site:${v.site.host}` : addKey}
             data-work-put={work && picked && !v.site ? work.manifest.id : undefined}
-            onClick={onAdd}
+            {...tryProps(() => (picked ? (v.site?.take.kind === "work" ? tryWork(v.site.take.id, v.site.take.inputs) : work ? tryWork(work.manifest.id) : null) : null), onAdd)}
             className="tactile flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-small font-medium text-accent-fg"
           >
             {(work || v.site) && picked ? <><Check className="size-3.5" /> Put on “{picked.label}”</> : <><Plus className="size-3.5" /> Add to page</>}

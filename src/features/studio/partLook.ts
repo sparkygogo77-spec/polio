@@ -164,8 +164,9 @@ export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[], o
       case "outline": edge = merge(edge, (v.edge as Rec | null) ?? { width: null, style: null, colour: null }); touched.add("edge"); break;
       case "shadow": edge = merge(edge, { shadow: v.shadow }); touched.add("edge"); Object.assign(p, { aura: v.aura, auraSize: v.auraSize ?? 1, auraStyle: v.auraStyle ?? "glow" }); break;
       case "corners": Object.assign(p, { radius: v.radius, shape: v.shape }); break;
-      case "font": Object.assign(p, { font: v.font, text: v.text }); break;
-      case "hover": motion = merge(motion, { hover: v.hover, active: v.active, focus: v.focus }); touched.add("motion"); break;
+      /* A look that names only some of the type (a kit: a face and a weight) is merged into the part's own; a part's look is its type whole. */
+      case "font": Object.assign(p, { font: v.fontMerge ? merge(target.font, (v.font as Rec | null) ?? {}) : v.font, text: v.text }); break;
+      case "hover": motion = merge(motion, { hover: v.hover, active: v.active, focus: v.focus, ...("transition" in v ? { transition: v.transition } : {}) }); touched.add("motion"); break;
       case "motion": {
         motion = merge(motion, { animation: v.animation, transition: v.transition, letter: v.letter }); touched.add("motion");
         Object.assign(p, { anim: v.anim, animSpeed: v.animSpeed ?? 1, animDelay: v.animDelay ?? 0, animEase: v.animEase ?? "smooth" });

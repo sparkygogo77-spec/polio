@@ -12,6 +12,7 @@
  */
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
+import { tryOn, useTryLook } from "./tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable, isOverlay } from "./parts";
@@ -195,6 +196,8 @@ export function Canvas() {
 
 function DesktopCanvas() {
   const ref = React.useRef<HTMLDivElement>(null);
+  /* What is being tried on the picked part (tryLook.ts): laid over it as it is drawn, never written. */
+  const trying = useTryLook((s) => s.trying);
   const news = useActions();
   /* A carried face that will not load is said, once per face, with why:
      silence about a substitute face is what made his headings wrap in
@@ -236,7 +239,8 @@ function DesktopCanvas() {
    * See `useSettleToWords`.
    */
   const settleFrame = useStudio((s) => s.frameWidth);
-  useSettleToWords(nodes, React.useCallback((f) => useStudio.getState().settleToWords(f), []), settleFrame);
+  /* Nothing is settled round a part while a look is being tried on it (tryLook.ts): what is tried is drawn, never written. */
+  useSettleToWords(nodes, React.useCallback((f) => { if (!useTryLook.getState().trying) useStudio.getState().settleToWords(f); }, []), settleFrame);
   const shapes = useStudio(useShallow(pageShapes));
   /* Read here rather than off `getState()` in a handler, because the page's
      own height depends on it: a space drawn below the last part makes the
@@ -2011,7 +2015,7 @@ function DesktopCanvas() {
           <NodeView
             key={n.id}
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
-            node={withLead(n, leadsOf(nodes))}
+            node={tryOn(withLead(n, leadsOf(nodes)), trying)}
             selected={selection.includes(n.id)}
             inHeldGroup={heldIds.has(n.id)}
             theme={theme}

@@ -50,6 +50,7 @@ import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
 import { LookCopy } from "./LookCopy";
 import { MakeAllLike } from "./MakeAllLike";
+import { KitStyles } from "./KitStyles";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 const VERSION_ONLY = ["version"] as const;
@@ -844,6 +845,9 @@ export function Inspector() {
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
           <LookCopy node={node} targets={[node.id]} />
+          <Field label="Styles" hint="This site's own styles. Point at one to see it on the part; click to put it on.">
+            <KitStyles node={node} />
+          </Field>
           <Field label="Make all like this" hint="Every part of this kind on the site, restyled to match, in one step.">
             <MakeAllLike node={node} />
           </Field>
@@ -851,7 +855,7 @@ export function Inspector() {
           {node.worn ? <WornLook node={node} /> : null}
           {node.worn ? null : <>
           <Field label="Colour">
-            <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
+            <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} tryFor={node.id} />
           </Field>
           <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} />
           <EdgeField node={node} />

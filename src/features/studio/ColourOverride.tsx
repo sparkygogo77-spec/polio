@@ -18,6 +18,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { parseColor, toHex, ROLES, ROLE_LABEL, type Palette, type RoleId } from "./look";
 import { CHIP, inheritChip } from "./colourMenu";
 import type { NodeColour } from "./parts/theme";
+import { tryProps } from "./tryLook";
 
 export function effectiveColour(colour: NodeColour | null, palette: Palette, role: RoleId): string {
   const raw = colour?.[role];
@@ -27,23 +28,27 @@ export function effectiveColour(colour: NodeColour | null, palette: Palette, rol
 }
 
 export function ColourOverride({
-  colour, palette, onChange,
+  colour, palette, onChange, tryFor,
 }: {
   colour: NodeColour | null;
   palette: Palette;
   onChange: (next: NodeColour | null) => void;
+  /** The part a swatch is tried on while pointed at (tryLook.ts); without it, swatches only set. */
+  tryFor?: string;
 }) {
   const [role, setRole] = React.useState<RoleId>("bg");
   const current = colour?.[role] ?? "";
   const overridden = Object.entries(colour ?? {}).filter(([, v]) => v).length;
 
-  const set = (value: string | null) => {
+  const nextWith = (value: string | null): NodeColour | null => {
     const next: NodeColour = { ...(colour ?? {}) };
     if (value === null) delete next[role];
     else next[role] = value;
-    const any = Object.values(next).some(Boolean);
-    onChange(any ? next : null);
+    return Object.values(next).some(Boolean) ? next : null;
   };
+  const set = (value: string | null) => onChange(nextWith(value));
+  /* Pointed at, the part wears the colour on the board; the click sets it. */
+  const trying = (value: string | null) => (tryFor ? tryProps(() => ({ patches: { [tryFor]: { colour: nextWith(value) } } }), () => { play("select"); set(value); }) : { onClick: () => { play("select"); set(value); } });
 
   return (
     <div className="space-y-1.5">
@@ -83,7 +88,7 @@ export function ColourOverride({
           <button
             type="button"
             aria-label={`Follow the site's ${ROLE_LABEL[role]}`}
-            onClick={() => { play("select"); set(null); }}
+            {...trying(null)}
             className={cn("tactile border-2", !current ? "border-fg" : "border-transparent")}
             style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, ...inheritChip("", palette[role]).style }}
           />
@@ -93,7 +98,7 @@ export function ColourOverride({
             <button
               type="button"
               aria-label={`Use ${ROLE_LABEL[r]}`}
-              onClick={() => { play("select"); set(r); }}
+              {...trying(r)}
               className={cn("tactile border-2", current === r ? "border-fg" : "border-transparent")}
               style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, background: palette[r] }}
             />

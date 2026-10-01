@@ -17,7 +17,8 @@ import { Switch } from "@/core/ui/switch";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "./store";
-import { FACET_WORDS, lookHas, lookOf } from "./partLook";
+import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./partLook";
+import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";
 import { makeAllLike, makeAllReach, useMakeAll } from "./partLookApply";
 import { pointAt } from "./SiteColours";
@@ -58,13 +59,19 @@ export function MakeAllLike({ node }: { node: StudioNode }) {
           onCheckedChange={(v) => { useMakeAll.getState().setKeepColour(v); play(v ? "toggleOn" : "toggleOff"); }} />
       </label>
       <Button size="sm" variant="outline" className="w-full" data-make-all-button="" data-make-all-count={reach.length} disabled={!reach.length || !on.length}
-        onPointerEnter={() => pointAt(reach)} onPointerLeave={() => pointAt(null)} onFocus={() => pointAt(reach)} onBlur={() => pointAt(null)}
-        onClick={() => {
-          pointAt(null);
-          const n = makeAllLike(node, on, { keepColour });
-          play(n ? "confirm" : "deny");
-          setSaid(n ? `Restyled ${n} ${kindWord(key, n)}, in one step.` : "Nothing to change.");
-        }}>
+        {...(() => {
+          /* Pointed at, every part it reaches is outlined and wears the look on the board (tryLook.ts); the click restyles them. */
+          const t = tryProps(() => {
+            const look = lookOf(node as never);
+            return { patches: Object.fromEntries(reach.map((id) => { const n = nodes.find((x) => x.id === id)!; return [id, lookPatch(n as never, look, on, { keepColour })]; })), what: `${words} like this` };
+          }, () => {
+            pointAt(null);
+            const n = makeAllLike(node, on, { keepColour });
+            play(n ? "confirm" : "deny");
+            setSaid(n ? `Restyled ${n} ${kindWord(key, n)}, in one step.` : "Nothing to change.");
+          });
+          return { ...t, onPointerEnter: () => { pointAt(reach); t.onPointerEnter(); }, onPointerLeave: () => { pointAt(null); t.onPointerLeave(); }, onFocus: () => { pointAt(reach); t.onFocus(); }, onBlur: () => { pointAt(null); t.onBlur(); } };
+        })()}>
         <CopyIcon /> {reach.length ? `Make ${reach.length} ${kindWord(key, reach.length)} like this` : `Every one of the ${words} looks like this`}
       </Button>
       {said ? (
