@@ -60,6 +60,12 @@ import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { publish, studioDoc } from "./agent";
+/* The learned library: every import is read for what can be used again, builder-wide (`library/learned.ts`). */
+import "./library/useLearned";
+import { LearnedDialog } from "./LearnedPanel";
+import { useLearned } from "./library/useLearned";
+import { learnedVersions } from "./library/learned";
+import { putSiteVersion } from "./ShelfCards";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
@@ -1167,6 +1173,15 @@ export function StudioPage() {
     /* The site as HTML and CSS, for the checks and scripts/export-site.mjs:
        what Publish and Go live send (exportSite.ts). */
     (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
+    (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
+    /* A learned site's version of a shelf item, put on a new part as the shelf's Add does: for the checks (tests/learned-library.mjs). */
+    (w as unknown as { __studioPutLearned?: (item: string, host: string) => string | null }).__studioPutLearned = (item, host) => {
+      const v = learnedVersions(useLearned.getState().lib).get(item)?.find((x) => x.host === host);
+      if (!v) return null;
+      let made: string | null = null;
+      putSiteVersion({ item, take: v.take, label: v.label, host, parts: [], frames: v.frames } as Parameters<typeof putSiteVersion>[0], (f) => { made = useStudio.getState().addNode(f, 40, 40 + useStudio.getState().nodes.length * 60); return made; });
+      return made ?? useStudio.getState().selection[0] ?? null;
+    };
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
@@ -1385,6 +1400,7 @@ export function StudioPage() {
           <PreviewWindow />
           {/* "Remake this picture…", opened from the wheel's tray or a parts-tree row. */}
           <RemakeCard />
+          <LearnedDialog />
           {/*
             The one scroller: the site, then the categories under it.
 

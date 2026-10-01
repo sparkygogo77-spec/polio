@@ -1,5 +1,6 @@
 import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./remake";
 import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
+import { openLearned } from "./LearnedPanel";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
@@ -281,6 +282,7 @@ export const studio = defineFeature({
      */
     { id: "studio.drawSpace", label: "Builder: Draw a space", group: "Builder", icon: CircleDashed, keywords: ["space", "surface", "black hole", "box", "area", "from a site", "generate", "create"], run: (c) => { if (!onStudio()) c.navigate("/builder"); useStudio.getState().setTool("space"); } },
     { id: "studio.newIdea", label: "Builder: drop a new idea", group: "Builder", icon: Lightbulb, when: onStudio, run: () => { addFeatureToCanvas("custom-idea"); } },
+    { id: "studio.learned", label: "Builder: learned from your sites", group: "Builder", icon: Lightbulb, when: onStudio, run: () => { openLearned(); } },
     { id: "studio.undo", label: "Builder: undo", group: "Builder", icon: Undo2, when: onStudio, run: () => useStudio.getState().undo() },
     { id: "studio.redo", label: "Builder: redo", group: "Builder", icon: Redo2, when: onStudio, run: () => useStudio.getState().redo() },
     {

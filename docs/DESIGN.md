@@ -297,6 +297,17 @@ same boxes as everywhere else, in the screen's colours.
   under them, `pictureSampler.ts`), else the page; the worst colour there
   counts, and words over a picture not yet in the browser are not judged.
   `tests/readable-backdrop.mjs`.
+- **The Builder learns from every site imported, builder-wide.** Each
+  import (through `loadDoc`) is read for what can be used again
+  (`library/learned.ts`): its versions of shelf items, filed under the item
+  each is a version of (one item, a "Trorty version" per site), its style
+  kits and motions, its font pairing with the files, its palette as
+  painted. Nothing that would do nothing elsewhere is kept: a feature tied
+  to the site's own parts, a motion without its keyframes; each is listed
+  as skipped, with why. Kept under `builder.learned` (versioned, in every
+  backup), never inside a board: removing a board leaves it, forgetting a
+  site is the person's press on "Learned from your sites" (Builds, and the
+  command palette). `tests/learned-library.mjs`.
 - **Motion lists kinds as compact rows**: icon, name, count, one switch;
   the all-at-once speed is inside when opened. Frame interpolation is its
   own folded section at the foot.

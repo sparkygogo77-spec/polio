@@ -25,6 +25,8 @@
  *   · Nothing said what was already in use. A card used on the open page
  *     says so, and the line jumps to those parts.
  */
+import { useLearned } from "./library/useLearned";
+import { learnedVersions } from "./library/learned";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
@@ -165,12 +167,19 @@ export function useSiteVersions(): Map<string, SiteVersion[]> {
   const nodes = useStudio((s) => s.nodes);
   const keyframes = useStudio((s) => (s.look as { keyframes?: unknown }).keyframes);
   const name = useStudio((s) => s.brief.name);
+  /* And every other site's, from the learned library (`library/learned.ts`): builder-wide, so they are on every board. */
+  const lib = useLearned((s) => s.lib);
   return React.useMemo(() => {
     const by = new Map<string, SiteVersion[]>();
     const frames = Array.isArray(keyframes) ? (keyframes as Parameters<typeof siteVersions>[1]) : [];
-    for (const v of siteVersions(nodes, frames, name)) by.set(v.item, [...(by.get(v.item) ?? []), v]);
+    const here = siteVersions(nodes, frames, name);
+    for (const v of here) by.set(v.item, [...(by.get(v.item) ?? []), v]);
+    const open = here[0]?.host ?? nodes.find((n) => n.from?.host)?.from?.host ?? null;
+    for (const [item, list] of learnedVersions(lib, open)) {
+      for (const v of list) by.set(item, [...(by.get(item) ?? []), { item, take: v.take, label: v.label, host: v.host, parts: [], frames: v.frames } as SiteVersion]);
+    }
     return by;
-  }, [nodes, keyframes, name]);
+  }, [nodes, keyframes, name, lib]);
 }
 
 /** An item's versions: its own, the near-copies it stands for, and the open site's. */
@@ -818,7 +827,7 @@ function putWork(id: string, inputs: Record<string, string>, add: (featureId: st
 }
 
 /** Put a site's own version on the picked part, or on a new part when nothing is picked. */
-function putSiteVersion(v: SiteVersion, add: (featureId: string) => string) {
+export function putSiteVersion(v: SiteVersion, add: (featureId: string) => string) {
   const take = v.take;
   if (take.kind === "work") { putWork(take.id, take.inputs, add); return; }
   const st = useStudio.getState();
@@ -826,6 +835,14 @@ function putSiteVersion(v: SiteVersion, add: (featureId: string) => string) {
   const target = picked?.id ?? add(take.kind === "embed" ? "box" : "prose");
   const node = useStudio.getState().nodes.find((n) => n.id === target);
   if (take.kind === "motion") {
+    /* A version learned from another site carries the keyframes it names: they join this board's, so it moves here too. */
+    const carried = (v as SiteVersion & { frames?: { name: string }[] }).frames ?? [];
+    if (carried.length) {
+      const look = useStudio.getState().look as { keyframes?: { name: string }[] };
+      const had = new Set((look.keyframes ?? []).map((k) => k.name));
+      const add = carried.filter((k) => !had.has(k.name));
+      if (add.length) useStudio.setState({ look: { ...useStudio.getState().look, keyframes: [...(look.keyframes ?? []), ...add] } as never });
+    }
     const before = (node?.motion ?? {}) as Record<string, unknown>;
     useStudio.getState().updateNode(target, { motion: { ...before, ...take.motion } as StudioNode["motion"] });
   } else {

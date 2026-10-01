@@ -19,7 +19,8 @@
  *     "site": { "name", "editedAt", "repo", "source", "live", "published" },
  *     "document": { "state": { …pages, nodes, format, look… }, "version": 0 },
  *     "pictures": [{ "id", "path", "type", "bytes", "data": "<base64>" }],
- *     "missingPictures": ["pic_…"]
+ *     "missingPictures": ["pic_…"],
+ *     "learned": { "kind": "polio-learned-library", "version": 1, "sites": { … } }
  *   }
  *
  * `document` is the envelope the Builder's store persists, whole, so
@@ -33,6 +34,8 @@
 import { flushDocs, readDoc, unpackDocText } from "./docStore";
 import { base64, bytesFor, keepAll, type Picture } from "./pictures";
 import { targetTakenBy, sourceOf, useBuilds, type Project } from "@/features/builds/store";
+import { readLibrary, type LearnedLibrary } from "./library/learned";
+import { learnedNow, useLearned } from "./library/useLearned";
 
 export const BACKUP_KIND = "polio-board-backup";
 export const BACKUP_VERSION = 1;
@@ -48,6 +51,13 @@ export interface BoardBackup {
   document: { state: Record<string, unknown>; version?: number };
   pictures: BackupPicture[];
   missingPictures: string[];
+  /**
+   * What the Builder learned from every imported site (`library/learned.ts`,
+   * its own kind and version), so a backup opened in another browser brings
+   * the shelf versions, kits and motions back too. Merged on load, the
+   * newer learning of each site winning; absent in a backup made before it.
+   */
+  learned?: LearnedLibrary;
 }
 
 const LIVE = "builder.studio";
@@ -108,6 +118,7 @@ export async function makeBackup(projectId: string): Promise<BoardBackup | null>
     document,
     pictures,
     missingPictures,
+    learned: learnedNow(),
   };
 }
 
@@ -156,6 +167,7 @@ export function readBackup(text: string): { ok: true; backup: BoardBackup } | { 
       document: { state, version: typeof b.document?.version === "number" ? b.document.version : 0 },
       pictures,
       missingPictures: Array.isArray(b.missingPictures) ? b.missingPictures.filter((x): x is string => typeof x === "string") : [],
+      ...(b.learned ? { learned: readLibrary(b.learned) } : {}),
     },
   };
 }
@@ -183,6 +195,8 @@ export async function loadBackup(text: string): Promise<{ ok: boolean; says: str
     try { list.push({ pic: { id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes, alt: "", from: "upload" }, blob: blobOf(p) }); } catch { /* one bad picture costs only itself */ }
   }
   const kept = await keepAll(list);
+  /* What was learned comes back too, beside what this browser learned itself. */
+  if (backup.learned && Object.keys(backup.learned.sites).length) useLearned.getState().take(backup.learned);
   const s = backup.site;
   const repoFree = !!s.repo && !sourceOf(`${s.repo.owner}/${s.repo.name}`) && !targetTakenBy("", s.repo);
   const meta: Omit<Project, "id"> = {

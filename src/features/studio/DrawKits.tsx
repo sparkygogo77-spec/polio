@@ -17,6 +17,7 @@
  * is copied onto every shape drawn with it, so nothing depends on the board
  * it came from staying open.
  */
+import { useLearned } from "./library/useLearned";
 import * as React from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -107,12 +108,29 @@ export function useBoardKits(active: boolean): { here: StyleKit[]; hereMotions: 
     }
     return () => { alive = false; };
   }, [active, projects, activeId]);
-  const elsewhere = projects
+  const fromBoards = projects
     .filter((p) => p.id !== activeId)
     .map((p) => others.get(p.id))
     .filter((o): o is NonNullable<typeof o> => !!o && o.kits.length > 0)
-    .map((o) => ({ site: o.kits[0]?.site || o.name, kits: o.kits }));
-  const motions = [...here.motions, ...projects.filter((p) => p.id !== activeId).flatMap((p) => others.get(p.id)?.motions ?? [])];
+    .map((o) => ({ site: o.kits[0]?.site || o.name, kits: o.kits, host: o.kits[0]?.host ?? null }));
+  /*
+   * And every site the learned library holds whose board is not here any
+   * more (`library/learned.ts`): what an import taught stays when the board
+   * it came in on is removed. A site already read off a board is not given twice.
+   */
+  const lib = useLearned((s) => s.lib);
+  const hereHost = here.kits[0]?.host ?? null;
+  const seen = new Set([hereHost, ...fromBoards.map((b) => b.host)].filter(Boolean));
+  const learnedSites = Object.values(lib.sites).filter((l) => !seen.has(l.host));
+  const elsewhere = [
+    ...fromBoards.map(({ site, kits }) => ({ site, kits })),
+    ...learnedSites.filter((l) => l.kits.length).map((l) => ({ site: l.name, kits: l.kits })),
+  ];
+  const motions = [
+    ...here.motions,
+    ...projects.filter((p) => p.id !== activeId).flatMap((p) => others.get(p.id)?.motions ?? []),
+    ...learnedSites.flatMap((l) => l.motions),
+  ];
   return { here: here.kits, hereMotions: here.motions, elsewhere, motions };
 }
 

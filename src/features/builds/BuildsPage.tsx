@@ -53,6 +53,7 @@ import { changeState } from "./publishState";
 import { useActions } from "@/core/actions";
 import { PublishLinks } from "@/features/studio/PublishLinks";
 import { downloadBackup, pickAndLoadBackup } from "@/features/studio/backup";
+import { LearnedButton, LearnedDialog } from "@/features/studio/LearnedPanel";
 
 /** "owner/name" if it looks like one, else nothing. */
 function parseRepo(text: string): { owner: string; name: string } | null {
@@ -437,6 +438,7 @@ export function BuildsPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-10" {...ctxProps("builds", "page", null)}>
       {/* Where the card pictures are drawn, one site at a time, off screen (`thumbs.tsx`). */}
       {view === "sites" ? <ThumbMaker /> : null}
+      <LearnedDialog />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-fg sm:text-3xl">Builds</h1>
@@ -453,6 +455,8 @@ export function BuildsPage() {
             <Compass />
             Take the tour
           </Button>
+          {/* What every imported site taught the Builder (`studio/LearnedPanel.tsx`). */}
+          <LearnedButton />
           <Tooltip content="Load a backup file as a new site beside these">
             <Button size="md" variant="outline" data-builds-load-backup="" onClick={() => void loadOne()}>
               <Upload />

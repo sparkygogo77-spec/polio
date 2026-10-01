@@ -277,6 +277,9 @@ check("…and it snaps clean again, where it was", c.worn.snap === "triangle" &&
 /* Edit points: drag the tip of the cone to the right. */
 await p.locator("[data-worn-edit-points]").click();
 const tip = p.locator("[data-point-editor] [data-point='0']");
+/* The popover scrolls when it holds more than the window: kits learned from other sites are offered too (tests/learned-library.mjs). */
+await tip.scrollIntoViewIfNeeded();
+await p.waitForTimeout(150);
 const tb = await tip.boundingBox();
 await p.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
 await p.mouse.down();
