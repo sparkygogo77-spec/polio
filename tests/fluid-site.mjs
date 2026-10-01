@@ -53,6 +53,7 @@ const HEADER = "body > div > header", ASIDE = "body > div > aside", MAIN = "body
 const ROW = `${HEADER} > div`, FROW = `${FOOTER} > div`, GRID = `${MAIN} > div > div:nth-of-type(1)`;
 const [W, H] = cap.viewport;
 const aside = bySel.get(ASIDE), header = bySel.get(HEADER), footer = bySel.get(FOOTER), row = bySel.get(ROW), grid = bySel.get(GRID), main = bySel.get(MAIN);
+check("the capture records the footer's edge on its top only, as the real site draws it", JSON.stringify(footer?.bsides) === "[1,0,0,0]", JSON.stringify({ border: footer?.border, bsides: footer?.bsides }));
 check("the capture records the bands fixed, the header row's max-width and the grid", aside?.pos === "fixed" && header?.pos === "fixed" && footer?.pos === "fixed" && row?.maxw === "1280px" && grid?.disp === "grid",
   JSON.stringify({ aside: aside?.pos, header: header?.pos, footer: footer?.pos, maxw: row?.maxw, grid: grid?.cols }));
 const cols = String(grid.cols).split(/\s+/).length, gap = px(grid.gap), sideW = aside.w, mainL = main.mar[3], mainT = main.mar[0];
@@ -151,6 +152,8 @@ for (const [width, height] of [[1922, 1080], [1366, 900], [1280, 800]]) {
   const sidesW = Array.isArray(footer.bsides) ? footer.bsides[1] + footer.bsides[3] : 2 * (px(footer.border ?? "0") || 0);
   const fRowW = Math.min(px(bySel.get(FROW).maxw), iw - footer.pad[1] - footer.pad[3] - sidesW);
   check(`${width}: the footer's contents centred like the header's`, fr && near(fr.x, (iw - fr.w) / 2) && near(fr.w, fRowW), JSON.stringify(fr));
+  /* As wide as on the real site: the footer's edge is border-top only, so its row has the header's room (1248 at 1280). Needs a capture with per-side edges (sink check-border-sides.mjs). */
+  check(`${width}: the footer's contents are as wide as the header's, as on the real site`, fr && near(fr.w, rowW), `${JSON.stringify(fr)} against ${rowW}`);
   const version = s.nodes.find((n) => n.pageId === "page_home" && /v2\.0\.0/.test(JSON.stringify(n.content ?? "")));
   const vr = version ? await rect(v, version.id) : null;
   check(`${width}: "v2.0.0 | A SolWorks project" on screen, right of the footer's centre`, !!vr && vr.b <= height && vr.x > width / 2 && vr.r <= iw, JSON.stringify(vr));
