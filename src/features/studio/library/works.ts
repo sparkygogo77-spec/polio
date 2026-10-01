@@ -29,6 +29,7 @@
  * copy, tilt and the rest — are in `behaviours.ts`, the same shape.)
  */
 import { BEHAVIOURS } from "./behaviours.ts";
+import { EFFECTS } from "./effects.ts";
 
 /** What a feature needs before it can run. `none` runs on a static page as published. */
 export type WorkNeeds = "none" | "wallet" | "backend" | "key";
@@ -255,7 +256,7 @@ const TOKEN_PRICE: Work = {
 };
 
 /** Every feature the Builder has, in shelf order. */
-export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE, ...BEHAVIOURS];
+export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE, ...BEHAVIOURS, ...EFFECTS];
 
 /**
  * The features the owner accepted from their repositories (`roundTrip.ts`),

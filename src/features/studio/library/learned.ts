@@ -37,6 +37,7 @@ import { SHELF_GROUPS } from "../shelfGroups.ts";
 import { statusOf, type Status } from "../shelfFacts.ts";
 import { readSiteFormat } from "../siteFormat.ts";
 import { paintedPalette, type PaintedPart } from "../shelfTheme.ts";
+import type { SavedComponent } from "./components.ts";
 
 export const LEARNED_KIND = "polio-learned-library";
 export const LEARNED_VERSION = 1;
@@ -82,6 +83,8 @@ export interface LearnedLibrary {
   kind: typeof LEARNED_KIND;
   version: number;
   sites: Record<string, LearnedSite>;
+  /** Things the person saved whole (the TV, a styled button): `components.ts`. Kept beside the sites, never forgotten with one. */
+  components?: SavedComponent[];
 }
 
 export const emptyLibrary = (): LearnedLibrary => ({ kind: LEARNED_KIND, version: LEARNED_VERSION, sites: {} });
@@ -199,6 +202,11 @@ export function learnFromBoard(board: LearnBoard, behaviours?: Record<string, un
     if (take.kind === "work") counts.set(take.id, (counts.get(take.id) ?? 0) + 1);
   }
 
+  /* The effects that were one part's, read for any part (`effects.ts`): the screen, the switch-on, the press. */
+  for (const v of effectVersions(nodes, behaviours ?? null, name)) {
+    if (versions.some((x) => x.item === v.item)) continue;
+    versions.push(v);
+  }
   for (const what of tiedOnly.values()) skipped.push({ what, why: `it is tied to ${name}'s own parts (what it shows, hides, carries or goes to), so it would do nothing on another board` });
 
   /* ---------------------------------------------------------------- recorded behaviours that came to nothing */
@@ -259,14 +267,28 @@ export function withoutSite(lib: LearnedLibrary, host: string): LearnedLibrary {
 export function readLibrary(raw: unknown): LearnedLibrary {
   const r = raw as Partial<LearnedLibrary> | null;
   if (!r || r.kind !== LEARNED_KIND || typeof r.version !== "number" || r.version > LEARNED_VERSION || !r.sites || typeof r.sites !== "object") return emptyLibrary();
-  return { kind: LEARNED_KIND, version: LEARNED_VERSION, sites: r.sites as Record<string, LearnedSite> };
+  const components = Array.isArray(r.components) ? r.components.filter((c) => c && typeof c.id === "string" && Array.isArray(c.nodes) && c.nodes.length) : [];
+  return { kind: LEARNED_KIND, version: LEARNED_VERSION, sites: r.sites as Record<string, LearnedSite>, ...(components.length ? { components } : {}) };
 }
 
 /** Two libraries as one: the newer learning of each site wins (a backup brought in never rolls a site back). */
 export function mergeLibraries(a: LearnedLibrary, b: LearnedLibrary): LearnedLibrary {
   const sites = { ...a.sites };
   for (const [host, s] of Object.entries(b.sites)) if (!sites[host] || (s.at ?? 0) > (sites[host]!.at ?? 0)) sites[host] = s;
-  return { ...emptyLibrary(), sites };
+  /* Saved components: one of each, the newer save winning. */
+  const comps = new Map((a.components ?? []).map((c) => [c.id, c]));
+  for (const c of b.components ?? []) { const was = comps.get(c.id); if (!was || (c.at ?? 0) > (was.at ?? 0)) comps.set(c.id, c); }
+  return { ...emptyLibrary(), sites, ...(comps.size ? { components: [...comps.values()] } : {}) };
+}
+
+/** The library with a component saved (one of the same id replaced). */
+export function withComponent(lib: LearnedLibrary, c: SavedComponent): LearnedLibrary {
+  return { ...lib, components: [...(lib.components ?? []).filter((x) => x.id !== c.id), c] };
+}
+
+/** The library without a component. */
+export function withoutComponent(lib: LearnedLibrary, id: string): LearnedLibrary {
+  return { ...lib, components: (lib.components ?? []).filter((x) => x.id !== id) };
 }
 
 /**
@@ -280,5 +302,80 @@ export function learnedVersions(lib: LearnedLibrary, except?: string | null): Ma
     if (except && site.host === except) continue;
     for (const v of site.versions) out.set(v.item, [...(out.get(v.item) ?? []), { ...v, host: site.host }]);
   }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* The effects any part can wear, read off a site                       */
+/* ------------------------------------------------------------------ */
+
+const fnum = (v: number) => String(Math.round(v * 1000) / 1000);
+const mostOf = <T,>(xs: T[]): T | null => {
+  const m = new Map<string, { v: T; n: number }>();
+  for (const x of xs) { const k = JSON.stringify(x); m.set(k, { v: x, n: (m.get(k)?.n ?? 0) + 1 }); }
+  return [...m.values()].sort((a, b) => b.n - a.n)[0]?.v ?? null;
+};
+
+/**
+ * A site's own settings for the effects any part can wear (`effects.ts`):
+ *   · Screen filter, from the filter its pictures wear (stonkfun's
+ *     saturate(0.8)) and the scanlines laid over them (a repeating stripe
+ *     of see-through dark: trumpmorty.fun's TV), with the jitter its screen
+ *     made (a sideways stepping loop on the picture);
+ *   · Switch on, from the loading screen it opened with;
+ *   · Push on press, from what its parts do while held down (`:active`).
+ */
+export function effectVersions(nodes: readonly Record<string, unknown>[], behaviours: Record<string, unknown> | null, name: string): LearnedVersion[] {
+  type N = { id: string; x?: number; y?: number; w?: number; h?: number; pageId?: string; featureId?: string; picture?: unknown; art?: { filter?: string; background?: string } | null; motion?: { active?: { style?: Record<string, string> }[] } | null };
+  const ns = nodes as readonly N[];
+  const out: LearnedVersion[] = [];
+  const label = `${name} version`;
+  const put = (item: string, id: string, inputs: Record<string, string>, parts: number) => {
+    const place = placeOf(item);
+    if (!place || !getWork(id)) return;
+    out.push({ item, take: { kind: "work", id, inputs }, label, category: place.category, group: place.group, status: statusOf(item, getWork(id)?.manifest.needs), parts });
+  };
+
+  /* Screen filter */
+  const pics = ns.filter((n) => n.picture || n.featureId === "picture");
+  const filters = pics.map((n) => n.art?.filter?.trim()).filter((f): f is string => !!f && !/drop-shadow/.test(f));
+  const covers = (o: N, p: N) => (o.pageId === p.pageId) && (o.x ?? 0) <= (p.x ?? 0) + 4 && (o.y ?? 0) <= (p.y ?? 0) + 4 && (o.x ?? 0) + (o.w ?? 0) >= (p.x ?? 0) + (p.w ?? 0) - 4 && (o.y ?? 0) + (o.h ?? 0) >= (p.y ?? 0) + (p.h ?? 0) - 4;
+  const stripes = ns.filter((n) => /repeating-linear-gradient/.test(n.art?.background ?? ""));
+  const onPicture = stripes.filter((st) => pics.some((p) => covers(st, p) || covers(p, st)));
+  const stripe = (onPicture[0] ?? null)?.art?.background ?? "";
+  let scan: { dark: number; lines: number } | null = null;
+  if (stripe) {
+    const alpha = /rgba\([^)]*,\s*([\d.]+)\)/.exec(stripe);
+    const px = [...stripe.matchAll(/([\d.]+)px/g)].map((m) => Number(m[1])).filter((v) => v > 0);
+    scan = { dark: alpha ? Math.min(1, Number(alpha[1])) : 0.14, lines: px.length ? Math.max(2, Math.max(...px)) : 3 };
+  }
+  const motion = (behaviours?.motion ?? null) as { float?: { part?: string; axis?: string; travel?: number; period?: number; easing?: string }[] } | null;
+  const jit = (motion?.float ?? []).find((f) => f.axis === "x" && /steps/.test(f.easing ?? "") && pics.some((p) => p.id === f.part));
+  const css = mostOf(filters);
+  if (css || scan || jit) {
+    put("work:screen-filter", "screen-filter", {
+      ...(css ? { css } : {}),
+      scanlines: fnum(scan?.dark ?? 0), ...(scan ? { lines: fnum(scan.lines) } : {}),
+      static: scan ? "0.06" : "0",
+      ...(jit ? { jitter: fnum((jit.travel ?? 6) / 2), every: fnum((jit.period ?? 6000) / 1000) } : {}),
+    }, Math.max(filters.length, onPicture.length, jit ? 1 : 0));
+  }
+
+  /* Switch on */
+  const loader = behaviours?.loader as { lastedMs?: number; animations?: string[] } | undefined;
+  if (loader && (loader.animations ?? []).length) {
+    put("work:switch-on", "switch-on", { duration: fnum(Math.min(2400, Math.max(400, (loader.lastedMs ?? 900) / 3))), flash: "yes" }, 1);
+  }
+
+  /* Push on press */
+  const presses = ns.flatMap((n) => (n.motion?.active ?? []).map((a) => a.style ?? {})).map((st) => {
+    const t = st.transform ?? st.translate ?? "";
+    const ty = /translateY\(\s*(-?[\d.]+)px/.exec(t)?.[1] ?? /translate\(\s*-?[\d.]+px,\s*(-?[\d.]+)px/.exec(t)?.[1] ?? /^\s*-?[\d.]+px\s+(-?[\d.]+)px/.exec(t)?.[1];
+    const tx = /translateX\(\s*(-?[\d.]+)px/.exec(t)?.[1] ?? /translate\(\s*(-?[\d.]+)px/.exec(t)?.[1];
+    const sc = /scale\(\s*([\d.]+)/.exec(t)?.[1] ?? st.scale;
+    return { down: ty ?? "0", x: tx ?? "0", scale: sc ?? "1", shadow: st["box-shadow"] ?? st.boxShadow ?? "" };
+  }).filter((p) => p.down !== "0" || p.x !== "0" || p.scale !== "1");
+  const press = mostOf(presses);
+  if (press) put("work:press-push", "press-push", { down: press.down, x: press.x, scale: press.scale, ...(press.shadow ? { shadow: press.shadow } : {}) }, presses.length);
   return out;
 }

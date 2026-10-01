@@ -7,7 +7,7 @@
 import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
@@ -44,6 +44,8 @@ import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
 import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, PartsTree, kindWord, useDecisions } from "./PartTreePanel";
 import { PartFields } from "./PartFields";
+import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
+import { usesOf } from "./library/works";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 const VERSION_ONLY = ["version"] as const;
@@ -684,6 +686,8 @@ export function Inspector() {
   const group = groups.find((g) => g.id === node.groupId);
   const shownName = partName(node, nodes, featureName);
   const kind = kindWord(node);
+  const effectIds = offeredIds(kind, node, nodes);
+  const effectsOn = usesOf(node.work).filter((u) => effectIds.has(u.id)).length;
   /* Words inside a button or a link are that control's label: one line, no
      measure, not "long-form text with proper rhythm". */
   const isLabel = !!feature && (TEXTY.has(feature.id) || (feature.id === "box" && !!wordsOf(node))) && insideControl(node);
@@ -758,7 +762,7 @@ export function Inspector() {
           {/* While it goes nowhere, the box at the top is where it is decided; the other half, saying what it should do, stays here. */}
           {control || decision?.why === "nowhere" ? <LinkField node={node} /> : null}
           {node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node) ? <PictureField node={node} /> : null}
-          <WorkFields node={node} />
+          <WorkFields node={node} pick={(id) => !effectIds.has(id)} />
           {node.vector ? <Role node={node} /> : null}
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
@@ -848,6 +852,15 @@ export function Inspector() {
 
         <PanelSection id="motion" title="Motion" icon={<Play />} note={undefined}>
           <PartMotions node={node} />
+        </PanelSection>
+
+        {/* EFFECTS: the ones that fit this kind of part, plain or as a site had them, with their settings (PartEffects.tsx). */}
+        <PanelSection id="effects" title="Effects" icon={<Sparkles />} note={effectsOn ? `${effectsOn} on` : undefined}>
+          <PartEffects node={node} kind={kind} nodes={nodes} />
+        </PanelSection>
+
+        <PanelSection id="save-component" title="Save as a component" icon={<Bookmark />} defaultOpen={false}>
+          <SaveAsComponent node={node} kind={kind} />
         </PanelSection>
 
         <PanelSection id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>

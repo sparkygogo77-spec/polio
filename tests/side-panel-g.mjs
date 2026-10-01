@@ -184,7 +184,7 @@ const crumbs = (await panel.locator("[data-crumbs]").innerText()).replace(/\s+/g
 check("3 a breadcrumb from the page to the link", /^Home\b.*Section.*Link$/.test(crumbs), crumbs);
 check("3 the name and kind", (await panel.locator("[data-element-name]").innerText()) === "Link “BUY ON PUMP.FUN”" && (await panel.locator("[data-element-kind]").innerText()) === "Link");
 const secs = await panel.locator("[data-part-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part-section")));
-check("3 sections: Content, Position and size, Look, Motion, Prompt, Make a picture", secs.join(",") === "content,place,look,motion,prompt,make-picture", secs.join(","));
+check("3 sections: Content, Position and size, Look, Motion, Effects, Save as a component, Prompt, Make a picture", secs.join(",") === "content,place,look,motion,effects,save-component,prompt,make-picture", secs.join(","));
 check("3 …the prompt and Make a picture folded", (await panel.locator('[data-part-section="prompt"][data-open]').count()) === 0 && (await panel.locator('[data-part-section="make-picture"][data-open]').count()) === 0);
 const wordsBox = panel.getByLabel("Words");
 check("3 the link's words are there to edit, from the label inside it", (await wordsBox.inputValue()) === "BUY ON PUMP.FUN", await wordsBox.inputValue());

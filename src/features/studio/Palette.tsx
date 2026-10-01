@@ -19,6 +19,7 @@
  * whole-site switches are `ShelfCards.tsx` and `shelfFacts.ts`; this file is
  * the shelf they stand in.
  */
+import { SavedComponentsBand } from "./SavedComponents";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, ChevronUp, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
@@ -1028,6 +1029,7 @@ function CategorySection({
         {category.id === "motion" ? <SeeMotionTab className="shrink-0 text-fine" /> : null}
       </div>
       <div className="px-3 py-2">
+        <SavedComponentsBand category={category.id} hue={category.hue} />
         <WorkShelf category={category} width={cardWidth} words={words} gap={gap} />
         {groups.map((g) => (
           <Band key={g.id} title={g.label || category.label} hue={category.hue} mark={subs.length ? moonFor(g.id) : undefined}>

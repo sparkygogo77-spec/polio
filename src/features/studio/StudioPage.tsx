@@ -7,6 +7,7 @@
  * Right — whatever is selected, the site format options, or the page list.
  */
 import { RemakeCard } from "./RemakePicture";
+import { putComponent } from "./SavedComponents";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -1174,6 +1175,12 @@ export function StudioPage() {
        what Publish and Go live send (exportSite.ts). */
     (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
+    (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;
+    /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */
+    (w as unknown as { __studioPutComponent?: (id: string, at?: { x: number; y: number }) => string[] | null }).__studioPutComponent = (id, at) => {
+      const c = (useLearned.getState().lib.components ?? []).find((x) => x.id === id || x.name === id);
+      return c ? putComponent(c, at) : null;
+    };
     /* A learned site's version of a shelf item, put on a new part as the shelf's Add does: for the checks (tests/learned-library.mjs). */
     (w as unknown as { __studioPutLearned?: (item: string, host: string) => string | null }).__studioPutLearned = (item, host) => {
       const v = learnedVersions(useLearned.getState().lib).get(item)?.find((x) => x.host === host);

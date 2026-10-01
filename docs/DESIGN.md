@@ -308,6 +308,24 @@ same boxes as everywhere else, in the screen's colours.
   backup), never inside a board: removing a board leaves it, forgetting a
   site is the person's press on "Learned from your sites" (Builds, and the
   command palette). `tests/learned-library.mjs`.
+- **A site's own effect is any part's.** The TV's screen look (scanlines,
+  static, colour shift, jitter) is the Screen filter, its switch-on is
+  Switch on, a pressed key's sink is Push on press (`library/effects.ts`),
+  each a library feature, so the published page runs what the board shows.
+  Every import teaches its own settings for them as a site's version.
+  Clicking a part opens an **Effects** section offering what fits its kind
+  (`library/partEffects.ts`): a picture (or a box holding one) its filters,
+  a button its hover and press and the button looks the sites taught, a
+  section the pointer and background motions, every part the openings;
+  plain or a site's version, with its settings right there.
+- **A part can be saved whole.** "Save as a component" in the part panel
+  keeps the part and everything inside it (the TV with its screen, its
+  filter, its knobs, its keyframes, its fonts) builder-wide, in the
+  learned library and in backups, under the shelf category picked
+  (`library/components.ts`). The shelf shows it under "Saved components"
+  in that category; Add places it with fresh ids, holding what it held.
+  What it holds is the part tree's reading; Lane J's grouping plugs in as
+  `members`. `tests/universal-effects.mjs`.
 - **Motion lists kinds as compact rows**: icon, name, count, one switch;
   the all-at-once speed is inside when opened. Frame interpolation is its
   own folded section at the foot.

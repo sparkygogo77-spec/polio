@@ -17,7 +17,8 @@
 import { create } from "zustand";
 import { readDoc, writeDoc } from "../docStore";
 import { useStudio } from "../store";
-import { emptyLibrary, learnFromBoard, mergeLibraries, readLibrary, withSite, withoutSite, type LearnedLibrary, type LearnedSite } from "./learned";
+import type { SavedComponent } from "./components";
+import { emptyLibrary, learnFromBoard, mergeLibraries, readLibrary, withComponent, withoutComponent, withSite, withoutSite, type LearnedLibrary, type LearnedSite } from "./learned";
 
 export const LEARNED_KEY = "builder.learned";
 /** The event `loadDoc` sends, with what the document said about its page's behaviour. */
@@ -32,6 +33,9 @@ interface LearnedState {
   forget: (host: string) => void;
   /** A library brought in (a backup): merged, the newer learning of each site winning. */
   take: (lib: LearnedLibrary) => void;
+  /** A component saved whole (`components.ts`), builder-wide, and one taken off the shelf. */
+  saveComponent: (c: SavedComponent) => void;
+  removeComponent: (id: string) => void;
 }
 
 const save = (lib: LearnedLibrary) => { try { writeDoc(LEARNED_KEY, JSON.stringify(lib)); } catch { /* kept for this visit */ } };
@@ -43,6 +47,8 @@ export const useLearned = create<LearnedState>()((set, get) => ({
   learn: (site) => { const lib = withSite(get().lib, site); save(lib); set({ lib, last: { host: site.host, at: site.at } }); },
   forget: (host) => { const lib = withoutSite(get().lib, host); save(lib); set({ lib }); },
   take: (incoming) => { const lib = mergeLibraries(get().lib, incoming); save(lib); set({ lib }); },
+  saveComponent: (c) => { const lib = withComponent(get().lib, c); save(lib); set({ lib }); },
+  removeComponent: (id) => { const lib = withoutComponent(get().lib, id); save(lib); set({ lib }); },
 }));
 
 /* ------------------------------------------------------------------ reading it back */

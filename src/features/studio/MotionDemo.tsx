@@ -36,6 +36,8 @@ const KIND: Record<string, string> = {
   "copy-toast": "copy", "hover-lift": "lift", "press-shows": "press", "world-dialogs": "dialog",
   "scroll-header": "header", "scroll-grow": "grow-scroll", embed: "embed",
   "sol-price": "price", "token-price": "price",
+  /* One site's effects made any part's (library/effects.ts). */
+  "screen-filter": "screen", "switch-on": "tvon", "press-push": "push",
 };
 
 export function hasDemo(id: string): boolean {
@@ -74,6 +76,9 @@ const CSS = `
 @keyframes md-glide{0%{transform:translateY(0)}100%{transform:translateY(-38%)}}
 @keyframes md-aim{0%{transform:translate(var(--fx),var(--fy))}45%,100%{transform:translate(var(--tx),var(--ty))}}
 @keyframes md-tap{0%,44%{transform:scale(1);opacity:0}50%{transform:scale(.4);opacity:.9}70%,100%{transform:scale(1.6);opacity:0}}
+@keyframes md-tvon{0%,15%{transform:scale(1,.006);filter:brightness(3)}45%{transform:scale(1,.006);filter:brightness(3)}80%,100%{transform:none;filter:none}}
+@keyframes md-push{0%,35%{transform:none;box-shadow:0 6px 0 rgba(0,0,0,.45)}50%,70%{transform:translateY(5px);box-shadow:0 1px 0 rgba(0,0,0,.45)}85%,100%{transform:none;box-shadow:0 6px 0 rgba(0,0,0,.45)}}
+@keyframes md-static{0%{background-position:0 0}25%{background-position:-40px 30px}50%{background-position:30px -20px}75%{background-position:-20px -40px}100%{background-position:0 0}}
 @keyframes md-lift{0%,40%{transform:translateY(0);box-shadow:0 0 0 rgba(0,0,0,0)}60%,100%{transform:translateY(-12px);box-shadow:0 18px 30px rgba(0,0,0,.45)}}
 @keyframes md-toast{0%,50%{opacity:0;transform:translate(-50%,16px)}62%,90%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
 @keyframes md-open{0%,50%{opacity:0;transform:scaleY(.2)}66%,100%{opacity:1;transform:scaleY(1)}}
@@ -423,6 +428,29 @@ export function MotionDemo({ id, label, t, words, width, height, play, loop }: {
       );
       break;
     }
+    case "screen":
+      /* The open site's page as if on a screen: its colours shifted, scanlines over it, a flicker of static. */
+      body = (
+        <>
+          <div style={{ position: "absolute", inset: 0, filter: "hue-rotate(-12deg) saturate(1.25) contrast(1.1)" }}>{bar}{blocks()}</div>
+          <div className="md-a" style={{ position: "absolute", inset: 0, pointerEvents: "none", mixBlendMode: "overlay", backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px)", ...(moving ? a("md-static", { animationDuration: "0.4s", animationTimingFunction: "steps(4)", animationIterationCount: "infinite" }) : {}) }} />
+        </>
+      );
+      break;
+    case "tvon":
+      body = <div className="md-a" style={{ position: "absolute", inset: 0, background: t.bg, ...(moving ? a("md-tvon") : {}) }}>{bar}{blocks()}</div>;
+      break;
+    case "push":
+      body = (
+        <>
+          {bar}
+          <div style={{ position: "absolute", left: 0, right: 0, top: 90, display: "flex", justifyContent: "center" }}>
+            <span className="md-a" style={{ ...text, fontWeight: 700, fontSize: 15, padding: "12px 26px", borderRadius: r, background: t.accent, color: t.accentText, boxShadow: "0 6px 0 rgba(0,0,0,.45)", ...(moving ? a("md-push") : {}) }}>{cut(links[0] ?? h2, 16)}</span>
+          </div>
+          {pointer(330, 250, 200, 110)}
+        </>
+      );
+      break;
     case "lift":
       body = (
         <>

@@ -92,7 +92,8 @@ check("the board's chip names both", chip.some((t) => /Reveal on scroll/.test(t)
 await part.click();
 await wait(400);
 const fields = await page.evaluate(() => [...document.querySelectorAll("[data-work-field]")].map((f) => f.getAttribute("data-work-field")));
-check("the Element panel shows each feature the part carries", fields.join() === "reveal,copy-toast", fields.join());
+/* Reveal on scroll fits any part, so it sits under Effects (PartEffects.tsx), copy-toast under Content: both shown, each once. */
+check("the Element panel shows each feature the part carries", [...fields].sort().join() === "copy-toast,reveal", fields.join());
 await page.locator('[data-work-field="reveal"] input[aria-label="Distance (px)"]').fill("48");
 await wait(300);
 await page.locator('[data-work-field="reveal"] [aria-label="Only the first time"] button', { hasText: "no" }).first().click().catch(() => {});

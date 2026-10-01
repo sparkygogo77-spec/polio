@@ -19,13 +19,13 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio, type StudioNode } from "./store";
 import { getWork, inputsOf, usesOf, withInput, withoutWork, withSwitch, type WorkInput } from "./library/works";
 
-export function WorkFields({ node }: { node: StudioNode }) {
-  const uses = usesOf(node.work).filter((u) => getWork(u.id));
+export function WorkFields({ node, pick, title = "Working" }: { node: StudioNode; pick?: (id: string) => boolean; title?: string }) {
+  const uses = usesOf(node.work).filter((u) => getWork(u.id) && (!pick || pick(u.id)));
   if (!uses.length) return null;
   const update = (work: StudioNode["work"]) => useStudio.getState().updateNode(node.id, { work });
   return (
     <div data-work-fields={node.id} className="space-y-2">
-      <span className="block text-small font-medium uppercase tracking-wider text-fg-faint">Working</span>
+      <span className="block text-small font-medium uppercase tracking-wider text-fg-faint">{title}</span>
       {uses.map((use) => {
         const m = getWork(use.id)!.manifest;
         const v = inputsOf(m, use.inputs);
