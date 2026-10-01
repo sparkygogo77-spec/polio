@@ -193,11 +193,28 @@ function PaletteExample({ role, palette }: { role: RoleId; palette: Palette }) {
   );
 }
 
-function ColourSection() {
+/**
+ * THE SIX COLOURS PARTS CAN FOLLOW, as rows: on a site made here they are
+ * its colours; on a site brought in they are what a part added from the
+ * shelf is painted with, folded under More colours. A row pressed opens its
+ * editor under it, and only its own.
+ */
+const ROLE_HINT: Record<RoleId, string> = {
+  bg: "behind everything",
+  surface: "cards and panels",
+  text: "the words",
+  muted: "quieter words",
+  accent: "buttons and links",
+  highlight: "a second colour",
+};
+
+export function PaletteRoles({ captured }: { captured: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const resolved = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const [role, setRole] = React.useState<RoleId>("accent");
+  /* Which row's editor is open: none until one is pressed. */
+  const [editing, setEditing] = React.useState<RoleId | null>(null);
   const [harmony, setHarmony] = React.useState<Harmony>("analogous");
   // The server cannot know whether this browser has an eyedropper, so decide after mount.
   const [canPick, setCanPick] = React.useState(false);
@@ -258,143 +275,126 @@ function ColourSection() {
     }
   };
 
+  const rowSays = (r: RoleId): React.ReactNode => {
+    if (!from?.[r]) return captured ? null : <span className="text-fg-faint">{ROLE_HINT[r]}</span>;
+    if (unused(r)) return <span><span data-role-source={r}>not used</span>: no part wears it, so it borrows the {ROLE_LABEL[from[r]!.shows!].toLowerCase()} colour</span>;
+    return <span><span data-role-source={r} className="num">{follow[r]}</span> part{follow[r] === 1 ? " follows" : "s follow"} it</span>;
+  };
   return (
-    <section data-look-colour="" className="space-y-2 border-b border-border p-3">
-      <div className="flex items-center justify-between">
-        <h3 data-look-heading className="text-plain font-semibold text-fg">Colour</h3>
-        {look.palette && Object.keys(look.palette).length ? (
-          <button
-            type="button"
-            /* Back to what the site gave, on a site brought in; the app's own otherwise. */
-            onClick={() => useStudio.getState().setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {} })}
-            className="text-small text-fg-muted hover:text-fg"
-          >
-            Reset
-          </button>
-        ) : null}
-      </div>
-
-      {/* Six roles. Everything the site draws reads one of these. On a site
-          brought in, each says under it where it came from (paletteFrom.ts):
-          how many of his parts follow it now, or "unused" when the site gave
-          it nothing and it shows another role's colour instead. */}
-      <div className="grid grid-cols-6 gap-1">
-        {ROLES.map((r) => (
-          <div key={r} className="flex flex-col items-stretch gap-0.5">
-            <Tooltip content={`${ROLE_LABEL[r]}, ${resolved[r]}${from?.[r] ? `. ${sourceSays(r)}` : ""}`}>
-              <button
-                type="button"
-                aria-label={ROLE_LABEL[r]}
-                aria-pressed={role === r}
-                onClick={() => { play("select"); setRole(r); }}
-                className={cn("h-9 rounded-md border-2 transition-colors", role === r ? "border-accent" : "border-border hover:border-border-strong")}
-                style={{ background: resolved[r] }}
-              />
-            </Tooltip>
-            {from?.[r] ? (
-              <span data-role-source={r} className="num text-center text-fine leading-tight text-fg-faint">
-                {unused(r) ? "not used" : follow[r]}
-              </span>
-            ) : null}
-          </div>
-        ))}
-      </div>
-      {/* The number under a role is how many parts follow it; said once,
-          in words, so "154" beside "not used" never reads as "154 unused". */}
-      {from ? (
+    <div data-look-colour="" className="space-y-1">
+      {captured ? (
         <p data-role-legend="" className="text-fine leading-snug text-fg-faint">
-          The number under each colour is how many parts follow it. &ldquo;Not used&rdquo; means no part wears that one, so it borrows another&rsquo;s colour.
+          What a part you add from the shelf is painted with. Parts that came with the site and match one of these follow it.
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-small text-fg-muted">
-        <span data-role-says="" className="min-w-0">
-          {ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}
-          {from && follow[role] ? `. Changing it repaints ${follow[role] === 1 ? "that part" : `those ${follow[role]}`}.` : ""}
-        </span>
-        {/* On a site brought in, Text and Background are often never worn
-            together, so their ratio says nothing about the site: "text 1.2"
-            on a site whose words all read clearly. "On this site" measures
-            the words against what they really sit on instead. */}
-        {from ? null : (
-          <span className="flex gap-1">
-            <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
-            <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
-          </span>
-        )}
-      </div>
-
-      {/* The example goes BEFORE the mixer, because it is what the mixer is
-          about: the whole palette at once, the picked role marked in it,
-          picked first, dragged second, and never dragged blind. */}
-      <PaletteExample role={role} palette={resolved} />
-
-      <Mixer value={current} onChange={setRoleColour} />
-
-      <div className="flex items-center gap-1">
-        <Input
-          inputSize="sm"
-          className="min-w-0 flex-1"
-          value={toHex(current)}
-          aria-label={`${ROLE_LABEL[role]} colour`}
-          onChange={(e) => {
-            const c = parseColor(e.target.value);
-            if (c) setRoleColour(c);
-          }}
-        />
-        {canPick ? (
-          <Tooltip content="Pick a colour from anywhere on screen">
-            <Button variant="outline" size="iconXs" aria-label="Pick a colour" onClick={pick}>
-              <Pipette />
-            </Button>
-          </Tooltip>
-        ) : null}
-        <Tooltip content="Copy this colour">
-          <Button variant="ghost" size="iconXs" aria-label="Copy colour" onClick={() => void navigator.clipboard?.writeText(css(current))}>
-            <Copy />
-          </Button>
-        </Tooltip>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <Select
-          className="min-w-0 flex-1"
-          value={harmony}
-          onChange={(v) => setHarmony(v as Harmony)}
-          options={HARMONIES.map((h) => ({ value: h.id, label: h.label }))}
-          aria-label="Harmony"
-        />
-        <Tooltip content={HARMONIES.find((h) => h.id === harmony)?.hint ?? ""}>
-          <Button variant="outline" size="xs" onClick={generate}>
-            <Shuffle />
-            Build palette
-          </Button>
-        </Tooltip>
-      </div>
-      {asking ? (
-        <div data-build-ask="" className="space-y-2 rounded-md border border-border bg-elevated p-2">
-          <p className="text-small leading-snug text-fg">
-            This site&apos;s colours came with it. Building a palette repaints the {following} part{following === 1 ? "" : "s"} tied
-            to these six colours, replacing the colours they were captured with. Colours no role holds stay as they are.
-          </p>
-          <div className="flex gap-1">
-            <Button data-build-confirm="" size="xs" variant="outline" className="flex-1" onClick={generate}>Build and repaint them</Button>
-            <Button size="xs" variant="ghost" onClick={() => { play("close"); setAsking(false); }}>Keep the site&apos;s</Button>
+      {ROLES.map((r) => (
+        <div key={r} data-palette-row={r}>
+          <div
+            className={cn("flex w-full items-center gap-2 rounded-md border px-1.5 py-1", editing === r ? "border-accent bg-hover" : "border-transparent hover:bg-hover")}
+            onClick={() => { play("select"); setRole(r); setEditing((e) => (e === r ? null : r)); }}
+          >
+            <button
+              type="button"
+              aria-label={ROLE_LABEL[r]}
+              aria-pressed={editing === r}
+              onClick={(e) => { e.stopPropagation(); play("select"); setRole(r); setEditing((v) => (v === r ? null : r)); }}
+              className="size-6 shrink-0 rounded-md border border-border"
+              style={{ background: resolved[r] }}
+            />
+            <span className="min-w-0 flex-1 cursor-pointer text-small leading-snug text-fg">
+              {ROLE_LABEL[r]} <span className="text-fg-muted">{rowSays(r)}</span>
+            </span>
           </div>
+          {editing === r ? (
+            <div data-palette-editor={r} className="mt-1 space-y-2 rounded-md border border-border bg-elevated p-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-small text-fg-muted">
+                <span data-role-says="" className="min-w-0">
+                  {ROLE_LABEL[role]}{from?.[role] ? `, ${sourceSays(role)}` : ""}
+                  {from && follow[role] ? `. Changing it repaints ${follow[role] === 1 ? "that part" : `those ${follow[role]}`}.` : ""}
+                </span>
+                {from ? null : (
+                  <span className="flex gap-1">
+                    <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
+                    <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
+                  </span>
+                )}
+              </div>
+      {/* The example goes BEFORE the mixer, because it is what the mixer is
+                  about: the whole palette at once, the picked role marked in it,
+                  picked first, dragged second, and never dragged blind. */}
+              <PaletteExample role={role} palette={resolved} />
+
+              <Mixer value={current} onChange={setRoleColour} />
+
+              <div className="flex items-center gap-1">
+                <Input
+                  inputSize="sm"
+                  className="min-w-0 flex-1"
+                  value={toHex(current)}
+                  aria-label={`${ROLE_LABEL[role]} colour`}
+                  onChange={(e) => {
+                    const c = parseColor(e.target.value);
+                    if (c) setRoleColour(c);
+                  }}
+                />
+                {canPick ? (
+                  <Tooltip content="Pick a colour from anywhere on screen">
+                    <Button variant="outline" size="iconXs" aria-label="Pick a colour" onClick={pick}>
+                      <Pipette />
+                    </Button>
+                  </Tooltip>
+                ) : null}
+                <Tooltip content="Copy this colour">
+                  <Button variant="ghost" size="iconXs" aria-label="Copy colour" onClick={() => void navigator.clipboard?.writeText(css(current))}>
+                    <Copy />
+                  </Button>
+                </Tooltip>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Select
+                  className="min-w-0 flex-1"
+                  value={harmony}
+                  onChange={(v) => setHarmony(v as Harmony)}
+                  options={HARMONIES.map((h) => ({ value: h.id, label: h.label }))}
+                  aria-label="Harmony"
+                />
+                <Tooltip content={HARMONIES.find((h) => h.id === harmony)?.hint ?? ""}>
+                  <Button variant="outline" size="xs" onClick={generate}>
+                    <Shuffle />
+                    Build palette
+                  </Button>
+                </Tooltip>
+              </div>
+              {asking ? (
+                <div data-build-ask="" className="space-y-2 rounded-md border border-border bg-elevated p-2">
+                  <p className="text-small leading-snug text-fg">
+                    This site&apos;s colours came with it. Building a palette repaints the {following} part{following === 1 ? "" : "s"} tied
+                    to these six colours, replacing the colours they were captured with. Colours no role holds stay as they are.
+                  </p>
+                  <div className="flex gap-1">
+                    <Button data-build-confirm="" size="xs" variant="outline" className="flex-1" onClick={generate}>Build and repaint them</Button>
+                    <Button size="xs" variant="ghost" onClick={() => { play("close"); setAsking(false); }}>Keep the site&apos;s</Button>
+                  </div>
+                </div>
+              ) : built ? (
+                <p data-build-done="" className="flex items-center gap-2 text-small text-fg-muted">
+                  Built from {ROLE_LABEL[role].toLowerCase()}.
+                  <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setBuilt(false); play("close"); }}>
+                    <Undo2 className="size-3" /> Undo
+                  </button>
+                </p>
+              ) : (
+                <p className="text-small leading-snug text-fg-faint">
+                  Builds all six colours from {ROLE_LABEL[role].toLowerCase()}.{" "}
+                  {from ? "Only parts tied to one of the six move; the site's other colours are listed below." : "Every part reads these, and any one part can use its own instead."}
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
-      ) : built ? (
-        <p data-build-done="" className="flex items-center gap-2 text-small text-fg-muted">
-          Built from {ROLE_LABEL[role].toLowerCase()}.
-          <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setBuilt(false); play("close"); }}>
-            <Undo2 className="size-3" /> Undo
-          </button>
-        </p>
-      ) : (
-        <p className="text-small leading-snug text-fg-faint">
-          Builds all six colours from {ROLE_LABEL[role].toLowerCase()}.{" "}
-          {from ? "Only parts tied to one of the six move; the site's other colours are listed below." : "Every part reads these, and any one part can use its own instead."}
-        </p>
-      )}
-    </section>
+      ))}
+    </div>
   );
 }
 
@@ -1108,7 +1108,9 @@ export function LookPanel() {
       */}
       {/* A site brought in leads with what it wears; the six roles, which a
           captured site was never painted from, come after. */}
-      {captured ? <><SiteColoursSection /><SiteFontsSection /><ColourSection /></> : <><ColourSection /><SiteColoursSection /><SiteFontsSection /></>}
+      {/* One colour section for every site, then the faces, then the rest (owner: "Readable words, Colours, Fonts, then anything else"). */}
+      <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
+      <SiteFontsSection />
       <LightSection />
       <TextureSection />
     </div>

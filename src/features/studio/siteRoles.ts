@@ -41,7 +41,7 @@ export const ROLE_CAP = 8;
 /** A colour worn by this many parts or fewer is under More. */
 export const FEW = 2;
 
-export type RoleKey = "words" | "main" | "buttons" | "panels" | "accent" | "outline" | "shadow" | "pictures";
+export type RoleKey = "words" | "main" | "buttons" | "panels" | "accent" | "outline" | "shadow" | "pictures" | "ink";
 export const ROLE_ORDER: readonly RoleKey[] = ["words", "main", "buttons", "panels", "accent", "outline", "shadow", "pictures"];
 export const ROLE_LABEL: Record<RoleKey, string> = {
   words: "Words",
@@ -52,11 +52,30 @@ export const ROLE_LABEL: Record<RoleKey, string> = {
   outline: "Outline",
   shadow: "Shadow",
   pictures: "Pictures on top",
+  ink: "Default ink",
 };
-/** The use a role recolours, in `swapColour`'s terms. */
-export const ROLE_USE: Record<RoleKey, ColourUse> = {
-  words: "text", main: "fill", buttons: "fill", panels: "fill", accent: "accent", outline: "border", shadow: "shadow", pictures: "fill",
+/** The use a role recolours, in `swapColour`'s terms; default ink recolours whatever it is on those parts. */
+export const ROLE_USE: Record<RoleKey, ColourUse | undefined> = {
+  words: "text", main: "fill", buttons: "fill", panels: "fill", accent: "accent", outline: "border", shadow: "shadow", pictures: "fill", ink: undefined,
 };
+
+/*
+ * DEFAULT INK. Near-black and near-white are the site's plain ink, not one of
+ * its colours: trumpmorty.fun's #1a0f0b is its black, on 92 parts' words,
+ * outlines and shadows, and listing it as "Dark brown words" took the Words,
+ * Outline, Shadow and Panels rows from the colours the site is made of. A
+ * colour is default ink when it is nearly grey (chroma under `INK_CHROMA` in
+ * OKLab) and very dark (lightness under `INK_DARK`) or very light (over
+ * `INK_LIGHT`). Each ink is one quiet line, whatever it paints.
+ */
+export const INK_CHROMA = 0.035;
+export const INK_DARK = 0.25;
+export const INK_LIGHT = 0.94;
+export function inkOf(v: string): "black" | "white" | null {
+  const c = parseColor(v);
+  if (!c || c.c >= INK_CHROMA) return null;
+  return c.l < INK_DARK ? "black" : c.l > INK_LIGHT ? "white" : null;
+}
 
 export interface Part extends Worn {
   pageId?: string;
@@ -92,8 +111,10 @@ export interface SiteRoles {
   short: { role: RoleKey; swatches: RoleSwatch[] }[];
   /** Everything else, by role. */
   more: RoleSwatch[];
+  /** The site's plain black and white ink, each one quiet line: never a role. */
+  ink: RoleSwatch[];
   /** What was left out, and why, so the panel can say it. */
-  left: { backgroundLayers: string[]; backgroundPictures: number; page: boolean };
+  left: { backgroundLayers: string[]; backgroundPictures: number; page: boolean; pictureWords: number };
 }
 
 /* ------------------------------------------------------------------ */
@@ -195,12 +216,16 @@ function sentence(role: RoleKey, value: string, parts: readonly Part[], spots: r
     }
     case "shadow": return `${name} ${shadowKind(parts)} ${on}${more}`;
     case "pictures": return `${name} in ${plural(n, "picture")} on top of the page${more}`;
+    case "ink": return `${name} ink ${on}${more}`;
   }
 }
 
 /* ------------------------------------------------------------------ */
 /* The roles                                                           */
 /* ------------------------------------------------------------------ */
+
+/** The words a default-ink line uses for what it paints. */
+const INK_USES: [ColourUse, string][] = [["text", "words"], ["fill", "fills"], ["border", "outlines"], ["shadow", "shadows"], ["accent", "accents"]];
 
 const BUTTON_PARTS = new Set(["cta-primary", "quick-action", "follow", "magnetic-buttons", "copy-button"]);
 const isButton = (p: Part) => BUTTON_PARTS.has(p.featureId ?? "") || !!p.link || insideControl({ from: p.from ?? null, prompt: p.prompt, link: p.link as never });
@@ -256,6 +281,8 @@ export function siteRoles(
   };
   let backgroundPictures = 0;
   const fills: { key: string; value: string; spot: ColourSpot; p: Part }[] = [];
+  let pictureWords = 0;
+  const ink = { black: new Map<string, Entry>(), white: new Map<string, Entry>() };
   for (const p of parts) {
     const behind = back.has(p.id);
     if (behind && p.picture) backgroundPictures++;
@@ -265,6 +292,17 @@ export function siteRoles(
       /* A see-through colour paints a tint of what is under it, not itself: left to the full list. */
       if (alphaOf(value) < 0.5) continue;
       const u = w.spot.use;
+      /* A picture is not words: what it says is drawn in the picture, and its colours are under Pictures on top. */
+      if (u === "text" && p.picture) { pictureWords++; continue; }
+      if (u === "fill" && behind) continue;
+      const plain = inkOf(value);
+      if (plain) {
+        const e = ink[plain].get(w.key) ?? { key: w.key, value, spots: [], area: 0 };
+        if (!e.spots.some((x) => x.id === w.spot.id && x.where === w.spot.where)) e.spots.push(w.spot);
+        e.area += area(p);
+        ink[plain].set(w.key, e);
+        continue;
+      }
       if (u === "fill") {
         if (behind) continue;
         if (isButton(p)) put("buttons", w.key, value, w.spot, p);
@@ -319,7 +357,20 @@ export function siteRoles(
     else shown.length = 0;
     more.push(...list.filter((s) => !shown.includes(s)));
   }
-  return { short, more, left: { backgroundLayers: [...back], backgroundPictures, page: !!palette.bg } };
+  const inkLines: RoleSwatch[] = (["black", "white"] as const).flatMap((which) => {
+    const entries = [...ink[which].values()];
+    if (!entries.length) return [];
+    entries.sort((a, b) => new Set(b.spots.map((x) => x.id)).size - new Set(a.spots.map((x) => x.id)).size);
+    const spots = entries.flatMap((e) => e.spots);
+    const n = new Set(spots.map((x) => x.id)).size;
+    const uses = INK_USES.filter(([u]) => spots.some((x) => x.use === u)).map(([, word]) => word);
+    const list = uses.length > 1 ? `${uses.slice(0, -1).join(", ")} and ${uses[uses.length - 1]}` : uses[0] ?? "colour";
+    return [{
+      id: `ink|${which}`, role: "ink" as RoleKey, value: entries[0]!.value, shades: entries.map((e) => e.key), spots, parts: n,
+      says: `Default ${which}: ${list} on ${plural(n, "part")}${entries.length > 1 ? ` (${entries.length} shades)` : ""}`, fromPictures: 0,
+    }];
+  });
+  return { short, more, ink: inkLines, left: { backgroundLayers: [...back], backgroundPictures, page: !!palette.bg, pictureWords } };
 }
 
 /* ------------------------------------------------------------------ */

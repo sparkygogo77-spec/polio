@@ -221,9 +221,13 @@ if (await page.locator('[data-setting="site.layout.radius"]').isVisible().catch(
 await tab("Look");
 const first = await side.locator("[data-look-panel] > section").first().getAttribute("data-site-colours");
 check("on a captured site, Look leads with \"On this site\"", first === "", String(first));
+/* The six colours parts can follow are "Colours for new parts", under More colours (Lane I). */
+await side.locator("[data-role-more] > button[aria-expanded]").first().evaluate((b) => { if (b.getAttribute("aria-expanded") !== "true") b.click(); });
+await page.waitForTimeout(300);
 check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
 check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
-check("the words' contrast is measured on what they sit on", /Readable words: 3 of 3/.test(await side.locator("[data-words-readable]").innerText()), await side.locator("[data-words-readable]").innerText());
+/* Readable words is one line, shown only when something needs fixing: here all three parts' words read on what they sit on, so it says nothing. */
+check("the words' contrast is measured on what they sit on, and all of it reads", (await side.locator("[data-words-readable]").count()) === 0, `${await side.locator("[data-words-readable]").count()} lines`);
 
 await side.locator('[data-site-font="Pixel Mono"]').click();
 await page.waitForTimeout(300);

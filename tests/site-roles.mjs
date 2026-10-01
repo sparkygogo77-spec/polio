@@ -17,16 +17,20 @@
  *      background picture, a band with parts on it, and a picture on top);
  *   4. near-whites become one swatch marked with its shades;
  *   5. in the Builder: the panel shows the short palette, pressing the
- *      outline swatch outlines every part wearing it on the board and lists
- *      them, and Recolour all changes the board and the export.
+ *      default black line (Trump & Morty's outlines, shadows and words)
+ *      outlines every part wearing it on the board and lists them, and
+ *      Recolour all changes the board and the export;
+ *   6. near-black and near-white are the site's plain ink: never a role,
+ *      one quiet line each that counts every part wearing them; and words
+ *      drawn inside a picture are never counted as words.
  *
  *   node tests/site-roles.mjs http://localhost:3000 [path to a sink checkout]
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { siteRoles, mainColours, colourName, MERGE_SHADES, ROLE_CAP, FEW } from "../src/features/studio/siteRoles.ts";
-import { oklabDistance, tallyColours, colourKey } from "../src/features/studio/siteColours.ts";
+import { siteRoles, mainColours, colourName, inkOf, MERGE_SHADES, ROLE_CAP, FEW } from "../src/features/studio/siteRoles.ts";
+import { oklabDistance, tallyColours, colourKey, spotsOf } from "../src/features/studio/siteColours.ts";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
@@ -74,8 +78,9 @@ const tm = landed("trumpmorty-fun");
 if (tm) {
   const r = siteRoles(tm.nodes, tm.look.palette, 1440);
   const says = r.short.flatMap((x) => x.swatches).map((s) => s.says);
-  check("2. Trump & Morty's outlines are named as what they are", says.some((x) => /^Dark brown outline, 3 to 5 px, on \d+ parts/.test(x)), says.find((x) => /outline/.test(x)));
-  check("2. and its shadows", says.some((x) => /^Dark brown drop shadow on \d+ parts/.test(x)), says.find((x) => /shadow/.test(x)));
+  const black = r.ink.find((x) => x.id === "ink|black");
+  check("2. Trump & Morty's black outlines and shadows are its default black, said as such", !!black && /^Default black: words, fills, outlines and shadows on \d+ parts/.test(black.says), black?.says);
+  check("2. and its real colours take the roles", says.some((x) => /^Lime /.test(x)) && says.some((x) => /^Red /.test(x)), says.join(" | "));
 }
 
 /* ------------------------------------------------------------ 3 */
@@ -103,12 +108,42 @@ check("3. a picture on top adds its few main colours, three at most", tvs.length
 check("3. the parts on top are all counted: cards, words, buttons", ["panels", "main"].some((r) => every.some((s) => s.role === r && s.value === "rgb(137, 206, 188)")) && every.some((s) => s.role === "buttons" && s.parts === 3));
 
 /* ------------------------------------------------------------ 4 */
-const whites = every.filter((s) => s.role === "words" && colourName(s.value) === "Near-white");
-check("4. near-whites and creams are one swatch, marked with its shades", whites.length === 1 && whites[0].shades.length === 3 && /\(3 shades\)/.test(whites[0].says), whites.map((s) => s.says).join(" | "));
+/* Near-whites and creams are the site's plain white now: one quiet line, its shades listed. */
+const whiteLine = fr.ink.find((x) => x.id === "ink|white");
+check("4. near-whites and creams are one line, marked with its shades", !!whiteLine && whiteLine.shades.length === 3 && /\(3 shades\)/.test(whiteLine.says) && !every.some((x) => colourName(x.value) === "Near-white"), whiteLine?.says);
 const px = new Uint8ClampedArray(32 * 32 * 4);
 for (let i = 0; i < 32 * 32; i++) { const orange = i < 600; px.set(orange ? [237, 165, 124, 255] : i < 900 ? [20, 20, 20, 255] : [0, 0, 0, 0], i * 4); }
 const mc = mainColours(px);
 check("3. a picture's main colours are read off its pixels, transparent ones ignored", mc.length === 2 && /237, 165, 124/.test(mc[0]), mc.join(", "));
+
+/* ------------------------------------------------------------ 6 */
+for (const site of BOARDS) {
+  const doc = landed(site);
+  if (!doc) continue;
+  const r = siteRoles(doc.nodes, doc.look.palette, doc.frameWidth ?? 1440);
+  const shown = [...r.short.flatMap((x) => x.swatches), ...r.more];
+  const plain = shown.filter((x) => inkOf(x.value));
+  check(`6. ${site}: no near-black or near-white swatch is shown as a role`, plain.length === 0 && r.short.every((row) => row.swatches.every((x) => !inkOf(x.value))), plain.slice(0, 3).map((x) => x.says).join(" | "));
+  const pics = new Set(doc.nodes.filter((n) => n.picture).map((n) => n.id));
+  const wordsFromPictures = shown.filter((x) => x.role === "words").flatMap((x) => x.spots).filter((x) => pics.has(x.id));
+  check(`6. ${site}: a picture is never counted as words`, wordsFromPictures.length === 0, `${r.left.pictureWords} pictures' words left out`);
+  /* The default lines count every part whose words, fills, outlines or shadows are plain ink, counted here again on their own. */
+  const back = new Set(r.left.backgroundLayers);
+  for (const which of ["black", "white"]) {
+    const ids = new Set();
+    for (const n of doc.nodes) for (const w of spotsOf(n, doc.look.palette)) {
+      const v = w.spot.role ? doc.look.palette[w.spot.role] : w.raw;
+      if (!v || inkOf(v) !== which) continue;
+      const alpha = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(colourKey(v));
+      if (alpha && Number(alpha[1]) < 0.5) continue;
+      if (w.spot.use === "text" && n.picture) continue;
+      if (w.spot.use === "fill" && back.has(n.id)) continue;
+      ids.add(n.id);
+    }
+    const line = r.ink.find((x) => x.id === `ink|${which}`);
+    check(`6. ${site}: the default ${which} line counts every part wearing it`, (line?.parts ?? 0) === ids.size && (!ids.size || new RegExp(`on ${ids.size} parts?`).test(line.says)), `${line?.says ?? "no line"} (counted ${ids.size})`);
+  }
+}
 
 /* ------------------------------------------------------------ 5 */
 if (tm) {
@@ -128,16 +163,26 @@ if (tm) {
   check("5. the unmerged list by use is folded under More", byUseShown === 0, `${byUseShown} groups showing`);
   await page.locator("[data-site-colours]").screenshot({ path: `${SHOTS}/site-colours-after.png` });
 
-  const outline = page.locator('[data-role-swatch^="outline|"]').first();
+  /* Trump & Morty's outlines are its default black now: the line that holds them is what a person presses to find them. */
+  const outline = page.locator('[data-ink-lines] [data-role-swatch="ink|black"]').first();
   const outlineId = await outline.getAttribute("data-role-swatch");
   await outline.click();
   await page.waitForTimeout(1500);
   const r = siteRoles(tm.nodes, tm.look.palette, 1440);
-  const sw = [...r.short.flatMap((x) => x.swatches), ...r.more].find((s) => s.id === outlineId);
+  const sw = [...r.short.flatMap((x) => x.swatches), ...r.more, ...r.ink].find((s) => s.id === outlineId);
   const want = new Set(sw.spots.map((s) => s.id));
   const marked = new Set(await page.$$eval("[data-point-mark]", (els) => els.map((e) => e.getAttribute("data-point-mark"))));
-  const listed = new Set(await page.$$eval(`[data-role-detail="${outlineId}"] [data-site-part]`, (els) => els.map((e) => e.getAttribute("data-site-part"))));
-  check("5. pressing the outline swatch outlines every part wearing it on the board", want.size > 0 && [...want].every((id) => marked.has(id)), `${marked.size} outlined of ${want.size}`);
+  /* Past a hundred rows the list draws only what is in view: scrolled through, every row is met. */
+  const listed = new Set(await page.evaluate(async (id) => {
+    const box = document.querySelector(`[data-role-detail="${id}"]`);
+    const seen = new Set();
+    const read = () => box.querySelectorAll("[data-site-part]").forEach((e) => seen.add(e.getAttribute("data-site-part")));
+    read();
+    const scroller = [...box.querySelectorAll("*")].find((e) => e.scrollHeight > e.clientHeight + 4 && getComputedStyle(e).overflowY !== "visible");
+    if (scroller) for (let top = 0; top <= scroller.scrollHeight; top += 60) { scroller.scrollTop = top; await new Promise((r) => setTimeout(r, 40)); read(); }
+    return [...seen];
+  }, outlineId));
+  check("5. pressing the default black line (its outlines among them) outlines every part wearing it on the board", want.size > 0 && [...want].every((id) => marked.has(id)), `${marked.size} outlined of ${want.size}`);
   check("5. and lists every one of them by name", [...want].every((id) => listed.has(id)), `${listed.size} listed`);
   const first = [...want][0];
   const inView = await page.evaluate((id) => {

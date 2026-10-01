@@ -17,7 +17,7 @@
 import * as React from "react";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
+import { ROLES, css, parseColor, toHex, type Oklch, type Palette } from "./look";
 import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
 import { partName } from "./partNames";
 import { usePictureSampler } from "./pictureSampler";
@@ -412,10 +412,10 @@ function RoleChip({ s, on, onClick }: { s: RoleSwatch; on: boolean; onClick: () 
 }
 
 /** The short palette and, folded, everything else. */
-function RolePalette({ roles, palette, children }: { roles: SiteRoles; palette: Palette; children: React.ReactNode }) {
+function RolePalette({ roles, palette, children, forNewParts = null }: { roles: SiteRoles; palette: Palette; children: React.ReactNode; forNewParts?: React.ReactNode }) {
   const [open, setOpen] = React.useState<string | null>(null);
   const [more, setMore] = React.useState(false);
-  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.more];
+  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.more, ...roles.ink];
   const opened = all.find((s) => s.id === open) ?? null;
   const toggle = (id: string) => { play("select"); setOpen((o) => (o === id ? null : id)); };
   const detail = (s: RoleSwatch) => (opened?.id === s.id ? <RoleDetail key={s.id} swatch={s} palette={palette} onDone={() => setOpen(null)} /> : null);
@@ -432,12 +432,23 @@ function RolePalette({ roles, palette, children }: { roles: SiteRoles; palette: 
           ))}
         </div>
       ))}
+      {roles.ink.length ? (
+        <div data-ink-lines="" className="rounded-md border border-border/60 p-1 opacity-90">
+          <div className="mb-0.5 px-1 text-fine text-fg-faint">The site&rsquo;s plain ink, not one of its colours</div>
+          {roles.ink.map((s) => (
+            <React.Fragment key={s.id}>
+              <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
+              {detail(s)}
+            </React.Fragment>
+          ))}
+        </div>
+      ) : null}
       <div data-role-more="">
         <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
           className="flex w-full items-center gap-1 text-small font-medium text-fg">
           <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
           More colours
-          <span className="ml-auto font-normal text-fg-faint">{roles.more.length} more</span>
+          <span className="ml-auto font-normal text-fg-faint">{roles.more.length ? `${roles.more.length} more colour${roles.more.length === 1 ? "" : "s"}` : "and the full list"}</span>
         </button>
         {more ? (
           <div className="mt-1 space-y-2">
@@ -448,6 +459,12 @@ function RolePalette({ roles, palette, children }: { roles: SiteRoles; palette: 
                 {detail(s)}
               </React.Fragment>
             ))}
+            {forNewParts ? (
+              <div data-for-new-parts="" className="space-y-1 border-t border-border pt-2">
+                <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Colours for new parts</p>
+                {forNewParts}
+              </div>
+            ) : null}
             {children}
           </div>
         ) : null}
@@ -456,8 +473,8 @@ function RolePalette({ roles, palette, children }: { roles: SiteRoles; palette: 
   );
 }
 
-export function SiteColoursSection() {
-  const { nodes, palette } = useSite();
+export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
+  const { nodes, palette, look } = useSite();
   const frameWidth = useStudio((s) => s.frameWidth);
   const tally = React.useMemo(() => tallyColours(nodes, palette), [nodes, palette]);
   const pictureColours = usePictureColours(nodes);
@@ -465,8 +482,7 @@ export function SiteColoursSection() {
   const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours), [nodes, palette, frameWidth, pictureKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = React.useState<{ use: ColourUse | null; key: string } | null>(null);
   const [more, setMore] = React.useState(false);
-  const worn = tally.all.filter((c) => c.spots.some((s) => s.id !== PAGE_ID));
-  if (!worn.length) return null;
+
   const shownKeys = new Set(COLOUR_USES.flatMap((u) => tally.byUse[u].slice(0, SHOWN).map((c) => c.key)));
   const rest = tally.all.filter((c) => !shownKeys.has(c.key));
   const detail = (use: ColourUse | null) => {
@@ -480,14 +496,30 @@ export function SiteColoursSection() {
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
       <PointMarks />
+      <WordsReadable />
       <div>
-        <h3 data-look-heading className="text-plain font-semibold text-fg">On this site</h3>
+        <div className="flex items-center justify-between">
+          <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
+          {look.palette && Object.keys(look.palette).length ? (
+            <button
+              type="button"
+              data-colours-reset=""
+              /* Back to what the site gave, on a site brought in; the app's own otherwise. */
+              onClick={() => { play("close"); const from = look.paletteFrom; useStudio.getState().setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {} }); }}
+              className="text-small text-fg-muted hover:text-fg"
+            >
+              Reset
+            </button>
+          ) : null}
+        </div>
         <p className="text-small leading-snug text-fg-muted">
-          The colours of the parts on top of the page, by what they are for. Close shades are one swatch. Press one to see every part that wears it outlined on the board, and recolour them all.
+          {captured
+            ? "The colours of the parts on top of the page, by what they are for. Close shades are one swatch. Press one to see its parts outlined on the board, pick them, and change the colour."
+            : "The site's colours. Press one to change it; every part that follows it changes with it."}
         </p>
       </div>
-      <WordsReadable />
-      <RolePalette roles={roles} palette={palette}>
+      {captured ? null : paletteRoles}
+      <RolePalette roles={roles} palette={palette} forNewParts={captured ? paletteRoles : null}>
         <div data-site-by-use="" className="space-y-3 border-t border-border pt-2">
           <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Every colour, by use, unmerged</p>
           {COLOUR_USES.map((u) => {
@@ -533,7 +565,7 @@ export function SiteColoursSection() {
         </div>
       </RolePalette>
       <p data-site-left-out="" className="text-small leading-snug text-fg-faint">
-        Left out: the page&rsquo;s own colour{left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}{roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}. A picture standing on the page adds its few main colours under Pictures on top.
+        Left out: the page&rsquo;s own colour{left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}{roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}{roles.left.pictureWords ? `; words drawn inside ${roles.left.pictureWords} picture${roles.left.pictureWords === 1 ? "" : "s"} are not counted as words` : ""}. A picture standing on the page adds its few main colours under Pictures on top.
       </p>
     </section>
   );
@@ -763,31 +795,25 @@ function WordsReadable() {
     play("confirm");
     setFixed(fixes.length);
   };
-  const small = rows.filter((r) => r.ratio >= 3 && r.ratio < 4.5).length;
+  /* One line, and only when something needs fixing (owner): a site whose words all read says nothing here. */
+  if (!hard.length && fixed === null) return null;
   return (
-    <div data-words-readable="" className="rounded-md border border-border p-2 text-small">
-      <p className="text-fg-muted">
-        <span className="text-fg">Readable words:</span>{" "}
-        {rows.length - hard.length - small} of {rows.length} parts&rsquo; words stand out clearly from the fill behind them
-        {small ? `, ${small} only at a large size` : ""}
-        {hard.length ? `, and ${hard.length} ${hard.length === 1 ? "is" : "are"} hard to read` : ""}.
-        {" "}Contrast is the difference in lightness; 4.5 to 1 reads at any size.
-      </p>
+    <div data-words-readable="" className="rounded-md border border-border px-2 py-1.5 text-small">
       {hard.length ? (
-        <>
-          <button type="button" aria-expanded={open} onClick={() => { play(open ? "close" : "open"); setOpen((v) => !v); }} className="mt-1 inline-flex items-center gap-1 text-fg hover:underline">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fg-muted">
+          <span className="text-fg">Words: {hard.length} {hard.length === 1 ? "is" : "are"} hard to read against what is behind {hard.length === 1 ? "it" : "them"}.</span>
+          <button type="button" aria-expanded={open} onClick={() => { play(open ? "close" : "open"); setOpen((v) => !v); }} className="inline-flex items-center gap-1 text-fg hover:underline">
             <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} /> Which ones
           </button>
-          {open ? <div className="mt-1"><PartsList spots={hard.map((r) => ({ id: r.id, where: `${r.ratio} to 1` }))} /></div> : null}
-          <Button data-make-readable="" size="xs" variant="primary" className="mt-1.5 w-full" onClick={makeReadable}>
-            Make {hard.length === 1 ? "it" : `all ${hard.length}`} readable
+          <Button data-make-readable="" size="xs" variant="primary" onClick={makeReadable}>
+            Make {hard.length === 1 ? "it" : "them"} readable
           </Button>
-          <p className="mt-1 text-fine leading-snug text-fg-faint">Each takes the site&apos;s own word colour that reads best on what it sits on.</p>
-        </>
+        </p>
       ) : null}
+      {open && hard.length ? <div className="mt-1"><PartsList spots={hard.map((r) => ({ id: r.id, where: `${r.ratio} to 1` }))} /></div> : null}
       {fixed !== null ? (
-        <p data-made-readable={fixed} className="mt-1 flex items-center gap-2 text-fg-muted">
-          {fixed ? `${fixed} part${fixed === 1 ? "" : "s"} made readable.` : "None of the site's own colours reads better there."}
+        <p data-made-readable={fixed} className="flex items-center gap-2 text-fg-muted">
+          {fixed ? `${fixed} part${fixed === 1 ? "" : "s"} made readable, each in the site's own word colour that reads best there.` : "None of the site's own colours reads better there."}
           {fixed ? (
             <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setFixed(null); play("close"); }}>
               <Undo2 className="size-3" /> Undo
