@@ -1463,6 +1463,8 @@ export function StudioPage() {
               <div
                 data-studio-band=""
                 data-band-over=""
+                /* The tallest the shelf opens to without his hand on it: the phone window stands above this, so it neither moves as a category opens nor sits over the cards (`Preview.tsx`). */
+                data-band-reach={SHELF_OPEN_H}
                 data-band-set={shelfTall == null ? undefined : "1"}
                 data-band-folded={shelfFolded ? "" : undefined}
                 className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg"

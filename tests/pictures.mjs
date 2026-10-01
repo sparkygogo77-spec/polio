@@ -129,9 +129,14 @@ if (await drawIt.count()) {
   await page.waitForTimeout(400);
   const panelText = await page.locator("[data-side-panel]").first().innerText();
   check("and says what it will cost before it is pressed", /\$0\.04/.test(panelText), (panelText.match(/.{0,60}\$0\.0.{0,40}/) ?? ["nothing about money"])[0].replace(/\n/g, " "));
-  await page.locator('input[placeholder="what the picture should be"]').first().fill("a black orb over a dark sea");
-  await page.getByRole("button", { name: /^Draw it/ }).first().click();
+  /* The part's own Make a picture section is the render panel now (Lane G):
+     say it, draw it, and put what came back on this part. */
+  const make = page.locator("[data-make-picture]").first();
+  await make.locator("[data-render-tweak]").first().fill("a black orb over a dark sea");
+  await make.locator("[data-render-go]").first().click();
   await page.waitForTimeout(2000);
+  await make.locator("[data-render-put]").first().click().catch(() => {});
+  await page.waitForTimeout(1000);
   check("it asks the renderer for a raster of that part's size", asked?.kind === "raster" && asked?.prompt === "a black orb over a dark sea" && asked?.w === 1360,
     asked ? `${asked.kind}, ${asked.w}×${asked.h}` : "nothing was asked");
   const after = await page.evaluate(() => {

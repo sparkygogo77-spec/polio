@@ -2916,8 +2916,11 @@ a kicker with a rule, and label-and-value rows that copy.
     interim home.
   `tests/style-kits.mjs` (three sink boards, no browser) and
   `tests/draw-with-kit.mjs` (a cone drawn by hand on trumpmorty.fun, in
-  geometry and in pixels, and exported) hold it. Committed shots:
-  `docs/shots/lane-j-*.png`.
+  geometry and in pixels, and exported) hold it. Committed shots, copied
+  by hand from its run: [the source button beside the cone](docs/shots/lane-j-source-and-cone.png),
+  [the picker](docs/shots/lane-j-picker.png), [the popover](docs/shots/lane-j-popover.png),
+  [a cone with its lighting bar](docs/shots/lane-j-cone-with-bar.png) and
+  [the exported page](docs/shots/lane-j-exported.png).
 
 ---
 

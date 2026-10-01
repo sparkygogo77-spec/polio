@@ -52,6 +52,11 @@ const side = page.locator("[data-motion-panel]");
 const panel = page.locator("[data-crate-editor]");
 const openMotion = async () => { await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Motion" }).first().click(); await page.waitForTimeout(400); };
 await openMotion();
+/* Frame interpolation is a folded section at the foot of the Motion tab now (MotionPanel.tsx): unfold it first. */
+if (!(await side.locator("[data-motion-crates]").evaluate((d) => d.open).catch(() => true))) {
+  await side.locator("[data-motion-crates] > summary").click();
+  await page.waitForTimeout(300);
+}
 await side.getByRole("button", { name: /^Crate$/ }).click();
 await page.waitForTimeout(500);
 
@@ -148,6 +153,11 @@ check("…and says how it is laid out", /360 frames/.test(note) && /\d+ rows/.te
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 await openMotion();
+/* A reload is a new visit, and the folded section is closed again. */
+if (!(await side.locator("[data-motion-crates]").evaluate((d) => d.open).catch(() => true))) {
+  await side.locator("[data-motion-crates] > summary").click();
+  await page.waitForTimeout(300);
+}
 await side.getByRole("button", { name: /Open editor/ }).first().click();
 await page.waitForTimeout(800);
 const sleeves = await panel.locator("[style*=background-image], img").count();

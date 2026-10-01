@@ -32,7 +32,7 @@ import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
 import { GENERATION } from "./threads";
 import { useStudio } from "./store";
-import { drop as dropPicture, put as putPicture } from "./pictures";
+import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 
 /**
  * The models that DRAW a picture, which is what this panel is for.
@@ -183,6 +183,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async () => {
+    const forPart = forNode ? useStudio.getState().nodes.find((n) => n.id === forNode) ?? null : null;
     const asked = tweak.trim();
     if (!asked) return;
     /* The iteration exists from the press, not from the answer: that is what
@@ -198,9 +199,13 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
       const res = await fetch("/api/studio/image", {
         method: "POST",
         headers: { "content-type": "application/json", ...rendererHeader() },
-        /* `frame` is not sent, so nothing is added to what he typed. */
+        /* `frame` is not sent, so nothing is added to what he typed. Drawn
+           for a part, it is asked for at that part's size and by its name, as
+           the part's own panel always asked: a square for a wide banner is a
+           picture cropped or stretched the moment it lands. */
         body: JSON.stringify({
-          kind: "raster", prompt: tweak.trim(), w: 1024, h: 1024, model: slug,
+          kind: "raster", prompt: tweak.trim(), w: forPart ? Math.round(forPart.w) : 1024, h: forPart ? Math.round(forPart.h) : 1024,
+          ...(forPart ? { label: forPart.label } : {}), model: slug,
           ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined,
           format: format || undefined, references: references.length ? references : undefined,
         }),
@@ -209,7 +214,12 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
       if (r.ok && r.image) {
         /* Kept here first. The picture outlives its box on the timeline: he
            can delete the iteration and the picture is still his. */
-        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], image: r.image, cost: r.cost ?? null, threadId });
+        /* Kept as a file, the document holding only its path; where this
+           browser keeps no files, as the bytes, which is how it always was. */
+        const kept = await (async () => {
+          try { return await putPicture(await (await fetch(r.image!)).blob(), { alt: asked.slice(0, 120), from: "drawn" }); } catch { return null; }
+        })();
+        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, threadId });
         markThread(threadId, "done");
         setSaid(typeof r.cost === "number" ? `Drawn. It cost ${money(r.cost)}.` : "Drawn. The renderer reported no price for it.");
       } else {
@@ -380,10 +390,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
       {draws.length ? (
         <div data-render-past={draws.length} className="border-t border-border">
           {draws.map((d) => (
-            <figure key={d.id} data-render-iteration={d.id} className="m-0 border-b border-border/60 p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a data URL, drawn here */}
+            <DrawnSrc key={d.id} picture={d.picture} image={d.image}>{(src) => (
+            <figure data-render-iteration={d.id} className="m-0 border-b border-border/60 p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a stored drawing, drawn here */}
               <img
-                src={d.image}
+                src={src}
                 alt={d.prompt}
                 draggable
                 data-render-drag={d.id}
@@ -406,13 +417,13 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                    * is decided by where he lets go, not before.
                    */
                   const el = e.currentTarget as HTMLImageElement;
-                  const type = /^data:(image\/[a-z0-9.+-]+)/i.exec(d.image)?.[1] ?? "image/webp";
+                  const type = d.picture?.type ?? /^data:(image\/[a-z0-9.+-]+)/i.exec(src)?.[1] ?? "image/webp";
                   const name = `${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? type.split("/")[1] ?? "webp"}`;
-                  e.dataTransfer.setData("text/uri-list", d.image);
-                  e.dataTransfer.setData("text/plain", d.image);
-                  e.dataTransfer.setData("DownloadURL", `${type}:${name}:${d.image}`);
+                  e.dataTransfer.setData("text/uri-list", src);
+                  e.dataTransfer.setData("text/plain", src);
+                  e.dataTransfer.setData("DownloadURL", `${type}:${name}:${src}`);
                   e.dataTransfer.setData("application/x-studio-picture", JSON.stringify({
-                    src: d.image,
+                    src: src,
                     w: el.naturalWidth || undefined,
                     h: el.naturalHeight || undefined,
                   }));
@@ -437,8 +448,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                   data-render-copy={d.id}
                   onClick={async () => {
                     try {
-                      const blob = await (await fetch(d.image)).blob();
-                      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob, "text/plain": new Blob([d.image], { type: "text/plain" }) })]);
+                      const blob = await (await fetch(src)).blob();
+                      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob, "text/plain": new Blob([src], { type: "text/plain" }) })]);
                       setCopied(d.id);
                       window.setTimeout(() => setCopied((was) => (was === d.id ? null : was)), 1400);
                     } catch {
@@ -458,7 +469,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                     type="button"
                     data-render-put={d.id}
                     onClick={async () => {
-                      const blob = await (await fetch(d.image)).blob();
+                      const blob = await (await fetch(src)).blob();
                       const made = await putPicture(blob, { alt: d.prompt.slice(0, 120), from: "drawn" });
                       const had = useStudio.getState().nodes.find((n) => n.id === forNode)?.picture;
                       useStudio.getState().updateNode(forNode, { picture: made });
@@ -470,14 +481,32 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                     {put === d.id ? "On this part" : "Put it on this part"}
                   </button>
                 ) : null}
-                <a data-render-download={d.id} href={d.image} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
+                <a data-render-download={d.id} href={src} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
                 <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
                 <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>
               </figcaption>
             </figure>
+            )}</DrawnSrc>
           ))}
         </div>
       ) : null}
     </div>
   );
+}
+
+/**
+ * A drawing's address: its file from the picture store, or the bytes it was
+ * kept as before. Said plainly while the file is still being read.
+ */
+function DrawnSrc({ picture, image, children }: { picture?: Picture; image?: string; children: (src: string) => React.ReactNode }) {
+  const { src, looked } = usePicture(picture ?? null);
+  const at = src ?? image;
+  if (!at) {
+    return (
+      <p data-render-missing="" className="m-0 border-b border-border/60 p-3 text-small text-fg-faint">
+        {looked ? "This drawing's file is not in this browser any more." : "Reading this drawing…"}
+      </p>
+    );
+  }
+  return <>{children(at)}</>;
 }

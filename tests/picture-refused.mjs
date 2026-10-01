@@ -52,6 +52,11 @@ const side = (name) => page.locator("[data-side-panel] [role=radio]").filter({ h
 await side("Motion");
 await page.waitForTimeout(500);
 const panel = page.locator("[data-motion-panel]");
+/* Frame interpolation is a folded section at the foot of the Motion tab now (MotionPanel.tsx): unfold it first. */
+if (!(await panel.locator("[data-motion-crates]").evaluate((d) => d.open).catch(() => true))) {
+  await panel.locator("[data-motion-crates] > summary").click();
+  await page.waitForTimeout(300);
+}
 await panel.getByRole("button", { name: /crate/i }).first().click();
 /* A new crate opens straight into its own wide editor (MotionPanel.tsx). */
 const crate = page.locator("[data-crate-editor]");

@@ -62,6 +62,11 @@ export function PreviewWindow() {
     const parent = ref.current?.offsetParent as HTMLElement | null;
     if (!parent) return;
     let band: HTMLElement | null = null;
+    /* One probe for the life of the window: put in once, so the watch on the column below never sees it come and go. */
+    const probe = document.createElement("div");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText = "position:absolute;left:0;top:0;width:0;visibility:hidden;pointer-events:none";
+    parent.appendChild(probe);
     const ro = new ResizeObserver(() => measure());
     const measure = () => {
       const now = parent.querySelector<HTMLElement>("[data-studio-band][data-band-over]");
@@ -69,7 +74,22 @@ export function PreviewWindow() {
       if (!band) { setLift(0); return; }
       const p = parent.getBoundingClientRect();
       const b = band.getBoundingClientRect();
-      setLift(Math.max(0, Math.round(p.bottom - b.top)));
+      /*
+       * J: "the preview box must not resize or move when the shelf area
+       * grows", and the shelf is to scroll "clear of the preview box". A band
+       * that grows says how tall it opens to (`data-band-reach`, a CSS length),
+       * and the window stands above that from the start: still while a
+       * category opens, and never over the cards. Grown past it by hand, the
+       * band's own height wins. Read through a hidden probe, so the length is
+       * resolved by the browser exactly as the band's own height is.
+       */
+      const reach = band.dataset.bandReach;
+      let tall = b.height;
+      if (reach) {
+        probe.style.height = reach;
+        tall = Math.max(tall, probe.getBoundingClientRect().height);
+      }
+      setLift(Math.max(0, Math.round(p.bottom - (b.bottom - tall))));
     };
     measure();
     /* A band comes and goes with the view: looked for again, once a frame at most. */
@@ -78,7 +98,7 @@ export function PreviewWindow() {
     const mo = new MutationObserver(soon);
     mo.observe(parent, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-band-over"] });
     ro.observe(parent);
-    return () => { mo.disconnect(); ro.disconnect(); cancelAnimationFrame(queued); };
+    return () => { mo.disconnect(); ro.disconnect(); cancelAnimationFrame(queued); probe.remove(); };
   }, []);
 
   /* ------------------------------------------------------------- dragging */

@@ -34,13 +34,6 @@ import { getWork, onUsesOf, withInput, type WorkUse } from "./library/works.ts";
 /** The side panel's sections for a part. */
 export type Section = "content" | "position" | "look" | "motion";
 
-export const SECTION_LABEL: Record<Section, string> = {
-  content: "Content",
-  position: "Position and size",
-  look: "Look",
-  motion: "Motion",
-};
-
 export type EditKind = "one" | "set" | "range" | "text" | "link" | "colour";
 
 /** The part as far as its options go. */
@@ -123,13 +116,6 @@ export function editablesOf(node: Editable, opts: { linkable?: boolean } = {}): 
     }
   }
   return out;
-}
-
-/** The fields grouped by the panel's sections, in section order. */
-export function bySection(fields: readonly Field[]): { section: Section; label: string; fields: Field[] }[] {
-  return (["content", "position", "look", "motion"] as Section[])
-    .map((section) => ({ section, label: SECTION_LABEL[section], fields: fields.filter((x) => x.section === section) }))
-    .filter((g) => g.fields.length);
 }
 
 /** A field's value on the node, as the words the panel shows. */

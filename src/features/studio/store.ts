@@ -1029,7 +1029,15 @@ interface StudioState extends Doc {
     format?: string;
     /** The picture it was drawn from, when there was one. */
     reference?: string;
-    image: string;
+    /**
+     * The drawing itself, as a file in the browser's picture store: the
+     * document holds its path and never its bytes (`pictures.ts`), because
+     * forty drawings in the document were forty pictures in the browser's
+     * small storage beside his board, and in every publish.
+     */
+    picture?: Picture;
+    /** A drawing kept before that, as the bytes themselves. Read, never written. */
+    image?: string;
     cost: number | null;
     at: number;
   }[];

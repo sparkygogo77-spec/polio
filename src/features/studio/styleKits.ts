@@ -683,15 +683,6 @@ export function siteBar(kits: readonly StyleKit[]): KitBand | null {
 /** A band the Builder offers when no kit on any board has one: a soft top light. */
 export const PLAIN_BAR: KitBand = { dx: 0, dy: 6, blur: 0, size: 6, angle: 90, colour: "rgb(255, 255, 255)", opacity: 0.35 };
 
-/** A kit with nothing on it: the drawing as drawn, in the site's surface colour. */
-export function plainKit(colour = "rgb(240, 240, 240)"): StyleKit {
-  return {
-    id: "kit:plain", name: "Plain", site: "", host: null, role: "button",
-    fill: { kind: "solid", colour }, swatches: [colour], border: null, shadows: [], bar: null, shade: null, rim: null,
-    radius: 0, radiusShare: 0, text: null, hover: null, press: null, from: [], count: 0, size: { w: 160, h: 60 },
-  };
-}
-
 /* ------------------------------------------------------------------ */
 /* Motions a board holds                                                */
 /* ------------------------------------------------------------------ */
@@ -786,5 +777,3 @@ export function motionsFromDoc(doc: KitDoc): BoardMotion[] {
   return out;
 }
 
-/** The motions every drawn shape has, whatever board it is on: from the kit's own hover and press. */
-export const HAND_MOTIONS = ["hover", "press"] as const;

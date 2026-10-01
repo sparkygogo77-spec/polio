@@ -39,6 +39,11 @@ type Grip =
 
 /** A picture taller than this many times its width is shown squashed into a box this tall, rather than at its own height. */
 const SQUASH_PAST = 2;
+/**
+ * And never taller than this, in pixels, whatever the column's width: twice
+ * a wide side panel's width is still a picker that runs off the screen.
+ */
+const MAX_TALL = 400;
 
 export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; onChange: (next: Crop | undefined) => void }) {
   const box = React.useRef<HTMLDivElement>(null);
@@ -51,7 +56,16 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
   // shown squashed into it rather than running ten times the panel: the
   // patch is picked in fractions of the box, which are fractions of the
   // picture either way, and the squash is said.
-  const squashed = aspect < 1 / SQUASH_PAST;
+  /* The box's own width, so a height held by `MAX_TALL` is known to squash too. */
+  const [across, setAcross] = React.useState(0);
+  React.useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setAcross(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [failed]);
+  const squashed = aspect < 1 / SQUASH_PAST || (across > 0 && across / Math.max(aspect, 1 / SQUASH_PAST) > MAX_TALL + 0.5);
   const c = crop ?? WHOLE;
   const whole = !crop || (c.x <= 0.001 && c.y <= 0.001 && c.w >= 0.999 && c.h >= 0.999);
 
@@ -116,7 +130,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
         role="application"
         aria-label="Which part of the picture the texture comes from"
         className="relative w-full cursor-crosshair overflow-hidden rounded-md border border-border bg-bg select-none"
-        style={{ aspectRatio: String(Math.max(aspect, 1 / SQUASH_PAST)), touchAction: "none" }}
+        style={{ aspectRatio: String(Math.max(aspect, 1 / SQUASH_PAST)), maxHeight: MAX_TALL, touchAction: "none" }}
         onPointerDown={(e) => { const p = at(e); start(e, { kind: "draw", ax: p.x, ay: p.y }); onChange({ x: p.x, y: p.y, w: MIN, h: MIN }); }}
         onPointerMove={move}
         onPointerUp={end}
