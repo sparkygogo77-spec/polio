@@ -270,6 +270,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
     const typed = (id: string) => (draft[id] ?? "").trim();
     const mine = service === "anthropic" ? typed("ANTHROPIC_API_KEY")
       : service === "replicate" ? typed("REPLICATE_API_TOKEN")
+        : service === "openai" ? typed("OPENAI_API_KEY")
         : service === "github" ? typed("GITHUB_TOKEN")
           : typed("VERCEL_TOKEN");
     if (mine) {
@@ -281,6 +282,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
     }
     if (service === "anthropic" && typed("ANTHROPIC_API_KEY")) header["x-anthropic-key"] = typed("ANTHROPIC_API_KEY");
     if (service === "replicate" && typed("REPLICATE_API_TOKEN")) header["x-replicate-key"] = typed("REPLICATE_API_TOKEN");
+    if (service === "openai" && typed("OPENAI_API_KEY")) header["x-openai-key"] = typed("OPENAI_API_KEY");
     if (service === "github" && typed("GITHUB_TOKEN")) header["x-github-token"] = typed("GITHUB_TOKEN");
     if (service === "vercel" && typed("VERCEL_TOKEN")) header["x-vercel-token"] = typed("VERCEL_TOKEN");
     try {

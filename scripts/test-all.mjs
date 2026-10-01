@@ -125,7 +125,7 @@ const ARGS = {
 const SMOKE = ["bar-survives", "cards", "publish-words", "site-refs", "go-live-keys-ready", "builds-publish-state", "no-plain-key"];
 
 /* Never a real token: a test that needs one serves a stand-in and says so. */
-const UNSET = ["GITHUB_TOKEN", "GH_TOKEN", "GITHUB_REPO", "GITHUB_BRANCH", "VERCEL_TOKEN", "VERCEL_PROJECT", "VERCEL_TEAM", "REPLICATE_API_TOKEN", "ANTHROPIC_API_KEY"];
+const UNSET = ["GITHUB_TOKEN", "GH_TOKEN", "OPENAI_API_KEY", "GITHUB_REPO", "GITHUB_BRANCH", "VERCEL_TOKEN", "VERCEL_PROJECT", "VERCEL_TEAM", "REPLICATE_API_TOKEN", "ANTHROPIC_API_KEY"];
 
 /* ------------------------------------------------------------ reading a header */
 function headerOf(src) {

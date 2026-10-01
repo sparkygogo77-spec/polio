@@ -40,6 +40,7 @@
  * cut square by default and can be swept round instead (the ◻/◯ chip on the
  * menu itself), which is the draft option to compare against.
  */
+import { canRemake, openRemake } from "./RemakePicture";
 import * as React from "react";
 /* Alphabetical by imported name, so a merge from any branch resolves the
    same way: this line conflicted three times in one night otherwise.
@@ -981,6 +982,8 @@ export function RadialMenu() {
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
         { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
+        /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
+        ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
         {
           id: "copy", label: "Copy looks", icon: <Pipette className="size-3" />,
           onClick: () => {

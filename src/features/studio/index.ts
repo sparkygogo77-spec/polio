@@ -1,3 +1,4 @@
+import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./remake";
 import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
@@ -150,6 +151,12 @@ export const studio = defineFeature({
     {
       id: "studio.groupScaleContents", group: "studio", label: "Scale contents with group", type: "toggle", default: true, order: 5,
       description: "When a locked group is resized, its icons and words grow and shrink with it. Off, the arrangement still scales and each part keeps its own size. Also on the tool bar while the select tool is in hand.",
+    },
+    {
+      /* The model "Remake this picture…" asks (RemakePicture.tsx). The owner's default is GPT Image 2; when the key cannot use it the newest it can is used and the card says so. */
+      id: REMAKE_MODEL_SETTING, group: "studio", label: "Model for remaking pictures", type: "select", default: DEFAULT_REMAKE_MODEL, order: 6,
+      description: "Which OpenAI image model redraws a picture from your prompt, with the picture as its reference. Uses your own OpenAI key from the key button.",
+      options: REMAKE_MODELS.map((m) => ({ value: m.id, label: m.label })),
     },
     { id: "studio.publishDeploy", group: "studio", label: "Publish also deploys", description: "After the push to GitHub, call the Vercel deploy hook when one is set.", type: "toggle", default: true, advanced: true, order: 4 },
   ],

@@ -18,6 +18,7 @@
  * The sections of a part's own panel (`PanelSection`) fold, and remember
  * being folded in this browser.
  */
+import { canRemake, openRemake } from "./RemakePicture";
 import * as React from "react";
 import {
   AppWindow, ChevronLeft, ChevronRight, CircleAlert, FileText, Film, Heading, Image as ImageIcon, Link2, List, Menu,
@@ -123,6 +124,9 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
               className={cn("group flex h-7 items-center gap-1 rounded-sm pr-1.5 text-plain", on ? "bg-accent-soft text-fg shadow-[inset_2px_0_0_var(--accent)]" : "hover:bg-hover")}
               style={{ paddingLeft: 4 + r.depth * 12 }}
               onPointerEnter={() => pointAt([r.id])}
+              /* A right-click on a picture's row opens "Remake this picture…", the same card as the wheel's tray (RemakePicture.tsx). */
+              onContextMenu={canRemake(n) ? (e) => { e.preventDefault(); e.stopPropagation(); openRemake(r.id); } : undefined}
+              data-tree-picture={canRemake(n) ? "" : undefined}
             >
               {r.kids ? (
                 <button

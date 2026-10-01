@@ -2922,6 +2922,26 @@ a kicker with a rule, and label-and-value rows that copy.
   [a cone with its lighting bar](docs/shots/lane-j-cone-with-bar.png) and
   [the exported page](docs/shots/lane-j-exported.png).
 
+- **Remake this picture from one prompt** (`RemakePicture.tsx`, `remake.ts`,
+  `/api/studio/remake`, `tests/remake-picture.mjs`). The owner: "right-click
+  any image on the site, type one prompt, make that image an instant
+  reference, and by default have GPT Image 2 regenerate it with the prompt,
+  replacing it at the exact same dimensions, with the same purpose and
+  animations." Doors: the wheel's tray under a part holding a picture, a
+  right-click on its row in the parts tree, and Remake… in its picture field.
+  The picture's own file goes to OpenAI's image edit call as the reference,
+  on the person's own key (keys panel, OpenAI, sent only as `x-openai-key`).
+  The model is a setting (`studio.remakeModel`, default `gpt-image-2`); when
+  the key cannot use it, the newest GPT image model it can is used and the
+  card says so. The size asked is the nearest supported one (`askSize`), and
+  the answer is fitted to the original's exact pixels (cover, centred),
+  see-through kept. Only `picture` and `pictureVersions` change on the part,
+  so its place, size, link, clip, motion, hover and press stay; its words for
+  people who cannot see it stay, with an offer to use the prompt. Progress
+  and Cancel on the part; one Undo step; a version strip in the picture
+  field; files in the picture store, paths in the document, and a kept
+  version's file is never thrown away when the picture is swapped.
+
 ---
 
 ## 2b-ii. Builds (`src/features/builds`)

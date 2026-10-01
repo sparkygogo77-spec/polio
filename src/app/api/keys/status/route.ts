@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 const NAMES = [
   "ANTHROPIC_API_KEY",
   "REPLICATE_API_TOKEN",
+  "OPENAI_API_KEY",
   "X_API_KEY",
   "X_API_SECRET",
   "X_ACCESS_TOKEN",

@@ -145,16 +145,40 @@ async function tryGithub(request: Request): Promise<Answer> {
   }
 }
 
+/**
+ * OpenAI, asked which models the key can use, which is all the remake needs
+ * to know. Nothing about the account comes back.
+ */
+async function tryOpenai(request: Request): Promise<Answer> {
+  const supplied = request.headers.get("x-openai-key")?.trim();
+  const own = process.env.OPENAI_API_KEY?.trim();
+  const key = (supplied && supplied.length > 8 ? supplied : null) || own || null;
+  if (!key) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing held in this browser and nothing on the server." };
+  const source = supplied && supplied.length > 8 ? "browser" : "server";
+  try {
+    const res = await fetch(`${(process.env.OPENAI_API ?? "https://api.openai.com").replace(/\/$/, "")}/v1/models`, { headers: { authorization: `Bearer ${key}` }, cache: "no-store" });
+    if (res.status === 401 || res.status === 403) return { ok: false, reason: "auth", source, message: `OpenAI rejected the ${source}'s key. Check it is copied whole and has not been revoked.` };
+    if (!res.ok) return { ok: false, reason: "error", source, message: `OpenAI answered ${res.status}.` };
+    const data = (await res.json().catch(() => ({}))) as { data?: { id?: string }[] };
+    const images = (data.data ?? []).map((m) => m.id ?? "").filter((id) => id.startsWith("gpt-image"));
+    const two = images.some((id) => id === "gpt-image-2" || id.startsWith("gpt-image-2-20"));
+    return { ok: true, source, message: `The ${source}'s key works.${images.length ? two ? " GPT Image 2 is open to it." : ` GPT Image 2 is not open to it; remakes use ${images.sort().reverse()[0]}.` : " No GPT image model is open to it yet."}` };
+  } catch (err) {
+    return { ok: false, reason: "network", source, message: `The server could not reach OpenAI${err instanceof Error ? ` (${err.message})` : ""}.` };
+  }
+}
+
 export async function POST(request: Request) {
   let service = "anthropic";
   try {
     const body = (await request.json()) as { service?: unknown };
-    if (body?.service === "vercel" || body?.service === "replicate" || body?.service === "github") service = body.service;
+    if (body?.service === "vercel" || body?.service === "replicate" || body?.service === "github" || body?.service === "openai") service = body.service;
   } catch {
     /* no body: the Claude key, which is what the button meant before there was a choice */
   }
   const answer = service === "vercel" ? await tryVercel(request)
     : service === "replicate" ? await tryReplicate(request)
+      : service === "openai" ? await tryOpenai(request)
       : service === "github" ? await tryGithub(request)
         : await tryClaude(request);
   return NextResponse.json(answer);

@@ -6,6 +6,7 @@
  * Middle— the canvas, with page tabs above and the master prompt below.
  * Right — whatever is selected, the site format options, or the page list.
  */
+import { RemakeCard } from "./RemakePicture";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -1382,6 +1383,8 @@ export function StudioPage() {
               scroll: a companion that slid away as the page went by would be
               a poor companion. `offsetParent` is this element. */}
           <PreviewWindow />
+          {/* "Remake this picture…", opened from the wheel's tray or a parts-tree row. */}
+          <RemakeCard />
           {/*
             The one scroller: the site, then the categories under it.
 

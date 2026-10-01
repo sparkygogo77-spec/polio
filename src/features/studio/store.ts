@@ -266,6 +266,13 @@ export interface StudioNode {
    */
   picture?: Picture | null;
   /**
+   * Every picture this part has worn since its first was remade from a
+   * prompt (`RemakePicture.tsx`), the original first: the part panel's strip
+   * of versions to switch between. References only, like `picture`; the
+   * one in `picture` is one of these. Absent until a picture is remade.
+   */
+  pictureVersions?: Picture[] | null;
+  /**
    * What was drawn for it on the drawing board, and the words beside it.
    * Kept so the board reopens with the drawing still on it, the blueprint
    * can say what was drawn, and "make real" can be run again later.
@@ -3337,6 +3344,9 @@ function mergeDoc(persisted: unknown, current: StudioState): StudioState {
                and a part that thinks it has one draws a hole. */
             picture: n.picture && typeof n.picture === "object" && typeof (n.picture as Picture).id === "string" && typeof (n.picture as Picture).path === "string"
               ? (n.picture as Picture)
+              : null,
+            pictureVersions: Array.isArray(n.pictureVersions)
+              ? (n.pictureVersions as Picture[]).filter((v) => v && typeof v.id === "string" && typeof v.path === "string")
               : null,
           })),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],

@@ -10,6 +10,7 @@
  * Drag snaps to the frame's edges and centre and to other parts' edges, with
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
+import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
@@ -2960,6 +2961,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
         </div>
       ) : null}
 
+      {/* A picture being remade says so on the part, with Cancel (RemakePicture.tsx). */}
+      <RemakeOnPart nodeId={node.id} />
       {/* label chip: what this is, in the builder's words */}
       <div
         className={cn("pointer-events-none absolute left-0 flex origin-bottom-left items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-small text-fg shadow-sm transition-opacity", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}

@@ -108,7 +108,7 @@ async function tryVercel(token: string): Promise<Tried> {
  */
 export async function tryHere(service: ServiceId, key: string): Promise<Tried | null> {
   const k = key.trim();
-  if (service === "replicate") return null;
+  if (service === "replicate" || service === "openai") return null;
   if (k.length <= 8) return { ok: false, reason: "malformed", source: "browser", message: tooShort(service === "anthropic" ? "key" : "token") };
   if (service === "anthropic") return tryClaude(k);
   if (service === "github") return tryGithub(k);
@@ -116,4 +116,4 @@ export async function tryHere(service: ServiceId, key: string): Promise<Tried | 
 }
 
 /** Which services this browser can try on its own. The panel says so where a person can read it. */
-export const TRIED_HERE: Record<ServiceId, boolean> = { anthropic: true, github: true, vercel: true, replicate: false };
+export const TRIED_HERE: Record<ServiceId, boolean> = { anthropic: true, github: true, vercel: true, replicate: false, openai: false };

@@ -64,7 +64,7 @@ import { isPin, open, seal, type SealedBox } from "./crypto";
 import { canWrap, isWrapped, shred, unwrap, wrap, type WrappedBox } from "./keyring";
 import { rateCardSays } from "@/features/studio/renderMeter";
 
-export type ServiceId = "anthropic" | "replicate" | "github" | "vercel";
+export type ServiceId = "anthropic" | "replicate" | "openai" | "github" | "vercel";
 
 export interface FieldDef {
   id: string;
@@ -116,6 +116,14 @@ export const SERVICES: ServiceDef[] = [
       { id: "VERCEL_TOKEN", label: "Token", hint: "from Account Settings › Tokens", secret: true },
       { id: "VERCEL_TEAM", label: "Team", hint: "only if the project is a team's, its slug" },
     ],
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    blurb:
+      "Remake a picture: right-click a picture, say what it should be, and GPT Image 2 redraws it from the one that is there, at its exact size. Uses your own key and is billed to your OpenAI account.",
+    where: "https://platform.openai.com/api-keys",
+    fields: [{ id: "OPENAI_API_KEY", label: "API key", hint: "sk-…", secret: true }],
   },
 ];
 

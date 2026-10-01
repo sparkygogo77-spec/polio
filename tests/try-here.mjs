@@ -13,11 +13,18 @@
  * because the renderer is a server call. This checks that it still works
  * rather than pretending otherwise.
  *
- * The three services are answered by the test itself, so nothing real is
- * called and no key — not even a made-up one — is sent to anybody.
+ * OpenAI is the second exception, for the same reason as Replicate: its
+ * key is tried by the server, which asks for the models the key can use and
+ * says which image model a remake will draw with.
  *
- *   node tests/try-here.mjs [url]
+ * Every service is answered by the test itself (OpenAI by a stand-in on
+ * 4345), so nothing real is called and no key — not even a made-up one — is
+ * sent to anybody.
+ *
+ *   OPENAI_API=http://127.0.0.1:4345 npx next start -p 3016
+ *   node tests/try-here.mjs http://127.0.0.1:3016
  */
+import http from "node:http";
 const req = (await import("node:module")).createRequire(import.meta.url);
 const { chromium } = (() => {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean)) {
@@ -27,6 +34,17 @@ const { chromium } = (() => {
 })();
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
+
+/* OpenAI, answered here: the model list, to the stand-in key only. */
+const OPENAI_KEY = "STANDIN_OPENAI_KEY_0000";
+const openaiAsked = [];
+const stub = http.createServer((rq, res) => {
+  openaiAsked.push(rq.url);
+  if (rq.headers.authorization !== `Bearer ${OPENAI_KEY}`) { res.writeHead(401, { "content-type": "application/json" }); res.end("{}"); return; }
+  if (rq.url === "/v1/models") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ data: [{ id: "gpt-image-2" }, { id: "gpt-image-1" }, { id: "dall-e-3" }] })); return; }
+  res.writeHead(404); res.end();
+});
+await new Promise((ok) => stub.listen(Number(process.env.STUB_PORT ?? 4345), "127.0.0.1", ok));
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);
@@ -50,7 +68,7 @@ page.on("request", (r) => {
   });
 });
 
-/* The three services, answered here, so nothing real is called. */
+/* Claude, GitHub and Vercel, answered here, so nothing real is called. */
 await page.route("https://api.anthropic.com/**", (route) =>
   route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "claude-opus-5", display_name: "Claude Opus 5" }) }));
 /* The scope header is only readable across origins when the answer says it
@@ -80,7 +98,7 @@ check("the keys panel opens", (await panel.getAttribute("data-open")) === "1");
 
 const fields = panel.locator('input[type="password"]');
 const tries = panel.getByRole("button", { name: /^Try it/ });
-check("four services, each with a Try it", (await fields.count()) === 4 && (await tries.count()) === 4, `${await fields.count()} fields, ${await tries.count()} keys`);
+check("five services, each with a Try it", (await fields.count()) === 5 && (await tries.count()) === 5, `${await fields.count()} fields, ${await tries.count()} keys`);
 
 /**
  * Press one service's Try it and report what the page did about it.
@@ -128,12 +146,21 @@ out = await press(1, "api.replicate.com", "Replicate");
 check("Replicate is the one that still goes through the route, because it will not answer a browser", out.toUs.length > 0, `${out.toUs.length} calls to /api/keys/test`);
 check("…and the panel says so where a person can read it", /Replicate[\s\S]{0,200}answer a browser/i.test(await panel.innerText()));
 
+/* OpenAI: tried by the server too, and it names the image model. */
+await fields.nth(4).fill(OPENAI_KEY);
+openaiAsked.length = 0;
+out = await press(4, "api.openai.com", "OpenAI");
+check("OpenAI is tried through the route, like Replicate", out.toUs.length > 0 && out.toService.length === 0, `${out.toUs.length} to us, ${out.toService.length} to OpenAI from the browser`);
+check("…the server asked OpenAI which models the key can use", openaiAsked.includes("/v1/models"), openaiAsked.join(", ") || "nothing asked");
+check("…and its Try it says the key works and names the image model", /works/i.test(out.said) && /GPT Image 2/.test(out.said), out.said || "nothing said");
+
 /* And the whole session: no key of theirs on any call to our own origin. */
 const ours = sent.concat().filter((r) => r.url.startsWith(URL_));
 check("no call to this site carried a key that was not meant to", ours.every((r) => !r.keyed.length || r.url.includes("/api/keys/test")),
   ours.filter((r) => r.keyed.length && !r.url.includes("/api/keys/test")).map((r) => `${r.method} ${new URL(r.url).pathname}`).join(", ") || "none");
 
 await browser.close();
+stub.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);
 process.exit(failed ? 1 : 0);

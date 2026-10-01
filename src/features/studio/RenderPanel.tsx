@@ -21,6 +21,7 @@
  * The price is shown before the press, and what it really cost replaces it
  * afterwards.
  */
+import { isKeptVersion } from "./RemakePicture";
 import * as React from "react";
 import { Copy, ImageIcon, LoaderCircle, Plus, Sparkles, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
@@ -473,7 +474,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                       const made = await putPicture(blob, { alt: d.prompt.slice(0, 120), from: "drawn" });
                       const had = useStudio.getState().nodes.find((n) => n.id === forNode)?.picture;
                       useStudio.getState().updateNode(forNode, { picture: made });
-                      if (had) void dropPicture(had);
+                      const part = useStudio.getState().nodes.find((n) => n.id === forNode);
+                      if (had && !(part && isKeptVersion(part, had))) void dropPicture(had);
                       setPut(d.id);
                     }}
                     className="tactile rounded-sm border border-accent/60 bg-accent-soft px-1 py-0.5 text-small text-accent"

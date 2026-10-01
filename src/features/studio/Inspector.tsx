@@ -4,6 +4,7 @@
  * selected gets its own instructions, and those instructions travel with its
  * position on the canvas into the brief.
  */
+import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AlignCenter, AlignLeft, AlignRight, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
@@ -181,8 +182,8 @@ function PictureField({ node }: { node: StudioNode }) {
       const made = await putPicture(f, { alt: f.name.replace(/\.[a-z0-9]+$/i, ""), from: "upload" });
       const had = node.picture;
       useStudio.getState().updateNode(node.id, { picture: made });
-      // The one it replaced is nobody's now.
-      if (had) void dropPicture(had);
+      // The one it replaced is nobody's now, unless it is one of the part's kept versions.
+      if (had && !isKeptVersion(node, had)) void dropPicture(had);
     } finally {
       setBusy(false);
     }
@@ -191,7 +192,7 @@ function PictureField({ node }: { node: StudioNode }) {
   const clear = () => {
     const had = node.picture;
     useStudio.getState().updateNode(node.id, { picture: null });
-    if (had) void dropPicture(had);
+    if (had && !isKeptVersion(node, had)) void dropPicture(had);
   };
 
   return (
@@ -225,8 +226,10 @@ function PictureField({ node }: { node: StudioNode }) {
           <Button variant="ghost" size="xs" disabled={busy} data-draw-one="" onClick={() => openSection("make-picture")}>
             <Sparkles className="size-3" /> Draw one
           </Button>
+          {pic ? <Button variant="ghost" size="xs" data-remake-open="" onClick={() => openRemake(node.id)}><Sparkles className="size-3" /> Remake…</Button> : null}
           {pic ? <Button variant="ghost" size="xs" onClick={clear}>Remove</Button> : null}
         </div>
+        <PictureVersions node={node} />
         {pic ? (
           <p className="text-small leading-relaxed text-fg-muted">
             {pic.published
