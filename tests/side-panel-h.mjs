@@ -47,11 +47,25 @@ const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f))
 const { wordsContrast, readableFixes, tallyColours, HARD_TO_READ, READS } = await src("siteColours.ts");
 const { resolvePalette } = await src("parts/theme.ts");
 const palette = resolvePalette(doc.format, doc.look);
-const rows = wordsContrast(doc.nodes, palette);
+/* Words over a picture are read against the picture (`pictureSampler.ts`): the capture's own, decoded by a browser. */
+const { sampleHeld } = await src("pictureSampler.ts");
+const { pictureHeld } = await import("./fixtures/pictureHeld.mjs");
+const held = await pictureHeld(createRequire(import.meta.url)("playwright-core").chromium, SINK, doc.nodes, process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium");
+const nodeById = new Map(doc.nodes.map((n) => [n.id, n]));
+const sample = (id, under) => (held.has(id) ? sampleHeld(held.get(id), nodeById.get(id), under) : null);
+/*
+ * On the capture as it stands nothing is hard to read: TRORTY REMOTE, once
+ * flagged at 1.1 to 1, is yellow on the remote's navy panel
+ * (tests/readable-backdrop.mjs). So for Make readable one part is made
+ * truly unreadable in this test's copy: the same label, navy on that navy.
+ */
+check("3 on the capture as it is, TRORTY REMOTE reads (on the remote's navy panel)", (wordsContrast(doc.nodes, palette, sample).find((r) => r.id === "n_prose_124")?.ratio ?? 0) >= READS);
+doc.nodes = doc.nodes.map((n) => (n.id === "n_prose_124" ? { ...n, colour: { ...n.colour, text: "rgb(41, 47, 68)" } } : n));
+const rows = wordsContrast(doc.nodes, palette, sample);
 const ratio = (id) => rows.find((r) => r.id === id)?.ratio ?? 0;
 check("3 outlined lettering reads by its outline: the white “HOW TO BUY” edged in near-black is readable", ratio("n_valueprop_43") >= READS, `${ratio("n_valueprop_43")} to 1`);
 const hard = rows.filter((r) => r.ratio < HARD_TO_READ);
-const fixes = readableFixes(doc.nodes, palette);
+const fixes = readableFixes(doc.nodes, palette, sample);
 check("3 every hard-to-read part gets a fix", hard.length > 0 && fixes.length === hard.length, `${hard.length} hard, ${fixes.length} fixes`);
 const worn = new Set([...tallyColours(doc.nodes, palette).byUse.text, ...tallyColours(doc.nodes, palette).byUse.fill].map((c) => c.value));
 check("3 …each in a colour the site already wears", fixes.every((f) => worn.has(f.to)), fixes.map((f) => f.to).join(" "));

@@ -498,54 +498,163 @@ export function closeShades(list: readonly SiteColour[], use: ColourUse, within 
 /* Words against what they sit on                                      */
 /* ------------------------------------------------------------------ */
 
-type Placed = Worn & { pageId?: string; x?: number; y?: number; w?: number; h?: number; art?: { textStroke?: { w: number; color: string } | null } | null };
+type Placed = Worn & {
+  pageId?: string; x?: number; y?: number; w?: number; h?: number; featureId?: string;
+  art?: { textStroke?: { w: number; color: string } | null; background?: string | null } | null;
+};
+
+/** A box in page pixels. */
+export interface Rect { x: number; y: number; w: number; h: number }
 
 /**
- * How readable each part's words are against the fill they actually sit on:
- * the part's own fill, else the smallest part under it with one, else the
- * page. The two role swatches (Text against Background) are compared by the
- * mixer's badge, and on a site brought in those two roles are often never
- * worn together at all: trumpmorty.fun's "text 1.2" was near-black words
- * against a near-black role no word sits on. This measures what is worn.
+ * Reads a picture's colours under a box: the painter's id, the box in the
+ * painter's own pixels (0,0 its top left), and back the average colour of
+ * each of a few cells across it. Null while the picture is not to hand,
+ * and then the words over it are not judged at all rather than judged
+ * against something else.
  */
-export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; ratio: number; ground: string }[] {
-  const read = (v: string | undefined | null) => {
-    const s = (v ?? "").trim();
-    if (!s) return null;
-    const c = parseColor(isRole(s) ? palette[s] ?? "" : s);
-    return c && !/^rgba\(.*,\s*0(\.0+)?\)$/.test(colourKey(isRole(s) ? palette[s] : s)) ? c : null;
-  };
-  const opaque = (n: Placed) => {
-    const k = colourKey(n.colour?.bg && isRole(n.colour.bg) ? palette[n.colour.bg as RoleId] : n.colour?.bg);
-    return !!k && !/^rgba\(/.test(k);
-  };
-  const filled = nodes.filter((n) => opaque(n) && (n.w ?? 0) > 0 && (n.h ?? 0) > 0);
-  const page = read(palette.bg);
-  const out: { id: string; ratio: number; ground: string }[] = [];
-  for (const n of nodes) {
-    if (!hasWords(n)) continue;
-    const ink = read(n.colour?.text);
-    if (!ink) continue;
-    let ground = opaque(n) ? read(n.colour?.bg) : null;
-    let groundCss = ground ? (isRole(n.colour!.bg!) ? palette[n.colour!.bg as RoleId] ?? "" : n.colour!.bg!) : "";
-    if (!ground) {
-      const under = filled
-        .filter((m) => m.id !== n.id && m.pageId === n.pageId && (m.x ?? 0) <= (n.x ?? 0) + 1 && (m.y ?? 0) <= (n.y ?? 0) + 1 && (m.x ?? 0) + (m.w ?? 0) >= (n.x ?? 0) + (n.w ?? 0) - 1 && (m.y ?? 0) + (m.h ?? 0) >= (n.y ?? 0) + (n.h ?? 0) - 1)
-        .sort((a, b) => a.w! * a.h! - b.w! * b.h!)[0];
-      ground = under ? read(under.colour?.bg) : page;
-      groundCss = under ? (isRole(under.colour!.bg!) ? palette[under.colour!.bg as RoleId] ?? "" : under.colour!.bg!) : palette.bg ?? "";
-    }
-    if (!ground) continue;
-    /*
-     * Outlined letters are read by their outline: trumpmorty.fun's white
-     * "HOW TO BUY" on yellow is edged in near-black 4px deep, and reads at a
-     * glance. So a part with an outline a pixel or more wide is measured by
-     * whichever reads better against the ground, its fill or its outline.
-     */
-    const stroke = n.art?.textStroke && n.art.textStroke.w >= 1 ? read(n.art.textStroke.color) : null;
-    const best = Math.max(contrast(ink, ground), stroke ? contrast(stroke, ground) : 0);
-    out.push({ id: n.id, ratio: Math.round(best * 10) / 10, ground: groundCss });
+export type PictureSampler = (painterId: string, under: Rect) => string[] | null;
+
+/** What paints right behind a part's words, and the colours it paints there. */
+export interface Backdrop {
+  /** The part that paints it, or "@page". */
+  by: string;
+  kind: "fill" | "gradient" | "picture" | "page";
+  /** Every colour it paints under the words; the contrast is the worst of them. */
+  colours: string[];
+}
+
+/**
+ * WHAT IS PAINTED RIGHT BEHIND THE WORDS.
+ *
+ * The board paints parts in document order, later on top, so what a part's
+ * words sit on is: its own paint, else the topmost part BEFORE it that
+ * covers its words and paints something (a fill, a gradient or a
+ * background picture; a pseudo-element is a part like any other), else the
+ * page. Not the smallest part that holds it by geometry, and not its parent
+ * in the parts tree: trumpmorty.fun's TRORTY REMOTE is yellow on the
+ * remote's navy panel, a gradient its holder never names, and was measured
+ * against the yellow section behind the remote as 1.1 to 1.
+ */
+export function backdropOf(nodes: readonly Placed[], index: number, palette: Partial<Palette> = {}, sample?: PictureSampler): Backdrop | null | undefined {
+  const n = nodes[index]!;
+  const own = paintOf(n, palette, sample, n);
+  if (own !== undefined) return own;
+  const box = { x: n.x ?? 0, y: n.y ?? 0, w: n.w ?? 0, h: n.h ?? 0 };
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  for (let i = index - 1; i >= 0; i--) {
+    const m = nodes[i]!;
+    if (m.pageId !== n.pageId) continue;
+    const mx = m.x ?? 0, my = m.y ?? 0, mw = m.w ?? 0, mh = m.h ?? 0;
+    if (cx < mx || cx > mx + mw || cy < my || cy > my + mh) continue;
+    /* Most of the words over it, not a corner. */
+    const ox = Math.max(0, Math.min(box.x + box.w, mx + mw) - Math.max(box.x, mx));
+    const oy = Math.max(0, Math.min(box.y + box.h, my + mh) - Math.max(box.y, my));
+    if (box.w * box.h > 0 && (ox * oy) / (box.w * box.h) < 0.6) continue;
+    const paint = paintOf(m, palette, sample, n);
+    if (paint !== undefined) return paint;
   }
+  const page = palette.bg && parseColor(palette.bg) ? palette.bg : null;
+  return page ? { by: PAGE_ID, kind: "page", colours: [page] } : null;
+}
+
+/** A see-through colour paints nothing a reader sees behind words. */
+const solidColour = (v: string | undefined | null, palette: Partial<Palette>): string | null => {
+  const s = (v ?? "").trim();
+  if (!s) return null;
+  const css = isRole(s) ? palette[s] ?? "" : s;
+  const k = colourKey(css);
+  if (!k || !parseColor(css)) return null;
+  const a = /^rgba\(([^)]*)\)$/.exec(k);
+  if (a && Number(a[1]!.split(",")[3]) < 0.5) return null;
+  return css;
+};
+
+/**
+ * What one part paints, if anything: undefined when it paints nothing (look
+ * further down), null when it paints a picture that cannot be read now (do
+ * not judge), else the colours. A picture is over the part's fill, and a
+ * gradient over both, as CSS draws them.
+ */
+function paintOf(m: Placed, palette: Partial<Palette>, sample: PictureSampler | undefined, words: Placed): Backdrop | null | undefined {
+  const bg = m.art?.background ?? "";
+  const stops = coloursIn(bg).map((c) => solidColour(c, palette)).filter((c): c is string => !!c);
+  if (stops.length && !/url\(/.test(bg)) return { by: m.id, kind: "gradient", colours: stops };
+  if (m.picture) {
+    const under = { x: (words.x ?? 0) - (m.x ?? 0), y: (words.y ?? 0) - (m.y ?? 0), w: words.w ?? 0, h: words.h ?? 0 };
+    const got = sample?.(m.id, under) ?? null;
+    if (!got) return null;
+    const colours = got.map((c) => solidColour(c, palette)).filter((c): c is string => !!c);
+    return colours.length ? { by: m.id, kind: "picture", colours } : null;
+  }
+  const fill = solidColour(m.colour?.bg, palette);
+  if (fill) return { by: m.id, kind: "fill", colours: [fill] };
+  return undefined;
+}
+
+/**
+ * The edges a part's letters are drawn with: an outline a pixel or more
+ * wide, and a text shadow that is sharp (blurred two pixels or less) and
+ * solid, which sits against every letter as an edge does. trumpmorty.fun's
+ * "CH 47" is green on the TV's orange screen with a hard black shadow 2px
+ * down and across, and reads by that shadow.
+ */
+function outlinesOf(n: Placed, palette: Partial<Palette>): NonNullable<ReturnType<typeof parseColor>>[] {
+  const out: NonNullable<ReturnType<typeof parseColor>>[] = [];
+  const stroke = n.art?.textStroke && n.art.textStroke.w >= 1 ? solidColour(n.art.textStroke.color, palette) : null;
+  if (stroke) { const c = parseColor(stroke); if (c) out.push(c); }
+  const shadows = String((n.art as { textShadow?: string } | null | undefined)?.textShadow ?? "").split(/,(?![^(]*\))/);
+  for (const sh of shadows) {
+    const colour = coloursIn(sh)[0];
+    const lengths = sh.replace(colour ?? "", "").trim().split(/\s+/).map((v) => Number.parseFloat(v)).filter((v) => Number.isFinite(v));
+    const [dx = 0, dy = 0, blur = 0] = lengths;
+    const solid = colour ? solidColour(colour, palette) : null;
+    if (solid && blur <= 2 && (Math.abs(dx) + Math.abs(dy) >= 1 || blur > 0)) { const c = parseColor(solid); if (c) out.push(c); }
+  }
+  return out;
+}
+
+/** The worst contrast of these words against these colours, outline counted. */
+function worstContrast(n: Placed, ink: ReturnType<typeof parseColor>, colours: readonly string[], palette: Partial<Palette>): number {
+  /*
+   * Outlined letters are read by their outline: trumpmorty.fun's white
+   * "HOW TO BUY" on yellow is edged in near-black 4px deep, and reads at a
+   * glance. So a part with an outline a pixel or more wide is measured by
+   * whichever reads better against the ground, its fill or its outline.
+   */
+  const edges = outlinesOf(n, palette);
+  let worst = Infinity;
+  for (const g of colours) {
+    const gc = parseColor(g);
+    if (!gc || !ink) continue;
+    worst = Math.min(worst, Math.max(contrast(ink, gc), ...edges.map((e) => contrast(e, gc))));
+  }
+  return worst;
+}
+
+/**
+ * How readable each part's words are against what is painted right behind
+ * them (`backdropOf`): the worst of the colours there. The two role swatches
+ * (Text against Background) are compared by the mixer's badge, and on a site
+ * brought in those two roles are often never worn together; this measures
+ * what is worn, where it is worn. Words over a picture that cannot be read
+ * now are left out rather than guessed at.
+ */
+export function wordsContrast(nodes: readonly Placed[], palette: Partial<Palette> = {}, sample?: PictureSampler): { id: string; ratio: number; ground: string; backdrop: Backdrop }[] {
+  const out: { id: string; ratio: number; ground: string; backdrop: Backdrop }[] = [];
+  nodes.forEach((n, i) => {
+    if (!hasWords(n)) return;
+    const inkCss = solidColour(n.colour?.text, palette);
+    const ink = inkCss ? parseColor(inkCss) : null;
+    if (!ink) return;
+    /* The words' own fill is behind them first; then what is under the part. */
+    const backdrop = backdropOf(nodes, i, palette, sample);
+    if (!backdrop) return;
+    const ratio = worstContrast(n, ink, backdrop.colours, palette);
+    if (!Number.isFinite(ratio)) return;
+    const worstGround = [...backdrop.colours].sort((a, b) => worstContrast(n, ink, [a], palette) - worstContrast(n, ink, [b], palette))[0]!;
+    out.push({ id: n.id, ratio: Math.round(ratio * 10) / 10, ground: worstGround, backdrop });
+  });
   return out;
 }
 
@@ -564,8 +673,8 @@ export const READS = 4.5;
  * the site already wears. Pure; the Look panel writes all of them as one
  * undo step (`patchNodes`).
  */
-export function readableFixes(nodes: readonly Placed[], palette: Partial<Palette> = {}): { id: string; from: string; to: string; was: number; now: number }[] {
-  const hard = wordsContrast(nodes, palette).filter((r) => r.ratio < HARD_TO_READ);
+export function readableFixes(nodes: readonly Placed[], palette: Partial<Palette> = {}, sample?: PictureSampler): { id: string; from: string; to: string; was: number; now: number }[] {
+  const hard = wordsContrast(nodes, palette, sample).filter((r) => r.ratio < HARD_TO_READ);
   if (!hard.length) return [];
   const tally = tallyColours(nodes as readonly Worn[], palette);
   const solid = (c: SiteColour) => !/^rgba\(/.test(c.key) && !!parseColor(c.value);
@@ -574,14 +683,13 @@ export function readableFixes(nodes: readonly Placed[], palette: Partial<Palette
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const out: { id: string; from: string; to: string; was: number; now: number }[] = [];
   for (const r of hard) {
-    const g = parseColor(r.ground);
-    if (!g) continue;
-    const score = (v: string) => { const c = parseColor(v); return c ? contrast(c, g) : 0; };
+    const n = byId.get(r.id)!;
+    /* Against the same backdrop the count measured, every colour of it: a fix that reads on half a gradient is not one. */
+    const score = (v: string) => worstContrast(n, parseColor(v), r.backdrop.colours, palette);
     const pick = words.find((v) => score(v) >= READS) ?? fills.find((v) => score(v) >= READS)
       ?? [...words, ...fills].sort((a, b) => score(b) - score(a))[0];
     if (!pick || score(pick) <= r.ratio) continue;
-    const from = byId.get(r.id)?.colour?.text ?? "";
-    out.push({ id: r.id, from, to: pick, was: r.ratio, now: Math.round(score(pick) * 10) / 10 });
+    out.push({ id: r.id, from: n.colour?.text ?? "", to: pick, was: r.ratio, now: Math.round(score(pick) * 10) / 10 });
   }
   return out;
 }

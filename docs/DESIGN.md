@@ -280,6 +280,12 @@ same boxes as everywhere else, in the screen's colours.
 - **Hard-to-read words are one press from readable**, in the site's own
   word colours, as one undo step (`readableFixes`). Outlined lettering is
   measured by its outline, so a site's edged headings are never "fixed".
+  Words are measured against what is painted right behind them
+  (`backdropOf`): their own paint, else the topmost earlier part covering
+  them that paints a fill, a gradient (every stop) or a picture (sampled
+  under them, `pictureSampler.ts`), else the page; the worst colour there
+  counts, and words over a picture not yet in the browser are not judged.
+  `tests/readable-backdrop.mjs`.
 - **Motion lists kinds as compact rows**: icon, name, count, one switch;
   the all-at-once speed is inside when opened. Frame interpolation is its
   own folded section at the foot.

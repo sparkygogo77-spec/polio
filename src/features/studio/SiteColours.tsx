@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { css, parseColor, toHex, type Oklch, type Palette } from "./look";
 import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
 import { partName } from "./partNames";
+import { usePictureSampler } from "./pictureSampler";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
 import { FAMILY, resolvePalette } from "./parts/theme";
@@ -531,14 +532,16 @@ function MergeShades({ use, list, palette }: { use: ColourUse; list: SiteColour[
  */
 function WordsReadable() {
   const { nodes, palette, look } = useSite();
-  const rows = React.useMemo(() => (look.paletteFrom || nodes.some((n) => n.from) ? wordsContrast(nodes, palette) : []), [nodes, palette, look.paletteFrom]);
+  /* Words over a picture are read against the picture itself, sampled under them (`pictureSampler.ts`). */
+  const sample = usePictureSampler(nodes);
+  const rows = React.useMemo(() => (look.paletteFrom || nodes.some((n) => n.from) ? wordsContrast(nodes, palette, sample) : []), [nodes, palette, look.paletteFrom, sample]);
   const [open, setOpen] = React.useState(false);
   const [fixed, setFixed] = React.useState<number | null>(null);
   if (!rows.length && fixed === null) return null;
   const hard = rows.filter((r) => r.ratio < HARD_TO_READ).sort((a, b) => a.ratio - b.ratio);
   /* One press, one undo step: each hard part's words take the site's own colour that reads on its fill. */
   const makeReadable = () => {
-    const fixes = readableFixes(nodes, palette);
+    const fixes = readableFixes(nodes, palette, sample);
     if (!fixes.length) { play("deny"); setFixed(0); return; }
     const to = new Map(fixes.map((f) => [f.id, f.to]));
     useStudio.getState().patchNodes([...to.keys()], (n) => ({ colour: { ...(n.colour ?? {}), text: to.get(n.id)! } }));
