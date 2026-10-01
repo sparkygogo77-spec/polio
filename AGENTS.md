@@ -3082,6 +3082,18 @@ carry why a thing arrived.
   site back. A clean board publishes straight away. A new kind of problem is
   one more block in `checkBoard`, read by the check that already owns it.
   `tests/publish-check.mjs`.
+- **The launch kit** (`studio/launchKit.ts`, `LaunchKit.tsx`, the rocket key
+  in the top bar in the Builder, and the palette) draws a share card
+  (1200 by 630), an X banner (1500 by 500, the bottom left clear for the
+  profile picture), the site icon at 16, 32, 48, 180, 192 and 512, and three
+  meme templates with captions to type, on a canvas, from the site's own
+  palette (`resolvePalette`), faces (the biggest words' face and the most
+  used one, carried faces loaded first; else Format's heading and body
+  fonts), name, line and logo (`siteLogo`). Each downloads as a named PNG.
+  "Use on the published page" keeps the card and the icons as pictures and
+  writes them into `brief.head` (image, icons, the large card), which the
+  export already turns into og:image, twitter:image and icon links, and the
+  publish already carries. Nothing is asked of a server. `tests/launch-kit.mjs`.
 - **A publish is said in plain steps** (`studio/publishWords.ts`): Saving to
   GitHub…, Saved to GitHub ✓ waiting for Vercel…, Live ✓ with the time and
   the address. A failure is one sentence saying whether the change is saved

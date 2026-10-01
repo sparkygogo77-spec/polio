@@ -1,5 +1,5 @@
 import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./remake";
-import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, Rocket, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { openLearned } from "./LearnedPanel";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
@@ -10,6 +10,7 @@ import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { SaveLine } from "./SaveLine";
 import { PublishCheckDialog } from "./PublishCheck";
+import { LaunchKitKey } from "./LaunchKit";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
@@ -193,12 +194,19 @@ export const studio = defineFeature({
     { id: "studio.golive", order: 21, component: GoLiveButton },
     /* The list Update live site shows first when the board has something wrong (`PublishCheck.tsx`). Draws nothing in the bar itself. */
     { id: "studio.publishCheck", order: 98, component: PublishCheckDialog },
+    /* The launch kit: share card, X banner, icons and memes from the site's own style (`LaunchKit.tsx`). */
+    { id: "studio.launchKit", order: 22, component: LaunchKitKey },
     /* The one repo menu, mounted once so every way in opens the same one. It draws nothing in the bar itself. */
     { id: "studio.repoMenu", order: 99, component: RepoMenuHost },
   ],
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },
+    {
+      id: "studio.launchKit", label: "Launch kit: share card, X banner, site icon, memes", group: "Builder", icon: Rocket,
+      keywords: ["launch", "share", "card", "og", "banner", "icon", "favicon", "meme", "social"], when: onStudio,
+      run: () => { void import("./LaunchKit").then((m) => m.openLaunchKit()); },
+    },
     /* The board as one file, and back again (`backup.ts`): also on the save line and on each card on Builds. */
     {
       id: "studio.backup.download",
