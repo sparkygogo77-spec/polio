@@ -3071,6 +3071,17 @@ carry why a thing arrived.
   them; the publish still goes, so the owner is never kept from going live. Links between
   pages are addresses and are not held to it. `tests/site-refs.mjs`,
   `tests/publish-complete.mjs`.
+- **Update live site shows one short list first** (`studio/publishCheck.ts`,
+  `PublishCheck.tsx`): links that leave the site against Format's "Links off
+  the site" rules (`parts/offsite.ts`), share links to choose about, pictures
+  this browser no longer has, words hard to read (`wordsContrast`), parts off
+  the page at phone or tablet width (the preview's own `placeNodes` until
+  Lane D's check lands; swap it in `readBoard`), and buttons that do nothing
+  (`badge.ts` `decisions`). Each line has Fix (where there is one) and Show,
+  and Publish anyway is always there: the list informs, it never holds a
+  site back. A clean board publishes straight away. A new kind of problem is
+  one more block in `checkBoard`, read by the check that already owns it.
+  `tests/publish-check.mjs`.
 - **A publish is said in plain steps** (`studio/publishWords.ts`): Saving to
   GitHub…, Saved to GitHub ✓ waiting for Vercel…, Live ✓ with the time and
   the address. A failure is one sentence saying whether the change is saved

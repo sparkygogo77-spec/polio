@@ -9,6 +9,7 @@ import { openRepoPicker, RepoMenuHost } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { SaveLine } from "./SaveLine";
+import { PublishCheckDialog } from "./PublishCheck";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
@@ -190,6 +191,8 @@ export const studio = defineFeature({
     { id: "studio.github", order: 20, component: GithubButton },
     /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
     { id: "studio.golive", order: 21, component: GoLiveButton },
+    /* The list Update live site shows first when the board has something wrong (`PublishCheck.tsx`). Draws nothing in the bar itself. */
+    { id: "studio.publishCheck", order: 98, component: PublishCheckDialog },
     /* The one repo menu, mounted once so every way in opens the same one. It draws nothing in the bar itself. */
     { id: "studio.repoMenu", order: 99, component: RepoMenuHost },
   ],

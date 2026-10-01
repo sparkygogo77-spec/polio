@@ -22,6 +22,7 @@ import { sharedTargetSays, useBuilds, useSharedTargetSays } from "@/features/bui
 import { keysReady, useKeys } from "@/features/keys/store";
 import { deployStatus, publishStatus } from "./agent";
 import { goLive, useGoLive } from "./goLive";
+import { checkThenPublish } from "./PublishCheck";
 import { stepWords } from "./publishWords";
 import { PublishLinks } from "./PublishLinks";
 import { Popover } from "@/core/ui/popover";
@@ -212,7 +213,8 @@ function GoLiveControl() {
       return;
     }
     const name = useStudio.getState().brief?.name ?? "";
-    void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish });
+    /* The board is read first: a short list of what is wrong, with Fix, Show and Publish anyway (`PublishCheck.tsx`). Clean, it goes straight up. */
+    void checkThenPublish(() => void goLive({ message: `Builder: publish ${name.trim() || "the site"}`, siteName: name, say: ctx.publish }));
   };
   /*
    * ONCE LIVE, STILL THE PUSH. THE OWNER'S RULING. It became "Live site" and

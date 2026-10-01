@@ -34,7 +34,9 @@ const env = (s) => JSON.stringify({ state: s, version: 0 });
 const page1 = { id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" };
 const part = (id, extra = {}) => ({ id, pageId: "page_home", featureId: "picture", label: "Picture", prompt: "", content: "", data: "", x: 40, y: 40, w: 400, h: 300, groupId: null, options: {}, priority: "must", custom: false, ...extra });
 
+let listed = 0;
 async function press(nodes) {
+  listed = 0;
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
@@ -63,12 +65,19 @@ async function press(nodes) {
   for (let i = 0; i < 40 && (await bar.getAttribute("data-go-live-state")) === "checking"; i++) await page.waitForTimeout(250);
   await bar.click();
   await page.waitForTimeout(800);
+  /* The board has a picture this browser lost: Update live site lists it first (`tests/publish-check.mjs`), and Publish anyway sends it up as before. */
+  const anyway = page.locator("[data-publish-anyway]");
+  if (await anyway.count()) {
+    listed = await page.locator('[data-check-line="picture"]').count();
+    await anyway.click();
+    await page.waitForTimeout(800);
+  }
   for (let i = 0; i < 120 && (await bar.getAttribute("data-go-live-state")) === "busy"; i++) await page.waitForTimeout(250);
   await page.waitForTimeout(500);
   const said = await page.evaluate(() => document.querySelector("header [data-go-live-said]")?.textContent ?? null);
   const warned = await page.evaluate(() => document.querySelector("header [data-go-live-warned]")?.getAttribute("title") ?? null);
   const live = await page.evaluate(() => document.querySelector("header [data-go-live-step='live']")?.textContent ?? null);
-  return { ctx, page, pushed, said, warned, live };
+  return { ctx, page, pushed, said, warned, live, listed };
 }
 
 console.log("1. An empty picture part: the crop it shows goes up with it");
@@ -83,7 +92,8 @@ console.log("1. An empty picture part: the crop it shows goes up with it");
 console.log("2. A picture this browser no longer has");
 {
   const gone = { id: "pic_gone", path: "assets/pictures/pic_gone.png", type: "image/png", w: 10, h: 10, bytes: 10, alt: "", from: "upload" };
-  const { ctx, page, pushed, said, warned, live } = await press([part("n2", { picture: gone })]);
+  const { ctx, page, pushed, said, warned, live, listed } = await press([part("n2", { picture: gone })]);
+  check("Update live site names the missing picture first, and Publish anyway sends it up", listed === 1, `${listed} picture line(s) in the list`);
   check("it still publishes, as before: the page goes up and the site goes live", pushed.includes("index.html") && said === null && /^Live ✓/.test(live ?? ""), J({ pushed: pushed.slice(0, 4), said, live }));
   check("…without the missing picture", !pushed.includes("assets/pictures/pic_gone.png"));
   check("the publish status warns which file is missing, on which page, and what to do", /^Published without 1 file the pages point at, so it is missing on the live site/.test(warned ?? "") && /assets\/pictures\/pic_gone\.png \(used on Home\)/.test(warned ?? "") && /Add the missing pictures again on the board/.test(warned ?? ""), J(warned));
