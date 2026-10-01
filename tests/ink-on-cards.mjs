@@ -145,13 +145,20 @@ if (live) {
       for (const el of box.querySelectorAll("*")) {
         if (seen.has(el)) continue;
         const r = el.getBoundingClientRect();
-        if (r.width < 4 || r.height < 4 || r.width > 600) continue;
+        if (r.width < 4 || r.height < 4) continue;
         if (r.top < 0 || r.bottom > innerHeight) continue;
         // The site preview is the site's own design, not this surface's.
         if (el.closest("[data-site-shot]") || el.closest("[data-made]")) continue;
         const svg = el.tagName.toLowerCase() === "svg";
         const words = !svg && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
         if (!svg && !words) continue;
+        /* The width cap is for drawings, which is where a wide one is a
+           whole picture and not a mark. It once applied to words too, and a
+           run of words is as wide as what it says: the Updates panel's lines
+           are each one change's title across the box, so the count of what
+           could be read went up and down with how long the latest titles
+           were, and fell to 7 under the bar of 8 once two long ones landed. */
+        if (svg && r.width > 600) continue;
         seen.add(el);
         el.setAttribute("data-mark", String(out.length));
         /* The colour the design ASKED for, and how big it is drawn. Both are
