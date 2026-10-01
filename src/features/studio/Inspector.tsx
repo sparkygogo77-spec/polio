@@ -7,7 +7,7 @@
 import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
@@ -42,7 +42,8 @@ import { decisionSays } from "./library/badge";
 import { movingParts } from "./motionInventory";
 import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
-import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, PartsTree, kindWord, useDecisions } from "./PartTreePanel";
+import { TourEditor } from "./TourEditor";
+import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
 import { PartFields } from "./PartFields";
 import { WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
@@ -424,7 +425,7 @@ export function Inspector() {
             {nodes.length ? `${nodes.length} element${nodes.length === 1 ? "" : "s"} on this page. Pick one to prompt it.` : "The page itself is picked."}
           </div>
         </div>
-        <PartsTree nodes={nodes} className="flex-1" />
+        <ElementList nodes={nodes} className="flex-1" />
         <div className="flex items-center gap-2 border-t border-border px-3 py-2">
           <span
             className="flex size-6 shrink-0 items-center justify-center rounded-sm"
@@ -471,11 +472,11 @@ export function Inspector() {
           */}
           <PageSummary nodes={nodes} />
           <div className="flex items-center justify-between">
-            <span className="text-small font-semibold uppercase tracking-[0.08em] text-fg">Parts, top to bottom</span>
+            <span className="text-small font-semibold uppercase tracking-[0.08em] text-fg">Elements, top to bottom</span>
             <span className="num text-fine text-fg-faint">{nodes.length}</span>
           </div>
         </div>
-        <PartsTree nodes={nodes} picked={single?.id ?? null} className="mx-1.5 min-h-40 flex-1 rounded-md border border-border" />
+        <ElementList nodes={nodes} picked={single?.id ?? null} className="mx-1.5 min-h-40 flex-1 rounded-md border border-border" />
         <div className="shrink-0 p-3 pt-2">
           <Fold id="page-prompt" title="This page's prompt" note={page.prompt.trim() ? "written" : "empty"}>
           <Field label="This page should…" hint="Applies to everything on this page.">
@@ -750,6 +751,12 @@ export function Inspector() {
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {node.featureId === "whats-new" ? (
+          <PanelSection id="tour" title="What's new steps" icon={<Megaphone />} note={`${node.tour?.current.steps.length ?? 0} of 6`}>
+            <TourEditor node={node} />
+          </PanelSection>
         ) : null}
 
         <PanelSection id="content" title="Content" icon={<Type />} note={wordsOf(wordsHere ?? node) ? undefined : node.picture ? "a picture" : undefined}>

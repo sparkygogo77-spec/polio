@@ -15,6 +15,7 @@ import { ActivityFeed, Badges, Chat, CollabCursors, Comments, Forum, Mentions, M
 import { Analytics, Api, Cms, Database, EmailPreview, Integration, MetaPreview, Perf, Pwa, Testing, Versions } from "./Ops";
 import { A11y, Auth, BrandKit, CookieConsent, ErrorScreen, Languages, PrintLayout, QrBridge, Responsive, ThemePicker, WeatherTime } from "./Platform";
 import { BlurPrivacy, Console, HotkeyFirst, MultiColumnFeed, Presets, SplitPanes, StatusBar, VirtualList } from "./Power";
+import { WhatsNew } from "./WhatsNew";
 import { CommandPalette, ContextMenus, CopyButton, DragDrop, EasterEgg, Gamification, Graduation, Haptics, HoverCard, MagneticButton, Onboarding, OptimisticUi, SettingsPanel, Skeletons, SoundCues, Toasts, Tooltips, UndoRedo, WorkflowBuilder } from "./Interact";
 import { MotionPart } from "./Motion";
 import { Cta, InvitePanel } from "./Cta";
@@ -191,6 +192,7 @@ export const DEFS: PartDef[] = [
   { component: WorkflowBuilder, ids: ["workflow-builder"], tier: "A" },
   { component: SettingsPanel, ids: ["cog-settings"], tier: "A" },
   { component: Onboarding, ids: ["onboarding-tour", "compass-onboard"], tier: "A" },
+  { component: WhatsNew, ids: ["whats-new"], tier: "A", overlay: true },
   { component: MagneticButton, ids: ["magnetic-buttons"], tier: "A", linkable: true },
   { component: EasterEgg, ids: ["easter-egg"], tier: "A" },
   { component: Graduation, ids: ["graduation"], tier: "A" },
@@ -215,10 +217,15 @@ export function resolvePart(featureId: string): PartDef | null {
   return PARTS[featureId] ?? null;
 }
 
+/** A part standing over the page rather than in it (`PartDef.overlay`). */
+export function isOverlay(featureId: string): boolean {
+  return resolvePart(featureId)?.overlay === true;
+}
+
 export function isLinkable(featureId: string): boolean {
   return resolvePart(featureId)?.linkable === true;
 }
 
-export type { NodeLink, Part, PartDef, PartEvent, PartMode, PartProps } from "./types";
+export type { NodeLink, Part, PartDef, PartEvent, PartMode, PartProps, PartTour, PartTourStep } from "./types";
 export { opt } from "./types";
 export { items, themeFrom, titled, type Theme } from "./theme";

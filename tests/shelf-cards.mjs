@@ -32,7 +32,7 @@ import { LIBRARY } from "../src/features/studio/library/works.ts";
 import {
   PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, STATUS_LABEL, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
 } from "../src/features/studio/shelfFacts.ts";
-import { SHELF_GROUPS } from "../src/features/studio/shelfGroups.ts";
+import { CARRIES, SHELF_GROUPS } from "../src/features/studio/shelfGroups.ts";
 import { itemOf } from "../src/features/studio/shelfPlan.ts";
 
 const results = [];
@@ -292,8 +292,10 @@ if (!URL_) {
   const bare = ours.filter((c) => !c.demo || c.demo === "named" || c.words.trim() === SAMPLES.get(c.id));
   check("11. every working feature with a card of its own shows its effect on a piece of the site, never a symbol and a word",
     ours.length === OWN.length && bare.length === 0, `${ours.length} of ${OWN.length} cards${bare.length ? `; bare: ${bare.map((c) => `${c.id}=${c.demo}`)}` : `: ${ours.map((c) => `${c.id}→${c.demo}`).join(", ")}`}`);
-  const versioned = LIBRARY.map((w) => w.manifest.id).filter((id) => !OWN.some((o) => o.id === id));
-  check("11. and every other one is a version of the card that does the same", versioned.every((id) => itemOf(`work:${id}`) && itemOf(`work:${id}`) !== `work:${id}`), versioned.map((id) => `${id} → ${itemOf(`work:${id}`)}`).join(", "));
+  /* A feature a shelf part carries as its own (the "What's new" card's) is placed by that part's card. */
+  const carried = Object.entries(CARRIES).filter(([part]) => itemOf(part)).map(([, id]) => id);
+  const versioned = LIBRARY.map((w) => w.manifest.id).filter((id) => !OWN.some((o) => o.id === id) && !carried.includes(id));
+  check("11. and every other one is a version of the card that does the same, or the feature a shelf part carries", versioned.every((id) => itemOf(`work:${id}`) && itemOf(`work:${id}`) !== `work:${id}`), `${versioned.map((id) => `${id} → ${itemOf(`work:${id}`)}`).join(", ")}${carried.length ? `; carried by their part: ${carried.join(", ")}` : ""}`);
   const SITE = /BLACKORB|Power in the dark|Built for the next block|\$BORB|Chain 4663/;
   const unsited = ours.filter((c) => !["price"].includes(c.demo) && !SITE.test(c.words));
   check("11. and the piece is drawn from the open site, its name and its own words", unsited.length === 0, unsited.map((c) => c.id).join(", ") || "all");

@@ -22,7 +22,7 @@
  * started are cancelled. A marquee's track is left (the part is drawn again
  * when the Preview is).
  */
-import { getWork, pageFeatures, RUNTIME_JS } from "../library/works";
+import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../library/works";
 import { AMBIENT } from "../library/behaviours";
 
 type Def = (el: HTMLElement, inputs: Record<string, string>, api: unknown) => unknown;
@@ -102,6 +102,12 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
       const r = fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);
       if (typeof r === "number") timers.push(r);
     } catch { /* as the runtime does: the part keeps what it was drawn as */ }
+    /* The part drawn again in a "What's new" card works as the part does, as published (`RUNTIME_JS`). */
+    if (board || NOT_ON_COPIES.includes(b.feature)) continue;
+    for (const copy of Array.from(root.querySelectorAll<HTMLElement>(`[data-copy-of="${CSS.escape(b.part)}"]`))) {
+      if (!touched.some((t) => t.el === copy)) touched.push({ el: copy, style: copy.getAttribute("style") });
+      try { fn(copy, b.inputs, rt.F.api); } catch { /* the copy stays as drawn */ }
+    }
   }
   return () => {
     for (const t of timers) window.clearInterval(t);

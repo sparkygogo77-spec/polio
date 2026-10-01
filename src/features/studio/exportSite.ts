@@ -288,13 +288,15 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
     const href = hrefOf(link, from, pages, home);
     if (href) asAnchor(run, href, link.kind);
   }
-  for (const part of Array.from(root.querySelectorAll("[data-live-node]"))) {
-    const node = nodes.get(part.getAttribute("data-live-node") ?? "");
+  /* A part, and a part drawn again in a "What's new" card (`data-copy-of`): the copy links where the part does. */
+  const PART = "[data-live-node], [data-copy-of]";
+  for (const part of Array.from(root.querySelectorAll(PART))) {
+    const node = nodes.get(part.getAttribute("data-live-node") ?? part.getAttribute("data-copy-of") ?? "");
     const href = hrefOf(node?.link, from, pages, home);
     /* One the allow-list keeps out is no link: the part stays as drawn, and says where it went for a backend. */
     if (node?.link?.kind === "url" && !href && node.link.target && isOffsite(node.link.target)) part.setAttribute("data-offsite", node.link.target.trim());
     if (!node?.link || !href) continue;
-    const own = (el: Element) => el.closest("[data-live-node]") === part && !el.closest("a");
+    const own = (el: Element) => el.closest(PART) === part && !el.closest("a");
     /* The page this one is: its own entry in a menu is the current page's.
        How it looks as the current one is the capture's (sink's sidebar draws
        its own page's entry filled); this only says so to a screen reader. */
@@ -306,7 +308,7 @@ function linksOf(root: DocumentFragment, from: StudioPage, pages: StudioPage[], 
     /* A part whose words already hold a link cannot be held in another: a
        link inside a link is rebuilt by the browser, not followed. Its own
        link is left out, and tests/export-links.mjs counts it missing. */
-    if (Array.from(part.querySelectorAll("a[href]")).some((x) => x.closest("[data-live-node]") === part)) continue;
+    if (Array.from(part.querySelectorAll("a[href]")).some((x) => x.closest(PART) === part)) continue;
     const a = part.ownerDocument.createElement("a");
     a.setAttribute("href", href);
     if (here) a.setAttribute("aria-current", "page");
@@ -356,7 +358,7 @@ function stretchLinks(partLinks: Map<Element, HTMLAnchorElement>, nodes: Map<str
   let took = 0, twoLinks = 0, placed = 0;
   const pos = (el: Element) => (el as HTMLElement).style?.position ?? "";
   for (const [part, a] of partLinks) {
-    const node = nodes.get(part.getAttribute("data-live-node") ?? "");
+    const node = nodes.get(part.getAttribute("data-live-node") ?? part.getAttribute("data-copy-of") ?? "");
     const runs = Array.isArray(node?.content) ? node!.content.filter((r) => r?.link?.target).length : 0;
     const links = part.querySelectorAll("a[href]").length;
     const others = [part, ...Array.from(part.querySelectorAll("*"))].filter((x) => x.matches(PRESS) && !x.matches("a[href]")).length;
@@ -470,6 +472,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
     const dialog = world ? el.closest("[data-world-dialogs]") : null;
     for (const a of Array.from(el.attributes)) {
       if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world")) || a.name === "data-offsite") continue;
+      /* A "What's new" card is the site's too: its feature finds its steps, buttons and previews by these (`library/tour.ts`). */
+      if (a.name.startsWith("data-tour") || a.name === "data-copy-of" || a.name === "data-copy-node") continue;
       /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */
       if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }

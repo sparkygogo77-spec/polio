@@ -14,12 +14,13 @@ import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
-import { isLinkable } from "./parts";
+import { isLinkable, isOverlay } from "./parts";
 import { useActions } from "@/core/actions";
 import { pageClip } from "./pageClip";
 import { leadsOf, withLead } from "./parts/leadIn";
 import { Block, themeFrom } from "./blocks";
-import { LiveSite, resolvePageLink } from "./live/LiveSite";
+import { LiveSite, PartCopy, resolvePageLink } from "./live/LiveSite";
+import { placeNodes } from "./live/layout";
 import { pictureOf } from "./reshapeRun";
 import { REACH_WIDTH } from "./strand";
 import { describeSketch } from "./sketch";
@@ -2623,6 +2624,21 @@ function BoardSurface({ target, on, box }: { target: string; on: string; box: { 
   );
 }
 
+/** A part of this page and what stands inside it, drawn into a box on the board: a "What's new" step's preview (`PartCopy`). */
+function BoardPartCopy({ of, pageId, box }: { of: string; pageId: string; box: { w: number; h: number } }) {
+  const nodes = useStudio((s) => s.nodes);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const siteName = useStudio((s) => s.brief.name);
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const page = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
+  const placed = React.useMemo(() => placeNodes(page, "desktop", frameWidth).placed, [page, frameWidth]);
+  const leads = React.useMemo(() => leadsOf(page), [page]);
+  const t = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  return <PartCopy of={of} box={box} placed={placed} leads={leads} t={t} palette={palette} light={look?.light} look={look} still />;
+}
+
 /**
  * The words a picked part's prompt names and the part is not drawing.
  *
@@ -2770,6 +2786,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
     <div
       ref={body}
       data-node-id={node.id}
+      /* Picked, for a check to ask without reading the store. */
+      data-picked={selected ? "" : undefined}
       onPointerDown={(e) => {
         // The wheel opens on the press, not on the release — so the same hold
         // that opened it can carry straight on into pulling the line out. On
@@ -2903,7 +2921,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
           light={light}
           page={page}
           layers={layers}
-          mode={selected ? "live" : "board"}
+          /* A card over the page ("What's new") stays drawn open where it is edited: live, it is closed until its feature opens it. */
+          mode={selected && !isOverlay(node.featureId) ? "live" : "board"}
           /*
            * A selected part is live, so a cube on the board turns as soon as
            * it is picked. Where it is left is worth keeping: the part cannot
@@ -2919,6 +2938,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
            * to a press.
            */
           surface={node.cube?.faces?.some((f) => f.pageId?.trim()) ? (target, box) => <BoardSurface target={target} on={node.pageId} box={box} /> : undefined}
+          /* A "What's new" step's preview: the part it is about, drawn here as the board draws it. */
+          partView={node.featureId === "whats-new" ? (of, box) => <BoardPartCopy of={of} pageId={node.pageId} box={box} /> : undefined}
           emit={(e) => {
             // Where a thing you can turn was left is worth keeping, so the
             // board draws that angle and publish ships it.

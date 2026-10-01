@@ -9,7 +9,7 @@
  * last resort for an id that was removed from the registry.
  */
 import * as React from "react";
-import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
+import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTour, type Theme } from "./parts";
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
 import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
@@ -63,6 +63,10 @@ export interface BlockProps {
    * draw a page simply does not pass one.
    */
   surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
+  /** Another part of the page drawn live into a box: a "What's new" step's preview. Handed in, as `surface` is. */
+  partView?: (nodeId: string, box: { w: number; h: number }) => React.ReactNode;
+  /** The name its motion box wears, when it is not the part's own: a part drawn again in a preview (`copyMotion`). */
+  motionId?: string;
 }
 
 /*
@@ -121,7 +125,7 @@ function StillCut({ node, children }: { node: StudioNode; children: React.ReactN
   return <div data-still-cut="" style={{ width: "100%", flex: "1 0 auto", display: "flex", flexDirection: "column", clipPath: cut }}>{children}</div>;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId }: BlockProps) {
   const def = resolvePart(node.featureId);
   /*
    * The picture, resolved once for the part. The hook runs for every part
@@ -273,6 +277,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       mesh={node.mesh}
       vector={node.vector}
       surface={surface}
+      tour={(node as { tour?: PartTour | null }).tour ?? null}
+      partView={partView}
       onNavigate={onNavigate}
       emit={emit}
     />
@@ -316,7 +322,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
         {drawn}
       </div>
       </StillCut>

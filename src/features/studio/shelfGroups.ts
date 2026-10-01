@@ -13,6 +13,7 @@
  * Group ids are the moon marks' keys (`moons.tsx`); regrouping never moves
  * an id, because a saved page holds ids, not categories.
  */
+import { OWN_FEATURE } from "./library/works.ts";
 export interface ShelfGroup {
   id: string;
   emoji: string;
@@ -72,7 +73,7 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
     { id: "press-to-show", emoji: "👆", label: "Press to show", items: ["work:world-dialogs"] },
     { id: "keyboard-and-menus", emoji: "⌨️", label: "Keyboard and menus", items: ["command-palette", "shortcuts", "context-menus", "presets"] },
     { id: "feedback", emoji: "🔔", label: "Messages and feedback", items: ["toasts", "optimistic-ui", "sound-cues", "haptics", "skeletons"] },
-    { id: "first-run", emoji: "🧑‍🏫", label: "First visit help", items: ["onboarding-tour"] },
+    { id: "first-run", emoji: "🧑‍🏫", label: "First visit help", items: ["whats-new", "onboarding-tour"] },
     { id: "play", emoji: "🎮", label: "Games and extras", items: ["easter-egg", "gamification", "workflow-builder", "cog-settings", "blur-privacy"] },
   ],
   forms: [
@@ -116,4 +117,11 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
 
 /** `work:<id>` is a working feature from the library; anything else is a catalogue id. */
 export const isWorkKey = (key: string) => key.startsWith("work:");
-export const workIdOf = (key: string) => key.slice(5);
+/**
+ * Shelf parts that carry a library feature of their own, placed with it
+ * ("What's new card": the card is the part, the feature opens it). The
+ * part is the card on the shelf; the feature is placed by it.
+ */
+export const CARRIES: Readonly<Record<string, string>> = OWN_FEATURE;
+/** The library feature a shelf key stands for: "work:<id>", or a part that carries its own. */
+export const workIdOf = (key: string) => (isWorkKey(key) ? key.slice(5) : CARRIES[key] ?? key);

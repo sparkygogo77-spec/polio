@@ -91,7 +91,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     230 parts in 12 categories, plain names, one f(...) line each;
+  catalog.ts     231 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -150,6 +150,16 @@ src/features/studio/
   library/siteMotion.ts  what the export ships so whole-site motions,
                  folding rows, tabs and Copy work published
   library/siteVersions.ts a capture's effects as versions of shelf cards
+  tour.ts        the "What's new" card: steps, when it shows, updates, and
+                 the site's features a step can show (tourChoices);
+                 parts/WhatsNew.tsx draws it (on the board open, live closed),
+                 library/tour.ts is the feature that opens it, steps through
+                 it and remembers each visitor's last update (localStorage);
+                 TourEditor.tsx edits it in the Element panel. A step's
+                 preview is the real part drawn again (LiveSite `PartCopy`,
+                 `data-copy-of`), and the features runtime runs a part's
+                 features on its copies too, except NOT_ON_COPIES
+                 (tests/whats-new.mjs)
   SayBox.tsx     the one box on the pencil: type, it applies, "understood as …"
   index.ts       routes, commands, shortcuts, and every context menu
 ```
@@ -239,7 +249,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- **All 230 ids are real components.** There is no legacy path: `blocks.tsx`
+- **All 231 ids are real components.** There is no legacy path: `blocks.tsx`
   falls back to a labelled box (`data-part-fallback`) only if an id loses its
   `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
   carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
@@ -2686,7 +2696,7 @@ a kicker with a rule, and label-and-value rows that copy.
   from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
   blueprint, so the Builder's own pass is the floor and a generator's is the
   ceiling.
-- The parts drawer drills down rather than listing 230 tiles: categories carry
+- The parts drawer drills down rather than listing 231 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
   one).

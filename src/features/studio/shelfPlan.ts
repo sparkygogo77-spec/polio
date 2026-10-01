@@ -30,7 +30,7 @@
  * Pure: no store, no React, so the checks read it as written. General: no
  * site is named anywhere in it.
  */
-import { SHELF_GROUPS, isWorkKey, workIdOf, type ShelfGroup } from "./shelfGroups.ts";
+import { CARRIES, SHELF_GROUPS, isWorkKey, workIdOf, type ShelfGroup } from "./shelfGroups.ts";
 
 /* ------------------------------------------------------------------ */
 /* Variations                                                          */
@@ -270,7 +270,7 @@ export const PUBLISH: Record<string, Publish> = {
   tooltips: still(POINTER), "hover-card": still(POINTER), "magnetic-buttons": still(POINTER),
   "command-palette": still("the keyboard"), shortcuts: still("the keyboard"), "hotkey-first": still("the keyboard"), "context-menus": still(PRESS), presets: still(PRESS),
   toasts: still(PRESS), "optimistic-ui": still(PRESS), "sound-cues": still(PRESS), haptics: still(PRESS), skeletons: still("content that loads"),
-  "onboarding-tour": still(PRESS), "compass-onboard": still(PRESS), graduation: still(PRESS),
+  "onboarding-tour": still(PRESS), "compass-onboard": still(PRESS), "whats-new": runs("work"), graduation: still(PRESS),
   "easter-egg": still(PRESS), gamification: still("somewhere to keep score"), "workflow-builder": still(PRESS), "cog-settings": still(PRESS), "blur-privacy": still(PRESS),
   /* Forms & shop */
   "contact-form": still("somewhere to send it"), "multi-step-form": still("somewhere to send it"), booking: still("somewhere to send it"),
@@ -341,7 +341,10 @@ export function itemOf(key: string): string | null {
 
 /** Every work key the shelf places, as a card or as a version of one. */
 export function placedWorks(): string[] {
-  const own = Object.values(SHELF_GROUPS).flatMap((gs) => gs.flatMap((g) => g.items)).filter(isWorkKey);
+  const items = Object.values(SHELF_GROUPS).flatMap((gs) => gs.flatMap((g) => g.items));
+  const own = items.filter(isWorkKey);
   const versions = [...VARIANT_OF.keys()].filter(isWorkKey);
-  return [...new Set([...own, ...versions])].map(workIdOf);
+  /* A part on the shelf that carries its own feature places that feature too. */
+  const carried = [...items, ...VARIANT_OF.keys()].filter((k) => CARRIES[k]);
+  return [...new Set([...own, ...versions, ...carried])].map(workIdOf);
 }

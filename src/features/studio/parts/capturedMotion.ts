@@ -371,6 +371,33 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
   ].filter(Boolean).join("\n");
 }
 
+/**
+ * A part drawn again somewhere else on the page (a "What's new" step's live
+ * preview), with its own motion.
+ *
+ * The copy's pieces are the page's parts drawn a second time, so the page's
+ * rules either miss them (a hover keyed on another element: the TV's knobs
+ * turn when the TV is pointed at, `.tv:hover .knob`, reached by the TV's
+ * id) or hit them for the wrong reason. So each piece is renamed for the
+ * copy (`idOf`: its box wears `mo-<new id>`, which no page rule names) and
+ * every rule its part had, its own animation, transition, hover, press
+ * and focus, the moves its words make with it, is written again for the
+ * copy alone, reaching each piece by `data-copy-node`. Pointing at the
+ * copied TV turns the copied knobs and not the page's; pointing at the
+ * page's turns its own and not the copy's.
+ */
+export function copyMotion<N extends MotionNode>(nodes: readonly N[], of: string): { idOf: (id: string) => string; css: string } {
+  const idOf = (id: string) => {
+    const plain = `cp-${of}-${id}`;
+    if (ID.test(plain)) return plain;
+    let h = 5381;
+    for (const ch of plain) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+    return `cp-${h.toString(36)}-${id}`.slice(0, 80);
+  };
+  const renamed = nodes.map((n) => ({ ...n, id: idOf(n.id) }));
+  return { idOf, css: motionCss(renamed, undefined, (id) => `[data-copy-node="${id}"]`) };
+}
+
 /** The sandbox an embed runs in: the page's own when it wrote one, else scripts in their own origin and nothing on this page. */
 export const EMBED_SANDBOX = "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox";
 

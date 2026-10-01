@@ -7,10 +7,10 @@
 import * as React from "react";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
-import { themeFrom, type NodeLink, type PartEvent } from "../parts";
+import { isOverlay, themeFrom, type NodeLink, type PartEvent } from "../parts";
 import { TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "./CarriedFonts";
-import { motionCss } from "../parts/capturedMotion";
+import { copyMotion, motionCss } from "../parts/capturedMotion";
 import { resolvePalette } from "../parts/theme";
 import { auraStyle, entranceCss, washCss, type Look } from "../look";
 import type { StudioNode, StudioPage, StudioShape } from "../store";
@@ -24,7 +24,7 @@ import { PHONE_MAX, SMALL_WIDTH, type SmallDevice } from "./small";
 import { breakersFor, cssIdent, smallSheet } from "./smallCss";
 import { resolvePart } from "../parts";
 import { homeOf } from "../homePage";
-import { pageFeatures } from "../library/works";
+import { getWork, pageFeatures, usesOf } from "../library/works";
 import { runWorks } from "./runWorks";
 import { leadsOf, withLead } from "../parts/leadIn";
 
@@ -184,7 +184,10 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         return;
       }
       if (link.kind === "node") {
-        document.querySelector(`[data-live-node="${link.target}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const to = document.querySelector(`[data-live-node="${link.target}"]`);
+        /* A link to a "What's new" card opens it (`library/tour.ts`), as the published link does. */
+        if (to?.querySelector("[data-tour]")) { to.dispatchEvent(new CustomEvent("whats-new:open")); return; }
+        to?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
       const page = resolvePageLink(pages, link.target);
@@ -242,6 +245,13 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, t.muted, t.bodyFamily],
   );
 
+  /* Another part of this page, live, in a box: a "What's new" step's preview. Not inside a page drawn on a surface. */
+  const partView = React.useCallback(
+    (of: string, box: { w: number; h: number }): React.ReactNode =>
+      depth > 0 ? null : <PartCopy of={of} box={box} placed={placed} leads={leads} t={t} palette={palette} light={light} look={look} onNavigate={navigate} pictureAt={pictureAt} emit={emit} />,
+    [depth, placed, leads, t, palette, light, look, navigate, pictureAt, emit],
+  );
+
   /* The features, run on this page's parts once they are drawn; again only when what they are told changes. */
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bound = React.useMemo(() => (features && !published && depth === 0 ? JSON.stringify(pageFeatures(pageNodes).bindings) : "[]"), [features, published, depth, pageNodes]);
@@ -281,9 +291,11 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
         // A part a press shows: hidden where the page opens, until the press (`Show on press`) shows it.
         ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
+        // A card over the page ("What's new"): its box takes no room and no press; what it opens is fixed over the window.
+        ...(isOverlay(p.node.featureId) ? { minHeight: 0, height: 0, pointerEvents: "none" as const, animation: undefined } : null),
       }}
     >
-      <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
+      <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} partView={partView} />
     </div>
   );
   /*
@@ -415,6 +427,64 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+type Placed = ReturnType<typeof placeNodes>["placed"][number];
+
+/** A part that does something when pressed (a copy, a press that shows a panel), not one that only moves. */
+const takesPress = (work: StudioNode["work"]) => usesOf(work).some((u) => !u.off && getWork(u.id)?.manifest.category === "interact");
+
+/**
+ * One part of the page, and the parts standing inside its box, drawn live
+ * on their own and scaled into a box: what a "What's new" step shows on
+ * top. The real parts, the same blocks the page draws, so a link in it
+ * goes where the page's does and a feature the part carries works on it
+ * too: each piece wears `data-copy-of` (its part's id), which the features
+ * runtime binds as it binds the part (`RUNTIME_JS`, `runWorks`). Never a
+ * `data-live-node`, so nothing on the page is found twice.
+ */
+export function PartCopy({ of, box, placed, leads, t, palette, light, look, onNavigate, emit, pictureAt, still }: {
+  of: string;
+  box: { w: number; h: number };
+  placed: readonly Placed[];
+  leads: ReturnType<typeof leadsOf>;
+  t: ReturnType<typeof themeFrom>;
+  palette: ReturnType<typeof resolvePalette>;
+  light?: Look["light"];
+  look?: Look;
+  onNavigate?: (link: NodeLink) => void;
+  emit?: (e: PartEvent, nodeId: string) => void;
+  pictureAt?: (pic: Picture) => string | undefined;
+  /** Drawn on the board: held still, as the board draws everything. */
+  still?: boolean;
+}) {
+  const me = placed.find((p) => p.node.id === of);
+  if (!me) return null;
+  const near = 2;
+  const inside = placed.filter((p) =>
+    !(p.node as { state?: unknown }).state && !isOverlay(p.node.featureId) &&
+    p.x >= me.x - near && p.y >= me.y - near && p.x + p.w <= me.x + me.w + near && p.y + p.h <= me.y + me.h + near);
+  const scale = Math.min(box.w / Math.max(1, me.w), box.h / Math.max(1, me.h), 1.5);
+  /* Its pieces renamed for the copy, and its own hover, press and motion written again for them (`copyMotion`). Held still on the board. */
+  const motion = copyMotion(inside.map((p) => p.node), of);
+  return (
+    <div data-part-copy={of} style={{ width: box.w, height: box.h, position: "relative", overflow: "hidden" }}>
+      {!still && motion.css ? <style data-copy-motion="">{motion.css}</style> : null}
+      <div style={{ position: "absolute", left: (box.w - me.w * scale) / 2, top: (box.h - me.h * scale) / 2, width: me.w, height: me.h, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+        {inside.map((p) => (
+          <div
+            key={p.node.id}
+            data-copy-of={p.node.id}
+            data-copy-node={motion.idOf(p.node.id)}
+            /* Words over the part, doing nothing of their own, let a press through to it: in the card, a press anywhere on the bar is the bar's. */
+            style={{ position: "absolute", left: p.x - me.x, top: p.y - me.y, width: p.w, minHeight: p.h, display: "flex", flexDirection: "column", ...((p.node as { inert?: boolean }).inert || (p.node.id !== of && !p.node.link && !takesPress(p.node.work)) ? { pointerEvents: "none" as const } : null) }}
+          >
+            <Block node={withLead(p.node, leads)} motionId={motion.idOf(p.node.id)} t={t} palette={palette} light={light} page={{ w: me.w, h: me.h }} layers={look?.texture} mode={still ? "board" : "live"} size={{ w: p.w, h: p.h }} onNavigate={onNavigate} emit={(e) => emit?.(e, p.node.id)} pictureAt={pictureAt} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

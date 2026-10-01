@@ -194,6 +194,15 @@ export interface PartProps {
    * words instead.
    */
   surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
+  /** A "What's new" card's steps (`tour.ts`), for the one part that has them. */
+  tour?: PartTour | null;
+  /**
+   * Another part of this page, drawn live and scaled into a box: what a
+   * "What's new" step shows on top. Handed down, like `surface`, because a
+   * part may not reach the store or the renderer. Nothing back: the part
+   * is not on this page any more.
+   */
+  partView?: (nodeId: string, box: { w: number; h: number }) => React.ReactNode;
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
 }
@@ -214,6 +223,30 @@ export interface PartDef {
    * link is where the whole thing points, and it wins.
    */
   linkWhole?: boolean;
+  /**
+   * Stands over the page, not in it (a "What's new" card): where it was put
+   * on the board is where it is edited, and on the page its box takes no
+   * room and no press; what it opens is fixed over the window.
+   */
+  overlay?: boolean;
+}
+
+/** One step of a "What's new" card, as `tour.ts` keeps it. */
+export interface PartTourStep {
+  target: string | null;
+  title: string;
+  lines: string;
+  path: string;
+  action: "scroll" | "open" | "option" | "link" | "none";
+  button: string;
+  option: string;
+  link: { kind: "page" | "node"; target: string } | null;
+}
+export interface PartTour {
+  when: "first" | "update" | "link";
+  current: { id: number; date: string; steps: PartTourStep[] };
+  past: { id: number; date: string; steps: PartTourStep[] }[];
+  at?: number;
 }
 
 /** Read an option with its default. */

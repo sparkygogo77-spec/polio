@@ -159,11 +159,11 @@ const fromWheel = async (id) => {
   await page.waitForTimeout(500);
   return seen > 0;
 };
-/** The parts tree: a right-click on the picture's row. */
+/** The Element tab's list (flat, or the tree under Show nesting): a right-click on the picture's row. */
 const fromTree = async (id) => {
   await page.locator("[data-side-panel] [role=radio]").filter({ hasText: /Element|Parts/ }).first().click({ force: true }).catch(() => {});
   await page.waitForTimeout(300);
-  const row = page.locator(`[data-tree-row="${id}"]`).first();
+  const row = page.locator(`[data-list-row="${id}"], [data-tree-row="${id}"]`).first();
   if (!(await row.count())) return false;
   await row.scrollIntoViewIfNeeded().catch(() => {});
   await row.click({ button: "right", force: true });
@@ -274,7 +274,7 @@ check("Undo straight after a remake puts back the picture it replaced", (await n
 await page.keyboard.press("Control+Shift+z");
 await page.waitForTimeout(400);
 check("and Redo brings the remake back", (await nodeOf("n_square")).picture.id === sq.pictureVersions[2].id);
-await page.locator('[data-tree-row="n_square"] [data-element-row]').first().click({ force: true });
+await page.locator('[data-list-row="n_square"] [data-element-row], [data-tree-row="n_square"] [data-element-row]').first().click({ force: true });
 await page.waitForTimeout(600);
 const strip = page.locator("[data-picture-versions]");
 await strip.first().scrollIntoViewIfNeeded().catch(() => {});

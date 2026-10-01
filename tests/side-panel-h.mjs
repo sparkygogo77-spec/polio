@@ -90,6 +90,8 @@ await page.evaluate((state) => {
   localStorage.setItem("builder.studio", env({ ...state, brief, activePageId: "page_home" }));
   localStorage.removeItem("builder.sidePanelWidth");
   localStorage.removeItem("builder.partSections");
+  /* The Element tab leads with a flat list now; this checks the tree, which "Show nesting" brings back. */
+  localStorage.setItem("builder.elementsNesting", "1");
 }, doc);
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(2500);

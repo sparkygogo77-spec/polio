@@ -86,7 +86,7 @@ const doc = JSON.stringify({ state: {
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}) });
 const context = await browser.newContext({ viewport: { width: 1992, height: 1100 } });
-await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.removeItem("builder.sidePanelWidth"); sessionStorage.setItem("seeded", "1"); } }, doc);
+await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.removeItem("builder.sidePanelWidth"); /* The Element tab leads with a flat list now; this picks a holding box, which the tree ("Show nesting") lists. */ localStorage.setItem("builder.elementsNesting", "1"); sessionStorage.setItem("seeded", "1"); } }, doc);
 const page = await context.newPage();
 page.on("pageerror", (e) => console.log("  page error:", e.message));
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });

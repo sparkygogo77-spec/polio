@@ -30,6 +30,7 @@
  */
 import { BEHAVIOURS } from "./behaviours.ts";
 import { EFFECTS } from "./effects.ts";
+import { WHATS_NEW } from "./tour.ts";
 
 /** What a feature needs before it can run. `none` runs on a static page as published. */
 export type WorkNeeds = "none" | "wallet" | "backend" | "key";
@@ -256,7 +257,7 @@ const TOKEN_PRICE: Work = {
 };
 
 /** Every feature the Builder has, in shelf order. */
-export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE, ...BEHAVIOURS, ...EFFECTS];
+export const LIBRARY: Work[] = [SOL_PRICE, TOKEN_PRICE, ...BEHAVIOURS, ...EFFECTS, WHATS_NEW];
 
 /**
  * The features the owner accepted from their repositories (`roundTrip.ts`),
@@ -362,9 +363,19 @@ export function matchWorks(text: string, manifests: WorkManifest[]): WorkMatch[]
  * removed, so nothing else moves. When a source does not answer, the words
  * the owner designed stay where they are and the part is marked stale.
  */
+/**
+ * Features that act on the whole page, change it, or bring a part in as the
+ * page scrolls: run on a part, never again on a copy of it (a "What's new"
+ * card's preview). A second loader screen, a second header watcher, or a
+ * press in a preview that rearranges the page under the card would each be
+ * wrong, and a preview shows the part as it is seen, already arrived.
+ */
+export const NOT_ON_COPIES = ["crt-loader", "scroll-header", "press-shows", "glide", "whats-new", "world-dialogs", "reveal", "scroll-grow"];
+
 export const RUNTIME_JS = `/* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
   var defs = {};
+  var NOT_ON_COPIES = ${JSON.stringify(NOT_ON_COPIES)};
   function leaf(el) {
     var kids = el.childNodes || [];
     for (var i = 0; i < kids.length; i++) if (kids[i].nodeType === 3 && /\\S/.test(kids[i].nodeValue)) return el;
@@ -413,6 +424,10 @@ export const RUNTIME_JS = `/* The site's features: which part takes which featur
     for (var i = 0; i < list.length; i++) {
       var b = list[i], el = document.getElementById(b.part), fn = defs[b.feature];
       if (el && fn) { try { fn(el, b.inputs || {}, api); } catch (e) { api.stale(el); } }
+      /* A part drawn again elsewhere (a "What's new" card's live preview) works as the part does. */
+      if (!fn || NOT_ON_COPIES.indexOf(b.feature) >= 0 || !document.querySelectorAll) continue;
+      var copies = document.querySelectorAll('[data-copy-of="' + b.part + '"]');
+      for (var c = 0; c < copies.length; c++) { try { fn(copies[c], b.inputs || {}, api); } catch (e) { /* the copy stays as drawn */ } }
     }
   }
   if (document.readyState === "complete") start();
@@ -431,7 +446,22 @@ function shipped(w: Work): string {
 }
 
 /** The fields of a part this reads. Any node shape will do. */
-interface Carrier { id: string; work?: WorkUse | null }
+interface Carrier { id: string; featureId?: string; work?: WorkUse | null }
+
+/**
+ * Shelf parts whose working is a library feature of their own (a "What's
+ * new" card is drawn by its part and opened by its feature): the part
+ * carries it however it came onto the board, so it is never published
+ * drawn and inert.
+ */
+export const OWN_FEATURE: Readonly<Record<string, string>> = { "whats-new": "whats-new" };
+
+/** The features a part runs: those it was given, and its own. */
+function usesHere(n: Carrier): WorkUse[] {
+  const uses = onUsesOf(n.work);
+  const own = n.featureId ? OWN_FEATURE[n.featureId] : undefined;
+  return own && !onUsesOf(n.work).some((u) => u.id === own) && !usesOf(n.work).some((u) => u.id === own && u.off) ? [...uses, { id: own, inputs: {} }] : uses;
+}
 
 export interface Binding { part: string; feature: string; inputs: Record<string, string> }
 
@@ -443,7 +473,7 @@ export function pageFeatures(nodes: readonly Carrier[]): { scripts: string[]; bi
   const bindings: Binding[] = [];
   const used: string[] = [];
   for (const n of nodes) {
-    for (const u of onUsesOf(n.work)) {
+    for (const u of usesHere(n)) {
       const w = getWork(u.id);
       if (!w) continue;
       bindings.push({ part: n.id, feature: w.manifest.id, inputs: inputsOf(w.manifest, u.inputs) });
@@ -467,7 +497,7 @@ export function pageFeatureTags(nodes: readonly Carrier[], up: string): string {
 /** The files the whole site needs: the runtime and each used feature's script, once. */
 export function featureFiles(nodes: readonly Carrier[]): { path: string; content: string }[] {
   const used = new Set<string>();
-  for (const n of nodes) for (const u of onUsesOf(n.work)) if (getWork(u.id)) used.add(u.id);
+  for (const n of nodes) for (const u of usesHere(n)) if (getWork(u.id)) used.add(u.id);
   if (!used.size) return [];
   return [
     { path: "assets/features/runtime.js", content: RUNTIME_JS },

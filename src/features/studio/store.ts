@@ -77,6 +77,7 @@ import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type
 import { paintSays, repaintActive, type Painted } from "./repaint";
 import { twins, twinSays, type Twin } from "./twins";
 import { grownSays, grownTo, type Grown, type Read } from "./owns";
+import { newTour, siteFaces, type Tour } from "./tour";
 
 /**
  * What is in your hand. Four, not six.
@@ -373,6 +374,11 @@ export interface StudioNode {
    * element. Optional, so nothing saved before it needs migrating.
    */
   work?: WorkUse | null;
+  /**
+   * A "What's new" card's steps, when it shows and its older updates
+   * (`tour.ts`). Only that part carries it; absent everywhere else.
+   */
+  tour?: Tour | null;
   /**
    * What the owner said this part should do that no feature covers yet, in
    * his words, for the repo-connected code chat to build. Its own field and
@@ -1839,6 +1845,8 @@ export const useStudio = create<StudioState>()(
                 hue: null,
                 locked: false,
                 link: null,
+                /* A "What's new" card arrives with its tour, the feature that shows it on a page, and the site's own faces. */
+                ...(featureId === "whats-new" ? { tour: newTour(), work: { id: "whats-new", inputs: {} }, options: siteFaces(s.nodes, s.activePageId) } : null),
                 ...patch,
                 // A patch may carry its own size, but never a place outside
                 // the page: the clamp above is computed from the final size.

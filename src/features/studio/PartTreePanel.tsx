@@ -22,11 +22,13 @@ import { canRemake, openRemake } from "./RemakePicture";
 import * as React from "react";
 import {
   AppWindow, ChevronLeft, ChevronRight, CircleAlert, FileText, Film, Heading, Image as ImageIcon, Link2, List, Menu,
-  MousePointerClick, PanelBottom, PanelTop, PenTool, Sparkle, Square, TextCursorInput, Type, LayoutPanelTop,
+  MousePointerClick, PanelBottom, PanelTop, PenTool, Sparkle, Square, TextCursorInput, Type, LayoutPanelTop, Copy, Shapes,
 } from "lucide-react";
 import { getFeature } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
 import { ancestors, partTree, visibleRows, type PartTree } from "./partTree";
+import { filterRows, partList, type ListPart, type ListRow } from "./partList";
+import { Switch } from "@/core/ui/switch";
 import { kindOf, partName } from "./partNames";
 import { decisions, decisionSays, type Decision } from "./library/badge";
 import { pointAt, PointMarks } from "./SiteColours";
@@ -155,6 +157,123 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
           );
         }}
       />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The flat list                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * THE ELEMENT TAB'S LIST: every element on the page, one row each, in the
+ * order a visitor sees them (`partList.ts`). The owner found the tree hard to
+ * read: nested rows, names that repeated the site's title, and the same
+ * "CA copied!" four times. Each row is a small icon, a plain name from its
+ * words or role and where it sits; a state that only a press shows sits once
+ * under the control that shows it. Hovering a row outlines its part on the
+ * board, pressing it picks it and brings it into view, and the search box
+ * keeps the rows whose name or place match. "Show nesting" is the tree, for
+ * people who want it; the choice is remembered in this browser.
+ */
+const NESTING_KEY = "builder.elementsNesting";
+const LIST_ICON: Record<string, React.ComponentType<{ className?: string }>> = { "Copy bar": Copy, Shape: Shapes };
+
+export function ElementList({ nodes, picked, className }: { nodes: StudioNode[]; picked?: string | null; className?: string }) {
+  const siteName = useStudio((s) => s.brief.name);
+  const [nesting, setNesting] = React.useState(() => {
+    try { return typeof window !== "undefined" && window.localStorage.getItem(NESTING_KEY) === "1"; } catch { return false; }
+  });
+  const [query, setQuery] = React.useState("");
+  const rows = React.useMemo(() => partList(nodes as unknown as ListPart[], { siteName, featureName }), [nodes, siteName]);
+  const shown = React.useMemo(() => filterRows(rows, query), [rows, query]);
+  const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const box = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!picked || nesting) return;
+    const t = window.setTimeout(() => box.current?.querySelector(`[data-list-ids~="${CSS.escape(picked)}"]`)?.scrollIntoView({ block: "nearest" }), 60);
+    return () => window.clearTimeout(t);
+  }, [picked, nesting, shown]);
+  React.useEffect(() => () => pointAt(null), []);
+  const setNest = (on: boolean) => {
+    setNesting(on);
+    try { window.localStorage.setItem(NESTING_KEY, on ? "1" : "0"); } catch { /* a private window keeps it for the visit */ }
+  };
+  const go = (r: ListRow) => {
+    play("select");
+    goToPart(r.id);
+    /* One row standing for several parts (the same state shown by several presses) picks them all. */
+    if (r.ids.length > 1) useStudio.getState().setSelection(r.ids);
+  };
+  return (
+    <div data-element-list={nesting ? "tree" : "flat"} className={cn("flex min-h-0 flex-col", className)}>
+      <div className="flex shrink-0 items-center gap-2 border-b border-border p-1.5">
+        <Input
+          inputSize="sm"
+          data-element-search=""
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Find an element by its words or place"
+          aria-label="Find an element"
+          className="min-w-0 flex-1"
+          disabled={nesting}
+        />
+        <label className="flex shrink-0 items-center gap-1.5 text-fine text-fg-muted">
+          <Switch size="sm" data-show-nesting="" checked={nesting} onCheckedChange={setNest} aria-label="Show nesting" />
+          Show nesting
+        </label>
+      </div>
+      {nesting ? <PartsTree nodes={nodes} picked={picked} className="min-h-0 flex-1" /> : !nodes.length ? (
+        <p className="px-3 py-4 text-center text-plain text-fg-muted">
+          Nothing on this page yet. Open the parts drawer under the board, place a part, then pick it to say what it should be.
+        </p>
+      ) : (
+        <div ref={box} data-parts-list="" className="min-h-0 flex-1" onPointerLeave={() => pointAt(null)}>
+          <PointMarks />
+          {shown.length ? (
+            <VirtualList
+              items={shown}
+              getKey={(r) => r.id}
+              estimateSize={28}
+              className="h-full py-1"
+              renderItem={(r) => {
+                const on = !!picked && r.ids.includes(picked);
+                const Icon = LIST_ICON[r.kind];
+                return (
+                  <div
+                    data-list-row={r.id}
+                    data-list-ids={r.ids.join(" ")}
+                    data-list-after={r.after ? "" : undefined}
+                    data-list-picked={on ? "" : undefined}
+                    className={cn("group flex h-7 items-center gap-1.5 rounded-sm pr-1.5 text-plain", on ? "bg-accent-soft text-fg shadow-[inset_2px_0_0_var(--accent)]" : "hover:bg-hover")}
+                    style={{ paddingLeft: r.depth ? 26 : 8 }}
+                    onPointerEnter={() => pointAt(r.ids)}
+                    /* A right-click on a picture's row opens "Remake this picture…", as the tree's does (RemakePicture.tsx). */
+                    onContextMenu={canRemake(byId.get(r.id)) ? (e) => { e.preventDefault(); e.stopPropagation(); openRemake(r.id); } : undefined}
+                    data-list-picture={canRemake(byId.get(r.id)) ? "" : undefined}
+                  >
+                    <button
+                      type="button"
+                      data-element-row=""
+                      title={`${r.name}${r.where ? `, ${r.where}` : ""}${r.after ? ", shows after a press" : ""}${r.ids.length > 1 ? ` (${r.ids.length} parts)` : ""}`}
+                      onClick={() => go(r)}
+                      className="tactile flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                    >
+                      <span className={cn("shrink-0", on ? "text-accent" : "text-fg-faint group-hover:text-fg-muted")}>
+                        {Icon ? <Icon className="size-3.5" /> : <KindIcon kind={r.kind} />}
+                      </span>
+                      <span data-list-name="" className="min-w-0 truncate">{r.name}</span>
+                      {r.where ? <span data-list-where="" className="min-w-0 shrink truncate text-fine text-fg-faint">{r.where}</span> : null}
+                      {r.after ? <span data-list-press="" className="shrink-0 rounded-xs border border-border px-1 text-fine text-fg-muted">shows after press</span> : null}
+                      {r.ids.length > 1 ? <span className="num shrink-0 text-fine text-fg-faint">×{r.ids.length}</span> : null}
+                    </button>
+                  </div>
+                );
+              }}
+            />
+          ) : <p className="px-3 py-4 text-center text-small text-fg-muted">Nothing here matches “{query}”.</p>}
+        </div>
+      )}
     </div>
   );
 }

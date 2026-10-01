@@ -316,6 +316,7 @@ const RAW: FeatureDef[] = [
   f("skeletons", "Loading placeholders", "interact", LoaderCircle, "Shape-of-the-content placeholders.", {}),
   f("empty-states", "Empty screens", "interact", Inbox, "What it looks like with no data yet.", {}),
   f("onboarding-tour", "First-time tour", "interact", Footprints, "Guided first run.", {}),
+  f("whats-new", "What's new card", "interact", Megaphone, "Steps that show a visitor what the site has, live.", {}),
   f("magnetic-buttons", "Magnetic buttons", "interact", Magnet, "Buttons that lean toward the cursor.", {}),
 
   /* ----------------------------------------------------------------- forms */
@@ -695,6 +696,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "map-embed": { w: 960, h: 420 },
   "audio-player": { w: 560, h: 96 },
   "3d-viewer": { w: 720, h: 520 },
+  "whats-new": { w: 440, h: 520, options: [{ id: "place", label: "Where it stands", values: ["centre", "corner"] }, { id: "backdrop", label: "Behind it", values: ["dim", "blur", "none"] }, { id: "width", label: "Width", values: ["regular", "compact"] }] },
   charts: { w: 680, h: 340, options: [{ id: "kind", label: "Kind", values: ["bar", "line", "area", "mixed"] }], content: { label: "Title", placeholder: "Revenue by month" } },
   "stat-tiles": { w: 1200, h: 130, content: { label: "Tile labels", placeholder: "Users, Revenue, Uptime, Orders" } },
   "data-table": { w: 1200, h: 320, content: { label: "Columns", placeholder: "Name, Status, Amount, Updated" } },
@@ -761,6 +763,7 @@ const EXPLAIN: Record<string, string> = {
   "hover-card": "A richer preview appears when you rest on a link or a name. Use it to answer \"what is this\" without a page load.",
   "tooltips": "A short label on demand. For icons whose meaning is not obvious.",
   "skeletons": "Grey shapes the size of the content that is loading, instead of a spinner. Makes waits feel shorter.",
+  "whats-new": "A card over the page, like the update cards on trading sites: each step shows a part the site really has, live, with a title, two or three lines and one button that does what it says. A visitor sees each update once.",
   "onboarding-tour": "A guided first run pointing at things in order. Use it only if the site cannot explain itself.",
   "magnetic-buttons": "Buttons lean towards the cursor as it approaches. A playful touch on a small number of buttons.",
   "gamification": "Points, streaks, levels and things to unlock. Use it when coming back regularly is the goal.",
@@ -1036,7 +1039,7 @@ export function categoryOf(id: CategoryId): CategoryDef {
 }
 
 /**
- * Sub-groups inside a category, so all 230 parts are reachable in three clicks: a card, or a version on a card's detail.
+ * Sub-groups inside a category, so all 231 parts are reachable in three clicks: a card, or a version on a card's detail.
  * Projected from `shelfGroups.ts`, which says where every item sits and in
  * what order; a group lists only catalogue ids here (the working features it
  * also holds are `work:` keys there). An id missing from every group is a
