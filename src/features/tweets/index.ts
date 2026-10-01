@@ -1,4 +1,5 @@
 import { Clock, Copy, ExternalLink, Feather, Files, Play, Send, Trash2, Video } from "lucide-react";
+import { startClipAfterPublish } from "./afterPublish";
 import { defineFeature, type MenuEntry } from "@/core/types";
 import { sendDraft, apiStatus } from "./send";
 import { draftTitle, useTweets, type Draft } from "./store";
@@ -74,14 +75,18 @@ export const tweets = defineFeature({
     { id: s("previewTheme"), group: G, panel: "tweets", label: "Preview card", type: "select", default: "dark", advanced: true, order: 41, options: [{ value: "dark", label: "Dark, like X" }, { value: "light", label: "Light" }] },
     // ---- the tour
     { id: s("tourDevice"), group: G, panel: "tweets", label: "Tour device", type: "select", default: "desktop", order: 50, options: [{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }] },
-    { id: s("tourSpeed"), group: G, panel: "tweets", label: "Tour speed", type: "select", default: "normal", order: 51, options: [{ value: "slow", label: "Slow" }, { value: "normal", label: "Normal" }, { value: "fast", label: "Fast" }] },
-    { id: s("tourInteract"), group: G, panel: "tweets", label: "Tour works the parts", description: "Presses tabs and opens rows as it passes them. Off, it only scrolls.", type: "toggle", default: true, order: 52 },
-    { id: s("tourLoops"), group: G, panel: "tweets", label: "Tour passes", type: "number", default: 1, min: 1, max: 4, step: 1, advanced: true, order: 53 },
+    { id: s("tourSeconds"), group: G, panel: "tweets", label: "Clip length", description: "How long the tour lasts, and so the recording. The tour fits itself to it. X takes videos up to 140 seconds.", type: "number", default: 15, min: 3, max: 140, step: 1, unit: "s", order: 51 },
+    {
+      id: s("tourStopAt"), group: G, panel: "tweets", label: "Stop scrolling at", description: "How far down the page the tour goes before it ends.", type: "select", default: "bottom", order: 51.5,
+      options: [{ value: "bottom", label: "The bottom" }, { value: "75", label: "Three quarters down" }, { value: "50", label: "Half way" }, { value: "screens-2", label: "Two screens down" }, { value: "screens-1", label: "One screen down" }],
+    },
+    { id: s("clipAfterPublish"), group: G, panel: "tweets", label: "Make a tour clip after each publish", description: "Update live site asks once to record this tab; when the site is live, the tour is recorded and put on a new draft post, ready to send.", type: "toggle", default: false, order: 52.5 },
+    { id: s("tourInteract"), group: G, panel: "tweets", label: "Tour works the site", description: "Presses tabs, opens menus and rows, sweeps a chart, presses copy and other buttons, in page order; never a wallet, sign-in, buy or send. Off, it only scrolls.", type: "toggle", default: true, order: 52 },
     { id: s("recordFps"), group: G, panel: "tweets", label: "Tab recording frame rate", type: "number", default: 30, min: 10, max: 60, step: 5, unit: "fps", advanced: true, order: 54 },
     { id: s("renderWidth"), group: G, panel: "tweets", label: "Server render width", type: "select", default: "960", advanced: true, order: 55, options: [{ value: "640", label: "640 px" }, { value: "960", label: "960 px" }, { value: "1280", label: "1280 px" }] },
     { id: s("renderFormat"), group: G, panel: "tweets", label: "Server render makes", description: "X takes GIF and MP4, not WebM. GIF needs an ffmpeg on the server; without one you get WebM anyway.", type: "select", default: "gif", advanced: true, order: 56, options: [{ value: "gif", label: "GIF" }, { value: "webm", label: "WebM" }] },
     // ---- the console
-    { id: s("encase"), group: G, panel: "tweets", label: "Console size", type: "select", default: "full", advanced: true, order: 60, options: [{ value: "full", label: "Encase the screen" }, { value: "wide", label: "Wide, with a margin" }] },
+    { id: s("encase"), group: G, panel: "tweets", label: "Console size", type: "select", default: "drawer", advanced: true, order: 60, options: [{ value: "drawer", label: "A drawer at the side, the board still usable" }, { value: "full", label: "Encase the screen" }] },
     { id: s("rail"), group: G, panel: "tweets", label: "Left rail shows", type: "select", default: "both", advanced: true, order: 61, options: [{ value: "both", label: "Drafts and the log" }, { value: "drafts", label: "Drafts only" }, { value: "log", label: "The log only" }] },
     { id: s("toastOnSend"), group: G, panel: "tweets", label: "Toast when a post goes out", type: "toggle", default: true, advanced: true, order: 62 },
     { id: s("sounds"), group: G, panel: "tweets", label: "Sounds for sent and failed", type: "toggle", default: true, advanced: true, order: 63 },
@@ -142,6 +147,8 @@ export const tweets = defineFeature({
   onMount: (ctx) => {
     // Saved drafts come back before the first tick looks for anything due.
     if (!useTweets.persist.hasHydrated()) void useTweets.persist.rehydrate();
+    /* A tour clip after each publish, when it is asked for (`afterPublish.ts`). */
+    startClipAfterPublish({ getSetting: ctx.getSetting, openPanel: (p) => ctx.openPanel(p) });
     const t = window.setTimeout(() => {
       useTweets.getState().pruneSent(ctx.getSetting<number>(s("keepSentDays")) * 86_400_000);
       void tick(false);

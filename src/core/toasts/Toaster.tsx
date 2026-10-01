@@ -53,7 +53,7 @@ function Toast({ t }: { t: ToastItem }) {
                 by clicking the feed row. There is no feed, so the card's own
                 title is the link. */}
             {t.href ? (
-              <a href={t.href} target="_blank" rel="noreferrer" className="truncate text-xs font-medium text-fg underline decoration-dotted underline-offset-2 hover:text-accent">
+              <a href={t.href} target="_blank" rel="noopener noreferrer" className="truncate text-xs font-medium text-fg underline decoration-dotted underline-offset-2 hover:text-accent">
                 {t.title}
               </a>
             ) : (

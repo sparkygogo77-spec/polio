@@ -1,29 +1,34 @@
 "use client";
 /**
- * The tweet console: a dashboard that comes down over the whole screen.
+ * The tweet console: a drawer at the side of the screen.
  *
- * Three columns. On the left, the news — every draft as a stop on one line,
- * with the log underneath, so what is queued and what happened to it reads
- * like a feed. In the middle, one draft at a time: the words, the pictures,
- * the poll, who may reply, and the bar that schedules or sends it. On the
- * right, the post as X would show it, or the tour: the live site in a frame,
- * scrolled and worked on its own, recorded from the tab or rendered on the
- * server and attached to the post with one press.
+ * It used to come down over the whole screen, and the Builder behind it could
+ * not be used while it was open. Now it is a drawer on the right that leaves
+ * the board usable beside it (the "Console size" setting still offers the old
+ * whole screen). Narrow, it is one column with Post, Preview and Tour as
+ * tabs; when the window leaves the board room for it, the post and its
+ * preview or tour sit side by side. The drafts and the log are behind the
+ * Drafts key in its header.
+ *
+ * The tour shows the site at its real width, scaled down to fit
+ * (`ScaledFrame`), works through what the site offers in a clip of the
+ * length asked, and records it in this browser (`tour.ts`, `tourRules.ts`).
  *
  * Every setting the module declares is read here, and the console says what
  * each one is doing where it does it, so the reason a button is disabled is
- * always on the screen next to it.
+ * always on the screen next to it. `tests/tweet-console.mjs`, `tests/tweet-tour.mjs`.
  */
 import * as React from "react";
 import {
   AlertTriangle, BarChart3, Check, ChevronDown, Clock, Copy, ExternalLink, Feather, FileImage, Film, Image as ImageIcon, KeyRound, Link2, Loader2, MessageCircle,
-  Info, MonitorPlay, Plus, RefreshCw, Scissors, Send, Settings2, Sparkles, Square, Trash2, Upload, Video, X,
+  Info, Maximize2, Minimize2, MonitorPlay, Plus, RefreshCw, Scissors, Send, Settings2, Sparkles, Square, Trash2, Upload, Video, X,
 } from "lucide-react";
 import site from "@site";
 import { useUi } from "@/core/ui-state/store";
 import { OwnSettings } from "@/core/settings/OwnSettings";
 import { useActions } from "@/core/actions";
 import { useSettingValue } from "@/core/settings/useSetting";
+import { setSetting } from "@/core/settings/store";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
@@ -38,12 +43,14 @@ import { Progress } from "@/core/ui/progress";
 import { EmptyState } from "@/core/ui/empty-state";
 import { livePath, useStudio, useStudioHydration } from "@/features/studio/store";
 import { serverBrowser, studioDoc } from "@/features/studio/agent";
-import { draftTitle, selectQueued, useTweets, useTweetsHydration, type Draft, type DraftStatus, type LogEntry, type ReplySetting, type TweetMedia } from "./store";
+import { draftTitle, selectQueued, useTweets, useTweetsHydration, type TourIntent, type Draft, type DraftStatus, type LogEntry, type ReplySetting, type TweetMedia } from "./store";
 import { firstUrl, relativeTime, splitThread, tokenise, toLocalInput, weighedLength, intentUrl } from "./text";
 import { intake, kindOf, LIMITS } from "./media";
 import { apiStatus, preflight, sendDraft, type ApiStatus, type SendMode } from "./send";
-import { recordTour, runTour, setFrameDevice, waitForFrame, type TourSpeed } from "./tour";
+import { clipSeconds, recordTour, runTour, setFrameWindow, waitForFrame, type TourRun } from "./tour";
+import { CLIP_MAX_S, CLIP_MIN_S, STOP_AT, VIEWPORT, fitScale, xRefuses, type StopAt } from "./tourRules";
 import { videoToGif } from "./gif-browser";
+import { takeHeldStream } from "./afterPublish";
 
 const G = "tweets";
 const s = (id: string) => `${G}.${id}`;
@@ -652,90 +659,134 @@ function PreviewCard({ draft }: { draft: Draft }) {
 /* The tour                                                            */
 /* ------------------------------------------------------------------ */
 
-type Result = { blob: Blob; url: string; format: string; from: "tab" | "server"; note?: string };
+type Result = { blob: Blob; url: string; format: string; type: string; from: "tab" | "server"; seconds: number; width: number; height: number; note?: string };
 
-function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | null; active: boolean; intent: "record" | "render" | "tour" | null; onIntentDone: () => void }) {
+const formatOf = (type: string) => (type.includes("gif") ? "gif" : type.includes("mp4") ? "mp4" : type.includes("quicktime") ? "mov" : "webm");
+
+/**
+ * The site in its box: an iframe the size of the device's real screen,
+ * showing the page exactly as a visitor's browser lays it out at that width,
+ * and the whole of it scaled down to fit. Squeezing the page into the box
+ * laid it out for a width nobody has, which is how the tour came to show a
+ * site out of joint. While recording it lifts to fill the window, at the
+ * scale that fits there, without being drawn again.
+ */
+function ScaledFrame({ device, src, lifted, frameRef, boxRef, onLoad, children }: { device: Device; src: string; lifted: boolean; frameRef: React.RefObject<HTMLIFrameElement | null>; boxRef: React.RefObject<HTMLDivElement | null>; onLoad: () => void; children?: React.ReactNode }) {
+  const v = VIEWPORT[device];
+  const holder = React.useRef<HTMLDivElement>(null);
+  const [room, setRoom] = React.useState({ w: 360, h: 300 });
+  React.useEffect(() => {
+    const el = holder.current;
+    if (!el) return;
+    const measure = () => setRoom({ w: el.clientWidth, h: Math.max(160, Math.min(window.innerHeight * 0.55, el.clientWidth * (v.h / v.w))) });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, [v.w, v.h]);
+  const [win, setWin] = React.useState({ w: 1440, h: 900 });
+  React.useEffect(() => { if (lifted) setWin({ w: window.innerWidth, h: window.innerHeight }); }, [lifted]);
+  const box = lifted ? win : room;
+  const scale = fitScale(box, device);
+  return (
+    <div ref={holder} className={cn(lifted ? "fixed inset-0 z-[95] flex items-center justify-center bg-black" : "relative flex w-full items-start justify-center overflow-hidden rounded-lg border border-border bg-black")} style={lifted ? undefined : { height: room.h }} data-tour-frame="">
+      <div ref={boxRef} data-tour-box="" data-tour-scale={scale.toFixed(4)} style={{ width: v.w * scale, height: v.h * scale, overflow: "hidden", position: "relative", flexShrink: 0 }}>
+        <iframe
+          ref={frameRef}
+          src={src}
+          title="The site, as published"
+          data-tour-iframe={device}
+          width={v.w}
+          height={v.h}
+          style={{ width: v.w, height: v.h, transform: `scale(${scale})`, transformOrigin: "0 0", border: 0, background: "white", display: "block" }}
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={onLoad}
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | null; active: boolean; intent: TourIntent | null; onIntentDone: () => void }) {
   useStudioHydration();
   const pages = useStudio((st) => st.pages);
+  const nodes = useStudio((st) => st.nodes);
   const activePageId = useStudio((st) => st.activePageId);
   const device = useSettingValue<Device>(s("tourDevice"));
-  const speed = useSettingValue<TourSpeed>(s("tourSpeed"));
+  const secondsSetting = useSettingValue<number>(s("tourSeconds"));
+  const stopSetting = useSettingValue<StopAt>(s("tourStopAt"));
   const interact = useSettingValue<boolean>(s("tourInteract"));
-  const loops = useSettingValue<number>(s("tourLoops"));
   const fps = useSettingValue<number>(s("recordFps"));
+  const clipAfter = useSettingValue<boolean>(s("clipAfterPublish"));
   const renderWidth = useSettingValue<string>(s("renderWidth"));
   const renderFormat = useSettingValue<string>(s("renderFormat"));
   const maxEdge = useSettingValue<number>(s("imageMaxEdge"));
   const quality = useSettingValue<number>(s("imageQuality"));
-  const actions = useActions();
   const [pageId, setPageId] = React.useState<string>(activePageId);
-  const [localDevice, setLocalDevice] = React.useState<Device>(device);
-  const [localSpeed, setLocalSpeed] = React.useState<TourSpeed>(speed);
+  const [localDevice, setLocalDevice] = React.useState<Device>(device ?? "desktop");
+  const [seconds, setSeconds] = React.useState<number>(clipSeconds(secondsSetting ?? 15));
+  const [stopAt, setStopAt] = React.useState<StopAt>(stopSetting ?? "bottom");
   const [state, setState] = React.useState<"idle" | "playing" | "recording" | "rendering" | "converting">("idle");
   const [progress, setProgress] = React.useState(0);
   const [result, setResult] = React.useState<Result | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [fullscreen, setFullscreen] = React.useState(false);
+  const [lifted, setLifted] = React.useState(false);
+  const [lastRun, setLastRun] = React.useState<TourRun | null>(null);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  const boxRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
-  React.useEffect(() => { setLocalDevice(device); }, [device]);
-  React.useEffect(() => { setLocalSpeed(speed); }, [speed]);
+  React.useEffect(() => { if (device) setLocalDevice(device); }, [device]);
+  React.useEffect(() => { if (secondsSetting) setSeconds(clipSeconds(secondsSetting)); }, [secondsSetting]);
+  React.useEffect(() => { if (stopSetting) setStopAt(stopSetting); }, [stopSetting]);
   React.useEffect(() => { if (!pages.some((p) => p.id === pageId)) setPageId(activePageId); }, [pages, pageId, activePageId]);
   const src = React.useMemo(() => livePath(pageId), [pageId, pages]); // eslint-disable-line react-hooks/exhaustive-deps
+  const featureOf = React.useMemo(() => { const m = new Map(nodes.map((n) => [n.id, n.featureId])); return (id: string) => m.get(id); }, [nodes]);
 
   React.useEffect(() => () => { if (result) URL.revokeObjectURL(result.url); }, [result]);
-  React.useEffect(() => { if (iframeRef.current) setFrameDevice(iframeRef.current, localDevice); }, [localDevice]);
+  /* The page in its Window view, laid out at the frame's own size, whenever it loads or the device changes. */
+  const settle = React.useCallback(() => { const f = iframeRef.current; if (f) void waitForFrame(f).then(() => setFrameWindow(f)).catch(() => undefined); }, []);
+  React.useEffect(() => { settle(); }, [localDevice, settle]);
 
   const stop = React.useCallback(() => { abortRef.current?.abort(); abortRef.current = null; }, []);
   React.useEffect(() => { if (!active) stop(); }, [active, stop]);
+  const failed = (err: unknown) => { if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : String(err)); };
 
+  const begin = (st: typeof state) => { const ac = new AbortController(); abortRef.current = ac; setState(st); setError(null); setProgress(0); return ac; };
+  const end = () => { setLifted(false); setState("idle"); abortRef.current = null; };
+
+  /* Preview: the same tour, nothing recorded. */
   const play = React.useCallback(async () => {
     const iframe = iframeRef.current;
     if (!iframe || state !== "idle") return;
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setState("playing");
-    setError(null);
-    setProgress(0);
+    const ac = begin("playing");
     try {
       await waitForFrame(iframe, ac.signal);
-      setFrameDevice(iframe, localDevice);
-      await runTour(iframe, { speed: localSpeed, interact, loops, signal: ac.signal, onProgress: setProgress });
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setState("idle");
-      abortRef.current = null;
-    }
-  }, [state, localDevice, localSpeed, interact, loops]);
+      setFrameWindow(iframe);
+      setLastRun(await runTour(iframe, { seconds, stopAt, interact, featureOf, signal: ac.signal, onProgress: setProgress }));
+    } catch (err) { failed(err); } finally { end(); }
+  }, [state, seconds, stopAt, interact, featureOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const record = React.useCallback(async () => {
+  /* Record: this browser records this tab while the tour plays, and stops at the clip length. A publish may hand over the recording it asked for (`afterPublish.ts`). */
+  const record = React.useCallback(async (stream?: MediaStream | null): Promise<Result | null> => {
     const iframe = iframeRef.current;
-    if (!iframe || state !== "idle") return;
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setState("recording");
-    setError(null);
-    setProgress(0);
+    if (!iframe || state !== "idle") return null;
+    const ac = begin("recording");
     try {
       await waitForFrame(iframe, ac.signal);
-      setFrameDevice(iframe, localDevice);
-      const blob = await recordTour(iframe, { speed: localSpeed, interact, loops, fps, signal: ac.signal, onProgress: setProgress, onStart: () => setFullscreen(true) });
-      setResult((r) => { if (r) URL.revokeObjectURL(r.url); return { blob, url: URL.createObjectURL(blob), format: blob.type.includes("mp4") ? "mp4" : "webm", from: "tab" }; });
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setFullscreen(false);
-      setState("idle");
-      abortRef.current = null;
-    }
-  }, [state, localDevice, localSpeed, interact, loops, fps]);
+      setFrameWindow(iframe);
+      const r = await recordTour(iframe, { seconds, stopAt, interact, featureOf, fps, signal: ac.signal, onProgress: setProgress, cropTo: boxRef.current, onStart: () => setLifted(true), stream: stream ?? undefined });
+      setLastRun(r.tour);
+      const made: Result = { blob: r.blob, url: URL.createObjectURL(r.blob), format: formatOf(r.type), type: r.type, from: "tab", seconds: r.seconds, width: r.width, height: r.height };
+      setResult((was) => { if (was) URL.revokeObjectURL(was.url); return made; });
+      return made;
+    } catch (err) { failed(err); return null; } finally { end(); }
+  }, [state, seconds, stopAt, interact, featureOf, fps]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
    * Whether the server can record at all, asked once when the tour opens.
-   *
-   * `null` while it is being asked: the button stays live rather than flashing
-   * off and on, and a press in that moment gets the route's own answer.
+   * `null` while it is being asked.
    */
   const [canRender, setCanRender] = React.useState<boolean | null>(null);
   const [serverNote, setServerNote] = React.useState("");
@@ -745,13 +796,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
       .then((b) => {
         if (!alive) return;
         setCanRender(b.video);
-        setServerNote(
-          b.video
-            ? ""
-            : b.open
-              ? `The browser on this server (${b.from ?? "unknown"}) can open the site but cannot record it, recording needs the ffmpeg a full Playwright install ships. Record the tab instead.`
-              : "There is no browser on this server, so it cannot play the tour. Record the tab instead.",
-        );
+        setServerNote(b.video ? "" : "This server cannot record (it has no full browser with video), so the recording is made here, in your browser: press Record.");
       })
       .catch(() => { if (alive) setCanRender(null); });
     return () => { alive = false; };
@@ -759,159 +804,179 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
 
   const render = React.useCallback(async () => {
     if (state !== "idle") return;
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setState("rendering");
-    setError(null);
-    setProgress(0);
+    const ac = begin("rendering");
     const ticker = window.setInterval(() => setProgress((p) => Math.min(0.9, p + 0.02)), 800);
     try {
-      const res = await fetch("/api/studio/preview-video", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doc: studioDoc(), path: src, device: localDevice, speed: localSpeed, interact, loops, width: Number(renderWidth), format: renderFormat }), signal: ac.signal });
+      const res = await fetch("/api/studio/preview-video", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doc: studioDoc(), path: src, device: localDevice, speed: "normal", interact, loops: 1, width: Number(renderWidth), format: renderFormat }), signal: ac.signal });
       const ct = res.headers.get("content-type") ?? "";
       if (ct.includes("application/json")) {
         const data = (await res.json()) as { ok: boolean; message?: string; reason?: string };
         throw new Error(data.message ?? "The render failed.");
       }
       const blob = await res.blob();
-      const format = res.headers.get("x-tour-format") ?? (ct.includes("gif") ? "gif" : "webm");
       const note = res.headers.get("x-tour-note") ?? undefined;
-      setResult((r) => { if (r) URL.revokeObjectURL(r.url); return { blob, url: URL.createObjectURL(blob), format, from: "server", note }; });
+      setResult((r) => { if (r) URL.revokeObjectURL(r.url); return { blob, url: URL.createObjectURL(blob), format: formatOf(blob.type || ct), type: blob.type || ct, from: "server", seconds: 0, width: 0, height: 0, note }; });
       setProgress(1);
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      window.clearInterval(ticker);
-      setState("idle");
-      abortRef.current = null;
-    }
-  }, [state, src, localDevice, localSpeed, interact, loops, renderWidth, renderFormat]);
+    } catch (err) { failed(err); } finally { window.clearInterval(ticker); end(); }
+  }, [state, src, localDevice, interact, renderWidth, renderFormat]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** The WebM turned into a GIF here in the browser, so it can go to X. */
+  /** A recording X will not take as it is (WebM) turned into a GIF here, in the browser. */
   const convert = React.useCallback(async () => {
     if (!result || state !== "idle") return;
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setState("converting");
-    setError(null);
-    setProgress(0);
+    const ac = begin("converting");
     try {
       const gif = await videoToGif(result.blob, { fps: 12, maxWidth: Math.min(640, Number(renderWidth) || 640), signal: ac.signal, onProgress: setProgress });
-      setResult((r) => { if (r) URL.revokeObjectURL(r.url); return { blob: gif, url: URL.createObjectURL(gif), format: "gif", from: result.from, note: undefined }; });
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setState("idle");
-      abortRef.current = null;
+      setResult((r) => { if (r) URL.revokeObjectURL(r.url); return { ...result, blob: gif, url: URL.createObjectURL(gif), format: "gif", type: "image/gif", note: undefined }; });
+    } catch (err) { failed(err); } finally { end(); }
+  }, [result, state, renderWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /*
+   * THE CLIP AFTER A PUBLISH (`afterPublish.ts`): recorded with the recording
+   * the publish's press asked for, then put on the new draft. A WebM is made
+   * into a GIF first; a clip X would refuse stays here with the reason.
+   */
+  const clipAfterPublish = React.useCallback(async () => {
+    const held = takeHeldStream();
+    const stream = held ? await held : null;
+    if (!stream) return;
+    const draftId = useTweets.getState().focusedId;
+    let made = await record(stream);
+    if (!made || !draftId) return;
+    if (made.format === "webm") {
+      try {
+        const gif = await videoToGif(made.blob, { fps: 12, maxWidth: 640 });
+        made = { ...made, blob: gif, url: URL.createObjectURL(gif), format: "gif", type: "image/gif" };
+        const shown = made;
+        setResult((r) => { if (r) URL.revokeObjectURL(r.url); return shown; });
+      } catch (err) { failed(err); return; }
     }
-  }, [result, state, renderWidth]);
+    const refused = xRefuses({ type: made.type, bytes: made.blob.size, seconds: made.seconds, width: made.width, height: made.height });
+    if (refused.length) {
+      useTweets.getState().note({ draftId, level: "warn", title: "The tour clip was not attached", body: refused.join(" ") });
+      return;
+    }
+    const m = await intake(made.blob, { maxEdge, quality, name: `tour.${made.format}` });
+    useTweets.getState().addMedia(draftId, 0, m);
+    useTweets.getState().note({ draftId, level: "success", title: "Tour clip attached to the new draft", body: `${made.format.toUpperCase()} · ${fmtBytes(made.blob.size)} · ${made.seconds.toFixed(1)} s` });
+  }, [record, maxEdge, quality]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A command asked for a recording or render as the console opened.
   React.useEffect(() => {
     if (!active || !intent || state !== "idle") return;
     onIntentDone();
-    if (intent === "record") void record();
+    if (intent === "clip") void clipAfterPublish();
+    else if (intent === "record") void record();
     else if (intent === "render") void render();
     else void play();
-  }, [active, intent, state, record, render, play, onIntentDone]);
+  }, [active, intent, state, record, render, play, onIntentDone, clipAfterPublish]);
 
+  const refuses = result ? xRefuses({ type: result.type, bytes: result.blob.size, seconds: result.seconds, width: result.width, height: result.height }) : [];
   const attach = async () => {
-    if (!result || !draft) return;
-    const ok = result.format === "gif" || result.format === "mp4";
-    if (!ok) {
-      const go = await actions.confirm({ title: "X does not take WebM", body: "Press Make a GIF first. Attached as it is, it sits on the post for the preview but the upload will be refused.", confirmLabel: "Attach anyway" });
-      if (!go) return;
-    }
+    if (!result || !draft || refuses.length) return;
     try {
       const m = await intake(result.blob, { maxEdge, quality, name: `tour.${result.format}` });
       useTweets.getState().addMedia(draft.id, 0, m);
-      useTweets.getState().note({ draftId: draft.id, level: "info", title: "Tour attached to post 1", body: `${result.format.toUpperCase()} · ${fmtBytes(result.blob.size)}` });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+      useTweets.getState().note({ draftId: draft.id, level: "info", title: "Tour attached to post 1", body: `${result.format.toUpperCase()} · ${fmtBytes(result.blob.size)}${result.seconds ? ` · ${result.seconds.toFixed(1)} s` : ""}` });
+      setError(null);
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   };
 
   const busy = state !== "idle";
-  const frameHeight = localDevice === "phone" ? "aspect-[9/16] max-h-[520px]" : localDevice === "tablet" ? "aspect-[4/5] max-h-[520px]" : "aspect-[16/10]";
-
+  const canRecord = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-col gap-2" data-tour-panel="">
       <div className="flex flex-wrap items-center gap-1.5">
         <Select value={pageId} onChange={setPageId} options={pages.map((p) => ({ value: p.id, label: p.name, description: p.path }))} className="min-w-28" aria-label="Page to tour" disabled={busy} />
-        <Segmented size="xs" value={localDevice} onChange={(v) => setLocalDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} />
-        <Segmented size="xs" value={localSpeed} onChange={(v) => setLocalSpeed(v as TourSpeed)} options={[{ value: "slow", label: "Slow" }, { value: "normal", label: "Normal" }, { value: "fast", label: "Fast" }]} />
-        <span className="text-small text-fg-faint">{interact ? "works tabs and rows" : "scroll only"} · {loops} pass{loops > 1 ? "es" : ""}</span>
+        <Segmented size="xs" value={localDevice} onChange={(v) => setLocalDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} aria-label="Device" />
+        <span className="num text-small text-fg-faint">{VIEWPORT[localDevice].w} wide</span>
       </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-plain text-fg-muted">
+        <label className="flex items-center gap-1.5">
+          Clip length
+          <Input type="number" min={CLIP_MIN_S} max={CLIP_MAX_S} step={1} value={seconds} disabled={busy} data-tour-seconds="" aria-label="Clip length in seconds"
+            onChange={(e) => setSeconds(Number(e.target.value))} onBlur={() => { const v = clipSeconds(seconds); setSeconds(v); setSetting(s("tourSeconds"), v); }} className="h-6 w-16 text-xs" />
+          seconds
+        </label>
+        <label className="flex items-center gap-1.5">
+          Stop scrolling at
+          <Select value={stopAt} onChange={(v) => { setStopAt(v as StopAt); setSetting(s("tourStopAt"), v); }} options={STOP_AT} aria-label="Stop scrolling at" disabled={busy} className="min-w-36" />
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-plain text-fg-muted">
+        <Switch size="sm" checked={!!clipAfter} onCheckedChange={(v) => setSetting(s("clipAfterPublish"), v)} aria-label="Make a tour clip after each publish" data-clip-after-publish="" />
+        <span>Make a tour clip after each publish{clipAfter ? ": Update live site asks once to record this tab, and the clip lands on a new draft" : ""}</span>
+      </label>
+      {seconds > CLIP_MAX_S ? <p className="text-small text-warn">X takes videos up to 140 seconds (2 minutes 20 seconds), so the clip will be 140 seconds.</p> : null}
 
-      {/* The frame. When recording it lifts to cover the screen, without remounting. */}
-      <div className={cn(fullscreen ? "fixed inset-0 z-[95] bg-black" : cn("relative w-full overflow-hidden rounded-lg border border-border bg-black", frameHeight))} data-tour-frame>
-        <iframe ref={iframeRef} src={src} title="Live site" className="size-full border-0 bg-white" sandbox="allow-scripts allow-same-origin" onLoad={() => { const f = iframeRef.current; if (f?.contentDocument) { void waitForFrame(f).then(() => setFrameDevice(f, localDevice)).catch(() => undefined); } }} />
-        {fullscreen ? (
+      <ScaledFrame device={localDevice} src={src} lifted={lifted} frameRef={iframeRef} boxRef={boxRef} onLoad={settle}>
+        {lifted ? (
           <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/70 px-2 py-1 text-plain text-white">
-            <span className="size-2 animate-pulse rounded-full bg-red-500" /> Recording the tab · {Math.round(progress * 100)}%
+            <span className="size-2 animate-pulse rounded-full bg-red-500" /> Recording this tab · {Math.round(progress * seconds)} of {seconds} s
           </div>
         ) : null}
-      </div>
+      </ScaledFrame>
 
       <div className="flex flex-wrap items-center gap-1.5">
         {busy ? (
-          <Button variant="outline" size="sm" onClick={stop}><Square /> Stop</Button>
+          <Button variant="outline" size="sm" onClick={stop} data-tour-stop=""><Square /> Stop</Button>
         ) : (
           <>
-            <Button variant="default" size="sm" onClick={() => void play()}><MonitorPlay /> Play</Button>
-            <Tooltip content="Asks the browser for this tab, hides the console, plays the tour, keeps the video. WebM, or MP4 in Safari.">
-              <Button variant="default" size="sm" onClick={() => void record()} disabled={typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia}><Video /> Record tab</Button>
+            <Tooltip content="Plays the tour here, just as it will be recorded, without recording.">
+              <Button variant="default" size="sm" data-tour-preview="" onClick={() => void play()}><MonitorPlay /> Preview tour</Button>
             </Tooltip>
-            <Tooltip
-              content={
-                canRender === false
-                  ? serverNote
-                  : `A headless browser on the server plays the tour at ${renderWidth} px and makes a ${renderFormat.toUpperCase()}. Needs a full Playwright there.`
-              }
-            >
-              {/* A disabled button inside a tooltip still needs something that
-                  takes a pointer, or there is nothing to hover for the reason. */}
-              <span className="inline-flex">
-                <Button variant="default" size="sm" disabled={canRender === false} onClick={() => void render()}><Sparkles /> Render on server</Button>
-              </span>
+            <Tooltip content={canRecord ? `Your browser records this tab while the tour plays, for ${seconds} seconds, then offers the clip for the post. Choose this tab when it asks.` : "This browser cannot record a tab. Chrome, Edge and Firefox can."}>
+              <span className="inline-flex"><Button variant="primary" size="sm" data-tour-record="" onClick={() => void record()} disabled={!canRecord}><Video /> Record</Button></span>
             </Tooltip>
+            {canRender ? (
+              <Tooltip content={`A browser on the server plays the tour at ${renderWidth} pixels wide and makes a ${renderFormat.toUpperCase()}.`}>
+                <Button variant="ghost" size="sm" onClick={() => void render()}><Sparkles /> Render on server</Button>
+              </Tooltip>
+            ) : null}
           </>
         )}
         <span className="flex-1" />
-        {busy ? <span className="flex items-center gap-1 text-plain text-fg-muted"><Loader2 className="size-3 animate-spin" />{state === "rendering" ? "Rendering…" : state === "recording" ? "Recording…" : state === "converting" ? "Making the GIF…" : "Playing…"}</span> : null}
+        {busy ? <span className="flex items-center gap-1 text-plain text-fg-muted"><Loader2 className="size-3 animate-spin" />{state === "rendering" ? "Rendering…" : state === "recording" ? "Recording…" : state === "converting" ? "Making the GIF…" : "Playing the tour…"}</span> : null}
       </div>
       {busy ? <Progress value={progress} tone="accent" /> : null}
-      {/*
-        Said before the press, not after it. A tour that cannot be recorded
-        here is not an error you find out about at the end of one, the button
-        is off and this says which of the two reasons it is.
-      */}
-      {canRender === false ? (
-        <p className="flex gap-1.5 rounded-md border border-border bg-elevated p-2 text-plain text-fg-muted">
-          <Info className="mt-px size-3 shrink-0" />
-          {serverNote}
+      {lastRun && !busy ? (
+        <p data-tour-did="" className="text-small text-fg-faint">
+          {lastRun.pressed.length ? `Pressed ${lastRun.pressed.length}: ${lastRun.pressed.join(", ")}.` : "Nothing to press here, so it scrolled."} {lastRun.dropped ? `${lastRun.dropped} more had no time in ${seconds} seconds.` : ""}
         </p>
       ) : null}
-      {error ? <p className="flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-plain text-down"><AlertTriangle className="mt-px size-3 shrink-0" />{error}</p> : null}
+      {canRender === false ? (
+        <p className="flex gap-1.5 text-small text-fg-faint"><Info className="mt-px size-3 shrink-0" />{serverNote}</p>
+      ) : null}
+      {error ? <p data-tour-error="" className="flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-plain text-down"><AlertTriangle className="mt-px size-3 shrink-0" />{error}</p> : null}
 
       {result ? (
-        <div className="space-y-2 rounded-lg border border-border bg-panel p-2">
+        <div className="space-y-2 rounded-lg border border-border bg-panel p-2" data-tour-result={result.format}>
           <div className="overflow-hidden rounded-md bg-black">
-            {result.format === "gif" ? <img src={result.url} alt="The recorded tour" className="mx-auto max-h-64" /> : <video src={result.url} controls muted loop playsInline className="mx-auto max-h-64" />}
+            {result.format === "gif" ? <img src={result.url} alt="The recorded tour" className="mx-auto max-h-56" /> : <video src={result.url} controls muted loop playsInline className="mx-auto max-h-56" />}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant={result.format === "gif" || result.format === "mp4" ? "up" : "warn"}>{result.format.toUpperCase()}</Badge>
-            <span className="num text-small text-fg-muted">{fmtBytes(result.blob.size)} · {result.from === "tab" ? "from the tab" : "from the server"}</span>
+            <Badge variant={refuses.length ? "warn" : "up"}>{result.format.toUpperCase()}</Badge>
+            <span className="num text-small text-fg-muted" data-tour-clip-seconds={result.seconds ? result.seconds.toFixed(2) : ""}>
+              {fmtBytes(result.blob.size)}{result.seconds ? ` · ${result.seconds.toFixed(1)} s` : ""}{result.width ? ` · ${result.width}×${result.height}` : ""} · {result.from === "tab" ? "recorded in this browser" : "from the server"}
+            </span>
             {result.note ? <span className="text-small text-warn">{result.note}</span> : null}
-            <span className="flex-1" />
+          </div>
+          {refuses.length ? (
+            <ul data-tour-refused="" className="space-y-1 rounded-md border border-warn/30 bg-warn/8 p-2 text-small text-warn">
+              {refuses.map((r) => <li key={r}>{r}</li>)}
+            </ul>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-1.5">
             {result.format === "webm" ? (
-              <Tooltip content="Plays the recording through twice, here in the browser, and writes a GIF X will take.">
-                <Button variant="subtle" size="xs" onClick={() => void convert()} disabled={busy}><Sparkles /> Make a GIF</Button>
+              <Tooltip content="Plays the recording through here, in the browser, and writes a GIF X will take.">
+                <Button variant="subtle" size="xs" data-tour-gif="" onClick={() => void convert()} disabled={busy}><Sparkles /> Make a GIF</Button>
               </Tooltip>
             ) : null}
-            <Button variant="primary" size="xs" onClick={() => void attach()} disabled={!draft || busy}><FileImage /> Attach to post 1</Button>
+            <Button variant="primary" size="xs" data-tour-attach="" onClick={() => void attach()} disabled={!draft || busy || refuses.length > 0}><FileImage /> Attach to post 1</Button>
+            <a href={result.url} download={`tour.${result.format}`} className="text-small text-fg-muted underline underline-offset-2 hover:text-fg">Save to this computer</a>
+            <span className="flex-1" />
             <Button variant="ghost" size="xs" onClick={() => { URL.revokeObjectURL(result.url); setResult(null); }}>Discard</Button>
           </div>
-          {result.format === "webm" ? <p className="text-small text-fg-faint">X takes GIF and MP4, not WebM. Make a GIF of it here, or render on the server, which makes one.</p> : null}
+          {!draft ? <p className="text-small text-fg-faint">Start a draft to attach the clip to it.</p> : null}
         </div>
       ) : null}
     </div>
@@ -921,6 +986,12 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
 /* ------------------------------------------------------------------ */
 /* The console                                                         */
 /* ------------------------------------------------------------------ */
+
+/** The drawer's two widths: one column, or the post and its preview or tour side by side. Wide only when the window leaves the board room beside it. */
+const DRAWER_NARROW = 520;
+const DRAWER_WIDE = 1040;
+const BOARD_KEEPS = 420;
+const roomForWide = () => typeof window !== "undefined" && window.innerWidth - DRAWER_WIDE >= BOARD_KEEPS;
 
 export function TweetConsole() {
   const open = useUi((st) => st.panels.tweets);
@@ -937,9 +1008,22 @@ export function TweetConsole() {
   const defaultReply = useSettingValue<ReplySetting>(s("defaultReply"));
   const sensitiveDefault = useSettingValue<boolean>(s("sensitiveDefault"));
   const sendMode = useSettingValue<SendMode>(s("sendMode"));
-  const [side, setSide] = React.useState<"preview" | "tour">("preview");
+  const [side, setSide] = React.useState<"post" | "preview" | "tour">("post");
   const [api, setApi] = React.useState<ApiStatus | null>(null);
+  const [railOpen, setRailOpen] = React.useState(false);
+  /* Wide when asked and there is room; the window is read again as it changes. */
+  const [wantWide, setWantWide] = React.useState(true);
+  const [room, setRoom] = React.useState(false);
+  React.useEffect(() => {
+    const read = () => setRoom(roomForWide());
+    read();
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
+  }, []);
+  const full = encase === "full";
+  const wide = full || (wantWide && room);
   const draft = drafts.find((d) => d.id === focusedId) ?? null;
+  const sectionRef = React.useRef<HTMLElement>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -947,61 +1031,83 @@ export function TweetConsole() {
     if (!useTweets.getState().focusedId && useTweets.getState().drafts[0]) focus(useTweets.getState().drafts[0]!.id);
   }, [open, focus]);
   React.useEffect(() => { if (open && intent) setSide("tour"); }, [open, intent]);
+  /* Side by side there is no Post tab: the post is always there. */
+  React.useEffect(() => { if (wide && side === "post") setSide("preview"); }, [wide, side]);
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePanel("tweets"); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      /* As a drawer the board is still in use, and Escape there is the board's: only an Escape inside the console closes it. */
+      if (!full && !sectionRef.current?.contains(document.activeElement)) return;
+      closePanel("tweets");
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, closePanel]);
+  }, [open, closePanel, full]);
 
   const create = React.useCallback(() => { newDraft({ replySettings: defaultReply, sensitive: sensitiveDefault }); }, [newDraft, defaultReply, sensitiveDefault]);
   const refreshApi = () => void apiStatus(true).then(setApi);
 
   const apiChip = api === null ? (
-    <Badge variant="default"><Loader2 className="size-3 animate-spin" /> checking keys</Badge>
+    <Badge variant="default"><Loader2 className="size-3 animate-spin" /> checking</Badge>
   ) : api.configured ? (
     <Tooltip content={`Keys on the server; media goes through the ${api.mediaApi} upload API.${api.handle ? ` Posting as @${api.handle}.` : ""}`}>
-      <Badge variant="up"><KeyRound className="size-3" /> API ready{api.handle ? <span className="streamer-hidden"> · @{api.handle}</span> : null}</Badge>
+      <Badge variant="up"><KeyRound className="size-3" /> ready{api.handle ? <span className="streamer-hidden"> · @{api.handle}</span> : null}</Badge>
     </Tooltip>
   ) : (
-    <Tooltip content={`Set ${(api.missing ?? []).join(", ") || "the keys"} on the server to post from here. Until then Send opens X with the words.`}>
-      <Badge variant="warn"><KeyRound className="size-3" /> no keys · {sendMode === "api" ? "opens X instead" : sendMode === "intent" ? "opens X" : "copies"}</Badge>
+    <Tooltip content={`Set ${(api.missing ?? []).join(", ") || "the keys"} on the server to post from here. Until then Send opens X with the words. ${sendMode === "api" ? "" : ""}`}>
+      <Badge variant="warn"><KeyRound className="size-3" /> no keys</Badge>
     </Tooltip>
+  );
+
+  const editor = draft ? (
+    <Editor key={draft.id} draft={draft} api={api} />
+  ) : (
+    <EmptyState icon={Feather} title="Nothing open" body="Pick a draft, or start one. Everything here is saved in this browser as you type." action={<Button variant="primary" size="sm" onClick={create}><Plus /> New draft</Button>} className="flex-1" />
   );
 
   return (
     <>
-      <div aria-hidden={!open} onClick={() => closePanel("tweets")} className={cn("fixed inset-0 z-[75] bg-black/50 backdrop-blur-[2px] transition-opacity duration-(--motion-slow)", open ? "opacity-100" : "pointer-events-none opacity-0")} />
+      {/* A backdrop only when it encases the screen. As a drawer the board beside it stays usable. */}
+      {full ? <div aria-hidden={!open} onClick={() => closePanel("tweets")} className={cn("fixed inset-0 z-[75] bg-black/50 backdrop-blur-[2px] transition-opacity duration-(--motion-slow)", open ? "opacity-100" : "pointer-events-none opacity-0")} /> : null}
       <section
+        ref={sectionRef}
         role="dialog"
         aria-label="Tweet console"
         data-tweet-console=""
         data-open={open ? "1" : "0"}
+        data-layout={full ? "full" : wide ? "wide" : "narrow"}
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "fixed z-[76] flex flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-panel transition-[opacity,transform] duration-(--motion-slow) ease-out",
-          encase === "wide" ? "inset-x-[max(16px,6vw)] inset-y-[max(16px,5vh)]" : "inset-2 md:inset-4",
-          open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
+          "fixed z-[76] flex flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-panel transition-[opacity,transform,width] duration-(--motion-slow) ease-out",
+          full ? "inset-2 md:inset-4" : "bottom-2 right-2 top-[calc(var(--topbar-h)+8px)]",
+          open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-4 opacity-0",
         )}
+        style={full ? undefined : { width: `min(${wide ? DRAWER_WIDE : DRAWER_NARROW}px, calc(100vw - 16px))` }}
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
-          <Feather className="size-4 text-accent" />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold text-fg">Tweet console</h2>
-            <p className="truncate text-plain text-fg-muted">Draft, preview, record a tour of the site, schedule, send. The queue runs while this app is open.</p>
-          </div>
+        <header className="flex shrink-0 items-center gap-1.5 border-b border-border px-2.5 py-1.5">
+          <Feather className="size-4 shrink-0 text-accent" />
+          <h2 className="shrink-0 text-sm font-semibold text-fg">Tweets</h2>
+          {!full ? (
+            <Tooltip content={railOpen ? "Hide the drafts and the log" : "Every draft, and what happened to each"}>
+              <Button variant={railOpen ? "subtle" : "ghost"} size="xs" aria-pressed={railOpen} data-rail-toggle="" onClick={() => setRailOpen((v) => !v)}>Drafts <span className="num text-fg-faint">{drafts.length}</span></Button>
+            </Tooltip>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-plain text-fg-muted">{draft ? draftTitle(draft) : ""}</span>
           {apiChip}
-          <Tooltip content="Ask the server again">
-            <Button variant="ghost" size="icon" aria-label="Check keys again" onClick={refreshApi}><RefreshCw /></Button>
-          </Tooltip>
-          {/* The console's own knobs, in the console. This used to close the
-              console and open the settings drawer, which is a long way to go
-              to change a handle. */}
-          <Tooltip content="Tweet console settings">
-            <Button variant={showOwn ? "subtle" : "ghost"} size="icon" aria-label="Settings" aria-pressed={showOwn} onClick={() => setShowOwn((v) => !v)}><Settings2 /></Button>
-          </Tooltip>
-          <Button variant="ghost" size="icon" aria-label="Close the tweet console" onClick={() => closePanel("tweets")}><X /></Button>
+          <Tooltip content="Ask the server again"><Button variant="ghost" size="iconXs" aria-label="Check keys again" onClick={refreshApi}><RefreshCw /></Button></Tooltip>
+          {!full ? (
+            <Tooltip content={!room ? "Side by side needs a wider window: the board keeps its room." : wantWide ? "One column, narrower" : "The post and its preview or tour side by side"}>
+              <span className="inline-flex">
+                <Button variant="ghost" size="iconXs" aria-label={wide ? "Narrower" : "Side by side"} data-console-width={wide ? "wide" : "narrow"} disabled={!room} onClick={() => setWantWide((v) => !v)}>
+                  {wide ? <Minimize2 /> : <Maximize2 />}
+                </Button>
+              </span>
+            </Tooltip>
+          ) : null}
+          <Tooltip content="Tweet console settings"><Button variant={showOwn ? "subtle" : "ghost"} size="iconXs" aria-label="Settings" aria-pressed={showOwn} onClick={() => setShowOwn((v) => !v)}><Settings2 /></Button></Tooltip>
+          <Button variant="ghost" size="iconXs" aria-label="Close the tweet console" onClick={() => closePanel("tweets")}><X /></Button>
         </header>
 
         {open && showOwn ? (
@@ -1012,50 +1118,61 @@ export function TweetConsole() {
         ) : null}
 
         {open ? (
-          <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] grid-rows-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[260px_minmax(0,1fr)_minmax(360px,42%)] xl:grid-rows-1">
-            <div className="row-span-2 min-h-0 border-r border-border xl:row-span-1">
-              <div className="flex h-full min-h-0 flex-col"><Rail onNew={create} /></div>
+          full ? (
+            <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] grid-rows-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[260px_minmax(0,1fr)_minmax(360px,42%)] xl:grid-rows-1">
+              <div className="row-span-2 min-h-0 border-r border-border xl:row-span-1"><div className="flex h-full min-h-0 flex-col"><Rail onNew={create} /></div></div>
+              <div className="flex min-h-0 flex-col">{editor}</div>
+              <div className="min-h-0 border-t border-border xl:col-start-3 xl:row-start-1 xl:border-l xl:border-t-0">
+                <SideColumn draft={draft} side={side === "post" ? "preview" : side} setSide={setSide} withPost={false} active={open} intent={intent} onIntentDone={() => setIntent(null)} />
+              </div>
             </div>
-            <div className="flex min-h-0 flex-col">
-              {draft ? (
-                <Editor key={draft.id} draft={draft} api={api} />
+          ) : (
+            <div className="relative flex min-h-0 flex-1">
+              {railOpen ? (
+                <div data-console-rail="" className="absolute inset-y-0 left-0 z-10 flex w-[240px] flex-col border-r border-border bg-panel shadow-panel">
+                  <Rail onNew={() => { create(); setRailOpen(false); }} />
+                </div>
+              ) : null}
+              {wide ? (
+                <div className="grid min-h-0 flex-1 grid-cols-2">
+                  <div className="flex min-h-0 flex-col border-r border-border" data-console-post="">{editor}</div>
+                  <SideColumn draft={draft} side={side === "post" ? "preview" : side} setSide={setSide} withPost={false} active={open} intent={intent} onIntentDone={() => setIntent(null)} />
+                </div>
               ) : (
-                <EmptyState
-                  icon={Feather}
-                  title="Nothing open"
-                  body="Pick a draft on the left, or start one. Everything here is saved in this browser as you type."
-                  action={<Button variant="primary" size="sm" onClick={create}><Plus /> New draft</Button>}
-                  className="flex-1"
-                />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <SideColumn draft={draft} side={side} setSide={setSide} withPost editor={editor} active={open} intent={intent} onIntentDone={() => setIntent(null)} />
+                </div>
               )}
             </div>
-            {/* One side column, rendered once: beside the editor on a wide screen, under it on a narrow one. */}
-            <div className="min-h-0 border-t border-border xl:col-start-3 xl:row-start-1 xl:border-l xl:border-t-0">
-              <SideColumn draft={draft} side={side} setSide={setSide} active={open} intent={intent} onIntentDone={() => setIntent(null)} />
-            </div>
-          </div>
+          )
         ) : null}
       </section>
     </>
   );
 }
 
-function SideColumn({ draft, side, setSide, active, intent, onIntentDone }: { draft: Draft | null; side: "preview" | "tour"; setSide: (v: "preview" | "tour") => void; active: boolean; intent: "record" | "render" | "tour" | null; onIntentDone: () => void }) {
+function SideColumn({ draft, side, setSide, withPost, editor, active, intent, onIntentDone }: { draft: Draft | null; side: "post" | "preview" | "tour"; setSide: (v: "post" | "preview" | "tour") => void; withPost: boolean; editor?: React.ReactNode; active: boolean; intent: TourIntent | null; onIntentDone: () => void }) {
   const limit = useSettingValue<number>(s("charLimit"));
   const total = draft ? draft.posts.reduce((n, p) => n + weighedLength(p.text), 0) : 0;
+  const options = [
+    ...(withPost ? [{ value: "post", label: "Post", icon: <Feather /> }] : []),
+    { value: "preview", label: "Preview", icon: <BarChart3 /> },
+    { value: "tour", label: "Tour", icon: <MonitorPlay /> },
+  ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <Segmented size="xs" value={side} onChange={(v) => setSide(v as "preview" | "tour")} options={[{ value: "preview", label: "Preview", icon: <BarChart3 /> }, { value: "tour", label: "Tour", icon: <MonitorPlay /> }]} />
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+        <Segmented size="xs" value={side} onChange={(v) => setSide(v as "post" | "preview" | "tour")} options={options} aria-label="Post, preview or tour" />
         <span className="flex-1" />
-        {side === "preview" && draft ? <span className="num text-small text-fg-faint">{draft.posts.length > 1 ? `${draft.posts.length} posts · ` : ""}{total} chars · limit {limit}</span> : null}
+        {side === "preview" && draft ? <span className="num text-small text-fg-faint">{draft.posts.length > 1 ? `${draft.posts.length} posts · ` : ""}{total} characters · limit {limit}</span> : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {side === "preview" ? (
-          draft ? <PreviewCard draft={draft} /> : <EmptyState icon={BarChart3} title="No draft to preview" className="py-10" />
-        ) : (
-          <TourPanel draft={draft} active={active && side === "tour"} intent={intent} onIntentDone={onIntentDone} />
-        )}
+      {side === "post" ? <div className="flex min-h-0 flex-1 flex-col">{editor}</div> : null}
+      <div className={cn("min-h-0 flex-1 overflow-y-auto p-3", side === "post" && "hidden")}>
+        {side === "preview" ? (draft ? <PreviewCard draft={draft} /> : <EmptyState icon={BarChart3} title="No draft to preview" className="py-10" />) : null}
+        {/* The tour stays mounted while another tab is in front: the site in it is not loaded again, and a recording is never cut by a tab press. */}
+        <div className={side === "tour" ? "" : "hidden"}>
+          <TourPanel draft={draft} active={active} intent={intent} onIntentDone={onIntentDone} />
+        </div>
       </div>
     </div>
   );

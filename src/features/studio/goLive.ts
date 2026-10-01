@@ -274,6 +274,13 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
  */
 export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void }): Promise<void> {
   if (useGoLive.getState().busy) return;
+  /*
+   * Said inside the press, before anything is awaited: a module that wants to
+   * follow the publish with something only a press may start (the tweet
+   * console's tour clip, `tweets/afterPublish.ts`) asks for it now. The
+   * Builder knows nothing of who listens.
+   */
+  window.dispatchEvent(new CustomEvent("studio:publish-start"));
   const set = useGoLive.setState;
   const setNote = (note: string | null) => set({ note });
   const setBusy = (busy: string | null) => set({ busy });
@@ -356,6 +363,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       set({ refused: null, step: { at: "live", url: end.url, when: Date.now(), deployment: end.inspectorUrl ?? started.inspectorUrl ?? null, commit: pushed.commitUrl ?? null, siteId: here?.id ?? null } });
       useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
       say({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
+      window.dispatchEvent(new CustomEvent("studio:went-live", { detail: { url: end.url, site: siteName.trim() || project?.name?.trim() || "" } }));
     } else {
       const ended = end.state ? end.state.toLowerCase() : "ended without a state";
       const plainly = refuse(`The Vercel build ${ended}: ${end.message ?? "the Vercel log says why."}`, undefined, { stage: end.state === "NOT_STARTED" ? "vercel" : "build", reason: end.reason ?? (end.state === "NOT_STARTED" ? "not-started" : undefined), message: end.message ?? `The Vercel build ${ended}.`, saved });
@@ -364,6 +372,7 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     }
   } finally {
     setBusy(null);
+    window.dispatchEvent(new CustomEvent("studio:publish-end"));
   }
 }
 

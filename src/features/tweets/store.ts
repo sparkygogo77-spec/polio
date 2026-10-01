@@ -81,6 +81,9 @@ export interface LogEntry {
   body?: string;
 }
 
+/** What a command, or a publish, asked the Tour to do as the console opens. "clip": record with the recording the publish held, and attach (`afterPublish.ts`). */
+export type TourIntent = "record" | "render" | "tour" | "clip";
+
 export type RailFilter = "all" | "drafts" | "scheduled" | "sent";
 
 interface TweetsState {
@@ -89,9 +92,9 @@ interface TweetsState {
   focusedId: string | null;
   filter: RailFilter;
   /** Something a command asked the console to do as soon as it is open. Not saved. */
-  intent: "record" | "render" | "tour" | null;
+  intent: TourIntent | null;
 
-  setIntent: (v: "record" | "render" | "tour" | null) => void;
+  setIntent: (v: TourIntent | null) => void;
   newDraft: (seed?: Partial<Draft>) => string;
   updateDraft: (id: string, patch: Partial<Draft>) => void;
   updatePost: (id: string, index: number, patch: Partial<Post>) => void;

@@ -179,7 +179,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
       ) : stage.at === "running" ? (
         <div className="flex flex-col gap-2 text-sm" data-capture-running="">
           <p className="flex items-center gap-2"><Loader2 className="animate-spin" /> Capturing into sites/{stage.name}/ — {stage.step}</p>
-          <a className="inline-flex items-center gap-1 text-xs text-fg-muted underline" href={stage.htmlUrl} target="_blank" rel="noreferrer">Watch the run on GitHub <ExternalLink className="size-3" /></a>
+          <a className="inline-flex items-center gap-1 text-xs text-fg-muted underline" href={stage.htmlUrl} target="_blank" rel="noopener noreferrer">Watch the run on GitHub <ExternalLink className="size-3" /></a>
         </div>
       ) : (
         <div className="flex flex-col gap-2 text-sm" data-capture-done="">
@@ -188,7 +188,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
           ) : (
             <p className="text-warning">{stage.end.says}</p>
           )}
-          <a className="inline-flex items-center gap-1 text-xs text-fg-muted underline" href={stage.end.htmlUrl} target="_blank" rel="noreferrer">The run on GitHub <ExternalLink className="size-3" /></a>
+          <a className="inline-flex items-center gap-1 text-xs text-fg-muted underline" href={stage.end.htmlUrl} target="_blank" rel="noopener noreferrer">The run on GitHub <ExternalLink className="size-3" /></a>
           {said ? <p className="text-xs text-warning" role="status">{said}</p> : null}
         </div>
       )}

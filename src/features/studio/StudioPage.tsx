@@ -390,7 +390,6 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const showWires = useStudio((s) => s.showWires);
   const shape = useStudio((s) => s.menuShape);
   const menuOpen = useRadialOpen();
-  const router = useRouter();
   const mode = useStudio((s) => s.mode);
 
   // In Preview the board is the site, so the drawing tools have nothing to act on.
@@ -401,9 +400,12 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         <span className="mx-1 h-4 w-px bg-border" />
         <PageChips />
         <span className="flex-1" />
-        <Tooltip content="Open the site on its own address">
-          <Button variant="ghost" size="iconXs" aria-label="Open live preview" onClick={() => { play("navigate"); router.push(livePath()); }}>
-            <Eye />
+        {/* A new tab, with no way back into this one (`noopener`): the Builder stays where it was. It replaced this tab, and the board with it. */}
+        <Tooltip content="Open the site on its own address, in a new tab">
+          <Button asChild variant="ghost" size="iconXs">
+            <a data-open-site="" href={livePath()} target="_blank" rel="noopener noreferrer" aria-label="Open the site in a new tab">
+              <Eye />
+            </a>
           </Button>
         </Tooltip>
         <PreviewToggle />

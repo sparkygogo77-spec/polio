@@ -94,7 +94,7 @@ export function RecapturePanel({ source, say }: { source: Source; say: (title: s
         <p data-recapture-progress="" className="flex items-center gap-1.5 text-small text-fg">
           <Loader2 className="size-3 shrink-0 animate-spin" />
           <span className="min-w-0 flex-1">Capturing {stage.plan.url}: {stage.step}. Checked every 10 seconds; the menu can be closed.</span>
-          {stage.htmlUrl ? <a href={stage.htmlUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-fg-muted hover:text-fg">run <ExternalLink className="size-3" /></a> : null}
+          {stage.htmlUrl ? <a href={stage.htmlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-fg-muted hover:text-fg">run <ExternalLink className="size-3" /></a> : null}
         </p>
       ) : null}
       {stage.at === "refused" ? (

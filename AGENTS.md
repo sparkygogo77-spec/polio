@@ -3129,15 +3129,20 @@ is actually there.
 
 ## 2c. The tweet console (`src/features/tweets`)
 
-A dashboard, not a page: `T` (or the palette, or the status-bar count) brings
-it down over whatever is open, the way the keys panel does, and Escape
-takes it away. It drafts posts to X, previews them, records a tour of the
-live site to go with them, queues them, and sends them.
+A drawer, not a page: `T` (or the palette, or the status-bar count) opens it
+on the right of the screen and leaves the board usable beside it; there is
+no backdrop, and Escape closes it only from inside it. Narrow, it is one
+column with Post, Preview and Tour as tabs; when the window leaves the board
+420 pixels beside a 1040-wide drawer, the post sits beside its preview or
+tour. The drafts and the log are behind its Drafts key. "Console size" in
+its settings still offers the old whole screen. It drafts posts to X,
+previews them, records a tour of the live site to go with them, queues them,
+and sends them. `tests/tweet-console.mjs`.
 
 - **Files.** `store.ts` is the document (drafts, the queue, the log), persisted
   to `builder.tweets`; pictures go to IndexedDB through `media.ts` and the
   draft keeps a thumbnail. `text.ts` counts the way X counts and cuts threads.
-  `tour.ts` drives the preview iframe and records the tab; `gif.ts` is a
+  `tour.ts` drives the preview iframe and records the tab, by the rules in `tourRules.ts`; `gif.ts` is a
   dependency-free GIF writer (median-cut palette, delta frames, LZW) used by
   both the server route and `gif-browser.ts`. `send.ts` is the three ways out
   (API, X's compose page, clipboard) and `preflight`, the list of reasons a
@@ -3162,9 +3167,43 @@ live site to go with them, queues them, and sends them.
   `retryAttempts`; a thread that half-posted is final, never retried, because
   a retry would post the first half again. Do not add a "background" mode
   that pretends otherwise.
-- **The tour** is one page, scrolled at a walking pace, pressing what it
-  passes (`[role="tab"]`, `[aria-expanded="false"]`) and nothing that
-  navigates. The route mirrors `tour.ts`; change one, change both.
+- **The site in the Tour box is the real site, smaller** (`ScaledFrame` in
+  `TweetConsole.tsx`). The iframe is the device's real screen
+  (`tourRules.ts`, `VIEWPORT`: 1440 by 900, 834 by 1112, 390 by 844), the
+  preview inside it is put in its Window view (laid out as the published
+  page is), and the whole frame is scaled to fit. Squeezing the page into
+  the box laid it out for a width nobody has. Only the app's own top bar,
+  side bar and preview bar are hidden in the frame, by their marks
+  (`data-app-topbar`, `data-app-sidebar`, `data-live-bar`); hiding every
+  `header` and `footer` took the site's own off the page.
+- **The tour works the site the way a person would** (`tour.ts`,
+  `planSteps`): every tab of a strip (the one showing last), menus and rows
+  that open, a chart swept with the pointer, copy buttons, a few of the
+  page's own buttons, in page order, with a ring where each press lands.
+  `refusal` keeps it off anything that connects a wallet, signs in, buys,
+  sends a form or writes, and the frame cannot leave the page (links held,
+  forms not sent, no window opens, the clipboard untouched). Nothing to
+  press, it scrolls. It fits a clip length (`timing`: each press watched at
+  least `DWELL_MIN_MS`, the last ones dropped when there are too many, the
+  scroll given the rest, the end waited out) and stops at "Stop scrolling
+  at". Preview tour plays it; Record has this browser record this tab
+  (MP4 where it can, cut to the frame with Region Capture where it can) and
+  stops at the clip length; the clip is checked against X's limits
+  (`xRefuses`, said in words, Attach off until it is fixed, Make a GIF for
+  a WebM). Render on server is offered only where the server can record,
+  and keeps its own older scroll-and-press tour in
+  `/api/studio/preview-video`. `tests/tweet-tour.mjs`.
+- **A tour clip after each publish** (`afterPublish.ts`, "Make a tour clip
+  after each publish", off by default, a switch on the Tour). A browser lets
+  a page ask to record a tab only straight after a press, so `goLive.ts`
+  says `studio:publish-start` inside the press and this asks then, once, and
+  holds the recording; on `studio:went-live` it makes a draft "<site> is live:
+  <address>", opens the console on its Tour (intent "clip"), records the tour
+  with the held recording for the clip length the Tour is set to (the clip
+  length and the stop are settings, so they are remembered), makes a WebM a
+  GIF, and attaches it when X takes it, else says which limit in the log.
+  `studio:publish-end` without going live lets the recording go and says so.
+  The Builder knows nothing of who listens. `tests/tour-after-publish.mjs`.
 - **Every surface has a scope**: drafts in the rail carry `tweet-draft`, whose
   menu does what the buttons do (send now, schedule, duplicate, copy, open in
   X, record a tour, delete with confirm). New actions go in both places.

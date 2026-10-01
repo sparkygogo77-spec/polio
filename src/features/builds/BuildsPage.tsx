@@ -123,7 +123,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
   return (
     <li
       className={cn(
-        "group flex h-full flex-col overflow-hidden rounded-lg border transition-colors",
+        "group relative flex h-full flex-col overflow-hidden rounded-lg border transition-colors",
         active ? "border-accent/45 bg-accent-soft/30" : "border-border bg-panel hover:border-border-strong",
       )}
       {...ctxProps("builds", "project", project.id)}
@@ -138,25 +138,26 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
       >
         {/* A picture of the site, made once and kept (`thumbs.tsx`): one image, never a keyboard stop. The live render is Preview's. */}
         <SiteThumb id={project.id} doc={doc} />
-        {project.live ? (
-          <a
-            href={project.live.url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            title={`Live ${fmtAge(project.live.at)} ago`}
-            className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full border border-up/30 bg-panel/85 px-1.5 py-0.5 text-small text-up backdrop-blur"
-          >
-            Live
-            <ExternalLink className="size-2.5" />
-          </a>
-        ) : null}
         {active ? (
           <span className="absolute left-1.5 top-1.5 rounded-full border border-accent/40 bg-panel/85 px-1.5 py-0.5 text-small text-accent backdrop-blur">
             open
           </span>
         ) : null}
       </button>
+      {/* Beside the picture's button, never inside it: a link in a button is two presses in one place, and the live site opens in a new tab with the Builder left where it was. */}
+      {project.live ? (
+        <a
+          data-card-live=""
+          href={project.live.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Live ${fmtAge(project.live.at)} ago, opens in a new tab`}
+          className="absolute right-1.5 top-1.5 z-[1] inline-flex items-center gap-1 rounded-full border border-up/30 bg-panel/85 px-1.5 py-0.5 text-small text-up backdrop-blur"
+        >
+          Live
+          <ExternalLink className="size-2.5" />
+        </a>
+      ) : null}
 
       {/* Its name, and what you can do to it. */}
       {/* `flex-1`, or `mt-auto` on the options bar has no room to work in
@@ -381,7 +382,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           <a
             href={`https://github.com/${repoLabel(project)}/tree/${project.repo.branch}`}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="ml-1 inline-flex items-center gap-1 text-plain text-accent hover:underline"
           >
             Open on GitHub

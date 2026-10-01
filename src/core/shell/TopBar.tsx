@@ -26,7 +26,7 @@ export function TopBar() {
   const dark = mode !== "light";
 
   return (
-    <header className="relative z-[56] flex h-(--topbar-h) shrink-0 items-center gap-2 border-b border-border glass px-2">
+    <header data-app-topbar="" className="relative z-[56] flex h-(--topbar-h) shrink-0 items-center gap-2 border-b border-border glass px-2">
       {/*
         No wordmark.
         

@@ -33,7 +33,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside
+    <aside data-app-sidebar=""
       className={cn("relative z-[50] hidden shrink-0 flex-col border-r border-border bg-panel/60 transition-[width] duration-(--motion-base) md:flex", rail ? "w-(--rail-w)" : "w-(--sidebar-w)")}
       aria-label="Sidebar"
     >
