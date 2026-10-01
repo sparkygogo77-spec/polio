@@ -134,19 +134,26 @@ await page.waitForTimeout(400);
 await page.getByRole("menuitemcheckbox", { name: "Tablet" }).click();
 await page.waitForTimeout(900);
 
+/* Where each part is on the tablet's page, from the page's own top left (the tablet page flows: docs/RESPONSIVE.md). */
 const live = (id) => page.evaluate((id) => {
-  const el = document.querySelector(`[data-live-node="${id}"]`);
-  if (!el) return null;
-  return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+  const part = document.querySelector(`[data-live-node="${id}"]`);
+  /* A block opened round what it holds is drawn by the box it stands in with them (`live/smallCss.ts`): its own element is see-through. */
+  const el = part && getComputedStyle(part).display === "contents" ? part.closest(".sm-g") : part;
+  const root = document.querySelector("[data-live-page]");
+  if (!el || !root) return null;
+  const r = el.getBoundingClientRect(), o = root.getBoundingClientRect(), k = o.width / root.offsetWidth;
+  return { x: Math.round((r.left - o.left) / k), y: Math.round((r.top - o.top) / k), w: Math.round(r.width / k), h: Math.round(r.height / k) };
 }, id);
 const H = await live("hdr"), L = await live("logo"), C = await live("cta");
 check("at Tablet the header is full bleed, as before", !!H && H.x === 0 && H.w === 834 && H.y === 0, H ? `${H.x},${H.y} ${H.w}×${H.h}` : "not placed");
-check("its logo and button are on its line, inside it, the button to the right — not queued under it in a pile", !!L && !!C && L.y === H.y + 21 && C.y === H.y + 21 && L.x >= H.x && C.x + C.w <= H.x + H.w + 1 && C.x > L.x + L.w, L && C ? `logo ${L.x},${L.y} ${L.w}×${L.h} · button ${C.x},${C.y} ${C.w}×${C.h}` : "not placed");
+check("its logo and button are on its line, inside it, the button to the right — not queued under it in a pile", !!L && !!C && Math.abs(L.y + L.h / 2 - (C.y + C.h / 2)) <= 12 && L.y >= H.y && C.y + C.h <= H.y + H.h + 1 && L.x >= H.x && C.x + C.w <= H.x + H.w + 1 && C.x > L.x + L.w, L && C ? `logo ${L.x},${L.y} ${L.w}×${L.h} · button ${C.x},${C.y} ${C.w}×${C.h} in ${H.x},${H.y} ${H.w}×${H.h}` : "not placed");
 const liveEdge = await page.evaluate(() => { const b = document.querySelector('[data-live-node="hdr"] [data-part-box]'); return b ? `${getComputedStyle(b).borderTopWidth} ${getComputedStyle(b).borderTopStyle} ${getComputedStyle(b).borderTopColor}` : null; });
 check("and the header wears its edge live too, so the board and the site agree", liveEdge === `1px solid ${EDGE}`, liveEdge ?? "-");
 
 const S = await live("strip"), K = [await live("card0"), await live("card1"), await live("card2")], F = await live("foot");
-check("the cards wrap into lines inside the strip", K.every(Boolean) && !!S && K[1].y > K[0].y && K[2].y > K[1].y && K.every((k) => k.x >= S.x && k.x + k.w <= S.x + S.w + 1 && k.y >= S.y && k.y + k.h <= S.y + S.h + 1), K.map((k) => k ? `${k.x},${k.y} ${k.w}×${k.h}` : "-").join(" · ") + (S ? ` in ${S.x},${S.y} ${S.w}×${S.h}` : ""));
+/* Inside the strip and none on top of another: two across where they fit, or one under another. */
+const apart = (a, b) => a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1 || a.y + a.h <= b.y + 1 || b.y + b.h <= a.y + 1;
+check("the cards wrap into lines inside the strip", K.every(Boolean) && !!S && apart(K[0], K[1]) && apart(K[1], K[2]) && apart(K[0], K[2]) && K[2].y > K[0].y && K.every((k) => k.x >= S.x && k.x + k.w <= S.x + S.w + 1 && k.y >= S.y && k.y + k.h <= S.y + S.h + 1), K.map((k) => k ? `${k.x},${k.y} ${k.w}×${k.h}` : "-").join(" · ") + (S ? ` in ${S.x},${S.y} ${S.w}×${S.h}` : ""));
 check("the strip grew to hold them", !!S && S.h > 232, S ? `${S.h} tall` : "-");
 check("and the foot sits under the strip, not on it", !!F && !!S && F.y >= S.y + S.h, F && S ? `foot at ${F.y}, strip ends ${S.y + S.h}` : "-");
 

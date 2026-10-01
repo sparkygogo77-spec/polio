@@ -31,6 +31,7 @@
  * case, and every page is still at its own address. Behaviour is what the
  * model is for, and it goes in the scaffold's components, not here.
  */
+import { TABLET_MAX } from "./live/small";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
@@ -335,6 +336,8 @@ export function staticSite(): SiteFile[] {
         /* Not a browser address: the page being written will be read from a
            repository, where the file sits at its own path beside it. */
         pictureAt: (pic) => `${"../".repeat(pageFile(page, home).split("/").length - 1)}${pic.path}`,
+        /* One page at every width: the tablet's and the phone's layouts are rules on the same parts (`live/smallCss.ts`), keyed to each part's id. */
+        smallAt: TABLET_MAX + 1,
       }),
       width,
       /*
@@ -362,7 +365,7 @@ ${links.map((h) => `<link rel="stylesheet" href="${esc(h)}">`).join("\n")}
 </head>
 <body>
 <div class="site-root">
-${body}
+${body.replace(/ data-live-node="([^"]+)"/g, ' data-live-node="$1" id="$1"')}
 </div>
 </body>
 </html>
@@ -381,6 +384,9 @@ ${body}
 /* The exported page's frame. */
 html, body { margin: 0; padding: 0; }
 .site-root { width: ${width}px; max-width: 100%; margin-inline: auto; }
+.sm-g, .sm-gi { display: contents; }
+.sm-br, .sm-menu-button, .sm-menu-panel { display: none; }
+@media (max-width: ${TABLET_MAX + 0.98}px) { .site-root { width: 100%; overflow-x: clip; } }
 `;
   files.push({ path: "assets/site.css", content: `${css}${frame}` });
   return files;

@@ -83,7 +83,8 @@ const text = await box("n_text");
 const clipped = await page.locator('[data-live-node="n_text"] [data-part]').first().evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
 const factor = text ? 1200 / text.width : 0;
 check("the text part is narrowed to the phone", !!text && text.width <= 390, text ? `${Math.round(text.width)} wide, ${factor.toFixed(2)}× narrower` : "not placed");
-check("and grew in height by about that factor, so its words are not cut off", !!text && text.height >= 80 * Math.min(factor, 4) * 0.9 && clipped.scroll <= clipped.client + 2, `${Math.round(text?.height ?? 0)} tall (was 80), content ${clipped.scroll} in ${clipped.client}`);
+/* The phone's page flows (docs/RESPONSIVE.md): a part is as tall as its words need, measured, not its desktop height times a guess. */
+check("and grew in height to hold its words, none cut off", !!text && text.height > 80 && clipped.scroll <= clipped.client + 2, `${Math.round(text?.height ?? 0)} tall (was 80), content ${clipped.scroll} in ${clipped.client}`);
 
 await page.evaluate(() => localStorage.clear());
 await browser.close();

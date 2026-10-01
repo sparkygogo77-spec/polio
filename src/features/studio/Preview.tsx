@@ -11,7 +11,7 @@
 import * as React from "react";
 import { Eye, GripHorizontal, Maximize2, Minimize2, Smartphone, Tablet } from "lucide-react";
 import { activePage, useStudio } from "./store";
-import { DEVICE_WIDTH, placeNodes } from "./live/layout";
+import { DEVICE_WIDTH } from "./live/layout";
 import { LiveSite } from "./live/LiveSite";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -42,7 +42,6 @@ export function PreviewWindow() {
 
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === activeId), [nodes, activeId]);
   const width = DEVICE_WIDTH[device];
-  const { height } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
   const boxW = SIZES[size];
   const scale = boxW / width;
 
@@ -182,8 +181,11 @@ export function PreviewWindow() {
       {open ? (
         <div data-live-scroller="" className={cn("relative overflow-y-auto", size === "l" ? "max-h-[54vh]" : "max-h-[40vh]")} onClickCapture={onPick}>
           {pageNodes.length ? (
-            <div style={{ width: boxW, height: Math.round(height * scale), position: "relative", overflow: "hidden" }}>
-              <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+            /* Drawn at the device's width and zoomed to the window: the box is as
+               tall as the page really draws, where it was sized from a guess
+               that came to 51,343px on a captured page and showed nothing. */
+            <div data-companion-page="" style={{ width: boxW, position: "relative", overflow: "hidden" }}>
+              <div style={{ width, zoom: scale }}>
                 <LiveSite pages={pages} nodes={nodes} pageId={activeId} device={device} frameWidth={frameWidth} format={format}
             look={look} siteName={siteName} shapes={shapes} />
               </div>

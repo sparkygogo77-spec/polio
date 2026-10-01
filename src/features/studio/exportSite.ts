@@ -66,6 +66,7 @@ import { useStudio, type StudioNode, type StudioPage } from "./store";
 import type { NodeLink } from "./parts/types";
 import { homeFor, type Home } from "./homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "./staticSite";
+import { TABLET_MAX } from "./live/small";
 import { fontFaceCss } from "./fonts";
 import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
@@ -656,6 +657,8 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (!el || !p || !el.parentElement || el.parentElement.closest("[data-live-node]")) continue;
     const hold = el.ownerDocument.createElement("div");
     hold.setAttribute("data-sticky-hold", "");
+    /* See-through under the desktop's width, where the parts are laid out by the page's small rules (`live/smallCss.ts`). */
+    hold.className = "sm-hold";
     /* Over the parts that flow past it, under a band that sticks to the whole page (the header, z-index 2): stuck under the header, it goes under it, as on the page. */
     hold.style.cssText = `position:absolute;left:0;top:${box.top}px;width:100%;height:${box.height}px;pointer-events:none;z-index:1`;
     el.parentElement.insertBefore(hold, el);
@@ -828,7 +831,8 @@ function frameCss(width: number, fluid: boolean): string {
      works, and no narrower than 1280 (or its own width, if less), below
      which the window scrolls. */
   if (fluid) return `html, body { background: var(--bg); }
-.site-root { width: 100%; min-width: ${Math.min(width, 1280)}px; }
+.site-root { width: 100%; min-width: ${smallFrom(width, true)}px; }
+${smallCss(smallFrom(width, true))}
 /* Scrolling, never a scrollbar: the original shows none (the owner's ruling). */
 html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
 ::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -836,7 +840,32 @@ html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
 ${SNAP_CSS}`;
   return `html, body { background: var(--bg); }
 body { container-type: inline-size; overflow-x: clip; }
-.site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }`;
+.site-root { width: ${width}px; zoom: tan(atan2(100cqw, ${width}px)); }
+${smallCss(smallFrom(width, false))}`;
+}
+
+/**
+ * Where the desktop's layout stops (`live/small.ts`): a captured page is
+ * drawn no narrower than its own width or 1280, so below that it is the
+ * tablet's; anything else turns at 1024. Below 600 it is the phone's.
+ */
+function smallFrom(width: number, fluid: boolean): number {
+  return fluid ? Math.min(width, 1280) : TABLET_MAX + 1;
+}
+
+/**
+ * The frame under the desktop's width: the window's own width, unscaled, and
+ * no box a container for what is fixed in it (the Menu's panel). Each part's
+ * own rules are the page's (`LiveSite`'s `smallAt`). The groups the page is
+ * nested in are see-through on the desktop; the Menu's key is not drawn there.
+ */
+function smallCss(wideFrom: number): string {
+  return `.sm-g, .sm-gi { display: contents; }
+.sm-br, .sm-menu-button, .sm-menu-panel { display: none; }
+@media (max-width: ${wideFrom - 0.02}px) {
+  body { container-type: normal; }
+  .site-root { width: 100%; min-width: 0; zoom: 1; overflow-x: clip; }
+}`;
 }
 
 /**
@@ -966,6 +995,16 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
           published: true,
           shapes: s.shapes,
           pictureAt: (pic) => `${up}${pic.path}`,
+          /*
+           * THE PAGE ON A TABLET AND ON A PHONE (`live/smallCss.ts`,
+           * docs/RESPONSIVE.md). The page was one layout at one width, and a
+           * phone was served it with a viewport of 1280: the whole desktop,
+           * shrunk, its words too small to read. It is still one page, each
+           * part drawn once, and below this width the tablet's and the
+           * phone's layouts are rules on those same parts, so every script
+           * and every motion runs at every width.
+           */
+          smallAt: smallFrom(width, fluidAt !== null),
         }),
         width,
         [],
@@ -997,7 +1036,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="${fluidAt ? `width=${Math.min(width, 1280)}` : "width=device-width, initial-scale=1"}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 ${pageHead({ title, name, description, icon, icons, up, address: pageAddress(page, home), live, site: siteHead, page: heldHead(page.head, held) })}
 <link rel="stylesheet" href="${up}assets/site.css">${motionSheets.has(sheetOf(page)) ? `\n<link rel="stylesheet" href="${up}${sheetFile(sheetOf(page))}">` : ""}
 </head>

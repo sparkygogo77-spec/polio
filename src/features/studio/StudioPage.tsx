@@ -783,6 +783,9 @@ const DEVICES = [
 ] as const;
 
 function DeviceSwitch({ width }: { width: number }) {
+  /* The view, not the width the page is designed at: Tablet and Phone show the page as those are served it (`SmallBoard.tsx`). */
+  const view = useStudio((s) => s.view);
+  void width;
   return (
     <div
       data-device-switch=""
@@ -792,18 +795,24 @@ function DeviceSwitch({ width }: { width: number }) {
     >
       {DEVICES.map((d) => {
         const w = FRAME_WIDTHS[d.key];
-        const on = width === w;
+        const on = view === d.key;
         const hue = `oklch(0.74 0.17 calc(var(--accent-h) + ${d.turn}))`;
         const Icon = d.icon;
         return (
-          <Tooltip key={d.key} content={`${d.label} · ${w}px, positions stay put and the frame shows what fits`}>
+          <Tooltip key={d.key} content={d.key === "desktop" ? `${d.label}: the page as designed` : `${d.label} · ${w}px: the page as a ${d.key} is served it, with its own settings for each part`}>
             <button
               type="button"
               role="radio"
               aria-checked={on}
               aria-label={d.label}
               data-device={d.key}
-              onClick={() => { play("select"); useStudio.getState().setFrameWidth(w); }}
+              onClick={() => {
+                play("select");
+                const s = useStudio.getState();
+                /* A page left at a tablet's or phone's width by the old switch is put back to the desktop's. */
+                if (d.key === "desktop" && (s.frameWidth === FRAME_WIDTHS.tablet || s.frameWidth === FRAME_WIDTHS.phone)) s.setFrameWidth(FRAME_WIDTHS.desktop);
+                s.setView(d.key);
+              }}
               className={cn(
                 "tactile inline-flex size-6 items-center justify-center rounded-sm [&_svg]:size-3.5",
                 on ? "bg-panel shadow-[0_1px_0_var(--border)]" : "opacity-70 hover:opacity-100",

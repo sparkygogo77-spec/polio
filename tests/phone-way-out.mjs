@@ -70,11 +70,12 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
   await page.waitForTimeout(2000);
 
   const size = () => page.evaluate(() => {
-    const win = document.querySelector("[data-page-window]");
+    /* The desktop's page window, or the phone's own page (`SmallBoard.tsx`) when Phone is on. */
+    const win = document.querySelector("[data-page-window]") ?? document.querySelector("[data-small-frame]");
     const pane = document.querySelector("[data-studio-pane]");
     const chip = [...document.querySelectorAll("button")].find((x) => /^\d+%$/.test((x.textContent ?? "").trim()));
-    return { page: Math.round(win.getBoundingClientRect().width), pane: Math.round(pane.clientWidth),
-      pct: chip ? chip.textContent.trim() : "?" };
+    return { page: win ? Math.round(win.getBoundingClientRect().width) : 0, pane: Math.round(pane.clientWidth),
+      pct: chip ? chip.textContent.trim() : "?", phone: !!document.querySelector('[data-small-frame="phone"]') };
   });
 
   /* 0. The bar is at most two rows, and gives the drawing the rest.
@@ -157,9 +158,10 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
   /* 5. The phone frame is the readable view, and Desktop returns from it. */
   const noPh = await press('[aria-label*="Phone" i]', 1, 900);
   const ph = await size();
-  check(`${tag}: pressing Phone gives a view drawn several times larger, still inside the pane`,
-    !noPh && ph.page <= ph.pane && parseInt(ph.pct, 10) > parseInt(fresh.pct, 10) * 2,
-    noPh ? `the Phone key is ${noPh}` : `the site drawn at ${fresh.pct} → ${ph.pct}, page ${ph.page} in a ${ph.pane} pane`);
+  /* Phone shows the page as a phone is served it (docs/RESPONSIVE.md), readable, inside the pane. */
+  check(`${tag}: pressing Phone shows the phone's own page, inside the pane`,
+    !noPh && ph.phone && ph.page > 0 && ph.page <= ph.pane,
+    noPh ? `the Phone key is ${noPh}` : `phone page ${ph.page} wide in a ${ph.pane} pane`);
   const noDe = await press('[aria-label*="Desktop" i]', 1, 900);
   const de = await size();
   check(`${tag}: and Desktop comes back, still inside the pane`,

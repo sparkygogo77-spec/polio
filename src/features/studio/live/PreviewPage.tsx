@@ -159,10 +159,10 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
           ref={site}
           style={stretch
             ? ({ width: "100%", minWidth: Math.min(frameWidth, 1280), position: "relative", "--pv-vh": `${room.h / 100}px`, "--pv-vw": `${room.w / 100}px` } as React.CSSProperties)
-            : { width: width * scale, height: height * scale, margin: inWindow ? 0 : "16px auto", position: "relative" }}
+            : { width: width * scale, ...(drawn === "desktop" ? { height: height * scale } : null), margin: inWindow ? 0 : "16px auto", position: "relative" }}
         >
           {/* A new page for each view: what the window view writes onto the parts is not React's, and must not outlive it. */}
-          <div key={stretch ? "window" : "frame"} style={stretch ? { width: "100%" } : { width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+          <div key={stretch ? "window" : "frame"} style={stretch ? { width: "100%" } : drawn === "desktop" ? { width, transform: `scale(${scale})`, transformOrigin: "0 0" } : { width, zoom: scale }}>
             <LiveSite
               features
               pages={pages}

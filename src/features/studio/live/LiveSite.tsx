@@ -19,6 +19,10 @@ import type { Picture } from "../pictures";
 import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
+import { planFor, SMALL_RULES, treeFor } from "./smallRules";
+import { PHONE_MAX, SMALL_WIDTH, type SmallDevice } from "./small";
+import { breakersFor, cssIdent, smallSheet } from "./smallCss";
+import { resolvePart } from "../parts";
 import { homeOf } from "../homePage";
 import { pageFeatures } from "../library/works";
 import { runWorks } from "./runWorks";
@@ -89,6 +93,12 @@ export interface LiveSiteProps {
    * the export's own render), so nothing plays while the board is shown.
    */
   features?: boolean;
+  /**
+   * The published page: one page for every width (`live/smallCss.ts`). The
+   * desktop is drawn as ever, each part once, and under this window width
+   * the tablet's and the phone's layouts are rules on those same parts.
+   */
+  smallAt?: number;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -107,13 +117,29 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, features = false }: LiveSiteProps) {
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, features = false, smallAt }: LiveSiteProps) {
   const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published }), [format, look, siteName, published]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
   const wash = React.useMemo(() => washCss(light), [light]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
-  const { width, height: laidOut, placed, reflowed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
+  /*
+   * ONE PAGE AT EVERY WIDTH. On a tablet or a phone the page is its plan
+   * (`small.ts`), not the desktop's boxes narrowed; and it is the desktop's
+   * own parts, each drawn once where the desktop draws it, nested by what
+   * holds what, laid out at that width by rules (`smallCss.ts`). The
+   * published page is the same page with the rules under media queries.
+   */
+  const small = device === "desktop" ? null : device;
+  const nested = !!small || (!!smallAt && depth === 0);
+  const { width, height: laidOut, placed, reflowed } = React.useMemo(() => placeNodes(pageNodes, nested ? "desktop" : device, frameWidth), [pageNodes, device, frameWidth, nested]);
+  const planNodes = React.useMemo(() => pageNodes.filter((n) => resolvePart(n.featureId)?.tier !== "B"), [pageNodes]);
+  const plans = React.useMemo(() => {
+    if (!nested) return null;
+    const devices: SmallDevice[] = small ? [small] : ["tablet", "phone"];
+    return devices.map((d) => planFor(planNodes, d, frameWidth));
+  }, [nested, small, planNodes, frameWidth]);
+  const tree = React.useMemo(() => (nested ? treeFor(planNodes) : null), [nested, planNodes]);
   /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
   const leads = React.useMemo(() => leadsOf(pageNodes), [pageNodes]);
   /*
@@ -235,48 +261,121 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         ? "slide-in-right var(--motion-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both"
         : "fade-in var(--motion-base) ease-out both";
 
+  /* One part, where the desktop draws it. */
+  const partOf = (p: (typeof placed)[number]) => (
+    <div
+      key={p.node.id}
+      data-live-node={p.node.id}
+      {...nodeProps?.(p.node)}
+      className={nested ? ((p.node as { state?: unknown }).state ? "sm-p sm-state" : "sm-p") : undefined}
+      style={{
+        position: "absolute", left: p.x, top: p.y, width: p.w,
+        // A part the page never let take a press (the grain over everything, a decoration): presses pass through it.
+        ...((p.node as { inert?: boolean }).inert ? { pointerEvents: "none" as const } : null),
+        // The same floor the board gives a box: its words are never
+        // cut off, whatever height the capture measured.
+        minHeight: p.h, display: "flex", flexDirection: "column",
+        ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
+        // Its entrance. The board draws the finished state; this is the
+        // only place a part is seen arriving.
+        animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
+        // A part a press shows: hidden where the page opens, until the press (`Show on press`) shows it.
+        ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
+      }}
+    >
+      <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
+    </div>
+  );
+  /*
+   * NESTED BY WHAT HOLDS WHAT. A part that holds others stands in a box with
+   * them (`.sm-g`), see-through on the desktop (`display: contents`), so
+   * every part is still placed against the page and drawn in the order it
+   * was. At a small width the rules lay the box out: opened round what it
+   * holds, or kept whole and scaled.
+   */
+  const byId = new Map(placed.map((p, i) => [p.node.id, { p, i }]));
+  const keys = new Map<string, number>();
+  const keyOf = (id: string): number => {
+    const known = keys.get(id);
+    if (known !== undefined) return known;
+    const k = Math.min(byId.get(id)?.i ?? Infinity, ...(tree?.kids.get(id) ?? []).map((c) => keyOf(c.id)));
+    keys.set(id, k);
+    return k;
+  };
+  const breaks = React.useMemo(() => (plans && tree ? breakersFor(plans, (id) => tree.kids.has(id)) : new Map<string, number>()), [plans, tree]);
+  const breakers = (c: string) => Array.from({ length: breaks.get(c) ?? 0 }, (_, i) => <i key={`br${i}`} className="sm-br" aria-hidden style={{ display: "none" }} />);
+  const unit = (id: string): React.ReactNode => {
+    const kids = (tree?.kids.get(id) ?? []).filter((c) => byId.has(c.id) || tree?.kids.has(c.id));
+    const own = byId.get(id);
+    if (!kids.length) return own ? partOf(own.p) : null;
+    const members = [id, ...kids.map((c) => c.id)].sort((x, y) => (x === id ? byId.get(id)?.i ?? Infinity : keyOf(x)) - (y === id ? byId.get(id)?.i ?? Infinity : keyOf(y)));
+    return (
+      <div key={`g:${id}`} className={`sm-g g-${id}`} style={{ display: "contents" }}>
+        <div className="sm-gi" style={{ display: "contents" }}>
+          {members.map((m) => (m === id ? (own ? partOf(own.p) : null) : unit(m)))}
+          {breakers(id)}
+        </div>
+      </div>
+    );
+  };
+  /* The rules for each width this page is drawn at: scoped to this page on the board, under media queries when published. */
+  const smallCss = React.useMemo(() => {
+    if (!plans || !tree) return "";
+    const holds = (id: string) => tree.kids.has(id);
+    const parentOf = (id: string) => tree.parent.get(id) ?? null;
+    const stated = (id: string) => !!(pageNodes.find((n) => n.id === id) as { state?: unknown } | undefined)?.state;
+    const group = (id: string) => `.g-${cssIdent(id)}`;
+    const control = (id: string) => { const n = pageNodes.find((x) => x.id === id); return !!n && SMALL_RULES.isControl(n); };
+    if (small) {
+      return smallSheet(plans[0]!, { part: (id) => `[data-live-node="${id.replace(/["\\]/g, "\\$&")}"]`, group, holds, parentOf, stated, control, scope: `[data-live-page="${pageId}"][data-live-device="${small}"] `, pageWidth: `${SMALL_WIDTH[small]}px`, narrowest: small === "phone" ? 320 : PHONE_MAX + 1 });
+    }
+    const at = (d: SmallDevice) => smallSheet(plans.find((p) => p.device === d)!, { part: (id) => `#${cssIdent(id)}`, group, holds, parentOf, stated, control, scope: "", pageWidth: "100%", narrowest: d === "phone" ? 320 : PHONE_MAX + 1 });
+    const wideFrom = smallAt ?? 1024;
+    return `@media (max-width: ${wideFrom - 0.02}px) and (min-width: ${PHONE_MAX + 1}px) {\n${at("tablet")}\n}\n@media (max-width: ${PHONE_MAX + 0.98}px) {\n${at("phone")}\n}`;
+  }, [plans, tree, small, smallAt, pageId, pageNodes]);
+  /* The menu's key, when a width has one: a checkbox in a label holds it open, no script. */
+  const hasMenu = !!plans?.some((p) => p.items.some((x) => x.kind === "menu"));
+  const menuKey = hasMenu ? (
+    <>
+      <label className="sm-menu-button" data-small-menu-button="" style={{ display: "none", alignItems: "center", gap: 8, padding: "0 16px", boxSizing: "border-box", borderRadius: Math.min(t.radius, 12), border: `1px solid ${t.line}`, background: t.surface, color: t.text, fontFamily: t.bodyFamily, fontSize: 16, cursor: "pointer", userSelect: "none", position: "relative", zIndex: 22 }}>
+        <input type="checkbox" className="sm-menu-toggle" style={{ position: "absolute", opacity: 0, width: 1, height: 1, margin: 0, pointerEvents: "none" }} />
+        <span aria-hidden className="sm-glyph" />
+        Menu
+      </label>
+      <div aria-hidden className="sm-menu-panel" data-small-menu-panel="" style={{ display: "none", background: t.surface, border: `1px solid ${t.line}`, borderRadius: Math.min(t.radius, 12), boxShadow: "0 12px 32px oklch(0 0 0 / .3)" }} />
+    </>
+  ) : null;
+
   return (
     <div
       ref={rootRef}
       data-live-root=""
       data-live-page={pageId}
-      style={{ width, height, position: "relative", overflow: "hidden", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
+      data-live-device={device}
+      {...(small ? { "data-small-page": small } : null)}
+      className={nested ? "sm-page" : undefined}
+      style={{ width, height, overflow: "hidden", position: "relative", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
       <TextureDrift layers={look?.texture} palette={palette} />
       <CarriedFonts fonts={look?.fonts} />
       {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}
       {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface} published={published}>
-        <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
+        <div key={pageId} className="sm-root" style={{ position: "absolute", inset: 0, animation }}>
           {/* The pool the lamp puts on the page ("Light on the page"), as the
               board draws it (Canvas, data-frame-light): under the parts, so
               they stand in it. Only the board drew it, so the wash that
               changed 41% of the board changed nothing in Preview or on the
               published page. */}
           {wash ? <div aria-hidden data-live-light="" style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: wash }} /> : null}
-          {placed.map((p) => (
-            <div
-              key={p.node.id}
-              data-live-node={p.node.id}
-              {...nodeProps?.(p.node)}
-              style={{
-                position: "absolute", left: p.x, top: p.y, width: p.w,
-                // A part the page never let take a press (the grain over everything, a decoration): presses pass through it.
-                ...((p.node as { inert?: boolean }).inert ? { pointerEvents: "none" as const } : null),
-                // The same floor the board gives a box: its words are never
-                // cut off, whatever height the capture measured.
-                minHeight: p.h, display: "flex", flexDirection: "column",
-                ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
-                // Its entrance. The board draws the finished state; this is the
-                // only place a part is seen arriving.
-                animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
-                // A part a press shows: hidden where the page opens, until the press (`Show on press`) shows it.
-                ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
-              }}
-            >
-              <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
-            </div>
-          ))}
+          {nested ? (
+            <>
+              {menuKey}
+              {smallCss ? <style data-small-css="">{smallCss}</style> : null}
+              {(tree?.roots ?? []).filter((n) => byId.has(n.id)).sort((x, y) => keyOf(x.id) - keyOf(y.id)).map((n) => unit(n.id))}
+              {breakers("")}
+            </>
+          ) : placed.map((p) => partOf(p))}
           {sections.map((sec) => (
             <div
               key={sec.id}

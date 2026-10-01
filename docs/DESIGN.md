@@ -409,6 +409,18 @@ same boxes as everywhere else, in the screen's colours.
   however it is grown, Escape puts it away, its close button sits by its
   name, and a search lists this page's parts before the shelf's.
   `tests/shelf-strip.mjs`.
+- **Tablet and Phone show the page as those are served it, never the
+  desktop cut off.** One plan (`live/small.ts`), and one page drawn once with
+  that plan as rules on its parts (`live/smallCss.ts`), for the board's Tablet
+  and Phone views, Preview, the companion window and the published page
+  (where the rules sit under media queries: one element per part, every
+  script and motion at every width): the capture's own layout at that
+  width when it has one, else a sensible stack in the desktop's reading
+  order (a Menu for the nav, buttons full width and a tap tall, titles scaled
+  to fit, pictures fitted, side decorations left out), with the person's
+  per-part "On tablet" / "On phone" settings on top. A setting at one width
+  changes nothing at another. Format and rules: `docs/RESPONSIVE.md`;
+  `tests/small-plan.mjs`, `tests/small-pages.mjs`.
 
 ## 3. The drawing board
 

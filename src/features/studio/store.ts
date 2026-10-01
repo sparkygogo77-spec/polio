@@ -293,6 +293,16 @@ export interface StudioNode {
    * blueprint can say a part is a recreation rather than an invention.
    * Absent on every part that was drawn or placed.
    */
+  /**
+   * ON A TABLET AND ON A PHONE (`live/small.ts`, docs/RESPONSIVE.md).
+   *
+   * `small` is what the person asked of this part at each width: show or
+   * hide, full width, its place in the order, its size. A rule at one width
+   * changes nothing at the other or on the desktop. `widths` is where the
+   * site itself put the part at that width, when a capture recorded it.
+   */
+  small?: Partial<Record<"tablet" | "phone", import("./live/small").DeviceRule>> | null;
+  widths?: Partial<Record<"tablet" | "phone", import("./live/small").SizedBox>> | null;
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
   from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
   /**
@@ -737,6 +747,16 @@ interface StudioState extends Doc {
    * compared live.
    */
   menuShape: "square" | "round";
+  /**
+   * Which page the board shows: the desktop, or the page on a tablet or a
+   * phone (`live/small.ts`). Separate from `frameWidth`, which is the width
+   * the page is designed at: Tablet and Phone used to set that, so the
+   * desktop's boxes were drawn in a narrower frame and cut off.
+   */
+  view: "desktop" | "tablet" | "phone";
+  setView: (v: "desktop" | "tablet" | "phone") => void;
+  /** What a part does at one width, merged into its rule there; null takes the rule away. One step of undo. */
+  setSmallRule: (id: string, device: "tablet" | "phone", patch: Partial<import("./live/small").DeviceRule> | null) => void;
   /**
    * Placing the page's lamp by hand: the board dims everywhere but the page,
    * the pointer becomes the light, and the next press puts it down.
@@ -1697,6 +1717,7 @@ export const useStudio = create<StudioState>()(
         ...starterDoc(),
         frameWidth: FRAME_WIDTHS.desktop,
         menuShape: "square",
+        view: "desktop",
         placingLight: false,
         placedLight: null,
         lightCarry: null,
@@ -2546,6 +2567,21 @@ export const useStudio = create<StudioState>()(
         },
         setPan: (p) => set({ pan: p }),
         setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
+        setView: (v) => set((s) => ({ view: v, fitNonce: s.fitNonce + 1 })),
+        setSmallRule: (id, device, patch) => {
+          push();
+          set((s) => ({
+            nodes: s.nodes.map((n) => {
+              if (n.id !== id) return n;
+              const was = n.small?.[device] ?? {};
+              const next = patch === null ? null : Object.fromEntries(Object.entries({ ...was, ...patch }).filter(([, v]) => v !== undefined && v !== null));
+              const small = { ...(n.small ?? {}) };
+              if (next && Object.keys(next).length) small[device] = next;
+              else delete small[device];
+              return { ...n, small: Object.keys(small).length ? small : null };
+            }),
+          }));
+        },
         requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
         setPositions: (positions) =>
           set((s) => ({ nodes: s.nodes.map((n) => (positions[n.id] && !n.locked ? { ...n, ...positions[n.id]! } : n)) })),
@@ -3301,6 +3337,7 @@ function docOnly(s: StudioState) {
         sentPieces: s.sentPieces,
         companion: s.companion,
         menuShape: s.menuShape,
+        view: s.view,
         menuSpin: s.menuSpin,
         recentColours: s.recentColours,
         frameWidth: s.frameWidth,

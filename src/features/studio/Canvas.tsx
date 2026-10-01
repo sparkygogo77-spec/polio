@@ -47,6 +47,7 @@ import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
 import { useDrawKit } from "./DrawKits";
 import { nearlyClosed, shapeFromLine, toBox, wornFor } from "./wornShape";
 import { ownsOthers } from "./holds";
+import { SmallBoard } from "./SmallBoard";
 import { partName } from "./partNames";
 import { ownerOf, parentOf, ridersOf, wordsIn, wordsOf } from "./owner";
 import { editingWords, openWords, WordsInPlace } from "./WordsInPlace";
@@ -182,7 +183,16 @@ interface Guides {
   y: number[];
 }
 
+/**
+ * The board: the desktop page with its boxes, or the page on a tablet or a
+ * phone (`SmallBoard.tsx`), as the switch in the bar says.
+ */
 export function Canvas() {
+  const view = useStudio((s) => s.view);
+  return view === "tablet" || view === "phone" ? <SmallBoard device={view} /> : <DesktopCanvas />;
+}
+
+function DesktopCanvas() {
   const ref = React.useRef<HTMLDivElement>(null);
   const news = useActions();
   /* A carried face that will not load is said, once per face, with why:
