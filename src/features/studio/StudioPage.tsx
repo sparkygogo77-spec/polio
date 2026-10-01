@@ -8,6 +8,7 @@
  */
 import { RemakeCard } from "./RemakePicture";
 import { putComponent } from "./SavedComponents";
+import { RemixCard } from "./RemixCard";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -1437,6 +1438,7 @@ export function StudioPage() {
           {/* "Remake this picture…", opened from the wheel's tray or a parts-tree row. */}
           <RemakeCard />
           <LearnedDialog />
+          <RemixCard />
           {/*
             The one scroller: the site, then the categories under it.
 

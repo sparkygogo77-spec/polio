@@ -51,6 +51,7 @@ import { usesOf } from "./library/works";
 import { LookCopy } from "./LookCopy";
 import { MakeAllLike } from "./MakeAllLike";
 import { KitStyles } from "./KitStyles";
+import { RemixKept } from "./RemixCard";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 const VERSION_ONLY = ["version"] as const;
@@ -620,6 +621,7 @@ export function Inspector() {
           <Field label="Look" hint="Paste a copied look on all of these, in one step.">
             <LookCopy node={null} targets={selNodes.map((n) => n.id)} />
           </Field>
+          <RemixKept nodes={selNodes} />
           {sharedGroup ? (
             <>
               <Field label="Group name">
@@ -844,6 +846,7 @@ export function Inspector() {
         </PanelSection>
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+          <RemixKept nodes={[node]} />
           <LookCopy node={node} targets={[node.id]} />
           <Field label="Styles" hint="This site's own styles. Point at one to see it on the part; click to put it on.">
             <KitStyles node={node} />

@@ -46,7 +46,7 @@ import * as React from "react";
    same way: this line conflicted three times in one night otherwise.
    Sorted is not the same as union — an icon dropped on purpose stays
    dropped, and the wheel's Edit slot is why. */
-import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, CopyPlus, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, CopyPlus, Shuffle, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -72,6 +72,7 @@ import { useActions } from "@/core/actions";
 import { makeSolid, showCube } from "./solidRun";
 import { lookOf } from "./partLook";
 import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "./partLookApply";
+import { openRemix } from "./RemixCard";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -974,6 +975,8 @@ export function RadialMenu() {
         // "Here" means here: the board's own Preview, the same as `p`, not the full address the part's tray goes to.
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); s().setMode("preview"); } },
         { id: "paste", label: "Put the background back", icon: <ClipboardPaste className="size-3" />, disabled: !heldBackground(), onClick: () => { s().pasteBackground(); } },
+        /* A part from one of your other sites, placed here in this site's look (RemixCard.tsx). */
+        { id: "remix", label: "Bring from another site…", icon: <Shuffle className="size-3" />, onClick: () => { closeRadial(); openRemix(); } },
       ]
     : [
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
@@ -990,6 +993,8 @@ export function RadialMenu() {
           id: "paste", label: "Paste look", icon: <ClipboardPaste className="size-3" />, disabled: !heldLook,
           onClick: () => { if (!heldLook) return; const n = pasteLook(pasteTargets(node!, heldLook), heldLook, useLookClip.getState().chosen); play(n ? "confirm" : "deny"); },
         },
+        /* On a captured page there may be no bare page left to right-click: every part's tray can bring one too, landing where the person is looking. */
+        { id: "remix", label: "Bring from another site…", icon: <Shuffle className="size-3" />, onClick: () => { closeRadial(); openRemix(); } },
         /* Make all like this: every part of this kind on the site wears its look, with the facets and the keep-colour choice the panel holds (MakeAllLike.tsx). */
         {
           id: "make-all", label: "All like this", icon: <CopyPlus className="size-3" />,

@@ -33,7 +33,12 @@ export async function launch() {
   return chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 }
 
-export async function openSite(browser, BASE, root, site, { width = 1500, height = 1000 } = {}) {
+/**
+ * `others`: more sites in Builds beside the open one, each stored as a big
+ * board is (docStore.ts): the document in IndexedDB (`builder.docs`/`docs`,
+ * keyed `builder.doc:<id>`) and a pointer to it in localStorage.
+ */
+export async function openSite(browser, BASE, root, site, { width = 1500, height = 1000, others = [] } = {}) {
   const page = await browser.newPage({ viewport: { width, height } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -45,6 +50,22 @@ export async function openSite(browser, BASE, root, site, { width = 1500, height
     localStorage.setItem("builder.builds", env({ projects: [{ id: site, name: site, updatedAt: Date.now() }], activeId: site }));
     localStorage.setItem("builder.studio", env({ nodes: [] }));
   }, site);
+  for (const o of others) {
+    const text = JSON.stringify({ state: siteDoc(root, o), version: 0 });
+    await page.evaluate(async ([id, text]) => {
+      await new Promise((done, no) => {
+        const req = indexedDB.open("builder.docs", 1);
+        req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains("docs")) req.result.createObjectStore("docs"); };
+        req.onerror = () => no(req.error);
+        req.onsuccess = () => { const tx = req.result.transaction("docs", "readwrite"); tx.objectStore("docs").put(text, `builder.doc:${id}`); tx.oncomplete = () => done(); tx.onerror = () => no(tx.error); };
+      });
+      const doc = JSON.parse(text).state;
+      localStorage.setItem(`builder.doc:${id}`, JSON.stringify({ idb: true, bytes: text.length, pages: doc.pages.length, parts: doc.nodes.length, siteRepo: null }));
+      const b = JSON.parse(localStorage.getItem("builder.builds"));
+      b.state.projects.push({ id, name: id, updatedAt: Date.now() - 1000 });
+      localStorage.setItem("builder.builds", JSON.stringify(b));
+    }, [o, text]);
+  }
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
   const doc0 = siteDoc(root, site);

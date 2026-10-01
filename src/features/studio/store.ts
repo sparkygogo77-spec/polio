@@ -28,6 +28,7 @@ import type { SiteHead } from "./siteHead";
 import { formatDefaults, type FormatValues } from "./format";
 import { swapColour, swapFont, type ColourUse, type FaceTo } from "./siteColours";
 import type { Palette } from "./look";
+import type { CarriedFont } from "./fonts";
 import { defaultLight, defaultRoll, delayMs, emptyLook, type ThemeRollSettings, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
 /**
@@ -59,6 +60,7 @@ import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { Worn } from "./wornShape";
 import type { SiteTheme } from "./siteTheme";
 import { buildStarter, isStarter, type TryItem } from "./starterPage";
+import type { Remixed } from "./remix";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
 import type { DrawnVector, VectorRole } from "./vector";
@@ -395,6 +397,12 @@ export interface StudioNode {
    * part that was not drawn this way.
    */
   worn?: Worn | null;
+  /**
+   * Taken from another site's board (Remix, `remix.ts`): the site and part it
+   * came from, the look it wore there, and whether it keeps that look
+   * (`kept`) or wears this site's. Optional: absent on every other part.
+   */
+  remix?: Remixed | null;
   /**
    * The owner said this pressable part goes nowhere on purpose (a label drawn
    * as a button, a decoration shaped like a link). It answers the orange !
@@ -1122,6 +1130,14 @@ interface StudioState extends Doc {
   /** Hold a copy of these parts for paste, leaving them where they are. */
   copyNodes: (ids: string[]) => boolean;
   pasteNodes: () => boolean;
+  /**
+   * Parts from elsewhere (another site's board: Remix) put on the open page
+   * as they are given, each with a new id, as one undo step; held together
+   * as a group when there is more than one and `group` names it; the faces
+   * they are set in added to the site's carried fonts. Returns the new ids,
+   * which are picked.
+   */
+  placeNodes: (nodes: StudioNode[], opts?: { group?: string; fonts?: CarriedFont[] }) => string[];
   cut: () => boolean;
   paste: () => boolean;
   setTool: (t: Tool) => void;
@@ -2541,6 +2557,20 @@ export const useStudio = create<StudioState>()(
           if (!nodes.length) return false;
           held = { kind: "nodes", nodes };
           return true;
+        },
+        placeNodes: (given, opts = {}) => {
+          if (!given.length) return [];
+          push();
+          const ids: string[] = [];
+          set((s) => {
+            const gid = opts.group && given.length > 1 ? uid("g") : null;
+            const copies = given.map((n) => { const id = uid("n"); ids.push(id); return { ...n, id, pageId: s.activePageId, groupId: gid }; });
+            const groups = gid ? [...s.groups, { id: gid, pageId: s.activePageId, label: opts.group!, prompt: "", hue: HUES[s.groups.length % HUES.length]!, locked: true }] : s.groups;
+            const have = new Set((s.look.fonts ?? []).map((f) => f.id));
+            const fonts = (opts.fonts ?? []).filter((f) => !have.has(f.id));
+            return { nodes: [...s.nodes, ...copies], groups, selection: ids, ...(fonts.length ? { look: { ...s.look, fonts: [...(s.look.fonts ?? []), ...fonts] } } : {}) };
+          });
+          return ids;
         },
         pasteNodes: () => {
           if (held?.kind !== "nodes") return false;

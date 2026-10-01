@@ -87,6 +87,8 @@ interface NodeSpec {
   outline: string | null;
   /** A shape drawn wearing a site's style kit, in words. */
   worn: string | null;
+  /** Taken from another site, in words: where from, and whose look it wears. */
+  remix: string | null;
   /** What the drawn shape means the part does. */
   kind: string | null;
   /** The six faces, when it is a cube: what is on each, and what is blank. */
@@ -440,6 +442,7 @@ export function compileSpec(input: CompileInput): Spec {
               }).join("; ")}. A blank face is blank on purpose; do not fill it in. The object is ${n.w} × ${n.h} and as deep as its shorter side: a square box is a cube, a wider one is a wider box.`
             : null,
           worn: n.worn ? wornWords(n.worn) : null,
+          remix: n.remix ? `taken from ${n.remix.site}, ${n.remix.kept ? "keeping the look it wore there" : "restyled to this site's look"}` : null,
           outline: n.outline
             ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points, the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
             : null,
@@ -711,6 +714,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
         if (e.outline) L.push(`  - outline: ${e.outline}`);
         if (e.worn) L.push(`  - drawn shape: ${e.worn}`);
+        if (e.remix) L.push(`  - remix: ${e.remix}`);
         if (e.kind) L.push(`  - the shape means: ${e.kind}`);
         if (e.faces) L.push(`  - faces: ${e.faces}`);
         if (e.body) L.push(`  - body: ${e.body}`);
