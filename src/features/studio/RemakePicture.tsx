@@ -338,7 +338,7 @@ function Thumb({ pic, on, first, onPick }: { pic: Picture; on: boolean; first: b
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="" className="size-full object-cover" />
       ) : <span className="text-fine text-fg-faint">…</span>}
-      {first ? <span className="absolute inset-x-0 bottom-0 bg-black/60 text-center text-[9px] leading-tight text-white">original</span> : null}
+      {first ? <span className="absolute inset-x-0 bottom-0 bg-black/60 text-center text-fine leading-tight text-white">original</span> : null}
     </button>
   );
 }

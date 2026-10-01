@@ -222,7 +222,8 @@ await tab("Look");
 const first = await side.locator("[data-look-panel] > section").first().getAttribute("data-site-colours");
 check("on a captured site, Look leads with \"On this site\"", first === "", String(first));
 /* The six colours parts can follow are "Colours for new parts", under More colours (Lane I). */
-await side.locator("[data-role-more] > button[aria-expanded]").first().evaluate((b) => { if (b.getAttribute("aria-expanded") !== "true") b.click(); });
+/* Every fold in Look opened, not only the first: a colour group that lands under a fold is still reached by name (line 237 pressed a fill swatch a fold had hidden). */
+await side.locator("[data-role-more] > button[aria-expanded]").evaluateAll((bs) => bs.forEach((b) => { if (b.getAttribute("aria-expanded") !== "true") b.click(); }));
 await page.waitForTimeout(300);
 check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
 check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
@@ -238,6 +239,7 @@ await page.waitForTimeout(200);
 
 const fills = side.locator('[data-site-group="fill"]');
 const before = await fills.locator("[data-site-swatch]").count();
+await fills.locator("[data-site-swatch]").first().scrollIntoViewIfNeeded();
 await fills.locator("[data-site-swatch]").first().click();
 await page.waitForTimeout(400);
 const partRow = side.locator("[data-site-part]:not([data-site-part=\"@page\"])").first();

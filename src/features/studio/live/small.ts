@@ -66,6 +66,8 @@ export interface SmallNode {
   /** The site's own boxes per width, from a capture. */
   widths?: Partial<Record<SmallDevice, SizedBox>> | null;
   from?: { selector?: string; position?: string } | null;
+  /** A part a press shows (`Show on press`): not drawn where the page opens. */
+  state?: unknown;
 }
 
 /** What the plan needs to know about a part, asked of the caller. */
@@ -201,19 +203,33 @@ export function smallPlan<N extends SmallNode>(all: readonly N[], device: SmallD
   const ruleOf = (n: N): DeviceRule => n.small?.[device] ?? {};
   const hidden: string[] = [];
 
-  /* 1. The site's own layout at this width, when the capture has it for most of the page. */
-  const sized = all.filter((n) => n.widths?.[device]);
-  if (all.length && sized.length >= all.length * 0.5) {
+  /*
+   * 1. The site's own layout at this width, when the capture has it for most
+   * of the page AS IT OPENS. A part a press shows (a menu, a popup, a pup's
+   * panel) was never on screen when the capture measured the small widths,
+   * so it has no box there; counting it sank whole captured pages under half
+   * (gotchi 6 of 13, parasiteonsol 6 of 12) while every page had 90 to 100
+   * per cent of what it draws at rest. So only parts drawn at rest are
+   * counted, and the ones a press shows are laid out inside their panel
+   * below (`panelBoxes`), never hidden.
+   */
+  const atRest = (n: N) => !n.state;
+  const rest = all.filter(atRest);
+  const sized = rest.filter((n) => n.widths?.[device]);
+  if (rest.length && sized.length >= rest.length * 0.5) {
     const boxes: SmallPlan<N>["boxes"] = [];
+    const unboxed: N[] = [];
     for (const n of all) {
       const b = n.widths?.[device];
       const r = ruleOf(n);
-      if (!b || (b.hidden && r.show !== "show") || r.show === "hide") { hidden.push(n.id); continue; }
+      if (r.show === "hide" || (b?.hidden && r.show !== "show")) { hidden.push(n.id); continue; }
+      if (!b) { if (atRest(n)) hidden.push(n.id); else unboxed.push(n); continue; }
       const k = Math.max(0.5, Math.min(1.5, r.size ?? 1));
       const w = r.full ? width : Math.min(width, Math.round(b.w * k));
       boxes.push({ node: n, x: r.full ? 0 : Math.max(0, Math.min(width - w, b.x)), y: b.y, w, h: Math.round(b.h * (w / Math.max(1, b.w))) });
     }
-    const height = Math.max(320, ...boxes.map((b) => b.y + b.h));
+    boxes.push(...panelBoxes(all, unboxed, boxes, width, rules.holds));
+    const height = Math.max(320, ...boxes.filter((b) => atRest(b.node)).map((b) => b.y + b.h));
     return { device, width, mode: "site", items: [], boxes, height, hidden };
   }
 
@@ -381,6 +397,70 @@ export function smallPlan<N extends SmallNode>(all: readonly N[], device: SmallD
   const items = lay(allRoots, A).map((it) => ((it.kind === "part" || it.kind === "keep" || it.kind === "open") && it.node.w >= W * FULL_BLEED ? { ...it, bleed: true } : it)) as SmallItem<N>[];
   if (menu.length) items.unshift({ kind: "menu", links: menu, holders });
   return { device, width, mode: "made", items, boxes: [], height: 0, hidden };
+}
+
+/**
+ * PARTS A PRESS SHOWS, LAID OUT INSIDE THEIR PANEL at a small width, where
+ * the capture had no box for them (they were not on screen when it measured).
+ *
+ * A panel is the outermost part of a run a press shows (`state`). Where the
+ * panel has a box at this width, what it holds is placed in it, scaled from
+ * its desktop arrangement. Where it has none, the panel takes the page's
+ * width less the gap, under the last part at rest above it, and what it holds
+ * is stacked down it in reading order: each block kept whole, scaled to fit
+ * the panel's inside and never blown up past its own size. Nothing is left
+ * out: a menu that cannot be seen at a phone's width is a menu that does not
+ * work there.
+ */
+function panelBoxes<N extends SmallNode>(all: readonly N[], unboxed: readonly N[], boxes: SmallPlan<N>["boxes"], width: number, holds: (a: N, b: N) => boolean): SmallPlan<N>["boxes"] {
+  if (!unboxed.length) return [];
+  const { kids } = treeOf(all, holds);
+  const parent = new Map<string, N>();
+  for (const [pid, ks] of kids) { const p = all.find((x) => x.id === pid)!; for (const k of ks) parent.set(k.id, p); }
+  const boxOf = new Map(boxes.map((b) => [b.node.id, b]));
+  const out: SmallPlan<N>["boxes"] = [];
+  const placed = new Set<string>();
+  const place = (n: N, x: number, y: number, w: number, h: number) => { if (placed.has(n.id) || boxOf.has(n.id)) return; placed.add(n.id); out.push({ node: n, x: Math.round(x), y: Math.round(y), w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) }); };
+  /* A block and everything it holds, scaled by k from its desktop place to (x, y). */
+  const scaled = (n: N, x: number, y: number, k: number) => {
+    place(n, x, y, n.w * k, n.h * k);
+    for (const m of under(n, kids)) if (!boxOf.has(m.id)) place(m, x + (m.x - n.x) * k, y + (m.y - n.y) * k, m.w * k, m.h * k);
+  };
+  /* The panels: unboxed parts a press shows whose holder is not one too. */
+  const isPanelPart = (n: N | undefined) => !!n && !!n.state;
+  const panels = unboxed.filter((n) => !isPanelPart(parent.get(n.id)));
+  for (const R of panels) {
+    if (placed.has(R.id)) continue;
+    const own = boxOf.get(R.id);
+    if (own) { scaled(R, own.x, own.y, own.w / Math.max(1, R.w)); continue; }
+    /* Where it stands: inside its holder's box when that has one, else under the last part at rest above it. */
+    const holder = parent.get(R.id);
+    const hb = holder ? boxOf.get(holder.id) : undefined;
+    const above = [...boxes].filter((b) => !b.node.state && b.node.y + b.node.h <= R.y + 1).sort((a, b) => (b.node.y + b.node.h) - (a.node.y + a.node.h))[0];
+    const pw = hb ? Math.min(hb.w, width - SMALL_GAP * 2) : Math.min(width - SMALL_GAP * 2, R.w);
+    const x0 = hb ? hb.x : Math.round((width - pw) / 2);
+    const y0 = hb ? hb.y + Math.max(0, (R.y - holder!.y) * (hb.w / Math.max(1, holder!.w))) : above ? above.y + above.h + SMALL_GAP : SMALL_GAP;
+    const k = pw / Math.max(1, R.w);
+    if (k >= KEEP_TEXT) { scaled(R, x0, y0, k); continue; }
+    /* Too narrow to keep its arrangement legible: what it holds goes down it, a block at a time. */
+    const inner = pw - SMALL_GAP * 2;
+    let y = y0 + SMALL_GAP;
+    for (const row of rowsOf(kids.get(R.id) ?? [])) {
+      for (const c of row) {
+        const kc = Math.min(1, inner / Math.max(1, c.w));
+        scaled(c, x0 + SMALL_GAP, y, kc);
+        y += c.h * kc + SMALL_GAP;
+      }
+    }
+    place(R, x0, y0, pw, Math.max(R.h * k, y - y0));
+  }
+  /* Anything still unplaced (a part a press shows held by a part at rest with no box): on its own, the page's width. */
+  for (const n of unboxed) if (!placed.has(n.id) && !boxOf.has(n.id)) {
+    const k = Math.min(1, (width - SMALL_GAP * 2) / Math.max(1, n.w));
+    const anchor = [...boxes, ...out].filter((b) => b.node.y <= n.y).sort((a, b) => b.node.y - a.node.y)[0];
+    scaled(n, SMALL_GAP, anchor ? anchor.y + anchor.h + SMALL_GAP : SMALL_GAP, k);
+  }
+  return out;
 }
 
 /** Every part a plan draws, in the order it draws them: what a test compares with the desktop's reading order. */

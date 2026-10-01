@@ -87,25 +87,30 @@ check("and two sizes still collapse to the last one, as a size must", cn("text-s
 /* Components only. The token block and `cn` both NAME the old classes in
    their comments, and a check that cannot tell a class from a sentence
    about a class is a check that fails on its own documentation. */
-const left = execFileSync("git", ["grep", "-l", "-E", "text-\\[(9|10|11|12)px\\]", "--", "src/**/*.tsx"], { encoding: "utf8" })
-  .split("\n").filter(Boolean);
+/* `git grep` answers "nothing found" with exit 1: that is an empty list, not a failure. */
+const grepFiles = (args) => { try { return execFileSync("git", ["grep", "-l", ...args], { encoding: "utf8" }).split("\n").filter(Boolean); } catch (e) { if (e.status === 1) return []; throw e; } };
+const left = grepFiles(["-E", "text-\\[(9|10|11|12)px\\]", "--", "src/**/*.tsx"]);
 check(
   "nothing in the Builder's own chrome still hardcodes one of the four",
   left.every((f) => f.startsWith("src/features/studio/parts/")),
   left.length ? left.join(", ") : "none left anywhere",
 );
 /*
- * `parts/` is left alone ON PURPOSE. A part is what the exported site is
+ * `parts/` never takes the four NAMES. A part is what the exported site is
  * made of, and the export writes its own stylesheet from the document's
- * tokens rather than shipping this one. A name the export's CSS has never
- * heard of is a size that silently goes missing in somebody's built site,
- * which is the same fault as above with nobody watching. An arbitrary value
- * needs no stylesheet to agree with it.
+ * tokens rather than shipping this one: a name the export's CSS has never
+ * heard of is a size that silently goes missing in somebody's built site.
+ * A part's sizes come from the site's own scale instead (`t.fontPx`, the
+ * site's base size, which the export carries), and a fixed pixel size in a
+ * part is the same decision taken outside that scale. This used to hold the
+ * opposite, that parts must still carry a pixel size, which read a sweep
+ * of the last two (Mesh's fallback line and its badge) as a mistake.
  */
+const named = grepFiles(["-E", "\\btext-(fine|small|plain|large)\\b", "--", "src/features/studio/parts/**/*.tsx", "src/features/studio/parts/*.tsx"]);
 check(
-  "and the parts a site is built from still carry theirs, rather than having been swept and forgotten",
-  left.length > 0 && left.every((f) => f.startsWith("src/features/studio/parts/")),
-  left.join(", ") || "nothing left, which means the exemption was swept too",
+  "and no part a site is built from uses the Builder's own size names, which the exported site does not have",
+  named.length === 0,
+  named.join(", ") || "none",
 );
 
 /* ------------------------------------------------------------------ */

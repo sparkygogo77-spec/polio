@@ -49,12 +49,12 @@ function Instead({ t, still, why, label }: { t: Theme; still?: string; why: stri
       {still ? (
         <img src={still} alt={label} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
       ) : (
-        <p className="px-3 text-center text-[11px]" style={{ color: t.muted }}>{label}</p>
+        <p className="px-3 text-center" style={{ color: t.muted, fontSize: t.fontPx * 0.6875 }}>{label}</p>
       )}
       <p
         data-mesh-instead={why}
-        className="absolute bottom-1 left-1 rounded px-1.5 py-0.5 text-[9px]"
-        style={{ background: t.bg, color: t.muted }}
+        className="absolute bottom-1 left-1 rounded px-1.5 py-0.5"
+        style={{ background: t.bg, color: t.muted, fontSize: t.fontPx * 0.5625 }}
       >
         {why}
       </p>

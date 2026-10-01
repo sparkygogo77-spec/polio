@@ -54,10 +54,19 @@ Rules:
   the same frame as the desktop's `x` and `y`.
 - `hidden: true` when the element is not drawn at that width (`display:
   none`, `visibility: hidden`, or zero size).
-- A part with no box for a width is treated as hidden there.
+- A part drawn at rest with no box for a width is treated as hidden there; a part a press shows is laid out in its panel (below).
 - The Builder uses the site's own layout for a page at a width when **at
   least half** of the page's parts carry a box for it. Below that it works
   one out (section 2), so a partial capture never leaves a page half drawn.
+  Only parts drawn as the page opens are counted: a part a press shows (a
+  menu, a popup, a panel; `state`) was never on screen when the capture
+  measured the small widths, and counting it sank captured pages under half
+  (gotchi 6 of 13, parasiteonsol 6 of 12) that had 90 to 100 per cent of
+  what they draw at rest. Those parts are laid out inside their panel
+  instead (`small.ts`, `panelBoxes`): in the panel's own box, scaled, when
+  it has one; else the panel takes the page's width under the last part at
+  rest above it and what it holds goes down it. They are placed, never
+  hidden, and never forced to show: their press shows them.
 - Optional, on the document: `"capturedWidths": [1440, 834, 390]`, so a
   reader can tell which widths were captured.
 - Not carried yet: an element the site shows **only** at a small width (a

@@ -120,6 +120,46 @@ for (const [name, make] of Object.entries(SITES)) {
   check("…and the tablet, which the capture has none for, is worked out", planFor(sized, "tablet", 1440).mode === "made");
 }
 
+/*
+ * THE HALF RULE COUNTS WHAT IS DRAWN AT REST. A page of 13 parts, 6 drawn as
+ * it opens (each with a phone box) and 7 shown only by a press (a menu panel
+ * and what it holds: never on screen when the capture measured the phone, so
+ * no box). Counting every part was 6 of 13, under half, and the site's own
+ * phone layout was thrown away (gotchi, parasiteonsol). Counted at rest it is
+ * 6 of 6. The 7 are laid out inside their panel, inside the page, never hidden.
+ */
+{
+  const base = SITES.hero().nodes[0];
+  const mk = (id, x, y, w, h, extra = {}) => ({ ...base, id, featureId: "prose", content: id, x, y, w, h, small: null, widths: null, link: null, ...extra });
+  const press = { group: "menu", option: 1 };
+  const nodes = [
+    ...["a", "b", "c", "d", "e", "f"].map((id, i) => mk(id, 80, 40 + i * 200, 1200, 160, { widths: { phone: { x: 12, y: 20 + i * 120, w: 366, h: 100 } } })),
+    mk("panel", 900, 80, 480, 600, { state: press }),
+    ...[0, 1, 2, 3, 4, 5].map((i) => mk(`item${i}`, 920, 100 + i * 90, 440, 70, { state: press })),
+  ];
+  for (const device of ["phone"]) {
+    const plan = planFor(nodes, device, 1440);
+    check("counted at rest, a page with a press-only panel keeps the site's own phone layout", plan.mode === "site", `${plan.mode}`);
+    const box = (id) => plan.boxes.find((b) => b.node.id === id);
+    const panelIds = ["panel", ...[0, 1, 2, 3, 4, 5].map((i) => `item${i}`)];
+    check("…the panel and everything in it are laid out, none hidden", panelIds.every((id) => box(id)) && !panelIds.some((id) => plan.hidden.includes(id)), JSON.stringify(plan.hidden));
+    const p = box("panel");
+    const inside = panelIds.slice(1).every((id) => { const b = box(id); return b.x >= p.x && b.x + b.w <= p.x + p.w + 1 && b.y >= p.y && b.y + b.h <= p.y + p.h + 1; });
+    check("…inside their panel", inside, JSON.stringify(panelIds.map((id) => box(id)).map((b) => [b.x, b.y, b.w, b.h])));
+    check("…and the panel inside the page's width", p.x >= 0 && p.x + p.w <= plan.width, `${p.x}+${p.w} of ${plan.width}`);
+    const order = panelIds.slice(1).map((id) => box(id).y);
+    check("…its entries in their order, none on top of another", order.every((y, i) => i === 0 || y >= order[i - 1] + box(panelIds[i]).h - 1), JSON.stringify(order));
+  }
+  /* Every part counted, as it was, falls under half. */
+  check("the old count (6 of 13) was under half; the new one is 6 of 6", 6 / 13 < 0.5);
+  /* The stylesheet places a press-only part but never forces it to show. */
+  const { smallSheet } = await jiti.import(join(here, "..", "src/features/studio/live/smallCss.ts"));
+  const plan = planFor(nodes, "phone", 1440);
+  const css = smallSheet(plan, { part: (id) => `#${id}`, group: (id) => `.g-${id}`, holds: () => false, parentOf: () => null, stated: (id) => id === "panel" || id.startsWith("item"), control: () => false, scope: "", pageWidth: "100%", narrowest: 320 });
+  const ruleFor = (id) => css.split("\n").find((l) => l.startsWith(`#${id}{`)) ?? "";
+  check("the stylesheet places the panel's parts without forcing them to show", /position:absolute/.test(ruleFor("item0")) && !/display:flex/.test(ruleFor("item0")) && /display:flex/.test(ruleFor("a")), `${ruleFor("item0").slice(0, 80)} | ${ruleFor("a").slice(0, 40)}`);
+}
+
 /* The captured dashboard: its sidebar of links becomes the menu. */
 {
   const doc = SITES.captured();

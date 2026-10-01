@@ -74,7 +74,9 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
     rule(".sm-g", "display:contents!important");
     for (const b of plan.boxes) {
       const k = (v: number) => +(v / plan.width).toFixed(5);
-      rule(P(b.node.id), `display:flex!important;position:absolute!important;left:calc(${k(b.x)} * 100cqw)!important;top:${b.y}px!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
+      /* A part a press shows is placed but not drawn: its press shows it. Forced to show here, a menu stood open on every phone. */
+      const show = o.stated?.(b.node.id) ? "" : "display:flex!important;";
+      rule(P(b.node.id), `${show}position:absolute!important;left:calc(${k(b.x)} * 100cqw)!important;top:${b.y}px!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
     }
     return out.join("\n");
   }
