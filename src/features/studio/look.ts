@@ -1,5 +1,6 @@
 import type { CarriedFont } from "./fonts";
 import type { CapturedKeyframes } from "./parts/capturedMotion";
+import type { Group, SiteTheme } from "./siteTheme";
 /**
  * Colour and texture: the site's look, as data.
  *
@@ -895,7 +896,27 @@ export interface Look {
    * (`parts/capturedMotion.ts`). Absent on a site made here.
    */
   keyframes?: CapturedKeyframes[];
+  /**
+   * A new site's theme (`siteTheme.ts`): the one record its colours, fonts,
+   * shapes, layout and motion were rolled from, and how the next roll is to
+   * be made (what is locked, how original, the philosophy, Try these).
+   * Absent on a site brought in or made before themes existed.
+   */
+  theme?: SiteTheme | null;
+  themeRoll?: ThemeRollSettings | null;
 }
+
+/** How the next roll is made, kept with the site. */
+export interface ThemeRollSettings {
+  locks: Group[];
+  /** 0 Familiar … 1 Original. */
+  originality: number;
+  philosophy: string;
+  tryThese: boolean;
+}
+
+/** A new site rolls in the middle of the slider, nothing locked, with parts to try. */
+export const defaultRoll = (): ThemeRollSettings => ({ locks: [], originality: 0.5, philosophy: "", tryThese: true });
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });
 

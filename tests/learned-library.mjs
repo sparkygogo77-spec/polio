@@ -128,7 +128,8 @@ check("…the same as the import's own reading", imported.every((s) => had.sites
 /* A switch to a new, empty board, after a reload. */
 await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" });
 await wait(1200);
-await page.getByRole("button", { name: /^New site$/ }).first().click();
+// An empty board by its own button: the Builds page's New site opens on a sample page (tests/new-site-theme.mjs).
+await page.getByRole("button", { name: /^Blank site$/ }).first().click();
 await wait(900);
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForFunction(() => !!window.__studioLearned, null, { timeout: 30000 });

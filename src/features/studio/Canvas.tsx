@@ -1638,8 +1638,10 @@ function DesktopCanvas() {
         const worn = wornFor(wearing, { pts: shaped.pts, smooth: line.smooth, snap: line.snap }, raw, null);
         const id = store.addNode("box", shaped.box.x, shaped.box.y, { w: Math.max(16, shaped.box.w), h: Math.max(16, shaped.box.h), worn, label: `${wearing.name} shape`, byHand: true });
         store.setSelection([id]);
+        /* Its colour, style, lighting bar and motion are its part panel's Look and Motion: open it there. */
+        store.want({ panel: "inspector", id });
         play("confirm");
-        news.publish({ key: "studio:worn", title: `Drawn wearing ${wearing.name}`, body: line.snap ? `Snapped to a clean ${line.snap}; its panel can put the line back as drawn.` : "Its colour and motion are in the panel beside it.", level: "success", source: "studio", toast: false });
+        news.publish({ key: "studio:worn", title: `Drawn wearing ${wearing.name}`, body: line.snap ? `Snapped to a clean ${line.snap}; its panel's Look section can put the line back as drawn.` : "Its colour and motion are in its panel's Look and Motion.", level: "success", source: "studio", toast: false });
       } else if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         /* Said where the hand was, not in the corner of the window: the

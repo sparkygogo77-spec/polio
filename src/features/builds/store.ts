@@ -54,6 +54,12 @@ export interface Project {
    * source (`settle`, `setRepo`, and the publish route all hold that).
    */
   source?: { owner: string; name: string; branch: string; dir?: string | null };
+  /**
+   * Made with New site and not yet opened: the Builder builds its sample page
+   * in a theme of its own the first time it opens it (`newSite.ts`), and
+   * clears this. The Builds page cannot: the board is not loaded there.
+   */
+  starter?: boolean;
   /** The new-site offer was answered: nothing to offer again. */
   offered?: boolean;
   /**
@@ -113,7 +119,8 @@ interface Builds {
   saveFailed: boolean;
   /** First run: take whatever is already in the Builder rather than lose it. */
   adopt: () => void;
-  create: (name?: string) => string;
+  /** A new site. `starter`: it opens on a sample page in a theme of its own (`newSite.ts`), as the Builds page's New site does. */
+  create: (name?: string, opts?: { starter?: boolean }) => string;
   open: (id: string) => Promise<void>;
   rename: (id: string, name: string) => void;
   duplicate: (id: string) => Promise<void>;
@@ -258,7 +265,7 @@ export const useBuilds = create<Builds>()(
        * nothing at all when the target has nothing saved — see `swapDoc`.
        * That is how a blank site came to adopt the last site's work.
        */
-      create: (name) => {
+      create: (name, opts) => {
         const id = uid();
         /* The site being left is saved first, then the new one begins blank:
            `swapDoc(null)` is what makes the board actually blank rather than
@@ -268,7 +275,7 @@ export const useBuilds = create<Builds>()(
           await write(slot(id), null);
           await write(LIVE, null);
           set((s) => ({
-            projects: [{ id, name: name?.trim() || `Site ${s.projects.length + 1}`, updatedAt: Date.now() }, ...s.projects],
+            projects: [{ id, name: name?.trim() || `Site ${s.projects.length + 1}`, updatedAt: Date.now(), ...(opts?.starter ? { starter: true } : {}) }, ...s.projects],
             activeId: id,
           }));
           swapDoc(null);

@@ -31,6 +31,7 @@ import { WornShape } from "./WornShape";
 import { colourChoices, toBox, wordsColour, type Worn } from "./wornShape";
 import { DEFAULT_OFFSITE, linkAllowed, offsiteRules } from "./parts/offsite";
 import { put } from "./pictures";
+import { PartFields } from "./PartFields";
 
 /* ------------------------------------------------------------------ */
 /* The kit in hand                                                      */
@@ -230,31 +231,8 @@ export function KitPicker({ compact }: { compact?: boolean }) {
 /* After drawing: the shape's own popover                               */
 /* ------------------------------------------------------------------ */
 
-const WHATS: { id: NonNullable<Worn["what"]>; label: string; means: string }[] = [
-  { id: "button", label: "Button", means: "Pressable, and leads somewhere." },
-  { id: "frame", label: "Picture frame", means: "A picture shows inside the outline." },
-  { id: "decoration", label: "Decoration", means: "Something to look at; it does nothing when pressed." },
-  { id: "section", label: "Section", means: "A place on the page that holds other parts." },
-];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-1 border-t border-border pt-2">
-      <div className="text-small font-medium uppercase tracking-wider text-fg-faint">{title}</div>
-      {children}
-    </section>
-  );
-}
 
-function Slider({ label, value, min, max, step, onChange, says }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; says: string }) {
-  return (
-    <label className="flex items-center gap-2 text-small text-fg-muted">
-      <span className="w-14 shrink-0">{label}</span>
-      <input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1" />
-      <span className="w-12 shrink-0 text-right tabular-nums text-fg">{says}</span>
-    </label>
-  );
-}
 
 /** Drag the outline's points; a double press on a point takes it away. In the popover, at a size a hand can hit. */
 function PointEditor({ worn, aspect, onChange }: { worn: Worn; aspect: number; onChange: (pts: [number, number][]) => void }) {
@@ -298,195 +276,170 @@ function PointEditor({ worn, aspect, onChange }: { worn: Worn; aspect: number; o
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* In the part panel: Content, Look and Motion for a drawn shape        */
+/* ------------------------------------------------------------------ */
+
 /**
- * The popover beside a drawn shape while it is picked. Its own for now; the
- * part panel's Look and Motion sections take these over when that panel lands.
+ * The part panel's own fields for a drawn shape. The plain ones (what it is,
+ * its lighting bar, speed, strength, hover, press) are Lane I's options data
+ * (`partOptions.ts`, source "worn") drawn by `PartFields`; what needs a
+ * picture to choose (colour, style, motion) or a hand (points) is here.
  */
-export function WornPopover() {
-  const selection = useStudio((s) => s.selection);
-  const id = selection.length === 1 ? selection[0]! : null;
-  const node = useStudio((s) => (id ? s.nodes.find((n) => n.id === id) : undefined));
-  const [hidden, setHidden] = React.useState<string | null>(null);
-  const [at, setAt] = React.useState<{ x: number; y: number } | null>(null);
-  const worn = node?.worn ?? null;
-  /* Closed, it stays closed until the shape is picked again (every pick is a new selection). */
-  React.useEffect(() => setHidden(null), [selection]);
-  React.useEffect(() => {
-    if (!node?.worn) return;
-    let raf = 0;
-    const place = () => {
-      const el = document.querySelector(`[data-node-id="${CSS.escape(node.id)}"]`);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        const x = r.right + 332 < window.innerWidth ? r.right + 16 : Math.max(8, r.left - 332);
-        const y = Math.max(56, Math.min(window.innerHeight - 420, r.top));
-        setAt((p) => (p && Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < 1 ? p : { x, y }));
-      }
-      raf = window.setTimeout(place, 200) as unknown as number;
-    };
-    place();
-    return () => window.clearTimeout(raf);
-  }, [node?.id, !!node?.worn]);
-  if (!node || !worn || hidden === node.id || !at) return null;
-  return <WornPanel key={node.id} node={node} worn={worn} at={at} onClose={() => { play("close"); setHidden(node.id); }} />;
+function useWorn(node: StudioNode) {
+  const worn = node.worn as Worn;
+  const set = (patch: Partial<Worn>, more?: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, { worn: { ...worn, ...patch }, ...more });
+  return { worn, set };
 }
 
-function WornPanel({ node, worn, at, onClose }: { node: StudioNode; worn: Worn; at: { x: number; y: number }; onClose: () => void }) {
-  const { here, elsewhere, motions } = useBoardKits(true);
+const Sub = ({ children }: { children: React.ReactNode }) => <div className="text-small text-fg-muted">{children}</div>;
+
+/** Its words, in the Content section. */
+export function WornWords({ node }: { node: StudioNode }) {
+  const words = typeof node.content === "string" ? node.content : "";
+  return (
+    <label className="flex flex-col gap-1 text-small text-fg-muted">
+      <span>Words on it</span>
+      <input data-worn-words-input="" value={words} placeholder="Optional" onChange={(e) => useStudio.getState().updateNode(node.id, { content: e.target.value })} className="rounded-sm border border-border bg-bg px-2 py-1 text-fg" />
+    </label>
+  );
+}
+
+/** The Look section of a drawn shape. */
+export function WornLook({ node }: { node: StudioNode }) {
+  const { worn, set } = useWorn(node);
+  const { here, elsewhere } = useBoardKits(true);
   const palette = useStudio((s) => s.look.palette) as Record<string, string | undefined>;
   const pages = useStudio((s) => s.pages);
   const offsiteText = useStudio((s) => String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   const [peek, setPeek] = React.useState<StyleKit | null>(null);
   const [editing, setEditing] = React.useState(false);
   const [address, setAddress] = React.useState(node.link?.kind === "url" ? node.link.target : "");
-  const all = React.useMemo(() => [...here, ...elsewhere.flatMap((o) => o.kits)], [here, elsewhere]);
-  const set = (patch: Partial<Worn>, more?: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, { worn: { ...worn, ...patch }, ...more });
+  const all = React.useMemo(() => {
+    const list = [...here, ...elsewhere.flatMap((o) => o.kits)];
+    return list.some((k) => k.id === worn.kit.id) ? list : [worn.kit, ...list];
+  }, [here, elsewhere, worn.kit]);
   const shown: Worn = peek ? { ...worn, kit: peek, bar: peek.bar ?? (worn.bar ? barFor(peek, all) : null) } : worn;
   const ink = wordsColour(shown);
   const colours = colourChoices(palette, worn.kit);
   const rules = React.useMemo(() => offsiteRules(offsiteText), [offsiteText]);
   const ratio = node.w / Math.max(1, node.h);
-  const sw = Math.min(260, ratio >= 1 ? 260 : Math.round(150 * ratio)), sh = Math.round(sw / ratio);
+  const sw = Math.min(220, ratio >= 1 ? 220 : Math.round(130 * ratio)), sh = Math.round(sw / ratio);
   const words = typeof node.content === "string" ? node.content : "";
-  const motion = worn.motion;
-  const choose = (m: BoardMotion | null) => set({ motion: m ? { id: m.id, name: m.name, frames: m.frames, duration: m.duration, timing: m.timing, speed: motion?.speed ?? 1, strength: motion?.strength ?? 1, size: m.size } : null });
   return (
-    <div
-      data-worn-panel={node.id}
-      role="dialog"
-      aria-label={`${worn.kit.name} shape`}
-      onPointerDown={(e) => e.stopPropagation()}
-      className="fixed z-[65] flex bg-panel w-[316px] flex-col gap-2 overflow-y-auto rounded-md border border-border p-3 text-xs text-fg shadow-pop"
-      style={{ left: at.x, top: at.y, maxHeight: `calc(100vh - ${Math.round(at.y) + 8}px)` }}
-    >
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-small font-medium">{peek ? `Trying ${peek.name}` : worn.kit.name}</span>
-        <button type="button" aria-label="Close the shape's options" onClick={onClose} className="tactile rounded-sm px-1.5 text-fg-muted hover:text-fg">Close</button>
-      </div>
+    <div data-worn-look={node.id} className="flex flex-col gap-2">
       {/* The shape as it will be seen, playing: the board holds every part still. */}
-      <div data-worn-preview="" className="flex items-center justify-center rounded-md bg-bg p-3" style={{ minHeight: sh + 24 }}>
+      <div data-worn-preview="" className="flex flex-col items-center justify-center gap-1 rounded-md bg-bg p-3" style={{ minHeight: sh + 24 }}>
         <KitSample kit={shown.kit} worn={shown} w={sw} h={sh} pts={worn.pts} words={words} live />
+        <span className="text-fine text-fg-faint">{peek ? `Trying ${peek.name}` : worn.kit.name}</span>
       </div>
-
-      <Section title="What is this?">
-        <div className="flex flex-wrap gap-1">
-          {WHATS.map((w) => (
-            <button key={w.id} type="button" data-worn-what-choice={w.id} aria-pressed={worn.what === w.id} title={w.means} onClick={() => { play("select"); set({ what: w.id }, w.id === "button" ? {} : { link: null }); }} className={cn("tactile rounded-sm border px-1.5 py-0.5 text-small", worn.what === w.id ? "border-accent bg-accent-soft" : "border-border text-fg-muted hover:text-fg")}>{w.label}</button>
-          ))}
-        </div>
-        {worn.what === "button" ? (
-          <div className="flex flex-col gap-1">
-            <span className="text-small text-fg-muted">Where does it lead?</span>
-            <div className="flex flex-wrap gap-1">
-              {pages.map((p) => (
-                <button key={p.id} type="button" data-worn-link-page={p.id} aria-pressed={node.link?.kind === "page" && node.link.target === p.id} onClick={() => useStudio.getState().updateNode(node.id, { link: { kind: "page", target: p.id } })} className={cn("tactile rounded-sm border px-1.5 py-0.5 text-small", node.link?.kind === "page" && node.link.target === p.id ? "border-accent bg-accent-soft" : "border-border")}>{p.name}</button>
-              ))}
-            </div>
-            <input
-              data-worn-link-address=""
-              value={address}
-              placeholder="or a web address, https://…"
-              onChange={(e) => setAddress(e.target.value)}
-              onBlur={() => { const a = address.trim(); if (/^https?:\/\//i.test(a)) useStudio.getState().updateNode(node.id, { link: { kind: "url", target: a } }); }}
-              className="rounded-sm border border-border bg-bg px-1.5 py-0.5"
-            />
-            {node.link?.kind === "url" ? (
-              <span data-worn-link-allowed={linkAllowed(node.link.target, rules) ? "yes" : "no"} className="text-small text-fg-muted">
-                {linkAllowed(node.link.target, rules) ? "This address is on the site's list of places links may go." : "This address is not on the site's list of places links may go, so the button stays but goes nowhere. The list is under Format, Pages and navigation."}
-              </span>
-            ) : null}
+      <PartFields node={node} section="look" only={WORN_ONLY} />
+      {worn.what === "button" ? (
+        <div className="flex flex-col gap-1">
+          <Sub>Where does it lead?</Sub>
+          <div className="flex flex-wrap gap-1">
+            {pages.map((p) => (
+              <button key={p.id} type="button" data-worn-link-page={p.id} aria-pressed={node.link?.kind === "page" && node.link.target === p.id} onClick={() => useStudio.getState().updateNode(node.id, { link: { kind: "page", target: p.id } })} className={cn("tactile rounded-sm border px-1.5 py-0.5 text-small", node.link?.kind === "page" && node.link.target === p.id ? "border-accent bg-accent-soft" : "border-border")}>{p.name}</button>
+            ))}
           </div>
-        ) : null}
-        {worn.what === "frame" ? (
-          <label className="text-small text-fg-muted">
-            Picture: <input type="file" accept="image/*" data-worn-picture-input="" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; const pic = await put(f, { name: f.name }); useStudio.getState().updateNode(node.id, { picture: pic }); }} />
-          </label>
-        ) : null}
-      </Section>
-
-      <Section title="Words">
-        <input data-worn-words-input="" value={words} placeholder="Words on it (optional)" onChange={(e) => useStudio.getState().updateNode(node.id, { content: e.target.value })} className="rounded-sm border border-border bg-bg px-1.5 py-0.5" />
-      </Section>
-
-      <Section title="Colour">
-        <div className="flex flex-wrap gap-1">
-          <button type="button" data-worn-colour="kit" aria-pressed={!worn.fill} onClick={() => set({ fill: null })} className={cn("tactile rounded-sm border px-1.5 text-small", !worn.fill ? "border-accent" : "border-border")}>The style's own</button>
-          {colours.map((c) => (
-            <button key={c} type="button" data-worn-colour={c} aria-label={`Colour ${c}`} aria-pressed={worn.fill === c} onClick={() => { play("select"); set({ fill: c }); }} className={cn("tactile size-5 rounded-sm border", worn.fill === c ? "border-fg" : "border-border")} style={{ background: c }} />
-          ))}
+          <input
+            data-worn-link-address=""
+            value={address}
+            placeholder="or a web address, https://…"
+            onChange={(e) => setAddress(e.target.value)}
+            onBlur={() => { const a = address.trim(); if (/^https?:\/\//i.test(a)) useStudio.getState().updateNode(node.id, { link: { kind: "url", target: a } }); }}
+            className="rounded-sm border border-border bg-bg px-1.5 py-0.5"
+          />
+          {node.link?.kind === "url" ? (
+            <span data-worn-link-allowed={linkAllowed(node.link.target, rules) ? "yes" : "no"} className="text-small text-fg-muted">
+              {linkAllowed(node.link.target, rules) ? "This address is on the site's list of places links may go." : "This address is not on the site's list of places links may go, so the button stays but goes nowhere. The list is under Format, Pages and navigation."}
+            </span>
+          ) : null}
         </div>
-        {ink.swapped ? <span data-worn-contrast="" className="text-small text-fg-muted">The words change colour on this fill so they can still be read.</span> : null}
-      </Section>
-
-      <Section title="Style">
-        <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto" onPointerLeave={() => setPeek(null)}>
-          {all.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              data-worn-kit-choice={k.id}
-              aria-pressed={worn.kit.id === k.id}
-              onPointerEnter={() => setPeek(k)}
-              onFocus={() => setPeek(k)}
-              onClick={() => { play("select"); setPeek(null); set({ kit: k, bar: k.bar ?? (worn.bar ? barFor(k, all) : null), hover: !!k.hover || worn.hover, press: !!k.press || worn.press }); }}
-              className={cn("tactile flex items-center gap-2 rounded-sm border px-1 text-left", worn.kit.id === k.id ? "border-accent" : "border-transparent hover:border-border")}
-            >
-              <KitSample kit={k} w={40} h={18} />
-              <span className="truncate text-small">{k.name}</span>
-            </button>
-          ))}
-        </div>
-        <label className="flex items-center gap-1.5 text-small text-fg-muted">
-          <input type="checkbox" data-worn-bar-toggle="" checked={!!worn.bar} onChange={(e) => set({ bar: e.target.checked ? barFor(worn.kit, all) ?? PLAIN_BAR : null })} />
-          Lighting bar {worn.bar && !worn.kit.bar ? "(borrowed from the site)" : ""}
+      ) : null}
+      {worn.what === "frame" ? (
+        <label className="text-small text-fg-muted">
+          Picture: <input type="file" accept="image/*" data-worn-picture-input="" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; const pic = await put(f, { name: f.name }); useStudio.getState().updateNode(node.id, { picture: pic }); }} />
         </label>
-      </Section>
+      ) : null}
 
-      <Section title="Motion">
-        <div className="flex max-h-44 flex-col gap-0.5 overflow-y-auto">
-          <button type="button" data-worn-motion="none" aria-pressed={!motion} onClick={() => choose(null)} className={cn("tactile rounded-sm border px-1.5 py-0.5 text-left text-small", !motion ? "border-accent" : "border-transparent hover:border-border")}>Still</button>
-          {motions.map((m) => (
-            <button key={m.id} type="button" data-worn-motion={m.id} data-worn-motion-name={m.name} aria-pressed={motion?.id === m.id} onClick={() => { play("select"); choose(m); }} className={cn("tactile flex items-center gap-2 rounded-sm border px-1 text-left", motion?.id === m.id ? "border-accent" : "border-transparent hover:border-border")}>
-              <KitSample kit={worn.kit} worn={{ ...worn, motion: { id: m.id, name: m.name, frames: m.frames, duration: m.duration, timing: m.timing, speed: 1, strength: 1, size: m.size } }} w={ratio >= 34 / 24 ? 34 : Math.max(10, Math.round(24 * ratio))} h={ratio >= 34 / 24 ? Math.max(10, Math.round(34 / ratio)) : 24} pts={worn.pts} live />
-              <span className="min-w-0 flex-1 truncate text-small">{m.name}</span>
-              <span className="shrink-0 text-small text-fg-faint">{m.site}</span>
-            </button>
-          ))}
-        </div>
-        {motion ? (
-          <>
-            <Slider label="Speed" value={motion.speed} min={0.25} max={3} step={0.05} onChange={(v) => set({ motion: { ...motion, speed: v } })} says={`${motion.speed.toFixed(2)}×`} />
-            <Slider label="Strength" value={motion.strength} min={0} max={2} step={0.05} onChange={(v) => set({ motion: { ...motion, strength: v } })} says={`${Math.round(motion.strength * 100)}%`} />
-          </>
-        ) : null}
-        <label className="flex items-center gap-1.5 text-small text-fg-muted"><input type="checkbox" data-worn-hover="" checked={worn.hover} onChange={(e) => set({ hover: e.target.checked })} /> Lift under the hand {worn.kit.hover ? "(as the site's parts do)" : ""}</label>
-        <label className="flex items-center gap-1.5 text-small text-fg-muted"><input type="checkbox" data-worn-press="" checked={worn.press} onChange={(e) => set({ press: e.target.checked })} /> Squash when pressed {worn.kit.press ? "(as the site's parts do)" : ""}</label>
-      </Section>
+      <Sub>Colour</Sub>
+      <div className="flex flex-wrap gap-1">
+        <button type="button" data-worn-colour="kit" aria-pressed={!worn.fill} onClick={() => set({ fill: null })} className={cn("tactile rounded-sm border px-1.5 text-small", !worn.fill ? "border-accent" : "border-border")}>The style&apos;s own</button>
+        {colours.map((c) => (
+          <button key={c} type="button" data-worn-colour={c} aria-label={`Colour ${c}`} aria-pressed={worn.fill === c} onClick={() => { play("select"); set({ fill: c }); }} className={cn("tactile size-5 rounded-sm border", worn.fill === c ? "border-fg" : "border-border")} style={{ background: c }} />
+        ))}
+      </div>
+      {ink.swapped ? <span data-worn-contrast="" className="text-small text-fg-muted">The words change colour on this fill so they can still be read.</span> : null}
 
-      <Section title="Shape">
-        {worn.snap && worn.raw ? (
-          <button type="button" data-worn-unsnap="" onClick={() => { play("tap"); const r = worn.raw!; set({ pts: r.pts, smooth: true, snap: null, raw: null, snapBack: { pts: worn.pts, smooth: worn.smooth, snap: worn.snap, box: { x: node.x, y: node.y, w: node.w, h: node.h } } }, { x: r.box.x, y: r.box.y, w: r.box.w, h: r.box.h }); }} className="tactile rounded-sm border border-border px-1.5 py-0.5 text-left text-small">
-            Snapped to a {worn.snap}. Undo: back to the line as drawn
+      <Sub>Style</Sub>
+      <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto" onPointerLeave={() => setPeek(null)}>
+        {all.map((k) => (
+          <button
+            key={k.id}
+            type="button"
+            data-worn-kit-choice={k.id}
+            aria-pressed={worn.kit.id === k.id}
+            onPointerEnter={() => setPeek(k)}
+            onFocus={() => setPeek(k)}
+            onClick={() => { play("select"); setPeek(null); set({ kit: k, bar: k.bar ?? (worn.bar ? barFor(k, all) : null), hover: !!k.hover || worn.hover, press: !!k.press || worn.press }); }}
+            className={cn("tactile flex items-center gap-2 rounded-sm border px-1 text-left", worn.kit.id === k.id ? "border-accent" : "border-transparent hover:border-border")}
+          >
+            <KitSample kit={k} w={40} h={18} />
+            <span className="truncate text-small">{k.name}</span>
           </button>
-        ) : worn.snapBack ? (
-          <button type="button" data-worn-resnap="" onClick={() => { play("tap"); const b = worn.snapBack!; set({ pts: b.pts, smooth: b.smooth, snap: b.snap, raw: { pts: worn.pts, box: { x: node.x, y: node.y, w: node.w, h: node.h } }, snapBack: null }, b.box); }} className="tactile rounded-sm border border-border px-1.5 py-0.5 text-left text-small">
-            Snap it clean again
-          </button>
-        ) : <span className="text-small text-fg-faint">The line as drawn, smoothed.</span>}
-        <button type="button" data-worn-edit-points="" aria-pressed={editing} onClick={() => setEditing((v) => !v)} className="tactile self-start rounded-sm border border-border px-1.5 py-0.5 text-small">{editing ? "Done editing points" : "Edit points"}</button>
-        {editing ? (
-          <>
-            <PointEditor worn={worn} aspect={ratio} onChange={(pts) => {
-              // Points dragged past the box grow it, so the outline is always the box's.
-              const px = pts.map(([x, y]) => [node.x + x * node.w, node.y + y * node.h] as [number, number]);
-              const b = toBox(px);
-              set({ pts: b.pts, smooth: worn.smooth, snap: null, raw: null, snapBack: null }, { x: b.box.x, y: b.box.y, w: b.box.w, h: b.box.h });
-            }} />
-            <span className="text-small text-fg-faint">Drag a point to move it; press one twice to take it away.</span>
-          </>
-        ) : null}
-      </Section>
+        ))}
+      </div>
+      {worn.bar && !worn.kit.bar ? <span className="text-fine text-fg-faint">The lighting bar is borrowed from the site.</span> : null}
+
+      <Sub>Shape</Sub>
+      {worn.snap && worn.raw ? (
+        <button type="button" data-worn-unsnap="" onClick={() => { play("tap"); const r = worn.raw!; set({ pts: r.pts, smooth: true, snap: null, raw: null, snapBack: { pts: worn.pts, smooth: worn.smooth, snap: worn.snap, box: { x: node.x, y: node.y, w: node.w, h: node.h } } }, { x: r.box.x, y: r.box.y, w: r.box.w, h: r.box.h }); }} className="tactile rounded-sm border border-border px-1.5 py-0.5 text-left text-small">
+          Snapped to a {worn.snap}. Undo: back to the line as drawn
+        </button>
+      ) : worn.snapBack ? (
+        <button type="button" data-worn-resnap="" onClick={() => { play("tap"); const b = worn.snapBack!; set({ pts: b.pts, smooth: b.smooth, snap: b.snap, raw: { pts: worn.pts, box: { x: node.x, y: node.y, w: node.w, h: node.h } }, snapBack: null }, b.box); }} className="tactile rounded-sm border border-border px-1.5 py-0.5 text-left text-small">
+          Snap it clean again
+        </button>
+      ) : <span className="text-small text-fg-faint">The line as drawn, smoothed.</span>}
+      <button type="button" data-worn-edit-points="" aria-pressed={editing} onClick={() => setEditing((v) => !v)} className="tactile self-start rounded-sm border border-border px-1.5 py-0.5 text-small">{editing ? "Done editing points" : "Edit points"}</button>
+      {editing ? (
+        <>
+          <PointEditor worn={worn} aspect={ratio} onChange={(pts) => {
+            // Points dragged past the box grow it, so the outline is always the box's.
+            const px = pts.map(([x, y]) => [node.x + x * node.w, node.y + y * node.h] as [number, number]);
+            const b = toBox(px);
+            set({ pts: b.pts, smooth: worn.smooth, snap: null, raw: null, snapBack: null }, { x: b.box.x, y: b.box.y, w: b.box.w, h: b.box.h });
+          }} />
+          <span className="text-small text-fg-faint">Drag a point to move it; press one twice to take it away.</span>
+        </>
+      ) : null}
     </div>
   );
 }
 
+/** The Motion section of a drawn shape: every board's captured motions, each played on this outline. */
+export function WornMotion({ node }: { node: StudioNode }) {
+  const { worn, set } = useWorn(node);
+  const { motions } = useBoardKits(true);
+  const ratio = node.w / Math.max(1, node.h);
+  const motion = worn.motion;
+  const choose = (m: BoardMotion | null) => set({ motion: m ? { id: m.id, name: m.name, frames: m.frames, duration: m.duration, timing: m.timing, speed: motion?.speed ?? 1, strength: motion?.strength ?? 1, size: m.size } : null });
+  return (
+    <div data-worn-motions={node.id} className="flex flex-col gap-2">
+      <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
+        <button type="button" data-worn-motion="none" aria-pressed={!motion} onClick={() => choose(null)} className={cn("tactile rounded-sm border px-1.5 py-0.5 text-left text-small", !motion ? "border-accent" : "border-transparent hover:border-border")}>Still</button>
+        {motions.map((m) => (
+          <button key={m.id} type="button" data-worn-motion={m.id} data-worn-motion-name={m.name} aria-pressed={motion?.id === m.id} onClick={() => { play("select"); choose(m); }} className={cn("tactile flex items-center gap-2 rounded-sm border px-1 text-left", motion?.id === m.id ? "border-accent" : "border-transparent hover:border-border")}>
+            <KitSample kit={worn.kit} worn={{ ...worn, motion: { id: m.id, name: m.name, frames: m.frames, duration: m.duration, timing: m.timing, speed: 1, strength: 1, size: m.size } }} w={ratio >= 34 / 24 ? 34 : Math.max(10, Math.round(24 * ratio))} h={ratio >= 34 / 24 ? Math.max(10, Math.round(34 / ratio)) : 24} pts={worn.pts} live />
+            <span className="min-w-0 flex-1 truncate text-small">{m.name}</span>
+            <span className="shrink-0 text-small text-fg-faint">{m.site}</span>
+          </button>
+        ))}
+      </div>
+      <PartFields node={node} section="motion" only={WORN_ONLY} />
+    </div>
+  );
+}
+
+const WORN_ONLY = ["worn"] as const;

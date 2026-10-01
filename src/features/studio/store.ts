@@ -28,7 +28,7 @@ import type { SiteHead } from "./siteHead";
 import { formatDefaults, type FormatValues } from "./format";
 import { swapColour, swapFont, type ColourUse, type FaceTo } from "./siteColours";
 import type { Palette } from "./look";
-import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
+import { defaultLight, defaultRoll, delayMs, emptyLook, type ThemeRollSettings, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
 /**
  * The page's background is a thing you can pick: click the bare frame and
@@ -57,6 +57,8 @@ import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, Node
 import type { NodeEmbed, NodeMotion } from "./parts/capturedMotion";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { Worn } from "./wornShape";
+import type { SiteTheme } from "./siteTheme";
+import { buildStarter, isStarter, type TryItem } from "./starterPage";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
 import type { DrawnVector, VectorRole } from "./vector";
@@ -1152,6 +1154,13 @@ interface StudioState extends Doc {
   setBrief: (patch: Partial<StudioBrief>) => void;
   setLook: (patch: Partial<Look>) => void;
   /**
+   * A theme put on the site (`siteTheme.ts`), as one undo step named for it:
+   * the palette, the Format fields it drives, and the sample page's parts
+   * restyled (`starterPage.ts`), words and links kept. `fresh` builds the
+   * whole sample page, for a new site.
+   */
+  applyTheme: (theme: SiteTheme, opts?: { tryThese?: TryItem[]; fresh?: boolean; siteName?: string; settings?: Partial<ThemeRollSettings> }) => void;
+  /**
    * An import is one undo step (tests/bring-again.mjs). `historyMark` before
    * it starts; `oneStepSince(mark)` once it has landed folds every
    * checkpoint it took into the first, so one Ctrl+Z is the board before it.
@@ -1982,10 +1991,12 @@ export const useStudio = create<StudioState>()(
            * about whose boxes these are: a repository or site brought in, or
            * a part carrying the element it was read from, its layout, its
            * padding, its edge or the way its words are set. None of those and
-           * the board is his, drawn and placed, and nothing here applies.
+           * the board is his, drawn and placed, and nothing here applies. A
+           * part placed by hand that carries them (a theme's sample page,
+           * `starterPage.ts`) is his too: it says nothing about a capture.
            */
           const captured = (s0.brought?.length ?? 0) > 0
-            || s0.nodes.some((n) => n.from || n.layout || n.pad || n.edge || n.text);
+            || s0.nodes.some((n) => n.from || (!n.byHand && (n.layout || n.pad || n.edge || n.text)));
           if (!captured) { set({ swept: SWEEP }); return null; }
 
           /* The page as it opens: a part a press shows (`state`) sits where the part it stands in for does, and is neither joined, grown round, nor a twin of it. It is kept as it is. */
@@ -3104,6 +3115,32 @@ export const useStudio = create<StudioState>()(
         resetAll: () => {
           push();
           set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, pinnedThreads: [], threadSpots: {}, draftPieces: [], sentPieces: {} });
+        },
+
+        applyTheme: (theme, opts = {}) => {
+          push();
+          set((s) => {
+            const pageId = s.activePageId;
+            const fresh = !!opts.fresh || !s.look.theme;
+            const prev = s.nodes.filter((n) => n.pageId === pageId && isStarter(n.id));
+            // What the last theme built and the page no longer has, he deleted: it stays deleted.
+            const here = new Set(prev.map((n) => n.id));
+            const before = !fresh && s.look.theme ? buildStarter(s.look.theme, { pageId, frameWidth: s.frameWidth, siteName: opts.siteName ?? s.brief.name }).nodes.map((n) => n.id) : [];
+            const built = buildStarter(theme, {
+              pageId, frameWidth: s.frameWidth, siteName: opts.siteName ?? s.brief.name,
+              tryThese: opts.tryThese ?? [],
+              prev: fresh ? null : prev.filter((n) => !n.id.startsWith("st_try")),
+              deleted: new Set(before.filter((id) => !here.has(id) && !id.startsWith("st_try"))),
+            });
+            // The parts to try are the roll's own: they come and go with it.
+            const keep = s.nodes.filter((n) => !(n.pageId === pageId && isStarter(n.id)));
+            return {
+              nodes: [...keep, ...built.nodes] as unknown as StudioNode[],
+              look: { ...s.look, palette: built.palette, theme, themeRoll: { ...defaultRoll(), ...s.look.themeRoll, ...opts.settings } },
+              format: { ...s.format, ...built.format },
+              selection: [],
+            };
+          });
         },
 
         loadDoc: (doc) => {

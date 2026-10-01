@@ -19,13 +19,14 @@
  *     inside change and pixels outside do not;
  *   · the snap is undone back to the line as drawn and snapped again; a
  *     rough circle snaps to a circle; with Snap off the line stays;
- *   · a point dragged in the shape's popover moves the outline;
+ *   · its options are in the part panel: Look (what it is, colour, style,
+ *     lighting bar, outline) and Motion; a point dragged there moves the outline;
  *   · a motion captured on a board (a wobble, a pulse) put on the cone runs
  *     on the exported page, from the page's own stylesheet, and nothing
  *     in the export points at the Builder.
  *
  * Writes .screenshots/lane-j/ (ignored): the source button beside the cone,
- * the popover, the exported page. docs/shots/lane-j-*.png are the
+ * the part panel, the exported page. docs/shots/lane-j-*.png are the
  * committed record, copied by hand.
  *
  *   npm run build && npx next start -p 3013
@@ -100,7 +101,9 @@ await draw(cone(coneX, coneTop, 55, 170));
 let c = await lastWorn();
 check("a closed line drawn with a kit is a part wearing it, not a space", !!c && c.worn.kit.name === "Trorty button", c ? c.worn.kit.name : "none");
 check("the rough cone snapped to a clean triangle", c?.worn.snap === "triangle" && c.worn.pts.length === 3, J(c?.worn.pts));
-check("its popover opened beside it", (await p.locator(`[data-worn-panel="${c?.id}"]`).count()) === 1);
+check("its part panel opens on it, with the shape's Look and Motion", (await p.locator(`[data-part-panel="${c?.id}"] [data-worn-look]`).count()) === 1 && (await p.locator(`[data-part-panel="${c?.id}"] [data-worn-motions]`).count()) === 1);
+check("…its plain options come from the part's options data", (await p.locator(`[data-part-panel="${c?.id}"] [data-field="worn:what"]`).count()) === 1 && (await p.locator(`[data-part-panel="${c?.id}"] [data-field="worn:bar"]`).count()) === 1);
+check("…and no floating popover is left on the board", (await p.locator("[data-worn-panel]").count()) === 0);
 
 /* The shadow, in the drawing's own geometry. */
 const geo = await p.evaluate((id) => {
@@ -134,7 +137,7 @@ check("the shadow follows the outline: none under the box's corner, some beside 
 }
 check("the border traces the outline in the kit's colour", geo?.border === c?.worn.kit.border?.colour, `${geo?.border} vs ${c?.worn.kit.border?.colour}`);
 
-await p.locator(`[data-worn-panel] button:has-text("Close")`).click();
+await p.keyboard.press("Escape");
 await p.waitForTimeout(300);
 if (src) {
   sb = await src.boundingBox();
@@ -145,7 +148,7 @@ if (src) {
 }
 
 /* ------------------------------------------------------------ a captured motion, exported */
-/* Picked again with the hand, the shape's popover comes back. */
+/* Picked again with the hand, its part panel comes back. */
 await p.keyboard.press("Escape");
 await p.keyboard.press("v");
 {
@@ -153,14 +156,14 @@ await p.keyboard.press("v");
   await p.mouse.click(cbb.x + cbb.width / 2, cbb.y + cbb.height * 0.3);
   await p.waitForTimeout(500);
 }
-check("picked again, its popover is back", (await p.locator(`[data-worn-panel="${c.id}"]`).count()) === 1);
-const motions = await p.locator("[data-worn-panel] [data-worn-motion]").evaluateAll((els) => els.map((e) => ({ id: e.getAttribute("data-worn-motion"), says: e.getAttribute("data-worn-motion-name") ?? "Still" })));
+check("picked again, its part panel is back", (await p.locator(`[data-part-panel="${c.id}"] [data-worn-look]`).count()) === 1);
+const motions = await p.locator("[data-part-panel] [data-worn-motion]").evaluateAll((els) => els.map((e) => ({ id: e.getAttribute("data-worn-motion"), says: e.getAttribute("data-worn-motion-name") ?? "Still" })));
 check("the motion list is built from the boards' captured motions", motions.length > 3 && motions.some((m) => /Wobble|Blink|Pulse|Float/.test(m.says)), J(motions.map((m) => m.says)));
 const wobble = motions.find((m) => /Pulse/.test(m.says)) ?? motions.find((m) => /Wobble|Float/.test(m.says)) ?? motions[1];
-await p.locator(`[data-worn-panel] [data-worn-motion="${wobble.id}"]`).click();
-await p.locator("[data-worn-panel] input[aria-label='Strength']").fill("2");
+await p.locator(`[data-part-panel] [data-worn-motion="${wobble.id}"]`).click();
+await p.locator("[data-part-panel] [data-field='worn:strength'] input").fill("2");
 await p.waitForTimeout(300);
-await p.screenshot({ path: join(SHOTS, "popover.png") });
+await p.screenshot({ path: join(SHOTS, "part-panel.png") });
 c = await lastWorn();
 check("the cone wears the motion", c.worn.motion?.id === wobble.id && c.worn.motion.strength === 2, J(c.worn.motion && { id: c.worn.motion.id, strength: c.worn.motion.strength }));
 
@@ -246,7 +249,7 @@ check("in pixels: under the tip is the kit's dark shadow, because the shadow is 
 await p.screenshot({ path: join(SHOTS, "cone-bare.png"), clip: { x: cb.x - 30, y: cb.y - 30, width: cb.width + 80, height: cb.height + 80 } });
 
 /* The lighting bar: the keys' own gloss, laid along the cone and cut to it. */
-check("the cone came out with the kit's lighting bar: the remote keys' gloss, white at 0.35, 10px in", c.worn.bar?.kind === "gloss" && c.worn.bar.opacity === 0.35 && c.worn.bar.colour === "rgb(255, 255, 255)" && c.worn.bar.edge === 10 && (await p.locator("[data-worn-bar-toggle]").isChecked()), J(c.worn.bar));
+check("the cone came out with the kit's lighting bar: the remote keys' gloss, white at 0.35, 10px in", c.worn.bar?.kind === "gloss" && c.worn.bar.opacity === 0.35 && c.worn.bar.colour === "rgb(255, 255, 255)" && c.worn.bar.edge === 10 && (await p.locator("[data-field='worn:bar'] [data-value='On']").getAttribute("aria-checked")) === "true", J(c.worn.bar));
 const band = await bandOf(c.id);
 check("…laid along the cone's long axis: wider than tall, so across its top, lit from above", c.w > c.h && band?.gloss && facing(band.normal, [0, -1]), J({ band, w: c.w, h: c.h }));
 check("…and clipped to the outline", band?.clipped === true, J(band));
@@ -254,12 +257,12 @@ const top = await p.locator(`[data-node-id="${c.id}"] [data-worn-body]`).boundin
 const inside = [top.x + top.width * 0.5, top.y + 24 * z], outside = [top.x + top.width * 0.5, top.y - 3 * z];
 const sideOut = [top.x - 3, top.y + 24 * z];
 const on = { inside: await px(...inside), outside: await px(...outside), side: await px(...sideOut) };
-await p.locator("[data-worn-bar-toggle]").uncheck();
+await p.locator("[data-field='worn:bar'] [data-value='Off']").click();
 await p.waitForTimeout(400);
 const px2 = await pixelsOf();
 const off = { inside: await px2(...inside), outside: await px2(...outside), side: await px2(...sideOut) };
 check("in pixels: the bar lights the inside, and nothing outside the outline changes", lum(on.inside) > lum(off.inside) + 20 && near(on.outside, off.outside, 6) && near(on.side, off.side, 6), J({ on, off }));
-await p.locator("[data-worn-bar-toggle]").check();
+await p.locator("[data-field='worn:bar'] [data-value='On']").click();
 await p.waitForTimeout(400);
 await p.screenshot({ path: join(SHOTS, "cone-with-bar.png"), clip: { x: cb.x - 30, y: cb.y - 30, width: cb.width + 80, height: cb.height + 80 } });
 
@@ -288,16 +291,17 @@ await p.mouse.up();
 await p.waitForTimeout(400);
 const moved = await lastWorn();
 const abs = (n) => [n.x + n.worn.pts[0][0] * n.w, n.y + n.worn.pts[0][1] * n.h];
-check("a point dragged in the popover moves the outline, in the page", abs(moved)[0] > abs(c)[0] + 20, `${J(abs(c))} → ${J(abs(moved))}`);
+check("a point dragged in the part panel moves the outline, in the page", abs(moved)[0] > abs(c)[0] + 20, `${J(abs(c))} → ${J(abs(moved))}`);
 
-/* A rough circle, and a line with Snap off, each with the last popover closed so the hand is on the board. */
-const closePanel = async () => { if (await p.locator("[data-worn-panel]").count()) { await p.locator(`[data-worn-panel] button:has-text("Close")`).click(); await p.waitForTimeout(200); } };
+/* A rough circle, and a line with Snap off. */
+const closePanel = async () => { await p.keyboard.press("Escape"); await p.waitForTimeout(150); };
 await closePanel();
 await pickSpace();
 await draw(circle(pb2.x + 700, pb2.y + 260, 90));
 const round = await lastWorn();
 check("a rough circle snaps to a circle, as wide as tall", round.worn.snap === "circle" && Math.abs(round.w - round.h) <= 2, J({ snap: round.worn.snap, w: round.w, h: round.h }));
 await closePanel();
+await pickSpace();
 await p.locator("[data-kit-snap]").uncheck();
 await draw(circle(pb2.x + 560, pb2.y + 600, 80));
 const loose = await lastWorn();

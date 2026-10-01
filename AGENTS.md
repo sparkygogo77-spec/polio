@@ -2905,22 +2905,78 @@ a kicker with a rule, and label-and-value rows that copy.
     options bar (`toolOptions.tsx`): this site's kits, then every other site
     in Builds, then Plain (a space, exactly as before, and the default).
     With a kit in hand, a closed line drawn with S is a part wearing it
-    (`Canvas.tsx`). `WornPopover` opens beside the shape while it is picked:
-    what it is (button with where it leads, following the site's list of
-    places links may go; picture frame; decoration; section), words, colour
-    (the site's roles first, then the kit's swatches, words switched to a
-    readable colour under 4.5 to 1), kit swap with a live preview, lighting
-    bar, a motion list from every board with speed and strength, hover and
-    press, undo the snap, edit points. **When Lane G's part panel lands,
-    these move to its Look and Motion sections**; the popover is the
-    interim home.
+    (`Canvas.tsx`), and its part panel opens. Its options live in Lane G's
+    part panel: Content has its words; Look has what it is (button with
+    where it leads, following the site's list of places links may go;
+    picture frame; decoration; section), colour (the site's roles first,
+    then the kit's swatches, words switched to a readable colour under 4.5
+    to 1), kit swap with a live preview, lighting bar, undo the snap and
+    edit points; Motion has a motion list from every board with speed and
+    strength, hover and press. The plain ones are Lane I's options data
+    (`partOptions.ts`, source `worn`), drawn by `PartFields`; the ones that
+    need a picture or a hand are `WornLook` / `WornMotion` in `DrawKits.tsx`.
   `tests/style-kits.mjs` (three sink boards, no browser) and
   `tests/draw-with-kit.mjs` (a cone drawn by hand on trumpmorty.fun, in
   geometry and in pixels, and exported) hold it. Committed shots, copied
   by hand from its run: [the source button beside the cone](docs/shots/lane-j-source-and-cone.png),
-  [the picker](docs/shots/lane-j-picker.png), [the popover](docs/shots/lane-j-popover.png),
+  [the picker](docs/shots/lane-j-picker.png), [its options in the part panel](docs/shots/lane-j-part-panel.png),
   [a cone with its lighting bar](docs/shots/lane-j-cone-with-bar.png) and
   [the exported page](docs/shots/lane-j-exported.png).
+
+- **Start a new site: an original theme, rolled.** The owner has an idea and
+  does not want to build on another site's theme unless he gives a design
+  philosophy. Builds' **New site** marks the project `starter`; the Builder
+  opens it on one sample page (`newSite.ts#startNewSite`, once, after the
+  board has loaded: the board is not loaded on the Builds page). Files:
+  - `siteTheme.ts` (pure): **the theme is one record** in five lockable
+    groups. Colours: base hue, harmony rule (analogous, complementary,
+    triadic, split complementary, single colour), light, dark or mid, chroma;
+    made in OKLCH, each word colour moved in lightness until it reads at 4.5
+    to 1 on what it sits on. Fonts: one of `PAIRINGS` (two faces at most,
+    stacks every computer has, so the export needs nothing fetched). Shapes:
+    corners, border, shadow style (none, soft, hard, glow) with **one light
+    direction**, button size and shape. Layout: type scale ratio, spacing
+    step, density, header, first screen and footer variants, cards in a row.
+    Motion: calm, bouncy, snappy. `rollTheme` keeps locked groups, rolls the
+    rest inside the philosophy's ranges; towards **Familiar** it starts from
+    a captured style kit (`styleKits.ts`) and a known pairing, towards
+    **Original** it rolls again until `kitDistance` (a point per look:
+    accent in OKLab, corner roundness, border, shadow kind and depth) is
+    past `minDistanceAt(originality)`. `readPhilosophy` maps words to ranges
+    by rules and says back what it understood and what it did not; an
+    artificial intelligence (AI) step could later read a whole sentence and
+    suggest ranges for words no rule knows. `coherence` checks a page:
+    contrast, one accent family, one radius family, one shadow direction,
+    spaces on one scale. `themeCounts` is the reach by group.
+  - `starterPage.ts` (pure): the sample page from generic parts only (box,
+    prose, cta-primary): header with links to its own sections, first
+    screen with a title, a line, an address bar whose Copy is the library's
+    copy feature, two buttons, a row of cards, optional "Try these", footer
+    with links, socials and small print. Each part carries its own look, as
+    a captured part does, so board, preview and export draw one record.
+    Ids are fixed by slot (`st_…`): a re-roll keeps words and links, and a
+    part the last build made that the page no longer has stays deleted.
+  - `tryThese.ts`: two or three shelf items from different categories, only
+    those whose badge says they work when published (`statusOf`), never a
+    site switch or a feature that needs a host part.
+  - `ThemePanel.tsx`: the top of the Look tab for a site made here:
+    Randomize, Familiar to Original, a lock per group with what it is now,
+    the philosophy box, the Try these switch. Roll settings live in
+    `look.themeRoll`, outside undo; the theme in `look.theme`.
+    `store.applyTheme` is one undo step, named by `historyNames.ts`
+    ("randomize theme: warm triadic, hard shadows").
+  Three general fixes came with it: two pieces of words that link to
+  different places are two controls, never one sentence
+  (`reassemble.ts#linkedApart`); the on-open sweep reads a part placed by
+  hand as his even when it carries padding or an edge; and a font with an
+  exact `px` and no multiplier is drawn at that size (`applyFont`).
+  `tests/site-theme.mjs` (50 rolls, distances, locks, philosophy, Try these)
+  and `tests/new-site-theme.mjs` (New site, rolls, undo, locks, philosophy,
+  Try these, export against board) hold it. Shots, six rolls and one
+  philosophy: [roll 1](docs/shots/lane-j-roll-1.png), [roll 2](docs/shots/lane-j-roll-2.png),
+  [roll 3](docs/shots/lane-j-roll-3.png), [roll 4](docs/shots/lane-j-roll-4.png),
+  [roll 5](docs/shots/lane-j-roll-5.png), [roll 6](docs/shots/lane-j-roll-6.png),
+  [a philosophy read into ranges](docs/shots/lane-j-roll-philosophy.png).
 
 - **Remake this picture from one prompt** (`RemakePicture.tsx`, `remake.ts`,
   `/api/studio/remake`, `tests/remake-picture.mjs`). The owner: "right-click

@@ -118,7 +118,8 @@ if (await page.locator('button:has-text("New site")').count()) {
 } else {
   await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  await page.locator('button:has-text("New")').first().click({ force: true });
+  // An empty site, by its own button: the Builds page's New site opens on a sample page (tests/new-site-theme.mjs).
+  await page.locator("[data-builds-blank]").first().click({ force: true });
   await page.waitForTimeout(900);
   await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(2500);

@@ -22,6 +22,7 @@ import { CHIP, emptyFill } from "./colourMenu";
 import { fillLayers, resolvePalette } from "./parts/theme";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
+import { ThemeSection } from "./ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "./SiteColours";
 import { cn } from "@/core/lib/cn";
@@ -1108,6 +1109,8 @@ export function LookPanel() {
       */}
       {/* A site brought in leads with what it wears; the six roles, which a
           captured site was never painted from, come after. */}
+      {/* A site made here leads with the theme it was rolled from (`ThemePanel.tsx`). */}
+      {captured ? null : <ThemeSection />}
       {/* One colour section for every site, then the faces, then the rest (owner: "Readable words, Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
       <SiteFontsSection />

@@ -116,6 +116,11 @@ export function stepName(before: StepDoc, after: StepDoc, help: NameHelp = {}): 
   /* A site brought in is the biggest thing a step can be, and says so rather than counting its parts. */
   if (before.taken !== after.taken && after.taken) return "bring in a site";
 
+  /* A theme rolled for the site is named for itself: "randomize theme: warm triadic, hard shadows" (`siteTheme.ts`). */
+  const themeOf = (d: StepDoc) => (d.look as { theme?: { seed?: number; name?: string } | null }).theme ?? null;
+  const tb = themeOf(before), ta = themeOf(after);
+  if (ta && (ta.seed !== tb?.seed || ta.name !== tb?.name)) return tb ? `randomize theme: ${ta.name}` : `start a new site: ${ta.name}`;
+
   const pages = byId(before.pages, after.pages);
   if (pages.added.length) return pages.added.length === 1 ? `add the page ${quoted(pages.added[0]!.name, "")}`.trim() : `add ${plural(pages.added.length, "page")}`;
   if (pages.removed.length) return pages.removed.length === 1 ? `delete the page ${quoted(pages.removed[0]!.name, "")}`.trim() : `delete ${plural(pages.removed.length, "page")}`;

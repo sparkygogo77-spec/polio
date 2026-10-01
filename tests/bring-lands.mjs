@@ -112,11 +112,13 @@ const said = () => page.evaluate(() => Array.from(document.querySelectorAll("[da
 const toast = (text = "Could not bring the repository in") => page.evaluate((t) => document.body.innerText.includes(t), text);
 /* THE LOCK SHAPES THE DRIVE: a site brought in from one repository refuses
    another, so a different repository gets a new site first, the way he
-   makes one, from the Builds page. Returns whether one was made. */
+   makes one, from the Builds page: a blank one, since New site opens on a
+   sample page (tests/new-site-theme.mjs) and these checks count what lands
+   on an empty board. Returns whether one was made. */
 const freshSite = async () => {
   await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: /^New site$/ }).first().click();
+  await page.getByRole("button", { name: /^Blank site$/ }).first().click();
   await page.waitForTimeout(600);
   await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(900);

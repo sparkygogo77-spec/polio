@@ -463,7 +463,13 @@ export function BuildsPage() {
               Load a backup
             </Button>
           </Tooltip>
-          <Button size="md" variant="primary" onClick={() => create()}>
+          {/* New site opens on a sample page in a theme of its own; a blank one is for bringing a repository in, or starting from nothing. */}
+          <Tooltip content="An empty board: for bringing a repository in, or starting from nothing">
+            <Button size="md" variant="outline" data-builds-blank="" onClick={() => create()}>
+              Blank site
+            </Button>
+          </Tooltip>
+          <Button size="md" variant="primary" onClick={() => create(undefined, { starter: true })}>
             <Plus />
             New site
           </Button>
@@ -493,7 +499,7 @@ export function BuildsPage() {
           icon={Layers}
           title="Nothing built yet"
           body="Start one and the Builder opens on it."
-          action={<Button size="sm" variant="primary" onClick={() => create()}><Plus /> New site</Button>}
+          action={<Button size="sm" variant="primary" onClick={() => create(undefined, { starter: true })}><Plus /> New site</Button>}
         />
       ) : view === "sites" ? (
         <ul data-builds-list="" className="mt-4 grid gap-3 sm:grid-cols-2">

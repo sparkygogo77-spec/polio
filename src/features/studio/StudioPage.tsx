@@ -16,7 +16,7 @@ import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eras
 import { Bakers } from "./Bakers";
 import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
-import { WornPopover } from "./DrawKits";
+import { rollOnto, startNewSite } from "./newSite";
 import { ImportStrip } from "./FromASite";
 import { BringRepoDoor } from "./RepoPicker";
 import { CaptureSiteDoor } from "./CaptureSiteDialog";
@@ -1134,6 +1134,21 @@ export function StudioPage() {
     if (!wanted.focus) useStudio.getState().want(null);
   }, [wanted]);
 
+  /* A site made with New site opens on a sample page in a theme of its own, once, after its board has loaded (`newSite.ts`). */
+  const starterFor = useBuilds((s) => s.projects.find((p) => p.id === s.activeId && p.starter) ?? null);
+  React.useEffect(() => {
+    if (!starterFor) return;
+    let gone = false;
+    const go = () => {
+      if (gone) return;
+      if (useStudio.getState().nodes.length === 0) startNewSite(starterFor.name);
+      useBuilds.setState((b) => ({ projects: b.projects.map((p) => (p.id === starterFor.id ? { ...p, starter: undefined } : p)) }));
+    };
+    if (useStudio.persist.hasHydrated()) go();
+    else { const off = useStudio.persist.onFinishHydration(() => { off(); go(); }); return () => { gone = true; off(); }; }
+    return () => { gone = true; };
+  }, [starterFor]);
+
   /* A panel asking to be opened — the background's way of handing you to
      Looks, where its controls now live. */
   React.useEffect(() => {
@@ -1202,6 +1217,9 @@ export function StudioPage() {
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
     w.__studioSetLeftPanel = (id) => setLeftPanel(id);
+    /* For the theme checks: a roll with a known seed, and a new site's first page (`newSite.ts`). */
+    (w as unknown as { __studioRollTheme?: (seed?: number) => unknown }).__studioRollTheme = (seed) => rollOnto({ seed });
+    (w as unknown as { __studioStartNewSite?: (name?: string, seed?: number) => unknown }).__studioStartNewSite = (name, seed) => startNewSite(name, seed);
     // For the formation test: an update to a finished iteration, the way the
     // second pass makes one.
     w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
@@ -1441,11 +1459,7 @@ export function StudioPage() {
             className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
           >
             {design ? (
-              <>
-                <Canvas />
-                {/* A drawn shape wearing a style: its own popover, beside it while it is picked (`DrawKits.tsx`). */}
-                <WornPopover />
-              </>
+              <Canvas />
             ) : book ? (
               <Timeline />
             ) : (

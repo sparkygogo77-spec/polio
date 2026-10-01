@@ -127,7 +127,13 @@ function items(a: Frag, b: Frag): boolean {
   const tag = (s: string) => /^[a-z][\w-]*/i.exec(s)?.[0]?.toLowerCase() ?? "";
   return tag(x[i]!) !== "" && tag(x[i]!) === tag(y[i]!);
 }
-const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setApart(a, b) || items(a, b) || [ANCHOR, HEADING].some((tag) => {
+/**
+ * Two pieces that each lead somewhere else are two controls: a row of links
+ * (a header's Home, What it does, Contact), never one sentence in pieces.
+ * Two pieces of one link still join.
+ */
+const linkedApart = (a: Frag, b: Frag): boolean => !!a.link && !!b.link && (a.link.kind !== b.link.kind || a.link.target !== b.link.target);
+const apart = (a: Frag, b: Frag): boolean => grounded(a) || grounded(b) || setApart(a, b) || linkedApart(a, b) || items(a, b) || [ANCHOR, HEADING].some((tag) => {
   const x = enclosing(a, tag), y = enclosing(b, tag);
   return !!x && !!y && x !== y;
 });

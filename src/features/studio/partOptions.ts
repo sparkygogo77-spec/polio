@@ -30,6 +30,8 @@ import { MOTION_OPTION_IDS, getFeature, type FeatureOption } from "./catalog.ts"
 import { VARIANTS, itemOf } from "./shelfPlan.ts";
 import { isWorkKey } from "./shelfGroups.ts";
 import { getWork, onUsesOf, withInput, type WorkUse } from "./library/works.ts";
+import { PLAIN_BAR } from "./styleKits.ts";
+import type { Worn } from "./wornShape.ts";
 
 /** The side panel's sections for a part. */
 export type Section = "content" | "position" | "look" | "motion";
@@ -48,6 +50,8 @@ export interface Editable {
   work?: WorkUse | null;
   w?: number;
   h?: number;
+  /** A shape drawn wearing a style kit (`wornShape.ts`): what it is, its lighting bar, its motion and its answer to the hand are fields too. */
+  worn?: Worn | null;
 }
 
 export interface Field {
@@ -61,7 +65,7 @@ export interface Field {
   range?: { min: number; max: number; step: number; unit?: string };
   placeholder?: string;
   /** Where it comes from, for the checks and for the panel's grouping. */
-  source: "version" | "content" | "link" | "option" | "colour" | "speed" | "work" | "size";
+  source: "version" | "content" | "link" | "option" | "colour" | "speed" | "work" | "size" | "worn";
 }
 
 /** The site's colour roles a part's colour can follow, and its own colour in their place. */
@@ -102,6 +106,16 @@ export function editablesOf(node: Editable, opts: { linkable?: boolean } = {}): 
       source: "option",
     });
   }
+  if (node.worn) {
+    out.push({ id: "worn:what", label: "What is this?", section: "look", kind: "one", values: WORN_WHATS.map((w) => w.label), source: "worn" });
+    out.push({ id: "worn:bar", label: "Lighting bar", section: "look", kind: "one", values: ["On", "Off"], source: "worn" });
+    if (node.worn.motion) {
+      out.push({ id: "worn:speed", label: "Speed", section: "motion", kind: "range", range: { min: 0.25, max: 3, step: 0.05, unit: "×" }, source: "worn" });
+      out.push({ id: "worn:strength", label: "Strength", section: "motion", kind: "range", range: { min: 0, max: 2, step: 0.05, unit: "×" }, source: "worn" });
+    }
+    out.push({ id: "worn:hover", label: "Lift under the hand", section: "motion", kind: "one", values: ["On", "Off"], source: "worn" });
+    out.push({ id: "worn:press", label: "Squash when pressed", section: "motion", kind: "one", values: ["On", "Off"], source: "worn" });
+  }
   for (const c of COLOUR_SLOTS) out.push({ id: `colour:${c.slot}`, label: c.label, section: "look", kind: "colour", values: [...COLOUR_ROLES], source: "colour" });
   if (node.anim) out.push({ id: "speed", label: "Speed", section: "motion", kind: "range", range: { min: 0.25, max: 3, step: 0.05, unit: "×" }, source: "speed" });
   for (const u of onUsesOf(node.work)) {
@@ -117,6 +131,14 @@ export function editablesOf(node: Editable, opts: { linkable?: boolean } = {}): 
   }
   return out;
 }
+
+/** What a drawn shape can be, in the words the panel shows. */
+export const WORN_WHATS: { id: NonNullable<Worn["what"]>; label: string; means: string }[] = [
+  { id: "button", label: "Button", means: "Pressable, and leads somewhere." },
+  { id: "frame", label: "Picture frame", means: "A picture shows inside the outline." },
+  { id: "decoration", label: "Decoration", means: "Something to look at; it does nothing when pressed." },
+  { id: "section", label: "Section", means: "A place on the page that holds other parts." },
+];
 
 /** A field's value on the node, as the words the panel shows. */
 export function readField(node: Editable, field: Field): string {
@@ -137,6 +159,16 @@ export function readField(node: Editable, field: Field): string {
       return typeof v === "string" ? v : "";
     }
     case "speed": return String(node.animSpeed ?? 1);
+    case "worn": {
+      const w = node.worn;
+      if (!w) return "";
+      if (field.id === "worn:what") return WORN_WHATS.find((x) => x.id === w.what)?.label ?? "";
+      if (field.id === "worn:bar") return w.bar ? "On" : "Off";
+      if (field.id === "worn:speed") return String(w.motion?.speed ?? 1);
+      if (field.id === "worn:strength") return String(w.motion?.strength ?? 1);
+      if (field.id === "worn:hover") return w.hover ? "On" : "Off";
+      return w.press ? "On" : "Off";
+    }
     case "work": {
       const [, id, input] = field.id.split(":");
       const u = onUsesOf(node.work).find((x) => x.id === id);
@@ -184,6 +216,23 @@ export function writeField(node: Editable, field: Field, value: string): Partial
     case "work": {
       const [, id, input] = field.id.split(":");
       return { work: withInput(node.work, id!, input!, value) };
+    }
+    case "worn": {
+      const w = node.worn;
+      if (!w) return null;
+      const on = value === "On";
+      if (field.id === "worn:what") {
+        const what = WORN_WHATS.find((x) => x.label === value || x.id === value)?.id;
+        return what ? { worn: { ...w, what }, ...(what === "button" ? {} : { link: null }) } : null;
+      }
+      if (field.id === "worn:bar") return { worn: { ...w, bar: on ? w.bar ?? w.kit.bar ?? w.kit.siteBar ?? PLAIN_BAR : null } };
+      if (field.id === "worn:speed" || field.id === "worn:strength") {
+        const n = Number(value);
+        if (!w.motion || !Number.isFinite(n) || n < 0) return null;
+        return { worn: { ...w, motion: { ...w.motion, [field.id === "worn:speed" ? "speed" : "strength"]: n } } };
+      }
+      if (value !== "On" && value !== "Off") return null;
+      return { worn: { ...w, [field.id === "worn:hover" ? "hover" : "press"]: on } };
     }
   }
 }

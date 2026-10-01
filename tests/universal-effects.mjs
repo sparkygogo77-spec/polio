@@ -218,7 +218,8 @@ check("…pictures, buttons and sections all seen", ["picture", "button", "secti
 /* A new, empty board. */
 await page.goto(`${BASE}/builds`, { waitUntil: "networkidle" });
 await wait(1200);
-await page.getByRole("button", { name: /^New site$/ }).first().click();
+// An empty board by its own button: the Builds page's New site opens on a sample page (tests/new-site-theme.mjs).
+await page.getByRole("button", { name: /^Blank site$/ }).first().click();
 await wait(900);
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForFunction(() => !!window.__studioNodes && !!window.__studioHistory && (window.__studioLearned()?.components ?? []).length > 0, null, { timeout: 30000 });

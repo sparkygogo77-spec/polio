@@ -185,6 +185,8 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined, opts: { c
     const px = t.fontPx * Math.max(sizeMin, Math.min(sizeMax, font.size));
     next.fontPx = opts.captured ? Math.round(px * 10000) / 10000 : Math.round(px * 10) / 10;
   }
+  /* An exact size and no multiplier (a theme's sample page, `starterPage.ts`): drawn at that size, as a captured one is. */
+  else if (typeof font.px === "number" && Number.isFinite(font.px) && font.px > 0) next.fontPx = Math.max(8, Math.min(200, Math.round(font.px * 10) / 10));
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
   /*
    * A CAPTURED PART'S SPACING, AT THE SIZE ITS WORDS ARE DRAWN. The spacing is

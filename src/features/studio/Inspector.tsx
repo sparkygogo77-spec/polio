@@ -44,6 +44,7 @@ import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
 import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, PartsTree, kindWord, useDecisions } from "./PartTreePanel";
 import { PartFields } from "./PartFields";
+import { WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
 
@@ -761,7 +762,8 @@ export function Inspector() {
           ) : null}
           {/* While it goes nowhere, the box at the top is where it is decided; the other half, saying what it should do, stays here. */}
           {control || decision?.why === "nowhere" ? <LinkField node={node} /> : null}
-          {node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node) ? <PictureField node={node} /> : null}
+          {node.worn ? <WornWords node={node} /> : null}
+          {!node.worn && (node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node)) ? <PictureField node={node} /> : null}
           <WorkFields node={node} pick={(id) => !effectIds.has(id)} />
           {node.vector ? <Role node={node} /> : null}
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
@@ -828,7 +830,10 @@ export function Inspector() {
           </div>
         </PanelSection>
 
-        <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+        <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+          {/* A shape drawn wearing a style kit: its colour, style, lighting bar and outline (`DrawKits.tsx`). */}
+          {node.worn ? <WornLook node={node} /> : null}
+          {node.worn ? null : <>
           <Field label="Colour">
             <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
           </Field>
@@ -848,10 +853,11 @@ export function Inspector() {
               ))}
             </div>
           </Field>
+          </>}
         </PanelSection>
 
-        <PanelSection id="motion" title="Motion" icon={<Play />} note={undefined}>
-          <PartMotions node={node} />
+        <PanelSection id="motion" title="Motion" icon={<Play />} note={node.worn?.motion?.name}>
+          {node.worn ? <WornMotion node={node} /> : <PartMotions node={node} />}
         </PanelSection>
 
         {/* EFFECTS: the ones that fit this kind of part, plain or as a site had them, with their settings (PartEffects.tsx). */}
