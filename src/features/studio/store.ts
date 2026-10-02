@@ -636,7 +636,15 @@ export function frameHeight(
    * below the page rather than placed on it, and the window they live in has
    * to know they are there or the last of them is unreachable.
    */
-  const placed = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  /*
+   * A part hidden as the page opens (`state`: shown on a press) is not on
+   * the page that opens, and the board never draws it. Counted, it made the
+   * page as long as the lowest hidden thing: PST's Home is 1574px of site
+   * and came in 2607 tall, a thousand pixels of blank page that the site
+   * scrolled up into, so the page read as a still frame with the site
+   * sliding away inside it. `tests/board-top-edge.mjs`.
+   */
+  const placed = nodes.reduce((m, n) => (n.state ? m : Math.max(m, n.y + n.h)), 0);
   let scratch = 0;
   for (const sh of also.shapes ?? []) {
     for (const [, y] of sh.points) scratch = Math.max(scratch, y);

@@ -129,7 +129,16 @@ const FRAME_GUTTER = 128;
  * surface is what scrolls. Vertical pan would be a second way of moving the
  * same thing in the same direction, and two of those disagree.
  */
-const TOP_GUTTER = 20;
+const TOP_GUTTER = 28;
+/*
+ * The page's name above it, in screen pixels: one 15px line standing 5px
+ * off the page's edge. 20 of the gutter's 28, so the name never reaches the
+ * page and never touches the pane's top. The gutter was 20 and the label
+ * was drawn in page pixels, which put its foot on the page's first row at
+ * any zoom under 1.
+ */
+const LABEL_LINE = 15;
+const LABEL_GAP = 5;
 
 
 /** The screen each device actually has, so the frame is a real viewport. */
@@ -1978,7 +1987,22 @@ function DesktopCanvas() {
             Background · ⌘X cuts it, ⌫ strips it
           </div>
         ) : null}
-        <div className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted" style={{ top: -22, fontSize: 11 / zoom }}>
+        {/*
+          The page's name, standing on the page's top edge from outside.
+
+          It was `top: -22` in page pixels with the words at 11 / zoom: the
+          offset shrank with the zoom and the words did not, so at 51% the
+          label sat 11 screen pixels up with 16 pixels of line, and its foot
+          lay over the page's first row (PST's Home, its nav 8px down). Its
+          foot is pinned to the page's top now and everything about it is
+          sized in screen pixels, so it is the same 20px at every zoom and
+          `TOP_GUTTER` always has room for it. `tests/board-top-edge.mjs`.
+        */}
+        <div
+          data-page-label=""
+          className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted"
+          style={{ bottom: "100%", paddingBottom: LABEL_GAP / zoom, fontSize: 11 / zoom, lineHeight: `${LABEL_LINE / zoom}px` }}
+        >
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>
           <span className="num">{frameWidth} × {Math.round(frameH)}</span>
@@ -3124,17 +3148,29 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
  * just above the part's top-right corner rather than on the part, because a
  * badge inside a 16px icon covers the icon it is about. Pressing it opens the
  * one box (`SayBox.tsx`) on that part; answering it takes the ! away.
+ *
+ * Except near the page's top edge. PST's nav sits 8px down, so the four
+ * badges on its links stood across the page's edge and up into its name,
+ * and the top of the page read as cut off. A part whose badge would reach
+ * above the page wears it under its bottom-right corner instead: still off
+ * the part's words, and now off the edge and the label too, at any zoom
+ * (the room is worked out in page pixels from the badge's drawn size).
+ * `tests/board-top-edge.mjs`.
  */
+const BADGE = 14;
 function DecideBadge({ node, why, chipScale }: { node: StudioNode; why: Decision["why"]; chipScale: number }) {
   /* Why a capture held its press back, said on hover after the ask (`learn.ts`). */
   const held = useStudio((s) => (s.learn ? heldSays(s.learn, node.id) : null));
   const said = why === "live" ? "Live data: say where it comes from" : "Goes nowhere yet: say what it does";
   const say = held ? `${said}. ${held.charAt(0).toUpperCase()}${held.slice(1)}` : said;
+  /* The badge's height on the page with its gap and a little air: above the part only if that fits under the page's edge. */
+  const under = node.y < (BADGE + 4) * chipScale && node.y + node.h > 0;
   return (
     <button
       type="button"
       data-decide={why}
       data-decide-for={node.id}
+      data-decide-under={under ? "" : undefined}
       aria-label={say}
       title={say}
       onPointerDown={(e) => { e.stopPropagation(); }}
@@ -3146,13 +3182,13 @@ function DecideBadge({ node, why, chipScale }: { node: StudioNode; why: Decision
         useStudio.getState().want({ panel: "inspector" });
         openRadial(node.id, e.clientX, e.clientY, null, "write");
       }}
-      className="tactile pointer-events-auto absolute right-0 top-0 z-[4] flex items-center justify-center rounded-full font-bold leading-none"
+      className={`tactile pointer-events-auto absolute right-0 ${under ? "top-full" : "top-0"} z-[4] flex items-center justify-center rounded-full font-bold leading-none`}
       style={{
-        width: 14,
-        height: 14,
+        width: BADGE,
+        height: BADGE,
         fontSize: 10,
-        transform: `translate(35%, calc(-100% - 2px)) scale(${chipScale})`,
-        transformOrigin: "left bottom",
+        transform: under ? `translate(35%, 2px) scale(${chipScale})` : `translate(35%, calc(-100% - 2px)) scale(${chipScale})`,
+        transformOrigin: under ? "left top" : "left bottom",
         background: "oklch(0.74 0.18 55)",
         color: "oklch(0.2 0.05 50)",
         boxShadow: "0 0 0 1.5px oklch(0.2 0.03 50), 0 1px 3px oklch(0 0 0 / 0.5)",

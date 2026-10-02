@@ -1236,6 +1236,8 @@ export function StudioPage() {
     (w as unknown as { __studioPublish?: typeof publish }).__studioPublish = (input) => publish(input);
     // A document put on the board whole, the way an import does (tests/big-document.mjs: one past localStorage's quota).
     (w as unknown as { __studioLoadDoc?: (doc: Record<string, unknown>) => void }).__studioLoadDoc = (doc) => useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
+    // The board's zoom as the readout says it (0.51 is 51%), or "fit" for Fit in view (tests/board-top-edge.mjs).
+    (w as unknown as { __studioZoom?: (z: number | "fit") => void }).__studioZoom = (z) => (z === "fit" ? useStudio.getState().requestFit() : useStudio.getState().setZoom(z));
     // A drawing put on the queue the way the draw board puts one (DrawBoard.tsx#makeReal), for a check that draws on a given part (tests/draw-on-section.mjs).
     (w as unknown as { __studioDraw?: (job: Parameters<ReturnType<typeof useStudio.getState>["enqueueDraw"]>[0]) => string }).__studioDraw = (job) => useStudio.getState().enqueueDraw(job);
     /*
