@@ -84,13 +84,17 @@ const badges = await page.evaluate(() => [...document.querySelectorAll("[data-de
   const r = b.getBoundingClientRect();
   const p = part?.getBoundingClientRect();
   const colour = getComputedStyle(b).backgroundColor;
-  return { id: b.getAttribute("data-decide-for"), why: b.getAttribute("data-decide"), text: b.textContent, colour, outside: !!p && (r.bottom <= p.top + 1 || r.left >= p.right - 1) };
+  return { id: b.getAttribute("data-decide-for"), why: b.getAttribute("data-decide"), text: b.textContent, colour, outside: !!p && (r.bottom <= p.top + 1 || r.left >= p.right - 1 || r.top >= p.bottom - 1) };
 }));
 const want = new Set(expected.map((d) => d.id));
 const got = new Set(badges.map((b) => b.id));
 check("a ! on every part that needs a decision on Creator Hub", expected.every((d) => got.has(d.id)), `${badges.length} drawn, ${expected.length} expected`);
 check("…and on no other part", badges.every((b) => want.has(b.id)), badges.filter((b) => !want.has(b.id)).map((b) => b.id).join(", "));
 check("…orange, and it says !", badges.length > 0 && badges.every((b) => b.text === "!" && /rgb\(2[0-9]{2}, 1[0-9]{2}, [0-9]{1,2}\)|oklch/.test(b.colour)), badges[0]?.colour);
+/* Above the part, or under it when the part starts too near the page's top
+   edge for the ! to fit above (Creator Hub's nav row, 16–31px down: above,
+   it stood across the edge and into the page's name; `Canvas.tsx#DecideBadge`,
+   `tests/board-top-edge.mjs`). Under is as far off the part as above is. */
 check("…sitting outside the part it is about, never over it", badges.every((b) => b.outside), badges.filter((b) => !b.outside).map((b) => b.id).join(", "));
 if (SHOTS) {
   await page.locator(`[data-decide-for="${PRICE.id}"]`).scrollIntoViewIfNeeded().catch(() => {});

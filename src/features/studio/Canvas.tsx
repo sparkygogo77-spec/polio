@@ -129,16 +129,18 @@ const FRAME_GUTTER = 128;
  * surface is what scrolls. Vertical pan would be a second way of moving the
  * same thing in the same direction, and two of those disagree.
  */
-const TOP_GUTTER = 28;
+const TOP_GUTTER = 20;
 /*
- * The page's name above it, in screen pixels: one 15px line standing 5px
- * off the page's edge. 20 of the gutter's 28, so the name never reaches the
- * page and never touches the pane's top. The gutter was 20 and the label
- * was drawn in page pixels, which put its foot on the page's first row at
- * any zoom under 1.
+ * The page's name above it, in screen pixels: one 14px line standing 4px
+ * off the page's edge, 18 of the gutter's 20, so the name never reaches the
+ * page and never touches the pane's top. It was drawn in page pixels, which
+ * put its foot on the page's first row at any zoom under 1. The gutter was
+ * raised to 28 for it once; that broke J's measured "much slimmer than the
+ * sides" (`tests/full-page.mjs`, `tests/scroll-contract.mjs`), and the name
+ * fits in the 20 he set.
  */
-const LABEL_LINE = 15;
-const LABEL_GAP = 5;
+const LABEL_LINE = 14;
+const LABEL_GAP = 4;
 
 
 /** The screen each device actually has, so the frame is a real viewport. */
@@ -1995,7 +1997,7 @@ function DesktopCanvas() {
           label sat 11 screen pixels up with 16 pixels of line, and its foot
           lay over the page's first row (PST's Home, its nav 8px down). Its
           foot is pinned to the page's top now and everything about it is
-          sized in screen pixels, so it is the same 20px at every zoom and
+          sized in screen pixels, so it is the same 18px at every zoom and
           `TOP_GUTTER` always has room for it. `tests/board-top-edge.mjs`.
         */}
         <div
