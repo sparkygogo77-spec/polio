@@ -3,7 +3,7 @@ import { findPlaywright, NO_PLAYWRIGHT, type PWPage } from "../headless";
 import { readZipInfo } from "@/features/studio/zipFile";
 import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts, ZIP_BUDGET_MS, ZIP_REFUSAL_SAYS } from "@/features/studio/zipImport";
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
-import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, FACES, MEASURE, PARTS, type Candidate, type PageRead } from "@/features/studio/siteRead";
 import { carryFaces, type FacesRead } from "@/features/studio/fonts";
 
 /**
@@ -23,7 +23,10 @@ import { carryFaces, type FacesRead } from "@/features/studio/fonts";
  *     page, exactly as the element route lists a live one; or
  *   · `selectors`, a JSON list: those elements measured in full, in one
  *     go, because a page taken whole is a dozen blocks and a dozen
- *     uploads of the same zip would be a dozen too many.
+ *     uploads of the same zip would be a dozen too many; or
+ *   · `parts`: the page read element by element (`PARTS`), and every other
+ *     page in the zip beside it, each its own reading, in one go
+ *     (`pageParts.ts` makes them pages of parts).
  *
  * The zip is sent each time rather than kept on the server: the route
  * holds nothing between calls, like every other route here. Every failure
@@ -33,6 +36,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const HOME = "https://zip.invalid";
+/** How many parts one page is read into. A page past it says so. */
+const MAX_PARTS = 1500;
 
 export async function POST(request: Request) {
   const began = Date.now();
@@ -67,6 +72,7 @@ export async function POST(request: Request) {
     }
   })();
   const width = Math.max(360, Math.min(1920, Number(form.get("width")) || 1280));
+  const byParts = form.get("parts") === "1";
 
   const found = await findPlaywright();
   if (!found.pw) return no("no-browser", NO_PLAYWRIGHT);
@@ -89,10 +95,47 @@ export async function POST(request: Request) {
     browser = await found.pw.chromium.launch(await found.launchOptions());
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
-    await serveZip(page, names, gate.dir, (n) => (n === gate.entry ? new TextEncoder().encode(sansScripts(entryHtml)) : unpacked(n)));
+    /* Every page is opened as its HTML says without its scripts: the entry, and in the reading by parts each other page too. */
+    const htmlOf = new Map<string, string>([[gate.entry, entryHtml]]);
+    await serveZip(page, names, gate.dir, (n) => {
+      if (n === gate.entry) return new TextEncoder().encode(sansScripts(entryHtml));
+      if (byParts && /\.html?$/i.test(n)) {
+        const text = htmlOf.get(n) ?? (() => { try { return new TextDecoder().decode(unpacked(n)); } catch { return ""; } })();
+        htmlOf.set(n, text);
+        return new TextEncoder().encode(sansScripts(text));
+      }
+      return unpacked(n);
+    });
     await page.goto(`${HOME}/${gate.entry}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
     await page.waitForTimeout(300);
     const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
+
+    if (byParts) {
+      /*
+       * THE PAGE, ELEMENT BY ELEMENT, AND ITS SIBLINGS. The entry first, then
+       * each other page of the site in the zip (beside it or under it, never
+       * above it), up to `MOST_PAGES`, each opened as its HTML says and read
+       * the same way. Each reading names its file and whether it brought
+       * scripts, which were not run.
+       */
+      const MOST_PAGES = 12;
+      const others = [...names]
+        .filter((n) => n !== gate.entry && /\.html?$/i.test(n) && n.startsWith(gate.dir) && !/(^|\/)(node_modules|vendor|test|tests)\//i.test(n))
+        .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b));
+      const read: { file: string; scripts: boolean; read: PageRead }[] = [];
+      read.push({ file: gate.entry, scripts, read: (await page.evaluate(PARTS, MAX_PARTS)) as PageRead });
+      for (const file of others.slice(0, MOST_PAGES - 1)) {
+        try {
+          await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
+          await page.waitForTimeout(150);
+          read.push({ file, scripts: hadScripts(htmlOf.get(file) ?? ""), read: (await page.evaluate(PARTS, MAX_PARTS)) as PageRead });
+        } catch {
+          /* A page that will not open is left out, and the count says so. */
+        }
+      }
+      await context.close();
+      return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, pages: read, left: Math.max(0, others.length - (MOST_PAGES - 1)), failed: Math.min(others.length, MOST_PAGES - 1) - (read.length - 1), took: took() });
+    }
 
     if (!selectors) {
       const shot = await page.screenshot({ fullPage: false });

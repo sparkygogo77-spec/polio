@@ -178,7 +178,8 @@ await page.waitForTimeout(1500);
 const line1 = await said();
 check("and the panel says what landed", /block|part|element/i.test(line1), line1.slice(0, 160));
 check("and so does a toast, seen from the board", await toast("landed on the board"));
-check("two blocks is thin, and the panel says so", /Only 2 blocks came from it: the page in the repository has little on it/.test(line1), line1.slice(-120));
+/* Read part by part (`pageParts.ts`), this page is two headings, two lines, a link and their two boxes: counted, and not thin (thin is two parts or fewer showing). */
+check("the panel counts what landed, part by part, and does not call it thin", /^\d+ parts from him\/page/.test(line1) && !/Only \d+ block/.test(line1), line1.slice(0, 160));
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
 
 /* 1b. The same, pressed from the Builds page: the board opens and it lands there. */

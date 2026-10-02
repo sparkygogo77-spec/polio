@@ -281,6 +281,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       partView={partView}
       onNavigate={onNavigate}
       emit={emit}
+      hooks={node.hooks ?? null}
     />
   );
   const part = (

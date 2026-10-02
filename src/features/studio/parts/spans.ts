@@ -77,6 +77,8 @@ export interface Span {
   bg?: string;
   pad?: number[];
   radius?: number;
+  /** The id and data-* attributes of the element these words sat in on a brought-in page (`pageParts.ts`): a value its code writes into. Written on the run's own element on the live page. */
+  hooks?: Record<string, string>;
 }
 
 /** Are these a captured title's letters, each moving on its own (a transform or an animation per run)? */
@@ -168,7 +170,9 @@ export function alike(a: Span, b: Span): boolean {
     && !!a.italic === !!b.italic
     && a.face === b.face
     && a.bg === b.bg
-    && linkAlike(a.link, b.link);
+    && linkAlike(a.link, b.link)
+    /* A value a brought-in page's code writes into is its own run, however it looks: folded into its neighbour, its hook would name the whole sentence. */
+    && JSON.stringify(a.hooks ?? null) === JSON.stringify(b.hooks ?? null);
 }
 
 function linkAlike(a: NodeLink | undefined, b: NodeLink | undefined): boolean {

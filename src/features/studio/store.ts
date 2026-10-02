@@ -416,6 +416,14 @@ export interface StudioNode {
    * (`library/badge.ts`).
    */
   settled?: boolean;
+  /**
+   * The id and data-* attributes the element had on the page it was brought
+   * in from (`pageParts.ts`): the names that page's code finds it by. Written
+   * on the published page where the part is drawn — on a field's or a
+   * checkbox's own input, else on the part's box — so `[data-hook="…"]`
+   * still finds it. Optional: absent on every part that came from nowhere.
+   */
+  hooks?: Record<string, string> | null;
 }
 
 export interface StudioGroup {

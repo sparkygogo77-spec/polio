@@ -174,8 +174,11 @@ for (const [what, w] of Object.entries(WORDS)) {
 }
 /* 1:1 is about the arrangement as much as the words: the bar is short and
    across the top, the hero is the tall one, the foot is at the bottom. */
-const byY = [...nodes].sort((a, b) => a.y - b.y);
-check("in the order the page had them, top to bottom", byY[0].h < byY[1].h && byY[byY.length - 1].y > byY[0].y,
+/* Element by element (`pageParts.ts`): the page's sections are boxes, and its words are parts inside them. */
+const boxes = nodes.filter((n) => n.featureId === "box");
+const within = (a, b) => a !== b && a.from?.selector?.startsWith(`${b.from?.selector} `);
+const byY = boxes.filter((a) => !boxes.some((b) => within(a, b))).sort((a, b) => a.y - b.y);
+check("in the order the page had them, top to bottom", byY.length === 3 && byY[0].h < byY[1].h && byY[byY.length - 1].y > byY[0].y,
   byY.map((n) => `${n.label} ${n.w}×${n.h}@${n.y}`).join("  "));
 
 /* ------------------------------------------------------------------ */

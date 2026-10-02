@@ -25,6 +25,7 @@ import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, PlainBox
 import { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./Text";
 import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Picture, Player, Viewer } from "./Media";
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
+import { Checkbox, Field } from "./PageControls";
 import { SearchBox } from "./SearchBox";
 import { Cube } from "./Cube";
 import { Mesh } from "./Mesh";
@@ -91,6 +92,9 @@ export const DEFS: PartDef[] = [
   { component: FilterPanel, ids: ["filter-panel"], tier: "A" },
   { component: DatePicker, ids: ["date-picker", "calendar-view"], tier: "A" },
   { component: Rating, ids: ["rating"], tier: "A" },
+  /* A page's own controls, one each, as the real element (a brought-in page: `pageParts.ts`). */
+  { component: Field, ids: ["field"], tier: "A" },
+  { component: Checkbox, ids: ["checkbox"], tier: "A" },
 
   /* --------------------------------------------------------------- shop */
   { component: ProductGrid, ids: ["product-grid", "wishlist"], tier: "A", linkable: true, linkWhole: true },

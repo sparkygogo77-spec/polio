@@ -21,8 +21,10 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);
-/* Where him/page's two blocks landed on trunk b69ae07, with a space: the page's width from the top. */
-const BEFORE = process.env.BRING_BASELINE ? JSON.parse(process.env.BRING_BASELINE) : [{"featureId":"value-prop","x":0,"y":0,"w":1440,"h":218.25},{"featureId":"value-prop","x":0,"y":218.25,"w":1440,"h":252}];
+/* Where him/page's parts land: its header's box at the page's width from the top, then its heading and line inside the header's 40px padding.
+   On trunk b69ae07 the page landed as two bands of words (value-prop 0,0,1440,218.25 and 0,218.25,1440,252); a page read from a
+   repository's files comes in element by element now (`pageParts.ts`, tests/plain-page.mjs), so these are the parts it lands as. */
+const BEFORE = process.env.BRING_BASELINE ? JSON.parse(process.env.BRING_BASELINE) : [{"featureId":"box","x":0,"y":0,"w":1440,"h":196},{"featureId":"prose","x":40,"y":61,"w":1360,"h":38},{"featureId":"prose","x":40,"y":121,"w":1360,"h":19}];
 
 const PAGE = `<!doctype html><html><head><title>A page</title><style>body{margin:0;font-family:sans-serif}header{padding:40px;background:#123;color:#fff}main{padding:40px}</style></head>
 <body><header><h1>Blackorb</h1><p>A small studio for small things.</p></header>

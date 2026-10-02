@@ -329,6 +329,8 @@ const RAW: FeatureDef[] = [
   f("filter-panel", "Filters", "forms", SlidersHorizontal, "Narrow a list by several criteria.", {}),
   f("date-picker", "Date picker", "forms", Calendar, "Pick dates, ranges or slots.", {}),
   f("rating", "Star rating", "forms", Heart, "Stars, hearts or thumbs.", {}),
+  f("field", "Field", "forms", Keyboard, "One box to type in, or a list to choose from, as a page had it: the real input, its label and the name its code finds it by.", { tags: ["input", "text box", "textarea", "select", "dropdown", "import", "captured"], content: { label: "Its label", placeholder: "Your email address" }, w: 320, h: 64 }),
+  f("checkbox", "Checkbox", "forms", CheckSquare, "One tick box (or a radio) with its words beside it, as a page had it.", { tags: ["check", "tick", "radio", "toggle", "import", "captured"], content: { label: "Its words", placeholder: "I agree to the terms" }, w: 300, h: 32 }),
   f("newsletter", "Email signup", "forms", Send, "Email capture with confirmation.", {}),
   f("booking", "Booking", "forms", Timer, "Pick a slot and confirm.", {}),
   f("survey", "Quiz / survey", "forms", CheckSquare, "Question flow with a result.", {}),
@@ -898,6 +900,8 @@ const EXPLAIN: Record<string, string> = {
   "filter-panel": "Checkboxes, ranges and prices down one side that narrow a list of results.",
   "date-picker": "A little calendar for choosing a day, or a range of days.",
   "rating": "Stars people click to score something, and the average shown back.",
+  "field": "A box people type in, or a list they choose from, that keeps the name the page's code reads it by.",
+  "checkbox": "A tick box with its words beside it: pressing the words ticks it, as on any page.",
   "newsletter": "One field and a button, asking for an email address. Say what they will get and how often.",
   "booking": "Pick a day, pick a time, confirm. Needs a real calendar behind it.",
   "survey": "A set of questions with answers to choose from, and the result at the end.",
@@ -1039,7 +1043,7 @@ export function categoryOf(id: CategoryId): CategoryDef {
 }
 
 /**
- * Sub-groups inside a category, so all 231 parts are reachable in three clicks: a card, or a version on a card's detail.
+ * Sub-groups inside a category, so all 233 parts are reachable in three clicks: a card, or a version on a card's detail.
  * Projected from `shelfGroups.ts`, which says where every item sits and in
  * what order; a group lists only catalogue ids here (the working features it
  * also holds are `work:` keys there). An id missing from every group is a

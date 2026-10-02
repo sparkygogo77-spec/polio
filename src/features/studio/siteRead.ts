@@ -588,3 +588,487 @@ export const FACES = (): { faces: { family: string; weight?: string; style?: str
   }
   return { faces, links };
 };
+
+/* ------------------------------------------------------------------ */
+/* Every element a person would name, one by one                        */
+/* ------------------------------------------------------------------ */
+
+/** A stretch of a text part's words carrying its own weight, slant, face, ink, link or hook. */
+export interface PartRun {
+  text: string;
+  weight?: number;
+  italic?: boolean;
+  mono?: boolean;
+  colour?: string;
+  href?: string;
+  /** The id and data-* attributes of the element these words sit in, so code can still find it. */
+  hooks?: Record<string, string>;
+}
+
+/** How one element was set, as the browser computed it: the page's own rules, or the browser's defaults where it has none. */
+export interface PartStyle {
+  px: number;
+  weight: number;
+  family: string;
+  italic: boolean;
+  colour: string;
+  /** Its own fill, when it paints one. */
+  bg: string | null;
+  border: { w: number; style: string; colour: string } | null;
+  radius: number;
+  /** Padding: top, right, bottom, left. */
+  pad: [number, number, number, number];
+  align: string;
+  leading: number;
+  transform: string;
+}
+
+/** A form control as the page wrote it. */
+export interface PartControl {
+  type: string;
+  value?: string;
+  placeholder?: string;
+  checked?: boolean;
+  disabled?: boolean;
+  multiple?: boolean;
+  rows?: number;
+  options?: { text: string; value: string; selected: boolean }[];
+}
+
+/** One element of the page, read on its own. */
+export interface PagePart {
+  kind: "section" | "slot" | "heading" | "text" | "code" | "button" | "link" | "field" | "check" | "picture";
+  tag: string;
+  /** The index of the section part this one sits in, or -1 for the page itself. */
+  parent: number;
+  box: { x: number; y: number; w: number; h: number };
+  words: string;
+  runs?: PartRun[];
+  /** A field's or a checkbox's label, as the page wrote it. */
+  label?: string;
+  control?: PartControl;
+  /** Its id and data-* attributes (and a control's name and role), exactly as written. */
+  hooks: Record<string, string>;
+  /** Null when it shows as the page opens; else what hides it (the hidden block's hook, id or path), and it took no room. */
+  hidden: string | null;
+  selector: string;
+  href?: string;
+  src?: string;
+  alt?: string;
+  style: PartStyle;
+}
+
+/** A page read element by element. */
+export interface PageRead {
+  title: string;
+  width: number;
+  height: number;
+  /** The page's own ground, ink, face and size: the body's, as computed. */
+  bg: string;
+  colour: string;
+  family: string;
+  px: number;
+  /** How many of the parts any rule of the page's own styles (a sheet or a style attribute) reaches. None: the browser's defaults are the whole look. */
+  styledParts: number;
+  /** Blocks hidden as the page opens (the hidden attribute, display none) and templates, read as hidden parts. */
+  hiddenBlocks: number;
+  templates: number;
+  /** More than the cap: the rest are not read. */
+  truncated: boolean;
+  parts: PagePart[];
+}
+
+/**
+ * THE PAGE, ELEMENT BY ELEMENT.
+ *
+ * `CANDIDATES` names the few big blocks a person would point at, and
+ * `MEASURE` reads one block as a whole; a plain page read that way came in
+ * as seven bands of words (PST's test page: every heading, paragraph,
+ * button and field of a section folded into one part, its hidden panels
+ * read as tall blank boxes). This reads the other way round: each heading,
+ * paragraph, line, button, link, field, checkbox and picture is a part of
+ * its own, under the section it sits in, with the id and data-* attributes
+ * the page's code finds it by.
+ *
+ * What the browser computed is what is kept, so a page with no styles of
+ * its own keeps the browser's defaults: an h1 at 32px bold, a button's
+ * grey face and edge, a list's bullets, the margins between blocks.
+ *
+ * Hidden blocks (the hidden attribute, display none) take no room where
+ * the page opens, so they are read where they stand without being shown
+ * there: each is revealed in place for a moment, read, and hidden again,
+ * and its parts carry what hid them. A template is read the same way, from
+ * a copy of its contents put beside it and taken away again.
+ *
+ * Serialised into the page like the two above: no imports, no closure.
+ */
+export const PARTS = (cap: number): PageRead => {
+  const parts: PagePart[] = [];
+  let truncated = false;
+  const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "META", "LINK", "HEAD", "TITLE", "BASE", "WBR"]);
+  const MEDIA = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE", "IFRAME", "AUDIO"]);
+  const SECTIONING = new Set(["SECTION", "ARTICLE", "ASIDE", "HEADER", "FOOTER", "MAIN", "NAV", "FORM", "FIELDSET", "DETAILS", "DIALOG", "UL", "OL", "DL", "TABLE", "FIGURE"]);
+  const SEPARATORS = /^[\s|·•/\\,;:–—\-]*$/;
+  const css = (e: Element) => getComputedStyle(e);
+  const shown = (e: Element) => css(e).display !== "none";
+  const inlineish = (e: Element) => { const d = css(e).display; return d.startsWith("inline") || d === "contents"; };
+  const isCheck = (e: Element) => e.tagName === "INPUT" && /^(checkbox|radio)$/i.test((e as HTMLInputElement).type);
+  const isControl = (e: Element) => {
+    const t = e.tagName;
+    if (t === "BUTTON" || t === "TEXTAREA" || t === "SELECT") return true;
+    if (t === "INPUT") return (e as HTMLInputElement).type !== "hidden";
+    return e.getAttribute("role") === "button";
+  };
+  const checkLabel = (e: Element) => e.tagName === "LABEL" && !!Array.from(e.querySelectorAll("input")).find(isCheck) && !Array.from(e.querySelectorAll("input, select, textarea, button")).some((c) => !isCheck(c) && isControl(c));
+  const box = (r: DOMRect) => ({ x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) });
+  /* A path the element can be found again by: every step from the body, the same walk `CANDIDATES` makes. Never the id alone: what a section holds is read off its path continuing the section's (`partTree.ts`). */
+  const path = (el: Element): string => {
+    const bits: string[] = [];
+    let node: Element | null = el;
+    while (node && node !== document.body && bits.length < 40) {
+      const parent: Element | null = node.parentElement;
+      const tag = node.tagName.toLowerCase();
+      if (!parent) { bits.unshift(tag); break; }
+      const same = Array.from(parent.children).filter((c) => c.tagName === node!.tagName);
+      bits.unshift(same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag);
+      node = parent;
+    }
+    return node === document.body && !bits.length ? "body" : `body > ${bits.join(" > ")}`;
+  };
+  const hooksOf = (e: Element): Record<string, string> => {
+    const h: Record<string, string> = {};
+    for (const a of Array.from(e.attributes)) {
+      if (a.name === "id" || a.name.startsWith("data-") || a.name.startsWith("aria-") || ((a.name === "name" || a.name === "role") && isControl(e))) h[a.name] = a.value;
+    }
+    return h;
+  };
+  const hooked = (e: Element) => e.hasAttribute("id") || Array.from(e.attributes).some((a) => a.name.startsWith("data-"));
+  const seeThrough = (c: string) => !c || c === "transparent" || /rgba\([^)]*,\s*0(\.0+)?\s*\)$/.test(c);
+  const styleOf = (e: Element): PartStyle => {
+    const s = css(e);
+    const px = parseFloat(s.fontSize) || 16;
+    const bw = parseFloat(s.borderTopWidth) || 0;
+    return {
+      px: Math.round(px * 100) / 100,
+      weight: Number(s.fontWeight) || 400,
+      family: s.fontFamily,
+      italic: s.fontStyle === "italic",
+      colour: s.color,
+      bg: seeThrough(s.backgroundColor) ? null : s.backgroundColor,
+      border: bw > 0 && s.borderTopStyle !== "none" && s.borderTopStyle !== "hidden" ? { w: Math.round(bw * 100) / 100, style: s.borderTopStyle, colour: s.borderTopColor } : null,
+      radius: Math.round(parseFloat(s.borderTopLeftRadius) || 0),
+      pad: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].map((v) => Math.round((parseFloat(v) || 0) * 100) / 100) as [number, number, number, number],
+      align: s.textAlign,
+      leading: Math.round((parseFloat(s.lineHeight) || px * 1.2) * 100) / 100,
+      transform: s.textTransform,
+    };
+  };
+  const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border; };
+  const push = (p: PagePart): number => {
+    if (parts.length >= cap) { truncated = true; return -1; }
+    parts.push(p);
+    return parts.length - 1;
+  };
+
+  /* Hidden blocks wait until the page as it opens has been read. */
+  const later: { el: Element; parent: number; template?: boolean }[] = [];
+  const queue = (el: Element, parent: number) => { later.push({ el, parent, ...(el.tagName === "TEMPLATE" ? { template: true } : {}) }); };
+
+  /* Words of a run of inline nodes, with what each stretch wore. A hidden element met on the way is kept for later. */
+  const runsOf = (nodes: Node[], root: Element, pre: boolean, parent: number): PartRun[] => {
+    const out: PartRun[] = [];
+    const add = (text: string, from: Element) => {
+      const s = css(from);
+      const a = from.closest("a[href]");
+      const run: PartRun = { text };
+      const w = Number(s.fontWeight) || 400;
+      if (w !== 400) run.weight = w;
+      if (s.fontStyle === "italic") run.italic = true;
+      if (/mono|courier|consolas|menlo/i.test(s.fontFamily)) run.mono = true;
+      if (a && root.contains(a) && a !== root) run.href = a.getAttribute("href") ?? "";
+      /* The nearest element inside the run carrying an id or a data-* attribute: a live value the page's code writes into. */
+      for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
+        if (hooked(up)) { run.hooks = hooksOf(up); break; }
+      }
+      const last = out[out.length - 1];
+      const same = last && last.weight === run.weight && last.italic === run.italic && last.mono === run.mono && last.href === run.href && JSON.stringify(last.hooks ?? null) === JSON.stringify(run.hooks ?? null);
+      if (same) last!.text += text; else out.push(run);
+    };
+    const visit = (n: Node, holder: Element) => {
+      if (n.nodeType === Node.TEXT_NODE) {
+        const raw = n.textContent ?? "";
+        const text = pre ? raw : raw.replace(/\s+/g, " ");
+        if (text) add(text, holder);
+        return;
+      }
+      if (n.nodeType !== Node.ELEMENT_NODE) return;
+      const e = n as Element;
+      if (SKIP.has(e.tagName)) return;
+      if (e.tagName === "BR") { add("\n", holder); return; }
+      if (e.tagName === "TEMPLATE" || !shown(e)) { queue(e, parent); return; }
+      /* An empty element with a hook is a place the page's code fills: it is kept, as a run with no words, so the hook travels. */
+      if (hooked(e) && !(e.textContent ?? "").trim()) out.push({ text: "", hooks: hooksOf(e) });
+      for (const c of Array.from(e.childNodes)) visit(c, e);
+    };
+    for (const n of nodes) visit(n, n.nodeType === Node.ELEMENT_NODE ? (n as Element) : (n.parentElement ?? root));
+    /* One space where the page draws one, none at either end. */
+    if (!pre) {
+      for (let i = 0; i < out.length; i++) {
+        if (i > 0 && /\s$/.test(out[i - 1]!.text) && out[i]!.text.startsWith(" ")) out[i]!.text = out[i]!.text.slice(1);
+        out[i]!.text = out[i]!.text.replace(/ ?\n ?/g, "\n");
+      }
+      const first = out.find((r) => r.text);
+      if (first) first.text = first.text.replace(/^\s+/, "");
+      const lastRun = [...out].reverse().find((r) => r.text);
+      if (lastRun) lastRun.text = lastRun.text.replace(/\s+$/, "");
+    }
+    return out.filter((r) => r.text || r.hooks);
+  };
+  const wordsOf = (runs: PartRun[]) => runs.map((r) => r.text).join("");
+  const plainRuns = (runs: PartRun[]) => runs.every((r) => r.weight === undefined && !r.italic && !r.mono && !r.href && !r.hooks);
+
+  /* A link stands on its own when what is beside it is only separators: a bar of links, not a sentence with one in it. */
+  const loneLinks = new Map<Element, boolean>();
+  const linksStandAlone = (c: Element): boolean => {
+    const had = loneLinks.get(c);
+    if (had !== undefined) return had;
+    const links = Array.from(c.querySelectorAll("a[href]"));
+    let rest = "";
+    const walk = (n: Node) => {
+      if (n.nodeType === Node.TEXT_NODE) { rest += n.textContent ?? ""; return; }
+      if (n.nodeType !== Node.ELEMENT_NODE) return;
+      const e = n as Element;
+      if (SKIP.has(e.tagName) || links.includes(e)) return;
+      for (const k of Array.from(e.childNodes)) walk(k);
+    };
+    walk(c);
+    const alone = links.length > 0 && SEPARATORS.test(rest);
+    loneLinks.set(c, alone);
+    return alone;
+  };
+  /* Does this element hold anything that is a part of its own: a block, a control, a picture, a link standing alone? */
+  const holdsParts = (el: Element): boolean => {
+    if (el.tagName === "PRE") return false;
+    if (linksStandAlone(el)) return true;
+    for (const d of Array.from(el.querySelectorAll("*"))) {
+      if (SKIP.has(d.tagName) || d.tagName === "BR") continue;
+      if (isControl(d) || MEDIA.has(d.tagName) || d.tagName === "TEMPLATE") return true;
+      if (shown(d) && !inlineish(d)) return true;
+    }
+    return false;
+  };
+
+  const marker = (li: Element): string => {
+    const t = css(li).listStyleType;
+    if (!t || t === "none") return "";
+    if (li.parentElement?.tagName === "OL") {
+      const start = Number(li.parentElement.getAttribute("start")) || 1;
+      return `${start + Array.from(li.parentElement.children).filter((c) => c.tagName === "LI").indexOf(li)}. `;
+    }
+    return t === "circle" ? "◦ " : t === "square" ? "▪ " : "• ";
+  };
+
+  const labelFor = (control: Element): string => {
+    const wrap = control.closest("label");
+    const from = wrap ?? (control.id ? document.querySelector(`label[for="${CSS.escape(control.id)}"]`) : null);
+    if (!from) return control.getAttribute("aria-label") ?? "";
+    const copy = from.cloneNode(true) as Element;
+    copy.querySelectorAll("input, select, textarea, button").forEach((x) => x.remove());
+    return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+  };
+
+  /* One control: a button, a field, a checkbox. */
+  const control = (el: Element, parent: number, hidden: string | null) => {
+    const tag = el.tagName;
+    const r = el.getBoundingClientRect();
+    const base = { tag: tag.toLowerCase(), parent, box: box(r), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) };
+    if (tag === "BUTTON" || el.getAttribute("role") === "button" || (tag === "INPUT" && /^(submit|button|reset|image)$/i.test((el as HTMLInputElement).type))) {
+      const words = (tag === "INPUT" ? (el as HTMLInputElement).value : el.textContent ?? "").replace(/\s+/g, " ").trim();
+      push({ ...base, kind: "button", words, control: { type: (el as HTMLButtonElement).type || "button", ...((el as HTMLButtonElement).disabled ? { disabled: true } : {}) } });
+      return;
+    }
+    if (isCheck(el)) {
+      const i = el as HTMLInputElement;
+      push({ ...base, kind: "check", words: labelFor(el), label: labelFor(el), control: { type: i.type, checked: i.checked, ...(i.disabled ? { disabled: true } : {}) } });
+      return;
+    }
+    const c: PartControl = { type: tag === "INPUT" ? (el as HTMLInputElement).type : tag.toLowerCase() };
+    const f = el as HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement;
+    if (tag === "SELECT") {
+      c.options = Array.from(f.options).map((o) => ({ text: o.text.replace(/\s+/g, " ").trim(), value: o.value, selected: o.selected }));
+      if (f.multiple) c.multiple = true;
+      c.value = f.value;
+    } else if (c.type !== "file" && c.type !== "password") c.value = f.value;
+    if (f.placeholder) c.placeholder = f.placeholder;
+    if (f.disabled) c.disabled = true;
+    if (tag === "TEXTAREA") c.rows = f.rows;
+    const words = tag === "SELECT" ? (c.options?.find((o) => o.selected)?.text ?? "") : (c.value || c.placeholder || "");
+    push({ ...base, kind: "field", words, label: labelFor(el), control: c });
+  };
+
+  /* A label holding a checkbox is one part: the box and the words beside it. */
+  const checkPart = (label: Element, parent: number, hidden: string | null) => {
+    const input = Array.from(label.querySelectorAll("input")).find(isCheck) as HTMLInputElement;
+    const words = labelFor(input);
+    push({ kind: "check", tag: "label", parent, box: box(label.getBoundingClientRect()), words, label: words, control: { type: input.type, checked: input.checked, ...(input.disabled ? { disabled: true } : {}) }, hooks: { ...hooksOf(label), ...hooksOf(input) }, hidden, selector: path(input), style: styleOf(label) });
+  };
+
+  const picture = (el: Element, parent: number, hidden: string | null) => {
+    const im = el as HTMLImageElement;
+    push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style: styleOf(el) });
+  };
+
+  const link = (a: Element, parent: number, hidden: string | null) => {
+    const said = (a.textContent ?? "").replace(/\s+/g, " ").trim() || a.getAttribute("aria-label") || a.getAttribute("title") || "";
+    push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) });
+  };
+
+  /* A run of inline words between the parts of a mixed block: one line of its own. */
+  let lineNo = 0;
+  const line = (nodes: Node[], holder: Element, parent: number, hidden: string | null) => {
+    const runs = runsOf(nodes, holder, false, parent);
+    const words = wordsOf(runs);
+    const hooks = runs.find((r) => r.hooks)?.hooks;
+    if (!words.trim() && !hooks) return;
+    if (!hooks && SEPARATORS.test(words)) return;
+    const range = document.createRange();
+    range.setStartBefore(nodes[0]!);
+    range.setEndAfter(nodes[nodes.length - 1]!);
+    const r = range.getBoundingClientRect();
+    /* Only empty places the code writes into: one empty place, with their hook. */
+    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }); return; }
+    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) });
+  };
+
+  /* Inline content, with the parts among it taken out as they come. */
+  const flow = (container: Element, parent: number, hidden: string | null) => {
+    let buffer: Node[] = [];
+    const flush = () => { if (buffer.length) line(buffer, container, parent, hidden); buffer = []; };
+    const lone = linksStandAlone(container);
+    for (const n of Array.from(container.childNodes)) {
+      if (truncated) return;
+      if (n.nodeType === Node.TEXT_NODE) { buffer.push(n); continue; }
+      if (n.nodeType !== Node.ELEMENT_NODE) continue;
+      const e = n as Element;
+      if (SKIP.has(e.tagName)) continue;
+      if (e.tagName === "BR") { buffer.push(e); continue; }
+      if (e.tagName === "TEMPLATE" || !shown(e)) { queue(e, parent); continue; }
+      if (MEDIA.has(e.tagName)) { flush(); picture(e, parent, hidden); continue; }
+      if (checkLabel(e)) { flush(); checkPart(e, parent, hidden); continue; }
+      if (isControl(e)) { flush(); control(e, parent, hidden); continue; }
+      if (e.tagName === "A" && e.hasAttribute("href") && lone) { flush(); link(e, parent, hidden); continue; }
+      if (inlineish(e)) {
+        if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
+        /* An inline holder of parts (a label round a field): its words are a line, its controls parts. */
+        flush();
+        flow(e, parent, hidden);
+        continue;
+      }
+      flush();
+      block(e, parent, hidden);
+    }
+    flush();
+  };
+
+  /* A block: a part of its own when it is only words, else a section (or a plain wrapper) holding its parts. */
+  const block = (el: Element, parent: number, hidden: string | null) => {
+    if (truncated) return;
+    const tag = el.tagName;
+    if (!holdsParts(el)) {
+      const pre = tag === "PRE" || /^pre/.test(css(el).whiteSpace);
+      const runs = runsOf(Array.from(el.childNodes), el, pre, parent);
+      const mark = tag === "LI" ? marker(el) : "";
+      if (mark && runs.length) runs.unshift({ text: mark });
+      const words = wordsOf(runs);
+      if (!words.trim() && !hooked(el) && !runs.some((r) => r.hooks) && !paints(el)) return;
+      /* Nothing in it yet: an empty place the page's code fills (a log, a message line, a list it builds), kept as an empty box with its hook. */
+      const kind: PagePart["kind"] = !words.trim() ? "slot" : /^H[1-6]$/.test(tag) ? "heading" : tag === "PRE" ? "code" : "text";
+      push({ kind, tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words, ...(plainRuns(runs) ? {} : { runs }), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) });
+      return;
+    }
+    const section = SECTIONING.has(tag) || hooked(el) || paints(el);
+    let at = parent;
+    if (section) {
+      const i = push({ kind: "section", tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) });
+      if (i >= 0) at = i;
+    }
+    flow(el, at, hidden);
+  };
+
+  flow(document.body, -1, null);
+
+  /* Then what was hidden, each revealed where it stands, read, and hidden again. */
+  let hiddenBlocks = 0;
+  let templates = 0;
+  for (let i = 0; i < later.length && !truncated && i < 400; i++) {
+    const { el, parent, template } = later[i]!;
+    const key = el.getAttribute("data-hook") || el.id || path(el);
+    if (template) {
+      templates++;
+      const holder = document.createElement("div");
+      holder.setAttribute("data-polio-template", "");
+      holder.appendChild((el as HTMLTemplateElement).content.cloneNode(true));
+      el.parentElement?.insertBefore(holder, el);
+      if (shown(holder)) flow(holder, parent, `template:${key}`);
+      holder.remove();
+      continue;
+    }
+    hiddenBlocks++;
+    /* Revealed with whatever above it is hidden too, and every change put back. */
+    const undo: (() => void)[] = [];
+    for (let up: Element | null = el; up && up !== document.documentElement; up = up.parentElement) {
+      if (shown(up)) continue;
+      const h = up as HTMLElement;
+      const hadHidden = h.hasAttribute("hidden");
+      const hadStyle = h.getAttribute("style");
+      if (hadHidden) h.removeAttribute("hidden");
+      if (!shown(h)) h.style.setProperty("display", h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block", "important");
+      undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
+    }
+    try {
+      if (MEDIA.has(el.tagName)) picture(el, parent, key);
+      else if (checkLabel(el)) checkPart(el, parent, key);
+      else if (isControl(el)) control(el, parent, key);
+      else if (el.tagName === "A" && el.hasAttribute("href") && el.parentElement && linksStandAlone(el.parentElement)) link(el, parent, key);
+      else block(el, parent, key);
+    } finally {
+      for (const u of undo.reverse()) u();
+    }
+  }
+
+  /* How much of it the page's own styles reach: none, and the browser's defaults are its whole look. */
+  const reached = new Set<Element>();
+  let rules = 0;
+  const reach = (list: CSSRuleList) => {
+    for (const r of Array.from(list)) {
+      if (rules > 2000) return;
+      if (r instanceof CSSStyleRule) {
+        rules++;
+        try { document.querySelectorAll(r.selectorText).forEach((e) => reached.add(e)); } catch { /* a selector this browser cannot run */ }
+      } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) reach((r as CSSGroupingRule).cssRules);
+    }
+  };
+  for (const sheet of Array.from(document.styleSheets)) { try { reach(sheet.cssRules); } catch { /* another origin's sheet */ } }
+  document.querySelectorAll("[style]").forEach((e) => reached.add(e));
+  const styledParts = parts.filter((p) => { try { const e = document.querySelector(p.selector.replace(/ ::line\(\d+\)$/, "")); return !!e && reached.has(e); } catch { return false; } }).length;
+
+  const bs = css(document.body);
+  const hs = css(document.documentElement);
+  const ground = !seeThrough(bs.backgroundColor) ? bs.backgroundColor : !seeThrough(hs.backgroundColor) ? hs.backgroundColor : "rgb(255, 255, 255)";
+  let lowest = 0;
+  for (const p of parts) if (!p.hidden) lowest = Math.max(lowest, p.box.y + p.box.h);
+  return {
+    title: document.title.trim(),
+    width: innerWidth,
+    height: Math.max(document.documentElement.scrollHeight, lowest),
+    bg: ground,
+    colour: bs.color,
+    family: bs.fontFamily,
+    px: parseFloat(bs.fontSize) || 16,
+    styledParts,
+    hiddenBlocks,
+    templates,
+    truncated,
+    parts,
+  };
+};

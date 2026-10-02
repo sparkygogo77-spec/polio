@@ -275,6 +275,7 @@ export const PUBLISH: Record<string, Publish> = {
   /* Forms & shop */
   "contact-form": still("somewhere to send it"), "multi-step-form": still("somewhere to send it"), booking: still("somewhere to send it"),
   survey: still("somewhere to send it"), autosave: still("somewhere to save"), "inline-validation": still(PRESS), captcha: still("a checking service"),
+  field: draws, checkbox: draws,
   newsletter: still("somewhere to send it"), "date-picker": still(PRESS), rating: still(PRESS), "filter-panel": still(PRESS), "file-upload": still("somewhere to send it"),
   "product-grid": draws, "product-detail": draws, "comparison-table": draws, wishlist: still("somewhere to save"),
   "pricing-table": draws, subscription: still("payments"), "cart-drawer": still("a cart kept somewhere"), checkout: still("payments"),

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tidewater test page</title>
+<!-- A plain page like PST's: no styles of its own, every control and live value carries a data-hook, scripts fill it in. -->
+</head>
+<body data-hook="app">
+<nav data-hook="nav">
+  <a href="/" data-hook="nav-home">Home</a> |
+  <a href="/ledger.html" data-hook="nav-ledger">Ledger</a> |
+  <a href="moorings.html" data-hook="nav-moorings">Moorings</a>
+</nav>
+
+<h1>Tidewater test page</h1>
+<p>Test harbour only. Nothing here is real.</p>
+<p data-hook="offline" role="status" hidden><strong>Harbour server offline.</strong></p>
+
+<section data-hook="tide-panel">
+  <h2>Tides</h2>
+  <p>High water at <span data-hook="tide-high">-</span>, low water at <span data-hook="tide-low">-</span>.</p>
+  <div data-hook="tide-list"></div>
+  <ul>
+    <li>Moorings checked twice a day</li>
+    <li>Pilots on call</li>
+  </ul>
+  <button type="button" data-hook="tide-refresh" id="refresh">Refresh tides</button>
+  <button type="button" data-hook="tide-alarm" hidden>Set an alarm</button>
+</section>
+
+<section data-hook="berth-panel">
+  <h2>Berths</h2>
+  <p data-hook="berth-note">Every berth in the harbour, and who holds it.</p>
+  <p data-hook="berth-practice" hidden><strong>Practice:</strong> nothing booked here is kept.
+    Practice berths are play money only, and never reach the ledger.</p>
+  <div data-hook="book-panel">
+    <h3>Book a berth</h3>
+    <label>Length (metres) <input type="text" inputmode="decimal" value="12" data-hook="book-length"></label>
+    <label>Berth <select data-hook="book-berth"><option value="a1">A1, by the wall</option><option value="b4" selected>B4, outer</option></select></label>
+    <button type="button" data-hook="book-review">Review booking</button>
+    <div data-hook="book-confirm" hidden>
+      <pre data-hook="book-summary"></pre>
+      <button type="button" data-hook="book-yes">Confirm booking</button>
+      <button type="button" data-hook="book-no">Cancel</button>
+    </div>
+  </div>
+  <p><label>Notes for the harbour master <textarea rows="3" data-hook="book-notes"></textarea></label></p>
+  <p><label><input type="checkbox" data-hook="book-ack" checked> I have read the harbour rules</label></p>
+  <p data-hook="book-message"></p>
+</section>
+
+<section data-hook="secret-panel" hidden>
+  <h2>Harbour master only</h2>
+  <p>This panel opens only for the harbour master. It is long, so that a reading which kept it would leave a tall blank band where it stands.</p>
+  <p>Another paragraph of it.</p>
+  <p>And another, to make the point.</p>
+  <button type="button" data-hook="secret-open">Open the gates</button>
+</section>
+
+<template id="row-template"><p data-hook="tide-row"><strong>Tide</strong> <span data-hook="tide-row-time">-</span></p></template>
+
+<script>
+  /* Builds part of the screen the way PST's app.js does: never run by the importer. */
+  document.querySelector('[data-hook="tide-high"]').textContent = '06:12';
+  const extra = document.createElement('p');
+  extra.textContent = 'Drawn by a script';
+  document.body.append(extra);
+</script>
+</body>
+</html>

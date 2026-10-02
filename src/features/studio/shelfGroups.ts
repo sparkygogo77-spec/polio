@@ -79,7 +79,7 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
   forms: [
     { id: "forms", emoji: "✉️", label: "Forms", items: ["contact-form", "inline-validation", "captcha"] },
     { id: "signup", emoji: "📧", label: "Email sign-up", items: ["newsletter"] },
-    { id: "inputs", emoji: "📥", label: "Form fields", items: ["date-picker", "rating", "filter-panel", "file-upload"] },
+    { id: "inputs", emoji: "📥", label: "Form fields", items: ["field", "checkbox", "date-picker", "rating", "filter-panel", "file-upload"] },
     { id: "browsing", emoji: "🛍️", label: "Products", items: ["product-grid", "product-detail", "comparison-table"] },
     { id: "plans", emoji: "💳", label: "Prices and plans", items: ["pricing-table", "subscription"] },
     { id: "buying", emoji: "🛒", label: "Cart and checkout", items: ["cart-drawer", "checkout", "discount", "invoice"] },

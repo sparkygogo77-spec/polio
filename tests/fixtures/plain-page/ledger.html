@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Tidewater ledger</title></head>
+<body data-hook="ledger-page">
+<nav data-hook="nav"><a href="/" data-hook="nav-home">Home</a> | <a href="/ledger.html" data-hook="nav-ledger">Ledger</a></nav>
+<h1>Ledger</h1>
+<table data-hook="ledger-table">
+  <thead><tr><th>Boat</th><th>Berth</th><th>Paid</th></tr></thead>
+  <tbody data-hook="ledger-rows"></tbody>
+</table>
+<p data-hook="ledger-empty" hidden>Nothing in the ledger yet.</p>
+<script type="module">import './nothing.js';</script>
+</body>
+</html>

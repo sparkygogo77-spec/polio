@@ -55,6 +55,8 @@ import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
+import { pagesToDoc, reportSays, type FileRead } from "./pageParts";
+import { SWEEP } from "./reassemble";
 
 type Source =
   /* A site read at its address. `repo` is set when the address stood in
@@ -456,6 +458,8 @@ export function FromASite({ space }: { space: Space }) {
       const opened = [...new Set(n.opened)];
       busy(`From its source, ${got.source.page}: ${n.bands.length} bands${opened.length ? `, opened ${opened.join(", ")}` : ""}${n.closed.length ? `; ${[...new Set(n.closed)].join(", ")} closed on a first view` : ""}.`);
     } else busy(`Reading the page in ${r.name}…`);
+    /* Element by element first (`pageParts.ts`): each heading, line, button, field and checkbox a part of its own, every page of it a page. */
+    if (await landParts(r, got)) return;
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
@@ -570,6 +574,66 @@ export function FromASite({ space }: { space: Space }) {
       setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${sentencesSaid}${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}`, ...(saidDetails ? { details: saidDetails } : {}) });
       play("confirm");
     })();
+  };
+
+  /*
+   * A REPOSITORY'S PAGE, ELEMENT BY ELEMENT (`pageParts.ts`).
+   *
+   * Read by blocks, PST's plain test page came in as seven bands of words,
+   * its hidden panels as tall blank boxes. Read by parts, every heading,
+   * line, button, link, field and checkbox is its own part under its
+   * section, keeping the hooks its code finds it by; what is hidden as the
+   * page opens is kept hidden and takes no room; and each other page of the
+   * site beside it comes in as a page. It lands as a capture lands
+   * (`landAsBrought`): the document replaced, one undo back. The sweep is
+   * not run over it: it reads a capture's fragments and joins them, and
+   * these parts were read whole.
+   *
+   * False when nothing could be read this way, so the reading by blocks
+   * runs as before and says its own ending.
+   */
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string }): Promise<boolean> => {
+    const st0 = useStudio.getState();
+    const zr = await askZip(got.file, { parts: "1", width: String(st0.frameWidth || 1440) });
+    const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
+    if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
+    const { doc, report } = pagesToDoc(files);
+    const st = useStudio.getState();
+    const mark = takeImportMark() ?? st.historyMark();
+    /* Every other space goes; the one this panel runs on stays, so what landed is said where it was asked for. */
+    st.removeSpaces(st.spaces.filter((sp) => sp.id !== space.id).map((sp) => sp.id));
+    /* The page's own ground and ink are the palette's page colour and text: a plain page is white with black words, whatever the buttons are filled with. */
+    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format: st.format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text } }, swept: SWEEP });
+    /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
+    const cat = categoryFor(of);
+    const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);
+    /* Those with words first: a section's box is where they sit, and the least of what to drop again. */
+    const kept = [...shows.filter((n) => n.featureId !== "box"), ...shows.filter((n) => n.featureId === "box")].slice(0, 120);
+    useStudio.getState().bringIn(
+      { id: cat.id, label: cat.label, hue: cat.hue, from: got.file.name, page: got.entry, at: Date.now() },
+      kept.map((n, i) => ({ id: `${cat.id}:${i + 1}`, categoryId: cat.id, label: String(n.label || `Element ${i + 1}`), basedOn: n.featureId, blurb: n.prompt, w: n.w, h: n.h, content: typeof n.content === "string" ? n.content : n.content.map((x) => x.text).join(""), options: n.options, colour: n.colour, font: n.font, prompt: n.prompt })),
+    );
+    const here = activeProject();
+    const cameAt = repoFrom(`${of.owner}/${of.name}`, got.ref || of.ref || "main");
+    const came = cameAt ? { ...cameAt, dir: of.dir ?? null } : cameAt;
+    if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
+    useStudio.getState().oneStepSince(mark);
+    /* Locked as the page had it, when it landed in a space: the layout is the specification. */
+    if (!isHeadless(space)) lockNow(space.id);
+    /* The space this panel runs on stays picked, so its line is read where it was asked for; a repository's import has none (`BringHost`). */
+    useStudio.getState().setSelection(isHeadless(space) ? [] : [space.id]);
+    if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
+    const anyScripts = files.some((f) => f.scripts);
+    const left = Number(zr.left) || 0;
+    const failed = Number(zr.failed) || 0;
+    /* Thin is still said: a page that shows two parts or fewer as it opens has little on it. */
+    const showing = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id && n.featureId !== "box").length;
+    const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
+    const total = report.pages.reduce((n, p) => n + p.parts, 0);
+    ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });
+    setStage({ at: "said", says });
+    play("confirm");
+    return true;
   };
 
   /*

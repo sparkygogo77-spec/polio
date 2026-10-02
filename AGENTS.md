@@ -376,6 +376,36 @@ Bringing into a site with parts asks, offering a new site for it. **Publish
 to**: one of his repos or a new one by name, with a branch. The locks are the
 same. `tests/repo-menu.mjs` holds it.
 
+**A brought-in HTML page comes in element by element, and its sibling pages
+as pages.** PST's test page (plain HTML, no styles of its own, its screens
+filled in by scripts) came in through Bring it in as seven "bands of words":
+the reading was by block (`CANDIDATES` picks a few big boxes, `MEASURE` reads
+each whole, `recreate.ts` makes each one part), so every section folded into
+one part, its headings into its paragraphs, its buttons and fields were lost,
+and a hidden panel read as a tall blank box (Balance, 1422x563). A page read
+from a repository's files now goes through `PARTS` (`siteRead.ts`): each
+heading, paragraph, line, list item, button, link, field (input, textarea,
+select with its options), checkbox with its label and picture is a part of
+its own, under a box for the section it sits in (owned by path, as a
+capture's are), at the box, words, ink and type the browser computed. A page
+with no styles of its own keeps the browser's defaults that way (h1 32px
+bold, a button's grey face and edge, bullets, margins). Every part keeps its
+id and data-* attributes (`node.hooks`): the published page writes them on a
+field's or checkbox's real input (`parts/PageControls.tsx`), else on the
+part's box, and a value written into a sentence keeps its hook on its run
+(`Span.hooks`; `alike` will not fold it away). Hidden at load (the hidden
+attribute, display none, a template) is read in place for a moment and
+hidden again, and lands as a hidden part (`node.state`), never a gap; an
+empty element with a hook lands as an empty box (a slot the code fills). The
+zip route's `parts` mode reads the entry and each other HTML page beside or
+under it (up to twelve); `pageParts.ts` makes them one document, Home first,
+a link to a sibling file going to its page, and lands it as a capture lands
+(`landAsBrought`, without the sweep: its sentence joining is for a capture's
+fragments). The report (`reportSays`) is counts of what landed, by kind and
+page, hidden, hooked, unstyled, scripts not run, pictures not carried. A page
+`PARTS` finds nothing in falls back to the reading by blocks.
+`tests/plain-page.mjs` holds it on a PST-shaped fixture.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost

@@ -205,6 +205,8 @@ export interface PartProps {
   partView?: (nodeId: string, box: { w: number; h: number }) => React.ReactNode;
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
+  /** The id and data-* attributes a brought-in page's code finds this part by (`StudioNode.hooks`), for a part that draws a real control to put on it. */
+  hooks?: Record<string, string> | null;
 }
 
 export type Part = React.ComponentType<PartProps>;

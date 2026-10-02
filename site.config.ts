@@ -13,7 +13,7 @@ export default defineSite({
   name: "Builder",
   tagline: "Lay out a site, then say what it is.",
   description:
-    "A visual builder on top of a universal component foundation: 231 parts you place on a canvas, give each one its own prompt, set the format, and compile it into a build brief any agent can act on.",
+    "A visual builder on top of a universal component foundation: 233 parts you place on a canvas, give each one its own prompt, set the format, and compile it into a build brief any agent can act on.",
   logoMark: "◆",
   version: "0.1.0",
   // The GitHub mark in the top bar opens this. Publishing to it still needs

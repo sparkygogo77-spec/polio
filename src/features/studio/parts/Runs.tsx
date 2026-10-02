@@ -119,6 +119,8 @@ export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
 function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigate: RunsProps["onNavigate"]): React.ReactNode {
       {
         const style = look(s, t, mode);
+        /* A brought-in page's hook, on the live page only: the board shows the words, the page's code finds the run. */
+        const own = mode === "live" && s.hooks ? s.hooks : null;
         /* A letter that moves wears the class reduced motion stills (capturedMotion.ts). */
         const moving = !!style?.animation;
         const to = s.link;
@@ -128,6 +130,7 @@ function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigat
           return (
             <span
               key={i}
+              {...own}
               data-run-link={to.kind}
               data-run-to={to.target}
               role="link"
@@ -151,7 +154,8 @@ function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigat
          * no style, the words straight in, so nothing about being stored as
          * runs can change how they set.
          */
-        if (to) return <span key={i} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
+        if (to) return <span key={i} {...own} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
+        if (own) return <span key={i} {...own} className={moving ? "mo-l" : undefined} style={style ?? undefined}>{s.text}</span>;
         return style ? <span key={i} className={moving ? "mo-l" : undefined} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
       }
 }

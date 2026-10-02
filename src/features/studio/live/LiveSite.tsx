@@ -28,6 +28,9 @@ import { getWork, pageFeatures, usesOf } from "../library/works";
 import { runWorks } from "./runWorks";
 import { leadsOf, withLead } from "../parts/leadIn";
 
+/** Parts that draw a real control and wear a brought-in page's hooks on it, not on their box. */
+const OWN_HOOKS = new Set(["field", "checkbox"]);
+
 export interface LiveSiteProps {
   pages: StudioPage[];
   nodes: StudioNode[];
@@ -275,6 +278,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const partOf = (p: (typeof placed)[number]) => (
     <div
       key={p.node.id}
+      /* A brought-in page's hooks, on the part's box, unless the part draws a control that wears them itself (`parts/PageControls.tsx`). */
+      {...(p.node.hooks && !OWN_HOOKS.has(p.node.featureId) ? p.node.hooks : null)}
       data-live-node={p.node.id}
       {...nodeProps?.(p.node)}
       className={nested ? ((p.node as { state?: unknown }).state ? "sm-p sm-state" : "sm-p") : undefined}
