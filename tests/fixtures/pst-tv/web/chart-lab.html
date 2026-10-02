@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars sample generated chart</title>
+<!-- Plain page. Every element carries a data-hook (web/HOOKS.md, web/hooks.json); restyle freely, keep the hooks. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="lab-page">
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/profile.html" data-hook="nav-profile">Profiles</a>
+    <a href="/#how-it-works" data-hook="nav-how-it-works">How it works</a>
+  </span>
+</nav>
+<h1 data-hook="page-title">Sample generated chart</h1>
+<p data-hook="lab-intro">A practice chart made the same way as in a match: trades one by one, each buying or selling SOL
+  through a constant-product pool. The chart is made in this browser from the seed below; the same seed always gives the
+  same chart. The numbers come from generated-chart-config.js.</p>
+<form data-hook="lab-form">
+  <label data-hook="lab-seed-label">Seed <input data-hook="lab-seed-input" type="text" size="70" spellcheck="false"></label>
+  <label data-hook="lab-secs-label">Show
+    <select data-hook="lab-secs">
+      <option value="300" data-hook="lab-secs-300">5 minutes</option>
+      <option value="600" data-hook="lab-secs-600">10 minutes</option>
+      <option value="1800" data-hook="lab-secs-1800">30 minutes</option>
+    </select>
+  </label>
+  <label data-hook="lab-bar-label">Candles of
+    <select data-hook="lab-bar">
+      <option value="1" data-hook="lab-bar-1">1 second</option>
+      <option value="5" data-hook="lab-bar-5">5 seconds</option>
+      <option value="15" data-hook="lab-bar-15">15 seconds</option>
+    </select>
+  </label>
+  <button type="submit" data-hook="lab-draw-button">Draw</button>
+  <button type="button" data-hook="lab-new-seed-button">New seed</button>
+</form>
+<canvas data-hook="lab-chart" width="960" height="420"></canvas>
+<p data-hook="lab-chart-note">Top: price (100 = start). Bottom: SOL traded each bar, buys (green, upwards) and sells (red, downwards).</p>
+<h2 data-hook="lab-stats-title">Stats over 10,000 seconds of this seed</h2>
+<table data-hook="lab-stats">
+  <thead data-hook="lab-stats-head"><tr data-hook="lab-stats-head-row"><th data-hook="lab-stats-head-what">What</th><th data-hook="lab-stats-head-value">This chart</th><th data-hook="lab-stats-head-target">Target</th></tr></thead>
+  <tbody data-hook="lab-stats-body">
+    <tr data-hook="lab-stat-mean"><td data-hook="lab-stat-mean-what">Average trade</td><td data-hook="lab-stat-mean-value"></td><td data-hook="lab-stat-mean-target"></td></tr>
+    <tr data-hook="lab-stat-range"><td data-hook="lab-stat-range-what">Smallest and biggest trade</td><td data-hook="lab-stat-range-value"></td><td data-hook="lab-stat-range-target"></td></tr>
+    <tr data-hook="lab-stat-rate"><td data-hook="lab-stat-rate-what">Trades a second</td><td data-hook="lab-stat-rate-value"></td><td data-hook="lab-stat-rate-target"></td></tr>
+    <tr data-hook="lab-stat-empty"><td data-hook="lab-stat-empty-what">Seconds with no trade</td><td data-hook="lab-stat-empty-value"></td><td data-hook="lab-stat-empty-target">1% or less</td></tr>
+    <tr data-hook="lab-stat-flat"><td data-hook="lab-stat-flat-what">Longest run of the same price</td><td data-hook="lab-stat-flat-value"></td><td data-hook="lab-stat-flat-target">under 5 seconds</td></tr>
+    <tr data-hook="lab-stat-volume"><td data-hook="lab-stat-volume-what">SOL bought and sold</td><td data-hook="lab-stat-volume-value"></td><td data-hook="lab-stat-volume-target">-</td></tr>
+    <tr data-hook="lab-stat-same"><td data-hook="lab-stat-same-what">Same seed made again</td><td data-hook="lab-stat-same-value"></td><td data-hook="lab-stat-same-target">identical</td></tr>
+  </tbody>
+</table>
+<p data-hook="lab-error" role="status"></p>
+<script type="module" src="chart-lab.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

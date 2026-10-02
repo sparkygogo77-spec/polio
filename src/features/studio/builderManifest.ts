@@ -10,7 +10,8 @@
  *     "hooks": "web/builder-hooks.json", "tokens": "web/tokens.css",
  *     "styleLayer": "web/style-layer.css",
  *     "preview": { "page": "web/preview.html", "query": "?still=1&screen=<name>",
- *                  "screens": [{ "name": "home", "page": "starter/index.html" }, …] },
+ *                  "screens": [{ "name": "home", "page": "starter/index.html" }, …],
+ *                  "stills": [{ "hook": "chart", "screen": "tv-idle" }] },
  *     "gallery": "web/gallery.html",
  *     "scripts": { "hookCalls": { "setText": 0, "part": 1, … }, "helperFiles": ["web/dom.js"] },
  *     "links": { "allowHosts": [...], "block": [{ "pattern", "why" }] },
@@ -25,6 +26,7 @@
  * Pure. `tests/code-view.mjs` holds it against the kit's own builder.json and
  * PST's.
  */
+import { readStills, type StillAsk } from "./stills.ts";
 
 export interface BuilderManifest {
   /** Where it was found. */
@@ -39,6 +41,8 @@ export interface BuilderManifest {
   screens: string[];
   previewPage: string | null;
   previewQuery: string | null;
+  /** The parts whose code draws into them, shown on the board as a still of a preview screen (`stills.ts`). */
+  stills: StillAsk[];
   gallery: string | null;
   /** The script helpers that take a hook, and which argument it is (`setText('x')`: 0, `part(row, 'x')`: 1). */
   hookCalls: Record<string, number>;
@@ -88,6 +92,7 @@ export function readManifest(text: string, file = "builder.json"): BuilderManife
     screens,
     previewPage: rooted(preview?.page, base),
     previewQuery: str(preview?.query),
+    stills: readStills(preview?.stills),
     gallery: rooted(o.gallery, base),
     hookCalls: calls,
     helperFiles: Array.isArray(scripts?.helperFiles) ? (scripts!.helperFiles as unknown[]).map((f) => rooted(f, base)).filter((f): f is string => !!f) : [],

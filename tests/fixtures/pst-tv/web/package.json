@@ -1,0 +1,6 @@
+{
+  "name": "ponsstars-test-page",
+  "private": true,
+  "type": "module",
+  "description": "Plain test page. No build step: the server serves these files as they are."
+}

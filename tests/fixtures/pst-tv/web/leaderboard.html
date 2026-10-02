@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars leaderboard</title>
+<!-- Plain page. Every element carries a data-hook (web/HOOKS.md, web/hooks.json); restyle freely, keep the hooks. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="leaderboard-page">
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/profile.html" data-hook="nav-profile">Profiles</a>
+    <a href="/#how-it-works" data-hook="nav-how-it-works">How it works</a>
+  </span>
+</nav>
+<h1 data-hook="page-title">Leaderboard</h1>
+<p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+<label data-hook="leaderboard-by-label">Rank by
+  <select data-hook="leaderboard-by">
+    <option value="wins" data-hook="leaderboard-by-wins">Wins</option>
+    <option value="profit" data-hook="leaderboard-by-profit">Profit and loss</option>
+  </select>
+</label>
+<label data-hook="leaderboard-practice-label">Matches
+  <select data-hook="leaderboard-practice">
+    <option value="exclude" data-hook="leaderboard-practice-exclude">Live matches (real wins)</option>
+    <option value="only" data-hook="leaderboard-practice-only">Practice matches only (not real wins)</option>
+  </select>
+</label>
+<p data-hook="leaderboard-error"></p>
+<table data-hook="leaderboard-table">
+  <thead data-hook="leaderboard-head"><tr data-hook="leaderboard-head-row"><th data-hook="leaderboard-head-rank">Rank</th><th data-hook="leaderboard-head-player">Player</th><th data-hook="leaderboard-head-matches">Matches</th><th data-hook="leaderboard-head-wins">Wins</th><th data-hook="leaderboard-head-losses">Losses</th><th data-hook="leaderboard-head-ties">Ties</th><th data-hook="leaderboard-head-best">Best round</th><th data-hook="leaderboard-head-profit">Profit and loss</th></tr></thead>
+  <tbody data-hook="leaderboard-rows"></tbody>
+</table>
+<p data-hook="leaderboard-empty" hidden>No finished matches yet.</p>
+<!-- One player on the board: the script copies this for each player and fills the parts by hook. -->
+<template data-hook="template-leaderboard-row">
+  <tr data-hook="leaderboard-row"><td data-hook="leaderboard-rank"></td><td data-hook="leaderboard-player"><a data-hook="leaderboard-player-link" href="#"></a></td><td data-hook="leaderboard-matches"></td><td data-hook="leaderboard-wins"></td><td data-hook="leaderboard-losses"></td><td data-hook="leaderboard-ties"></td><td data-hook="leaderboard-best"></td><td data-hook="leaderboard-profit"></td></tr>
+</template>
+<script type="module" src="leaderboard.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

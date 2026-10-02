@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars match result</title>
+<!-- Plain page. Every element carries a data-hook (web/HOOKS.md, web/hooks.json); restyle freely, keep the hooks. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="match-page">
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/leaderboard.html" data-hook="nav-leaderboard">Leaderboard</a>
+    <a href="/#how-it-works" data-hook="nav-how-it-works">How it works</a>
+  </span>
+</nav>
+<h1 data-hook="page-title">Match result</h1>
+<p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+<p data-hook="page-intro">Anyone can check this result. Your browser recomputes everything below from the published record;
+   nothing here is taken on trust from the server.</p>
+<p data-hook="mr-error"></p>
+<section data-hook="mr-summary" hidden>
+  <p data-hook="mr-practice" hidden><strong data-hook="mr-practice-title">Practice match:</strong> prices were not live (<span data-hook="mr-market"></span>).</p>
+  <p data-hook="mr-match-line">Match account: <code data-hook="mr-match-account">-</code> (id <span data-hook="mr-match-id">-</span>)</p>
+  <p data-hook="mr-players-line">Player A: <a data-hook="mr-player-a" href="#">-</a>. Player B: <a data-hook="mr-player-b" href="#">-</a>.</p>
+  <p data-hook="mr-stake-line">Stake <span data-hook="mr-stake">-</span> SOL each. Length <span data-hook="mr-length">-</span>.</p>
+  <p data-hook="mr-outcome-line"><strong data-hook="mr-outcome">-</strong></p>
+  <p data-hook="mr-pay-line">Paid: player A <span data-hook="mr-pay-a">-</span> SOL, player B <span data-hook="mr-pay-b">-</span> SOL,
+     house cut <span data-hook="mr-pay-house">-</span> SOL.</p>
+  <p data-hook="mr-keys-line">Signed by result key <code data-hook="mr-result-key">-</code>.
+     This server says its key is <code data-hook="mr-server-key">-</code>;
+     the escrow contract on chain only pays out results signed by its configured key.</p>
+  <p data-hook="mr-txs-line">Transactions: <span data-hook="mr-txs">-</span></p>
+  <p data-hook="mr-raw-line"><a data-hook="mr-raw-link" href="#">Raw record (JSON)</a></p>
+</section>
+<section data-hook="mr-verify" hidden>
+  <h2 data-hook="mr-verify-title">Verification: <span data-hook="mr-verdict">checking...</span></h2>
+  <ul data-hook="mr-checks"></ul>
+</section>
+<section data-hook="mr-rounds"></section>
+
+<!-- One check of the verification: copied for each check. -->
+<template data-hook="template-mr-check">
+  <li data-hook="mr-check"></li>
+</template>
+<!--
+  One round of the match: copied for each round and filled by hook. Parts that do not apply to a
+  round are removed from its copy (mr-generated for a chart from live prices, mr-reference when the
+  coin has no public pool, mr-round-scores and mr-round-result when the round has none).
+-->
+<template data-hook="template-mr-round">
+  <section data-hook="mr-round">
+    <h2 data-hook="mr-round-title"></h2>
+    <div data-hook="mr-generated">
+      <p data-hook="mr-generated-what"></p>
+      <p data-hook="mr-generated-commit"><span data-hook="mr-generated-commit-label">Seed hash shown to both players when the chart appeared (SHA-256): </span><code data-hook="mr-generated-commit-value"></code></p>
+      <p data-hook="mr-generated-seed"><span data-hook="mr-generated-seed-label">Seed, revealed now: </span><code data-hook="mr-generated-seed-value"></code></p>
+      <p data-hook="mr-generated-pool"><span data-hook="mr-generated-pool-label">Move pool (its SHA-256): </span><code data-hook="mr-generated-pool-value"></code><a data-hook="mr-generated-pool-link" href="#"> (download)</a></p>
+      <button type="button" data-hook="mr-generated-verify">Verify: regenerate the chart from the seed</button>
+      <p data-hook="mr-generated-result"></p>
+    </div>
+    <p data-hook="mr-round-index"></p>
+    <div data-hook="mr-reference">
+      <p data-hook="mr-reference-label"></p>
+      <button type="button" data-hook="mr-reference-toggle">Show the DexScreener reference chart</button>
+      <iframe data-hook="mr-reference-frame" title="DexScreener reference chart" hidden width="100%" height="420"
+              referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+    </div>
+    <p data-hook="mr-round-scores"></p>
+    <p data-hook="mr-round-result"></p>
+    <canvas data-hook="mr-round-chart" width="640" height="200"></canvas>
+    <h3 data-hook="mr-trades-title">Trade log</h3>
+    <table data-hook="mr-trades">
+      <thead data-hook="mr-trades-head"><tr data-hook="mr-trades-head-row"><th data-hook="mr-trades-head-id">#</th><th data-hook="mr-trades-head-player">Player</th><th data-hook="mr-trades-head-side">Side</th><th data-hook="mr-trades-head-percent">Percent</th><th data-hook="mr-trades-head-arrived">Arrived</th><th data-hook="mr-trades-head-status">Status</th><th data-hook="mr-trades-head-tick">Fill tick</th><th data-hook="mr-trades-head-price">Fill price</th><th data-hook="mr-trades-head-index">Index seen</th><th data-hook="mr-trades-head-sol">SOL</th></tr></thead>
+      <tbody data-hook="mr-trades-rows"></tbody>
+    </table>
+    <p data-hook="mr-ticks"></p>
+  </section>
+</template>
+<!-- One trade in a round's trade log: copied for each trade. -->
+<template data-hook="template-mr-trade-row">
+  <tr data-hook="mr-trade-row"><td data-hook="mr-trade-id"></td><td data-hook="mr-trade-player"></td><td data-hook="mr-trade-side"></td><td data-hook="mr-trade-percent"></td><td data-hook="mr-trade-arrived"></td><td data-hook="mr-trade-status"></td><td data-hook="mr-trade-tick"></td><td data-hook="mr-trade-price"></td><td data-hook="mr-trade-index"></td><td data-hook="mr-trade-sol"></td></tr>
+</template>
+<script type="module" src="match.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

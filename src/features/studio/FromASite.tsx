@@ -41,7 +41,8 @@ import { facesSays, genericsOf, genericSays, type FacesCarried } from "./fonts";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
 import { runOf } from "./captureArtifact";
-import { keepAll } from "./pictures";
+import { keepAll, put as putPicture } from "./pictures";
+import { stillAlt, unshownOver, type StillsAsk, type StillTaken } from "./stills";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { readKit, seenOfSource } from "./kitRun";
@@ -599,7 +600,7 @@ export function FromASite({ space }: { space: Space }) {
    * False when nothing could be read this way, so the reading by blocks
    * runs as before and says its own ending.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest }): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; stills?: { file: File; ask: StillsAsk } }): Promise<boolean> => {
     const st0 = useStudio.getState();
     /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
     const m = got.manifest ?? null;
@@ -612,6 +613,39 @@ export function FromASite({ space }: { space: Space }) {
     const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
     if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
     const { doc, report } = pagesToDoc(files, { code: got.code, ...(m ? { names: Object.fromEntries(m.pages.filter((p) => p.name).map((p) => [p.file, p.name!])), byHook: true, hooksFile: m.hooks, manifestDir: m.file.includes("/") ? m.file.slice(0, m.file.lastIndexOf("/") + 1) : "" } : {}) });
+    /*
+     * THE STILLS ITS builder.json ASKS FOR (`stills.ts`): what its code draws
+     * into a part (PST's chart in the TV), taken on its preview page, put on
+     * that part as its picture, so the owner designs round a chart and not
+     * an empty screen. One that cannot be taken is said, and nothing else
+     * waits on it.
+     */
+    let stillsSaid = "";
+    if (got.stills) {
+      busy(`Taking a still of what its code draws into ${got.stills.ask.shots.map((x) => x.hook).join(", ")}…`);
+      const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(st0.frameWidth || 1440) }).catch(() => ({ ok: false }) as Record<string, unknown>);
+      const taken = Array.isArray(sr.stills) ? (sr.stills as StillTaken[]) : [];
+      const put: string[] = [];
+      const hid = new Set<string>();
+      for (const t of taken) {
+        const on = (doc.nodes as unknown as StudioNode[]).filter((n) => n.hooks?.["data-hook"] === t.hook);
+        if (!on.length) continue;
+        try {
+          const pic = await putPicture(await (await fetch(t.src)).blob(), { alt: stillAlt(t.hook, got.stills.ask.page, t.query), from: "upload" });
+          for (const n of on) {
+            (n as unknown as Record<string, unknown>).picture = pic;
+            /* What would cover it and its screen does not show (PST's static) is kept, hidden as the page opens, so the still is seen. */
+            for (const over of unshownOver(doc.nodes as unknown as StudioNode[], n, t.unshown ?? [])) {
+              over.state = { group: "hidden:still", option: 1 };
+              hid.add(over.hooks?.["data-hook"] ?? over.label);
+            }
+          }
+          put.push(t.hook);
+        } catch { /* no file storage here: the part stays as its code leaves it */ }
+      }
+      const missed = got.stills.ask.shots.map((x) => x.hook).filter((h) => !put.includes(h));
+      stillsSaid = `${put.length ? ` ${put.join(", ")} show${put.length === 1 ? "s" : ""} a still of what ${put.length === 1 ? "its" : "their"} code draws, from ${got.stills.ask.page}, as ${put.length === 1 ? "its" : "their"} picture.` : ""}${hid.size ? ` ${[...hid].join(", ")} would cover ${put.length === 1 ? "it" : "them"} and ${hid.size === 1 ? "is" : "are"} not shown on that screen, so ${hid.size === 1 ? "it is" : "they are"} kept as hidden ${hid.size === 1 ? "part" : "parts"}: show ${hid.size === 1 ? "it" : "them"} from the part's panel.` : ""}${missed.length ? ` No still of ${missed.join(", ")} could be taken from ${got.stills.ask.page}.` : ""}`;
+    }
     const st = useStudio.getState();
     const mark = takeImportMark() ?? st.historyMark();
     /* Every other space goes; the one this panel runs on stays, so what landed is said where it was asked for. */
@@ -657,7 +691,7 @@ export function FromASite({ space }: { space: Space }) {
     /* Thin is still said: a page that shows two parts or fewer as it opens has little on it. */
     const showing = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id && n.featureId !== "box").length;
     const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; they are not brought in.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";
-    const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
+    const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${stillsSaid}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
     const total = report.pages.reduce((n, p) => n + p.parts, 0);
     ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });
     setStage({ at: "said", says });

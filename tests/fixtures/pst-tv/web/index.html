@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars test page</title>
+<!--
+  Plain test page. Every element carries a data-hook attribute; a designer may restyle or rearrange
+  freely but must keep the hooks. The full list is in web/HOOKS.md and web/hooks.json. Styles live in
+  base.css (what the page needs to work) and style-layer.css (the design, loaded last).
+-->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="app" data-state="signed-out">
+
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/leaderboard.html" data-hook="nav-leaderboard">Leaderboard</a>
+    <a href="/profile.html" data-hook="nav-profile">My profile</a>
+    <a href="/#how-it-works" data-hook="tour-open">How it works</a>
+  </span>
+</nav>
+
+<p data-hook="network-banner" role="note" hidden><strong data-hook="network-banner-text">Devnet: test SOL only, not real money.</strong></p>
+<h1 data-hook="page-title">PonsStars test page</h1>
+<p data-hook="page-intro">Test networks only (devnet or a local validator). No real money. Mainnet is refused.</p>
+<p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+<section data-hook="next-step" aria-live="polite" data-step="">
+  <p data-hook="next-step-text">Connecting to the game server…</p>
+  <button type="button" data-hook="next-step-button" hidden>-</button>
+</section>
+
+<!-- The chart's permanent stage: the chart TV, always on screen (offline, between matches, in a match, on the result). -->
+<section data-hook="chart-stage" aria-label="Chart">
+  <div data-hook="chart-area" data-phase="waiting">
+    <div data-hook="chart-row">
+    <section data-hook="scoreboard" data-state="level" aria-label="Scoreboard" hidden>
+      <p data-hook="score-you" data-sign="flat"><span data-hook="score-you-label">You</span> <strong data-hook="score-you-pct">0.00%</strong></p>
+      <p data-hook="score-them" data-sign="flat"><span data-hook="score-them-label">Them</span> <strong data-hook="score-them-pct">0.00%</strong></p>
+      <p data-hook="score-lead" data-state="level">Level</p>
+      <p data-hook="score-time-line">Time left <strong data-hook="score-time-left">-</strong></p>
+      <p data-hook="score-trades-line">Trades left <strong data-hook="score-trades-left">-</strong></p>
+      <p data-hook="score-legend"><small data-hook="score-legend-text">Blue circle: you. Yellow: them. Each grows with its player's gain and shrinks with a loss; the bigger one is ahead.</small></p>
+    </section>
+    <div data-hook="chart-tv" data-state="offline">
+      <div data-hook="chart-tv-antenna" aria-hidden="true">
+        <i data-hook="chart-tv-antenna-left"></i>
+        <i data-hook="chart-tv-antenna-right"></i>
+      </div>
+      <div data-hook="chart-tv-body">
+        <div data-hook="chart-tv-frame">
+          <div data-hook="chart-tv-screen">
+            <div data-hook="chart"><div data-hook="trade-pictures" aria-hidden="true"></div></div>
+            <div data-hook="duel" data-state="level" hidden>
+              <svg data-hook="duel-svg" viewBox="0 0 200 200" role="img" aria-label="Duel: your circle against theirs; the bigger one is ahead">
+                <circle data-hook="duel-circle-opponent" cx="100" cy="100" r="50"></circle>
+                <circle data-hook="duel-circle-me" cx="100" cy="100" r="50"></circle>
+              </svg>
+            </div>
+            <div data-hook="chart-tv-static" aria-hidden="true"></div>
+            <div data-hook="chart-tv-scanlines" aria-hidden="true"></div>
+            <div data-hook="chart-tv-vignette" aria-hidden="true"></div>
+            <p data-hook="chart-tv-channel">CH 47 <b data-hook="chart-tv-channel-state">OFF AIR</b></p>
+            <div data-hook="chart-tv-loading" role="status" aria-live="polite" data-step="contacting">
+              <p data-hook="chart-tv-loading-title">Tuning in to the game server</p>
+              <div data-hook="chart-tv-loading-bar" role="progressbar" aria-label="Connecting to the game server" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div data-hook="chart-tv-loading-fill"></div></div>
+              <ol data-hook="chart-tv-loading-steps">
+                <li data-hook="chart-tv-step-contacting" data-done="false">Contacting server</li>
+                <li data-hook="chart-tv-step-waking" data-done="false">Server waking</li>
+                <li data-hook="chart-tv-step-connected" data-done="false">Connected</li>
+              </ol>
+              <p data-hook="chart-tv-loading-text">Contacting the game server…</p>
+            </div>
+            <div data-hook="chart-tv-idle" hidden>
+              <p data-hook="chart-tv-idle-title">Find a match</p>
+              <p data-hook="chart-tv-idle-text">A sample chart is playing. Your match plays here.</p>
+              <button type="button" data-hook="chart-tv-idle-button" hidden>-</button>
+            </div>
+            <div data-hook="chart-tv-match" hidden>
+              <p data-hook="start-countdown" aria-live="assertive"></p>
+            </div>
+            <div data-hook="chart-tv-result" role="status" hidden>
+              <p data-hook="chart-tv-result-headline">-</p>
+              <p data-hook="chart-tv-result-scores"></p>
+            </div>
+          </div>
+        </div>
+        <div data-hook="chart-tv-panel" aria-hidden="true">
+          <i data-hook="chart-tv-knob-channel"></i>
+          <i data-hook="chart-tv-knob-volume"></i>
+          <i data-hook="chart-tv-led"></i>
+          <i data-hook="chart-tv-speaker"></i>
+        </div>
+      </div>
+      <div data-hook="chart-tv-feet" aria-hidden="true">
+        <i data-hook="chart-tv-foot-left"></i>
+        <i data-hook="chart-tv-foot-right"></i>
+      </div>
+    </div>
+    <aside data-hook="trade-panel" aria-label="Trade" hidden>
+      <p data-hook="trade-trades-left-line">Trades left: <strong data-hook="trade-trades-left">-</strong></p>
+      <div data-hook="trade-row-buy" role="group" aria-label="Buy: share of your remaining cash">
+        <span data-hook="trade-row-buy-label">Buy</span>
+        <button type="button" data-hook="trade-buy-10" data-trade-button="buy-10" disabled>10%</button>
+        <button type="button" data-hook="trade-buy-25" data-trade-button="buy-25" disabled>25%</button>
+        <button type="button" data-hook="trade-buy-50" data-trade-button="buy-50" disabled>50%</button>
+        <button type="button" data-hook="trade-buy-100" data-trade-button="buy-100" disabled>100%</button>
+      </div>
+      <p data-hook="trade-buy-reason" aria-live="polite"></p>
+      <div data-hook="trade-row-sell" role="group" aria-label="Sell: share of your coin position">
+        <span data-hook="trade-row-sell-label">Sell</span>
+        <button type="button" data-hook="trade-sell-10" data-trade-button="sell-10" disabled>10%</button>
+        <button type="button" data-hook="trade-sell-25" data-trade-button="sell-25" disabled>25%</button>
+        <button type="button" data-hook="trade-sell-50" data-trade-button="sell-50" disabled>50%</button>
+        <button type="button" data-hook="trade-sell-100" data-trade-button="sell-100" disabled>100%</button>
+      </div>
+      <p data-hook="trade-sell-reason" aria-live="polite"></p>
+      <p data-hook="trade-help">Buy spends that share of your remaining cash. Sell sells that share of your coins
+         (100% closes the position). Each press is one trade.</p>
+    </aside>
+    </div>
+    <p data-hook="chart-note">The chart shows the server's price readings as an index: the same candles for both players
+       from the first one, and every trade fills at a price on it. Green candles rose, red ones fell.
+       Buys are green markers and sells red; the ring around each picture says whose trade it is (yours blue, your opponent's yellow).</p>
+    <p data-hook="chart-attribution">Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener" data-hook="chart-attribution-link">TradingView</a>:
+      TradingView Lightweight Charts&trade;, Copyright (c) 2025 TradingView, Inc. https://www.tradingview.com/</p>
+  </div>
+</section>
+
+<section data-hook="market-panel">
+  <h2 data-hook="market-title">Market data</h2>
+  <p data-hook="market-source">-</p>
+  <p data-hook="market-practice" hidden><strong data-hook="market-practice-title">Practice matches:</strong> prices are not live.
+     Practice uses play money only (the in-memory stand-in escrow, never the chain), and practice results
+     are kept apart from real wins and the leaderboard.</p>
+</section>
+
+<section data-hook="connection-panel">
+  <h2 data-hook="connection-title">Server</h2>
+  <p data-hook="connection-line">Connection: <span data-hook="connection-status">connecting</span>.
+     Network: <span data-hook="network">-</span></p>
+  <p data-hook="result-key-line">Result-signing key: <code data-hook="result-key">-</code></p>
+  <p data-hook="escrow-program-line">Escrow program: <code data-hook="escrow-program">-</code></p>
+</section>
+
+<section data-hook="wallet-panel">
+  <h2 data-hook="wallet-title">Wallet</h2>
+  <p data-hook="wallet-intro">Browser wallets found (Phantom, Solflare, Backpack and others that follow the Solana Wallet Standard):</p>
+  <div data-hook="wallet-list"></div>
+  <p data-hook="wallet-none-found">None found yet. Install a wallet extension and set it to devnet, or use a test wallet below.</p>
+  <button type="button" data-hook="wallet-connect-test">Use test wallet (made in this browser)</button>
+  <button type="button" data-hook="wallet-forget-test">Forget test wallet</button>
+  <button type="button" data-hook="wallet-new">Create a new wallet for PonsStars</button>
+  <button type="button" data-hook="wallet-disconnect">Disconnect</button>
+  <p data-hook="wallet-address-line">Address: <code data-hook="wallet-address">not connected</code> <span data-hook="wallet-name"></span></p>
+  <p data-hook="wallet-signed-in-line">Signed in: <span data-hook="wallet-signed-in">no</span></p>
+  <p data-hook="wallet-message"></p>
+</section>
+
+<section data-hook="newwallet-panel" hidden>
+  <h2 data-hook="newwallet-title">Create a new wallet for PonsStars</h2>
+  <div data-hook="newwallet-step-warn">
+    <p data-hook="newwallet-warning"><strong data-hook="newwallet-warning-title">Read this first.</strong> This makes a brand-new Solana wallet inside this browser.
+      You will see its 12-word secret phrase <strong data-hook="newwallet-warning-once">once</strong>. Anyone who has the phrase controls the wallet.
+      PonsStars never sees or keeps it: if you lose it, nobody can recover the wallet.
+      Write it on paper; do not screenshot it or paste it anywhere. Test networks only.</p>
+    <label data-hook="newwallet-ack-label"><input type="checkbox" data-hook="newwallet-ack"> I understand and I am ready to write the phrase down</label>
+    <button type="button" data-hook="newwallet-create" disabled>Create the wallet</button>
+    <button type="button" data-hook="newwallet-cancel">Cancel</button>
+  </div>
+  <div data-hook="newwallet-step-phrase" hidden>
+    <p data-hook="newwallet-phrase-intro">Your secret phrase (shown once):</p>
+    <pre data-hook="newwallet-phrase"></pre>
+    <button type="button" data-hook="newwallet-phrase-done">I have written it down. Hide it.</button>
+  </div>
+  <div data-hook="newwallet-step-ready" hidden>
+    <p data-hook="newwallet-address-line">New wallet address: <code data-hook="newwallet-address">-</code></p>
+    <p data-hook="newwallet-fund-line">Fund it from the wallet you are signed in with:
+      <label data-hook="newwallet-fund-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="newwallet-fund-amount"></label>
+      <button type="button" data-hook="newwallet-fund">Send from my connected wallet</button></p>
+    <button type="button" data-hook="newwallet-use">Switch to the new wallet</button>
+  </div>
+  <div data-hook="newwallet-step-restore">
+    <p data-hook="newwallet-restore-intro">Already have a PonsStars phrase? Type it to use that wallet again (it stays in this tab only):</p>
+    <input type="password" autocomplete="off" spellcheck="false" data-hook="newwallet-restore-phrase">
+    <button type="button" data-hook="newwallet-restore">Use this phrase</button>
+  </div>
+  <p data-hook="newwallet-message"></p>
+</section>
+
+<section data-hook="profile-panel" hidden>
+  <h2 data-hook="profile-title">Your profile</h2>
+  <p data-hook="profile-public-note">Public: anyone can see your name, picture and results. Nothing secret is stored.</p>
+  <img data-hook="profile-picture-preview" alt="Your picture" width="96" height="96" hidden>
+  <p data-hook="profile-name-line"><label data-hook="profile-name-label">Display name <input type="text" maxlength="24" data-hook="profile-name"></label></p>
+  <p data-hook="profile-picture-line"><label data-hook="profile-picture-label">Picture (PNG, JPEG or WebP; shrunk to 128 pixels, at most 200 KB) <input type="file" accept="image/png,image/jpeg,image/webp" data-hook="profile-picture"></label>
+     <button type="button" data-hook="profile-remove-picture">Remove picture</button></p>
+  <p data-hook="profile-avatars-intro">Or pick an avatar (shown on the chart at each of your trades):</p>
+  <div data-hook="profile-avatars" role="group" aria-label="Preset avatars">
+    <button type="button" data-hook="profile-avatar-sun" title="sun" aria-label="Avatar: sun" aria-pressed="false"><img data-hook="profile-avatar-sun-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-moon" title="moon" aria-label="Avatar: moon" aria-pressed="false"><img data-hook="profile-avatar-moon-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-star" title="star" aria-label="Avatar: star" aria-pressed="false"><img data-hook="profile-avatar-star-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-bolt" title="bolt" aria-label="Avatar: bolt" aria-pressed="false"><img data-hook="profile-avatar-bolt-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-leaf" title="leaf" aria-label="Avatar: leaf" aria-pressed="false"><img data-hook="profile-avatar-leaf-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-wave" title="wave" aria-label="Avatar: wave" aria-pressed="false"><img data-hook="profile-avatar-wave-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-gem" title="gem" aria-label="Avatar: gem" aria-pressed="false"><img data-hook="profile-avatar-gem-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-rocket" title="rocket" aria-label="Avatar: rocket" aria-pressed="false"><img data-hook="profile-avatar-rocket-picture" alt="" width="32" height="32"></button>
+  </div>
+  <p data-hook="profile-avatar-generated-line"><button type="button" data-hook="profile-avatar-generated">Use the avatar made from my wallet address</button></p>
+  <button type="button" data-hook="profile-save">Save profile</button>
+  <p data-hook="profile-message"></p>
+  <p data-hook="profile-stats-line">Live matches (practice not counted): matches <span data-hook="profile-stat-matches">0</span>, wins <span data-hook="profile-stat-wins">0</span>,
+     losses <span data-hook="profile-stat-losses">0</span>, ties <span data-hook="profile-stat-ties">0</span>,
+     no contest <span data-hook="profile-stat-nocontest">0</span>, best <span data-hook="profile-stat-best">-</span>%,
+     profit and loss <span data-hook="profile-stat-profit">0</span> SOL.
+     <a href="#" data-hook="profile-link">Public profile and match history</a>
+     Practice: <span data-hook="profile-stat-practice">-</span></p>
+</section>
+
+<section data-hook="balance-panel">
+  <h2 data-hook="balance-title">Balance</h2>
+  <p data-hook="balance-note">One escrow balance for all your matches: deposit once, play as many matches as it covers,
+     and withdraw whenever you are not in a match. Stakes leave it when a match starts and payouts land back in it
+     as soon as the match is settled. The house pays the match accounts' small deposits.</p>
+  <p data-hook="balance-wallet-line">In your wallet: <span data-hook="balance-wallet">-</span> SOL</p>
+  <p data-hook="balance-play-money" hidden><strong data-hook="balance-play-money-title">Play money (practice):</strong> not real SOL. The server gives you
+     10 SOL of it when you sign in and tops it back up when it runs low.</p>
+  <p data-hook="balance-available-line">Escrow balance (available to stake or withdraw): <span data-hook="balance-available">-</span> SOL</p>
+  <p data-hook="balance-in-match-line">In a match: <span data-hook="balance-in-match">0</span> SOL <code data-hook="balance-active-match"></code></p>
+  <p data-hook="balance-pending-line">Pending: <span data-hook="balance-pending">none</span></p>
+  <p data-hook="balance-account-line">Balance account: <span data-hook="balance-account">-</span>.</p>
+  <button type="button" data-hook="balance-refresh">Refresh</button>
+  <button type="button" data-hook="balance-faucet" hidden>Get 3 test SOL in the wallet (test networks only)</button>
+  <button type="button" data-hook="balance-create">Create balance account</button>
+
+  <div data-hook="deposit-panel">
+    <h3 data-hook="deposit-title">Deposit</h3>
+    <label data-hook="deposit-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
+    <button type="button" data-hook="deposit-review">Review deposit</button>
+    <div data-hook="deposit-confirm-panel" hidden>
+      <pre data-hook="deposit-summary"></pre>
+      <button type="button" data-hook="deposit-confirm">Confirm deposit</button>
+      <button type="button" data-hook="deposit-cancel">Cancel</button>
+    </div>
+  </div>
+  <div data-hook="withdraw-panel">
+    <h3 data-hook="withdraw-title">Withdraw</h3>
+    <label data-hook="withdraw-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="withdraw-amount"></label>
+    <button type="button" data-hook="withdraw-max">All available</button>
+    <button type="button" data-hook="withdraw-review">Review withdrawal</button>
+    <div data-hook="withdraw-confirm-panel" hidden>
+      <pre data-hook="withdraw-summary"></pre>
+      <button type="button" data-hook="withdraw-confirm">Confirm withdrawal</button>
+      <button type="button" data-hook="withdraw-cancel">Cancel</button>
+    </div>
+  </div>
+  <p data-hook="balance-message"></p>
+</section>
+
+<section data-hook="sign-panel" hidden>
+  <h2 data-hook="sign-title">Approve in your wallet</h2>
+  <p data-hook="sign-purpose-line">The server asks your wallet to sign: <strong data-hook="sign-purpose">-</strong></p>
+  <pre data-hook="sign-details"></pre>
+  <button type="button" data-hook="sign-approve">Approve</button>
+  <button type="button" data-hook="sign-decline">Decline</button>
+</section>
+<p data-hook="sign-auto-line"><label data-hook="sign-auto-label"><input type="checkbox" data-hook="sign-auto" checked> Approve automatically with the test wallet</label>
+   <span data-hook="sign-status"></span></p>
+
+<section data-hook="queue-panel">
+  <h2 data-hook="queue-title">Find a match</h2>
+  <label data-hook="queue-stake-label">Stake per player
+    <select data-hook="queue-stake"></select>
+  </label>
+  <label data-hook="queue-length-label">Match length
+    <select data-hook="queue-length"></select>
+  </label>
+  <label data-hook="queue-chart-label" hidden>Chart
+    <select data-hook="queue-chart"></select>
+  </label>
+  <p data-hook="queue-chart-note" hidden></p>
+  <p data-hook="queue-numbers-line">Pot: <span data-hook="queue-pot">-</span> SOL. House cut 2.5%: <span data-hook="queue-cut">-</span> SOL.
+     Trading budget (scored, not real): <span data-hook="queue-budget">-</span> SOL.</p>
+  <button type="button" data-hook="queue-join">Find a match</button>
+  <button type="button" data-hook="queue-leave" hidden>Leave queue</button>
+  <p data-hook="queue-status-line">Queue: <span data-hook="queue-status">not queued</span>
+     <span data-hook="queue-countdown"></span></p>
+
+  <div data-hook="no-trade-warning" hidden>
+    <h3 data-hook="no-trade-title">Before you queue</h3>
+    <pre data-hook="queue-confirm-summary"></pre>
+    <p data-hook="no-trade-warning-text">
+      If you make no trades during the match, you lose your stake.
+      If neither player trades, both get their stake back minus the 2.5% house cut.
+      Your wallet will then be asked to open or join a match on chain, which moves your stake
+      from your balance into the match.
+    </p>
+    <label data-hook="no-trade-ack-label"><input type="checkbox" data-hook="no-trade-ack"> I understand</label>
+    <button type="button" data-hook="no-trade-confirm" disabled>Queue</button>
+    <button type="button" data-hook="no-trade-cancel">Cancel</button>
+  </div>
+</section>
+
+<section data-hook="match-panel" hidden>
+  <h2 data-hook="match-title">Match</h2>
+  <p data-hook="match-practice" hidden><strong data-hook="match-practice-title">Practice match</strong> (prices are not live).</p>
+  <p data-hook="chart-generated" hidden><strong data-hook="chart-generated-title">Generated chart, play money.</strong> Made for this match from a secret seed.
+     Seed hash (SHA-256), fixed before the start: <code data-hook="chart-seed-hash">-</code>.
+     The seed is revealed with the result, so anyone can regenerate the chart and check every price.</p>
+  <p data-hook="match-line">Match: <code data-hook="match-id">-</code> Round: <span data-hook="match-round">-</span>
+     Status: <span data-hook="match-status">-</span></p>
+  <p data-hook="opponent-line">Opponent: <strong data-hook="opponent-bot" hidden>Practice bot (not a person) </strong><code data-hook="opponent-address">-</code>
+     (trades: <span data-hook="opponent-trades">0</span>,
+     <span data-hook="opponent-connection">connected</span>)</p>
+
+  <h3 data-hook="coin-title">Hidden coin</h3>
+  <p data-hook="coin-hidden-note">The coin stays hidden until the match ends, so nobody can look it up.
+     Prices are shown as an index: 100 when the chart appeared, moving with the real price
+     (101 means 1% higher). The coin is revealed with the result.</p>
+  <p data-hook="price-line">Index now: <span data-hook="price-current">-</span>
+     <span data-hook="price-fresh"></span></p>
+  <p data-hook="timer-line">Trading time left: <span data-hook="timer">-</span></p>
+  <h3 data-hook="trade-title">Trade</h3>
+  <p data-hook="budget-line">Trading budget: <span data-hook="budget-amount">-</span> SOL (scored only, not real money; the score is a
+     percentage of it, so its size never changes who wins).</p>
+  <p data-hook="trades-used-line">Trades used: <span data-hook="trades-used">0</span> of <span data-hook="trades-max">10</span></p>
+  <div data-hook="position">
+    <p data-hook="position-holding-line">Your position: <span data-hook="position-size">-</span> SOL in the coin,
+       <span data-hook="position-cash">-</span> SOL cash.</p>
+    <p data-hook="position-value-line">Value now: <span data-hook="position-value">-</span> SOL.
+       Profit or loss: <span data-hook="position-pnl">-</span> SOL
+       (<span data-hook="position-pnl-pct">-</span>).</p>
+  </div>
+  <p data-hook="trade-message"></p>
+  <ol data-hook="order-list"></ol>
+</section>
+
+<section data-hook="result-panel" hidden>
+  <h2 data-hook="result-title">Result</h2>
+  <p data-hook="result-headline">-</p>
+  <p data-hook="result-scores-line">Your score: <span data-hook="result-my-score">-</span>%.
+     Opponent score: <span data-hook="result-opponent-score">-</span>%.</p>
+  <p data-hook="result-payout-line">Paid to you: <span data-hook="result-my-payout">-</span> SOL.
+     House cut (to the treasury vault): <span data-hook="result-house">-</span> SOL.</p>
+  <p data-hook="result-closing-line">Closing index: <span data-hook="result-closing-price">-</span> (100 = the price when the chart appeared).</p>
+  <div data-hook="result-generated" hidden>
+    <h3 data-hook="result-generated-title">The chart (generated, play money)</h3>
+    <p data-hook="result-seed-line">Seed, revealed now: <code data-hook="result-seed">-</code></p>
+    <p data-hook="result-seed-check">-</p>
+    <p data-hook="result-generated-note">The public result page regenerates the whole chart from this seed and checks every price.</p>
+  </div>
+  <div data-hook="result-coin" hidden>
+    <h3 data-hook="result-coin-title">The coin (revealed now that the match is over)</h3>
+    <p data-hook="result-coin-line"><span data-hook="result-coin-symbol">-</span> <span data-hook="result-coin-name"></span>.
+       Address: <code data-hook="result-coin-mint">-</code>.
+       Index 100 was <span data-hook="result-coin-base">-</span> SOL per coin.</p>
+    <section data-hook="reference-panel" hidden>
+      <h3 data-hook="reference-title">Reference chart (not the fill price)</h3>
+      <p data-hook="reference-label"></p>
+      <label data-hook="reference-toggle-label"><input type="checkbox" data-hook="reference-toggle"> Show the DexScreener reference chart</label>
+      <iframe data-hook="reference-frame" title="DexScreener reference chart" hidden width="100%" height="420"
+              referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups" loading="lazy"></iframe>
+      <p data-hook="reference-unavailable" hidden>No public pool to show for this coin.</p>
+    </section>
+  </div>
+  <p data-hook="result-practice" hidden>Practice match: prices were not live.</p>
+  <p data-hook="result-page-line">Public result page (anyone can check it): <a data-hook="result-page-link" href="#">-</a></p>
+  <p data-hook="result-record-line">Raw record (trade log and prices): <a data-hook="result-record-link" href="#">-</a></p>
+  <p data-hook="result-signature-line">Server signature: <code data-hook="result-signature">-</code></p>
+  <p data-hook="result-settlement-line">Settlement: <span data-hook="result-settlement">waiting</span></p>
+  <div data-hook="rematch-panel" hidden>
+    <p data-hook="rematch-offer">It is a tie. Play a rematch for the same pot? Both must accept (your wallet signs your answer on chain).
+       Answer by <span data-hook="rematch-deadline">-</span>.</p>
+    <button type="button" data-hook="rematch-accept">Accept rematch</button>
+    <button type="button" data-hook="rematch-decline">Decline (both refunded minus the cut)</button>
+    <p data-hook="rematch-status"></p>
+  </div>
+  <button type="button" data-hook="result-close">Back to queue</button>
+</section>
+
+<details data-hook="log-panel">
+  <summary data-hook="log-toggle">Details (message log, for checking what the server said)</summary>
+  <pre data-hook="log"></pre>
+</details>
+
+<div data-hook="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-text" hidden>
+  <div data-hook="tour-highlight" aria-hidden="true" hidden></div>
+  <div data-hook="tour-card" data-place="center">
+    <p data-hook="tour-progress">-</p>
+    <h2 data-hook="tour-title" id="tour-title">-</h2>
+    <p data-hook="tour-text" id="tour-text">-</p>
+    <div data-hook="tour-dots" role="group" aria-label="Steps">
+      <button type="button" data-hook="tour-dot-welcome" data-step="welcome">&bull;</button>
+      <button type="button" data-hook="tour-dot-wallet" data-step="wallet">&bull;</button>
+      <button type="button" data-hook="tour-dot-deposit" data-step="deposit">&bull;</button>
+      <button type="button" data-hook="tour-dot-queue" data-step="queue">&bull;</button>
+      <button type="button" data-hook="tour-dot-coin" data-step="coin">&bull;</button>
+      <button type="button" data-hook="tour-dot-trade" data-step="trade">&bull;</button>
+      <button type="button" data-hook="tour-dot-winning" data-step="winning">&bull;</button>
+      <button type="button" data-hook="tour-dot-refunds" data-step="refunds">&bull;</button>
+      <button type="button" data-hook="tour-dot-payout" data-step="payout">&bull;</button>
+      <button type="button" data-hook="tour-dot-disconnect" data-step="disconnect">&bull;</button>
+    </div>
+    <p data-hook="tour-buttons">
+      <button type="button" data-hook="tour-back">Back</button>
+      <button type="button" data-hook="tour-skip">Skip</button>
+      <button type="button" data-hook="tour-next">Next</button>
+    </p>
+    <p data-hook="tour-keys"><small data-hook="tour-keys-text">Keys: left and right arrows to move, Escape to close.</small></p>
+  </div>
+</div>
+
+<!-- Repeated parts: the script copies these and fills them by hook (web/HOOKS.md, "Templates"). -->
+<template data-hook="template-wallet-option">
+  <button type="button" data-hook="wallet-option">Connect</button>
+</template>
+<template data-hook="template-queue-stake-option">
+  <option data-hook="queue-stake-option"></option>
+</template>
+<template data-hook="template-queue-length-option">
+  <option data-hook="queue-length-option"></option>
+</template>
+<template data-hook="template-queue-chart-option">
+  <option data-hook="queue-chart-option"></option>
+</template>
+<template data-hook="template-order-item">
+  <li data-hook="order-item"></li>
+</template>
+<template data-hook="template-trade-marker">
+  <span data-hook="trade-marker"><img data-hook="trade-picture" alt=""><span data-hook="trade-marker-label"></span></span>
+</template>
+<!-- A drawing surface for shrinking an uploaded profile picture; never shown. -->
+<canvas data-hook="picture-canvas" hidden></canvas>
+
+<script type="module" src="app.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

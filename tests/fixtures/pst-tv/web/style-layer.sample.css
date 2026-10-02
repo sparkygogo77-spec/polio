@@ -1,0 +1,44 @@
+/*
+  A sample style layer: what J's builder sends back, in the same shape. It is NOT loaded by the
+  site (the site loads the empty style-layer.css); the browser test
+  server/test/browser/preview.browser.mts puts it in place of style-layer.css and checks that the
+  look changes while every page script and every data-hook still works.
+
+  A style layer does two things: it gives the design tokens (web/tokens.css) new values, and it
+  adds rules keyed by data-hook. It never relies on classes the scripts set (there are none) and
+  never shows a part the scripts hid (base.css keeps [hidden] hidden).
+*/
+
+/* 1. New token values: a dark theme. */
+:root {
+  --pons-color-page: #0b1020;
+  --pons-color-text: #e5e7eb;
+  --pons-color-muted: #94a3b8;
+  --pons-color-faint: #475569;
+  --pons-color-accent: #f472b6;
+  --pons-color-surface: #111827;
+  --pons-color-line: #334155;
+  --pons-color-banner: #f472b6;
+  --pons-color-banner-text: #0b1020;
+  --pons-font-body: Georgia, "Times New Roman", serif;
+  --pons-font-size: 17px;
+  --pons-radius: 14px;
+  --pons-radius-large: 18px;
+  --pons-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --pons-chart-background: #111827; --pons-chart-text: #e5e7eb; --pons-chart-grid: #1f2937; --pons-chart-border: #334155;
+  --pons-ring-me: #22d3ee; --pons-duel-me: #22d3ee;
+  --pons-marker-size: 28;
+}
+
+/* 2. Rules keyed by data-hook. */
+[data-hook="page-title"] { letter-spacing: 0.04em; text-transform: uppercase; }
+[data-hook="nav"] { padding: var(--pons-space-3) 0; border-bottom: var(--pons-border-thin) solid var(--pons-color-line); }
+[data-hook="nav-links"] a { color: var(--pons-color-accent); text-decoration: none; }
+[data-hook="next-step"] { background: var(--pons-color-surface); box-shadow: var(--pons-shadow-card); }
+[data-hook="queue-panel"], [data-hook="balance-panel"], [data-hook="wallet-panel"] {
+  background: var(--pons-color-surface); border-radius: var(--pons-radius-large); padding: var(--pons-space-4); margin: var(--pons-space-4) 0; }
+[data-hook="queue-join"], [data-hook="next-step-button"] {
+  background: var(--pons-color-accent); color: var(--pons-color-page); border: 0; border-radius: 999px; padding: var(--pons-space-3) var(--pons-space-5); }
+[data-hook="score-you-pct"], [data-hook="score-them-pct"] { font-size: 1.4em; }
+[data-hook="leaderboard-table"], [data-hook="history-table"] { border-collapse: collapse; }
+[data-hook="leaderboard-row"]:nth-child(odd), [data-hook="history-row"]:nth-child(odd) { background: var(--pons-color-surface); }

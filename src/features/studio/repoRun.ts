@@ -25,6 +25,7 @@
 import { handoffFrom } from "./polioMd";
 import { ArtifactRefused, artifactFiles, artifactName, artifactSays, findArtifact, rangeReader, runOf, runRef } from "./captureArtifact";
 import { MOST_CHARS, MOST_READS } from "./standIn";
+import { stillFiles, stillsAsk, type StillsAsk } from "./stills";
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
 import { manifestIn, readManifest, type BuilderManifest } from "./builderManifest";
@@ -48,6 +49,8 @@ export interface RepoRead {
   code?: { path: string; text: string }[];
   /** Set when the page was built from the repository's source rather than found in it: which file, and what the reading did. */
   source?: { page: string; notes: SourceNotes };
+  /** The stills its builder.json asks for (`stills.ts`): the preview page's folder packed, scripts and all, and what to take. */
+  stills?: { file: File; ask: StillsAsk };
 }
 
 /**
@@ -516,6 +519,34 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     }
   }
 
+  /*
+   * THE STILLS ITS builder.json ASKS FOR (`stills.ts`): the preview page's
+   * folder, scripts and sample data with it, packed apart from the page's
+   * zip, which stays without them. What was fetched already is not fetched
+   * again.
+   */
+  let stills: RepoRead["stills"];
+  const ask = manifest ? stillsAsk(manifest) : null;
+  if (ask && paths.includes(ask.page)) {
+    const had = new Map<string, Uint8Array>(got.map((g) => [g.name, g.bytes]));
+    for (const c of code) had.set(c.path, new TextEncoder().encode(c.text));
+    const need = stillFiles(blobs, ask.page);
+    const packed: { name: string; bytes: Uint8Array }[] = [];
+    for (let i = 0; i < need.length; i += AT_ONCE) {
+      say(`Fetching the preview page for its still${ask.shots.length === 1 ? "" : "s"}… ${Math.min(i + AT_ONCE, need.length)} of ${need.length}`);
+      const batch = await Promise.all(need.slice(i, i + AT_ONCE).map(async (e) => {
+        const kept = had.get(e.path);
+        if (kept) return { name: e.path, bytes: kept };
+        const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token);
+        const it = blob as { content?: string; encoding?: string };
+        return isNo(blob) || it.encoding !== "base64" || typeof it.content !== "string" ? null : { name: e.path, bytes: unbase64(it.content) };
+      }));
+      for (const one of batch) if (one) packed.push(one);
+    }
+    /* A still is a picture to design round, never a reason the repository did not come: one that cannot be packed is simply not taken. */
+    if (packed.some((f) => f.name === ask.page)) stills = { file: new File([zipOf(packed) as BlobPart], `${repo.owner}-${repo.name}-preview.zip`, { type: "application/zip" }), ask };
+  }
+
   say("Packing it…");
   const zip = zipOf(got);
   const name = `${repo.owner}-${repo.name}.zip`;
@@ -527,5 +558,6 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     ref,
     ...(code.length ? { code } : {}),
     ...(manifest ? { manifest } : {}),
+    ...(stills ? { stills } : {}),
   };
 }
