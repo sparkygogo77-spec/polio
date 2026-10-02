@@ -1,0 +1,110 @@
+# Capture any site into capture/sites/<name>/ and hand it back as this run's
+# artifact, capture-<name>. Nothing is committed: a capture is a site document,
+# and site documents are not kept in git. The Builder's "Capture a site" and
+# Recapture start this through the workflow_dispatch API, wait for the run,
+# and bring the artifact in (src/features/studio/captureSite.ts,
+# captureArtifact.ts); it lands in the Builder's own store like any site
+# brought in. An artifact is kept for 30 days; the site, once brought in,
+# for as long as the Builder keeps it.
+#
+# Run by hand from the Actions tab too. Needs no secret.
+name: Capture a site
+run-name: Capture ${{ inputs.url }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "The site's address, e.g. https://example.com"
+        required: true
+        type: string
+      name:
+        description: "Folder name under capture/sites/ (letters, digits, dashes); the address's host when empty"
+        required: false
+        type: string
+        default: ""
+      pages:
+        description: "Comma list of paths to capture, e.g. /, /docs"
+        required: false
+        type: string
+        default: "/"
+      learn:
+        description: "Learn on click: JSON {targets, pressesPerControl: 1, stopOnWallet: true, cap} from the Builder; held server calls pressed once each after the capture (capture/site/capture/learn.mjs). Empty for none."
+        required: false
+        type: string
+        default: ""
+
+# Reads the repository to run the capturer, and nothing more: it writes no branch.
+permissions:
+  contents: read
+
+concurrency:
+  group: capture-${{ inputs.name || inputs.url }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Playwright goes in its own folder, not this project's: the Builder's own
+      # dependencies are not needed to capture, and are not installed.
+      - name: Install the browser
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      # Observe only: a terms or cookie gate is hidden in the capture's own browser,
+      # never agreed to (--hide-gate); nothing is signed, connected or submitted.
+      # The inputs reach the shell as variables, never pasted into the script.
+      - name: Capture
+        env:
+          IN_URL: ${{ inputs.url }}
+          IN_NAME: ${{ inputs.name }}
+          IN_PAGES: ${{ inputs.pages }}
+        run: |
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/pw/node_modules/playwright"
+          export CHROMIUM="$(node -e "console.log(require(process.env.PLAYWRIGHT_MODULE).chromium.executablePath())")"
+          node capture/site/capture/capture-site.mjs --url "$IN_URL" --name "$IN_NAME" --pages "$IN_PAGES" --hide-gate
+          echo "NAME=$(node -e "import('./capture/site/capture/capture-site.mjs').then(m => console.log(m.siteName(process.argv[1]) ?? m.nameFrom(process.argv[2])))" "$IN_NAME" "$IN_URL")" >> "$GITHUB_ENV"
+
+      # Learn on click: only the held server calls the owner chose, once each, 2 s apart, stopping at any wallet prompt.
+      - name: Learn
+        if: ${{ inputs.learn != '' }}
+        env:
+          IN_URL: ${{ inputs.url }}
+          LEARN: ${{ inputs.learn }}
+        run: |
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/pw/node_modules/playwright"
+          export CHROMIUM="$(node -e "console.log(require(process.env.PLAYWRIGHT_MODULE).chromium.executablePath())")"
+          node capture/site/capture/learn.mjs --site "capture/sites/$NAME" --url "$IN_URL"
+
+      # The converter's machine copy of capture/ledger.txt: rewritten every run, read by nothing, never handed on.
+      - name: Leave out ledger.json
+        run: rm -f "capture/sites/$NAME/ledger.json"
+
+      - name: Hand the capture back
+        uses: actions/upload-artifact@v4
+        with:
+          name: capture-${{ env.NAME }}
+          path: capture/sites/${{ env.NAME }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Say where it is
+        env:
+          IN_URL: ${{ inputs.url }}
+        run: |
+          echo "## Captured" >> "$GITHUB_STEP_SUMMARY"
+          echo "$IN_URL as \`capture-$NAME\`, this run's artifact (\`site/document.json\`, \`assets/\`, \`capture/\`). Bring it in from the Builder's Capture a site dialog." >> "$GITHUB_STEP_SUMMARY"

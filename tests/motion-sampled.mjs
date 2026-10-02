@@ -28,11 +28,11 @@
  *
  * The document is sink's own stand-in page, captured and converted
  * (tests/fixtures/motion-sampled.json, from sink's
- * check-motion-sample.mjs); with a sink checkout beside this one, its
+ * check-motion-sample.mjs); with the capture folder unpacked, its
  * trumpmorty.fun capture is held too.
  *
  *   npm run build && npx next start -p 3013
- *   node --experimental-strip-types tests/motion-sampled.mjs http://127.0.0.1:3013 [path to a sink checkout]
+ *   node --experimental-strip-types tests/motion-sampled.mjs http://127.0.0.1:3013 [the capture folder]
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -45,7 +45,7 @@ import { usesOf, getWork, inputsOf, pageFeatures } from "../src/features/studio/
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
-const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const DOC = readFileSync(join(here, "fixtures", "motion-sampled.json"));
 const doc = JSON.parse(DOC.toString("utf8"));
 
@@ -100,7 +100,7 @@ check("control: without the motion section nothing new is attached and no layer 
 const ship = pageFeatures(nodes).scripts;
 check("publishing ships the four new scripts beside the runtime", ["spin.js", "float.js", "scroll-grow.js", "dust-canvas.js", "tilt.js", "marquee.js"].every((f) => ship.includes(f)) && !ship.includes("hover-lift.js"), J(ship));
 
-/* trumpmorty.fun itself, when a sink checkout is beside this one. */
+/* trumpmorty.fun itself, when the capture folder holds it. */
 const TM = join(SINK, "sites", "trumpmorty-fun", "site", "document.json");
 if (existsSync(TM)) {
   const tdoc = JSON.parse(readFileSync(TM, "utf8"));
@@ -126,7 +126,7 @@ if (existsSync(TM)) {
     const planet = tm.spin.find((s) => s.name === "spin");
     check("trumpmorty.fun: the planet's 140 s turn is its stylesheet's own and stays its captured loop", planet && planet.period === 140000 && planet.direction === "cw" && !ti(planet.part, "spin") && (tn.find((n) => n.id === planet.part)?.motion?.animation ?? []).some((a) => a.name === "spin"), J(planet));
   }
-} else console.log(`  (no sink checkout at ${SINK}: trumpmorty.fun is not held here)`);
+} else console.log(`  (no capture folder at ${SINK}: trumpmorty.fun is not held here)`);
 
 /* ------------------------------------------------------------ in the Builder */
 const REPO = "/repos/sparkygogo77-spec/sink";

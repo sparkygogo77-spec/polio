@@ -16,9 +16,9 @@ import { chromium } from "playwright-core";
 
 export const SITES = ["trumpmorty-fun", "parasiteonsol-fun", "gotchi-gg"];
 
-/** The sink checkout's root from what a test is given: the root itself, or a site folder in it (test-all passes sites/trumpmorty-fun). */
+/** The capture folder's root from what a test is given: the root itself, or a site folder in it (test-all passes sites/trumpmorty-fun). */
 export function sinkRoot(given) {
-  const at = given ?? process.env.SINK ?? "../sink";
+  const at = given ?? process.env.SINK ?? "capture/versions/sink-0ee06fa";
   if (existsSync(join(at, "sites"))) return at;
   if (existsSync(join(at, "..", "..", "sites"))) return join(at, "..", "..");
   return at;

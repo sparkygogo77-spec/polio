@@ -24,7 +24,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
-const DOC = process.argv[3] ?? "../sink/site/document.json";
+const DOC = process.argv[3] ?? "capture/versions/sink-0ee06fa/site/document.json";
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);

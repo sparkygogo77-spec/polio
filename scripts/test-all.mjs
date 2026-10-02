@@ -6,10 +6,10 @@
  * server it needs (`GITHUB_API=… VERCEL_API=… npx next start -p 3013`, with
  * `env -u GITHUB_TOKEN …` when it must have no token of its own) and the
  * arguments it takes (`node tests/x.mjs http://127.0.0.1:3013 <path to a
- * sink checkout>`). This reads those headers rather than keeping a second
+ * capture folder>`). This reads those headers rather than keeping a second
  * list that drifts: tests that want the same server share one, every server
  * starts without any real GitHub or Vercel token, and each test is handed
- * its server's address and, where it asks for one, the sink checkout.
+ * its server's address and, where it asks for one, the capture folder.
  *
  *   npm run build                           # once; --build does it for you
  *   node scripts/test-all.mjs               # everything, then the table
@@ -25,8 +25,12 @@
  *   --out FILE     also write the table and the summary, as Markdown, to FILE
  *   --json FILE    also write every result, with its time, as JSON
  *   --list         say which server, arguments and phase each test gets, and run nothing
- *   SINK=path      the sink checkout (default ../sink); tests are given
- *                  its sites/trumpmorty-fun as SINK, which is what they read
+ *   SINK=path      the capture folder, laid out as sink was (default
+ *                  capture/versions/sink-0ee06fa, the captures the tests were
+ *                  written against; unpacked first from capture/fixtures);
+ *                  fluid-site alone is handed the newest, capture/ (SINK_NEWEST);
+ *                  tests are given its sites/trumpmorty-fun as SINK, which
+ *                  is what they read
  *
  * HOW A RUN GOES, AND WHY (owner's note R15). The whole suite took about
  * 103 minutes three at a time, and a run under load reported 46 failures
@@ -95,7 +99,9 @@ const CHANGED = optMaybe("--changed");
 const NO_SMOKE = flag("--no-smoke");
 const BUILD = flag("--build");
 const LIST = flag("--list");
-const SINK = resolve(ROOT, process.env.SINK ?? "../sink");
+/* The captures the tests were written against (sink 0ee06fa); the newest (sink 75a7bcc, what the folded capturer makes) are at capture/ itself, for the few tests that want them. */
+const SINK = resolve(ROOT, process.env.SINK ?? "capture/versions/sink-0ee06fa");
+const NEWEST = resolve(ROOT, process.env.SINK_NEWEST ?? "capture");
 const only = argv.filter((a) => !a.startsWith("--"));
 
 /*
@@ -115,6 +121,8 @@ const SKIP = {
 const ARGS = {
   "sticky-in-section": (url) => [url, join(SINK, "sites", "gotchi-gg")],
   "motion-sampled": (url) => [url, SINK],
+  /* Written against the newest capture: the footer's edge recorded on its top only (sink 98d5b91, 1b93cf4). */
+  "fluid-site": (url) => [url, NEWEST],
 };
 /*
  * THE SMOKE SET: always run by --changed. Quick, and between them they open
@@ -153,7 +161,7 @@ function argsOf(name, header, src, url) {
     const out = [];
     for (const t of tokens) {
       if (/^https?:\/\//.test(t) || /^[<[](url|builder url|base url)[>\]]$/.test(t)) out.push(url);
-      else if (/sink checkout/.test(t)) out.push(SINK);
+      else if (/capture folder/.test(t)) out.push(SINK);
       else if (t.startsWith("[")) break; // optional, and nothing here to give it
       else if (t.startsWith("<")) return { needs: t };
       else if (t.startsWith("--") || t.startsWith("(")) break;
@@ -162,7 +170,7 @@ function argsOf(name, header, src, url) {
     if (out.length) return out;
   }
   /* No usage line that says: a URL when it reads one, the sink when that is its first argument. */
-  if (/process\.argv\[2\]\s*(\?\?|\|\|)\s*(process\.env\.SINK|join\(|"\.\.\/sink")/.test(src)) return [SINK];
+  if (/process\.argv\[2\]\s*(\?\?|\|\|)\s*(process\.env\.SINK|join\(|"\.\.\/sink"|"capture)/.test(src)) return [SINK];
   if (/process\.argv\[2\]/.test(src)) return [url];
   return [];
 }
@@ -379,7 +387,12 @@ function treeState() {
   try { return new Set(execFileSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean)); } catch { return new Set(); }
 }
 const before = treeState();
-if (!existsSync(SINK)) console.warn(`No sink checkout at ${SINK}: tests that read it will fail. Set SINK.`);
+/* The captures the tests read, unpacked from capture/fixtures when they are not there yet (never kept in git). */
+if (!process.env.SINK) {
+  const { ensureFixtures } = await import("../capture/fixtures/unpack.mjs");
+  if (!ensureFixtures({ quiet: true })) console.warn("The capture fixtures could not be unpacked (tar with xz): tests that read them will fail.");
+}
+if (!existsSync(join(SINK, "site", "document.json"))) console.warn(`No captures at ${SINK}: tests that read them will fail. Set SINK, or run npm run capture:fixtures.`);
 if (BUILD || !existsSync(join(ROOT, ".next", "BUILD_ID"))) {
   console.log("Building (npm run build)…");
   const b = await run("npm", ["run", "build"], { env: baseEnv(), timeout: 15 * 60 * 1000 });

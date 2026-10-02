@@ -23,7 +23,7 @@
  * Nothing leaves the machine: the picture model is answered here.
  *
  *   npx next start -p 3013
- *   node tests/side-panel-h.mjs http://127.0.0.1:3013 ../sink/sites/trumpmorty-fun
+ *   node tests/side-panel-h.mjs http://127.0.0.1:3013 capture/versions/sink-0ee06fa/sites/trumpmorty-fun
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,7 +32,7 @@ import { createRequire } from "node:module";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "..", "sink", "sites", "trumpmorty-fun");
+const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa", "sites", "trumpmorty-fun");
 const SHOTS = ".screenshots/side-panel-g";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];

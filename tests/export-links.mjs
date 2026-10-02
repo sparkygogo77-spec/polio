@@ -32,7 +32,7 @@
  * rebuilds that markup rather than following it.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/export-links.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/export-links.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -41,7 +41,7 @@ import { chromium } from "playwright-core";
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node tests/export-links.mjs <builder url> <path to a sink checkout>");
+  console.error("usage: node tests/export-links.mjs <builder url> <the capture folder>");
   process.exit(2);
 }
 const DOC = readFileSync(join(SINK, "site/document.json"));

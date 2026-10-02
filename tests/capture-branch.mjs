@@ -1,11 +1,13 @@
 /**
- * A CAPTURE LANDS ON A BRANCH OF ITS OWN, NEVER ON SINK'S MAIN BY DEFAULT.
+ * A CAPTURE NEVER CHANGES A MAIN LINE BY DEFAULT.
  *
  * From the owner's walk-through: the Capture dialog's advanced defaults ran
- * the capture on sparkygogo77-spec/sink's main. Now the capture runs on a
- * new branch made for it, capture/<name>-<date>, cut from the default
- * branch where the workflow lives; the site is brought in from wherever it
- * landed; and the dialog says that changes to sink's main need the owner's
+ * the capture on sparkygogo77-spec/sink's main. The capturer is polio's own
+ * workflow now, which commits nothing: the capture comes back as the run's
+ * artifact and no branch is made. A capturer that commits (sink, typed under
+ * advanced) still runs on a new branch made for it, capture/<name>-<date>,
+ * cut from the default branch where the workflow lives; the site is brought
+ * in from wherever it landed; and changes to its main line need the owner's
  * OK (a tick, never a default).
  *
  * GitHub is a stand-in fetch. The token is a stand-in string and reaches no
@@ -64,10 +66,18 @@ const elsewhere = await watchCapture({ repo, token: TOKEN, runId: 5, name: "exam
 check("…or from captures/<name>, when the workflow committed there", elsewhere.ok && elsewhere.ref === "captures/example", JSON.stringify(elsewhere));
 check("what Bring in reads names that branch", captureWant(repo, "example", branch) === `someone/sink@${branch}`);
 
+/* polio's workflow hands the capture back: the run's artifact is where it is, whatever branch it ran on. */
+const artifacts = { ...github, fetch: async (url, init = {}) => String(url).includes("/actions/runs/5/artifacts") ? json(200, { artifacts: [{ id: 9, name: "capture-example", size_in_bytes: 1234, expired: false }] }) : github.fetch(url, init) };
+const back = await watchCapture({ repo: { owner: "someone", name: "polio" }, token: TOKEN, runId: 5, name: "example", ranOn: "", onProgress: () => {}, ...artifacts });
+check("a capture handed back as the run's artifact is brought in from the run", back.ok && back.ref === "run:5" && back.path === "sites/example", JSON.stringify(back));
+check("…which Bring in reads as the run", captureWant({ owner: "someone", name: "polio" }, "example", back.ref) === "someone/polio@run:5");
+
+const { handsBack, DEFAULT_CAPTURER } = await import("../src/features/studio/captureSite.ts");
+check("the capturer by default is polio's own workflow, which hands the capture back", DEFAULT_CAPTURER === "sparkygogo77-spec/polio" && handsBack(DEFAULT_CAPTURER) && !handsBack("sparkygogo77-spec/sink"));
 const dialog = readFileSync("src/features/studio/CaptureSiteDialog.tsx", "utf8");
-check("the dialog's branch starts as the capture's own branch", /setBranch\(captureBranch\(/.test(dialog) && /makeBranch: !onMain/.test(dialog));
-check("the dialog says changes to sink's main need the owner's OK", /Changes to sink&apos;s main line need the owner&apos;s OK/.test(dialog));
-check("capturing on main needs a tick, never a default", /disabled=\{[^}]*onMain && !mainOk/.test(dialog) && /useState\(false\)/.test(dialog));
+check("the dialog makes no branch for a capturer that hands back, and its own branch for one that commits", /setBranch\(back \? "" : captureBranch\(/.test(dialog) && /makeBranch: !back && !onMain/.test(dialog));
+check("the dialog says a capture that commits needs the owner's OK for its main line", /Changes to its main line need the owner&apos;s OK/.test(dialog) && /nothing is committed/.test(dialog));
+check("capturing on main needs a tick, never a default", /disabled=\{[^}]*onMain && !mainOk/.test(dialog) && /useState\(false\)/.test(dialog) && /const onMain = !back && isMainBranch/.test(dialog));
 
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

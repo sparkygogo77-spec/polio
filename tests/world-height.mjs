@@ -21,7 +21,7 @@
  *     short one or one outside the hero does not.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/world-height.mjs http://127.0.0.1:3013 [sink checkout]
+ *   node tests/world-height.mjs http://127.0.0.1:3013 [capture folder]
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
@@ -34,7 +34,7 @@ import { createRequire } from "node:module";
 const { chromium } = createRequire(import.meta.url)("playwright-core");
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const REF = process.env.SINK_REF ?? "origin/claude/capture-consolidated";
 const FILE = "sites/parasiteonsol-fun/site/document.json";
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";

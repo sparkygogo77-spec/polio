@@ -3,23 +3,28 @@
  *
  * A capture keeps what it was asked in `sites/<name>/capture/run.json`: the
  * live address, the pages, the window. Recapture reads that, shows the
- * address so it can be changed, and runs sink's own capture workflow again
+ * address so it can be changed, and runs the capture workflow again
  * (`captureSite.ts`, the Capture dialog's road) with the same pages and the
- * site's own folder name, from the branch the site came from. When the run
- * ends, the repo menu offers the same Replace prompt Bring in again does.
+ * site's own folder name. When the run ends, the repo menu offers the same
+ * Replace prompt Bring in again does.
  *
- * WHERE IT LANDS. sink's `capture.yml` takes an address, a name and pages,
- * and always commits `sites/<name>` to the branch `captures/<name>`,
- * whichever branch it was run from. Polio never writes to sink, so the
- * folder is the site's own and the branch is the workflow's; when that is
- * not the branch the site came from, it is said before the run starts, and
- * after a Replace the site's source is where the capture really is.
+ * WHERE IT LANDS. A site captured by polio's own workflow came from a run
+ * (`@run:<id>`): its record is read out of that run's artifact, the
+ * workflow runs again on polio's default branch, and the new capture comes
+ * back as the new run's artifact; nothing is committed. A site from sink
+ * (a committing capturer): `capture.yml` there always commits
+ * `sites/<name>` to the branch `captures/<name>`, whichever branch it was
+ * run from. Polio never writes to sink, so the folder is the site's own and
+ * the branch is the workflow's; when that is not the branch the site came
+ * from, it is said before the run starts, and after a Replace the site's
+ * source is where the capture really is.
  *
  * GitHub is read no faster than every 10 s while the run goes.
  *
  * Pure apart from the pipes it is handed, so a test drives it with a stand-in.
  */
 import { captureName, capturePlace, startCapture, watchCapture, workflowPermissionSays, type CaptureRepo, type Pipes, type Progress } from "./captureSite";
+import { recordOf, runOf } from "./captureArtifact";
 
 export { workflowPermissionSays };
 
@@ -33,10 +38,12 @@ export interface Plan {
   /** As the workflow takes them: a comma list. */
   pages: string;
   name: string;
-  /** The branch the workflow is run from: the one the site came from. */
+  /** The branch the workflow is run from: the one the site came from, or the default one ("") for a site from a run. */
   ref: string;
-  /** Where sink commits it. */
+  /** Where a committing capturer commits it; for a site from a run, `ref` is "run", the new run's artifact. */
   lands: { ref: string; path: string };
+  /** The capture comes back as the run's artifact (polio's workflow), nothing committed. */
+  handsBack?: boolean;
   /** Said when `lands.ref` is not the branch the site came from. */
   branchNote: string | null;
   /** Learn on click: the held presses to make, once each (`learn.ts`). Sent only to a capturer that says it can press. */
@@ -51,8 +58,10 @@ export function recapturePlan(src: Source | null | undefined, record: CaptureRec
   if (!src?.dir) return null;
   const name = captureName(record?.name ?? src.dir.split("/").pop() ?? "") ?? captureName(src.dir.split("/").pop() ?? "");
   if (!name) return null;
-  const lands = capturePlace(name);
   const pages = (record?.pages?.length ? record.pages : ["/"]).join(", ");
+  /* From a run: polio's workflow, on its default branch, back as the new run's artifact. */
+  if (runOf(src.branch) !== null) return { url: record?.url ?? "", pages, name, ref: "", lands: { ref: "run", path: capturePlace(name).path }, branchNote: null, handsBack: true };
+  const lands = capturePlace(name);
   return {
     url: record?.url ?? "",
     pages,
@@ -67,6 +76,8 @@ export function recapturePlan(src: Source | null | undefined, record: CaptureRec
 /** The record a capture left, read with his key: null when there is none to read. */
 export async function readCaptureRecord(src: Source, token: string, pipes: Pipes = {}): Promise<CaptureRecord | null> {
   if (!src.dir) return null;
+  const run = runOf(src.branch);
+  if (run !== null) return recordOf({ repo: { owner: src.owner, name: src.name }, token, runId: run, name: src.dir.split("/").filter(Boolean).pop() ?? null, fetch: pipes.fetch });
   const f = pipes.fetch ?? fetch;
   const path = `${src.dir.replace(/\/+$/, "")}/capture/run.json`.split("/").map(encodeURIComponent).join("/");
   try {

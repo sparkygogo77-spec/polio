@@ -20,7 +20,7 @@
  *     wears it, and is itself again when left.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/try-look.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/try-look.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { SITES, sinkRoot, launch, openSite, PAINT } from "./fixtures/look-sites.mjs";
 

@@ -20,7 +20,7 @@
  *      refused and offers nothing.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/round-trip.mjs http://127.0.0.1:3013 <path to a sink checkout> [screenshot dir]
+ *   node tests/round-trip.mjs http://127.0.0.1:3013 <the capture folder> [screenshot dir]
  */
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -28,10 +28,10 @@ import { chromium } from "playwright-core";
 import { gunzipSync } from "node:zlib";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? "../sink";
+const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";
 const SHOTS = process.argv[4] ?? null;
 if (!existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node tests/round-trip.mjs <builder url> <path to a sink checkout> [screenshot dir]");
+  console.error("usage: node tests/round-trip.mjs <builder url> <the capture folder> [screenshot dir]");
   process.exit(2);
 }
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });

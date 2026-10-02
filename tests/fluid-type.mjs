@@ -23,7 +23,7 @@
  * `SHOTS=<dir>` keeps a picture of each surface at each window.
  * The ribbon is read by its layout box (its offset), not the box round its turn.
  *
- *   node tests/fluid-type.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/fluid-type.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -34,9 +34,9 @@ import { chromium } from "playwright-core";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
-const SINK = process.argv[3] ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const SITE = join(SINK, "sites", "trumpmorty-fun");
-if (!existsSync(join(SITE, "site", "document.json"))) { console.error(`usage: node tests/layer-units.mjs <builder url> <sink checkout>; no ${SITE}/site/document.json`); process.exit(2); }
+if (!existsSync(join(SITE, "site", "document.json"))) { console.error(`usage: node tests/layer-units.mjs <builder url> <capture folder>; no ${SITE}/site/document.json`); process.exit(2); }
 const SHOTS = process.env.SHOTS ?? null;
 const DOC = readFileSync(join(SITE, "site", "document.json"));
 const doc = JSON.parse(DOC.toString("utf8"));

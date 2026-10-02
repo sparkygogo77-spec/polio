@@ -40,6 +40,7 @@ import { recreateFrom, type ElementReading } from "./recreate";
 import { facesSays, genericsOf, genericSays, type FacesCarried } from "./fonts";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
+import { runOf } from "./captureArtifact";
 import { keepAll } from "./pictures";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
@@ -398,7 +399,8 @@ export function FromASite({ space }: { space: Space }) {
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
     busy(`Opening ${repoName(r)}…`);
     /* Reading one of the owner's repositories is when the features a code chat built there are offered back (`library/repoFeatures.ts`). */
-    void checkRepoFeatures({ owner: r.owner, name: r.name, ref: r.ref ?? null }, token);
+    /* Not for a capture run's artifact (`@run:<id>`): a run is no branch to read features/ on. */
+    if (runOf(r.ref) === null) void checkRepoFeatures({ owner: r.owner, name: r.name, ref: r.ref ?? null }, token);
     const got = await readRepoSite(r, token, (says) => busy(says));
     if (isCopy(got) && keep) {
       /*

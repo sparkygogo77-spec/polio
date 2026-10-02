@@ -17,10 +17,10 @@
  *   · the same document writes the same bytes, whatever order its parts are in;
  *   · the document's route there: a capture taken in (`takeDoc`) keeps the
  *     notes POLIO.md reads, and Go live puts the file in its one push;
- *   · a real capture (trumpmorty.fun, stonk.fun, from a sink checkout): every
+ *   · a real capture (trumpmorty.fun, stonk.fun, from the capture folder): every
  *     page, and every behaviour the capture recorded, is in the file.
  *
- *   node --experimental-strip-types tests/polio-md.mjs [sink checkout] [sink ref]
+ *   node --experimental-strip-types tests/polio-md.mjs [capture folder] [sink ref]
  */
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -33,7 +33,7 @@ import { usesOf } from "../src/features/studio/library/works.ts";
 import { homeFor } from "../src/features/studio/homePage.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SINK = process.argv[2] ?? join(here, "..", "..", "sink");
+const SINK = process.argv[2] ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const REF = process.argv[3] ?? null;
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -235,7 +235,7 @@ for (const site of ["trumpmorty-fun", "stonkfun-xyz", "gotchi-gg"]) {
   check(`${site}: the same document writes the same bytes`, out === polioMd({ ...t, brief: d.brief, format: d.format, nodes: [...t.nodes].reverse() }));
   check(`${site}: nothing secret, no bytes and no script`, leaks(out, d.pages).length === 0, leaks(out, d.pages).join(", "));
 }
-if (!real) console.log("  --   no sink checkout with a captured document: the real-capture checks did not run (pass a sink checkout and ref)");
+if (!real) console.log("  --   no capture folder with a captured document: the real-capture checks did not run (pass the capture folder and ref)");
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

@@ -1,34 +1,46 @@
 /**
- * "Capture a site": any address, captured by the sink repository's
- * workflow and brought in from where it lands.
+ * "Capture a site": any address, captured by a capture workflow and brought
+ * in from where it lands.
  *
  * WHY A WORKFLOW. The capture opens a real browser on the page and
- * measures it; that is sink's `capture-route.mjs`, and it needs a machine
- * with a browser and the converter beside it. GitHub Actions is such a
- * machine he already has, and its `workflow_dispatch` API is one POST.
- * The run commits `sites/<name>/` to a branch `captures/<name>`, so every
- * site captured is kept beside the others and the root `site/` (the one
- * captured by hand) is never written.
+ * measures it (`capture/site/capture/capture-route.mjs`), and it needs a
+ * machine with a browser and the converter beside it. GitHub Actions is
+ * such a machine he already has, and its `workflow_dispatch` API is one POST.
+ *
+ * WHERE IT LANDS. polio's own workflow (`.github/workflows/capture.yml`,
+ * the capturer folded in from sink) commits nothing: a capture is a site
+ * document, and site documents are not kept in git. It hands the folder back
+ * as the run's artifact, `capture-<name>`, and the site is brought in from
+ * the run (`owner/polio/sites/<name>@run:<id>`, `captureArtifact.ts`) into
+ * the Builder's own store. A capturer that commits instead (sink, named
+ * under advanced) still works the old way: `sites/<name>` on a branch.
  *
  * WHY THE BROWSER. His token is read here, in his browser, exactly as the
- * importer and a publish read it (`repoRun.ts`), and it reaches our
- * server never. GitHub is asked directly.
- *
- * WHAT THE IMPORTER IS HANDED. A capture is read the way any repository
- * is — `owner/sink@captures/<name>` through `bringRepoIn` — plus a path,
- * `sites/<name>`, because the importer reads the root `site/document.json`
- * today. The path setting is another lane's (`repoRun.ts`); this file
- * expects it as `Bringing.path?: string`, carried to
- * `readRepoSite(repo, token, say, { path })`, and `capturePlace` says what
- * the value is. Until it lands, `bringRepoIn` reads the root site.
+ * importer and a publish read it (`repoRun.ts`), and it rides only in the
+ * header of each call: to GitHub, and to the route that reads the
+ * artifact's bytes (`api/studio/capture-artifact`), which keeps nothing.
  *
  * Every function here takes `fetch` and `sleep` so the check can stand a
  * GitHub in; nothing here touches React or the store.
  */
+import { findArtifact, runRef } from "./captureArtifact.ts";
 
 const API = "https://api.github.com";
-/** The workflow file in sink: `.github/workflows/capture.yml`. */
+/** The workflow file, in polio as it was in sink: `.github/workflows/capture.yml`. */
 export const WORKFLOW = "capture.yml";
+
+/** The capturer by default: polio itself, whose workflow hands a capture back as an artifact. */
+export const DEFAULT_CAPTURER = "sparkygogo77-spec/polio";
+
+/**
+ * Does this capturer hand a capture back as its run's artifact, rather than
+ * commit it? polio's workflow does; sink's commits `sites/<name>` to a
+ * branch. Only a committing capturer needs a branch made for it, and the
+ * owner's say-so for its main line.
+ */
+export function handsBack(capturer: string): boolean {
+  return capturer.trim().toLowerCase() === DEFAULT_CAPTURER.toLowerCase();
+}
 
 export interface CaptureRepo { owner: string; name: string }
 
@@ -38,7 +50,7 @@ export interface Pipes {
   sleep?: (ms: number) => Promise<void>;
 }
 
-/** The folder name a site is kept under: lowered, dashes, never a path, never one of sink's own folders. Mirrors sink's `siteName`. */
+/** The folder name a site is kept under: lowered, dashes, never a path, never one of the capturer's own folders. Mirrors `capture-site.mjs`'s `siteName`. */
 export function captureName(raw: string): string | null {
   const typed = String(raw ?? "").trim();
   if (/[/\\]|\.\./.test(typed)) return null;
@@ -56,7 +68,7 @@ export function nameFrom(url: string): string | null {
   } catch { return null; }
 }
 
-/** Where a capture lands, and what the importer is handed to read it. */
+/** Where a committing capturer's capture lands, and what the importer is handed to read it. An artifact's is `{ ref: runRef(id), path }`. */
 export function capturePlace(name: string): { ref: string; path: string } {
   return { ref: `captures/${name}`, path: `sites/${name}` };
 }
@@ -136,7 +148,7 @@ async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Recor
   if (d.status === 404) {
     const seen = await o.f(o.base, { headers: o.h }).then((r) => r.ok, () => true);
     if (!seen) return `The token cannot see ${full}. A fine-grained token needs it chosen under its repository access.`;
-    return `${full} has no ${WORKFLOW} workflow on ${o.ref}. Merge sink's capture branch first, or name the branch it is on under advanced.`;
+    return `${full} has no ${WORKFLOW} workflow on ${o.ref}. Merge the branch that adds it first, or name the branch it is on under advanced.`;
   }
   if (d.status === 422) {
     if (/no ref/i.test(said)) return `${full} has no branch ${o.ref}. Name the branch the workflow is on under advanced.`;
@@ -249,9 +261,17 @@ export async function watchCapture(o: { repo: CaptureRepo; token: string; runId:
   return { done: true, ok: false, says: `The capture failed (${run.conclusion ?? "no conclusion"}). Its log says why.`, htmlUrl };
 }
 
-/** Where the finished capture actually is: on the branch it ran on when the site is there, else the workflow's `captures/<name>`. */
-async function landedOn(o: { repo: CaptureRepo; token: string; name: string; ranOn?: string } & Pipes): Promise<{ ref: string; path: string }> {
+/**
+ * Where the finished capture actually is: the run's own artifact when it
+ * handed one back (polio's workflow), else on the branch it ran on when the
+ * site is there, else the workflow's `captures/<name>`.
+ */
+async function landedOn(o: { repo: CaptureRepo; token: string; name: string; runId: number; ranOn?: string } & Pipes): Promise<{ ref: string; path: string }> {
   const place = capturePlace(o.name);
+  try {
+    const art = await findArtifact({ repo: o.repo, token: o.token, runId: o.runId, name: o.name, fetch: o.fetch });
+    if (art && !art.expired) return { ref: runRef(o.runId), path: place.path };
+  } catch { /* asked below */ }
   if (!o.ranOn || o.ranOn === place.ref) return place;
   const f = o.fetch ?? fetch;
   try {

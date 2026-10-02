@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-export const SINK = process.env.SINK ?? join(here, "..", "..", "..", "sink", "sites", "trumpmorty-fun");
+export const SINK = process.env.SINK ?? join(here, "..", "..", "capture", "versions", "sink-0ee06fa", "sites", "trumpmorty-fun");
 
 export async function trumpmorty() {
   const at = join(SINK, "site", "document.json");

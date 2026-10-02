@@ -31,7 +31,7 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 const OUT = process.argv[4] ?? null;
 if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node scripts/bring-measure.mjs <builder url> <path to a sink checkout> [out.json]");
+  console.error("usage: node scripts/bring-measure.mjs <builder url> <the capture folder> [out.json]");
   process.exit(2);
 }
 const DOC = readFileSync(join(SINK, "site/document.json"));

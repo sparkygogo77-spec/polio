@@ -20,7 +20,7 @@
  *   · on Solcinerator the orange ! sits on every clickable part with nowhere
  *     to go and every live-data spot, and on nothing a link already answers.
  *
- *   node --experimental-strip-types tests/features-library.mjs [path to a sink checkout]
+ *   node --experimental-strip-types tests/features-library.mjs [the capture folder]
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -193,9 +193,9 @@ const read = (text, part = {}) => readWords(text, { pages, works: LIBRARY.map((w
 }
 
 /* ------------------------------------------------ the orange ! on sink */
-const SINK = process.argv[2] ?? "../sink";
+const SINK = process.argv[2] ?? "capture/versions/sink-0ee06fa";
 if (!existsSync(join(SINK, "site/document.json"))) {
-  check("a sink checkout to read Solcinerator from", false, `none at ${SINK}`);
+  check("the capture folder to read Solcinerator from", false, `none at ${SINK}`);
 } else {
   const doc = JSON.parse(readFileSync(join(SINK, "site/document.json"), "utf8"));
   const home = doc.nodes.filter((n) => n.pageId === "page_home");

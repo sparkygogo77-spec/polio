@@ -30,7 +30,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SINK = process.argv[2] && !/^https?:/.test(process.argv[2]) ? process.argv[2] : process.env.SINK ?? join(here, "..", "..", "sink", "sites", "trumpmorty-fun");
+const SINK = process.argv[2] && !/^https?:/.test(process.argv[2]) ? process.argv[2] : process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa", "sites", "trumpmorty-fun");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const { createJiti } = await import("jiti");

@@ -24,7 +24,7 @@
  *     2000 (the title and the CA line within 2px, as tests/fluid-type.mjs).
  *
  *   npm run build && npx next start -p 3013
- *   node tests/draw-on-section.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/draw-on-section.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -34,9 +34,9 @@ import { createRequire } from "node:module";
 
 const { chromium } = createRequire(import.meta.url)("playwright-core");
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
-const SINK = process.argv[3] ?? "../sink";
+const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";
 const DOCFILE = join(SINK, "sites", "trumpmorty-fun", "site", "document.json");
-if (!existsSync(DOCFILE)) { console.error(`usage: node tests/draw-on-section.mjs <builder url> <sink checkout>; no ${DOCFILE}`); process.exit(2); }
+if (!existsSync(DOCFILE)) { console.error(`usage: node tests/draw-on-section.mjs <builder url> <capture folder>; no ${DOCFILE}`); process.exit(2); }
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const results = [];
 const check = (name, ok, detail = "") => {

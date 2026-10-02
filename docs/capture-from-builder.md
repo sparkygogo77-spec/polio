@@ -1,98 +1,110 @@
 # Capture a site, from the Builder
 
-Paste any address into the Builder and it is captured and brought in, with
-every captured site kept side by side. The root `site/` of the sink
-repository (SOLCINERATOR, captured by hand) is never written.
+Paste any address into the Builder and it is captured and brought in. The
+capturer lives in this repository now (`capture/`, folded in from sink), and
+what it captures is never committed: it comes back as the run's artifact and
+lands in the Builder's own store.
 
 ## The shape
 
 ```
-Builder (his browser, his token)          GitHub                       sink repository (Actions)
-──────────────────────────────            ──────                       ─────────────────────────
+Builder (his browser, his token)          GitHub                          polio (Actions)
+──────────────────────────────            ──────                          ───────────────
 "Capture a site" dialog
   address, name, [pages]
-  ── POST workflow_dispatch ──────────▶  capture.yml, inputs url/name/pages
+  ── POST workflow_dispatch ──────────▶  capture.yml on the default branch, inputs url/name/pages
   ── GET workflow runs (newest) ──────▶  the run it started
   ── GET run, GET run/jobs (every 5s) ▶  status, the step it is on ◀── install browser
-                                                                        capture-site.mjs:
-                                                                          capture-route.mjs per page
-                                                                          capture-to-document.mjs
-                                                                        commit sites/<name>/ → branch captures/<name>
-  "Bring sites/<name> in"
-  ── bringRepoIn("owner/sink@captures/<name>", { path: "sites/<name>" })
+                                                                        capture-site.mjs → capture/sites/<name>/
+                                                                        upload-artifact: capture-<name> (30 days)
+  ── GET run/artifacts ───────────────▶  capture-<name>
+  "Bring <name> in"
+  ── bringRepoIn("owner/polio@run:<id>", { path: "sites/<name>" })
+       readRepoSite → captureArtifact.ts
+         ── GET /api/studio/capture-artifact?…&last=65557 ─▶ our route ─▶ GitHub 302 ─▶ storage, a byte range
+         ── …the zip's directory, then the document and the pictures it names, by range
+       copyFrom → the same copy as a repository's folder → the board, the Builder's store
 ```
 
-Two halves, one per repository:
+- **The workflow**: `.github/workflows/capture.yml`. `contents: read`, no
+  secret, no commit, no push. `--hide-gate` always: observe only.
+- **The importer**: a site from a run is named `owner/polio/sites/<name>@run:<id>`.
+  `readRepoSite` sees the `run:` ref and reads the run's artifact instead of
+  a git tree (`captureArtifact.ts`), then builds the same copy a repository's
+  folder gives (`copyFrom` in `repoRun.ts`): the document, its source, the
+  pictures it names, the stand-in reads. So Bring in again, Replace and keep
+  my changes work on it unchanged; Bring in again after 30 days says the
+  capture expired.
+- **The route**: `src/app/api/studio/capture-artifact/route.ts`. GitHub's
+  artifact download redirects to storage that sends no CORS headers, so the
+  browser cannot read it (the zipball's problem, `repoRun.ts`). The route
+  follows the redirect for one byte range (≤ 3.5 MB, under a function's
+  4.5 MB answer) with the token riding in `x-github-token`, as the publish
+  and repo routes take it, and keeps nothing. The token goes to GitHub only;
+  the storage is asked with the signed address.
+- **Recapture**: for a site from a run, the record (`capture/run.json`) is
+  read out of that run's artifact, and the workflow runs again on polio's
+  default branch; the new run's artifact is offered through the repo menu's
+  Replace prompt.
 
-- **sink** — `site/capture/capture-site.mjs` and `.github/workflows/capture.yml`.
-  The script plans the same capture and converter that made the root site,
-  into `sites/<name>/` (`capture/routes.json`, `capture/routes/<id>.json`,
-  `capture/ledger.txt`, `capture/run.json`, `assets/source`,
-  `site/document.json`, `assets/pictures`). The plan is data, so its check
-  (`site/capture/check-capture-site.mjs`) opens no browser. The workflow
-  takes `url`, `name` and `pages` by `workflow_dispatch`, installs
-  Playwright's Chromium, runs the script, and pushes the folder to
-  `captures/<name>` with `GITHUB_TOKEN` and no other secret
-  (`permissions: contents: write`).
-- **polio** — `src/features/studio/captureSite.ts` (the GitHub calls, pure:
-  `fetch` and `sleep` are handed in, so the check stands a GitHub in) and
-  `src/features/studio/CaptureSiteDialog.tsx` (the dialog and its door in
-  the bar, beside "Bring a repository in"). The token is read from the Keys
-  panel in the browser, rides in the `Authorization` header of each call,
-  and reaches our server never, exactly as the importer and a publish.
+## Why an artifact, and not the Builder's server
+
+Two places a capture could go other than git: the run's artifact, or a store
+of the Builder's own (a blob store on the deployment). The artifact needs
+nothing set up: every run can upload one, every key that can start the run
+can read it, and nothing about a site sits on our server. A store would need
+a secret on the workflow, a blob store on the deployment and a write route
+guarded by that secret, all for a file the Builder keeps itself once the
+site is brought in. The artifact's 30 days only bound how long a capture
+waits to be brought in.
 
 ## In the dialog
 
 Address, then a name that follows the address's host until one is typed
-(`example.com` → `example`; letters, digits, dashes, never a path, never
-one of sink's own folder names). Under **Advanced**: the pages to capture
-as a comma list of paths (`/, /docs`), the capturer repository
-(`sparkygogo77-spec/sink` by default, remembered in the browser), and the
-branch its workflow is on (empty means the repository's default). The
-Capture button dispatches the run, the dialog says the step the run is on
-with a link to its log, and when the run ends it offers **Bring
-sites/<name> in**, which goes through the one importer door,
-`bringRepoIn`.
+(`example.com` → `example`; letters, digits, dashes, never a path). Under
+**Advanced**: the pages to capture as a comma list of paths (`/, /docs`),
+the capturer repository (`sparkygogo77-spec/polio` by default) and the
+branch it runs on (empty: the default branch). Typing a capturer that
+commits (sink) brings back the old road: a branch made for the capture,
+`capture/<name>-<date>`, and the owner's tick before its main line changes.
 
-## What the importer is expected to take
+## Bringing in sink's captures
 
-The importer (`repoRun.ts`) reads the root `site/document.json` of a
-repository at a ref today. Another lane is adding a path setting to it.
-This lane does not touch `repoRun.ts`, `fluidSite.ts` or `exportSite.ts`;
-it calls the door with the ref in the `want` string and the path beside
-it, and expects:
+Unchanged: Bring a repository in with
+`sparkygogo77-spec/sink/sites/<name>@<branch>`. sink stays as it was.
 
-```ts
-// bringRepo.ts
-export interface Bringing { …; path?: string }   // "sites/<name>", a folder holding site/document.json and assets/
-// repoRun.ts
-readRepoSite(repo, token, say, { path?: string }) // reads <path>/site/document.json and <path>/assets/pictures instead of the root's
-```
+## The key
 
-`captureSite.ts#capturePlace(name)` is the single place that says both
-values: `{ ref: "captures/<name>", path: "sites/<name>" }`. Until the path
-lands in `repoRun.ts`, the press reads the branch's root `site/`, which on
-`captures/<name>` is the root site of the branch the workflow ran on.
+A fine-grained token with **Actions: Read and write** on polio (start the
+run, read its artifact). The dialog says so on a 403.
 
 ## Running it by hand
 
 ```
-# sink, once the branch is merged (or with the branch named under Advanced):
-node site/capture/capture-site.mjs --url https://example.com --name example --pages "/, /docs"
-node site/capture/check-capture-site.mjs
-
-# polio:
-node --experimental-strip-types tests/capture-site.mjs
+node capture/site/capture/capture-site.mjs --url https://example.com --name example --pages "/, /docs" --hide-gate
+npm run capture:check
+node tests/capture-artifact.mjs      # the Builder's half, against a stand-in GitHub
+node tests/capture-branch.mjs
 ```
 
-## What is left
+## Parts onto the board while a capture runs — the plan, not built
 
-- The path setting in `repoRun.ts` (the other lane); until then the import
-  press reads the root site.
-- A browser check that presses the door and the buttons against a stand-in
-  GitHub (the module's check covers the calls; the dialog is typechecked).
-- The workflow's token needs `actions: write` on the token he holds
-  (a fine-grained token: Actions read and write, Contents read and write
-  on sink) — the dialog says so on a 403.
-- `--wallet` and `--agree` (the SOLCINERATOR stand-ins) are not exposed in
-  the dialog; the script takes them.
+Not simple enough to do in this change, so written down:
+
+1. **The workflow** uploads each page as its own artifact as soon as the
+   converter has it (`capture-<name>-page_<id>`): `capture-site.mjs` would
+   convert after each page instead of once at the end (the converter already
+   takes one routes file; `capture-to-document.mjs` would be run per page
+   into a page folder, and once more at the end for the whole site, so the
+   whole-site joins — twins, shared pictures, templates — still happen).
+2. **The Builder** asks for the run's artifacts every 10 s while it runs
+   (`GET /runs/<id>/artifacts`, the same call `findArtifact` makes), and
+   lands each new page's document as a page of a draft site, read through
+   the same `artifactFiles` + `copyFrom` path.
+3. **At the end** the whole-site document replaces the draft in one step
+   (one undo), so what was streamed is never the final word.
+
+The cost: a second conversion per page on the runner, more artifacts per
+run (fine: the limit is per repository storage, not count), and a draft
+board that changes under the owner while he looks at it, which needs its
+own design pass (`docs/DESIGN.md`) before it is built.

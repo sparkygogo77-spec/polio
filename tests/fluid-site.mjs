@@ -17,7 +17,7 @@
  * where the capture put it, on the home page and on Docs.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/fluid-site.mjs http://127.0.0.1:3013 <path to a sink checkout> [screenshot dir]
+ *   node tests/fluid-site.mjs http://127.0.0.1:3013 <the capture folder> [screenshot dir]
  */
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -27,7 +27,7 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 const SHOTS = process.argv[4] ?? null;
 if (!SINK || !existsSync(join(SINK, "site/capture/routes/page_home.json"))) {
-  console.error("usage: node tests/fluid-site.mjs <builder url> <path to a sink checkout> [screenshot dir]");
+  console.error("usage: node tests/fluid-site.mjs <builder url> <the capture folder> [screenshot dir]");
   process.exit(2);
 }
 const results = [];

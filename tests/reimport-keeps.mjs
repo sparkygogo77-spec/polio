@@ -19,7 +19,7 @@
  *     part he added, and says what it could not tell;
  *   · a board nobody changed comes back exactly as the new capture.
  *
- *   node --experimental-strip-types tests/reimport-keeps.mjs [path to a sink checkout] [older ref]
+ *   node --experimental-strip-types tests/reimport-keeps.mjs [the capture folder] [older ref]
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -30,7 +30,7 @@ import { fingerprint, keepOwnerEdits, keptSays, facets, print } from "../src/fea
 import { usesOf, withWork } from "../src/features/studio/library/works.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+const SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const OLD = process.argv[3] ?? "7b7ee04";
 const FILE = "sites/trumpmorty-fun/site/document.json";
 const results = [];
@@ -39,12 +39,12 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${ok === true || !detail ? "" : ` — ${String(detail).slice(0, 400)}`}`);
 };
 const J = (v) => JSON.stringify(v);
-if (!existsSync(join(SINK, FILE))) { console.log(`no sink checkout with ${FILE} at ${SINK}`); process.exit(1); }
+if (!existsSync(join(SINK, FILE))) { console.log(`no capture folder with ${FILE} at ${SINK}`); process.exit(1); }
 
 const defaults = { format: () => ({}), look: () => ({}) };
 const prev = { pages: [{ id: "page_home" }], nodes: [], groups: [], shapes: [], spaces: [], brief: {}, look: {}, motion: [], frameWidth: 1440 };
 const taken = (raw) => { const t = takeDoc(prev, raw, defaults); return { nodes: t.nodes, format: t.format, brief: t.brief, look: t.look }; };
-const oldRaw = JSON.parse(execFileSync("git", ["-C", SINK, "show", `${OLD}:${FILE}`], { encoding: "utf8", maxBuffer: 1 << 28 }));
+const oldRaw = JSON.parse(existsSync(join(SINK, "history", OLD, FILE)) ? readFileSync(join(SINK, "history", OLD, FILE), "utf8") : execFileSync("git", ["-C", SINK, "show", `${OLD}:${FILE}`], { encoding: "utf8", maxBuffer: 1 << 28 }));
 const newRaw = JSON.parse(readFileSync(join(SINK, FILE), "utf8"));
 const was = taken(oldRaw), next = taken(newRaw);
 check("both conversions are taken in", was.nodes.length > 100 && next.nodes.length > 100, `${was.nodes.length} → ${next.nodes.length}`);

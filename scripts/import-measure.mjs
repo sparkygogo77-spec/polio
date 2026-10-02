@@ -35,8 +35,8 @@
  * fresh import in a person's browser is until they visit each page.
  *
  *   npm run build && npx next start -p 3013
- *   node scripts/import-measure.mjs http://127.0.0.1:3013 <path to a sink checkout>
- *   OPEN=none node scripts/import-measure.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node scripts/import-measure.mjs http://127.0.0.1:3013 <the capture folder>
+ *   OPEN=none node scripts/import-measure.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -46,7 +46,7 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 const OUT = process.argv[4] ?? null;
 if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node scripts/import-measure.mjs <builder url> <path to a sink checkout>");
+  console.error("usage: node scripts/import-measure.mjs <builder url> <the capture folder>");
   process.exit(2);
 }
 const DOC = readFileSync(join(SINK, "site/document.json"));

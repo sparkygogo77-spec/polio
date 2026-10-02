@@ -12,7 +12,7 @@
  *   4. a card's "On this page" count opens the list of those parts by name,
  *      and a press on one picks that part.
  *
- *   node tests/used-by-part.mjs http://localhost:3000 [path to a sink checkout]
+ *   node tests/used-by-part.mjs http://localhost:3000 [the capture folder]
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -23,7 +23,7 @@ import { onShelf } from "../src/features/studio/shelfPlan.ts";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
-const SINK = process.argv[3] ?? join(process.cwd(), "..", "sink");
+const SINK = process.argv[3] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
 const SHOTS = ".screenshots/lane-i";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];
@@ -43,7 +43,7 @@ check("1. what its page gave it counts too: a hover that moves it, a loop that t
 check("1. a part taken off the shelf names no card for what it is", usedByPart({ featureId: "waypoint" }).length === 0);
 
 const at = join(SINK, "sites", "trumpmorty-fun", "site", "document.json");
-if (!existsSync(at)) { console.log(`needs a sink checkout with trumpmorty-fun (${SINK})`); process.exit(1); }
+if (!existsSync(at)) { console.log(`needs the capture folder with trumpmorty-fun (${SINK})`); process.exit(1); }
 const raw = JSON.parse(readFileSync(at, "utf8"));
 const home = raw.pages.find((p) => p.path === "/") ?? raw.pages[0];
 const nodes = attachCaptured(raw.nodes, raw.behaviours, raw.keyframes);

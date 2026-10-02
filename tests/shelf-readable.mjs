@@ -14,7 +14,7 @@
  * The first half is pure: the painted palette on each site, and the pair
  * the shelf draws with.
  *
- *   node tests/shelf-readable.mjs http://localhost:3000 [path to a sink checkout]
+ *   node tests/shelf-readable.mjs http://localhost:3000 [the capture folder]
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -25,7 +25,7 @@ import { contrast, parseColor } from "../src/features/studio/look.ts";
 import { CATEGORIES } from "../src/features/studio/catalog.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
-const SINK = process.argv[3] ?? join(process.cwd(), "..", "sink");
+const SINK = process.argv[3] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
 const SHOTS = ".screenshots/lane-i";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];
@@ -36,7 +36,7 @@ const check = (name, ok, detail = "") => {
 
 const SITES = ["trumpmorty-fun", "gotchi-gg", "stonkfun-xyz", "trendtrader-pro"].map((s) => ({ name: s, at: join(SINK, "sites", s, "site", "document.json") })).filter((s) => existsSync(s.at));
 if (SITES.length < 3) {
-  console.log(`needs three captured sites in a sink checkout (${SINK}); found ${SITES.length}`);
+  console.log(`needs three captured sites in the capture folder (${SINK}); found ${SITES.length}`);
   process.exit(1);
 }
 

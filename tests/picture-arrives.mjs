@@ -14,14 +14,14 @@
  * <img>, and none says it is lost.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/picture-arrives.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/picture-arrives.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { existsSync } from "node:fs";
 import { bringSink } from "./fixtures/bring-sink.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
-if (!SINK || !existsSync(SINK)) { console.error("usage: node tests/picture-arrives.mjs <url> <sink checkout>"); process.exit(2); }
+if (!SINK || !existsSync(SINK)) { console.error("usage: node tests/picture-arrives.mjs <url> <capture folder>"); process.exit(2); }
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);

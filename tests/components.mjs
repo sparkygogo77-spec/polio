@@ -24,14 +24,14 @@
  *     for the parts that paint them; and a component written out as data for
  *     a library carries every job.
  *
- *   node tests/components.mjs [path to a sink checkout]
+ *   node tests/components.mjs [the capture folder]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 if (!existsSync(join(SINK, "sites")) && existsSync(join(SINK, "..", "..", "sites"))) SINK = join(SINK, "..", "..");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -52,7 +52,7 @@ const land = (site) => {
   return { nodes: took.nodes, palette: took.look?.palette ?? {} };
 };
 const boards = { trumpmorty: land("trumpmorty-fun"), parasite: land("parasiteonsol-fun"), gotchi: land("gotchi-gg") };
-if (Object.values(boards).some((b) => !b)) { console.error(`no sink checkout with the three sites at ${SINK}`); process.exit(2); }
+if (Object.values(boards).some((b) => !b)) { console.error(`no capture folder with the three sites at ${SINK}`); process.exit(2); }
 
 /* ------------------------------------------------------------ counts by kind */
 const EXPECT = {

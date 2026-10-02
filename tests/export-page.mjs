@@ -23,7 +23,7 @@
  *     page's pixels, a CONVENTION: nothing measured says 1% is right.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/export-page.mjs http://127.0.0.1:3013 <path to a sink checkout> [page id]
+ *   node tests/export-page.mjs http://127.0.0.1:3013 <the capture folder> [page id]
  *   EXPORTER=publish …   the same checks on what Publish sends today
  */
 import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
@@ -35,7 +35,7 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 const OUT = process.argv[4] ?? null;
 if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node tests/export-page.mjs <builder url> <path to a sink checkout> [page id]");
+  console.error("usage: node tests/export-page.mjs <builder url> <the capture folder> [page id]");
   process.exit(2);
 }
 const DOC = readFileSync(join(SINK, "site/document.json"));

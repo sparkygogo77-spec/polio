@@ -21,7 +21,7 @@
  *     and words as the source does.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/make-all-like.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/make-all-like.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { createJiti } from "jiti";
 import { SITES, sinkRoot, launch, openSite, PAINT } from "./fixtures/look-sites.mjs";

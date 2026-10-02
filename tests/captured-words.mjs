@@ -19,7 +19,7 @@
  * computed styles (and a pixel hash, to compare across builds by eye).
  *
  *   npm run build && npx next start -p 3013
- *   node tests/captured-words.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/captured-words.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -28,7 +28,7 @@ import { bringSink } from "./fixtures/bring-sink.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
-if (!SINK || !existsSync(SINK)) { console.error("usage: node tests/captured-words.mjs <url> <sink checkout>"); process.exit(2); }
+if (!SINK || !existsSync(SINK)) { console.error("usage: node tests/captured-words.mjs <url> <capture folder>"); process.exit(2); }
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);

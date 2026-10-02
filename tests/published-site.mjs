@@ -22,7 +22,7 @@
  *
  *   npm run build
  *   env -u GITHUB_TOKEN GITHUB_API=http://127.0.0.1:4341 npx next start -p 3013
- *   node tests/published-site.mjs http://127.0.0.1:3013 <path to a sink checkout> [screenshot dir]
+ *   node tests/published-site.mjs http://127.0.0.1:3013 <the capture folder> [screenshot dir]
  */
 import http from "node:http";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
@@ -37,7 +37,7 @@ const SHOTS = process.argv[4] ?? null;
 const GH_PORT = Number(process.env.GH_PORT ?? 4341);
 const SERVE = Number(process.env.SERVE_PORT ?? 4342);
 if (!SINK || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node tests/published-site.mjs <builder url> <path to a sink checkout> [screenshot dir]");
+  console.error("usage: node tests/published-site.mjs <builder url> <the capture folder> [screenshot dir]");
   process.exit(2);
 }
 const results = [];

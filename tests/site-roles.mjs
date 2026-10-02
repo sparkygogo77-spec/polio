@@ -24,7 +24,7 @@
  *      one quiet line each that counts every part wearing them; and words
  *      drawn inside a picture are never counted as words.
  *
- *   node tests/site-roles.mjs http://localhost:3000 [path to a sink checkout]
+ *   node tests/site-roles.mjs http://localhost:3000 [the capture folder]
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,7 +34,7 @@ import { oklabDistance, tallyColours, colourKey, spotsOf } from "../src/features
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
-const SINK = process.argv[3] ?? join(process.cwd(), "..", "sink");
+const SINK = process.argv[3] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
 const SHOTS = ".screenshots/lane-i";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];
@@ -56,7 +56,7 @@ const BOARDS = ["trumpmorty-fun", "parasiteonsol-fun", "gotchi-gg"];
 const counts = [];
 for (const site of BOARDS) {
   const doc = landed(site);
-  if (!doc) { check(`${site} is in the sink checkout`, false, SINK); continue; }
+  if (!doc) { check(`${site} is in the capture folder`, false, SINK); continue; }
   const r = siteRoles(doc.nodes, doc.look.palette, doc.frameWidth ?? 1440);
   const before = tallyColours(doc.nodes, doc.look.palette);
   const beforeN = Object.values(before.byUse).reduce((n, x) => n + x.length, 0);

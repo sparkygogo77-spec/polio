@@ -5,7 +5,7 @@
  * in: `reader(body)` answers `/api/studio/reshape` in its place.
  *
  * The parts are chosen by what they are, not by id, so the checks run on
- * whichever capture of trumpmorty.fun the sink checkout holds:
+ * whichever capture of trumpmorty.fun the capture folder holds:
  *   · ribbon  a captured part the page's full width that holds nothing wholly
  *   · strip   a second such part
  *   · leaves  captured single items in the first screen (the title, the buttons, the address)
@@ -54,7 +54,7 @@ export const SCRIBBLE = [[[0.1, 0.8], [0.3, 0.4], [0.5, 0.6], [0.7, 0.2], [0.9, 
 
 export async function board(base, { reader = null, image = null, viewport = { width: 1500, height: 1000 } } = {}) {
   const doc = await trumpmorty();
-  if (!doc) { console.error("no sink checkout: set SINK to a sites/trumpmorty-fun folder"); process.exit(2); }
+  if (!doc) { console.error("no capture folder: set SINK to a sites/trumpmorty-fun folder"); process.exit(2); }
   const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
   const page = await browser.newPage({ viewport });
   const errors = [];

@@ -15,7 +15,7 @@
  * Read-only: nothing is written to sink.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/element-list.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/element-list.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const SITES = ["trumpmorty-fun", "parasiteonsol-fun", "gotchi-gg"];
 mkdirSync(".screenshots/lane-e", { recursive: true });
 const results = [];

@@ -19,7 +19,7 @@
  *   6. a captured site's effects become versions of the item that does the
  *      same, one per item and site, from the settings measured there.
  *
- *   node tests/shelf-plan.mjs [path to a sink checkout]
+ *   node tests/shelf-plan.mjs [the capture folder]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -33,7 +33,7 @@ import { editablesOf, readField, writeField } from "../src/features/studio/partO
 import { attachCaptured } from "../src/features/studio/library/captured.ts";
 import { siteVersions } from "../src/features/studio/library/siteVersions.ts";
 
-const SINK = process.argv[2] ?? join(process.cwd(), "..", "sink");
+const SINK = process.argv[2] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok === true);
@@ -137,7 +137,7 @@ check("5. a part that can link offers where it links to", !!link && JSON.stringi
 
 /* ------------------------------------------------------------------ 6 */
 const sites = ["trumpmorty-fun", "gotchi-gg", "stonkfun-xyz"].map((s) => join(SINK, "sites", s, "site", "document.json")).filter((p) => existsSync(p));
-if (!sites.length) console.log("  (no sink checkout: the captured half is skipped)");
+if (!sites.length) console.log("  (no capture folder: the captured half is skipped)");
 for (const at of sites) {
   const doc = JSON.parse(readFileSync(at, "utf8"));
   const nodes = doc.behaviours ? attachCaptured(doc.nodes, doc.behaviours, doc.keyframes) : doc.nodes;

@@ -23,6 +23,7 @@
  * named, and nothing is half-brought.
  */
 import { handoffFrom } from "./polioMd";
+import { ArtifactRefused, artifactFiles, artifactName, artifactSays, findArtifact, rangeReader, runOf, runRef } from "./captureArtifact";
 import { MOST_CHARS, MOST_READS } from "./standIn";
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
@@ -210,15 +211,42 @@ async function sourceOf(repo: Repo, token: string, ref: string, blobs: Blob[], s
  * the rest are named too, so the copy says what it left behind.
  */
 async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: string; sha: string; size?: number }[], say: (line: string) => void): Promise<RepoCopy | null> {
-  const at = blobs.find((e) => e.path === docPathIn(repo.dir));
-  if (!at) return null;
-  const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
-  if (isNo(blob)) return null;
-  const it = blob as { content?: string; encoding?: string };
-  if (it.encoding !== "base64" || typeof it.content !== "string") return null;
+  const byPath = new Map(blobs.map((e) => [e.path, e]));
+  const files: FileSource = {
+    list: blobs,
+    read: async (path) => {
+      const at = byPath.get(path);
+      if (!at) return null;
+      const got = await bytesOf(repo, token, at);
+      return isNo(got) ? null : got;
+    },
+  };
+  return copyFrom(repo, ref, files, say, () => commitOf(repo, token, ref));
+}
+
+/**
+ * Where a copy's files are read from: a repository's tree at a ref, or a
+ * capture run's artifact (`captureArtifact.ts`). Paths are the repository's,
+ * so a site kept in a folder is read at `<folder>/site/document.json`.
+ */
+export interface FileSource {
+  list: { path: string; size?: number }[];
+  /** One file's bytes, or null when it could not be had. */
+  read: (path: string) => Promise<Uint8Array | null>;
+  /** Said before a batch of reads, where reading neighbours together is cheaper (an artifact's ranges). */
+  prefetch?: (paths: string[]) => Promise<void>;
+}
+
+/** The copy, from wherever its files are: the document, where it came from, its hand-off, its recorded reads, and the pictures it names. */
+export async function copyFrom(repo: Repo, ref: string, files: FileSource, say: (line: string) => void, commit: () => Promise<string | null>): Promise<RepoCopy | null> {
+  const sizeOf = new Map(files.list.map((e) => [e.path, e.size]));
+  const docAt = docPathIn(repo.dir);
+  if (!sizeOf.has(docAt)) return null;
+  const raw = await files.read(docAt);
+  if (!raw) return null;
   let document: Record<string, unknown>;
   try {
-    document = JSON.parse(new TextDecoder().decode(unbase64(it.content))) as Record<string, unknown>;
+    document = JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -228,11 +256,11 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
   /* Where it came from, to the commit, and the capture's hand-off when its
      repository keeps a report beside it (sink `docs/fidelity/<site>.md`):
      both ride on the site into POLIO.md at every Go live (`polioMd.ts`). */
-  document.source = { repo: `${repo.owner}/${repo.name}`, dir: repo.dir ?? null, branch: ref, commit: await commitOf(repo, token, ref) };
-  const report = await handoffOf(repo, token, blobs);
+  document.source = { repo: `${repo.owner}/${repo.name}`, dir: repo.dir ?? null, branch: ref, commit: await commit() };
+  const report = await handoffOf(repo, files);
   if (report) document.handoff = report;
   /* The reads the capture recorded and their samples (sink `api/map.json`), for the Build option Stand-in server (`standIn.ts`). */
-  const standIn = await standInOf(repo, token, blobs, document, say);
+  const standIn = await standInOf(repo, files, document, say);
   if (standIn) document.standIn = standIn;
   const brief = document.brief as { name?: unknown } | undefined;
   const name = (typeof brief?.name === "string" && brief.name.trim()) || repo.name;
@@ -244,16 +272,24 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
   const lost: string[] = [];
   let weight = 0;
   let i = 0;
+  /* What will be fetched, in the order it will be, so a source that reads neighbours together can. */
+  let planned = 0;
+  const plan: string[] = [];
   for (const p of wanted.values()) {
-    const entry = blobs.find((e) => e.path === pathIn(repo.dir, p.path));
-    if (!entry) { lost.push(p.path); continue; }
-    if (pictures.length >= MOST_PICTURES || weight + (entry.size ?? 0) > MAX_PICTURE_BYTES) { lost.push(p.path); continue; }
+    const at = pathIn(repo.dir, p.path);
+    if (!sizeOf.has(at) || plan.length >= MOST_PICTURES || planned + (sizeOf.get(at) ?? 0) > MAX_PICTURE_BYTES) continue;
+    planned += sizeOf.get(at) ?? 0;
+    plan.push(at);
+  }
+  if (files.prefetch && plan.length) { say(`Fetching its pictures… 0 of ${wanted.size}`); await files.prefetch(plan); }
+  for (const p of wanted.values()) {
+    const at = pathIn(repo.dir, p.path);
+    if (!sizeOf.has(at)) { lost.push(p.path); continue; }
+    const size = sizeOf.get(at) ?? 0;
+    if (pictures.length >= MOST_PICTURES || weight + size > MAX_PICTURE_BYTES) { lost.push(p.path); continue; }
     say(`Fetching its pictures… ${++i} of ${wanted.size}`);
-    const got = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${entry.sha}`, token);
-    if (isNo(got)) { lost.push(p.path); continue; }
-    const g = got as { content?: string; encoding?: string };
-    if (g.encoding !== "base64" || typeof g.content !== "string") { lost.push(p.path); continue; }
-    const bytes = unbase64(g.content);
+    const bytes = await files.read(at);
+    if (!bytes) { lost.push(p.path); continue; }
     weight += bytes.length;
     pictures.push({ ...p, bytes });
   }
@@ -261,16 +297,15 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
 }
 
 /** A capture's API map with each read's sample read in, within the stand-in's limits; null when the capture recorded none. */
-async function standInOf(repo: Repo, token: string, blobs: { path: string; sha: string; size?: number }[], document: Record<string, unknown>, say: (line: string) => void): Promise<Record<string, unknown> | null> {
+async function standInOf(repo: Repo, files: FileSource, document: Record<string, unknown>, say: (line: string) => void): Promise<Record<string, unknown> | null> {
   const mapAt = (document.api as { map?: unknown } | undefined)?.map;
   if (typeof mapAt !== "string" || !/^[\w./-]+\.json$/.test(mapAt) || mapAt.includes("..")) return null;
+  const sizeOf = new Map(files.list.map((e) => [e.path, e.size]));
   const text = async (path: string, most: number): Promise<string | null> => {
-    const at = blobs.find((e) => e.path === pathIn(repo.dir, path));
-    if (!at || (at.size ?? 0) > most) return null;
-    const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
-    if (isNo(blob)) return null;
-    const it = blob as { content?: string; encoding?: string };
-    return it.encoding === "base64" && typeof it.content === "string" ? new TextDecoder().decode(unbase64(it.content)) : null;
+    const at = pathIn(repo.dir, path);
+    if (!sizeOf.has(at) || (sizeOf.get(at) ?? 0) > most) return null;
+    const got = await files.read(at);
+    return got && got.length <= most ? new TextDecoder().decode(got) : null;
   };
   let map: { site?: unknown; endpoints?: Record<string, unknown>[] };
   try { map = JSON.parse((await text(mapAt, 4 * 1024 * 1024)) ?? "null"); } catch { return null; }
@@ -297,15 +332,36 @@ async function commitOf(repo: Repo, token: string, ref: string): Promise<string 
 }
 
 /** The "Functions not captured" hand-off of the capture's report, when the repository has one for this site's folder. */
-async function handoffOf(repo: Repo, token: string, blobs: { path: string; sha: string; size?: number }[]): Promise<string | null> {
+async function handoffOf(repo: Repo, files: FileSource): Promise<string | null> {
   const site = repo.dir?.split("/").filter(Boolean).pop();
-  const at = site ? blobs.find((e) => e.path === `docs/fidelity/${site}.md`) : undefined;
+  const at = site ? files.list.find((e) => e.path === `docs/fidelity/${site}.md`) : undefined;
   if (!at || (at.size ?? 0) > 512 * 1024) return null;
-  const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
-  if (isNo(blob)) return null;
-  const it = blob as { content?: string; encoding?: string };
-  if (it.encoding !== "base64" || typeof it.content !== "string") return null;
-  return handoffFrom(new TextDecoder().decode(unbase64(it.content)));
+  const got = await files.read(at.path);
+  return got ? handoffFrom(new TextDecoder().decode(got)) : null;
+}
+
+/**
+ * A site captured by a run of polio's capture workflow, read out of the
+ * run's artifact (`captureArtifact.ts`): the same copy as a site read out of
+ * a repository's folder, its pictures, its hand-off and its recorded reads,
+ * with the run as its ref and no commit.
+ */
+async function readRunSite(repo: Repo, token: string, runId: number, say: (line: string) => void): Promise<RepoCopy | RepoNo> {
+  const name = repo.dir?.split("/").filter(Boolean).pop() ?? null;
+  say(`Asking GitHub for the capture from run ${runId}…`);
+  let art;
+  try { art = await findArtifact({ repo, token, runId, name }); } catch { return { no: "github", says: "GitHub could not be reached from this browser." }; }
+  if (!art) return { no: "github", says: `Run ${runId} of ${repo.owner}/${repo.name} handed back no capture${name ? ` named ${artifactName(name)}` : ""}. Its log says why.` };
+  if (art.expired) return { no: "github", says: artifactSays(new ArtifactRefused(410, ""), runId) };
+  try {
+    say(`Opening the capture (${Math.max(1, Math.round(art.size / 1e6))} MB)…`);
+    const files = await artifactFiles(rangeReader({ repo, token, artifactId: art.id }), repo.dir ?? "", say);
+    say(`Reading the site out of the capture from run ${runId}…`);
+    const copy = await copyFrom(repo, runRef(runId), files, say, async () => null);
+    return copy ?? { no: "github", says: `The capture from run ${runId} holds no site document.` };
+  } catch (e) {
+    return { no: "github", says: artifactSays(e, runId) };
+  }
 }
 
 /**
@@ -319,6 +375,9 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
   if (!token) return { no: "no-token", says: REPO_REFUSAL_SAYS["no-token"] };
   /* A folder named beside the repository (the Capture dialog's `sites/<name>`) is where the site is read: its own site/document.json and pictures. */
   if (opts?.path) repo = withPath(repo, opts.path);
+  /* A capture run's artifact (`owner/polio/sites/<name>@run:<id>`): the site is read out of it, nothing out of git. */
+  const run = runOf(repo.ref);
+  if (run !== null) return readRunSite(repo, token, run, say);
 
   /* Asked every time, not only when no ref was named: the About line's
      address is what a repository of sources is read at, whichever branch

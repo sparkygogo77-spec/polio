@@ -10,7 +10,7 @@
  * the machine.
  *
  *   npm run build && npx next start -p 3013
- *   node scripts/export-site.mjs http://127.0.0.1:3013 <path to a sink checkout> <out dir>
+ *   node scripts/export-site.mjs http://127.0.0.1:3013 <the capture folder> <out dir>
  *
  * Any folder laid out as sink is (site/document.json, assets/pictures/)
  * will do: tests/fixtures/link-preview is one. PUBLISHED_AT=<address> writes
@@ -25,7 +25,7 @@ const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const SINK = process.argv[3];
 const OUT = process.argv[4];
 if (!SINK || !OUT || !existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node scripts/export-site.mjs <builder url> <path to a sink checkout> <out dir>");
+  console.error("usage: node scripts/export-site.mjs <builder url> <the capture folder> <out dir>");
   process.exit(2);
 }
 const DOC = readFileSync(join(SINK, "site/document.json"));

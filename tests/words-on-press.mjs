@@ -25,7 +25,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 await page.route("**/api/tweets/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false }) }));
 await page.route("**/api/studio/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ github: { configured: false, missing: [] }, vercel: { hook: false }, configured: false, source: null }) }));
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
-const SINK = process.argv[3] ?? "../sink";
+const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";
 const { readFileSync } = await import("node:fs");
 const doc = JSON.parse(readFileSync(`${SINK}/site/document.json`, "utf8"));
 const wordsOf = (n) => (typeof n.content === "string" ? n.content : (n.content ?? []).map((s) => s.text).join(""));

@@ -23,7 +23,7 @@
  *   · Undo takes it all off again.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/remix.mjs http://127.0.0.1:3013 <path to a sink checkout>
+ *   node tests/remix.mjs http://127.0.0.1:3013 <the capture folder>
  */
 import { createJiti } from "jiti";
 import { sinkRoot, siteDoc, launch, openSite, PAINT } from "./fixtures/look-sites.mjs";

@@ -25,7 +25,7 @@
  *     own element and style.
  *
  *   npm run build && npx next start -p 3013
- *   node --experimental-strip-types tests/one-box.mjs http://127.0.0.1:3013 <path to a sink checkout> [screenshot dir]
+ *   node --experimental-strip-types tests/one-box.mjs http://127.0.0.1:3013 <the capture folder> [screenshot dir]
  */
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -33,10 +33,10 @@ import { chromium } from "playwright-core";
 import { decisions } from "../src/features/studio/library/badge.ts";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? "../sink";
+const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";
 const SHOTS = process.argv[4] ?? null;
 if (!existsSync(join(SINK, "site/document.json"))) {
-  console.error("usage: node --experimental-strip-types tests/one-box.mjs <builder url> <path to a sink checkout> [screenshot dir]");
+  console.error("usage: node --experimental-strip-types tests/one-box.mjs <builder url> <the capture folder> [screenshot dir]");
   process.exit(2);
 }
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });

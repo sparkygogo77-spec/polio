@@ -56,7 +56,7 @@ async function start(src: Source, plan: Plan, say: (title: string, body: string)
   });
   if (!out.ok) { st.set({ at: "refused", plan, says: out.says }); return; }
   st.set({ at: "ready", plan, want: `${src.owner}/${src.name}@${out.ref}`, path: out.path, note: out.note });
-  say(`${plan.url} is captured again`, `It is at ${out.path} on ${out.ref}. Open the repo menu to bring it in.`);
+  say(`${plan.url} is captured again`, `${out.ref.startsWith("run:") ? "It came back from the run" : `It is at ${out.path} on ${out.ref}`}. Open the repo menu to bring it in.`);
 }
 
 export function RecapturePanel({ source, say }: { source: Source; say: (title: string, body: string) => void }) {
@@ -79,7 +79,9 @@ export function RecapturePanel({ source, say }: { source: Source; say: (title: s
             <Input inputSize="sm" data-recapture-url="" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="h-7 font-mono text-plain" spellCheck={false} />
           </label>
           <p className="text-small text-fg-muted">
-            Pages <span className="font-mono text-fg">{stage.plan.pages}</span>, as before. It lands in <span className="font-mono text-fg">{source.owner}/{source.name}/{stage.plan.lands.path}</span> on <span className="font-mono text-fg">{stage.plan.lands.ref}</span>.
+            Pages <span className="font-mono text-fg">{stage.plan.pages}</span>, as before. {stage.plan.handsBack
+              ? <>It runs in <span className="font-mono text-fg">{source.owner}/{source.name}</span> and comes back as the run&apos;s artifact; nothing is committed.</>
+              : <>It lands in <span className="font-mono text-fg">{source.owner}/{source.name}/{stage.plan.lands.path}</span> on <span className="font-mono text-fg">{stage.plan.lands.ref}</span>.</>}
           </p>
           {stage.plan.branchNote ? <p data-recapture-branch="" className="text-small text-fg-muted">{stage.plan.branchNote}</p> : null}
           <div className="flex gap-1.5">
@@ -108,7 +110,7 @@ export function RecapturePanel({ source, say }: { source: Source; say: (title: s
       ) : null}
       {stage.at === "ready" ? (
         <p data-recapture-ready="" className="text-small text-fg">
-          Captured again: {stage.path} on {stage.want.split("@")[1]}.{stage.note ? ` ${stage.note}` : ""} Below: bring it in, or keep this board.
+          Captured again: {stage.want.split("@")[1]?.startsWith("run:") ? `it came back from ${stage.want.split("@")[1]}` : `${stage.path} on ${stage.want.split("@")[1]}`}.{stage.note ? ` ${stage.note}` : ""} Below: bring it in, or keep this board.
         </p>
       ) : null}
     </div>

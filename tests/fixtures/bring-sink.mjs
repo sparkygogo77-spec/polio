@@ -1,6 +1,6 @@
 /**
  * Sink brought into an empty site through the real door (GitHub control →
- * Bring), with GitHub served from a sink checkout in the browser and a
+ * Bring), with GitHub served from the capture folder in the browser and a
  * placeholder token, exactly as scripts/import-measure.mjs does. Nothing
  * leaves the machine. Returns with the import landed and no reload made.
  */

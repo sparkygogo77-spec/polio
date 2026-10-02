@@ -19,7 +19,7 @@
  *   · the line says what it kept; one Ctrl+Z puts his board back.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/reimport-door.mjs http://127.0.0.1:3013 [sink checkout] [older ref]
+ *   node tests/reimport-door.mjs http://127.0.0.1:3013 [capture folder] [older ref]
  *   (EXPORT=<dir> also writes the site as published after the re-import there)
  */
 import { execFileSync } from "node:child_process";
@@ -31,7 +31,7 @@ import { createRequire } from "node:module";
 const { chromium } = createRequire(import.meta.url)("playwright-core");
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const OLD = process.argv[4] ?? "7b7ee04";
 const FILE = "sites/trumpmorty-fun/site/document.json";
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
@@ -43,8 +43,8 @@ const check = (name, ok, detail = "") => {
 const J = (v) => JSON.stringify(v);
 if (!existsSync(join(SINK, FILE))) { console.log(`no ${FILE} in ${SINK}`); process.exit(1); }
 
-/* The two documents: an earlier conversion, and the current one made better as a retake would make it. */
-const older = JSON.parse(execFileSync("git", ["-C", SINK, "show", `${OLD}:${FILE}`], { encoding: "utf8", maxBuffer: 1 << 28 }));
+/* The two documents: an earlier conversion (sink's at OLD, kept in the capture fixtures as history/<OLD>/), and the current one made better as a retake would make it. */
+const older = JSON.parse(existsSync(join(SINK, "history", OLD, FILE)) ? readFileSync(join(SINK, "history", OLD, FILE), "utf8") : execFileSync("git", ["-C", SINK, "show", `${OLD}:${FILE}`], { encoding: "utf8", maxBuffer: 1 << 28 }));
 const newer = JSON.parse(readFileSync(join(SINK, FILE), "utf8"));
 const stickerSels = [];
 for (const n of newer.nodes) { delete n.work; if (/ 7px 7px 0px/.test(n.edge?.shadow ?? "") && n.from?.selector) { n.edge.shadow = n.edge.shadow.replace(" 7px 7px", " 4px 4px"); stickerSels.push(n.from.selector); } }

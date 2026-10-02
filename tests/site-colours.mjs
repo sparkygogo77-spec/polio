@@ -8,7 +8,7 @@
  * what it is used for, says which parts wear it, and recolours exactly those
  * (docs/audit/palette-captured.md).
  *
- *   node tests/site-colours.mjs            # SINK=../sink/sites/trumpmorty-fun
+ *   node tests/site-colours.mjs            # SINK=capture/versions/sink-0ee06fa/sites/trumpmorty-fun
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -72,7 +72,7 @@ const ff = C.swapFont(parts, "Luckiest Guy", { face: "Fredoka" });
 check("swap a face: the part is in the new face, and the page's stack naming the old one is gone", ff.nodes[0].font.face === "Fredoka" && !ff.nodes[0].font.stack && ff.nodes[0].font.size === 2 && ff.changed.join() === "a", JSON.stringify(ff.nodes[0].font));
 
 /* ---------------------------------------------------- the real capture */
-const SINK = process.env.SINK ?? join(here, "..", "..", "sink", "sites", "trumpmorty-fun");
+const SINK = process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa", "sites", "trumpmorty-fun");
 const docPath = join(SINK, "site", "document.json");
 let ran = false;
 if (existsSync(docPath)) {

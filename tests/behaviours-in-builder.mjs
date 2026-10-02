@@ -13,13 +13,13 @@
  *   · the export ships both, and on the published page both work on the
  *     one part.
  *
- *   node tests/behaviours-in-builder.mjs [base url] [path to a sink checkout]
+ *   node tests/behaviours-in-builder.mjs [base url] [the capture folder]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
-const SINK = process.argv[3] ?? "../sink";
+const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 

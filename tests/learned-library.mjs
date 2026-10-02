@@ -27,7 +27,7 @@
  *       a browser that lost it brings it back.
  *
  *   npx next start -p 3013
- *   node tests/learned-library.mjs http://127.0.0.1:3013 ../sink
+ *   node tests/learned-library.mjs http://127.0.0.1:3013 capture/versions/sink-0ee06fa
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,7 +37,7 @@ import { createRequire } from "node:module";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = process.argv[3] ?? process.env.SINK_ROOT ?? join(here, "..", "..", "sink");
+const SINK = process.argv[3] ?? process.env.SINK_ROOT ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const SHOTS = ".screenshots/learned";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];

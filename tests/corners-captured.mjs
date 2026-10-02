@@ -22,7 +22,7 @@
  * Prints every box that differs, with what differs, and a count per width.
  *
  *   npm run build && npx next start -p 3013
- *   node tests/corners-captured.mjs http://127.0.0.1:3013 [sink checkout] [site folder] [--list] [--site <published url>] [--original <the site, or a copy of its files>]
+ *   node tests/corners-captured.mjs http://127.0.0.1:3013 [capture folder] [site folder] [--list] [--site <published url>] [--original <the site, or a copy of its files>]
  */
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -35,7 +35,7 @@ const { chromium } = createRequire(import.meta.url)("playwright-core");
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2).filter((a, i, all) => !a.startsWith("--") && all[i - 1] !== "--site" && all[i - 1] !== "--original");
 const BASE = (args[0] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
-const SINK = args[1] ?? join(here, "..", "..", "sink");
+const SINK = args[1] ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const SITE = args[2] ?? "trumpmorty-fun";
 const LIST = process.argv.includes("--list");
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";

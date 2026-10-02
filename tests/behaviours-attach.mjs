@@ -28,7 +28,7 @@
  * A document without `behaviours` comes in exactly as before. Pure: the
  * importer's own `takeDoc`, run on sink's document as written.
  *
- *   node --experimental-strip-types tests/behaviours-attach.mjs [path to a sink checkout]
+ *   node --experimental-strip-types tests/behaviours-attach.mjs [the capture folder]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,7 +37,7 @@ import { takeDoc } from "../src/features/studio/docTake.ts";
 import { usesOf, pageFeatures, getWork, inputsOf, withWork } from "../src/features/studio/library/works.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+const SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 const DOCFILE = join(SINK, "sites", "trumpmorty-fun", "site", "document.json");
 if (!existsSync(DOCFILE)) { console.error(`no sink document at ${DOCFILE}`); process.exit(2); }
 const raw = readFileSync(DOCFILE, "utf8");

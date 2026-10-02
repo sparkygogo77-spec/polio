@@ -27,7 +27,7 @@
  * band turns with a shape's long axis; the stylesheet a worn shape carries
  * holds its motion back for a visitor who asked for less.
  *
- *   node --experimental-strip-types tests/style-kits.mjs [path to a sink checkout]
+ *   node --experimental-strip-types tests/style-kits.mjs [the capture folder]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -36,7 +36,7 @@ import { kitsFromDoc, motionsFromDoc, parseShadows, KITS_PER_ROLE, siteShortName
 import { bandOffset, closeLine, glossFrame, motionFrames, nearlyClosed, shapeFromLine, snapOutline, toBox, wornCss, wornFor } from "../src/features/studio/wornShape.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "..", "sink");
+let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");
 // Handed a site folder (sites/trumpmorty-fun), take the checkout it is in.
 if (!existsSync(join(SINK, "sites")) && existsSync(join(SINK, "..", "..", "sites"))) SINK = join(SINK, "..", "..");
 const results = [];
@@ -52,7 +52,7 @@ const board = (site) => {
 };
 
 const boards = { trumpmorty: board("trumpmorty-fun"), parasite: board("parasiteonsol-fun"), gotchi: board("gotchi-gg") };
-if (Object.values(boards).some((b) => !b)) { console.error(`no sink checkout with the three sites at ${SINK}`); process.exit(2); }
+if (Object.values(boards).some((b) => !b)) { console.error(`no capture folder with the three sites at ${SINK}`); process.exit(2); }
 
 /* ------------------------------------------------------------ every board */
 for (const [name, b] of Object.entries(boards)) {

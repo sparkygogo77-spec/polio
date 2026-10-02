@@ -38,3 +38,16 @@ undefined/
 # screenshots and exports some suites write while they run (lead-in, bring-again, recapture, …)
 .scratch/
 .test-timings.json
+
+# The capture tool (capture/): what it captures is a site document, never
+# kept in git. Captures land in capture/sites/<name>/ and leave the capture
+# workflow as a run artifact; the fixtures the tests read are unpacked from
+# capture/fixtures/sink-*.tar.xz into the same places sink kept them.
+/capture/sites/
+/capture/versions/
+/capture/assets/
+/capture/site/document.json
+/capture/site/capture/routes/
+/capture/site/capture/ledger.txt
+/capture/site/capture/ccc-capture.json
+/capture/.fixtures

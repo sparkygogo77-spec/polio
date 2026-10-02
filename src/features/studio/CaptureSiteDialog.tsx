@@ -2,12 +2,13 @@
 /**
  * "Capture a site": paste an address, and it is captured and brought in.
  *
- * Today he captures a site by hand in the sink repository, commits it,
- * and types owner/sink into the Builder. This is that, from the Builder:
- * an address and a name, the sink workflow run with his own token in his
- * own browser (`captureSite.ts`), its progress said as it goes, and when
- * the run ends, one press to bring `sites/<name>/` in beside every other
- * site he has captured. Nothing here touches the root `site/`.
+ * An address and a name, polio's own capture workflow run with his own
+ * token in his own browser (`captureSite.ts`), its progress said as it
+ * goes, and when the run ends, one press to bring the capture in. polio's
+ * workflow commits nothing: the capture comes back as the run's artifact
+ * and lands in the Builder's own store (`captureArtifact.ts`). A capturer
+ * that commits (sink, typed under advanced) lands `sites/<name>/` on a
+ * branch made for it, as before.
  *
  * What is under "advanced" — the pages, the repository the workflow lives
  * in, and its branch — is there because the common case is an address and
@@ -25,11 +26,14 @@ import { heldKeys, useKeys } from "@/features/keys/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn, type Bringing } from "./bringRepo";
 import { activeSource } from "@/features/builds/store";
-import { captureBranch, captureName, capturePlace, captureWant, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
+import { DEFAULT_CAPTURER, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
 
-/** Where the capturer lives: remembered in this browser, the sink repository by default. */
-const CAPTURER = "builder.capturer";
-const DEFAULT_CAPTURER = "sparkygogo77-spec/sink";
+/**
+ * Where the capturer lives: remembered in this browser, polio itself by
+ * default. A capturer remembered from before the fold (sink, the old
+ * default) is not kept: it was a default, not a choice.
+ */
+const CAPTURER = "builder.capturer.v2";
 const rememberedCapturer = (): string => { try { return localStorage.getItem(CAPTURER) || DEFAULT_CAPTURER; } catch { return DEFAULT_CAPTURER; } };
 
 /**
@@ -65,9 +69,11 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   React.useEffect(() => () => { alive.current = false; }, []);
   /* The name follows the address until he types one himself. */
   React.useEffect(() => { if (!typedName) setName(nameFrom(url) ?? ""); }, [url, typedName]);
-  /* The branch follows the name until he types one himself. */
-  React.useEffect(() => { if (!typedBranch) setBranch(captureBranch(name || nameFrom(url) || "site")); }, [name, url, typedBranch]);
-  const onMain = isMainBranch(branch);
+  /* A capturer that hands the capture back writes no branch: it runs on its default one. */
+  const back = handsBack(capturer);
+  /* The branch follows the name until he types one himself; for a capturer that commits, a new one made for the capture. */
+  React.useEffect(() => { if (!typedBranch) setBranch(back ? "" : captureBranch(name || nameFrom(url) || "site")); }, [name, url, typedBranch, back]);
+  const onMain = !back && isMainBranch(branch);
 
   const repo = (): { owner: string; name: string } | null => {
     const m = capturer.trim().match(/^([\w.-]+)\/([\w.-]+)$/);
@@ -77,13 +83,13 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   const start = async () => {
     if (starting) return;
     const r = repo();
-    if (!r) { setSaid("The capturer wants to be owner/name, the repository sink's workflow lives in."); return; }
+    if (!r) { setSaid("The capturer wants to be owner/name, the repository the capture workflow lives in."); return; }
     try { localStorage.setItem(CAPTURER, capturer.trim()); } catch { /* not kept */ }
     setSaid(null);
     setStarting(true);
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (onMain && !mainOk) { setStarting(false); setSaid(`Capturing on ${branch.trim() || "the default branch"} changes ${capturer.trim()}'s main line. Tick that the owner said yes, or use a new branch.`); return; }
-    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch.trim(), makeBranch: !onMain });
+    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch.trim(), makeBranch: !back && !onMain });
     setStarting(false);
     if (!alive.current) return;
     if (!started.ok) { setSaid(started.says); return; }
@@ -94,7 +100,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
     });
     if (!alive.current) return;
     setStage({ at: "done", name: started.name, end });
-    ctx.publish({ key: `studio:capture:${started.name}`, title: end.ok ? `${started.name} is captured` : `${started.name} did not capture`, body: end.ok ? `It is at ${end.path} on ${end.ref}. Bring it in from the dialog.` : end.says, level: end.ok ? "info" : "warn", source: "studio", toast: { durationMs: 6000 } });
+    ctx.publish({ key: `studio:capture:${started.name}`, title: end.ok ? `${started.name} is captured` : `${started.name} did not capture`, body: end.ok ? `${end.ref.startsWith("run:") ? "It came back from the run" : `It is at ${end.path} on ${end.ref}`}. Bring it in from the dialog.` : end.says, level: end.ok ? "info" : "warn", source: "studio", toast: { durationMs: 6000 } });
   };
 
   const bringIn = (siteName: string, ref?: string) => {
@@ -123,14 +129,14 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
       open={open}
       onOpenChange={(v) => { onOpenChange(v); if (!v && stage.at === "done") reset(); }}
       title="Capture a site"
-      description="Paste an address. It is captured page by page in your own repository and kept beside your other captures, ready to bring in."
+      description="Paste an address. It is captured page by page by your own repository's workflow, ready to bring in."
       footer={
         stage.at === "ask" ? (
           <Button onClick={() => void start()} loading={starting} disabled={!url.trim() || !nameOk || !unlocked || (onMain && !mainOk)} data-capture-start="">
             <Camera /> Capture
           </Button>
         ) : stage.at === "done" && stage.end.ok ? (
-          <Button onClick={() => bringIn(stage.name, stage.end.ok ? stage.end.ref : undefined)} data-capture-import="">Bring {stage.end.path} in</Button>
+          <Button onClick={() => bringIn(stage.name, stage.end.ok ? stage.end.ref : undefined)} data-capture-import="">{stage.end.ref.startsWith("run:") ? `Bring ${stage.name} in` : `Bring ${stage.end.path} in`}</Button>
         ) : stage.at === "done" ? (
           <Button variant="outline" onClick={reset}>Try again</Button>
         ) : null
@@ -148,9 +154,15 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
             <Input value={name} onChange={(e) => { setTypedName(true); setName(e.target.value); }} placeholder={nameFrom(url) ?? "my-site"} data-capture-name="" />
           </label>
           {!nameOk ? <p className="text-xs text-warning">A name is letters, digits and dashes, and not a path.</p> : null}
-          <p data-capture-where="" className="text-xs text-fg-muted">
-            It lands on {onMain ? "" : "a new branch, "}<span className="font-mono">{branch.trim() || "the default branch"}</span>, in {capturer.trim() || "the capturer"}. Changes to sink&apos;s main line need the owner&apos;s OK.
-          </p>
+          {back ? (
+            <p data-capture-where="" className="text-xs text-fg-muted">
+              It runs in <span className="font-mono">{capturer.trim()}</span> and comes back as the run&apos;s artifact, kept 30 days; nothing is committed. Bring it in when it ends.
+            </p>
+          ) : (
+            <p data-capture-where="" className="text-xs text-fg-muted">
+              It lands on {onMain ? "" : "a new branch, "}<span className="font-mono">{branch.trim() || "the default branch"}</span>, in {capturer.trim() || "the capturer"}. Changes to its main line need the owner&apos;s OK.
+            </p>
+          )}
           <details className="rounded-lg border border-border bg-elevated p-3">
             <summary className="cursor-pointer text-xs text-fg-muted">Advanced</summary>
             <div className="mt-2 flex flex-col gap-2">
@@ -163,8 +175,8 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
                 <Input value={capturer} onChange={(e) => setCapturer(e.target.value)} placeholder={DEFAULT_CAPTURER} mono />
               </label>
               <label className="flex flex-col gap-1 text-xs text-fg-muted">
-                Branch it lands on <span className="text-fg-subtle">: a new branch, made for this capture</span>
-                <Input value={branch} onChange={(e) => { setTypedBranch(true); setMainOk(false); setBranch(e.target.value); }} placeholder={captureBranch(name || "site")} mono data-capture-branch="" />
+                {back ? <>Branch it runs on <span className="text-fg-subtle">: the default one when empty</span></> : <>Branch it lands on <span className="text-fg-subtle">: a new branch, made for this capture</span></>}
+                <Input value={branch} onChange={(e) => { setTypedBranch(true); setMainOk(false); setBranch(e.target.value); }} placeholder={back ? "the default branch" : captureBranch(name || "site")} mono data-capture-branch="" />
               </label>
               {onMain ? (
                 <label data-capture-main-ok="" className="flex items-start gap-2 text-xs text-warning">
@@ -178,13 +190,15 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
         </div>
       ) : stage.at === "running" ? (
         <div className="flex flex-col gap-2 text-sm" data-capture-running="">
-          <p className="flex items-center gap-2"><Loader2 className="animate-spin" /> Capturing into sites/{stage.name}/ — {stage.step}</p>
+          <p className="flex items-center gap-2"><Loader2 className="animate-spin" /> Capturing {stage.name} — {stage.step}</p>
           <a className="inline-flex items-center gap-1 text-xs text-fg-muted underline" href={stage.htmlUrl} target="_blank" rel="noopener noreferrer">Watch the run on GitHub <ExternalLink className="size-3" /></a>
         </div>
       ) : (
         <div className="flex flex-col gap-2 text-sm" data-capture-done="">
           {stage.end.ok ? (
-            <p>Captured. It is at <code>{stage.end.path}/</code> on <code>{stage.end.ref}</code>, beside your other captures.</p>
+            stage.end.ref.startsWith("run:")
+              ? <p>Captured. It came back from the run, ready to bring in; GitHub keeps it 30 days.</p>
+              : <p>Captured. It is at <code>{stage.end.path}/</code> on <code>{stage.end.ref}</code>, beside your other captures.</p>
           ) : (
             <p className="text-warning">{stage.end.says}</p>
           )}
