@@ -1,7 +1,7 @@
 # Where this kit comes from
 
 A copy of `kit/` from sparkygogo77-spec/PST (branch `claude/wizardly-davinci-92ah39`, commit
-2c9fac2, PR #12), so the Builder can export builder-ready repos and check designs against the
+a8616d7, after PR #21), so the Builder can export builder-ready repos and check designs against the
 same contract (PIPELINE.md, "Where the kit comes from", the copy option).
 
 - Change the kit in PST first, then copy it here again and run `npm run kit:files`, which embeds

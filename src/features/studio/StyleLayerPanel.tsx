@@ -26,9 +26,11 @@ import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
-import { buildLayer, colourKey, isColour, type LayerNode, type StyleSource } from "./styleLayer";
+import { buildLayer, colourKey, isColour, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
-import { layerHooksOf, readRound, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
+import { fileAt, layerHooksOf, readRound, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
+import { readHookMap } from "./designBranch";
+import { boardRecord } from "./exportForCode";
 import { kitLinksToOffsite } from "./parts/offsite";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
@@ -42,9 +44,9 @@ function hexOf(v: string): string {
 }
 
 /** One variable: a colour picker for a colour, a box to type in for anything else (a size, a face), and what reads it. */
-function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean }; source: StyleSource; layer: ReturnType<typeof buildLayer>; setVar: (name: string, value: string | null) => void }) {
+export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
   const set = source.varsSet?.[v.name];
-  const followed = layer.vars.find((x) => x.name === v.name && x.why === "followed");
+  const followed = layer?.vars.find((x) => x.name === v.name && x.why === "followed");
   const colour = isColour(v.value);
   const [typed, setTyped] = React.useState(set ?? v.value);
   const read = source.varsRead?.[v.name] ?? [];
@@ -60,6 +62,32 @@ function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string
       {read.length ? <span className="text-fg-faint">read by {read[0]!.fn ?? read[0]!.file}{read.length > 1 ? ` and ${read.length - 1} more` : ""}</span> : null}
       {set ? <button type="button" className="text-fg-muted underline" onClick={() => { setTyped(v.value); setVar(v.name, null); }}>Reset</button> : null}
     </label>
+  );
+}
+
+/** A token set by hand: it goes back with the style layer, as a token change. */
+export function setVar(name: string, value: string | null) {
+  const st = useStudio.getState();
+  const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
+  if (!now) return;
+  const varsSet = { ...(now.varsSet ?? {}) };
+  if (value === null) delete varsSet[name]; else varsSet[name] = value;
+  st.setLook({ styleSource: { ...now, varsSet } } as never);
+}
+
+/**
+ * THE PART'S SCRIPT SETTINGS, in its panel: the tokens it and the code that
+ * runs it use (`partTokens`), each editable here as in the style layer.
+ */
+export function PartSettings({ code, hook }: { code: Parameters<typeof partTokens>[0]; hook: string }) {
+  const source = useStudio((s) => (s.look as { styleSource?: StyleSource | null }).styleSource ?? null);
+  const list = React.useMemo(() => (source ? partTokens(code, source) : []), [code, source]);
+  if (!source || !list.length) return null;
+  return (
+    <div data-part-settings={hook} className="space-y-1">
+      <p className="text-small text-fg-muted">Settings its code uses ({list.length}). A change goes back as a token change.</p>
+      {list.map((v) => <div key={v.name} data-part-setting={v.why}><VarRow v={v} source={source} setVar={setVar} /></div>)}
+    </div>
   );
 }
 
@@ -109,14 +137,6 @@ export function StyleLayerSection() {
   })();
   const tokens = all.filter((v) => v.token);
   const vars = all.filter((v) => !v.token && isColour(v.value));
-  const setVar = (name: string, value: string | null) => {
-    const st = useStudio.getState();
-    const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
-    if (!now) return;
-    const varsSet = { ...(now.varsSet ?? {}) };
-    if (value === null) delete varsSet[name]; else varsSet[name] = value;
-    st.setLook({ styleSource: { ...now, varsSet } } as never);
-  };
 
   const send = async () => {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
@@ -128,6 +148,12 @@ export function StyleLayerSection() {
       if (!prepared.ok) { setSaid({ text: prepared.says, bad: true }); return; }
       setSaid({ text: "Making the branch…" });
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
+      /* The design record goes with it (design/record.json), with the parts each sits in from the repository's hooks.json. */
+      if (prepared.files.length) {
+        const mapPath = source.kit?.hooks ?? null;
+        const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
+        prepared.files.push({ path: "design/record.json", content: boardRecord(map) });
+      }
       const done = await publishLayer(prepared, source, token, { site });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
       if (prepared.kit) { const held = prepared.skipped.length ? ` Held back: ${prepared.skipped.map((s) => s.from).join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }

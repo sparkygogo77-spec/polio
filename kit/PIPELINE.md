@@ -66,6 +66,8 @@ A code chat builds the site from the starter; J designs it afterwards.
 | --- | --- | --- | --- |
 | New logic or a new page | a code chat | branch; change; `npm run kit:hooks`; `npm run kit:check`; `npm run kit:diff -- --base origin/main`; pull request; merge | CI green |
 | A hook must go or be renamed | a code chat | as above with `--allow-removed`, and say in the pull request which hooks went, so J can move their style | CI green; J sees the note |
+| J deleted a part in the builder | a code chat, from the builder's `design/` branch | delete the element and every code reference to it; `npm run kit:diff -- --base <default branch>` passes because `design/HOOK-CHANGES.json` lists the hook as removed (any hook not listed there still fails) | CI green; the hook is gone |
+| Build from a design | a code chat, from a `design/` branch carrying `design/record.json` | build each part from the record (hooks kept, token values into tokens), then a look-only capture and `npm run kit:record-diff -- design/record.json <capture>` | record-diff lists no part; kit:check and kit:diff pass |
 | A new look | J, then the builder | the builder re-reads `builder.json` and `hooks.json` from the default branch first (so it sees new pages and hooks); J designs; **Send design** | `kit:diff --style-only` green |
 | Both at once | both | nothing special: each side touches only its own files. Whoever merges second re-runs CI on the merged result | CI green after both merges |
 

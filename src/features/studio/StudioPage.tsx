@@ -1281,6 +1281,7 @@ export function StudioPage() {
     (w as unknown as { __studioKitExport?: () => Promise<unknown> }).__studioKitExport = () => import("./exportForCode").then((m) => m.exportForCode());
     /* And to a design/ branch of the repository it came from, for tests/export-to-branch.mjs. */
     (w as unknown as { __studioKitBranch?: () => Promise<unknown> }).__studioKitBranch = () => import("./exportForCode").then((m) => m.exportForCodeToBranch());
+    (w as unknown as { __studioRecord?: () => Promise<unknown> }).__studioRecord = () => import("./exportForCode").then((m) => JSON.parse(m.boardRecord()));
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
     (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;
     /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */

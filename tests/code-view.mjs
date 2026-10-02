@@ -105,6 +105,7 @@ const names = Object.keys(FILES);
 const tree = names.map((f, i) => ({ path: f, type: "blob", sha: `f${i}`, size: FILES[f].length }));
 const refs = { "heads/main": "c0" };
 const wrote = [];
+const pulls = [];
 const ui = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 ui.on("pageerror", (e) => errors.push(e.message));
@@ -127,6 +128,7 @@ await ui.route("https://api.github.com/**", (r) => {
   if (rest === "/git/trees" && method === "POST") { body.tree.forEach((t, i) => { const w = wrote[Number(t.sha.slice(1)) - 1]; if (w) w.path = t.path; void i; }); return j({ sha: "t1" }, 201); }
   if (rest === "/git/commits" && method === "POST") return j({ sha: "c1" }, 201);
   if (rest === "/git/refs" && method === "POST") { refs[body.ref.replace("refs/", "")] = "c1"; return j({ ref: body.ref }, 201); }
+  if (rest === "/pulls" && method === "POST") { pulls.push(body); return j({ html_url: `https://github.com/him/kit/pull/${pulls.length}`, draft: body.draft }, 201); }
   return j({ message: "no" }, 404);
 });
 await ui.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
@@ -177,6 +179,36 @@ await ui.waitForTimeout(800);
 const view = await ui.evaluate(() => { const v = document.querySelector("[data-code-view]"); return v ? { text: v.textContent, links: Array.from(v.querySelectorAll("a")).map((a) => a.getAttribute("href")) } : null; });
 check("the part panel shows it: hooks.json as the source, the variables, each reference linked to its line", !!view && /from the repository's hooks\.json/.test(view.text) && /Uses the CSS variables --pons-gain, --pons-loss/.test(view.text) && view.links.some((h) => /github\.com\/him\/kit\/blob\/main\/web\/app\.js#L\d+/.test(h ?? "")), JSON.stringify(view).slice(0, 300));
 check("and it is read only", await ui.evaluate(() => !document.querySelector("[data-code-view] input, [data-code-view] textarea, [data-code-view] [contenteditable]")));
+/* Show the code: the script lines themselves, fetched from the repository, the reference's own line marked. */
+await ui.locator("[data-code-lines-open]").first().click();
+await ui.waitForSelector("[data-code-lines]", { timeout: 10000 }).catch(() => {});
+const shown = await ui.evaluate(() => { const v = document.querySelector("[data-code-lines]"); return v ? { at: Array.from(v.querySelectorAll('[data-code-line="at"]')).map((l) => l.textContent), lines: v.querySelectorAll("[data-code-line]").length, refs: Array.from(v.querySelectorAll("[data-code-lines-ref]")).map((r) => r.getAttribute("data-code-lines-ref")) } : null; });
+const appRef = code("score-you").refs.find((r) => r.file === "web/app.js");
+check("script viewer: Show the code fetches the file and shows lines around each reference, its own line marked", !!shown && !!appRef && shown.refs.includes(`web/app.js:${appRef.line}`) && shown.lines > shown.at.length && shown.at.some((t) => t.includes(FILES["web/app.js"].split("\n")[appRef.line - 1].trim())), JSON.stringify(shown).slice(0, 300));
+check("and the viewer is read only too", await ui.evaluate(() => !document.querySelector("[data-code-lines] input, [data-code-lines] textarea, [data-code-lines] [contenteditable]")));
+/* Script settings: the tokens this part and its code use, editable here, kept as token changes. */
+const settings = await ui.evaluate(() => Array.from(document.querySelectorAll("[data-part-settings] [data-style-layer-var]")).map((v) => v.getAttribute("data-style-layer-var")));
+check("script settings: the part lists the tokens it uses, --pons-gain and --pons-loss", settings.includes("--pons-gain") && settings.includes("--pons-loss"), JSON.stringify(settings));
+await ui.locator('[data-part-settings] [data-style-layer-var="--pons-loss"] input[type="color"]').fill("#cc2244");
+await ui.waitForTimeout(300);
+check("and a change there is a token change in the style layer", (await board()).look?.styleSource?.varsSet?.["--pons-loss"] === "#cc2244");
+await ui.locator('[data-part-settings] [data-style-layer-var="--pons-loss"] button').first().click();
+await ui.waitForTimeout(300);
+check("…and Reset takes it back", (await board()).look?.styleSource?.varsSet?.["--pons-loss"] === undefined);
+/* Ask the code chat: the request goes to a new request/ branch as a file with the hook and its code, and a draft pull request. */
+const wroteBefore = wrote.length;
+await ui.locator("[data-ask-code-text]").first().fill("Make the score flash when it changes.");
+await ui.locator("[data-ask-code-send]").first().click();
+await ui.waitForSelector("[data-ask-code-said]:not(:empty)", { timeout: 5000 }).catch(() => {});
+for (let i = 0; i < 70 && !(await ui.evaluate(() => /pull request|could not|would not|Refused/.test(document.querySelector("[data-ask-code-said]")?.textContent ?? ""))); i++) await ui.waitForTimeout(1000);
+const askFile = wrote.slice(wroteBefore).find((w) => /^requests\/score-you-\d+\.md$/.test(w.path ?? ""));
+const askText = askFile ? (/^[A-Za-z0-9+/=\s]+$/.test(askFile.content) && !askFile.content.includes(" ") ? Buffer.from(askFile.content, "base64").toString() : askFile.content) : "";
+const askPull = pulls.find((p) => /^request\/score-you-/.test(p.head));
+check("ask the code chat: a request file on a new request/ branch, with the words, the hook and its code", !!askFile && askText.includes("Make the score flash when it changes.") && askText.includes('data-hook="score-you"') && /web\/app\.js` line \d+/.test(askText) && Object.keys(refs).some((r) => /^heads\/request\/score-you-/.test(r)), askText.slice(0, 300) || JSON.stringify(wrote.slice(wroteBefore).map((w) => w.path)));
+check("…and a draft pull request into main, never a write to main", !!askPull && askPull.draft === true && askPull.base === "main" && refs["heads/main"] === "c0", JSON.stringify(askPull ?? pulls).slice(0, 200));
+/* The request's writes are its own branch's; what follows counts the style layer's alone. */
+wrote.length = 0;
+for (const k of Object.keys(refs)) if (k.startsWith("heads/request/")) delete refs[k];
 
 /* The tokens, editable in the style layer, and the layer published where the manifest says. */
 await ui.keyboard.press("Escape");
@@ -317,7 +349,7 @@ await ksec.locator("[data-style-layer-send]").click();
 let ksaid = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(ksaid); i++) { await kui.waitForTimeout(500); ksaid = await ksec.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const klayer = kwrote.find((w) => w.path === "starter/style-layer.css")?.content ?? "";
-check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else", /--color-accent: #00aa88/.test(klayer) && kwrote.length === 1, `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 120)}`);
+check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else (the design record beside it)", /--color-accent: #00aa88/.test(klayer) && kwrote.filter((w) => w.path !== "design/record.json").length === 1 && kwrote.some((w) => w.path === "design/record.json"), `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 120)}`);
 check("no errors in the Builder with the starter", kerr.length === 0, kerr.slice(0, 3).join(" | "));
 await kui.close();
 const kserved = { ...KF, "starter/style-layer.css": klayer };

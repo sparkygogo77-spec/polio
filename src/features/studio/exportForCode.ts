@@ -12,7 +12,8 @@ import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
 import { useStudio } from "./store";
 import { finishKit, toKit, type KitExport, type KitFile, type KitPart } from "./kitExport";
-import { hookChanges, readHookMap, sendDesign, type ChangeNode, type HookChanges } from "./designBranch";
+import { hookChanges, readHookMap, sendDesign, type ChangeNode, type HookChanges, type HookMap } from "./designBranch";
+import { designRecord, type RecordNode } from "./designRecord";
 import type { StyleSource } from "./styleLayer";
 import { heldKeys } from "@/features/keys/store";
 import { fileAt, kitMapOnServer } from "./kitRun";
@@ -61,9 +62,39 @@ export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?:
   const map = mapPath ? readHookMap(await fileAt(opts.fetch ?? fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
   const changes = hookChanges(s.nodes as unknown as ChangeNode[], source, { files: got.files, fresh: got.kit.fresh, renamed: got.kit.renamed }, map);
   const site = s.brief.name?.trim() || source.repo.split("/").pop() || "site";
-  const sent = await sendDesign(got.files, changes, source.repo, token, { site, date: opts.date, fetch: opts.fetch });
+  /* The design record beside it (design/record.json): what a code chat builds from and checks the build against. */
+  const made = readHookMap(got.files.find((f) => /(^|\/)hooks\.json$/.test(f.path))?.content);
+  const record = boardRecord({ ...made, ...map }, opts.date, Object.fromEntries(got.kit.fresh.map((f) => [f.part, f.hook])));
+  const sent = await sendDesign([...got.files, { path: "record.json", content: record }], changes, source.repo, token, { site, date: opts.date, fetch: opts.fetch });
   if (!sent.ok) return { ok: false, says: sent.says, changes };
   return { ok: true, says: `${sent.says} kit:check passes on it.`, branch: sent.branch, pull: sent.pull, changes };
+}
+
+/**
+ * The board as a design record (`designRecord.ts`, PST's kit/DESIGN-RECORD.md),
+ * as JSON: every page's parts with their hooks, names, the part each sits
+ * in (from the repository's hooks.json), hidden states, and which values are
+ * the site's tokens, with the owner's settings over them.
+ */
+export function boardRecord(map: HookMap = {}, date?: Date, fresh: Record<string, string> = {}): string {
+  const s = useStudio.getState();
+  const source = (s.look as { styleSource?: StyleSource | null }).styleSource ?? null;
+  const tokens: Record<string, string> = {};
+  for (const f of source?.files ?? []) for (const v of f.vars) if (v.token && !(v.name in tokens)) tokens[v.name] = v.value;
+  Object.assign(tokens, source?.varsSet ?? {});
+  const parents = Object.fromEntries(Object.entries(map).map(([h, m]) => [h, m.parent ?? null]));
+  const files = new Map((source?.files ?? []).map((f) => [f.pageId, f.file]));
+  const rec = designRecord(s.nodes as unknown as RecordNode[], s.pages, {
+    site: s.brief.name?.trim() || source?.repo.split("/").pop() || "site",
+    width: s.frameWidth,
+    palette: s.look.palette as Record<string, string>,
+    tokens,
+    parents,
+    pageFile: (id) => files.get(id) ?? null,
+    when: (date ?? new Date()).toISOString(),
+    fresh,
+  });
+  return `${JSON.stringify(rec, null, 1)}\n`;
 }
 
 /** The export as a zip, downloaded. */

@@ -500,6 +500,29 @@ the export and Go live still open hidden; a move or size made with a state on
 is a rule under the part's hook in the style layer. `tests/board-states.mjs`
 holds it, on PST when given a checkout, else on the kit's starter.
 
+**A part's scripts are read here and changed by a code chat, never edited in
+the Builder.** The part panel's code view has three pieces for a repo site:
+"Show the code" (`ScriptLines`) fetches each referenced file at the commit
+the site came from and shows the lines around each use, read only, linked to
+GitHub; "Settings its code uses" (`PartSettings`, `styleLayer.ts#partTokens`)
+lists the tokens the part's styles use and the ones its scripts read in the
+same functions, edited as the style layer edits tokens (`varsSet`), so they go
+back as token changes; and "Ask the code chat" (`askCode.ts`) writes the
+request, the hook, its code refs and a picture of the part
+(`/api/studio/screenshot` with `hook`) to a new `request/<hook>-<date>`
+branch with a draft pull request. `tests/code-view.mjs` holds all three.
+
+**Every design that goes back carries its design record.** Export for code
+to a branch and Send the design back both write `design/record.json`
+(`designRecord.ts`, `exportForCode.ts#boardRecord`), in the format PST's
+`kit/DESIGN-RECORD.md` defines: the capture record's shape, each part with
+its hook, name, the part it sits in (hooks.json's parents, else the board's
+containment), hidden states and which values are the site's tokens. The
+capturer writes each part's `hook` too (`capture/site/capture/dump.mjs`), so a
+look-only capture of a build is checked against the record with the kit's
+`tools/record-diff.mjs`. `tests/export-to-branch.mjs` holds it, on PST's Chart
+TV when given a checkout.
+
 **A kit repository comes in by its builder.json; its hooks map and tokens are
 read as the kit writes them.** The contract is PST's `kit/BUILDER-CONTRACT.md`.
 `builder.json` (`builderManifest.ts`) carries `kit`, `name`, `pages`

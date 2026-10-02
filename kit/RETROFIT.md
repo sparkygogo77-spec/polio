@@ -76,7 +76,7 @@ run side by side (`web/hooks.kit.json`) until PST switches over.
 | 5 | Inline `<script type="module">` in pages | Move each to `web/<page>.js` |
 | 2 | Run-time hook names without a comment (`app.js:62`, `tour.js:202`) | Add `// hooks: ...` lists |
 | 1 | `base.css` is first, not a tokens file | Follows from the `tokens.css` split |
-| 1 | Link to tradingview.com | A choice for J: the chart licence asks for this credit; add `tradingview.com` to `allowHosts` or drop the link |
+| 1 | A link to a chart library's site | Gone: the site now draws its own charts (`web/pons-chart.js`), so no credit link is needed |
 
 **Preview screens.** PST's pages take `?preview=<screen>` and `preview.html` takes
 `?still=1&screen=<name>`. To meet the contract, each page also accepts `?still=1&screen=<name>`

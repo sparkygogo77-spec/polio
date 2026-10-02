@@ -131,6 +131,28 @@ export interface StyleSource {
   screens?: import("./boardStates.ts").ScreenRead[];
 }
 
+/**
+ * A PART'S SCRIPT SETTINGS: the tokens it uses, for the part panel. The
+ * variables its own styles use (hooks.json `vars`), and every token a script
+ * reads in a function that also uses this part (`varsRead`, by file and
+ * function): the numbers, colours and words the code takes from tokens.css or
+ * tokens.js. Each is edited as the style layer edits a token (`varsSet`), so
+ * it goes back with Send the design back as a token change, never as code.
+ */
+export function partTokens(code: { refs: { file: string; fn: string | null }[]; vars?: string[] } | null | undefined, source: Pick<StyleSource, "files" | "varsRead">): { name: string; value: string; file: string; line: number; token?: boolean; why: "styles" | "script" }[] {
+  if (!code) return [];
+  const known = new Map<string, { name: string; value: string; file: string; line: number; token?: boolean }>();
+  for (const f of source.files) for (const v of f.vars) if (!known.has(v.name) || (v.token && !known.get(v.name)!.token)) known.set(v.name, v);
+  const here = new Set(code.refs.filter((r) => r.fn).map((r) => `${r.file}#${r.fn}`));
+  const out = new Map<string, { name: string; value: string; file: string; line: number; token?: boolean; why: "styles" | "script" }>();
+  for (const name of code.vars ?? []) { const v = known.get(name); if (v) out.set(name, { ...v, why: "styles" }); }
+  for (const [name, by] of Object.entries(source.varsRead ?? {})) {
+    const v = known.get(name);
+    if (v && !out.has(name) && by.some((r) => r.fn && here.has(`${r.file}#${r.fn}`))) out.set(name, { ...v, why: "script" });
+  }
+  return [...out.values()];
+}
+
 /** The shape of a node this reads: a board part, loosely. */
 export interface LayerNode {
   id: string;

@@ -16,7 +16,8 @@ import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
 import { makeSolid, showCube, showSolid, solidModel } from "./solidRun";
-import { rendererReady } from "./agent";
+import { rendererReady, screenshotPage } from "./agent";
+import { askCode } from "./askCode";
 import { useKeys } from "@/features/keys/store";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "./vector";
 import { resolvePalette } from "./parts/theme";
@@ -43,7 +44,10 @@ import { movingParts } from "./motionInventory";
 import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
 import { TourEditor } from "./TourEditor";
-import { KIND_SAYS } from "./codeRefs";
+import { KIND_SAYS, linesAround, type CodeRef } from "./codeRefs";
+import { fileAt } from "./kitRun";
+import { PartSettings } from "./StyleLayerPanel";
+import { heldKeys } from "@/features/keys/store";
 import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
 import { ComponentFields } from "./ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "./components";
@@ -430,6 +434,7 @@ function CodeView({ node }: { node: StudioNode }) {
   const where = (file: string, line?: number) => `${file}${line ? ` line ${line}` : ""}`;
   const via = (v: string) => (v.startsWith("data-hook=") ? `“${v.slice(10)}”` : v.startsWith("id=") ? `#${v.slice(3)}` : `.${v.slice(6)}`);
   return (
+    <>
     <div data-code-view="" className="space-y-2 text-small">
       {code.built ? (
         <p data-code-built="" className="rounded-md border border-border px-2 py-1 text-fg">
@@ -455,8 +460,91 @@ function CodeView({ node }: { node: StudioNode }) {
           ))}
         </ul>
         {code.refs.length > 24 ? <p className="text-fg-muted">And {code.refs.length - 24} more.</p> : null}
+        {code.refs.length && from ? <ScriptLines refs={code.refs.slice(0, 24)} from={from} hook={node.source?.hook?.value ?? ""} /> : null}
         {code.from === "scan" ? <p className="text-fg-faint">A reading, not a run: a name a script builds out of pieces is not found.</p> : null}
       </div>
+    </div>
+    <div className="space-y-2 text-small">
+      <PartSettings code={code} hook={node.source?.hook?.value ?? ""} />
+      {from && node.source?.hook ? <AskCodeBox node={node} from={from} refs={code.refs} /> : null}
+    </div>
+    </>
+  );
+}
+
+/**
+ * ASK THE CODE CHAT, from this part (`askCode.ts`): what the owner wants its
+ * code to do, written to a request branch with the part's hook, its code and
+ * a picture of it, as a draft pull request a code chat picks up. The Builder
+ * never edits the script itself.
+ */
+function AskCodeBox({ node, from, refs }: { node: StudioNode; from: { repo: string; ref: string }; refs: CodeRef[] }) {
+  const hook = node.source!.hook!.value;
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [said, setSaid] = React.useState<{ text: string; link?: string | null; bad?: boolean } | null>(null);
+  const send = async () => {
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    if (!token) { setSaid({ text: "Asking writes a branch with your GitHub token, and there is not one saved yet. Add one under Keys.", bad: true }); return; }
+    setBusy(true);
+    setSaid({ text: "Taking a picture of the part…" });
+    const shot = await Promise.race([screenshotPage(node.pageId, { hook }).catch(() => null), new Promise<null>((ok) => setTimeout(() => ok(null), 45000))]);
+    setSaid({ text: `Writing the request to ${from.repo}…` });
+    const got = await askCode({ text, hook, name: node.label ?? hook, page: node.source?.file ?? null, refs, picture: shot?.data ?? null }, from.repo, token);
+    setBusy(false);
+    setSaid(got.ok ? { text: got.says, link: got.pull } : { text: got.says, bad: true });
+    if (got.ok) { play("success"); setText(""); }
+  };
+  return (
+    <div data-ask-code={hook} className="space-y-1">
+      <p className="text-fg-muted">Ask the code chat</p>
+      <Textarea data-ask-code-text="" value={text} onChange={(e) => setText(e.target.value)} placeholder="What should its code do? (the Builder never changes the script itself)" rows={2} className="text-small" />
+      <Button data-ask-code-send="" size="sm" disabled={busy || !text.trim()} onClick={() => void send()}>{busy ? "Asking…" : "Ask"}</Button>
+      {said ? <p data-ask-code-said={said.bad ? "bad" : "ok"} className={said.bad ? "text-fg" : "text-fg-muted"}>{said.text}{said.link ? <> <a href={said.link} target="_blank" rel="noreferrer" className="underline">Open the request</a></> : null}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * THE SCRIPT LINES THEMSELVES, read only: each place a script uses this part,
+ * a few lines either side, fetched from the repository at the commit the
+ * site came from, each linked to its line on GitHub. Nothing here edits code:
+ * a change goes to a code chat.
+ */
+function ScriptLines({ refs, from, hook }: { refs: CodeRef[]; from: { repo: string; ref: string }; hook: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [files, setFiles] = React.useState<Record<string, string | null> | null>(null);
+  React.useEffect(() => {
+    if (!open || files) return;
+    let live = true;
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    const wanted = [...new Set(refs.map((r) => r.file))].slice(0, 8);
+    void Promise.all(wanted.map(async (f) => [f, await fileAt(fetch, token, from.repo, from.ref || "HEAD", f).catch(() => null)] as const))
+      .then((got) => { if (live) setFiles(Object.fromEntries(got)); });
+    return () => { live = false; };
+  }, [open, files, refs, from]);
+  if (!open) return <Button data-code-lines-open={hook} size="sm" variant="ghost" onClick={() => { play("open"); setOpen(true); }}>Show the code</Button>;
+  if (!files) return <p data-code-lines-wait="" className="text-fg-muted">Reading the scripts from {from.repo}…</p>;
+  return (
+    <div data-code-lines={hook} className="space-y-2">
+      {refs.map((r) => {
+        const text = files[r.file];
+        const lines = text ? linesAround(text, r.line, 3) : [{ n: r.line, text: r.code, at: true }];
+        const href = lineHref(from, r.file, r.line);
+        return (
+          <div key={`${r.file}${r.line}${r.via}`} data-code-lines-ref={`${r.file}:${r.line}`} className="rounded-md border border-border">
+            <p className="truncate px-2 py-0.5 text-fg-muted">
+              {r.fn ? <span className="font-mono">{r.fn}</span> : "top of the file"}{" · "}
+              {href ? <a href={href} target="_blank" rel="noreferrer" className="underline">{r.file} line {r.line}</a> : `${r.file} line ${r.line}`}
+              {text ? null : " · could not read the file; its line as imported"}
+            </p>
+            <pre className="overflow-x-auto px-2 pb-1 font-mono text-[11px] leading-snug">
+              {lines.map((l) => <div key={l.n} data-code-line={l.at ? "at" : ""} className={l.at ? "text-fg" : "text-fg-faint"}><span className="mr-2 inline-block w-8 select-none text-right text-fg-faint">{l.n}</span>{l.text}</div>)}
+            </pre>
+          </div>
+        );
+      })}
+      <p className="text-fg-faint">Read only. To change it, ask the code chat.</p>
     </div>
   );
 }

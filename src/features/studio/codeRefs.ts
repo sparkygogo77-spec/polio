@@ -47,6 +47,19 @@ export const KIND_SAYS: Record<RefKind, string> = {
   finds: "finds it",
 };
 
+/**
+ * The lines around one code reference, for the script viewer: `around`
+ * lines either side, numbered from 1, the reference's own line marked.
+ */
+export function linesAround(text: string, line: number, around = 3): { n: number; text: string; at: boolean }[] {
+  const all = text.split(/\r?\n/);
+  const from = Math.max(1, line - around);
+  const to = Math.min(all.length, line + around);
+  const out: { n: number; text: string; at: boolean }[] = [];
+  for (let n = from; n <= to; n++) out.push({ n, text: all[n - 1] ?? "", at: n === line });
+  return out;
+}
+
 /** The code with comments and the insides of strings blanked, lines kept: for counting braces. */
 export function blankCode(text: string): string {
   let out = "";

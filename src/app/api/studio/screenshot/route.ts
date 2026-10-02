@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   const found = await findPlaywright();
   if (!found.pw) return NextResponse.json({ ok: false, reason: "no-playwright", message: NO_PLAYWRIGHT, tried: found.tried });
 
-  let body: { doc?: unknown; path?: string; device?: string; width?: number; fullPage?: boolean };
+  let body: { doc?: unknown; path?: string; device?: string; width?: number; fullPage?: boolean; hook?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -38,11 +38,23 @@ export async function POST(request: Request) {
   const width = Math.max(320, Math.min(1920, Math.round(body.width ?? (device === "phone" ? 420 : device === "tablet" ? 820 : 1280))));
   const height = Math.round(width * 0.625);
   const fullPage = body.fullPage !== false;
+  /* One part, by its hook: a picture of that part alone (a code request carries it), the page when it is not drawn. */
+  const hook = typeof body.hook === "string" && /^[\w-]{1,120}$/.test(body.hook) ? body.hook : null;
 
   // How tall the page really was, so a picture cut at the cap can say so.
   let pageHeight = 0;
   try {
     const png = await withPreview(found, { origin, path, doc: takeDoc(body.doc), device, width, height }, async (page) => {
+      if (hook) {
+        const box = await page.evaluate((h: string) => {
+          const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-hook="${h}"]`)).find((e) => e.getClientRects().length > 0);
+          if (!el) return null;
+          el.scrollIntoView({ block: "center", inline: "center" });
+          const r = el.getBoundingClientRect();
+          return r.width >= 2 && r.height >= 2 ? { x: Math.max(0, r.left), y: Math.max(0, r.top), width: Math.min(r.width, innerWidth), height: Math.min(r.height, innerHeight) } : null;
+        }, hook);
+        if (box) return page.screenshot({ type: "png", clip: box });
+      }
       if (fullPage) {
         // The site scrolls inside its own box, not the window: the box is let
         // grow to its content and the window sized to it, then the picture is

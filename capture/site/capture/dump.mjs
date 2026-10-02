@@ -716,6 +716,8 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
     const acc = ctx.acc && own0 ? ctx.acc.multiply(own0) : own0 ?? ctx.acc;
     if (!inSvg && !isIdentity(acc)) e.ptf = mround(acc);
     if (!inSvg && el.id) e.domId = el.id;
+    /* Its hook, as the design record names parts (PST kit/DESIGN-RECORD.md): a capture of a built page is checked against the record by it. */
+    if (!inSvg && el.getAttribute("data-hook")) e.hook = el.getAttribute("data-hook");
     const text = own(el);
     if (text) e.text = text;
     const bg = cs.backgroundColor;

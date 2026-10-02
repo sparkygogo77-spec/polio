@@ -262,7 +262,7 @@ async function thumb(dataUrl: string, width = 240): Promise<string> {
 const SHOT_DEADLINE_MS = 90_000;
 
 /** One page, photographed on the server with the document in place. Null when the server cannot. */
-export async function screenshotPage(pageId: string, opts: { device?: Device; width?: number; signal?: AbortSignal } = {}): Promise<Picture | null> {
+export async function screenshotPage(pageId: string, opts: { device?: Device; width?: number; signal?: AbortSignal; hook?: string } = {}): Promise<Picture | null> {
   const s = useStudio.getState();
   const page = s.pages.find((p) => p.id === pageId) ?? s.pages[0];
   if (!page) return null;
@@ -275,7 +275,7 @@ export async function screenshotPage(pageId: string, opts: { device?: Device; wi
   const res = await fetch("/api/studio/screenshot", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ doc: studioDoc(), path, device: opts.device ?? "desktop", width: opts.width }),
+    body: JSON.stringify({ doc: studioDoc(), path, device: opts.device ?? "desktop", width: opts.width, ...(opts.hook ? { hook: opts.hook } : {}) }),
     signal: opts.signal ? AbortSignal.any([opts.signal, mine.signal]) : mine.signal,
   }).finally(() => clearTimeout(ran));
   if (!(res.headers.get("content-type") ?? "").startsWith("image/")) return null;

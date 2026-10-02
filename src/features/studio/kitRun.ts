@@ -25,7 +25,7 @@ import type { KitLinks } from "./parts/offsite.ts";
 import type { StyleSource } from "./styleLayer.ts";
 
 const API = "https://api.github.com";
-type Fetch = typeof fetch;
+export type Fetch = typeof fetch;
 export type Answer<T> = ({ ok: true } & T) | { ok: false; says: string };
 
 export interface KitManifest {
@@ -58,7 +58,7 @@ export async function gh(f: Fetch, token: string, path: string, init?: { method?
   try {
     const res = await f(`${API}${path}`, {
       method: init?.method ?? "GET",
-      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", ...(init?.body ? { "content-type": "application/json" } : {}) },
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", ...(init?.body ? { "content-type": "application/json" } : {}) },
       ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
     });
     let json: Record<string, unknown> | null = null;

@@ -227,7 +227,7 @@ try {
   const sizesOk = PLAN.sizes.every(([h, dw]) => new RegExp(`width: ${byHook(h).w + dw}px`).test(rule(h)));
   check(`the moves and sizes made with ${PLAN.screen} on are rules under their hooks in ${layerPath}`, movesOk && sizesOk, [...new Set([...PLAN.moves, ...PLAN.sizes].map(([h]) => h))].map((h) => `${h} {${rule(h).replace(/\s+/g, " ").trim().slice(0, 120)}}`).join(" | ") || files.map((f) => f.path).join(", "));
   check(`the pull request lists ${PLAN.del}, deleted on the board, for the code to remove`, !!delNode && /Deleted on the board/.test(pulls[0]?.body ?? "") && new RegExp(`- \`${PLAN.del}\`[^\n]*: (found by|no script finds it)`).test(pulls[0]?.body ?? "") && said.includes(PLAN.del), (pulls[0]?.body ?? "").split("\n").filter((l) => l.includes(PLAN.del)).join(" | ").slice(0, 300));
-  check("nothing but the style layer (and the hooks map made from it) is written", files.every((f) => f.path === layerPath || /hooks\.json$/.test(f.path)), files.map((f) => f.path).join(", "));
+  check("nothing but the style layer (and the hooks map made from it) is written, with the design record beside it", files.every((f) => f.path === layerPath || /hooks\.json$/.test(f.path) || f.path === "design/record.json") && files.some((f) => f.path === "design/record.json"), files.map((f) => f.path).join(", "));
 
   /* The parts keep their state: the page still opens with them hidden. */
   st = await state();

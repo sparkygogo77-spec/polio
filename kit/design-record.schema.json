@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "design-record/1",
+  "title": "Design record",
+  "description": "What the capturer and the builder write and code chats build from (DESIGN-RECORD.md). A capture route file with `tree` at the top is a record of one page.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["record", "pages"],
+      "properties": {
+        "record": { "const": 1 },
+        "source": { "enum": ["builder", "capture"] },
+        "site": { "type": "string" },
+        "madeAt": { "type": "string" },
+        "tokens": { "type": "object", "additionalProperties": { "type": "string" } },
+        "breakpoints": { "type": "array", "items": { "type": "object", "required": ["name", "width"], "properties": { "name": { "type": "string" }, "width": { "type": "number" } } } },
+        "pages": { "type": "array", "items": { "$ref": "#/$defs/page" } }
+      }
+    },
+    { "$ref": "#/$defs/page" }
+  ],
+  "$defs": {
+    "page": {
+      "type": "object",
+      "required": ["tree"],
+      "properties": {
+        "file": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "capturedAt": { "type": "string" },
+        "viewport": { "type": "array", "items": { "type": "number" } },
+        "page": { "type": "array", "items": { "type": "number" } },
+        "keyframes": { "type": "array" },
+        "tree": { "$ref": "#/$defs/part" }
+      }
+    },
+    "part": {
+      "type": "object",
+      "required": ["t", "x", "y", "w", "h"],
+      "properties": {
+        "t": { "type": "string" },
+        "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number" }, "h": { "type": "number" },
+        "hook": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "label": { "type": "string" },
+        "parent": { "type": "string" },
+        "states": { "type": "object", "additionalProperties": { "type": "object", "properties": { "hidden": { "type": "boolean" }, "group": { "type": "string" }, "style": { "type": "object" } } } },
+        "at": { "type": "object", "additionalProperties": { "type": "object" } },
+        "tokens": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^--" } },
+        "assets": { "type": "object", "properties": { "svg": { "type": "string" }, "img": { "type": "string" } } },
+        "kids": { "type": "array", "items": { "$ref": "#/$defs/part" } }
+      }
+    }
+  }
+}

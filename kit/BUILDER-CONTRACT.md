@@ -46,6 +46,13 @@ design changes.
   No class or id selectors: classes and ids are free for nothing and so never break.
 - Sizes, spacing, fonts and radii should be tokens too (`--space-3`, `--radius`); this is not
   checked, but the builder can only edit what has a name.
+- **Script settings are tokens.** A number, colour or piece of text a script uses for how a part
+  looks or reads (a chart's line width, a flash's duration, a candle count, a button's label, a
+  countdown's warning threshold) is a token in `tokens.css` (`--chart-line-width: 2`,
+  `--flash-ms: 400`, `--label-trade: "Trade"`), read with `getComputedStyle` or imported from the
+  `tokensModule` (`TOKENS['--flash-ms']`), never typed into the script. The builder lists each
+  part's tokens, with the ones its scripts read, as its settings, and sends edits back as token
+  changes. Values that decide the rules or money (fees, payouts, limits) stay in the code.
 - Scripts show and hide parts with the `hidden` attribute; `base.css` keeps
   `[hidden] { display: none !important; }` so a design rule never shows a hidden part.
 
@@ -78,6 +85,11 @@ design changes.
   open, a form with errors, an empty list). Pages declare their screens in their script with
   `screens({ name: () => ..., ... })`; the first one is the default.
 - **(checked)** Every screen listed in `builder.json` is declared by its page's scripts.
+- A part a script draws into (a chart, a canvas) is empty when the builder imports the page without
+  its scripts. `builder.json` `preview.stills` names such parts by hook, with the screen to take them
+  on (`[{ "hook": "chart", "screen": "tv-idle" }]`): the builder opens the preview page at that
+  screen from the repository's own files (no network), takes a picture of that part alone, and shows
+  it as the part's picture on the board, so a design is made around real content.
 - `preview.html` shows every screen from `builder.json` side by side. `gallery.html` shows every
   reusable part on one page (buttons, fields, cards, list rows), using the same hooks as the real
   pages, so one rule can be judged everywhere at once.

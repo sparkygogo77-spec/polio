@@ -24,6 +24,11 @@
  *     repository's hooks.json), in the pull request, in
  *     design/HOOK-CHANGES.md and in design/HOOK-CHANGES.json (for kit:diff);
  *   · kit:check passes on what was written, run from design/.
+ *   · the design record (design/record.json, PST kit/DESIGN-RECORD.md) goes
+ *     with it, and the verify step works: the board's record as it came in
+ *     matches a look-only capture of the page (on PST, every shown part of
+ *     the Chart TV), and the branch's record lists the move and the new part
+ *     against the unbuilt page.
  *
  * The repository is PonsStars when a checkout is given (its HEAD, or REV),
  * else a small one built the same way (tests/fixtures/design-repo).
@@ -39,6 +44,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { DUMP } from "../capture/site/capture/dump.mjs";
+import { recordDiff } from "../kit/tools/record-diff.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
@@ -144,6 +151,33 @@ try {
   const choices = (st.nodes ?? []).filter((n) => n.options?.choiceHooks);
   check("a list's choices came in with their hooks", choices.length >= 1, choices.map((n) => `${n.hooks?.["data-hook"]}: ${n.options.choiceHooks.replace(/\n/g, ", ")}`).slice(0, 3).join("; "));
 
+  /* The design record of the board as it came in, and the verify step a code chat runs after a build: a look-only capture of
+     the page as its own code draws it, checked against the record part by part (kit/tools/record-diff.mjs). */
+  const rec0 = await page.evaluate(() => window.__studioRecord());
+  const recPage = PST ? "web/index.html" : rec0.pages[0]?.file;
+  /* As the Builder read it: the page's HTML and styles, its scripts not run (the board is the page before its code runs). */
+  const builtCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+  const built = await builtCtx.newPage();
+  await built.route("http://site.test/**", (r) => { const f = decodeURIComponent(new URL(r.request().url()).pathname.slice(1)); try { const b = read(f); const type = f.endsWith(".html") ? "text/html" : f.endsWith(".css") ? "text/css" : f.endsWith(".js") || f.endsWith(".mjs") ? "text/javascript" : f.endsWith(".json") ? "application/json" : f.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream"; return r.fulfill({ status: 200, contentType: type, body: b }); } catch { return r.fulfill({ status: 404, body: "" }); } });
+  await built.route(/^https?:\/\/(?!site\.test)/, (r) => r.abort());
+  await built.goto(`http://site.test/${recPage}?still=1`, { waitUntil: "load" }).catch(() => {});
+  await built.waitForTimeout(1500);
+  const capture = await built.evaluate(DUMP, { sheets: [], paths: false });
+  await builtCtx.close();
+  const vs = recordDiff(rec0, capture, { page: recPage, px: 4 });
+  const recParts = rec0.pages.find((p) => p.file === recPage);
+  check(`design record: every board part with its hook, name and page (${rec0.pages.length} pages)`, rec0.record === 1 && rec0.source === "builder" && !!recParts && vs.checked >= Math.min(20, hooked.length) && rec0.breakpoints?.[0]?.width > 0, `${vs.checked} hooked parts on ${recPage}`);
+  if (PST) {
+    const tv = vs.differ.filter((d) => d.hook.startsWith("chart-tv"));
+    const tvAll = [];
+    const walkR = (n) => { if (n.hook?.startsWith("chart-tv")) tvAll.push(n); for (const k of n.kids ?? []) walkR(k); };
+    walkR(recParts.tree);
+    check(`verify step on PST's Chart TV: a look-only capture of the built page matches the record (${tvAll.length} TV parts)`, tvAll.length > 10 && tv.length === 0, tv.slice(0, 6).map((d) => `${d.hook}: ${d.why}`).join(" | ") || `${tvAll.filter((n) => !n.states?.hidden).length} shown parts match; ${vs.differ.length} of ${vs.checked} parts on the page differ in all`);
+    console.log(`  record-diff on the whole page: ${vs.same} same, ${vs.differ.length} differ${vs.differ.length ? `: ${vs.differ.slice(0, 8).map((d) => `${d.hook} (${d.why})`).join("; ")}` : ""}`);
+  } else {
+    check("verify step: a look-only capture of the built page matches the record", vs.differ.length === 0, vs.differ.slice(0, 6).map((d) => `${d.hook}: ${d.why}`).join(" | ") || `${vs.same} parts match`);
+  }
+
   /* Move the chart box: picked, and nudged with the arrows, as he would. */
   const chart = st.nodes.find((n) => n.hooks?.["data-hook"] === "chart-area");
   check("the chart box is on the board", !!chart, chart ? `${chart.id} at ${chart.x}, ${chart.y}` : "");
@@ -161,7 +195,8 @@ try {
   check("one new part, named Chart main", typeof added === "string" && (await state()).nodes.some((n) => n.id === added && n.label === "Chart main"), String(added));
 
   /* One part deleted (J: "deleting this in the builder should remove it from the site"): the chart's attribution. */
-  const DEL = PST ? "chart-attribution" : "footer-note";
+  /* PST's chart attribution went with its own chart renderer; at a later commit a TV part stands in for it. */
+  const DEL = PST ? ((await state()).nodes.some((n) => n.hooks?.["data-hook"] === "chart-attribution") ? "chart-attribution" : "chart-tv-led") : "footer-note";
   const del = (await state()).nodes.find((n) => n.hooks?.["data-hook"] === DEL);
   const runHooks = (c) => (Array.isArray(c) ? c.flatMap(runHooks) : c && typeof c === "object" ? [...(c.hooks?.["data-hook"] ? [c.hooks["data-hook"]] : []), ...Object.values(c).flatMap((v) => (v && typeof v === "object" ? runHooks(v) : []))] : []);
   const gone = del ? [...new Set([DEL, ...runHooks(del.content)])].sort() : [];
@@ -202,6 +237,21 @@ try {
   const md = existsSync(join(DIR, "design/HOOK-CHANGES.md")) ? readFileSync(join(DIR, "design/HOOK-CHANGES.md"), "utf8") : "";
   const listed = existsSync(join(DIR, "design/HOOK-CHANGES.json")) ? JSON.parse(readFileSync(join(DIR, "design/HOOK-CHANGES.json"), "utf8")) : {};
   check(`the pull request, design/HOOK-CHANGES.md and HOOK-CHANGES.json say so, ${DEL} marked removed with the code that finds it`, /## Moved \(1\)[\s\S]*`chart-area`[\s\S]*\+40px across/.test(md) && /## Added \(1\)[\s\S]*`chart-main`/.test(md) && new RegExp(`## Removed \\(${gone.length}\\)[\\s\\S]*\`${DEL}\`[^\\n]*: (found by|no script finds it)`).test(md) && pulls[0]?.body?.includes("`chart-main`") && pulls[0]?.body?.includes(`\`${DEL}\``) && JSON.stringify((listed.removed ?? []).map((r) => r.hook)) === JSON.stringify(gone) && listed.removed.every((r) => Array.isArray(r.refs)), md.split("\n").filter((l) => /Removed|`/.test(l)).slice(0, 8).join(" | "));
+
+  /* The design record went with it, as it is now: the move, the new part, the deleted one gone, hidden states and tokens marked. */
+  const rec = existsSync(join(DIR, "design/record.json")) ? JSON.parse(readFileSync(join(DIR, "design/record.json"), "utf8")) : null;
+  const flat = [];
+  const walkF = (n) => { flat.push(n); for (const k of n.kids ?? []) walkF(k); };
+  for (const p of rec?.pages ?? []) walkF(p.tree);
+  const recHook = (h) => flat.find((n) => n.hook === h);
+  check("design/record.json is on the branch: the chart moved 40px, chart-main in it, the deleted part not", !!rec && rec.record === 1 && recHook("chart-area")?.x === Math.round(chart.x + 40) && flat.some((n) => n.label === "Chart main") && gone.every((h) => !recHook(h)), rec ? `chart-area at ${recHook("chart-area")?.x} (was ${chart.x}); ${flat.length} parts` : "no record");
+  check("…with each part's states, the parts it sits in, and the values that are tokens", flat.some((n) => n.states?.hidden?.hidden) === (st.nodes.some((n) => n.state?.group?.startsWith("hidden:"))) && flat.some((n) => n.kids?.length && n.hook) && Object.keys(rec?.tokens ?? {}).length > 0 && flat.some((n) => n.tokens && Object.values(n.tokens).every((t) => t.startsWith("--"))), `${flat.filter((n) => n.states?.hidden).length} hidden, ${flat.filter((n) => n.tokens).length} with tokens, ${Object.keys(rec?.tokens ?? {}).length} tokens`);
+
+  /* The verify step catches what the build has not done yet: the branch's record against the page as it still is lists the move and the new part. */
+  const pending = rec ? recordDiff(rec, capture, { page: recPage, px: 4 }) : { differ: [] };
+  const why = (h) => pending.differ.find((d) => d.hook === h)?.why ?? "";
+  check("…and record-diff on the unbuilt page lists the chart's move and the new part, nothing the design left alone", /place/.test(why("chart-area")) && /not drawn/.test(why("chart-main")) && pending.differ.length <= vs.differ.length + 2 + gone.length, pending.differ.slice(0, 6).map((d) => `${d.hook}: ${d.why}`).join(" | "));
+  if (!PST) writeFileSync(join(tmpdir(), "record-fixture.json"), JSON.stringify(rec));
 
   /* kit:check, run as a code chat runs it, from design/. */
   let kc;

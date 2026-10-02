@@ -8,11 +8,16 @@ The short version:
 
 - Every element in `<body>` gets a unique, meaningful `data-hook`. Layout containers too.
 - No inline styles, no `<style>` blocks, no class or id selectors, no colours outside `tokens.css`.
+- Numbers, colours and text a script uses for how things look or read are tokens in `tokens.css`
+  (read with `getComputedStyle` or from `tokens.js`), never literals: the builder edits them.
 - Scripts find elements only by hook (`hook('name')`) and build nothing by hand: repeated parts
   come from `<template data-hook="template-...">`.
 - `tokens.css` loads first, `style-layer.css` loads last. Never edit `style-layer.css`; it is the
   design's file.
 - New page? Add it to `builder.json`, with at least one preview screen.
+- Building from a design? Build from `design/record.json` (`DESIGN-RECORD.md`): keep each part's
+  hook exactly, put every value it marks as a token in `tokens.css`/`tokens.js`, then check the
+  build with a look-only capture and `npm run kit:record-diff -- design/record.json <capture>`.
 
 Commands:
 

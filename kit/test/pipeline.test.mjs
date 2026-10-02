@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { check } from '../tools/kit-check.mjs';
@@ -59,6 +59,16 @@ test('kit:diff: a code change may add hooks but not drop one, unless told to', (
     assert.deepEqual(r.removed, ['about-note']);
     assert.match(r.problems.join('\n'), /hook "about-note" was removed/);
     assert.deepEqual(diff(join(dir, 'builder.json'), { base: 'main', allowRemoved: true }).problems, []);
+
+    // Deleted in the builder: the design branch lists it in design/HOOK-CHANGES.json, so it passes.
+    mkdirSync(join(dir, 'design'), { recursive: true });
+    writeFileSync(join(dir, 'design/HOOK-CHANGES.json'), JSON.stringify({ removed: [{ hook: 'about-note', page: 'starter/about.html', refs: [] }] }));
+    r = diff(join(dir, 'builder.json'), { base: 'main' });
+    assert.deepEqual(r.problems, []);
+    assert.deepEqual(r.deleted, ['about-note']);
+    // A hook the design did not list still fails.
+    writeFileSync(join(dir, 'design/HOOK-CHANGES.json'), JSON.stringify({ removed: [{ hook: 'other-hook' }] }));
+    assert.match(diff(join(dir, 'builder.json'), { base: 'main' }).problems.join('\n'), /hook "about-note" was removed/);
   } finally { rmSync(dirname(dir), { recursive: true, force: true }); }
 });
 
@@ -69,6 +79,10 @@ test('kit:diff --style-only: the design may change only the style layer and toke
     edit(dir, 'starter/style-layer.css', (s) => `${s}[data-hook="page-about"] { letter-spacing: 0.02em; }\n`);
     edit(dir, 'starter/tokens.css', (s) => s.replace(/(--[a-z-]+:\s*)#[0-9a-fA-F]{3,8}/, '$1#123456'));
     check(join(dir, 'builder.json'), { write: true });
+    assert.deepEqual(diff(join(dir, 'builder.json'), { base: 'main', styleOnly: true }).problems, []);
+    // The builder's design record rides with a style change.
+    mkdirSync(join(dir, 'design'), { recursive: true });
+    writeFileSync(join(dir, 'design/record.json'), JSON.stringify({ record: 1, source: 'builder', pages: [] }));
     assert.deepEqual(diff(join(dir, 'builder.json'), { base: 'main', styleOnly: true }).problems, []);
 
     edit(dir, 'starter/about.html', (s) => s.replace('</main>', '<p data-hook="about-note">New.</p>\n</main>'));

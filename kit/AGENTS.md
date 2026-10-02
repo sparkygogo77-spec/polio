@@ -49,7 +49,9 @@ designed. The rules are in `BUILDER-CONTRACT.md`; `npm run kit:check` enforces t
   built at run time, put `// hooks: name-{a,b,c}` on that line listing every possibility.
 - Show and hide with the `hidden` attribute. Never set inline styles; to pass a computed number
   to CSS, set a variable: `el.style.setProperty('--bar-width', pct + '%')`.
-- Colours a script needs (charts, canvas) come from tokens via `getComputedStyle`.
+- Colours, numbers and text a script needs for how things look or read (charts, canvas, durations,
+  labels) come from tokens via `getComputedStyle` or the `tokensModule`; never type them into a
+  script. Rules and money stay in the code.
 - `?still=1` must give a stable picture: no animation, fixed sample data and dates.
 
 ## Links
@@ -69,3 +71,19 @@ npm run kit:diff -- --base origin/main
 
 All four must pass. Never weaken the check, add an ignore, or edit `hooks.json` by hand to get
 green; fix the page instead.
+
+## Building from a design record
+
+When a branch carries `design/record.json` (written by the builder or the capturer, format in
+`DESIGN-RECORD.md`), build from it:
+
+1. Each part keeps its `hook` as its `data-hook`, exactly; a part without one gets a hook from its
+   `label`.
+2. Each value a part lists under `tokens` goes into `tokens.css` under that token name (and
+   `tokens.js` via `npm run kit:hooks`); styles and scripts use the token.
+3. `states` become `:hover` / `:active` rules and the `hidden` attribute; `breakpoints` become media
+   queries.
+4. Check it: take a look-only capture of the built page and run
+   `npm run kit:record-diff -- design/record.json <capture>.json --page <file>`. Fix every part it
+   lists, then `kit:check` and `kit:diff`.
+
