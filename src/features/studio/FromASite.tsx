@@ -44,6 +44,10 @@ import { runOf } from "./captureArtifact";
 import { keepAll } from "./pictures";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
+import { readKit, seenOfSource } from "./kitRun";
+import { oneAddress, withoutJoinedAddress } from "./captureSite";
+import { kitLinksToOffsite } from "./parts/offsite";
+import type { StyleSource } from "./styleLayer";
 import { checkRepoFeatures } from "./library/repoFeatures";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
@@ -548,7 +552,7 @@ export function FromASite({ space }: { space: Space }) {
     const tookOff = !!aimedHere && !!repo && `${aimedHere.owner}/${aimedHere.name}`.toLowerCase() === `${repo.owner}/${repo.name}`.toLowerCase();
     if (id && repo) builds.setSource(id, repo);
     const publishesTo = id ? useBuilds.getState().projects.find((p) => p.id === id)?.repo : undefined;
-    if (id && copy.name) builds.rename(id, copy.name);
+    if (id && copy.name) builds.rename(id, withoutJoinedAddress(copy.name));
     void (async () => {
       /* All in one transaction: one at a time behind a big board took minutes (`keepAll`). */
       const kept = await keepAll(copy.pictures.map((p) => ({ pic: { id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes.length, alt: "", from: "upload" }, blob: new Blob([p.bytes as BlobPart], { type: p.type }) })));
@@ -607,8 +611,16 @@ export function FromASite({ space }: { space: Space }) {
     /* The page's own ground and ink are the palette's page colour and text: a plain page is white with black words, whatever the buttons are filled with. */
     /* What its code is written against, with where it came from: the style layer goes back there (`styleLayer.ts`). */
     const entryDir = got.entry.includes("/") ? got.entry.slice(0, got.entry.lastIndexOf("/") + 1) : "";
-    const styleSource = { repo: `${of.owner}/${of.name}`, ref: got.ref || of.ref || "", dir: entryDir, ...doc.styleSource };
-    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format: st.format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource }, swept: SWEEP });
+    const styleSource: StyleSource = { repo: `${of.owner}/${of.name}`, ref: got.ref || of.ref || "", dir: entryDir, ...doc.styleSource };
+    /* A builder-ready repository (kit/PIPELINE.md): its builder.json and hooks map are the baseline each design round is compared with, and its link rules become the site's. */
+    let format = st.format;
+    const kit = await readKit(styleSource.repo, styleSource.ref || "HEAD", heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "").catch(() => null);
+    if (kit?.ok) {
+      styleSource.seen = kit.seen;
+      styleSource.kit = kit.manifest;
+      if (kit.manifest.links) format = { ...format, "links.offsite": kitLinksToOffsite(kit.manifest.links) };
+    } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
+    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource }, swept: SWEEP });
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
     const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);
@@ -968,7 +980,7 @@ export function FromASite({ space }: { space: Space }) {
           data-site-url=""
           placeholder="https://…"
           value={url}
-          onChange={(e) => { setUrl(e.target.value); if (stage.at === "said") setStage({ at: "nothing" }); }}
+          onChange={(e) => { setUrl(oneAddress(e.target.value).url); if (stage.at === "said") setStage({ at: "nothing" }); }}
           onKeyDown={(e) => { if (e.key === "Enter") void read().catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` })); }}
           className={cn("h-7 flex-1 text-plain", SCREEN_FIELD)}
         />

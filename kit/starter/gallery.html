@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/gallery.js"></script>
+</head>
+<body data-hook="page-gallery">
+<main data-hook="page-main">
+  <h1 data-hook="page-title">Gallery</h1>
+  <p data-hook="page-intro">Every reusable part on one page.</p>
+  <section data-hook="gallery-section-buttons">
+    <h2 data-hook="gallery-buttons-title">Buttons</h2>
+    <button data-hook="gallery-primary-button" type="button">Primary</button>
+    <button data-hook="gallery-secondary-button" type="button">Secondary</button>
+  </section>
+  <section data-hook="gallery-section-fields">
+    <h2 data-hook="gallery-fields-title">Fields</h2>
+    <label data-hook="gallery-text-field">
+      <span data-hook="gallery-text-label">Text</span>
+      <input data-hook="gallery-text-input" placeholder="Type here">
+    </label>
+    <p data-hook="gallery-sample-error">A field's error message.</p>
+  </section>
+  <section data-hook="gallery-section-cards">
+    <h2 data-hook="gallery-cards-title">Cards</h2>
+    <article data-hook="feature-hooks">
+      <h2 data-hook="feature-hooks-title">A feature card</h2>
+      <p data-hook="feature-hooks-text">Same hooks as on the home page, so one rule styles both.</p>
+    </article>
+  </section>
+  <section data-hook="gallery-section-list">
+    <h2 data-hook="gallery-list-title">List row</h2>
+    <ul data-hook="gallery-list"></ul>
+    <template data-hook="template-list-item">
+      <li data-hook="list-item">
+        <span data-hook="list-item-name">Name</span>
+        <span data-hook="list-item-meta">Meta</span>
+      </li>
+    </template>
+  </section>
+</main>
+</body>
+</html>

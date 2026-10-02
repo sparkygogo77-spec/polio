@@ -26,7 +26,7 @@ import { heldKeys, useKeys } from "@/features/keys/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn, type Bringing } from "./bringRepo";
 import { activeSource } from "@/features/builds/store";
-import { DEFAULT_CAPTURER, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
+import { DEFAULT_CAPTURER, oneAddress, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
 
 /**
  * Where the capturer lives: remembered in this browser, polio itself by
@@ -147,7 +147,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
           {!unlocked ? <p className="text-xs text-fg-muted">No GitHub token in this browser yet. Open Keys and put one in; the capture runs in your own repository with it.</p> : null}
           <label className="flex flex-col gap-1 text-xs text-fg-muted">
             Address
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus data-capture-url="" />
+            <Input value={url} onChange={(e) => { const a = oneAddress(e.target.value); setUrl(a.url); if (a.joined) { setTypedName(false); setSaid(`Two addresses had run together, so only the last one is kept: ${a.url}`); } }} placeholder="https://example.com" autoFocus data-capture-url="" />
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg-muted">
             Name <span className="text-fg-subtle">— the folder it is kept under, sites/{captureName(name) ?? "…"}</span>

@@ -23,7 +23,7 @@
  *
  * Pure apart from the pipes it is handed, so a test drives it with a stand-in.
  */
-import { captureName, capturePlace, startCapture, watchCapture, workflowPermissionSays, type CaptureRepo, type Pipes, type Progress } from "./captureSite";
+import { captureName, capturePlace, oneAddress, startCapture, watchCapture, workflowPermissionSays, type CaptureRepo, type Pipes, type Progress } from "./captureSite";
 import { recordOf, runOf } from "./captureArtifact";
 
 export { workflowPermissionSays };
@@ -60,10 +60,10 @@ export function recapturePlan(src: Source | null | undefined, record: CaptureRec
   if (!name) return null;
   const pages = (record?.pages?.length ? record.pages : ["/"]).join(", ");
   /* From a run: polio's workflow, on its default branch, back as the new run's artifact. */
-  if (runOf(src.branch) !== null) return { url: record?.url ?? "", pages, name, ref: "", lands: { ref: "run", path: capturePlace(name).path }, branchNote: null, handsBack: true };
+  if (runOf(src.branch) !== null) return { url: oneAddress(record?.url ?? "").url, pages, name, ref: "", lands: { ref: "run", path: capturePlace(name).path }, branchNote: null, handsBack: true };
   const lands = capturePlace(name);
   return {
-    url: record?.url ?? "",
+    url: oneAddress(record?.url ?? "").url,
     pages,
     name,
     ref: src.branch,

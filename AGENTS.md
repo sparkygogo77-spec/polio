@@ -450,6 +450,30 @@ marked so, naming the function that fills it, and its words are never treated
 as static by the style layer. The part panel's Code section shows all of it,
 linked to the line on GitHub, with nothing to type into.
 
+**A builder-ready repository goes both ways by the kit's contract.** The kit
+(kit/, copied from PST; kit/FROM.md) is the contract between the Builder and
+the code chats (kit/PIPELINE.md). Four pieces hold it here. Export for code
+(`exportForCode.ts`, `kitExport.ts`, the command "Export for code"): the
+regular export rewritten into the kit's layout, looking the same: every
+element hooked, inline styles and style blocks into `base.css` keyed by hook,
+`.x`/`#x` selectors written `[class~="x"]`/`[id="x"]`, every colour a token in
+`tokens.css`, an empty `style-layer.css`, `builder.json` with a screen per
+page and the site's link rules, the kit's tools, docs and CI, and `hooks.json`
+made by the kit's own check on the server (`/api/studio/kit-map`, `kitMap.ts`),
+which must pass. Send the design back: always from and into the repository's
+default branch, a new `style/` branch and a pull request, never merged here;
+for a repository with `builder.json` only `style-layer.css` (rules by
+data-hook, colours in custom properties, earlier rounds kept) and the remade
+`hooks.json` change, so `kit:diff --style-only` passes, and words stay the
+code's. Each round first reads the code again (`kitRun.ts readRound`, on the
+panel's opening): pages, hooks and tokens added or gone since import
+(`styleSource.seen`), and the design's rules for hooks no page has now.
+Link rules: a kit repository's `links` become the site's link list
+(`kitLinksToOffsite`, `!re:` lines), and the export writes the list back
+(`offsiteToKitLinks`). `tests/kit-round-trip.mjs` runs the starter round
+trip against a real git repository; `tests/export-for-code.mjs` holds the
+export on the sink's site. After changing kit/, run `npm run kit:files`.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost

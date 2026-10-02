@@ -8,6 +8,7 @@
  * Replace prompt (`RepoPicker.tsx`) the next time it is open — at once, if
  * it is open already. `recapture.ts` holds the rules; this only shows them.
  */
+import { oneAddress } from "./captureSite";
 import * as React from "react";
 import { create } from "zustand";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
@@ -64,7 +65,7 @@ export function RecapturePanel({ source, say }: { source: Source; say: (title: s
   const set = useRecapture((s) => s.set);
   const [url, setUrl] = React.useState("");
   const plan = stage.at === "asking" || stage.at === "running" || stage.at === "ready" ? stage.plan : stage.at === "refused" ? stage.plan : null;
-  React.useEffect(() => { if (stage.at === "asking") setUrl(stage.plan.url); }, [stage]);
+  React.useEffect(() => { if (stage.at === "asking") setUrl(oneAddress(stage.plan.url).url); }, [stage]);
   if (stage.at === "idle") return null;
   let address: URL | null = null;
   try { address = new URL(url.trim()); } catch { address = null; }
@@ -76,7 +77,7 @@ export function RecapturePanel({ source, say }: { source: Source; say: (title: s
         <>
           <label className="flex flex-col gap-1 text-small text-fg-muted">
             The address to capture again
-            <Input inputSize="sm" data-recapture-url="" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="h-7 font-mono text-plain" spellCheck={false} />
+            <Input inputSize="sm" data-recapture-url="" value={url} onChange={(e) => setUrl(oneAddress(e.target.value).url)} placeholder="https://example.com" className="h-7 font-mono text-plain" spellCheck={false} />
           </label>
           <p className="text-small text-fg-muted">
             Pages <span className="font-mono text-fg">{stage.plan.pages}</span>, as before. {stage.plan.handsBack

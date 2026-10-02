@@ -208,6 +208,20 @@ export const studio = defineFeature({
       keywords: ["launch", "share", "card", "og", "banner", "icon", "favicon", "meme", "social"], when: onStudio,
       run: () => { void import("./LaunchKit").then((m) => m.openLaunchKit()); },
     },
+    /* The site as a builder-ready repository a code chat builds on (`exportForCode.ts`, kit/PIPELINE.md route 1). */
+    {
+      id: "studio.exportForCode",
+      label: "Export for code: a builder-ready repo (zip)",
+      group: "Builder",
+      icon: Download,
+      keywords: ["export", "code", "kit", "hooks", "builder.json", "repo", "zip", "download", "claude"],
+      when: onStudio,
+      run: async (c) => {
+        const { downloadForCode } = await import("./exportForCode");
+        const r = await downloadForCode();
+        c.publish({ key: "studio:export-for-code", title: r.ok ? "Exported for code" : "Exported, with problems", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
+      },
+    },
     /* The board as one file, and back again (`backup.ts`): also on the save line and on each card on Builds. */
     {
       id: "studio.backup.download",

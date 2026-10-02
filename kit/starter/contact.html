@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/contact.js"></script>
+</head>
+<body data-hook="page-contact">
+<header data-hook="site-header">
+  <a data-hook="site-logo" href="index.html">Starter</a>
+  <nav data-hook="site-nav" aria-label="Main">
+    <a data-hook="nav-home" href="index.html">Home</a>
+    <a data-hook="nav-about" href="about.html">About</a>
+    <a data-hook="nav-list" href="list.html">List</a>
+    <a data-hook="nav-contact" href="contact.html">Contact</a>
+  </nav>
+</header>
+<main data-hook="page-main">
+  <h1 data-hook="page-title">Contact</h1>
+  <p data-hook="page-intro">Send a short note.</p>
+  <form data-hook="contact-form" novalidate>
+    <label data-hook="name-field">
+      <span data-hook="name-label">Name</span>
+      <input data-hook="name-input" name="name" autocomplete="name">
+      <span data-hook="name-error" hidden>Please give a name.</span>
+    </label>
+    <label data-hook="email-field">
+      <span data-hook="email-label">Email</span>
+      <input data-hook="email-input" name="email" type="email" autocomplete="email">
+      <span data-hook="email-error" hidden>Please give a working email address.</span>
+    </label>
+    <label data-hook="message-field">
+      <span data-hook="message-label">Message</span>
+      <textarea data-hook="message-input" name="message" rows="4"></textarea>
+    </label>
+    <button data-hook="send-button" type="submit">Send</button>
+  </form>
+  <p data-hook="form-sent" hidden>Thanks, your note is on its way.</p>
+</main>
+<footer data-hook="site-footer">
+  <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>
+</footer>
+</body>
+</html>

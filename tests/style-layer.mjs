@@ -221,6 +221,7 @@ server.close();
 /* ------------------------------------------------------------------ */
 
 const calls = [];
+const pulls = [];
 const refs = { "heads/work": "c0", "heads/main": "m0" };
 const blobs = [];
 const stand = async (url, init = {}) => {
@@ -231,23 +232,24 @@ const stand = async (url, init = {}) => {
   const j = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
   const p = u.pathname.replace("/repos/him/pontoon", "");
   if (p === "") return j({ default_branch: "main" });
-  if (p.startsWith("/contents/")) { const f = decodeURIComponent(p.slice(10)); return FILES[f] && u.searchParams.get("ref") === "work" ? j({ content: Buffer.from(FILES[f]).toString("base64") }) : j({}, 404); }
+  if (p.startsWith("/contents/")) { const f = decodeURIComponent(p.slice(10)); return FILES[f] && u.searchParams.get("ref") === "main" ? j({ content: Buffer.from(FILES[f]).toString("base64") }) : j({}, 404); }
   if (p.startsWith("/git/ref/heads/")) { const r = refs[`heads/${decodeURIComponent(p.slice(15))}`]; return r ? j({ object: { sha: r } }) : j({}, 404); }
   if (p.startsWith("/git/commits/") && method === "GET") return j({ tree: { sha: "t0" } });
   if (p === "/git/blobs") { blobs.push(body.content); return j({ sha: `b${blobs.length}` }, 201); }
   if (p === "/git/trees") return j({ sha: "t1", tree: body.tree }, 201);
   if (p === "/git/commits") return j({ sha: "c1" }, 201);
+  if (p === "/pulls" && method === "POST") { pulls.push(body); return j({ number: 7, html_url: "https://github.com/him/pontoon/pull/7" }, 201); }
   if (p === "/git/refs") { const name = body.ref.replace("refs/", ""); if (refs[name]) return j({ message: "Reference already exists" }, 422); refs[name] = body.sha; return j({ ref: body.ref }, 201); }
   return j({ message: "no" }, 404);
 };
 refs["heads/style/pontoon-2026-10-02"] = "older";
 const prepared = await prepareLayer(nodes, null, source, "tok", { fetch: stand, when: "2026-10-02" });
-check("prepared from the pages as they are on the branch it was read from", prepared.ok && calls.some((c) => c === "GET /repos/him/pontoon/contents/web/index.html?ref=work"), prepared.says ?? "");
+check("prepared from the pages as they are on the default branch, the code the design goes back into", prepared.ok && prepared.base === "main" && !prepared.kit && calls.some((c) => c === "GET /repos/him/pontoon/contents/web/index.html?ref=main"), prepared.says ?? "");
 check("the files are the stylesheet and the changed pages, nothing else", prepared.ok && prepared.files.map((f) => f.path).sort().join() === ["web/index.html", "web/profile.html", "web/style-layer.css"].join() && !prepared.files.some((f) => f.path.endsWith(".js")));
 const sent = await publishLayer(prepared, source, "tok", { site: "Pontoon", date: new Date("2026-10-02T10:00:00Z"), fetch: stand });
 check("it goes to a new style/ branch, the next free name, never over one there", sent.ok && sent.branch === "style/pontoon-2026-10-02-2" && refs["heads/style/pontoon-2026-10-02"] === "older", JSON.stringify(sent));
-check("the default branch and the branch it was read from are untouched", refs["heads/main"] === "m0" && refs["heads/work"] === "c0" && !calls.some((c) => /PATCH|DELETE/.test(c)));
-check("the compare link is handed back for him to merge", sent.ok && sent.compare === "https://github.com/him/pontoon/compare/work...style/pontoon-2026-10-02-2" && /merge it yourself/.test(sent.says));
+check("the default branch and the branch it was read from are untouched", refs["heads/main"] === "m0" && refs["heads/work"] === "c0" && !calls.some((c) => /PATCH|DELETE|PUT|\/merge/.test(c)));
+check("a pull request from it into the default branch is opened, and handed back for him to merge", sent.ok && pulls.length === 1 && pulls[0].base === "main" && pulls[0].head === "style/pontoon-2026-10-02-2" && sent.pull === "https://github.com/him/pontoon/pull/7" && sent.compare === "https://github.com/him/pontoon/compare/main...style/pontoon-2026-10-02-2" && /merge it once its checks are green/.test(sent.says));
 const refused = await publishLayer(prepared, { ...source, ref: "" }, "tok", { site: "", date: new Date("2026-10-02T10:00:00Z"), fetch: async (u, i) => (new URL(u).pathname === "/repos/him/pontoon" ? new Response(JSON.stringify({ default_branch: "style/site-2026-10-02" }), { status: 200 }) : stand(u, i)) });
 check("a branch name that is the default branch is refused before anything is written", !refused.ok && /never to/.test(refused.says));
 
@@ -259,7 +261,8 @@ const tree = [...Object.keys(FILES).map((f, i) => ({ path: f, type: "blob", sha:
 const ui = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 ui.on("pageerror", (e) => errors.push(e.message));
-const uiRefs = { "heads/work": "c0" };
+const uiRefs = { "heads/work": "c0", "heads/main": "c0" };
+const uiPulls = [];
 await ui.route("https://api.github.com/**", (r) => {
   const u = new URL(r.request().url());
   const j = (b, code = 200) => r.fulfill({ status: code, contentType: "application/json", body: JSON.stringify(b) });
@@ -277,6 +280,7 @@ await ui.route("https://api.github.com/**", (r) => {
   if (rest === "/git/blobs" && method === "POST") return j({ sha: "b1" }, 201);
   if (rest === "/git/trees" && method === "POST") return j({ sha: "t1" }, 201);
   if (rest === "/git/commits" && method === "POST") return j({ sha: "c1" }, 201);
+  if (rest === "/pulls" && method === "POST") { uiPulls.push(JSON.parse(r.request().postData())); return j({ number: 9, html_url: "https://github.com/him/pontoon/pull/9" }, 201); }
   if (rest === "/git/refs" && method === "POST") { const name = JSON.parse(r.request().postData()).ref.replace("refs/", ""); uiRefs[name] = "c1"; return j({ ref: name }, 201); }
   return j({ message: "no" }, 404);
 });
@@ -340,11 +344,14 @@ await ui.locator("[data-github-button]").first().click();
 await ui.waitForTimeout(800);
 const section = ui.locator("[data-style-layer-panel]");
 check("the repo menu offers to send the design back, saying what it would do", (await section.count()) === 1 && /Hooks: \d+ restyled, \d+ untouched, \d+ missing/.test(await section.locator("[data-style-layer-says]").innerText()));
+let roundSays = "";
+for (let i = 0; i < 20 && !/Nothing changed|hook/.test(roundSays); i++) { await ui.waitForTimeout(300); roundSays = await section.locator("[data-style-layer-round-says]").innerText().catch(() => ""); }
+check("opened, it reads the code again first and says what changed since it was brought in", /^Nothing changed in the code since/.test(roundSays), roundSays);
 await section.locator("[data-style-layer-send]").click();
 let said = "";
-for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
+for (let i = 0; i < 30 && !/pull request|compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const compare = await section.locator("[data-style-layer-compare]").getAttribute("href").catch(() => null);
-check("one press puts it on a new style/ branch and hands back the compare link", /^https:\/\/github\.com\/him\/pontoon\/compare\/work\.\.\.style\/pontoon-\d{4}-\d\d-\d\d$/.test(compare ?? "") && Object.keys(uiRefs).some((k) => k.startsWith("heads/style/pontoon-")), `${compare} ${said.slice(0, 160)}`);
+check("one press puts it on a new style/ branch, opens a pull request into the default branch, and hands back its link", compare === "https://github.com/him/pontoon/pull/9" && uiPulls.length === 1 && uiPulls[0].base === "main" && /^style\/pontoon-\d{4}-\d\d-\d\d$/.test(uiPulls[0].head) && Object.keys(uiRefs).some((k) => k.startsWith("heads/style/pontoon-")), `${compare} ${said.slice(0, 160)}`);
 check("no errors in the Builder", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();

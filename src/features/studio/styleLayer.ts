@@ -86,6 +86,10 @@ export interface StyleSource {
   files: { file: string; pageId: string; hooks: (SourceHook & { imported: boolean })[]; vars: SourceVar[] }[];
   /** Variables the owner set by hand, by name. */
   varsSet?: Record<string, string>;
+  /** What the repository was when last read (`kitRun.ts`): the baseline each design round is compared with. */
+  seen?: import("./kitRun.ts").KitSeen;
+  /** Its `builder.json`, when it is builder-ready: the design then goes back by the kit's contract. */
+  kit?: import("./kitRun.ts").KitManifest | null;
 }
 
 /** The shape of a node this reads: a board part, loosely. */
@@ -239,6 +243,30 @@ export interface Layer {
   text: TextEdit[];
   /** The plain summary he reads before anything is published. */
   says: string;
+  /** For a builder-ready repository: changes the contract keeps out of the layer, in words. */
+  held?: string[];
+}
+
+/** A colour as `kit-check` finds one (kit/tools/kit-check.mjs, COLOR). */
+export const KIT_COLOUR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(|\b(?:white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|silver|navy|teal|maroon|olive|lime|aqua|cyan|magenta|fuchsia|gold|crimson|indigo|violet|brown|tan|beige)\b/;
+
+/**
+ * Declarations as the builder contract has them: a colour lives only in a
+ * custom property, so `color: #c00` on `hero-button` becomes
+ * `--hero-button-color: #c00; color: var(--hero-button-color)`. The style
+ * layer may declare custom properties with colours; no other rule may hold one.
+ */
+export function kitDeclarations(hook: string, decl: string[]): string[] {
+  const out: string[] = [];
+  for (const d of decl) {
+    const at = d.indexOf(":");
+    const prop = d.slice(0, at).trim();
+    const value = d.slice(at + 1).trim();
+    if (prop.startsWith("--") || !KIT_COLOUR.test(value)) { out.push(d); continue; }
+    const name = `--${hook}-${prop}`;
+    out.push(`${name}: ${value}`, `${prop}: var(${name})`);
+  }
+  return out;
 }
 
 /** The part whose source path this one continues: the section it sits in. */
@@ -260,7 +288,7 @@ function ownerOf(n: LayerNode, all: LayerNode[]): LayerNode | null {
  * `nodes` are the board's parts, every page; `palette` resolves role
  * colours; `source` is the inventory written at import.
  */
-export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string } = {}): Layer {
+export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string; kit?: boolean } = {}): Layer {
   const sourced = nodes.filter((n) => n.source?.was);
   const rules: Layer["rules"] = [];
   const text: TextEdit[] = [];
@@ -277,12 +305,16 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     return m;
   };
   const styled = new Set<string>();
+  const kitHeld: string[] = [];
   for (const n of sourced) {
     const src = n.source!;
     const now = lookOf(n, palette, opts);
     if (src.hook) {
       /* Size and place are written only where he set them: the board grows and shifts boxes to fit its own type, and that is not a design. */
-      const decl = changedDeclarations(src.was, n.byHand ? now : { ...now, box: src.was.box }, n.byHand ? own(n) : { dx: 0, dy: 0 });
+      let decl = changedDeclarations(src.was, n.byHand ? now : { ...now, box: src.was.box }, n.byHand ? own(n) : { dx: 0, dy: 0 });
+      /* A builder-ready repository keys rules by data-hook only, and keeps colours in custom properties (`kitDeclarations`). */
+      if (opts.kit && decl.length && src.hook.attr !== "data-hook") { kitHeld.push(`${src.file}: #${src.hook.value} has only an id, and a builder-ready repository keys its rules by data-hook, so it keeps its own look.`); decl = []; }
+      if (opts.kit) decl = kitDeclarations(src.hook.value, decl);
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
@@ -296,6 +328,9 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       text.push({ nodeId: n.id, file: src.file, ...(src.line ? { line: src.line } : {}), from: strip(src.was.words), to: strip(now.words) });
     }
   }
+
+  /* A builder-ready repository's design changes only its style layer: words are the code's, changed by a code chat. */
+  if (opts.kit) for (const e of text.splice(0)) kitHeld.push(`${e.file}: the words “${e.from.slice(0, 40)}” became “${e.to.slice(0, 40)}” on the board, but a design never changes a page's words here; ask a code chat to change them.`);
 
   /* The variables: set by hand, else followed when every part wearing a variable's colour now wears one other colour. */
   const vars: Layer["vars"] = [];
@@ -372,9 +407,10 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     `${rules.length} part${rules.length === 1 ? "" : "s"} restyled by hook, ${vars.length} CSS variable${vars.length === 1 ? "" : "s"} set, ${text.length} line${text.length === 1 ? "" : "s"} of plain words changed.`,
     `Hooks: ${count("covered")} restyled, ${count("untouched")} untouched, ${count("missing")} missing.`,
     ...missing.map((m) => `Warning: ${m.why} (${m.file} line ${m.line})`),
-    "Scripts, behaviour and every hook stay as they are; each page gains one <link> line.",
+    ...kitHeld.map((h) => `Held back: ${h}`),
+    opts.kit ? "Scripts, pages and every hook stay as they are: only the style layer changes." : "Scripts, behaviour and every hook stay as they are; each page gains one <link> line.",
   ].join("\n");
-  return { css, rules, vars, check, text, says };
+  return { css, rules, vars, check, text, says, held: kitHeld };
 }
 
 /** The `<link>` a page gets: to the layer, relative to the page. */

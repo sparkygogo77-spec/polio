@@ -1,0 +1,40 @@
+{
+  "kit": "1.0.0",
+  "name": "Starter",
+  "about": "Read first by the Polio builder. Every path is relative to this file. See BUILDER-CONTRACT.md.",
+  "pages": [
+    { "file": "starter/index.html", "title": "Home" },
+    { "file": "starter/about.html", "title": "About" },
+    { "file": "starter/list.html", "title": "List" },
+    { "file": "starter/contact.html", "title": "Contact" }
+  ],
+  "hooks": "starter/hooks.json",
+  "tokens": "starter/tokens.css",
+  "styleLayer": "starter/style-layer.css",
+  "preview": {
+    "page": "starter/preview.html",
+    "query": "?still=1&screen=<name>",
+    "screens": [
+      { "name": "home", "page": "starter/index.html" },
+      { "name": "home-modal", "page": "starter/index.html" },
+      { "name": "about", "page": "starter/about.html" },
+      { "name": "list", "page": "starter/list.html" },
+      { "name": "list-empty", "page": "starter/list.html" },
+      { "name": "contact", "page": "starter/contact.html" },
+      { "name": "contact-errors", "page": "starter/contact.html" },
+      { "name": "contact-sent", "page": "starter/contact.html" }
+    ]
+  },
+  "gallery": "starter/gallery.html",
+  "scripts": {
+    "hookCalls": { "hook": 0, "hooks": 0, "fromTemplate": 0, "part": 1 },
+    "helperFiles": ["starter/js/hooks.js"]
+  },
+  "links": {
+    "allowHosts": ["pump.fun", "dexscreener.com"],
+    "block": [
+      { "pattern": "^https?://(www\\.)?(x|twitter)\\.com/", "why": "no X profile links" },
+      { "pattern": "^https?://(www\\.)?dexscreener\\.com/[^/?#]+/[^/?#]+", "why": "DexScreener links never point at a specific contract address" }
+    ]
+  }
+}

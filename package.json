@@ -15,7 +15,9 @@
     "test:all": "node scripts/test-all.mjs",
     "test:changed": "node scripts/test-all.mjs --changed",
     "capture:check": "node capture/run-checks.mjs",
-    "capture:fixtures": "node capture/fixtures/unpack.mjs"
+    "capture:fixtures": "node capture/fixtures/unpack.mjs",
+    "kit:files": "node scripts/kit-files.mjs",
+    "kit:test": "cd kit && node --test test/*.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

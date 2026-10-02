@@ -52,7 +52,7 @@ export interface Pipes {
 
 /** The folder name a site is kept under: lowered, dashes, never a path, never one of the capturer's own folders. Mirrors `capture-site.mjs`'s `siteName`. */
 export function captureName(raw: string): string | null {
-  const typed = String(raw ?? "").trim();
+  const typed = withoutJoinedAddress(String(raw ?? "").trim());
   if (/[/\\]|\.\./.test(typed)) return null;
   const s = typed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (!s || s.length > 64) return null;
@@ -66,6 +66,25 @@ export function nameFrom(url: string): string | null {
     const host = new URL(url).hostname.replace(/^www\./, "");
     return captureName(host.split(".").slice(0, -1).join("-") || host);
   } catch { return null; }
+}
+
+/**
+ * One address from a field. Typing or pasting onto an address already in
+ * the field joins two ("https://pst-server-beige.vercel.apphttps://…"),
+ * and a capture once ran on exactly that: the last whole address is the one
+ * meant. `joined` says it happened, so the field can say so.
+ */
+export function oneAddress(text: string): { url: string; joined: boolean } {
+  const t = String(text ?? "").trim();
+  /* A second address glued on, or after a space; one inside a query (`?next=https://…`) belongs to the first. */
+  const starts = [...t.matchAll(/https?:\/\//gi)].map((m) => m.index!).filter((i) => i > 0 && /[a-z0-9\s]/i.test(t[i - 1]!));
+  if (!starts.length) return { url: t, joined: false };
+  return { url: t.slice(starts[starts.length - 1]).trim(), joined: true };
+}
+
+/** A name made from a joined address loses the second address glued to its end ("vercel-apphttps…" is "vercel-app"). */
+export function withoutJoinedAddress(name: string): string {
+  return name.replace(/(?<=[^\s/:])https?(?::\/\/\S*|[-_.]\S*)?$/i, "").replace(/[-_.\s]+$/, "") || name;
 }
 
 /** Where a committing capturer's capture lands, and what the importer is handed to read it. An artifact's is `{ ref: runRef(id), path }`. */
@@ -170,7 +189,7 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
   const f = o.fetch ?? fetch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let address: URL;
-  try { address = new URL(o.url.trim()); if (!/^https?:$/.test(address.protocol)) throw new Error(); } catch { return { ok: false, says: "That is not an address. It wants to start with https://." }; }
+  try { address = new URL(oneAddress(o.url).url); if (!/^https?:$/.test(address.protocol)) throw new Error(); } catch { return { ok: false, says: "That is not an address. It wants to start with https://." }; }
   const name = captureName(o.name) ?? nameFrom(address.href);
   if (!name) return { ok: false, says: "Name the site: letters, digits and dashes." };
   if (!o.token) return { ok: false, says: "No GitHub token in this browser yet. Open Keys and put one in; the capture runs in your own repository with it." };

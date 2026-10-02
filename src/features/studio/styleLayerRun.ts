@@ -3,18 +3,22 @@
  *
  * In his browser, with his own token, exactly as Bring it in reads the
  * repository (`repoRun.ts`): nothing about the token reaches our server.
- * The pages are read fresh from the branch the site was brought in from, so
- * the one `<link>` and any plain-word change land on what is there now, not
- * on what was there when it was brought in. Then one commit, on a NEW branch
- * `style/<site>-<date>` made from that branch — never the default branch,
- * never the branch it was read from — and the compare link, so he reads the
- * change and approves the merge himself.
+ * The pages are read fresh from the repository's default branch (the code
+ * the design goes back into), so the one `<link>` and any plain-word change
+ * land on what is there now, not on what was there when it was brought in.
+ * Then one commit, on a NEW branch `style/<site>-<date>` made from it —
+ * never the default branch itself — and a pull request from that branch
+ * into the default branch, which is never merged here: he, or the chat that
+ * merges designs, merges it once its checks are green.
+ *
+ * A builder-ready repository (one with `builder.json`, kit/PIPELINE.md) gets
+ * the contract's design: only its style layer, checked by the kit's own
+ * check with `hooks.json` remade, so `kit:diff --style-only` passes.
  *
  * `fetch` is passed in, so `tests/style-layer.mjs` can stand a GitHub in.
  */
 import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./styleLayer.ts";
-
-const API = "https://api.github.com";
+import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
 
 export interface LayerFiles {
   layer: Layer;
@@ -24,47 +28,34 @@ export interface LayerFiles {
   skipped: { file: string; from: string; why: string }[];
   /** The stylesheet's path in the repository. */
   cssPath: string;
+  /** The branch it was read from, and that the design goes back into: the repository's default branch. */
+  base: string;
+  /** Sent by the builder contract (`builder.json`): only the style layer and the map made from it. */
+  kit: boolean;
 }
 
 export type Answer<T> = ({ ok: true } & T) | { ok: false; says: string };
 
 type Fetch = typeof fetch;
 
-async function gh(f: Fetch, token: string, path: string, init?: { method?: string; body?: unknown }): Promise<{ status: number; json: Record<string, unknown> | null }> {
-  try {
-    const res = await f(`${API}${path}`, {
-      method: init?.method ?? "GET",
-      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", ...(init?.body ? { "content-type": "application/json" } : {}) },
-      ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
-    });
-    let json: Record<string, unknown> | null = null;
-    try { json = (await res.json()) as Record<string, unknown>; } catch { /* an empty answer */ }
-    return { status: res.status, json };
-  } catch {
-    return { status: 0, json: null };
-  }
-}
-
-const b64decode = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s+/g, "")), (c) => c.charCodeAt(0)));
 const pathOf = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 
-/** One file of the repository at a ref, as text. */
-async function fileAt(f: Fetch, token: string, repo: string, ref: string, path: string): Promise<string | null> {
-  const got = await gh(f, token, `/repos/${repo}/contents/${pathOf(path)}?ref=${encodeURIComponent(ref)}`);
-  const content = got.json?.content;
-  return got.status === 200 && typeof content === "string" ? b64decode(content) : null;
-}
-
-/** The layer and the files it makes, against the pages as they are on the branch now. */
-export async function prepareLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, opts: { fetch?: Fetch; when?: string; family?: (name: string) => string | undefined } = {}): Promise<Answer<LayerFiles>> {
+/** The layer and the files it makes, against the code as it is on the repository's default branch now. */
+export async function prepareLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, opts: { fetch?: Fetch; when?: string; family?: (name: string) => string | undefined; kitMap?: KitMapCall } = {}): Promise<Answer<LayerFiles>> {
   const f = opts.fetch ?? fetch;
+  const main = await defaultBranch(f, token, source.repo);
+  if (!main.ok) return main;
+  const base = main.branch;
+  const kit = await readKit(source.repo, base, token, { fetch: f });
+  if (kit && !kit.ok) return kit;
+  if (kit) return prepareKitLayer(nodes, palette, source, token, kit.manifest, base, { ...opts, fetch: f });
   const layer = buildLayer(nodes, palette, source, { when: opts.when, family: opts.family });
   const cssPath = `${source.dir}style-layer.css`;
   const files: LayerFiles["files"] = [{ path: cssPath, content: layer.css }];
   const skipped: LayerFiles["skipped"] = [];
   for (const page of source.files) {
-    const html = await fileAt(f, token, source.repo, source.ref, page.file);
-    if (html === null) return { ok: false, says: `GitHub would not hand over ${page.file} from ${source.repo} on ${source.ref}. Check the token can read it, and that the branch is still there.` };
+    const html = await fileAt(f, token, source.repo, base, page.file);
+    if (html === null) return { ok: false, says: `GitHub would not hand over ${page.file} from ${source.repo} on ${base}. Check the token can read it, and that the page is still there.` };
     const edits = layer.text.filter((e) => e.file === page.file);
     const done = applyToPage(html, { href: linkHref(page.file, cssPath), edits });
     for (const s of done.skipped) skipped.push({ file: page.file, from: s.from, why: s.why });
@@ -74,22 +65,50 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
     for (const [k, v] of before) if ((after.get(k) ?? 0) < v) return { ok: false, says: `Stopped: the change to ${page.file} would have lost ${k}. Nothing was written.` };
     if (done.html !== html) files.push({ path: page.file, content: done.html });
   }
-  return { ok: true, layer, files, skipped, cssPath };
+  return { ok: true, layer, files, skipped, cssPath, base, kit: false };
 }
 
 /**
- * One commit on a new branch made from the branch the site was read from.
- * Never the default branch: refused before anything is written.
+ * A builder-ready repository (kit/BUILDER-CONTRACT.md): the design is its
+ * style layer and nothing else. Rules keyed by data-hook, colours in custom
+ * properties, no page touched; what was already in the layer is kept, with
+ * this round after it; and `hooks.json` remade by the kit's own check, which
+ * must pass, or nothing is sent. The branch then passes `kit:diff --style-only`.
  */
-export async function publishLayer(prepared: LayerFiles, source: StyleSource, token: string, opts: { site: string; date?: Date; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; compare: string; says: string }>> {
+async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, manifest: KitManifest, base: string, opts: { fetch: Fetch; when?: string; family?: (name: string) => string | undefined; kitMap?: KitMapCall }): Promise<Answer<LayerFiles>> {
+  const layer = buildLayer(nodes, palette, source, { when: opts.when, family: opts.family, kit: true });
+  const got = await kitFiles(source.repo, base, token, manifest, { fetch: opts.fetch });
+  if (!got.ok) return got;
+  const cssPath = manifest.styleLayer;
+  const had = got.files[cssPath] ?? "";
+  /* Its rules alone, without the header: a layer already merged stays, and this round follows it, so its rules win. */
+  const rules = layer.css.slice(layer.css.indexOf("*/") + 2).trim();
+  const kept = had.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+  const css = !rules ? had || layer.css : kept ? `${had.trimEnd()}\n\n/* From the Builder${opts.when ? `, ${opts.when}` : ""}: this round's rules, after the ones already here, so they win. */\n${rules}\n` : layer.css;
+  const after = { ...got.files, [cssPath]: css };
+  const map = await (opts.kitMap ?? kitMapOnServer)(after);
+  if (map.problems.length) return { ok: false, says: `The kit's check finds ${map.problems.length} problem${map.problems.length === 1 ? "" : "s"} with the code and this design together, so nothing was written: ${map.problems.slice(0, 5).join("; ")}${map.problems.length > 5 ? "; and more" : ""}.` };
+  const files: LayerFiles["files"] = [];
+  if (css !== had) files.push({ path: cssPath, content: css });
+  for (const [path, content] of Object.entries(map.made)) if (content !== got.files[path]) files.push({ path, content });
+  const skipped = (layer.held ?? []).map((h) => ({ file: h.split(":")[0] ?? "", from: h, why: "a design for a builder-ready repository changes only its style layer" }));
+  return { ok: true, layer, files, skipped, cssPath, base, kit: true };
+}
+
+/**
+ * One commit on a new branch made from the default branch, and a pull
+ * request from it into the default branch. Never merged here: he, or the
+ * chat that merges designs, merges it once its checks are green.
+ */
+export async function publishLayer(prepared: LayerFiles, source: StyleSource, token: string, opts: { site: string; date?: Date; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; compare: string; says: string; pull: string | null }>> {
   const f = opts.fetch ?? fetch;
   const repo = source.repo;
-  const info = await gh(f, token, `/repos/${repo}`);
-  if (info.status !== 200) return { ok: false, says: info.status === 404 ? `GitHub has no ${repo}, or this token cannot see it.` : info.status === 401 || info.status === 403 ? "GitHub refused that token. Check it under Keys." : "GitHub could not be reached." };
-  const main = String(info.json?.default_branch ?? "main");
-  const base = source.ref || main;
+  const main = await defaultBranch(f, token, repo);
+  if (!main.ok) return main;
+  const base = prepared.base || main.branch;
   let branch = layerBranch(opts.site, opts.date ?? new Date());
-  if (!branch.startsWith("style/") || branch === main || branch === base) return { ok: false, says: `Refused: the layer only ever goes to a new style/ branch, never to ${main}.` };
+  if (!branch.startsWith("style/") || branch === main.branch || branch === base || branch === source.ref) return { ok: false, says: `Refused: the layer only ever goes to a new style/ branch, never to ${main.branch}.` };
+  if (!prepared.files.length) return { ok: false, says: "There is nothing to send: the design changes nothing in the code." };
   const ref = await gh(f, token, `/repos/${repo}/git/ref/heads/${pathOf(base)}`);
   const head = (ref.json?.object as { sha?: string } | undefined)?.sha;
   if (!head) return { ok: false, says: `GitHub has no branch ${base} in ${repo} to start from.` };
@@ -117,8 +136,23 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
     if (put.status === 201 || put.status === 200) {
       branch = name;
       const compare = `https://github.com/${repo}/compare/${base}...${branch}`;
-      const says = `The style layer is on a new branch, ${branch}, in ${repo}: ${prepared.files.length} file${prepared.files.length === 1 ? "" : "s"} (${prepared.files.map((x) => x.path).join(", ")}). Nothing on ${base} or ${main} has changed. Read it and merge it yourself: ${compare}`;
-      return { ok: true, branch, sha, compare, says };
+      const listed = `${prepared.files.length} file${prepared.files.length === 1 ? "" : "s"} (${prepared.files.map((x) => x.path).join(", ")})`;
+      const body = [
+        "The design from the Builder, sent back as a style layer.",
+        "",
+        prepared.layer.says,
+        "",
+        `Files: ${prepared.files.map((x) => `\`${x.path}\``).join(", ")}.`,
+        prepared.kit ? "Only the style layer (and the hooks map made from it) changes, so `kit:diff --style-only` holds it." : "Each page gains at most one <link> to the layer, and words written once as plain text.",
+        "",
+        "Made by the Builder's \"Send the design back\". The Builder never merges: merge it once its checks are green.",
+      ].join("\n");
+      const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title: `Design from the Builder: ${opts.site || repo}`, head: branch, base, body } });
+      const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
+      const says = pull
+        ? `The design is a pull request into ${base} of ${repo}, from a new branch ${branch}: ${listed}. Nothing on ${base} has changed, and nothing is merged. Read it and merge it once its checks are green: ${pull}`
+        : `The style layer is on a new branch, ${branch}, in ${repo}: ${listed}. Nothing on ${base} has changed. GitHub would not open the pull request (it answered ${pr.status}); open it from the compare page: ${compare}`;
+      return { ok: true, branch, sha, compare, says, pull };
     }
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${name} (it answered ${put.status}).` };
   }

@@ -1201,6 +1201,8 @@ export function StudioPage() {
     /* The site as HTML and CSS, for the checks and scripts/export-site.mjs:
        what Publish and Go live send (exportSite.ts). */
     (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
+    /* The same site as a builder-ready repository (exportForCode.ts, kit/PIPELINE.md route 1), for tests/export-for-code.mjs. */
+    (w as unknown as { __studioKitExport?: () => Promise<unknown> }).__studioKitExport = () => import("./exportForCode").then((m) => m.exportForCode());
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
     (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;
     /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */

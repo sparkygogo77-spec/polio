@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/preview.js"></script>
+</head>
+<body data-hook="page-preview">
+<main data-hook="page-main">
+  <h1 data-hook="page-title">Preview</h1>
+  <p data-hook="page-intro">Every screen from builder.json, frozen with ?still=1.</p>
+  <div data-hook="preview-screens"></div>
+  <template data-hook="template-preview-screen">
+    <figure data-hook="preview-screen">
+      <iframe data-hook="preview-frame" title="Screen" loading="lazy"></iframe>
+      <figcaption data-hook="preview-caption">screen</figcaption>
+    </figure>
+  </template>
+</main>
+</body>
+</html>
