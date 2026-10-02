@@ -27,6 +27,7 @@ import { ArtifactRefused, artifactFiles, artifactName, artifactSays, findArtifac
 import { MOST_CHARS, MOST_READS } from "./standIn";
 import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
+import { manifestIn, readManifest, type BuilderManifest } from "./builderManifest";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
 
 const API = "https://api.github.com";
@@ -41,6 +42,8 @@ export interface RepoRead {
   bytes: number;
   /** The branch, tag or commit actually read. */
   ref: string;
+  /** The repository's builder.json, when it has one (`builderManifest.ts`). */
+  manifest?: BuilderManifest;
   /** Its scripts and hooks.json as text, for the part panel's code view (`codeRefs.ts`); never in the zip. */
   code?: { path: string; text: string }[];
   /** Set when the page was built from the repository's source rather than found in it: which file, and what the reading did. */
@@ -400,6 +403,26 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
   const paths = blobs.map((e) => e.path);
 
   /*
+   * A BUILDER.JSON IS READ FIRST (`builderManifest.ts`). A repository made
+   * with the builder-ready starter kit says itself which pages it has and
+   * where its hooks.json, tokens and style layer are: those are taken as
+   * written, ahead of a document made here, a page source, or a page found
+   * by name. One that cannot be read is said, and the repository is read as
+   * any other.
+   */
+  let manifest: BuilderManifest | null = null;
+  const mpath = manifestIn(paths, repo.dir);
+  if (mpath) {
+    say(`Reading ${mpath}…`);
+    const m = blobs.find((e) => e.path === mpath)!;
+    const got = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${m.sha}`, token);
+    const it = got as { content?: string; encoding?: string };
+    if (!isNo(got) && it.encoding === "base64" && typeof it.content === "string") manifest = readManifest(new TextDecoder().decode(unbase64(it.content)), mpath);
+    if (!manifest) say(`${mpath} could not be read as a builder manifest, so the repository is read as any other…`);
+    else if (!manifest.pages.some((p) => paths.includes(p.file))) { say(`${mpath} names no page the repository holds, so its page is looked for instead…`); manifest = { ...manifest, pages: [] }; }
+  }
+
+  /*
    * A SITE MADE HERE IS COPIED, NOT READ. The document a publish leaves in
    * the repository is the site exactly: every part, position, colour and
    * prompt. Fidelity first: it is taken whole, ahead of any page in the
@@ -407,7 +430,7 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
    * with it from the same tree. Only a document that cannot be read falls
    * through to the page or the address, and says so.
    */
-  if (madeHere(paths, repo.dir)) {
+  if (!manifest?.pages.length && madeHere(paths, repo.dir)) {
     say(`Reading the site itself out of ${repo.owner}/${repo.name}…`);
     const copy = await copyOf(repo, token, ref, blobs, say);
     if (copy) return copy;
@@ -420,10 +443,10 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
    * repository with no page source falls through to a page in its files,
    * and from there to the address it is deployed at.
    */
-  const fromSource = await sourceOf(repo, token, ref, blobs, say);
+  const fromSource = manifest?.pages.length ? null : await sourceOf(repo, token, ref, blobs, say);
   if (fromSource) return fromSource;
 
-  const page = pageIn(paths);
+  const page = manifest?.pages.find((p) => paths.includes(p.file))?.file ?? pageIn(paths);
   if (!page) {
     /*
      * No page in it. That is not a failure to hide: it is a project that
@@ -438,7 +461,8 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     return { no: "no-page", says: noPageSays(repo, kinds, page.at, made), deployedAt: homepage || null, pageAt: page.at, pageWhy: page.why, madeHere: made };
   }
 
-  const keep = wanted(paths);
+  /* The manifest's pages and the files it names come whatever the filter thinks of them. */
+  const keep = [...wanted(paths), ...(manifest ? [...manifest.pages.map((p) => p.file), manifest.tokens, manifest.styleLayer].filter((p): p is string => !!p && paths.includes(p)) : [])];
   const want = new Map(blobs.filter((e) => keep.includes(e.path)).map((e) => [e.path, e]));
   // The page itself always comes, whatever the filter thought of its name.
   if (!want.has(page)) {
@@ -478,7 +502,7 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
    */
   const pageDir = page.includes("/") ? page.slice(0, page.lastIndexOf("/") + 1) : "";
   const scripts = blobs.filter((e) => e.path.startsWith(pageDir) && /\.(m?js|cjs)$/i.test(e.path) && !/(^|\/)(node_modules|vendor|dist|build|test|tests)\//i.test(e.path) && !/\.min\.js$/i.test(e.path) && (e.size ?? 0) < 400_000).slice(0, MOST_SCRIPTS);
-  const hooksJson = blobs.find((e) => e.path === `${pageDir}hooks.json`) ?? blobs.find((e) => /(^|\/)hooks\.json$/i.test(e.path) && !/node_modules/.test(e.path));
+  const hooksJson = (manifest?.hooks ? blobs.find((e) => e.path === manifest!.hooks) : undefined) ?? blobs.find((e) => e.path === `${pageDir}hooks.json`) ?? blobs.find((e) => /(^|\/)hooks\.json$/i.test(e.path) && !/node_modules/.test(e.path));
   const code: { path: string; text: string }[] = [];
   const decoder = new TextDecoder();
   const extra = [...scripts, ...(hooksJson ? [hooksJson] : [])];
@@ -502,5 +526,6 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     bytes: zip.length,
     ref,
     ...(code.length ? { code } : {}),
+    ...(manifest ? { manifest } : {}),
   };
 }

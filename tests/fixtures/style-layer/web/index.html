@@ -12,6 +12,9 @@
   }
   [data-hook="score-you"][data-sign="gain"] { color: var(--pons-gain); }
   [data-hook="score-you"][data-sign="loss"] { color: var(--pons-loss); }
+  [data-hook="duel-circle-me"] { fill: var(--pons-ring-me); stroke: var(--pons-ring-me); }
+  [data-hook="duel-circle-opponent"] { fill: #eab308; stroke: #eab308; }
+  [data-hook^="duel-circle-"] { fill-opacity: 0.4; stroke-width: 3; }
 </style>
 </head>
 <body data-hook="app" data-state="signed-out">
@@ -28,6 +31,7 @@
   <button type="button" data-hook="wallet-connect-test">Use test wallet</button>
   <button type="button" data-hook="wallet-forget-test">Forget test wallet</button>
   <button type="button" data-hook="wallet-new">Create a new wallet</button>
+  <button type="button" data-hook="avatar-sun" aria-label="Sun"><img data-hook="avatar-sun-picture" alt="Sun" width="24" height="24"></button>
   <p>Address: <code data-hook="wallet-address">not connected</code></p>
 </section>
 
@@ -43,7 +47,8 @@
   <p>Escrow balance: <span data-hook="balance-available">0</span> SOL</p>
   <div data-hook="deposit-panel">
     <h3>Deposit</h3>
-    <label>Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
+    <label data-hook="deposit-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
+    <select data-hook="queue-stake"><option data-hook="stake-1" value="1">1 SOL</option><option data-hook="stake-2" value="2" selected>2 SOL</option></select>
     <button type="button" data-hook="deposit-review">Review deposit</button>
     <div data-hook="deposit-confirm-panel" hidden>
       <pre data-hook="deposit-summary"></pre>
@@ -60,8 +65,15 @@
 <section data-hook="score-panel">
   <h2>Score</h2>
   <p data-hook="score-you" data-sign="flat">You 0.00%</p>
+  <div data-hook="duel">
+    <svg data-hook="duel-svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Duel: your circle against theirs">
+      <circle data-hook="duel-circle-opponent" cx="100" cy="100" r="50"></circle>
+      <circle data-hook="duel-circle-me" cx="100" cy="100" r="50"></circle>
+    </svg>
+  </div>
 </section>
 
+<template data-hook="template-order-item"><p data-hook="order-item"><span data-hook="order-item-side">-</span></p></template>
 <script src="app.js"></script>
 </body>
 </html>

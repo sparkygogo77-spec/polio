@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/home.js"></script>
+</head>
+<body data-hook="page-home">
+<header data-hook="site-header">
+  <a data-hook="site-logo" href="index.html">Starter</a>
+  <nav data-hook="site-nav" aria-label="Main">
+    <a data-hook="nav-home" href="index.html">Home</a>
+    <a data-hook="nav-about" href="about.html">About</a>
+    <a data-hook="nav-list" href="list.html">List</a>
+    <a data-hook="nav-contact" href="contact.html">Contact</a>
+  </nav>
+</header>
+<main data-hook="page-main">
+  <section data-hook="home-hero">
+    <h1 data-hook="page-title">A small site the builder can read</h1>
+    <p data-hook="page-intro">Every part has a name, every colour is a token, and the design arrives as one style layer.</p>
+    <button data-hook="hero-button" type="button">Join the list</button>
+  </section>
+  <section data-hook="home-features" aria-label="Features">
+    <article data-hook="feature-hooks">
+      <h2 data-hook="feature-hooks-title">Named parts</h2>
+      <p data-hook="feature-hooks-text">Each element carries a stable data-hook.</p>
+    </article>
+    <article data-hook="feature-tokens">
+      <h2 data-hook="feature-tokens-title">Tokens</h2>
+      <p data-hook="feature-tokens-text">Colours, sizes and fonts live in tokens.css.</p>
+    </article>
+    <article data-hook="feature-layer">
+      <h2 data-hook="feature-layer-title">Style layer</h2>
+      <p data-hook="feature-layer-text">The design loads last and wins.</p>
+    </article>
+  </section>
+  <dialog data-hook="signup-modal" aria-labelledby="signup-title">
+    <h2 data-hook="modal-title" id="signup-title">Join the list</h2>
+    <p data-hook="modal-text">One short note when something new ships.</p>
+    <div data-hook="modal-actions">
+      <button data-hook="modal-close-button" type="button">Not now</button>
+      <button data-hook="modal-confirm-button" type="button">Count me in</button>
+    </div>
+  </dialog>
+</main>
+<footer data-hook="site-footer">
+  <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>
+</footer>
+</body>
+</html>

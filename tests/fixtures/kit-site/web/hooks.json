@@ -1,0 +1,196 @@
+{
+  "about": "Every data-hook on the kit pages, made by the kit's hooks-map script.",
+  "pages": {
+    "index.html": {
+      "stylesheets": [
+        "base.css",
+        "style-layer.css"
+      ],
+      "scripts": [
+        "app.js"
+      ]
+    },
+    "ledger.html": {
+      "stylesheets": [
+        "base.css",
+        "style-layer.css"
+      ],
+      "scripts": []
+    }
+  },
+  "cssVariables": {
+    "--pons-gain": {
+      "default": "#16a34a",
+      "usedBy": [
+        "score-you"
+      ],
+      "readBy": [
+        {
+          "file": "app.js",
+          "line": 24,
+          "function": "review",
+          "actions": [
+            "reads"
+          ]
+        }
+      ]
+    },
+    "--pons-loss": {
+      "default": "#dc2626",
+      "usedBy": [
+        "score-you"
+      ],
+      "readBy": []
+    }
+  },
+  "hooks": {
+    "wallet-connect-test": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "button",
+      "parent": "wallet-panel",
+      "scriptBuilt": false,
+      "template": null,
+      "repeats": false,
+      "cssVariables": [],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 27,
+          "function": null,
+          "actions": [
+            "listens"
+          ]
+        }
+      ]
+    },
+    "wallet-address": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "code",
+      "parent": "wallet-panel",
+      "scriptBuilt": false,
+      "template": null,
+      "repeats": false,
+      "cssVariables": [],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 6,
+          "function": "signIn",
+          "actions": [
+            "reads"
+          ]
+        }
+      ]
+    },
+    "balance-note": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "p",
+      "parent": "balance-panel",
+      "scriptBuilt": false,
+      "template": null,
+      "repeats": false,
+      "cssVariables": [],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 1,
+          "function": "renderNote",
+          "actions": [
+            "writes",
+            "styles"
+          ]
+        }
+      ]
+    },
+    "deposit-review": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "button",
+      "parent": "balance-panel",
+      "scriptBuilt": false,
+      "template": null,
+      "repeats": false,
+      "cssVariables": [],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 28,
+          "function": "(top level)",
+          "actions": [
+            "listens"
+          ]
+        }
+      ]
+    },
+    "score-you": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "p",
+      "parent": "score-panel",
+      "scriptBuilt": false,
+      "template": null,
+      "repeats": false,
+      "cssVariables": [
+        "--pons-gain",
+        "--pons-loss"
+      ],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 21,
+          "function": "review",
+          "actions": [
+            "reads"
+          ]
+        },
+        {
+          "file": "app.js",
+          "line": 23,
+          "function": "review",
+          "actions": [
+            "writes"
+          ]
+        },
+        {
+          "file": "base.css",
+          "line": 6,
+          "function": "[data-hook=\"score-you\"][data-sign=\"loss\"]",
+          "actions": [
+            "styles"
+          ]
+        }
+      ]
+    },
+    "ledger-row": {
+      "pages": [
+        "index.html"
+      ],
+      "element": "p",
+      "parent": "ledger-rows",
+      "scriptBuilt": true,
+      "template": "template-ledger-row",
+      "repeats": true,
+      "cssVariables": [
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "app.js",
+          "line": 14,
+          "function": "addRow",
+          "actions": [
+            "writes"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -31,7 +31,12 @@ export interface SourceVar {
   value: string;
   file: string;
   line: number;
+  /** Defined in the design-tokens file (`tokens.css`, or the one builder.json names): a token the owner edits as a variable. */
+  token?: boolean;
 }
+
+/** Is this the design-tokens file? `tokens.css` anywhere, or the path a builder.json names. */
+export const isTokensFile = (file: string, named?: string | null) => (named ? file.replace(/^\//, "") === named.replace(/^\//, "") : /(^|\/)(design-)?tokens\.css$/i.test(file));
 
 export interface PageSource {
   file: string;
@@ -74,7 +79,8 @@ export function varsIn(css: string, file: string, offsetLine = 0): SourceVar[] {
   const out: SourceVar[] = [];
   const re = /(^|[{;\s])(--[\w-]+)\s*:\s*([^;}]+)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(css))) out.push({ name: m[2]!, value: m[3]!.trim(), file, line: offsetLine + lineAt(css, m.index + m[1]!.length) - 1 + 1 });
+  const token = isTokensFile(file);
+  while ((m = re.exec(css))) out.push({ name: m[2]!, value: m[3]!.trim(), file, line: offsetLine + lineAt(css, m.index + m[1]!.length), ...(token ? { token: true } : {}) });
   return out;
 }
 
@@ -82,8 +88,20 @@ export function varsIn(css: string, file: string, offsetLine = 0): SourceVar[] {
  * One page's source: its hooks, and the variables defined in its own style
  * blocks and in each stylesheet it links (`open` gives a linked file's text).
  */
-export function sourceOfPage(file: string, html: string, open: (href: string) => { file: string; text: string } | null): PageSource {
+export function sourceOfPage(file: string, html: string, open: (href: string) => { file: string; text: string } | null, opts: { tokens?: string | null } = {}): PageSource {
   const vars: SourceVar[] = [];
+  const seen = new Set<string>();
+  /* A stylesheet, and what it @imports (a tokens file is often imported from the base sheet), once each. */
+  const sheet = (path: string, depth = 0) => {
+    if (seen.has(path) || depth > 3) return;
+    seen.add(path);
+    const got = open(path);
+    if (!got) return;
+    vars.push(...varsIn(got.text, got.file).map((v) => (isTokensFile(got.file, opts.tokens) ? { ...v, token: true } : v)));
+    const here = got.file.includes("/") ? got.file.slice(0, got.file.lastIndexOf("/") + 1) : "";
+    const imp = /@import\s+(?:url\(\s*)?["']?([^"')\s;]+)["']?\s*\)?/gi;
+    for (let i = imp.exec(got.text); i; i = imp.exec(got.text)) if (!/^[a-z]+:/i.test(i[1]!)) sheet(i[1]!.startsWith("/") ? i[1]!.slice(1) : `${here}${i[1]}`, depth + 1);
+  };
   const style = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
   let m: RegExpExecArray | null;
   while ((m = style.exec(html))) {
@@ -95,9 +113,10 @@ export function sourceOfPage(file: string, html: string, open: (href: string) =>
     const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec(m[0])?.[1];
     if (!href || /^[a-z]+:/i.test(href)) continue;
     const dir = file.includes("/") ? file.slice(0, file.lastIndexOf("/") + 1) : "";
-    const got = open(href.startsWith("/") ? href.slice(1) : `${dir}${href}`);
-    if (got) vars.push(...varsIn(got.text, got.file));
+    sheet(href.startsWith("/") ? href.slice(1) : `${dir}${href}`);
   }
+  /* The tokens file the repository names, linked or not. */
+  if (opts.tokens) sheet(opts.tokens.replace(/^\//, ""));
   return { file, hooks: hooksIn(html), vars };
 }
 

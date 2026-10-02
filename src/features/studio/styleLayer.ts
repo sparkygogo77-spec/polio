@@ -64,6 +64,27 @@ export interface NodeSource {
   was: CssLook;
   /** All the code tied to it, read only (`codeRefs.ts`): its markup, the CSS rules that style it, and every script that touches it. */
   code?: PartCode | null;
+  /** A shape inside an inline svg (a circle, a path): its fill and stroke are what the layer writes, never a box's background or edge. */
+  svg?: boolean;
+  /** Hooks on elements inside it that are not parts of their own (a list's options): carried by this part. */
+  inner?: { attr: "data-hook" | "id"; value: string }[];
+}
+
+/** A box's declarations as an svg shape's: fill for the ground, stroke for the edge; what a shape has no use for (padding, rounding, a box's place) is left out. */
+export function svgDeclarations(decl: string[]): string[] {
+  const out: string[] = [];
+  for (const d of decl) {
+    const [prop, ...rest] = d.split(":");
+    const v = rest.join(":").trim();
+    if (prop === "background-color") out.push(`fill: ${v === "transparent" ? "none" : v}`);
+    else if (prop === "border") {
+      const m = /^([\d.]+)px\s+\w+\s*(.*)$/.exec(v);
+      if (v === "none" || !m) out.push("stroke: none");
+      else { out.push(`stroke-width: ${m[1]}`); if (m[2]) out.push(`stroke: ${m[2]}`); }
+    }
+    else if (/^(opacity|color|font-size|font-weight|font-family|letter-spacing)$/.test(prop!)) out.push(d);
+  }
+  return out;
 }
 
 /** A part's ties to its code, for the part panel's code view. */
@@ -75,6 +96,12 @@ export interface PartCode {
   built: import("./codeRefs.ts").CodeRef | null;
   /** Where the references came from: the repository's hooks.json, or a reading of its scripts. */
   from: "hooks.json" | "scan" | "none";
+  /** Made by a script from a template rather than written in the HTML (hooks.json `scriptBuilt`), and which template, and whether it repeats (a row per item). */
+  scriptBuilt?: boolean;
+  template?: string | null;
+  repeats?: boolean;
+  /** The CSS variables its styles use (hooks.json). */
+  vars?: string[];
 }
 
 /** What a brought-in site's code is written against (`look.styleSource`). */
@@ -90,6 +117,14 @@ export interface StyleSource {
   seen?: import("./kitRun.ts").KitSeen;
   /** Its `builder.json`, when it is builder-ready: the design then goes back by the kit's contract. */
   kit?: import("./kitRun.ts").KitManifest | null;
+  /** Where the layer is written, when the repository says (builder.json); else `<dir>style-layer.css`. */
+  layerFile?: string | null;
+  /** The design-tokens file the repository names or keeps (`tokens.css`). */
+  tokensFile?: string | null;
+  /** What the repository's hooks.json says reads each variable. */
+  varsRead?: Record<string, import("./codeRefs.ts").CodeRef[]>;
+  /** The repository's builder.json, when it has one: what was read from it. */
+  manifest?: { file: string; kit?: string | null; previews?: string[]; gallery?: string | null } | null;
 }
 
 /** The shape of a node this reads: a board part, loosely. */
@@ -186,6 +221,11 @@ export function colourKey(v: string | undefined | null): string {
   return s.replace(/\s+/g, "");
 }
 
+/** Is this value a colour (as `colourKey` reads one: three channels), not a font stack with commas in it? */
+export function isColour(v: string | undefined | null): boolean {
+  return /^\d+,\d+,\d+(,[\d.]+)?$/.test(colourKey(v));
+}
+
 /** The declarations that differ between how a part was brought in and how it is now. */
 export function changedDeclarations(was: CssLook, now: CssLook, move: { dx: number; dy: number }): string[] {
   const out: string[] = [];
@@ -238,7 +278,9 @@ export interface Layer {
   /** The stylesheet, whole. Empty rules are never written. */
   css: string;
   rules: { selector: string; declarations: string[]; nodeId: string; file: string }[];
-  vars: { name: string; value: string; was: string; why: "set" | "followed" }[];
+  vars: { name: string; value: string; was: string; why: "set" | "followed"; token?: boolean }[];
+  /** Every design token the source defines (`tokens.css`), and what the layer sets it to, if anything. */
+  tokens: { name: string; value: string; file: string; line: number; now?: string }[];
   check: HookCheck[];
   text: TextEdit[];
   /** The plain summary he reads before anything is published. */
@@ -311,7 +353,9 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     const now = lookOf(n, palette, opts);
     if (src.hook) {
       /* Size and place are written only where he set them: the board grows and shifts boxes to fit its own type, and that is not a design. */
-      let decl = changedDeclarations(src.was, n.byHand ? now : { ...now, box: src.was.box }, n.byHand ? own(n) : { dx: 0, dy: 0 });
+      const boxed = changedDeclarations(src.was, n.byHand ? now : { ...now, box: src.was.box }, n.byHand ? own(n) : { dx: 0, dy: 0 });
+      /* A shape in a drawing is recoloured by its fill and stroke. */
+      let decl = src.svg ? svgDeclarations(boxed) : boxed;
       /* A builder-ready repository keys rules by data-hook only, and keeps colours in custom properties (`kitDeclarations`). */
       if (opts.kit && decl.length && src.hook.attr !== "data-hook") { kitHeld.push(`${src.file}: #${src.hook.value} has only an id, and a builder-ready repository keys its rules by data-hook, so it keeps its own look.`); decl = []; }
       if (opts.kit) decl = kitDeclarations(src.hook.value, decl);
@@ -334,35 +378,45 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
 
   /* The variables: set by hand, else followed when every part wearing a variable's colour now wears one other colour. */
   const vars: Layer["vars"] = [];
+  /* A token's definition wins over a plain variable of the same name: it is the one the design is meant to change. */
   const defined = new Map<string, SourceVar>();
-  for (const f of source.files) for (const v of f.vars) if (!defined.has(v.name)) defined.set(v.name, v);
+  for (const f of source.files) for (const v of f.vars) if (!defined.has(v.name) || (v.token && !defined.get(v.name)!.token)) defined.set(v.name, v);
+  const sameValue = (a: string, b: string) => (isColour(a) ? colourKey(a) === colourKey(b) : fontKey(a) === fontKey(b));
   for (const [name, value] of Object.entries(source.varsSet ?? {})) {
     const had = defined.get(name);
-    if (had && value.trim() && colourKey(value) !== colourKey(had.value)) vars.push({ name, value: value.trim(), was: had.value, why: "set" });
+    if (had && value.trim() && !sameValue(value, had.value)) vars.push({ name, value: value.trim(), was: had.value, why: "set", ...(had.token ? { token: true } : {}) });
   }
   for (const v of defined.values()) {
-    if (vars.some((x) => x.name === v.name) || !colourKey(v.value).includes(",")) continue;
-    const key = colourKey(v.value);
+    if (vars.some((x) => x.name === v.name)) continue;
+    /* A colour is followed by every colour a part wore; a face by every face. */
+    const colour = isColour(v.value);
+    if (!colour && !looksLikeFace(v.value)) continue;
+    const key = colour ? colourKey(v.value) : fontKey(v.value);
     const nows = new Set<string>();
     let wore = 0;
     for (const n of sourced) {
       const was = n.source!.was;
       const now = lookOf(n, palette, opts);
-      for (const [a, b] of [[was.color, now.color], [was.background, now.background], [was.borderColor, now.borderColor]] as const) {
-        if (colourKey(a) !== key) continue;
+      const pairs = colour ? ([[was.color, now.color], [was.background, now.background], [was.borderColor, now.borderColor]] as const) : ([[was.fontFamily, now.fontFamily]] as const);
+      for (const [a, b] of pairs) {
+        if ((colour ? colourKey(a) : fontKey(a)) !== key) continue;
         wore++;
         nows.add(b ?? "");
       }
     }
     const [only] = [...nows];
-    if (wore > 0 && nows.size === 1 && only && colourKey(only) !== key) vars.push({ name: v.name, value: only, was: v.value, why: "followed" });
+    if (wore > 0 && nows.size === 1 && only && (colour ? colourKey(only) : fontKey(only)) !== key) vars.push({ name: v.name, value: only, was: v.value, why: "followed", ...(v.token ? { token: true } : {}) });
   }
+  /* The design tokens, listed whether or not the layer changes them. */
+  const tokens: Layer["tokens"] = [...defined.values()].filter((v) => v.token).map((v) => ({ name: v.name, value: v.value, file: v.file, line: v.line, ...(vars.find((x) => x.name === v.name) ? { now: vars.find((x) => x.name === v.name)!.value } : {}) }));
 
   /* The hook check: every hook the source carries, and what becomes of it. */
   const check: HookCheck[] = [];
   const carried = new Map<string, LayerNode>();
   const inRuns = new Set<string>();
+  const innerOf = new Map<string, LayerNode>();
   for (const n of nodes) {
+    for (const h of n.source?.inner ?? []) if (n.source?.file) innerOf.set(`${n.source.file}|${h.attr}=${h.value}`, n);
     const f = n.source?.file;
     if (n.source?.hook && f) carried.set(`${f}|${n.source.hook.attr}=${n.source.hook.value}`, n);
     if (f && Array.isArray(n.content)) for (const s of n.content as { hooks?: Record<string, string> }[]) {
@@ -382,6 +436,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
         check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} is on the board and unchanged: the page keeps its own look for it.` });
         continue;
       }
+      const host = innerOf.get(key);
+      if (host) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} is inside the part “${host.source?.hook?.value ?? host.id}” (a list's option, a button's words): it keeps the page's look.` }); continue; }
       if (inRuns.has(key)) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} is a value inside a line of words: it keeps the line's look.` }); continue; }
       if (h.imported) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "missing", why: `${name} was on the board and its part has been deleted. The layer leaves it as the page draws it: nothing is removed from the code.` }); continue; }
       check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} did not come onto the board (an element inside a control, or one the page fills itself): the page keeps its own look for it.` });
@@ -396,7 +452,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     ` * and nothing here hides, adds or removes anything. Delete this file and its`,
     ` * <link> to go back to the page as it was.`,
     ` */`,
-    ...(vars.length ? ["", ":root {", ...vars.map((v) => `  ${v.name}: ${v.value}; /* was ${v.was} */`), "}"] : []),
+    /* `:root:root`: one step more particular than the source's own `:root`, so the layer's value wins wherever tokens.css sits among the page's stylesheets. */
+    ...(vars.length ? ["", ":root:root {", ...vars.map((v) => `  ${v.name}: ${v.value}; /* ${v.token ? "token, " : ""}was ${v.was} */`), "}"] : []),
     ...rules.map((r) => ["", `${r.selector} {`, ...r.declarations.map((d) => `  ${d};`), "}"].join("\n")),
     "",
   ].join("\n");
@@ -406,11 +463,22 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   const says = [
     `${rules.length} part${rules.length === 1 ? "" : "s"} restyled by hook, ${vars.length} CSS variable${vars.length === 1 ? "" : "s"} set, ${text.length} line${text.length === 1 ? "" : "s"} of plain words changed.`,
     `Hooks: ${count("covered")} restyled, ${count("untouched")} untouched, ${count("missing")} missing.`,
+    ...(tokens.length ? [`Design tokens in ${[...new Set(tokens.map((t) => t.file))].join(", ")}: ${tokens.length}, ${tokens.filter((t) => t.now).length} set by the layer${tokens.some((t) => t.now) ? ` (${tokens.filter((t) => t.now).map((t) => `${t.name} ${t.value} to ${t.now}`).join("; ")})` : ""}. The tokens file itself is left as it is.`] : []),
     ...missing.map((m) => `Warning: ${m.why} (${m.file} line ${m.line})`),
     ...kitHeld.map((h) => `Held back: ${h}`),
     opts.kit ? "Scripts, pages and every hook stay as they are: only the style layer changes." : "Scripts, behaviour and every hook stay as they are; each page gains one <link> line.",
   ].join("\n");
-  return { css, rules, vars, check, text, says, held: kitHeld };
+  return { css, rules, vars, tokens, check, text, says, held: kitHeld };
+}
+
+/** A font stack in one spelling: no quotes, no spaces after commas, lower case. */
+export function fontKey(v: string | undefined | null): string {
+  return (v ?? "").toLowerCase().replace(/["']/g, "").replace(/\s*,\s*/g, ",").trim();
+}
+
+/** Does a value read as a font stack? */
+function looksLikeFace(v: string): boolean {
+  return /,|serif|sans|mono|system-ui|georgia|helvetica|arial|inter|times/i.test(v) && !/^\d|px$|rem$|em$/.test(v.trim());
 }
 
 /** The `<link>` a page gets: to the layer, relative to the page. */

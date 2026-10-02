@@ -474,6 +474,48 @@ Link rules: a kit repository's `links` become the site's link list
 trip against a real git repository; `tests/export-for-code.mjs` holds the
 export on the sink's site. After changing kit/, run `npm run kit:files`.
 
+**A kit repository comes in by its builder.json; its hooks map and tokens are
+read as the kit writes them.** The contract is PST's `kit/BUILDER-CONTRACT.md`.
+`builder.json` (`builderManifest.ts`) carries `kit`, `name`, `pages`
+(`{file, title}`), `hooks`, `tokens`, `styleLayer`, `preview` (`page`, `query`,
+`screens: [{name, page}]`), `gallery`, `scripts` (`hookCalls`, `helperFiles`),
+`links` (`allowHosts`, `block`) and `tokensModule`, every path relative to the
+manifest itself. Bring it in reads it first, ahead of a document made here or a
+page found by name: its pages in its order and by their titles (the zip route's
+`entry` and `pages`), parts named by their data-hook, the code view from the
+hooks file it names (PST's is `web/builder-hooks.json`), its tokens as
+variables, and the style layer written to its `styleLayer`; the preview screens
+and gallery are named in the import line, not brought in. Without one,
+everything is found as before. The hooks map is read in both shapes
+(`codeRefs.ts#readHooksJson`): the kit's (`kit` set; references with `uses`,
+paths from builder.json's folder; `tokens` per hook and as the top-level map)
+and PST's older `web/hooks.json` (`actions`, paths from its own folder,
+`cssVariables`). "(top level)" and "anonymous" are no function; stylesheets
+listed among a hook's references are shown as CSS rules; a hook the map does
+not list falls back to the scan, which also reads the contract's
+`// hooks: nav-{home,about}` comments. Where the map calls a line a read and
+the line itself writes, shows or styles (PST's map calls `setText(...)` a read),
+the line's own reading is used, so a part its code writes is marked filled by
+code. Variables from the tokens file (linked, `@import`ed, or named by the
+manifest) are tokens: the style layer lists them all, lets any be set (a size or
+a face as well as a colour; a face follows the board like a colour does),
+writes them under `:root:root` so they win wherever the tokens file sits, and
+never edits the tokens file. A style layer already there that the Builder did
+not write is said before it is replaced. `tests/code-view.mjs` holds it on a
+kit-shaped fixture and on a copy of the kit's own starter (`tests/fixtures/kit-starter`,
+with its real builder.json and hooks.json) and PST's root builder.json.
+
+**Every hook on a kit page reaches the board.** An inline `<svg>` comes in as a
+picture part (tag names inside svg are lower case: test with
+`tagName.toUpperCase()`), and each hooked or id'd shape inside it as its own
+`shape` part: fill reads as the background, stroke as the border, a circle or
+ellipse is round; its style layer rules are written as `fill`/`stroke`
+(`svgDeclarations`). A hooked `<body>` is a section at the top, a hooked label
+round a field is a section around the check, a picture inside a button is a
+picture part after it, a `<template>` is a section, and a list's `<option>`
+hooks are carried by the list (`inner`): the hook check counts all of them as
+untouched, never missing. `tests/style-layer.mjs` holds it on PST's duel circles.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost

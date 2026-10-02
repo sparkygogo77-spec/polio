@@ -1,0 +1,37 @@
+{
+  "kit": "1.0.0",
+  "name": "Kit practice",
+  "about": "Read first by the Polio builder. Every path is relative to this file.",
+  "pages": [
+    {
+      "file": "web/index.html",
+      "title": "Play"
+    },
+    {
+      "file": "web/ledger.html",
+      "title": "Ledger"
+    }
+  ],
+  "hooks": "web/hooks.json",
+  "tokens": "web/tokens.css",
+  "styleLayer": "web/style-layer.css",
+  "preview": {
+    "page": "web/index.html",
+    "query": "?still=1&screen=<name>",
+    "screens": [
+      {
+        "name": "signed-out",
+        "page": "web/index.html"
+      },
+      {
+        "name": "deposit-review",
+        "page": "web/index.html"
+      },
+      {
+        "name": "result",
+        "page": "web/index.html"
+      }
+    ]
+  },
+  "gallery": "web/gallery.html"
+}

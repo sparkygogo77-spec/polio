@@ -1,0 +1,68 @@
+{
+  "kit": "1.0.0",
+  "name": "PonsStars",
+  "about": "Read first by the Polio builder. Every path is relative to this file. See kit/BUILDER-CONTRACT.md.",
+  "pages": [
+    {
+      "file": "web/index.html",
+      "title": "Play"
+    },
+    {
+      "file": "web/profile.html",
+      "title": "Profile"
+    },
+    {
+      "file": "web/match.html",
+      "title": "Match result"
+    },
+    {
+      "file": "web/leaderboard.html",
+      "title": "Leaderboard"
+    },
+    {
+      "file": "web/library.html",
+      "title": "Chart library"
+    }
+  ],
+  "hooks": "web/builder-hooks.json",
+  "tokens": "web/tokens.css",
+  "styleLayer": "web/style-layer.css",
+  "preview": {
+    "page": "web/preview.html",
+    "query": "?still=1&screen=<name>",
+    "screens": []
+  },
+  "gallery": "web/gallery.html",
+  "scripts": {
+    "hookCalls": {
+      "$": 0,
+      "setText": 0,
+      "show": 0,
+      "fromTemplate": 0,
+      "part": 1,
+      "drop": 1
+    },
+    "helperFiles": [
+      "web/dom.js"
+    ]
+  },
+  "links": {
+    "allowHosts": [
+      "pump.fun",
+      "dexscreener.com",
+      "tradingview.com"
+    ],
+    "block": [
+      {
+        "pattern": "^https?://(www\\.)?(x|twitter)\\.com/",
+        "why": "no X profile links"
+      },
+      {
+        "pattern": "^https?://(www\\.)?dexscreener\\.com/[^/?#]+/[^/?#]+",
+        "why": "DexScreener links never point at a specific contract address"
+      }
+    ],
+    "about": "tradingview.com is allowed for the chart licence credit on the play page, pending J's choice (keep it or drop the link)."
+  },
+  "tokensModule": "web/tokens.js"
+}

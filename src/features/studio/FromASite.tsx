@@ -61,6 +61,7 @@ import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
 import { pagesToDoc, reportSays, type FileRead } from "./pageParts";
+import type { BuilderManifest } from "./builderManifest";
 import { SWEEP } from "./reassemble";
 
 type Source =
@@ -598,12 +599,19 @@ export function FromASite({ space }: { space: Space }) {
    * False when nothing could be read this way, so the reading by blocks
    * runs as before and says its own ending.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[] }): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest }): Promise<boolean> => {
     const st0 = useStudio.getState();
-    const zr = await askZip(got.file, { parts: "1", width: String(st0.frameWidth || 1440) });
+    /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
+    const m = got.manifest ?? null;
+    const zr = await askZip(got.file, {
+      parts: "1",
+      width: String(st0.frameWidth || 1440),
+      ...(m?.pages.length ? { entry: m.pages[0]!.file, pages: JSON.stringify(m.pages.slice(1).map((p) => p.file)) } : {}),
+      ...(m?.tokens ? { tokens: m.tokens } : {}),
+    });
     const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
     if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
-    const { doc, report } = pagesToDoc(files, { code: got.code });
+    const { doc, report } = pagesToDoc(files, { code: got.code, ...(m ? { names: Object.fromEntries(m.pages.filter((p) => p.name).map((p) => [p.file, p.name!])), byHook: true, hooksFile: m.hooks, manifestDir: m.file.includes("/") ? m.file.slice(0, m.file.lastIndexOf("/") + 1) : "" } : {}) });
     const st = useStudio.getState();
     const mark = takeImportMark() ?? st.historyMark();
     /* Every other space goes; the one this panel runs on stays, so what landed is said where it was asked for. */
@@ -611,7 +619,10 @@ export function FromASite({ space }: { space: Space }) {
     /* The page's own ground and ink are the palette's page colour and text: a plain page is white with black words, whatever the buttons are filled with. */
     /* What its code is written against, with where it came from: the style layer goes back there (`styleLayer.ts`). */
     const entryDir = got.entry.includes("/") ? got.entry.slice(0, got.entry.lastIndexOf("/") + 1) : "";
-    const styleSource: StyleSource = { repo: `${of.owner}/${of.name}`, ref: got.ref || of.ref || "", dir: entryDir, ...doc.styleSource };
+    const styleSource: StyleSource = {
+      repo: `${of.owner}/${of.name}`, ref: got.ref || of.ref || "", dir: entryDir, ...doc.styleSource,
+      ...(m ? { layerFile: m.styleLayer, ...(m.tokens ? { tokensFile: m.tokens } : {}), manifest: { file: m.file, kit: m.kit, previews: m.screens, gallery: m.gallery } } : {}),
+    };
     /* A builder-ready repository (kit/PIPELINE.md): its builder.json and hooks map are the baseline each design round is compared with, and its link rules become the site's. */
     let format = st.format;
     const kit = await readKit(styleSource.repo, styleSource.ref || "HEAD", heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "").catch(() => null);
@@ -645,7 +656,8 @@ export function FromASite({ space }: { space: Space }) {
     const failed = Number(zr.failed) || 0;
     /* Thin is still said: a page that shows two parts or fewer as it opens has little on it. */
     const showing = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id && n.featureId !== "box").length;
-    const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
+    const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; they are not brought in.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";
+    const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
     const total = report.pages.reduce((n, p) => n + p.parts, 0);
     ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });
     setStage({ at: "said", says });

@@ -76,6 +76,7 @@ const FEATURE: Record<PagePart["kind"], string> = {
   field: "field",
   check: "checkbox",
   picture: "picture",
+  shape: "box",
 };
 
 /** A kind in words, for the count he reads. */
@@ -90,6 +91,7 @@ export const KIND_WORDS: Record<PagePart["kind"], [string, string]> = {
   field: ["field", "fields"],
   check: ["checkbox", "checkboxes"],
   picture: ["picture", "pictures"],
+  shape: ["shape in a drawing", "shapes in drawings"],
 };
 
 const fine = (v: number) => Math.round(v * 100) / 100;
@@ -153,18 +155,25 @@ function namesOf(p: PagePart): Wanted[] {
 
 /** A part's ties to its code: markup, CSS rules, and every script reference, with what builds it if anything does. */
 function codeOf(p: PagePart, file: string, index: CodeIndex | null): import("./styleLayer.ts").PartCode {
-  const refs = index ? namesOf(p).flatMap((w) => index.refs.get(`${w.attr}=${w.value}`) ?? []) : [];
+  const named = index ? namesOf(p).flatMap((w) => index.refs.get(`${w.attr}=${w.value}`) ?? []) : [];
+  /* A hooks.json may list the stylesheets that style a hook among its references (PST's: base.css, the selector as the "function"): those are CSS rules, shown with the rest. */
+  const sheetRefs = named.filter((r) => /\.css$/i.test(r.file));
+  const refs = named.filter((r) => !/\.css$/i.test(r.file));
   const seen = new Set<string>();
   const uniq = refs.filter((r) => { const k = `${r.file}:${r.line}:${r.via}`; if (seen.has(k)) return false; seen.add(k); return true; });
   const own = p.hooks["data-hook"] ? `data-hook=${p.hooks["data-hook"]}` : p.hooks.id ? `id=${p.hooks.id}` : null;
   /* Filled at run time: an empty place its code fills, or one a script writes or builds into. */
   const writer = uniq.find((r) => (r.kind === "builds" || r.kind === "writes") && (!own || r.via === own || p.kind === "slot"));
+  const meta = index ? namesOf(p).map((w) => index.meta.get(`${w.attr}=${w.value}`)).find(Boolean) : undefined;
+  const vars = [...new Set(index ? namesOf(p).flatMap((w) => index.meta.get(`${w.attr}=${w.value}`)?.cssVariables ?? []) : [])];
   return {
     markup: { file, ...(p.line ? { line: p.line } : {}) },
-    css: p.css ?? [],
+    css: [...(p.css ?? []), ...sheetRefs.filter((r) => !(p.css ?? []).some((c) => c.file === r.file && c.line === r.line)).map((r) => ({ file: r.file, line: r.line, selector: r.fn ?? r.code ?? "" }))],
     refs: uniq,
     built: writer ?? null,
-    from: !index ? "none" : uniq.some((r) => index.listed.has(r.via)) ? "hooks.json" : "scan",
+    from: !index ? "none" : own ? (index.listed.has(own) ? "hooks.json" : "scan") : uniq.some((r) => index.listed.has(r.via)) ? "hooks.json" : "scan",
+    ...(meta?.scriptBuilt ? { scriptBuilt: true, template: meta.template ?? null, repeats: !!meta.repeats } : {}),
+    ...(vars.length ? { vars } : {}),
   };
 }
 
@@ -191,7 +200,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const linkTo = p.kind === "link" && p.href !== undefined ? link(p.href) : null;
     const content = p.kind === "link"
       ? (p.words ? [{ text: p.words, ...(linkTo ? { link: linkTo } : {}) }] : "")
-      : p.kind === "section" || p.kind === "slot" || p.kind === "picture" ? "" : spansFrom(p.runs, p.words, link);
+      : p.kind === "section" || p.kind === "slot" || p.kind === "picture" || (p.kind === "shape" && !p.words) ? "" : spansFrom(p.runs, p.words, link);
     const what = p.kind === "section" ? `${p.tag} section` : p.kind === "slot" ? `empty ${p.tag} its code fills` : p.kind === "field" ? `${p.control?.type ?? "text"} field${p.label ? `, “${p.label}”` : ""}` : p.kind === "check" ? `${p.control?.type ?? "checkbox"}${p.words ? `, “${p.words}”` : ""}` : `${p.tag}${p.words ? `, “${p.words.slice(0, 60)}”` : ""}`;
     const hookSays = p.hooks["data-hook"] ? ` Its code finds it as data-hook “${p.hooks["data-hook"]}”.` : p.hooks.id ? ` Its code finds it as #${p.hooks.id}.` : "";
     const node: Record<string, unknown> = {
@@ -219,7 +228,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       locked: false,
       link: null,
       colour,
-      font: p.kind === "section" || p.kind === "slot" || p.kind === "picture" ? null : font,
+      font: p.kind === "section" || p.kind === "slot" || p.kind === "picture" || (p.kind === "shape" && !p.words) ? null : font,
       anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
       shape: null, outline: null, kind: null, vector: null, role: null, cube: null, mesh: null, code: null,
       aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
@@ -231,6 +240,8 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(s.radius > 0 ? { radius: s.radius } : {}),
       /* Rounded to half its side, a square picture is a circle, and is drawn as one at any size. */
       ...(p.kind === "picture" && p.box.w === p.box.h && s.radius * 2 >= p.box.w ? { shape: "circle" } : {}),
+      /* A circle or an ellipse in a drawing is drawn as one. */
+      ...(p.kind === "shape" && (p.tag === "circle" || p.tag === "ellipse") ? { shape: p.box.w === p.box.h ? "circle" : "ellipse" } : {}),
       ...(text ? { text } : p.kind === "button" ? { text: { align: "center" } } : {}),
       ...(p.kind === "picture" && p.alt ? { data: `picture, “${p.alt}”` } : {}),
     };
@@ -240,7 +251,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const code = codeOf(p, fr.file, index);
     /* Words its code writes are not static, whatever the HTML holds. */
     const written = !!code.built;
-    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code };
+    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" ? { svg: true } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
     out.push(node);
   });
   /* What holds what is read off the paths, as a capture's is (`partTree.ts`): each part's continues its section's. */
@@ -252,7 +263,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
  * a page of its own at a path off its file name, and the board is as wide
  * as the window the entry was read at.
  */
-export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path: string; text: string }[] } = {}): { doc: LandedDoc; report: PageReport } {
+export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path: string; text: string }[]; /** A builder.json's page names, by file. */ names?: Record<string, string>; /** Name each part by its data-hook (a builder.json repository). */ byHook?: boolean; /** The hooks file builder.json names, and the folder builder.json is in (the kit's paths are written from there). */ hooksFile?: string | null; manifestDir?: string | null } = {}): { doc: LandedDoc; report: PageReport } {
   const at = opts.at ?? Date.now();
   const entry = files[0]!;
   const dir = entry.file.includes("/") ? entry.file.slice(0, entry.file.lastIndexOf("/") + 1) : "";
@@ -260,7 +271,7 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
   const byFile = new Map<string, string>();
   const used = new Set<string>();
   files.forEach((f, i) => {
-    const name = pageName(f.file, f.read.title, i === 0);
+    const name = opts.names?.[f.file] ?? pageName(f.file, f.read.title, i === 0);
     let path = i === 0 ? "/" : `/${slug(f.file.split("/").pop() ?? name) || `page-${i + 1}`}`;
     for (let k = 2; used.has(path); k++) path = `${path}-${k}`;
     used.add(path);
@@ -272,12 +283,14 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
   });
   const nodes: Record<string, unknown>[] = [];
   /* The repository's scripts (and hooks.json), read once for every name any part may be found by (`codeRefs.ts`). */
-  const index = opts.code?.length ? codeIndex(opts.code, files.flatMap((f) => f.read.parts.flatMap(namesOf))) : null;
+  const index = opts.code?.length ? codeIndex(opts.code, files.flatMap((f) => f.read.parts.flatMap(namesOf)), { hooksFile: opts.hooksFile, manifestDir: opts.manifestDir }) : null;
   const report: PageReport = { pages: [], kinds: {}, hidden: 0, hooks: 0, pictures: 0, unstyled: 0, bare: [], truncated: [] };
   files.forEach((f, i) => {
     const fileDir = f.file.includes("/") ? f.file.slice(0, f.file.lastIndexOf("/") + 1) : "";
     const link = (href: string) => pageLink(href, byFile, fileDir);
     const landed = nodesOf(f, pages[i]!.id, link, at, index);
+    /* A kit repository names its parts by their hooks: the name its code, its hooks.json and its designer all use. */
+    if (opts.byHook) for (const n of landed) { const h = (n.hooks as Record<string, string> | undefined)?.["data-hook"]; if (h) n.label = h; }
     nodes.push(...landed);
     const hidden = f.read.parts.filter((p) => p.hidden).length;
     report.pages.push({ name: pages[i]!.name, file: f.file, parts: landed.length, hidden });
@@ -298,9 +311,13 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
       for (const p of f.read.parts) {
         for (const a of ["data-hook", "id"] as const) if (p.hooks[a]) on.add(`${a}=${p.hooks[a]}`);
         for (const r of p.runs ?? []) for (const a of ["data-hook", "id"] as const) if (r.hooks?.[a]) on.add(`${a}=${r.hooks[a]}`);
+        for (const h of p.inner ?? []) for (const a of ["data-hook", "id"] as const) if (h[a]) on.add(`${a}=${h[a]}`);
       }
       return { file: f.file, pageId: pages[files.indexOf(f)]?.id ?? pages[i]!.id, hooks: f.source!.hooks.map((h) => ({ ...h, imported: on.has(`${h.attr}=${h.value}`) })), vars: f.source!.vars };
     }),
+    /* What reads each variable, from the repository's hooks.json: shown beside each variable the owner can set. */
+    ...(index?.vars.size ? { varsRead: Object.fromEntries([...index.vars].filter(([, v]) => v.readBy.length).map(([k, v]) => [k, v.readBy])) } : {}),
+    ...(files.some((f) => f.source?.vars.some((v) => v.token)) ? { tokensFile: files.flatMap((f) => f.source?.vars ?? []).find((v) => v.token)!.file } : {}),
   };
   return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour }, styleSource }, report };
 }

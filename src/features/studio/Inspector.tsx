@@ -436,7 +436,9 @@ function CodeView({ node }: { node: StudioNode }) {
           Filled by code at run time: {code.built.fn ? <span className="font-mono">{code.built.fn}</span> : "the top of the file"} in {link(code.built.file, code.built.line, where(code.built.file, code.built.line))}. What shows here is the page before its code runs.
         </p>
       ) : null}
+      {code.scriptBuilt ? <p data-code-template="">Built by its code{code.template ? <> from the template <span className="font-mono">{code.template}</span></> : null}{code.repeats ? ", once for each item" : ""}: the page's HTML holds only the template.</p> : null}
       {code.markup ? <p data-code-markup="">Markup: {link(code.markup.file, code.markup.line, where(code.markup.file, code.markup.line))}</p> : null}
+      {code.vars?.length ? <p data-code-vars="">Uses the CSS variables <span className="font-mono">{code.vars.join(", ")}</span>.</p> : null}
       <div data-code-css="">
         <p className="text-fg-muted">{code.css.length ? "Styled by" : "No CSS rule of the page's styles it: it wears the browser's defaults."}</p>
         {code.css.map((c) => <p key={`${c.file}${c.line}${c.selector}`} className="truncate"><span className="font-mono">{c.selector}</span> · {link(c.file, c.line, where(c.file, c.line))}</p>)}

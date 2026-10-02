@@ -26,7 +26,7 @@ import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
-import { buildLayer, colourKey, type LayerNode, type StyleSource } from "./styleLayer";
+import { buildLayer, colourKey, isColour, type LayerNode, type StyleSource } from "./styleLayer";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
 import { layerHooksOf, readRound, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./parts/offsite";
@@ -39,6 +39,28 @@ function hexOf(v: string): string {
   const k = colourKey(v).split(",");
   if (k.length < 3) return /^#[0-9a-f]{6}$/i.test(v) ? v : "#000000";
   return `#${k.slice(0, 3).map((x) => Math.max(0, Math.min(255, Number(x))).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** One variable: a colour picker for a colour, a box to type in for anything else (a size, a face), and what reads it. */
+function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean }; source: StyleSource; layer: ReturnType<typeof buildLayer>; setVar: (name: string, value: string | null) => void }) {
+  const set = source.varsSet?.[v.name];
+  const followed = layer.vars.find((x) => x.name === v.name && x.why === "followed");
+  const colour = isColour(v.value);
+  const [typed, setTyped] = React.useState(set ?? v.value);
+  const read = source.varsRead?.[v.name] ?? [];
+  return (
+    <label data-style-layer-var={v.name} data-token={v.token ? "" : undefined} className="flex flex-wrap items-center gap-2 text-small">
+      {colour ? (
+        <input type="color" aria-label={v.name} value={hexOf(set ?? followed?.value ?? v.value)} onChange={(e) => setVar(v.name, e.target.value)} className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
+      ) : (
+        <input type="text" aria-label={v.name} value={typed} onChange={(e) => setTyped(e.target.value)} onBlur={() => setVar(v.name, typed.trim() && typed.trim() !== v.value ? typed.trim() : null)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} className="h-5 w-28 rounded border border-border bg-transparent px-1 font-mono text-fine" />
+      )}
+      <span className="font-mono">{v.name}</span>
+      <span className="text-fg-muted">{set ? `set, was ${v.value}` : followed ? `follows the board, was ${v.value}` : v.value}</span>
+      {read.length ? <span className="text-fg-faint">read by {read[0]!.fn ?? read[0]!.file}{read.length > 1 ? ` and ${read.length - 1} more` : ""}</span> : null}
+      {set ? <button type="button" className="text-fg-muted underline" onClick={() => { setTyped(v.value); setVar(v.name, null); }}>Reset</button> : null}
+    </label>
+  );
 }
 
 export function StyleLayerSection() {
@@ -79,11 +101,14 @@ export function StyleLayerSection() {
 
   const missing = layer.check.filter((c) => c.fate === "missing");
   const count = (f: string) => layer.check.filter((c) => c.fate === f).length;
-  const vars = (() => {
-    const seen = new Map<string, { name: string; value: string; file: string; line: number }>();
-    for (const f of source.files) for (const v of f.vars) if (!seen.has(v.name)) seen.set(v.name, v);
-    return [...seen.values()].filter((v) => colourKey(v.value).includes(","));
+  /* The design tokens first, every one whatever its kind; then the other colours the code reads. */
+  const all = (() => {
+    const seen = new Map<string, { name: string; value: string; file: string; line: number; token?: boolean }>();
+    for (const f of source.files) for (const v of f.vars) if (!seen.has(v.name) || (v.token && !seen.get(v.name)!.token)) seen.set(v.name, v);
+    return [...seen.values()];
   })();
+  const tokens = all.filter((v) => v.token);
+  const vars = all.filter((v) => !v.token && isColour(v.value));
   const setVar = (name: string, value: string | null) => {
     const st = useStudio.getState();
     const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
@@ -132,8 +157,10 @@ export function StyleLayerSection() {
         </div>
       </div>
       <p data-style-layer-says="" className="text-plain text-fg">
-        {layer.rules.length} part{layer.rules.length === 1 ? "" : "s"} restyled, {layer.vars.length} colour variable{layer.vars.length === 1 ? "" : "s"} set{source.kit ? "" : `, ${layer.text.length} line${layer.text.length === 1 ? "" : "s"} of words changed`}. Hooks: {count("covered")} restyled, {count("untouched")} untouched, {count("missing")} missing.
+        {layer.rules.length} part{layer.rules.length === 1 ? "" : "s"} restyled, {layer.vars.length} variable{layer.vars.length === 1 ? "" : "s"} set{source.kit ? "" : `, ${layer.text.length} line${layer.text.length === 1 ? "" : "s"} of words changed`}. Hooks: {count("covered")} restyled, {count("untouched")} untouched, {count("missing")} missing.
+        {layer.tokens.length ? <span data-style-layer-tokens=""> Design tokens: {layer.tokens.length} in {[...new Set(layer.tokens.map((t) => t.file))].join(", ")}, {layer.tokens.filter((t) => t.now).length} set by the layer (Advanced).</span> : null}
       </p>
+      {source.manifest ? <p data-style-layer-manifest="" className="text-small text-fg-muted">From {source.manifest.file}{source.manifest.kit ? `, kit ${source.manifest.kit}` : ""}: the layer is written to {source.layerFile ?? `${source.dir}style-layer.css`}.</p> : null}
       {layer.held?.length ? (
         <div data-style-layer-held="" className="rounded-md border px-2 py-1.5 text-small text-fg" style={warn}>
           {layer.held.slice(0, 4).map((h) => <p key={h}>{h}</p>)}
@@ -161,19 +188,10 @@ export function StyleLayerSection() {
       ) : null}
       {more ? (
         <div data-style-layer-advanced="" className="flex flex-col gap-1">
-          {vars.length ? <p className="text-small text-fg-muted">Colours the code reads (CSS variables in {source.files[0]?.file ?? "the page"}):</p> : <p className="text-small text-fg-muted">The code exposes no colour variables.</p>}
-          {vars.map((v) => {
-            const set = source.varsSet?.[v.name];
-            const followed = layer.vars.find((x) => x.name === v.name);
-            return (
-              <label key={v.name} data-style-layer-var={v.name} className="flex items-center gap-2 text-small">
-                <input type="color" aria-label={v.name} value={hexOf(set ?? followed?.value ?? v.value)} onChange={(e) => setVar(v.name, e.target.value)} className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
-                <span className="font-mono">{v.name}</span>
-                <span className="text-fg-muted">{set ? `set, was ${v.value}` : followed ? `follows the board, was ${v.value}` : v.value}</span>
-                {set ? <button type="button" className="text-fg-muted underline" onClick={() => setVar(v.name, null)}>Reset</button> : null}
-              </label>
-            );
-          })}
+          {tokens.length ? <p className="text-small text-fg-muted">Design tokens ({source.tokensFile ?? tokens[0]!.file}): the layer overrides them, the file stays as it is.</p> : null}
+          {tokens.map((v) => <VarRow key={v.name} v={v} source={source} layer={layer} setVar={setVar} />)}
+          {vars.length ? <p className="text-small text-fg-muted">Other colours the code reads (CSS variables):</p> : !tokens.length ? <p className="text-small text-fg-muted">The code exposes no variables.</p> : null}
+          {vars.map((v) => <VarRow key={v.name} v={v} source={source} layer={layer} setVar={setVar} />)}
           <details className="text-small">
             <summary className="cursor-pointer text-fg-muted">The stylesheet</summary>
             <pre data-style-layer-css="" className="mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap rounded border border-border p-1.5 font-mono text-fine">{layer.css}</pre>

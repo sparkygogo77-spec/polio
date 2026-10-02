@@ -1,0 +1,7 @@
+@import url("tokens.css");
+/* Only what the page needs to work. */
+[hidden] { display: none !important; }
+body { font-family: var(--font-body); }
+[data-hook="score-you"][data-sign="gain"] { color: var(--pons-gain); }
+[data-hook="score-you"][data-sign="loss"] { color: var(--pons-loss); }
+[data-hook="ledger-rows"] p { margin: var(--space-2) 0; }

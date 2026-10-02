@@ -20,6 +20,8 @@ $('deposit-confirm').addEventListener('click', () => {
   const you = $('score-you');
   you.dataset.sign = 'gain';
   you.textContent = 'You +1.45%';
+  /* The duel, the way PST's refreshDuel draws it: the bigger circle is ahead. */
+  $('duel-circle-me').setAttribute('r', '70');
   /* Read back the way PST's overlay.js reads its colours. */
   window.gainColour = getComputedStyle(document.documentElement).getPropertyValue('--pons-gain').trim();
 });

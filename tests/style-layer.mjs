@@ -117,6 +117,18 @@ check("code view: a part no script names says so, and is not filled by code", h1
   check("hooks.json is used where the repository keeps one, the scripts read for the rest", idx.hooksJson === "web/hooks.json" && idx.refs.get("data-hook=balance-note")?.[0]?.fn === "renderBalance" && idx.refs.get("data-hook=balance-note")[0].kind === "writes" && idx.listed.has("data-hook=balance-note") && (idx.refs.get("data-hook=deposit-review") ?? []).length > 0);
 }
 
+/* An inline svg and its shapes: PST's duel circles came in as nothing, and the hook check called them deleted. */
+const svgPart = byHook("duel-svg"), meC = byHook("duel-circle-me"), oppC = byHook("duel-circle-opponent");
+check("an inline svg is a picture part with its hook", svgPart?.featureId === "picture" && svgPart.w === 200 && svgPart.h === 200, JSON.stringify(svgPart && [svgPart.featureId, svgPart.w, svgPart.h]));
+check("…and each hooked shape in it is a part of its own, a circle drawn as a circle, with its fill and stroke", meC?.featureId === "box" && meC.shape === "circle" && meC.w === 100 && meC.colour?.bg === "rgb(37, 99, 235)" && meC.edge?.colour === "rgb(37, 99, 235)" && oppC?.colour?.bg === "rgb(234, 179, 8)", JSON.stringify(meC && { shape: meC.shape, w: meC.w, colour: meC.colour, edge: meC.edge }));
+check("…under the picture, by its path", meC?.from?.selector.startsWith(`${svgPart?.from?.selector} `));
+const fresh = buildLayer(nodes, null, source);
+check("the hook check finds the duel on the board: untouched, not missing", ["duel-svg", "duel-circle-me", "duel-circle-opponent"].every((h) => fresh.check.find((c) => c.value === h)?.fate === "untouched"), ["duel-svg", "duel-circle-me", "duel-circle-opponent"].map((h) => `${h} ${fresh.check.find((c) => c.value === h)?.fate}`).join(", "));
+
+const away = fresh.check.filter((c) => c.file === "web/index.html" && /did not come onto the board/.test(c.why));
+check("every hook on the page reaches the board: its body, a label round a field, a list's options, a picture inside a button, a template", away.length === 0 && ["app", "deposit-amount-label", "avatar-sun-picture", "template-order-item"].every((h) => !!byHook(h)) && fresh.check.find((c) => c.value === "stake-2")?.fate === "untouched" && /inside the part “queue-stake”/.test(fresh.check.find((c) => c.value === "stake-2")?.why ?? ""), away.map((c) => c.value).join(", "));
+check("…the label is a box round its words and its field", byHook("deposit-amount")?.from?.selector.startsWith(`${byHook("deposit-amount-label")?.from?.selector} `) && byHook("deposit-amount-label")?.featureId === "box");
+
 const nothing = buildLayer(nodes, null, source);
 check("left alone, the board writes no rules: the page keeps its own look", nothing.rules.length === 0 && nothing.vars.length === 0 && nothing.text.length === 0, nothing.css.slice(-200));
 
@@ -142,16 +154,19 @@ const forget = byHook("wallet-forget-test");
 nodes.splice(nodes.indexOf(forget), 1);
 byHook("wallet-new").hooks["data-hook"] = "wallet-create";
 source.varsSet = { "--pons-gain": "#00aa88" };
+/* A circle recoloured on the board. */
+meC.colour = { ...meC.colour, bg: "rgb(200, 0, 0)" };
 
 const layer = buildLayer(nodes, null, source, { when: "2026-10-02" });
 const ruleFor = (sel) => layer.rules.find((r) => r.selector === sel);
 console.log(layer.css);
 check("a changed part is restyled by its hook, with what changed and nothing else", !!ruleFor('[data-hook="balance-note"]') && ruleFor('[data-hook="balance-note"]').declarations.join(";") === "color: rgb(200, 0, 0);font-size: 20px", ruleFor('[data-hook="balance-note"]')?.declarations.join("; "));
+check("a circle in a drawing is recoloured by its fill, never a box's background", ruleFor('[data-hook="duel-circle-me"]')?.declarations.join() === "fill: rgb(200, 0, 0)", ruleFor('[data-hook="duel-circle-me"]')?.declarations.join("; "));
 check("a button's fill, ink, edge and rounding", ["background-color: rgb(10, 120, 200)", "color: rgb(255, 255, 255)", "border-radius: 8px"].every((d) => ruleFor('[data-hook="deposit-review"]')?.declarations.includes(d)) && ruleFor('[data-hook="deposit-review"]').declarations.some((d) => d.startsWith("border: 1px solid")));
 check("an id is a hook too", ruleFor("#tagline")?.declarations.join() === "color: rgb(120, 0, 160)");
 check("a section moved by hand is offset where the page put it, and its parts move with it, not twice", ruleFor('[data-hook="withdraw-panel"]')?.declarations.includes("left: 40px") && ruleFor('[data-hook="withdraw-panel"]')?.declarations.includes("top: 12px") && !layer.rules.some((r) => r.selector === '[data-hook="withdraw-max"]'));
 check("a box the board grew by itself writes nothing", !layer.rules.some((r) => r.declarations.some((d) => d.startsWith("min-height"))));
-check("a variable the code exposes is set where he set it", layer.vars.some((v) => v.name === "--pons-gain" && v.value === "#00aa88") && /:root \{\n {2}--pons-gain: #00aa88;/.test(layer.css));
+check("a variable the code exposes is set where he set it", layer.vars.some((v) => v.name === "--pons-gain" && v.value === "#00aa88") && /:root:root \{\n {2}--pons-gain: #00aa88;/.test(layer.css));
 check("the layer never hides, adds or removes anything", !/\b(display|visibility|content)\s*:/.test(layer.css.replace(/\/\*[\s\S]*?\*\//g, "")));
 const fate = (v) => layer.check.find((c) => c.value === v);
 check("hook check: a restyled hook is covered", fate("balance-note")?.fate === "covered" && fate("deposit-review")?.fate === "covered");
@@ -181,7 +196,7 @@ const live = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const liveErrors = [];
 live.on("pageerror", (e) => liveErrors.push(e.message));
 await live.goto(`http://127.0.0.1:${port}/web/index.html`, { waitUntil: "load" });
-const hooksThere = await live.evaluate((list) => list.filter((h) => !document.querySelector(h.attr === "id" ? `#${h.value}` : `[data-hook="${h.value}"]`)).map((h) => h.value), home.hooks.map(({ attr, value }) => ({ attr, value })));
+const hooksThere = await live.evaluate((list) => list.filter((h) => { const sel = h.attr === "id" ? `#${h.value}` : `[data-hook="${h.value}"]`; return !document.querySelector(sel) && !Array.from(document.querySelectorAll("template")).some((t) => t.content.querySelector(sel)); }).map((h) => h.value), home.hooks.map(({ attr, value }) => ({ attr, value })));
 check("every hook the source had is still on the page", hooksThere.length === 0, hooksThere.join(", "));
 await live.click('[data-hook="wallet-connect-test"]');
 await live.click('[data-hook="wallet-new"]');
@@ -206,10 +221,12 @@ check("a hidden panel still opens, and its checkbox still enables its button", f
 check("the deposit is reviewed, confirmed and lands in the balance", reviewed.shown && reviewed.summary === "Deposit 2 SOL" && flow.balance === "2" && flow.message === "All 2 SOL available.");
 check("the code reads the variable the layer set", flow.gain === "#00aa88" && flow.you === "rgb(0, 170, 136)", `${flow.gain} ${flow.you}`);
 check("no script error on the page", liveErrors.length === 0, liveErrors.join(" | "));
+const duel = await live.evaluate(() => { const c = document.querySelector('[data-hook="duel-circle-me"]'); return { r: c.getAttribute("r"), fill: getComputedStyle(c).fill, opacity: getComputedStyle(c).fillOpacity }; });
+check("the duel circle the script resizes is resized, in the board's colour, its own opacity kept", duel.r === "70" && duel.fill === "rgb(200, 0, 0)" && duel.opacity === "0.4", JSON.stringify(duel));
 /* The look is the board's: each rule's properties, computed, against the part's look on the board. */
 const want = layer.rules.map((r) => ({ sel: r.selector, look: lookOf(nodes.find((n) => n.id === r.nodeId), null) }));
-const drawn = await live.evaluate((list) => list.map(({ sel }) => { const e = document.querySelector(sel); const s = getComputedStyle(e); return { sel, color: s.color, bg: s.backgroundColor, size: parseFloat(s.fontSize), radius: parseFloat(s.borderTopLeftRadius) }; }), want);
-const off = drawn.filter((d, i) => { const w = want[i].look; return (w.color && d.color !== w.color) || (w.background && d.bg !== w.background) || (w.fontSize && Math.abs(d.size - w.fontSize) > 0.5) || (w.radius && Math.abs(d.radius - w.radius) > 0.5); });
+const drawn = await live.evaluate((list) => list.map(({ sel }) => { const e = document.querySelector(sel); const s = getComputedStyle(e); const svg = e instanceof SVGElement && e.tagName.toLowerCase() !== "svg"; return { sel, color: svg ? null : s.color, bg: svg ? s.fill : s.backgroundColor, size: svg ? null : parseFloat(s.fontSize), radius: svg ? null : parseFloat(s.borderTopLeftRadius) }; }), want);
+const off = drawn.filter((d, i) => { const w = want[i].look; return (w.color && d.color !== null && d.color !== w.color) || (w.background && d.bg !== w.background) || (w.fontSize && d.size !== null && Math.abs(d.size - w.fontSize) > 0.5) || (w.radius && d.radius !== null && Math.abs(d.radius - w.radius) > 0.5); });
 check("the page wears the board's look for every part restyled", off.length === 0 && drawn.length === layer.rules.length, JSON.stringify(off));
 const h1Now = await live.evaluate(() => document.querySelector("h1").textContent);
 check("and its heading reads as written on the board", h1Now === "Pontoon, the practice table");

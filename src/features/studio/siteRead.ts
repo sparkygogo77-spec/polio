@@ -637,7 +637,7 @@ export interface PartControl {
 
 /** One element of the page, read on its own. */
 export interface PagePart {
-  kind: "section" | "slot" | "heading" | "text" | "code" | "button" | "link" | "field" | "check" | "picture";
+  kind: "section" | "slot" | "heading" | "text" | "code" | "button" | "link" | "field" | "check" | "picture" | "shape";
   tag: string;
   /** The index of the section part this one sits in, or -1 for the page itself. */
   parent: number;
@@ -662,6 +662,8 @@ export interface PagePart {
   rules?: { sheet: string | null; block: number; selector: string }[];
   /** Its class names, which scripts may find it by too. */
   classes?: string[];
+  /** Hooks on elements inside it that are not parts of their own (a list's options, the words inside a button): carried by this part. */
+  inner?: Record<string, string>[];
   /** The same rules with the file and line they are written on (`sourceHooks.ts#withLines`). */
   css?: { file: string; line: number; selector: string }[];
 }
@@ -715,6 +717,8 @@ export const PARTS = (cap: number): PageRead => {
   let truncated = false;
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "META", "LINK", "HEAD", "TITLE", "BASE", "WBR"]);
   const MEDIA = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE", "IFRAME", "AUDIO"]);
+  /* An SVG element's tag name is lower case ("svg", "circle"): compared as written, an inline svg was taken for inline words with none and dropped, its circles' hooks with it (PST's duel). */
+  const isMedia = (e: Element) => MEDIA.has(e.tagName.toUpperCase());
   const SECTIONING = new Set(["SECTION", "ARTICLE", "ASIDE", "HEADER", "FOOTER", "MAIN", "NAV", "FORM", "FIELDSET", "DETAILS", "DIALOG", "UL", "OL", "DL", "TABLE", "FIGURE"]);
   const SEPARATORS = /^[\s|·•/\\,;:–—\-]*$/;
   const css = (e: Element) => getComputedStyle(e);
@@ -915,7 +919,7 @@ export const PARTS = (cap: number): PageRead => {
     if (linksStandAlone(el)) return true;
     for (const d of Array.from(el.querySelectorAll("*"))) {
       if (SKIP.has(d.tagName) || d.tagName === "BR") continue;
-      if (isControl(d) || MEDIA.has(d.tagName) || d.tagName === "TEMPLATE") return true;
+      if (isControl(d) || isMedia(d) || d.tagName === "TEMPLATE") return true;
       if (shown(d) && !inlineish(d)) return true;
     }
     return false;
@@ -944,15 +948,21 @@ export const PARTS = (cap: number): PageRead => {
   const control = (el: Element, parent: number, hidden: string | null) => {
     const tag = el.tagName;
     const r = el.getBoundingClientRect();
-    const base = { tag: tag.toLowerCase(), parent, box: box(r), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) };
+    /* What is hooked inside a control: a picture is a part of its own over it (PST's avatar buttons), anything else (a list's options, a button's words) is carried by the control. */
+    const insideHooked = Array.from(el.querySelectorAll("[data-hook], [id]"));
+    const inner = insideHooked.filter((d) => !isMedia(d) && !d.closest("svg")).map(hooksOf);
+    const base = { tag: tag.toLowerCase(), parent, box: box(r), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el), ...(inner.length ? { inner } : {}) };
+    const after = () => { for (const d of insideHooked) if (isMedia(d) && !d.parentElement?.closest("svg")) picture(d, parent, hidden); };
     if (tag === "BUTTON" || el.getAttribute("role") === "button" || (tag === "INPUT" && /^(submit|button|reset|image)$/i.test((el as HTMLInputElement).type))) {
       const words = (tag === "INPUT" ? (el as HTMLInputElement).value : el.textContent ?? "").replace(/\s+/g, " ").trim();
       push({ ...base, kind: "button", words, control: { type: (el as HTMLButtonElement).type || "button", ...((el as HTMLButtonElement).disabled ? { disabled: true } : {}) } }, el);
+      after();
       return;
     }
     if (isCheck(el)) {
       const i = el as HTMLInputElement;
       push({ ...base, kind: "check", words: labelFor(el), label: labelFor(el), control: { type: i.type, checked: i.checked, ...(i.disabled ? { disabled: true } : {}) } }, el);
+      after();
       return;
     }
     const c: PartControl = { type: tag === "INPUT" ? (el as HTMLInputElement).type : tag.toLowerCase() };
@@ -967,13 +977,17 @@ export const PARTS = (cap: number): PageRead => {
     if (tag === "TEXTAREA") c.rows = f.rows;
     const words = tag === "SELECT" ? (c.options?.find((o) => o.selected)?.text ?? "") : (c.value || c.placeholder || "");
     push({ ...base, kind: "field", words, label: labelFor(el), control: c }, el);
+    after();
   };
 
   /* A label holding a checkbox is one part: the box and the words beside it. */
   const checkPart = (label: Element, parent: number, hidden: string | null) => {
     const input = Array.from(label.querySelectorAll("input")).find(isCheck) as HTMLInputElement;
     const words = labelFor(input);
-    push({ kind: "check", tag: "label", parent, box: box(label.getBoundingClientRect()), words, label: words, control: { type: input.type, checked: input.checked, ...(input.disabled ? { disabled: true } : {}) }, hooks: { ...hooksOf(label), ...hooksOf(input) }, hidden, selector: path(input), style: styleOf(label) }, input);
+    /* A label with a hook of its own (the kit's `newwallet-ack-label`) is a box round the checkbox, so both hooks are on the board. */
+    let at = parent;
+    if (hooked(label)) { const i = push({ kind: "section", tag: "label", parent, box: box(label.getBoundingClientRect()), words: "", hooks: hooksOf(label), hidden, selector: path(label), style: styleOf(label) }, label); if (i >= 0) at = i; }
+    push({ kind: "check", tag: "label", parent: at, box: box(label.getBoundingClientRect()), words, label: words, control: { type: input.type, checked: input.checked, ...(input.disabled ? { disabled: true } : {}) }, hooks: hooked(label) ? hooksOf(input) : { ...hooksOf(label), ...hooksOf(input) }, hidden, selector: path(input), style: styleOf(label) }, input);
   };
 
   const picture = (el: Element, parent: number, hidden: string | null) => {
@@ -986,7 +1000,29 @@ export const PARTS = (cap: number): PageRead => {
     /* Rounding written as a share of the box (border-radius: 50%) is a share of this box: a circle stays a circle. */
     const r = css(el).borderTopLeftRadius;
     if (/%$/.test(r)) style.radius = Math.round((parseFloat(r) / 100) * Math.min(b.w, b.h));
-    push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
+    const at = push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
+    /*
+     * AN INLINE SVG KEEPS ITS SHAPES' HOOKS. PST's duel is an svg holding two
+     * circles its script resizes (duel-circle-me, duel-circle-opponent): each
+     * shape inside that carries a hook is a part of its own under the picture,
+     * at its own box, with its fill and its stroke, so the hook is on the
+     * board and the style layer can recolour it.
+     */
+    if (el.tagName.toLowerCase() === "svg" && at >= 0) {
+      for (const s of Array.from(el.querySelectorAll("[data-hook], [id]"))) {
+        if (truncated) break;
+        const sc = css(s);
+        const sb = box(s.getBoundingClientRect());
+        const fill = sc.fill && sc.fill !== "none" && !seeThrough(sc.fill) ? sc.fill : null;
+        const stroke = sc.stroke && sc.stroke !== "none" && !seeThrough(sc.stroke) ? sc.stroke : null;
+        const sw = parseFloat(sc.strokeWidth) || 0;
+        const base = styleOf(s);
+        push({
+          kind: "shape", tag: s.tagName.toLowerCase(), parent: at, box: sb, words: (s.tagName.toLowerCase() === "text" ? s.textContent ?? "" : "").trim(), hooks: hooksOf(s), hidden, selector: path(s),
+          style: { ...base, bg: fill, border: stroke && sw > 0 ? { w: Math.round(sw * 100) / 100, style: "solid", colour: stroke } : null, radius: /^(circle|ellipse)$/i.test(s.tagName) ? Math.round(Math.min(sb.w, sb.h) / 2) : 0, pad: [0, 0, 0, 0] },
+        }, s);
+      }
+    }
   };
 
   const link = (a: Element, parent: number, hidden: string | null) => {
@@ -1024,15 +1060,17 @@ export const PARTS = (cap: number): PageRead => {
       if (SKIP.has(e.tagName)) continue;
       if (e.tagName === "BR") { buffer.push(e); continue; }
       if (e.tagName === "TEMPLATE" || !shown(e)) { queue(e, parent); continue; }
-      if (MEDIA.has(e.tagName)) { flush(); picture(e, parent, hidden); continue; }
+      if (isMedia(e)) { flush(); picture(e, parent, hidden); continue; }
       if (checkLabel(e)) { flush(); checkPart(e, parent, hidden); continue; }
       if (isControl(e)) { flush(); control(e, parent, hidden); continue; }
       if (e.tagName === "A" && e.hasAttribute("href") && lone) { flush(); link(e, parent, hidden); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
-        /* An inline holder of parts (a label round a field): its words are a line, its controls parts. */
+        /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */
         flush();
-        flow(e, parent, hidden);
+        let at = parent;
+        if (hooked(e)) { const i = push({ kind: "section", tag: e.tagName.toLowerCase(), parent, box: box(e.getBoundingClientRect()), words: "", hooks: hooksOf(e), hidden, selector: path(e), style: styleOf(e) }, e); if (i >= 0) at = i; }
+        flow(e, at, hidden);
         continue;
       }
       flush();
@@ -1066,7 +1104,10 @@ export const PARTS = (cap: number): PageRead => {
     flow(el, at, hidden);
   };
 
-  flow(document.body, -1, null);
+  /* A page whose body carries a hook (the kit's `page-contact`, PST's `app`) has it as the box everything sits in. */
+  let top = -1;
+  if (hooked(document.body)) top = push({ kind: "section", tag: "body", parent: -1, box: box(document.body.getBoundingClientRect()), words: "", hooks: hooksOf(document.body), hidden: null, selector: "body", style: styleOf(document.body) }, document.body);
+  flow(document.body, top, null);
 
   /* Then what was hidden, each revealed where it stands, read, and hidden again. */
   let hiddenBlocks = 0;
@@ -1080,7 +1121,12 @@ export const PARTS = (cap: number): PageRead => {
       holder.setAttribute("data-polio-template", "");
       holder.appendChild((el as HTMLTemplateElement).content.cloneNode(true));
       el.parentElement?.insertBefore(holder, el);
-      if (shown(holder)) flow(holder, parent, `template:${key}`);
+      if (shown(holder)) {
+        /* The template itself, by its hook (the kit's `template-history-row`): the box its copy stands in, at the copy's path, so what is in it is owned by it. */
+        let at = parent;
+        if (hooked(el)) { const i = push({ kind: "section", tag: "template", parent, box: box(holder.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden: `template:${key}`, selector: path(holder), style: styleOf(holder) }); if (i >= 0) at = i; }
+        flow(holder, at, `template:${key}`);
+      }
       holder.remove();
       continue;
     }
@@ -1097,7 +1143,7 @@ export const PARTS = (cap: number): PageRead => {
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
-      if (MEDIA.has(el.tagName)) picture(el, parent, key);
+      if (isMedia(el)) picture(el, parent, key);
       else if (checkLabel(el)) checkPart(el, parent, key);
       else if (isControl(el)) control(el, parent, key);
       else if (el.tagName === "A" && el.hasAttribute("href") && el.parentElement && linksStandAlone(el.parentElement)) link(el, parent, key);

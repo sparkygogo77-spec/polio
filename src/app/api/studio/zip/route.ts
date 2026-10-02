@@ -59,8 +59,13 @@ export async function POST(request: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { files, why } = readZipInfo(bytes);
   if (!files) return no(why ?? "not-a-zip", ZIP_REFUSAL_SAYS[why ?? "not-a-zip"]);
-  const gate = checkZip(files, bytes.length);
-  if (!gate.ok) return no(gate.why, gate.says);
+  const checked = checkZip(files, bytes.length);
+  if (!checked.ok) return no(checked.why, checked.says);
+  /* The page a builder.json names is the page, when the zip has it; else the one the zip would open. */
+  const askedEntry = typeof form.get("entry") === "string" ? String(form.get("entry")) : "";
+  const gate = askedEntry && askedEntry !== checked.entry && /\.html?$/i.test(askedEntry) && files.some((f) => f.name === askedEntry)
+    ? { ...checked, entry: askedEntry, dir: askedEntry.includes("/") ? askedEntry.slice(0, askedEntry.lastIndexOf("/") + 1) : "" }
+    : checked;
 
   const selectors = (() => {
     const raw = form.get("selectors");
@@ -74,6 +79,8 @@ export async function POST(request: Request) {
   })();
   const width = Math.max(360, Math.min(1920, Number(form.get("width")) || 1280));
   const byParts = form.get("parts") === "1";
+  /* The design-tokens file a builder.json names: read for its variables whether or not a page links it. */
+  const tokensFile = typeof form.get("tokens") === "string" ? String(form.get("tokens")) || null : null;
 
   const found = await findPlaywright();
   if (!found.pw) return no("no-browser", NO_PLAYWRIGHT);
@@ -120,14 +127,16 @@ export async function POST(request: Request) {
        * scripts, which were not run.
        */
       const MOST_PAGES = 12;
-      const others = [...names]
+      /* The pages a builder.json lists, in its order; else every page beside or under the entry. */
+      const listed = (() => { try { const l = JSON.parse(String(form.get("pages") ?? "null")) as unknown; return Array.isArray(l) ? l.filter((x): x is string => typeof x === "string" && names.has(x) && x !== gate.entry) : null; } catch { return null; } })();
+      const others = listed ?? [...names]
         .filter((n) => n !== gate.entry && /\.html?$/i.test(n) && n.startsWith(gate.dir) && !/(^|\/)(node_modules|vendor|test|tests)\//i.test(n))
         .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b));
       const read: { file: string; scripts: boolean; read: PageRead; source: ReturnType<typeof sourceOfPage> }[] = [];
       /* What the page's own code is written against, read off its source: every hook with its line, and the CSS variables it exposes (`sourceHooks.ts`). */
       const textOf = (n: string) => { try { return new TextDecoder().decode(unpacked(n)); } catch { return ""; } };
       const sourced = (file: string, html: string, r: PageRead) => {
-        const source = sourceOfPage(file, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; });
+        const source = sourceOfPage(file, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }, { tokens: tokensFile });
         return { read: withLines(r, source, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }), source };
       };
       read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, (await page.evaluate(PARTS, MAX_PARTS)) as PageRead) });

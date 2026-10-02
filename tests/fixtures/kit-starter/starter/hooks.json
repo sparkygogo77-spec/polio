@@ -1,0 +1,1714 @@
+{
+  "about": "Made by kit-check from the pages, stylesheets and scripts (npm run kit:hooks). Do not edit by hand.",
+  "kit": "1.0.0",
+  "pages": {
+    "starter/about.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/about.js",
+        "starter/js/hooks.js",
+        "starter/js/site.js"
+      ]
+    },
+    "starter/contact.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/contact.js",
+        "starter/js/hooks.js",
+        "starter/js/site.js"
+      ]
+    },
+    "starter/gallery.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/gallery.js",
+        "starter/js/hooks.js"
+      ]
+    },
+    "starter/index.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/home.js",
+        "starter/js/hooks.js",
+        "starter/js/site.js"
+      ]
+    },
+    "starter/list.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/hooks.js",
+        "starter/js/list.js",
+        "starter/js/site.js"
+      ]
+    },
+    "starter/preview.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/hooks.js",
+        "starter/js/preview.js"
+      ]
+    }
+  },
+  "tokens": {
+    "--color-accent": {
+      "default": "#2f6fde",
+      "usedBy": [
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "hero-button",
+        "modal-close-button",
+        "modal-confirm-button",
+        "nav-about",
+        "nav-contact",
+        "nav-home",
+        "nav-list",
+        "send-button"
+      ]
+    },
+    "--color-accent-text": {
+      "default": "#ffffff",
+      "usedBy": [
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "hero-button",
+        "modal-close-button",
+        "modal-confirm-button",
+        "send-button"
+      ]
+    },
+    "--color-border": {
+      "default": "#d9d6cf",
+      "usedBy": [
+        "email-input",
+        "gallery-text-input",
+        "message-input",
+        "name-input",
+        "preview-frame",
+        "site-header"
+      ]
+    },
+    "--color-danger": {
+      "default": "#c0392b",
+      "usedBy": [
+        "email-error",
+        "gallery-sample-error",
+        "name-error"
+      ]
+    },
+    "--color-muted": {
+      "default": "#5f6368",
+      "usedBy": [
+        "list-empty",
+        "list-item-meta",
+        "nav-about",
+        "nav-contact",
+        "nav-home",
+        "nav-list",
+        "page-intro",
+        "preview-caption",
+        "site-footer"
+      ]
+    },
+    "--color-page": {
+      "default": "#f7f5f0",
+      "usedBy": []
+    },
+    "--color-shade": {
+      "default": "rgba(0, 0, 0, 0.45)",
+      "usedBy": [
+        "signup-modal"
+      ]
+    },
+    "--color-success": {
+      "default": "#1e8449",
+      "usedBy": [
+        "form-sent"
+      ]
+    },
+    "--color-surface": {
+      "default": "#ffffff",
+      "usedBy": [
+        "email-input",
+        "feature-hooks",
+        "feature-hooks-text",
+        "feature-hooks-title",
+        "feature-layer",
+        "feature-layer-text",
+        "feature-layer-title",
+        "feature-tokens",
+        "feature-tokens-text",
+        "feature-tokens-title",
+        "gallery-secondary-button",
+        "gallery-text-input",
+        "list-item",
+        "message-input",
+        "modal-close-button",
+        "name-input",
+        "preview-frame",
+        "site-header"
+      ]
+    },
+    "--color-text": {
+      "default": "#1d1d1f",
+      "usedBy": [
+        "email-input",
+        "gallery-text-input",
+        "message-input",
+        "name-input",
+        "site-logo"
+      ]
+    },
+    "--font-body": {
+      "default": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "usedBy": []
+    },
+    "--font-heading": {
+      "default": "Georgia, \"Times New Roman\", serif",
+      "usedBy": [
+        "page-title",
+        "site-logo"
+      ]
+    },
+    "--page-width": {
+      "default": "60rem",
+      "usedBy": [
+        "page-main"
+      ]
+    },
+    "--radius": {
+      "default": "10px",
+      "usedBy": [
+        "email-input",
+        "feature-hooks",
+        "feature-hooks-text",
+        "feature-hooks-title",
+        "feature-layer",
+        "feature-layer-text",
+        "feature-layer-title",
+        "feature-tokens",
+        "feature-tokens-text",
+        "feature-tokens-title",
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "gallery-text-input",
+        "hero-button",
+        "list-item",
+        "message-input",
+        "modal-close-button",
+        "modal-confirm-button",
+        "name-input",
+        "preview-frame",
+        "send-button",
+        "signup-modal"
+      ]
+    },
+    "--shadow": {
+      "default": "0 1px 3px var(--color-shade)",
+      "usedBy": [
+        "feature-hooks",
+        "feature-hooks-text",
+        "feature-hooks-title",
+        "feature-layer",
+        "feature-layer-text",
+        "feature-layer-title",
+        "feature-tokens",
+        "feature-tokens-text",
+        "feature-tokens-title",
+        "list-item",
+        "signup-modal"
+      ]
+    },
+    "--space-1": {
+      "default": "0.25rem",
+      "usedBy": [
+        "email-field",
+        "gallery-text-field",
+        "message-field",
+        "name-field"
+      ]
+    },
+    "--space-2": {
+      "default": "0.5rem",
+      "usedBy": [
+        "email-input",
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "gallery-text-input",
+        "hero-button",
+        "list-items",
+        "message-input",
+        "modal-actions",
+        "modal-close-button",
+        "modal-confirm-button",
+        "name-input",
+        "send-button"
+      ]
+    },
+    "--space-3": {
+      "default": "1rem",
+      "usedBy": [
+        "contact-form",
+        "feature-hooks",
+        "feature-hooks-text",
+        "feature-hooks-title",
+        "feature-layer",
+        "feature-layer-text",
+        "feature-layer-title",
+        "feature-tokens",
+        "feature-tokens-text",
+        "feature-tokens-title",
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "hero-button",
+        "home-features",
+        "list-item",
+        "modal-actions",
+        "modal-close-button",
+        "modal-confirm-button",
+        "page-main",
+        "page-title",
+        "preview-screens",
+        "send-button",
+        "site-header",
+        "site-nav"
+      ]
+    },
+    "--space-4": {
+      "default": "2rem",
+      "usedBy": [
+        "gallery-section-buttons",
+        "gallery-section-cards",
+        "gallery-section-fields",
+        "gallery-section-list",
+        "home-features",
+        "home-hero",
+        "page-intro",
+        "page-main",
+        "signup-modal",
+        "site-footer",
+        "site-header"
+      ]
+    },
+    "--text-body": {
+      "default": "1rem",
+      "usedBy": []
+    },
+    "--text-small": {
+      "default": "0.875rem",
+      "usedBy": [
+        "email-error",
+        "gallery-sample-error",
+        "name-error",
+        "preview-caption",
+        "site-footer"
+      ]
+    },
+    "--text-title": {
+      "default": "2rem",
+      "usedBy": [
+        "page-title"
+      ]
+    }
+  },
+  "hooks": {
+    "about-story": {
+      "pages": [
+        "starter/about.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "about-story-text": {
+      "pages": [
+        "starter/about.html"
+      ],
+      "element": "p",
+      "parent": "about-story",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "about-story-title": {
+      "pages": [
+        "starter/about.html"
+      ],
+      "element": "h2",
+      "parent": "about-story",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "contact-form": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "form",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 16,
+          "function": "send",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/js/contact.js",
+          "line": 22,
+          "function": "(top level)",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/js/contact.js",
+          "line": 31,
+          "function": "anonymous",
+          "uses": "reads"
+        }
+      ]
+    },
+    "email-error": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "span",
+      "parent": "email-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-danger",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 9,
+          "function": "validate",
+          "uses": "writes"
+        }
+      ]
+    },
+    "email-field": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "label",
+      "parent": "contact-form",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-1"
+      ],
+      "references": []
+    },
+    "email-input": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "input[type=email]",
+      "parent": "email-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--color-text",
+        "--radius",
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 7,
+          "function": "validate",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/contact.js",
+          "line": 29,
+          "function": "anonymous",
+          "uses": "writes"
+        }
+      ]
+    },
+    "email-label": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "span",
+      "parent": "email-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "feature-hooks": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/index.html"
+      ],
+      "element": "article",
+      "parent": "home-features",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-hooks-text": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/index.html"
+      ],
+      "element": "p",
+      "parent": "feature-hooks",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-hooks-title": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/index.html"
+      ],
+      "element": "h2",
+      "parent": "feature-hooks",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-layer": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "article",
+      "parent": "home-features",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-layer-text": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "p",
+      "parent": "feature-layer",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-layer-title": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "h2",
+      "parent": "feature-layer",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-tokens": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "article",
+      "parent": "home-features",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-tokens-text": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "p",
+      "parent": "feature-tokens",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "feature-tokens-title": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "h2",
+      "parent": "feature-tokens",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "footer-line": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "p",
+      "parent": "site-footer",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "footer-year": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "span",
+      "parent": "footer-line",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/site.js",
+          "line": 11,
+          "function": "fillFooter",
+          "uses": "writes"
+        }
+      ]
+    },
+    "form-sent": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "p",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-success"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 17,
+          "function": "send",
+          "uses": "writes"
+        }
+      ]
+    },
+    "gallery-buttons-title": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "h2",
+      "parent": "gallery-section-buttons",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "gallery-cards-title": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "h2",
+      "parent": "gallery-section-cards",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "gallery-fields-title": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "h2",
+      "parent": "gallery-section-fields",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "gallery-list": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "ul",
+      "parent": "gallery-section-list",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/gallery.js",
+          "line": 7,
+          "function": "(top level)",
+          "uses": "writes"
+        }
+      ]
+    },
+    "gallery-list-title": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "h2",
+      "parent": "gallery-section-list",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "gallery-primary-button": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "button",
+      "parent": "gallery-section-buttons",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "gallery-sample-error": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "p",
+      "parent": "gallery-section-fields",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-danger",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "gallery-secondary-button": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "button",
+      "parent": "gallery-section-buttons",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-surface",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "gallery-section-buttons": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-4"
+      ],
+      "references": []
+    },
+    "gallery-section-cards": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-4"
+      ],
+      "references": []
+    },
+    "gallery-section-fields": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-4"
+      ],
+      "references": []
+    },
+    "gallery-section-list": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-4"
+      ],
+      "references": []
+    },
+    "gallery-text-field": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "label",
+      "parent": "gallery-section-fields",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-1"
+      ],
+      "references": []
+    },
+    "gallery-text-input": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "input[type=text]",
+      "parent": "gallery-text-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--color-text",
+        "--radius",
+        "--space-2"
+      ],
+      "references": []
+    },
+    "gallery-text-label": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "span",
+      "parent": "gallery-text-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "hero-button": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "button",
+      "parent": "home-hero",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/js/home.js",
+          "line": 11,
+          "function": "setUp",
+          "uses": "listens"
+        }
+      ]
+    },
+    "home-features": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-3",
+        "--space-4"
+      ],
+      "references": []
+    },
+    "home-hero": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "section",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-4"
+      ],
+      "references": []
+    },
+    "list-empty": {
+      "pages": [
+        "starter/list.html"
+      ],
+      "element": "p",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/list.js",
+          "line": 19,
+          "function": "draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "list-item": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/list.html"
+      ],
+      "element": "li",
+      "parent": "template-list-item",
+      "scriptBuilt": true,
+      "template": "template-list-item",
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "list-item-meta": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/list.html"
+      ],
+      "element": "span",
+      "parent": "list-item",
+      "scriptBuilt": true,
+      "template": "template-list-item",
+      "tokens": [
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/gallery.js",
+          "line": 6,
+          "function": "(top level)",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/js/list.js",
+          "line": 15,
+          "function": "map callback in draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "list-item-name": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/list.html"
+      ],
+      "element": "span",
+      "parent": "list-item",
+      "scriptBuilt": true,
+      "template": "template-list-item",
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/gallery.js",
+          "line": 5,
+          "function": "(top level)",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/js/list.js",
+          "line": 14,
+          "function": "map callback in draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "list-items": {
+      "pages": [
+        "starter/list.html"
+      ],
+      "element": "ul",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "starter/js/list.js",
+          "line": 18,
+          "function": "draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "message-field": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "label",
+      "parent": "contact-form",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-1"
+      ],
+      "references": []
+    },
+    "message-input": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "textarea",
+      "parent": "message-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--color-text",
+        "--radius",
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 30,
+          "function": "anonymous",
+          "uses": "writes"
+        }
+      ]
+    },
+    "message-label": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "span",
+      "parent": "message-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "modal-actions": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "div",
+      "parent": "signup-modal",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "modal-close-button": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "button",
+      "parent": "modal-actions",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-surface",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/js/home.js",
+          "line": 12,
+          "function": "setUp",
+          "uses": "listens"
+        }
+      ]
+    },
+    "modal-confirm-button": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "button",
+      "parent": "modal-actions",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/js/home.js",
+          "line": 13,
+          "function": "setUp",
+          "uses": "listens"
+        }
+      ]
+    },
+    "modal-text": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "p",
+      "parent": "signup-modal",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/home.js",
+          "line": 14,
+          "function": "click listener in setUp",
+          "uses": "writes"
+        }
+      ]
+    },
+    "modal-title": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "h2",
+      "parent": "signup-modal",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "name-error": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "span",
+      "parent": "name-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-danger",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 8,
+          "function": "validate",
+          "uses": "writes"
+        }
+      ]
+    },
+    "name-field": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "label",
+      "parent": "contact-form",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-1"
+      ],
+      "references": []
+    },
+    "name-input": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "input[type=text]",
+      "parent": "name-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--color-text",
+        "--radius",
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "starter/js/contact.js",
+          "line": 6,
+          "function": "validate",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/contact.js",
+          "line": 28,
+          "function": "anonymous",
+          "uses": "writes"
+        }
+      ]
+    },
+    "name-label": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "span",
+      "parent": "name-field",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "nav-about": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "a",
+      "parent": "site-nav",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/site.js",
+          "line": 6,
+          "function": "markCurrentPage",
+          "uses": "reads"
+        }
+      ]
+    },
+    "nav-contact": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "a",
+      "parent": "site-nav",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/site.js",
+          "line": 6,
+          "function": "markCurrentPage",
+          "uses": "reads"
+        }
+      ]
+    },
+    "nav-home": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "a",
+      "parent": "site-nav",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/site.js",
+          "line": 6,
+          "function": "markCurrentPage",
+          "uses": "reads"
+        }
+      ]
+    },
+    "nav-list": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "a",
+      "parent": "site-nav",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-muted"
+      ],
+      "references": [
+        {
+          "file": "starter/js/site.js",
+          "line": 6,
+          "function": "markCurrentPage",
+          "uses": "reads"
+        }
+      ]
+    },
+    "page-about": {
+      "pages": [
+        "starter/about.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-contact": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-gallery": {
+      "pages": [
+        "starter/gallery.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-home": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-intro": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/gallery.html",
+        "starter/index.html",
+        "starter/list.html",
+        "starter/preview.html"
+      ],
+      "element": "p",
+      "parent": "home-hero",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--space-4"
+      ],
+      "references": []
+    },
+    "page-list": {
+      "pages": [
+        "starter/list.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-main": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/gallery.html",
+        "starter/index.html",
+        "starter/list.html",
+        "starter/preview.html"
+      ],
+      "element": "main",
+      "parent": "page-home",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--page-width",
+        "--space-3",
+        "--space-4"
+      ],
+      "references": []
+    },
+    "page-preview": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
+    "page-title": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/gallery.html",
+        "starter/index.html",
+        "starter/list.html",
+        "starter/preview.html"
+      ],
+      "element": "h1",
+      "parent": "home-hero",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-heading",
+        "--space-3",
+        "--text-title"
+      ],
+      "references": []
+    },
+    "preview-caption": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "figcaption",
+      "parent": "preview-screen",
+      "scriptBuilt": true,
+      "template": "template-preview-screen",
+      "tokens": [
+        "--color-muted",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/js/preview.js",
+          "line": 9,
+          "function": "map callback in draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "preview-frame": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "iframe",
+      "parent": "preview-screen",
+      "scriptBuilt": true,
+      "template": "template-preview-screen",
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--radius"
+      ],
+      "references": [
+        {
+          "file": "starter/js/preview.js",
+          "line": 10,
+          "function": "map callback in draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "preview-screen": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "figure",
+      "parent": "template-preview-screen",
+      "scriptBuilt": true,
+      "template": "template-preview-screen",
+      "tokens": [],
+      "references": []
+    },
+    "preview-screens": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "div",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/js/preview.js",
+          "line": 13,
+          "function": "draw",
+          "uses": "writes"
+        }
+      ]
+    },
+    "send-button": {
+      "pages": [
+        "starter/contact.html"
+      ],
+      "element": "button",
+      "parent": "contact-form",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--radius",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "signup-modal": {
+      "pages": [
+        "starter/index.html"
+      ],
+      "element": "dialog",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-shade",
+        "--radius",
+        "--shadow",
+        "--space-4"
+      ],
+      "references": [
+        {
+          "file": "starter/js/home.js",
+          "line": 5,
+          "function": "openSignup",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 12,
+          "function": "setUp",
+          "uses": "writes"
+        }
+      ]
+    },
+    "site-footer": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "footer",
+      "parent": "page-home",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--space-4",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "site-header": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "header",
+      "parent": "page-home",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-border",
+        "--color-surface",
+        "--space-3",
+        "--space-4"
+      ],
+      "references": []
+    },
+    "site-logo": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "a",
+      "parent": "site-header",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-text",
+        "--font-heading"
+      ],
+      "references": []
+    },
+    "site-nav": {
+      "pages": [
+        "starter/about.html",
+        "starter/contact.html",
+        "starter/index.html",
+        "starter/list.html"
+      ],
+      "element": "nav",
+      "parent": "site-header",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-3"
+      ],
+      "references": []
+    },
+    "template-list-item": {
+      "pages": [
+        "starter/gallery.html",
+        "starter/list.html"
+      ],
+      "element": "template",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/gallery.js",
+          "line": 4,
+          "function": "(top level)",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/list.js",
+          "line": 13,
+          "function": "map callback in draw",
+          "uses": "reads"
+        }
+      ]
+    },
+    "template-preview-screen": {
+      "pages": [
+        "starter/preview.html"
+      ],
+      "element": "template",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/js/preview.js",
+          "line": 8,
+          "function": "map callback in draw",
+          "uses": "reads"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kit practice</title>
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="app" data-state="signed-out">
+<nav data-hook="nav"><a href="/" data-hook="nav-play">Play</a> | <a href="/ledger.html" data-hook="nav-ledger">Ledger</a></nav>
+<h1>Kit practice page</h1>
+<section data-hook="wallet-panel">
+  <h2>Wallet</h2>
+  <button type="button" data-hook="wallet-connect-test">Use test wallet</button>
+  <p>Address: <code data-hook="wallet-address">not connected</code></p>
+</section>
+<section data-hook="balance-panel">
+  <h2>Balance</h2>
+  <p data-hook="balance-note">One balance for all your matches.</p>
+  <label>Amount (SOL) <input type="text" value="1" data-hook="deposit-amount"></label>
+  <button type="button" data-hook="deposit-review">Review deposit</button>
+  <p data-hook="balance-message"></p>
+</section>
+<section data-hook="score-panel">
+  <h2>Score</h2>
+  <p data-hook="score-you" data-sign="flat">You 0.00%</p>
+</section>
+<section data-hook="ledger-panel">
+  <h2>Recent</h2>
+  <div data-hook="ledger-rows"></div>
+  <template data-hook="template-ledger-row"><p data-hook="ledger-row"><span data-hook="ledger-when">-</span> <span data-hook="ledger-amount">-</span></p></template>
+</section>
+<script src="app.js"></script>
+</body>
+</html>

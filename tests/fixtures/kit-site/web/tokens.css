@@ -1,0 +1,7 @@
+/* Design tokens: the design changes these; the scripts read some of them. */
+:root {
+  --pons-gain: #16a34a;
+  --pons-loss: #dc2626;
+  --space-2: 8px;
+  --font-body: Georgia, serif;
+}

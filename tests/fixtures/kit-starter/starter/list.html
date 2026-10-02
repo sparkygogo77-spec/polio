@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>List · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/list.js"></script>
+</head>
+<body data-hook="page-list">
+<header data-hook="site-header">
+  <a data-hook="site-logo" href="index.html">Starter</a>
+  <nav data-hook="site-nav" aria-label="Main">
+    <a data-hook="nav-home" href="index.html">Home</a>
+    <a data-hook="nav-about" href="about.html">About</a>
+    <a data-hook="nav-list" href="list.html">List</a>
+    <a data-hook="nav-contact" href="contact.html">Contact</a>
+  </nav>
+</header>
+<main data-hook="page-main">
+  <h1 data-hook="page-title">List</h1>
+  <p data-hook="page-intro">These rows are drawn by a script from one template.</p>
+  <ul data-hook="list-items"></ul>
+  <p data-hook="list-empty" hidden>Nothing here yet.</p>
+  <template data-hook="template-list-item">
+    <li data-hook="list-item">
+      <span data-hook="list-item-name">Name</span>
+      <span data-hook="list-item-meta">Meta</span>
+    </li>
+  </template>
+</main>
+<footer data-hook="site-footer">
+  <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>
+</footer>
+</body>
+</html>

@@ -32,6 +32,8 @@ export interface LayerFiles {
   base: string;
   /** Sent by the builder contract (`builder.json`): only the style layer and the map made from it. */
   kit: boolean;
+  /** A style layer already there that this one replaces, not written by the Builder: how many lines it had. */
+  replaces?: { path: string; lines: number } | null;
 }
 
 export type Answer<T> = ({ ok: true } & T) | { ok: false; says: string };
@@ -50,8 +52,12 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
   if (kit && !kit.ok) return kit;
   if (kit) return prepareKitLayer(nodes, palette, source, token, kit.manifest, base, { ...opts, fetch: f });
   const layer = buildLayer(nodes, palette, source, { when: opts.when, family: opts.family });
-  const cssPath = `${source.dir}style-layer.css`;
+  /* Where the repository says the layer goes (builder.json), else beside the pages. */
+  const cssPath = (source.layerFile ?? `${source.dir}style-layer.css`).replace(/^\//, "");
   const files: LayerFiles["files"] = [{ path: cssPath, content: layer.css }];
+  /* A layer someone wrote by hand is said before it is replaced: it stays in the history of the branch it was on, nothing is lost. */
+  const there = await fileAt(f, token, source.repo, base, cssPath);
+  const replaces = there && there.trim() && !/from the Builder/.test(there) ? { path: cssPath, lines: there.split("\n").length } : null;
   const skipped: LayerFiles["skipped"] = [];
   for (const page of source.files) {
     const html = await fileAt(f, token, source.repo, base, page.file);
@@ -65,7 +71,7 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
     for (const [k, v] of before) if ((after.get(k) ?? 0) < v) return { ok: false, says: `Stopped: the change to ${page.file} would have lost ${k}. Nothing was written.` };
     if (done.html !== html) files.push({ path: page.file, content: done.html });
   }
-  return { ok: true, layer, files, skipped, cssPath, base, kit: false };
+  return { ok: true, layer, files, skipped, cssPath, base, kit: false, replaces };
 }
 
 /**
@@ -149,9 +155,11 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
       ].join("\n");
       const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title: `Design from the Builder: ${opts.site || repo}`, head: branch, base, body } });
       const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
+      /* A layer someone wrote by hand is said before it is replaced: it stays on the default branch until the pull request is merged. */
+      const replaced = prepared.replaces ? ` It replaces the ${prepared.replaces.lines} lines already in ${prepared.replaces.path}, which stay on ${base}.` : "";
       const says = pull
-        ? `The design is a pull request into ${base} of ${repo}, from a new branch ${branch}: ${listed}. Nothing on ${base} has changed, and nothing is merged. Read it and merge it once its checks are green: ${pull}`
-        : `The style layer is on a new branch, ${branch}, in ${repo}: ${listed}. Nothing on ${base} has changed. GitHub would not open the pull request (it answered ${pr.status}); open it from the compare page: ${compare}`;
+        ? `The design is a pull request into ${base} of ${repo}, from a new branch ${branch}: ${listed}.${replaced} Nothing on ${base} has changed, and nothing is merged. Read it and merge it once its checks are green: ${pull}`
+        : `The style layer is on a new branch, ${branch}, in ${repo}: ${listed}.${replaced} Nothing on ${base} has changed. GitHub would not open the pull request (it answered ${pr.status}); open it from the compare page: ${compare}`;
       return { ok: true, branch, sha, compare, says, pull };
     }
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${name} (it answered ${put.status}).` };
