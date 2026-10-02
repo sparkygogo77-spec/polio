@@ -424,6 +424,8 @@ export interface StudioNode {
    * still finds it. Optional: absent on every part that came from nowhere.
    */
   hooks?: Record<string, string> | null;
+  /** Where it is in the code repository it was brought in from, and how it looked then (`styleLayer.ts`): the part panel's code link, and what the style layer compares against. */
+  source?: import("./styleLayer").NodeSource | null;
 }
 
 export interface StudioGroup {

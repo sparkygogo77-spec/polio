@@ -28,6 +28,9 @@
 import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
 import type { Span } from "./parts/spans.ts";
 import { familyOf } from "./recreate.ts";
+import { lookOf, type LayerNode, type StyleSource } from "./styleLayer.ts";
+import type { PageSource } from "./sourceHooks.ts";
+import { codeIndex, type CodeIndex, type Wanted } from "./codeRefs.ts";
 
 /** A page of the site, as the store keeps one. */
 export interface LandedPage { id: string; name: string; path: string; prompt: string; scroll: string }
@@ -39,6 +42,8 @@ export interface LandedDoc {
   frameWidth: number;
   /** The entry page's own ground and ink, as the browser drew its body: what the palette's page colour and text are taken from. */
   ground: { bg: string; text: string };
+  /** What the pages' code is written against, for the style layer (`styleLayer.ts`); the repository is filled in by whoever knows it. */
+  styleSource: Omit<StyleSource, "repo" | "ref" | "dir">;
 }
 
 /** What came, counted honestly, for the line he reads. */
@@ -57,7 +62,7 @@ export interface PageReport {
 }
 
 /** One HTML file, read. */
-export interface FileRead { file: string; read: PageRead }
+export interface FileRead { file: string; read: PageRead; /** What its code is written against, when its source was read beside it. */ source?: PageSource }
 
 /** The catalogue part each kind becomes. */
 const FEATURE: Record<PagePart["kind"], string> = {
@@ -133,7 +138,37 @@ function spansFrom(runs: PartRun[] | undefined, words: string, link: (href: stri
 }
 
 /** One page's parts, as nodes. */
-function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "page" | "url"; target: string } | null, at: number): Record<string, unknown>[] {
+/** Every name a part's code may find it by: its hooks, the hooks of values inside its words, its classes. */
+function namesOf(p: PagePart): Wanted[] {
+  const out: Wanted[] = [];
+  if (p.hooks["data-hook"]) out.push({ attr: "data-hook", value: p.hooks["data-hook"] });
+  if (p.hooks.id) out.push({ attr: "id", value: p.hooks.id });
+  for (const r of p.runs ?? []) {
+    if (r.hooks?.["data-hook"]) out.push({ attr: "data-hook", value: r.hooks["data-hook"] });
+    if (r.hooks?.id) out.push({ attr: "id", value: r.hooks.id });
+  }
+  for (const c of p.classes ?? []) out.push({ attr: "class", value: c });
+  return out;
+}
+
+/** A part's ties to its code: markup, CSS rules, and every script reference, with what builds it if anything does. */
+function codeOf(p: PagePart, file: string, index: CodeIndex | null): import("./styleLayer.ts").PartCode {
+  const refs = index ? namesOf(p).flatMap((w) => index.refs.get(`${w.attr}=${w.value}`) ?? []) : [];
+  const seen = new Set<string>();
+  const uniq = refs.filter((r) => { const k = `${r.file}:${r.line}:${r.via}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const own = p.hooks["data-hook"] ? `data-hook=${p.hooks["data-hook"]}` : p.hooks.id ? `id=${p.hooks.id}` : null;
+  /* Filled at run time: an empty place its code fills, or one a script writes or builds into. */
+  const writer = uniq.find((r) => (r.kind === "builds" || r.kind === "writes") && (!own || r.via === own || p.kind === "slot"));
+  return {
+    markup: { file, ...(p.line ? { line: p.line } : {}) },
+    css: p.css ?? [],
+    refs: uniq,
+    built: writer ?? null,
+    from: !index ? "none" : uniq.some((r) => index.listed.has(r.via)) ? "hooks.json" : "scan",
+  };
+}
+
+function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "page" | "url"; target: string } | null, at: number, index: CodeIndex | null = null): Record<string, unknown>[] {
   const { read } = fr;
   const url = `zip:${fr.file}`;
   const base = read.px || 16;
@@ -194,9 +229,18 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(padded ? { pad } : {}),
       ...(edge ? { edge } : {}),
       ...(s.radius > 0 ? { radius: s.radius } : {}),
+      /* Rounded to half its side, a square picture is a circle, and is drawn as one at any size. */
+      ...(p.kind === "picture" && p.box.w === p.box.h && s.radius * 2 >= p.box.w ? { shape: "circle" } : {}),
       ...(text ? { text } : p.kind === "button" ? { text: { align: "center" } } : {}),
       ...(p.kind === "picture" && p.alt ? { data: `picture, “${p.alt}”` } : {}),
     };
+    /* Where it is in its source, and how it looked as it came in: the style layer writes only what changes from this. */
+    const hook = p.hooks["data-hook"] ? { attr: "data-hook" as const, value: p.hooks["data-hook"] } : p.hooks.id ? { attr: "id" as const, value: p.hooks.id } : null;
+    const staticWords = (p.kind === "text" || p.kind === "heading" || p.kind === "link" || p.kind === "code") && !hook && !p.runs?.some((r) => r.hooks);
+    const code = codeOf(p, fr.file, index);
+    /* Words its code writes are not static, whatever the HTML holds. */
+    const written = !!code.built;
+    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code };
     out.push(node);
   });
   /* What holds what is read off the paths, as a capture's is (`partTree.ts`): each part's continues its section's. */
@@ -208,7 +252,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
  * a page of its own at a path off its file name, and the board is as wide
  * as the window the entry was read at.
  */
-export function pagesToDoc(files: FileRead[], opts: { at?: number } = {}): { doc: LandedDoc; report: PageReport } {
+export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path: string; text: string }[] } = {}): { doc: LandedDoc; report: PageReport } {
   const at = opts.at ?? Date.now();
   const entry = files[0]!;
   const dir = entry.file.includes("/") ? entry.file.slice(0, entry.file.lastIndexOf("/") + 1) : "";
@@ -227,11 +271,13 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number } = {}): { doc
     byFile.set(f.file.slice(dir.length).toLowerCase(), id);
   });
   const nodes: Record<string, unknown>[] = [];
+  /* The repository's scripts (and hooks.json), read once for every name any part may be found by (`codeRefs.ts`). */
+  const index = opts.code?.length ? codeIndex(opts.code, files.flatMap((f) => f.read.parts.flatMap(namesOf))) : null;
   const report: PageReport = { pages: [], kinds: {}, hidden: 0, hooks: 0, pictures: 0, unstyled: 0, bare: [], truncated: [] };
   files.forEach((f, i) => {
     const fileDir = f.file.includes("/") ? f.file.slice(0, f.file.lastIndexOf("/") + 1) : "";
     const link = (href: string) => pageLink(href, byFile, fileDir);
-    const landed = nodesOf(f, pages[i]!.id, link, at);
+    const landed = nodesOf(f, pages[i]!.id, link, at, index);
     nodes.push(...landed);
     const hidden = f.read.parts.filter((p) => p.hidden).length;
     report.pages.push({ name: pages[i]!.name, file: f.file, parts: landed.length, hidden });
@@ -245,7 +291,18 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number } = {}): { doc
     if (f.read.parts.length && f.read.styledParts === 0) report.bare.push(pages[i]!.name);
     if (f.read.truncated) report.truncated.push(pages[i]!.name);
   });
-  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour } }, report };
+  /* Each page's hooks and variables, and which of its hooks came onto the board: one that did and is gone later was deleted. */
+  const styleSource = {
+    files: files.filter((f) => f.source).map((f, i) => {
+      const on = new Set<string>();
+      for (const p of f.read.parts) {
+        for (const a of ["data-hook", "id"] as const) if (p.hooks[a]) on.add(`${a}=${p.hooks[a]}`);
+        for (const r of p.runs ?? []) for (const a of ["data-hook", "id"] as const) if (r.hooks?.[a]) on.add(`${a}=${r.hooks[a]}`);
+      }
+      return { file: f.file, pageId: pages[files.indexOf(f)]?.id ?? pages[i]!.id, hooks: f.source!.hooks.map((h) => ({ ...h, imported: on.has(`${h.attr}=${h.value}`) })), vars: f.source!.vars };
+    }),
+  };
+  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour }, styleSource }, report };
 }
 
 /** The kinds counted in words, biggest first: "12 headings, 40 lines of words, 3 fields". */

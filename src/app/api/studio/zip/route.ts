@@ -5,6 +5,7 @@ import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts,
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
 import { CANDIDATES, FACES, MEASURE, PARTS, type Candidate, type PageRead } from "@/features/studio/siteRead";
 import { carryFaces, type FacesRead } from "@/features/studio/fonts";
+import { sourceOfPage, withLines } from "@/features/studio/sourceHooks";
 
 /**
  * Reading the page inside a zip, exactly.
@@ -122,13 +123,20 @@ export async function POST(request: Request) {
       const others = [...names]
         .filter((n) => n !== gate.entry && /\.html?$/i.test(n) && n.startsWith(gate.dir) && !/(^|\/)(node_modules|vendor|test|tests)\//i.test(n))
         .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b));
-      const read: { file: string; scripts: boolean; read: PageRead }[] = [];
-      read.push({ file: gate.entry, scripts, read: (await page.evaluate(PARTS, MAX_PARTS)) as PageRead });
+      const read: { file: string; scripts: boolean; read: PageRead; source: ReturnType<typeof sourceOfPage> }[] = [];
+      /* What the page's own code is written against, read off its source: every hook with its line, and the CSS variables it exposes (`sourceHooks.ts`). */
+      const textOf = (n: string) => { try { return new TextDecoder().decode(unpacked(n)); } catch { return ""; } };
+      const sourced = (file: string, html: string, r: PageRead) => {
+        const source = sourceOfPage(file, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; });
+        return { read: withLines(r, source, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }), source };
+      };
+      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, (await page.evaluate(PARTS, MAX_PARTS)) as PageRead) });
       for (const file of others.slice(0, MOST_PAGES - 1)) {
         try {
           await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
           await page.waitForTimeout(150);
-          read.push({ file, scripts: hadScripts(htmlOf.get(file) ?? ""), read: (await page.evaluate(PARTS, MAX_PARTS)) as PageRead });
+          const html = htmlOf.get(file) ?? textOf(file);
+          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, (await page.evaluate(PARTS, MAX_PARTS)) as PageRead) });
         } catch {
           /* A page that will not open is left out, and the count says so. */
         }

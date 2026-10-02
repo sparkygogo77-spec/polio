@@ -7,7 +7,7 @@
 import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
@@ -43,6 +43,7 @@ import { movingParts } from "./motionInventory";
 import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
 import { TourEditor } from "./TourEditor";
+import { KIND_SAYS } from "./codeRefs";
 import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
 import { ComponentFields } from "./ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "./components";
@@ -377,6 +378,83 @@ function PageSummary({ nodes }: { nodes: StudioNode[] }) {
         </p>
       ) : null}
       {behind ? <PartsBehind which={behind} nodes={nodes} onClose={() => { play("close"); setBehind(null); }} /> : null}
+    </div>
+  );
+}
+
+/**
+ * WHERE THIS PART IS IN ITS CODE, for a site brought in from a code
+ * repository (`StudioNode.source`): the hook its scripts find it by, and the
+ * file and line it is written on, linked to that line on GitHub. A part with
+ * no hook says so: the style layer cannot reach it (`styleLayer.ts`).
+ */
+function CodeLink({ node }: { node: StudioNode }) {
+  const from = useStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
+  const src = node.source!;
+  const hook = src.hook ? (src.hook.attr === "id" ? `id="${src.hook.value}"` : `data-hook="${src.hook.value}"`) : null;
+  const renamed = src.hook && node.hooks?.[src.hook.attr] !== undefined && node.hooks[src.hook.attr] !== src.hook.value;
+  const where = `${src.file}${src.line ? ` line ${src.line}` : ""}`;
+  const href = from ? `https://github.com/${from.repo}/blob/${from.ref.split("/").map(encodeURIComponent).join("/")}/${src.file.split("/").map(encodeURIComponent).join("/")}${src.line ? `#L${src.line}` : ""}` : null;
+  return (
+    <div data-part-code={src.hook?.value ?? ""} className="truncate text-small text-fg-muted" title={hook ? `Its code finds it as ${hook}, in ${where}` : `No hook: the style layer cannot reach it. ${where}`}>
+      <span className="font-mono text-fg">{hook ?? "no hook"}</span>
+      {" · "}
+      {href ? <a data-part-code-link="" href={href} target="_blank" rel="noreferrer" className="underline">{where}</a> : <span>{where}</span>}
+      {renamed ? <span style={{ color: "oklch(0.72 0.16 30)" }}> · renamed here; the code still uses the old name</span> : null}
+    </div>
+  );
+}
+
+/** A line of a file in the repository a site came from, on GitHub. */
+function lineHref(from: { repo: string; ref: string } | null, file: string, line?: number): string | null {
+  if (!from) return null;
+  const enc = (p: string) => p.split("/").map(encodeURIComponent).join("/");
+  return `https://github.com/${from.repo}/blob/${enc(from.ref)}/${enc(file)}${line ? `#L${line}` : ""}`;
+}
+
+/**
+ * ALL THE CODE TIED TO THIS PART, read only (`codeRefs.ts`). The markup it
+ * came from, the CSS rules that style it, and every place a script reads,
+ * writes, builds, switches, styles or listens on it, each with its file,
+ * line and function, linked to the line on GitHub. A part its code fills at
+ * run time says so first, and names the function that does it.
+ */
+function CodeView({ node }: { node: StudioNode }) {
+  const from = useStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
+  const code = node.source?.code;
+  if (!code) return null;
+  const link = (file: string, line: number | undefined, text: string) => {
+    const href = lineHref(from, file, line);
+    return href ? <a href={href} target="_blank" rel="noreferrer" className="underline">{text}</a> : <span>{text}</span>;
+  };
+  const where = (file: string, line?: number) => `${file}${line ? ` line ${line}` : ""}`;
+  const via = (v: string) => (v.startsWith("data-hook=") ? `“${v.slice(10)}”` : v.startsWith("id=") ? `#${v.slice(3)}` : `.${v.slice(6)}`);
+  return (
+    <div data-code-view="" className="space-y-2 text-small">
+      {code.built ? (
+        <p data-code-built="" className="rounded-md border border-border px-2 py-1 text-fg">
+          Filled by code at run time: {code.built.fn ? <span className="font-mono">{code.built.fn}</span> : "the top of the file"} in {link(code.built.file, code.built.line, where(code.built.file, code.built.line))}. What shows here is the page before its code runs.
+        </p>
+      ) : null}
+      {code.markup ? <p data-code-markup="">Markup: {link(code.markup.file, code.markup.line, where(code.markup.file, code.markup.line))}</p> : null}
+      <div data-code-css="">
+        <p className="text-fg-muted">{code.css.length ? "Styled by" : "No CSS rule of the page's styles it: it wears the browser's defaults."}</p>
+        {code.css.map((c) => <p key={`${c.file}${c.line}${c.selector}`} className="truncate"><span className="font-mono">{c.selector}</span> · {link(c.file, c.line, where(c.file, c.line))}</p>)}
+      </div>
+      <div data-code-scripts="">
+        <p className="text-fg-muted">{code.refs.length ? `Scripts (${code.from === "hooks.json" ? "from the repository's hooks.json" : "found by reading its scripts"})` : code.from === "none" ? "Its scripts were not read." : "No script names it."}</p>
+        <ul className="space-y-0.5">
+          {code.refs.slice(0, 24).map((r) => (
+            <li key={`${r.file}${r.line}${r.via}`} data-code-ref={r.kind} title={r.code}>
+              <span className="text-fg">{KIND_SAYS[r.kind]}</span>
+              {code.refs.some((x) => x.via !== r.via) ? <span className="text-fg-muted"> ({via(r.via)})</span> : null}
+              {" · "}{r.fn ? <span className="font-mono">{r.fn}</span> : "top of the file"}{" · "}{link(r.file, r.line, where(r.file, r.line))}
+            </li>
+          ))}
+        </ul>
+        {code.refs.length > 24 ? <p className="text-fg-muted">And {code.refs.length - 24} more.</p> : null}
+        {code.from === "scan" ? <p className="text-fg-faint">A reading, not a run: a name a script builds out of pieces is not found.</p> : null}
+      </div>
     </div>
   );
 }
@@ -754,6 +832,7 @@ export function Inspector() {
             </Button>
           </Tooltip>
         </div>
+        {node.source ? <CodeLink node={node} /> : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -824,6 +903,12 @@ export function Inspector() {
             </div>
           ) : null}
         </PanelSection>
+
+        {node.source?.code ? (
+          <PanelSection id="code" title="Code" icon={<Code2 />} note={`${node.source.code.refs.length} in scripts`}>
+            <CodeView node={node} />
+          </PanelSection>
+        ) : null}
 
         <PanelSection id="place" title="Position and size" icon={<Frame />} note={`${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% wide`}>
           <div className="grid grid-cols-2 gap-1.5" data-place="">

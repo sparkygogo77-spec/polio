@@ -47,6 +47,7 @@ import { bringRepoIn } from "./bringRepo";
 import { nameRefusal, repoNameFor } from "./repoName";
 import { useStudio } from "./store";
 import { RecapturePanel, openRecapture, useRecapture } from "./Recapture";
+import { StyleLayerSection } from "./StyleLayerPanel";
 
 interface Mine { name: string; private: boolean; branch?: string }
 interface Choices { base: string; ref: string; branches: string[]; sites: string[] }
@@ -133,6 +134,7 @@ export function RepoPicker({ open, onOpenChange }: { open: boolean; onOpenChange
         <BringIn mine={mine} said={said} onDone={() => onOpenChange(false)} />
         <div className="h-px shrink-0 bg-border" />
         <PublishTo mine={mine} />
+        <StyleLayerSection />
       </div>
     </Dialog>
   );

@@ -406,6 +406,50 @@ page, hidden, hooked, unstyled, scripts not run, pictures not carried. A page
 `PARTS` finds nothing in falls back to the reading by blocks.
 `tests/plain-page.mjs` holds it on a PST-shaped fixture.
 
+**The design goes back to the code as a style layer, never a fresh page.**
+The owner's ruling for a site brought in from a code repository (PonsStars):
+it is redesigned on the board and goes back as a layer over its existing code,
+because a fresh page drops the scripts. At import the zip route reads each
+page's source (`sourceHooks.ts`): every `data-hook` and `id` with its line,
+and every CSS variable its styles define; each part keeps `node.source` (file,
+line, hook, whether its words are static, and its look as it came in), and the
+site keeps `look.styleSource` (repository, branch, folder, the inventory).
+`styleLayer.ts` writes CSS keyed by `[data-hook="…"]` / `#id` with only what
+the owner changed (colours, type, spacing, edges, shadow, rounding; size and
+offset only for a part he moved or resized himself, `byHand`, so the board's
+own tidying writes nothing), sets a source CSS variable where he set it or
+where every part wearing its colour now wears one other, changes words only
+where the HTML holds them as plain text written once, and never writes
+`display`, `visibility` or `content`. The hook check says, for every source
+hook, covered, untouched or missing (deleted, or renamed on the board: the
+layer keeps the code's name), in words. `styleLayerRun.ts` reads the pages
+fresh, adds one `<link>` per page, refuses any change that would lose a hook,
+and commits in his browser with his token to a new `style/<site>-<date>`
+branch (never the default or the branch it was read from), handing back the
+compare link so he merges it himself. The repo menu's "Send the design back"
+section (`StyleLayerPanel.tsx`) shows the counts and warnings; the part panel
+shows each part's hook, file and line, linked. The regular export is
+unchanged. `tests/style-layer.mjs` runs the original page plus the layer with
+its scripts (a practice-style flow) and checks every hook and the look.
+
+**Every part keeps its tie to the code it came from, read only.** The owner:
+"i need all the code imported properly associated with the elements in the
+builder too". Bring it in also reads the repository's scripts beside the page
+(and a `hooks.json` if it keeps one), as text, never into the zip
+(`repoRun.ts`). Each part's `source.code` holds its markup (file and line), the
+CSS rules that style it (matched in the browser, and rules naming its hook, id
+or class for its other states, each with file and line), and every script
+reference (`codeRefs.ts`): file, line, the function it is in (an anonymous
+handler is "the click handler on deposit-review"), and what it does in plain
+words (listens, builds, writes, shows or hides, styles, reads, finds), found
+from `hooks.json` where it lists a hook and by reading the scripts otherwise
+(the hook's name as a string, an id where ids are looked up, a class where
+classes are, a variable a hook was put in followed down its function, a hook
+handed to a helper like `setText`). A part its code fills at run time is
+marked so, naming the function that fills it, and its words are never treated
+as static by the style layer. The part panel's Code section shows all of it,
+linked to the line on GitHub, with nothing to type into.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost

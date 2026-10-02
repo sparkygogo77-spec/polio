@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pontoon practice</title>
+<link rel="stylesheet" href="site.css">
+<!-- Plain page like PST's: every control and live value has a data-hook; scripts find elements only by hooks. -->
+<style>
+  :root {
+    --pons-gain: #16a34a; --pons-loss: #dc2626;
+    --pons-ring-me: #2563eb;
+  }
+  [data-hook="score-you"][data-sign="gain"] { color: var(--pons-gain); }
+  [data-hook="score-you"][data-sign="loss"] { color: var(--pons-loss); }
+</style>
+</head>
+<body data-hook="app" data-state="signed-out">
+<nav data-hook="nav">
+  <a href="/" data-hook="nav-play">Play</a> |
+  <a href="/profile.html" data-hook="nav-profile">My profile</a>
+</nav>
+
+<h1>Pontoon practice page</h1>
+<p id="tagline">Practice only. Play money, nothing real.</p>
+
+<section data-hook="wallet-panel">
+  <h2>Wallet</h2>
+  <button type="button" data-hook="wallet-connect-test">Use test wallet</button>
+  <button type="button" data-hook="wallet-forget-test">Forget test wallet</button>
+  <button type="button" data-hook="wallet-new">Create a new wallet</button>
+  <p>Address: <code data-hook="wallet-address">not connected</code></p>
+</section>
+
+<section data-hook="newwallet-panel" hidden>
+  <h2>Create a new wallet</h2>
+  <label><input type="checkbox" data-hook="newwallet-ack"> I understand and I am ready</label>
+  <button type="button" data-hook="newwallet-create" disabled>Create the wallet</button>
+</section>
+
+<section data-hook="balance-panel" class="panel">
+  <h2>Balance</h2>
+  <p data-hook="balance-note">One balance for all your matches: deposit once and play as many matches as it covers.</p>
+  <p>Escrow balance: <span data-hook="balance-available">0</span> SOL</p>
+  <div data-hook="deposit-panel">
+    <h3>Deposit</h3>
+    <label>Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
+    <button type="button" data-hook="deposit-review">Review deposit</button>
+    <div data-hook="deposit-confirm-panel" hidden>
+      <pre data-hook="deposit-summary"></pre>
+      <button type="button" data-hook="deposit-confirm">Confirm deposit</button>
+    </div>
+  </div>
+  <div data-hook="withdraw-panel">
+    <h3>Withdraw</h3>
+    <button type="button" data-hook="withdraw-max" id="max">All available</button>
+  </div>
+  <p data-hook="balance-message"></p>
+</section>
+
+<section data-hook="score-panel">
+  <h2>Score</h2>
+  <p data-hook="score-you" data-sign="flat">You 0.00%</p>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -656,6 +656,14 @@ export interface PagePart {
   src?: string;
   alt?: string;
   style: PartStyle;
+  /** The line of the page's source its hook (else its words) is written on, when the source was read beside it (`sourceHooks.ts#withLines`). */
+  line?: number;
+  /** The page's own CSS rules that reach it: a linked sheet's address, or which style block, and the selector as written. */
+  rules?: { sheet: string | null; block: number; selector: string }[];
+  /** Its class names, which scripts may find it by too. */
+  classes?: string[];
+  /** The same rules with the file and line they are written on (`sourceHooks.ts#withLines`). */
+  css?: { file: string; line: number; selector: string }[];
 }
 
 /** A page read element by element. */
@@ -744,6 +752,21 @@ export const PARTS = (cap: number): PageRead => {
   };
   const hooked = (e: Element) => e.hasAttribute("id") || Array.from(e.attributes).some((a) => a.name.startsWith("data-"));
   const seeThrough = (c: string) => !c || c === "transparent" || /rgba\([^)]*,\s*0(\.0+)?\s*\)$/.test(c);
+  /* A line height of "normal" is the face's own, 18px for 16px Times and not 1.2 of the size: measured once per face and size. Read as 1.2, two lines of a paragraph looked like less than two lines on the board, which sets those on one unbroken line past the page's edge. */
+  const normals = new Map<string, number>();
+  const normalLine = (s: CSSStyleDeclaration, px: number): number => {
+    const key = `${s.fontFamily}|${px}|${s.fontWeight}|${s.fontStyle}`;
+    const had = normals.get(key);
+    if (had) return had;
+    const probe = document.createElement("div");
+    probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;top:0;white-space:nowrap;line-height:normal;font-family:${s.fontFamily};font-size:${px}px;font-weight:${s.fontWeight};font-style:${s.fontStyle}`;
+    probe.textContent = "Hxg";
+    document.body.appendChild(probe);
+    const h = probe.getBoundingClientRect().height || px * 1.2;
+    probe.remove();
+    normals.set(key, h);
+    return h;
+  };
   const styleOf = (e: Element): PartStyle => {
     const s = css(e);
     const px = parseFloat(s.fontSize) || 16;
@@ -759,13 +782,49 @@ export const PARTS = (cap: number): PageRead => {
       radius: Math.round(parseFloat(s.borderTopLeftRadius) || 0),
       pad: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].map((v) => Math.round((parseFloat(v) || 0) * 100) / 100) as [number, number, number, number],
       align: s.textAlign,
-      leading: Math.round((parseFloat(s.lineHeight) || px * 1.2) * 100) / 100,
+      leading: Math.round((parseFloat(s.lineHeight) || normalLine(s, px)) * 100) / 100,
       transform: s.textTransform,
     };
   };
   const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border; };
-  const push = (p: PagePart): number => {
+  /* The page's own rules, once: a linked sheet by the address its link wrote, a style block by its place among the page's style blocks. */
+  let pageRules: { sheet: string | null; block: number; selector: string }[] | null = null;
+  const rulesFor = (e: Element) => {
+    if (!pageRules) {
+      pageRules = [];
+      const blocks = Array.from(document.querySelectorAll("style"));
+      const walk = (list: CSSRuleList, sheet: string | null, block: number) => {
+        for (const r of Array.from(list)) {
+          if (pageRules!.length > 3000) return;
+          if (r instanceof CSSStyleRule) pageRules!.push({ sheet, block, selector: r.selectorText });
+          else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules, sheet, block);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) {
+        const owner = sh.ownerNode as Element | null;
+        if (!owner || owner.hasAttribute("data-polio-template")) continue;
+        try { walk(sh.cssRules, owner.tagName === "LINK" ? owner.getAttribute("href") : null, owner.tagName === "STYLE" ? blocks.indexOf(owner as HTMLStyleElement) : -1); } catch { /* another origin's sheet */ }
+      }
+    }
+    const out: { sheet: string | null; block: number; selector: string }[] = [];
+    /* And a rule naming it by its hook, id or class that does not reach it as the page opens: its other states (PST's score in [data-sign="gain"] green). */
+    const hook = e.getAttribute("data-hook");
+    const names = [hook ? `[data-hook="${hook}"]` : null, e.id ? `#${e.id}` : null, ...Array.from(e.classList).map((c) => `.${c}`)].filter((x): x is string => !!x);
+    const names_ = (sel: string) => names.some((n) => { const i = sel.indexOf(n); return i >= 0 && !/[\w-]/.test(sel[i + n.length] ?? ""); });
+    for (const r of pageRules) {
+      if (out.length >= 12) break;
+      try { if (e.matches(r.selector) || names_(r.selector)) out.push(r); } catch { /* a selector this browser cannot test */ }
+    }
+    return out;
+  };
+  const push = (p: PagePart, el?: Element): number => {
     if (parts.length >= cap) { truncated = true; return -1; }
+    if (el) {
+      const rules = rulesFor(el);
+      if (rules.length) p.rules = rules;
+      const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
+      if (classes.length) p.classes = classes;
+    }
     parts.push(p);
     return parts.length - 1;
   };
@@ -777,14 +836,18 @@ export const PARTS = (cap: number): PageRead => {
   /* Words of a run of inline nodes, with what each stretch wore. A hidden element met on the way is kept for later. */
   const runsOf = (nodes: Node[], root: Element, pre: boolean, parent: number): PartRun[] => {
     const out: PartRun[] = [];
+    /* A run says only how it differs from the block it is set in: a heading's own bold is the heading's. */
+    const rs = css(root);
+    const rootWeight = Number(rs.fontWeight) || 400;
+    const mono = (f: string) => /mono|courier|consolas|menlo/i.test(f);
     const add = (text: string, from: Element) => {
       const s = css(from);
       const a = from.closest("a[href]");
       const run: PartRun = { text };
       const w = Number(s.fontWeight) || 400;
-      if (w !== 400) run.weight = w;
-      if (s.fontStyle === "italic") run.italic = true;
-      if (/mono|courier|consolas|menlo/i.test(s.fontFamily)) run.mono = true;
+      if (w !== rootWeight) run.weight = w;
+      if (s.fontStyle === "italic" && rs.fontStyle !== "italic") run.italic = true;
+      if (mono(s.fontFamily) && !mono(rs.fontFamily)) run.mono = true;
       if (a && root.contains(a) && a !== root) run.href = a.getAttribute("href") ?? "";
       /* The nearest element inside the run carrying an id or a data-* attribute: a live value the page's code writes into. */
       for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
@@ -884,12 +947,12 @@ export const PARTS = (cap: number): PageRead => {
     const base = { tag: tag.toLowerCase(), parent, box: box(r), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) };
     if (tag === "BUTTON" || el.getAttribute("role") === "button" || (tag === "INPUT" && /^(submit|button|reset|image)$/i.test((el as HTMLInputElement).type))) {
       const words = (tag === "INPUT" ? (el as HTMLInputElement).value : el.textContent ?? "").replace(/\s+/g, " ").trim();
-      push({ ...base, kind: "button", words, control: { type: (el as HTMLButtonElement).type || "button", ...((el as HTMLButtonElement).disabled ? { disabled: true } : {}) } });
+      push({ ...base, kind: "button", words, control: { type: (el as HTMLButtonElement).type || "button", ...((el as HTMLButtonElement).disabled ? { disabled: true } : {}) } }, el);
       return;
     }
     if (isCheck(el)) {
       const i = el as HTMLInputElement;
-      push({ ...base, kind: "check", words: labelFor(el), label: labelFor(el), control: { type: i.type, checked: i.checked, ...(i.disabled ? { disabled: true } : {}) } });
+      push({ ...base, kind: "check", words: labelFor(el), label: labelFor(el), control: { type: i.type, checked: i.checked, ...(i.disabled ? { disabled: true } : {}) } }, el);
       return;
     }
     const c: PartControl = { type: tag === "INPUT" ? (el as HTMLInputElement).type : tag.toLowerCase() };
@@ -903,24 +966,32 @@ export const PARTS = (cap: number): PageRead => {
     if (f.disabled) c.disabled = true;
     if (tag === "TEXTAREA") c.rows = f.rows;
     const words = tag === "SELECT" ? (c.options?.find((o) => o.selected)?.text ?? "") : (c.value || c.placeholder || "");
-    push({ ...base, kind: "field", words, label: labelFor(el), control: c });
+    push({ ...base, kind: "field", words, label: labelFor(el), control: c }, el);
   };
 
   /* A label holding a checkbox is one part: the box and the words beside it. */
   const checkPart = (label: Element, parent: number, hidden: string | null) => {
     const input = Array.from(label.querySelectorAll("input")).find(isCheck) as HTMLInputElement;
     const words = labelFor(input);
-    push({ kind: "check", tag: "label", parent, box: box(label.getBoundingClientRect()), words, label: words, control: { type: input.type, checked: input.checked, ...(input.disabled ? { disabled: true } : {}) }, hooks: { ...hooksOf(label), ...hooksOf(input) }, hidden, selector: path(input), style: styleOf(label) });
+    push({ kind: "check", tag: "label", parent, box: box(label.getBoundingClientRect()), words, label: words, control: { type: input.type, checked: input.checked, ...(input.disabled ? { disabled: true } : {}) }, hooks: { ...hooksOf(label), ...hooksOf(input) }, hidden, selector: path(input), style: styleOf(label) }, input);
   };
 
   const picture = (el: Element, parent: number, hidden: string | null) => {
     const im = el as HTMLImageElement;
-    push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style: styleOf(el) });
+    const b = box(el.getBoundingClientRect());
+    /* A picture with no file yet (its script sets one) draws as its alt text, 96x18 for a 96x96 avatar: the size it was given is its size. */
+    const aw = Number(el.getAttribute("width")), ah = Number(el.getAttribute("height"));
+    if (el.tagName === "IMG" && !im.naturalWidth && aw > 0 && ah > 0) { b.w = Math.round(aw); b.h = Math.round(ah); }
+    const style = styleOf(el);
+    /* Rounding written as a share of the box (border-radius: 50%) is a share of this box: a circle stays a circle. */
+    const r = css(el).borderTopLeftRadius;
+    if (/%$/.test(r)) style.radius = Math.round((parseFloat(r) / 100) * Math.min(b.w, b.h));
+    push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
   };
 
   const link = (a: Element, parent: number, hidden: string | null) => {
     const said = (a.textContent ?? "").replace(/\s+/g, " ").trim() || a.getAttribute("aria-label") || a.getAttribute("title") || "";
-    push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) });
+    push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) }, a);
   };
 
   /* A run of inline words between the parts of a mixed block: one line of its own. */
@@ -983,13 +1054,13 @@ export const PARTS = (cap: number): PageRead => {
       if (!words.trim() && !hooked(el) && !runs.some((r) => r.hooks) && !paints(el)) return;
       /* Nothing in it yet: an empty place the page's code fills (a log, a message line, a list it builds), kept as an empty box with its hook. */
       const kind: PagePart["kind"] = !words.trim() ? "slot" : /^H[1-6]$/.test(tag) ? "heading" : tag === "PRE" ? "code" : "text";
-      push({ kind, tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words, ...(plainRuns(runs) ? {} : { runs }), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) });
+      push({ kind, tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words, ...(plainRuns(runs) ? {} : { runs }), hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) }, el);
       return;
     }
     const section = SECTIONING.has(tag) || hooked(el) || paints(el);
     let at = parent;
     if (section) {
-      const i = push({ kind: "section", tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) });
+      const i = push({ kind: "section", tag: tag.toLowerCase(), parent, box: box(el.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden, selector: path(el), style: styleOf(el) }, el);
       if (i >= 0) at = i;
     }
     flow(el, at, hidden);

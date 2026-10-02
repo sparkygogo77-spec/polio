@@ -79,6 +79,9 @@ const h1 = P.find((p) => p.tag === "h1"), h2 = P.find((p) => p.tag === "h2"), pa
 check("no styles of its own: none of its parts is reached by a style of the page's", home.styledParts === 0, `${home.styledParts}`);
 check("the h1 keeps the browser's 2em bold, the h2 its 1.5em, a paragraph 16px", h1?.style.px === 32 && h1?.style.weight === 700 && h2?.style.px === 24 && h2?.style.weight === 700 && para?.style.px === 16, `${h1?.style.px}/${h1?.style.weight} ${h2?.style.px} ${para?.style.px}`);
 check("a button keeps the browser's own face and edge", !!byHook("tide-refresh")?.style.bg && !!byHook("tide-refresh")?.style.border, JSON.stringify([byHook("tide-refresh")?.style.bg, byHook("tide-refresh")?.style.border]));
+/* A line height of "normal" is measured, not taken as 1.2: read as 1.2, PST's two-line Balance note looked like less than two lines and was set on one line past the page's edge. */
+const offLines = shown.filter((p) => (p.kind === "text" || p.kind === "heading") && p.tag !== "line" && p.words && p.box.h > 0).filter((p) => { const k = p.box.h / p.style.leading; return Math.abs(k - Math.round(k)) > 0.05; });
+check("every line of words is a whole number of its own lines tall, so none is set on one line past the page", offLines.length === 0, offLines.map((p) => `${p.words.slice(0, 20)} ${p.box.h}/${p.style.leading}`).join(", "));
 check("a list keeps its bullets", shown.some((p) => p.tag === "li" && p.words === "• Moorings checked twice a day"));
 
 /* (3) Hidden at load: kept, as hidden parts, and taking no room. */

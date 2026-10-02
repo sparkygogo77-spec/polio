@@ -40,6 +40,8 @@ export interface RepoRead {
   bytes: number;
   /** The branch, tag or commit actually read. */
   ref: string;
+  /** Its scripts and hooks.json as text, for the part panel's code view (`codeRefs.ts`); never in the zip. */
+  code?: { path: string; text: string }[];
   /** Set when the page was built from the repository's source rather than found in it: which file, and what the reading did. */
   source?: { page: string; notes: SourceNotes };
 }
@@ -112,6 +114,8 @@ function unbase64(s: string): Uint8Array {
 /** How many pictures a copy brings across before the rest are named as left behind. */
 /** How many pictures a document may name before the rest are only named: share.xyz's three pages name 218, a site's worth is hundreds. */
 const MOST_PICTURES = 600;
+/** How many of a repository's scripts are read for the code view. */
+const MOST_SCRIPTS = 60;
 /** And their bytes together, a budget of the pictures' own: the document's own size is not counted against it. */
 const MAX_PICTURE_BYTES = 64 * 1024 * 1024;
 
@@ -406,6 +410,29 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     }
   }
 
+  /*
+   * ITS CODE, FOR THE PART PANEL'S CODE VIEW (`codeRefs.ts`). The scripts
+   * beside the page and under it, and a hooks.json if the repository keeps
+   * one, read as text and never put in the zip: the page is still opened
+   * without them. Read only to say which code reads, writes, styles or
+   * listens on each part; a script that will not come is simply not named.
+   */
+  const pageDir = page.includes("/") ? page.slice(0, page.lastIndexOf("/") + 1) : "";
+  const scripts = blobs.filter((e) => e.path.startsWith(pageDir) && /\.(m?js|cjs)$/i.test(e.path) && !/(^|\/)(node_modules|vendor|dist|build|test|tests)\//i.test(e.path) && !/\.min\.js$/i.test(e.path) && (e.size ?? 0) < 400_000).slice(0, MOST_SCRIPTS);
+  const hooksJson = blobs.find((e) => e.path === `${pageDir}hooks.json`) ?? blobs.find((e) => /(^|\/)hooks\.json$/i.test(e.path) && !/node_modules/.test(e.path));
+  const code: { path: string; text: string }[] = [];
+  const decoder = new TextDecoder();
+  const extra = [...scripts, ...(hooksJson ? [hooksJson] : [])];
+  for (let i = 0; i < extra.length; i += AT_ONCE) {
+    say(`Reading its scripts… ${Math.min(i + AT_ONCE, extra.length)} of ${extra.length}`);
+    const batch = await Promise.all(extra.slice(i, i + AT_ONCE).map(async (e) => ({ e, blob: await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token) })));
+    for (const { e, blob } of batch) {
+      const it = blob as { content?: string; encoding?: string };
+      if (isNo(blob) || it.encoding !== "base64" || typeof it.content !== "string") continue;
+      code.push({ path: e.path, text: decoder.decode(unbase64(it.content)) });
+    }
+  }
+
   say("Packing it…");
   const zip = zipOf(got);
   const name = `${repo.owner}-${repo.name}.zip`;
@@ -415,5 +442,6 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     files: got.length,
     bytes: zip.length,
     ref,
+    ...(code.length ? { code } : {}),
   };
 }

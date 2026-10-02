@@ -592,18 +592,21 @@ export function FromASite({ space }: { space: Space }) {
    * False when nothing could be read this way, so the reading by blocks
    * runs as before and says its own ending.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string }): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[] }): Promise<boolean> => {
     const st0 = useStudio.getState();
     const zr = await askZip(got.file, { parts: "1", width: String(st0.frameWidth || 1440) });
     const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
     if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
-    const { doc, report } = pagesToDoc(files);
+    const { doc, report } = pagesToDoc(files, { code: got.code });
     const st = useStudio.getState();
     const mark = takeImportMark() ?? st.historyMark();
     /* Every other space goes; the one this panel runs on stays, so what landed is said where it was asked for. */
     st.removeSpaces(st.spaces.filter((sp) => sp.id !== space.id).map((sp) => sp.id));
     /* The page's own ground and ink are the palette's page colour and text: a plain page is white with black words, whatever the buttons are filled with. */
-    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format: st.format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text } }, swept: SWEEP });
+    /* What its code is written against, with where it came from: the style layer goes back there (`styleLayer.ts`). */
+    const entryDir = got.entry.includes("/") ? got.entry.slice(0, got.entry.lastIndexOf("/") + 1) : "";
+    const styleSource = { repo: `${of.owner}/${of.name}`, ref: got.ref || of.ref || "", dir: entryDir, ...doc.styleSource };
+    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format: st.format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource }, swept: SWEEP });
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
     const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);
