@@ -1,0 +1,41 @@
+/* The design preview's own frame (web/preview.html): the screens bring the real pages' styles with
+   them. Sizes and positions a script works out arrive as the --preview-* variables (web/preview.js). */
+:root { --preview-width: 1440px; --preview-height: 900px; }
+body[data-preview-page] { margin: 0; background: var(--pons-preview-background); font-family: sans-serif; }
+[data-preview-part="intro"] { padding: 16px; box-sizing: border-box; }
+[data-preview-screen] { margin: 0 16px 40px; }
+[data-preview-note] { margin: 6px 0 10px; color: var(--pons-preview-caption); }
+[data-preview-views] { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+[data-preview-view] { margin: 0; }
+[data-preview-caption] { font-size: 13px; color: var(--pons-preview-caption); margin-bottom: 4px; }
+[data-preview-label] { font: bold 18px/1.3 sans-serif; margin: 0; padding: 10px 12px; background: var(--pons-preview-label-background); color: var(--pons-preview-label-text); }
+[data-preview-body] { --preview-view-width: 1440px; --preview-view-height: auto; width: var(--preview-view-width); height: var(--preview-view-height); position: relative; background: var(--pons-preview-frame); transform: translateZ(0); overflow: hidden; border: 1px solid var(--pons-preview-line); }
+[data-preview-status] { color: var(--pons-preview-status); }
+
+/* The hidden frame each screen is built in, off to the side at the screen's width. */
+[data-hook="preview-frame"] { position: absolute; left: -20000px; top: 0; width: var(--preview-width); height: var(--preview-height); border: 0; }
+
+/* A chart drawing copied as a picture: where the canvas was, at its size (as its inline style had it). */
+[data-preview-picture] {
+  --preview-picture-display: inline; --preview-picture-position: static; --preview-picture-z: auto;
+  --preview-picture-left: auto; --preview-picture-top: auto; --preview-picture-right: auto; --preview-picture-bottom: auto;
+  --preview-picture-width: auto; --preview-picture-height: auto;
+  display: var(--preview-picture-display) !important; position: var(--preview-picture-position) !important; z-index: var(--preview-picture-z) !important;
+  left: var(--preview-picture-left) !important; top: var(--preview-picture-top) !important;
+  right: var(--preview-picture-right) !important; bottom: var(--preview-picture-bottom) !important;
+  width: var(--preview-picture-width) !important; height: var(--preview-picture-height) !important;
+}
+
+/* The window as the player sees it, scrolled to the parts that change (fixed parts, such as the
+   tour, sit in the window itself). The changed parts are outlined. */
+[data-preview-page-root] { --preview-scroll: 0px; position: relative; top: calc(-1 * var(--preview-scroll)); }
+[data-preview-focus] { outline: 3px solid var(--pons-preview-focus) !important; outline-offset: 2px; }
+
+/* ?still=1: nothing moves. */
+[data-preview-still] [data-preview-screen] *, [data-preview-still] [data-preview-screen] *::before, [data-preview-still] [data-preview-screen] *::after { transition: none !important; animation: none !important; }
+
+/* The phone view: this page at phone width in a frame, showing only the window (?embed=1). */
+[data-hook="preview-phone-frame"] { --preview-phone-height: 812px; display: block; width: 375px; height: var(--preview-phone-height); border: 1px solid var(--pons-preview-line); }
+[data-preview-embed] [data-preview-part="intro"], [data-preview-embed] [data-preview-label], [data-preview-embed] [data-preview-note], [data-preview-embed] [data-preview-caption] { display: none; }
+[data-preview-embed] [data-preview-screen] { margin: 0; }
+[data-preview-embed] [data-preview-body] { border: 0; }

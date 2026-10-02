@@ -1,0 +1,20 @@
+/* The design gallery's own frame (web/gallery.html): the screens bring the real pages' styles with them.
+   Each picture's size is set by web/gallery.js through the --gallery-* variables. */
+[data-hook="gallery-page"] { margin: 0; background: var(--pons-preview-background); font-family: sans-serif; }
+[data-hook="gallery-intro"] { padding: 16px; }
+[data-hook="gallery-row"] { padding: 0 16px 32px; }
+[data-hook="gallery-row-label"] { font: bold 18px/1.3 sans-serif; margin: 0 0 8px; }
+[data-hook="gallery-row-note"] { font-size: 13px; color: var(--pons-preview-caption); margin: 0 0 8px; }
+[data-hook="gallery-row-shots"] { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+[data-hook="gallery-desktop"], [data-hook="gallery-phone"] { margin: 0; }
+[data-hook="gallery-desktop-caption"], [data-hook="gallery-phone-caption"] { font-size: 13px; color: var(--pons-preview-caption); margin-bottom: 4px; }
+[data-hook="gallery-desktop-frame"], [data-hook="gallery-phone-frame"] {
+  --gallery-box-width: auto; --gallery-box-height: auto;
+  position: relative; overflow: hidden; background: var(--pons-preview-frame); border: 1px solid var(--pons-preview-line);
+  width: var(--gallery-box-width); height: var(--gallery-box-height);
+}
+[data-hook="gallery-desktop-preview"], [data-hook="gallery-phone-preview"] {
+  --gallery-width: auto; --gallery-height: auto; --gallery-scale: 1;
+  position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0;
+  width: var(--gallery-width); height: var(--gallery-height); transform: scale(var(--gallery-scale));
+}

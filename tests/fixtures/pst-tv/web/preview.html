@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars design preview</title>
+<meta name="robots" content="noindex">
+<!--
+  Design preview for the website builder: every screen of the game, filled with recorded sample
+  data, stacked top to bottom with a plain label above each. Each screen shows a desktop window
+  (1440 by 900) and a phone (375 by 812) scrolled to the parts that change in that state, outlined
+  and named under the label; ?full=1 shows the whole pages instead. Each screen is the real page (the same
+  markup, styles, scripts and data-hook names) run in a hidden frame with ?preview=<screen>, which
+  replays sample messages through the page's own code; its finished content is then copied here.
+  No wallet, no game server and no network calls besides this site's own static files; nothing is
+  written anywhere. ?screen=<name> shows one screen alone; ?still=1 keeps everything still (the duel
+  circles shown at their end size, no animation); ?width=<pixels> builds the screens at that width
+  (375 for a phone). web/gallery.html shows them all at desktop and phone width. Not linked from the
+  other pages. See web/HOOKS.md.
+-->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="preview.css">
+<!-- The screens bring the real pages' stylesheets with them; the style layer stays last here too. -->
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="preview-page" data-preview-page data-preview="loading">
+<header data-hook="preview-intro" data-preview-part="intro">
+  <h1 data-hook="preview-title">PonsStars design preview</h1>
+  <p data-hook="preview-intro-text">Every screen of the game with sample data (two recorded practice matches, play money). Each screen
+     below is the real page, with the same parts and <code data-hook="preview-intro-code">data-hook</code> names, so it can be captured
+     and restyled. <span data-hook="preview-status" data-preview-status>Building the screens...</span></p>
+</header>
+<main data-hook="preview-screens" data-preview-part="screens"></main>
+<!-- One screen: its label, the parts that change (outlined in the views), a link to the whole page, then its views. -->
+<template data-hook="template-preview-screen">
+  <section data-hook="preview-screen" data-preview-screen=""><h2 data-hook="preview-screen-label" data-preview-label></h2><p data-hook="preview-screen-note" data-preview-note>Changed: <span data-hook="preview-screen-changed"></span>. <a data-hook="preview-screen-full" href="preview.html">Full page</a></p><div data-hook="preview-screen-views" data-preview-views></div></section>
+</template>
+<!-- One view of a screen: desktop or phone, the copied page in a window that size (the copy keeps the real page's hooks). -->
+<template data-hook="template-preview-view">
+  <figure data-hook="preview-view" data-preview-view=""><figcaption data-hook="preview-view-caption" data-preview-caption></figcaption><div data-hook="preview-screen-body" data-preview-body></div></figure>
+</template>
+<!-- The hidden frame a screen is built in, a chart drawing copied as a picture, and the copied page's root. -->
+<!-- The phone view of a screen: this page at phone width (?embed=1), in a phone-sized frame. -->
+<template data-hook="template-preview-phone">
+  <figure data-hook="preview-phone" data-preview-view=""><figcaption data-hook="preview-phone-caption" data-preview-caption></figcaption><iframe data-hook="preview-phone-frame" title="Phone view"></iframe></figure>
+</template>
+<template data-hook="template-preview-frame">
+  <iframe data-hook="preview-frame" aria-hidden="true" tabindex="-1" title="Screen being built"></iframe>
+</template>
+<template data-hook="template-preview-picture">
+  <img data-hook="preview-picture" data-preview-picture alt="">
+</template>
+<template data-hook="template-preview-page-root">
+  <div data-hook="preview-page-root"></div>
+</template>
+<script type="module" src="preview.js"></script>
+</body>
+</html>

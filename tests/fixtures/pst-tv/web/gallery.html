@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars design gallery</title>
+<meta name="robots" content="noindex">
+<!--
+  Design gallery: every screen of the design preview (web/preview.html) side by side, as a desktop
+  window (1440 by 900) and a phone (375 by 812), each scrolled to the parts that change in that
+  state, outlined and named under the label. Each picture is the preview's own still window
+  (preview.html?embed=1&still=1&screen=<name>&width=<pixels>) in a frame, shown smaller. ?screens=<name>,<name> shows only those; ?scale=<0.2 to 1> sets the size (0.5 by default).
+  No wallet, no game server, nothing written. Not linked from the other pages. See web/HOOKS.md.
+-->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="gallery.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="gallery-page" data-gallery="loading">
+<header data-hook="gallery-intro">
+  <h1 data-hook="gallery-title">PonsStars design gallery</h1>
+  <p data-hook="gallery-intro-text">Every screen of the design preview as a desktop window (left) and a phone (right), scrolled to
+     the parts that change (outlined), with sample data and no animation. <span data-hook="gallery-status">Loading the screens...</span></p>
+</header>
+<main data-hook="gallery-rows"></main>
+<!-- One screen: its label, then the desktop and phone pictures (each a frame of preview.html). -->
+<template data-hook="template-gallery-row">
+  <section data-hook="gallery-row" data-screen=""><h2 data-hook="gallery-row-label"></h2><p data-hook="gallery-row-note">Changed: <span data-hook="gallery-row-changed"></span>. <a data-hook="gallery-row-full" href="preview.html">Full page</a></p><div data-hook="gallery-row-shots"><figure data-hook="gallery-desktop"><figcaption data-hook="gallery-desktop-caption">Desktop, <span data-hook="gallery-desktop-width"></span> pixels wide. <a data-hook="gallery-desktop-open" href="preview.html">Open alone</a></figcaption><div data-hook="gallery-desktop-frame"><iframe data-hook="gallery-desktop-preview" title="Desktop width" tabindex="-1"></iframe></div></figure><figure data-hook="gallery-phone"><figcaption data-hook="gallery-phone-caption">Phone, <span data-hook="gallery-phone-width"></span> pixels wide. <a data-hook="gallery-phone-open" href="preview.html">Open alone</a></figcaption><div data-hook="gallery-phone-frame"><iframe data-hook="gallery-phone-preview" title="Phone width" tabindex="-1"></iframe></div></figure></div></section>
+</template>
+<script type="module" src="gallery.js"></script>
+</body>
+</html>

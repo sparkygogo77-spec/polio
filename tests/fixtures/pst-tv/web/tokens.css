@@ -1,0 +1,146 @@
+/*
+  PonsStars design tokens: every colour, font, size, spacing, radius and shadow the pages use, as a
+  named CSS variable. Every page loads this file first, then base.css (which uses only these
+  variables), then style-layer.css (the design, loaded last). A design restyles the site by giving
+  these variables new values in its style layer, and by adding rules keyed by data-hook.
+  web/HOOKS.md ("Design tokens") and web/hooks.json ("cssVariables") list each one with the hooks
+  that use it. Some are also read by the scripts (marked "read by the scripts").
+*/
+:root {
+  /* ---------- colours: the page ---------- */
+  --pons-color-page: #ffffff;          /* page background */
+  --pons-color-text: #111111;          /* body text */
+  --pons-color-muted: #6b7280;         /* quieter text */
+  --pons-color-faint: #9ca3af;         /* inactive dots, hints */
+  --pons-color-accent: #2563eb;        /* outlines, the next step box, highlights */
+  --pons-color-surface: #ffffff;       /* cards and panels that sit above the page */
+  --pons-color-line: #d1d5db;          /* thin borders */
+  --pons-color-overlay: rgba(0, 0, 0, 0.5);          /* the dimmed page behind the tour */
+  --pons-color-label-background: rgba(255, 255, 255, 0.92); /* trade marker labels over the chart */
+  --pons-color-banner: #fef3c7;        /* the devnet banner's background */
+  --pons-color-banner-text: #78350f;   /* the devnet banner's text */
+  --pons-color-warning: #b91c1c;       /* the "game server offline" note */
+
+  /* ---------- colours: the game (read by the scripts) ---------- */
+  /* Candles: rose green, fell red. Read when the chart is made and at each round start. */
+  --pons-candle-up: #16a34a; --pons-candle-down: #dc2626;
+  /* Trade markers: buys green, sells red. */
+  --pons-buy: #16a34a; --pons-sell: #dc2626;
+  /* Whose trade or circle it is: you blue, the opponent yellow. */
+  --pons-ring-me: #2563eb; --pons-ring-opponent: #eab308;
+  --pons-duel-me: #2563eb; --pons-duel-opponent: #eab308;
+  /* Gains, losses and level. */
+  --pons-gain: #16a34a; --pons-loss: #dc2626; --pons-level: #6b7280;
+  /* Player pictures, drawn in the page as small SVG images (read by the scripts from web/tokens.js). */
+  --pons-avatar-art: #fff;             /* the drawing on a preset avatar and the bot */
+  --pons-avatar-sun: #f59e0b; --pons-avatar-moon: #4338ca; --pons-avatar-star: #db2777; --pons-avatar-bolt: #0f766e;
+  --pons-avatar-leaf: #16a34a; --pons-avatar-wave: #0284c7; --pons-avatar-gem: #7c3aed; --pons-avatar-rocket: #dc2626;
+  --pons-avatar-bot: #475569;
+  /* Avatars made from a wallet address: the hue comes from the address; these are saturation and lightness. */
+  --pons-avatar-generated-ink: 65% 45%; --pons-avatar-generated-paper: 70% 92%;
+  /* The match chart's own drawing (TradingView Lightweight Charts). Empty: the chart library's default. */
+  /* Dark, like the TV screen it sits in (phosphor-green scales). */
+  --pons-chart-background: #050805; --pons-chart-text: #b8ff6a; --pons-chart-grid: #142614;
+  --pons-chart-border: #2b4d2f;
+  /* The chart library's window picker (library.html). */
+  --pons-library-line: #64748b; --pons-library-window: #2563eb;
+  --pons-library-window-fill: rgba(37, 99, 235, 0.25); --pons-library-window-fill-end: rgba(37, 99, 235, 0.02);
+
+  /* ---------- the chart TV (the Trorty TV from trumpmorty.fun): the chart's permanent home on Play ---------- */
+  --pons-tv-ink: #1a0f0b;              /* outlines, antenna rods, speaker grille, feet */
+  --pons-tv-body-light: #ffb36b; --pons-tv-body-mid: #ef9043; --pons-tv-body-dark: #d9702e; /* the body's gradient */
+  --pons-tv-body-angle: 160deg;
+  --pons-tv-screen: #000000;           /* behind the chart and the static */
+  --pons-tv-shadow: 10px 12px 0 0 #1a0f0b, inset 0 -10px 0 0 rgba(0, 0, 0, 0.12), inset 0 8px 0 0 rgba(255, 255, 255, 0.25);
+  --pons-tv-screen-shadow: inset 0 0 40px 0 rgba(0, 0, 0, 0.6);
+  --pons-tv-border: 5px;               /* the body's and the screen bezel's outline */
+  --pons-tv-radius: 34px; --pons-tv-screen-radius: 28px;
+  --pons-tv-padding: 22px; --pons-tv-gap: 16px;
+  --pons-tv-scanline: rgba(0, 0, 0, 0.14); --pons-tv-scanline-size: 2px;
+  --pons-tv-glare: rgba(255, 255, 255, 0.18); --pons-tv-vignette: rgba(0, 0, 0, 0.45);
+  /* TV static: grey noise drawn by the browser (an SVG noise filter, no file to load), tiled and jumped about. */
+  --pons-tv-static-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --pons-tv-static-tile: 180px; --pons-tv-static-dark: #1b1b1b; --pons-tv-static-contrast: 1.6;
+  --pons-tv-channel: #b8ff6a;          /* the channel label and the screen's text (phosphor green) */
+  --pons-tv-channel-glow: 0 0 6px rgba(160, 255, 90, 0.9), 2px 2px 0 #000000;
+  --pons-tv-live: #ff5a4a;             /* the "LIVE" dot */
+  --pons-tv-font: ui-monospace, Menlo, Consolas, monospace; --pons-tv-font-size: 22px;
+  --pons-tv-overlay: rgba(0, 0, 0, 0.72); /* behind the words on the screen */
+  --pons-tv-bar-track: #203020; --pons-tv-bar-fill: #b8ff6a; --pons-tv-bar-height: 14px;
+  --pons-tv-step-done: #b8ff6a; --pons-tv-step-todo: #6b7d6b;
+  --pons-tv-button: #f3d440; --pons-tv-button-text: #1a0f0b;
+  --pons-tv-knob-light: #fff3b0; --pons-tv-knob-mid: #f3d440; --pons-tv-knob-dark: #c9a520;
+  --pons-tv-knob-size: 46px; --pons-tv-knob-shadow: 3px 3px 0 0 #1a0f0b; --pons-tv-knob-notch: 4px 14px;
+  --pons-tv-panel-width: 62px;
+  --pons-tv-antenna-length: 90px; --pons-tv-antenna-width: 6px; --pons-tv-antenna-ball: 22px; --pons-tv-antenna-tip: #d23c34;
+  --pons-tv-antenna-left: -32deg; --pons-tv-antenna-right: 28deg; --pons-tv-antenna-swing: 8deg;
+  --pons-tv-led-size: 14px;
+  --pons-tv-led-offline: #ff5a4a; --pons-tv-led-idle: #f3d440; --pons-tv-led-match: #4ade80; --pons-tv-led-result: #60a5fa;
+  --pons-tv-foot-width: 20px; --pons-tv-foot-height: 34px; --pons-tv-foot-inset: 70px;
+  --pons-tv-duel-size: 120px;           /* the duel circles in the screen's corner during a match */
+  --pons-size-tv-max: 880px;           /* the whole TV's widest */
+  --pons-size-chart-height-phone: 300px; /* the screen's height below 600 pixels wide */
+
+  /* ---------- colours: the design preview and gallery pages' own frame (not the game) ---------- */
+  --pons-preview-background: #f3f4f6; --pons-preview-frame: #fff; --pons-preview-line: #d1d5db;
+  --pons-preview-label-background: #111827; --pons-preview-label-text: #fff;
+  --pons-preview-caption: #4b5563; --pons-preview-status: #6b7280;
+  --pons-preview-focus: #e11d48;       /* the outline around the parts that change in a preview screen */
+
+  /* ---------- fonts ---------- */
+  --pons-font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pons-font-mono: ui-monospace, Menlo, Consolas, monospace;
+  --pons-font-size: 16px;              /* body text */
+  --pons-font-size-small: 11px;        /* trade marker labels */
+  --pons-font-size-large: 1.1rem;      /* the next step's button */
+  --pons-font-size-dots: 1.5rem;       /* the tour's step dots */
+  --pons-line-height: 1.4;
+  --pons-line-height-small: 16px;
+  --pons-font-weight-strong: bold;
+
+  /* ---------- spacing ---------- */
+  --pons-space-1: 2px;
+  --pons-space-2: 4px;
+  --pons-space-3: 8px;
+  --pons-space-4: 12px;
+  --pons-space-5: 16px;
+  --pons-page-gutter: 8px;             /* room at the page's left and right edges */
+
+  /* ---------- sizes ---------- */
+  --pons-size-scoreboard: 13rem;
+  --pons-size-chart-min: 480px; --pons-size-chart-max: 760px; --pons-size-chart-height: 480px;
+  --pons-size-trade-panel: 16rem;
+  --pons-size-duel: 200px;
+  --pons-size-next-step: 48rem;
+  --pons-size-tour-card: 28rem;
+  --pons-size-library-chart-height: 280px; --pons-size-library-chart-max: 900px; --pons-size-library-start: 420px;
+  /* Duel circles, in units of the 200 x 200 duel picture: radius = base x (1 + exaggeration x profit-or-loss). Read by the scripts. */
+  --pons-duel-exaggeration: 10;
+  /* Each circle's drawn radius: the scripts set it on the circle as the score moves (it animates). */
+  --pons-duel-r: 50px;
+  --pons-duel-base-radius: 50; --pons-duel-min-radius: 10; --pons-duel-max-radius: 96;
+  /* Trade markers over the chart: picture size and the room kept for a label (pixels, numbers only). Read by the scripts. */
+  --pons-marker-size: 24; --pons-marker-label-width: 90;
+
+  /* ---------- borders and radii ---------- */
+  --pons-border-thin: 1px;
+  --pons-border: 2px;
+  --pons-border-thick: 3px;
+  --pons-radius-small: 3px;
+  --pons-radius: 6px;
+  --pons-radius-large: 8px;
+  --pons-radius-round: 50%;
+
+  /* ---------- shadows ---------- */
+  --pons-shadow-card: none;            /* the tour card and the open phone menu */
+  --pons-shadow-spotlight: 0 0 0 9999px var(--pons-color-overlay); /* dims everything but the tour's highlight */
+
+  /* ---------- motion ---------- */
+  --pons-duration-duel: 450ms;         /* the duel circles growing and shrinking */
+  --pons-duration-tv-static: 400ms;    /* one loop of the TV static */
+  --pons-duration-tv-antenna: 3s;      /* the antennas' sway */
+  --pons-duration-tv-blink: 1s;        /* the LIVE dot and the offline LED */
+  --pons-duration-tv-bar: 300ms;       /* the loading bar moving on */
+  /* The sample chart that plays on the TV between matches: milliseconds per new candle (a plain number). Read by the scripts. */
+  --pons-tv-attract-step: 700;
+}
