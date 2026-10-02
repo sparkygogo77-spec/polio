@@ -44,6 +44,8 @@ import { MoveRowView } from "./MotionPanel";
 import { RenderPanel } from "./RenderPanel";
 import { TourEditor } from "./TourEditor";
 import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
+import { ComponentFields } from "./ComponentFields";
+import { componentsOf, KIND_WORD, type CompNode } from "./components";
 import { PartFields } from "./PartFields";
 import { WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
@@ -392,6 +394,8 @@ export function Inspector() {
   const [backTo, setBackTo] = React.useState<string | null>(null);
   const selKey = selection.join(",");
   React.useEffect(() => { setBackTo((b) => (b && selKey === b ? b : null)); }, [selKey]);
+  /* Asked for again (its row pressed in the list, a double press on the board), the part's panel opens, even when it is the part the back arrow left. */
+  React.useEffect(() => useStudio.subscribe((s, was) => { if (s.wanted && s.wanted !== was.wanted && s.wanted.panel === "inspector") setBackTo(null); }), []);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
@@ -703,6 +707,11 @@ export function Inspector() {
   const isLabel = !!feature && (TEXTY.has(feature.id) || (feature.id === "box" && !!wordsOf(node))) && insideControl(node);
   const captured = capturedFrom(node, nodes);
   /* A link or a button whose words sit on a part inside it: the words are edited here, on the part that draws them. */
+  /* A plain read, not a hook: this runs after the panel's early returns. Cached per board (`components.ts`). */
+  const comps = componentsOf(nodes as unknown as CompNode[], palette);
+  const comp = comps.byId.get(node.id) ?? null;
+  const partOfId = comp ? null : comps.of.get(node.id);
+  const partOf = partOfId ? comps.byId.get(partOfId) ?? null : null;
   const wordsPart = wordsIn(nodes, node);
   const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
   const control = kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId);
@@ -761,6 +770,13 @@ export function Inspector() {
           </div>
         ) : null}
 
+        {/* Recognised as one thing from its stacked parts: its options as one set, its layers one press away (`components.ts`). */}
+        {comp ? null : partOf ? (
+          <div data-layer-of={partOf.id} className="border-b border-border px-3 py-2 text-small text-fg-muted">
+            A layer of {partOf.name}.{" "}
+            <button type="button" className="tactile text-accent underline" onClick={() => { useStudio.getState().setSelection([partOf.id]); useStudio.getState().want({ panel: "inspector", id: partOf.id }); }}>Pick the whole {KIND_WORD[partOf.kind].toLowerCase()}</button>
+          </div>
+        ) : null}
         {node.featureId === "whats-new" ? (
           <PanelSection id="tour" title="What's new steps" icon={<Megaphone />} note={`${node.tour?.current.steps.length ?? 0} of 6`}>
             <TourEditor node={node} />
@@ -846,6 +862,13 @@ export function Inspector() {
         </PanelSection>
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
+          {/* Recognised as one thing from its stacked parts: its options as one set, its layers one press away (`components.ts`). */}
+          {comp ? (
+            <div data-component-block={comp.kind} className="space-y-1 border-b border-border pb-2">
+              <div className="text-small font-semibold text-fg">This {KIND_WORD[comp.kind].toLowerCase()}</div>
+              <ComponentFields comp={comp} nodes={nodes} />
+            </div>
+          ) : null}
           <RemixKept nodes={[node]} />
           <LookCopy node={node} targets={[node.id]} />
           <Field label="Styles" hint="This site's own styles. Point at one to see it on the part; click to put it on.">

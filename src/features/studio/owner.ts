@@ -15,6 +15,7 @@
  * Nothing here moves or writes anything; it only answers.
  */
 import type { StudioNode } from "./store";
+import { carriedBy, componentOf, componentsOf, GRABBED, type CompNode } from "./components";
 import { isControl } from "./control";
 import { under } from "./owns";
 import { plain } from "./parts/spans";
@@ -66,18 +67,35 @@ export function parentOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | nu
  * button inside a card owns its own words, and a press on the button itself
  * stays on the button: a control or a card is never passed up.
  */
-export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | null {
+export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?: Record<string, string | undefined> | null): N | null {
+  /*
+   * A layer of a component (its words, its light, its shadow layer) picks the
+   * component: they are one thing (`components.ts`). Only the kinds a press
+   * takes whole (a button, a tab, a copy bar, a badge, a card): a panel or a
+   * ticker is a big holder, drawn across, so a press on the picture in it or
+   * on its running words picks that part, as a press inside a section does.
+   * Moved, a panel still carries its layers.
+   */
+  const comp = componentOf(nodes as unknown as CompNode[], n.id, palette);
+  if (comp && comp.id !== n.id && GRABBED.has(comp.kind)) return nodes.find((x) => x.id === comp.id) ?? null;
   if (isOwner(n)) return null;
   let best: N | null = null;
   for (const c of nodes) if (isOwner(c) && holds(c, n) && (!best || area(c) < area(best))) best = c;
   return best;
 }
 
-/** The parts a moving control carries with it: everything it holds that is not already in hand. */
-export function ridersOf<N extends Boxed>(nodes: readonly N[], ids: readonly string[]): string[] {
+/**
+ * The parts a moving control or component carries with it: everything a
+ * control holds, and every layer of a component (`components.ts`), its
+ * children's too, that is not already in hand.
+ */
+export function ridersOf<N extends Boxed>(nodes: readonly N[], ids: readonly string[], palette?: Record<string, string | undefined> | null): string[] {
   const inHand = new Set(ids);
   const out: string[] = [];
+  const comps = componentsOf(nodes as unknown as CompNode[], palette);
+  const locked = new Set(nodes.filter((n) => n.locked).map((n) => n.id));
   for (const id of ids) {
+    for (const p of carriedBy(comps, id)) if (!inHand.has(p) && !locked.has(p)) { inHand.add(p); out.push(p); }
     const c = nodes.find((n) => n.id === id);
     if (!c || !isControl(c)) continue;
     for (const n of nodes) if (!inHand.has(n.id) && !n.locked && holds(c, n)) { inHand.add(n.id); out.push(n.id); }

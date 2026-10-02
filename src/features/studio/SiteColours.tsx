@@ -22,6 +22,8 @@ import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, 
 import { partName } from "./partNames";
 import { usePictureSampler } from "./pictureSampler";
 import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
+import { componentsOf, type CompNode } from "./components";
+import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
@@ -479,7 +481,12 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
   const tally = React.useMemo(() => tallyColours(nodes, palette), [nodes, palette]);
   const pictureColours = usePictureColours(nodes);
   const pictureKey = [...pictureColours.entries()].map(([k, v]) => `${k}:${v.join("")}`).join("|");
-  const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours), [nodes, palette, frameWidth, pictureKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* A button painted by stacked parts is one button in every count (`components.ts`). */
+  const counted = React.useMemo<CountedAs>(() => {
+    const c = componentsOf(nodes as unknown as CompNode[], palette as Record<string, string>);
+    return { countAs: (id) => c.of.get(id) ?? id, kindOf: (id) => { const host = c.of.get(id); return host ? c.byId.get(host)?.kind ?? null : null; } };
+  }, [nodes, palette]);
+  const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours, undefined, counted), [nodes, palette, frameWidth, pictureKey, counted]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = React.useState<{ use: ColourUse | null; key: string } | null>(null);
   const [more, setMore] = React.useState(false);
 

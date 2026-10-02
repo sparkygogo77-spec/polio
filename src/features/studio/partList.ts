@@ -276,8 +276,57 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
 }
 
 /** The rows a search keeps: its words in the name or the place, any case. */
-export function filterRows(rows: readonly ListRow[], query: string): ListRow[] {
+export function filterRows<T extends ListRow>(rows: readonly T[], query: string): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return rows.slice();
   return rows.filter((r) => r.name.toLowerCase().includes(q) || (r.where ?? "").toLowerCase().includes(q));
+}
+
+/**
+ * COMPONENTS, ONE ROW EACH (`components.ts`). A captured button is a stack
+ * of parts: the box that paints it and its layers (its words, its lighting
+ * bar, its shadow). The list above already folds a control's insides into
+ * it; a layer stacked beside its host rather than inside it would still be
+ * a row of its own ("Words: BUY", "Shape"). Folded here: every row standing
+ * for a component's host or layer becomes the component's one row, where
+ * the first of them stood, named by the component's kind ("Button: BUY
+ * $TRORTY"), holding every part of it so hovering outlines the whole thing.
+ * A press on it picks the host alone; the host carries its layers with it.
+ */
+export interface ListComponent {
+  id: string;
+  /** "Button", "Copy-address bar". */
+  kindWord: string;
+  /** The component's plain name, `Button “BUY $TRORTY”`. */
+  name: string;
+  /** The host and every layer. */
+  parts: readonly string[];
+}
+
+export interface ComponentRow extends ListRow {
+  /** The component's host, when the row is one. */
+  component?: string;
+}
+
+export function foldComponentRows(rows: readonly ListRow[], comps: readonly ListComponent[]): ComponentRow[] {
+  const owner = new Map<string, ListComponent>();
+  for (const c of comps) for (const id of c.parts) if (!owner.has(id)) owner.set(id, c);
+  const made = new Map<string, ComponentRow>();
+  const out: ComponentRow[] = [];
+  for (const r of rows) {
+    const c = owner.get(r.id);
+    if (!c) { out.push(r); continue; }
+    const had = made.get(c.id);
+    if (had) {
+      for (const id of r.ids) if (!had.ids.includes(id)) had.ids.push(id);
+      continue;
+    }
+    /* Its words as the list said them, else the ones the component was named by. */
+    const said = r.name.includes(": ") ? r.name.slice(r.name.indexOf(": ") + 2) : "";
+    const named = /“(.+)”/.exec(c.name)?.[1] ?? "";
+    const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])], kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
+    made.set(c.id, row);
+    out.push(row);
+  }
+  return out;
 }

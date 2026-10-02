@@ -2988,6 +2988,56 @@ a kicker with a rule, and label-and-value rows that copy.
   [roll 5](docs/shots/lane-j-roll-5.png), [roll 6](docs/shots/lane-j-roll-6.png),
   [a philosophy read into ranges](docs/shots/lane-j-roll-philosophy.png).
 
+- **Components: a button and its stacked parts are one thing.** The owner:
+  "make sure the builder properly understands and associates a button, its
+  outline, its shadow, its animations and the text within it all as one
+  thing". `components.ts` (pure) reads components back from the parts a
+  capture stacked: a HOST (the part that paints the element and carries its
+  link and states) and its LAYERS, each by job (words, lighting, shadow,
+  outline, fill, icon, decoration). Kinds: tab (`tab “…”` labels), ticker
+  (the band a running marquee is in), copy-address bar (a dressed control
+  holding an address), and button, badge, card, panel from the style kits'
+  own signals (`roleOf`, `lookOf`). Containment as everywhere else: the
+  page path when both parts have one (and the layer is drawn on or beside
+  the host), else the box; the innermost component owns a part; a
+  component inside another is its child. A part a press shows (`state`) is
+  read with that press's parts only; a captured component's layers are
+  captured parts only (a shape drawn on it by hand stays its own).
+  **Nothing is written to the document**, so the published page is what it
+  was. Read once per board structure (not per drag frame);
+  `rereadComponents()` after a drag or resize ends.
+  - The board: a press on any layer of a button, badge, tab, copy bar or
+    card picks the component (`owner.ts#ownerOf`), and those are grabbed
+    whole like controls; panels and tickers stay drawn across (the owner's
+    ruling for big holders), so a press on the picture in a panel or a
+    ticker's running words picks that part; a move carries every layer and child (`ridersOf`); a
+    resize lays every layer back on the host at its share
+    (`resizedWith`), unsnapped so nothing drifts a pixel.
+  - The Element list: one row per component, named by its kind ("Button:
+    BUY $TRORTY") with "N layers", none of its layers a row of its own, a
+    press picking the host (`partList.ts#foldComponentRows`); a row further
+    down than the list has drawn is scrolled to by its place. Under "Show
+    nesting" the tree shows it as one group, keeping the host's own name
+    with "Button · 5 layers" beside it, its layers folded under it whatever
+    the path said, each named for its job (`partTree.ts#foldComponents`). A
+    component with no layers is just its part: no badge, no folding. After
+    the back arrow, pressing the same part's row opens its panel again.
+  - The part panel: Look leads with "This button": colours by job, each
+    recoloured on the part that paints it as one undo (`recolour`), where it
+    leads, under the hand, when pressed, motion, and its layers, each one
+    press from being edited alone; a layer's panel says whose it is.
+  - **What other lanes call.** Colour roles (Lane I): pass
+    `{ countAs, kindOf }` built from `componentsOf(nodes, palette)` as the
+    last argument of `siteRoles` (`SiteColours.tsx` does), and a button's
+    parts count as one button. Learned library (Lane G):
+    `componentsOf(nodes, palette).list` for every component and
+    `componentSpec(nodes, comp, palette)` for one as plain data (kind,
+    layers by job with boxes as shares of the host, fill, words, outline,
+    shadow, lighting, radius, link, hover, press, motion);
+    `countAsOne(nodes, ids, palette)` for any count of parts.
+  `tests/components.mjs` (three sink boards) and `tests/components-board.mjs`
+  (trumpmorty through the board; export identical after undo) hold it.
+
 - **Remake this picture from one prompt** (`RemakePicture.tsx`, `remake.ts`,
   `/api/studio/remake`, `tests/remake-picture.mjs`). The owner: "right-click
   any image on the site, type one prompt, make that image an instant

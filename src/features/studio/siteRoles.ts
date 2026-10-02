@@ -197,9 +197,9 @@ function shadowKind(parts: readonly Part[]): string {
   return hard >= lens.length / 2 ? "drop shadow" : glow >= lens.length / 2 ? "glow" : "soft shadow";
 }
 
-function sentence(role: RoleKey, value: string, parts: readonly Part[], spots: readonly ColourSpot[], shades: number): string {
+function sentence(role: RoleKey, value: string, parts: readonly Part[], spots: readonly ColourSpot[], shades: number, countAs: CountAs = same): string {
   const name = colourName(value);
-  const n = new Set(spots.map((s) => s.id)).size;
+  const n = new Set(spots.map((s) => countAs(s.id))).size;
   const on = `on ${plural(n, "part")}`;
   const more = shades > 1 ? ` (${shades} shades)` : "";
   switch (role) {
@@ -232,9 +232,19 @@ const isButton = (p: Part) => BUTTON_PARTS.has(p.featureId ?? "") || !!p.link ||
 
 interface Entry { key: string; value: string; spots: ColourSpot[]; area: number }
 
+/**
+ * How a part is counted: by itself, or as the component it is a layer of
+ * (`components.ts`), so a button painted by three stacked parts is one
+ * button in every count. Absent, every part counts on its own, as before.
+ */
+export type CountAs = (id: string) => string;
+const same: CountAs = (id) => id;
+/** What the counts read off components: who each part counts as, and what kind of thing that is. */
+export interface CountedAs { countAs: CountAs; kindOf: (id: string) => string | null }
+
 /** One role's colours as swatches: close shades merged round the one most parts wear. */
-function cluster(role: RoleKey, entries: Entry[], byId: Map<string, Part>, within: number): RoleSwatch[] {
-  const parts = (e: Entry) => new Set(e.spots.map((s) => s.id)).size;
+function cluster(role: RoleKey, entries: Entry[], byId: Map<string, Part>, within: number, countAs: CountAs = same): RoleSwatch[] {
+  const parts = (e: Entry) => new Set(e.spots.map((s) => countAs(s.id))).size;
   const sorted = [...entries].sort((a, b) => parts(b) - parts(a) || b.area - a.area || a.key.localeCompare(b.key));
   const groups: Entry[][] = [];
   for (const e of sorted) {
@@ -251,8 +261,8 @@ function cluster(role: RoleKey, entries: Entry[], byId: Map<string, Part>, withi
       value: g[0]!.value,
       shades: g.map((e) => e.key),
       spots,
-      parts: ids.length,
-      says: sentence(role, g[0]!.value, ps, spots, g.length),
+      parts: new Set(ids.map(countAs)).size,
+      says: sentence(role, g[0]!.value, ps, spots, g.length, countAs),
       fromPictures: spots.filter((s) => s.where === "in its picture").length,
     };
   });
@@ -269,7 +279,11 @@ export function siteRoles(
   frameWidth: number,
   pictureColours: ReadonlyMap<string, readonly string[]> = new Map(),
   within = MERGE_SHADES,
+  counted?: CountedAs | null,
 ): SiteRoles {
+  const countAs = counted?.countAs ?? same;
+  /* A layer of a button (its fill layer, its light) is the button's: filed under buttons, counted once with it. */
+  const inButton = (p: Part) => isButton(p) || ["button", "tab", "copy-bar"].includes(counted?.kindOf(p.id) ?? "");
   const back = backgroundLayers(parts, frameWidth);
   const byId = new Map(parts.map((p) => [p.id, p]));
   const pools: Record<RoleKey, Map<string, Entry>> = Object.fromEntries(ROLE_ORDER.map((r) => [r, new Map()])) as Record<RoleKey, Map<string, Entry>>;
@@ -305,7 +319,7 @@ export function siteRoles(
       }
       if (u === "fill") {
         if (behind) continue;
-        if (isButton(p)) put("buttons", w.key, value, w.spot, p);
+        if (inButton(p)) put("buttons", w.key, value, w.spot, p);
         else fills.push({ key: w.key, value, spot: w.spot, p });
       } else if (u === "text") put("words", w.key, value, w.spot, p);
       else if (u === "border") put("outline", w.key, value, w.spot, p);
@@ -328,16 +342,16 @@ export function siteRoles(
     e.area += area(f.p);
     fillPool.set(f.key, e);
   }
-  const fillSwatches = cluster("panels", [...fillPool.values()], byId, within);
+  const fillSwatches = cluster("panels", [...fillPool.values()], byId, within, countAs);
   const areaOf = (s: RoleSwatch) => s.shades.reduce((n, k) => n + (fillPool.get(k)?.area ?? 0), 0);
   const main = [...fillSwatches].sort((a, b) => areaOf(b) - areaOf(a))[0];
   const swatches: Record<RoleKey, RoleSwatch[]> = Object.fromEntries(ROLE_ORDER.map((r) => [r, [] as RoleSwatch[]])) as Record<RoleKey, RoleSwatch[]>;
   for (const s of fillSwatches) {
     const role: RoleKey = s === main ? "main" : "panels";
     const ps = [...new Set(s.spots.map((x) => x.id))].map((id) => byId.get(id)!).filter(Boolean);
-    swatches[role].push({ ...s, id: `${role}|${s.shades[0]}`, role, says: sentence(role, s.value, ps, s.spots, s.shades.length) });
+    swatches[role].push({ ...s, id: `${role}|${s.shades[0]}`, role, says: sentence(role, s.value, ps, s.spots, s.shades.length, countAs) });
   }
-  for (const r of ROLE_ORDER) if (r !== "main" && r !== "panels") swatches[r] = cluster(r, [...pools[r].values()], byId, within);
+  for (const r of ROLE_ORDER) if (r !== "main" && r !== "panels") swatches[r] = cluster(r, [...pools[r].values()], byId, within, countAs);
 
   const short: SiteRoles["short"] = [];
   const more: RoleSwatch[] = [];

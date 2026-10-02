@@ -23,6 +23,7 @@ import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
 import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
 import { ridersOf } from "./owner";
+import { resolvePalette } from "./parts/theme";
 import { play } from "@/core/audio/engine";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
@@ -333,7 +334,7 @@ export const studio = defineFeature({
     {
       keys: "mod+c", label: "Copy", group: "Builder",
       when: () => onDesign() && useStudio.getState().selection.some((id) => useStudio.getState().nodes.some((n) => n.id === id)),
-      run: () => { const s = useStudio.getState(); s.copyNodes([...s.selection, ...ridersOf(s.nodes, s.selection)]); play("tap"); },
+      run: () => { const s = useStudio.getState(); s.copyNodes([...s.selection, ...ridersOf(s.nodes, s.selection, resolvePalette(s.format, s.look))]); play("tap"); },
     },
     { keys: "mod+x", label: "Cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().cut(); } },
     { keys: "mod+v", label: "Paste what was copied or cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().paste(); } },

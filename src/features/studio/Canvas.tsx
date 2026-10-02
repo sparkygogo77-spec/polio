@@ -52,6 +52,7 @@ import { ownsOthers } from "./holds";
 import { SmallBoard } from "./SmallBoard";
 import { partName } from "./partNames";
 import { ownerOf, parentOf, ridersOf, wordsIn, wordsOf } from "./owner";
+import { carriedBy, componentsOf, GRABBED, rereadComponents, resizedWith } from "./components";
 import { editingWords, openWords, WordsInPlace } from "./WordsInPlace";
 import {
   activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
@@ -1048,7 +1049,7 @@ function DesktopCanvas() {
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
       const ids = picked.map((n) => n.id);
-      const all = [...ids, ...ridersOf(s.nodes, ids)];
+      const all = [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
       if (e.timeStamp - lastNudge.current > 800) s.commit();
       lastNudge.current = e.timeStamp;
       const positions: Record<string, { x: number; y: number }> = {};
@@ -1123,7 +1124,12 @@ function DesktopCanvas() {
       const n = store.nodes.find((x) => x.id === nodeEl.dataset.nodeId);
       if (n) {
         capture();
-        setDrag({ kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle: handleEl.dataset.resize as Handle, origin: { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } } });
+        /* A component is resized whole: every layer keeps its place and size on it (`components.ts#resizedWith`). */
+        const st = useStudio.getState();
+        const layers = carriedBy(componentsOf(st.nodes, resolvePalette(st.format, st.look)), n.id).filter((id) => id !== n.id);
+        const origin: NonNullable<Drag["origin"]> = { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } };
+        for (const m of st.nodes) if (layers.includes(m.id) && !m.locked) origin[m.id] = { x: m.x, y: m.y, w: m.w, h: m.h };
+        setDrag({ kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle: handleEl.dataset.resize as Handle, origin, riders: layers });
       }
       return;
     }
@@ -1167,7 +1173,8 @@ function DesktopCanvas() {
          * Shift-clicking, and a press on something already picked, still
          * take exactly what is under the hand.
          */
-        const owner = hit && !e.shiftKey && !store.selection.includes(hitId) ? ownerOf(store.nodes, hit) : null;
+        const pal = resolvePalette(store.format, store.look);
+        const owner = hit && !e.shiftKey && !store.selection.includes(hitId) ? ownerOf(store.nodes, hit, pal) : null;
         const id = owner?.id ?? hitId;
         const node = owner ?? hit;
         /*
@@ -1190,7 +1197,9 @@ function DesktopCanvas() {
          */
         const prior = pressed.current;
         const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
-        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && ownsOthers(store.nodes, node)) {
+        /* A button, badge, tab, copy bar or card is one thing: grabbed whole, like a control (`components.ts`). */
+        const whole = node ? componentsOf(store.nodes, pal).byId.get(node.id) : undefined;
+        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && !(whole && GRABBED.has(whole.kind)) && ownsOthers(store.nodes, node)) {
           pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
           capture();
           marqueeRef.current = null;
@@ -1279,7 +1288,7 @@ function DesktopCanvas() {
         }
         capture();
         /* A button moves with its words and its icon: what it holds rides along (`owner.ts`). */
-        const riders = ridersOf(store.nodes, ids);
+        const riders = ridersOf(store.nodes, ids, pal);
         const carried = [...ids, ...riders];
         const origin: Drag["origin"] = {};
         for (const n of store.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
@@ -1393,7 +1402,8 @@ function DesktopCanvas() {
       const gy: number[] = [];
       if (h.includes("e")) for (const c of xs) if (Math.abs(c - (x + w)) < thr) { w = c - x; gx.push(c); break; }
       if (h.includes("s")) for (const c of ys) if (Math.abs(c - (y + hgt)) < thr) { hgt = c - y; gy.push(c); break; }
-      useStudio.setState({ nodes: store.nodes.map((n) => (n.id === drag.nodeId ? { ...n, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) } : n)) });
+      const to = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) };
+      useStudio.setState({ nodes: store.nodes.map((n) => (n.id === drag.nodeId ? { ...n, ...to } : drag.riders?.includes(n.id) && drag.origin?.[n.id] ? { ...n, ...resizedWith(o, to, drag.origin[n.id]!) } : n)) });
       setGuides({ x: gx, y: gy });
       setDrag({ ...drag, moved: true, snapped: gx.length > 0 || gy.length > 0 });
       return;
@@ -1552,8 +1562,12 @@ function DesktopCanvas() {
       useStudio.setState({
         nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)),
       });
+      /* What holds what may have changed: the components are read again (`components.ts`). */
+      rereadComponents();
       // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
-      if (!drag.snapped && drag.riders?.length) {
+      if (drag.kind === "resize" && drag.riders?.length) {
+        /* A component resized whole is not snapped: its layers were placed on its box, and a snapped box would leave them a pixel off. */
+      } else if (!drag.snapped && drag.riders?.length) {
         /* A control and what it holds snap as one: the lead's step to the grid, taken by all. */
         const ids = new Set(drag.ids ?? []);
         const lead = useStudio.getState().nodes.find((n) => n.id === drag.ids![0]);

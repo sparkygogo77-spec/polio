@@ -26,8 +26,10 @@ import {
 } from "lucide-react";
 import { getFeature } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
-import { ancestors, partTree, visibleRows, type PartTree } from "./partTree";
-import { filterRows, partList, type ListPart, type ListRow } from "./partList";
+import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "./partTree";
+import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "./components";
+import { resolvePalette } from "./parts/theme";
+import { filterRows, foldComponentRows, partList, type ComponentRow, type ListPart } from "./partList";
 import { Switch } from "@/core/ui/switch";
 import { kindOf, partName } from "./partNames";
 import { decisions, decisionSays, type Decision } from "./library/badge";
@@ -68,8 +70,18 @@ export function goToPart(id: string) {
 }
 
 /** The tree for these nodes, worked out once per change of the page. */
+/** The tree of a page's parts, each component one row with its layers folded inside (`components.ts`). */
 export function usePartTree(nodes: StudioNode[]): PartTree {
-  return React.useMemo(() => partTree(nodes), [nodes]);
+  const comps = usePageComponents(nodes);
+  return React.useMemo(() => foldComponents(partTree(nodes), comps.list), [nodes, comps]);
+}
+
+/** The components among these parts, read with the site's own colour roles. */
+export function usePageComponents(nodes: StudioNode[]): Components {
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  return React.useMemo(() => componentsOf(nodes as unknown as CompNode[], palette), [nodes, palette]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,8 +90,15 @@ export function usePartTree(nodes: StudioNode[]): PartTree {
 
 export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; picked?: string | null; className?: string }) {
   const tree = usePartTree(nodes);
+  const comps = usePageComponents(nodes);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  const names = React.useMemo(() => new Map(nodes.map((n) => [n.id, nameOf(n, nodes)])), [nodes]);
+  /* A component keeps its own name and says what it is beside it ("Button · 3 layers"); each of its layers reads as the job it does there ("Words: BUY $TRORTY"). A component with no layers is just the part. */
+  const roleOfLayer = React.useMemo(() => new Map(comps.list.flatMap((c) => c.layers.map((l) => [l.id, l.role] as const))), [comps]);
+  const stacked = React.useMemo(() => new Map(comps.list.filter((c) => c.layers.length).map((c) => [c.id, c])), [comps]);
+  const names = React.useMemo(() => new Map(nodes.map((n) => {
+    const role = roleOfLayer.get(n.id);
+    return [n.id, role ? `${LAYER_WORD[role]}: ${nameOf(n, nodes)}` : nameOf(n, nodes)];
+  })), [nodes, roleOfLayer]);
   /* The top level starts open: a page is usually one body holding its sections, and a tree that opens on one row says nothing. */
   const [open, setOpen] = React.useState<Set<string>>(() => new Set(tree.roots));
   /* Picked on the board: open the tree down to it. */
@@ -151,7 +170,11 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
               >
                 <span className={cn("shrink-0", on ? "text-accent" : "text-fg-faint group-hover:text-fg-muted")}><KindIcon kind={kind} /></span>
                 <span data-tree-name="" className="min-w-0 flex-1 truncate">{names.get(r.id)}</span>
-                {r.kids ? <span className="num shrink-0 text-fine text-fg-faint">{r.kids}</span> : null}
+                {stacked.get(r.id) ? (
+                  <span data-tree-component={stacked.get(r.id)!.kind} className="shrink-0 rounded-sm bg-hover px-1 text-fine text-fg-muted" title="Recognised as one thing: its layers move, resize and recolour with it.">
+                    {KIND_WORD[stacked.get(r.id)!.kind]} · {stacked.get(r.id)!.layers.length} {stacked.get(r.id)!.layers.length === 1 ? "layer" : "layers"}
+                  </span>
+                ) : roleOfLayer.get(r.id) ? <span data-tree-layer={roleOfLayer.get(r.id)} className="sr-only">layer</span> : r.kids ? <span className="num shrink-0 text-fine text-fg-faint">{r.kids}</span> : null}
               </button>
             </div>
           );
@@ -177,6 +200,8 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
  * people who want it; the choice is remembered in this browser.
  */
 const NESTING_KEY = "builder.elementsNesting";
+/** A row's height in the flat list (h-7). */
+const ROW_PX = 28;
 const LIST_ICON: Record<string, React.ComponentType<{ className?: string }>> = { "Copy bar": Copy, Shape: Shapes };
 
 export function ElementList({ nodes, picked, className }: { nodes: StudioNode[]; picked?: string | null; className?: string }) {
@@ -185,13 +210,27 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
     try { return typeof window !== "undefined" && window.localStorage.getItem(NESTING_KEY) === "1"; } catch { return false; }
   });
   const [query, setQuery] = React.useState("");
-  const rows = React.useMemo(() => partList(nodes as unknown as ListPart[], { siteName, featureName }), [nodes, siteName]);
+  const comps = usePageComponents(nodes);
+  /* A component (a button and its stacked layers) is one row, as it is one group under Show nesting. */
+  const rows = React.useMemo(
+    () => foldComponentRows(partList(nodes as unknown as ListPart[], { siteName, featureName }), comps.list.filter((c) => c.layers.length).map((c) => ({ id: c.id, kindWord: KIND_WORD[c.kind], name: c.name, parts: c.parts }))),
+    [nodes, siteName, comps],
+  );
   const shown = React.useMemo(() => filterRows(rows, query), [rows, query]);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const box = React.useRef<HTMLDivElement>(null);
+  const scroller = React.useRef<HTMLDivElement | null>(null);
+  const keepScroller = React.useCallback((n: HTMLDivElement | null) => { scroller.current = n; }, []);
   React.useEffect(() => {
     if (!picked || nesting) return;
-    const t = window.setTimeout(() => box.current?.querySelector(`[data-list-ids~="${CSS.escape(picked)}"]`)?.scrollIntoView({ block: "nearest" }), 60);
+    const t = window.setTimeout(() => {
+      const el = box.current?.querySelector(`[data-list-ids~="${CSS.escape(picked)}"]`);
+      if (el) { el.scrollIntoView({ block: "nearest" }); return; }
+      /* The list draws only the rows in view: a row further down is reached by where it stands in the list. */
+      const at = shown.findIndex((r) => r.ids.includes(picked));
+      const sc = scroller.current;
+      if (at >= 0 && sc) sc.scrollTop = Math.max(0, at * ROW_PX - sc.clientHeight / 2);
+    }, 60);
     return () => window.clearTimeout(t);
   }, [picked, nesting, shown]);
   React.useEffect(() => () => pointAt(null), []);
@@ -199,11 +238,11 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
     setNesting(on);
     try { window.localStorage.setItem(NESTING_KEY, on ? "1" : "0"); } catch { /* a private window keeps it for the visit */ }
   };
-  const go = (r: ListRow) => {
+  const go = (r: ComponentRow) => {
     play("select");
     goToPart(r.id);
-    /* One row standing for several parts (the same state shown by several presses) picks them all. */
-    if (r.ids.length > 1) useStudio.getState().setSelection(r.ids);
+    /* One row standing for several parts (the same state shown by several presses) picks them all; a component's row picks its host, which carries its layers. */
+    if (r.ids.length > 1 && !r.component) useStudio.getState().setSelection(r.ids);
   };
   return (
     <div data-element-list={nesting ? "tree" : "flat"} className={cn("flex min-h-0 flex-col", className)}>
@@ -234,7 +273,8 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
             <VirtualList
               items={shown}
               getKey={(r) => r.id}
-              estimateSize={28}
+              estimateSize={ROW_PX}
+              scrollRef={keepScroller}
               className="h-full py-1"
               renderItem={(r) => {
                 const on = !!picked && r.ids.includes(picked);
@@ -243,6 +283,7 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
                   <div
                     data-list-row={r.id}
                     data-list-ids={r.ids.join(" ")}
+                    data-list-component={r.component ? comps.byId.get(r.component)?.kind : undefined}
                     data-list-after={r.after ? "" : undefined}
                     data-list-picked={on ? "" : undefined}
                     className={cn("group flex h-7 items-center gap-1.5 rounded-sm pr-1.5 text-plain", on ? "bg-accent-soft text-fg shadow-[inset_2px_0_0_var(--accent)]" : "hover:bg-hover")}
@@ -265,7 +306,11 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
                       <span data-list-name="" className="min-w-0 truncate">{r.name}</span>
                       {r.where ? <span data-list-where="" className="min-w-0 shrink truncate text-fine text-fg-faint">{r.where}</span> : null}
                       {r.after ? <span data-list-press="" className="shrink-0 rounded-xs border border-border px-1 text-fine text-fg-muted">shows after press</span> : null}
-                      {r.ids.length > 1 ? <span className="num shrink-0 text-fine text-fg-faint">×{r.ids.length}</span> : null}
+                      {r.component ? (
+                        <span data-list-layers="" className="shrink-0 rounded-sm bg-hover px-1 text-fine text-fg-muted" title="Recognised as one thing: its layers move, resize and recolour with it.">
+                          {r.ids.length - 1} {r.ids.length - 1 === 1 ? "layer" : "layers"}
+                        </span>
+                      ) : r.ids.length > 1 ? <span className="num shrink-0 text-fine text-fg-faint">×{r.ids.length}</span> : null}
                     </button>
                   </div>
                 );

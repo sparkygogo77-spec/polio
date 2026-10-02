@@ -131,3 +131,27 @@ export function pageOrder(tree: PartTree): string[] {
   walk(tree.roots);
   return out;
 }
+
+/**
+ * The tree with each component's layers folded under its host
+ * (`components.ts`): a button is one row, its words, light and shadow
+ * layers inside it, wherever the page path or the box would have put them.
+ * A component inside another stays under it. Returns a new tree.
+ */
+export function foldComponents(tree: PartTree, comps: readonly { id: string; layers: readonly { id: string }[] }[]): PartTree {
+  const parent = new Map(tree.parent);
+  for (const c of comps) for (const l of c.layers) if (parent.has(l.id) && l.id !== c.id) parent.set(l.id, c.id);
+  /* A loop cannot be made (a host is never another's layer), but a host must not end up under its own layer. */
+  for (const c of comps) { const p = parent.get(c.id); if (p && c.layers.some((l) => l.id === p)) parent.set(c.id, tree.parent.get(p) ?? null); }
+  const kids = new Map<string, string[]>();
+  const roots: string[] = [];
+  const order = new Map(pageOrder(tree).map((id, i) => [id, i]));
+  for (const [id, p] of parent) {
+    if (p) kids.set(p, [...(kids.get(p) ?? []), id]);
+    else roots.push(id);
+  }
+  const by = (a: string, b: string) => (order.get(a) ?? 0) - (order.get(b) ?? 0);
+  roots.sort(by);
+  for (const list of kids.values()) list.sort(by);
+  return { roots, kids, parent };
+}
