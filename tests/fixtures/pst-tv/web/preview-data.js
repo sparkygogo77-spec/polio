@@ -36,6 +36,7 @@ export const PLAY_SCREENS = [
   ['tv-idle', 'Chart TV: between matches, a sample chart plays', ['chart-tv', 'chart-tv-idle']],
   ['tv-match', 'Chart TV: a match on screen, with the trade markers and duel circles', ['chart-tv', 'duel']],
   ['tv-result', 'Chart TV: the result on screen', ['chart-tv', 'chart-tv-result']],
+  ['player-card', 'Your player card and profile, beside the TV', ['player-card', 'profile-panel']],
 ];
 
 /**
@@ -81,7 +82,15 @@ function until(msgs, cut) {
 /** Hello, then the sample wallet, then the rest: the page signs in only once it has a wallet. */
 function withWallet(msgs, address) {
   const [hello, ...rest] = steps(msgs);
-  return [hello, { wallet: address }, ...rest];
+  return [hello, { wallet: address }, ...rest.map(withSampleProfile)];
+}
+
+/** The player card's extras on the sample profile (made up; recorded before they existed). */
+function withSampleProfile(step) {
+  const m = step.msg;
+  if (!m?.profile || !['auth_result', 'profile_result'].includes(m.type)) return step;
+  const extra = { solName: 'pons-sample.sol', favouriteCoin: 'BONK', joinedAt: Date.UTC(2026, 8, 20), rank: null, practiceRank: 2 };
+  return { msg: { ...m, profile: { ...extra, ...m.profile } } };
 }
 
 /**
@@ -120,6 +129,7 @@ async function screenPlan(name) {
     case 'first-visit':
       return { now: hello.serverTime + 2_000, steps: steps([hello]) };
     case 'lobby':
+    case 'player-card':
       return { now: hello.serverTime + 5_000, steps: signedIn(lobby) };
     case 'before-queue':
       return { now: hello.serverTime + 8_000, steps: signedIn(lobby), then: 'warning' };

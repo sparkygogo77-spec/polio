@@ -200,6 +200,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(s.image ? { background: s.image, ...(s.imageOptions ? { backgroundOptions: s.imageOptions } : {}), ...(s.imageClip ? { backgroundClip: s.imageClip } : {}) } : {}),
       ...(p.turn ? { transform: p.turn } : {}),
       ...(s.filter ? { filter: s.filter } : {}),
+      ...(s.mask ? { mask: s.mask, ...(s.maskOptions ? { maskOptions: s.maskOptions } : {}) } : {}),
     };
     const host = p.pseudo ? (p.pseudo.host["data-hook"] ? `data-hook “${p.pseudo.host["data-hook"]}”` : p.pseudo.host.id ? `#${p.pseudo.host.id}` : "its element") : "";
     const align = /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;

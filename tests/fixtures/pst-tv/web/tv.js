@@ -85,8 +85,24 @@ export function attractCandles(prices, seconds, barSecs = ATTRACT_BAR_SECS, t0 =
   return out;
 }
 
-/** The whole sample loop: ATTRACT_BARS candles, generated from ATTRACT_SEED. */
-export async function attractBars() {
-  const { prices, seconds } = await generateChart(ATTRACT_SEED, null, ATTRACT_BARS * ATTRACT_BAR_SECS);
+/** How long the channel-change static shows between one sample chart and the next. */
+export const CHANNEL_CHANGE_MS = 600;
+
+/**
+ * The seed of the `loop`-th sample chart. With a fixed seed (the page's ?tv-seed=<64 hex digits>,
+ * for tests and captures) the charts are the same series every time, each loop still different;
+ * without one each loop draws a new random seed (`random` gives 32 random bytes).
+ */
+export function attractSeed(loop, fixed = null, random = () => crypto.getRandomValues(new Uint8Array(32))) {
+  if (typeof fixed === 'string' && /^[0-9a-f]{64}$/.test(fixed)) {
+    const tail = ((parseInt(fixed.slice(56), 16) + loop) >>> 0).toString(16).padStart(8, '0');
+    return fixed.slice(0, 56) + tail;
+  }
+  return [...random()].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** One sample chart: ATTRACT_BARS candles, generated from `seed` by the practice-match generator. */
+export async function attractBars(seed = ATTRACT_SEED) {
+  const { prices, seconds } = await generateChart(seed, null, ATTRACT_BARS * ATTRACT_BAR_SECS);
   return attractCandles(prices, seconds);
 }

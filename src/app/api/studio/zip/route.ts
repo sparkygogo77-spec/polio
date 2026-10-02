@@ -191,19 +191,53 @@ export async function POST(request: Request) {
         .filter((n) => n !== gate.entry && /\.html?$/i.test(n) && n.startsWith(gate.dir) && !/(^|\/)(node_modules|vendor|test|tests)\//i.test(n))
         .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b));
       const read: { file: string; scripts: boolean; read: PageRead; source: ReturnType<typeof sourceOfPage> }[] = [];
+      /*
+       * THE PAGE'S OWN PICTURES IN ITS CSS, CARRIED. A background or a mask
+       * at one of the zip's addresses (PST's icons, web/assets/tv/*.svg,
+       * painted through a mask) would be a broken link on the board: each is
+       * put in as data: from the zip, up to 300 KB each. One the zip does not
+       * hold takes the paint it is in off the part, as before.
+       */
+      const dataOf = new Map<string, string | null>();
+      const inline = (css: string | undefined): string | undefined => {
+        if (!css) return css;
+        let lost = false;
+        const out = css.replace(/url\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g, (all, url: string) => {
+          if (/^data:/i.test(url)) return all;
+          if (!url.startsWith(`${HOME}/`)) { lost = true; return all; }
+          if (!dataOf.has(url)) {
+            const hit = fileFor(decodeURIComponent(url.slice(HOME.length + 1).split(/[?#]/)[0] ?? ""), names, gate.dir);
+            const bytes = hit ? unpacked(hit) : null;
+            const type = hit && bytes?.length ? contentType(hit, bytes) : null;
+            dataOf.set(url, bytes && type && bytes.length <= 300_000 ? `data:${type.split(";")[0]};base64,${Buffer.from(bytes).toString("base64")}` : null);
+          }
+          const d = dataOf.get(url);
+          if (!d) { lost = true; return all; }
+          return `url("${d}")`;
+        });
+        return lost ? undefined : out;
+      };
+      const ownPictures = (r: PageRead): PageRead => {
+        for (const p of r.parts) {
+          const s = p.style;
+          if (s.image) { s.image = inline(s.image); if (!s.image) { delete s.imageOptions; delete s.imageClip; } }
+          if (s.mask) { s.mask = inline(s.mask); if (!s.mask) delete s.maskOptions; }
+        }
+        return r;
+      };
       /* What the page's own code is written against, read off its source: every hook with its line, and the CSS variables it exposes (`sourceHooks.ts`). */
       const textOf = (n: string) => { try { return new TextDecoder().decode(unpacked(n)); } catch { return ""; } };
       const sourced = (file: string, html: string, r: PageRead) => {
         const source = sourceOfPage(file, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }, { tokens: tokensFile });
         return { read: withLines(r, source, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }), source };
       };
-      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, (await page.evaluate(PARTS, MAX_PARTS)) as PageRead) });
+      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures((await page.evaluate(PARTS, MAX_PARTS)) as PageRead)) });
       for (const file of others.slice(0, MOST_PAGES - 1)) {
         try {
           await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
           await page.waitForTimeout(150);
           const html = htmlOf.get(file) ?? textOf(file);
-          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, (await page.evaluate(PARTS, MAX_PARTS)) as PageRead) });
+          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, ownPictures((await page.evaluate(PARTS, MAX_PARTS)) as PageRead)) });
         } catch {
           /* A page that will not open is left out, and the count says so. */
         }

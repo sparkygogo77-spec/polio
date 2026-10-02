@@ -29,6 +29,10 @@
 <h1 data-hook="page-title">PonsStars test page</h1>
 <p data-hook="page-intro">Test networks only (devnet or a local validator). No real money. Mainnet is refused.</p>
 <p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+
+<!-- The play page's layout: the TV in the middle with the match controls under it; your player on the left; money and the server on the right. -->
+<div data-hook="play-layout">
+<main data-hook="play-center">
 <section data-hook="next-step" aria-live="polite" data-step="">
   <p data-hook="next-step-text">Connecting to the game server…</p>
   <button type="button" data-hook="next-step-button" hidden>-</button>
@@ -54,7 +58,7 @@
       <div data-hook="chart-tv-body">
         <div data-hook="chart-tv-frame">
           <div data-hook="chart-tv-screen">
-            <div data-hook="chart"><div data-hook="trade-pictures" aria-hidden="true"></div></div>
+            <div data-hook="chart"><canvas data-hook="chart-canvas" role="img" aria-label="Price chart"></canvas><div data-hook="trade-pictures" aria-hidden="true"></div></div>
             <div data-hook="duel" data-state="level" hidden>
               <svg data-hook="duel-svg" viewBox="0 0 200 200" role="img" aria-label="Duel: your circle against theirs; the bigger one is ahead">
                 <circle data-hook="duel-circle-opponent" cx="100" cy="100" r="50"></circle>
@@ -126,139 +130,7 @@
     <p data-hook="chart-note">The chart shows the server's price readings as an index: the same candles for both players
        from the first one, and every trade fills at a price on it. Green candles rose, red ones fell.
        Buys are green markers and sells red; the ring around each picture says whose trade it is (yours blue, your opponent's yellow).</p>
-    <p data-hook="chart-attribution">Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener" data-hook="chart-attribution-link">TradingView</a>:
-      TradingView Lightweight Charts&trade;, Copyright (c) 2025 TradingView, Inc. https://www.tradingview.com/</p>
   </div>
-</section>
-
-<section data-hook="market-panel">
-  <h2 data-hook="market-title">Market data</h2>
-  <p data-hook="market-source">-</p>
-  <p data-hook="market-practice" hidden><strong data-hook="market-practice-title">Practice matches:</strong> prices are not live.
-     Practice uses play money only (the in-memory stand-in escrow, never the chain), and practice results
-     are kept apart from real wins and the leaderboard.</p>
-</section>
-
-<section data-hook="connection-panel">
-  <h2 data-hook="connection-title">Server</h2>
-  <p data-hook="connection-line">Connection: <span data-hook="connection-status">connecting</span>.
-     Network: <span data-hook="network">-</span></p>
-  <p data-hook="result-key-line">Result-signing key: <code data-hook="result-key">-</code></p>
-  <p data-hook="escrow-program-line">Escrow program: <code data-hook="escrow-program">-</code></p>
-</section>
-
-<section data-hook="wallet-panel">
-  <h2 data-hook="wallet-title">Wallet</h2>
-  <p data-hook="wallet-intro">Browser wallets found (Phantom, Solflare, Backpack and others that follow the Solana Wallet Standard):</p>
-  <div data-hook="wallet-list"></div>
-  <p data-hook="wallet-none-found">None found yet. Install a wallet extension and set it to devnet, or use a test wallet below.</p>
-  <button type="button" data-hook="wallet-connect-test">Use test wallet (made in this browser)</button>
-  <button type="button" data-hook="wallet-forget-test">Forget test wallet</button>
-  <button type="button" data-hook="wallet-new">Create a new wallet for PonsStars</button>
-  <button type="button" data-hook="wallet-disconnect">Disconnect</button>
-  <p data-hook="wallet-address-line">Address: <code data-hook="wallet-address">not connected</code> <span data-hook="wallet-name"></span></p>
-  <p data-hook="wallet-signed-in-line">Signed in: <span data-hook="wallet-signed-in">no</span></p>
-  <p data-hook="wallet-message"></p>
-</section>
-
-<section data-hook="newwallet-panel" hidden>
-  <h2 data-hook="newwallet-title">Create a new wallet for PonsStars</h2>
-  <div data-hook="newwallet-step-warn">
-    <p data-hook="newwallet-warning"><strong data-hook="newwallet-warning-title">Read this first.</strong> This makes a brand-new Solana wallet inside this browser.
-      You will see its 12-word secret phrase <strong data-hook="newwallet-warning-once">once</strong>. Anyone who has the phrase controls the wallet.
-      PonsStars never sees or keeps it: if you lose it, nobody can recover the wallet.
-      Write it on paper; do not screenshot it or paste it anywhere. Test networks only.</p>
-    <label data-hook="newwallet-ack-label"><input type="checkbox" data-hook="newwallet-ack"> I understand and I am ready to write the phrase down</label>
-    <button type="button" data-hook="newwallet-create" disabled>Create the wallet</button>
-    <button type="button" data-hook="newwallet-cancel">Cancel</button>
-  </div>
-  <div data-hook="newwallet-step-phrase" hidden>
-    <p data-hook="newwallet-phrase-intro">Your secret phrase (shown once):</p>
-    <pre data-hook="newwallet-phrase"></pre>
-    <button type="button" data-hook="newwallet-phrase-done">I have written it down. Hide it.</button>
-  </div>
-  <div data-hook="newwallet-step-ready" hidden>
-    <p data-hook="newwallet-address-line">New wallet address: <code data-hook="newwallet-address">-</code></p>
-    <p data-hook="newwallet-fund-line">Fund it from the wallet you are signed in with:
-      <label data-hook="newwallet-fund-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="newwallet-fund-amount"></label>
-      <button type="button" data-hook="newwallet-fund">Send from my connected wallet</button></p>
-    <button type="button" data-hook="newwallet-use">Switch to the new wallet</button>
-  </div>
-  <div data-hook="newwallet-step-restore">
-    <p data-hook="newwallet-restore-intro">Already have a PonsStars phrase? Type it to use that wallet again (it stays in this tab only):</p>
-    <input type="password" autocomplete="off" spellcheck="false" data-hook="newwallet-restore-phrase">
-    <button type="button" data-hook="newwallet-restore">Use this phrase</button>
-  </div>
-  <p data-hook="newwallet-message"></p>
-</section>
-
-<section data-hook="profile-panel" hidden>
-  <h2 data-hook="profile-title">Your profile</h2>
-  <p data-hook="profile-public-note">Public: anyone can see your name, picture and results. Nothing secret is stored.</p>
-  <img data-hook="profile-picture-preview" alt="Your picture" width="96" height="96" hidden>
-  <p data-hook="profile-name-line"><label data-hook="profile-name-label">Display name <input type="text" maxlength="24" data-hook="profile-name"></label></p>
-  <p data-hook="profile-picture-line"><label data-hook="profile-picture-label">Picture (PNG, JPEG or WebP; shrunk to 128 pixels, at most 200 KB) <input type="file" accept="image/png,image/jpeg,image/webp" data-hook="profile-picture"></label>
-     <button type="button" data-hook="profile-remove-picture">Remove picture</button></p>
-  <p data-hook="profile-avatars-intro">Or pick an avatar (shown on the chart at each of your trades):</p>
-  <div data-hook="profile-avatars" role="group" aria-label="Preset avatars">
-    <button type="button" data-hook="profile-avatar-sun" title="sun" aria-label="Avatar: sun" aria-pressed="false"><img data-hook="profile-avatar-sun-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-moon" title="moon" aria-label="Avatar: moon" aria-pressed="false"><img data-hook="profile-avatar-moon-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-star" title="star" aria-label="Avatar: star" aria-pressed="false"><img data-hook="profile-avatar-star-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-bolt" title="bolt" aria-label="Avatar: bolt" aria-pressed="false"><img data-hook="profile-avatar-bolt-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-leaf" title="leaf" aria-label="Avatar: leaf" aria-pressed="false"><img data-hook="profile-avatar-leaf-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-wave" title="wave" aria-label="Avatar: wave" aria-pressed="false"><img data-hook="profile-avatar-wave-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-gem" title="gem" aria-label="Avatar: gem" aria-pressed="false"><img data-hook="profile-avatar-gem-picture" alt="" width="32" height="32"></button>
-    <button type="button" data-hook="profile-avatar-rocket" title="rocket" aria-label="Avatar: rocket" aria-pressed="false"><img data-hook="profile-avatar-rocket-picture" alt="" width="32" height="32"></button>
-  </div>
-  <p data-hook="profile-avatar-generated-line"><button type="button" data-hook="profile-avatar-generated">Use the avatar made from my wallet address</button></p>
-  <button type="button" data-hook="profile-save">Save profile</button>
-  <p data-hook="profile-message"></p>
-  <p data-hook="profile-stats-line">Live matches (practice not counted): matches <span data-hook="profile-stat-matches">0</span>, wins <span data-hook="profile-stat-wins">0</span>,
-     losses <span data-hook="profile-stat-losses">0</span>, ties <span data-hook="profile-stat-ties">0</span>,
-     no contest <span data-hook="profile-stat-nocontest">0</span>, best <span data-hook="profile-stat-best">-</span>%,
-     profit and loss <span data-hook="profile-stat-profit">0</span> SOL.
-     <a href="#" data-hook="profile-link">Public profile and match history</a>
-     Practice: <span data-hook="profile-stat-practice">-</span></p>
-</section>
-
-<section data-hook="balance-panel">
-  <h2 data-hook="balance-title">Balance</h2>
-  <p data-hook="balance-note">One escrow balance for all your matches: deposit once, play as many matches as it covers,
-     and withdraw whenever you are not in a match. Stakes leave it when a match starts and payouts land back in it
-     as soon as the match is settled. The house pays the match accounts' small deposits.</p>
-  <p data-hook="balance-wallet-line">In your wallet: <span data-hook="balance-wallet">-</span> SOL</p>
-  <p data-hook="balance-play-money" hidden><strong data-hook="balance-play-money-title">Play money (practice):</strong> not real SOL. The server gives you
-     10 SOL of it when you sign in and tops it back up when it runs low.</p>
-  <p data-hook="balance-available-line">Escrow balance (available to stake or withdraw): <span data-hook="balance-available">-</span> SOL</p>
-  <p data-hook="balance-in-match-line">In a match: <span data-hook="balance-in-match">0</span> SOL <code data-hook="balance-active-match"></code></p>
-  <p data-hook="balance-pending-line">Pending: <span data-hook="balance-pending">none</span></p>
-  <p data-hook="balance-account-line">Balance account: <span data-hook="balance-account">-</span>.</p>
-  <button type="button" data-hook="balance-refresh">Refresh</button>
-  <button type="button" data-hook="balance-faucet" hidden>Get 3 test SOL in the wallet (test networks only)</button>
-  <button type="button" data-hook="balance-create">Create balance account</button>
-
-  <div data-hook="deposit-panel">
-    <h3 data-hook="deposit-title">Deposit</h3>
-    <label data-hook="deposit-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
-    <button type="button" data-hook="deposit-review">Review deposit</button>
-    <div data-hook="deposit-confirm-panel" hidden>
-      <pre data-hook="deposit-summary"></pre>
-      <button type="button" data-hook="deposit-confirm">Confirm deposit</button>
-      <button type="button" data-hook="deposit-cancel">Cancel</button>
-    </div>
-  </div>
-  <div data-hook="withdraw-panel">
-    <h3 data-hook="withdraw-title">Withdraw</h3>
-    <label data-hook="withdraw-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="withdraw-amount"></label>
-    <button type="button" data-hook="withdraw-max">All available</button>
-    <button type="button" data-hook="withdraw-review">Review withdrawal</button>
-    <div data-hook="withdraw-confirm-panel" hidden>
-      <pre data-hook="withdraw-summary"></pre>
-      <button type="button" data-hook="withdraw-confirm">Confirm withdrawal</button>
-      <button type="button" data-hook="withdraw-cancel">Cancel</button>
-    </div>
-  </div>
-  <p data-hook="balance-message"></p>
 </section>
 
 <section data-hook="sign-panel" hidden>
@@ -386,6 +258,168 @@
   <summary data-hook="log-toggle">Details (message log, for checking what the server said)</summary>
   <pre data-hook="log"></pre>
 </details>
+</main>
+
+<aside data-hook="play-side-player" aria-label="Your player">
+<!-- Your player card: a mini TV with your picture (or the avatar made from your wallet address), your names, rank badge and results. -->
+<section data-hook="player-card" aria-label="Your player card" hidden>
+  <div data-hook="player-tv">
+    <div data-hook="player-tv-antenna" aria-hidden="true"><i data-hook="player-tv-antenna-left"></i><i data-hook="player-tv-antenna-right"></i></div>
+    <div data-hook="player-tv-body">
+      <div data-hook="player-tv-screen"><img data-hook="player-picture" alt="Your picture" width="96" height="96"></div>
+      <div data-hook="player-tv-knobs" aria-hidden="true"><i data-hook="player-tv-knob-top"></i><i data-hook="player-tv-knob-bottom"></i></div>
+    </div>
+  </div>
+  <p data-hook="player-name">-</p>
+  <p data-hook="player-address">-</p>
+  <p data-hook="player-badge" data-tier="rookie" title="Rank badge: the tier comes from live wins"><span data-hook="player-badge-tier">Rookie</span> <span data-hook="player-badge-rank">Unranked</span></p>
+  <dl data-hook="player-facts">
+    <dt data-hook="player-solname-label">Solana name</dt><dd data-hook="player-solname">-</dd>
+    <dt data-hook="player-coin-label">Favourite coin</dt><dd data-hook="player-coin">-</dd>
+    <dt data-hook="player-joined-label">Joined</dt><dd data-hook="player-joined">-</dd>
+    <dt data-hook="player-wins-label">Wins</dt><dd data-hook="player-wins">0</dd>
+    <dt data-hook="player-losses-label">Losses</dt><dd data-hook="player-losses">0</dd>
+    <dt data-hook="player-profit-label">Profit</dt><dd data-hook="player-profit">0 SOL</dd>
+  </dl>
+  <p data-hook="player-practice">Practice: -</p>
+</section>
+
+<section data-hook="profile-panel" hidden>
+  <h2 data-hook="profile-title">Your profile</h2>
+  <p data-hook="profile-public-note">Public: anyone can see your name, picture and results. Nothing secret is stored.</p>
+  <img data-hook="profile-picture-preview" alt="Your picture" width="96" height="96" hidden>
+  <p data-hook="profile-name-line"><label data-hook="profile-name-label">Display name <input type="text" maxlength="24" data-hook="profile-name"></label></p>
+  <p data-hook="profile-solname-line"><label data-hook="profile-solname-label">Solana name <input type="text" maxlength="36" placeholder="alice.sol" autocomplete="off" spellcheck="false" data-hook="profile-solname"></label></p>
+  <p data-hook="profile-solname-note">Shown as you type it. It is not looked up: Solana names live on mainnet, and PonsStars uses test networks only.</p>
+  <p data-hook="profile-coin-line"><label data-hook="profile-coin-label">Favourite coin <input type="text" maxlength="11" placeholder="BONK" autocomplete="off" spellcheck="false" data-hook="profile-coin"></label></p>
+  <p data-hook="profile-picture-line"><label data-hook="profile-picture-label">Picture (PNG, JPG or GIF, at most 2 MB; kept on the game server) <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-hook="profile-picture"></label>
+     <button type="button" data-hook="profile-remove-picture">Remove picture</button></p>
+  <p data-hook="profile-avatars-intro">Or pick an avatar (shown on the chart at each of your trades):</p>
+  <div data-hook="profile-avatars" role="group" aria-label="Preset avatars">
+    <button type="button" data-hook="profile-avatar-sun" title="sun" aria-label="Avatar: sun" aria-pressed="false"><img data-hook="profile-avatar-sun-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-moon" title="moon" aria-label="Avatar: moon" aria-pressed="false"><img data-hook="profile-avatar-moon-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-star" title="star" aria-label="Avatar: star" aria-pressed="false"><img data-hook="profile-avatar-star-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-bolt" title="bolt" aria-label="Avatar: bolt" aria-pressed="false"><img data-hook="profile-avatar-bolt-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-leaf" title="leaf" aria-label="Avatar: leaf" aria-pressed="false"><img data-hook="profile-avatar-leaf-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-wave" title="wave" aria-label="Avatar: wave" aria-pressed="false"><img data-hook="profile-avatar-wave-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-gem" title="gem" aria-label="Avatar: gem" aria-pressed="false"><img data-hook="profile-avatar-gem-picture" alt="" width="32" height="32"></button>
+    <button type="button" data-hook="profile-avatar-rocket" title="rocket" aria-label="Avatar: rocket" aria-pressed="false"><img data-hook="profile-avatar-rocket-picture" alt="" width="32" height="32"></button>
+  </div>
+  <p data-hook="profile-avatar-generated-line"><button type="button" data-hook="profile-avatar-generated">Use the avatar made from my wallet address</button></p>
+  <button type="button" data-hook="profile-save">Save profile</button>
+  <p data-hook="profile-message"></p>
+  <p data-hook="profile-stats-line">Live matches (practice not counted): matches <span data-hook="profile-stat-matches">0</span>, wins <span data-hook="profile-stat-wins">0</span>,
+     losses <span data-hook="profile-stat-losses">0</span>, ties <span data-hook="profile-stat-ties">0</span>,
+     no contest <span data-hook="profile-stat-nocontest">0</span>, best <span data-hook="profile-stat-best">-</span>%,
+     profit and loss <span data-hook="profile-stat-profit">0</span> SOL.
+     Practice: <span data-hook="profile-stat-practice">-</span></p>
+  <a href="#" data-hook="profile-link">Public profile and match history</a>
+</section>
+
+<section data-hook="wallet-panel">
+  <h2 data-hook="wallet-title">Wallet</h2>
+  <p data-hook="wallet-intro">Browser wallets found (Phantom, Solflare, Backpack and others that follow the Solana Wallet Standard):</p>
+  <div data-hook="wallet-list"></div>
+  <p data-hook="wallet-none-found">None found yet. Install a wallet extension and set it to devnet, or use a test wallet below.</p>
+  <button type="button" data-hook="wallet-connect-test">Use test wallet (made in this browser)</button>
+  <button type="button" data-hook="wallet-forget-test">Forget test wallet</button>
+  <button type="button" data-hook="wallet-new">Create a new wallet for PonsStars</button>
+  <button type="button" data-hook="wallet-disconnect">Disconnect</button>
+  <p data-hook="wallet-address-line">Address: <code data-hook="wallet-address">not connected</code> <span data-hook="wallet-name"></span></p>
+  <p data-hook="wallet-signed-in-line">Signed in: <span data-hook="wallet-signed-in">no</span></p>
+  <p data-hook="wallet-message"></p>
+</section>
+
+<section data-hook="newwallet-panel" hidden>
+  <h2 data-hook="newwallet-title">Create a new wallet for PonsStars</h2>
+  <div data-hook="newwallet-step-warn">
+    <p data-hook="newwallet-warning"><strong data-hook="newwallet-warning-title">Read this first.</strong> This makes a brand-new Solana wallet inside this browser.
+      You will see its 12-word secret phrase <strong data-hook="newwallet-warning-once">once</strong>. Anyone who has the phrase controls the wallet.
+      PonsStars never sees or keeps it: if you lose it, nobody can recover the wallet.
+      Write it on paper; do not screenshot it or paste it anywhere. Test networks only.</p>
+    <label data-hook="newwallet-ack-label"><input type="checkbox" data-hook="newwallet-ack"> I understand and I am ready to write the phrase down</label>
+    <button type="button" data-hook="newwallet-create" disabled>Create the wallet</button>
+    <button type="button" data-hook="newwallet-cancel">Cancel</button>
+  </div>
+  <div data-hook="newwallet-step-phrase" hidden>
+    <p data-hook="newwallet-phrase-intro">Your secret phrase (shown once):</p>
+    <pre data-hook="newwallet-phrase"></pre>
+    <button type="button" data-hook="newwallet-phrase-done">I have written it down. Hide it.</button>
+  </div>
+  <div data-hook="newwallet-step-ready" hidden>
+    <p data-hook="newwallet-address-line">New wallet address: <code data-hook="newwallet-address">-</code></p>
+    <p data-hook="newwallet-fund-line">Fund it from the wallet you are signed in with:</p>
+    <label data-hook="newwallet-fund-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="newwallet-fund-amount"></label>
+    <button type="button" data-hook="newwallet-fund">Send from my connected wallet</button>
+    <button type="button" data-hook="newwallet-use">Switch to the new wallet</button>
+  </div>
+  <div data-hook="newwallet-step-restore">
+    <p data-hook="newwallet-restore-intro">Already have a PonsStars phrase? Type it to use that wallet again (it stays in this tab only):</p>
+    <input type="password" autocomplete="off" spellcheck="false" data-hook="newwallet-restore-phrase">
+    <button type="button" data-hook="newwallet-restore">Use this phrase</button>
+  </div>
+  <p data-hook="newwallet-message"></p>
+</section>
+</aside>
+
+<aside data-hook="play-side-money" aria-label="Money and server">
+<section data-hook="balance-panel">
+  <h2 data-hook="balance-title">Balance</h2>
+  <p data-hook="balance-note">One escrow balance for all your matches: deposit once, play as many matches as it covers,
+     and withdraw whenever you are not in a match. Stakes leave it when a match starts and payouts land back in it
+     as soon as the match is settled. The house pays the match accounts' small deposits.</p>
+  <p data-hook="balance-wallet-line">In your wallet: <span data-hook="balance-wallet">-</span> SOL</p>
+  <p data-hook="balance-play-money" hidden><strong data-hook="balance-play-money-title">Play money (practice):</strong> not real SOL. The server gives you
+     10 SOL of it when you sign in and tops it back up when it runs low.</p>
+  <p data-hook="balance-available-line">Escrow balance (available to stake or withdraw): <span data-hook="balance-available">-</span> SOL</p>
+  <p data-hook="balance-in-match-line">In a match: <span data-hook="balance-in-match">0</span> SOL <code data-hook="balance-active-match"></code></p>
+  <p data-hook="balance-pending-line">Pending: <span data-hook="balance-pending">none</span></p>
+  <p data-hook="balance-account-line">Balance account: <span data-hook="balance-account">-</span>.</p>
+  <button type="button" data-hook="balance-refresh">Refresh</button>
+  <button type="button" data-hook="balance-faucet" hidden>Get 3 test SOL in the wallet (test networks only)</button>
+  <button type="button" data-hook="balance-create">Create balance account</button>
+
+  <div data-hook="deposit-panel">
+    <h3 data-hook="deposit-title">Deposit</h3>
+    <label data-hook="deposit-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="deposit-amount"></label>
+    <button type="button" data-hook="deposit-review">Review deposit</button>
+    <div data-hook="deposit-confirm-panel" hidden>
+      <pre data-hook="deposit-summary"></pre>
+      <button type="button" data-hook="deposit-confirm">Confirm deposit</button>
+      <button type="button" data-hook="deposit-cancel">Cancel</button>
+    </div>
+  </div>
+  <div data-hook="withdraw-panel">
+    <h3 data-hook="withdraw-title">Withdraw</h3>
+    <label data-hook="withdraw-amount-label">Amount (SOL) <input type="text" inputmode="decimal" value="1" data-hook="withdraw-amount"></label>
+    <button type="button" data-hook="withdraw-max">All available</button>
+    <button type="button" data-hook="withdraw-review">Review withdrawal</button>
+    <div data-hook="withdraw-confirm-panel" hidden>
+      <pre data-hook="withdraw-summary"></pre>
+      <button type="button" data-hook="withdraw-confirm">Confirm withdrawal</button>
+      <button type="button" data-hook="withdraw-cancel">Cancel</button>
+    </div>
+  </div>
+  <p data-hook="balance-message"></p>
+</section>
+
+<section data-hook="market-panel">
+  <h2 data-hook="market-title">Market data</h2>
+  <p data-hook="market-source">-</p>
+  <p data-hook="market-practice" hidden><strong data-hook="market-practice-title">Practice matches:</strong> prices are not live.
+     Practice uses play money only (the in-memory stand-in escrow, never the chain), and practice results
+     are kept apart from real wins and the leaderboard.</p>
+</section>
+
+<section data-hook="connection-panel">
+  <h2 data-hook="connection-title">Server</h2>
+  <p data-hook="connection-line">Connection: <span data-hook="connection-status">connecting</span>.
+     Network: <span data-hook="network">-</span></p>
+  <p data-hook="result-key-line">Result-signing key: <code data-hook="result-key">-</code></p>
+  <p data-hook="escrow-program-line">Escrow program: <code data-hook="escrow-program">-</code></p>
+</section>
+</aside>
+</div>
 
 <div data-hook="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-text" hidden>
   <div data-hook="tour-highlight" aria-hidden="true" hidden></div>

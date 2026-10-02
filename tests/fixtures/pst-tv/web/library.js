@@ -2,7 +2,7 @@ import { $, drop, fill, fromTemplate, serverUrl, setText, short, showOffline } f
 import { cssVar } from './dom.js';
 import { keepDrawingInBackground, remeasure } from './background-frames.js';
 import { TOKENS } from './tokens.js';
-import { AreaSeries, LineSeries, createChart } from './vendor/lightweight-charts/lightweight-charts.standalone.production.mjs';
+import { createPonsChart } from './pons-chart.js';
 
 const KEY = 'ponsstars.adminKey';
 // Design preview (web/preview.html): ?preview=1 shows made-up sample recordings; nothing is sent or stored.
@@ -94,15 +94,14 @@ async function refresh() {
 async function openRecording(id, keep = false) {
   const rec = await api('GET', `/recordings/${id}`);
   if (!view) {
-    // Some systems report a locale number formatting refuses (for example "en-US@posix"): fall back.
-    const locale = (() => { try { new Intl.DateTimeFormat(navigator.language); return navigator.language; } catch { return 'en-US'; } })();
-    const chart = createChart($('lib-chart'), { autoSize: true, localization: { locale }, timeScale: { timeVisible: true, secondsVisible: true }, layout: { attributionLogo: true } });
+    // PonsStars' own chart (web/pons-chart.js) on the canvas in the markup, following its size.
+    const chart = createPonsChart($('lib-chart-canvas'), { autoSize: true, maxBarSpacing: 14, rightOffset: 2 });
     // Colours from the page's CSS variables (web/base.css), so the design can change them.
     view = {
       chart,
-      line: chart.addSeries(LineSeries, { color: cssVar('--pons-library-line') || TOKENS['--pons-library-line'], lineWidth: 1 }),
-      win: chart.addSeries(AreaSeries, {
-        lineColor: cssVar('--pons-library-window') || TOKENS['--pons-library-window'],
+      line: chart.addLine({ color: cssVar('--pons-library-line') || TOKENS['--pons-library-line'], lineWidth: 1 }),
+      win: chart.addLine({
+        color: cssVar('--pons-library-window') || TOKENS['--pons-library-window'],
         topColor: cssVar('--pons-library-window-fill') || TOKENS['--pons-library-window-fill'],
         bottomColor: cssVar('--pons-library-window-fill-end') || TOKENS['--pons-library-window-fill-end'],
         lineWidth: 2,
