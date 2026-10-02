@@ -17,8 +17,10 @@
  *   node scripts/test-all.mjs --changed     # only what the change touches, and the smoke set
  *
  *   --build        run `npm run build` first (also done when there is no build)
- *   --jobs N       how many run at once in the parallel batch (default 3)
- *   --timeout S    seconds before a test is stopped and counted failed (default 600)
+ *   --jobs N       how many run at once in the parallel batch (default 4, or the
+ *                  machine's cores when fewer); each has its own browser and temp dir
+ *   --timeout S    seconds before a test is stopped and counted failed (default 600);
+ *                  a test still running after two minutes is named once a minute
  *   --changed [R]  only the tests that touch a file changed since R (default: where
  *                  this branch left trunk), tests changed themselves, and the smoke set
  *   --no-smoke     with --changed, leave the smoke set out
@@ -70,7 +72,8 @@
  * machine to itself, as the old pass* did.
  */
 import { spawn, execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { availableParallelism, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -91,7 +94,7 @@ const optMaybe = (name) => {
 };
 const flag = (name) => { const i = argv.indexOf(name); if (i < 0) return false; argv.splice(i, 1); return true; };
 function gitOk(args) { try { execFileSync("git", args, { cwd: ROOT, stdio: "ignore" }); return true; } catch { return false; } }
-const JOBS = Math.max(1, Number(opt("--jobs", process.env.JOBS ?? 3)));
+const JOBS = Math.max(1, Number(opt("--jobs", process.env.JOBS ?? Math.min(4, availableParallelism()))));
 const TIMEOUT = Math.max(10, Number(opt("--timeout", process.env.TEST_TIMEOUT ?? 600))) * 1000;
 const OUT = opt("--out", null);
 const JSON_OUT = opt("--json", null);
@@ -197,34 +200,151 @@ function changedSince(ref) {
 }
 /* A stem this common names nothing on its own: `store.ts` is read as `studio/store`, a route by its address. */
 const GENERIC = new Set(["index", "route", "store", "page", "layout", "types", "utils", "util", "theme", "constants", "helpers", "main", "config"]);
-/** The words a test would use for a changed file, if it exercises it. */
+/* Files that shape every page: a change to one is a change to the whole Builder, so everything runs. */
+const EVERYTHING = /^(next\.config\.[a-z]+|tsconfig\.json|postcss\.config\.[a-z]+|site\.config\.[a-z]+|package-lock\.json)$/;
+
+/*
+ * WHAT A TEST EXERCISES (owner's note on test speed). The old reading looked
+ * for each changed file's stem anywhere in a test, so `builder.json` in a
+ * fixture picked every test that opens /builder (246 of them) and Task 28's
+ * change ran 406 of 460. Now each test is mapped to the files it reaches:
+ *
+ *   · what it imports, from src/, capture/ or kit/ (also through jiti, and
+ *     through a fixture module it imports), and everything those import in
+ *     turn: a unit test is picked by any file its code actually runs;
+ *   · the API routes it calls by address, and what each route imports;
+ *   · the window hooks it drives (`window.__studioExport`): every source
+ *     file that names the hook, the one that sets it and the one behind it;
+ *   · files it names by path, import path or (for source) by a stem that
+ *     is not a common word, as before; and its `Covers:` line;
+ *   · a fixture is picked only by the tests that name its folder or file.
+ *
+ * A change to the build's own setup (next.config, tsconfig, the lockfile,
+ * a dependency's version in package.json) runs everything.
+ */
+const SRC_EXT = [".ts", ".tsx", ".mjs", ".js", ".jsx", ".cjs", ".json", ".css"];
+const resolved = new Map();
+function resolveFrom(fromFile, spec) {
+  let base;
+  if (spec.startsWith("@/")) base = join("src", spec.slice(2));
+  else if (spec.startsWith(".")) base = join(dirname(fromFile), spec);
+  else return null;
+  base = base.replace(/\\/g, "/");
+  for (const cand of [base, ...SRC_EXT.map((e) => base + e), ...SRC_EXT.map((e) => `${base}/index${e}`)]) {
+    try { if (existsSync(join(ROOT, cand)) && !readdirSafe(cand)) return cand; } catch { /* next */ }
+  }
+  return null;
+}
+function readdirSafe(rel) { try { readdirSync(join(ROOT, rel)); return true; } catch { return false; } }
+const SPEC = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+|jiti\([^)]*\)\s*\(\s*|\bimport\s*\(\s*)["'`]([^"'`]+)["'`]/g;
+/** The repo files a source file imports, resolved. */
+function importsOf(file) {
+  if (resolved.has(file)) return resolved.get(file);
+  const out = new Set();
+  resolved.set(file, out);
+  if (!/\.(m?[jt]sx?|cjs)$/.test(file)) return out;
+  let src = "";
+  try { src = readFileSync(join(ROOT, file), "utf8"); } catch { return out; }
+  for (const m of src.matchAll(SPEC)) { const r = resolveFrom(file, m[1]); if (r) out.add(r); }
+  /* A path handed to a loader as a string: `"../src/features/studio/x.ts"`. */
+  for (const m of src.matchAll(/["'`]((?:\.\.?\/)+(?:src|capture|kit)\/[^"'`\s]+)["'`]/g)) { const r = resolveFrom(file, m[1]); if (r) out.add(r); }
+  return out;
+}
+/** Everything a file reaches through its imports, itself included. */
+function closureOf(files) {
+  const seen = new Set();
+  const stack = [...files];
+  while (stack.length) {
+    const f = stack.pop();
+    if (seen.has(f)) continue;
+    seen.add(f);
+    for (const g of importsOf(f)) if (!seen.has(g)) stack.push(g);
+  }
+  return seen;
+}
+/** Every file under src/ (for the hooks a test drives). */
+let srcIndex;
+function srcFiles() {
+  if (srcIndex) return srcIndex;
+  srcIndex = new Map();
+  const walk = (rel) => {
+    for (const e of readdirSync(join(ROOT, rel), { withFileTypes: true })) {
+      const r = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(r);
+      else if (/\.(m?[jt]sx?)$/.test(e.name)) srcIndex.set(r, readFileSync(join(ROOT, r), "utf8"));
+    }
+  };
+  walk("src");
+  return srcIndex;
+}
+const filesNaming = new Map();
+function filesWith(token) {
+  if (!filesNaming.has(token)) filesNaming.set(token, [...srcFiles()].filter(([, src]) => src.includes(token)).map(([f]) => f));
+  return filesNaming.get(token);
+}
+/** The files a test reaches, with why, for --changed. */
+function reachOf(f, src) {
+  const reach = new Map();
+  const add = (file, why) => { if (!reach.has(file)) reach.set(file, why); };
+  /* Its imports, and theirs. Its fixture modules count as its own code. */
+  for (const file of closureOf([`tests/${f}`])) if (file !== `tests/${f}`) add(file, file.startsWith("tests/") ? "uses" : "imports");
+  /* The API routes it calls, and what they import. */
+  for (const m of src.matchAll(/\/api\/[A-Za-z0-9_\-/[\]]+/g)) {
+    const parts = m[0].replace(/\/+$/, "").split("/").filter(Boolean);
+    for (let n = parts.length; n >= 2; n--) {
+      const route = resolveFrom("x", `@/app/${parts.slice(0, n).join("/")}/route`);
+      if (route) { for (const file of closureOf([route])) add(file, `calls ${m[0]}`); break; }
+    }
+  }
+  /* The window hooks it drives. */
+  for (const m of new Set([...src.matchAll(/\b__studio[A-Za-z0-9_]+/g)].map((x) => x[0]))) for (const file of filesWith(m)) add(file, `drives ${m}`);
+  return reach;
+}
+/** The words a test would use for a changed file, if it names it. */
 function namesOf(file) {
   const noExt = file.replace(/\.[^./]+$/, "");
   const parts = noExt.split("/");
   const stem = parts.at(-1);
   const dir = parts.at(-2) ?? "";
+  /* A fixture is named by its folder (or its own name, at the top of fixtures/), never by a stem. */
+  const fx = /^tests\/fixtures\/([^/]+)/.exec(file);
+  if (fx) return [file, `fixtures/${fx[1]}`];
   const out = [file, noExt, noExt.replace(/^src\//, "@/")];
   const route = /^src\/app\/(api\/.+)\/route$/.exec(noExt);
   if (route) out.push(`/${route[1]}`);
-  if (stem && !GENERIC.has(stem) && stem.length >= 4) out.push(stem);
-  else if (dir) out.push(`${dir}/${stem}`);
+  /* Only source is named by its stem, and not as a page address (`/builder`) or a file name (`builder.json`). */
+  if (/^(src|capture|kit)\//.test(file) && /\.(m?[jt]sx?|css)$/.test(file)) {
+    if (stem && !GENERIC.has(stem) && stem.length >= 4) out.push(stem);
+    else if (dir) out.push(`${dir}/${stem}`);
+  }
   return out;
 }
+const named = (src, n) => new RegExp(`(^|[^\\w\\-/.])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\w\\-.]|\\.(?:m?[jt]sx?)\\b|$)`).test(src)
+  || (n.includes("/") && src.includes(n));
+/** A dependency's version moved in package.json (scripts alone do not reach the app). */
+function depsMoved(base) {
+  try { return /^[+-]\s*"[^"]+":\s*"[\^~]?\d/m.test(git(["diff", base, "--", "package.json"])); } catch { return false; }
+}
 /** The tests a change reaches, and why each was picked. */
-function pickChanged(all, changed) {
+function pickChanged(all, changed, base) {
   const why = new Map();
+  const everything = changed.find((c) => EVERYTHING.test(c)) ?? (changed.includes("package.json") && depsMoved(base) ? "package.json (a dependency)" : null);
   for (const f of all) {
     const name = f.replace(/\.mjs$/, "");
+    if (everything) { why.set(name, `${everything} shapes every page`); continue; }
     const src = readFileSync(join(TESTS, f), "utf8");
     const covers = coversOf(headerOf(src));
+    let reach;
     for (const c of changed) {
       if (c === `tests/${f}`) { why.set(name, "the test itself changed"); break; }
-      if (!/^(src|tests|scripts|public)\//.test(c) && !/^(next\.config|site\.config|package)\b/.test(c)) continue;
-      if (c.startsWith("scripts/test-all")) continue;
-      /* Another test's file is that test's business; a fixture is anyone's who names it. */
+      if (!/^(src|tests|scripts|public|capture|kit)\//.test(c)) continue;
+      if (c.startsWith("scripts/test-all") || c === "scripts/test-timings.json") continue;
+      /* Another test's file is that test's business. */
       if (/^tests\/[^/]+\.mjs$/.test(c)) continue;
       if (covers.some((p) => c.startsWith(p))) { why.set(name, `covers ${c}`); break; }
-      const hit = namesOf(c).find((n) => new RegExp(`(^|[^\\w-])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\w-]|$)`).test(src));
+      reach ??= reachOf(f, src);
+      if (reach.has(c)) { why.set(name, `${reach.get(c)} → ${c}`); break; }
+      const hit = namesOf(c).find((n) => named(src, n));
       if (hit) { why.set(name, `names ${c}`); break; }
     }
   }
@@ -238,7 +358,7 @@ let picked = only.length ? files.filter((f) => only.some((p) => glob(basename(p)
 const pickedWhy = new Map();
 if (CHANGED !== undefined) {
   const { base, files: changed } = changedSince(CHANGED);
-  const why = pickChanged(picked, changed);
+  const why = pickChanged(picked, changed, base);
   if (!NO_SMOKE) for (const s of SMOKE) if (!why.has(s) && files.includes(`${s}.mjs`)) why.set(s, "smoke set");
   for (const [k, v] of why) pickedWhy.set(k, v);
   picked = picked.filter((f) => why.has(f.replace(/\.mjs$/, "")));
@@ -250,8 +370,24 @@ const plan = picked.map((f) => {
   const name = f.replace(/\.mjs$/, "");
   const src = readFileSync(join(TESTS, f), "utf8");
   const header = headerOf(src);
-  return { name, src, header, env: serverOf(header), standIn: /\bcreateServer\(/.test(src), alone: aloneOf(header) };
+  const env = serverOf(header);
+  return { name, src, header, env, standIn: /\bcreateServer\(/.test(src), ports: portsOf(src, env), alone: aloneOf(header) };
 });
+
+/*
+ * The fixed ports a test listens on itself: its GitHub or Vercel stand-in
+ * (4333, 4334, …) and a site it serves. Two tests that want the same port
+ * never run together; tests whose ports differ do (they used to wait for
+ * every other stand-in test, whatever its port). A test that serves on
+ * port 0 wants none.
+ */
+function portsOf(src, env) {
+  const out = new Set();
+  for (const m of src.matchAll(/\b(?:[A-Z_]*PORT|SERVE|STUB)\s*=\s*(?:Number\([^)]*\?\?\s*)?(\d{4,5})\b/g)) out.add(Number(m[1]));
+  for (const m of src.matchAll(/\.listen\(\s*(?:Number\([^)]*\?\?\s*)?(\d{4,5})\b/g)) out.add(Number(m[1]));
+  for (const v of Object.values(env)) for (const m of String(v).matchAll(/:(\d{4,5})\b/g)) out.add(Number(m[1]));
+  return [...out].filter((p) => p >= 4000);
+}
 
 /* ------------------------------------------------------------ how long each took last time */
 const TIMINGS = join(ROOT, "scripts", "test-timings.json");
@@ -263,15 +399,26 @@ const est = (name) => timings[name] ?? 60;
 const envKey = (env) => JSON.stringify(Object.entries(env).sort());
 const clean = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
-function run(cmd, args, { env, timeout, cwd = ROOT } = {}) {
+const running = new Map();
+/* A hang is seen while it happens: every minute, the tests running past two minutes, by name. */
+const beat = setInterval(() => {
+  const long = [...running].filter(([, t0]) => Date.now() - t0 > 120000).map(([n, t0]) => `${n} ${Math.round((Date.now() - t0) / 1000)}s`);
+  if (long.length) process.stdout.write(`   ...  still running: ${long.join(", ")}\n`);
+}, 60000);
+beat.unref();
+function run(cmd, args, { env, timeout, cwd = ROOT, name } = {}) {
   return new Promise((done) => {
     const started = Date.now();
+    if (name) running.set(name, started);
     const child = spawn(cmd, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
     let out = "";
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { out += d; });
-    const timer = setTimeout(() => { out += `\n[stopped after ${timeout / 1000}s]`; try { process.kill(-child.pid, "SIGKILL"); } catch { /* gone */ } }, timeout);
-    child.on("close", (code, signal) => { clearTimeout(timer); done({ code: signal ? 124 : code, out: clean(out), ms: Date.now() - started }); });
+    const timer = setTimeout(() => {
+      out += `\n[stopped after ${timeout / 1000}s]`;
+      if (name) process.stdout.write(` TIMEOUT  ${name} stopped after ${timeout / 1000}s; its last line: ${clean(out).trim().split("\n").filter(Boolean).slice(-2, -1)[0]?.slice(0, 140) ?? "(none)"}\n`);
+      try { process.kill(-child.pid, "SIGKILL"); } catch { /* gone */ } }, timeout);
+    child.on("close", (code, signal) => { clearTimeout(timer); if (name) running.delete(name); done({ code: signal ? 124 : code, out: clean(out), ms: Date.now() - started }); });
   });
 }
 
@@ -326,13 +473,18 @@ const results = [];
 async function runOnce(t, url) {
   const args = argsOf(t.name, t.header, t.src, url);
   if (!Array.isArray(args)) return { name: t.name, result: "skip", count: "", s: 0, note: `needs ${args.needs}` };
-  const r = await run(process.execPath, [join("tests", `${t.name}.mjs`), ...args], { env: baseEnv(), timeout: TIMEOUT });
+  /* Its own temp dir, so two tests side by side never write over each other's files. */
+  const tmp = mkdtempSync(join(tmpdir(), `polio-${t.name}-`));
+  const r = await run(process.execPath, [join("tests", `${t.name}.mjs`), ...args], { env: { ...baseEnv(), TMPDIR: tmp, TMP: tmp, TEMP: tmp }, timeout: TIMEOUT, name: t.name });
+  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* kept */ }
   const result = r.code === 0 ? "pass" : r.code === 124 ? "timeout" : "FAIL";
   const firstFail = r.code === 0 ? "" : (/^\s*FAIL\b.*$/m.exec(r.out)?.[0].trim().replace(/^FAIL\s+/, "") ?? r.out.trim().split("\n").filter(Boolean).slice(-1)[0] ?? "");
   if (result !== "pass" && process.env.VERBOSE) process.stdout.write(r.out.split("\n").map((l) => `        ${l}`).join("\n") + "\n");
   return { name: t.name, result, count: countOf(r.out), s: Math.round(r.ms / 1000), note: firstFail.slice(0, 140) };
 }
-const say = (rec, where) => process.stdout.write(`${rec.result === "pass" ? "  pass" : ` ${rec.result.padStart(5)}`}  ${rec.name}${rec.count ? ` (${rec.count})` : ""} ${rec.s}s${where ? `  [${where}]` : ""}\n`);
+let done = 0;
+let toRun = 0;
+const say = (rec, where) => process.stdout.write(`[${String(++done).padStart(String(toRun).length)}/${toRun}] ${rec.result === "pass" ? "  pass" : ` ${rec.result.padStart(5)}`}  ${rec.name}${rec.count ? ` (${rec.count})` : ""} ${rec.s}s${where ? `  [${where}]` : ""}\n`);
 
 /* ------------------------------------------------------------ servers */
 /* Clear of every port a suite claims for itself (3011–3018, 3101, 4319–4345). */
@@ -400,6 +552,7 @@ if (BUILD || !existsSync(join(ROOT, ".next", "BUILD_ID"))) {
 }
 
 for (const t of plan) if (SKIP[t.name]) results.push({ name: t.name, result: "skip", count: "", s: 0, note: SKIP[t.name] });
+toRun = plan.filter((t) => !SKIP[t.name]).length;
 const started = Date.now();
 const phase = {};
 
@@ -408,15 +561,15 @@ const phase = {};
   const t0 = Date.now();
   const queue = plan.filter((t) => !SKIP[t.name] && !t.alone).sort((a, b) => est(b.name) - est(a.name));
   console.log(`\n1. The parallel batch — ${queue.length} tests, ${JOBS} at a time, longest first`);
-  let ownBusy = false;
+  const busy = new Set();
   const worker = async () => {
     for (;;) {
-      const i = queue.findIndex((t) => !t.standIn || !ownBusy);
+      const i = queue.findIndex((t) => !t.ports.some((p) => busy.has(p)));
       if (i < 0) { if (!queue.length) return; await new Promise((r) => setTimeout(r, 300)); continue; }
       const [t] = queue.splice(i, 1);
-      if (t.standIn) ownBusy = true;
+      for (const p of t.ports) busy.add(p);
       let rec;
-      try { rec = await runIt(t); } finally { if (t.standIn) ownBusy = false; }
+      try { rec = await runIt(t); } finally { for (const p of t.ports) busy.delete(p); }
       results.push({ ...rec, where: "batch" });
       say(rec);
     }
@@ -435,6 +588,7 @@ const phase = {};
   const failed = results.filter((r) => r.where === "batch" && (r.result === "FAIL" || r.result === "timeout"));
   if (JOBS > 1 && failed.length) {
     console.log(`\n2. Again, alone — ${failed.length} that failed in the batch`);
+    toRun += failed.length;
     for (const crowded of failed) {
       const t = plan.find((p) => p.name === crowded.name);
       const alone = await runIt(t);

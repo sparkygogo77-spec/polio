@@ -167,12 +167,15 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
  * this wheels the surface rather than setting a scrollTop, and the shelf
  * should be exactly where it was when it finishes.
  */
-async function toTheFoot(page) {
+/* `measure: false` only scrolls: after Finish there is no frame or shelf to
+   measure, and asking for each waited out Playwright's 30s timeout (90s a size). */
+async function toTheFoot(page, { measure = true } = {}) {
   const pane = await page.locator("[data-studio-pane]").boundingBox();
-  const before = await page.locator("[data-frame]").boundingBox().catch(() => null);
+  const before = measure ? await page.locator("[data-frame]").boundingBox().catch(() => null) : null;
   await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
   for (let i = 0; i < 30; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(25); }
   await page.waitForTimeout(400);
+  if (!measure) return null;
   const after = await page.locator("[data-frame]").boundingBox().catch(() => null);
   const shelf = await page.locator("[data-drawer]").boundingBox().catch(() => null);
   return { room: before && after ? Math.round(before.y - after.y) : 0, top: before && after ? Math.round(before.y - after.y) : 0, shelf };
@@ -438,8 +441,7 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   await page.waitForTimeout(250);
   await page.locator("[data-finish]").click();
   await page.waitForTimeout(1000);
-  const down = await toTheFoot(page);
-  void down;
+  await toTheFoot(page, { measure: false });
   const band = await page.locator("[data-timeline-detail]").boundingBox().catch(() => null);
   check(
     `${w}×${h}: this update is reachable and whole`,
