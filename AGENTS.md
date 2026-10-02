@@ -3038,6 +3038,40 @@ a kicker with a rule, and label-and-value rows that copy.
   `tests/components.mjs` (three sink boards) and `tests/components-board.mjs`
   (trumpmorty through the board; export identical after undo) hold it.
 
+- **Better drawing: join, cut, words along a path, a picture mask; and
+  "What is this?".** Two drawn shapes picked together show **Join them** and
+  **Cut the front one out** in the panel (`JoinOrCut`, `DrawKits.tsx`).
+  `combine()` in `wornShape.ts` samples both outlines and runs them through
+  `polygon-clipping` (MIT): the result is `worn.poly`, every piece and hole
+  as closed rings in the part's box, drawn even-odd, so the kit's shadow
+  (the outline moved), lighting bar (clipped to it) and border all follow
+  the new edge, a hole included. The back shape's kit, colour, bar and
+  motion are kept; one undo gives the two shapes back. An **open line**
+  drawn with a kit (`lineFromStroke`) is **words along a path**: an SVG
+  `textPath` on the line (`PathWordsShape` in `WornShape.tsx`), lettered in
+  the kit's fill, outlined in its border, with its first shadow; words,
+  font, size, start and direction are in the panel, and any closed shape can
+  carry words round its outline too. **A picture dropped onto any drawn
+  shape** goes into it (`Canvas.tsx` onDrop, `insideOutline`), clipped to the
+  outline with the kit's border and shadow round it. **What is this?**
+  (`WhatIsThis`) is the first block of a drawn shape's panel, unanswered
+  until chosen, with the kit's own kind marked "suggested": Button asks
+  where it leads (a page or section of the site; an address only as the
+  site's list allows, with the reason in words from `explainLink` in
+  `parts/offsite.ts`: pump.fun kept, a DEX Screener (decentralised exchange
+  screener) page of one contract address refused, X profiles refused);
+  Picture frame asks for a picture; Section goes behind every part; Decoration
+  opens Motion; Words along a path asks for the words. A drawn shape's
+  Content keeps one words field, not two.
+  `tests/draw-combine-rules.mjs` (no browser) and `tests/draw-combine.mjs`
+  (Trump & Morty kit, in geometry, pixels and the export) hold it. Shots:
+  [the question](docs/shots/lane-j-draw2-what-is-this.png),
+  [join](docs/shots/lane-j-draw2-join.png), [cut](docs/shots/lane-j-draw2-cut.png),
+  [words along a path](docs/shots/lane-j-draw2-path-words.png),
+  [a picture mask](docs/shots/lane-j-draw2-mask.png),
+  [where a button leads](docs/shots/lane-j-draw2-button-leads.png),
+  [the published page](docs/shots/lane-j-draw2-exported.png).
+
 - **Remake this picture from one prompt** (`RemakePicture.tsx`, `remake.ts`,
   `/api/studio/remake`, `tests/remake-picture.mjs`). The owner: "right-click
   any image on the site, type one prompt, make that image an instant

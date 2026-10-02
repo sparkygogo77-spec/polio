@@ -14,15 +14,19 @@ import { useStudio, type StudioNode } from "./store";
 import { editablesOf, readField, writeField, type Field, type Section } from "./partOptions";
 import { play } from "@/core/audio/engine";
 
-export function PartFields({ node, section, only, linkable }: {
+export function PartFields({ node, section, only, linkable, ids, except }: {
   node: StudioNode;
   section?: Section;
   only?: readonly Field["source"][];
   linkable?: boolean;
+  /** Only these fields, by id. */
+  ids?: readonly string[];
+  /** Every field but these, by id (they are drawn somewhere else). */
+  except?: readonly string[];
 }) {
   const fields = React.useMemo(
-    () => editablesOf(node, { linkable }).filter((f) => (!section || f.section === section) && (!only || only.includes(f.source))),
-    [node, section, only, linkable],
+    () => editablesOf(node, { linkable }).filter((f) => (!section || f.section === section) && (!only || only.includes(f.source)) && (!ids || ids.includes(f.id)) && !except?.includes(f.id)),
+    [node, section, only, linkable, ids, except],
   );
   if (!fields.length) return null;
   const set = (f: Field, v: string) => {

@@ -825,7 +825,11 @@ function wornWords(w: Worn): string {
   const k = w.kit;
   const parts = [
     `wears "${k.name}"${k.host ? ` (read off ${k.count} part${k.count === 1 ? "" : "s"} of ${k.host})` : ""}`,
-    `${w.snap ? `a clean ${w.snap}` : "a hand-drawn outline"} of ${w.pts.length} points, kept at this element's \`worn.pts\` in a 0..1 box, ${w.smooth ? "curved through them" : `straight between them with corners rounded ${k.radius}px`}`,
+    w.poly?.length
+      ? `an outline made by joining or cutting drawn shapes: ${w.poly.length} piece${w.poly.length === 1 ? "" : "s"} and ${w.poly.reduce((s, p) => s + p.length - 1, 0)} hole(s), kept at this element's \`worn.poly\` as closed rings in a 0..1 box, filled even-odd`
+      : w.open
+        ? `an open hand-drawn line of ${w.pts.length} points, kept at this element's \`worn.pts\` in a 0..1 box, curved through them`
+        : `${w.snap ? `a clean ${w.snap}` : "a hand-drawn outline"} of ${w.pts.length} points, kept at this element's \`worn.pts\` in a 0..1 box, ${w.smooth ? "curved through them" : `straight between them with corners rounded ${k.radius}px`}`,
     `filled ${w.fill ? w.fill : k.fill.kind === "solid" || k.fill.kind === "none" ? k.fill.colour : `with a ${k.fill.kind} gradient`}`,
     k.border ? `a ${k.border.width}px ${k.border.style} border in ${k.border.colour} traced inside the outline` : "",
     k.shadows.length ? `shadow${k.shadows.length > 1 ? "s" : ""} ${k.shadows.map((s) => `${s.dx}px ${s.dy}px${s.blur ? ` blurred ${s.blur}px` : " hard"} in ${s.colour}`).join(", ")}, each the outline itself moved, never its box` : "",
@@ -833,7 +837,7 @@ function wornWords(w: Worn): string {
     w.motion ? `moves with "${w.motion.name}" at ${w.motion.speed}x speed and ${Math.round(w.motion.strength * 100)}% strength (not for visitors who ask for less motion)` : "",
     w.hover ? "lifts under the pointer" : "",
     w.press ? "sinks when pressed" : "",
-    w.what ? `it is ${w.what === "frame" ? "a picture frame (a picture clipped to the outline)" : `a ${w.what}`}` : "",
+    w.what === "path" ? `it is words along the line (an SVG textPath${w.pathWords?.size ? ` at ${w.pathWords.size}px` : ", sized to fit the line"}${w.pathWords?.start ? `, starting ${w.pathWords.start}% along` : ""}${w.pathWords?.flip ? ", running the other way" : ""}), lettered in the kit's fill and outlined in its border` : w.what ? `it is ${w.what === "frame" ? "a picture frame (a picture clipped to the outline)" : `a ${w.what}`}` : "",
   ];
   return parts.filter(Boolean).join("; ");
 }

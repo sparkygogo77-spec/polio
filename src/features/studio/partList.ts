@@ -41,6 +41,8 @@ export interface ListPart extends Named {
   work?: { id: string; inputs?: Record<string, string>; off?: boolean; also?: { id: string; inputs?: Record<string, string>; off?: boolean }[] } | null;
   colour?: { bg?: string | null } | Record<string, unknown> | null;
   texture?: unknown;
+  /** A shape drawn wearing a style kit (`wornShape.ts`): something a visitor sees, though it carries no fill of its own. */
+  worn?: unknown;
 }
 
 export interface ListRow {
@@ -166,6 +168,7 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
     if (!inside.length && k !== "Box" && k !== "Decoration") return { kind: k, text: computedAs(n.prompt)?.name ?? "" };
     /* A box holding others is where they sit; a painted one with nothing inside is a shape a visitor sees. */
     if (inside.length) return null;
+    if (n.worn) return { kind: "Shape", text: isMachineLabel(n.label) ? "" : (n.label ?? "") };
     if (painted(n)) return { kind: "Shape", text: "" };
     return null;
   };

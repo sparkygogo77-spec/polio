@@ -31,7 +31,7 @@ import { VARIANTS, itemOf } from "./shelfPlan.ts";
 import { isWorkKey } from "./shelfGroups.ts";
 import { getWork, onUsesOf, withInput, type WorkUse } from "./library/works.ts";
 import { PLAIN_BAR } from "./styleKits.ts";
-import type { Worn } from "./wornShape.ts";
+import { PATH_WORDS, PATH_WORDS_SAMPLE, pathWordsSize, type Worn } from "./wornShape.ts";
 
 /** The side panel's sections for a part. */
 export type Section = "content" | "position" | "look" | "motion";
@@ -108,7 +108,11 @@ export function editablesOf(node: Editable, opts: { linkable?: boolean } = {}): 
   }
   if (node.worn) {
     out.push({ id: "worn:what", label: "What is this?", section: "look", kind: "one", values: WORN_WHATS.map((w) => w.label), source: "worn" });
-    out.push({ id: "worn:bar", label: "Lighting bar", section: "look", kind: "one", values: ["On", "Off"], source: "worn" });
+    if (node.worn.what === "path") {
+      out.push({ id: "worn:size", label: "Size of the words", section: "look", kind: "range", range: { min: 8, max: 120, step: 1, unit: "px" }, source: "worn" });
+      out.push({ id: "worn:start", label: "Where they begin along the line", section: "look", kind: "range", range: { min: 0, max: 90, step: 1, unit: "%" }, source: "worn" });
+      out.push({ id: "worn:flip", label: "Run the other way", section: "look", kind: "one", values: ["On", "Off"], source: "worn" });
+    } else out.push({ id: "worn:bar", label: "Lighting bar", section: "look", kind: "one", values: ["On", "Off"], source: "worn" });
     if (node.worn.motion) {
       out.push({ id: "worn:speed", label: "Speed", section: "motion", kind: "range", range: { min: 0.25, max: 3, step: 0.05, unit: "×" }, source: "worn" });
       out.push({ id: "worn:strength", label: "Strength", section: "motion", kind: "range", range: { min: 0, max: 2, step: 0.05, unit: "×" }, source: "worn" });
@@ -137,7 +141,8 @@ export const WORN_WHATS: { id: NonNullable<Worn["what"]>; label: string; means: 
   { id: "button", label: "Button", means: "Pressable, and leads somewhere." },
   { id: "frame", label: "Picture frame", means: "A picture shows inside the outline." },
   { id: "decoration", label: "Decoration", means: "Something to look at; it does nothing when pressed." },
-  { id: "section", label: "Section", means: "A place on the page that holds other parts." },
+  { id: "section", label: "Section", means: "A place on the page that holds other parts: it goes behind them." },
+  { id: "path", label: "Words along a path", means: "Words that follow the line; the line itself is not drawn." },
 ];
 
 /** A field's value on the node, as the words the panel shows. */
@@ -164,6 +169,9 @@ export function readField(node: Editable, field: Field): string {
       if (!w) return "";
       if (field.id === "worn:what") return WORN_WHATS.find((x) => x.id === w.what)?.label ?? "";
       if (field.id === "worn:bar") return w.bar ? "On" : "Off";
+      if (field.id === "worn:size") return String(pathWordsSize(w, node.w ?? 100, node.h ?? 100, typeof node.content === "string" ? node.content : ""));
+      if (field.id === "worn:start") return String(w.pathWords?.start ?? 0);
+      if (field.id === "worn:flip") return w.pathWords?.flip ? "On" : "Off";
       if (field.id === "worn:speed") return String(w.motion?.speed ?? 1);
       if (field.id === "worn:strength") return String(w.motion?.strength ?? 1);
       if (field.id === "worn:hover") return w.hover ? "On" : "Off";
@@ -223,8 +231,20 @@ export function writeField(node: Editable, field: Field, value: string): Partial
       const on = value === "On";
       if (field.id === "worn:what") {
         const what = WORN_WHATS.find((x) => x.label === value || x.id === value)?.id;
-        return what ? { worn: { ...w, what }, ...(what === "button" ? {} : { link: null }) } : null;
+        if (!what) return null;
+        /* Words along a path need words and a way to lay them; anything else needs an inside, so an open line is closed back to where it began. */
+        if (what === "path") return { worn: { ...w, what, pathWords: w.pathWords ?? { ...PATH_WORDS }, hover: false, press: false }, link: null, ...(typeof node.content === "string" && node.content.trim() ? {} : { content: PATH_WORDS_SAMPLE }) };
+        const wasWords = w.what === "path";
+        return {
+          /* The words the line was given to start with go with it; words someone wrote stay. */
+          ...(wasWords && node.content === PATH_WORDS_SAMPLE ? { content: "" } : {}),
+          worn: { ...w, what, open: false, ...(what === "button" ? { hover: wasWords || w.what === "section" ? !!w.kit.hover : w.hover, press: wasWords || w.what === "section" ? !!w.kit.press : w.press } : what === "section" ? { hover: false, press: false } : {}) },
+          ...(what === "button" ? {} : { link: null }),
+        };
       }
+      if (field.id === "worn:size") { const n = Math.round(Number(value)); return Number.isFinite(n) && n >= 8 ? { worn: { ...w, pathWords: { ...(w.pathWords ?? PATH_WORDS), size: Math.min(160, n) } } } : null; }
+      if (field.id === "worn:start") { const n = Number(value); return Number.isFinite(n) ? { worn: { ...w, pathWords: { ...(w.pathWords ?? PATH_WORDS), start: Math.max(0, Math.min(100, n)) } } } : null; }
+      if (field.id === "worn:flip") return value === "On" || value === "Off" ? { worn: { ...w, pathWords: { ...(w.pathWords ?? PATH_WORDS), flip: on } } } : null;
       if (field.id === "worn:bar") return { worn: { ...w, bar: on ? w.bar ?? w.kit.bar ?? w.kit.siteBar ?? PLAIN_BAR : null } };
       if (field.id === "worn:speed" || field.id === "worn:strength") {
         const n = Number(value);

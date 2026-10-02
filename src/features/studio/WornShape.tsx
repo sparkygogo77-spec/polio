@@ -10,11 +10,17 @@
  *   1. the kit's shadows, each the outline moved by its offset, spread by a
  *      stroke of its own colour and softened by a blur when the page's was;
  *   2. the outline filled (flat, or the kit's gradient);
- *   3. a picture, when the shape is a picture frame, clipped to the outline;
+ *   3. a picture, whenever one has been put in it, clipped to the outline
+ *      (any drawn shape is a mask: the kit's border and shadow stay round it);
  *   4. the lighting bar and the shade, each the outline less itself moved,
  *      clipped inside the outline, so the light follows the edge;
  *   5. the rim, and the border, traced on the outline, inside it;
  *   6. the words, in the kit's type, in the middle of the shape's area.
+ *
+ * A shape joined from two, or with one cut out of it, is several closed
+ * rings filled even-odd, so a hole is a hole and every layer above follows
+ * its edge. "Words along a path" draws only the words, laid along the line
+ * (or the outline), lettered in the kit's fill and outlined in its border.
  *
  * Its motion and its answer to the hand are a stylesheet in its own markup
  * (`wornCss`), so the published page carries them with nothing of the
@@ -25,7 +31,7 @@ import * as React from "react";
 import type { StudioNode } from "./store";
 import type { NodeLink, PartMode } from "./parts/types";
 import { plain } from "./parts/spans";
-import { bandOffset, centreOf, fillOf, glossFrame, wordsColour, wornCss, wornPath, type Worn } from "./wornShape";
+import { bandOffset, centreOf, fillOf, glossFrame, pathInk, pathWordsSize, wordsColour, wordsGuide, wornCss, wornPath, type Worn } from "./wornShape";
 import type { KitBand, KitFill } from "./styleKits";
 
 const safeId = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
@@ -50,7 +56,7 @@ function Band({ id, d, band, off, w, h, clip, kind }: { id: string; d: string; b
     <g data-worn-band={kind} data-offset={`${off[0]},${off[1]}`} data-opacity={band.opacity} clipPath={`url(#${clip})`}>
       <mask id={id} maskUnits="userSpaceOnUse" x={-pad} y={-pad} width={w + pad * 2} height={h + pad * 2}>
         <rect x={-pad} y={-pad} width={w + pad * 2} height={h + pad * 2} fill="white" />
-        <path d={d} transform={`translate(${off[0]} ${off[1]})`} fill="black" {...(band.blur > 0 ? { filter: `url(#${id}-soft)` } : {})} />
+        <path d={d} fillRule="evenodd" transform={`translate(${off[0]} ${off[1]})`} fill="black" {...(band.blur > 0 ? { filter: `url(#${id}-soft)` } : {})} />
         {band.blur > 0 ? <filter id={`${id}-soft`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation={band.blur / 2} /></filter> : null}
       </mask>
       <rect x={0} y={0} width={w} height={h} fill={band.colour} fillOpacity={band.opacity} mask={`url(#${id})`} />
@@ -69,7 +75,7 @@ function Gloss({ id, d, band, px, w, h, clip }: { id: string; d: string; band: K
   return (
     <g data-worn-band="bar" data-gloss="" data-normal={`${g.n[0].toFixed(2)},${g.n[1].toFixed(2)}`} data-opacity={band.opacity} clipPath={`url(#${clip})`}>
       <mask id={id} maskUnits="userSpaceOnUse" x={-pad} y={-pad} width={w + pad * 2} height={h + pad * 2}>
-        <path d={d} fill="white" stroke="black" strokeWidth={g.ends * 2} strokeLinejoin="round" />
+        <path d={d} fillRule="evenodd" fill="white" stroke="black" strokeWidth={g.ends * 2} strokeLinejoin="round" />
       </mask>
       <g mask={`url(#${id})`}>
         <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={g.rx} fill={band.colour} fillOpacity={band.opacity} transform={`matrix(${g.u[0]} ${g.u[1]} ${g.n[0]} ${g.n[1]} 0 0)`} />
@@ -101,6 +107,8 @@ export function WornShape({ node, mode, size, picture, onNavigate }: { node: Stu
   const link = pressable && mode === "live" && node.link && onNavigate ? node.link : null;
   const shadows = [...kit.shadows].reverse();
 
+  if (worn.what === "path") return <PathWordsShape worn={worn} w={w} h={h} id={id} css={css} words={words} />;
+
   return (
     <div
       data-worn={kit.id}
@@ -118,7 +126,7 @@ export function WornShape({ node, mode, size, picture, onNavigate }: { node: Stu
         <div className="wk-lift" style={{ position: "absolute", inset: 0 }}>
           <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0, overflow: "visible", display: "block" }} aria-hidden={!pressable || undefined}>
             <defs>
-              <clipPath id={clip}><path d={d} /></clipPath>
+              <clipPath id={clip}><path d={d} clipRule="evenodd" /></clipPath>
               {fill.kind === "linear" || fill.kind === "radial" ? <Gradient id={`wk-${id}-fill`} fill={fill} /> : null}
               {shadows.map((s, i) => (s.blur > 0 ? <filter key={i} id={`wk-${id}-blur${i}`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation={s.blur / 2} /></filter> : null))}
             </defs>
@@ -128,6 +136,7 @@ export function WornShape({ node, mode, size, picture, onNavigate }: { node: Stu
                   key={i}
                   data-worn-shadow-at={`${s.dx},${s.dy}`}
                   d={d}
+                  fillRule="evenodd"
                   transform={`translate(${s.dx} ${s.dy})`}
                   fill={s.colour}
                   stroke={s.spread > 0 ? s.colour : "none"}
@@ -137,8 +146,8 @@ export function WornShape({ node, mode, size, picture, onNavigate }: { node: Stu
                 />
               ))}
             </g>
-            <path data-worn-body="" d={d} fill={fill.kind === "none" ? "none" : fill.kind === "solid" ? fill.colour : `url(#wk-${id}-fill)`} />
-            {picture && worn.what === "frame" ? (
+            <path data-worn-body="" d={d} fillRule="evenodd" fill={fill.kind === "none" ? "none" : fill.kind === "solid" ? fill.colour : `url(#wk-${id}-fill)`} />
+            {picture ? (
               <image data-worn-picture="" href={picture} x={0} y={0} width={w} height={h} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clip})`} />
             ) : null}
             {bar?.kind === "gloss" ? <Gloss id={`wk-${id}-bar`} d={d} band={bar} px={px} w={w} h={h} clip={clip} /> : null}
@@ -174,6 +183,63 @@ export function WornShape({ node, mode, size, picture, onNavigate }: { node: Stu
               {words}
             </div>
           ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Words along a path: the words laid on the drawn line (or round the
+ * outline), lettered in the kit's fill with its border round each letter
+ * and its first shadow under them, so they wear the kit the shape did. The
+ * line itself is not drawn; it is where the words go.
+ */
+function PathWordsShape({ worn, w, h, id, css, words }: { worn: Worn; w: number; h: number; id: string; css: string; words: string }) {
+  const guide = React.useMemo(() => wordsGuide(worn, w, h), [worn, w, h]);
+  const kit = worn.kit;
+  const ink = pathInk(worn);
+  const size = pathWordsSize(worn, w, h, words);
+  const pw = worn.pathWords;
+  const s0 = kit.shadows[0];
+  const font = pw?.font ?? kit.text?.stack ?? (kit.text?.face ? `"${kit.text.face}", sans-serif` : "sans-serif");
+  const guideId = `wk-${id}-line`;
+  return (
+    <div
+      data-worn={kit.id}
+      data-worn-kit={kit.name}
+      data-worn-snap={worn.snap ?? "none"}
+      data-worn-what="path"
+      data-worn-path-words={words}
+      className={`wk-${id}`}
+      style={{ position: "relative", width: w, height: h, flex: "0 0 auto" }}
+    >
+      {css ? <style data-worn-css="">{css}</style> : null}
+      <div className="wk-move" style={{ position: "absolute", inset: 0 }}>
+        <div className="wk-lift" style={{ position: "absolute", inset: 0 }}>
+          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: "absolute", left: 0, top: 0, overflow: "visible", display: "block" }} role="img" aria-label={words || undefined}>
+            <defs>
+              <path id={guideId} d={guide} fill="none" />
+              {ink.fill.kind === "linear" || ink.fill.kind === "radial" ? <Gradient id={`wk-${id}-fill`} fill={ink.fill} /> : null}
+              {s0 ? <filter id={`wk-${id}-drop`} x="-20%" y="-50%" width="140%" height="200%"><feDropShadow dx={s0.dx} dy={s0.dy} stdDeviation={s0.blur / 2} floodColor={s0.colour} floodOpacity={1} /></filter> : null}
+            </defs>
+            <text
+              data-worn-text-path=""
+              fontFamily={font}
+              fontSize={size}
+              fontWeight={kit.text?.weight}
+              fill={ink.fill.kind === "solid" ? ink.fill.colour : `url(#wk-${id}-fill)`}
+              stroke={ink.stroke?.colour}
+              strokeWidth={ink.stroke ? ink.stroke.width : undefined}
+              strokeLinejoin="round"
+              paintOrder="stroke fill"
+              filter={s0 ? `url(#wk-${id}-drop)` : undefined}
+              style={{ textTransform: (kit.text?.transform as React.CSSProperties["textTransform"]) ?? undefined }}
+              dominantBaseline="middle"
+            >
+              <textPath href={`#${guideId}`} startOffset={`${pw?.start ?? 0}%`}>{words || " "}</textPath>
+            </text>
+          </svg>
         </div>
       </div>
     </div>

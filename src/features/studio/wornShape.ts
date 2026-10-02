@@ -21,14 +21,30 @@
  *
  * Pure: no React, no store, no browser.
  */
+import * as clipping from "polygon-clipping";
 import { contrastOf, mix, parseRgba, rgbCss, type BoardMotion, type KitBand, type KitShadow, type StyleKit } from "./styleKits.ts";
+
+/* The library ships one default object in its browser build and named functions in its Node one; either is taken. */
+const pc = ((clipping as unknown as { default?: typeof clipping }).default ?? clipping) as typeof clipping;
 
 export type Pt = [number, number];
 
 /** What a drawn outline may be taken for, when snapped. */
 export type SnapName = "circle" | "ellipse" | "triangle" | "rectangle" | "star";
 /** What a drawn shape is for. */
-export type WornWhat = "button" | "frame" | "decoration" | "section";
+export type WornWhat = "button" | "frame" | "decoration" | "section" | "path";
+
+/** Words laid along the outline, or along an open line: their size, face, where they start, and which way round. */
+export interface PathWords {
+  /** In pixels; null to fit the words to the line. */
+  size: number | null;
+  /** A font stack, or null for the kit's own. */
+  font: string | null;
+  /** Where along the line the words begin, 0..100 (percent). */
+  start: number;
+  /** Run the other way along the line, so the words sit on its other side. */
+  flip: boolean;
+}
 
 /** A captured motion, as a drawn shape wears it. */
 export interface WornMotion {
@@ -72,6 +88,18 @@ export interface Worn {
   hover: boolean;
   press: boolean;
   what: WornWhat | null;
+  /**
+   * After a join or a cut, the outline is no longer one line: it is every
+   * piece and every hole the two shapes made, each a closed ring, in the
+   * part's box (0..1), the first ring of each piece its outside. `pts` is
+   * then the outside of the biggest piece, which is what the light, the
+   * words and the motion are placed by.
+   */
+  poly?: Pt[][][] | null;
+  /** An open line (drawn without coming back to its start): words run along it, and it has no inside. */
+  open?: boolean;
+  /** How the words run along the line, when it is "Words along a path". */
+  pathWords?: PathWords | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -307,11 +335,187 @@ function rounded(p: readonly Pt[], r: number): string {
   return `${d} Z`;
 }
 
+/** An open curve through the points, its ends where the hand began and stopped. */
+function openCurve(p: readonly Pt[]): string {
+  const n = p.length;
+  if (n < 2) return "";
+  let d = `M${f(p[0]![0])} ${f(p[0]![1])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = p[Math.max(0, i - 1)]!, p1 = p[i]!, p2 = p[i + 1]!, p3 = p[Math.min(n - 1, i + 2)]!;
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d;
+}
+
+/** Rings as one path: each piece and each hole closed, to be filled even-odd so a hole is a hole. */
+function ringsPath(poly: readonly (readonly (readonly Pt[])[])[], w: number, h: number): string {
+  return poly.flatMap((piece) => piece.filter((r) => r.length >= 3).map((r) => `M${r.map(([x, y]) => `${f(x * w)} ${f(y * h)}`).join(" L")} Z`)).join(" ");
+}
+
 /** The part's outline in its own pixels, `w` by `h`. */
-export function wornPath(worn: Pick<Worn, "pts" | "smooth" | "kit">, w: number, h: number): string {
+export function wornPath(worn: Pick<Worn, "pts" | "smooth" | "kit" | "poly" | "open">, w: number, h: number): string {
+  if (worn.poly?.length) return ringsPath(worn.poly, w, h);
   const px = worn.pts.map(([x, y]) => [x * w, y * h] as Pt);
+  if (worn.open) return openCurve(px);
   return worn.smooth ? curve(px) : rounded(px, Math.min(worn.kit.radius, Math.min(w, h) / 4));
 }
+
+/* ------------------------------------------------------------------ */
+/* Join and cut                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Points along a closed Catmull-Rom curve, `per` to each stretch between two of its points. */
+function sampleCurve(p: readonly Pt[], per = 10): Pt[] {
+  const n = p.length, out: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = p[(i - 1 + n) % n]!, p1 = p[i]!, p2 = p[(i + 1) % n]!, p3 = p[(i + 2) % n]!;
+    for (let k = 0; k < per; k++) {
+      const t = k / per, t2 = t * t, t3 = t2 * t;
+      const at = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      out.push([at(p0[0], p1[0], p2[0], p3[0]), at(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  return out;
+}
+
+/** Points along a polygon whose corners are rounded by `r`, as `rounded` draws it. */
+function sampleRounded(p: readonly Pt[], r: number): Pt[] {
+  const n = p.length;
+  if (r <= 0.5) return p.slice();
+  const out: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = p[i]!, a = p[(i - 1 + n) % n]!, b = p[(i + 1) % n]!;
+    const la = Math.hypot(a[0] - c[0], a[1] - c[1]) || 1, lb = Math.hypot(b[0] - c[0], b[1] - c[1]) || 1;
+    const k = Math.min(r, la / 3, lb / 3);
+    const s: Pt = [c[0] + ((a[0] - c[0]) / la) * k, c[1] + ((a[1] - c[1]) / la) * k];
+    const e: Pt = [c[0] + ((b[0] - c[0]) / lb) * k, c[1] + ((b[1] - c[1]) / lb) * k];
+    for (let j = 0; j <= 6; j++) {
+      const t = j / 6, u = 1 - t;
+      out.push([u * u * s[0] + 2 * u * t * c[0] + t * t * e[0], u * u * s[1] + 2 * u * t * c[1] + t * t * e[1]]);
+    }
+  }
+  return out;
+}
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** A closed drawn shape's outline on the page: every piece, each its outside then its holes, in page pixels. */
+export function outlineOnPage(worn: Pick<Worn, "pts" | "smooth" | "kit" | "poly">, box: Box): Pt[][][] {
+  const at = ([x, y]: Pt): Pt => [box.x + x * box.w, box.y + y * box.h];
+  if (worn.poly?.length) return worn.poly.map((piece) => piece.map((r) => r.map(at)));
+  const px = worn.pts.map(at);
+  const ring = worn.smooth ? sampleCurve(px) : sampleRounded(px, Math.min(worn.kit.radius, Math.min(box.w, box.h) / 4));
+  return [[ring]];
+}
+
+/**
+ * Two drawn shapes made one: joined (everything either covers) or cut (the
+ * first, less what the second covers). The result keeps the first one's
+ * kit, colour, lighting bar and motion, and its outline is the new edge,
+ * so the shadow, the light and the border follow it as they followed the
+ * old one. A cut that leaves a hole keeps it: the light and the border run
+ * round the hole's edge too. Null when nothing is left.
+ */
+export function combine(a: { worn: Worn; box: Box }, b: { worn: Worn; box: Box }, how: "join" | "cut"): { worn: Worn; box: Box } | null {
+  const A = outlineOnPage(a.worn, a.box) as clipping.MultiPolygon, B = outlineOnPage(b.worn, b.box) as clipping.MultiPolygon;
+  const got = how === "join" ? pc.union(A, B) : pc.difference(A, B);
+  const pieces = got.map((piece) => piece.map((r) => {
+    const ring = r.slice();
+    const [x0, y0] = ring[0]!, [x1, y1] = ring[ring.length - 1]!;
+    if (Math.abs(x0 - x1) < 1e-6 && Math.abs(y0 - y1) < 1e-6) ring.pop();
+    return thin(ring as Pt[], 0.75, 600);
+  }).filter((r) => r.length >= 3 && Math.abs(area(r)) >= 4)).filter((piece) => piece.length && Math.abs(area(piece[0]!)) >= 16);
+  if (!pieces.length) return null;
+  const b0 = boxOf(pieces.flatMap((piece) => piece[0]!));
+  const box = { x: Math.round(b0.x), y: Math.round(b0.y), w: Math.max(1, Math.round(b0.w)), h: Math.max(1, Math.round(b0.h)) };
+  const norm = ([x, y]: Pt): Pt => [+((x - box.x) / box.w).toFixed(4), +((y - box.y) / box.h).toFixed(4)];
+  const poly = pieces.map((piece) => piece.map((r) => r.map(norm)));
+  const biggest = poly.reduce((m, piece) => (Math.abs(area(piece[0]!)) > Math.abs(area(m[0]!)) ? piece : m), poly[0]!);
+  return {
+    worn: { ...a.worn, pts: biggest[0]!, poly, smooth: false, snap: null, raw: null, snapBack: null, open: false, what: a.worn.what === "path" ? null : a.worn.what },
+    box,
+  };
+}
+
+/** How many pieces and holes an outline has: one piece and no holes for a shape as drawn. */
+export function piecesOf(worn: Pick<Worn, "poly">): { pieces: number; holes: number } {
+  if (!worn.poly?.length) return { pieces: 1, holes: 0 };
+  return { pieces: worn.poly.length, holes: worn.poly.reduce((s, piece) => s + piece.length - 1, 0) };
+}
+
+/** Is a page point inside a closed drawn shape (holes excepted)? */
+export function insideOutline(worn: Pick<Worn, "pts" | "smooth" | "kit" | "poly" | "open">, box: Box, p: Pt): boolean {
+  if (worn.open) return false;
+  let inside = false;
+  for (const piece of outlineOnPage(worn, box)) for (const r of piece) {
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i]!, [xj, yj] = r[j]!;
+      if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/* ------------------------------------------------------------------ */
+/* Words along a path                                                   */
+/* ------------------------------------------------------------------ */
+
+/** An open line as the hand drew it, made ready to carry words: thinned, smoothed, in a box with room round it for the letters. */
+export function lineFromStroke(line: readonly Pt[], room = 28): { pts: Pt[]; box: Box } | null {
+  let pts = thin(line, 4, 64);
+  if (pts.length < 2) return null;
+  // The wobble taken out, the two ends kept where they were.
+  for (let k = 0; k < 2; k++) pts = pts.map((c, i) => (i === 0 || i === pts.length - 1 ? c : [(pts[i - 1]![0] + c[0] * 2 + pts[i + 1]![0]) / 4, (pts[i - 1]![1] + c[1] * 2 + pts[i + 1]![1]) / 4] as Pt));
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]);
+  if (len < 60) return null;
+  const b = boxOf(pts);
+  const box = { x: Math.round(b.x - room), y: Math.round(b.y - room), w: Math.round(b.w + room * 2), h: Math.round(b.h + room * 2) };
+  return { pts: pts.map(([x, y]) => [+((x - box.x) / box.w).toFixed(4), +((y - box.y) / box.h).toFixed(4)] as Pt), box };
+}
+
+/** The line the words run along, in the part's pixels: the open line, or the outline (its biggest piece's outside), turned round when flipped. */
+export function wordsGuide(worn: Pick<Worn, "pts" | "smooth" | "kit" | "poly" | "open" | "pathWords">, w: number, h: number): string {
+  let px = worn.pts.map(([x, y]) => [x * w, y * h] as Pt);
+  if (worn.pathWords?.flip) px = px.slice().reverse();
+  if (worn.open) return openCurve(px);
+  if (worn.poly?.length) return `M${px.map(([x, y]) => `${f(x)} ${f(y)}`).join(" L")} Z`;
+  return worn.smooth ? curve(px) : rounded(px, Math.min(worn.kit.radius, Math.min(w, h) / 4));
+}
+
+/** How long the words' line is, in the part's pixels. */
+export function guideLength(worn: Pick<Worn, "pts" | "smooth" | "open">, w: number, h: number): number {
+  const px = worn.pts.map(([x, y]) => [x * w, y * h] as Pt);
+  const pts = worn.open ? px : worn.smooth ? sampleCurve(px, 8) : px;
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]);
+  if (!worn.open && pts.length > 2) len += Math.hypot(pts[0]![0] - pts[pts.length - 1]![0], pts[0]![1] - pts[pts.length - 1]![1]);
+  return len;
+}
+
+/** The size words are drawn at along the line: the size picked, else the kit's own grown a little, shrunk until they fit. */
+export function pathWordsSize(worn: Pick<Worn, "pts" | "smooth" | "open" | "kit" | "pathWords">, w: number, h: number, words: string): number {
+  if (worn.pathWords?.size) return Math.max(8, Math.min(160, worn.pathWords.size));
+  const want = Math.max(16, (worn.kit.text?.px ?? 20) * 1.4);
+  const fit = (guideLength(worn, w, h) * (1 - (worn.pathWords?.start ?? 0) / 100) * 0.92) / Math.max(1, words.length * 0.6);
+  return Math.round(Math.max(10, Math.min(want, fit, 96)));
+}
+
+/** The words' paint: the kit's fill on the letters, its border as their outline, so the words wear the kit as the shape did. */
+export function pathInk(worn: Pick<Worn, "fill" | "kit">): { fill: StyleKit["fill"]; stroke: { colour: string; width: number } | null } {
+  const fill = fillOf(worn);
+  const p = parseRgba(fill.colour);
+  if (fill.kind === "none" || !p || p.a < 0.3) return { fill: { kind: "solid", colour: worn.kit.text?.colour ?? "rgb(20, 20, 20)" }, stroke: null };
+  return { fill, stroke: worn.kit.border ? { colour: worn.kit.border.colour, width: Math.max(0.5, Math.min(worn.kit.border.width, 3)) } : null };
+}
+
+/** The words a new line carries until someone writes their own. */
+export const PATH_WORDS_SAMPLE = "Words along a path";
+
+/** What a new line of words carries before it is changed. */
+export const PATH_WORDS: PathWords = { size: null, font: null, start: 0, flip: false };
 
 /**
  * The direction the shape is longest in, in degrees (-90..90]: its main
@@ -514,7 +718,7 @@ export function wornCss(id: string, worn: Worn, w: number, h: number, opts: { st
   return out.join("\n");
 }
 
-/** A new worn record for a line and a kit. */
+/** A new worn record for a line and a kit. What it is is left for its panel to ask (`WhatIsThis`), with the kit's own kind suggested there. */
 export function wornFor(kit: StyleKit, shape: { pts: Pt[]; smooth: boolean; snap: SnapName | null }, raw: { pts: Pt[]; box: { x: number; y: number; w: number; h: number } } | null, bar: KitBand | null): Worn {
-  return { pts: shape.pts, smooth: shape.smooth, snap: shape.snap, raw, kit, fill: null, bar: kit.bar ?? bar, motion: null, hover: !!kit.hover, press: !!kit.press, what: kit.role === "button" ? "button" : null };
+  return { pts: shape.pts, smooth: shape.smooth, snap: shape.snap, raw, kit, fill: null, bar: kit.bar ?? bar, motion: null, hover: !!kit.hover, press: !!kit.press, what: null };
 }

@@ -63,3 +63,32 @@ export function linkAllowed(href: string | null | undefined, rules: OffsiteRules
   }
   return false;
 }
+
+/**
+ * The answer `linkAllowed` gives, in plain words, with the rule that gave
+ * it: so a person who typed an address is told why it can or cannot be a
+ * link, not only that it cannot.
+ */
+export function explainLink(href: string | null | undefined, rules: OffsiteRules): { allowed: boolean; why: string } {
+  const h = String(href ?? "").trim();
+  const where = "The list is under Format, Pages and navigation.";
+  if (!h) return { allowed: false, why: "No address yet." };
+  if (!isOffsite(h)) return linkAllowed(h, rules) ? { allowed: true, why: "A page of this site: always allowed." } : { allowed: false, why: "That is not an address a link can go to." };
+  let u: URL;
+  try { u = new URL(h.startsWith("//") ? `https:${h}` : h); } catch { return { allowed: false, why: "That is not a web address. A web address starts with https://." }; }
+  if (!/^https?:$/.test(u.protocol)) return { allowed: false, why: "Only web addresses (starting with https://) can be links off the site." };
+  const host = u.hostname.toLowerCase().replace(/^www\./, "");
+  const segs = u.pathname.split("/").filter(Boolean);
+  for (const r of rules.rules) {
+    if (host !== r.host && !host.endsWith(`.${r.host}`)) continue;
+    if (r.path.length > segs.length) continue;
+    if (!r.path.every((p, i) => p === "*" || p === segs[i]!.toLowerCase())) continue;
+    if (r.allow) return { allowed: true, why: `Allowed: ${r.host} is on the site's list of places links may go.` };
+    if (r.path.length === 2 && r.path.every((p) => p === "*")) {
+      return { allowed: false, why: `Not allowed: this is the page of one specific contract address on ${r.host} (a chain, then an address). A link to ${r.host} itself is allowed. ${where}` };
+    }
+    if (r.path.length) return { allowed: false, why: `Not allowed: the site's list refuses addresses on ${r.host} under /${r.path.join("/")}. ${where}` };
+    return { allowed: false, why: `Not allowed: the site's list refuses links to ${r.host}${segs.length ? `, including profiles and posts there` : ""}. ${where}` };
+  }
+  return { allowed: false, why: `Not allowed: ${host} is not on the site's list of places links may go, so the button would stay but go nowhere. ${where}` };
+}

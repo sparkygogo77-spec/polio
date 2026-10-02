@@ -3452,7 +3452,7 @@ function mergeDoc(persisted: unknown, current: StudioState): StudioState {
             animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
             shape: n.shape ?? null,
             /* A drawn shape's record, checked: an outline of fewer than three points draws nothing. */
-            worn: n.worn && typeof n.worn === "object" && Array.isArray((n.worn as Worn).pts) && (n.worn as Worn).pts.length >= 3 && (n.worn as Worn).kit ? (n.worn as Worn) : null,
+            worn: n.worn && typeof n.worn === "object" && Array.isArray((n.worn as Worn).pts) && (n.worn as Worn).pts.length >= ((n.worn as Worn).open ? 2 : 3) && (n.worn as Worn).kit ? (n.worn as Worn) : null,
             outline: n.outline && typeof n.outline === "object" && typeof (n.outline as OutlineClip).cut === "string" ? (n.outline as OutlineClip) : null,
             code: n.code && typeof n.code === "object" && typeof (n.code as PartCode).html === "string" ? (n.code as PartCode) : null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,

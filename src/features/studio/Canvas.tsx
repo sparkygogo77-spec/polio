@@ -47,7 +47,7 @@ import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
 import { useDrawKit } from "./DrawKits";
-import { nearlyClosed, shapeFromLine, toBox, wornFor } from "./wornShape";
+import { insideOutline, lineFromStroke, nearlyClosed, PATH_WORDS, PATH_WORDS_SAMPLE, shapeFromLine, toBox, wornFor, type Worn } from "./wornShape";
 import { ownsOthers } from "./holds";
 import { SmallBoard } from "./SmallBoard";
 import { partName } from "./partNames";
@@ -845,6 +845,20 @@ function DesktopCanvas() {
           return;
         }
         const made = await putPicture(pic.blob, { alt: pic.name === "Picture" ? "" : pic.name, from: "upload" });
+        /*
+         * DROPPED ONTO A DRAWN SHAPE: the shape is its mask. The picture goes
+         * inside the outline, clipped to it, and the kit's border, light and
+         * shadow stay round it. The topmost shape under the hand takes it.
+         */
+        const st0 = useStudio.getState();
+        const into = st0.nodes.filter((n) => n.pageId === st0.activePageId && n.worn && n.worn.what !== "path" && insideOutline(n.worn, n, [p0.x, p0.y])).pop();
+        if (into?.worn) {
+          st0.updateNode(into.id, { picture: made, worn: { ...into.worn, what: into.worn.what === "button" ? "button" : "frame" } });
+          st0.setSelection([into.id]);
+          play("confirm");
+          haptic();
+          return;
+        }
         const scale = Math.min(1, frameWidth / pic.w);
         const w = Math.round(pic.w * scale);
         const h = Math.round(pic.h * scale);
@@ -1661,6 +1675,19 @@ function DesktopCanvas() {
         store.want({ panel: "inspector", id });
         play("confirm");
         news.publish({ key: "studio:worn", title: `Drawn wearing ${wearing.name}`, body: line.snap ? `Snapped to a clean ${line.snap}; its panel's Look section can put the line back as drawn.` : "Its colour and motion are in its panel's Look and Motion.", level: "success", source: "studio", toast: false });
+      } else if (wearing && lineFromStroke(drag.points)) {
+        /*
+         * AN OPEN LINE, WEARING A STYLE: words along it. The line is where
+         * the words go; they are lettered in the kit, and the part panel
+         * asks what it is with "Words along a path" already chosen.
+         */
+        const line = lineFromStroke(drag.points)!;
+        const worn: Worn = { ...wornFor(wearing, { pts: line.pts, smooth: true, snap: null }, null, null), open: true, what: "path", pathWords: { ...PATH_WORDS }, hover: false, press: false };
+        const id = store.addNode("box", line.box.x, line.box.y, { w: line.box.w, h: line.box.h, worn, label: "Words along a path", content: PATH_WORDS_SAMPLE, byHand: true });
+        store.setSelection([id]);
+        store.want({ panel: "inspector", id });
+        play("confirm");
+        news.publish({ key: "studio:worn", title: `Words along a line, in ${wearing.name}`, body: "Change the words, their font and size in its panel.", level: "success", source: "studio", toast: false });
       } else if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         /* Said where the hand was, not in the corner of the window: the

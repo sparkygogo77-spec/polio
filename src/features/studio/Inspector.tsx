@@ -47,7 +47,7 @@ import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, 
 import { ComponentFields } from "./ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "./components";
 import { PartFields } from "./PartFields";
-import { WornLook, WornMotion, WornWords } from "./DrawKits";
+import { JoinOrCut, WhatIsThis, WornLook, WornMotion, WornWords } from "./DrawKits";
 import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
 import { LookCopy } from "./LookCopy";
@@ -626,6 +626,7 @@ export function Inspector() {
             <LookCopy node={null} targets={selNodes.map((n) => n.id)} />
           </Field>
           <RemixKept nodes={selNodes} />
+          <JoinOrCut ids={selNodes.map((n) => n.id)} />
           {sharedGroup ? (
             <>
               <Field label="Group name">
@@ -714,7 +715,8 @@ export function Inspector() {
   const partOf = partOfId ? comps.byId.get(partOfId) ?? null : null;
   const wordsPart = wordsIn(nodes, node);
   const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
-  const control = kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId);
+  /* A drawn button's link is asked under "What is this?", so it is not asked twice. */
+  const control = !node.worn && (kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId));
   const decision = openDecisions.find((d) => d.id === node.id) ?? null;
   const featureOptions = feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))) ?? [];
   /*
@@ -782,13 +784,15 @@ export function Inspector() {
             <TourEditor node={node} />
           </PanelSection>
         ) : null}
+        {/* A drawn shape is asked what it is first, and the options its answer needs open with it. */}
+        {node.worn ? <WhatIsThis node={node} /> : null}
 
         <PanelSection id="content" title="Content" icon={<Type />} note={wordsOf(wordsHere ?? node) ? undefined : node.picture ? "a picture" : undefined}>
           {/* THE WORDS COME FIRST: they are what a first owner came to change.
               Two presses on the part land the caret here (`wanted`). */}
           {wordsHere ? (
             <WordsField node={wordsHere} content={{ label: "Its words" }} label={kind === "Button" ? "button" : "link"} alsoFor={node.id} />
-          ) : feature?.content ? (
+          ) : feature?.content && !node.worn ? (
             <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} />
           ) : null}
           {/* While it goes nowhere, the box at the top is where it is decided; the other half, saying what it should do, stays here. */}
