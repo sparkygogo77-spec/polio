@@ -24,7 +24,7 @@ on:
         type: string
         default: ""
       pages:
-        description: "Comma list of paths to capture, e.g. /, /docs"
+        description: "Comma list of paths to capture, e.g. /, /docs; a query page is one Builder page, and ?screen=* takes every screen the page lists"
         required: false
         type: string
         default: "/"

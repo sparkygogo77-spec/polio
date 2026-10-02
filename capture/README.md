@@ -78,6 +78,21 @@ npm run capture:check -- script-built svg  # only those
 node capture/site/capture/capture-site.mjs --url https://example.com --name example --pages "/, /docs" --hide-gate
 ```
 
+A page that builds itself after it loads and says when it is done (its
+`<html>` or `<body>` carries a `data-*` attribute reading `loading`,
+`building` and the like, or `aria-busy="true"`) is waited for until that
+changes, up to `--ready` seconds (120): PonsStars' preview.html sets
+`data-preview="ready"` once its 23 screens are built (`site/capture/ready.mjs`).
+Such a page's lists are left whole, since its sections are the design.
+A page may carry a query string, and becomes a Builder page of its own at
+a plain path (`/preview.html?still=1&screen=lobby` is `/preview-lobby`,
+named Lobby); `?screen=*` takes every value of `screen` the page lists in
+its links once it is ready, one Builder page each:
+
+```
+node capture/site/capture/capture-site.mjs --url https://pst-server-beige.vercel.app --pages "/preview.html?still=1&screen=*, /gallery.html" --hide-gate
+```
+
 Observe only, always: a capture never signs, connects a wallet, submits a
 form, or agrees to a terms or cookie dialog (`--hide-gate` hides the gate in
 the capture's own browser). `--wallet` and `--agree` are SOLCINERATOR's

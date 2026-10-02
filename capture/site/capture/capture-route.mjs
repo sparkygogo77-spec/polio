@@ -75,6 +75,7 @@ import { recordNetwork, guardWrites, keyOfRequest } from "./network.mjs";
 import { scanHeld, HIDE_GATE, WRITES, ACCOUNT } from "./held.mjs";
 import { PRESS_WATCH, afterPress, holdAfterPress } from "./presses.mjs";
 import { readGlides } from "./glide.mjs";
+import { waitReady } from "./ready.mjs";
 import { SPENDS, WALLET_WORDS } from "./worlds.mjs";
 
 const req = createRequire(import.meta.url);
@@ -162,7 +163,8 @@ const WALLET = `(() => {
 /* ------------------------------------------------------------------ */
 
 /* The full browser, not the headless shell: only the full one reads the machine's own certificate store, and the page is fetched through a proxy that re-terminates TLS. */
-const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+/* A page on this machine (a test's own server) is never asked for through the proxy: its bypass list is not honoured for loopback. */
+const proxy = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(url) ? null : process.env.HTTPS_PROXY || process.env.https_proxy;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium",
   headless: true,
@@ -188,7 +190,14 @@ const page = await context.newPage();
 /* Every data request the page makes on its own (network.mjs), with `--network`: the API map and its samples. */
 const net = flag("--network") ? recordNetwork(page) : null;
 await net?.ready;
-const settle = async (ms = 1200) => { await page.waitForLoadState("networkidle").catch(() => {}); await page.waitForTimeout(ms); };
+/* A page that marks itself as still building (`body data-preview="loading"`, ready.mjs) is waited for on every settle, up to `--ready` seconds. */
+const readyFor = Number(opt("--ready", 120)) * 1000;
+const settle = async (ms = 1200) => {
+  await page.waitForLoadState("networkidle").catch(() => {});
+  const waited = await waitReady(page, { most: readyFor });
+  if (waited) console.error(`ready: waited ${waited.secs} s for ${waited.marks.join(", ")}${waited.done ? "" : ", and it never said ready"}`);
+  await page.waitForTimeout(ms);
+};
 /*
  * WHAT WAS CUT ON THE WAY IN. Through a proxy a transfer is sometimes cut
  * mid-way (net::ERR_ABORTED): share.xyz, loaded three times, lost one or two
@@ -938,7 +947,7 @@ if (withStates) {
     await page.mouse.move(-5, -5).catch(() => {});
     await page.waitForTimeout(300);
     guard.off();
-    if (page.url() !== home) await page.goto(url, { waitUntil: "load" }).catch(() => {});
+    if (page.url() !== home) { await page.goto(url, { waitUntil: "load" }).catch(() => {}); await waitReady(page, { most: readyFor }); }
   };
   /*
    * UNDONE IN PLACE, NOT LOADED AGAIN. After a press is read, what it opened

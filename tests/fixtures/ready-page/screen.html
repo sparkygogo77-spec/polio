@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>One screen</title></head>
+<body>
+<h2></h2>
+<canvas width="240" height="80"></canvas>
+<script>
+const name = new URLSearchParams(location.search).get("name") ?? "screen";
+document.querySelector("h2").textContent = name.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+const g = document.querySelector("canvas").getContext("2d");
+let seed = [...name].reduce((s, c) => s + c.charCodeAt(0), 0);
+g.fillStyle = "#fff"; g.fillRect(0, 0, 240, 80);
+g.strokeStyle = "#0a7"; g.lineWidth = 3; g.beginPath();
+for (let x = 0; x <= 240; x += 20) { seed = (seed * 9301 + 49297) % 233280; g.lineTo(x, 10 + (seed / 233280) * 60); }
+g.stroke();
+</script>
+</body>
+</html>

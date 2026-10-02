@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ready page fixture</title>
+<!--
+  A page that builds itself after it loads and says when it is done, as PonsStars' preview.html
+  does: each screen is screen.html run in a hidden frame, copied in once it has drawn its chart
+  (a canvas, copied as a picture), and only then is body data-preview set to "ready".
+  ?screen=<name> builds that one screen alone. Used by tests/capture-ready.mjs.
+-->
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 24px; background: #f4f1ea; color: #222; }
+  section { border: 2px solid #333; border-radius: 8px; margin: 0 0 24px; padding: 16px; background: #fff; }
+  section h2 { margin: 0 0 8px; font-size: 20px; }
+  section img { display: block; width: 240px; height: 80px; }
+  iframe { position: absolute; left: -9999px; width: 600px; height: 300px; }
+</style>
+</head>
+<body data-preview="loading">
+<h1>Every screen</h1>
+<p data-status>Building the screens...</p>
+<main data-screens></main>
+<script>
+const SCREENS = ["lobby", "queue", "duel", "result-win", "result-loss", "tie", "leaderboard", "leaderboard-empty", "profile", "profile-empty", "phone-menu", "library"];
+const only = new URLSearchParams(location.search).get("screen");
+const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function build() {
+  await pause(1500);
+  for (const name of SCREENS.filter((s) => !only || s === only)) {
+    const frame = document.createElement("iframe");
+    frame.src = `screen.html?name=${name}`;
+    document.body.append(frame);
+    await new Promise((ok) => frame.addEventListener("load", ok, { once: true }));
+    await pause(150);
+    const doc = frame.contentDocument;
+    const sec = document.createElement("section");
+    sec.dataset.previewScreen = name;
+    const h = document.createElement("h2");
+    h.textContent = doc.querySelector("h2").textContent;
+    const img = document.createElement("img");
+    img.alt = `${name} chart`;
+    img.src = doc.querySelector("canvas").toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = `preview.html?screen=${encodeURIComponent(name)}`;
+    link.textContent = "This screen alone";
+    sec.append(h, img, link);
+    document.querySelector("[data-screens]").append(sec);
+    frame.remove();
+  }
+  document.querySelector("[data-status]").textContent = "Done.";
+  document.body.dataset.preview = "ready";
+}
+build();
+</script>
+</body>
+</html>

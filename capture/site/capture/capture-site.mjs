@@ -39,6 +39,7 @@
  */
 import { mkdirSync, writeFileSync, readFileSync, openSync, closeSync, existsSync } from "node:fs";
 import { keepOwner } from "./keep-owner.mjs";
+import { starOf } from "./ready.mjs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,11 +66,48 @@ export function pageList(raw) {
   const paths = String(raw ?? "").split(/[,\n]/).map((s) => s.trim()).filter(Boolean).map((p) => (p.startsWith("/") ? p : `/${p}`));
   if (!paths.length) paths.push("/");
   const seen = new Set();
+  const ids = new Set();
+  const paths2 = new Set();
   return paths.filter((p) => !seen.has(p) && seen.add(p)).map((path) => {
+    const q = queryPage(path);
+    if (q) {
+      /* A query-string page (/preview.html?still=1&screen=lobby) is a Builder page of its own: asked for at its address, kept at a plain path (/preview-lobby). */
+      let id = `page_${q.slug}`; for (let i = 2; ids.has(id); i++) id = `page_${q.slug}_${i}`;
+      let at = q.path; for (let i = 2; paths2.has(at); i++) at = `${q.path}-${i}`;
+      ids.add(id); paths2.add(at);
+      return { id, path: at, route: path, name: q.name, asked: path, ...(q.star ? { star: q.star } : {}) };
+    }
     const slug = path === "/" ? "home" : path.replace(/^\/+|\/+$/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
-    const name = path === "/" ? "Home" : path.split("/").filter(Boolean).at(-1).replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const name = path === "/" ? "Home" : path.split("/").filter(Boolean).at(-1).replace(/\.html?$/i, "").replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    ids.add(`page_${slug}`); paths2.add(path);
     return { id: `page_${slug}`, path, route: path, name };
   });
+}
+
+/**
+ * A page with a query string: its slug, plain path and name from the file
+ * and the query's telling values (`screen=lobby`, not `still=1`), and the
+ * field asked for with `*` (`?screen=*`: every screen the page lists, one
+ * Builder page each, found when the capture runs; ready.mjs).
+ */
+export function queryPage(route) {
+  const at = route.indexOf("?");
+  if (at < 0) return null;
+  const params = new URLSearchParams(route.slice(at + 1));
+  const star = starOf(route);
+  const file = route.slice(0, at).split("/").filter(Boolean).at(-1)?.replace(/\.[a-z0-9]+$/i, "") || "home";
+  const telling = [...params.entries()].filter(([, v]) => v && v !== "*" && !/^(0|1|true|false|yes|no|on|off)$/i.test(v)).map(([, v]) => v);
+  const words = (x) => x.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const slug = [file, ...telling].map(words).filter(Boolean).join("_") || "page";
+  const human = (x) => x.replace(/[-_]+/g, " ").trim().replace(/^\w/, (c) => c.toUpperCase());
+  return { slug, path: `/${slug.replace(/_/g, "-")}`, name: telling.length ? human(telling.join(" ")) : human(file), star };
+}
+
+/** A `*` page made into one page per value found for its field (`screen=*` → `screen=lobby`, `screen=duel`, …). */
+export function expandStar(page, values) {
+  if (!page.star) return [page];
+  const routes = values.map((v) => page.route.replace(`${encodeURIComponent(page.star.field)}=*`, `${encodeURIComponent(page.star.field)}=${encodeURIComponent(v)}`));
+  return pageList(routes.join(",")).map((p) => ({ ...p, asked: page.route, ...(page.wallet !== undefined ? { wallet: page.wallet, agree: page.agree } : {}) }));
 }
 
 /*
@@ -206,15 +244,17 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
   });
   const captures = routes.pages.map(captureOf);
   const convert = { args: [join(here, "capture-to-document.mjs"), join(captureDir, "routes.json"), outDir, "--assets", assets] };
-  const record = { version: 1, url: site.href, name: folder, pages: routes.pages.map((p) => p.path), viewport, takenAt: null };
+  /* The record keeps the pages as asked (`?screen=*` stays one line), so capturing again asks the same. */
+  const record = { version: 1, url: site.href, name: folder, pages: askedOf(routes.pages), viewport, takenAt: null };
   const skipped = pageList(skip.join(",")).map((x) => x.path).filter(() => skip.length);
-  return { name: folder, outDir, captureDir, routesFile: join(captureDir, "routes.json"), ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null };
+  return { name: folder, origin: site.origin, outDir, captureDir, routesFile: join(captureDir, "routes.json"), ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null };
 }
 
 /** Run the plan: the captures, then the converter. Returns how many pages failed. */
 export function run(p) {
   mkdirSync(join(p.captureDir, "routes"), { recursive: true });
   mkdirSync(join(p.outDir, "assets", "source"), { recursive: true });
+  expandStars(p);
   writeFileSync(p.routesFile, JSON.stringify(p.routes, null, 2) + "\n");
   let failed = 0;
   const take = (c) => {
@@ -226,8 +266,53 @@ export function run(p) {
   if (p.crawl) crawlOn(p, take);
   if (failed === p.captures.length) return failed;
   if (!convertKeeping(p)) return failed + 1;
-  writeFileSync(p.recordFile, JSON.stringify({ ...p.record, pages: p.routes.pages.map((x) => x.path), takenAt: new Date().toISOString(), failed, ...(p.routes.crawl ? { crawl: p.routes.crawl } : {}) }, null, 2) + "\n");
+  writeFileSync(p.recordFile, JSON.stringify({ ...p.record, pages: askedOf(p.routes.pages), takenAt: new Date().toISOString(), failed, ...(p.routes.crawl ? { crawl: p.routes.crawl } : {}) }, null, 2) + "\n");
   return failed;
+}
+
+/** The pages as they were asked for: a query page by its address, the pages one `*` made by that one line. */
+export function askedOf(pages) {
+  return [...new Set(pages.map((x) => x.asked ?? x.path))];
+}
+
+/**
+ * A `*` page (`/preview.html?still=1&screen=*`) made into its pages before
+ * anything is captured: the page without that field is opened, waited for
+ * until it says it is ready, and every value of the field read from its
+ * links and marks (ready.mjs `listValues`), in a browser of its own. When
+ * none is found the page is captured once without the field, and said.
+ */
+export function expandStars(p, list = listOnce) {
+  if (!p.routes.pages.some((x) => x.star)) return;
+  const pages = [];
+  for (const page of p.routes.pages) {
+    if (!page.star) { pages.push(page); continue; }
+    const values = list(p.origin + page.star.base, page.star.field);
+    if (values.length) {
+      console.error(`${page.route}: ${values.length} values of ${page.star.field} (${values.join(", ")}), one page each`);
+      pages.push(...expandStar(page, values));
+    } else {
+      console.error(`${page.route}: no values of ${page.star.field} found on ${page.star.base}; captured once without it`);
+      const [one] = pageList(page.star.base);
+      pages.push({ ...one, asked: page.route, wallet: page.wallet, agree: page.agree });
+    }
+  }
+  /* One id and one path each, across every page. */
+  const ids = new Set(), paths = new Set();
+  for (const x of pages) {
+    let id = x.id; for (let i = 2; ids.has(id); i++) id = `${x.id}_${i}`;
+    let path = x.path; for (let i = 2; paths.has(path); i++) path = `${x.path}-${i}`;
+    ids.add(id); paths.add(path); x.id = id; x.path = path;
+  }
+  p.routes.pages = pages;
+  p.captures = pages.map(p.captureOf);
+}
+
+/** The values, from a browser opened for it (ready.mjs `listValues`, run as its own process so this stays synchronous). */
+function listOnce(url, field) {
+  const code = `import(${JSON.stringify(join(here, "ready.mjs"))}).then(async (m) => { const r = await m.listValues(process.argv[1], process.argv[2]); if (r.waited) console.error("ready: waited " + r.waited.secs + " s for " + r.waited.marks.join(", ")); process.stdout.write(JSON.stringify(r.values)); }).catch((e) => { console.error(e.message); process.exit(1); })`;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", code, url, field], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+  try { return r.status === 0 ? JSON.parse(r.stdout) : []; } catch { return []; }
 }
 
 /**

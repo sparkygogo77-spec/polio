@@ -17,13 +17,31 @@
  * items that start below the kept height go. A list that is not laid out
  * (a hidden tab) is left as it is until it is.
  */
+/*
+ * Not in a frame: the capture reads the top page, and a page building
+ * itself out of frames (PonsStars' preview.html) waits on what they hold.
+ * And not on a page that says when it is ready (`body data-preview=
+ * "loading"`, ready.mjs): it built itself to be looked at, a design
+ * preview whose many sections are the design, every one of them.
+ */
 (() => {
   if (window.__sinkTrims) return;
+  try { if (window.top !== window) return; } catch { return; }
   const ROWS_MIN = 12, TRIM_SCREENS = 1.2;
   const trims = (window.__sinkTrims = new Map());
   const shapeOf = (k) => `${k.tagName}.${[...k.classList].sort().join(".")}>${Array.from(k.children).map((c) => c.tagName).join(",")}`;
   const SKIP = new Set(["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT", "HEAD", "HTML", "svg", "SVG"]);
+  const BUSY = ["loading", "building", "pending", "busy", "starting", "working"];
+  let marked = false;
+  const marks = () => {
+    if (marked) return true;
+    for (const el of [document.documentElement, document.body]) for (const a of el ? Array.from(el.attributes) : []) {
+      if ((a.name.startsWith("data-") && BUSY.includes(a.value.trim().toLowerCase())) || (a.name === "aria-busy" && a.value === "true")) marked = true;
+    }
+    return marked;
+  };
   const trim = (el) => {
+    if (marks()) return;
     if (!el || !el.isConnected || SKIP.has(el.tagName) || el instanceof SVGElement) return;
     const all = Array.from(el.children);
     const had = trims.get(el);
