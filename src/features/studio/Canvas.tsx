@@ -10,6 +10,7 @@
  * Drag snaps to the frame's edges and centre and to other parts' edges, with
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
+import { boardShows, type ScreenRead } from "./boardStates";
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
 import { tryOn, useTryLook } from "./tryLook";
@@ -76,6 +77,18 @@ import { AMBIENT } from "./library/behaviours";
 import { runWorks } from "./live/runWorks";
 
 const GRID = 8;
+/** What the board draws with its states on, kept while the states and screens are the same. */
+let shownMemo: { on: unknown; screens: unknown; files: unknown; shows: (n: StudioNode) => boolean } | null = null;
+function shownOnBoard(s: { statesOn?: string[]; look?: unknown }): (n: StudioNode) => boolean {
+  const on = s.statesOn ?? [];
+  const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
+  if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files) return shownMemo.shows;
+  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : (n: StudioNode) => !n.state;
+  shownMemo = { on, screens: source?.screens, files: source?.files, shows };
+  return shows;
+}
+/** A box as the board has it: where a part was before he first moved it (`StudioNode.handFrom`). */
+const boxOf = (n: { x: number; y: number; w: number; h: number }) => ({ x: n.x, y: n.y, w: n.w, h: n.h });
 
 /**
  * Parts that take the pointer on the board once they have been OPENED.
@@ -1080,7 +1093,8 @@ function DesktopCanvas() {
       const positions: Record<string, { x: number; y: number }> = {};
       for (const n of s.nodes) if (all.includes(n.id) && !n.locked) positions[n.id] = { x: n.x + dx, y: n.y + dy };
       s.setPositions(positions);
-      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (positions[n.id] && !n.byHand ? { ...n, byHand: true } : n)) });
+      const before = new Map(s.nodes.map((n) => [n.id, n]));
+      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (positions[n.id] && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(before.get(n.id) ?? n) } : n)) });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1585,7 +1599,7 @@ function DesktopCanvas() {
        */
       const moved = new Set(drag.ids ?? [drag.nodeId!]);
       useStudio.setState({
-        nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)),
+        nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(drag.origin?.[n.id] ?? n) } : n)),
       });
       /* What holds what may have changed: the components are read again (`components.ts`). */
       rereadComponents();
@@ -1662,7 +1676,7 @@ function DesktopCanvas() {
       }
     } else if (drag.kind === "group" && drag.moved) {
       const held = new Set(drag.ids ?? []);
-      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (held.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)) });
+      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (held.has(n.id) && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(drag.origin?.[n.id] ?? n) } : n)) });
       setCeiling(drag.clamped && drag.groupId ? { groupId: drag.groupId, which: drag.clamped } : null);
       play("tap");
     } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
@@ -2839,6 +2853,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
    * added — see `boxEntry.ts` for why that distinction is the whole of it.
    */
   const held = useBoxEntry(node.id, body);
+  /* A part of a hidden state is drawn only while that state is on (the States control, `boardStates.ts`). */
+  const shownHere = useStudio((s) => shownOnBoard(s)(node));
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
   const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
@@ -2888,7 +2904,7 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),
         /* A part a press shows (sink `behaviours.states`): the board lays out the page as it opens, so it is not drawn here; the press plays in the Preview and on the published page. */
-        ...(node.state ? { display: "none" } : {}),
+        ...(!shownHere ? { display: "none" } : {}),
         /*
          * The aura belongs to the element, not to anything inside it — and
          * on a part cut to a drawn line it belongs to the *line*. A

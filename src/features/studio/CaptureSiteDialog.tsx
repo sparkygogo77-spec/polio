@@ -98,6 +98,8 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
   const [name, setName] = React.useState("");
   const [typedName, setTypedName] = React.useState(false);
   const [pages, setPages] = React.useState("/");
+  /* Look only, no presses: the pages as they open, nothing pressed (polio's own capturer). */
+  const [look, setLook] = React.useState(false);
   const [capturer, setCapturer] = React.useState(DEFAULT_CAPTURER);
   /* The branch a capture lands on: its own, made for it, until someone types another (`captureBranch`). */
   const [branch, setBranch] = React.useState("");
@@ -147,12 +149,12 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
     setStarting(true);
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (onMain && !mainOk) { setStarting(false); setSaid(`Capturing on ${branch.trim() || "the default branch"} changes ${capturer.trim()}'s main line. Tick that the owner said yes, or use a new branch.`); return; }
-    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch.trim(), makeBranch: !back && !onMain });
+    const started = await startCapture({ repo: r, token, url, name, pages, ref: branch.trim(), makeBranch: !back && !onMain, look: back && look });
     setStarting(false);
     if (!alive.current) return;
     if (!started.ok) { setSaid(started.says); return; }
     setStage({ at: "running", runId: started.runId, htmlUrl: started.htmlUrl, name: started.name, step: "Starting" });
-    const run: CaptureRun = { capturer: capturer.trim(), runId: started.runId, name: started.name, url: oneAddress(url).url.trim(), pages: pages.trim() || "/", htmlUrl: started.htmlUrl, startedAt: Date.now(), ranOn: started.ref, at: "running" };
+    const run: CaptureRun = { capturer: capturer.trim(), runId: started.runId, name: started.name, url: oneAddress(url).url.trim(), pages: pages.trim() || "/", ...(back && look ? { look: true } : {}), htmlUrl: started.htmlUrl, startedAt: Date.now(), ranOn: started.ref, at: "running" };
     keepRun(run);
     const end = await follow(run, (p: Progress) => { if (alive.current) setStage((s) => (s.at === "running" ? { ...s, step: p.step || (p.status === "queued" ? "Waiting for a runner" : "Running") } : s)); });
     if (!alive.current || !end) return;
@@ -192,7 +194,7 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
     window.setTimeout(go, 4000);
   };
 
-  const reset = () => { setStage({ at: "ask" }); setUrl(""); setName(""); setTypedName(false); setTypedBranch(false); setMainOk(false); setPages("/"); setSaid(null); };
+  const reset = () => { setStage({ at: "ask" }); setUrl(""); setName(""); setTypedName(false); setTypedBranch(false); setMainOk(false); setPages("/"); setLook(false); setSaid(null); };
   const nameOk = !name.trim() || captureName(name) !== null;
 
   return (
@@ -245,6 +247,12 @@ export function CaptureSiteDialog({ open, onOpenChange }: { open: boolean; onOpe
                 <label htmlFor={`${ids}-pages`}>Pages <span className="text-fg-subtle">— paths, comma-separated; <span className="font-mono">?screen=*</span> takes every screen a page lists, one page each</span></label>
                 <Input id={`${ids}-pages`} value={pages} onChange={(e) => setPages(e.target.value)} onPointerDown={(e) => e.currentTarget.focus()} placeholder="/, /docs" autoComplete="off" spellCheck={false} mono data-capture-pages="" />
               </div>
+              {back ? (
+                <label data-capture-look="" className="flex items-start gap-2 text-xs text-fg-muted">
+                  <input type="checkbox" checked={look} onChange={(e) => setLook(e.target.checked)} className="mt-0.5" />
+                  <span>Look only, no presses <span className="text-fg-subtle">— each page as it opens, nothing pressed; much faster on a page of many buttons. Still screens are always read this way.</span></span>
+                </label>
+              ) : null}
               <label className="flex flex-col gap-1 text-xs text-fg-muted">
                 Capturer <span className="text-fg-subtle">— the repository with the capture workflow</span>
                 <Input value={capturer} onChange={(e) => setCapturer(e.target.value)} onPointerDown={(e) => e.currentTarget.focus()} placeholder={DEFAULT_CAPTURER} autoComplete="off" spellCheck={false} mono data-capture-capturer="" />

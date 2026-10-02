@@ -17,6 +17,7 @@
  *
  * `fetch` is passed in, so `tests/style-layer.mjs` can stand a GitHub in.
  */
+import { deletedOnBoard, readHookMap, removedLine, withRefs, type RemovedHook } from "./designBranch.ts";
 import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./styleLayer.ts";
 import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
 
@@ -34,6 +35,8 @@ export interface LayerFiles {
   kit: boolean;
   /** A style layer already there that this one replaces, not written by the Builder: how many lines it had. */
   replaces?: { path: string; lines: number } | null;
+  /** Hooks whose parts were deleted on the board, with the code that finds each: listed for the code to delete, never removed by the layer. */
+  removed?: RemovedHook[];
 }
 
 export type Answer<T> = ({ ok: true } & T) | { ok: false; says: string };
@@ -71,7 +74,8 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
     for (const [k, v] of before) if ((after.get(k) ?? 0) < v) return { ok: false, says: `Stopped: the change to ${page.file} would have lost ${k}. Nothing was written.` };
     if (done.html !== html) files.push({ path: page.file, content: done.html });
   }
-  return { ok: true, layer, files, skipped, cssPath, base, kit: false, replaces };
+  const removed = withRefs(deletedOnBoard(nodes as never, source).map((hook) => ({ hook, page: source.files.find((x) => x.hooks.some((h) => h.attr === "data-hook" && h.value === hook))?.file ?? "" })), {});
+  return { ok: true, layer, files, skipped, cssPath, base, kit: false, replaces, removed };
 }
 
 /**
@@ -98,7 +102,8 @@ async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, strin
   if (css !== had) files.push({ path: cssPath, content: css });
   for (const [path, content] of Object.entries(map.made)) if (content !== got.files[path]) files.push({ path, content });
   const skipped = (layer.held ?? []).map((h) => ({ file: h.split(":")[0] ?? "", from: h, why: "a design for a builder-ready repository changes only its style layer" }));
-  return { ok: true, layer, files, skipped, cssPath, base, kit: true };
+  const removed = withRefs(deletedOnBoard(nodes as never, source).map((hook) => ({ hook, page: source.files.find((x) => x.hooks.some((h) => h.attr === "data-hook" && h.value === hook))?.file ?? "" })), readHookMap(got.files[manifest.hooks] ?? null));
+  return { ok: true, layer, files, skipped, cssPath, base, kit: true, removed };
 }
 
 /**
@@ -150,6 +155,7 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
         "",
         `Files: ${prepared.files.map((x) => `\`${x.path}\``).join(", ")}.`,
         prepared.kit ? "Only the style layer (and the hooks map made from it) changes, so `kit:diff --style-only` holds it." : "Each page gains at most one <link> to the layer, and words written once as plain text.",
+        ...(prepared.removed?.length ? ["", `Deleted on the board (${prepared.removed.length}): the layer leaves these as the page draws them. Delete each element and every reference to it in the code (selectors, handlers, tests, CSS), then remake hooks.json.`, ...prepared.removed.map((r) => `- ${removedLine(r)}`)] : []),
         "",
         "Made by the Builder's \"Send the design back\". The Builder never merges: merge it once its checks are green.",
       ].join("\n");
@@ -157,9 +163,10 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
       const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
       /* A layer someone wrote by hand is said before it is replaced: it stays on the default branch until the pull request is merged. */
       const replaced = prepared.replaces ? ` It replaces the ${prepared.replaces.lines} lines already in ${prepared.replaces.path}, which stay on ${base}.` : "";
+      const gone = prepared.removed?.length ? ` It lists ${prepared.removed.length} hook${prepared.removed.length === 1 ? "" : "s"} deleted on the board (${prepared.removed.slice(0, 4).map((r) => r.hook).join(", ")}${prepared.removed.length > 4 ? ", …" : ""}) for the code to remove.` : "";
       const says = pull
-        ? `The design is a pull request into ${base} of ${repo}, from a new branch ${branch}: ${listed}.${replaced} Nothing on ${base} has changed, and nothing is merged. Read it and merge it once its checks are green: ${pull}`
-        : `The style layer is on a new branch, ${branch}, in ${repo}: ${listed}.${replaced} Nothing on ${base} has changed. GitHub would not open the pull request (it answered ${pr.status}); open it from the compare page: ${compare}`;
+        ? `The design is a pull request into ${base} of ${repo}, from a new branch ${branch}: ${listed}.${replaced}${gone} Nothing on ${base} has changed, and nothing is merged. Read it and merge it once its checks are green: ${pull}`
+        : `The style layer is on a new branch, ${branch}, in ${repo}: ${listed}.${replaced}${gone} Nothing on ${base} has changed. ${pr.status === 403 ? "GitHub would not let this key open the pull request (it needs Pull requests: read and write)" : `GitHub would not open the pull request (it answered ${pr.status})`}; open it from the compare page: ${compare}`;
       return { ok: true, branch, sha, compare, says, pull };
     }
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${name} (it answered ${put.status}).` };

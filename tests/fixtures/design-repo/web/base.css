@@ -1,0 +1,2 @@
+body { margin: 8px; font: 16px/1.4 system-ui, sans-serif; color: var(--duel-ink); background: var(--duel-ground); }
+section { margin: 0 0 24px; padding: 16px; border: 1px solid var(--duel-line); }

@@ -14,6 +14,7 @@
  * Position is meaningful: the compiler reads x/y to infer reading order,
  * containment and adjacency, so where you put something is part of the spec.
  */
+import { boardShows, type ScreenRead } from "./boardStates";
 import { LEARN_DEFAULT, type LearnState } from "./learn";
 import type { StandIn } from "./standIn";
 import { create } from "zustand";
@@ -333,6 +334,13 @@ export interface StudioNode {
    * everything he has changed since.
    */
   byHand?: boolean;
+  /**
+   * Where the box was, as the board had it, the moment he first moved or
+   * resized it by hand: what Export for code to a branch says his move is
+   * against (`designBranch.ts`), so the board's own tidying before then
+   * (words grown, what follows laid under them) is not counted as his.
+   */
+  handFrom?: { x: number; y: number; w: number; h: number };
   /**
    * What a press on the page shows (sink `behaviours.states`): this part is
    * one of the parts a press puts in place of the page's own (gotchi.gg's
@@ -757,6 +765,13 @@ interface StudioState extends Doc {
   showAllFormat: boolean;
   /** Wires between parts can be hidden so the board reads as the page. */
   showWires: boolean;
+  /**
+   * The page's hidden states shown on the board (`boardStates.ts`): groups
+   * by key (`hidden:match-panel`) and preview screens (`screen:mid-match`).
+   * The board's alone: the parts keep their state, so the page still opens
+   * with them hidden.
+   */
+  statesOn: string[];
   /** Parts removed from the library. Nothing is deleted; they can come back. */
   hiddenFeatures: string[];
   /** The repositories brought onto this board, and the shelf categories they own. */
@@ -1177,6 +1192,7 @@ interface StudioState extends Doc {
   resetFormat: () => void;
   setShowAllFormat: (v: boolean) => void;
   setShowWires: (v: boolean) => void;
+  setStatesOn: (keys: string[]) => void;
   setMode: (m: BoardMode) => void;
   setMenuShape: (v: "square" | "round") => void;
   /** Start placing the lamp, or stop: `true` remembers the lamp to fall back to. */
@@ -1789,6 +1805,7 @@ export const useStudio = create<StudioState>()(
         pan: { x: 0, y: 0 },
         showAllFormat: false,
         showWires: true,
+        statesOn: [],
         hiddenFeatures: [],
         brought: [],
         broughtParts: [],
@@ -2514,6 +2531,8 @@ export const useStudio = create<StudioState>()(
         setSelection: (ids) =>
           set((s) => ({
             selection: ids,
+            /* A part picked while its state is off (from the part list, a search) is shown where it is, so the board pans to it and not to empty space. */
+            ...pickedStates(s, ids),
             pickedFace: s.pickedFace && ids.length === 1 && ids[0] === s.pickedFace.nodeId ? s.pickedFace : null,
             // A part you were handling is let go of the moment it stops being
             // the only selected one, so the ground closes it as it always did.
@@ -2799,6 +2818,7 @@ export const useStudio = create<StudioState>()(
         },
         setShowAllFormat: (v) => set({ showAllFormat: v }),
         setShowWires: (v) => set({ showWires: v }),
+        setStatesOn: (keys) => set({ statesOn: [...new Set(keys)] }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
         setMenuShape: (v) => set({ menuShape: v }),
         setPlacingLight: (v) => set({ placingLight: v, placedLight: v ? get().look.light : null, lightCarry: null }),
@@ -3419,6 +3439,7 @@ function docOnly(s: StudioState) {
         taken: s.taken ?? null,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
+        statesOn: s.statesOn ?? [],
         hiddenFeatures: s.hiddenFeatures,
         brought: s.brought,
         broughtParts: s.broughtParts,
@@ -3705,4 +3726,19 @@ export function livePath(pageId?: string): string {
   const page = s.pages.find((p) => p.id === (pageId ?? s.activePageId)) ?? s.pages[0];
   const path = page?.path ?? "/";
   return "/builder/preview" + (path === "/" ? "" : path);
+}
+
+/** The states to switch on so every picked part is drawn: nothing when they all are. */
+function pickedStates(s: StudioState, ids: string[]): { statesOn?: string[] } {
+  if (!ids.length) return {};
+  const on = s.statesOn ?? [];
+  const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
+  const pageOf = (file: string) => source?.files?.find((f) => f.file === file)?.pageId ?? null;
+  const shows = boardShows(on, source?.screens, pageOf);
+  const want = new Set<string>();
+  for (const id of ids) {
+    const n = s.nodes.find((x) => x.id === id);
+    if (n?.state?.group && !shows(n)) want.add(n.state.group);
+  }
+  return want.size ? { statesOn: [...on, ...want] } : {};
 }

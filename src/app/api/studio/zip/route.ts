@@ -78,6 +78,16 @@ export async function POST(request: Request) {
     }
   })();
   const width = Math.max(360, Math.min(1920, Number(form.get("width")) || 1280));
+  /* The preview page a builder.json names, and how a screen is asked for: its screens are read instead of its parts. */
+  const screensAsk = (() => {
+    try {
+      const v = JSON.parse(String(form.get("screens") ?? "null")) as { page?: unknown; list?: unknown } | null;
+      if (!v) return null;
+      const page = typeof v.page === "string" && files.some((f) => f.name === v.page) ? v.page : null;
+      const list = Array.isArray(v.list) ? v.list.filter((x): x is { name: string; src: string } => !!x && typeof (x as { name?: unknown }).name === "string" && typeof (x as { src?: unknown }).src === "string").slice(0, 40) : [];
+      return page || list.length ? { page, list } : null;
+    } catch { return null; }
+  })();
   const byParts = form.get("parts") === "1";
   /* The design-tokens file a builder.json names: read for its variables whether or not a page links it. */
   const tokensFile = typeof form.get("tokens") === "string" ? String(form.get("tokens")) || null : null;
@@ -103,6 +113,13 @@ export async function POST(request: Request) {
     browser = await found.pw.chromium.launch(await found.launchOptions());
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
+    /* The repository's preview screens, read as its own code builds them (`boardStates.ts`): its scripts run here, and only here, with nothing reachable but the zip's own files. */
+    if (screensAsk) {
+      await serveZip(page, names, "", (n) => unpacked(n));
+      const got = await readScreens(page, screensAsk);
+      await context.close();
+      return NextResponse.json({ ok: true, name, screens: got, took: took() });
+    }
     /* Every page is opened as its HTML says without its scripts: the entry, and in the reading by parts each other page too. */
     const htmlOf = new Map<string, string>([[gate.entry, entryHtml]]);
     await serveZip(page, names, gate.dir, (n) => {
@@ -221,4 +238,90 @@ async function serveZip(page: PWPage, names: ReadonlySet<string>, dir: string, b
     if (!hit || !body || !type) { void r.abort(); return; }
     void r.fulfill({ status: 200, contentType: type, body: Buffer.from(body) });
   });
+}
+
+/** In the page: every hook drawn, once each (not one inside a template, nor one with no box). */
+const DRAWN_HOOKS = `() => {
+  const out = new Set();
+  for (const el of Array.from(document.querySelectorAll("[data-hook]"))) {
+    if (el.closest("template")) continue;
+    if (!el.getClientRects().length) continue;
+    if (getComputedStyle(el).visibility === "hidden") continue;
+    out.add(el.getAttribute("data-hook"));
+  }
+  return [...out].sort();
+}`;
+
+/** In the preview page, once built: each screen's name, its label and the page it is a state of. */
+const SCREEN_LIST = `() => {
+  const out = [];
+  for (const el of Array.from(document.querySelectorAll("[data-preview-screen]"))) {
+    const name = (el.getAttribute("data-preview-screen") || "").trim();
+    if (!name || out.some((s) => s.name === name)) continue;
+    const label = (el.querySelector("[data-preview-label]")?.textContent || "").trim();
+    const a = el.querySelector('[data-hook="preview-screen-full"], a[href]');
+    /* The screen as the preview copied it in (PonsStars': the real page, its hooks kept): what it draws, not counting the preview's own. */
+    const body = el.querySelector("[data-preview-body]");
+    const shows = new Set();
+    if (body) for (const h of Array.from(body.querySelectorAll("[data-hook]"))) {
+      if (h.closest("template") || !h.getClientRects().length || getComputedStyle(h).visibility === "hidden") continue;
+      const v = h.getAttribute("data-hook");
+      if (v && !v.startsWith("preview-")) shows.add(v);
+    }
+    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort() });
+  }
+  return out;
+}`;
+
+/** The page still says it is building (`data-preview="loading"`, `aria-busy`), as the capturer reads it (`capture/site/capture/ready.mjs`). */
+const BUSY = `() => [document.documentElement, document.body].some((el) => el && Array.from(el.attributes).some((a) => (a.name.startsWith("data-") && ["loading", "building", "pending", "busy", "starting", "working"].includes(a.value.trim().toLowerCase())) || (a.name === "aria-busy" && a.value === "true")))`;
+
+/**
+ * Every screen the preview page lists, and the hooks each shows. The
+ * preview page is opened still and waited for until it says it is built;
+ * each screen's page is then opened at its own address, with `still=1`, and
+ * read once what it draws has stopped changing.
+ */
+async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[] }[]> {
+  type Evaluating = { evaluate: (fn: string) => Promise<unknown>; goto: (url: string, o: { waitUntil: "load"; timeout: number }) => Promise<unknown>; waitForTimeout: (ms: number) => Promise<void> };
+  const p = page as unknown as Evaluating;
+  const settle = async (most: number) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < most && (await p.evaluate(`(${BUSY})()`).catch(() => false))) await p.waitForTimeout(200);
+    /* Then until what it draws stops changing: a page building itself from replayed messages has no mark to wait for. */
+    let last = "";
+    for (let i = 0; i < 20; i++) {
+      const now = JSON.stringify(await p.evaluate(`(${DRAWN_HOOKS})()`).catch(() => []));
+      if (now === last) break;
+      last = now;
+      await p.waitForTimeout(250);
+    }
+  };
+  /* The manifest's own list when it gives each screen's page (the kit's); else the screens the built preview page shows (PonsStars'). */
+  let listed: { name: string; label: string; href: string; shows?: string[] }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
+  if (!listed.length && ask.page) {
+    await p.goto(`${HOME}/${ask.page}?still=1`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
+    await settle(90000);
+    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[] }[];
+  }
+  const out: { name: string; label: string; page: string; shows: string[] }[] = [];
+  for (const s of listed.slice(0, 40)) {
+    let u: URL | null = null;
+    try { u = new URL(s.href); } catch { /* no address of its own */ }
+    const file = u && u.origin === HOME ? decodeURIComponent(u.pathname.slice(1)) : "";
+    /* Its address is the preview page again (PonsStars' links open the screen alone there): what the preview copied in is the screen, and its page is the one whose hooks it carries (`boardStates.ts`). */
+    if (!file || file === ask.page || !u) {
+      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows });
+      continue;
+    }
+    if (!u.searchParams.has("still")) u.searchParams.set("still", "1");
+    try {
+      await p.goto(u.toString(), { waitUntil: "load", timeout: ZIP_BUDGET_MS });
+      await settle(20000);
+      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[] });
+    } catch {
+      /* A screen whose page will not open is left out. */
+    }
+  }
+  return out;
 }

@@ -219,7 +219,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       options: p.kind === "button"
         ? { shape: s.radius >= 999 ? "pill" : s.radius > 2 ? "rounded" : "square", variant: "outline", size: "medium" }
         : p.kind === "field" || p.kind === "check"
-          ? { kind: p.control?.type ?? (p.kind === "check" ? "checkbox" : "text"), ...(p.label ? { label: p.label } : {}), ...(p.control?.placeholder ? { placeholder: p.control.placeholder } : {}), ...(p.control?.value !== undefined && p.kind === "field" ? { value: p.control.value } : {}), ...(p.control?.checked ? { checked: "yes" } : {}), ...(p.control?.disabled ? { disabled: "yes" } : {}), ...(p.control?.options ? { choices: p.control.options.map((o) => `${o.selected ? "* " : ""}${o.text}${o.value !== o.text ? ` = ${o.value}` : ""}`).join("\n") } : {}), ...(p.control?.rows ? { rows: String(p.control.rows) } : {}) }
+          ? { kind: p.control?.type ?? (p.kind === "check" ? "checkbox" : "text"), ...(p.label ? { label: p.label } : {}), ...(p.control?.placeholder ? { placeholder: p.control.placeholder } : {}), ...(p.control?.value !== undefined && p.kind === "field" ? { value: p.control.value } : {}), ...(p.control?.checked ? { checked: "yes" } : {}), ...(p.control?.disabled ? { disabled: "yes" } : {}), ...(p.control?.options ? { choices: p.control.options.map((o) => `${o.selected ? "* " : ""}${o.text}${o.value !== o.text ? ` = ${o.value}` : ""}`).join("\n") } : {}), ...(p.control?.options?.some((o) => o.hook) ? { choiceHooks: p.control.options.map((o) => o.hook ?? "").join("\n") } : {}), ...(p.control?.rows ? { rows: String(p.control.rows) } : {}) }
           : {},
       priority: "must",
       custom: false,

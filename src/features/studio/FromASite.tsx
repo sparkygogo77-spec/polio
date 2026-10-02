@@ -45,6 +45,8 @@ import { keepAll } from "./pictures";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { readKit, seenOfSource } from "./kitRun";
+import { hooksOnBoard } from "./designBranch";
+import type { ScreenRead } from "./boardStates";
 import { oneAddress, withoutJoinedAddress } from "./captureSite";
 import { kitLinksToOffsite } from "./parts/offsite";
 import type { StyleSource } from "./styleLayer";
@@ -215,6 +217,33 @@ const isHeadless = (space: Space) => space.id.startsWith(HEADLESS);
  * the sweep's order, its palette landed. The board it leaves is the board
  * "as brought in", which `reimport.ts` records.
  */
+/** The page whose hooks a screen carries most of. */
+function pageCarrying(shows: string[], files: StyleSource["files"]): string {
+  let best = "", most = 0;
+  for (const f of files) {
+    const mine = new Set(f.hooks.filter((h) => h.attr === "data-hook").map((h) => h.value));
+    const n = shows.filter((h) => mine.has(h)).length;
+    if (n > most) { most = n; best = f.file; }
+  }
+  return best;
+}
+
+/** A repository's preview screens, read off its preview page and kept on the site it came in as, without an undo step of their own. */
+async function readScreensOf(file: File, ask: { page: string | null; list: { name: string; src: string }[] }, repo: string): Promise<void> {
+  /* Its own deadline: the preview builds every screen before it lists them, and nobody waits on this. */
+  const form = new FormData();
+  form.set("zip", file, file.name);
+  form.set("screens", JSON.stringify(ask));
+  const got = await fetch("/api/studio/zip", { method: "POST", body: form, signal: AbortSignal.timeout(240_000) }).then((r) => r.json() as Promise<Record<string, unknown>>).catch(() => null);
+  const read = got?.ok && Array.isArray(got.screens) ? (got.screens as ScreenRead[]) : [];
+  const st = useStudio.getState();
+  const source = (st.look as { styleSource?: StyleSource }).styleSource;
+  if (!read.length || !source || source.repo !== repo) return;
+  /* A screen read off the preview's own copy names no page: it is the page whose hooks it carries most of. */
+  const screens = read.map((x) => (x.page ? x : { ...x, page: pageCarrying(x.shows, source.files) })).filter((x) => x.page);
+  useStudio.setState({ look: { ...st.look, styleSource: { ...source, screens } } as typeof st.look });
+}
+
 function landAsBrought(doc: Record<string, unknown>): void {
   useStudio.getState().loadDoc(doc as Parameters<ReturnType<typeof useStudio.getState>["loadDoc"]>[0]);
   /*
@@ -599,7 +628,7 @@ export function FromASite({ space }: { space: Space }) {
    * False when nothing could be read this way, so the reading by blocks
    * runs as before and says its own ending.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest }): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File }): Promise<boolean> => {
     const st0 = useStudio.getState();
     /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
     const m = got.manifest ?? null;
@@ -631,6 +660,8 @@ export function FromASite({ space }: { space: Space }) {
       styleSource.kit = kit.manifest;
       if (kit.manifest.links) format = { ...format, "links.offsite": kitLinksToOffsite(kit.manifest.links) };
     } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
+    /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
+    styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
     landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource }, swept: SWEEP });
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
@@ -646,6 +677,8 @@ export function FromASite({ space }: { space: Space }) {
     const came = cameAt ? { ...cameAt, dir: of.dir ?? null } : cameAt;
     if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
     useStudio.getState().oneStepSince(mark);
+    /* Its preview screens, read in the background as its own code builds them: the States control lists them when they land (`boardStates.ts`). */
+    if (m?.previewPage || m?.screenPages.length) void readScreensOf(got.screensFile ?? got.file, { page: m.previewPage, list: m.screenPages.map((x) => ({ name: x.name, src: `${x.page}${(m.previewQuery ?? "?still=1&screen=<name>").replace("<name>", encodeURIComponent(x.name))}` })) }, styleSource.repo);
     /* Locked as the page had it, when it landed in a space: the layout is the specification. */
     if (!isHeadless(space)) lockNow(space.id);
     /* The space this panel runs on stays picked, so its line is read where it was asked for; a repository's import has none (`BringHost`). */
@@ -656,7 +689,7 @@ export function FromASite({ space }: { space: Space }) {
     const failed = Number(zr.failed) || 0;
     /* Thin is still said: a page that shows two parts or fewer as it opens has little on it. */
     const showing = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id && n.featureId !== "box").length;
-    const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; they are not brought in.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";
+    const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; the States control on the page strip shows them on the board once they are read.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";
     const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
     const total = report.pages.reduce((n, p) => n + p.parts, 0);
     ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });

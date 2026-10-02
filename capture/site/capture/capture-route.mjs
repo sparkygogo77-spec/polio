@@ -390,8 +390,19 @@ async function waitLoader(most = settleFor) {
 }
 await waitLoader();
 await page.waitForTimeout(400);
+/*
+ * A STILL SCREEN, RECORDED ONCE. A page that says it is held still (its
+ * <html> or <body> marked `data-preview-still`, or asked for with
+ * `?still=1`: PonsStars' preview screens) is one fixed state of a design:
+ * nothing it does moves and no press shows anything the screen list does
+ * not show as a screen of its own. So it is read once, with no behaviours
+ * driven and nothing pressed (the states pass, each press of which could
+ * cost a page load).
+ */
+const still = await page.evaluate(() => [document.documentElement, document.body].some((el) => el?.hasAttribute("data-preview-still") || el?.hasAttribute("data-still")) || new URLSearchParams(location.search).get("still") === "1").catch(() => false);
+if (still && (behaviours || flag("--states"))) console.error("still: a still screen, read once: no behaviours driven, nothing pressed");
 /* What the page's scripts do, measured before the pass below scrolls the page for everything else. */
-const behaved = behaviours ? await driveBehaviours(page, { shots: shotsDir, shot }) : null;
+const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot }) : null;
 /* How its in-page links take a visitor to their places: a glide by its script or its stylesheet, or a jump (glide.mjs). */
 if (behaved) behaved.glide = await readGlides(page);
 /*
@@ -651,7 +662,7 @@ if (behaviours) {
   });
   await page.evaluate(() => window.__sinkBehaviours.mark());
 }
-const withStates = flag("--states");
+const withStates = flag("--states") && !still;
 const sheets = [...sheetText].map(([href, text]) => ({ href, text }));
 /*
  * READ AT REST, THE POINTER AWAY. The behaviours drive leaves the pointer
@@ -886,6 +897,8 @@ if (withStates) {
   const pressedOut = [];
   const hasCanvas = frameSecs > 0 && (await page.evaluate(() => !!document.querySelector("canvas")).catch(() => false));
   let dirty = true;
+  /* The page is as a load leaves it: loading it again would not bring a control into reach that is out of it now. */
+  let asLoaded = false;
   const background = new Set(net ? net.seen.filter((q) => q.phase === "load" || q.phase === "open").map((q) => keyOfRequest(q.method, q.url, q.body, home)) : []);
   const heldPresses = [];
   net?.phase("press");
@@ -910,6 +923,7 @@ if (withStates) {
     await page.waitForTimeout(600);
     await primeGesture();
     reloads++;
+    asLoaded = true;
     /* How it opened, twice: what differs between the two changes on its own (a live list, a ticking control) and is not asked to come back. */
     const f0 = await fingerprint();
     await page.waitForTimeout(700);
@@ -1266,8 +1280,17 @@ if (withStates) {
        * nothing.
        */
       const reachable = () => target.click({ trial: true, timeout: 1000 }).then(() => true).catch(() => false);
+      /*
+       * Out of reach: scrolled into it first, which is all most need (a
+       * control below the window, or in a box of its own that scrolls). The
+       * page is loaded again only when a press may have left it otherwise
+       * than a load would; on a page as a load leaves it, a control still out
+       * of reach stays so, and is not pressed.
+       */
+      if (!(await reachable())) await target.scrollIntoViewIfNeeded({ timeout: 1500 }).catch(() => {});
       if (!(await reachable())) {
         if (flag("--hide-gate")) await page.evaluate(HIDE_GATE).catch(() => {});
+        if (!(await reachable()) && asLoaded) { console.error(`states: ${opt.name} out of the pointer's reach on the page as loaded: not pressed`); continue; }
         if (!(await reachable()) && (await fresh())) {
           found = await choosers();
           const again = findAgain(found);
@@ -1277,6 +1300,7 @@ if (withStates) {
           target = page.locator(sel).first();
           console.error(`states: ${opt.name} out of the pointer's reach: loaded again`);
         }
+        if (!(await reachable())) { console.error(`states: ${opt.name} still out of the pointer's reach: not pressed`); continue; }
       }
       const before = { s: states.length, p: pressedOut.length, h: heldPresses.length };
       const pre = await page.evaluate(MARKS).catch(() => null);
@@ -1295,6 +1319,7 @@ if (withStates) {
       page.on("popup", onPopup);
       await page.evaluate(() => window.__sinkPress?.begin()).catch(() => {});
       await target.click({ timeout: 3000 }).catch(() => {});
+      asLoaded = false;
       /* Pressed, then let go and the pointer taken away: what the press changed, not the hover it leaves behind. */
       await page.mouse.move(-5, -5).catch(() => {});
       /* What its canvases showed after it, in order, from the moment it was made: the device's screen answering the press ("still an egg." for a second). The read below waits as long, for what moves into place. */

@@ -6,6 +6,7 @@
  * Middle— the canvas, with page tabs above and the master prompt below.
  * Right — whatever is selected, the site format options, or the page list.
  */
+import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { RemakeCard } from "./RemakePicture";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
@@ -13,7 +14,7 @@ import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, EyeOff, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
@@ -317,6 +318,7 @@ function PageChips() {
           <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
         </button>
       </Popover>
+      <StatesChip pageId={current.id} />
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
         <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => { const id = useStudio.getState().addPage(); useStudio.getState().want({ panel: "pages", focus: "name", id }); }}>
@@ -324,6 +326,80 @@ function PageChips() {
         </Button>
       </Tooltip>
     </div>
+  );
+}
+
+/**
+ * THE PAGE'S HIDDEN STATES, switched on for the board (`boardStates.ts`).
+ *
+ * Only on a page that has some: its preview screens first, when the
+ * repository it came from lists them (one shows exactly what that screen
+ * shows), then each hidden group by its hook. One or more at a time; the
+ * page still opens with them hidden, wherever it is published or exported.
+ */
+function StatesChip({ pageId }: { pageId: string }) {
+  const nodes = useStudio((s) => s.nodes);
+  const on = useStudio((s) => s.statesOn ?? []);
+  const source = useStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
+  const [open, setOpen] = React.useState(false);
+  const groups = React.useMemo(() => hiddenGroups(nodes, pageId), [nodes, pageId]);
+  const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
+  const screens = (source?.screens ?? []).filter((x) => x.page === file);
+  if (!groups.length && !screens.length) return null;
+  const here = [...screens.map((x) => screenKey(x.name)), ...groups.map((g) => g.group)];
+  const lit = here.filter((k) => on.includes(k)).length;
+  const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
+  const Row = ({ k, name, note }: { k: string; name: string; note: string }) => {
+    const pressed = on.includes(k);
+    return (
+      <button
+        type="button"
+        aria-pressed={pressed}
+        {...(k.startsWith("screen:") ? { "data-screen-toggle": k.slice(7) } : { "data-state-toggle": k })}
+        onClick={() => flip(k)}
+        className={cn("tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain", pressed ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+      >
+        {pressed ? <Eye className="size-3 shrink-0 text-accent" /> : <EyeOff className="size-3 shrink-0" />}
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <span className="num shrink-0 pl-2 text-fine text-fg-faint">{note}</span>
+      </button>
+    );
+  };
+  return (
+    <>
+      <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        align="start"
+        className="max-h-[70vh] w-auto min-w-[240px] max-w-[340px] overflow-y-auto p-1"
+        content={
+          <div data-states-menu="" className="flex flex-col gap-0.5">
+            <p className="px-2 py-1 text-fine text-fg-faint">Shown on the board only. The page still opens with them hidden.</p>
+            {screens.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Screens</p> : null}
+            {screens.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label || x.name} note={x.name} />)}
+            {groups.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Hidden parts</p> : null}
+            {groups.map((g) => <Row key={g.group} k={g.group} name={g.template ? `${g.hook} (template)` : g.hook} note={String(g.parts)} />)}
+            {lit ? (
+              <button type="button" data-states-off="" onClick={() => { play("tap"); useStudio.getState().setStatesOn((useStudio.getState().statesOn ?? []).filter((k) => !here.includes(k))); }} className="tactile mt-1 h-7 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
+                Hide them all again
+              </button>
+            ) : null}
+          </div>
+        }
+      >
+        <button
+          type="button"
+          data-states-button=""
+          aria-label={`States: ${lit} of ${here.length} shown on the board`}
+          className={cn("tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain", lit ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+        >
+          <Layers className={cn("size-3 shrink-0", lit && "text-accent")} />
+          <span>States</span>
+          {lit ? <span className="num text-fine text-fg-faint">{lit}</span> : null}
+        </button>
+      </Popover>
+    </>
   );
 }
 
@@ -1203,6 +1279,8 @@ export function StudioPage() {
     (w as unknown as { __studioExport?: (only?: string[]) => Promise<unknown> }).__studioExport = (only) => exportSite(only);
     /* The same site as a builder-ready repository (exportForCode.ts, kit/PIPELINE.md route 1), for tests/export-for-code.mjs. */
     (w as unknown as { __studioKitExport?: () => Promise<unknown> }).__studioKitExport = () => import("./exportForCode").then((m) => m.exportForCode());
+    /* And to a design/ branch of the repository it came from, for tests/export-to-branch.mjs. */
+    (w as unknown as { __studioKitBranch?: () => Promise<unknown> }).__studioKitBranch = () => import("./exportForCode").then((m) => m.exportForCodeToBranch());
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
     (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;
     /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */

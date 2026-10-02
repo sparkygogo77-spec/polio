@@ -125,6 +125,10 @@ export interface StyleSource {
   varsRead?: Record<string, import("./codeRefs.ts").CodeRef[]>;
   /** The repository's builder.json, when it has one: what was read from it. */
   manifest?: { file: string; kit?: string | null; previews?: string[]; gallery?: string | null } | null;
+  /** Every data-hook on the board as it was brought in (`designBranch.ts#hooksOnBoard`): what Export for code to a branch keeps, and says the changes against. */
+  onBoard?: string[];
+  /** Its preview screens, read at import as its code builds them: the States control shows one on the board (`boardStates.ts`). */
+  screens?: import("./boardStates.ts").ScreenRead[];
 }
 
 /** The shape of a node this reads: a board part, loosely. */
@@ -439,7 +443,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       const host = innerOf.get(key);
       if (host) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} is inside the part “${host.source?.hook?.value ?? host.id}” (a list's option, a button's words): it keeps the page's look.` }); continue; }
       if (inRuns.has(key)) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} is a value inside a line of words: it keeps the line's look.` }); continue; }
-      if (h.imported) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "missing", why: `${name} was on the board and its part has been deleted. The layer leaves it as the page draws it: nothing is removed from the code.` }); continue; }
+      if (h.imported) { check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "missing", why: `${name} was on the board and its part has been deleted. The layer leaves its look alone; the pull request lists it as removed, for the code to delete.` }); continue; }
       check.push({ file: f.file, attr: h.attr, value: h.value, line: h.line, fate: "untouched", why: `${name} did not come onto the board (an element inside a control, or one the page fills itself): the page keeps its own look for it.` });
     }
   }

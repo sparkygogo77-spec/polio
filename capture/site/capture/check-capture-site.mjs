@@ -80,6 +80,18 @@ check("capture/sites/<name>/ is ignored, every file in it",
   const tp = plan({ url: "https://standin.example/", name: "standin", pages: "/, /burned/STANDIN0MINT0ADDRESS01, /burned/STANDIN0MINT0ADDRESS02, /burned/STANDIN0MINT0ADDRESS03, /devs/STANDIN0DEV0ADDRESS01", root });
   check("pages of one template given are captured once, the template kept", tp.captures.length === 3 && tp.routes.templates?.length === 1 && tp.routes.templates[0].pattern === "/burned/:id" && tp.routes.templates[0].ids.length === 3 && tp.routes.pages.some((x) => x.id === tp.routes.templates[0].representative), JSON.stringify({ pages: tp.routes.pages.map((x) => x.path), templates: tp.routes.templates }));
 }
+/* A still screen is read once: nothing pressed, no behaviours driven; the pages run a few at a time; Look only, no presses from the workflow's own switch. */
+{
+  const sp = plan({ url: "https://standin.example/", name: "standin", pages: "/, /preview.html?still=1&screen=lobby", root });
+  const [home, screen] = sp.captures;
+  check("a still screen (?still=1) is read once: no --states, no --behaviours", !screen.args.includes("--states") && !screen.args.includes("--behaviours") && screen.args.includes("--network") && home.args.includes("--states") && home.args.includes("--behaviours"));
+  const lp = plan({ url: "https://standin.example/", name: "standin", pages: "/preview.html?screen=*", root });
+  const { expandStars } = await import("./capture-site.mjs");
+  expandStars(lp, () => ["lobby", "duel"]);
+  check("a screen list's pages are read once too, even without ?still=1", lp.captures.length === 2 && lp.captures.every((c) => !c.args.includes("--states") && !c.args.includes("--behaviours")));
+  check("the pages run three at a time unless told otherwise", sp.jobs === 3 && plan({ url: "https://standin.example/", name: "x", root, jobs: 1 }).jobs === 1);
+  check("the workflow has Look only, no presses, and passes it as --look-only", /\n\s+look:\s*\n(\s+.*\n)*?\s+type: boolean/.test(y) && /IN_LOOK: \$\{\{ inputs\.look \}\}/.test(y) && /"\$IN_LOOK" = "true" \] && echo --look-only/.test(y));
+}
 check("ledger.json is left out of the artifact", /rm -f "?capture\/sites\/\$NAME\/ledger\.json/.test(y) && y.indexOf("ledger.json\"") < y.indexOf("upload-artifact"));
 
 const failed = results.filter((r) => !r).length;

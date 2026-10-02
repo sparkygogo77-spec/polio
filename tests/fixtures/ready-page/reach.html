@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Out of reach</title>
+<!--
+  A page with controls the pointer cannot reach: a phone-sized window shown as a picture of a
+  page, with a pane over it that takes every press (as PonsStars' preview views are), and tabs
+  above it that the pointer can reach. The capture used to load the whole page again for each
+  control out of reach. Used by tests/capture-ready.mjs.
+-->
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 24px; background: #f4f1ea; color: #222; }
+  .tabs button { margin-right: 8px; padding: 8px 14px; border: 2px solid #333; border-radius: 6px; background: #fff; }
+  .tabs button[aria-selected="true"] { background: #333; color: #fff; }
+  .panel { margin: 16px 0; padding: 16px; border: 2px solid #333; border-radius: 8px; background: #fff; }
+  .window { position: relative; width: 375px; border: 2px solid #333; border-radius: 12px; background: #fff; padding: 12px; }
+  .window .inner { display: flex; flex-wrap: wrap; gap: 12px; }
+  .window::after { content: ""; position: absolute; inset: 0; }
+  .window button { padding: 8px 14px; }
+</style>
+</head>
+<body>
+<h1>Tabs, and a window shown as a picture</h1>
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="one">One</button>
+  <button role="tab" aria-selected="false" data-tab="two">Two</button>
+  <button role="tab" aria-selected="false" data-tab="three">Three</button>
+</div>
+<div class="panel" data-panel>Panel one</div>
+<div class="window">
+  <p>&nbsp;The controls below are a picture: a pane over them takes every press.</p>
+  <div class="inner">
+    <button type="button">Hidden A</button><button type="button">Hidden B</button><button type="button">Hidden C</button>
+    <button type="button">Hidden D</button><button type="button">Hidden E</button><button type="button">Hidden F</button>
+  </div>
+</div>
+<script>
+for (const b of document.querySelectorAll("[data-tab]")) b.addEventListener("click", () => {
+  for (const x of document.querySelectorAll("[data-tab]")) x.setAttribute("aria-selected", String(x === b));
+  document.querySelector("[data-panel]").textContent = `Panel ${b.dataset.tab}`;
+});
+for (const b of document.querySelectorAll(".inner button")) b.addEventListener("click", () => { b.textContent += " pressed"; });
+</script>
+</body>
+</html>

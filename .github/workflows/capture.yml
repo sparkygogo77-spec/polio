@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: "/"
+      look:
+        description: "Look only, no presses: the pages as they open, nothing pressed (much faster on a page of many controls). Still screens are always read this way."
+        required: false
+        type: boolean
+        default: false
       learn:
         description: "Learn on click: JSON {targets, pressesPerControl: 1, stopOnWallet: true, cap} from the Builder; held server calls pressed once each after the capture (capture/site/capture/learn.mjs). Empty for none."
         required: false
@@ -73,10 +78,11 @@ jobs:
           IN_URL: ${{ inputs.url }}
           IN_NAME: ${{ inputs.name }}
           IN_PAGES: ${{ inputs.pages }}
+          IN_LOOK: ${{ inputs.look }}
         run: |
           export PLAYWRIGHT_MODULE="$RUNNER_TEMP/pw/node_modules/playwright"
           export CHROMIUM="$(node -e "console.log(require(process.env.PLAYWRIGHT_MODULE).chromium.executablePath())")"
-          node capture/site/capture/capture-site.mjs --url "$IN_URL" --name "$IN_NAME" --pages "$IN_PAGES" --hide-gate
+          node capture/site/capture/capture-site.mjs --url "$IN_URL" --name "$IN_NAME" --pages "$IN_PAGES" --hide-gate $([ "$IN_LOOK" = "true" ] && echo --look-only)
           echo "NAME=$(node -e "import('./capture/site/capture/capture-site.mjs').then(m => console.log(m.siteName(process.argv[1]) ?? m.nameFrom(process.argv[2])))" "$IN_NAME" "$IN_URL")" >> "$GITHUB_ENV"
 
       # Learn on click: only the held server calls the owner chose, once each, 2 s apart, stopping at any wallet prompt.

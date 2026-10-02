@@ -632,7 +632,8 @@ export interface PartControl {
   disabled?: boolean;
   multiple?: boolean;
   rows?: number;
-  options?: { text: string; value: string; selected: boolean }[];
+  /** A list's choices; `hook`: the `data-hook` the page's code finds one by. */
+  options?: { text: string; value: string; selected: boolean; hook?: string }[];
 }
 
 /** One element of the page, read on its own. */
@@ -968,7 +969,7 @@ export const PARTS = (cap: number): PageRead => {
     const c: PartControl = { type: tag === "INPUT" ? (el as HTMLInputElement).type : tag.toLowerCase() };
     const f = el as HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement;
     if (tag === "SELECT") {
-      c.options = Array.from(f.options).map((o) => ({ text: o.text.replace(/\s+/g, " ").trim(), value: o.value, selected: o.selected }));
+      c.options = Array.from(f.options).map((o) => ({ text: o.text.replace(/\s+/g, " ").trim(), value: o.value, selected: o.selected, ...(o.getAttribute("data-hook") ? { hook: o.getAttribute("data-hook")! } : {}) }));
       if (f.multiple) c.multiple = true;
       c.value = f.value;
     } else if (c.type !== "file" && c.type !== "password") c.value = f.value;

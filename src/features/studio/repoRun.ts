@@ -44,6 +44,8 @@ export interface RepoRead {
   ref: string;
   /** The repository's builder.json, when it has one (`builderManifest.ts`). */
   manifest?: BuilderManifest;
+  /** Its pages with their scripts and sample data, for reading its preview screens (`boardStates.ts`): only when its builder.json names a preview. */
+  screensFile?: File;
   /** Its scripts and hooks.json as text, for the part panel's code view (`codeRefs.ts`); never in the zip. */
   code?: { path: string; text: string }[];
   /** Set when the page was built from the repository's source rather than found in it: which file, and what the reading did. */
@@ -519,7 +521,40 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
   say("Packing it…");
   const zip = zipOf(got);
   const name = `${repo.owner}-${repo.name}.zip`;
+  /*
+   * ITS PREVIEW SCREENS run its own code (`boardStates.ts`): the pages with
+   * their scripts and the sample data they read, in a zip of their own, so
+   * the page is still read without them. Only for a repository whose
+   * builder.json names a preview.
+   */
+  let screensFile: File | null = null;
+  if (manifest?.previewPage || manifest?.screenPages.length) {
+    const have = new Set([...got.map((g) => g.name)]);
+    /* Its data, and the scripts the code view leaves out (a vendored chart library) that its pages import. */
+    const read = new Set(code.map((c) => c.path));
+    const data = blobs.filter((e) => e.path.startsWith(pageDir) && /\.(json|m?js|cjs)$/i.test(e.path) && !have.has(e.path) && !read.has(e.path) && !/(^|\/)(node_modules|test|tests)\//i.test(e.path) && (e.size ?? 0) < 2_000_000).slice(0, 60);
+    const more: { name: string; bytes: Uint8Array }[] = [];
+    for (let i = 0; i < data.length; i += AT_ONCE) {
+      say(`Reading what its preview screens use… ${Math.min(i + AT_ONCE, data.length)} of ${data.length}`);
+      const batch = await Promise.all(data.slice(i, i + AT_ONCE).map(async (e) => ({ e, blob: await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token) })));
+      for (const { e, blob } of batch) {
+        const it = blob as { content?: string; encoding?: string };
+        if (!isNo(blob) && it.encoding === "base64" && typeof it.content === "string") more.push({ name: e.path, bytes: unbase64(it.content) });
+      }
+    }
+    const enc = new TextEncoder();
+    const scriptsIn = code.filter((c) => !have.has(c.path)).map((c) => ({ name: c.path, bytes: enc.encode(c.text) }));
+    const all = [...got, ...scriptsIn, ...more.filter((m) => !scriptsIn.some((c) => c.name === m.name))];
+    if (manifest.previewPage && !all.some((f) => f.name === manifest!.previewPage)) {
+      const it = blobs.find((e) => e.path === manifest!.previewPage);
+      const blob = it ? await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${it.sha}`, token) : null;
+      const b = blob as { content?: string; encoding?: string } | null;
+      if (b && !isNo(blob) && b.encoding === "base64" && typeof b.content === "string") all.push({ name: manifest.previewPage, bytes: unbase64(b.content) });
+    }
+    screensFile = new File([zipOf(all) as BlobPart], `${repo.owner}-${repo.name}-screens.zip`, { type: "application/zip" });
+  }
   return {
+    ...(screensFile ? { screensFile } : {}),
     file: new File([zip as BlobPart], name, { type: "application/zip" }),
     entry: page,
     files: got.length,

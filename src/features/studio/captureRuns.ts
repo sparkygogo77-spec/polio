@@ -27,6 +27,8 @@ export interface CaptureRun {
   name: string;
   url: string;
   pages: string;
+  /** Look only, no presses. */
+  look?: boolean;
   htmlUrl: string;
   startedAt: number;
   /** The branch it was started on, to look on when it ends. */

@@ -1,5 +1,5 @@
 import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./remake";
-import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, Rocket, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, GitBranch, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, Rocket, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { openLearned } from "./LearnedPanel";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
@@ -220,6 +220,20 @@ export const studio = defineFeature({
         const { downloadForCode } = await import("./exportForCode");
         const r = await downloadForCode();
         c.publish({ key: "studio:export-for-code", title: r.ok ? "Exported for code" : "Exported, with problems", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
+      },
+    },
+    /* The same export, written to a new design/ branch of the repository the site came from, with a draft pull request listing the hooks moved, added and removed (`designBranch.ts`). */
+    {
+      id: "studio.exportForCodeToBranch",
+      label: "Export for code to a branch of its repo",
+      group: "Builder",
+      icon: GitBranch,
+      keywords: ["export", "code", "kit", "hooks", "branch", "design", "pull request", "repo", "github"],
+      when: onStudio,
+      run: async (c) => {
+        const { exportForCodeToBranch } = await import("./exportForCode");
+        const r = await exportForCodeToBranch();
+        c.publish({ key: "studio:export-for-code", title: r.ok ? "Design sent to a branch" : "Not sent", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
       },
     },
     /* The board as one file, and back again (`backup.ts`): also on the save line and on each card on Builds. */

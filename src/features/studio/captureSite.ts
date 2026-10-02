@@ -183,7 +183,9 @@ async function refusal(d: Response, o: { f: typeof fetch; base: string; h: Recor
  * 204 and names no run, so the newest workflow_dispatch run of this
  * workflow created after the call is it.
  */
-export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; learn?: unknown; findEveryMs?: number; findTries?: number;
+export async function startCapture(o: { repo: CaptureRepo; token: string; url: string; name: string; pages: string; ref?: string; learn?: unknown;
+  /** Look only, no presses: the pages as they open (polio's workflow's `look` input). Sent only when on, so a capturer without the input is asked as before. */
+  look?: boolean; findEveryMs?: number; findTries?: number;
   /** Make `ref` first, from the default branch, when it is not there: the capture's own branch. Never main. */
   makeBranch?: boolean } & Pipes): Promise<Started> {
   const f = o.fetch ?? fetch;
@@ -216,7 +218,7 @@ export async function startCapture(o: { repo: CaptureRepo; token: string; url: s
     const since = Date.now() - 5_000;
     const d = await f(`${base}/actions/workflows/${WORKFLOW}/dispatches`, {
       method: "POST", headers: { ...h, "content-type": "application/json" },
-      body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/", ...(o.learn ? { learn: JSON.stringify(o.learn) } : {}) } }),
+      body: JSON.stringify({ ref, inputs: { url: address.href.replace(/\/$/, ""), name, pages: o.pages.trim() || "/", ...(o.learn ? { learn: JSON.stringify(o.learn) } : {}), ...(o.look ? { look: "true" } : {}) } }),
     });
     if (!d.ok) return { ok: false, status: d.status, says: await refusal(d, { f, base, h, repo: o.repo, ref, url: address.href, name }) };
     for (let tries = 0; tries < (o.findTries ?? 10); tries++) {

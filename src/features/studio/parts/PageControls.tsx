@@ -51,9 +51,11 @@ export function Field({ id, content, options, theme: t, mode, hooks }: PartProps
   if (kind === "select" || kind === "select-one" || kind === "select-multiple") {
     const choices = choicesOf(options.choices ?? "");
     const picked = choices.find((c) => c.selected)?.value ?? choices[0]?.value ?? "";
+    /* Each choice's own hook, one line per choice, as the page had it (`pageParts.ts`): live only, as the list's own. */
+    const choiceHooks = mode === "live" ? (options.choiceHooks ?? "").split("\n") : [];
     el = (
       <select {...own} aria-label={name} disabled={disabled} multiple={kind === "select-multiple"} tabIndex={still ? -1 : undefined} defaultValue={kind === "select-multiple" ? choices.filter((c) => c.selected).map((c) => c.value) : picked} style={look}>
-        {choices.map((c, i) => <option key={`${c.value}${i}`} value={c.value}>{c.text}</option>)}
+        {choices.map((c, i) => <option key={`${c.value}${i}`} value={c.value} {...(choiceHooks[i]?.trim() ? { "data-hook": choiceHooks[i]!.trim() } : {})}>{c.text}</option>)}
       </select>
     );
   } else if (kind === "textarea") {

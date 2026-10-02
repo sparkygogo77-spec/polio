@@ -474,6 +474,32 @@ Link rules: a kit repository's `links` become the site's link list
 trip against a real git repository; `tests/export-for-code.mjs` holds the
 export on the sink's site. After changing kit/, run `npm run kit:files`.
 
+**Export for code to a branch keeps every hook the site came in with.** The
+command "Export for code to a branch of its repo" (`designBranch.ts`) writes
+the same export under `design/` on a new `design/<site>-<date>` branch of the
+repository the site came from, never its default branch, and opens a draft
+pull request with `design/HOOK-CHANGES.md`: hooks moved, added, removed. A
+hook it came in with (`styleSource.onBoard`, recorded at import: parts, words
+and a list's choices, `options.choiceHooks`) is written exactly as it was,
+and a `template-` part goes out as a `<template>` again. A part made here
+gets a hook from its name (`chart-main`, never an id) and is listed as new.
+A move is measured from where he first took the part in hand
+(`StudioNode.handFrom`), so the board's own tidying is not his.
+`tests/export-to-branch.mjs` holds it, on PST when given a checkout.
+
+**A page's hidden states are designed on the board, and stay hidden on the
+page.** Parts a page starts hidden come in as state groups
+(`hidden:<hook>`). The States control on the page strip (`StatesChip`,
+`boardStates.ts`) switches groups, or the repository's preview screens, on
+for the board alone (`statesOn`); a screen shows exactly the hooks it showed
+when the repository's own code built it, read at import in the background
+(`/api/studio/zip` with `screens`, kept as `styleSource.screens`; the only
+place a repository's scripts run, with nothing reachable but its own files).
+Picking a hidden part switches its group on. The parts keep their state, so
+the export and Go live still open hidden; a move or size made with a state on
+is a rule under the part's hook in the style layer. `tests/board-states.mjs`
+holds it, on PST when given a checkout, else on the kit's starter.
+
 **A kit repository comes in by its builder.json; its hooks map and tokens are
 read as the kit writes them.** The contract is PST's `kit/BUILDER-CONTRACT.md`.
 `builder.json` (`builderManifest.ts`) carries `kit`, `name`, `pages`

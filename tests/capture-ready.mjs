@@ -17,13 +17,21 @@
  *     as pictures;
  *   · `?screen=*`, captured: one Builder page per screen in the document.
  *
+ * And fast (J, 2026-10-02: PonsStars' 23 screens took an hour, each screen
+ * pressing about 20 controls and loading itself again for each): a still
+ * screen or one of a screen list is read once, nothing pressed and no
+ * behaviours driven, with the capture's default switches on; the pages run
+ * three at a time; on PonsStars the list takes under 5 minutes, with the
+ * same parts per screen as a capture that only looks. A control out of the
+ * pointer's reach is not worth a page load each (reach.html): one at most.
+ *
  * Its own server serves the folder: PonsStars' web/ when given, else a
  * small page built the same way (tests/fixtures/ready-page). No network.
  *
  *   node tests/capture-ready.mjs [path to the PonsStars web folder]
  */
-import { spawn } from "node:child_process";
-import { readFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { readFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -52,17 +60,18 @@ const { listValues, starOf } = await import("../capture/site/capture/ready.mjs")
  */
 const SERVE = `
 const { createServer } = require("node:http"); const { readFileSync, existsSync, statSync } = require("node:fs"); const { join, extname } = require("node:path");
-const folder = process.argv[1];
+const folder = process.argv[1], spare = process.argv[2];
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2" };
 const server = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
-  const file = join(folder, path === "/" ? "index.html" : path);
-  if (!file.startsWith(folder) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+  let file = join(folder, path === "/" ? "index.html" : path);
+  if (!existsSync(file)) file = join(spare, path);
+  if (!(file.startsWith(folder) || file.startsWith(spare)) || !existsSync(file) || statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
   res.end(readFileSync(file));
 });
 server.listen(0, "127.0.0.1", () => console.log(server.address().port));`;
-const server = spawn(process.execPath, ["-e", SERVE, folder], { stdio: ["ignore", "pipe", "inherit"] });
+const server = spawn(process.execPath, ["-e", SERVE, folder, join(here, "fixtures", "ready-page")], { stdio: ["ignore", "pipe", "inherit"] });
 const port = await new Promise((ok) => server.stdout.once("data", (d) => ok(Number(String(d).trim()))));
 const origin = `http://127.0.0.1:${port}`;
 const root = mkdtempSync(join(tmpdir(), "capture-ready-"));
@@ -82,7 +91,7 @@ try {
   /* The screens, read off the page once it says it is ready. */
   const listed = await listValues(`${origin}/preview.html?still=1`, "screen");
   const want = pst ? 23 : 12;
-  check(`every screen is read off the page once it is ready (${want})`, listed.values.length === want && !!listed.waited?.done, `${listed.values.length}: ${listed.values.join(", ")}; waited ${listed.waited?.secs} s`);
+  check(`every screen is read off the page once it is ready (${want})`, listed.values.length === want && (!listed.waited || listed.waited.done), `${listed.values.length}: ${listed.values.join(", ")}; ${listed.waited ? `waited ${listed.waited.secs} s` : "ready as it loaded"}`);
 
   /* The whole page, captured. */
   const whole = plan({ url: origin, name: "whole", pages: "/preview.html", root, ...quiet });
@@ -96,14 +105,28 @@ try {
   check(`every screen is in it, its lists left whole (${pst ? "over 1000 parts, not 54" : "all 12 screens"})`, pst ? parts > 1000 : listed.values.every((v) => text.includes(`preview.html?screen=${v}`)), `${parts} parts`);
   check("its charts come in as pictures", pngs >= want, `${pngs} chart pictures`);
 
-  /* One Builder page per screen. */
-  const each = plan({ url: origin, name: "each", pages: pst ? star : "/preview.html?screen=*", root, ...quiet });
+  /* One Builder page per screen, with the capture's own switches (presses and behaviours on), timed. */
+  const each = plan({ url: origin, name: "each", pages: pst ? star : "/preview.html?screen=*", root, gate: "hide" });
+  const t0 = Date.now();
   const failed = run(each);
+  const secs = Math.round((Date.now() - t0) / 1000);
   const doc2 = JSON.parse(readFileSync(join(each.outDir, "site", "document.json"), "utf8"));
   const pages = doc2.pages ?? [];
   check(`?screen=* is one Builder page per screen (${want}), none failed`, pages.length === want && failed === 0, `${pages.length} pages, ${failed} failed`);
   check("each at a plain path, named for its screen", pages.every((x) => /^\/preview-[a-z0-9-]+$/.test(x.path)) && pages.some((x) => x.name === "Lobby"), pages.slice(0, 4).map((x) => `${x.path} ${x.name}`).join(", "));
   const rec = JSON.parse(readFileSync(each.recordFile, "utf8"));
+  check("a screen of the list is read once: nothing pressed, no behaviours driven", each.captures.every((c) => !c.args.includes("--states") && !c.args.includes("--behaviours")) && each.captures.every((c) => c.args.includes("--network")));
+  check(`the list is captured in under ${pst ? "5 minutes" : "2 minutes"}`, secs < (pst ? 300 : 120), `${secs} s for ${pages.length} screens, ${each.jobs} at a time`);
+  /* The same parts as a capture of the same screens that only looks, one at a time. */
+  const firstTwo = listed.values.slice(0, 2);
+  const looked = plan({ url: origin, name: "looked", pages: firstTwo.map((v) => (pst ? `/preview.html?still=1&screen=${v}` : `/preview.html?screen=${v}`)).join(","), root, gate: "hide", behaviours: false, states: false, jobs: 1 });
+  run(looked);
+  const perPage = (d) => { const c = {}; for (const n of d.nodes) c[n.pageId] = (c[n.pageId] ?? 0) + 1; return c; };
+  const a = perPage(doc2), b = perPage(JSON.parse(readFileSync(join(looked.outDir, "site", "document.json"), "utf8")));
+  const same = Object.keys(b).length === 2 && Object.entries(b).every(([id, n]) => a[id] === n);
+  const pics = (dir) => { try { return readdirSync(join(dir, "assets", "pictures")).length; } catch { return 0; } };
+  check("the same parts per screen as a capture that only looks", same, JSON.stringify({ list: Object.fromEntries(Object.keys(b).map((id) => [id, a[id]])), looked: b }));
+  check("and its pictures", pics(each.outDir) >= pics(looked.outDir) && pics(each.outDir) > 0, `${pics(each.outDir)} pictures in the list, ${pics(looked.outDir)} in two screens`);
   check("the record says the line as asked", rec.pages.length === 1 && rec.pages[0].endsWith("screen=*"), JSON.stringify(rec.pages));
   /* A screen with a chart: PonsStars' match in play, or the stand-in's first. */
   const pick = pst ? "mid-match" : listed.values[0];
@@ -112,6 +135,15 @@ try {
   const oneText = JSON.stringify(one.tree ?? null);
   const others = listed.values.filter((v) => v !== pick && !v.startsWith(pick));
   check("a screen's page holds that screen alone, with its chart", (oneText.match(/"src":"data:image\/png/g) ?? []).length >= 1 && !others.some((v) => oneText.includes(`screen=${v}&`) || oneText.includes(`screen=${v}"`)), `${one.url}: ${(oneText.match(/"src":"data:image\/png/g) ?? []).length} chart pictures`);
+
+  /* Controls the pointer cannot reach (a pane over a picture of a page): at most one page load for them all, the reachable ones still pressed. */
+  const out = join(root, "reach.json");
+  const r = spawnSync(process.execPath, [join(here, "..", "capture", "site", "capture", "capture-route.mjs"), `${origin}/reach.html`, out, "--width", "1440", "--height", "900", "--states", "--hide-gate"], { encoding: "utf8" });
+  const said = r.stderr ?? "";
+  const reach = existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : {};
+  const loads = (said.match(/loaded again/g) ?? []).length;
+  check("controls out of reach cost one page load at most, not one each", r.status === 0 && loads <= 1 && (said.match(/not pressed/g) ?? []).length >= 5, `${loads} loads; ${(said.match(/not pressed/g) ?? []).length} not pressed`);
+  check("the controls in reach are still pressed", (reach.states ?? []).length === 3, `${(reach.states ?? []).length} states`);
 } finally {
   server.kill();
   rmSync(root, { recursive: true, force: true });

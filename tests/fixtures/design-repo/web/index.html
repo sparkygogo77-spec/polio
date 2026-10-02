@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duel</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="app">
+<h1 data-hook="page-title">Duel</h1>
+<p data-hook="page-intro">Two players, one chart, <strong data-hook="page-intro-net">test networks only</strong>.</p>
+<section data-hook="queue">
+  <h2 data-hook="queue-title">Find a match</h2>
+  <p data-hook="queue-line"><label data-hook="queue-length-label" for="len">Length</label>
+    <select id="len" data-hook="queue-length">
+      <option value="60" data-hook="queue-length-1">1 minute</option>
+      <option value="300" data-hook="queue-length-5" selected>5 minutes</option>
+    </select></p>
+  <button type="button" data-hook="queue-join">Join the queue</button>
+</section>
+<section data-hook="chart-area">
+  <h2 data-hook="chart-title">The chart</h2>
+  <p data-hook="chart-note">Candles appear here once a match starts.</p>
+</section>
+<footer data-hook="footer"><p data-hook="footer-note">Practice only.</p></footer>
+</body>
+</html>

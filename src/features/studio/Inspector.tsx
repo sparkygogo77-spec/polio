@@ -807,7 +807,7 @@ export function Inspector() {
    */
   const update = (patch: Parameters<ReturnType<typeof store>["updateNode"]>[1]) => {
     const movesTheBox = patch && ("x" in patch || "y" in patch || "w" in patch || "h" in patch);
-    useStudio.getState().updateNode(node.id, movesTheBox && !node.byHand ? { ...patch, byHand: true } : patch);
+    useStudio.getState().updateNode(node.id, movesTheBox && !node.byHand ? { ...patch, byHand: true, handFrom: { x: node.x, y: node.y, w: node.w, h: node.h } } : patch);
   };
 
   return (

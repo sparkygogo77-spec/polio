@@ -1,0 +1,9 @@
+{
+  "kit": "1.0.0",
+  "name": "Duel",
+  "about": "A small builder-ready repository for tests/export-to-branch.mjs: one page, hooks on every element, a list whose choices carry hooks.",
+  "pages": [{ "file": "web/index.html", "title": "Play" }],
+  "hooks": "web/hooks.json",
+  "tokens": "web/tokens.css",
+  "styleLayer": "web/style-layer.css"
+}

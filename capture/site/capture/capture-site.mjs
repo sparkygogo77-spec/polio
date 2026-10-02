@@ -17,8 +17,13 @@
  *
  *   node capture/site/capture/capture-site.mjs --url <address> --name <folder> [--pages "/, /docs"]
  *        [--width 1440 --height 900] [--wallet] [--no-agree | --hide-gate] [--no-behaviours] [--no-states] [--no-network] [--shots <dir>]
- *        [--crawl [--skip "/rewards"] [--limit 30]]
+ *        [--crawl [--skip "/rewards"] [--limit 30]] [--look-only] [--jobs 3]
  *   node capture/site/capture/capture-site.mjs --reconvert --name <folder>   (the committed captures, converted again; no browser)
+ *
+ * `--look-only` presses nothing (no states pass): the page as it opens,
+ * its behaviours and its data requests only. A still screen (`?still=1`,
+ * or one of a `?screen=*` list) is always read that way, and without its
+ * behaviours driven. The pages given are captured `--jobs` at a time (3).
  *
  * `--crawl` also takes the same-site pages they link to: each plain page
  * once, and one representative of each pattern (`/token/:id`), whose ids
@@ -37,7 +42,8 @@
  * `.github/workflows/capture.yml` runs this and commits the folder to a
  * branch `captures/<name>`, from where the Builder reads it.
  */
-import { mkdirSync, writeFileSync, readFileSync, openSync, closeSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, openSync, closeSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { keepOwner } from "./keep-owner.mjs";
 import { starOf } from "./ready.mjs";
 import { spawnSync } from "node:child_process";
@@ -107,7 +113,7 @@ export function queryPage(route) {
 export function expandStar(page, values) {
   if (!page.star) return [page];
   const routes = values.map((v) => page.route.replace(`${encodeURIComponent(page.star.field)}=*`, `${encodeURIComponent(page.star.field)}=${encodeURIComponent(v)}`));
-  return pageList(routes.join(",")).map((p) => ({ ...p, asked: page.route, ...(page.wallet !== undefined ? { wallet: page.wallet, agree: page.agree } : {}) }));
+  return pageList(routes.join(",")).map((p) => ({ ...p, asked: page.route, fixed: true, ...(page.wallet !== undefined ? { wallet: page.wallet, agree: page.agree } : {}) }));
 }
 
 /*
@@ -185,7 +191,7 @@ export function linksOf(capture, origin) {
 }
 
 /** Everything a capture would do, as data. Runs nothing. */
-export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, crawl = false, skip = [], limit = 30 }) {
+export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = false, agree = true, gate = "agree", behaviours = true, shots = null, states = true, network = true, crawl = false, skip = [], limit = 30, jobs = 3 }) {
   const site = new URL(url);
   const folder = siteName(name) ?? nameFrom(url);
   if (!folder) throw new Error(`A name is needed: letters, digits and dashes. "${name}" is not one.`);
@@ -222,6 +228,14 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
   }
   /* …and its crawl stays inside the folders of the pages given, never the rest of the host. */
   const scope = site.pathname === "/" ? ["/"] : [...new Set(routes.pages.map((x) => x.path.slice(0, x.path.lastIndexOf("/") + 1) || "/"))];
+  /*
+   * A STILL SCREEN IS READ ONCE (the owner, 2026-10-02: a 23-screen list took
+   * an hour, each screen pressing twenty controls and loading itself again
+   * for each). A page asked for still (`?still=1`) or one of a screen list
+   * (`?screen=*`) is one fixed state: no behaviours driven, nothing pressed.
+   * capture-route.mjs also tells a still page by its own mark.
+   */
+  const heldStill = (p) => !!p.fixed || /[?&]still=1(&|$)/.test(p.route ?? "");
   const captureOf = (p) => ({
     id: p.id,
     args: [
@@ -234,10 +248,10 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
       /* A terms gate: agreed to (the default), or with `--hide-gate` hidden in the capture's own browser and never agreed to. */
       ...(gate === "hide" ? ["--hide-gate"] : agree ? ["--agree"] : []),
       /* What the page's scripts do (docs/behaviours.md): a loader, reveals, a scrolled header, parallax, a marquee. */
-      ...(behaviours ? ["--behaviours"] : []),
-      ...(behaviours && shots ? ["--behaviours-shots", join(shots, p.id)] : []),
-      /* What each press of a row of cards or buttons shows (check-states.mjs), unless `--no-states`. */
-      ...(states ? ["--states"] : []),
+      ...(behaviours && !heldStill(p) ? ["--behaviours"] : []),
+      ...(behaviours && !heldStill(p) && shots ? ["--behaviours-shots", join(shots, p.id)] : []),
+      /* What each press of a row of cards or buttons shows (check-states.mjs), unless `--no-states` (the Capture dialog's Look only, no presses). */
+      ...(states && !heldStill(p) ? ["--states"] : []),
       /* Every data request the page makes on its own, as an API map with samples (network.mjs), unless `--no-network`. */
       ...(network ? ["--network"] : []),
     ],
@@ -247,7 +261,7 @@ export function plan({ url, name, pages, root, viewport = [1440, 900], wallet = 
   /* The record keeps the pages as asked (`?screen=*` stays one line), so capturing again asks the same. */
   const record = { version: 1, url: site.href, name: folder, pages: askedOf(routes.pages), viewport, takenAt: null };
   const skipped = pageList(skip.join(",")).map((x) => x.path).filter(() => skip.length);
-  return { name: folder, origin: site.origin, outDir, captureDir, routesFile: join(captureDir, "routes.json"), ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null };
+  return { name: folder, origin: site.origin, outDir, captureDir, routesFile: join(captureDir, "routes.json"), ledgerFile: join(captureDir, "ledger.txt"), recordFile: join(captureDir, "run.json"), routes, captures, convert, record, captureOf, crawl: crawl ? { skip: skipped, limit, origin: site.origin, scope } : null, jobs };
 }
 
 /** Run the plan: the captures, then the converter. Returns how many pages failed. */
@@ -262,12 +276,25 @@ export function run(p) {
     if (r.status !== 0) { failed++; console.error(`${c.id}: capture failed`); }
     return r.status === 0;
   };
-  for (const c of p.captures) take(c);
+  /* The pages given, a few at a time (pool.mjs); the crawl after them one by one, since each page it takes says which to take next. */
+  if ((p.jobs ?? 1) > 1 && p.captures.length > 1) failed += pool(p.captures, p.jobs).length;
+  else for (const c of p.captures) take(c);
   if (p.crawl) crawlOn(p, take);
   if (failed === p.captures.length) return failed;
   if (!convertKeeping(p)) return failed + 1;
   writeFileSync(p.recordFile, JSON.stringify({ ...p.record, pages: askedOf(p.routes.pages), takenAt: new Date().toISOString(), failed, ...(p.routes.crawl ? { crawl: p.routes.crawl } : {}) }, null, 2) + "\n");
   return failed;
+}
+
+/** Captures run `jobs` at a time by pool.mjs, in a process of its own so this stays synchronous. Returns the ids that failed. */
+function pool(captures, jobs) {
+  const dir = mkdtempSync(join(tmpdir(), "capture-pool-"));
+  try {
+    const file = join(dir, "jobs.json");
+    writeFileSync(file, JSON.stringify(captures.map((c) => ({ id: c.id, args: c.args }))));
+    const r = spawnSync(process.execPath, [join(here, "pool.mjs"), file, "--jobs", String(jobs)], { stdio: ["ignore", "inherit", "inherit"] });
+    try { return r.status === 0 ? JSON.parse(readFileSync(`${file}.failed`, "utf8")) : captures.map((c) => c.id); } catch { return captures.map((c) => c.id); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
 /** The pages as they were asked for: a query page by its address, the pages one `*` made by that one line. */
@@ -431,8 +458,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     url, name: opt("--name", ""), pages: opt("--pages", "/"), root: join(here, "..", ".."),
     viewport: [Number(opt("--width", 1440)), Number(opt("--height", 900))],
     wallet: args.includes("--wallet"), agree: !args.includes("--no-agree"), gate: args.includes("--hide-gate") ? "hide" : "agree",
-    behaviours: !args.includes("--no-behaviours"), shots: opt("--shots"), states: !args.includes("--no-states"), network: !args.includes("--no-network"),
+    behaviours: !args.includes("--no-behaviours"), shots: opt("--shots"), states: !args.includes("--no-states") && !args.includes("--look-only"), network: !args.includes("--no-network"),
     crawl: args.includes("--crawl"), skip: String(opt("--skip", "")).split(",").map((x) => x.trim()).filter(Boolean), limit: Number(opt("--limit", 30)),
+    jobs: Number(opt("--jobs", process.env.CAPTURE_JOBS ?? 3)),
   });
   console.error(`capturing ${p.routes.pages.length} page(s) of ${p.routes.site} into sites/${p.name}/`);
   process.exit(run(p) ? 1 : 0);

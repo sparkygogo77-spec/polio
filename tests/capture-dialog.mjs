@@ -12,7 +12,8 @@
  *     and listed under Recent captures once it ends;
  *   · each finished one has Bring into a new site: a new site, named for
  *     it, while the open site keeps its parts and its source;
- *   · Address, Name and Pages each take the keys when pressed.
+ *   · Address, Name and Pages each take the keys when pressed;
+ *   · Look only, no presses (under Advanced) reaches the workflow as `look`.
  *
  * GitHub is a stand-in in the browser; the token is a STANDIN_ placeholder.
  *
@@ -98,6 +99,9 @@ await page.locator("[data-capture-pages]").click();
 await page.keyboard.press("Control+A");
 await page.keyboard.type("/preview.html?still=1&screen=*, /gallery.html");
 check("pressing Pages and typing types into Pages", (await val("[data-capture-pages]")) === "/preview.html?still=1&screen=*, /gallery.html" && (await val("[data-capture-url]")) === "https://pst-server-beige.vercel.app");
+const look = page.locator("[data-capture-look] input");
+check("Look only, no presses is there under Advanced, off until ticked", (await look.count()) === 1 && !(await look.isChecked()));
+await look.check();
 await page.getByRole("dialog").locator("label", { hasText: /^Name/ }).first().click();
 await page.keyboard.type("-2");
 check("pressing the word Name gives Name the keys", (await val("[data-capture-name]")) === "pst-preview-2", await val("[data-capture-name]"));
@@ -106,7 +110,7 @@ await page.locator("[data-capture-name]").fill("pst-preview");
 /* A run, the page loaded again before it ends. */
 await page.locator("[data-capture-start]").click();
 await page.waitForSelector("[data-capture-running]", { timeout: 15000 }).catch(() => {});
-check("the run starts with the pages as typed", gh.dispatched?.inputs?.pages === "/preview.html?still=1&screen=*, /gallery.html" && gh.dispatched?.inputs?.name === "pst-preview", JSON.stringify(gh.dispatched?.inputs) ?? await page.getByRole("dialog").innerText().catch(() => ""));
+check("the run starts with the pages as typed, looking only", gh.dispatched?.inputs?.pages === "/preview.html?still=1&screen=*, /gallery.html" && gh.dispatched?.inputs?.name === "pst-preview" && gh.dispatched?.inputs?.look === "true", JSON.stringify(gh.dispatched?.inputs) ?? await page.getByRole("dialog").innerText().catch(() => ""));
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.captureRuns.v1") || "[]"));
 check("it is written down as it starts", stored.length === 1 && stored[0].runId === 51 && stored[0].at === "running" && !JSON.stringify(stored).includes("STANDIN_GITHUB_TOKEN"), JSON.stringify(stored));
 gh.finishAfter = gh.statusReads + 1;

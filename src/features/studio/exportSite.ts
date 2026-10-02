@@ -437,6 +437,9 @@ function carriedFeatures(nodes: StudioNode[], fluid: boolean): StudioNode[] {
   });
 }
 
+/** Set for one export: keep `data-hook` attributes (Export for code). */
+let keepHooks = false;
+
 function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null, atOf?: ReadonlyMap<string, string>, shared?: ReadonlyMap<string, readonly string[]>): string {
   const pageId = page.id;
   const tpl = document.createElement("template");
@@ -474,6 +477,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
       if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world")) || a.name === "data-offsite") continue;
       /* A "What's new" card is the site's too: its feature finds its steps, buttons and previews by these (`library/tour.ts`). */
       if (a.name.startsWith("data-tour") || a.name === "data-copy-of" || a.name === "data-copy-node") continue;
+      /* For code (`exportForCode.ts`), the hooks a brought-in page's code finds its words by stay: `data-hook` on a run. */
+      if (keepHooks && a.name === "data-hook") continue;
       /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */
       if (a.name.startsWith("data-") || (a.name === "title" && el.tagName !== "IFRAME")) el.removeAttribute(a.name);
     }
@@ -891,8 +896,9 @@ export function publishedAt(): string | null {
  * whatever is asked for. `pictures: false` leaves the pictures for the
  * caller, which Go live does so that a lost one can be named.
  */
-export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null } = {}): Promise<ExportFile[]> {
+export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null; /** Keep every `data-hook` the pages carry (Export for code). */ hooks?: boolean } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
+  keepHooks = !!opts.hooks;
   offsite = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   if (!s.pages.length) return [];
   const home = homeFor(s.pages);

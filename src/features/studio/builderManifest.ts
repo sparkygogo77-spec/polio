@@ -37,6 +37,8 @@ export interface BuilderManifest {
   styleLayer: string | null;
   /** The preview screens' names, each opened at `<page><query>` with the name in. */
   screens: string[];
+  /** Each screen with the page it is a state of, where the manifest says (`{ "name", "page" }`). */
+  screenPages: { name: string; page: string }[];
   previewPage: string | null;
   previewQuery: string | null;
   gallery: string | null;
@@ -74,6 +76,12 @@ export function readManifest(text: string, file = "builder.json"): BuilderManife
   }
   const preview = o.preview && typeof o.preview === "object" ? (o.preview as Record<string, unknown>) : null;
   const screens = Array.isArray(preview?.screens) ? (preview!.screens as unknown[]).map((s) => (s && typeof s === "object" ? str((s as Record<string, unknown>).name) : null)).filter((s): s is string => !!s) : [];
+  const screenPages = Array.isArray(preview?.screens) ? (preview!.screens as unknown[]).flatMap((s) => {
+    if (!s || typeof s !== "object") return [];
+    const name = str((s as Record<string, unknown>).name);
+    const page = rooted((s as Record<string, unknown>).page, base);
+    return name && page ? [{ name, page }] : [];
+  }) : [];
   const scripts = o.scripts && typeof o.scripts === "object" ? (o.scripts as Record<string, unknown>) : null;
   const calls = scripts?.hookCalls && typeof scripts.hookCalls === "object" ? Object.fromEntries(Object.entries(scripts.hookCalls as Record<string, unknown>).filter(([, v]) => Number.isInteger(v)).map(([k, v]) => [k, v as number])) : {};
   const links = o.links && typeof o.links === "object" ? (o.links as Record<string, unknown>) : null;
@@ -86,6 +94,7 @@ export function readManifest(text: string, file = "builder.json"): BuilderManife
     tokens: rooted(o.tokens, base),
     styleLayer: rooted(o.styleLayer, base),
     screens,
+    screenPages,
     previewPage: rooted(preview?.page, base),
     previewQuery: str(preview?.query),
     gallery: rooted(o.gallery, base),

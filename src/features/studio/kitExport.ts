@@ -46,15 +46,27 @@ export interface KitExportInput {
   name: string;
   /** Each page as exported: its file (index.html, about/index.html) and title. */
   pages: { file: string; title: string }[];
-  /** Board parts by element id: a label, and the hook it came in with from code. */
-  parts?: Record<string, { label?: string; hook?: string }>;
+  /**
+   * Board parts by element id: a label, the hook it came in with from code,
+   * and for a part made in the Builder (`fresh`), the name of what it is
+   * (its feature), so its hook reads as what it is.
+   */
+  parts?: Record<string, KitPart>;
   /** The site's link list (Format, "Links off the site"). */
   links?: string | null;
 }
 
+export interface KitPart { label?: string; hook?: string; fresh?: boolean; kind?: string }
+
 export interface KitExport {
   files: KitFile[];
   hooks: number;
+  /** The hooks the site came in with (its parts' and their words'), every one written exactly as it was. */
+  kept: string[];
+  /** A part made in the Builder: the readable hook it was given, for the code to wire. */
+  fresh: { part: string; hook: string; label: string; page: string }[];
+  /** Hooks the site came in with that had to change: one used twice on a page. */
+  renamed: { was: string; now: string; page: string }[];
   pages: number;
   says: string;
 }
@@ -245,7 +257,24 @@ const declaredVars = (css: string) => new Set([...css.matchAll(/(?:^|[{;\s])(--[
 
 /* ------------------------------------------------------------------ HTML */
 
-interface Namer { used: Set<string>; parts: Record<string, { label?: string; hook?: string }> }
+/**
+ * THE NAMES. A hook the site came in with (`keep`: its parts' hooks, and the
+ * hooks on their words) is written exactly as it was, wherever it is; only
+ * one used twice on one page changes. Every name the export makes avoids
+ * them all, and is unique across the site.
+ */
+interface Namer {
+  used: Set<string>;
+  keep: Set<string>;
+  /** The hooks on the page being written. */
+  page: Set<string>;
+  /** The hooks already written inside the page as exported (a list, a field, a word): a part's own hook there is left to it, not given to the box round it too. */
+  present: Set<string>;
+  pageName: string;
+  parts: Record<string, KitPart>;
+  fresh: KitExport["fresh"];
+  renamed: KitExport["renamed"];
+}
 
 /** A unique, readable hook for an element. */
 function nameFor(n: Namer, tag: string, attrs: string, words: string, parent: string | null, page: string): string {
@@ -254,7 +283,19 @@ function nameFor(n: Namer, tag: string, attrs: string, words: string, parent: st
   const part = id ? n.parts[(id[1] ?? id[2])!] : undefined;
   const kind = KIND[tag] ?? (tag.includes("-") ? slugWords(tag, 2) : "area");
   if (tag === "body") return claim(n, `page-${page}`);
-  if (part?.hook && /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(part.hook) && !n.used.has(part.hook) && !part.hook.startsWith("template-")) return claim(n, part.hook);
+  if (part?.hook && /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(part.hook) && !part.hook.startsWith("template-") && !n.present.has(part.hook)) {
+    if (!n.page.has(part.hook)) { n.page.add(part.hook); n.used.add(part.hook); return part.hook; }
+    const now = claim(n, part.hook);
+    n.renamed.push({ was: part.hook, now, page: n.pageName });
+    return now;
+  }
+  /* A part made in the Builder: named for what it is called (its name, else what kind of part it is), with no kind on the end: chart-main. */
+  if (part?.fresh && id) {
+    const base = slugWords(part.label ?? "", 4) || slugWords(part.kind ?? "", 3) || "part";
+    const hook = claim(n, VAGUE.test(base) ? `${page}-${base}` : base);
+    n.fresh.push({ part: (id[1] ?? id[2])!, hook, label: part.label ?? "", page: n.pageName });
+    return hook;
+  }
   const label = part?.label && !/·|\binside\b/.test(part.label) ? part.label : "";
   const aria = attr("aria-label") ?? attr("alt") ?? attr("title") ?? attr("placeholder");
   const cls = attr("class");
@@ -268,8 +309,12 @@ function claim(n: Namer, want: string): string {
   let name = want.replace(/^-+|-+$/g, "") || "part";
   if (/^\d/.test(name)) name = `n${name}`;
   if (name.startsWith("template-")) name = `t-${name}`;
-  if (!n.used.has(name)) { n.used.add(name); return name; }
-  for (let k = 2; ; k++) if (!n.used.has(`${name}-${k}`)) { n.used.add(`${name}-${k}`); return `${name}-${k}`; }
+  const free = (x: string) => !n.used.has(x) && !n.keep.has(x) && !n.page.has(x);
+  let got = name;
+  for (let k = 2; !free(got); k++) got = `${name}-${k}`;
+  n.used.add(got);
+  n.page.add(got);
+  return got;
 }
 
 /** Its own words, else the first words inside it (a box named for what it holds), never past its own end. */
@@ -298,7 +343,7 @@ function pageForKit(html: string, file: string, slug: string, up: string, namer:
   const rules: string[] = [];
   const inlineCss: string[] = [];
   const scripts: KitFile[] = [];
-  const stack: { tag: string; hook: string | null }[] = [];
+  const stack: { tag: string; hook: string | null; as?: string }[] = [];
   let inBody = false;
   let hooks = 0;
   let lastSheetEnd = -1;
@@ -313,9 +358,10 @@ function pageForKit(html: string, file: string, slug: string, up: string, namer:
     const tag = m[1].toLowerCase();
     if (m[0].startsWith("</")) {
       const at = stack.map((e) => e.tag).lastIndexOf(tag);
+      const as = at >= 0 ? stack[at]!.as : undefined;
       if (at >= 0) stack.length = at;
       if (tag === "body") inBody = false;
-      out.push(m[0]);
+      out.push(as ? `</${as}>` : m[0]);
       continue;
     }
     let attrs = m[2] ?? "";
@@ -348,14 +394,23 @@ function pageForKit(html: string, file: string, slug: string, up: string, namer:
         const words = VOID.has(tag) ? "" : firstWords(html, tagRe.lastIndex);
         hook = nameFor(namer, tag, attrs, words, [...stack].reverse().find((e) => e.hook)?.hook ?? null, slug);
         attrs = `${attrs} data-hook="${hook}"`;
-      } else namer.used.add(hook);
+      } else if (!namer.page.has(hook)) { namer.page.add(hook); namer.used.add(hook); }
+      else {
+        /* The same hook twice on one page (the words of two parts that came in with one): the second is told apart. */
+        const was = hook;
+        hook = claim(namer, was);
+        namer.renamed.push({ was, now: hook, page: namer.pageName });
+        attrs = attrs.replace(/\sdata-hook\s*=\s*(?:"[^"]*"|'[^']*')/i, ` data-hook="${hook}"`);
+      }
       hooks++;
       if (style) {
         const decls = declsOut(decode((style[1] ?? style[2])!), tokens);
         if (decls.length) rules.push(`[data-hook="${hook}"] {\n  ${decls.join(";\n  ")};\n}`);
       }
-      out.push(`<${m[1]}${attrs}${m[3] ? " /" : ""}>`);
-      if (!VOID.has(tag) && !m[3]) stack.push({ tag, hook });
+      /* A part that came in as a page's <template> (its hook starts template-, as the code clones it by): a <template> again, with the hook it had. */
+      const as = hook.startsWith("template-") && tag !== "template" && !VOID.has(tag) && !m[3] ? "template" : undefined;
+      out.push(`<${as ?? m[1]}${attrs}${m[3] ? " /" : ""}>`);
+      if (!VOID.has(tag) && !m[3]) stack.push({ tag, hook, ...(as ? { as } : {}) });
       continue;
     }
     out.push(m[0]);
@@ -379,7 +434,10 @@ const HELPERS = { hook: 0, hooks: 0, fromTemplate: 0, part: 1 };
 
 export function toKit(input: KitExportInput): KitExport {
   const tokens = new Tokens();
-  const namer: Namer = { used: new Set(RESERVED), parts: input.parts ?? {} };
+  /* The hooks the site came in with: its parts', and those on the words inside them, already on the pages. */
+  const keep = new Set<string>(Object.values(input.parts ?? {}).map((p) => p.hook).filter((h): h is string => !!h));
+  for (const f of input.files) if (f.path.endsWith(".html") && f.encoding !== "base64") for (const m of f.content.matchAll(/\sdata-hook\s*=\s*"([^"]+)"/g)) keep.add(m[1]!);
+  const namer: Namer = { used: new Set(RESERVED), keep, page: new Set(), present: new Set(), pageName: "", parts: input.parts ?? {}, fresh: [], renamed: [] };
   const files: KitFile[] = [];
   const base: string[] = [];
   const pageSet = new Set(input.pages.map((p) => p.file));
@@ -398,6 +456,9 @@ export function toKit(input: KitExportInput): KitExport {
     let slug = slugWords(f.path.replace(/(^|\/)index\.html$/, "$1").replace(/\.html$/, "").replace(/\//g, " ") || "home", 4) || "home";
     for (let k = 2; screenNames.has(slug); k++) slug = `${slug.replace(/-\d+$/, "")}-${k}`;
     screenNames.add(slug);
+    namer.page = new Set();
+    namer.present = new Set([...f.content.matchAll(/\sdata-hook\s*=\s*"([^"]+)"/g)].map((m) => m[1]!));
+    namer.pageName = `${ROOT}${f.path}`;
     const page = pageForKit(f.content, f.path, slug, up, namer, tokens);
     hooks += page.hooks;
     for (const css of page.inlineCss) base.push(`/* From ${f.path}'s own style block. */\n${cssForKit(css, tokens)}`);
@@ -436,15 +497,17 @@ ${inside}
 </body>
 </html>
 `;
+  /* The kit's own preview and gallery name their parts with the hooks it reserves; where the site came in with one of those names (PonsStars' page-title), the site keeps it and the kit's page takes kit-<name>, in its page and its script alike. */
+  const kitHooks = (text: string) => text.replace(new RegExp(`(["'])(template-)?(${RESERVED.join("|")})\\1`, "g"), (all, q: string, t: string | undefined, h: string) => (keep.has(`${t ?? ""}${h}`) ? `${q}${t ?? ""}kit-${h}${q}` : all));
   files.push(
     { path: `${ROOT}tokens.css`, content: tokensCss },
     { path: `${ROOT}base.css`, content: `/* What the pages need to look as the Builder drew them: their own style blocks, then each element's own look keyed by its hook.\n   Made by the Builder's Export for code; a code chat may change it. The design goes in style-layer.css, which loads after it. */\n\n${base.join("\n\n")}\n` },
     { path: `${ROOT}style-layer.css`, content: "" },
     { path: `${ROOT}js/hooks.js`, content: KIT_FILES["starter/js/hooks.js"]! },
-    { path: `${ROOT}js/preview.js`, content: KIT_FILES["starter/js/preview.js"]! },
+    { path: `${ROOT}js/preview.js`, content: kitHooks(KIT_FILES["starter/js/preview.js"]!) },
     {
       path: `${ROOT}preview.html`,
-      content: layout("Preview", "page-preview", `<main data-hook="page-main">
+      content: kitHooks(layout("Preview", "page-preview", `<main data-hook="page-main">
   <h1 data-hook="page-title">Preview</h1>
   <p data-hook="page-intro">Every screen from builder.json, frozen with ?still=1.</p>
   <div data-hook="preview-screens"></div>
@@ -454,14 +517,14 @@ ${inside}
       <figcaption data-hook="preview-caption">screen</figcaption>
     </figure>
   </template>
-</main>`, "js/preview.js"),
+</main>`, "js/preview.js")),
     },
     {
       path: `${ROOT}gallery.html`,
-      content: layout("Gallery", "page-gallery", `<main data-hook="page-main">
+      content: kitHooks(layout("Gallery", "page-gallery", `<main data-hook="page-main">
   <h1 data-hook="page-title">Gallery</h1>
   <p data-hook="page-intro">Every reusable part on one page, so one style can be judged everywhere at once. The Builder's export starts it empty: add the site's buttons, fields and cards here, with the same hooks as the pages.</p>
-</main>`),
+</main>`)),
     },
   );
   const slugName = slugWords(input.name, 6) || "site";
@@ -496,7 +559,10 @@ ${inside}
     ...["BUILDER-CONTRACT.md", "PIPELINE.md", "AGENTS.md", "CLAUDE.md", "RETROFIT.md", "tools/kit-check.mjs", "tools/kit-diff.mjs", ".github/workflows/kit-check.yml"].map((p) => ({ path: p, content: KIT_FILES[p]! })),
   );
   const says = `Export for code: ${input.pages.length} page${input.pages.length === 1 ? "" : "s"}, ${hooks} elements each with a data-hook, ${tokens.decls.length} tokens in site/tokens.css, an empty style layer, builder.json with ${screens.length} preview screen${screens.length === 1 ? "" : "s"}, and the kit's check, contract and CI.`;
-  return { files, hooks, pages: input.pages.length, says };
+  /* Every hook it came in with that is on a page as written. */
+  const written = new Set(files.filter((f) => f.path.endsWith(".html") && f.encoding !== "base64").flatMap((f) => [...f.content.matchAll(/\sdata-hook="([^"]+)"/g)].map((m) => m[1]!)));
+  const kept = [...keep].filter((h) => written.has(h)).sort();
+  return { files, hooks, pages: input.pages.length, says, kept, fresh: namer.fresh, renamed: namer.renamed };
 }
 
 /**
