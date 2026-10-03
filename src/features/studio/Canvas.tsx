@@ -2962,7 +2962,13 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
            trumpmorty.fun's roadmap cards) is drawn whole where it moved, as
            Preview and the export draw it; clipped here it lost its lower 22px
            (`tests/board-turned.mjs`). */
-        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : "overflow-hidden")}
+        /* Nor is a line of words the document holds on one line (`Prose`,
+           `data-one-line`): set in another machine's font it can need more
+           than the width the capture measured, and cut here it lost its end
+           (PST's title, "PonsStars test pag": 334px of words in 314).
+           Drawn whole, as the page and the Preview draw it
+           (`tests/tv-import.mjs`, 7). */
+        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : "overflow-hidden has-[[data-one-line]]:overflow-visible")}
         data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}

@@ -151,7 +151,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
      * it.
      */
     /* Centred by its own box (a grid's `place-items: center`, `applyLayout`): the words sit in the middle, down and across, with no inset to move them off it. */
-    <Fill t={t} data-part={id} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
+    <Fill t={t} data-part={id} data-one-line={oneLine ? "" : undefined} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
