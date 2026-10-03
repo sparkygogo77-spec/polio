@@ -33,7 +33,7 @@ import { siteLogo } from "./siteMark";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette, useShelfFolded, useShelfOpen, useShelfTall } from "./Palette";
+import { Palette, useShelfFolded, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
@@ -1145,7 +1145,6 @@ export function StudioPage() {
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
-  const shelfOpen = useShelfOpen();
   const shelfTall = useShelfTall();
   const shelfFolded = useShelfFolded();
   const design = mode === "design";
@@ -1646,7 +1645,8 @@ export function StudioPage() {
                   className="relative z-10 w-full shrink-0 border-t border-border bg-bg"
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
-                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
+                  /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
+                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
                   <Palette />
                 </div>
