@@ -248,8 +248,9 @@ await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 await page.mouse.move(2, 2);
 const zoomNow = () => page.evaluate(() => document.querySelector("[data-frame]").getBoundingClientRect().width / 1440);
-for (let i = 0, z = await zoomNow(); i < 4 && Math.abs(z - 1) >= 0.002; i++, z = await zoomNow()) {
-  await page.setViewportSize({ width: 2200, height: Math.round(page.viewportSize().height - (z - 1) * 900) });
+/* The board fits the page's width (44d7448), so the window's width is what brings the drawn frame to 1440. */
+for (let i = 0, z = await zoomNow(); i < 6 && Math.abs(z - 1) >= 0.002; i++, z = await zoomNow()) {
+  await page.setViewportSize({ width: Math.round(page.viewportSize().width - (z - 1) * 1440), height: 900 });
   await page.waitForTimeout(900);
 }
 await page.evaluate((id) => document.querySelector(`[data-node-id="${id}"]`)?.scrollIntoView({ block: "center" }), RIBBONS[0].row);
