@@ -193,7 +193,15 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const pad = { top: s.pad[0], right: s.pad[1], bottom: s.pad[2], left: s.pad[3] };
     const padded = s.pad.some((v) => v > 0);
     const edgeStyle = s.border ? (/^(solid|dashed|dotted|double)$/.test(s.border.style) ? s.border.style : "solid") : null;
-    const edge = s.border ? { width: s.border.w, style: edgeStyle, colour: s.border.colour } : null;
+    /* A shadow is drawn round the box with or without an edge (the TV body's offset ink shadow). */
+    const edge = s.border ? { width: s.border.w, style: edgeStyle, colour: s.border.colour, ...(s.shadow ? { shadow: s.shadow } : {}) } : s.shadow ? { width: 0, style: "none", shadow: s.shadow } : null;
+    /* What paints it besides one colour (a gradient, layers of them, a data: picture) and what turns it, drawn by the box wrapper as written (`parts/theme.ts#boxStyle`). */
+    const art = {
+      ...(s.image ? { background: s.image, ...(s.imageOptions ? { backgroundOptions: s.imageOptions } : {}), ...(s.imageClip ? { backgroundClip: s.imageClip } : {}) } : {}),
+      ...(p.turn ? { transform: p.turn } : {}),
+      ...(s.filter ? { filter: s.filter } : {}),
+    };
+    const host = p.pseudo ? (p.pseudo.host["data-hook"] ? `data-hook “${p.pseudo.host["data-hook"]}”` : p.pseudo.host.id ? `#${p.pseudo.host.id}` : "its element") : "";
     const align = /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;
     const transform = /^(uppercase|lowercase|capitalize)$/.test(s.transform) ? { transform: s.transform } : null;
     const text = align || transform ? { ...(align ?? {}), ...(transform ?? {}) } : null;
@@ -201,13 +209,13 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const content = p.kind === "link"
       ? (p.words ? [{ text: p.words, ...(linkTo ? { link: linkTo } : {}) }] : "")
       : p.kind === "section" || p.kind === "slot" || p.kind === "picture" || (p.kind === "shape" && !p.words) ? "" : spansFrom(p.runs, p.words, link);
-    const what = p.kind === "section" ? `${p.tag} section` : p.kind === "slot" ? `empty ${p.tag} its code fills` : p.kind === "field" ? `${p.control?.type ?? "text"} field${p.label ? `, “${p.label}”` : ""}` : p.kind === "check" ? `${p.control?.type ?? "checkbox"}${p.words ? `, “${p.words}”` : ""}` : `${p.tag}${p.words ? `, “${p.words.slice(0, 60)}”` : ""}`;
+    const what = p.pseudo ? `the ${p.pseudo.which} of ${host}, which draws${p.words ? ` “${p.words.slice(0, 60)}”` : " a shape"}` : p.kind === "section" ? `${p.tag} section` : p.kind === "slot" ? `empty ${p.tag} its code fills` : p.kind === "field" ? `${p.control?.type ?? "text"} field${p.label ? `, “${p.label}”` : ""}` : p.kind === "check" ? `${p.control?.type ?? "checkbox"}${p.words ? `, “${p.words}”` : ""}` : `${p.tag}${p.words ? `, “${p.words.slice(0, 60)}”` : ""}`;
     const hookSays = p.hooks["data-hook"] ? ` Its code finds it as data-hook “${p.hooks["data-hook"]}”.` : p.hooks.id ? ` Its code finds it as #${p.hooks.id}.` : "";
     const node: Record<string, unknown> = {
       id,
       pageId,
       featureId,
-      label: p.kind === "section" || p.kind === "slot" ? (p.hooks["data-hook"] || p.hooks.id || p.tag) : (p.words || p.label || p.hooks["data-hook"] || p.tag).slice(0, 80),
+      label: p.pseudo ? `${p.pseudo.host["data-hook"] || p.pseudo.host.id || "part"}${p.pseudo.which}` : p.kind === "section" || p.kind === "slot" ? (p.hooks["data-hook"] || p.hooks.id || p.tag) : (p.words || p.label || p.hooks["data-hook"] || p.tag).slice(0, 80),
       prompt: `Read from ${fr.file} as ${p.selector}: ${what}. The box, the words, the colours and the type are the ones the browser drew${p.hidden ? `; hidden as the page opens (${p.hidden})` : ""}.${hookSays}`,
       content,
       data: p.kind === "field" || p.kind === "check" || p.kind === "button" ? what : "",
@@ -237,6 +245,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(p.hidden ? { state: { group: `hidden:${p.hidden}`, option: 1 } } : {}),
       ...(padded ? { pad } : {}),
       ...(edge ? { edge } : {}),
+      ...(Object.keys(art).length ? { art } : {}),
       ...(s.radius > 0 ? { radius: s.radius } : {}),
       /* Rounded to half its side, a square picture is a circle, and is drawn as one at any size. */
       ...(p.kind === "picture" && p.box.w === p.box.h && s.radius * 2 >= p.box.w ? { shape: "circle" } : {}),
@@ -251,7 +260,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const code = codeOf(p, fr.file, index);
     /* Words its code writes are not static, whatever the HTML holds. */
     const written = !!code.built;
-    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" ? { svg: true } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
+    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" && !p.pseudo ? { svg: true } : {}), ...(p.pseudo ? { pseudo: p.pseudo.which } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
     out.push(node);
   });
   /* What holds what is read off the paths, as a capture's is (`partTree.ts`): each part's continues its section's. */

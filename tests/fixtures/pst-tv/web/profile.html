@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars player profile</title>
+<!-- Plain page. Every element carries a data-hook (web/HOOKS.md, web/hooks.json); restyle freely, keep the hooks. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="profile-page">
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/leaderboard.html" data-hook="nav-leaderboard">Leaderboard</a>
+    <a href="/#how-it-works" data-hook="nav-how-it-works">How it works</a>
+  </span>
+</nav>
+<h1 data-hook="page-title">Player profile</h1>
+<p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+<form data-hook="profile-lookup">
+  <label data-hook="profile-lookup-label">Wallet address <input type="text" size="48" data-hook="profile-lookup-address"></label>
+  <button type="submit" data-hook="profile-lookup-go">Show</button>
+</form>
+<p data-hook="profile-error"></p>
+<section data-hook="profile-card" hidden>
+  <img data-hook="profile-card-picture" alt="Player picture" width="96" height="96" hidden>
+  <h2 data-hook="profile-card-name">-</h2>
+  <p data-hook="profile-card-wallet">Wallet: <code data-hook="profile-card-address">-</code></p>
+  <h3 data-hook="stat-title">Practice matches (not counted as real wins)</h3>
+  <p data-hook="stat-line">Matches <span data-hook="stat-matches">0</span>, wins <span data-hook="stat-wins">0</span>,
+     losses <span data-hook="stat-losses">0</span>, ties <span data-hook="stat-ties">0</span>,
+     no contest <span data-hook="stat-nocontest">0</span>, best round <span data-hook="stat-best">-</span>%,
+     profit and loss <span data-hook="stat-profit">0</span> SOL.</p>
+  <h3 data-hook="live-stat-title">Live matches only</h3>
+  <p data-hook="live-stat-line">Matches <span data-hook="live-stat-matches">0</span>, wins <span data-hook="live-stat-wins">0</span>,
+     losses <span data-hook="live-stat-losses">0</span>, ties <span data-hook="live-stat-ties">0</span>,
+     profit and loss <span data-hook="live-stat-profit">0</span> SOL.</p>
+  <h3 data-hook="history-title">Match history</h3>
+  <table data-hook="history-table">
+    <thead data-hook="history-head"><tr data-hook="history-head-row"><th data-hook="history-head-when">When</th><th data-hook="history-head-result">Result</th><th data-hook="history-head-why">Why</th><th data-hook="history-head-opponent">Opponent</th><th data-hook="history-head-stake">Stake</th><th data-hook="history-head-best">Best round</th><th data-hook="history-head-profit">Profit and loss</th><th data-hook="history-head-practice">Practice</th><th data-hook="history-head-page">Result page</th></tr></thead>
+    <tbody data-hook="history-rows"></tbody>
+  </table>
+  <p data-hook="history-empty" hidden>No finished matches yet.</p>
+</section>
+<!-- One match in the history: the script copies this for each match and fills the parts by hook. -->
+<template data-hook="template-history-row">
+  <tr data-hook="history-row"><td data-hook="history-when"></td><td data-hook="history-result"></td><td data-hook="history-why"></td><td data-hook="history-opponent"><a data-hook="history-opponent-link" href="#"></a></td><td data-hook="history-stake"></td><td data-hook="history-best"></td><td data-hook="history-profit"></td><td data-hook="history-practice"></td><td data-hook="history-page"><a data-hook="history-link" href="#">check it</a></td></tr>
+</template>
+<script type="module" src="profile.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

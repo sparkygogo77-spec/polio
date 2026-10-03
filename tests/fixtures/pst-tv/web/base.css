@@ -1,0 +1,202 @@
+/*
+  PonsStars base styles: only what the pages need to work. Every value comes from a variable in
+  web/tokens.css (loaded first); every page loads web/style-layer.css last,
+  so the design's style layer wins over everything here. Rules are keyed by data-hook (web/HOOKS.md,
+  web/hooks.json); the scripts never read classes, so classes are free for the design.
+*/
+
+/* A part the script hides stays hidden, whatever display value the design gives it. */
+[hidden] { display: none !important; }
+
+/* The page itself. */
+body { margin: var(--pons-page-gutter); background: var(--pons-color-page); color: var(--pons-color-text);
+  font-family: var(--pons-font-body); font-size: var(--pons-font-size); line-height: var(--pons-line-height); }
+code, pre { font-family: var(--pons-font-mono); }
+[data-hook="server-offline"] { color: var(--pons-color-warning); }
+
+/* ---------- play page: the chart stage (scoreboard, the chart TV, trade buttons), always on screen ---------- */
+[data-hook="chart-row"] { display: flex; flex-wrap: wrap; gap: var(--pons-space-4); align-items: flex-start; justify-content: center; }
+[data-hook="scoreboard"] { flex: 0 0 var(--pons-size-scoreboard); }
+[data-hook="scoreboard"] p { margin: var(--pons-space-2) 0; }
+[data-hook="trade-panel"] { flex: 0 0 var(--pons-size-trade-panel); max-width: 100%; }
+[data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { white-space: nowrap; }
+
+/* The chart TV (the Trorty TV from trumpmorty.fun). The chart draws only inside the screen and is
+   clipped to it; the script keeps it the screen's size (a ResizeObserver on chart-tv-screen).
+   `data-state` on chart-tv: offline (static and the loading bar), idle (the sample chart),
+   match or result. */
+[data-hook="chart-tv"] { flex: 1 1 var(--pons-size-chart-min); max-width: var(--pons-size-tv-max); min-width: 0; position: relative;
+  padding-top: calc(var(--pons-tv-antenna-length) * 0.6); box-sizing: border-box; }
+[data-hook="chart-tv-antenna"] { position: absolute; left: 50%; top: 0; width: 0; height: calc(var(--pons-tv-antenna-length) * 0.6); }
+[data-hook="chart-tv-antenna-left"], [data-hook="chart-tv-antenna-right"] { position: absolute; bottom: calc(var(--pons-tv-antenna-length) * -0.4);
+  left: calc(var(--pons-tv-antenna-width) / -2); width: var(--pons-tv-antenna-width); height: var(--pons-tv-antenna-length);
+  background: var(--pons-tv-ink); border-radius: var(--pons-tv-antenna-width); transform-origin: 50% 100%; }
+[data-hook="chart-tv-antenna-left"] { transform: rotate(var(--pons-tv-antenna-left)); animation: pons-tv-antenna-left var(--pons-duration-tv-antenna) ease-in-out infinite; }
+[data-hook="chart-tv-antenna-right"] { transform: rotate(var(--pons-tv-antenna-right)); animation: pons-tv-antenna-right var(--pons-duration-tv-antenna) ease-in-out infinite; }
+[data-hook="chart-tv-antenna-left"]::after, [data-hook="chart-tv-antenna-right"]::after { content: ""; position: absolute; box-sizing: border-box;
+  left: calc((var(--pons-tv-antenna-ball) - var(--pons-tv-antenna-width)) / -2); top: calc(var(--pons-tv-antenna-ball) / -2);
+  width: var(--pons-tv-antenna-ball); height: var(--pons-tv-antenna-ball); border-radius: var(--pons-radius-round);
+  background: var(--pons-tv-antenna-tip); border: var(--pons-border-thick) solid var(--pons-tv-ink); }
+@keyframes pons-tv-antenna-left { 50% { transform: rotate(calc(var(--pons-tv-antenna-left) + var(--pons-tv-antenna-swing))); } }
+@keyframes pons-tv-antenna-right { 50% { transform: rotate(calc(var(--pons-tv-antenna-right) + var(--pons-tv-antenna-swing))); } }
+[data-hook="chart-tv-body"] { position: relative; z-index: 1; display: flex; gap: var(--pons-tv-gap); padding: var(--pons-tv-padding);
+  background: linear-gradient(var(--pons-tv-body-angle), var(--pons-tv-body-light), var(--pons-tv-body-mid) 55%, var(--pons-tv-body-dark));
+  border: var(--pons-tv-border) solid var(--pons-tv-ink); border-radius: var(--pons-tv-radius); box-shadow: var(--pons-tv-shadow); }
+[data-hook="chart-tv-frame"] { flex: 1 1 auto; min-width: 0; background: var(--pons-tv-screen); border: var(--pons-tv-border) solid var(--pons-tv-ink);
+  border-radius: var(--pons-tv-screen-radius); overflow: hidden; box-shadow: var(--pons-tv-screen-shadow); }
+[data-hook="chart-tv-screen"] { position: relative; height: var(--pons-size-chart-height); overflow: hidden; border-radius: var(--pons-tv-screen-radius);
+  background: var(--pons-tv-screen); color: var(--pons-tv-channel); font-family: var(--pons-tv-font); }
+[data-hook="chart"] { position: absolute; inset: 0; overflow: hidden; }
+/* The layers over the chart: scanlines, glare and vignette (never catch the pointer), then the words. */
+[data-hook="chart-tv-static"], [data-hook="chart-tv-scanlines"], [data-hook="chart-tv-vignette"] { position: absolute; inset: 0; pointer-events: none; }
+[data-hook="chart-tv-scanlines"] { z-index: 5; background: repeating-linear-gradient(0deg, var(--pons-tv-scanline) 0, var(--pons-tv-scanline) var(--pons-tv-scanline-size),
+  transparent var(--pons-tv-scanline-size), transparent calc(var(--pons-tv-scanline-size) * 2)); }
+[data-hook="chart-tv-vignette"] { z-index: 6; background: radial-gradient(at 25% 15%, var(--pons-tv-glare), transparent 45%), radial-gradient(transparent 60%, var(--pons-tv-vignette)); }
+/* TV static: shown only while the game server is offline or connecting. */
+[data-hook="chart-tv-static"] { z-index: 7; display: none; background: var(--pons-tv-static-noise) var(--pons-tv-static-dark);
+  background-size: var(--pons-tv-static-tile) var(--pons-tv-static-tile); filter: contrast(var(--pons-tv-static-contrast));
+  animation: pons-tv-static var(--pons-duration-tv-static) steps(1) infinite; }
+@keyframes pons-tv-static {
+  0% { background-position: 0 0; }
+  20% { background-position: 37% 61%; }
+  40% { background-position: 71% 19%; }
+  60% { background-position: 12% 88%; }
+  80% { background-position: 93% 44%; }
+}
+[data-hook="chart-tv"][data-state="offline"] [data-hook="chart-tv-static"] { display: block; }
+/* The channel label, top left: CH 47 and what is on (OFF AIR, SAMPLE, LIVE, FINAL). */
+[data-hook="chart-tv-channel"] { position: absolute; z-index: 9; top: var(--pons-space-4); left: var(--pons-space-5); margin: 0; pointer-events: none;
+  font: var(--pons-tv-font-size)/1 var(--pons-tv-font); color: var(--pons-tv-channel); text-shadow: var(--pons-tv-channel-glow); }
+[data-hook="chart-tv-channel-state"] { font-weight: normal; margin-left: var(--pons-space-3); }
+[data-hook="chart-tv"][data-state="match"] [data-hook="chart-tv-channel-state"] { color: var(--pons-tv-live); animation: pons-tv-blink var(--pons-duration-tv-blink) steps(1) infinite; }
+@keyframes pons-tv-blink { 50% { opacity: 0; } }
+/* The duel circles, in the screen's corner during a match. */
+[data-hook="duel"] { position: absolute; z-index: 4; left: var(--pons-space-4); top: calc(var(--pons-space-5) * 3); width: var(--pons-tv-duel-size); height: var(--pons-tv-duel-size); pointer-events: none; }
+/* The words on the screen, one overlay per state (the script shows the one for the state). */
+[data-hook="chart-tv-loading"], [data-hook="chart-tv-idle"], [data-hook="chart-tv-result"] { position: absolute; z-index: 8; left: 50%; transform: translateX(-50%);
+  width: min(var(--pons-size-tour-card), calc(100% - 2 * var(--pons-space-5))); box-sizing: border-box; padding: var(--pons-space-4) var(--pons-space-5);
+  background: var(--pons-tv-overlay); border-radius: var(--pons-radius-large); text-align: center; color: var(--pons-tv-channel); text-shadow: var(--pons-tv-channel-glow); }
+[data-hook="chart-tv-loading"] { top: 50%; transform: translate(-50%, -50%); }
+[data-hook="chart-tv-idle"], [data-hook="chart-tv-result"] { bottom: calc(var(--pons-space-5) * 2); }
+[data-hook="chart-tv-loading"] p, [data-hook="chart-tv-idle"] p, [data-hook="chart-tv-result"] p { margin: var(--pons-space-2) 0; }
+[data-hook="chart-tv-loading-title"], [data-hook="chart-tv-idle-title"], [data-hook="chart-tv-result-headline"] { font-size: var(--pons-tv-font-size); }
+[data-hook="chart-tv-loading-bar"] { height: var(--pons-tv-bar-height); margin: var(--pons-space-3) 0; background: var(--pons-tv-bar-track); border-radius: var(--pons-tv-bar-height); overflow: hidden; }
+[data-hook="chart-tv-loading-fill"] { --pons-tv-progress: 0; height: 100%; width: calc(var(--pons-tv-progress) * 100%); background: var(--pons-tv-bar-fill);
+  transition: width var(--pons-duration-tv-bar) linear; }
+[data-hook="chart-tv-loading-steps"] { overflow-wrap: normal; display: flex; justify-content: space-between; gap: var(--pons-space-3); list-style: none; margin: 0; padding: 0; }
+[data-hook="chart-tv-loading-steps"] > * { color: var(--pons-tv-step-todo); text-shadow: none; }
+[data-hook="chart-tv-loading-steps"] > [data-done="true"], [data-hook="chart-tv-loading-steps"] > [data-current="true"] { color: var(--pons-tv-step-done); text-shadow: var(--pons-tv-channel-glow); }
+[data-hook="chart-tv-idle-button"] { font: inherit; font-size: var(--pons-font-size-large); margin-top: var(--pons-space-2); padding: var(--pons-space-2) var(--pons-space-5);
+  background: var(--pons-tv-button); color: var(--pons-tv-button-text); border: var(--pons-border-thick) solid var(--pons-tv-ink);
+  border-radius: var(--pons-radius-large); box-shadow: var(--pons-tv-knob-shadow); cursor: pointer; text-shadow: none; }
+[data-hook="chart-tv-idle-button"]:active { transform: translate(var(--pons-space-1), var(--pons-space-1)); box-shadow: none; }
+[data-hook="chart-tv-match"] { position: absolute; z-index: 8; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+[data-hook="start-countdown"] { margin: 0; padding: var(--pons-space-3) var(--pons-space-5); background: var(--pons-tv-overlay); border-radius: var(--pons-radius-large);
+  font: var(--pons-tv-font-size)/1.2 var(--pons-tv-font); color: var(--pons-tv-channel); text-shadow: var(--pons-tv-channel-glow); }
+[data-hook="start-countdown"]:empty { display: none; }
+/* The side panel: two knobs, the LED (its colour says the state), the speaker grille. */
+[data-hook="chart-tv-panel"] { flex: 0 0 var(--pons-tv-panel-width); display: flex; flex-direction: column; align-items: center; gap: var(--pons-space-4); padding-top: var(--pons-space-3); }
+[data-hook="chart-tv-knob-channel"], [data-hook="chart-tv-knob-volume"] { position: relative; box-sizing: border-box; width: var(--pons-tv-knob-size); height: var(--pons-tv-knob-size);
+  border-radius: var(--pons-radius-round); border: var(--pons-tv-border) solid var(--pons-tv-ink); box-shadow: var(--pons-tv-knob-shadow);
+  background: radial-gradient(circle at 35% 35%, var(--pons-tv-knob-light), var(--pons-tv-knob-mid) 45%, var(--pons-tv-knob-dark)); }
+[data-hook="chart-tv-knob-channel"]::after, [data-hook="chart-tv-knob-volume"]::after { content: ""; position: absolute; left: 50%; top: var(--pons-space-1);
+  width: var(--pons-space-2); height: calc(var(--pons-tv-knob-size) / 3.3); transform: translateX(-50%); background: var(--pons-tv-ink); border-radius: var(--pons-radius-small); }
+[data-hook="chart-tv-knob-volume"]::after { transform: translateX(-50%) rotate(40deg); transform-origin: 50% 150%; }
+[data-hook="chart-tv-led"] { width: var(--pons-tv-led-size); height: var(--pons-tv-led-size); border-radius: var(--pons-radius-round);
+  border: var(--pons-border-thick) solid var(--pons-tv-ink); background: var(--pons-tv-led-offline); box-shadow: 0 0 var(--pons-space-3) var(--pons-tv-led-offline); }
+[data-hook="chart-tv"][data-state="offline"] [data-hook="chart-tv-led"] { animation: pons-tv-blink var(--pons-duration-tv-blink) steps(1) infinite; }
+[data-hook="chart-tv"][data-state="idle"] [data-hook="chart-tv-led"] { background: var(--pons-tv-led-idle); box-shadow: 0 0 var(--pons-space-3) var(--pons-tv-led-idle); }
+[data-hook="chart-tv"][data-state="match"] [data-hook="chart-tv-led"] { background: var(--pons-tv-led-match); box-shadow: 0 0 var(--pons-space-3) var(--pons-tv-led-match); }
+[data-hook="chart-tv"][data-state="result"] [data-hook="chart-tv-led"] { background: var(--pons-tv-led-result); box-shadow: 0 0 var(--pons-space-3) var(--pons-tv-led-result); }
+[data-hook="chart-tv-speaker"] { width: calc(var(--pons-tv-knob-size) - var(--pons-space-2)); height: calc(var(--pons-tv-knob-size) * 1.1); opacity: 0.75;
+  background: repeating-linear-gradient(180deg, var(--pons-tv-ink) 0, var(--pons-tv-ink) var(--pons-space-2), transparent var(--pons-space-2), transparent calc(var(--pons-space-2) * 2 + var(--pons-space-1))); }
+[data-hook="chart-tv-feet"] { display: flex; justify-content: space-between; padding: 0 var(--pons-tv-foot-inset); }
+[data-hook="chart-tv-foot-left"], [data-hook="chart-tv-foot-right"] { width: var(--pons-tv-foot-width); height: var(--pons-tv-foot-height); background: var(--pons-tv-ink);
+  border-radius: 0 0 var(--pons-radius-large) var(--pons-radius-large); transform: skewX(12deg); }
+[data-hook="chart-tv-foot-right"] { transform: skewX(-12deg); }
+
+/* Duel circles: colours here; sizes from the variables above (the script sets each radius). */
+[data-hook="duel-svg"] { width: 100%; height: 100%; }
+[data-hook="duel-circle-me"] { fill: var(--pons-duel-me); stroke: var(--pons-duel-me); }
+[data-hook="duel-circle-opponent"] { fill: var(--pons-duel-opponent); stroke: var(--pons-duel-opponent); }
+[data-hook="duel-circle-me"], [data-hook="duel-circle-opponent"] { r: var(--pons-duel-r); fill-opacity: 0.4; stroke-width: var(--pons-border-thick); transition: r var(--pons-duration-duel) ease-out; }
+[data-hook="score-you"][data-sign="gain"] [data-hook="score-you-pct"],
+[data-hook="score-them"][data-sign="gain"] [data-hook="score-them-pct"] { color: var(--pons-gain); }
+[data-hook="score-you"][data-sign="loss"] [data-hook="score-you-pct"],
+[data-hook="score-them"][data-sign="loss"] [data-hook="score-them-pct"] { color: var(--pons-loss); }
+[data-hook="score-lead"] { font-weight: var(--pons-font-weight-strong); color: var(--pons-level); }
+[data-hook="score-lead"][data-state="winning"] { color: var(--pons-gain); }
+[data-hook="score-lead"][data-state="losing"] { color: var(--pons-loss); }
+
+/* Trade markers: a layer over the chart; the script sets only each marker's left and top. */
+[data-hook="trade-pictures"] { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+[data-hook="trade-marker"] { --pons-marker-left: 0; --pons-marker-top: 0; left: var(--pons-marker-left); top: var(--pons-marker-top); position: absolute; width: calc(var(--pons-marker-size) * 1px); height: calc(var(--pons-marker-size) * 1px); }
+[data-hook="trade-picture"] { display: block; width: 100%; height: 100%; border-radius: var(--pons-radius-round); box-sizing: border-box;
+  border: var(--pons-border-thick) solid var(--pons-ring-opponent); background: var(--pons-color-surface); object-fit: cover; }
+[data-hook="trade-picture"][data-mine="true"] { border-color: var(--pons-ring-me); }
+[data-hook="trade-marker-label"] { position: absolute; top: var(--pons-border-thick); white-space: nowrap; font: var(--pons-font-size-small)/var(--pons-line-height-small) var(--pons-font-body);
+  padding: 0 var(--pons-space-2); background: var(--pons-color-label-background); border: var(--pons-border-thin) solid currentColor; border-radius: var(--pons-radius-small); }
+[data-hook="trade-marker"][data-side="buy"] [data-hook="trade-marker-label"] { color: var(--pons-buy); }
+[data-hook="trade-marker"][data-side="sell"] [data-hook="trade-marker-label"] { color: var(--pons-sell); }
+[data-hook="trade-marker"][data-label-side="right"] [data-hook="trade-marker-label"] { left: calc(var(--pons-marker-size) * 1px + var(--pons-space-2)); }
+[data-hook="trade-marker"][data-label-side="left"] [data-hook="trade-marker-label"] { right: calc(var(--pons-marker-size) * 1px + var(--pons-space-2)); }
+
+/* ---------- play page: the one obvious next step ---------- */
+[data-hook="next-step"] { border: var(--pons-border) solid var(--pons-color-accent); border-radius: var(--pons-radius); padding: var(--pons-space-3) var(--pons-space-4);
+  margin: var(--pons-space-3) 0; max-width: var(--pons-size-next-step); box-sizing: border-box; }
+[data-hook="next-step-button"] { font-size: var(--pons-font-size-large); padding: var(--pons-space-2) var(--pons-space-4); }
+[data-hook="profile-picture-preview"] { border-radius: var(--pons-radius-round); }
+[data-hook="profile-avatars"] [aria-pressed="true"], [data-hook="profile-avatar-generated"][aria-pressed="true"] { outline: var(--pons-border-thick) solid var(--pons-color-accent); }
+
+/* ---------- play page: the intro tour (it sits above the page and points at parts of it) ---------- */
+[data-hook="tour"] { position: fixed; inset: 0; z-index: 1000; }
+[data-hook="tour"]:not([data-highlight]), [data-hook="tour"][data-highlight=""] { background: var(--pons-color-overlay); }
+[data-hook="tour-highlight"] { --pons-tour-box-top: 0; --pons-tour-box-left: 0; --pons-tour-box-width: 0; --pons-tour-box-height: 0;
+  top: var(--pons-tour-box-top); left: var(--pons-tour-box-left); width: var(--pons-tour-box-width); height: var(--pons-tour-box-height); position: fixed; box-sizing: border-box; border: var(--pons-border-thick) solid var(--pons-color-accent); border-radius: var(--pons-radius);
+  box-shadow: var(--pons-shadow-spotlight); pointer-events: none; }
+[data-hook="tour-card"] { position: fixed; left: 50%; transform: translateX(-50%); width: min(var(--pons-size-tour-card), calc(100% - 2 * var(--pons-space-5)));
+  box-sizing: border-box; background: var(--pons-color-surface); color: var(--pons-color-text); padding: var(--pons-space-5);
+  border-radius: var(--pons-radius-large); box-shadow: var(--pons-shadow-card); }
+[data-hook="tour-card"][data-place="bottom"] { bottom: var(--pons-space-5); }
+[data-hook="tour-card"][data-place="top"] { top: var(--pons-space-5); }
+[data-hook="tour-card"][data-place="center"] { top: 50%; transform: translate(-50%, -50%); }
+[data-hook="tour-dots"] > * { border: 0; background: none; font-size: var(--pons-font-size-dots); color: var(--pons-color-faint); cursor: pointer; padding: 0 var(--pons-space-1); }
+[data-hook="tour-dots"] > [data-current="true"] { color: var(--pons-color-accent); }
+
+/* ---------- chart library page ---------- */
+[data-hook="lib-chart"] { height: var(--pons-size-library-chart-height); max-width: var(--pons-size-library-chart-max); }
+[data-hook="lib-start"] { width: var(--pons-size-library-start); max-width: 100%; }
+
+/* ---------- every page: navigation, and the phone menu below 600px wide ---------- */
+[data-hook="nav"] { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pons-space-3); }
+[data-hook="nav-links"] { display: flex; flex-wrap: wrap; gap: var(--pons-space-4); }
+[data-hook="nav-menu"] { display: none; }
+[data-hook="network-banner"] { background: var(--pons-color-banner); color: var(--pons-color-banner-text);
+  padding: var(--pons-space-3) var(--pons-space-4); border-radius: var(--pons-radius); }
+
+/* ---------- phone width: nothing wider than the screen ---------- */
+img, svg, canvas, iframe, video, table, pre, input, select, textarea { max-width: 100%; }
+body { overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; }
+@media (max-width: 600px) {
+  [data-hook="nav-menu"] { display: inline-block; }
+  [data-hook="nav-links"] { display: none; }
+  [data-hook="nav"][data-open="true"] [data-hook="nav-links"] { display: flex; flex-direction: column; width: 100%;
+    gap: var(--pons-space-3); padding: var(--pons-space-3) var(--pons-space-4); box-sizing: border-box;
+    background: var(--pons-color-surface); border: var(--pons-border-thin) solid var(--pons-color-line);
+    border-radius: var(--pons-radius); box-shadow: var(--pons-shadow-card); }
+  [data-hook="scoreboard"], [data-hook="trade-panel"] { flex: 1 1 100%; }
+  [data-hook="chart-tv"] { flex: 1 1 100%; order: -1; } /* on a phone the TV comes first, then the scoreboard and trade buttons */
+  [data-hook="chart-tv-screen"] { height: var(--pons-size-chart-height-phone); }
+  [data-hook="chart-tv-body"] { flex-direction: column; }
+  [data-hook="chart-tv-panel"] { flex-direction: row; justify-content: center; padding-top: 0; }
+  [data-hook="chart-tv-feet"] { padding: 0 calc(var(--pons-tv-foot-inset) / 2); }
+  [data-hook="chart-tv-idle-text"], [data-hook="chart-tv-loading-title"] { display: none; }
+  [data-hook="chart-tv-loading"], [data-hook="chart-tv-idle"], [data-hook="chart-tv-result"] { padding: var(--pons-space-3); font-size: var(--pons-font-size-small); }
+  [data-hook="chart-tv-idle"], [data-hook="chart-tv-result"] { bottom: var(--pons-space-5); }
+  [data-hook="chart-tv-idle-title"], [data-hook="chart-tv-result-headline"] { font-size: var(--pons-font-size-large); }
+  [data-hook="duel"] { width: calc(var(--pons-tv-duel-size) / 2); height: calc(var(--pons-tv-duel-size) / 2); }
+  [data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { white-space: normal; }
+  /* Wide tables scroll sideways inside their own box instead of widening the page. */
+  table { display: block; overflow-x: auto; overflow-wrap: normal; }
+}

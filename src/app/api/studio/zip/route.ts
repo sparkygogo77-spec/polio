@@ -6,6 +6,7 @@ import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
 import { CANDIDATES, FACES, MEASURE, PARTS, type Candidate, type PageRead } from "@/features/studio/siteRead";
 import { carryFaces, type FacesRead } from "@/features/studio/fonts";
 import { sourceOfPage, withLines } from "@/features/studio/sourceHooks";
+import { BUSY_NOW, ISOLATE, readStillsAsk, type StillTaken } from "@/features/studio/stills";
 
 /**
  * Reading the page inside a zip, exactly.
@@ -108,9 +109,49 @@ export async function POST(request: Request) {
   // An asset that will not unpack is answered as missing, the way a file not in the zip is.
   const unpacked = (n: string): Uint8Array => { try { return byName.get(n)!.bytes(); } catch { return new Uint8Array(0); } };
 
+  /* `still`: pictures of what a part's code draws, taken on the preview page with its scripts (`stills.ts`). */
+  const stillsAsked = readStillsAsk(form.get("still"));
+  if (form.get("still") !== null && !stillsAsked) return no("bad-still", "That is not a still this can take: it wants a page and the hooks to take.");
+  if (stillsAsked && !names.has(stillsAsked.page)) return no("no-page", `${stillsAsked.page} is not in the zip.`);
+
   let browser: Awaited<ReturnType<typeof found.pw.chromium.launch>> | null = null;
   try {
     browser = await found.pw.chromium.launch(await found.launchOptions());
+    if (stillsAsked) {
+      /*
+       * THE PREVIEW PAGE, WITH ITS SCRIPTS, THIS ONCE. Every request is
+       * answered out of the zip or refused, as for every page here, and a
+       * socket or an event stream cannot even be opened: the page draws
+       * from its own sample data or not at all.
+       */
+      const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+      await context.addInitScript(() => {
+        const refuse = function () { throw new Error("A still is taken with no network."); };
+        Object.defineProperty(window, "WebSocket", { value: refuse });
+        Object.defineProperty(window, "EventSource", { value: refuse });
+      }, null);
+      const page = await context.newPage();
+      await serveZip(page, names, "", unpacked);
+      const stills: StillTaken[] = [];
+      const missed: string[] = [];
+      for (const shot of stillsAsked.shots) {
+        try {
+          await page.goto(`${HOME}/${stillsAsked.page}${shot.query}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
+          /* A page that says it is still building is waited for (capture/site/capture/ready.mjs), then given a moment to draw. */
+          for (let i = 0; i < 80 && (await page.evaluate(BUSY_NOW).catch(() => 0)) > 0; i++) await page.waitForTimeout(250);
+          await page.waitForTimeout(600);
+          const size = (await page.evaluate(ISOLATE, shot.hook)) as { x: number; y: number; w: number; h: number; unshown: string[] } | null;
+          if (!size) { missed.push(shot.hook); continue; }
+          await page.waitForTimeout(100);
+          const shotBytes = await page.screenshot({ type: "jpeg", quality: 85, animations: "disabled", clip: { x: size.x, y: size.y, width: size.w, height: size.h } });
+          stills.push({ hook: shot.hook, query: shot.query, src: `data:image/jpeg;base64,${Buffer.from(shotBytes).toString("base64")}`, w: size.w, h: size.h, unshown: size.unshown });
+        } catch {
+          missed.push(shot.hook);
+        }
+      }
+      await context.close();
+      return NextResponse.json({ ok: true, page: stillsAsked.page, stills, missed, took: took() });
+    }
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     /* The repository's preview screens, read as its own code builds them (`boardStates.ts`): its scripts run here, and only here, with nothing reachable but the zip's own files. */

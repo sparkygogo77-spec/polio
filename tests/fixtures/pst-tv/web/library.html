@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PonsStars chart library</title>
+<meta name="robots" content="noindex">
+<!--
+  Owner-only page: record a coin's pool once a second from the free price feeds, pick windows of
+  exactly 1, 2.5 or 5 minutes, and keep them for practice "Recorded" charts. Every request carries
+  the admin key (PONS_ADMIN_KEY on the game server). Plain and unstyled like the other pages; every
+  element has a data-hook (web/HOOKS.md, web/hooks.json).
+-->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="style-layer.css">
+</head>
+<body data-hook="library">
+<nav data-hook="nav">
+  <button type="button" data-hook="nav-menu" aria-expanded="false">Menu</button>
+  <span data-hook="nav-links">
+    <a href="/" data-hook="nav-play">Play</a>
+    <a href="/leaderboard.html" data-hook="nav-leaderboard">Leaderboard</a>
+  </span>
+</nav>
+<h1 data-hook="page-title">Chart library (owner only)</h1>
+<p data-hook="server-offline" role="status" hidden><strong data-hook="server-offline-text">Game server offline.</strong></p>
+<p data-hook="page-intro">Record a coin's pool once a second from the free price feeds (DexScreener and Jupiter), then pick
+   windows of exactly 1, 2.5 or 5 minutes. Saved windows are used by practice matches of that length
+   when players choose "Recorded". Test networks and play money only.</p>
+<p data-hook="lib-keep-note"><strong data-hook="lib-keep-warning">The free game server forgets everything when it restarts.</strong> To keep windows, export
+   them and commit the file to the repository in <code data-hook="lib-keep-folder">data/charts/</code>; the server loads that
+   folder every time it starts. Import puts an exported file back.</p>
+
+<section data-hook="lib-key-panel">
+  <h2 data-hook="lib-key-title">Admin key</h2>
+  <label data-hook="lib-key-label">Key <input type="password" autocomplete="off" data-hook="lib-key"></label>
+  <button type="button" data-hook="lib-key-save">Use this key</button>
+  <p data-hook="lib-status">Enter the admin key set on the game server (PONS_ADMIN_KEY). It is kept in this tab only.</p>
+</section>
+
+<section data-hook="lib-record-panel">
+  <h2 data-hook="lib-record-title">Record a coin</h2>
+  <p data-hook="lib-mint-line"><label data-hook="lib-mint-label">Token address (mint) <input type="text" size="46" data-hook="lib-mint"></label></p>
+  <p data-hook="lib-pool-line"><label data-hook="lib-pool-label">Pool address (optional: the coin/SOL pool to follow) <input type="text" size="46" data-hook="lib-pool"></label></p>
+  <p data-hook="lib-record-line"><label data-hook="lib-label-label">Name for it <input type="text" maxlength="40" data-hook="lib-label"></label>
+     <label data-hook="lib-minutes-label">Minutes <input type="number" min="1" max="30" value="10" data-hook="lib-minutes"></label>
+     <button type="button" data-hook="lib-record">Start recording</button></p>
+  <p data-hook="lib-record-message"></p>
+</section>
+
+<section data-hook="lib-recordings-panel">
+  <h2 data-hook="lib-recordings-title">Recordings</h2>
+  <table data-hook="lib-recordings">
+    <thead data-hook="lib-recordings-head"><tr data-hook="lib-recordings-head-row"><th data-hook="lib-recordings-head-label">Name</th><th data-hook="lib-recordings-head-mint">Coin</th><th data-hook="lib-recordings-head-status">Status</th><th data-hook="lib-recordings-head-count">Seconds recorded</th><th data-hook="lib-recordings-head-actions"></th></tr></thead>
+    <tbody data-hook="lib-recordings-rows"></tbody>
+  </table>
+</section>
+
+<section data-hook="lib-view" hidden>
+  <h2 data-hook="lib-view-heading">Pick a window from <span data-hook="lib-view-title">-</span></h2>
+  <div data-hook="lib-chart"></div>
+  <p data-hook="lib-window-line"><label data-hook="lib-length-label">Length
+       <select data-hook="lib-length">
+         <option value="60000" data-hook="lib-length-1">1 minute</option>
+         <option value="150000" data-hook="lib-length-2-5">2.5 minutes</option>
+         <option value="300000" data-hook="lib-length-5">5 minutes</option>
+       </select></label>
+     <label data-hook="lib-start-label">Start <input type="range" min="0" max="0" value="0" step="1" data-hook="lib-start"></label>
+     <span data-hook="lib-start-time">-</span></p>
+  <p data-hook="lib-window-summary">-</p>
+  <p data-hook="lib-save-line"><label data-hook="lib-window-label-label">Name for the window <input type="text" maxlength="40" data-hook="lib-window-label"></label>
+     <button type="button" data-hook="lib-save-window">Save this window</button></p>
+  <p data-hook="lib-window-message"></p>
+</section>
+
+<section data-hook="lib-windows-panel">
+  <h2 data-hook="lib-windows-title">Saved windows</h2>
+  <table data-hook="lib-windows">
+    <thead data-hook="lib-windows-head"><tr data-hook="lib-windows-head-row"><th data-hook="lib-windows-head-label">Name</th><th data-hook="lib-windows-head-length">Length</th><th data-hook="lib-windows-head-start">Start</th><th data-hook="lib-windows-head-mint">Coin</th><th data-hook="lib-windows-head-move">Move</th><th data-hook="lib-windows-head-actions"></th></tr></thead>
+    <tbody data-hook="lib-windows-rows"></tbody>
+  </table>
+  <p data-hook="lib-file-line"><button type="button" data-hook="lib-export">Export all windows (JSON file)</button>
+     <label data-hook="lib-import-label">Import a file <input type="file" accept="application/json,.json" data-hook="lib-import-file"></label>
+     <button type="button" data-hook="lib-import">Import</button></p>
+  <p data-hook="lib-file-message"></p>
+  <a data-hook="lib-export-link" hidden>Download</a>
+</section>
+
+<!-- One recording: copied for each recording. "Stop" is removed once it stopped recording. -->
+<template data-hook="template-lib-recording">
+  <tr data-hook="lib-recording"><td data-hook="lib-rec-label"></td><td data-hook="lib-rec-mint"></td><td data-hook="lib-rec-status"></td><td data-hook="lib-rec-count"></td><td data-hook="lib-rec-actions"><button type="button" data-hook="lib-rec-view">Pick windows</button> <button type="button" data-hook="lib-rec-stop">Stop</button></td></tr>
+</template>
+<!-- One saved window: copied for each window. -->
+<template data-hook="template-lib-window">
+  <tr data-hook="lib-window"><td data-hook="lib-win-label"></td><td data-hook="lib-win-length"></td><td data-hook="lib-win-start"></td><td data-hook="lib-win-mint"></td><td data-hook="lib-win-move"></td><td data-hook="lib-win-actions"><button type="button" data-hook="lib-win-delete">Delete</button></td></tr>
+</template>
+
+<script type="module" src="library.js"></script>
+<script type="module" src="nav.js"></script>
+</body>
+</html>

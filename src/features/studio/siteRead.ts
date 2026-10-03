@@ -621,6 +621,19 @@ export interface PartStyle {
   align: string;
   leading: number;
   transform: string;
+  /**
+   * What paints it besides one colour: a gradient, several layered, a data:
+   * picture (the TV's static), as computed, with its size, position and
+   * repeat. A picture at an address of the page's own is not carried this way.
+   */
+  image?: string;
+  imageOptions?: [string, string, string];
+  /** `text`: the background is seen only through its letters. */
+  imageClip?: string;
+  /** Its box-shadow, as computed (the TV body's offset ink shadow). */
+  shadow?: string;
+  /** A filter over it, as computed (the TV static's contrast). */
+  filter?: string;
 }
 
 /** A form control as the page wrote it. */
@@ -667,6 +680,15 @@ export interface PagePart {
   inner?: Record<string, string>[];
   /** The same rules with the file and line they are written on (`sourceHooks.ts#withLines`). */
   css?: { file: string; line: number; selector: string }[];
+  /**
+   * What turns it, as one matrix about its own box's centre: its own
+   * rotation, scale or skew after those of what holds it. Its `box` is then
+   * the one the layout gave, before the turn (PST's antenna rods: 6x90,
+   * leaning -32deg, not the 51x81 box round the lean).
+   */
+  turn?: string;
+  /** A `::before` or `::after` that draws (the red balls on the antenna tips), and the hooks of the element it belongs to. */
+  pseudo?: { which: "::before" | "::after"; host: Record<string, string> };
 }
 
 /** A page read element by element. */
@@ -772,8 +794,8 @@ export const PARTS = (cap: number): PageRead => {
     normals.set(key, h);
     return h;
   };
-  const styleOf = (e: Element): PartStyle => {
-    const s = css(e);
+  const styleOf = (e: Element, which?: "::before" | "::after"): PartStyle => {
+    const s = which ? getComputedStyle(e, which) : css(e);
     const px = parseFloat(s.fontSize) || 16;
     const bw = parseFloat(s.borderTopWidth) || 0;
     return {
@@ -791,7 +813,169 @@ export const PARTS = (cap: number): PageRead => {
       transform: s.textTransform,
     };
   };
-  const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border; };
+  const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border || !!paintOf(css(e)).image; };
+  /*
+   * WHAT PAINTS IT BESIDES ONE COLOUR. PST's TV body is a linear gradient
+   * built from tokens over no background colour, with an offset ink shadow:
+   * read for its colour alone it came in as no fill at all, and the board
+   * drew it white inside its outline. The background image is kept as the
+   * browser computed it (the tokens already resolved), when it is paint the
+   * board can draw by itself: gradients, and pictures written into the CSS
+   * as data:. A picture at an address of the page's own would be a broken
+   * link on the board, and is left out as before.
+   */
+  function paintOf(s: CSSStyleDeclaration): Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter"> {
+    const out: Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter"> = {};
+    const bi = s.backgroundImage;
+    if (bi && bi !== "none" && !/url\(/i.test(bi.replace(/url\(\s*"data:(?:[^"\\]|\\.)*"\s*\)/gi, ""))) {
+      out.image = bi;
+      out.imageOptions = [s.backgroundSize, s.backgroundPosition, s.backgroundRepeat];
+      const clip = (s as unknown as Record<string, string>).webkitBackgroundClip || s.backgroundClip;
+      if (clip === "text") out.imageClip = "text";
+    }
+    if (s.boxShadow && s.boxShadow !== "none") out.shadow = s.boxShadow;
+    if (s.filter && s.filter !== "none") out.filter = s.filter;
+    return out;
+  }
+
+  /*
+   * A TURNED BOX, MEASURED AS LAID OUT. PST's antenna rods are 6x90 bars
+   * leaning -32deg and 28deg (and swaying): the box the browser reports for
+   * one is the box round the lean, 51x81, and filled with the rod's ink the
+   * two drew as one dark block. So before anything is read, every element
+   * turned, scaled or skewed (its transform, or rotate and scale of their
+   * own) is read at rest (its animation lifted for the read), then has its
+   * turn taken off while the page is measured: every box is the one the
+   * layout gave. Each part then carries what turns it, its own and what
+   * holds it, as one matrix about its own centre (`turn`), and the board
+   * turns it back. A move alone (translate(-50%, -50%) centring a box) stays
+   * in the box, as it always was. Put back when the read is done.
+   */
+  const I = new DOMMatrix();
+  const flat = (m: DOMMatrix) => Math.abs(m.a - 1) < 1e-4 && Math.abs(m.b) < 1e-4 && Math.abs(m.c) < 1e-4 && Math.abs(m.d - 1) < 1e-4;
+  /* translate, then rotate, then scale, then transform, as CSS composes them; a % of translate is of the box's own size. */
+  const ownMatrix = (r: { tf: string; translate: string; rotate: string; scale: string }, w: number, h: number): DOMMatrix => {
+    let m = new DOMMatrix();
+    const set = (v: string) => !!v && v !== "none";
+    if (set(r.translate)) { const [x, y] = r.translate.split(/\s+/).map((v, i) => (/%$/.test(v) ? (parseFloat(v) / 100) * (i ? h : w) : parseFloat(v) || 0)); m = m.translate(x ?? 0, y ?? 0); }
+    if (set(r.rotate)) { const d = /(-?[\d.]+)(deg|rad|turn|grad)\s*$/.exec(r.rotate); if (d) { const v = Number(d[1]); m = m.rotate(d[2] === "rad" ? (v * 180) / Math.PI : d[2] === "turn" ? v * 360 : d[2] === "grad" ? v * 0.9 : v); } }
+    if (set(r.scale)) { const [x, y] = r.scale.split(/\s+/).map(Number); if (Number.isFinite(x)) m = m.scale(x!, Number.isFinite(y) ? y! : x!); }
+    if (set(r.tf)) { try { m = m.multiply(new DOMMatrix(r.tf)); } catch { /* not a matrix this browser reads */ } }
+    return m;
+  };
+  /* A matrix in the page's space, about a point: what turns a box about its own origin. */
+  const about = (m: DOMMatrix, ox: number, oy: number) => I.translate(ox, oy).multiply(m).translate(-ox, -oy);
+  const originAt = (origin: string, x: number, y: number, w: number, h: number): [number, number] => {
+    const [a, b] = origin.split(/\s+/).map(parseFloat);
+    return [x + (Number.isFinite(a) ? a! : w / 2), y + (Number.isFinite(b) ? b! : h / 2)];
+  };
+  const turns = new Map<Element, DOMMatrix>();
+  const lifted: { el: HTMLElement; had: string | null }[] = [];
+  {
+    const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
+    for (const el of Array.from(document.body.querySelectorAll<HTMLElement>("*"))) {
+      if (!(el instanceof HTMLElement) || SKIP.has(el.tagName) || !el.getClientRects().length) continue;
+      const s = css(el);
+      const moved = (v: string) => !!v && v !== "none";
+      if (!moved(s.transform) && !moved(s.getPropertyValue("rotate")) && !moved(s.getPropertyValue("scale"))) continue;
+      /* At rest: the swaying rods read where they lean, not mid-swing. */
+      const animated = (el.getAnimations?.() ?? []).length > 0;
+      const before = el.getAttribute("style");
+      if (animated) el.style.setProperty("animation", "none", "important");
+      const r = css(el);
+      const rest = { tf: r.transform, translate: r.getPropertyValue("translate"), rotate: r.getPropertyValue("rotate"), scale: r.getPropertyValue("scale"), origin: r.transformOrigin, position: r.position };
+      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); }
+      const m = ownMatrix(rest, el.offsetWidth, el.offsetHeight);
+      if (flat(m)) continue;
+      lifted.push({ el, had: before });
+      if (animated) el.style.setProperty("animation", "none", "important");
+      for (const p of ["transform", "translate", "rotate", "scale", "transition"]) el.style.setProperty(p, "none", "important");
+      /* A transform holds what is placed absolutely inside it; lifted, a static box must still hold them. */
+      if (rest.position === "static") el.style.setProperty("position", "relative", "important");
+      turning.push({ el, m, origin: rest.origin });
+    }
+    /* Origins read off the boxes as laid out, every turn lifted. */
+    for (const t of turning) {
+      const r = t.el.getBoundingClientRect();
+      const [ox, oy] = originAt(t.origin, r.left + scrollX, r.top + scrollY, r.width, r.height);
+      turns.set(t.el, about(t.m, ox, oy));
+    }
+  }
+  /* Everything that turns it, in the page's space: what holds it first, its own last. */
+  const turnOf = (el: Element | null, own: DOMMatrix | null = null): DOMMatrix | null => {
+    let m = own;
+    for (let up: Element | null = el; up && up !== document.documentElement; up = up.parentElement) {
+      const t = turns.get(up);
+      if (t) m = m ? t.multiply(m) : t;
+    }
+    return m;
+  };
+  /* The same, about a box's own centre, as CSS writes it on a box whose origin is its centre. */
+  const turnSaid = (m: DOMMatrix | null, b: { x: number; y: number; w: number; h: number }): string | null => {
+    if (!m || (flat(m) && Math.abs(m.e) < 0.5 && Math.abs(m.f) < 0.5)) return null;
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const tx = m.a * cx + m.c * cy + m.e - cx, ty = m.b * cx + m.d * cy + m.f - cy;
+    const k = (v: number) => Math.round(v * 10000) / 10000, q = (v: number) => Math.round(v * 100) / 100;
+    return `matrix(${k(m.a)}, ${k(m.b)}, ${k(m.c)}, ${k(m.d)}, ${q(tx)}, ${q(ty)})`;
+  };
+
+  /*
+   * A ::before OR ::after THAT DRAWS. PST's antenna balls are each rod's
+   * ::after: a red disc with an ink edge on the rod's tip, with no element
+   * of its own, so nothing read it and the rods came in bare. One placed
+   * absolutely and drawing something (a fill, a gradient, an edge, a shadow
+   * or words) is a part of its own, at the place the browser put it inside
+   * its containing block, at its size, under the section its element is in,
+   * turned with its element.
+   */
+  const pseudoParts = (el: Element, parent: number, hidden: string | null) => {
+    if (el instanceof SVGElement) return;
+    for (const which of ["::before", "::after"] as const) {
+      if (truncated) return;
+      const ps = getComputedStyle(el, which);
+      const c = ps.content;
+      if (!c || c === "none" || c === "normal" || ps.display === "none" || ps.visibility === "hidden") continue;
+      if (ps.position !== "absolute" && ps.position !== "fixed") continue;
+      if (Number(ps.opacity) <= 0.05) continue;
+      const n = (v: string) => parseFloat(v) || 0;
+      const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
+      const bw = SIDES.map((k) => (ps.getPropertyValue(`border-${k.toLowerCase()}-style`) === "none" ? 0 : n(ps.getPropertyValue(`border-${k.toLowerCase()}-width`))));
+      const pad = SIDES.map((k) => n(ps.getPropertyValue(`padding-${k.toLowerCase()}`)));
+      const mar = SIDES.map((k) => n(ps.getPropertyValue(`margin-${k.toLowerCase()}`)));
+      const text = (/^"([\s\S]*)"$/.exec(c)?.[1] ?? "").replace(/\\(.)/g, "$1").trim();
+      const paint = paintOf(ps);
+      if (!(!seeThrough(ps.backgroundColor) || paint.image || paint.shadow || bw.some(Boolean) || text)) continue;
+      const w0 = n(ps.width), h0 = n(ps.height);
+      if (!(w0 > 0 && h0 > 0)) continue;
+      const bb = ps.boxSizing === "border-box";
+      const w = bb ? w0 : w0 + pad[1]! + pad[3]! + bw[1]! + bw[3]!;
+      const h = bb ? h0 : h0 + pad[0]! + pad[2]! + bw[0]! + bw[2]!;
+      /* Its containing block: the padding box of the nearest positioned box, its own element first. */
+      let block = { x: 0, y: 0, w: innerWidth, h: innerHeight };
+      if (ps.position === "fixed") block = { x: scrollX, y: scrollY, w: innerWidth, h: innerHeight };
+      else {
+        let cb: Element | null = el;
+        while (cb && cb !== document.body && css(cb).position === "static") cb = cb.parentElement;
+        if (cb) {
+          const r = cb.getBoundingClientRect(), cs = css(cb);
+          const bl = n(cs.borderLeftWidth), bt = n(cs.borderTopWidth);
+          block = { x: r.left + scrollX + bl, y: r.top + scrollY + bt, w: r.width - bl - n(cs.borderRightWidth), h: r.height - bt - n(cs.borderBottomWidth) };
+        }
+      }
+      const x = block.x + (ps.left !== "auto" ? n(ps.left) + mar[3]! : block.w - n(ps.right) - mar[1]! - w);
+      const y = block.y + (ps.top !== "auto" ? n(ps.top) + mar[0]! : block.h - n(ps.bottom) - mar[2]! - h);
+      const b = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
+      const own = ps.transform && ps.transform !== "none" ? about(ownMatrix({ tf: ps.transform, translate: ps.getPropertyValue("translate"), rotate: ps.getPropertyValue("rotate"), scale: ps.getPropertyValue("scale") }, w, h), ...originAt(ps.transformOrigin, x, y, w, h)) : null;
+      const style = { ...styleOf(el, which), ...paint };
+      /* Rounding written as a share of the box (border-radius: 50%) is a share of this box: a disc stays a disc. */
+      if (/%$/.test(ps.borderTopLeftRadius)) style.radius = Math.round((parseFloat(ps.borderTopLeftRadius) / 100) * Math.min(b.w, b.h));
+      /* A move alone is its place, as an element's is; a turn is carried. */
+      const total = turnOf(el, own);
+      if (total && flat(total)) { b.x = Math.round(b.x + total.e); b.y = Math.round(b.y + total.f); }
+      const turn = total && !flat(total) ? turnSaid(total, b) : null;
+      push({ kind: "shape", tag: which, parent, box: b, words: text, hooks: {}, hidden, selector: `${path(el)}${which}`, style, pseudo: { which, host: hooksOf(el) }, ...(turn ? { turn } : {}) });
+    }
+  };
   /* The page's own rules, once: a linked sheet by the address its link wrote, a style block by its place among the page's style blocks. */
   let pageRules: { sheet: string | null; block: number; selector: string }[] | null = null;
   const rulesFor = (e: Element) => {
@@ -822,16 +1006,21 @@ export const PARTS = (cap: number): PageRead => {
     }
     return out;
   };
-  const push = (p: PagePart, el?: Element): number => {
+  /* `turnFrom`: the element whose turn it takes, when it is not `el` (a line of words takes its holder's). */
+  const push = (p: PagePart, el?: Element, turnFrom: Element | null = el ?? null): number => {
     if (parts.length >= cap) { truncated = true; return -1; }
     if (el) {
       const rules = rulesFor(el);
       if (rules.length) p.rules = rules;
       const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
       if (classes.length) p.classes = classes;
+      if (!(el instanceof SVGElement && el.tagName.toLowerCase() !== "svg")) Object.assign(p.style, paintOf(css(el)));
     }
+    if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
-    return parts.length - 1;
+    const at = parts.length - 1;
+    if (el && !p.pseudo) pseudoParts(el, p.kind === "section" ? at : p.parent, p.hidden);
+    return at;
   };
 
   /* Hidden blocks wait until the page as it opens has been read. */
@@ -1044,8 +1233,8 @@ export const PARTS = (cap: number): PageRead => {
     range.setEndAfter(nodes[nodes.length - 1]!);
     const r = range.getBoundingClientRect();
     /* Only empty places the code writes into: one empty place, with their hook. */
-    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }); return; }
-    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) });
+    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
+    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder);
   };
 
   /* Inline content, with the parts among it taken out as they come. */
@@ -1168,13 +1357,15 @@ export const PARTS = (cap: number): PageRead => {
   };
   for (const sheet of Array.from(document.styleSheets)) { try { reach(sheet.cssRules); } catch { /* another origin's sheet */ } }
   document.querySelectorAll("[style]").forEach((e) => reached.add(e));
-  const styledParts = parts.filter((p) => { try { const e = document.querySelector(p.selector.replace(/ ::line\(\d+\)$/, "")); return !!e && reached.has(e); } catch { return false; } }).length;
+  const styledParts = parts.filter((p) => { try { const e = document.querySelector(p.selector.replace(/ ::line\(\d+\)$/, "").replace(/::(before|after)$/, "")); return !!e && reached.has(e); } catch { return false; } }).length;
 
   const bs = css(document.body);
   const hs = css(document.documentElement);
   const ground = !seeThrough(bs.backgroundColor) ? bs.backgroundColor : !seeThrough(hs.backgroundColor) ? hs.backgroundColor : "rgb(255, 255, 255)";
   let lowest = 0;
   for (const p of parts) if (!p.hidden) lowest = Math.max(lowest, p.box.y + p.box.h);
+  /* Every turn put back as it was. */
+  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
   return {
     title: document.title.trim(),
     width: innerWidth,

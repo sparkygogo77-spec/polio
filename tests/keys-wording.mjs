@@ -21,8 +21,13 @@ const check = (name, ok, detail = "") => {
 };
 const WORD = new RegExp("va" + "ult", "i");
 const walk = (dir, out = []) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) walk(p, out); else out.push(p); } return out; };
-/* The generated passes carry the history's own words, the inventory names the finding, and this file spells the word in halves. */
-const skip = (p) => p.endsWith("passes.generated.ts") || p.endsWith("INVENTORY.md") || p.endsWith("keys-wording.mjs") || /\.(png|jpg|webp|json)$/.test(p);
+/*
+ * The generated passes carry the history's own words, the inventory names the finding, and this file spells the word in halves.
+ * Third-party files copied into a test fixture's vendor folder (tests/fixtures/<name>/.../vendor/, such as PST's
+ * BIP39 word list, which holds the word as one of its 2048) are someone else's text, kept whole; nothing else is skipped.
+ */
+const vendored = (p) => /^tests\/fixtures\/[^/]+\/(?:.+\/)?vendor\//.test(p.split("\\").join("/"));
+const skip = (p) => p.endsWith("passes.generated.ts") || p.endsWith("INVENTORY.md") || p.endsWith("keys-wording.mjs") || vendored(p) || /\.(png|jpg|webp|json)$/.test(p);
 const files = [...walk("src"), ...walk("tests"), ...walk("docs"), "AGENTS.md", "README.md", ".env.example", "site.config.ts"].filter((p) => !skip(p));
 const said = [];
 for (const f of files) {

@@ -66,6 +66,8 @@ export interface NodeSource {
   code?: PartCode | null;
   /** A shape inside an inline svg (a circle, a path): its fill and stroke are what the layer writes, never a box's background or edge. */
   svg?: boolean;
+  /** The ::before or ::after of the element it was read from (PST's antenna balls): it has no hook of its own. */
+  pseudo?: "::before" | "::after";
   /** Hooks on elements inside it that are not parts of their own (a list's options): carried by this part. */
   inner?: { attr: "data-hook" | "id"; value: string }[];
 }
