@@ -231,13 +231,45 @@ export async function POST(request: Request) {
         const source = sourceOfPage(file, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }, { tokens: tokensFile });
         return { read: withLines(r, source, html, (href) => { const hit = fileFor(href, names, gate.dir); return hit ? { file: hit, text: textOf(hit) } : null; }), source };
       };
-      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures((await page.evaluate(PARTS, MAX_PARTS)) as PageRead)) });
+      /*
+       * THE SITE'S OWN TABLET AND PHONE (docs/RESPONSIVE.md). The page read
+       * again with the window at 834 and at 390, each part's box there written
+       * onto the part it is at the desktop: the same element (its path), the
+       * same turn among parts of that path. A part with no box at a width is
+       * one the site does not draw there. So the Builder's Tablet and Phone,
+       * and the published page under them, lay the page out as the site does,
+       * not as a guess.
+       */
+      const atWidths = async (r: PageRead): Promise<PageRead> => {
+        const out: NonNullable<PageRead["widths"]> = {};
+        for (const [device, w] of [["tablet", 834], ["phone", 390]] as const) {
+          if (w >= width) continue;
+          try {
+            await page.setViewportSize({ width: w, height: 900 });
+            await page.waitForTimeout(150);
+            const small = (await page.evaluate(PARTS, MAX_PARTS)) as PageRead;
+            const seen = new Map<string, number>();
+            const key = (p: PageRead["parts"][number]) => { const k = `${p.kind}|${p.selector}`; const i = seen.get(k) ?? 0; seen.set(k, i + 1); return `${k}#${i}`; };
+            const boxes = new Map<string, PageRead["parts"][number]>();
+            for (const p of small.parts) boxes.set(key(p), p);
+            seen.clear();
+            /* Its type size there too, where the site's own rules change it (PST's "Tuning in" box: 11px on a phone, 16px wide). */
+            out[device] = r.parts.map((p) => { const q = boxes.get(key(p)); return q && !q.hidden && q.box.w > 0 && q.box.h > 0 ? { ...q.box, ...(q.style.px !== p.style.px ? { px: q.style.px } : {}) } : null; });
+          } catch {
+            /* A width that will not read is left to the Builder's own plan. */
+          }
+        }
+        await page.setViewportSize({ width, height: 900 });
+        await page.waitForTimeout(100);
+        return Object.keys(out).length ? { ...r, widths: out } : r;
+      };
+      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures(await atWidths((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
       for (const file of others.slice(0, MOST_PAGES - 1)) {
         try {
           await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
           await page.waitForTimeout(150);
           const html = htmlOf.get(file) ?? textOf(file);
-          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, ownPictures((await page.evaluate(PARTS, MAX_PARTS)) as PageRead)) });
+          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, ownPictures(await atWidths((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
         } catch {
           /* A page that will not open is left out, and the count says so. */
         }

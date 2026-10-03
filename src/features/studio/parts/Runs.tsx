@@ -86,6 +86,7 @@ function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefin
      the file is on this machine it draws in it, and where it is not the
      part's face draws rather than a browser default. */
   if (s.face) { out.fontFamily = `'${s.face.replace(/['"]/g, "")}', ${t.bodyFamily}`; any = true; }
+  if (s.space?.length === 2) { if (s.space[0]) out.marginLeft = s.space[0]; if (s.space[1]) out.marginRight = s.space[1]; any = true; }
   /* A chip in the sentence: its own fill, padding and rounding, on every line it wraps onto (tests/run-chip.mjs). */
   if (s.bg) {
     out.backgroundColor = s.bg;

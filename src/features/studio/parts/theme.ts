@@ -244,7 +244,8 @@ export interface NodeEdge {
   shadow?: string;
 }
 /** How the words inside are set: where they sit and their case. */
-export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize"; wrap?: "balance" | "pretty" }
+/** `wrap`: its words wrap onto more lines, as the page's did (a button two lines tall), where the part would keep them on one. */
+export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize"; wrap?: "balance" | "pretty" | "wrap" }
 /** The artistic properties a capture recorded, as the browser computed them (sink `node.art`). Drawn as written; none is invented. */
 export interface NodeArt {
   blend?: string;
@@ -328,6 +329,8 @@ export interface NodeSaid {
   align?: "left" | "center" | "right" | "justify";
   /** True when the node named an edge — INCLUDING an edge of "none", which is a choice. */
   edge?: boolean;
+  /** True when its words wrap, as the page's did. */
+  wrap?: boolean;
 }
 
 /** Did this node paint that role for itself? */
@@ -368,12 +371,13 @@ export function hasBox(n: NodeBox): boolean {
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
 export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
+  if (text?.wrap && !text.align) return { ...t, said: { ...t.said, wrap: true } };
   if (!text?.align) return t;
   const a = text.align;
   const align = a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left";
   // Recorded as well as applied: a part that centres its own words needs to
   // know this alignment is HIS and not the site's default. See `NodeSaid`.
-  return { ...t, textAlign: align, said: { ...t.said, align } };
+  return { ...t, textAlign: align, said: { ...t.said, align, ...(text.wrap ? { wrap: true } : {}) } };
 }
 
 /**

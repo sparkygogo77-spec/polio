@@ -28,6 +28,7 @@ import { Caption, CONSOLE, Glued, PICKED, SCREEN, SectorButton, SHRINK, type Sla
 import { centreOf, wholeOf } from "./RingEditors";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
+import { LookFields } from "./LookFields";
 
 /* ------------------------------------------------------------------ */
 /* The pieces                                                          */
@@ -223,6 +224,17 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     return (
       <PlateQuad {...common} title="Name">
         <Input value={node.label} aria-label="Name" inputSize="sm" className={field} onChange={(e) => update({ label: e.target.value })} />
+      </PlateQuad>
+    );
+  }
+
+  if (which === "look") {
+    /* The Inspector's Page look, on a plate: every slot of what else the part wears, as CSS (`LookFields.tsx`). */
+    return (
+      <PlateQuad {...common} title="Page look">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1" data-plate-look="">
+          <LookFields node={node} inputClass={field} />
+        </div>
       </PlateQuad>
     );
   }

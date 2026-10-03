@@ -388,6 +388,8 @@ function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice
         { id: "name", label: "Name", icon: Tag },
         { id: "options", label: "Options", icon: SlidersHorizontal },
         { id: "font", label: "Font", icon: Type },
+        // Everything else it wears, as CSS: the panel's Page look, on a plate (`LookFields.tsx`).
+        { id: "look", label: "Page look", icon: Paintbrush },
         ...(node.featureId === "cube-3d" ? [{ id: "solid", label: "Make it a solid", icon: Boxes, act: () => hands?.solid(node.id) }] : []),
         ...(node.featureId === "mesh-3d" && node.cube ? [{ id: "cube-back", label: "Back to the cube", icon: Box, act: () => { play("tap"); showCube(node.id); } }] : []),
       ];

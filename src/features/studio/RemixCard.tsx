@@ -270,7 +270,7 @@ function PartChip({ part }: { part: StudioNode }) {
   const e = part.edge;
   const words = wordsOf(part).slice(0, 18) || "Aa";
   return (
-    <span className="flex h-7 max-w-[180px] shrink-0 items-center overflow-hidden whitespace-nowrap px-2 text-[11px]" style={{
+    <span className="flex h-7 max-w-[180px] shrink-0 items-center overflow-hidden whitespace-nowrap px-2 text-plain" style={{
       background: css(c.bg) ?? css(c.accent) ?? css(c.surface),
       color: css(c.text),
       border: e && (e.width ?? 0) > 0 ? `${Math.min(3, e.width ?? 1)}px ${e.style ?? "solid"} ${css(e.colour) ?? "currentColor"}` : undefined,

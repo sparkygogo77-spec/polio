@@ -125,7 +125,7 @@ export const BUSY_NOW = (): number => {
 export const ISOLATE = (hook: string): { x: number; y: number; w: number; h: number; unshown: string[] } | null => {
   const el = Array.from(document.querySelectorAll(`[data-hook="${hook}"]`)).find((e) => { const r = e.getBoundingClientRect(); return r.width >= 8 && r.height >= 8; });
   if (!el) return null;
-  /* What sits beside it that this screen does not show (the TV's static, on tv-idle): a part that covers it on the board, and is not shown here, is kept hidden (`unshownOver`). */
+  /* What sits beside it that this screen does not show (the TV's static, on tv-idle): said with the still; the board keeps it shown, as the page opens. */
   const unshown = Array.from(el.parentElement?.querySelectorAll("[data-hook]") ?? []).filter((e) => e !== el && !el.contains(e) && !e.getClientRects().length).map((e) => e.getAttribute("data-hook")!).slice(0, 40);
   el.setAttribute("data-polio-still", "");
   const s = document.createElement("style");
@@ -142,21 +142,3 @@ export function stillAlt(hook: string, page: string, query: string): string {
   return `A still of what the code draws into ${hook}, from ${page}${query}`;
 }
 
-/** A board part, as far as a still reads one. */
-interface StillNode { id: string; pageId: string; x: number; y: number; w: number; h: number; label?: string; hooks?: Record<string, string> | null; state?: { group: string; option: number } | null }
-
-/**
- * The parts that would hide a still: over its part (later in the page),
- * covering the whole of it, and not shown on the screen the still was taken
- * on. PST's static covers the screen as the page opens (the TV tuning in),
- * so the chart's still would be under it; on tv-idle it is not shown. Each
- * is kept, as a part hidden as the page opens (`state`), so the owner sees
- * the chart and can show the static again from its panel. Anything smaller
- * over it (the "Tuning in" box, the channel's words) and anything the
- * screen shows (scanlines, glare) stays as it was.
- */
-export function unshownOver<T extends StillNode>(nodes: readonly T[], on: T, unshown: readonly string[]): T[] {
-  const after = nodes.slice(nodes.indexOf(on) + 1);
-  const slack = 2;
-  return after.filter((n) => n.pageId === on.pageId && !n.state && !!n.hooks?.["data-hook"] && unshown.includes(n.hooks["data-hook"]) && n.x <= on.x + slack && n.y <= on.y + slack && n.x + n.w >= on.x + on.w - slack && n.y + n.h >= on.y + on.h - slack);
-}

@@ -18,6 +18,7 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
+import { saidRole } from "./theme";
 import { opt, type PartProps } from "./types";
 
 /** The attributes the page's code finds it by, on the live page only: two of the same id on the board would be one too many. */
@@ -90,7 +91,7 @@ export function Checkbox({ id, content, options, theme: t, mode, hooks }: PartPr
           defaultChecked={options.checked === "yes"}
           disabled={options.disabled === "yes"}
           tabIndex={still ? -1 : undefined}
-          style={{ margin: "3px 3px 3px 4px" }}
+          style={{ margin: "3px 3px 3px 4px", ...(saidRole(t, "accent") ? { accentColor: t.accent } : {}) }}
         />
         {/* No words of its own: the box alone, never filler (the shelf gives it the words it shows: catalog.ts). */}
         {content ? <span>{content}</span> : null}

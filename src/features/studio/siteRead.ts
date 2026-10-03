@@ -600,12 +600,21 @@ export interface PartRun {
   italic?: boolean;
   mono?: boolean;
   colour?: string;
+  /** A chip in the sentence (PST's dark "not connected" code label): its fill, padding (top right bottom left) and rounding. */
+  bg?: string;
+  pad?: number[];
+  radius?: number;
+  /** Room the page left beside it in the line, left and right px (PST's "OFF AIR", 8px after the channel). */
+  space?: number[];
   href?: string;
   /** The id and data-* attributes of the element these words sit in, so code can still find it. */
   hooks?: Record<string, string>;
 }
 
 /** How one element was set, as the browser computed it: the page's own rules, or the browser's defaults where it has none. */
+/** One state rule as `parts/capturedMotion.ts` replays it. */
+export interface PartState { selector: string; self: boolean; state: string; style: Record<string, string> }
+
 export interface PartStyle {
   px: number;
   weight: number;
@@ -634,6 +643,10 @@ export interface PartStyle {
   shadow?: string;
   /** A filter over it, as computed (the TV static's contrast). */
   filter?: string;
+  /** The colour its control is ticked in (`accent-color`; PST's orange checkboxes). */
+  accent?: string;
+  /** How see-through it is as shown: its own opacity times every box round it, under 1. */
+  opacity?: number;
   /** A mask it is painted through (an icon drawn in its colour), with its size, position and repeat. */
   mask?: string;
   maskOptions?: [string, string, string];
@@ -650,6 +663,17 @@ export interface PartStyle {
   paintOrder?: string;
   /** Each corner, top-left clockwise, where they differ. */
   radii?: number[];
+  /**
+   * How it answers the pointer and the keyboard: each `:hover`, `:active` and
+   * `:focus` rule that reaches it, its selector as written and its
+   * declarations with the page's tokens resolved (`self`: the state is its
+   * own, not an ancestor's). The shapes `parts/capturedMotion.ts` replays.
+   */
+  states?: { hover?: PartState[]; active?: PartState[]; focus?: PartState[] };
+  /** What it eases between those states, as computed. */
+  transition?: { property: string; duration?: string; timing?: string; delay?: string }[];
+  /** A turned part that also animates (PST's swaying rods): its own turn at rest and the point it turns about, px from its box's top left, so its keyframes turn it where the page did. */
+  ownTurn?: { transform: string; origin: string };
   /** Its running animations, every longhand as computed; their @keyframes are the read's `keyframes`. */
   animation?: { name: string; duration: string; timing: string; delay: string; iterations: string; direction: string; fill: string }[];
 }
@@ -727,6 +751,8 @@ export interface PageRead {
   /** More than the cap: the rest are not read. */
   truncated: boolean;
   parts: PagePart[];
+  /** Each part's box with the window at the tablet's and the phone's width, in the order of `parts`; null where the site does not draw it there (filled by whoever opened the page, `api/studio/zip`). */
+  widths?: Partial<Record<"tablet" | "phone", ({ x: number; y: number; w: number; h: number; px?: number } | null)[]>>;
   /** The page's @keyframes that a part's animation names, as the capture records them. */
   keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[];
 }
@@ -846,7 +872,7 @@ export const PARTS = (cap: number): PageRead => {
    * as data:. A picture at an address of the page's own would be a broken
    * link on the board, and is left out as before.
    */
-  type Paint = Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions" | "blend" | "backdrop" | "clipPath" | "textShadow" | "textStroke" | "paintOrder" | "radii" | "animation">;
+  type Paint = Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions" | "blend" | "backdrop" | "clipPath" | "textShadow" | "textStroke" | "paintOrder" | "radii" | "animation" | "accent">;
   function paintOf(s: CSSStyleDeclaration): Paint {
     const out: Paint = {};
     const r = s as unknown as Record<string, string>;
@@ -866,6 +892,7 @@ export const PARTS = (cap: number): PageRead => {
     }
     if (s.boxShadow && s.boxShadow !== "none") out.shadow = s.boxShadow;
     if (s.filter && s.filter !== "none") out.filter = s.filter;
+    if (s.accentColor && s.accentColor !== "auto") out.accent = s.accentColor;
     /* What the builder has no field for yet: kept as computed, as a capture keeps it. */
     if (s.mixBlendMode && s.mixBlendMode !== "normal") out.blend = s.mixBlendMode;
     const bd = s.backdropFilter || r.webkitBackdropFilter;
@@ -877,11 +904,8 @@ export const PARTS = (cap: number): PageRead => {
     if (s.paintOrder && s.paintOrder !== "normal") out.paintOrder = s.paintOrder;
     const corners = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius];
     if (corners.every((c) => /^[\d.]+px$/.test(c ?? "")) && new Set(corners).size > 1) out.radii = corners.map((c) => Math.round(parseFloat(c!) * 100) / 100);
-    const names = (s.animationName || "none").split(",").map((v) => v.trim());
-    if (names.some((n) => n && n !== "none")) {
-      const at = (v: string, i: number) => { const l = (v || "").split(/,(?![^(]*\))/).map((x) => x.trim()); return l[i % Math.max(1, l.length)] ?? ""; };
-      out.animation = names.flatMap((name, i) => (name && name !== "none" ? [{ name, duration: at(s.animationDuration, i), timing: at(s.animationTimingFunction, i), delay: at(s.animationDelay, i), iterations: at(s.animationIterationCount, i), direction: at(s.animationDirection, i), fill: at(s.animationFillMode, i) }] : []));
-    }
+    const anim = animOf(s);
+    if (anim) out.animation = anim;
     return out;
   }
 
@@ -898,6 +922,18 @@ export const PARTS = (cap: number): PageRead => {
    * turns it back. A move alone (translate(-50%, -50%) centring a box) stays
    * in the box, as it always was. Put back when the read is done.
    */
+  /* Its running animations, from the longhands as computed (or as they were before a turned box's were lifted for the read). */
+  type Moving = Pick<CSSStyleDeclaration, "animationName" | "animationDuration" | "animationTimingFunction" | "animationDelay" | "animationIterationCount" | "animationDirection" | "animationFillMode" | "transitionProperty" | "transitionDuration" | "transitionTimingFunction" | "transitionDelay">;
+  function animOf(s: Moving): PartStyle["animation"] {
+    const names = (s.animationName || "none").split(",").map((v) => v.trim());
+    if (!names.some((n) => n && n !== "none")) return undefined;
+    const at = (v: string, i: number) => { const l = (v || "").split(/,(?![^(]*\))/).map((x) => x.trim()); return l[i % Math.max(1, l.length)] ?? ""; };
+    return names.flatMap((name, i) => (name && name !== "none" ? [{ name, duration: at(s.animationDuration, i), timing: at(s.animationTimingFunction, i), delay: at(s.animationDelay, i), iterations: at(s.animationIterationCount, i), direction: at(s.animationDirection, i), fill: at(s.animationFillMode, i) }] : []));
+  }
+  const keep = (s: CSSStyleDeclaration): Moving => ({ animationName: s.animationName, animationDuration: s.animationDuration, animationTimingFunction: s.animationTimingFunction, animationDelay: s.animationDelay, animationIterationCount: s.animationIterationCount, animationDirection: s.animationDirection, animationFillMode: s.animationFillMode, transitionProperty: s.transitionProperty, transitionDuration: s.transitionDuration, transitionTimingFunction: s.transitionTimingFunction, transitionDelay: s.transitionDelay });
+  /* What a turned box ran before its animation and easing were lifted for the read: the antennas' sway. */
+  const moving = new Map<Element, Moving>();
+  const restTurn = new Map<Element, { transform: string; origin: string }>();
   const I = new DOMMatrix();
   const flat = (m: DOMMatrix) => Math.abs(m.a - 1) < 1e-4 && Math.abs(m.b) < 1e-4 && Math.abs(m.c) < 1e-4 && Math.abs(m.d - 1) < 1e-4;
   /* translate, then rotate, then scale, then transform, as CSS composes them; a % of translate is of the box's own size. */
@@ -935,6 +971,8 @@ export const PARTS = (cap: number): PageRead => {
       const m = ownMatrix(rest, el.offsetWidth, el.offsetHeight);
       if (flat(m)) continue;
       lifted.push({ el, had: before });
+      moving.set(el, keep(css(el)));
+      if (animated) restTurn.set(el, { transform: m.toString(), origin: rest.origin });
       if (animated) el.style.setProperty("animation", "none", "important");
       for (const p of ["transform", "translate", "rotate", "scale", "transition"]) el.style.setProperty(p, "none", "important");
       /* A transform holds what is placed absolutely inside it; lifted, a static box must still hold them. */
@@ -1068,6 +1106,57 @@ export const PARTS = (cap: number): PageRead => {
   };
   /* The page's own rules, once: a linked sheet by the address its link wrote, a style block by its place among the page's style blocks. */
   let pageRules: { sheet: string | null; block: number; selector: string }[] | null = null;
+  /*
+   * HOVER, PRESS AND FOCUS. Every `:hover`, `:active` and `:focus` rule of
+   * the page, read once; for a part, the ones whose selector reaches it with
+   * the state taken off, their declarations as written with the page's
+   * tokens resolved where the part is (a rule copied to the board has no
+   * `--pons-…` to read). PST's TV button sinks when pressed, its fields ring
+   * when focused.
+   */
+  let stateRules: { selector: string; state: string; decl: [string, string][] }[] | null = null;
+  const STATE = /:(hover|active|focus-visible|focus-within|focus)(?![\w-])/;
+  const statesOf = (e: Element, was?: Moving): Pick<PartStyle, "states" | "transition"> => {
+    if (!stateRules) {
+      stateRules = [];
+      const walk = (list: CSSRuleList) => {
+        for (const r of Array.from(list)) {
+          if (stateRules!.length > 400) return;
+          if (r instanceof CSSStyleRule) {
+            const decl = r.style.cssText.split(/;(?![^(]*\))/).map((d) => { const i = d.indexOf(":"); return [d.slice(0, i).trim(), d.slice(i + 1).trim()] as [string, string]; }).filter(([k, v]) => k && v);
+            for (const one of r.selectorText.split(/,(?![^(]*\))/)) {
+              const s = one.trim(), m = STATE.exec(s);
+              if (m && !/::?(before|after)/.test(s) && decl.length) stateRules!.push({ selector: s, state: m[1]!, decl });
+            }
+          } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) {
+        const owner = sh.ownerNode as Element | null;
+        if (!owner || owner.hasAttribute("data-polio-template")) continue;
+        try { walk(sh.cssRules); } catch { /* another origin's sheet */ }
+      }
+    }
+    const cs = css(e);
+    const resolve = (v: string) => { for (let i = 0; i < 6 && v.includes("var("); i++) v = v.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/g, (_, name: string, fb?: string) => cs.getPropertyValue(name).trim() || (fb ?? "").trim()); return v; };
+    const out: NonNullable<PartStyle["states"]> = {};
+    let n = 0;
+    for (const r of stateRules) {
+      if (n >= 8) break;
+      const bare = r.selector.replace(new RegExp(STATE.source, "g"), "").trim();
+      if (!bare) continue;
+      try { if (!e.matches(bare)) continue; } catch { continue; }
+      const self = STATE.test(r.selector.replace(/\[[^\]]*\]|\([^)]*\)/g, "").trim().split(/[\s>+~]+/).pop() ?? "");
+      const kind = r.state === "hover" ? "hover" : r.state === "active" ? "active" : "focus";
+      (out[kind] ??= []).push({ selector: r.selector, self, state: r.state, style: Object.fromEntries(r.decl.map(([k, v]) => [k, resolve(v)])) });
+      n++;
+    }
+    const ts = was ?? cs;
+    const tp = (ts.transitionProperty || "").split(",").map((v) => v.trim());
+    const at = (v: string, i: number) => { const l = (v || "").split(/,(?![^(]*\))/).map((x) => x.trim()); return l[i % Math.max(1, l.length)] ?? ""; };
+    const transition = tp.map((property, i) => ({ property, duration: at(ts.transitionDuration, i), timing: at(ts.transitionTimingFunction, i), delay: at(ts.transitionDelay, i) })).filter((t) => t.property && t.property !== "none" && parseFloat(t.duration) > 0);
+    return { ...(n ? { states: out } : {}), ...(transition.length ? { transition } : {}) };
+  };
   const rulesFor = (e: Element) => {
     if (!pageRules) {
       pageRules = [];
@@ -1099,12 +1188,40 @@ export const PARTS = (cap: number): PageRead => {
   /* `turnFrom`: the element whose turn it takes, when it is not `el` (a line of words takes its holder's). */
   const push = (p: PagePart, el?: Element, turnFrom: Element | null = el ?? null): number => {
     if (parts.length >= cap) { truncated = true; return -1; }
+    /*
+     * ONE LINE OF INLINE WORDS IS AS TALL AS ITS LINE. An inline element's
+     * box is its letters' (PST's "Amount (SOL)" label: 19 tall in a 22.4
+     * line), and the board sets words in their line: drawn 22 tall, the part
+     * grew by 3 and pushed everything under it down (the money column by 6).
+     * So it is read as the line holds it, centred where its letters are.
+     */
+    const held = p.kind === "check" ? el?.closest("label") ?? null : el ?? turnFrom ?? null;
+    if (held && (p.words || (held.textContent ?? "").trim()) && !(held instanceof SVGElement) && (css(held).display === "inline" || (p.kind === "text" && !!p.words))) {
+      const lh = parseFloat(css(held).lineHeight);
+      if (lh > p.box.h + 0.5 && p.box.h < lh * 1.5) { const grow = Math.round(lh) - p.box.h; if (grow > 0) p.box = { ...p.box, y: p.box.y - Math.floor(grow / 2), h: p.box.h + grow }; }
+    }
     if (el) {
       const rules = rulesFor(el);
       if (rules.length) p.rules = rules;
       const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
       if (classes.length) p.classes = classes;
       if (!(el instanceof SVGElement && el.tagName.toLowerCase() !== "svg")) Object.assign(p.style, paintOf(css(el)));
+      /* Seen through as the page shows it: its own see-through times every box round it (PST's legend at 0.8 fades its words too, a part of their own on the board). */
+      let seen = 1;
+      for (let a: Element | null = el; a && a !== document.documentElement; a = a.parentElement) seen *= Number(css(a).opacity) || 0;
+      if (seen < 0.999) p.style.opacity = Math.round(seen * 1000) / 1000; else delete p.style.opacity;
+      /* A turned box's own animation and easing, as they were before the read lifted them. */
+      const was = moving.get(el);
+      if (was) {
+        const a = animOf(was);
+        if (a) p.style.animation = a;
+        /* Turned by itself alone, and swaying: its own turn about its own point, which its keyframes turn about too. */
+        let held = false;
+        for (let up = el.parentElement; up; up = up.parentElement) if (turns.has(up)) { held = true; break; }
+        const own = restTurn.get(el);
+        if (a && own && !held) p.style.ownTurn = own;
+      }
+      if (!p.pseudo) Object.assign(p.style, statesOf(el, was));
     }
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
@@ -1133,12 +1250,30 @@ export const PARTS = (cap: number): PageRead => {
       if (s.fontStyle === "italic" && rs.fontStyle !== "italic") run.italic = true;
       if (mono(s.fontFamily) && !mono(rs.fontFamily)) run.mono = true;
       if (a && root.contains(a) && a !== root) run.href = a.getAttribute("href") ?? "";
+      if (s.color !== rs.color) run.colour = s.color;
+      /* A chip: the nearest element inside the run that paints a fill of its own. */
+      for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
+        const u = css(up);
+        if (!seeThrough(u.backgroundColor)) {
+          run.bg = u.backgroundColor;
+          const px = (v: string) => Math.round((parseFloat(v) || 0) * 100) / 100;
+          const pad = [px(u.paddingTop), px(u.paddingRight), px(u.paddingBottom), px(u.paddingLeft)];
+          if (pad.some((v) => v > 0)) run.pad = pad;
+          if (px(u.borderTopLeftRadius) > 0) run.radius = px(u.borderTopLeftRadius);
+          break;
+        }
+      }
+      /* Room beside it in the line: the nearest element inside the run with a side margin. */
+      for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
+        const u = css(up), l = Math.round((parseFloat(u.marginLeft) || 0) * 100) / 100, r = Math.round((parseFloat(u.marginRight) || 0) * 100) / 100;
+        if (l || r) { run.space = [l, r]; break; }
+      }
       /* The nearest element inside the run carrying an id or a data-* attribute: a live value the page's code writes into. */
       for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
         if (hooked(up)) { run.hooks = hooksOf(up); break; }
       }
       const last = out[out.length - 1];
-      const same = last && last.weight === run.weight && last.italic === run.italic && last.mono === run.mono && last.href === run.href && JSON.stringify(last.hooks ?? null) === JSON.stringify(run.hooks ?? null);
+      const same = last && last.weight === run.weight && last.italic === run.italic && last.mono === run.mono && last.href === run.href && last.colour === run.colour && last.bg === run.bg && String(last.space) === String(run.space) && JSON.stringify(last.hooks ?? null) === JSON.stringify(run.hooks ?? null);
       if (same) last!.text += text; else out.push(run);
     };
     const visit = (n: Node, holder: Element) => {
@@ -1172,7 +1307,7 @@ export const PARTS = (cap: number): PageRead => {
     return out.filter((r) => r.text || r.hooks);
   };
   const wordsOf = (runs: PartRun[]) => runs.map((r) => r.text).join("");
-  const plainRuns = (runs: PartRun[]) => runs.every((r) => r.weight === undefined && !r.italic && !r.mono && !r.href && !r.hooks);
+  const plainRuns = (runs: PartRun[]) => runs.every((r) => r.weight === undefined && !r.italic && !r.mono && !r.href && !r.hooks && !r.colour && !r.bg && !r.space);
 
   /* A link stands on its own when what is beside it is only separators: a bar of links, not a sentence with one in it. */
   const loneLinks = new Map<Element, boolean>();
@@ -1280,7 +1415,18 @@ export const PARTS = (cap: number): PageRead => {
     /* Rounding written as a share of the box (border-radius: 50%) is a share of this box: a circle stays a circle. */
     const r = css(el).borderTopLeftRadius;
     if (/%$/.test(r)) style.radius = Math.round((parseFloat(r) / 100) * Math.min(b.w, b.h));
-    const at = push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
+    /*
+     * A CANVAS IS WHAT ITS CODE DREW. Read without its scripts, PST's chart
+     * canvas is blank: as a picture with no file it drew the library's stand-in
+     * landscape over the TV's screen, its still and its static. Blank, it is a
+     * box with nothing of its own to paint; drawn, its pixels are its picture.
+     */
+    let drawn = "";
+    if (el.tagName === "CANVAS") {
+      try { const cv = el as HTMLCanvasElement, blank = document.createElement("canvas"); blank.width = cv.width; blank.height = cv.height; const u = cv.toDataURL(); if (u !== blank.toDataURL()) drawn = u; } catch { /* a canvas another origin drew into is not readable: blank to us */ }
+      if (!drawn) { push({ kind: "shape", tag: "canvas", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style }, el); return; }
+    }
+    const at = push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: drawn || im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
     /*
      * AN INLINE SVG KEEPS ITS SHAPES' HOOKS. PST's duel is an svg holding two
      * circles its script resizes (duel-circle-me, duel-circle-opponent): each
@@ -1457,12 +1603,14 @@ export const PARTS = (cap: number): PageRead => {
   for (const p of parts) if (!p.hidden) lowest = Math.max(lowest, p.box.y + p.box.h);
   /* The @keyframes the parts' animations name, each frame's declarations as the sheet wrote them. */
   const named = new Set(parts.flatMap((p) => (p.style.animation ?? []).map((a) => a.name)));
+  const tokensOut = (v: string) => { for (let i = 0; i < 6 && v.includes("var("); i++) v = v.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/g, (_, name: string, fb?: string) => hs.getPropertyValue(name).trim() || (fb ?? "").trim()); return v; };
   const keyframes: NonNullable<PageRead["keyframes"]> = [];
   const frameRules = (list: CSSRuleList) => {
     for (const r of Array.from(list)) {
       if (r instanceof CSSKeyframesRule) {
         if (!named.has(r.name) || keyframes.some((k) => k.name === r.name) || keyframes.length >= 40) continue;
-        keyframes.push({ name: r.name, frames: Array.from(r.cssRules).slice(0, 40).map((f) => { const kf = f as CSSKeyframeRule; const style: Record<string, string> = {}; for (let i = 0; i < kf.style.length; i++) { const prop = kf.style[i]!; style[prop] = kf.style.getPropertyValue(prop); } return { key: kf.keyText, style }; }) });
+        /* With the page's tokens resolved: a board has no `--pons-tv-antenna-swing` to read, and a frame it cannot read turns the rod to nothing. */
+        keyframes.push({ name: r.name, frames: Array.from(r.cssRules).slice(0, 40).map((f) => { const kf = f as CSSKeyframeRule; const style: Record<string, string> = {}; for (let i = 0; i < kf.style.length; i++) { const prop = kf.style[i]!; style[prop] = tokensOut(kf.style.getPropertyValue(prop)); } return { key: kf.keyText, style }; }) });
       } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) frameRules((r as CSSGroupingRule).cssRules);
     }
   };

@@ -6,8 +6,9 @@
  */
 import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
+import { LookFields, lookCount } from "./LookFields";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Paintbrush, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
@@ -538,7 +539,7 @@ function ScriptLines({ refs, from, hook }: { refs: CodeRef[]; from: { repo: stri
               {href ? <a href={href} target="_blank" rel="noreferrer" className="underline">{r.file} line {r.line}</a> : `${r.file} line ${r.line}`}
               {text ? null : " · could not read the file; its line as imported"}
             </p>
-            <pre className="overflow-x-auto px-2 pb-1 font-mono text-[11px] leading-snug">
+            <pre className="overflow-x-auto px-2 pb-1 font-mono text-plain leading-snug">
               {lines.map((l) => <div key={l.n} data-code-line={l.at ? "at" : ""} className={l.at ? "text-fg" : "text-fg-faint"}><span className="mr-2 inline-block w-8 select-none text-right text-fg-faint">{l.n}</span>{l.text}</div>)}
             </pre>
           </div>
@@ -996,9 +997,14 @@ export function Inspector() {
 
         {node.source?.look?.length ? (
           <p className="px-3 pb-1 text-small text-fg-muted" data-look-from-capture="">
-            Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it; not editable here yet.
+            Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it; edit it under Page look.
           </p>
         ) : null}
+
+        {/* Everything else it wears, as CSS, one slot each (`LookFields.tsx`); closed until opened, as an advanced option is. */}
+        <PanelSection id="page-look" title="Page look" icon={<Paintbrush />} note={`${lookCount(node)} set`} defaultOpen={false}>
+          <LookFields node={node} />
+        </PanelSection>
 
         {node.source?.code ? (
           <PanelSection id="code" title="Code" icon={<Code2 />} note={`${node.source.code.refs.length} in scripts`}>

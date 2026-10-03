@@ -77,6 +77,8 @@ export interface Span {
   bg?: string;
   pad?: number[];
   radius?: number;
+  /** Room the page left beside it in the line, left and right px. Only a capture writes it. */
+  space?: number[];
   /** The id and data-* attributes of the element these words sat in on a brought-in page (`pageParts.ts`): a value its code writes into. Written on the run's own element on the live page. */
   hooks?: Record<string, string>;
 }
