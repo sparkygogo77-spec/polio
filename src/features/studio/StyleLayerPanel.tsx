@@ -28,7 +28,7 @@ import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
-import { fileAt, layerHooksOf, readRound, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
+import { fileAt, layerHooksOf, readRound, takeTokens, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { readHookMap } from "./designBranch";
 import { boardRecord } from "./exportForCode";
 import { kitLinksToOffsite } from "./parts/offsite";
@@ -135,7 +135,7 @@ export function StyleLayerSection() {
     const st = useStudio.getState();
     const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
     if (!now || !round?.seen) return;
-    st.setLook({ styleSource: { ...now, seen: round.seen, ...(round.manifest ? { kit: round.manifest } : {}) } } as never);
+    st.setLook({ styleSource: { ...takeTokens(now, round.seen), seen: round.seen, ...(round.manifest ? { kit: round.manifest } : {}) } } as never);
     if (round.manifest?.links) st.setFormat("links.offsite", kitLinksToOffsite(round.manifest.links));
     setRound({ changes: { ...round.changes!, same: true, says: "Taken in: the next round is compared with the code as it is now." } });
   };

@@ -50,7 +50,7 @@ import { hooksOnBoard } from "./designBranch";
 import type { ScreenRead } from "./boardStates";
 import { oneAddress, withoutJoinedAddress } from "./captureSite";
 import { kitLinksToOffsite } from "./parts/offsite";
-import type { StyleSource } from "./styleLayer";
+import { baselineAsLanded, type LayerNode, type StyleSource } from "./styleLayer";
 import { checkRepoFeatures } from "./library/repoFeatures";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
@@ -690,6 +690,11 @@ export function FromASite({ space }: { space: Space }) {
     /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
     landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
+    /* What the landing itself changed (the sweep's repaint, the palette's roles) is no design: the board as landed is what the style layer is measured from (`baselineAsLanded`). */
+    {
+      const now = useStudio.getState();
+      useStudio.setState({ nodes: baselineAsLanded(now.nodes as unknown as LayerNode[], now.look.palette as Record<string, string>) as unknown as typeof now.nodes });
+    }
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
     const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);
