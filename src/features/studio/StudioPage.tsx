@@ -1645,8 +1645,8 @@ export function StudioPage() {
                   className="relative z-10 w-full shrink-0 border-t border-border bg-bg"
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
-                  /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The open category's cards scroll inside this. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : SHELF_OPEN_H }}
+                  /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
+                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
                   <Palette />
                 </div>
