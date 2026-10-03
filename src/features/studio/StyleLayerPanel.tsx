@@ -44,7 +44,7 @@ function hexOf(v: string): string {
 }
 
 /** One variable: a colour picker for a colour, a box to type in for anything else (a size, a face), and what reads it. */
-export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
+export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean; /** A choice slot's values (builder.json rules.slots): picked, never typed. */ options?: string[] }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
   const set = source.varsSet?.[v.name];
   const followed = layer?.vars.find((x) => x.name === v.name && x.why === "followed");
   const colour = isColour(v.value);
@@ -52,7 +52,11 @@ export function VarRow({ v, source, layer, setVar }: { v: { name: string; value:
   const read = source.varsRead?.[v.name] ?? [];
   return (
     <label data-style-layer-var={v.name} data-token={v.token ? "" : undefined} className="flex flex-wrap items-center gap-2 text-small">
-      {colour ? (
+      {v.options?.length ? (
+        <select aria-label={v.name} data-slot-choice="" value={set ?? v.value} onChange={(e) => setVar(v.name, e.target.value === v.value ? null : e.target.value)} className="h-5 rounded border border-border bg-transparent px-1 font-mono text-fine">
+          {[...new Set([v.value, ...v.options])].map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : colour ? (
         <input type="color" aria-label={v.name} value={hexOf(set ?? followed?.value ?? v.value)} onChange={(e) => setVar(v.name, e.target.value)} className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
       ) : (
         <input type="text" aria-label={v.name} value={typed} onChange={(e) => setTyped(e.target.value)} onBlur={() => setVar(v.name, typed.trim() && typed.trim() !== v.value ? typed.trim() : null)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} className="h-5 w-28 rounded border border-border bg-transparent px-1 font-mono text-fine" />

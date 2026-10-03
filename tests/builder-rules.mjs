@@ -49,6 +49,23 @@ check("another part shows none", partSlots("page-title", source).length === 0);
 check("a slot whose token the code does not have is not shown", partSlots("list-item", { ...source, files: [] }).length === 0);
 check("a repository without rules has no slots", partSlots("list-item", { ...source, kit: { ...kitJson, rules: undefined } }).length === 0);
 
+/* A choice slot (PST's marker sides, picture cropping) is picked from its options, and what is picked goes back as a token change in the style layer. */
+const { buildLayer } = await import("../src/features/studio/styleLayer.ts");
+const pst = {
+  repo: "them/site", ref: "main", dir: "web/",
+  files: [{ file: "web/tokens.css", pageId: "", hooks: [], vars: [{ name: "--pons-marker-buy-side", value: "below", file: "web/tokens.css", line: 170, token: true }, { name: "--pons-duel-fill-opacity", value: "0.4", file: "web/tokens.css", line: 168, token: true }] }],
+  kit: { ...kitJson, rules: { ...kitJson.rules, slots: [
+    { token: "--pons-marker-buy-side", hook: "trade-pictures", label: "Buy markers sit", kind: "choice", options: ["below", "above"] },
+    { token: "--pons-duel-fill-opacity", hook: "trade-pictures", label: "Fill opacity", kind: "number" },
+  ] } },
+};
+const choice = partSlots("trade-pictures", pst);
+check("a choice slot carries its options to the part's Settings", choice[0]?.kind === "choice" && JSON.stringify(choice[0].options) === JSON.stringify(["below", "above"]) && choice[1]?.label === "Fill opacity", JSON.stringify(choice));
+const panel = readFileSync("src/features/studio/StyleLayerPanel.tsx", "utf8");
+check("Settings draws a choice slot as a picker of its options (source read)", /v\.options\?\.length \? \(\s*<select[^>]*data-slot-choice/.test(panel));
+const sent = buildLayer([], {}, { ...pst, varsSet: { "--pons-marker-buy-side": "above", "--pons-duel-fill-opacity": "0.7" } }, { kit: true });
+check("what a slot is set to goes back in the style layer, as a token change", /:root:root \{[^}]*--pons-marker-buy-side: above;[^}]*--pons-duel-fill-opacity: 0\.7;/s.test(sent.css), sent.css);
+
 /* Rule 7 holds for the Builder's own export: the small-screen menu's glyphs are real elements, not ::before. */
 const small = readFileSync("src/features/studio/live/smallCss.ts", "utf8");
 check("the menu key's glyphs are real elements, not drawn by ::before", !/sm-glyph::before/.test(small) && /sm-glyph-open/.test(readFileSync("src/features/studio/live/LiveSite.tsx", "utf8")));
