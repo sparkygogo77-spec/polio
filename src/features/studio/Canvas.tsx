@@ -11,6 +11,7 @@
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
 import { boardShows, type ScreenRead } from "./boardStates";
+import { clampMove, frameRiders, inside, keepInFrame, stateFrames } from "./stateFrames";
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
 import { tryOn, useTryLook } from "./tryLook";
@@ -78,13 +79,15 @@ import { runWorks } from "./live/runWorks";
 
 const GRID = 8;
 /** What the board draws with its states on, kept while the states and screens are the same. */
-let shownMemo: { on: unknown; screens: unknown; files: unknown; shows: (n: StudioNode) => boolean } | null = null;
-function shownOnBoard(s: { statesOn?: string[]; look?: unknown }): (n: StudioNode) => boolean {
+let shownMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; shows: (n: StudioNode) => boolean } | null = null;
+function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): (n: StudioNode) => boolean {
   const on = s.statesOn ?? [];
   const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
-  if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files) return shownMemo.shows;
-  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : (n: StudioNode) => !n.state;
-  shownMemo = { on, screens: source?.screens, files: source?.files, shows };
+  /* A face picked on a States timeline is read off the parts, so the parts count only then. */
+  const steps = on.some((k) => k.startsWith("step:")) ? s.nodes ?? [] : null;
+  if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files && shownMemo.nodes === steps) return shownMemo.shows;
+  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null) : (n: StudioNode) => !n.state;
+  shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
 }
 /** A box as the board has it: where a part was before he first moved it (`StudioNode.handFrom`). */
@@ -962,8 +965,10 @@ function DesktopCanvas() {
     const ids = new Set(d.ids);
     const rects = d.ids.map((id) => ({ ...d.origin![id]!, x: d.origin![id]!.x + dx, y: d.origin![id]!.y + dy }));
     const snap = snapSelection(rects, ids);
+    /* A state stops at its frame's edge, and what moves with it stops there too (`stateFrames.ts#clampMove`). */
+    const by = clampMove(useStudio.getState().nodes, d.ids, d.origin, dx + snap.dx, dy + snap.dy);
     const positions: Record<string, { x: number; y: number }> = {};
-    for (const id of d.ids) positions[id] = { x: Math.round(d.origin![id]!.x + dx + snap.dx), y: Math.round(d.origin![id]!.y + dy + snap.dy) };
+    for (const id of d.ids) positions[id] = { x: Math.round(d.origin![id]!.x + by.dx), y: Math.round(d.origin![id]!.y + by.dy) };
     useStudio.getState().setPositions(positions);
     setGuides(snap.guides);
     setDrag({ ...d, moved: true, snapped: snap.snapped });
@@ -1070,11 +1075,16 @@ function DesktopCanvas() {
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
       const ids = picked.map((n) => n.id);
-      const all = [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
+      const held = [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
+      /* A frame takes its states; a state stops at its frame's edge (`stateFrames.ts`). */
+      const all = [...held, ...frameRiders(s.nodes, held)];
       if (e.timeStamp - lastNudge.current > 800) s.commit();
       lastNudge.current = e.timeStamp;
+      const was: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const n of s.nodes) if (all.includes(n.id)) was[n.id] = boxOf(n);
+      const by = clampMove(s.nodes, all, was, dx, dy);
       const positions: Record<string, { x: number; y: number }> = {};
-      for (const n of s.nodes) if (all.includes(n.id) && !n.locked) positions[n.id] = { x: n.x + dx, y: n.y + dy };
+      for (const n of s.nodes) if (all.includes(n.id) && !n.locked) positions[n.id] = { x: n.x + by.dx, y: n.y + by.dy };
       s.setPositions(positions);
       const before = new Map(s.nodes.map((n) => [n.id, n]));
       useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (positions[n.id] && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(before.get(n.id) ?? n) } : n)) });
@@ -1148,7 +1158,9 @@ function DesktopCanvas() {
         capture();
         /* A component is resized whole: every layer keeps its place and size on it (`components.ts#resizedWith`). */
         const st = useStudio.getState();
-        const layers = carriedBy(componentsOf(st.nodes, resolvePalette(st.format, st.look)), n.id).filter((id) => id !== n.id);
+        const own = carriedBy(componentsOf(st.nodes, resolvePalette(st.format, st.look)), n.id).filter((id) => id !== n.id);
+        /* A frame's states keep their place and size on it, as a component's layers do (`stateFrames.ts`). */
+        const layers = [...own, ...frameRiders(st.nodes, [n.id, ...own])];
         const origin: NonNullable<Drag["origin"]> = { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } };
         for (const m of st.nodes) if (layers.includes(m.id) && !m.locked) origin[m.id] = { x: m.x, y: m.y, w: m.w, h: m.h };
         setDrag({ kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle: handleEl.dataset.resize as Handle, origin, riders: layers });
@@ -1310,7 +1322,9 @@ function DesktopCanvas() {
         }
         capture();
         /* A button moves with its words and its icon: what it holds rides along (`owner.ts`). */
-        const riders = ridersOf(store.nodes, ids, pal);
+        const held = ridersOf(store.nodes, ids, pal);
+        /* A frame moves with its states, the hidden faces too (`stateFrames.ts`). */
+        const riders = [...held, ...frameRiders(store.nodes, [...ids, ...held])];
         const carried = [...ids, ...riders];
         const origin: Drag["origin"] = {};
         for (const n of store.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
@@ -1424,7 +1438,11 @@ function DesktopCanvas() {
       const gy: number[] = [];
       if (h.includes("e")) for (const c of xs) if (Math.abs(c - (x + w)) < thr) { w = c - x; gx.push(c); break; }
       if (h.includes("s")) for (const c of ys) if (Math.abs(c - (y + hgt)) < thr) { hgt = c - y; gy.push(c); break; }
-      const to = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) };
+      let to = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) };
+      /* A state resized by hand stays in its frame, when it started there. */
+      const frameId = stateFrames(store.nodes).frameOf.get(drag.nodeId);
+      const fr = frameId ? store.nodes.find((n) => n.id === frameId) : null;
+      if (fr && inside(o, fr, 0)) to = keepInFrame(to, fr);
       useStudio.setState({ nodes: store.nodes.map((n) => (n.id === drag.nodeId ? { ...n, ...to } : drag.riders?.includes(n.id) && drag.origin?.[n.id] ? { ...n, ...resizedWith(o, to, drag.origin[n.id]!) } : n)) });
       setGuides({ x: gx, y: gy });
       setDrag({ ...drag, moved: true, snapped: gx.length > 0 || gy.length > 0 });

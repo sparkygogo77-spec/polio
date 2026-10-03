@@ -10,6 +10,7 @@ import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { RemakeCard } from "./RemakePicture";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
+import { StatesTimeline } from "./StatesTimeline";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -1522,6 +1523,8 @@ export function StudioPage() {
           <RemakeCard />
           <LearnedDialog />
           <RemixCard />
+          {/* A part's states in order, opened from its right-click menu. */}
+          <StatesTimeline />
           {/*
             The one scroller: the site, then the categories under it.
 

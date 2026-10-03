@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TV box states</title>
+<link rel="stylesheet" href="tv.css">
+</head>
+<body data-hook="app">
+<main data-hook="play">
+  <h1 data-hook="page-title">Play</h1>
+  <div data-hook="tv-screen">
+    <!-- As PonsStars' TV: the message box is one part; connecting, then "Find a match", then the result are its states. -->
+    <div data-hook="chart-tv-box" data-state="offline">
+      <div data-hook="chart-tv-loading" role="status" data-step="contacting">
+        <p data-hook="chart-tv-loading-title">Tuning in to the game server</p>
+        <div data-hook="chart-tv-loading-bar" role="progressbar" aria-label="Connecting" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div data-hook="chart-tv-loading-fill"></div></div>
+        <p data-hook="chart-tv-loading-text">Contacting the game server…</p>
+      </div>
+      <div data-hook="chart-tv-idle" hidden>
+        <p data-hook="chart-tv-idle-title">Find a match</p>
+        <p data-hook="chart-tv-idle-text">A sample chart is playing. Your match plays here.</p>
+      </div>
+      <div data-hook="chart-tv-result" role="status" hidden>
+        <p data-hook="chart-tv-result-headline">You won</p>
+        <p data-hook="chart-tv-result-scores">+12.4% to +3.1%</p>
+      </div>
+    </div>
+  </div>
+  <p data-hook="below">Under the TV.</p>
+</main>
+</body>
+</html>

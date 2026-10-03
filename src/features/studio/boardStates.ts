@@ -21,6 +21,8 @@
  * Pure: `tests/board-states.mjs` holds it on PonsStars.
  */
 
+import { readStepKey, type FramesRead } from "./stateFrames.ts";
+
 /** One preview screen, as read at import: its page and the hooks it shows. */
 export interface ScreenRead {
   name: string;
@@ -48,8 +50,11 @@ export const screenKey = (name: string) => `screen:${name}`;
  * What the board draws, with these states on. `pageOf` turns a screen's page
  * file into the board's page id.
  */
-export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null) {
-  const groups = new Set(on.filter((k) => !k.startsWith("screen:")));
+export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, frames?: Pick<FramesRead, "inFrame" | "stepOf"> | null) {
+  const groups = new Set(on.filter((k) => !k.startsWith("screen:") && !k.startsWith("step:")));
+  /* One face of a frame, picked on its States timeline: that face alone, in its frame (`stateFrames.ts`). */
+  const picked = new Map<string, string>();
+  for (const k of on) { const s = readStepKey(k); if (s) picked.set(s.frame, s.step); }
   const byPage = new Map<string, Set<string>[]>();
   for (const s of screens ?? []) {
     if (!on.includes(screenKey(s.name))) continue;
@@ -60,6 +65,11 @@ export function boardShows(on: readonly string[], screens: readonly ScreenRead[]
     byPage.set(page, list);
   }
   return (n: StateNode): boolean => {
+    if (picked.size && frames && n.id) {
+      const f = frames.inFrame.get(n.id);
+      const want = f ? picked.get(f) : undefined;
+      if (want !== undefined) return frames.stepOf.get(n.id) === want;
+    }
     if (n.state && groups.has(n.state.group)) return true;
     const shown = byPage.get(n.pageId);
     if (!shown) return !n.state;

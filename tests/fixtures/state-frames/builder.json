@@ -1,0 +1,6 @@
+{
+  "kit": "1.0.0",
+  "name": "TV box states",
+  "about": "A test fixture for tests/state-frames.mjs: PonsStars' TV message box (web/index.html, chart-tv-box) with its three faces.",
+  "pages": [{ "file": "web/index.html", "title": "Play" }]
+}
