@@ -277,13 +277,9 @@ const n2 = (v: number) => Math.round(v * 100) / 100;
  * of that is a design: re-read every part's baseline from the board as it
  * landed, so the style layer holds only what the owner changes after.
  */
-export function baselineAsLanded<T extends LayerNode>(nodes: readonly T[], palette?: Record<string, string> | null): T[] {
-  return nodes.map((n) => {
-    if (!n.source?.was) return n;
-    const f = n.font;
-    const base = f && typeof f.px === "number" && typeof f.size === "number" && f.size > 0 ? f.px / f.size : 16;
-    return { ...n, source: { ...n.source, was: lookOf(n, palette, { base }) } };
-  });
+export function baselineAsLanded<T extends LayerNode>(nodes: readonly T[], palette?: Record<string, string> | null, opts: { family?: (name: string) => string | undefined } = {}): T[] {
+  /* Measured exactly as the panel measures "now" (`buildLayer`'s `lookOf`, base 16, the same faces), or every rounding is a restyle. */
+  return nodes.map((n) => (n.source?.was ? { ...n, source: { ...n.source, was: lookOf(n, palette, { family: opts.family }) } } : n));
 }
 
 export function lookOf(n: LayerNode, palette?: Record<string, string> | null, opts: { base?: number; family?: (name: string) => string | undefined } = {}): CssLook {

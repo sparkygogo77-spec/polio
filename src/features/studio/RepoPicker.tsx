@@ -256,6 +256,10 @@ function BringIn({ mine, said, onDone }: { mine: Mine[] | null; said: string | n
     setRefused(null);
     const name = `${source.owner}/${source.name}`;
     if (source.dir) { ask(`${name}@${source.branch}`, source.dir); return; }
+    /* A builder-ready repository says its own folder: where its builder.json is (`look.styleSource.manifest`), so the record's missing folder is no question. */
+    const code = (useStudio.getState().look as { styleSource?: { repo?: string; manifest?: { file?: string } } }).styleSource;
+    const manifestFile = code?.repo?.toLowerCase() === name.toLowerCase() ? code.manifest?.file : undefined;
+    if (manifestFile) { const dir = manifestFile.includes("/") ? manifestFile.slice(0, manifestFile.lastIndexOf("/")) : null; ask(`${name}@${source.branch}`, dir); return; }
     setPicked(name);
     setChoices(null);
     setFolder("");

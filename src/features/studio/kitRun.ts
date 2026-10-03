@@ -114,6 +114,13 @@ export function seenOfKit(manifest: KitManifest, hooksJson: string | null, ref: 
   };
 }
 
+/** The code's tokens the board does not hold, or holds at another value. */
+export function tokensBehind(source: Pick<StyleSource, "files">, seen: KitSeen): string[] {
+  const board = new Map<string, string>();
+  for (const f of source.files) for (const v of f.vars) if (v.token && !board.has(v.name)) board.set(v.name, v.value);
+  return Object.entries(seen.values ?? {}).filter(([t, v]) => board.get(t) !== v).map(([t]) => t).sort();
+}
+
 /**
  * "Take these in": the tokens the code has now, with their values, onto the
  * site's reading of its code (`source.files`). A value the code changed is
@@ -228,6 +235,8 @@ export interface RoundChanges {
   kindChanged: string[];
   tokensAdded: string[];
   tokensRemoved: string[];
+  /** Tokens the board holds behind the code (missing, or another value): "Take these in" brings them, even when nothing else changed since the last round. */
+  tokensBehind?: string[];
   /** The layer's rules for hooks no page has now: they would style nothing. */
   staleRules: string[];
   /** Nothing changed and nothing is stale. */
@@ -303,5 +312,12 @@ export async function readRound(source: StyleSource, token: string, opts: { fetc
     before = { ...before, hooks: named(before.hooks) };
     fair = { ...now, tokens: before.tokens, hooks: named(now.hooks) };
   }
-  return { ok: true, changes: roundChanges(before, fair, opts.layerHooks ?? []), seen: now, manifest: kit ? kit.manifest : null, branch: main.branch };
+  let changes = roundChanges(before, fair, opts.layerHooks ?? []);
+  /* What the board holds is compared too, not only the last round: a site whose round was taken in before its tokens were (or before the code changed) still catches up. */
+  const behind = tokensBehind(source, now);
+  if (behind.length) {
+    const said = `The board's design tokens are behind the code: ${behind.length} to take in (${behind.slice(0, 4).join(", ")}${behind.length > 4 ? ", …" : ""}).`;
+    changes = { ...changes, tokensBehind: behind, same: false, says: changes.same ? said : `${changes.says} ${said}` };
+  }
+  return { ok: true, changes, seen: now, manifest: kit ? kit.manifest : null, branch: main.branch };
 }
