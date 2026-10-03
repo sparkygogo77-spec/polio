@@ -27,6 +27,7 @@ import { polioMd, POLIO_MD } from "./polioMd";
 import { completeSite, fetchOwnFromBuilder, missingSays } from "./siteRefs";
 import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
+import { askStillCopy, codeSourceOf } from "./stillCopy";
 import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "./publishWords";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
@@ -272,8 +273,11 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
  * server's, so each site goes where the Builds page says it goes, and the
  * address is written back to the project when it is live.
  */
-export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void }): Promise<void> {
+export async function goLive(o: { extra?: GeneratedFile[]; message: string; siteName: string; say: (t: ToastInput) => void; /** The owner said yes to a still copy of a site from code (`stillCopy.ts`). */ still?: boolean }): Promise<void> {
   if (useGoLive.getState().busy) return;
+  /* A site from a code repository goes up only as a still copy, without its scripts: asked every press, here, so no button can skip it. */
+  const fromCode = codeSourceOf(useStudio.getState().look);
+  if (fromCode && !o.still) { askStillCopy(fromCode, () => void goLive({ ...o, still: true })); return; }
   /*
    * Said inside the press, before anything is awaited: a module that wants to
    * follow the publish with something only a press may start (the tweet
