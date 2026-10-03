@@ -11,12 +11,12 @@ import { exportSite } from "./exportSite";
 import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
 import { useStudio } from "./store";
-import { finishKit, toKit, type KitExport, type KitFile, type KitPart } from "./kitExport";
+import { finishKit, pullPictures, toKit, type KitExport, type KitFile, type KitPart } from "./kitExport";
 import { hookChanges, readHookMap, sendDesign, type ChangeNode, type HookChanges, type HookMap } from "./designBranch";
 import { designRecord, type RecordNode } from "./designRecord";
 import type { StyleSource } from "./styleLayer";
 import { heldKeys } from "@/features/keys/store";
-import { fileAt, kitMapOnServer } from "./kitRun";
+import { defaultBranch, fileAt, kitMapOnServer } from "./kitRun";
 import { DEFAULT_OFFSITE } from "./parts/offsite";
 import { zipFiles } from "./zipWrite";
 
@@ -35,7 +35,9 @@ export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; 
     const fresh = fromCode && !hook && !(n as { source?: unknown }).source;
     return [n.id, { label: n.label, hook, ...(fresh ? { fresh: true, kind: n.featureId } : {}) }];
   }));
-  const made = toKit({ files, name, pages, parts, links: String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE) });
+  const raw = toKit({ files, name, pages, parts, links: String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE) });
+  /* Pictures written inside the pages and styles become files of their own: the text stays small enough to check and to read. */
+  const made = { ...raw, files: pullPictures(raw.files).files };
   const kit = await finishKit(made, kitMapOnServer);
   const says = kit.problems.length ? `${kit.says} The kit's check found ${kit.problems.length} problem${kit.problems.length === 1 ? "" : "s"}: ${kit.problems.slice(0, 3).join("; ")}.` : `${kit.says} kit:check passes on it.`;
   return { ok: !kit.problems.length, files: kit.files, problems: kit.problems, says, kit: made };
@@ -48,12 +50,18 @@ export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; 
  * moved, added and removed. Only for a site brought in from a repository,
  * and only once the kit's check passes on it.
  */
-export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?: Date } = {}): Promise<{ ok: boolean; says: string; branch?: string; pull?: string | null; changes?: HookChanges }> {
+export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?: Date; onProgress?: (says: string) => void } = {}): Promise<{ ok: boolean; says: string; branch?: string; pull?: string | null; changes?: HookChanges; sent?: number; reused?: number }> {
   const s = useStudio.getState();
   const source = (s.look as { styleSource?: StyleSource & { onBoard?: string[] } }).styleSource;
   if (!source?.repo) return { ok: false, says: "This site did not come from a repository, so there is no branch to send it to. Export for code as a zip instead." };
   const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
   if (!token) return { ok: false, says: "A GitHub key is needed to write the branch. Add it under Keys." };
+  const say = opts.onProgress ?? (() => {});
+  /* The key first, before the slow part: a key GitHub refuses (401) is said now, not after the export. */
+  say(`Asking GitHub for ${source.repo}…`);
+  const main = await defaultBranch(opts.fetch ?? fetch, token, source.repo);
+  if (!main.ok) return { ok: false, says: main.says };
+  say(`Exporting ${s.nodes.length} parts on ${s.pages.length} page${s.pages.length === 1 ? "" : "s"} and running the kit's check…`);
   const got = await exportForCode();
   if (!got.files.length || !got.kit) return { ok: false, says: got.says };
   if (got.problems.length) return { ok: false, says: `Nothing was sent: the kit's check found ${got.problems.length} problem${got.problems.length === 1 ? "" : "s"}: ${got.problems.slice(0, 3).join("; ")}.` };
@@ -65,9 +73,9 @@ export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?:
   /* The design record beside it (design/record.json): what a code chat builds from and checks the build against. */
   const made = readHookMap(got.files.find((f) => /(^|\/)hooks\.json$/.test(f.path))?.content);
   const record = boardRecord({ ...made, ...map }, opts.date, Object.fromEntries(got.kit.fresh.map((f) => [f.part, f.hook])));
-  const sent = await sendDesign([...got.files, { path: "record.json", content: record }], changes, source.repo, token, { site, date: opts.date, fetch: opts.fetch });
+  const sent = await sendDesign([...got.files, { path: "record.json", content: record }], changes, source.repo, token, { site, date: opts.date, fetch: opts.fetch, onProgress: say });
   if (!sent.ok) return { ok: false, says: sent.says, changes };
-  return { ok: true, says: `${sent.says} kit:check passes on it.`, branch: sent.branch, pull: sent.pull, changes };
+  return { ok: true, says: `${sent.says} kit:check passes on it.`, branch: sent.branch, pull: sent.pull, changes, sent: sent.sent, reused: sent.reused };
 }
 
 /**

@@ -569,6 +569,42 @@ ${inside}
  * Adds `hooks.json`, made by the kit's own check, which also says whether
  * the export keeps the contract (`kitMap.ts`, run on our server).
  */
+/**
+ * PICTURES OUT OF THE TEXT. A page brought in from code carries its pictures
+ * as `data:` addresses inside its HTML and CSS (backgrounds, masks, a still
+ * of a chart), which made PonsStars' export megabytes of text: too big for
+ * the kit's check on our server (413) and for a code chat to read. Each one
+ * over `min` characters becomes a file of its own under
+ * `site/assets/pictures/`, named by its bytes, and the text points at it.
+ */
+export function pullPictures(files: KitFile[], min = 2048): { files: KitFile[]; pulled: number } {
+  const EXT: Record<string, string> = { png: "png", jpeg: "jpg", jpg: "jpg", gif: "gif", webp: "webp", avif: "avif", "svg+xml": "svg", "x-icon": "ico" };
+  const made = new Map<string, string>();
+  const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return `${(h >>> 0).toString(36)}${s.length.toString(36)}`; };
+  const rel = (from: string, to: string) => {
+    const a = from.split("/").slice(0, -1);
+    const b = to.split("/");
+    let i = 0;
+    while (i < a.length && i < b.length - 1 && a[i] === b[i]) i++;
+    return [...a.slice(i).map(() => ".."), ...b.slice(i)].join("/");
+  };
+  let pulled = 0;
+  const out = files.map((f) => {
+    if (f.encoding === "base64" || !/\.(html|css)$/.test(f.path) || !f.content.includes("data:image/")) return f;
+    const content = f.content.replace(/data:image\/([a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)/gi, (whole, type: string, data: string) => {
+      if (whole.length < min) return whole;
+      const ext = EXT[type.toLowerCase()];
+      if (!ext) return whole;
+      const path = `${ROOT}assets/pictures/p-${hash(data)}.${ext}`;
+      if (!made.has(path)) made.set(path, data);
+      pulled++;
+      return rel(f.path, path);
+    });
+    return content === f.content ? f : { ...f, content };
+  });
+  return { files: [...out, ...[...made].map(([path, content]) => ({ path, content, encoding: "base64" as const }))], pulled };
+}
+
 export async function finishKit(kit: KitExport, map: (files: Record<string, string>) => Promise<{ problems: string[]; made: Record<string, string> }>): Promise<KitExport & { problems: string[] }> {
   const text = Object.fromEntries(kit.files.filter((f) => f.encoding !== "base64").map((f) => [f.path, f.content]));
   const got = await map(text);

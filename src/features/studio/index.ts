@@ -232,8 +232,11 @@ export const studio = defineFeature({
       when: onStudio,
       run: async (c) => {
         const { exportForCodeToBranch } = await import("./exportForCode");
-        const r = await exportForCodeToBranch();
-        c.publish({ key: "studio:export-for-code", title: r.ok ? "Design sent to a branch" : "Not sent", body: r.says, level: r.ok ? "success" : "warn", source: "studio", toast: true });
+        /* One card that says each step as it goes, then the outcome in the same place: a big site takes a while, and never fails without a word. */
+        const card = { key: "studio:export-for-code", source: "studio", toast: true, coalesceMs: 30 * 60 * 1000 } as const;
+        c.publish({ ...card, title: "Exporting for code", body: "Starting…", level: "info" });
+        const r = await exportForCodeToBranch({ onProgress: (says) => c.publish({ ...card, title: "Exporting for code", body: says, level: "info" }) }).catch((e: unknown) => ({ ok: false, says: `The export stopped: ${e instanceof Error ? e.message : String(e)}` }));
+        c.publish({ ...card, title: r.ok ? "Design sent to a branch" : "Not sent", body: r.says, level: r.ok ? "success" : "warn" });
       },
     },
     /* The board as one file, and back again (`backup.ts`): also on the save line and on each card on Builds. */

@@ -512,6 +512,16 @@ request, the hook, its code refs and a picture of the part
 (`/api/studio/screenshot` with `hook`) to a new `request/<hook>-<date>`
 branch with a draft pull request. `tests/code-view.mjs` holds all three.
 
+**A big site exports in small pieces, and says each step.** Export for code
+to a branch asks GitHub for the repository first (a key it refuses, 401, is
+said at once), pulls pictures written inside pages and stylesheets into
+files of their own (`kitExport.ts#pullPictures`), sends the kit's check its
+files gzipped (`kitRun.ts#kitMapOnServer`, ungzipped with a cap in
+`/api/studio/kit-map`; the host refuses a body over 4.5 MB with 413), sends
+each file to GitHub as its own blob, except a file the repository already
+has (git's own name for its bytes, `designBranch.ts#gitBlobSha`), which is
+pointed at and never sent again, and shows every step on one card.
+
 **Every design that goes back carries its design record.** Export for code
 to a branch and Send the design back both write `design/record.json`
 (`designRecord.ts`, `exportForCode.ts#boardRecord`), in the format PST's

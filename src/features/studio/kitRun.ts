@@ -80,7 +80,7 @@ export async function fileAt(f: Fetch, token: string, repo: string, ref: string,
 
 export async function defaultBranch(f: Fetch, token: string, repo: string): Promise<Answer<{ branch: string }>> {
   const info = await gh(f, token, `/repos/${repo}`);
-  if (info.status !== 200) return { ok: false, says: info.status === 404 ? `GitHub has no ${repo}, or this token cannot see it.` : info.status === 401 || info.status === 403 ? "GitHub refused that token. Check it under Keys." : "GitHub could not be reached." };
+  if (info.status !== 200) return { ok: false, says: info.status === 404 ? `GitHub has no ${repo}, or this token cannot see it.` : info.status === 401 ? "GitHub does not accept the saved key (401): it has expired, been revoked, or was pasted wrong. Make a new one with Contents and Pull requests: read and write on this repository, and add it under Keys." : info.status === 403 ? "GitHub refused that token (403). Check it under Keys." : "GitHub could not be reached." };
   return { ok: true, branch: String(info.json?.default_branch ?? "main") };
 }
 
@@ -143,10 +143,27 @@ export async function kitFiles(repo: string, ref: string, token: string, manifes
 
 /** The kit's check on files, on our server (`/api/studio/kit-map`); the tests pass their own. */
 export type KitMapCall = (files: Record<string, string>) => Promise<{ problems: string[]; made: Record<string, string> }>;
+/**
+ * The kit's check on our server. The files go gzipped: a big site's pages are
+ * megabytes of text, past what the host takes in one request (it answers
+ * 413), and a tenth of that packed. An answer that is not the check's own
+ * says what it was.
+ */
 export const kitMapOnServer: KitMapCall = async (files) => {
+  const text = JSON.stringify({ files });
+  let body: BodyInit = text;
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (typeof CompressionStream !== "undefined") {
+    try {
+      body = await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+      headers["x-body-encoding"] = "gzip";
+    } catch { body = text; }
+  }
+  const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
   try {
-    const res = await fetch("/api/studio/kit-map", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files }) });
-    const json = (await res.json()) as { problems?: string[]; made?: Record<string, string> };
+    const res = await fetch("/api/studio/kit-map", { method: "POST", headers, body });
+    const json = (await res.json().catch(() => null)) as { problems?: string[]; made?: Record<string, string> } | null;
+    if (!json) return { problems: [res.status === 413 ? `the files (${mb(text.length)} of text, ${mb(typeof body === "string" ? body.length : (body as ArrayBuffer).byteLength)} sent) are too big for the server to take in one request (413)` : `the check answered ${res.status} without saying why`], made: {} };
     return { problems: json.problems ?? [`the check answered ${res.status}`], made: json.made ?? {} };
   } catch {
     return { problems: ["the check could not be reached"], made: {} };

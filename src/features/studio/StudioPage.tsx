@@ -1280,7 +1280,7 @@ export function StudioPage() {
     /* The same site as a builder-ready repository (exportForCode.ts, kit/PIPELINE.md route 1), for tests/export-for-code.mjs. */
     (w as unknown as { __studioKitExport?: () => Promise<unknown> }).__studioKitExport = () => import("./exportForCode").then((m) => m.exportForCode());
     /* And to a design/ branch of the repository it came from, for tests/export-to-branch.mjs. */
-    (w as unknown as { __studioKitBranch?: () => Promise<unknown> }).__studioKitBranch = () => import("./exportForCode").then((m) => m.exportForCodeToBranch());
+    (w as unknown as { __studioKitBranch?: () => Promise<unknown>; __studioKitSteps?: string[] }).__studioKitBranch = () => import("./exportForCode").then((m) => { const steps: string[] = []; (w as unknown as { __studioKitSteps?: string[] }).__studioKitSteps = steps; return m.exportForCodeToBranch({ onProgress: (x) => steps.push(x) }); });
     (w as unknown as { __studioRecord?: () => Promise<unknown> }).__studioRecord = () => import("./exportForCode").then((m) => JSON.parse(m.boardRecord()));
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
     (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;

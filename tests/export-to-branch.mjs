@@ -24,6 +24,11 @@
  *     repository's hooks.json), in the pull request, in
  *     design/HOOK-CHANGES.md and in design/HOOK-CHANGES.json (for kit:diff);
  *   · kit:check passes on what was written, run from design/.
+ *   · a big site goes in many small requests: the kit's check gets its
+ *     files gzipped, under the 4.5 MB the host takes (it answered 413 on
+ *     PST's 707 parts), pictures written inside pages and stylesheets
+ *     become files of their own, each step is said as it goes, and a key
+ *     GitHub refuses (401) is said at once, before anything is exported.
  *   · the design record (design/record.json, PST kit/DESIGN-RECORD.md) goes
  *     with it, and the verify step works: the board's record as it came in
  *     matches a look-only capture of the page (on PST, every shown part of
@@ -43,9 +48,12 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import { chromium } from "playwright-core";
 import { DUMP } from "../capture/site/capture/dump.mjs";
 import { recordDiff } from "../kit/tools/record-diff.mjs";
+import { pullPictures } from "../src/features/studio/kitExport.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
@@ -57,10 +65,23 @@ const check = (name, ok, detail = "") => {
 };
 
 /* The repository: a git checkout at a revision, or the fixture folder. */
+/* Pure: a picture written inside a page or a stylesheet comes out as a file of its own, the text pointing at it (kitExport.ts#pullPictures). */
+{
+  const big = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(3_000_000, 7)]).toString("base64");
+  const small = Buffer.from("89504e470d0a1a0a", "hex").toString("base64");
+  const got = pullPictures([
+    { path: "site/match/index.html", content: `<div style="background:url(data:image/png;base64,${big})"></div><img src="data:image/png;base64,${small}">` },
+    { path: "site/base.css", content: `[data-hook="a"] { background: url("data:image/png;base64,${big}"); }` },
+  ]);
+  const html = got.files.find((f) => f.path === "site/match/index.html").content;
+  const css = got.files.find((f) => f.path === "site/base.css").content;
+  const pic = got.files.filter((f) => f.path.startsWith("site/assets/pictures/"));
+  check("a 4 MB picture inside a page and a stylesheet becomes one file; the text points at it, relative to each; a tiny one stays", got.pulled === 2 && pic.length === 1 && pic[0].encoding === "base64" && pic[0].content === big && html.includes(`url(../assets/pictures/`) && css.includes(`url("assets/pictures/`) && html.includes(small) && html.length < 400, `${got.pulled} pulled, ${pic.map((f) => f.path).join()}, page ${html.length} chars`);
+}
 let names, read;
 if (PST) {
   const REV = process.env.REV ?? "HEAD";
-  names = execFileSync("git", ["-C", PST, "ls-tree", "-r", "--name-only", REV], { encoding: "utf8" }).trim().split("\n").filter((f) => !/\.(png|jpe?g|gif|webp|mp4|zip|ico|woff2?)$/i.test(f));
+  names = execFileSync("git", ["-C", PST, "ls-tree", "-r", "--name-only", REV], { encoding: "utf8" }).trim().split("\n").filter((f) => !/\.(mp4|zip|woff2?)$/i.test(f));
   read = (f) => execFileSync("git", ["-C", PST, "show", `${REV}:${f}`], { maxBuffer: 64 << 20 });
 } else {
   const root = join(here, "fixtures", "design-repo");
@@ -70,7 +91,11 @@ if (PST) {
 }
 const REPO = "him/pst";
 const MAIN = "main";
-const tree = names.map((f, i) => ({ path: f, type: "blob", sha: `f${i}`, size: 100 }));
+/* Each file under git's own name for its bytes, as GitHub lists it: the export points at what the repository already has. */
+const gitSha = (buf) => createHash("sha1").update(Buffer.concat([Buffer.from(`blob ${buf.length}\0`), buf])).digest("hex");
+const shaOf = new Map(names.map((f) => [f, gitSha(read(f))]));
+const repoBySha = new Map([...shaOf].map(([f, sha]) => [sha, f]));
+const tree = names.map((f) => ({ path: f, type: "blob", sha: shaOf.get(f), size: 100 }));
 
 /* GitHub, stood in: reads from the repository; writes are kept here and nowhere else. */
 const blobs = new Map();
@@ -84,7 +109,18 @@ const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_C
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
+/* The host takes no request body over 4.5 MB (Vercel answers 413 before our route runs): the kit's check is held to it here too. */
+const HOST_MOST = 4.5 * 1024 * 1024;
+const kitMapSent = [];
+await page.route("**/api/studio/kit-map", (r) => {
+  const n = r.request().postDataBuffer()?.length ?? 0;
+  const gz = r.request().headers()["x-body-encoding"] === "gzip";
+  kitMapSent.push({ bytes: n, gzip: gz, text: gz ? gunzipSync(r.request().postDataBuffer()).length : n });
+  return n > HOST_MOST ? r.fulfill({ status: 413, contentType: "text/plain", body: "Request Entity Too Large" }) : r.continue();
+});
+let refuseKey = false;
 await page.route("https://api.github.com/**", (r) => {
+  if (refuseKey) return r.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "Bad credentials" }) });
   const req = r.request();
   const u = new URL(req.url());
   const j = (b, code = 200) => r.fulfill({ status: code, contentType: "application/json", body: JSON.stringify(b) });
@@ -105,8 +141,8 @@ await page.route("https://api.github.com/**", (r) => {
   if (req.method() !== "GET") return j({ message: "no" }, 405);
   if (!rest) return j({ default_branch: MAIN, homepage: "" });
   if (rest.startsWith("/git/trees/")) return j({ tree });
-  const b = /\/git\/blobs\/f(\d+)$/.exec(rest);
-  if (b) return j({ encoding: "base64", content: read(names[Number(b[1])]).toString("base64") });
+  const b = /\/git\/blobs\/([0-9a-f]{40})$/.exec(rest);
+  if (b && repoBySha.has(b[1])) return j({ encoding: "base64", content: read(repoBySha.get(b[1])).toString("base64") });
   if (rest.startsWith("/contents/")) { const f = decodeURIComponent(rest.slice(10)); return names.includes(f) ? j({ content: read(f).toString("base64") }) : j({ message: "Not Found" }, 404); }
   const ref = /^\/git\/ref\/heads\/(.+)$/.exec(rest);
   if (ref) { const sha = refs.get(decodeURIComponent(ref[1])); return sha ? j({ object: { sha } }) : j({ message: "Not Found" }, 404); }
@@ -215,7 +251,7 @@ try {
   /* What was written, on disk, as a code chat checks it out. */
   const commit = commits.get(refs.get(branches[0]));
   const written = trees.get(commit?.tree)?.tree ?? [];
-  for (const e of written) { const at = join(DIR, e.path); mkdirSync(dirname(at), { recursive: true }); writeFileSync(at, blobs.get(e.sha)); }
+  for (const e of written) { const at = join(DIR, e.path); mkdirSync(dirname(at), { recursive: true }); writeFileSync(at, blobs.get(e.sha) ?? read(repoBySha.get(e.sha))); }
   check("everything under design/, nothing of the code's own written over", written.length > 10 && written.every((e) => e.path.startsWith("design/")) && commit.parents?.[0] === "c0", `${written.length} files`);
   const want = ["design/builder.json", "design/site/hooks.json", "design/site/tokens.css", "design/site/style-layer.css", "design/site/index.html", "design/HOOK-CHANGES.md"];
   check("the kit layout: pages, builder.json, hooks.json, tokens.css, style-layer.css, and the hook changes", want.every((p) => existsSync(join(DIR, p))), want.filter((p) => !existsSync(join(DIR, p))).join(", "));
@@ -252,6 +288,28 @@ try {
   const why = (h) => pending.differ.find((d) => d.hook === h)?.why ?? "";
   check("…and record-diff on the unbuilt page lists the chart's move and the new part, nothing the design left alone", /place/.test(why("chart-area")) && /not drawn/.test(why("chart-main")) && pending.differ.length <= vs.differ.length + 2 + gone.length, pending.differ.slice(0, 6).map((d) => `${d.hook}: ${d.why}`).join(" | "));
   if (!PST) writeFileSync(join(tmpdir(), "record-fixture.json"), JSON.stringify(rec));
+
+  /* A big site goes in many small requests: the check's files packed under the host's limit, pictures as files of their own, every step said. */
+  const steps = await page.evaluate(() => window.__studioKitSteps ?? []);
+  const sentMax = Math.max(0, ...kitMapSent.map((k) => k.bytes));
+  check(`the kit's check is sent packed, under the host's 4.5 MB (${st.nodes.length} parts)`, kitMapSent.length >= 1 && kitMapSent.every((k) => k.gzip) && sentMax <= HOST_MOST, `${kitMapSent.length} request(s), largest ${(sentMax / 1048576).toFixed(2)} MB packed from ${(Math.max(...kitMapSent.map((k) => k.text)) / 1048576).toFixed(2)} MB of text`);
+  const textFiles = written.filter((e) => /\.(html|css)$/.test(e.path));
+  const inline = textFiles.filter((e) => /data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{2048,}/i.test(readFileSync(join(DIR, e.path), "utf8")));
+  const pics = written.filter((e) => e.path.startsWith("design/site/assets/pictures/"));
+  check("no big picture written inside a page or stylesheet: each is a file of its own", inline.length === 0, `${pics.length} picture files (${(pics.reduce((t, e) => t + (blobs.get(e.sha)?.length ?? 0), 0) / 1048576).toFixed(2)} MB); inline in ${inline.map((e) => e.path).join(", ") || "none"}`);
+  check("each step is said as it goes: the key, the export, the files sent", steps.some((x) => /Asking GitHub/.test(x)) && steps.some((x) => /Exporting \d+ parts/.test(x)) && steps.some((x) => /file \d+ of \d+/.test(x)), steps.slice(0, 3).concat(steps.slice(-2)).join(" | "));
+
+  /* Only what changed is sent: a file the repository already has (its pictures, an unchanged page) is pointed at by its git name. */
+  const reusedEntries = written.filter((e) => !blobs.has(e.sha));
+  check("files the repository already has are pointed at, not sent again; everything else is sent", (got?.reused ?? 0) === reusedEntries.length && reusedEntries.every((e) => repoBySha.has(e.sha)) && (got?.sent ?? 0) + (got?.reused ?? 0) === written.length && /not sent again/.test(got?.says ?? "") === reusedEntries.length > 0, `${got?.sent} sent, ${got?.reused} pointed at: ${reusedEntries.slice(0, 6).map((e) => e.path).join(", ")}`);
+
+  /* A key GitHub refuses: said at once, in words, before anything is exported. */
+  refuseKey = true;
+  const before = kitMapSent.length;
+  const t0 = Date.now();
+  const refused = await page.evaluate(async () => await window.__studioKitBranch());
+  refuseKey = false;
+  check("a key GitHub refuses (401) is said at once, with what to do, before the export runs", refused?.ok === false && /401/.test(refused.says) && /Keys/.test(refused.says) && kitMapSent.length === before && Date.now() - t0 < 10000, `${Date.now() - t0} ms: ${refused?.says}`);
 
   /* kit:check, run as a code chat runs it, from design/. */
   let kc;

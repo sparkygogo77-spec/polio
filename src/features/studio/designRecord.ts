@@ -29,6 +29,8 @@ export interface RecordNode {
   anim?: string | null;
   state?: { group: string; option: number } | null;
   vector?: { svg?: string } | null;
+  /** What paints and turns it, as the page wrote it (`pageParts.ts`): `transform` turns the box about its middle. */
+  art?: { transform?: string } | null;
   source?: { file?: string } | null;
 }
 
@@ -46,6 +48,9 @@ export interface RecordPart {
   fw?: string;
   ffs?: string;
   anim?: string;
+  /** Its turn as written (`rotate(-30deg)`), and the page matrix it puts the box under, as the capturer writes it. */
+  tf?: string;
+  ptf?: number[];
   states?: Record<string, { hidden?: boolean; group?: string; style?: Record<string, string> }>;
   tokens?: Record<string, string>;
   assets?: { svg?: string; img?: string };
@@ -71,6 +76,35 @@ export function colourKey(v: string): string {
   const m = s.match(/^rgba?\(([^)]+)\)$/);
   if (m) { const p = m[1]!.split(/[ ,/]+/).filter(Boolean); return (p.length === 4 && Number(p[3]) === 1 ? p.slice(0, 3) : p).join(","); }
   return s.replace(/\s+/g, "");
+}
+
+/**
+ * A 2D transform as written (`rotate(-30deg)`, `matrix(...)`, `scale()`,
+ * `translate()`, in order), about the middle of `box`, as the page matrix
+ * a b c d e f the capturer writes in `ptf`. Null for anything else.
+ */
+export function turnMatrix(tf: string, box: { x: number; y: number; w: number; h: number }): number[] | null {
+  const mul = (m: number[], n: number[]) => [m[0]! * n[0]! + m[2]! * n[1]!, m[1]! * n[0]! + m[3]! * n[1]!, m[0]! * n[2]! + m[2]! * n[3]!, m[1]! * n[2]! + m[3]! * n[3]!, m[0]! * n[4]! + m[2]! * n[5]! + m[4]!, m[1]! * n[4]! + m[3]! * n[5]! + m[5]!];
+  const ang = (v: string) => { const m = v.trim().match(/^(-?[\d.]+)(deg|rad|turn)?$/); if (!m) return NaN; const x = Number(m[1]); return m[2] === "rad" ? x : m[2] === "turn" ? x * 2 * Math.PI : (x * Math.PI) / 180; };
+  const px = (v: string | undefined) => (v === undefined ? 0 : /^-?[\d.]+(px)?$/.test(v.trim()) ? parseFloat(v) : NaN);
+  let m = [1, 0, 0, 1, 0, 0];
+  const fns = [...tf.matchAll(/([a-zA-Z]+)\(([^)]*)\)/g)];
+  if (!fns.length || tf.replace(/([a-zA-Z]+)\(([^)]*)\)/g, "").trim()) return null;
+  for (const [, fn, raw] of fns) {
+    const a = raw!.split(/[\s,]+/).filter(Boolean);
+    let n: number[];
+    if (fn === "rotate") { const t = ang(a[0] ?? ""); n = [Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0]; }
+    else if (fn === "matrix" && a.length === 6) n = a.map(Number);
+    else if (fn === "scale") { const x = Number(a[0]); const y = a[1] === undefined ? x : Number(a[1]); n = [x, 0, 0, y, 0, 0]; }
+    else if (fn === "translate") n = [1, 0, 0, 1, px(a[0]), px(a[1])];
+    else return null;
+    if (n.some((v) => !Number.isFinite(v))) return null;
+    m = mul(m, n);
+  }
+  if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) return null;
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const out = mul(mul([1, 0, 0, 1, cx, cy], m), [1, 0, 0, 1, -cx, -cy]);
+  return out.map((v) => Math.round(v * 10000) / 10000);
 }
 
 /**
@@ -114,6 +148,8 @@ export function designRecord(
       if (n.font?.weight) p.fw = String(n.font.weight);
       if (n.font?.stack) p.ffs = n.font.stack;
       if (n.anim) p.anim = n.anim;
+      const turn = n.art?.transform ? turnMatrix(n.art.transform, p) : null;
+      if (turn) { p.tf = n.art!.transform!; p.ptf = turn; }
       if (n.state?.group?.startsWith("hidden:")) p.states = { hidden: { hidden: true, group: groupHook(n.state.group) } };
       const tk: Record<string, string> = {};
       for (const k of ["color", "bg"] as const) { const v = p[k]; const t = v ? byColour.get(colourKey(v)) : undefined; if (t) tk[k] = t; }

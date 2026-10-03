@@ -234,11 +234,32 @@ export function changesJson(c: HookChanges) {
   };
 }
 
+/** Git's name for a file's bytes (sha-1 of "blob <size>\0" and the bytes): the same as GitHub's for the same file. */
+export async function gitBlobSha(file: { content: string; encoding?: string }): Promise<string> {
+  const bytes = file.encoding === "base64" ? Uint8Array.from(atob(file.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)) : new TextEncoder().encode(file.content);
+  const head = new TextEncoder().encode(`blob ${bytes.length}\0`);
+  const all = new Uint8Array(head.length + bytes.length);
+  all.set(head);
+  all.set(bytes, head.length);
+  const sum = new Uint8Array(await crypto.subtle.digest("SHA-1", all));
+  return Array.from(sum, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** What a GitHub refusal means, in words: 401 is the key itself, 403 what it may do, 404 what it can see. */
+export function githubWhy(status: number, repo: string): string {
+  if (status === 401) return "it answered 401: GitHub does not accept the saved key, which has expired, been revoked, or was pasted wrong. Make a new one with Contents and Pull requests: read and write on this repository, and add it under Keys";
+  if (status === 403) return `it answered 403: the key may read ${repo} but not write to it. It needs Contents: read and write`;
+  if (status === 404) return `it answered 404: the key cannot see ${repo}`;
+  if (status === 413 || status === 422) return `it answered ${status}: the file is too big for GitHub to take`;
+  if (status === 0) return "GitHub could not be reached";
+  return `it answered ${status}`;
+}
+
 /**
  * One commit on a new `design/` branch from the default branch, and a draft
  * pull request from it. Never the default branch; never merged here.
  */
-export async function sendDesign(files: KitFile[], changes: HookChanges, repo: string, token: string, opts: { site: string; date?: Date; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; base: string; pull: string | null; draft: boolean; says: string }>> {
+export async function sendDesign(files: KitFile[], changes: HookChanges, repo: string, token: string, opts: { site: string; date?: Date; fetch?: Fetch; onProgress?: (says: string) => void }): Promise<Answer<{ branch: string; sha: string; base: string; pull: string | null; draft: boolean; says: string; sent?: number; reused?: number }>> {
   const f = opts.fetch ?? fetch;
   const main = await defaultBranch(f, token, repo);
   if (!main.ok) return main;
@@ -254,12 +275,22 @@ export async function sendDesign(files: KitFile[], changes: HookChanges, repo: s
   const baseTree = (commit.json?.tree as { sha?: string } | undefined)?.sha;
   if (!baseTree) return { ok: false, says: "GitHub would not show the default branch's last commit." };
   const tree: { path: string; mode: string; type: string; sha: string }[] = [];
-  for (const file of all) {
+  /* What the repository already holds, by git's own name for each file's bytes: a picture or page it has is pointed at, never sent again. */
+  const have = new Set<string>();
+  const listing = await gh(f, token, `/repos/${repo}/git/trees/${baseTree}?recursive=1`);
+  for (const e of (listing.json?.tree as { sha?: string; type?: string }[] | undefined) ?? []) if (e.type === "blob" && e.sha) have.add(e.sha);
+  let reused = 0;
+  /* One file at a time, each its own request: a big site is many small requests, never one too big to send. */
+  for (const [i, file] of all.entries()) {
+    if (i % 5 === 0 || i === all.length - 1) opts.onProgress?.(`Sending the design to ${repo}: file ${i + 1} of ${all.length}${reused ? ` (${reused} already there, not sent again)` : ""}…`);
+    const known = have.size ? await gitBlobSha(file) : null;
+    if (known && have.has(known)) { tree.push({ path: file.path, mode: "100644", type: "blob", sha: known }); reused++; continue; }
     const blob = await gh(f, token, `/repos/${repo}/git/blobs`, { method: "POST", body: { content: file.content, encoding: file.encoding === "base64" ? "base64" : "utf-8" } });
     const sha = blob.json?.sha;
-    if (typeof sha !== "string") return { ok: false, says: `GitHub would not take ${file.path}. Does the token have write access to ${repo}?` };
+    if (typeof sha !== "string") return { ok: false, says: `GitHub would not take ${file.path} (${file.content.length > 1048576 ? `${(file.content.length / 1048576).toFixed(1)} MB, ` : ""}${githubWhy(blob.status, repo)}).` };
     tree.push({ path: file.path, mode: "100644", type: "blob", sha });
   }
+  opts.onProgress?.("Making the branch and the pull request…");
   const made = await gh(f, token, `/repos/${repo}/git/trees`, { method: "POST", body: { base_tree: baseTree, tree } });
   const treeSha = made.json?.sha;
   if (typeof treeSha !== "string") return { ok: false, says: "GitHub would not make the commit's tree." };
@@ -283,11 +314,11 @@ export async function sendDesign(files: KitFile[], changes: HookChanges, repo: s
       const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title: `Design from the Builder: ${opts.site} (${counts})`, head: branch, base, body, draft: true } });
       const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
       const draft = pr.json?.draft === true;
-      const said = `Hooks: ${counts}. ${changes.kept} of the ${changes.original} it came in with are kept exactly.`;
+      const said = `Hooks: ${counts}. ${changes.kept} of the ${changes.original} it came in with are kept exactly. ${all.length - reused} file${all.length - reused === 1 ? "" : "s"} sent${reused ? `; ${reused} the repository already had (pictures, unchanged files) pointed at, not sent again` : ""}.`;
       const says = pull
         ? `The design is on a new branch, ${branch}, in ${repo}, under ${DESIGN_DIR}, with a draft pull request into ${base}: ${pull}. ${said} Nothing on ${base} has changed.`
         : `The design is on a new branch, ${branch}, in ${repo}, under ${DESIGN_DIR}. ${said} GitHub would not open the pull request (it answered ${pr.status}); open it from https://github.com/${repo}/compare/${base}...${branch}. Nothing on ${base} has changed.`;
-      return { ok: true, branch, sha, base, pull, draft, says };
+      return { ok: true, branch, sha, base, pull, draft, says, sent: all.length - reused, reused };
     }
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${branch} (it answered ${put.status}).` };
   }
