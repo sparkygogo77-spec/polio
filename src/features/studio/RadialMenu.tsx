@@ -46,7 +46,7 @@ import * as React from "react";
    same way: this line conflicted three times in one night otherwise.
    Sorted is not the same as union — an icon dropped on purpose stays
    dropped, and the wheel's Edit slot is why. */
-import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, CopyPlus, Shuffle, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, CopyPlus, Shuffle, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, History, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -73,6 +73,7 @@ import { makeSolid, showCube } from "./solidRun";
 import { lookOf } from "./partLook";
 import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "./partLookApply";
 import { openRemix } from "./RemixCard";
+import { hasStates, openStatesTimeline } from "./StatesTimeline";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -984,6 +985,8 @@ export function RadialMenu() {
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
         { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
+        /* A part with states (the TV box: connecting, Find a match, the result), or one of them: its faces in order (StatesTimeline.tsx). */
+        ...(hasStates(nodes, node!.id) ? [{ id: "states", label: "States timeline", icon: <History className="size-3" />, onClick: () => { closeRadial(); openStatesTimeline(node!.id); } }] : []),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
         ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
         /* The look in full (fill, outline, shadow, light, corners, font, hover and press, motion), held across boards; Paste puts the facets chosen in the panel on this part, or every picked part it is one of, in one step (partLookApply.ts). */

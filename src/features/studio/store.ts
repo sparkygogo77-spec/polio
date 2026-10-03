@@ -15,6 +15,7 @@
  * containment and adjacency, so where you put something is part of the spec.
  */
 import { boardShows, type ScreenRead } from "./boardStates";
+import { readStepKey, stateFrames, stepKey } from "./stateFrames";
 import { LEARN_DEFAULT, type LearnState } from "./learn";
 import type { StandIn } from "./standIn";
 import { create } from "zustand";
@@ -3734,11 +3735,17 @@ function pickedStates(s: StudioState, ids: string[]): { statesOn?: string[] } {
   const on = s.statesOn ?? [];
   const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
   const pageOf = (file: string) => source?.files?.find((f) => f.file === file)?.pageId ?? null;
-  const shows = boardShows(on, source?.screens, pageOf);
+  const frames = on.some((k) => k.startsWith("step:")) ? stateFrames(s.nodes) : null;
+  const shows = boardShows(on, source?.screens, pageOf, frames);
   const want = new Set<string>();
+  let kept = on;
   for (const id of ids) {
     const n = s.nodes.find((x) => x.id === id);
-    if (n?.state?.group && !shows(n)) want.add(n.state.group);
+    if (!n || shows(n)) continue;
+    /* A face its frame's timeline is not on: the timeline turns to that face. */
+    const f = frames?.inFrame.get(id);
+    if (f && kept.some((k) => readStepKey(k)?.frame === f)) { kept = [...kept.filter((k) => readStepKey(k)?.frame !== f), stepKey(f, frames!.stepOf.get(id)!)]; continue; }
+    if (n.state?.group) want.add(n.state.group);
   }
-  return want.size ? { statesOn: [...on, ...want] } : {};
+  return want.size || kept !== on ? { statesOn: [...kept, ...want] } : {};
 }

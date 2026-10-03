@@ -1,0 +1,8 @@
+body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: #f4ede0; color: #1a0f0b; }
+[data-hook="play"] { max-width: 900px; margin: 0 auto; padding: 24px; }
+[data-hook="tv-screen"] { position: relative; height: 420px; background: #10201a; border-radius: 18px; display: flex; align-items: center; justify-content: center; }
+[data-hook="chart-tv-box"] { width: 440px; padding: 16px; background: rgba(8, 20, 16, 0.92); border: 2px solid #7fd8a0; border-radius: 10px; color: #c9f5d8; }
+[data-hook="chart-tv-box"] p { margin: 0 0 8px; }
+[data-hook="chart-tv-loading-bar"] { height: 12px; background: #23392f; border-radius: 6px; margin-bottom: 8px; }
+[data-hook="chart-tv-loading-fill"] { width: 1px; height: 12px; background: #7fd8a0; }
+[data-hook="chart-tv-idle-title"], [data-hook="chart-tv-result-headline"], [data-hook="chart-tv-loading-title"] { font-size: 22px; font-weight: 700; }

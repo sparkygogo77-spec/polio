@@ -28,6 +28,7 @@
 import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
 import type { Span } from "./parts/spans.ts";
 import { familyOf } from "./recreate.ts";
+import { seatStates, type FrameNode } from "./stateFrames.ts";
 import { lookOf, type LayerNode, type StyleSource } from "./styleLayer.ts";
 import type { PageSource } from "./sourceHooks.ts";
 import { codeIndex, type CodeIndex, type Wanted } from "./codeRefs.ts";
@@ -365,6 +366,15 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
     const landed = nodesOf(f, pages[i]!.id, link, at, index);
     /* A kit repository names its parts by their hooks: the name its code, its hooks.json and its designer all use. */
     if (opts.byHook) for (const n of landed) { const h = (n.hooks as Record<string, string> | undefined)?.["data-hook"]; if (h) n.label = h; }
+    /* A box with states shows one face at a time, each where the first is (`stateFrames.ts#seatStates`): the board starts them there, and so does what the style layer counts as moved. */
+    const seat = seatStates(landed as unknown as FrameNode[]);
+    for (const n of landed) {
+      const to = seat[n.id as string];
+      if (!to) continue;
+      n.y = to.y;
+      const was = (n.source as { was?: { box?: { y: number } } } | undefined)?.was;
+      if (was?.box) was.box.y = to.y;
+    }
     nodes.push(...landed);
     const hidden = f.read.parts.filter((p) => p.hidden).length;
     report.pages.push({ name: pages[i]!.name, file: f.file, parts: landed.length, hidden });
