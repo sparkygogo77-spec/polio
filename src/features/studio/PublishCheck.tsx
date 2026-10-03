@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { create } from "zustand";
-import { AlertTriangle, Check, Eye, Globe, Wrench } from "lucide-react";
+import { AlertTriangle, Check, Eye, GitPullRequest, Globe, Wrench } from "lucide-react";
 import { Dialog } from "@/core/ui/dialog";
 import { Button } from "@/core/ui/button";
 import { play } from "@/core/audio/engine";
@@ -24,6 +24,8 @@ import { readableFixes } from "./siteColours";
 import { checkBoard, KIND_ORDER, type Problem } from "./publishCheck";
 import { useStudio } from "./store";
 import { goToPart } from "./PartTreePanel";
+import { stillCopyWords, useStillCopy } from "./stillCopy";
+import { openRepoPicker } from "./RepoPicker";
 
 /** The board read now, as the check wants it. */
 export async function readBoard(): Promise<Problem[]> {
@@ -131,6 +133,8 @@ export function PublishCheckDialog() {
   };
   const groups = KIND_ORDER.map((k) => ({ ...k, rows: problems.filter((p) => p.kind === k.kind) })).filter((g) => g.rows.length);
   return (
+    <>
+    <StillCopyDialog />
     <Dialog
       open={open}
       onOpenChange={(v) => { if (!v) close(); }}
@@ -166,6 +170,38 @@ export function PublishCheckDialog() {
         ))}
         {note ? <p className="text-small text-fg-faint">{note}</p> : null}
       </div>
+    </Dialog>
+    </>
+  );
+}
+
+/**
+ * A site from a code repository: Go live publishes a still copy without its
+ * scripts. Said in plain words, with Send the design back one press away;
+ * the still goes up only on Publish the still copy (`stillCopy.ts`).
+ */
+function StillCopyDialog() {
+  const { repo, go } = useStillCopy();
+  const close = () => useStillCopy.setState({ repo: null, go: null });
+  return (
+    <Dialog
+      open={!!repo}
+      onOpenChange={(v) => { if (!v) close(); }}
+      title="This publishes a still copy"
+      footer={
+        <div className="flex w-full items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={close}>Back to the board</Button>
+          <span className="flex-1" />
+          <Button variant="outline" size="sm" data-still-send-back="" onClick={() => { close(); openRepoPicker(); }}>
+            <GitPullRequest /> Send the design back
+          </Button>
+          <Button variant="outline" size="sm" data-still-publish="" onClick={() => { const g = go; close(); g?.(); }}>
+            <Globe /> Publish the still copy
+          </Button>
+        </div>
+      }
+    >
+      <p data-still-copy="" className="text-plain text-fg-muted">{repo ? stillCopyWords(repo) : null}</p>
     </Dialog>
   );
 }
