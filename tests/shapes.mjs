@@ -254,8 +254,9 @@ for (const name of NAMES) {
     if (!ok) { rows.push({ name, run, failed: "the board would not open" }); continue; }
     done++;
     let state = null;
-    for (let i = 0; i < 60; i++) {
-      await page.waitForTimeout(1000);
+    /* Polled four times a second, for the same minute: a body back is seen when it lands, not up to a second later. */
+    for (let i = 0; i < 240; i++) {
+      await page.waitForTimeout(250);
       state = await read();
       if (state.made >= done) break;
     }

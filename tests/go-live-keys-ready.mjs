@@ -77,7 +77,9 @@ for (let i = 0; i < 100 && !(await bar.count()); i++) await page.waitForTimeout(
 const pressedIn = await bar.getAttribute("data-go-live-state");
 const n = pushes.length;
 await bar.click({ force: true });
-await page.waitForTimeout(4000);
+/* Watched for four seconds at least, and on until the push lands (up to fifteen): beside other tests the slowed decrypt and the publish ran past a fixed four. */
+const pressedAt = Date.now();
+while (Date.now() - pressedAt < 4000 || (pushes.length === n && Date.now() - pressedAt < 15000)) await page.waitForTimeout(100);
 const panel = await page.evaluate(() => { const e = document.querySelector("[data-keys-panel]"); if (!e) return null; const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x), vis: getComputedStyle(e).visibility, text: e.textContent.slice(0, 60) }; });
 check("a press in that moment does not open the Keys panel", !panel || panel.w === 0 || panel.x >= 1440, `pressed while ${pressedIn}; panel ${JSON.stringify(panel)}`);
 check("…it waits for the keys and publishes", pushes.length > n, `${pushes.length - n} push(es), pressed while ${pressedIn}`);
