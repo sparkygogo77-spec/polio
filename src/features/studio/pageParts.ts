@@ -191,7 +191,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
   read.parts.forEach((p, i) => {
     const featureId = FEATURE[p.kind];
     const id = `n_${pageId.replace(/^page_/, "")}_${p.kind}_${i + 1}`;
-    const s = p.style;
+    const s = clippedCorners(read.parts, i);
     const font = { stack: s.family, ...(familyOf(s.family) ? { family: familyOf(s.family) } : {}), size: fine(s.px / base), px: s.px, weight: s.weight, leading: fine(s.leading / Math.max(1, s.px)) };
     const colour: Record<string, string> = { text: s.colour };
     if (s.bg) colour.bg = s.bg;
@@ -272,6 +272,9 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(Object.keys(art).length ? { art } : {}),
       ...(typeof s.opacity === "number" && s.opacity < 1 ? { opacity: s.opacity } : {}),
       ...(s.radius > 0 ? { radius: s.radius } : {}),
+      ...(s.layout ? { layout: s.layout } : {}),
+      /* A max-width the page gave it, when it reaches it or is held by it: it grows with the window up to there (`fluidSite.ts`). */
+      ...(typeof s.maxw === "number" && s.maxw > 0 && s.maxw >= p.box.w - 1 ? { maxw: s.maxw } : {}),
       ...(s.radii ? { radii: s.radii } : {}),
       ...(motion ? { motion } : {}),
       /* Rounded to half its side, a square picture is a circle, and is drawn as one at any size. */
@@ -336,6 +339,35 @@ export function lookFromCapture(p: PagePart, shadow: string | null, art: Record<
   if (p.style.radii) out.push("uneven corners");
   if (p.style.animation?.length) out.push("animation");
   return out;
+}
+
+/**
+ * A PART IN THE CORNER OF A ROUNDED PART THAT CLIPS IS ROUNDED THERE TOO.
+ * On the page the TV screen (radius 28, overflow hidden) rounds the chart,
+ * the static and the scanlines drawn in it. On the board each part is drawn
+ * on its own, so the chart's square corners stood out past the screen's.
+ * A part with no rounding of its own, sitting in a corner of its nearest
+ * clipping, rounded ancestor, takes that corner's radius.
+ */
+export function clippedCorners(parts: readonly PagePart[], i: number): PagePart["style"] {
+  const p = parts[i]!;
+  const s = p.style;
+  if (s.radius > 0 || s.radii) return s;
+  let up = p.parent;
+  for (let guard = 0; up >= 0 && guard < 64; guard++) {
+    const a = parts[up];
+    if (!a) break;
+    if (a.style.clips && (a.style.radius > 0 || a.style.radii)) {
+      const r = a.style.radii ?? [a.style.radius, a.style.radius, a.style.radius, a.style.radius];
+      const near = (x: number, y: number) => Math.abs(x - y) <= 1;
+      const L = near(p.box.x, a.box.x), T = near(p.box.y, a.box.y), R = near(p.box.x + p.box.w, a.box.x + a.box.w), B = near(p.box.y + p.box.h, a.box.y + a.box.h);
+      const corners = [L && T ? r[0]! : 0, R && T ? r[1]! : 0, R && B ? r[2]! : 0, L && B ? r[3]! : 0];
+      if (!corners.some((c) => c > 0)) return s;
+      return new Set(corners).size === 1 ? { ...s, radius: corners[0]! } : { ...s, radii: corners };
+    }
+    up = a.parent;
+  }
+  return s;
 }
 
 export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path: string; text: string }[]; /** A builder.json's page names, by file. */ names?: Record<string, string>; /** Name each part by its data-hook (a builder.json repository). */ byHook?: boolean; /** The hooks file builder.json names, and the folder builder.json is in (the kit's paths are written from there). */ hooksFile?: string | null; manifestDir?: string | null } = {}): { doc: LandedDoc; report: PageReport } {
