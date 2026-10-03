@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 /**
- * A NEW SITE'S BOARD OPENS WHOLE.
+ * A SITE'S BOARD OPENS WITH ITS PAGE ACROSS THE PANE.
  *
- * THE OWNER'S COMPLAINT: on a new, empty site the 1440×900 frame ran off the
- * window, and there was no way to see all of it at once. Measured on
- * 19741fa: the fit read the pane's WIDTH only, so the frame's first screen
- * ran 150 to 290px under the parts shelf, which is stuck to the foot of the
- * pane, at every window from 1280×720 to 1920×1080.
+ * THE OWNER, 2026-10-03: after importing PST the board opened at 37 to 48%,
+ * not fitting the 1440-wide page ("fix fit-to-page to frame the page
+ * itself"). The fit also fitted the frame's first screen above the parts
+ * shelf (19741fa), which on a 1440x900 window held the zoom to 49%. Now
+ * the zoom is the pane's WIDTH alone: the page fills it across, and runs
+ * down under the shelf (stuck to the pane's foot) to be scrolled.
  *
  * Held here, at 1920×1080, 1536×864, 1366×768 and 1280×720, on a new site:
- *   · the whole frame is on screen: below the top bars, above the shelf,
- *     inside the pane left and right;
+ *   · the frame is across the pane: inside it left and right, filling it
+ *     less its gutter, its top under the top bars, nothing scrolled;
  *   · the zoom keys still work after the fit (in, and back out);
  *   · a window made smaller fits again;
  *   · and the page's height never binds: a site with a tall page opens at the
- *     same zoom as an empty one, its first screen fitted, the rest below.
+ *     same zoom as an empty one.
  *
  *   node tests/board-fits-window.mjs http://127.0.0.1:3012
  */
@@ -40,10 +41,11 @@ const measure = (p) => p.evaluate(() => {
     zoom: document.body.innerText.match(/(\d+)%/)?.[1] ?? null,
   };
 });
-const whole = (m) => !!m.frame && !!m.pane && !!m.shelf
+/* Across the pane: inside it, and as wide as it less the gutter (128) or at full size. */
+const whole = (m) => !!m.frame && !!m.pane
   && m.frame.t >= m.pane.t - 0.5 && m.frame.t >= m.barsFoot - 0.5
-  && m.frame.b <= m.shelf.t + 0.5
   && m.frame.l >= m.pane.l - 0.5 && m.frame.r <= m.pane.r + 0.5
+  && (m.frame.r - m.frame.l >= m.pane.r - m.pane.l - 128 - 2 || m.zoom === "100")
   && m.scrolled === 0;
 const fmt = (m) => m.frame ? `frame ${Math.round(m.frame.l)},${Math.round(m.frame.t)}–${Math.round(m.frame.r)},${Math.round(m.frame.b)} · pane ${Math.round(m.pane?.l)},${Math.round(m.pane?.t)}–${Math.round(m.pane?.r)} · shelf from ${Math.round(m.shelf?.t)} · bars to ${Math.round(m.barsFoot)} · ${m.zoom}%` : "no frame";
 
@@ -69,7 +71,7 @@ for (const [w, h] of [[1920, 1080], [1536, 864], [1366, 768], [1280, 720]]) {
   const { ctx, p } = await open(w, h);
   const m = await measure(p);
   zooms[`${w}`] = m.zoom;
-  check(`${w}×${h}: a new site's whole frame is on screen, under the bars and above the shelf`, whole(m), fmt(m));
+  check(`${w}×${h}: a new site's frame fills the pane across, under the bars`, whole(m), fmt(m));
   if (w === 1920) {
     const zin = p.getByRole("button", { name: /zoom in/i }).first();
     const zout = p.getByRole("button", { name: /zoom out/i }).first();
@@ -94,12 +96,12 @@ for (const [w, h] of [[1920, 1080], [1536, 864], [1366, 768], [1280, 720]]) {
   /* Against a short page with the same chrome (no new-site offer on either), so only the page's height differs. */
   const short = await open(1920, 1080, tall.slice(0, 1));
   const s1 = await measure(short.p);
-  check("…a short page's whole frame is on screen too", whole(s1), fmt(s1));
+  check("…a short page's frame fills the pane across too", whole(s1), fmt(s1));
   await short.ctx.close();
   const { ctx, p } = await open(1920, 1080, tall);
   const m = await measure(p);
   check("a tall page opens at the same zoom as a short one: its height never binds", m.zoom === s1.zoom, `${m.zoom}% against ${s1.zoom}%`);
-  check("…its first screen on show from the top, the rest below to scroll to", !!m.frame && m.frame.t >= m.barsFoot - 0.5 && m.frame.b > m.shelf.t, fmt(m));
+  check("…its top on show, the rest below to scroll to", whole(m) && m.frame.b > m.shelf.t, fmt(m));
   await ctx.close();
 }
 

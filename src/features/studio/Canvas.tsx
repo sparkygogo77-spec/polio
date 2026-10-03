@@ -581,29 +581,21 @@ function DesktopCanvas() {
    * up behind them as you scroll.
    */
   const fitZoom = React.useCallback(
-    (vw: number, room = Infinity) => {
+    (vw: number) => {
       /* Across: the frame's two side edges on screen with a gutter either
          side. In nominal terms, because that is what the store holds — the
          width is divided by the base so the *drawn* frame is what is being
          fitted. */
       const across = (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM);
       /*
-       * AND DOWN, AS FAR AS THE FIRST SCREEN, AND NO FURTHER.
-       *
-       * The owner, on a new empty site: the 1440×900 frame ran off the
-       * window with no way to see all of it. Measured on 19741fa, the first
-       * screen ran 150 to 290px under the parts shelf, which is stuck to the
-       * pane's foot, at every window from 1280×720 to 1920×1080.
-       *
-       * This is not the height fit the note above rules out. That one fitted
-       * the PAGE's height, which is its content's, so adding a part shrank
-       * everything. This fits the frame's first screen, `SCREEN_H`, which is
-       * the same for every page at a frame width, empty or five screens
-       * long. The zoom is still never a function of what is on the page; a
-       * tall page opens at the zoom an empty one does, and scrolls.
+       * ACROSS ONLY: THE PAGE'S WIDTH FILLS THE PANE. Fitting its first
+       * screen down too (`SCREEN_H` above the shelf) opened an imported
+       * 1440 page at 37 to 49%, and the owner read that as the board framing
+       * something bigger than the page (2026-10-03: "fit-to-page to frame
+       * the page itself"). The shelf stays stuck to the pane's foot, so the
+       * categories are on screen whatever runs under it.
        */
-      const down = room / ((SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625)) * BASE_ZOOM);
-      return Math.max(FIT_MIN, Math.min(1, across, down));
+      return Math.max(FIT_MIN, Math.min(1, across));
     },
     [frameWidth],
   );
@@ -628,16 +620,7 @@ function DesktopCanvas() {
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
     if (!vw) return;
-    /* The room down is the pane above the shelf that is stuck to its foot,
-       less the ground above the page and a little below its first screen. */
-    const band = pane.querySelector("[data-studio-band]");
-    const shelf = band instanceof HTMLElement ? band.offsetHeight : 0;
-    /* Not in the phone layout (`NARROW` in StudioPage): there the bars and
-       the shelf leave a strip a first screen could only be drawn tiny in,
-       and the page is read by scrolling down it (`tests/phone-way-out.mjs`). */
-    const narrow = typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 767px)").matches;
-    const room = pane.clientHeight && !narrow ? pane.clientHeight - shelf - TOP_GUTTER - 16 : Infinity;
-    const z = fitZoom(vw, room > 80 ? room : Infinity);
+    const z = fitZoom(vw);
     /* Centred on the frame as *drawn*, which is `z` times the base and not
        `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
        hung it off the right of the pane — `board-layout` caught it: "frame

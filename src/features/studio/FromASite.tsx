@@ -42,7 +42,7 @@ import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
 import { runOf } from "./captureArtifact";
 import { keepAll, put as putPicture } from "./pictures";
-import { stillAlt, unshownOver, type StillsAsk, type StillTaken } from "./stills";
+import { stillAlt, type StillsAsk, type StillTaken } from "./stills";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { readKit, seenOfSource } from "./kitRun";
@@ -655,25 +655,18 @@ export function FromASite({ space }: { space: Space }) {
       const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(st0.frameWidth || 1440) }).catch(() => ({ ok: false }) as Record<string, unknown>);
       const taken = Array.isArray(sr.stills) ? (sr.stills as StillTaken[]) : [];
       const put: string[] = [];
-      const hid = new Set<string>();
       for (const t of taken) {
         const on = (doc.nodes as unknown as StudioNode[]).filter((n) => n.hooks?.["data-hook"] === t.hook);
         if (!on.length) continue;
         try {
           const pic = await putPicture(await (await fetch(t.src)).blob(), { alt: stillAlt(t.hook, got.stills.ask.page, t.query), from: "upload" });
-          for (const n of on) {
-            (n as unknown as Record<string, unknown>).picture = pic;
-            /* What would cover it and its screen does not show (PST's static) is kept, hidden as the page opens, so the still is seen. */
-            for (const over of unshownOver(doc.nodes as unknown as StudioNode[], n, t.unshown ?? [])) {
-              over.state = { group: "hidden:still", option: 1 };
-              hid.add(over.hooks?.["data-hook"] ?? over.label);
-            }
-          }
+          /* Under what covers it as the page opens (PST's static and "Tuning in"): the board shows what the page shows, and the still is there where the cover goes (tv-idle). */
+          for (const n of on) (n as unknown as Record<string, unknown>).picture = pic;
           put.push(t.hook);
         } catch { /* no file storage here: the part stays as its code leaves it */ }
       }
       const missed = got.stills.ask.shots.map((x) => x.hook).filter((h) => !put.includes(h));
-      stillsSaid = `${put.length ? ` ${put.join(", ")} show${put.length === 1 ? "s" : ""} a still of what ${put.length === 1 ? "its" : "their"} code draws, from ${got.stills.ask.page}, as ${put.length === 1 ? "its" : "their"} picture.` : ""}${hid.size ? ` ${[...hid].join(", ")} would cover ${put.length === 1 ? "it" : "them"} and ${hid.size === 1 ? "is" : "are"} not shown on that screen, so ${hid.size === 1 ? "it is" : "they are"} kept as hidden ${hid.size === 1 ? "part" : "parts"}: show ${hid.size === 1 ? "it" : "them"} from the part's panel.` : ""}${missed.length ? ` No still of ${missed.join(", ")} could be taken from ${got.stills.ask.page}.` : ""}`;
+      stillsSaid = `${put.length ? ` ${put.join(", ")} show${put.length === 1 ? "s" : ""} a still of what ${put.length === 1 ? "its" : "their"} code draws, from ${got.stills.ask.page}, as ${put.length === 1 ? "its" : "their"} picture.` : ""}${missed.length ? ` No still of ${missed.join(", ")} could be taken from ${got.stills.ask.page}.` : ""}`;
     }
     const st = useStudio.getState();
     const mark = takeImportMark() ?? st.historyMark();

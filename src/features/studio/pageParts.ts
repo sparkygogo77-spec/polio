@@ -131,6 +131,9 @@ function spansFrom(runs: PartRun[] | undefined, words: string, link: (href: stri
     if (r.weight !== undefined && r.weight !== 400) s.weight = r.weight;
     if (r.italic) s.italic = true;
     if (r.mono) s.face = "monospace";
+    if (r.colour) s.colour = r.colour;
+    if (r.bg) { s.bg = r.bg; if (r.pad) s.pad = r.pad; if (r.radius) s.radius = r.radius; }
+    if (r.space) s.space = r.space;
     const to = r.href !== undefined ? link(r.href) : null;
     if (to) s.link = to;
     if (r.hooks && Object.keys(r.hooks).length) s.hooks = r.hooks;
@@ -192,6 +195,8 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const colour: Record<string, string> = { text: s.colour };
     if (s.bg) colour.bg = s.bg;
     if (s.border && (p.kind === "button" || p.kind === "field")) colour.accent = s.border.colour;
+    /* A tick box ticks in the page's accent-color. */
+    if (p.kind === "check" && s.accent) colour.accent = s.accent;
     const pad = { top: s.pad[0], right: s.pad[1], bottom: s.pad[2], left: s.pad[3] };
     const padded = s.pad.some((v) => v > 0);
     const edgeStyle = s.border ? (/^(solid|dashed|dotted|double)$/.test(s.border.style) ? s.border.style : "solid") : null;
@@ -200,7 +205,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     /* What paints it besides one colour (a gradient, layers of them, a data: picture) and what turns it, drawn by the box wrapper as written (`parts/theme.ts#boxStyle`). */
     const art = {
       ...(s.image ? { background: s.image, ...(s.imageOptions ? { backgroundOptions: s.imageOptions } : {}), ...(s.imageClip ? { backgroundClip: s.imageClip } : {}) } : {}),
-      ...(p.turn ? { transform: p.turn } : {}),
+      ...(s.ownTurn ? { transform: s.ownTurn.transform, origin: s.ownTurn.origin } : p.turn ? { transform: p.turn } : {}),
       ...(s.filter ? { filter: s.filter } : {}),
       ...(s.mask ? { mask: s.mask, ...(s.maskOptions ? { maskOptions: s.maskOptions } : {}) } : {}),
       ...(s.blend ? { blend: s.blend } : {}),
@@ -211,12 +216,18 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(s.paintOrder ? { paintOrder: s.paintOrder } : {}),
     };
     /* Its animations, as the capture carries them (`parts/capturedMotion.ts`): their keyframes travel in the look. */
-    const motion = s.animation?.length ? { animation: s.animation.map((a) => ({ name: a.name, ...(a.duration ? { duration: a.duration } : {}), ...(a.timing ? { timing: a.timing } : {}), ...(a.delay ? { delay: a.delay } : {}), ...(a.iterations ? { iterations: a.iterations } : {}), ...(a.direction ? { direction: a.direction } : {}), ...(a.fill ? { fill: a.fill } : {}) })) } : null;
+    const played = s.animation?.length ? { animation: s.animation.map((a) => ({ name: a.name, ...(a.duration ? { duration: a.duration } : {}), ...(a.timing ? { timing: a.timing } : {}), ...(a.delay ? { delay: a.delay } : {}), ...(a.iterations ? { iterations: a.iterations } : {}), ...(a.direction ? { direction: a.direction } : {}), ...(a.fill ? { fill: a.fill } : {}) })) } : null;
+    /* And how it answers the pointer and the keyboard (`siteRead.ts#statesOf`): replayed by `parts/capturedMotion.ts`, edited in the part's Page look. */
+    const answers = { ...(s.transition?.length ? { transition: s.transition } : {}), ...(s.states?.hover ? { hover: s.states.hover } : {}), ...(s.states?.active ? { active: s.states.active } : {}), ...(s.states?.focus ? { focus: s.states.focus } : {}) };
+    const motion = played || Object.keys(answers).length ? { ...(played ?? {}), ...answers } : null;
     const look = lookFromCapture(p, edge?.shadow ?? null, art);
     const host = p.pseudo ? (p.pseudo.host["data-hook"] ? `data-hook “${p.pseudo.host["data-hook"]}”` : p.pseudo.host.id ? `#${p.pseudo.host.id}` : "its element") : "";
     const align = /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;
     const transform = /^(uppercase|lowercase|capitalize)$/.test(s.transform) ? { transform: s.transform } : null;
-    const text = align || transform ? { ...(align ?? {}), ...(transform ?? {}) } : null;
+    /* A button whose words the page set on more than one line keeps them on more than one. */
+    const inside = p.box.h - s.pad[0] - s.pad[2] - (s.border ? 2 * s.border.w : 0);
+    const wraps = p.kind === "button" && !!p.words && s.leading > 0 && inside > 1.6 * s.leading ? { wrap: "wrap" } : null;
+    const text = align || transform || wraps ? { ...(align ?? {}), ...(transform ?? {}), ...(wraps ?? {}) } : null;
     const linkTo = p.kind === "link" && p.href !== undefined ? link(p.href) : null;
     const content = p.kind === "link"
       ? (p.words ? [{ text: p.words, ...(linkTo ? { link: linkTo } : {}) }] : "")
@@ -258,6 +269,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(padded ? { pad } : {}),
       ...(edge ? { edge } : {}),
       ...(Object.keys(art).length ? { art } : {}),
+      ...(typeof s.opacity === "number" && s.opacity < 1 ? { opacity: s.opacity } : {}),
       ...(s.radius > 0 ? { radius: s.radius } : {}),
       ...(s.radii ? { radii: s.radii } : {}),
       ...(motion ? { motion } : {}),
@@ -265,7 +277,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(p.kind === "picture" && p.box.w === p.box.h && s.radius * 2 >= p.box.w ? { shape: "circle" } : {}),
       /* A circle or an ellipse in a drawing is drawn as one. */
       ...(p.kind === "shape" && (p.tag === "circle" || p.tag === "ellipse") ? { shape: p.box.w === p.box.h ? "circle" : "ellipse" } : {}),
-      ...(text ? { text } : p.kind === "button" ? { text: { align: "center" } } : {}),
+      ...(text ? { text: p.kind === "button" && !("align" in text) ? { align: "center", ...text } : text } : p.kind === "button" ? { text: { align: "center" } } : {}),
       ...(p.kind === "picture" && p.alt ? { data: `picture, “${p.alt}”` } : {}),
     };
     /* Where it is in its source, and how it looked as it came in: the style layer writes only what changes from this. */
@@ -275,6 +287,17 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     /* Words its code writes are not static, whatever the HTML holds. */
     const written = !!code.built;
     node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" && !p.pseudo ? { svg: true } : {}), ...(p.pseudo ? { pseudo: p.pseudo.which } : {}), ...(look.length ? { look } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
+    /* The site's own box at the tablet's and the phone's width (docs/RESPONSIVE.md): drawn there as the site draws itself. */
+    if (read.widths) {
+      const widths: Record<string, { x: number; y: number; w: number; h: number; hidden?: boolean; px?: number }> = {};
+      for (const d of ["tablet", "phone"] as const) {
+        const list = read.widths[d];
+        if (!list) continue;
+        const b = list[i];
+        widths[d] = b ? { x: Math.max(0, b.x), y: Math.max(0, b.y), w: Math.max(1, b.w), h: Math.max(1, b.h), ...(b.px ? { px: b.px } : {}) } : { x: 0, y: 0, w: 0, h: 0, hidden: true };
+      }
+      if (Object.keys(widths).length) node.widths = widths;
+    }
     out.push(node);
   });
   /* What holds what is read off the paths, as a capture's is (`partTree.ts`): each part's continues its section's. */

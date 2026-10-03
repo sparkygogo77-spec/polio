@@ -27,13 +27,20 @@
  *   4. the screen holds a still of the sample chart (builder.json
  *      `preview.stills`: chart on tv-idle), taken from the repository's own
  *      preview page with nothing reaching the network: a candle chart of
- *      the screen's size, as the chart part's picture; the static that would
- *      cover it, which tv-idle does not show, kept as a hidden part;
+ *      the screen's size, as the chart part's picture, under the static that
+ *      covers it as the page opens (shown, as on the page); the blank chart
+ *      canvas is a plain box, never the library's stand-in landscape;
  *   5. the TV still comes in as the page opens: "Tuning in to the game
  *      server";
- *   6. look only, part by part: the Preview at 1440 against the page at
- *      1440, the mean colour of every hooked part's box, and every part
- *      that still differs listed.
+ *   6. look from capture: what the builder had no field for is drawn as
+ *      the page computed it, and the part says so;
+ *   7. accuracy, scored: the Preview against the page at 1440 and 390, part
+ *      by part and pixel by pixel, held at what this branch reached; and the
+ *      board opens with the page across the pane, no part outside it;
+ *   8. a slot for each: PST's gradients, patterns, shadows, turns, filters,
+ *      glow, animations and its hover, press and focus come in as the part's
+ *      Page look, are edited there (panel and wheel), and go back out through
+ *      the style layer; untouched, they write nothing.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/tv-import.mjs http://127.0.0.1:3013
@@ -45,6 +52,7 @@ import { join } from "node:path";
 import { chromium } from "playwright-core";
 import { readManifest } from "../src/features/studio/builderManifest.ts";
 import { readStills, stillQuery, stillsAsk, readStillsAsk, stillFiles } from "../src/features/studio/stills.ts";
+import { artCss, buildLayer, changedDeclarations, lookOf as layerLook, statesCss } from "../src/features/studio/styleLayer.ts";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const results = [];
@@ -166,6 +174,14 @@ let st = await board();
 for (let i = 0; i < 150 && !st.nodes.length; i++) { await ui.waitForTimeout(1000); st = await board(); }
 await ui.waitForTimeout(2000);
 st = await board();
+/* The board opens with the page across the pane (the owner, 2026-10-03: framed at 37 to 48%, not the 1440 page), and nothing drawn sits outside the page. */
+const fit = await ui.evaluate(() => {
+  const f = document.querySelector("[data-frame]")?.getBoundingClientRect(), pane = document.querySelector("[data-studio-pane]")?.getBoundingClientRect();
+  const out = Array.from(document.querySelectorAll("[data-node-id]")).map((e) => ({ id: e.getAttribute("data-node-id"), r: e.getBoundingClientRect() })).filter((x) => f && x.r.width > 0 && x.r.height > 0 && (x.r.right > f.right + 2 || x.r.left < f.left - 2)).map((x) => x.id);
+  return { frame: f ? Math.round(f.width) : 0, pane: pane ? Math.round(pane.width) : 0, out };
+});
+check("the board opens with the 1440 page filling the pane across, and no part outside the page", fit.frame >= fit.pane - 130 && fit.frame <= fit.pane && fit.out.length === 0, JSON.stringify(fit));
+if (process.env.STORE_FILE) { const { writeFileSync } = await import("node:fs"); writeFileSync(process.env.STORE_FILE, JSON.stringify(st)); }
 const home = st.pages[0]?.id;
 const byHook = (h) => st.nodes.find((n) => n.pageId === home && n.hooks?.["data-hook"] === h);
 const strip = await ui.evaluate(() => document.querySelector("[data-import-strip]")?.textContent ?? "");
@@ -277,7 +293,9 @@ check("…drawn on the board: a candle chart, green and red candles in it", !!st
 check("…and the line says so", /chart shows a still of what its code draws, from web\/preview\.html/.test(strip), strip.slice(-260));
 
 const staticNode = byHook("chart-tv-static");
-check("…the static that would cover it, not shown on tv-idle, is kept as a hidden part; the scanlines and glare stay", staticNode?.state?.group === "hidden:still" && !byHook("chart-tv-scanlines")?.state && !byHook("chart-tv-vignette")?.state && !byHook("chart-tv-loading")?.state, JSON.stringify(staticNode?.state ?? null));
+check("…under the static, which covers it as the page opens: the static, the scanlines, the glare and \u201cTuning in\u201d are all shown, as on the page", !staticNode?.state && !byHook("chart-tv-scanlines")?.state && !byHook("chart-tv-vignette")?.state && !byHook("chart-tv-loading")?.state, JSON.stringify(staticNode?.state ?? null));
+/* The chart's canvas, blank without its code, is a box with nothing to paint: as a picture with no file it drew the library's stand-in landscape over the screen. */
+check("…and the blank chart canvas is no picture: no stand-in landscape on the screen", byHook("chart-canvas")?.featureId !== "picture" && !st.nodes.some((n) => n.pageId === home && n.featureId === "picture" && /> canvas: /.test(n.prompt ?? "")), byHook("chart-canvas")?.featureId);
 
 /* 5. The state it opens in. */
 check("5. the screen still opens tuning in, as the page does before its code runs", st.nodes.some((n) => n.pageId === home && n.hooks?.["data-hook"] === "chart-tv-loading-title" && JSON.stringify(n.content).includes(page.tuning)), page.tuning);
@@ -302,22 +320,60 @@ const said = await ui.locator("[data-look-from-capture]").first().textContent({ 
 check("…and the panel says so on the part picked", /^Look from capture: [a-z]/.test(said ?? ""), (said ?? "").slice(0, 120));
 
 /*
- * 7. LOOK ONLY, PART BY PART, at 1440 and at 375. The Preview (the site as
- * the board makes it, full size, at that window) against the page at that
- * window: for every hooked part on Play that shows as the page opens, its
- * box in each and the mean colour inside it. Words are drawn in different
- * faces' pixels, so only a mean far off (a fill, an outline or an icon
- * lost) counts as colour. Every part that still differs is listed, with
- * what: colour, place or size. At 1440 no panel, title, button, knob, card
- * or TV part may differ in colour; at 375 the list is the report.
+ * 8. A SLOT FOR EACH. What PST wears besides colour, edge, type and one
+ * corner is a slot of the part's Page look (`LookFields.tsx`), in CSS:
+ * imported, shown, edited, and written back by the style layer.
  */
-/* The channel label sits on the screen, which shows the chart still in the builder and static on the page: it differs on purpose. */
-const MEANT = { "chart-tv-channel": "the screen behind it shows the chart still, not static" };
+const slotOf = (h, prop) => artCss(byHook(h) ?? {})[prop] ?? "";
+check("8. PST's looks come in as slots: gradient, stripes, mask, turn, slant, filter, glow, corners, animation", /gradient/.test(slotOf("chart-tv-body", "background-image")) && /repeating-linear-gradient/.test(slotOf("chart-tv-speaker", "background-image")) && /url\(/.test(st.nodes.find((n) => n.pageId === home && n.art?.mask)?.art?.mask ?? "") && /matrix/.test(slotOf("chart-tv-antenna-left", "transform")) && /matrix\(1, 0, 0\.2/.test(slotOf("chart-tv-foot-left", "transform")) && /contrast/.test(slotOf("chart-tv-static", "filter")) && st.nodes.some((n) => n.pageId === home && artCss(n)["text-shadow"]) && st.nodes.some((n) => n.pageId === home && artCss(n)["border-radius"]) && /pons-tv-antenna-left/.test(slotOf("chart-tv-antenna-left", "animation")), JSON.stringify({ speaker: slotOf("chart-tv-speaker", "background-image").slice(0, 40), foot: slotOf("chart-tv-foot-left", "transform"), anim: slotOf("chart-tv-antenna-left", "animation") }));
+const pressed = statesCss(byHook("chart-tv-idle-button") ?? {});
+check("…and its hover, press and focus: the TV button sinks when pressed, the page's tokens resolved", /translate\(\d+px, \d+px\)/.test(pressed.active ?? "") && !/var\(/.test(pressed.active ?? "") && st.nodes.some((n) => n.pageId === home && statesCss(n)["focus-visible"]), JSON.stringify(pressed));
+const untouched = st.nodes.filter((n) => n.pageId === home && n.source?.was).filter((n) => changedDeclarations(n.source.was, { ...layerLook(n, null), box: n.source.was.box }, { dx: 0, dy: 0 }).some((d) => /^(background-image|background-size|mask|transform|filter|backdrop|mix-blend|clip-path|text-shadow|-webkit-text-stroke|paint-order|border-radius|animation|transition):/.test(d)));
+check("…untouched, no slot writes a declaration", untouched.length === 0, untouched.slice(0, 4).map((n) => n.hooks?.["data-hook"] ?? n.label).join(", "));
+const speaker = byHook("chart-tv-speaker"), idle = byHook("chart-tv-idle-button");
+const edited = [{ ...speaker, art: { ...speaker.art, filter: "blur(1px)" } }, { ...idle, motion: { ...idle.motion, hover: [{ self: true, state: "hover", style: { filter: "brightness(1.2)" } }] } }];
+const layer = buildLayer(edited, null, { repo: "x/pst", ref: "", dir: "web/", files: [] });
+check("…edited, a slot goes back as the page's own CSS: a filter on the speaker, a hover on the button", layer.rules.some((r) => r.selector === '[data-hook="chart-tv-speaker"]' && r.declarations.includes("filter: blur(1px)")) && layer.rules.some((r) => r.selector === '[data-hook="chart-tv-idle-button"]:hover' && r.declarations.includes("filter: brightness(1.2)")), layer.rules.map((r) => `${r.selector} { ${r.declarations.join("; ")} }`).join(" | ").slice(0, 300));
+/* And edited by hand: the part picked, its Page look opened, a slot typed into. */
+await ui.click(`[data-node-id="${speaker.id}"]`, { force: true }).catch(() => {});
+await ui.waitForTimeout(300);
+await ui.locator("button", { hasText: /^Page look/ }).first().click({ timeout: 3000 }).catch(() => {});
+const slot = ui.locator('[data-look-slot="filter"] input').first();
+await slot.fill("blur(1px)", { timeout: 3000 }).catch(() => {});
+await slot.press("Enter").catch(() => {});
+await ui.waitForTimeout(400);
+const typed = await ui.evaluate((id) => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.id === id)?.art?.filter ?? null, speaker.id);
+const shown = await ui.locator('[data-look-slot="background-image"] input').first().inputValue({ timeout: 2000 }).catch(() => "");
+check("…in the panel: the speaker's stripes shown in their slot, a filter typed is on the part", /repeating-linear-gradient/.test(shown) && typed === "blur(1px)", `${shown.slice(0, 40)} · ${typed}`);
+/* Back as it came, for the score below. */
+await slot.fill("", { timeout: 2000 }).catch(() => {});
+await slot.press("Enter").catch(() => {});
+await ui.waitForTimeout(300);
+
+/*
+ * 7. IMPORT ACCURACY, SCORED. The Preview of Play (the site as the board
+ * makes it, opened in a window of that width) against the live page at that
+ * width, at 1440 and at 375. For every hooked part shown as the page opens:
+ *   place  within 4px of the page's (from the top left of the site),
+ *   size   within 4px,
+ *   text   the same words, as shown (innerText, spaces collapsed),
+ *   look   its pixels, sampled over its box in each picture: at most 12% of
+ *          them differ by more than 96 (summed over red, green and blue), and
+ *          the mean colour within 30. A colour, edge, shadow, picture or icon
+ *          lost shows here; a face drawn a pixel differently does not.
+ * A part matches when all four hold. And over the whole page, the share of
+ * pixels that differ by more than 96, with whatever one picture has and the
+ * other does not counted as differing. Every part that still differs is
+ * listed with what. SCORE_ONLY=1 prints the score without holding it.
+ */
 const prev = ui;
-const lookDiff = async (width) => {
-  await prev.setViewportSize({ width, height: 900 });
+const score = async (width, device = "window") => {
+  /* The phone is drawn 390 wide, one to one: the window has room for it and its margin. */
+  const win = device === "phone" ? width + 120 : width;
+  await prev.setViewportSize({ width: win, height: 900 });
   await prev.goto(`${URL_BASE}/builder/preview`, { waitUntil: "networkidle" });
-  await prev.waitForTimeout(2500);
+  await prev.waitForTimeout(2000);
+  if (device !== "window") { await prev.evaluate((d) => window.__studioLiveDevice?.(d), device); await prev.waitForTimeout(1500); }
   const tall = await prev.evaluate(() => {
     const sc = document.querySelector("[data-live-scroller]");
     if (!sc) return 0;
@@ -326,53 +382,90 @@ const lookDiff = async (width) => {
     if (sc.parentElement) sc.parentElement.style.height = `${h}px`;
     return h;
   });
-  /* At rest, as the page is shot: the builder now plays the page's own animations (the LED's blink). */
+  /* At rest, as the page is shot: the builder plays the page's own animations (the LED's blink). */
   await prev.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; }" });
-  await prev.setViewportSize({ width, height: Math.max(900, tall) });
-  await prev.waitForTimeout(300);
-  /* Where the site starts in the Preview (below its bar): places are measured from there, as the page's are from its top. */
-  const origin = await prev.evaluate(() => { const r = document.querySelector("[data-live-scroller]")?.getBoundingClientRect(); return r ? { x: r.left + scrollX, y: r.top + scrollY } : { x: 0, y: 0 }; });
-  await prev.waitForTimeout(800);
-  const shown = st.nodes.filter((n) => n.pageId === home && !n.state && n.hooks?.["data-hook"] && n.w >= 12 && n.h >= 12 && !MEANT[n.hooks["data-hook"]]);
-  const where = await prev.evaluate((ids) => Object.fromEntries(ids.map((id) => { const e = document.querySelector(`[data-live-node="${id}"]`); if (!e) return [id, null]; const r = e.getBoundingClientRect(); return [id, r.width > 0 ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } : null]; })), shown.map((n) => n.id));
+  await prev.setViewportSize({ width: win, height: Math.max(900, tall + 200) });
+  await prev.waitForTimeout(500);
+  /* The site's own top left, in the window or in the phone's frame. */
+  const origin = await prev.evaluate(() => { const r = document.querySelector("[data-live-root]")?.getBoundingClientRect(); return r ? { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) } : { x: 0, y: 0, w: 0, h: 0 }; });
+  const nodes = st.nodes.filter((n) => n.pageId === home && !n.state && n.hooks?.["data-hook"]);
+  const board = await prev.evaluate((ids) => Object.fromEntries(ids.map((id) => {
+    const e = document.querySelector(`[data-live-node="${id}"]`);
+    if (!e) return [id, null];
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    return [id, r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height, text: (e.innerText ?? "").replace(/\s+/g, " ").trim() } : null];
+  })), nodes.map((n) => n.id));
   const previewShot = (await prev.screenshot({ fullPage: true })).toString("base64");
   await live.setViewportSize({ width, height: 900 });
-  await live.waitForTimeout(300);
-  /* Each part where each picture has it: the page's own box for the hook. A part whose page box is another size than the one read (a turned foot's bounds, a check inside its label) is taken where the import read it, at 1440. */
-  const onPage = await live.evaluate((hs) => Object.fromEntries(hs.map((h) => { const e = document.querySelector(`[data-hook="${h}"]`); const r = e?.getBoundingClientRect(); return [h, r && r.width > 0 && getComputedStyle(e).visibility !== "hidden" ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } : null]; })), shown.map((n) => n.hooks["data-hook"]));
+  await live.waitForTimeout(400);
+  /* A check and its words are one part on the board, as in its label: the page's box for it is the label's. */
+  const onPage = await live.evaluate((hs) => Object.fromEntries(hs.map((h) => {
+    const hit = document.querySelector(`[data-hook="${h}"]`);
+    const e = hit?.matches("input[type=checkbox], input[type=radio]") ? hit.closest("label") ?? hit : hit;
+    if (!e) return [h, null];
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    return [h, r.width > 0 && r.height > 0 && cs.visibility !== "hidden" ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height, text: (e.innerText ?? "").replace(/\s+/g, " ").trim() } : null];
+  })), nodes.map((n) => n.hooks["data-hook"]));
   const liveShot = (await live.screenshot({ fullPage: true })).toString("base64");
   if (process.env.SHOTDIR) { const { writeFileSync } = await import("node:fs"); writeFileSync(`${process.env.SHOTDIR}/look-page-${width}.png`, Buffer.from(liveShot, "base64")); writeFileSync(`${process.env.SHOTDIR}/look-builder-${width}.png`, Buffer.from(previewShot, "base64")); }
-  const turned = (n) => !!n.art?.transform;
-  const pageBox = (n) => { const o = onPage[n.hooks["data-hook"]]; if (!o) return null; return width === 1440 && (Math.abs(o.w - n.w) > 2 || Math.abs(o.h - n.h) > 2) ? { x: n.x, y: n.y, w: n.w, h: n.h } : o; };
-  const boxes = shown.filter((n) => where[n.id] && pageBox(n)).map((n) => ({ hook: n.hooks["data-hook"], turned: turned(n), a: pageBox(n), b: where[n.id], at: { x: where[n.id].x - origin.x, y: where[n.id].y - origin.y } }));
-  const means = await prev.evaluate(async ({ A, B, boxes }) => {
-    const load = async (b64) => { const i = new Image(); i.src = `data:image/png;base64,${b64}`; await i.decode(); const c = document.createElement("canvas"); c.width = i.width; c.height = i.height; const g = c.getContext("2d"); g.drawImage(i, 0, 0); return g; };
-    const ga = await load(A), gb = await load(B);
-    const mean = (g, r) => { const x = Math.max(0, Math.round(r.x)), y = Math.max(0, Math.round(r.y)); const w = Math.max(1, Math.min(Math.round(r.w), g.canvas.width - x)), h = Math.max(1, Math.min(Math.round(r.h), g.canvas.height - y)); const d = g.getImageData(x, y, w, h).data; let R = 0, G = 0, Bl = 0; for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; Bl += d[i + 2]; } const n = d.length / 4; return [R / n, G / n, Bl / n]; };
-    return boxes.map((x) => ({ hook: x.hook, live: mean(ga, x.a), board: mean(gb, x.b), outside: x.b.x >= gb.canvas.width || x.b.y >= gb.canvas.height || x.b.x + x.b.w <= 0 }));
-  }, { A: liveShot, B: previewShot, boxes });
+  /* The parts the page shows at this width; one the builder does not draw is a part that differs. A turned part is held by its own check (2): its bounds lean on the page. */
+  const words = (t) => (t ?? "").replace(/\u200b/g, "").replace(/\s+/g, " ").trim();
+  const parts = nodes.filter((n) => onPage[n.hooks["data-hook"]] && n.w >= 4 && n.h >= 4).map((n) => ({ hook: n.hooks["data-hook"], turned: !!n.art?.transform, worded: typeof n.content === "string" ? !!n.content.trim() : Array.isArray(n.content) && n.content.some((r) => r.text?.trim()), a: onPage[n.hooks["data-hook"]], b: board[n.id] ? { ...board[n.id], x: board[n.id].x - origin.x, y: board[n.id].y - origin.y } : null }));
+  const px = await prev.evaluate(async ({ A, B, parts, origin }) => {
+    const load = async (b64) => { const i = new Image(); i.src = `data:image/png;base64,${b64}`; await i.decode(); const c = document.createElement("canvas"); c.width = i.width; c.height = i.height; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(i, 0, 0); return { g, w: i.width, h: i.height, d: g.getImageData(0, 0, i.width, i.height).data }; };
+    const P = await load(A), Q = await load(B);
+    const at = (img, x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= img.w || y >= img.h) return null; const i = (y * img.w + x) * 4; return [img.d[i], img.d[i + 1], img.d[i + 2]]; };
+    const dist = (p, q) => (!p || !q ? Infinity : Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]));
+    /* A pixel of the page against the board's at the same place or one beside it: words set a pixel to one side are the same words. */
+    const far = (pa, x, y) => { if (!pa) return true; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dist(pa, at(Q, x + dx, y + dy)) <= 96) return false; return true; };
+    /* Each part: its box sampled on a grid of up to 60 by 60 in each picture, the board's stretched over the page's. */
+    const each = parts.map((p) => {
+      if (!p.b) return null;
+      const nx = Math.max(1, Math.min(60, Math.round(p.a.w))), ny = Math.max(1, Math.min(60, Math.round(p.a.h)));
+      let off = 0, n = 0; const ma = [0, 0, 0], mb = [0, 0, 0];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const u = (i + 0.5) / nx, v = (j + 0.5) / ny;
+        /* A turned part is looked at where the page drew it, on both: the board's box for it is the unturned one, the page's the one round the lean. */
+        const ax = p.a.x + u * p.a.w, ay = p.a.y + v * p.a.h, bx = p.turned ? ax : p.b.x + u * p.b.w, by = p.turned ? ay : p.b.y + v * p.b.h;
+        const pa = at(P, ax, ay), pb = at(Q, origin.x + bx, origin.y + by);
+        n++; if (far(pa, origin.x + bx, origin.y + by)) off++;
+        if (pa) for (let k = 0; k < 3; k++) ma[k] += pa[k];
+        if (pb) for (let k = 0; k < 3; k++) mb[k] += pb[k];
+      }
+      return n ? { off: off / n, mean: Math.hypot(...ma.map((v, k) => (v - mb[k]) / n)) } : null;
+    });
+    /* The whole page: every pixel of the page's own picture against the board's at the site's top left (the board's empty room below the page is not the page). */
+    const W = P.w, H = P.h;
+    let off = 0;
+    let all = 0;
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) { all++; if (far(at(P, x, y), origin.x + x, origin.y + y)) off++; }
+    return { each, page: off / Math.max(1, all) };
+  }, { A: liveShot, B: previewShot, parts, origin });
   const off = [];
-  boxes.forEach((x, i) => {
-    const m = means[i];
-    const d = Math.hypot(m.live[0] - m.board[0], m.live[1] - m.board[1], m.live[2] - m.board[2]);
+  parts.forEach((p, i) => {
     const what = [];
-    if (m.outside) what.push("outside the builder's page at this width");
-    else if (d > 45) what.push(`colour off ${Math.round(d)} (page rgb(${m.live.map(Math.round).join(", ")}), builder rgb(${m.board.map(Math.round).join(", ")}))`);
-    /* A turned part's bounds lean on the page and not on the board; its place is its own check (2). */
-    if (!x.turned && (Math.abs(x.a.x - x.at.x) > 8 || Math.abs(x.a.y - x.at.y) > 8)) what.push(`place off ${Math.round(x.at.x - x.a.x)}, ${Math.round(x.at.y - x.a.y)}`);
-    if (!x.turned && (Math.abs(x.a.w - x.b.w) > 8 || Math.abs(x.a.h - x.b.h) > 8)) what.push(`size ${Math.round(x.b.w)}x${Math.round(x.b.h)}, page ${Math.round(x.a.w)}x${Math.round(x.a.h)}`);
-    if (what.length) off.push({ hook: x.hook, d, what });
+    if (!p.b) what.push("not drawn by the builder");
+    else {
+      if (!p.turned && (Math.abs(p.a.x - p.b.x) > 4 || Math.abs(p.a.y - p.b.y) > 4)) what.push(`place off ${Math.round(p.b.x - p.a.x)}, ${Math.round(p.b.y - p.a.y)}`);
+      if (!p.turned && (Math.abs(p.a.w - p.b.w) > 4 || Math.abs(p.a.h - p.b.h) > 4)) what.push(`size ${Math.round(p.b.w)}x${Math.round(p.b.h)}, page ${Math.round(p.a.w)}x${Math.round(p.a.h)}`);
+      if (p.worded && words(p.a.text) !== words(p.b.text)) what.push(`text “${p.b.text.slice(0, 40)}”, page “${p.a.text.slice(0, 40)}”`);
+      const q = px.each[i];
+      if (q && (q.off > 0.12 || q.mean > 30)) what.push(`look ${Math.round(q.off * 100)}% of pixels off, mean colour off ${Math.round(q.mean)}`);
+    }
+    if (what.length) off.push({ hook: p.hook, what });
   });
-  console.log(`\n  Look diff, Play at ${width}: ${boxes.length} hooked parts compared, ${off.length} differ${off.length ? ":" : "."}`);
+  const matching = parts.length - off.length;
+  console.log(`\n  Accuracy, Play at ${width}: ${matching} of ${parts.length} parts match (${Math.round((matching / Math.max(1, parts.length)) * 100)}%), ${(px.page * 100).toFixed(1)}% of the page's pixels differ${off.length ? ". Still differ:" : "."}`);
   for (const o of off) console.log(`    ${o.hook}  ${o.what.join("; ")}`);
-  return { compared: boxes.length, off };
+  return { width, parts: parts.length, matching, pixels: px.page, off, origin };
 };
-for (const [hook, why] of Object.entries(MEANT)) console.log(`  (${hook} not counted: ${why})`);
-const wide = await lookDiff(1440);
-const lostLook = wide.off.filter((o) => o.d > 45 && !o.what[0].startsWith("outside"));
-check("7. at 1440 the TV restyle's panels, titles, knobs and buttons look as on the page (mean colour within 45)", wide.compared > 60 && !lostLook.some((m) => /panel|title|button|knob|card|chart-tv/.test(m.hook)), lostLook.map((m) => m.hook).join(", ") || "none");
-const narrow = await lookDiff(375);
-check("…at 375 every hooked part is compared and each that differs is listed with what", narrow.compared > 60, `${narrow.compared} compared, ${narrow.off.length} differ`);
+const wide = await score(1440);
+/* The builder draws a phone 390 wide (`live/small.ts`), so the page is measured at 390 beside it. */
+const narrow = await score(390, "phone");
+if (process.env.SCORE_FILE) { const { writeFileSync } = await import("node:fs"); writeFileSync(process.env.SCORE_FILE, JSON.stringify([wide, narrow], null, 1)); }
+/* What this branch reached, held so it cannot slip back. */
+const HOLD = { 1440: { share: 1, pixels: 0.02 }, 390: { share: 0.93, pixels: 0.04 } };
+for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at least what it reached (${Math.round(HOLD[r.width].share * 100)}% of parts, at most ${Math.round(HOLD[r.width].pixels * 100)}% of pixels off)`, !!process.env.SCORE_ONLY || (r.parts > 60 && r.matching / r.parts >= HOLD[r.width].share && r.pixels <= HOLD[r.width].pixels), `${r.matching}/${r.parts} parts, ${(r.pixels * 100).toFixed(1)}% pixels`);
 await prev.setViewportSize({ width: 1440, height: 900 });
 if (process.env.SHOT) { const tv = byHook("chart-tv"); const loc = ui.locator(`[data-node-id="${tv?.id}"]`).first(); await loc.scrollIntoViewIfNeeded().catch(() => {}); await ui.screenshot({ path: process.env.SHOT }); }
 

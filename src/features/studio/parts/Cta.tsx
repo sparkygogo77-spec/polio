@@ -91,7 +91,9 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
   const fill = outline ? "transparent" : ghost ? `${tint(t.accent, 0.133)}` : following ? t.surface : t.accent;
   const style: React.CSSProperties = {
     width: "100%", height: "100%", display: "flex", alignItems: "center", cursor: "pointer",
-    fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1), whiteSpace: "nowrap",
+    fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1),
+    /* One line, unless the page set its words on more (PST's "Use test wallet (made in this browser)", two lines in its button). */
+    whiteSpace: t.said?.wrap ? "normal" : "nowrap", ...(t.said?.wrap ? { textAlign: t.said.align === "left" ? "left" : t.said.align === "right" ? "right" : "center" } : {}),
     // His weight, else the library's. `t.fontWeight` is only ever his.
     fontWeight: t.fontWeight ?? 700,
     // A <button> does not inherit the case or the spacing its part sets (the
@@ -132,7 +134,8 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
             dangerouslySetInnerHTML={{ __html: glyph }}
           />
         ) : null}
-        {text}
+        {/* Wrapped words get back the half pixel each side the page's box lost to rounding, so a line that just fitted there fits here (PST's "Create balance account" at 390). */}
+        {t.said?.wrap ? <span style={{ marginInline: -1 }}>{text}</span> : text}
       </button>
     </Fill>
   );

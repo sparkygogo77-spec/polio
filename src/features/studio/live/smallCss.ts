@@ -77,6 +77,10 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
       /* A part a press shows is placed but not drawn: its press shows it. Forced to show here, a menu stood open on every phone. */
       const show = o.stated?.(b.node.id) ? "" : "display:flex!important;";
       rule(P(b.node.id), `${show}position:absolute!important;left:calc(${k(b.x)} * 100cqw)!important;top:${b.y}px!important;width:calc(${k(b.w)} * 100cqw)!important;min-height:${b.h}px!important;height:auto!important;margin:0!important;right:auto!important;bottom:auto!important`);
+      /* Taller here than at full width and narrower: the site set its words on more lines here (PST's intro, one line at 1440, two at 390), so a line held whole there is let wrap. */
+      /* Its type at the size the site set it here (PST's "Tuning in" box, 11px on a phone): the part's own words, not the parts inside it. */
+      if (b.px) rule([own(b.node.id), `${own(b.node.id)} [style*="font-size"]`], `font-size:${b.px}px!important`);
+      if (b.h > b.node.h + 4 && b.w < b.node.w) rule(`${P(b.node.id)} [style*="white-space: nowrap"]`, "white-space:normal!important");
     }
     return out.join("\n");
   }

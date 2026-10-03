@@ -53,7 +53,7 @@ export interface DeviceRule {
 }
 
 /** Where the site itself put a part at a width, from a capture. */
-export interface SizedBox { x: number; y: number; w: number; h: number; hidden?: boolean }
+export interface SizedBox { x: number; y: number; w: number; h: number; hidden?: boolean; /** Its type size there, where the site changes it at that width. */ px?: number }
 
 export interface SmallNode {
   id: string;
@@ -107,7 +107,7 @@ export interface SmallPlan<N extends SmallNode = SmallNode> {
   mode: "site" | "made";
   items: SmallItem<N>[];
   /** For "site": every shown part's box at this width. */
-  boxes: { node: N; x: number; y: number; w: number; h: number }[];
+  boxes: { node: N; x: number; y: number; w: number; h: number; px?: number }[];
   /** The page's height at this width, for "site" (the made plan flows and is measured). */
   height: number;
   /** Left out at this width, by rule or as a decoration. */
@@ -226,7 +226,7 @@ export function smallPlan<N extends SmallNode>(all: readonly N[], device: SmallD
       if (!b) { if (atRest(n)) hidden.push(n.id); else unboxed.push(n); continue; }
       const k = Math.max(0.5, Math.min(1.5, r.size ?? 1));
       const w = r.full ? width : Math.min(width, Math.round(b.w * k));
-      boxes.push({ node: n, x: r.full ? 0 : Math.max(0, Math.min(width - w, b.x)), y: b.y, w, h: Math.round(b.h * (w / Math.max(1, b.w))) });
+      boxes.push({ node: n, x: r.full ? 0 : Math.max(0, Math.min(width - w, b.x)), y: b.y, w, h: Math.round(b.h * (w / Math.max(1, b.w))), ...(b.px ? { px: +(b.px * (w / Math.max(1, b.w))).toFixed(2) } : {}) });
     }
     boxes.push(...panelBoxes(all, unboxed, boxes, width, rules.holds));
     const height = Math.max(320, ...boxes.filter((b) => atRest(b.node)).map((b) => b.y + b.h));

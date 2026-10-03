@@ -49,6 +49,10 @@ export interface CssLook {
   opacity?: number;
   align?: string;
   transform?: string;
+  /** What else it wears, by CSS property, as written (`artCss`): a gradient or pattern, a mask, a turn and its point, filters, blend, clip, uneven corners, glowing or outlined type, its animation and easing. */
+  art?: Record<string, string>;
+  /** Its own hover, press and focus, by state (`hover`, `active`, `focus-visible`…): the declarations, as written (`statesCss`). */
+  states?: Record<string, string>;
   box: { x: number; y: number; w: number; h: number };
   words: string;
 }
@@ -171,6 +175,10 @@ export interface LayerNode {
   radius?: number | null;
   opacity?: number | null;
   text?: { align?: string; transform?: string } | null;
+  art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string } | null;
+  radii?: readonly number[] | null;
+  radiiY?: readonly number[] | null;
+  motion?: { animation?: { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[]; transition?: { property: string; duration?: string; timing?: string; delay?: string }[]; hover?: LayerState[]; active?: LayerState[]; focus?: LayerState[] } | null;
   hooks?: Record<string, string> | null;
   state?: unknown;
   from?: { selector?: string } | null;
@@ -178,6 +186,49 @@ export interface LayerNode {
   /** He moved or resized it himself (`StudioNode.byHand`): only then is its size or place his design rather than the board's own tidying. */
   byHand?: boolean;
 }
+
+/** A hover, press or focus rule, as a capture carries it (`parts/capturedMotion.ts#MotionState`). */
+export interface LayerState { selector?: string; self?: boolean; state?: string; style?: Record<string, string> }
+
+/** What a part wears besides the fields `lookOf` names, by CSS property, as written: the slots of the part's Page look. */
+export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">): Record<string, string> {
+  const a = n.art ?? {};
+  const out: Record<string, string> = {};
+  const opts = (prefix: string, o: readonly string[] | undefined) => { if (o?.[0]) out[`${prefix}-size`] = o[0]; if (o?.[1]) out[`${prefix}-position`] = o[1]; if (o?.[2]) out[`${prefix}-repeat`] = o[2]; };
+  if (a.background) { out["background-image"] = a.background; opts("background", a.backgroundOptions); if (a.backgroundClip) out["background-clip"] = a.backgroundClip; }
+  if (a.mask) { out["mask-image"] = a.mask; opts("mask", a.maskOptions); }
+  if (a.transform && a.transform !== "none") out.transform = a.transform;
+  if (a.origin) out["transform-origin"] = a.origin;
+  if (a.filter) out.filter = a.filter;
+  if (a.backdrop) out["backdrop-filter"] = a.backdrop;
+  if (a.blend) out["mix-blend-mode"] = a.blend;
+  if (a.clipPath) out["clip-path"] = a.clipPath;
+  if (a.textShadow) out["text-shadow"] = a.textShadow;
+  if (a.textStroke && a.textStroke.w > 0) out["-webkit-text-stroke"] = `${a.textStroke.w}px ${a.textStroke.color}`;
+  if (a.paintOrder) out["paint-order"] = a.paintOrder;
+  const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number");
+  if (four(n.radii) && n.radii.some((r) => r > 0)) out["border-radius"] = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
+  const anim = n.motion?.animation ?? [];
+  if (anim.length) out.animation = anim.map((x) => [x.name, x.duration, x.timing, x.delay, x.iterations, x.direction, x.fill].filter(Boolean).join(" ")).join(", ");
+  const tr = n.motion?.transition ?? [];
+  if (tr.length) out.transition = tr.map((t) => [t.property, t.duration, t.timing, t.delay].filter(Boolean).join(" ")).join(", ");
+  return out;
+}
+
+/** Its own hover, press and focus (not an ancestor's), by state: the declarations of every such rule, in order. */
+export function statesCss(n: Pick<LayerNode, "motion">): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const r of [...(n.motion?.hover ?? []), ...(n.motion?.active ?? []), ...(n.motion?.focus ?? [])]) {
+    if (r.self === false || !r.style) continue;
+    const state = r.state || "hover";
+    const decl = Object.entries(r.style).map(([k, v]) => `${k}: ${v}`).join("; ");
+    if (decl) out[state] = out[state] ? `${out[state]}; ${decl}` : decl;
+  }
+  return out;
+}
+
+/** What a property is when nothing sets it, for a slot emptied on the board. */
+const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none" };
 
 const ROLES = ["bg", "surface", "text", "muted", "accent", "highlight"];
 
@@ -234,6 +285,10 @@ export function lookOf(n: LayerNode, palette?: Record<string, string> | null, op
   if (typeof n.opacity === "number" && n.opacity < 1) look.opacity = n.opacity;
   if (n.text?.align) look.align = n.text.align;
   if (n.text?.transform) look.transform = n.text.transform;
+  const art = artCss(n);
+  if (Object.keys(art).length) look.art = art;
+  const states = statesCss(n);
+  if (Object.keys(states).length) look.states = states;
   return look;
 }
 
@@ -277,6 +332,11 @@ export function changedDeclarations(was: CssLook, now: CssLook, move: { dx: numb
   if (!same(was.opacity, now.opacity)) out.push(`opacity: ${now.opacity ?? 1}`);
   if (!same(was.align, now.align)) out.push(`text-align: ${now.align ?? "start"}`);
   if (!same(was.transform, now.transform)) out.push(`text-transform: ${now.transform ?? "none"}`);
+  /* The Page look's slots: each one changed on the board, as written; one emptied, back to nothing. */
+  for (const k of new Set([...Object.keys(was.art ?? {}), ...Object.keys(now.art ?? {})])) {
+    const a = was.art?.[k], b = now.art?.[k];
+    if ((a ?? "").replace(/\s+/g, " ").trim() !== (b ?? "").replace(/\s+/g, " ").trim()) out.push(`${k}: ${b ?? UNSET[k] ?? "initial"}`);
+  }
   /* Where it is layout: a size he gave it, and an offset from where the page put it, which keeps it in the page's flow. */
   if (Math.abs(was.box.w - now.box.w) >= 1) out.push(`width: ${now.box.w}px`, "box-sizing: border-box", "max-width: 100%");
   if (Math.abs(was.box.h - now.box.h) >= 1) out.push(`min-height: ${now.box.h}px`);
@@ -392,6 +452,15 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
+      }
+      /* Its own hover, press and focus, where they changed on the board: a rule of their own, the declarations that are new or different. */
+      for (const state of new Set([...Object.keys(src.was.states ?? {}), ...Object.keys(now.states ?? {})])) {
+        const split = (t: string | undefined) => new Map((t ?? "").split(/;(?![^(]*\))/).map((d) => { const i = d.indexOf(":"); return [d.slice(0, i).trim(), d.slice(i + 1).trim()] as const; }).filter(([k, v]) => k && v));
+        const a = split(src.was.states?.[state]), b = split(now.states?.[state]);
+        let sd = [...b].filter(([k, v]) => a.get(k) !== v).map(([k, v]) => `${k}: ${v}`);
+        if (opts.kit && src.hook.attr !== "data-hook") sd = [];
+        if (opts.kit) sd = kitDeclarations(src.hook.value, sd);
+        if (sd.length) { rules.push({ selector: `${selectorFor(src.hook)}:${state}`, declarations: sd, nodeId: n.id, file: src.file }); styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`); }
       }
     }
     /* Words, where the source holds them as plain text and nothing writes them. */
