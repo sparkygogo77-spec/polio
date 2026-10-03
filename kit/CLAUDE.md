@@ -2,7 +2,8 @@
 
 This repo is built to the **builder contract**: J's Polio builder reads and restyles every part of
 the site, so every change you make must keep it readable. Read `AGENTS.md` (how to work here) and
-`BUILDER-CONTRACT.md` (the rules) before touching any page, stylesheet or script.
+`BUILDER-CONTRACT.md` (the rules), and `BUILDER-RULES.md` (the design and build rules every code chat
+follows) before touching any page, stylesheet or script.
 
 The short version:
 
@@ -14,6 +15,13 @@ The short version:
   come from `<template data-hook="template-...">`.
 - `tokens.css` loads first, `style-layer.css` loads last. Never edit `style-layer.css`; it is the
   design's file.
+- Anything a script shows later (a box that becomes a button, a message, a result) is a state inside
+  a part the builder can see: a hooked child hidden until shown. Never append it outside a part.
+- Every visible thing is a real tagged element: no `::before`/`::after` drawings.
+- Need a look or setting the builder can't edit yet? Don't drop it or hard-code it: make it a token
+  and list it in `builder.json` `rules.slots` (BUILDER-RULES.md rule 4). States stay inside their frame.
+- The only `<iframe>` is the DexScreener chart embed; scripts set only the position variables
+  `builder.json` `rules.scriptPositions` lists.
 - New page? Add it to `builder.json`, with at least one preview screen.
 - Building from a design? Build from `design/record.json` (`DESIGN-RECORD.md`): keep each part's
   hook exactly, put every value it marks as a token in `tokens.css`/`tokens.js`, then check the
@@ -25,6 +33,7 @@ Commands:
 npm run kit:hooks   # rewrite hooks.json from the code (run after any page, CSS or script edit)
 npm run kit:check   # the contract check; must pass before you push
 npm run kit:diff -- --base origin/main   # no hook the design uses was dropped
+npm run kit:states -- design/record.json # every state stays inside its frame
 npm test            # the kit's own tests
 ```
 

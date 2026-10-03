@@ -356,7 +356,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     <>
       <label className="sm-menu-button" data-small-menu-button="" style={{ display: "none", alignItems: "center", gap: 8, padding: "0 16px", boxSizing: "border-box", borderRadius: Math.min(t.radius, 12), border: `1px solid ${t.line}`, background: t.surface, color: t.text, fontFamily: t.bodyFamily, fontSize: 16, cursor: "pointer", userSelect: "none", position: "relative", zIndex: 22 }}>
         <input type="checkbox" className="sm-menu-toggle" style={{ position: "absolute", opacity: 0, width: 1, height: 1, margin: 0, pointerEvents: "none" }} />
-        <span aria-hidden className="sm-glyph" />
+        <span aria-hidden className="sm-glyph"><span className="sm-glyph-open">{"\u2630"}</span><span className="sm-glyph-close">{"\u2715"}</span></span>
         Menu
       </label>
       <div aria-hidden className="sm-menu-panel" data-small-menu-panel="" style={{ display: "none", background: t.surface, border: `1px solid ${t.line}`, borderRadius: Math.min(t.radius, 12), boxShadow: "0 12px 32px oklch(0 0 0 / .3)" }} />

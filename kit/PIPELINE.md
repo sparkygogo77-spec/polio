@@ -93,7 +93,7 @@ Paste this as the first message in a new code chat, filling the two lines in ang
 
 ```
 You are working on <site name>, a website J designs in the Polio builder. It must stay
-builder-ready: read CLAUDE.md, AGENTS.md, BUILDER-CONTRACT.md and PIPELINE.md first, and follow them.
+builder-ready: read CLAUDE.md, AGENTS.md, BUILDER-CONTRACT.md, BUILDER-RULES.md and PIPELINE.md first, and follow them.
 <If the repo is empty: run `npm run kit:new` from the builder kit (sparkygogo77-spec/PST, folder kit/)
 to start it, and push that as the first commit.>
 The job: <what the site does, its pages, and each state a page can be in>.

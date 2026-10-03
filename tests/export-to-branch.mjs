@@ -275,6 +275,8 @@ try {
   check(`the pull request, design/HOOK-CHANGES.md and HOOK-CHANGES.json say so, ${DEL} marked removed with the code that finds it`, /## Moved \(1\)[\s\S]*`chart-area`[\s\S]*\+40px across/.test(md) && /## Added \(1\)[\s\S]*`chart-main`/.test(md) && new RegExp(`## Removed \\(${gone.length}\\)[\\s\\S]*\`${DEL}\`[^\\n]*: (found by|no script finds it)`).test(md) && pulls[0]?.body?.includes("`chart-main`") && pulls[0]?.body?.includes(`\`${DEL}\``) && JSON.stringify((listed.removed ?? []).map((r) => r.hook)) === JSON.stringify(gone) && listed.removed.every((r) => Array.isArray(r.refs)), md.split("\n").filter((l) => /Removed|`/.test(l)).slice(0, 8).join(" | "));
 
   /* The design record went with it, as it is now: the move, the new part, the deleted one gone, hidden states and tokens marked. */
+  const rulesJson = existsSync(join(DIR, "design/builder.json")) ? JSON.parse(readFileSync(join(DIR, "design/builder.json"), "utf8")).rules : null;
+  check("the builder rules are on the branch: design/BUILDER-RULES.md and design/builder.json \"rules\"", existsSync(join(DIR, "design/BUILDER-RULES.md")) && rulesJson?.list?.some((r) => r.id === "states-inside-parts"), JSON.stringify(rulesJson?.list?.map((r) => r.id)));
   const rec = existsSync(join(DIR, "design/record.json")) ? JSON.parse(readFileSync(join(DIR, "design/record.json"), "utf8")) : null;
   const flat = [];
   const walkF = (n) => { flat.push(n); for (const k of n.kids ?? []) walkF(k); };

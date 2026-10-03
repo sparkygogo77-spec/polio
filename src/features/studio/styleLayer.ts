@@ -161,6 +161,22 @@ export function partTokens(code: { refs: { file: string; fn: string | null }[]; 
   return [...out.values()];
 }
 
+/**
+ * The slots builder.json lists for a part (BUILDER-RULES.md rule 4): settings its code asked the
+ * builder to learn, each a token, shown by label first in the part's Settings, with what the code
+ * found for it besides.
+ */
+export function partSlots(hook: string, source: Pick<StyleSource, "files" | "kit">): { name: string; value: string; file: string; line: number; token?: boolean; why: "slot"; label: string; kind?: string; options?: string[]; about?: string }[] {
+  const slots = (source.kit?.rules?.slots ?? []).filter((s) => s && s.hook === hook && typeof s.token === "string");
+  if (!slots.length) return [];
+  const known = new Map<string, { name: string; value: string; file: string; line: number; token?: boolean }>();
+  for (const f of source.files) for (const v of f.vars) if (!known.has(v.name) || (v.token && !known.get(v.name)!.token)) known.set(v.name, v);
+  return slots.flatMap((s) => {
+    const v = known.get(s.token);
+    return v ? [{ ...v, why: "slot" as const, label: s.label || s.token, kind: s.kind, options: s.options, about: s.why }] : [];
+  });
+}
+
 /** The shape of a node this reads: a board part, loosely. */
 export interface LayerNode {
   id: string;

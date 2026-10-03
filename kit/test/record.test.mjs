@@ -39,3 +39,17 @@ test('record-diff reads a captured part as drawn: its page matrix applied', () =
   const r = recordDiff(design, page([turned]));
   assert.deepEqual(r.differ, [], JSON.stringify(r.differ));
 });
+
+test('kit:states: a state stays inside its frame; one that leaves it is named, by how far', async () => {
+  const { stateFrames } = await import('../tools/state-frames.mjs');
+  const page = (findBox) => ({ record: 1, source: 'builder', pages: [{ file: 'web/index.html', tree: { t: 'body', hook: 'page', x: 0, y: 0, w: 1440, h: 900, kids: [
+    { t: 'section', hook: 'queue-box', x: 100, y: 100, w: 300, h: 120, kids: [
+      { t: 'p', hook: 'queue-connecting', x: 110, y: 110, w: 280, h: 40 },
+      { t: 'button', hook: 'queue-find-button', states: { hidden: { hidden: true } }, ...findBox, kids: [{ t: 'span', hook: 'queue-find-label', x: findBox.x + 10, y: findBox.y + 5, w: 60, h: 20 }] },
+    ] },
+    { t: 'template', hook: 'template-row', states: { hidden: { hidden: true } }, x: 0, y: 2000, w: 50, h: 50 },
+  ] } }] });
+  assert.deepEqual(stateFrames(page({ x: 110, y: 160, w: 280, h: 50 })), []);
+  const bad = stateFrames(page({ x: 110, y: 200, w: 280, h: 50 }));
+  assert.deepEqual(bad.map((b) => [b.hook, b.state, b.frame, b.over]), [['queue-find-button', 'queue-find-button', 'queue-box', 30], ['queue-find-label', 'queue-find-button', 'queue-box', 5]]);
+});

@@ -7,6 +7,7 @@ chat working there follows the contract without being told.
 | File | What it is |
 | --- | --- |
 | `BUILDER-CONTRACT.md` | The rules every page, stylesheet and script keeps |
+| `BUILDER-RULES.md` | The design and build rules every code chat follows (also `"rules"` in `builder.json`; the builder writes both into every Export for code) |
 | `CLAUDE.md`, `AGENTS.md` | Instructions a code chat reads on arrival |
 | `builder.json` | The manifest the builder reads first: kit version, pages, and where everything is |
 | `tools/kit-check.mjs` | The checker: builds `hooks.json`, fails on any broken rule. No dependencies |

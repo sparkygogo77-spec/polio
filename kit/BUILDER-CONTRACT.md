@@ -76,6 +76,9 @@ design changes.
   followed to the end of its function. When a script must build a name (`nav-${page}`), the same line carries a
   comment listing every name it can be: `// hooks: nav-{home,about,list}`.
 - **(checked)** Every hook a script uses exists on a page; every hook a stylesheet names exists.
+- **(checked)** Every element a script adds (`append`, `prepend`, `replaceChildren`, `insertBefore`,
+  `before`, `after`, `replaceWith`...) lands inside a part a page declares, never on `document.body`
+  or beside a part. See `BUILDER-RULES.md` rule 1.
 - **(checked)** No inline `<script>` code; scripts live in `.js` files.
 
 ## 5. Preview screens

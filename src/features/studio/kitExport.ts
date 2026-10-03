@@ -34,7 +34,7 @@
  *
  * Pure: strings in, strings out. `tests/export-for-code.mjs` holds it.
  */
-import { KIT_FILES, KIT_VERSION } from "./kitFiles.ts";
+import { KIT_FILES, KIT_RULES, KIT_VERSION } from "./kitFiles.ts";
 import { offsiteToKitLinks } from "./parts/offsite.ts";
 import { colourKey } from "./styleLayer.ts";
 
@@ -540,6 +540,8 @@ ${inside}
     gallery: `${ROOT}gallery.html`,
     scripts: { hookCalls: HELPERS, helperFiles: [`${ROOT}js/hooks.js`], ignore: [`/${ROOT}assets/`, "/vendor/", "/node_modules/"] },
     links: offsiteToKitLinks(input.links),
+    /* The design and build rules every code chat follows; the full text is BUILDER-RULES.md beside it. No slots yet: the starter's are its own. */
+    rules: { ...KIT_RULES, slots: [], outsideParts: [] },
   };
   files.push(
     { path: "builder.json", content: `${JSON.stringify(manifest, null, 2)}\n` },
@@ -554,9 +556,9 @@ ${inside}
     },
     {
       path: "README.md",
-      content: `# ${input.name}\n\nExported from J's Polio builder with **Export for code**: a builder-ready repo (kit ${KIT_VERSION}). The site is in \`site/\`; \`builder.json\` is what the builder reads first.\n\n- Read \`CLAUDE.md\`, \`AGENTS.md\`, \`BUILDER-CONTRACT.md\` and \`PIPELINE.md\` before changing anything.\n- \`npm run kit:check\` must pass; \`npm run kit:hooks\` remakes \`site/hooks.json\` after a page, stylesheet or script changes.\n- \`site/assets/\` is the builder's own runtime (motion, features, pictures): the check skips its scripts (\`builder.json\` \`scripts.ignore\`). Replace them with hooked code as the site grows.\n- \`site/style-layer.css\` is empty: it is the design's file, sent back by the builder as a pull request from a \`style/...\` branch.\n- Serve \`site/\` as the web root (\`npm run serve\`, then open http://localhost:8080/site/).\n`,
+      content: `# ${input.name}\n\nExported from J's Polio builder with **Export for code**: a builder-ready repo (kit ${KIT_VERSION}). The site is in \`site/\`; \`builder.json\` is what the builder reads first.\n\n- Read \`CLAUDE.md\`, \`AGENTS.md\`, \`BUILDER-CONTRACT.md\`, \`BUILDER-RULES.md\` and \`PIPELINE.md\` before changing anything. \`BUILDER-RULES.md\` (also \`rules\` in \`builder.json\`) is what every code chat follows: anything a script shows later is a state inside a part the builder can see.\n- \`npm run kit:check\` must pass; \`npm run kit:hooks\` remakes \`site/hooks.json\` after a page, stylesheet or script changes.\n- \`site/assets/\` is the builder's own runtime (motion, features, pictures): the check skips its scripts (\`builder.json\` \`scripts.ignore\`). Replace them with hooked code as the site grows.\n- \`site/style-layer.css\` is empty: it is the design's file, sent back by the builder as a pull request from a \`style/...\` branch.\n- Serve \`site/\` as the web root (\`npm run serve\`, then open http://localhost:8080/site/).\n`,
     },
-    ...["BUILDER-CONTRACT.md", "PIPELINE.md", "AGENTS.md", "CLAUDE.md", "RETROFIT.md", "tools/kit-check.mjs", "tools/kit-diff.mjs", ".github/workflows/kit-check.yml"].map((p) => ({ path: p, content: KIT_FILES[p]! })),
+    ...["BUILDER-CONTRACT.md", "BUILDER-RULES.md", "PIPELINE.md", "AGENTS.md", "CLAUDE.md", "RETROFIT.md", "tools/kit-check.mjs", "tools/kit-diff.mjs", ".github/workflows/kit-check.yml"].map((p) => ({ path: p, content: KIT_FILES[p]! })),
   );
   const says = `Export for code: ${input.pages.length} page${input.pages.length === 1 ? "" : "s"}, ${hooks} elements each with a data-hook, ${tokens.decls.length} tokens in site/tokens.css, an empty style layer, builder.json with ${screens.length} preview screen${screens.length === 1 ? "" : "s"}, and the kit's check, contract and CI.`;
   /* Every hook it came in with that is on a page as written. */

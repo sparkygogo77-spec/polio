@@ -3,7 +3,11 @@
 This repo's pages are edited in two places: here, in code, and in J's Polio builder, which
 restyles them. The builder reads `builder.json`, then `hooks.json`, and sends its design back as
 `style-layer.css`. Your job is to change how the site works without ever breaking how it can be
-designed. The rules are in `BUILDER-CONTRACT.md`; `npm run kit:check` enforces them.
+designed. The rules are in `BUILDER-CONTRACT.md` and `BUILDER-RULES.md`; `npm run kit:check` enforces them.
+Above all (`BUILDER-RULES.md` rule 1): anything a script shows later is a state inside a part the
+builder can see (a hooked child hidden until shown), never a new element outside it, and it stays
+inside that part's frame. When the code needs a look or setting the builder lacks, add a slot
+(`rules.slots`, rule 4): never drop the design or work around the builder.
 
 ## Where things go
 
