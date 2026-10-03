@@ -38,6 +38,18 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 const J = (x) => JSON.stringify(x);
+/*
+ * A step on a 9,138-part site is not done in a fixed 600ms when the machine
+ * is shared: beside other tests the undo depth and the document were read
+ * before the step had landed. Each step is now waited for by the undo depth
+ * it leaves (at least the old pause, at most twenty seconds); what is checked
+ * after it is unchanged.
+ */
+const until = async (page, ready, { min = 600, max = 20000 } = {}) => {
+  const t0 = Date.now();
+  await page.waitForTimeout(min);
+  while (!(await ready()) && Date.now() - t0 < max) await page.waitForTimeout(150);
+};
 /* What a look never touches. A part's place and size may move: a new font that needs more room grows its part and the board heals round it, in the same step. */
 const KEEP = ["content", "label", "link", "pageId", "featureId", "picture"];
 const LOOKS = ["colour", "hue", "texture", "opacity", "edge", "aura", "auraSize", "auraStyle", "radius", "shape", "font", "text", "art", "motion", "anim", "work", "worn"];
@@ -71,7 +83,7 @@ for (const site of SITES) {
 
   const depth0 = await s.undoDepth();
   await btn.click();
-  await page.waitForTimeout(600);
+  await until(page, async () => (await s.undoDepth()) > depth0);
   check(`${site}: applied, it is one undo step`, (await s.undoDepth()) === depth0 + 1, `${depth0} → ${await s.undoDepth()}`);
   check(`${site}: …and says how many it restyled`, new RegExp(`Restyled ${want.length} button`).test(await page.locator("[data-make-all-said]").innerText().catch(() => "")), await page.locator("[data-make-all-said]").innerText().catch(() => "nothing"));
   const doc1 = await s.doc();
@@ -102,7 +114,7 @@ for (const site of SITES) {
   /* One Undo: the whole site as it was. */
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+z");
-  await page.waitForTimeout(600);
+  await until(page, async () => (await s.undoDepth()) <= depth0);
   const doc2 = await s.doc();
   check(`${site}: one Undo puts the whole site back`, J(doc2.nodes) === J(doc0.nodes));
 
@@ -112,8 +124,9 @@ for (const site of SITES) {
   await page.waitForTimeout(300);
   const btn2 = page.locator("[data-make-all-button]");
   if (Number(await btn2.getAttribute("data-make-all-count")) > 0) {
+    const depth2 = await s.undoDepth();
     await btn2.click();
-    await page.waitForTimeout(600);
+    await until(page, async () => (await s.undoDepth()) > depth2);
     const doc3 = await s.doc();
     const by3 = new Map(doc3.nodes.map((n) => [n.id, n]));
     const reached = want.filter((id) => J(by3.get(id)) !== J(by0.get(id)));
@@ -123,7 +136,7 @@ for (const site of SITES) {
     check(`${site}: …and takes the rest: outline width, corners, font`, rest.length === 0, rest.slice(0, 3).join(", "));
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+z");
-    await page.waitForTimeout(400);
+    await until(page, async () => (await s.undoDepth()) <= depth2, { min: 400 });
   } else check(`${site}: with Keep each part's own colour, the look still reaches its kind`, false, "nothing to change");
   await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.makeAll") || "{}"); if (v.state) { v.state.keepColour = false; localStorage.setItem("builder.makeAll", JSON.stringify(v)); } });
   check(`${site}: no page errors`, s.errors.length === 0, s.errors.slice(0, 2).join(" | "));
