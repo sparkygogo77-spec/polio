@@ -50,6 +50,7 @@ import { hooksOnBoard } from "./designBranch";
 import type { ScreenRead } from "./boardStates";
 import { oneAddress, withoutJoinedAddress } from "./captureSite";
 import { kitLinksToOffsite } from "./parts/offsite";
+import { FAMILY } from "./parts/theme";
 import { baselineAsLanded, type LayerNode, type StyleSource } from "./styleLayer";
 import { checkRepoFeatures } from "./library/repoFeatures";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
@@ -693,7 +694,7 @@ export function FromASite({ space }: { space: Space }) {
     /* What the landing itself changed (the sweep's repaint, the palette's roles) is no design: the board as landed is what the style layer is measured from (`baselineAsLanded`). */
     {
       const now = useStudio.getState();
-      useStudio.setState({ nodes: baselineAsLanded(now.nodes as unknown as LayerNode[], now.look.palette as Record<string, string>) as unknown as typeof now.nodes });
+      useStudio.setState({ nodes: baselineAsLanded(now.nodes as unknown as LayerNode[], now.look.palette as Record<string, string>, { family: (name) => FAMILY[name] }) as unknown as typeof now.nodes });
     }
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);

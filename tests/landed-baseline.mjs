@@ -56,6 +56,11 @@ check("the panel's token count is the code's", layer.tokens.length === 3, `${lay
 const slotted = L.partSlots("trade-pictures", { ...took, kit: { rules: { slots: [{ token: "--pons-marker-gap", hook: "trade-pictures", label: "Marker distance", kind: "number" }] } } });
 check("and a new token's slot shows in its part's Settings", slotted.length === 1 && slotted[0].value === "30");
 check("taken twice, nothing doubles", K.takeTokens(took, seen).files.flatMap((f) => f.vars).length === vars.length);
+const old = { ...source, files: source.files.map((f) => ({ ...f, vars: f.vars.filter((v) => v.name !== "--a") })) };
+check("a board behind the code is found even when the round has nothing new", JSON.stringify(K.tokensBehind(old, seen)) === JSON.stringify(["--a", "--pons-marker-gap"]) && K.tokensBehind(took, { ...seen, values: { ...seen.values, "--a": "2" } }).length === 0, JSON.stringify(K.tokensBehind(old, seen)));
+const fontNode = { ...read, font: { size: 1.38, px: 22 } };
+fontNode.source = { ...read.source, was: L.lookOf(fontNode, null, { base: 22 / 1.38 }) };
+check("the baseline is measured as the panel measures: a rounded font size is no restyle", L.buildLayer(L.baselineAsLanded([fontNode], {}), {}, source, { kit: true }).rules.length === 0);
 check("Take these in uses it (source read)", /takeTokens\(now, round\.seen\)/.test(readFileSync(join(here, "..", "src", "features", "studio", "StyleLayerPanel.tsx"), "utf8")));
 check("an import re-baselines what landed (source read)", /baselineAsLanded\(now\.nodes/.test(readFileSync(join(here, "..", "src", "features", "studio", "FromASite.tsx"), "utf8")));
 
