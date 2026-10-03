@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const FILES = [
   "BUILDER-CONTRACT.md",
+  "BUILDER-RULES.md",
   "PIPELINE.md",
   "AGENTS.md",
   "CLAUDE.md",
@@ -23,11 +24,14 @@ const FILES = [
   "starter/js/preview.js",
 ];
 const OUT = "src/features/studio/kitFiles.ts";
-const version = JSON.parse(readFileSync("kit/builder.json", "utf8")).kit;
+const manifest = JSON.parse(readFileSync("kit/builder.json", "utf8"));
+const version = manifest.kit;
 const body = [
   "/* Made by scripts/kit-files.mjs from kit/ (npm run kit:files). Do not edit by hand. */",
   "/* The builder kit's files, as text, for Export for code (kitExport.ts). */",
   `export const KIT_VERSION = ${JSON.stringify(version)};`,
+  "/* The design and build rules every code chat follows (BUILDER-RULES.md), as builder.json carries them. */",
+  `export const KIT_RULES = ${JSON.stringify(manifest.rules)} as const;`,
   "export const KIT_FILES: Record<string, string> = {",
   ...FILES.map((f) => `  ${JSON.stringify(f)}: ${JSON.stringify(readFileSync(`kit/${f}`, "utf8"))},`),
   "};",

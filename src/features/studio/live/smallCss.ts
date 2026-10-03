@@ -223,8 +223,10 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
    */
   const OPEN = ".sm-root:has(.sm-menu-toggle:checked)";
   const menu = (it: Extract<SmallItem<N>, { kind: "menu" }>) => {
-    rule(".sm-glyph::before", "content:'\\2630'");
-    rule(".sm-menu-toggle:checked ~ .sm-glyph::before", "content:'\\2715'");
+    /* The glyphs are real elements (BUILDER-RULES.md rule 7: no pictures drawn by CSS alone); the key swaps them. */
+    rule(".sm-glyph-close", "display:none");
+    rule(".sm-menu-toggle:checked ~ .sm-glyph .sm-glyph-open", "display:none");
+    rule(".sm-menu-toggle:checked ~ .sm-glyph .sm-glyph-close", "display:inline");
     rule(".sm-menu-button:has(:focus-visible)", "outline:2px solid currentColor;outline-offset:2px");
     rule(".sm-menu-button", `display:inline-flex!important;order:${seq++};width:112px;margin:${GAP}px calc(100% - 112px) 0 0;min-height:${TAP}px;box-sizing:border-box`);
     let top = GAP + TAP + 8 + GAP;

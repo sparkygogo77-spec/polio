@@ -172,6 +172,129 @@ function usesAfter(rest) {
   return 'reads';
 }
 
+// ------------------------------------------------------------------ script insertions (BUILDER-RULES.md, rule 1)
+
+const INSERT = /(?<![\w$])((?:[\w$]+(?:\s*\([^()]*\))?)(?:\s*\.\s*[\w$]+(?:\s*\([^()]*\))?)*?)\s*\.\s*(append|appendChild|prepend|insertBefore|replaceChildren|before|after|replaceWith|insertAdjacentElement)\s*\(/g;
+const CLONE = /\b(fromTemplate|cloneNode|importNode|part)\s*\(|\.content\b/;
+
+/** The text between a call's ( and its matching ). */
+function argsAt(text, open) {
+  let depth = 0;
+  for (let j = open; j < text.length; j++) {
+    const c = text[j];
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') { depth--; if (depth === 0) return text.slice(open + 1, j); }
+    else if (c === "'" || c === '"' || c === '`') { const e = text.indexOf(c, j + 1); if (e === -1) return text.slice(open + 1); j = e; }
+  }
+  return text.slice(open + 1);
+}
+
+/**
+ * Every place a script adds an element to the page, and the part it lands in. A part is an element
+ * a page declares with a data-hook (the builder sees and edits it), or a copy of a <template> that
+ * is itself put into a part. Anything else (document.body, an element found some other way) is
+ * outside every part: the builder cannot see it, so it cannot design it.
+ */
+export function insertions(text, { helpers, fillCalls = [], hookExists = () => true }) {
+  const ranges = functionRanges(text);
+  const blank = text.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' ')).replace(/(^|[^:\\])\/\/(?!\s*(?:part|hooks):).*$/gm, (c, a) => a + ' '.repeat(c.length - a.length));
+  const helperNames = Object.keys(helpers);
+  const lineOf = (i) => text.slice(0, i).split('\n').length;
+  const scopeOf = (i) => ranges.filter((r) => r.start <= i && i <= r.end).sort((a, b) => a.start - b.start).at(-1) ?? { start: 0, end: text.length };
+  const noteAt = (i) => {
+    const ln = lineOf(i) - 1;
+    const line = text.split('\n')[ln] ?? '';
+    const m = /\/\/\s*part:\s*([a-z][a-z0-9-]*)/.exec(line);
+    return m ? m[1] : null;
+  };
+  // What an expression is: { part } a declared part, { clone: true } a template copy, { outside } the page itself, or null.
+  const classify = (expr, at, depth = 0) => {
+    expr = expr.trim().replace(/^\(|\)$/g, '').trim();
+    if (depth > 4 || !expr) return null;
+    if (/^document\s*\.\s*(body|documentElement|head)\b|^document$/.test(expr)) return { outside: expr.replace(/\s+/g, '') };
+    if (/\bcreateElement(NS)?\s*\(/.test(expr)) return { outside: 'a new element' };
+    const q = /\[data-hook="([a-z0-9-]+)"\]/.exec(expr);
+    if (q) return { part: q[1] };
+    for (const h of helperNames) {
+      const m = new RegExp(`^(?:await\\s+)?${h.replace(/\$/g, '\\$')}\\s*\\(`).exec(expr);
+      if (!m) continue;
+      if (h === 'fromTemplate') return { clone: true };
+      const args = argsAt(expr, m[0].length - 1).split(',').map((a) => a.trim());
+      const lit = /^(['"`])([a-z0-9-]+)\1$/.exec(args[helpers[h]] ?? '');
+      if (lit) return { part: lit[2] };
+      return { part: null, runtime: true };
+    }
+    if (CLONE.test(expr) && !/^[\w$]+\s*\.\s*(parentNode|parentElement)/.test(expr)) return { clone: true };
+    if (fillCalls.some((f) => new RegExp(`^${f}\\s*\\(`).test(expr))) return classify(argsAt(expr, expr.indexOf('(')).split(',')[0], at, depth + 1);
+    const pm = /^([\w$]+)\s*\.\s*(parentNode|parentElement|closest\s*\([^)]*\))\s*$/.exec(expr);
+    if (pm) { const r = classify(pm[1], at, depth + 1); return r && (r.part || r.clone) ? { ...r, part: r.part } : r; }
+    const id = /^([\w$]+)$/.exec(expr);
+    if (id) {
+      // The last assignment to it before this point, in its function or an outer one.
+      const scope = scopeOf(at);
+      const re = new RegExp(`(?:(?:const|let|var)\\s+|[,(]\\s*|^\\s*|;\\s*)${id[1].replace(/\$/g, '\\$')}\\s*=(?!=)\\s*`, 'gm');
+      let found = null;
+      for (const m of blank.slice(0, at).matchAll(re)) found = m;
+      if (found && found.index >= 0) {
+        const noted = noteAt(found.index + found[0].length);
+        if (noted) return { part: noted };
+        const from = found.index + found[0].length;
+        let end = from;
+        for (let depth2 = 0; end < blank.length; end++) {
+          const c = blank[end];
+          if ('([{'.includes(c)) depth2++;
+          else if (')]}'.includes(c)) { if (depth2 === 0) break; depth2--; }
+          else if ((c === ';' || c === '\n') && depth2 === 0) break;
+          else if (c === ',' && depth2 === 0) break;
+        }
+        return classify(blank.slice(from, end), from, depth + 1);
+      }
+      void scope;
+      return null;
+    }
+    const prop = /^([\w$]+)\s*\.\s*([\w$]+)$/.exec(expr);
+    if (prop && prop[1] !== 'document') {
+      // An object's field, set as chart.pictures = $('trade-pictures') or { pictures: $('trade-pictures') }.
+      const sets = [...blank.matchAll(new RegExp(`(?<![\\w$.])${prop[1]}\\s*\\.\\s*${prop[2]}\\s*=(?!=)\\s*([^;\\n]+)`, 'g')), ...blank.matchAll(new RegExp(`(?<![\\w$.])${prop[2]}\\s*:\\s*([^,}\\n]+)`, 'g'))];
+      for (const m of sets) {
+        if (/^\s*(null|undefined)\s*$/.test(m[1])) continue;
+        const r = classify(m[1], m.index, depth + 1);
+        if (r) return r;
+      }
+    }
+    return null;
+  };
+  const out = [];
+  for (const m of blank.matchAll(INSERT)) {
+    const open = m.index + m[0].length - 1;
+    const args = argsAt(blank, open).trim();
+    if (m[2] === 'replaceChildren' && args === '') continue; // emptying a part
+    if (args !== '' && args.split(/,(?![^(]*\))/).every((a) => /^\s*(['"`])[^'"`]*\1\s*$/.test(a))) continue; // text only
+    const receiver = m[1].replace(/\s+/g, '');
+    const own = /^([\w$]+)\.(parentNode|parentElement)$/.exec(receiver);
+    if (own && args.split(',')[0].trim() === own[1]) continue; // a part moved within its own parent: nothing added
+    const line = lineOf(m.index);
+    const fn = nameAt(ranges, m.index);
+    const noted = noteAt(m.index);
+    let where = noted ? { part: noted } : classify(m[1], m.index);
+    // before/after/replaceWith put the element beside the receiver, in the receiver's own parent.
+    const beside = /^(before|after|replaceWith)$/.test(m[2]) || (m[2] === 'insertAdjacentElement' && /beforebegin|afterend/.test(args));
+    if (beside && where?.part && !noted) where = { besidePart: where.part };
+    if (beside && where?.clone) where = { clone: true };
+    out.push({ line, function: fn, receiver, method: m[2], where });
+  }
+  return out.map((x) => {
+    const w = x.where;
+    let problem = null;
+    if (!w) problem = `script adds an element to ${x.receiver}, which the check cannot follow to a part (get it with a hook call, or note "// part: hook-name" on the line)`;
+    else if (w.outside) problem = `script adds an element to ${w.outside}, outside every part (build it inside a part the builder can see, as a state of that part; see BUILDER-RULES.md)`;
+    else if (w.besidePart) problem = `script puts an element beside "${w.besidePart}" with ${x.method}, outside that part (put it inside a part, as a state of that part)`;
+    else if (w.part && !hookExists(w.part)) problem = `script adds an element to "${w.part}", which no page declares`;
+    else if (w.part && w.part.startsWith('template-')) problem = `script adds an element to the template "${w.part}" itself (clone it, then put the copy into a part)`;
+    return { ...x, part: w?.part ?? w?.besidePart ?? (w?.clone ? '(template copy)' : null), problem };
+  });
+}
+
 // ------------------------------------------------------------------ the check
 
 export function check(manifestPath, { write = false } = {}) {
@@ -196,6 +319,12 @@ export function check(manifestPath, { write = false } = {}) {
   const ignore = (manifest.scripts?.ignore ?? ['/vendor/', '/node_modules/']).map((x) => x.toLowerCase());
   const helperFiles = new Set((manifest.scripts?.helperFiles ?? []).map((f) => resolve(at(f))));
   const allowHosts = manifest.links?.allowHosts ?? [];
+  // BUILDER-RULES.md: the one allowed embed, and the only values a script may set (positions).
+  const ruled = manifest.rules !== undefined;
+  const embeds = manifest.rules?.embeds ?? [];
+  const positions = manifest.rules?.scriptPositions ?? { properties: [], values: [] };
+  const sitePages = new Set(manifest.pages.map((x) => x.file));
+  const outsideOk = new Set((manifest.rules?.outsideParts ?? []).map((x) => resolve(at(typeof x === 'string' ? x : x.file))));
   const blockLinks = (manifest.links?.block ?? []).map((b) => ({ re: new RegExp(b.pattern, 'i'), why: b.why }));
 
   const pageFiles = [...manifest.pages.map((p) => p.file), manifest.preview.page, manifest.gallery];
@@ -211,6 +340,11 @@ export function check(manifestPath, { write = false } = {}) {
       if (el.attrs.style !== undefined) problems.push(`${p.file}:${el.line}: <${el.tag}> has an inline style (put the rule in a stylesheet, keyed by its hook)`);
       if (el.tag === 'style') problems.push(`${p.file}:${el.line}: <style> in a page (styles live in stylesheets)`);
       if (!el.inBody) continue;
+      if (ruled && el.tag === 'iframe' && sitePages.has(p.file)) {
+        const src = el.attrs.src && /^(https?:)?\/\//i.test(el.attrs.src) ? new URL(el.attrs.src, 'https://site.invalid/').hostname.replace(/^www\./, '') : null;
+        const ok = embeds.some((e) => (e.hooks ?? []).includes(el.attrs['data-hook']) || (src && (e.hosts ?? []).some((h) => src === h || src.endsWith(`.${h}`))));
+        if (!ok) problems.push(`${p.file}:${el.line}: <iframe> is not an allowed embed (the only ones are builder.json rules.embeds: ${embeds.map((e) => e.name).join(', ') || 'none'})`);
+      }
       if (el.tag === 'a') {
         const href = el.attrs.href;
         if (href === undefined || href === '' || href === '#' || /^javascript:/i.test(href)) nowhere.push({ hook: el.attrs['data-hook'], text: `${p.file}:${el.line}: a link that goes nowhere (use a <button> for an action, or have a script set its href)` });
@@ -265,6 +399,8 @@ export function check(manifestPath, { write = false } = {}) {
       const bare = r.selector.replace(/\[[^\]]*\]/g, '').replace(/\([^)]*\)/g, '');
       if (/[.#][a-zA-Z_-]/.test(bare)) problems.push(`${file}:${r.line}: selector "${r.selector}" uses a class or id (key rules by [data-hook="..."])`);
       const hooks = selectorReach(r.selector, where.keys());
+      const drawn = r.decls.find((d) => d.prop === 'content' && !/^(none|normal|''|"")$/.test(d.value));
+      if (drawn && /::?(before|after|marker)\b/.test(r.selector) && abs !== resolve(layerFile)) problems.push(`${file}:${drawn.line}: "${r.selector}" draws something with CSS alone (make it a real child element with its own data-hook; see BUILDER-RULES.md)`);
       for (const d of r.decls) {
         if (d.prop.startsWith('--')) {
           declared.add(d.prop);
@@ -274,6 +410,7 @@ export function check(manifestPath, { write = false } = {}) {
         } else if (COLOR.test(d.value.replace(/var\([^)]*\)/g, ''))) {
           problems.push(`${file}:${d.line}: colour in "${d.prop}: ${d.value}" is not a token (use var(--...) from ${manifest.tokens})`);
         }
+        if (ruled && !d.prop.startsWith('--')) for (const v of varsIn(d.value)) if ((positions.values ?? []).includes(v) && !(positions.properties ?? []).includes(d.prop)) problems.push(`${file}:${d.line}: "${d.prop}" uses ${v}, a position a script sets; script-set values may only place things (${(positions.properties ?? []).join(', ')})`);
         for (const v of varsIn(d.value)) {
           usedVars.push({ v, where: `${file}:${d.line}` });
           for (const h of hooks) {
@@ -307,6 +444,7 @@ export function check(manifestPath, { write = false } = {}) {
     }
     pageScripts.set(p.file, set);
   }
+  const siteScripts = new Set([...pageScripts].filter(([f]) => sitePages.has(f)).flatMap(([, s]) => [...s]));
   const refs = new Map(); // hook -> [{file,line,function,uses}]
   const addRef = (hook, r) => { if (!refs.has(hook)) refs.set(hook, []); refs.get(hook).push(r); };
   const callRe = new RegExp(`(?<![\\w$.])(?<!function\\s)(${Object.keys(helpers).map((h) => h.replace(/\$/g, '\\$')).join('|')})\\s*\\(`, 'g');
@@ -314,6 +452,7 @@ export function check(manifestPath, { write = false } = {}) {
     const file = rel(abs);
     if (abs === tokensModule || helperFiles.has(abs) || ignore.some((x) => abs.toLowerCase().includes(x))) continue;
     const ranges = functionRanges(text);
+    if (!outsideOk.has(abs)) for (const x of insertions(text, { helpers, fillCalls, hookExists: (h) => where.has(h) })) if (x.problem) problems.push(`${file}:${x.line}: ${x.problem}`);
     const lineOfIndex = (idx) => text.slice(0, idx).split('\n').length;
     // fill(copy, { 'hook-name': value, ... }): every quoted key is a hook the call writes.
     for (const m of text.matchAll(new RegExp(`(?<![\\w$.])(?:${fillCalls.join('|')})\\s*\\(`, 'g'))) {
@@ -339,6 +478,10 @@ export function check(manifestPath, { write = false } = {}) {
       const code = line.replace(/\/\/.*$/, '');
       const fn = nameAt(ranges, lineStart[i]);
       const where_ = { file, line: i + 1, function: fn };
+      if (ruled && siteScripts.has(abs)) for (const sp of code.matchAll(/\.setProperty\(\s*(['"`])([^'"`]*)\1/g)) {
+        if (!sp[2].startsWith('--')) continue;
+        if (/\$\{/.test(sp[2]) || !(positions.values ?? []).includes(sp[2])) problems.push(`${file}:${i + 1}: script sets ${sp[2]}, which is not an allowed position (scripts may set only builder.json rules.scriptPositions.values; the rest of the look is the builder's)`);
+      }
       if (/\.style\b(?!\s*\.\s*(setProperty|getPropertyValue|removeProperty)\(\s*['"`]--)|setAttribute\(\s*['"]style/.test(code)) problems.push(`${file}:${i + 1}: script sets an inline style (set a CSS variable with style.setProperty('--name', ...) or a data- attribute the stylesheet keys on)`);
       if (/\bcreateElement(NS)?\s*\(|\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(/.test(code)) problems.push(`${file}:${i + 1}: script builds markup (declare it in a <template data-hook="template-..."> and clone it)`);
       if (/(['"`])\s*(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch)\([^'"`]*\))\s*\1/.test(code)) problems.push(`${file}:${i + 1}: colour in a script (read it from a token with getComputedStyle)`);
@@ -387,6 +530,18 @@ export function check(manifestPath, { write = false } = {}) {
   }
   for (const n of nowhere) if (!(refs.get(n.hook) ?? []).some((r) => r.uses === 'writes')) problems.push(n.text);
   for (const [hook, list] of refs) if (!where.has(hook)) for (const r of list) problems.push(`${r.file}:${r.line}: script uses hook "${hook}", which no page has`);
+
+  // ---- slots (BUILDER-RULES.md): a style or setting the builder learns, as a token on a part
+  const SLOT_KINDS = new Set(['colour', 'length', 'number', 'text', 'choice', 'shadow', 'filter', 'time', 'any']);
+  for (const [i, s] of (manifest.rules?.slots ?? []).entries()) {
+    const name = `builder.json rules.slots[${i}]${s?.token ? ` (${s.token})` : ''}`;
+    if (!s?.token?.startsWith('--') || !s.hook || !s.label) { problems.push(`${name}: a slot needs "token" (--name), "hook" and "label"`); continue; }
+    if (!where.has(s.hook)) problems.push(`${name}: hook "${s.hook}" is on no page`);
+    if (!tokens.has(s.token) || tokens.get(s.token) === null) problems.push(`${name}: ${s.token} is not a token in ${manifest.tokens}`);
+    else if (!(hookTokens.get(s.hook)?.has(s.token)) && ![...scripts.values()].some((t) => t.includes(s.token))) problems.push(`${name}: nothing uses ${s.token} for "${s.hook}" (a rule keyed by its hook, or a script reading the token)`);
+    if (s.kind && !SLOT_KINDS.has(s.kind)) problems.push(`${name}: kind "${s.kind}" is not one of ${[...SLOT_KINDS].join(', ')}`);
+    if (s.kind === 'choice' && !(Array.isArray(s.options) && s.options.length > 1)) problems.push(`${name}: a choice slot lists its "options"`);
+  }
 
   // ---- preview screens: each is named in its page's scripts
   for (const s of manifest.preview.screens ?? []) {

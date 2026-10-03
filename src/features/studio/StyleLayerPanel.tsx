@@ -26,7 +26,7 @@ import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
-import { buildLayer, colourKey, isColour, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
+import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
 import { fileAt, layerHooksOf, readRound, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { readHookMap } from "./designBranch";
@@ -81,12 +81,22 @@ export function setVar(name: string, value: string | null) {
  */
 export function PartSettings({ code, hook }: { code: Parameters<typeof partTokens>[0]; hook: string }) {
   const source = useStudio((s) => (s.look as { styleSource?: StyleSource | null }).styleSource ?? null);
-  const list = React.useMemo(() => (source ? partTokens(code, source) : []), [code, source]);
+  /* Slots first (builder.json rules.slots, named by the code for this part), then the tokens its code uses. */
+  const list = React.useMemo(() => {
+    if (!source) return [];
+    const slots = partSlots(hook, source);
+    return [...slots, ...partTokens(code, source).filter((v) => !slots.some((s) => s.name === v.name))];
+  }, [code, source, hook]);
   if (!source || !list.length) return null;
   return (
     <div data-part-settings={hook} className="space-y-1">
       <p className="text-small text-fg-muted">Settings its code uses ({list.length}). A change goes back as a token change.</p>
-      {list.map((v) => <div key={v.name} data-part-setting={v.why}><VarRow v={v} source={source} setVar={setVar} /></div>)}
+      {list.map((v) => (
+        <div key={v.name} data-part-setting={v.why} data-slot={"label" in v ? v.token ?? "" : undefined} title={"about" in v ? v.about : undefined}>
+          {"label" in v ? <p data-slot-label="" className="text-small text-fg">{v.label}</p> : null}
+          <VarRow v={v} source={source} setVar={setVar} />
+        </div>
+      ))}
     </div>
   );
 }

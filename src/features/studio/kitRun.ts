@@ -40,6 +40,18 @@ export interface KitManifest {
   preview?: { page: string; screens?: { name: string; page: string }[] };
   gallery?: string;
   links?: KitLinks;
+  /** BUILDER-RULES.md, machine-readable: the slots are settings the code asks the builder to learn. */
+  rules?: { doc?: string; slots?: KitSlot[] };
+}
+
+/** A style or setting the builder learns (BUILDER-RULES.md rule 4): a token one part uses, shown by its label in the part's Settings. */
+export interface KitSlot {
+  token: string;
+  hook: string;
+  label: string;
+  kind?: "colour" | "length" | "number" | "text" | "choice" | "shadow" | "filter" | "time" | "any";
+  options?: string[];
+  why?: string;
 }
 
 /** What a repository was at one moment: the baseline a round is compared with. */

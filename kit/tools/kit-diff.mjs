@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { check } from './kit-check.mjs';
+import { sayFrame, stateFrames } from './state-frames.mjs';
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -67,6 +68,15 @@ export function diff(manifestPath, { base, styleOnly = false, allowRemoved = fal
     for (const t of lostTokens) problems.push(`token ${t} was removed (a style change may change a token's value, not drop it)`);
   } else {
     if (!allowRemoved) for (const h of removed.filter((x) => !listed.has(x))) problems.push(`hook "${h}" was removed; the design's rules for it would stop applying (keep it, or pass --allow-removed and say so in the pull request)`);
+  }
+  // A new design record (design/record.json changed): every state stays in its frame (BUILDER-RULES.md).
+  let root = dir;
+  try { root = git(dir, 'rev-parse', '--show-toplevel').trim(); } catch { /* not a repository */ }
+  const recordFile = [resolve(root, 'design/record.json'), resolve(dir, 'design/record.json')].find((f) => existsSync(f));
+  if (recordFile) {
+    let fresh = true;
+    try { fresh = git(root, 'diff', '--name-only', from, '--', recordFile).trim() !== '' || git(root, 'ls-files', '--others', '--exclude-standard', '--', recordFile).trim() !== ''; } catch { /* no history: check it */ }
+    if (fresh) for (const x of stateFrames(JSON.parse(readFileSync(recordFile, 'utf8')))) problems.push(`design/record.json: ${sayFrame(x)}`);
   }
   const deleted = removed.filter((h) => listed.has(h));
   return { problems, removed, added, changed, lostTokens, from, deleted };
