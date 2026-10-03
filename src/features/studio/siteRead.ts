@@ -637,6 +637,21 @@ export interface PartStyle {
   /** A mask it is painted through (an icon drawn in its colour), with its size, position and repeat. */
   mask?: string;
   maskOptions?: [string, string, string];
+  /*
+   * The rest of its look, as computed, carried as the capture carries it
+   * (sink `node.art`): no field of the builder's sets these yet, so the part
+   * is marked "look from capture" where it lands.
+   */
+  blend?: string;
+  backdrop?: string;
+  clipPath?: string;
+  textShadow?: string;
+  textStroke?: { w: number; color: string };
+  paintOrder?: string;
+  /** Each corner, top-left clockwise, where they differ. */
+  radii?: number[];
+  /** Its running animations, every longhand as computed; their @keyframes are the read's `keyframes`. */
+  animation?: { name: string; duration: string; timing: string; delay: string; iterations: string; direction: string; fill: string }[];
 }
 
 /** A form control as the page wrote it. */
@@ -712,6 +727,8 @@ export interface PageRead {
   /** More than the cap: the rest are not read. */
   truncated: boolean;
   parts: PagePart[];
+  /** The page's @keyframes that a part's animation names, as the capture records them. */
+  keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[];
 }
 
 /**
@@ -829,8 +846,9 @@ export const PARTS = (cap: number): PageRead => {
    * as data:. A picture at an address of the page's own would be a broken
    * link on the board, and is left out as before.
    */
-  function paintOf(s: CSSStyleDeclaration): Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions"> {
-    const out: Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions"> = {};
+  type Paint = Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions" | "blend" | "backdrop" | "clipPath" | "textShadow" | "textStroke" | "paintOrder" | "radii" | "animation">;
+  function paintOf(s: CSSStyleDeclaration): Paint {
+    const out: Paint = {};
     const r = s as unknown as Record<string, string>;
     /* A picture at one of the page's own addresses is kept too: whoever opened the page (the zip route) puts its bytes in as data: before it reaches the board (`inlineOwnPictures`). */
     const bi = s.backgroundImage;
@@ -848,6 +866,22 @@ export const PARTS = (cap: number): PageRead => {
     }
     if (s.boxShadow && s.boxShadow !== "none") out.shadow = s.boxShadow;
     if (s.filter && s.filter !== "none") out.filter = s.filter;
+    /* What the builder has no field for yet: kept as computed, as a capture keeps it. */
+    if (s.mixBlendMode && s.mixBlendMode !== "normal") out.blend = s.mixBlendMode;
+    const bd = s.backdropFilter || r.webkitBackdropFilter;
+    if (bd && bd !== "none") out.backdrop = bd;
+    if (s.clipPath && s.clipPath !== "none") out.clipPath = s.clipPath;
+    if (s.textShadow && s.textShadow !== "none") out.textShadow = s.textShadow;
+    const sw = parseFloat(r.webkitTextStrokeWidth || "0") || 0;
+    if (sw > 0) out.textStroke = { w: Math.round(sw * 100) / 100, color: r.webkitTextStrokeColor || s.color };
+    if (s.paintOrder && s.paintOrder !== "normal") out.paintOrder = s.paintOrder;
+    const corners = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius];
+    if (corners.every((c) => /^[\d.]+px$/.test(c ?? "")) && new Set(corners).size > 1) out.radii = corners.map((c) => Math.round(parseFloat(c!) * 100) / 100);
+    const names = (s.animationName || "none").split(",").map((v) => v.trim());
+    if (names.some((n) => n && n !== "none")) {
+      const at = (v: string, i: number) => { const l = (v || "").split(/,(?![^(]*\))/).map((x) => x.trim()); return l[i % Math.max(1, l.length)] ?? ""; };
+      out.animation = names.flatMap((name, i) => (name && name !== "none" ? [{ name, duration: at(s.animationDuration, i), timing: at(s.animationTimingFunction, i), delay: at(s.animationDelay, i), iterations: at(s.animationIterationCount, i), direction: at(s.animationDirection, i), fill: at(s.animationFillMode, i) }] : []));
+    }
     return out;
   }
 
@@ -1421,6 +1455,18 @@ export const PARTS = (cap: number): PageRead => {
   const ground = !seeThrough(bs.backgroundColor) ? bs.backgroundColor : !seeThrough(hs.backgroundColor) ? hs.backgroundColor : "rgb(255, 255, 255)";
   let lowest = 0;
   for (const p of parts) if (!p.hidden) lowest = Math.max(lowest, p.box.y + p.box.h);
+  /* The @keyframes the parts' animations name, each frame's declarations as the sheet wrote them. */
+  const named = new Set(parts.flatMap((p) => (p.style.animation ?? []).map((a) => a.name)));
+  const keyframes: NonNullable<PageRead["keyframes"]> = [];
+  const frameRules = (list: CSSRuleList) => {
+    for (const r of Array.from(list)) {
+      if (r instanceof CSSKeyframesRule) {
+        if (!named.has(r.name) || keyframes.some((k) => k.name === r.name) || keyframes.length >= 40) continue;
+        keyframes.push({ name: r.name, frames: Array.from(r.cssRules).slice(0, 40).map((f) => { const kf = f as CSSKeyframeRule; const style: Record<string, string> = {}; for (let i = 0; i < kf.style.length; i++) { const prop = kf.style[i]!; style[prop] = kf.style.getPropertyValue(prop); } return { key: kf.keyText, style }; }) });
+      } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) frameRules((r as CSSGroupingRule).cssRules);
+    }
+  };
+  if (named.size) for (const sh of Array.from(document.styleSheets)) { try { frameRules(sh.cssRules); } catch { /* another origin's sheet */ } }
   /* Every turn put back as it was. */
   for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
   return {
@@ -1436,5 +1482,6 @@ export const PARTS = (cap: number): PageRead => {
     templates,
     truncated,
     parts,
+    ...(keyframes.length ? { keyframes } : {}),
   };
 };

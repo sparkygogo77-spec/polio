@@ -68,6 +68,8 @@ export interface NodeSource {
   svg?: boolean;
   /** The ::before or ::after of the element it was read from (PST's antenna balls): it has no hook of its own. */
   pseudo?: "::before" | "::after";
+  /** Look from capture: what it wears that no field of the builder's sets yet, drawn as the page computed it (`pageParts.ts#lookFromCapture`). */
+  look?: string[];
   /** Hooks on elements inside it that are not parts of their own (a list's options): carried by this part. */
   inner?: { attr: "data-hook" | "id"; value: string }[];
 }

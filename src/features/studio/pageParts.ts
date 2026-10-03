@@ -44,6 +44,8 @@ export interface LandedDoc {
   ground: { bg: string; text: string };
   /** What the pages' code is written against, for the style layer (`styleLayer.ts`); the repository is filled in by whoever knows it. */
   styleSource: Omit<StyleSource, "repo" | "ref" | "dir">;
+  /** The @keyframes the parts' animations name, from every page: they go into the look, as a capture's do. */
+  keyframes: NonNullable<PageRead["keyframes"]>;
 }
 
 /** What came, counted honestly, for the line he reads. */
@@ -201,7 +203,16 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(p.turn ? { transform: p.turn } : {}),
       ...(s.filter ? { filter: s.filter } : {}),
       ...(s.mask ? { mask: s.mask, ...(s.maskOptions ? { maskOptions: s.maskOptions } : {}) } : {}),
+      ...(s.blend ? { blend: s.blend } : {}),
+      ...(s.backdrop ? { backdrop: s.backdrop } : {}),
+      ...(s.clipPath ? { clipPath: s.clipPath } : {}),
+      ...(s.textShadow ? { textShadow: s.textShadow } : {}),
+      ...(s.textStroke ? { textStroke: s.textStroke } : {}),
+      ...(s.paintOrder ? { paintOrder: s.paintOrder } : {}),
     };
+    /* Its animations, as the capture carries them (`parts/capturedMotion.ts`): their keyframes travel in the look. */
+    const motion = s.animation?.length ? { animation: s.animation.map((a) => ({ name: a.name, ...(a.duration ? { duration: a.duration } : {}), ...(a.timing ? { timing: a.timing } : {}), ...(a.delay ? { delay: a.delay } : {}), ...(a.iterations ? { iterations: a.iterations } : {}), ...(a.direction ? { direction: a.direction } : {}), ...(a.fill ? { fill: a.fill } : {}) })) } : null;
+    const look = lookFromCapture(p, edge?.shadow ?? null, art);
     const host = p.pseudo ? (p.pseudo.host["data-hook"] ? `data-hook “${p.pseudo.host["data-hook"]}”` : p.pseudo.host.id ? `#${p.pseudo.host.id}` : "its element") : "";
     const align = /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;
     const transform = /^(uppercase|lowercase|capitalize)$/.test(s.transform) ? { transform: s.transform } : null;
@@ -248,6 +259,8 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(edge ? { edge } : {}),
       ...(Object.keys(art).length ? { art } : {}),
       ...(s.radius > 0 ? { radius: s.radius } : {}),
+      ...(s.radii ? { radii: s.radii } : {}),
+      ...(motion ? { motion } : {}),
       /* Rounded to half its side, a square picture is a circle, and is drawn as one at any size. */
       ...(p.kind === "picture" && p.box.w === p.box.h && s.radius * 2 >= p.box.w ? { shape: "circle" } : {}),
       /* A circle or an ellipse in a drawing is drawn as one. */
@@ -261,7 +274,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const code = codeOf(p, fr.file, index);
     /* Words its code writes are not static, whatever the HTML holds. */
     const written = !!code.built;
-    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" && !p.pseudo ? { svg: true } : {}), ...(p.pseudo ? { pseudo: p.pseudo.which } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
+    node.source = { file: fr.file, ...(p.line ? { line: p.line } : {}), hook, staticWords: staticWords && !written, was: lookOf(node as unknown as LayerNode, null, { base }), code, ...(p.kind === "shape" && !p.pseudo ? { svg: true } : {}), ...(p.pseudo ? { pseudo: p.pseudo.which } : {}), ...(look.length ? { look } : {}), ...(p.inner?.length ? { inner: p.inner.flatMap((h): { attr: "data-hook" | "id"; value: string }[] => (h["data-hook"] ? [{ attr: "data-hook", value: h["data-hook"] }] : h.id ? [{ attr: "id", value: h.id }] : [])) } : {}) };
     out.push(node);
   });
   /* What holds what is read off the paths, as a capture's is (`partTree.ts`): each part's continues its section's. */
@@ -273,6 +286,34 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
  * a page of its own at a path off its file name, and the board is as wide
  * as the window the entry was read at.
  */
+/**
+ * LOOK FROM CAPTURE. What a part wears that no field of the builder's sets
+ * yet: drawn as the page computed it (a gradient, an icon mask, a turn,
+ * stacked shadows, an animation and its keyframes, a ::before's drawing)
+ * rather than dropped, and named, so the owner can see which of a part's
+ * looks are not editable here yet. In plain words, in the order a person
+ * would notice them.
+ */
+export function lookFromCapture(p: PagePart, shadow: string | null, art: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const bg = typeof art.background === "string" ? art.background : "";
+  if (/gradient\(/.test(bg)) out.push("gradient");
+  if (/url\(/.test(bg)) out.push("picture in its CSS");
+  if (art.mask) out.push("icon mask");
+  if (p.pseudo) out.push(`drawn by ${p.pseudo.which}`);
+  if (art.transform) out.push("turn");
+  if (shadow) out.push(/,(?![^(]*\))/.test(shadow) ? "stacked shadows" : "shadow");
+  if (art.filter) out.push("filter");
+  if (art.backdrop) out.push("backdrop filter");
+  if (art.blend) out.push("blend");
+  if (art.clipPath) out.push("clip");
+  if (art.textShadow) out.push("text glow");
+  if (art.textStroke) out.push("text outline");
+  if (p.style.radii) out.push("uneven corners");
+  if (p.style.animation?.length) out.push("animation");
+  return out;
+}
+
 export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path: string; text: string }[]; /** A builder.json's page names, by file. */ names?: Record<string, string>; /** Name each part by its data-hook (a builder.json repository). */ byHook?: boolean; /** The hooks file builder.json names, and the folder builder.json is in (the kit's paths are written from there). */ hooksFile?: string | null; manifestDir?: string | null } = {}): { doc: LandedDoc; report: PageReport } {
   const at = opts.at ?? Date.now();
   const entry = files[0]!;
@@ -329,7 +370,9 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
     ...(index?.vars.size ? { varsRead: Object.fromEntries([...index.vars].filter(([, v]) => v.readBy.length).map(([k, v]) => [k, v.readBy])) } : {}),
     ...(files.some((f) => f.source?.vars.some((v) => v.token)) ? { tokensFile: files.flatMap((f) => f.source?.vars ?? []).find((v) => v.token)!.file } : {}),
   };
-  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour }, styleSource }, report };
+  const keyframes: LandedDoc["keyframes"] = [];
+  for (const f of files) for (const k of f.read.keyframes ?? []) if (!keyframes.some((h) => h.name === k.name)) keyframes.push(k);
+  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour }, styleSource, keyframes }, report };
 }
 
 /** The kinds counted in words, biggest first: "12 headings, 40 lines of words, 3 fields". */

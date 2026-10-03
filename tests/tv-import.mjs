@@ -284,54 +284,96 @@ check("5. the screen still opens tuning in, as the page does before its code run
 check("no errors on the page", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 /*
- * 6. LOOK ONLY, PART BY PART. The Preview at 1440 (the site as the board
- * makes it, full size) against the page at 1440: for every hooked part on
- * Play that shows as the page opens, the mean colour of its box in each.
- * Words are drawn in different faces' pixels, so only a part whose mean is
- * far off (a fill, an outline or an icon lost) counts. Every part that
- * still differs is listed.
+ * 6. LOOK FROM CAPTURE. What the builder has no field for yet is drawn as
+ * the page computed it, not dropped, and the part says so: the TV body's
+ * gradient, the knobs' stacked shadows, the title icons' masks, the label
+ * glow; any animation the page runs comes with its @keyframes in the look.
  */
-const prev = ui;
-await prev.setViewportSize({ width: 1440, height: 900 });
-await prev.goto(`${URL_BASE}/builder/preview`, { waitUntil: "networkidle" });
-await prev.waitForTimeout(2500);
-const tall = await prev.evaluate(() => {
-  const sc = document.querySelector("[data-live-scroller]");
-  if (!sc) return 0;
-  const h = sc.scrollHeight;
-  sc.style.overflow = "visible"; sc.style.height = `${h}px`; sc.style.flex = "none";
-  if (sc.parentElement) sc.parentElement.style.height = `${h}px`;
-  return h;
-});
-await prev.setViewportSize({ width: 1440, height: Math.max(900, tall) });
-await prev.waitForTimeout(800);
-const shown = st.nodes.filter((n) => n.pageId === home && !n.state && n.hooks?.["data-hook"] && n.w >= 12 && n.h >= 12);
-const where = await prev.evaluate((ids) => Object.fromEntries(ids.map((id) => { const e = document.querySelector(`[data-live-node="${id}"]`); if (!e) return [id, null]; const r = e.getBoundingClientRect(); return [id, { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height }]; })), shown.map((n) => n.id));
-const previewShot = (await prev.screenshot({ fullPage: true })).toString("base64");
-await live.setViewportSize({ width: 1440, height: 900 });
-const liveShot = (await live.screenshot({ fullPage: true })).toString("base64");
-if (process.env.SHOTDIR) { const { writeFileSync } = await import("node:fs"); writeFileSync(`${process.env.SHOTDIR}/look-page.png`, Buffer.from(liveShot, "base64")); writeFileSync(`${process.env.SHOTDIR}/look-builder.png`, Buffer.from(previewShot, "base64")); }
-/* Each part where each picture has it: the page's own box for the hook, so a few pixels of drift in the column above does not read as a lost look. The drift is said apart. */
-const onPage = await live.evaluate((hs) => Object.fromEntries(hs.map((h) => { const e = document.querySelector(`[data-hook="${h}"]`); const r = e?.getBoundingClientRect(); return [h, r && r.width > 0 ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } : null]; })), shown.map((n) => n.hooks["data-hook"]));
-/* A part whose page box is another size (a turned foot's bounds, a check's box inside its label) is taken where the import read it. */
-const pageBox = (n) => { const o = onPage[n.hooks["data-hook"]]; return o && Math.abs(o.w - n.w) <= 2 && Math.abs(o.h - n.h) <= 2 ? o : { x: n.x, y: n.y, w: n.w, h: n.h }; };
-const boxes = shown.filter((n) => where[n.id]).map((n) => ({ hook: n.hooks["data-hook"], a: pageBox(n), b: where[n.id] }));
-const drift = shown.filter((n) => onPage[n.hooks["data-hook"]] && Math.abs(onPage[n.hooks["data-hook"]].y - n.y) > 2);
-console.log(`  Placed more than 2px off the page: ${drift.length} parts${drift.length ? `, most ${Math.round(Math.max(...drift.map((n) => Math.abs(onPage[n.hooks["data-hook"]].y - n.y))))}px (${drift.slice(0, 4).map((n) => n.hooks["data-hook"]).join(", ")}…)` : ""}`);
-const means = await prev.evaluate(async ({ A, B, boxes }) => {
-  const load = async (b64) => { const i = new Image(); i.src = `data:image/png;base64,${b64}`; await i.decode(); const c = document.createElement("canvas"); c.width = i.width; c.height = i.height; const g = c.getContext("2d"); g.drawImage(i, 0, 0); return g; };
-  const ga = await load(A), gb = await load(B);
-  const mean = (g, r) => { const w = Math.max(1, Math.round(r.w)), h = Math.max(1, Math.round(r.h)); const d = g.getImageData(Math.round(r.x), Math.round(r.y), w, h).data; let R = 0, G = 0, Bl = 0; for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; Bl += d[i + 2]; } const n = d.length / 4; return [R / n, G / n, Bl / n]; };
-  return boxes.map((x) => ({ hook: x.hook, live: mean(ga, x.a), board: mean(gb, x.b) }));
-}, { A: liveShot, B: previewShot, boxes });
+const lookOf = (h) => byHook(h)?.source?.look ?? [];
+check("6. a part wearing what the builder cannot set yet is marked look from capture, with what", lookOf("chart-tv-body").includes("gradient") && st.nodes.some((n) => n.pageId === home && (n.source?.look ?? []).includes("icon mask")), JSON.stringify({ body: lookOf("chart-tv-body"), marked: st.nodes.filter((n) => n.pageId === home && n.source?.look?.length).length }));
+const textGlow = st.nodes.find((n) => n.pageId === home && n.art?.textShadow);
+check("…a text glow is drawn as computed, not dropped", !!textGlow && (textGlow.source?.look ?? []).includes("text glow"), textGlow ? `${textGlow.hooks?.["data-hook"] ?? textGlow.label}: ${textGlow.art.textShadow.slice(0, 60)}` : "none");
+const moving = st.nodes.filter((n) => n.pageId === home && n.motion?.animation?.length);
+const frames = st.look?.keyframes ?? [];
+check("…an animation comes with its @keyframes in the look", moving.length === 0 || moving.every((n) => n.motion.animation.every((a) => frames.some((k) => k.name === a.name))), `${moving.length} animated, keyframes: ${frames.map((k) => k.name).join(", ") || "none"}`);
+await ui.click(`[data-node-id="${byHook("chart-tv-body")?.id}"]`, { force: true }).catch(() => {});
+await ui.waitForTimeout(400);
+const said = await ui.locator("[data-look-from-capture]").first().textContent({ timeout: 3000 }).catch(() => "");
+check("…and the panel says so on the part picked", /^Look from capture: [a-z]/.test(said ?? ""), (said ?? "").slice(0, 120));
+
+/*
+ * 7. LOOK ONLY, PART BY PART, at 1440 and at 375. The Preview (the site as
+ * the board makes it, full size, at that window) against the page at that
+ * window: for every hooked part on Play that shows as the page opens, its
+ * box in each and the mean colour inside it. Words are drawn in different
+ * faces' pixels, so only a mean far off (a fill, an outline or an icon
+ * lost) counts as colour. Every part that still differs is listed, with
+ * what: colour, place or size. At 1440 no panel, title, button, knob, card
+ * or TV part may differ in colour; at 375 the list is the report.
+ */
 /* The channel label sits on the screen, which shows the chart still in the builder and static on the page: it differs on purpose. */
 const MEANT = { "chart-tv-channel": "the screen behind it shows the chart still, not static" };
-const off = means.map((m) => ({ ...m, d: Math.hypot(m.live[0] - m.board[0], m.live[1] - m.board[1], m.live[2] - m.board[2]) })).filter((m) => m.d > 45 && !MEANT[m.hook]).sort((a, b) => b.d - a.d);
-for (const [hook, why] of Object.entries(MEANT)) if (means.some((m) => m.hook === hook)) console.log(`  (${hook} not counted: ${why})`);
-if (process.env.SHOTDIR) console.log(JSON.stringify(boxes.filter((x) => off.some((m) => m.hook === x.hook)).map((x) => [x.hook, x.a, x.b].map((v) => (typeof v === "string" ? v : [v.x, v.y, v.w, v.h].map(Math.round))))));
-console.log(`\n  Look diff, Play at 1440: ${means.length} hooked parts compared, ${off.length} differ by more than 45 in mean colour${off.length ? ":" : "."}`);
-for (const m of off) console.log(`    ${m.hook}  page rgb(${m.live.map(Math.round).join(", ")})  builder rgb(${m.board.map(Math.round).join(", ")})  off ${Math.round(m.d)}`);
-check("6. the TV restyle's panels, titles, knobs and buttons look as on the page (mean colour within 45)", means.length > 60 && !off.some((m) => /panel|title|button|knob|card|chart-tv/.test(m.hook)), off.slice(0, 8).map((m) => m.hook).join(", "));
+const prev = ui;
+const lookDiff = async (width) => {
+  await prev.setViewportSize({ width, height: 900 });
+  await prev.goto(`${URL_BASE}/builder/preview`, { waitUntil: "networkidle" });
+  await prev.waitForTimeout(2500);
+  const tall = await prev.evaluate(() => {
+    const sc = document.querySelector("[data-live-scroller]");
+    if (!sc) return 0;
+    const h = sc.scrollHeight;
+    sc.style.overflow = "visible"; sc.style.height = `${h}px`; sc.style.flex = "none";
+    if (sc.parentElement) sc.parentElement.style.height = `${h}px`;
+    return h;
+  });
+  /* At rest, as the page is shot: the builder now plays the page's own animations (the LED's blink). */
+  await prev.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; }" });
+  await prev.setViewportSize({ width, height: Math.max(900, tall) });
+  await prev.waitForTimeout(300);
+  /* Where the site starts in the Preview (below its bar): places are measured from there, as the page's are from its top. */
+  const origin = await prev.evaluate(() => { const r = document.querySelector("[data-live-scroller]")?.getBoundingClientRect(); return r ? { x: r.left + scrollX, y: r.top + scrollY } : { x: 0, y: 0 }; });
+  await prev.waitForTimeout(800);
+  const shown = st.nodes.filter((n) => n.pageId === home && !n.state && n.hooks?.["data-hook"] && n.w >= 12 && n.h >= 12 && !MEANT[n.hooks["data-hook"]]);
+  const where = await prev.evaluate((ids) => Object.fromEntries(ids.map((id) => { const e = document.querySelector(`[data-live-node="${id}"]`); if (!e) return [id, null]; const r = e.getBoundingClientRect(); return [id, r.width > 0 ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } : null]; })), shown.map((n) => n.id));
+  const previewShot = (await prev.screenshot({ fullPage: true })).toString("base64");
+  await live.setViewportSize({ width, height: 900 });
+  await live.waitForTimeout(300);
+  /* Each part where each picture has it: the page's own box for the hook. A part whose page box is another size than the one read (a turned foot's bounds, a check inside its label) is taken where the import read it, at 1440. */
+  const onPage = await live.evaluate((hs) => Object.fromEntries(hs.map((h) => { const e = document.querySelector(`[data-hook="${h}"]`); const r = e?.getBoundingClientRect(); return [h, r && r.width > 0 && getComputedStyle(e).visibility !== "hidden" ? { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } : null]; })), shown.map((n) => n.hooks["data-hook"]));
+  const liveShot = (await live.screenshot({ fullPage: true })).toString("base64");
+  if (process.env.SHOTDIR) { const { writeFileSync } = await import("node:fs"); writeFileSync(`${process.env.SHOTDIR}/look-page-${width}.png`, Buffer.from(liveShot, "base64")); writeFileSync(`${process.env.SHOTDIR}/look-builder-${width}.png`, Buffer.from(previewShot, "base64")); }
+  const turned = (n) => !!n.art?.transform;
+  const pageBox = (n) => { const o = onPage[n.hooks["data-hook"]]; if (!o) return null; return width === 1440 && (Math.abs(o.w - n.w) > 2 || Math.abs(o.h - n.h) > 2) ? { x: n.x, y: n.y, w: n.w, h: n.h } : o; };
+  const boxes = shown.filter((n) => where[n.id] && pageBox(n)).map((n) => ({ hook: n.hooks["data-hook"], turned: turned(n), a: pageBox(n), b: where[n.id], at: { x: where[n.id].x - origin.x, y: where[n.id].y - origin.y } }));
+  const means = await prev.evaluate(async ({ A, B, boxes }) => {
+    const load = async (b64) => { const i = new Image(); i.src = `data:image/png;base64,${b64}`; await i.decode(); const c = document.createElement("canvas"); c.width = i.width; c.height = i.height; const g = c.getContext("2d"); g.drawImage(i, 0, 0); return g; };
+    const ga = await load(A), gb = await load(B);
+    const mean = (g, r) => { const x = Math.max(0, Math.round(r.x)), y = Math.max(0, Math.round(r.y)); const w = Math.max(1, Math.min(Math.round(r.w), g.canvas.width - x)), h = Math.max(1, Math.min(Math.round(r.h), g.canvas.height - y)); const d = g.getImageData(x, y, w, h).data; let R = 0, G = 0, Bl = 0; for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; Bl += d[i + 2]; } const n = d.length / 4; return [R / n, G / n, Bl / n]; };
+    return boxes.map((x) => ({ hook: x.hook, live: mean(ga, x.a), board: mean(gb, x.b), outside: x.b.x >= gb.canvas.width || x.b.y >= gb.canvas.height || x.b.x + x.b.w <= 0 }));
+  }, { A: liveShot, B: previewShot, boxes });
+  const off = [];
+  boxes.forEach((x, i) => {
+    const m = means[i];
+    const d = Math.hypot(m.live[0] - m.board[0], m.live[1] - m.board[1], m.live[2] - m.board[2]);
+    const what = [];
+    if (m.outside) what.push("outside the builder's page at this width");
+    else if (d > 45) what.push(`colour off ${Math.round(d)} (page rgb(${m.live.map(Math.round).join(", ")}), builder rgb(${m.board.map(Math.round).join(", ")}))`);
+    /* A turned part's bounds lean on the page and not on the board; its place is its own check (2). */
+    if (!x.turned && (Math.abs(x.a.x - x.at.x) > 8 || Math.abs(x.a.y - x.at.y) > 8)) what.push(`place off ${Math.round(x.at.x - x.a.x)}, ${Math.round(x.at.y - x.a.y)}`);
+    if (!x.turned && (Math.abs(x.a.w - x.b.w) > 8 || Math.abs(x.a.h - x.b.h) > 8)) what.push(`size ${Math.round(x.b.w)}x${Math.round(x.b.h)}, page ${Math.round(x.a.w)}x${Math.round(x.a.h)}`);
+    if (what.length) off.push({ hook: x.hook, d, what });
+  });
+  console.log(`\n  Look diff, Play at ${width}: ${boxes.length} hooked parts compared, ${off.length} differ${off.length ? ":" : "."}`);
+  for (const o of off) console.log(`    ${o.hook}  ${o.what.join("; ")}`);
+  return { compared: boxes.length, off };
+};
+for (const [hook, why] of Object.entries(MEANT)) console.log(`  (${hook} not counted: ${why})`);
+const wide = await lookDiff(1440);
+const lostLook = wide.off.filter((o) => o.d > 45 && !o.what[0].startsWith("outside"));
+check("7. at 1440 the TV restyle's panels, titles, knobs and buttons look as on the page (mean colour within 45)", wide.compared > 60 && !lostLook.some((m) => /panel|title|button|knob|card|chart-tv/.test(m.hook)), lostLook.map((m) => m.hook).join(", ") || "none");
+const narrow = await lookDiff(375);
+check("…at 375 every hooked part is compared and each that differs is listed with what", narrow.compared > 60, `${narrow.compared} compared, ${narrow.off.length} differ`);
+await prev.setViewportSize({ width: 1440, height: 900 });
 if (process.env.SHOT) { const tv = byHook("chart-tv"); const loc = ui.locator(`[data-node-id="${tv?.id}"]`).first(); await loc.scrollIntoViewIfNeeded().catch(() => {}); await ui.screenshot({ path: process.env.SHOT }); }
 
 await browser.close();

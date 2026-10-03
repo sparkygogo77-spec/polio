@@ -696,7 +696,7 @@ export function FromASite({ space }: { space: Space }) {
     } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
     /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
-    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource }, swept: SWEEP });
+    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
     const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);

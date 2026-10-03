@@ -994,6 +994,12 @@ export function Inspector() {
           ) : null}
         </PanelSection>
 
+        {node.source?.look?.length ? (
+          <p className="px-3 pb-1 text-small text-fg-muted" data-look-from-capture="">
+            Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it; not editable here yet.
+          </p>
+        ) : null}
+
         {node.source?.code ? (
           <PanelSection id="code" title="Code" icon={<Code2 />} note={`${node.source.code.refs.length} in scripts`}>
             <CodeView node={node} />

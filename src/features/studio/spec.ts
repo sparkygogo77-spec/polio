@@ -288,6 +288,9 @@ function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text">): s
   }
   if (n.text?.align) bits.push(`text ${n.text.align}`);
   if (n.text?.transform && n.text.transform !== "none") bits.push(n.text.transform);
+  /* What it wears that the builder cannot set yet, drawn as its page computed it: keep it, as its code does. */
+  const look = (n as { source?: { look?: string[] } | null }).source?.look;
+  if (look?.length) bits.push(`look from capture (${look.join(", ")}): drawn as its page's code draws it, keep that code's styling`);
   return bits.length ? bits.join(", ") : null;
 }
 
