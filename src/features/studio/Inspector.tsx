@@ -424,6 +424,13 @@ function lineHref(from: { repo: string; ref: string } | null, file: string, line
  * line and function, linked to the line on GitHub. A part its code fills at
  * run time says so first, and names the function that does it.
  */
+/** The hooks of the parts drawn inside this one, smallest last: their slots show in its Settings too. */
+function insideHooks(node: StudioNode): string[] {
+  const { nodes } = useStudio.getState();
+  const holds = (n: StudioNode) => n.id !== node.id && n.pageId === node.pageId && n.w * n.h < node.w * node.h && n.x + n.w / 2 >= node.x && n.x + n.w / 2 <= node.x + node.w && n.y + n.h / 2 >= node.y && n.y + n.h / 2 <= node.y + node.h;
+  return [...new Set(nodes.filter((n) => holds(n) && n.source?.hook?.attr === "data-hook").map((n) => n.source!.hook!.value))];
+}
+
 function CodeView({ node }: { node: StudioNode }) {
   const from = useStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
   const code = node.source?.code;
@@ -466,7 +473,7 @@ function CodeView({ node }: { node: StudioNode }) {
       </div>
     </div>
     <div className="space-y-2 text-small">
-      <PartSettings code={code} hook={node.source?.hook?.value ?? ""} />
+      <PartSettings code={code} hook={node.source?.hook?.value ?? ""} inside={insideHooks(node)} />
       {from && node.source?.hook ? <AskCodeBox node={node} from={from} refs={code.refs} /> : null}
     </div>
     </>

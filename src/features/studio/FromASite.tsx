@@ -231,11 +231,13 @@ function pageCarrying(shows: string[], files: StyleSource["files"]): string {
 }
 
 /** A repository's preview screens, read off its preview page and kept on the site it came in as, without an undo step of their own. */
-async function readScreensOf(file: File, ask: { page: string | null; list: { name: string; src: string }[] }, repo: string): Promise<void> {
+async function readScreensOf(file: File, ask: { page: string | null; list: { name: string; src: string }[] }, repo: string, width?: number): Promise<void> {
   /* Its own deadline: the preview builds every screen before it lists them, and nobody waits on this. */
   const form = new FormData();
   form.set("zip", file, file.name);
   form.set("screens", JSON.stringify(ask));
+  /* At the board's own width, as the page was read: where a screen draws its parts lines up with where the board has them (`boardStates.ts#screenPlaces`). */
+  if (width) form.set("width", String(width));
   const got = await fetch("/api/studio/zip", { method: "POST", body: form, signal: AbortSignal.timeout(240_000) }).then((r) => r.json() as Promise<Record<string, unknown>>).catch(() => null);
   const read = got?.ok && Array.isArray(got.screens) ? (got.screens as ScreenRead[]) : [];
   const st = useStudio.getState();
@@ -711,7 +713,7 @@ export function FromASite({ space }: { space: Space }) {
     if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
     useStudio.getState().oneStepSince(mark);
     /* Its preview screens, read in the background as its own code builds them: the States control lists them when they land (`boardStates.ts`). */
-    if (m?.previewPage || m?.screenPages.length) void readScreensOf(got.screensFile ?? got.file, { page: m.previewPage, list: m.screenPages.map((x) => ({ name: x.name, src: `${x.page}${(m.previewQuery ?? "?still=1&screen=<name>").replace("<name>", encodeURIComponent(x.name))}` })) }, styleSource.repo);
+    if (m?.previewPage || m?.screenPages.length) void readScreensOf(got.screensFile ?? got.file, { page: m.previewPage, list: m.screenPages.map((x) => ({ name: x.name, src: `${x.page}${(m.previewQuery ?? "?still=1&screen=<name>").replace("<name>", encodeURIComponent(x.name))}` })) }, styleSource.repo, doc.frameWidth || st0.frameWidth || 1440);
     /* Locked as the page had it, when it landed in a space: the layout is the specification. */
     if (!isHeadless(space)) lockNow(space.id);
     /* The space this panel runs on stays picked, so its line is read where it was asked for; a repository's import has none (`BringHost`). */
