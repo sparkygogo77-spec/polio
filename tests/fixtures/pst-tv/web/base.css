@@ -15,17 +15,33 @@ code, pre { font-family: var(--pons-font-mono); }
 [data-hook="server-offline"] { color: var(--pons-color-warning); }
 
 /* ---------- play page: the chart stage (scoreboard, the chart TV, trade buttons), always on screen ---------- */
-[data-hook="chart-row"] { display: flex; flex-wrap: wrap; gap: var(--pons-space-4); align-items: flex-start; justify-content: center; }
-[data-hook="scoreboard"] { flex: 0 0 var(--pons-size-scoreboard); }
-[data-hook="scoreboard"] p { margin: var(--pons-space-2) 0; }
-[data-hook="trade-panel"] { flex: 0 0 var(--pons-size-trade-panel); max-width: 100%; }
-[data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { white-space: nowrap; }
+/* Info above the TV (the scoreboard), the trade knobs beside it; the TV takes the whole row between matches. */
+[data-hook="chart-row"] { display: grid; gap: var(--pons-space-4); align-items: start; justify-content: center;
+  grid-template-columns: minmax(0, var(--pons-size-tv-max)) var(--pons-size-trade-knobs); grid-template-areas: "score score" "tv trade"; }
+[data-hook="chart-row"]:has(> [data-hook="trade-panel"][hidden]) { grid-template-columns: minmax(0, var(--pons-size-tv-max)); grid-template-areas: "score" "tv"; }
+[data-hook="scoreboard"] { grid-area: score; display: flex; flex-wrap: wrap; align-items: center; gap: var(--pons-space-2) var(--pons-space-5);
+  padding: var(--pons-space-3) var(--pons-space-5); background: var(--pons-scoreboard-face); color: var(--pons-scoreboard-text);
+  border: var(--pons-panel-border) solid var(--pons-tv-ink); border-radius: var(--pons-panel-radius); box-shadow: var(--pons-panel-shadow); font-family: var(--pons-tv-font); }
+[data-hook="scoreboard"] p { margin: 0; }
+[data-hook="score-legend"] { flex: 1 1 100%; opacity: 0.8; font-size: var(--pons-font-size-small); line-height: var(--pons-line-height-small); }
+[data-hook="trade-panel"] { grid-area: trade; max-width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: var(--pons-space-3);
+  grid-template-areas: "left left" "buy sell" "buyr sellr" "help help"; padding: var(--pons-panel-padding) var(--pons-space-3);
+  background: linear-gradient(var(--pons-tv-body-angle), var(--pons-tv-body-light), var(--pons-tv-body-mid) 55%, var(--pons-tv-body-dark));
+  border: var(--pons-panel-border) solid var(--pons-tv-ink); border-radius: var(--pons-panel-radius); box-shadow: var(--pons-panel-shadow); box-sizing: border-box; }
+[data-hook="trade-panel"] p { margin: 0; }
+[data-hook="trade-trades-left-line"] { grid-area: left; text-align: center; font-family: var(--pons-tv-font); }
+[data-hook="trade-row-buy"] { grid-area: buy; } [data-hook="trade-row-sell"] { grid-area: sell; }
+[data-hook="trade-buy-reason"] { grid-area: buyr; } [data-hook="trade-sell-reason"] { grid-area: sellr; }
+[data-hook="trade-buy-reason"], [data-hook="trade-sell-reason"] { font-size: var(--pons-font-size-small); }
+[data-hook="trade-help"] { grid-area: help; font-size: var(--pons-font-size-small); line-height: var(--pons-line-height-small); }
+[data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { display: flex; flex-direction: column; align-items: center; gap: var(--pons-space-3); }
+[data-hook="chart-tv"] { grid-area: tv; justify-self: center; width: 100%; }
 
 /* The chart TV (the Trorty TV from trumpmorty.fun). The chart draws only inside the screen and is
    clipped to it; the script keeps it the screen's size (a ResizeObserver on chart-tv-screen).
    `data-state` on chart-tv: offline (static and the loading bar), idle (the sample chart),
    match or result. */
-[data-hook="chart-tv"] { flex: 1 1 var(--pons-size-chart-min); max-width: var(--pons-size-tv-max); min-width: 0; position: relative;
+[data-hook="chart-tv"] { max-width: var(--pons-size-tv-max); min-width: 0; position: relative;
   padding-top: calc(var(--pons-tv-antenna-length) * 0.6); box-sizing: border-box; }
 [data-hook="chart-tv-antenna"] { position: absolute; left: 50%; top: 0; width: 0; height: calc(var(--pons-tv-antenna-length) * 0.6); }
 [data-hook="chart-tv-antenna-left"], [data-hook="chart-tv-antenna-right"] { position: absolute; bottom: calc(var(--pons-tv-antenna-length) * -0.4);
@@ -47,6 +63,8 @@ code, pre { font-family: var(--pons-font-mono); }
 [data-hook="chart-tv-screen"] { position: relative; height: var(--pons-size-chart-height); overflow: hidden; border-radius: var(--pons-tv-screen-radius);
   background: var(--pons-tv-screen); color: var(--pons-tv-channel); font-family: var(--pons-tv-font); }
 [data-hook="chart"] { position: absolute; inset: 0; overflow: hidden; }
+/* PonsStars' own chart (web/pons-chart.js) draws on this canvas; the script keeps its pixels the screen's size. */
+[data-hook="chart-canvas"] { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 /* The layers over the chart: scanlines, glare and vignette (never catch the pointer), then the words. */
 [data-hook="chart-tv-static"], [data-hook="chart-tv-scanlines"], [data-hook="chart-tv-vignette"] { position: absolute; inset: 0; pointer-events: none; }
 [data-hook="chart-tv-scanlines"] { z-index: 5; background: repeating-linear-gradient(0deg, var(--pons-tv-scanline) 0, var(--pons-tv-scanline) var(--pons-tv-scanline-size),
@@ -63,7 +81,8 @@ code, pre { font-family: var(--pons-font-mono); }
   60% { background-position: 12% 88%; }
   80% { background-position: 93% 44%; }
 }
-[data-hook="chart-tv"][data-state="offline"] [data-hook="chart-tv-static"] { display: block; }
+[data-hook="chart-tv"][data-state="offline"] [data-hook="chart-tv-static"],
+[data-hook="chart-tv"][data-channel-change="true"] [data-hook="chart-tv-static"] { display: block; } /* also a moment of static between sample charts */
 /* The channel label, top left: CH 47 and what is on (OFF AIR, SAMPLE, LIVE, FINAL). */
 [data-hook="chart-tv-channel"] { position: absolute; z-index: 9; top: var(--pons-space-4); left: var(--pons-space-5); margin: 0; pointer-events: none;
   font: var(--pons-tv-font-size)/1 var(--pons-tv-font); color: var(--pons-tv-channel); text-shadow: var(--pons-tv-channel-glow); }
@@ -121,12 +140,12 @@ code, pre { font-family: var(--pons-font-mono); }
 [data-hook="duel-circle-opponent"] { fill: var(--pons-duel-opponent); stroke: var(--pons-duel-opponent); }
 [data-hook="duel-circle-me"], [data-hook="duel-circle-opponent"] { r: var(--pons-duel-r); fill-opacity: 0.4; stroke-width: var(--pons-border-thick); transition: r var(--pons-duration-duel) ease-out; }
 [data-hook="score-you"][data-sign="gain"] [data-hook="score-you-pct"],
-[data-hook="score-them"][data-sign="gain"] [data-hook="score-them-pct"] { color: var(--pons-gain); }
+[data-hook="score-them"][data-sign="gain"] [data-hook="score-them-pct"] { color: var(--pons-scoreboard-gain); }
 [data-hook="score-you"][data-sign="loss"] [data-hook="score-you-pct"],
-[data-hook="score-them"][data-sign="loss"] [data-hook="score-them-pct"] { color: var(--pons-loss); }
-[data-hook="score-lead"] { font-weight: var(--pons-font-weight-strong); color: var(--pons-level); }
-[data-hook="score-lead"][data-state="winning"] { color: var(--pons-gain); }
-[data-hook="score-lead"][data-state="losing"] { color: var(--pons-loss); }
+[data-hook="score-them"][data-sign="loss"] [data-hook="score-them-pct"] { color: var(--pons-scoreboard-loss); }
+[data-hook="score-lead"] { font-weight: var(--pons-font-weight-strong); color: var(--pons-scoreboard-text); }
+[data-hook="score-lead"][data-state="winning"] { color: var(--pons-scoreboard-gain); }
+[data-hook="score-lead"][data-state="losing"] { color: var(--pons-scoreboard-loss); }
 
 /* Trade markers: a layer over the chart; the script sets only each marker's left and top. */
 [data-hook="trade-pictures"] { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
@@ -142,14 +161,134 @@ code, pre { font-family: var(--pons-font-mono); }
 [data-hook="trade-marker"][data-label-side="left"] [data-hook="trade-marker-label"] { right: calc(var(--pons-marker-size) * 1px + var(--pons-space-2)); }
 
 /* ---------- play page: the one obvious next step ---------- */
-[data-hook="next-step"] { border: var(--pons-border) solid var(--pons-color-accent); border-radius: var(--pons-radius); padding: var(--pons-space-3) var(--pons-space-4);
-  margin: var(--pons-space-3) 0; max-width: var(--pons-size-next-step); box-sizing: border-box; }
-[data-hook="next-step-button"] { font-size: var(--pons-font-size-large); padding: var(--pons-space-2) var(--pons-space-4); }
+[data-hook="next-step-button"] { font-size: var(--pons-font-size-large); }
 [data-hook="profile-picture-preview"] { border-radius: var(--pons-radius-round); }
 [data-hook="profile-avatars"] [aria-pressed="true"], [data-hook="profile-avatar-generated"][aria-pressed="true"] { outline: var(--pons-border-thick) solid var(--pons-color-accent); }
 
+/* ---------- play page: the layout around the TV, and every panel, label and button in the TV's look ---------- */
+/* Three columns on a wide screen: your player, the TV with the match controls under it, money and the server. */
+[data-hook="app"] { background: radial-gradient(var(--pons-play-page-dots) 15%, transparent 16%) 0 0 / var(--pons-play-page-dot-size) var(--pons-play-page-dot-size), var(--pons-play-page);
+  color: var(--pons-panel-text); }
+[data-hook="play-layout"] { display: grid; gap: var(--pons-layout-gap); max-width: var(--pons-size-layout-max); margin: 0 auto; align-items: start;
+  grid-template-columns: var(--pons-size-side) minmax(0, 1fr) var(--pons-size-side); grid-template-areas: "player center money"; }
+[data-hook="play-center"] { grid-area: center; min-width: 0; display: flex; flex-direction: column; gap: var(--pons-layout-gap); }
+[data-hook="play-side-player"] { grid-area: player; }
+[data-hook="play-side-money"] { grid-area: money; }
+[data-hook="play-side-player"], [data-hook="play-side-money"] { min-width: 0; display: flex; flex-direction: column; gap: var(--pons-layout-gap); }
+[data-hook="next-step"], [data-hook="sign-panel"], [data-hook="queue-panel"], [data-hook="match-panel"], [data-hook="result-panel"], [data-hook="log-panel"],
+[data-hook="player-card"], [data-hook="profile-panel"], [data-hook="wallet-panel"], [data-hook="newwallet-panel"],
+[data-hook="balance-panel"], [data-hook="market-panel"], [data-hook="connection-panel"] {
+  box-sizing: border-box; width: 100%; margin: 0; padding: var(--pons-panel-padding); background: var(--pons-panel-face); color: var(--pons-panel-text);
+  border: var(--pons-panel-border) solid var(--pons-panel-edge); border-radius: var(--pons-panel-radius); box-shadow: var(--pons-panel-shadow); }
+[data-hook="next-step"] { text-align: center; background: linear-gradient(var(--pons-tv-body-angle), var(--pons-tv-body-light), var(--pons-tv-body-mid)); }
+[data-hook="next-step-text"] { margin-top: 0; font-weight: var(--pons-font-weight-strong); }
+[data-hook="play-layout"] p { margin: var(--pons-space-3) 0; }
+[data-hook="play-layout"] h3 { margin: var(--pons-space-5) 0 var(--pons-space-3); font-family: var(--pons-tv-font); }
+/* Panel titles: channel labels with an icon in front (the icon is a token; a design can swap it). */
+:where([data-hook="play-layout"]) section > h2 { display: flex; align-items: center; gap: var(--pons-space-3); width: fit-content; max-width: 100%; box-sizing: border-box;
+  margin: calc(var(--pons-panel-padding) * -1 - var(--pons-panel-border)) 0 var(--pons-space-4) calc(var(--pons-space-3) * -1);
+  transform: translateY(calc(var(--pons-panel-padding) * -0.6)); padding: var(--pons-space-2) var(--pons-space-4);
+  background: var(--pons-label-face); color: var(--pons-label-text); text-shadow: var(--pons-label-glow);
+  border-radius: var(--pons-label-radius); font: var(--pons-font-weight-strong) var(--pons-label-font-size)/1.3 var(--pons-tv-font); letter-spacing: var(--pons-label-spacing); text-transform: uppercase; }
+:where([data-hook="play-layout"]) section > h2::before { content: ""; flex: 0 0 auto; width: var(--pons-icon-size); height: var(--pons-icon-size); background: currentColor;
+  -webkit-mask: var(--pons-icon-tv) center / contain no-repeat; mask: var(--pons-icon-tv) center / contain no-repeat; }
+[data-hook="queue-title"]::before { -webkit-mask-image: var(--pons-icon-duel); mask-image: var(--pons-icon-duel); }
+[data-hook="match-title"]::before { -webkit-mask-image: var(--pons-icon-candles); mask-image: var(--pons-icon-candles); }
+[data-hook="result-title"]::before { -webkit-mask-image: var(--pons-icon-trophy); mask-image: var(--pons-icon-trophy); }
+[data-hook="sign-title"]::before { -webkit-mask-image: var(--pons-icon-star); mask-image: var(--pons-icon-star); }
+[data-hook="profile-title"]::before { -webkit-mask-image: var(--pons-icon-player); mask-image: var(--pons-icon-player); }
+[data-hook="wallet-title"]::before, [data-hook="newwallet-title"]::before { -webkit-mask-image: var(--pons-icon-wallet); mask-image: var(--pons-icon-wallet); }
+[data-hook="balance-title"]::before { -webkit-mask-image: var(--pons-icon-coin); mask-image: var(--pons-icon-coin); }
+[data-hook="market-title"]::before { -webkit-mask-image: var(--pons-icon-candles); mask-image: var(--pons-icon-candles); }
+[data-hook="connection-title"]::before { -webkit-mask-image: var(--pons-icon-signal); mask-image: var(--pons-icon-signal); }
+[data-hook="log-toggle"] { cursor: pointer; font-family: var(--pons-tv-font); }
+[data-hook="page-title"] { display: flex; align-items: center; gap: var(--pons-space-3); font-family: var(--pons-tv-font); }
+[data-hook="page-title"]::before { content: ""; width: var(--pons-icon-size-large); height: var(--pons-icon-size-large); background: var(--pons-tv-body-mid);
+  -webkit-mask: var(--pons-icon-tv) center / contain no-repeat; mask: var(--pons-icon-tv) center / contain no-repeat; }
+
+/* Buttons: TV switches (a knob-yellow face, a dark outline, a hard shadow that goes when pressed). :where keeps
+   these rules weak, so a part's own rule (the TV's button, the trade knobs, a design's rule) always wins. */
+:where([data-hook="play-layout"]) :where(button, input[type="file"]::file-selector-button) {
+  font: inherit; font-weight: var(--pons-font-weight-strong); margin: var(--pons-space-2) var(--pons-space-2) var(--pons-space-2) 0; padding: var(--pons-button-padding); cursor: pointer;
+  color: var(--pons-button-text); background: radial-gradient(circle at 30% 25%, var(--pons-button-face-light), var(--pons-button-face) 60%);
+  border: var(--pons-button-border) solid var(--pons-tv-ink); border-radius: var(--pons-button-radius); box-shadow: var(--pons-button-shadow); }
+:where([data-hook="play-layout"]) :where(button):active:not(:disabled) { transform: translate(var(--pons-button-press), var(--pons-button-press)); box-shadow: none; }
+:where([data-hook="play-layout"]) :where(button):disabled { cursor: not-allowed; color: var(--pons-button-off-text); background: var(--pons-button-off-face); box-shadow: none; }
+:where([data-hook="play-layout"]) :where(button):focus-visible { outline: var(--pons-border-thick) solid var(--pons-color-accent); outline-offset: var(--pons-space-1); }
+/* The main action of each panel: the TV body's orange. */
+:where([data-hook="next-step-button"], [data-hook="queue-join"], [data-hook="no-trade-confirm"], [data-hook="profile-save"], [data-hook="result-close"],
+  [data-hook="deposit-confirm"], [data-hook="withdraw-confirm"], [data-hook="sign-approve"], [data-hook="rematch-accept"]):not(:disabled) {
+  background: radial-gradient(circle at 30% 25%, var(--pons-button-main-light), var(--pons-button-main) 60%); }
+:where([data-hook="play-layout"]) :where(input:not([type="checkbox"]):not([type="file"]), select, textarea) { font: inherit; padding: var(--pons-field-padding);
+  background: var(--pons-field-face); color: var(--pons-panel-text); border: var(--pons-field-border) solid var(--pons-tv-ink); border-radius: var(--pons-field-radius); }
+:where([data-hook="play-layout"]) input[type="checkbox"] { accent-color: var(--pons-button-main); }
+:where([data-hook="play-layout"]) :where(pre, code) { background: var(--pons-label-face); color: var(--pons-label-text); border-radius: var(--pons-radius-small); padding: 0 var(--pons-space-2); }
+:where([data-hook="play-layout"]) pre { padding: var(--pons-space-3); }
+
+/* Trade buttons: round knobs beside the TV, buys green and sells red, each with its arrow. */
+[data-hook="trade-row-buy-label"], [data-hook="trade-row-sell-label"] { display: flex; align-items: center; gap: var(--pons-space-1); font: var(--pons-font-weight-strong) var(--pons-font-size-small) var(--pons-tv-font);
+  text-transform: uppercase; white-space: nowrap; padding: var(--pons-space-1) var(--pons-space-2); border-radius: var(--pons-label-radius); background: var(--pons-label-face); color: var(--pons-label-text); }
+[data-hook="trade-row-buy-label"]::before, [data-hook="trade-row-sell-label"]::before { content: ""; width: var(--pons-icon-size); height: var(--pons-icon-size); background: var(--pons-knob-buy);
+  -webkit-mask: var(--pons-icon-buy) center / contain no-repeat; mask: var(--pons-icon-buy) center / contain no-repeat; }
+[data-hook="trade-row-sell-label"]::before { background: var(--pons-knob-sell); -webkit-mask-image: var(--pons-icon-sell); mask-image: var(--pons-icon-sell); }
+[data-hook="trade-panel"] button { width: var(--pons-knob-size); height: var(--pons-knob-size); margin: 0; padding: 0; border-radius: var(--pons-radius-round);
+  font: var(--pons-font-weight-strong) var(--pons-font-size-small) var(--pons-tv-font); color: var(--pons-button-text); cursor: pointer;
+  border: var(--pons-button-border) solid var(--pons-tv-ink); box-shadow: var(--pons-button-shadow); }
+[data-hook="trade-row-buy"] button { background: radial-gradient(circle at 35% 30%, var(--pons-knob-buy-light), var(--pons-knob-buy) 50%, var(--pons-knob-buy-dark)); }
+[data-hook="trade-row-sell"] button { background: radial-gradient(circle at 35% 30%, var(--pons-knob-sell-light), var(--pons-knob-sell) 50%, var(--pons-knob-sell-dark)); }
+[data-hook="trade-panel"] button:active:not(:disabled) { transform: translate(var(--pons-button-press), var(--pons-button-press)); box-shadow: none; }
+[data-hook="trade-panel"] button:disabled { cursor: not-allowed; color: var(--pons-button-off-text); background: var(--pons-button-off-face); box-shadow: none; }
+
+/* The player card: a mini TV with your picture, your names, the rank badge and your results. */
+[data-hook="player-card"] { text-align: center; }
+[data-hook="player-tv"] { position: relative; width: var(--pons-player-tv-width); max-width: 100%; margin: 0 auto; padding-top: var(--pons-player-tv-antenna); }
+[data-hook="player-tv-antenna"] { position: absolute; left: 50%; top: 0; width: 0; height: var(--pons-player-tv-antenna); }
+[data-hook="player-tv-antenna-left"], [data-hook="player-tv-antenna-right"] { position: absolute; bottom: 0; left: calc(var(--pons-border-thick) / -2); width: var(--pons-border-thick);
+  height: var(--pons-player-tv-antenna); background: var(--pons-tv-ink); transform-origin: 50% 100%; transform: rotate(var(--pons-tv-antenna-left)); }
+[data-hook="player-tv-antenna-right"] { transform: rotate(var(--pons-tv-antenna-right)); }
+[data-hook="player-tv-antenna-left"]::after, [data-hook="player-tv-antenna-right"]::after { content: ""; position: absolute; top: calc(var(--pons-space-2) * -1); left: calc(var(--pons-space-2) * -1);
+  width: calc(var(--pons-space-3) + var(--pons-border-thick)); height: calc(var(--pons-space-3) + var(--pons-border-thick)); border-radius: var(--pons-radius-round); background: var(--pons-tv-antenna-tip); }
+[data-hook="player-tv-body"] { display: flex; align-items: center; gap: var(--pons-space-3); padding: var(--pons-space-3);
+  background: linear-gradient(var(--pons-tv-body-angle), var(--pons-tv-body-light), var(--pons-tv-body-mid) 55%, var(--pons-tv-body-dark));
+  border: var(--pons-panel-border) solid var(--pons-tv-ink); border-radius: var(--pons-player-tv-radius); box-shadow: var(--pons-button-shadow); }
+[data-hook="player-tv-screen"] { flex: 0 0 var(--pons-player-tv-screen); height: var(--pons-player-tv-screen); overflow: hidden; background: var(--pons-tv-screen);
+  border: var(--pons-panel-border) solid var(--pons-tv-ink); border-radius: var(--pons-label-radius); box-shadow: var(--pons-tv-screen-shadow); }
+[data-hook="player-picture"] { display: block; width: 100%; height: 100%; object-fit: cover; }
+[data-hook="player-tv-knobs"] { display: flex; flex-direction: column; gap: var(--pons-space-3); }
+[data-hook="player-tv-knob-top"], [data-hook="player-tv-knob-bottom"] { width: var(--pons-player-tv-knob); height: var(--pons-player-tv-knob); box-sizing: border-box; border-radius: var(--pons-radius-round);
+  border: var(--pons-border) solid var(--pons-tv-ink); background: radial-gradient(circle at 35% 35%, var(--pons-tv-knob-light), var(--pons-tv-knob-mid) 45%, var(--pons-tv-knob-dark)); }
+[data-hook="player-name"] { margin: var(--pons-space-4) 0 0; font: var(--pons-font-weight-strong) var(--pons-font-size-large) var(--pons-tv-font); }
+[data-hook="player-address"] { margin: 0; color: var(--pons-panel-muted); font-family: var(--pons-tv-font); font-size: var(--pons-font-size-small); }
+[data-hook="player-badge"] { --pons-badge: var(--pons-badge-tier-0); display: inline-flex; align-items: center; gap: var(--pons-space-3); margin: var(--pons-space-3) auto;
+  padding: var(--pons-space-1) var(--pons-space-4) var(--pons-space-1) var(--pons-space-1); background: var(--pons-label-face); color: var(--pons-label-text);
+  border-radius: var(--pons-button-radius); font: var(--pons-font-weight-strong) var(--pons-label-font-size) var(--pons-tv-font); }
+[data-hook="player-badge"]::before { content: ""; width: var(--pons-badge-size); height: var(--pons-badge-size); background: var(--pons-badge);
+  -webkit-mask: var(--pons-icon-badge) center / contain no-repeat; mask: var(--pons-icon-badge) center / contain no-repeat; }
+[data-hook="player-badge"][data-tier="bronze"] { --pons-badge: var(--pons-badge-tier-1); }
+[data-hook="player-badge"][data-tier="silver"] { --pons-badge: var(--pons-badge-tier-2); }
+[data-hook="player-badge"][data-tier="gold"] { --pons-badge: var(--pons-badge-tier-3); }
+[data-hook="player-badge"][data-tier="diamond"] { --pons-badge: var(--pons-badge-tier-4); }
+[data-hook="player-badge-tier"] { color: var(--pons-badge); }
+[data-hook="player-facts"] { display: grid; grid-template-columns: auto 1fr; gap: var(--pons-space-2) var(--pons-space-4); margin: var(--pons-space-3) 0; text-align: left; }
+[data-hook="player-facts"] dt { display: flex; align-items: center; gap: var(--pons-space-2); color: var(--pons-panel-muted); font: var(--pons-font-size-small)/var(--pons-line-height) var(--pons-tv-font); text-transform: uppercase; }
+[data-hook="player-facts"] dd { margin: 0; font-weight: var(--pons-font-weight-strong); }
+[data-hook="player-facts"] dt::before { content: ""; width: var(--pons-icon-size); height: var(--pons-icon-size); flex: 0 0 auto; background: var(--pons-tv-body-dark);
+  -webkit-mask: var(--pons-icon-star) center / contain no-repeat; mask: var(--pons-icon-star) center / contain no-repeat; }
+[data-hook="player-coin-label"]::before { -webkit-mask-image: var(--pons-icon-coin); mask-image: var(--pons-icon-coin); }
+[data-hook="player-joined-label"]::before { -webkit-mask-image: var(--pons-icon-calendar); mask-image: var(--pons-icon-calendar); }
+[data-hook="player-wins-label"]::before { -webkit-mask-image: var(--pons-icon-trophy); mask-image: var(--pons-icon-trophy); }
+[data-hook="player-losses-label"]::before { -webkit-mask-image: var(--pons-icon-sell); mask-image: var(--pons-icon-sell); }
+[data-hook="player-profit-label"]::before { -webkit-mask-image: var(--pons-icon-buy); mask-image: var(--pons-icon-buy); }
+[data-hook="player-solname-label"]::before { -webkit-mask-image: var(--pons-icon-player); mask-image: var(--pons-icon-player); }
+[data-hook="player-practice"] { color: var(--pons-panel-muted); font-size: var(--pons-font-size-small); }
+[data-hook="profile-picture-label"]::before { content: ""; display: inline-block; vertical-align: middle; margin-right: var(--pons-space-2); width: var(--pons-icon-size); height: var(--pons-icon-size);
+  background: currentColor; -webkit-mask: var(--pons-icon-upload) center / contain no-repeat; mask: var(--pons-icon-upload) center / contain no-repeat; }
+[data-hook="profile-solname-note"] { color: var(--pons-panel-muted); font-size: var(--pons-font-size-small); }
+
 /* ---------- play page: the intro tour (it sits above the page and points at parts of it) ---------- */
 [data-hook="tour"] { position: fixed; inset: 0; z-index: 1000; }
+/* Room above a part the tour scrolls to (it goes near the top; the card goes below it). */
+[data-hook="app"] [data-hook] { scroll-margin-top: var(--pons-tour-scroll-margin); }
 [data-hook="tour"]:not([data-highlight]), [data-hook="tour"][data-highlight=""] { background: var(--pons-color-overlay); }
 [data-hook="tour-highlight"] { --pons-tour-box-top: 0; --pons-tour-box-left: 0; --pons-tour-box-width: 0; --pons-tour-box-height: 0;
   top: var(--pons-tour-box-top); left: var(--pons-tour-box-left); width: var(--pons-tour-box-width); height: var(--pons-tour-box-height); position: fixed; box-sizing: border-box; border: var(--pons-border-thick) solid var(--pons-color-accent); border-radius: var(--pons-radius);
@@ -165,6 +304,7 @@ code, pre { font-family: var(--pons-font-mono); }
 
 /* ---------- chart library page ---------- */
 [data-hook="lib-chart"] { height: var(--pons-size-library-chart-height); max-width: var(--pons-size-library-chart-max); }
+[data-hook="lib-chart-canvas"] { display: block; width: 100%; height: 100%; }
 [data-hook="lib-start"] { width: var(--pons-size-library-start); max-width: 100%; }
 
 /* ---------- every page: navigation, and the phone menu below 600px wide ---------- */
@@ -178,15 +318,21 @@ code, pre { font-family: var(--pons-font-mono); }
 img, svg, canvas, iframe, video, table, pre, input, select, textarea { max-width: 100%; }
 body { overflow-wrap: anywhere; }
 pre { white-space: pre-wrap; }
+@media (max-width: 1200px) {
+  [data-hook="play-layout"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "center center" "player money"; }
+}
 @media (max-width: 600px) {
+  [data-hook="play-layout"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "center" "player" "money"; }
   [data-hook="nav-menu"] { display: inline-block; }
   [data-hook="nav-links"] { display: none; }
   [data-hook="nav"][data-open="true"] [data-hook="nav-links"] { display: flex; flex-direction: column; width: 100%;
     gap: var(--pons-space-3); padding: var(--pons-space-3) var(--pons-space-4); box-sizing: border-box;
     background: var(--pons-color-surface); border: var(--pons-border-thin) solid var(--pons-color-line);
     border-radius: var(--pons-radius); box-shadow: var(--pons-shadow-card); }
-  [data-hook="scoreboard"], [data-hook="trade-panel"] { flex: 1 1 100%; }
-  [data-hook="chart-tv"] { flex: 1 1 100%; order: -1; } /* on a phone the TV comes first, then the scoreboard and trade buttons */
+  /* On a phone the TV comes first, then the scoreboard, then the trade knobs in two rows. */
+  [data-hook="chart-row"], [data-hook="chart-row"]:has(> [data-hook="trade-panel"][hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tv" "score" "trade"; }
+  [data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  [data-hook="trade-panel"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "left" "buy" "buyr" "sell" "sellr" "help"; }
   [data-hook="chart-tv-screen"] { height: var(--pons-size-chart-height-phone); }
   [data-hook="chart-tv-body"] { flex-direction: column; }
   [data-hook="chart-tv-panel"] { flex-direction: row; justify-content: center; padding-top: 0; }
@@ -196,7 +342,6 @@ pre { white-space: pre-wrap; }
   [data-hook="chart-tv-idle"], [data-hook="chart-tv-result"] { bottom: var(--pons-space-5); }
   [data-hook="chart-tv-idle-title"], [data-hook="chart-tv-result-headline"] { font-size: var(--pons-font-size-large); }
   [data-hook="duel"] { width: calc(var(--pons-tv-duel-size) / 2); height: calc(var(--pons-tv-duel-size) / 2); }
-  [data-hook="trade-row-buy"], [data-hook="trade-row-sell"] { white-space: normal; }
   /* Wide tables scroll sideways inside their own box instead of widening the page. */
   table { display: block; overflow-x: auto; overflow-wrap: normal; }
 }

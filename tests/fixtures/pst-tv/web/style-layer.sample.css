@@ -28,6 +28,8 @@
   --pons-chart-background: #111827; --pons-chart-text: #e5e7eb; --pons-chart-grid: #1f2937; --pons-chart-border: #334155;
   --pons-ring-me: #22d3ee; --pons-duel-me: #22d3ee;
   --pons-marker-size: 28;
+  /* The play page's own TV-room look follows the dark theme too. */
+  --pons-play-page: #0b1020; --pons-panel-face: #111827; --pons-panel-text: #e5e7eb; --pons-panel-edge: #f472b6;
 }
 
 /* 2. Rules keyed by data-hook. */
@@ -38,7 +40,7 @@
 [data-hook="queue-panel"], [data-hook="balance-panel"], [data-hook="wallet-panel"] {
   background: var(--pons-color-surface); border-radius: var(--pons-radius-large); padding: var(--pons-space-4); margin: var(--pons-space-4) 0; }
 [data-hook="queue-join"], [data-hook="next-step-button"] {
-  background: var(--pons-color-accent); color: var(--pons-color-page); border: 0; border-radius: 999px; padding: var(--pons-space-3) var(--pons-space-5); }
+  background: var(--pons-color-accent); color: var(--pons-color-page); border: 0; border-radius: var(--pons-radius-small); padding: var(--pons-space-3) var(--pons-space-5); }
 [data-hook="score-you-pct"], [data-hook="score-them-pct"] { font-size: 1.4em; }
 [data-hook="leaderboard-table"], [data-hook="history-table"] { border-collapse: collapse; }
 [data-hook="leaderboard-row"]:nth-child(odd), [data-hook="history-row"]:nth-child(odd) { background: var(--pons-color-surface); }

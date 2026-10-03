@@ -58,8 +58,7 @@
   "links": {
     "allowHosts": [
       "pump.fun",
-      "dexscreener.com",
-      "tradingview.com"
+      "dexscreener.com"
     ],
     "block": [
       {
@@ -71,7 +70,7 @@
         "why": "DexScreener links never point at a specific contract address"
       }
     ],
-    "about": "tradingview.com is allowed for the chart licence credit on the play page, pending J's choice (keep it or drop the link)."
+    "about": "Only pump.fun and DexScreener (never a specific contract address) may be linked from outside the site."
   },
   "tokensModule": "web/tokens.js"
 }

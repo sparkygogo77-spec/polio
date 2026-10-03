@@ -634,6 +634,9 @@ export interface PartStyle {
   shadow?: string;
   /** A filter over it, as computed (the TV static's contrast). */
   filter?: string;
+  /** A mask it is painted through (an icon drawn in its colour), with its size, position and repeat. */
+  mask?: string;
+  maskOptions?: [string, string, string];
 }
 
 /** A form control as the page wrote it. */
@@ -746,6 +749,8 @@ export const PARTS = (cap: number): PageRead => {
   const SEPARATORS = /^[\s|·•/\\,;:–—\-]*$/;
   const css = (e: Element) => getComputedStyle(e);
   const shown = (e: Element) => css(e).display !== "none";
+  /* What a closed <details> holds past its summary: the page does not show it, whatever its display says. */
+  const folded = (e: Element) => { const d = e.parentElement; return !!d && d.tagName === "DETAILS" && !(d as HTMLDetailsElement).open && e.tagName !== "SUMMARY"; };
   const inlineish = (e: Element) => { const d = css(e).display; return d.startsWith("inline") || d === "contents"; };
   const isCheck = (e: Element) => e.tagName === "INPUT" && /^(checkbox|radio)$/i.test((e as HTMLInputElement).type);
   const isControl = (e: Element) => {
@@ -824,14 +829,22 @@ export const PARTS = (cap: number): PageRead => {
    * as data:. A picture at an address of the page's own would be a broken
    * link on the board, and is left out as before.
    */
-  function paintOf(s: CSSStyleDeclaration): Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter"> {
-    const out: Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter"> = {};
+  function paintOf(s: CSSStyleDeclaration): Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions"> {
+    const out: Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions"> = {};
+    const r = s as unknown as Record<string, string>;
+    /* A picture at one of the page's own addresses is kept too: whoever opened the page (the zip route) puts its bytes in as data: before it reaches the board (`inlineOwnPictures`). */
     const bi = s.backgroundImage;
-    if (bi && bi !== "none" && !/url\(/i.test(bi.replace(/url\(\s*"data:(?:[^"\\]|\\.)*"\s*\)/gi, ""))) {
+    if (bi && bi !== "none") {
       out.image = bi;
       out.imageOptions = [s.backgroundSize, s.backgroundPosition, s.backgroundRepeat];
-      const clip = (s as unknown as Record<string, string>).webkitBackgroundClip || s.backgroundClip;
+      const clip = r.webkitBackgroundClip || s.backgroundClip;
       if (clip === "text") out.imageClip = "text";
+    }
+    /* A mask it is painted through: PST's icons are one colour (background: currentColor) seen through an svg (web/assets/tv). */
+    const mk = s.maskImage || r.webkitMaskImage;
+    if (mk && mk !== "none") {
+      out.mask = mk;
+      out.maskOptions = [s.maskSize || r.webkitMaskSize || "auto", s.maskPosition || r.webkitMaskPosition || "0% 0%", s.maskRepeat || r.webkitMaskRepeat || "repeat"];
     }
     if (s.boxShadow && s.boxShadow !== "none") out.shadow = s.boxShadow;
     if (s.filter && s.filter !== "none") out.filter = s.filter;
@@ -928,15 +941,58 @@ export const PARTS = (cap: number): PageRead => {
    * its containing block, at its size, under the section its element is in,
    * turned with its element.
    */
-  const pseudoParts = (el: Element, parent: number, hidden: string | null) => {
+  const pseudoParts = (el: Element, parent: number, hidden: string | null, host = -1) => {
     if (el instanceof SVGElement) return;
     for (const which of ["::before", "::after"] as const) {
       if (truncated) return;
       const ps = getComputedStyle(el, which);
       const c = ps.content;
       if (!c || c === "none" || c === "normal" || ps.display === "none" || ps.visibility === "hidden") continue;
-      if (ps.position !== "absolute" && ps.position !== "fixed") continue;
       if (Number(ps.opacity) <= 0.05) continue;
+      /*
+       * ONE IN THE FLOW (PST's panel titles: an icon before the words, a
+       * flex item 22px square painted through a mask). It has no box to
+       * ask for and no left or top to place it by, so a stand-in is put
+       * where it is, wearing every property it computes to, while it stops
+       * drawing for the moment; the stand-in's box is its box.
+       */
+      if (ps.position !== "absolute" && ps.position !== "fixed") {
+        const paint0 = paintOf(ps);
+        const words0 = (/^"([\s\S]*)"$/.exec(c)?.[1] ?? "").replace(/\\(.)/g, "$1").trim();
+        if (!(!seeThrough(ps.backgroundColor) || paint0.image || paint0.mask || paint0.shadow || words0)) continue;
+        const stand = document.createElement("span");
+        for (let k = 0; k < ps.length; k++) { const prop = ps[k]!; if (prop !== "content") stand.style.setProperty(prop, ps.getPropertyValue(prop)); }
+        if (words0) stand.textContent = words0;
+        const mark = `polio-pseudo-${parts.length}`;
+        el.setAttribute("data-polio-pseudo", mark);
+        const hush = document.createElement("style");
+        hush.textContent = `[data-polio-pseudo="${mark}"]${which} { content: none !important; display: none !important; }`;
+        document.head.appendChild(hush);
+        if (which === "::before") el.insertBefore(stand, el.firstChild); else el.appendChild(stand);
+        const rr = stand.getBoundingClientRect();
+        /* The host's own words start past it: their part keeps that start as its padding, or the words are drawn over the icon. */
+        const hostPart = host >= 0 ? parts[host] : undefined;
+        if (which === "::before" && hostPart && hostPart.words && hostPart.style.pad) {
+          const range = document.createRange();
+          let first: Text | null = null;
+          for (const t of Array.from(el.childNodes)) if (t.nodeType === 3 && t.textContent!.trim()) { first = t as Text; break; }
+          if (first) {
+            range.selectNodeContents(first);
+            const tr = Array.from(range.getClientRects())[0];
+            const hr = el.getBoundingClientRect();
+            const start = tr ? Math.round((tr.left - hr.left - (parseFloat(css(el).borderLeftWidth) || 0)) * 100) / 100 : 0;
+            if (start > hostPart.style.pad[3]) hostPart.style.pad[3] = start;
+          }
+        }
+        stand.remove(); hush.remove(); el.removeAttribute("data-polio-pseudo");
+        if (!(rr.width > 0 && rr.height > 0)) continue;
+        const b0 = box(rr);
+        const st0 = { ...styleOf(el, which), ...paint0 };
+        if (/%$/.test(ps.borderTopLeftRadius)) st0.radius = Math.round((parseFloat(ps.borderTopLeftRadius) / 100) * Math.min(b0.w, b0.h));
+        const turn0 = turnSaid(turnOf(el), b0);
+        push({ kind: "shape", tag: which, parent, box: b0, words: words0, hooks: {}, hidden, selector: `${path(el)}${which}`, style: st0, pseudo: { which, host: hooksOf(el) }, ...(turn0 ? { turn: turn0 } : {}) });
+        continue;
+      }
       const n = (v: string) => parseFloat(v) || 0;
       const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
       const bw = SIDES.map((k) => (ps.getPropertyValue(`border-${k.toLowerCase()}-style`) === "none" ? 0 : n(ps.getPropertyValue(`border-${k.toLowerCase()}-width`))));
@@ -944,7 +1000,7 @@ export const PARTS = (cap: number): PageRead => {
       const mar = SIDES.map((k) => n(ps.getPropertyValue(`margin-${k.toLowerCase()}`)));
       const text = (/^"([\s\S]*)"$/.exec(c)?.[1] ?? "").replace(/\\(.)/g, "$1").trim();
       const paint = paintOf(ps);
-      if (!(!seeThrough(ps.backgroundColor) || paint.image || paint.shadow || bw.some(Boolean) || text)) continue;
+      if (!(!seeThrough(ps.backgroundColor) || paint.image || paint.mask || paint.shadow || bw.some(Boolean) || text)) continue;
       const w0 = n(ps.width), h0 = n(ps.height);
       if (!(w0 > 0 && h0 > 0)) continue;
       const bb = ps.boxSizing === "border-box";
@@ -1019,7 +1075,7 @@ export const PARTS = (cap: number): PageRead => {
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
     const at = parts.length - 1;
-    if (el && !p.pseudo) pseudoParts(el, p.kind === "section" ? at : p.parent, p.hidden);
+    if (el && !p.pseudo) pseudoParts(el, p.kind === "section" ? at : p.parent, p.hidden, at);
     return at;
   };
 
@@ -1062,7 +1118,7 @@ export const PARTS = (cap: number): PageRead => {
       const e = n as Element;
       if (SKIP.has(e.tagName)) return;
       if (e.tagName === "BR") { add("\n", holder); return; }
-      if (e.tagName === "TEMPLATE" || !shown(e)) { queue(e, parent); return; }
+      if (e.tagName === "TEMPLATE" || !shown(e) || folded(e)) { queue(e, parent); return; }
       /* An empty element with a hook is a place the page's code fills: it is kept, as a run with no words, so the hook travels. */
       if (hooked(e) && !(e.textContent ?? "").trim()) out.push({ text: "", hooks: hooksOf(e) });
       for (const c of Array.from(e.childNodes)) visit(c, e);
@@ -1249,7 +1305,7 @@ export const PARTS = (cap: number): PageRead => {
       const e = n as Element;
       if (SKIP.has(e.tagName)) continue;
       if (e.tagName === "BR") { buffer.push(e); continue; }
-      if (e.tagName === "TEMPLATE" || !shown(e)) { queue(e, parent); continue; }
+      if (e.tagName === "TEMPLATE" || !shown(e) || folded(e)) { queue(e, parent); continue; }
       if (isMedia(e)) { flush(); picture(e, parent, hidden); continue; }
       if (checkLabel(e)) { flush(); checkPart(e, parent, hidden); continue; }
       if (isControl(e)) { flush(); control(e, parent, hidden); continue; }
@@ -1324,8 +1380,9 @@ export const PARTS = (cap: number): PageRead => {
     /* Revealed with whatever above it is hidden too, and every change put back. */
     const undo: (() => void)[] = [];
     for (let up: Element | null = el; up && up !== document.documentElement; up = up.parentElement) {
-      if (shown(up)) continue;
       const h = up as HTMLElement;
+      if (h.tagName === "DETAILS" && !(h as HTMLDetailsElement).open && up !== el) { (h as HTMLDetailsElement).open = true; undo.push(() => { (h as HTMLDetailsElement).open = false; }); }
+      if (shown(up)) continue;
       const hadHidden = h.hasAttribute("hidden");
       const hadStyle = h.getAttribute("style");
       if (hadHidden) h.removeAttribute("hidden");

@@ -2,7 +2,7 @@
 import { base58Encode, checkSignRequest, fromBase64, randomHex, signInFields, signInText, sol, toLamports } from './protocol.js';
 import { connectStandardWallet, discoverWallets } from './wallets.js';
 import { generateMnemonic, walletFromMnemonic } from './newwallet.js';
-import { CandlestickSeries, createChart, createSeriesMarkers } from './vendor/lightweight-charts/lightweight-charts.standalone.production.mjs';
+import { createPonsChart } from './pons-chart.js';
 import { candleColorsFrom, chartLayoutFrom, countdownText, duelSettingsFrom, duelView, markerLabel, overlayText, positionText, startBars, toChartBar, tradeColorsFrom, tradeMarkers } from './overlay.js';
 import { emit } from './anim.js';
 import { buttonStates, TRADE_BUTTONS, TRADE_PERCENTS } from './trade.js';
@@ -14,7 +14,8 @@ import { seedCommit } from './generated-chart.js';
 import { AVATAR_PRESETS, avatarUrl, pictureMarkers, presetAvatar } from './avatars.js';
 import { keepDrawingInBackground, remeasure } from './background-frames.js';
 import { $, cssNumber, cssVar, fill, fromTemplate, setText, show } from './dom.js';
-import { ATTRACT_FIRST, attractBars, channelText, CONNECTED_HOLD_MS, GIVE_UP_MS, loadingView, stepMarks, tvState } from './tv.js';
+import { ATTRACT_FIRST, ATTRACT_SEED, attractBars, attractSeed, CHANNEL_CHANGE_MS, channelText, CONNECTED_HOLD_MS, GIVE_UP_MS, loadingView, stepMarks, tvState } from './tv.js';
+import { joinedText, MAX_PICTURE_BYTES, rankBadge } from './player-card.js';
 
 import { explainOrderRefusal, explainRefusal, explainSignIn, nextStep } from './next-step.js';
 
@@ -447,20 +448,57 @@ function renderProfile(p) {
   setText('profile-stat-practice', ps ? `${ps.matches} played, ${ps.wins} won (not counted as real wins)` : '-');
   $('profile-link').href = `/profile.html?address=${p.address}`;
   $('nav-profile').href = `/profile.html?address=${p.address}`;
+  if (document.activeElement !== $('profile-solname')) $('profile-solname').value = p.solName ?? '';
+  if (document.activeElement !== $('profile-coin')) $('profile-coin').value = p.favouriteCoin ?? '';
+  renderPlayerCard(p);
 }
 
-/** Read a picture file; shrink it to at most 128 pixels so it stays small (it is shown at 24 to 96 pixels). */
+/** The player card: a mini TV with the player's picture, then names, rank badge and results. */
+function renderPlayerCard(p) {
+  show('player-card', true);
+  $('player-picture').src = avatarUrl({ address: p.address, pictureUrl: p.pictureUrl, avatarPreset: p.avatarPreset }, serverUrl);
+  const brief = `${p.address.slice(0, 4)}…${p.address.slice(-4)}`;
+  setText('player-name', p.displayName ?? brief);
+  setText('player-address', brief);
+  const badge = rankBadge(p);
+  $('player-badge').dataset.tier = badge.tier;
+  setText('player-badge-tier', badge.name);
+  setText('player-badge-rank', badge.rank);
+  setText('player-solname', p.solName ?? '-');
+  setText('player-coin', p.favouriteCoin ? `$${p.favouriteCoin}` : '-');
+  setText('player-joined', joinedText(p.joinedAt));
+  setText('player-wins', p.stats.wins);
+  setText('player-losses', p.stats.losses);
+  setText('player-profit', `${sol(p.stats.profit)} SOL`);
+  const ps = p.practiceStats;
+  setText('player-practice', ps ? `Practice: ${ps.wins} won, ${ps.losses} lost (not counted as real wins)` : 'Practice: -');
+}
+
+/**
+ * Read a picture file (PNG, JPG or GIF, at most 2 MB). A GIF is sent as it is, so it keeps moving;
+ * PNG and JPG are shrunk to at most 256 pixels so they stay small (shown at 24 to 96 pixels).
+ */
 function pictureDataUrl(file) {
+  if (file.size > MAX_PICTURE_BYTES) return Promise.reject(new Error('that picture is over 2 MB'));
+  if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) return Promise.reject(new Error('pick a PNG, JPG or GIF picture'));
+  if (file.type === 'image/gif') {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('could not read that picture'));
+      r.readAsDataURL(file);
+    });
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, 128 / Math.max(img.width, img.height));
+      const scale = Math.min(1, 256 / Math.max(img.width, img.height));
       const c = $('picture-canvas'); // hidden; resizing it clears it
       c.width = Math.max(1, Math.round(img.width * scale));
       c.height = Math.max(1, Math.round(img.height * scale));
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(img.src);
-      resolve(c.toDataURL('image/jpeg', 0.85));
+      resolve(file.type === 'image/png' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = () => reject(new Error('that file is not a picture this browser can read'));
     img.src = URL.createObjectURL(file);
@@ -468,7 +506,7 @@ function pictureDataUrl(file) {
 }
 
 async function saveProfile() {
-  const change = { type: 'profile_update', displayName: $('profile-name').value };
+  const change = { type: 'profile_update', displayName: $('profile-name').value, solName: $('profile-solname').value, favouriteCoin: $('profile-coin').value };
   const file = $('profile-picture').files[0];
   try {
     if (file) change.picture = await pictureDataUrl(file);
@@ -783,42 +821,21 @@ function renderPosition(p) {
   refreshTradeButtons();
 }
 
-// ---------- the match chart (TradingView Lightweight Charts, fed only by the server's candles) ----------
+// ---------- the match chart (PonsStars' own chart, web/pons-chart.js, fed only by the server's candles) ----------
 
 const chart = { api: null, series: null, markers: null, pictures: null };
 
 function ensureChart() {
   if (chart.api) return;
-  // Some systems report a locale the browser's number formatting refuses (for example "en-US@posix");
-  // fall back to en-US rather than letting the chart fail on every redraw.
-  const locale = (() => {
-    try {
-      new Intl.DateTimeFormat(navigator.language);
-      return navigator.language;
-    } catch {
-      return 'en-US';
-    }
-  })();
-  const box = $('chart');
-  chart.api = createChart(box, {
-    // Sized by the page, not by the chart library: always exactly the TV screen (fitChartToScreen).
-    autoSize: false,
-    localization: { locale },
-    layout: { attributionLogo: true }, // TradingView's logo and link: keep it (licence)
-    // Candles never grow wider than 14 pixels, even when only a few exist yet.
-    timeScale: { timeVisible: true, secondsVisible: true, maxBarSpacing: 14, rightOffset: 4 },
-  });
-  chart.series = chart.api.addSeries(CandlestickSeries, {
-    // index values (100 = start), three decimals
-    priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
-  });
-  chart.markers = createSeriesMarkers(chart.series, []);
+  // PonsStars' own chart (web/pons-chart.js), drawn on the canvas in the page's markup. Sized by the
+  // page: always exactly the TV screen (fitChartToScreen). Candles never wider than 14 pixels.
+  chart.api = createPonsChart($('chart-canvas'), { maxBarSpacing: 14, rightOffset: 4, precision: 3 });
+  chart.series = chart.api.addCandles(); // index values (100 = start), three decimals
   applyChartTheme();
   // Picture markers: each trade shows its player's picture in a ring (you blue, opponent yellow),
   // in the layer over the chart (in the page's markup) that follows the chart's own coordinates.
-  // The chart draws its own parts into the same box; the layer stays above them (web/base.css).
+  // The chart draws on its canvas under this layer; the layer stays above it (web/base.css).
   chart.pictures = $('trade-pictures');
-  box.append(chart.pictures);
   chart.api.timeScale().subscribeVisibleLogicalRangeChange(() => placePictures());
   // The chart draws only inside the TV screen: whenever the screen changes size (any width, phone
   // included), the chart is made exactly the screen's size again; the screen also clips it.
@@ -842,9 +859,9 @@ function fitChartToScreen() {
  */
 function applyChartTheme() {
   const layout = chartLayoutFrom(cssVar);
-  chart.api.applyOptions({ ...layout, layout: { ...layout.layout, attributionLogo: true } });
+  chart.api.applyOptions(layout);
   const c = candleColorsFrom(cssVar);
-  chart.series.applyOptions({ upColor: c.up, downColor: c.down, borderUpColor: c.up, borderDownColor: c.down, wickUpColor: c.up, wickDownColor: c.down });
+  chart.series.applyOptions({ upColor: c.up, downColor: c.down });
 }
 
 /** Put each trade's picture at its candle and price (redone whenever the chart moves or resizes). */
@@ -853,7 +870,7 @@ function placePictures() {
   if (!chart.pictures) return;
   const bars = new Map((chart.series?.data() ?? []).map((b) => [b.time, b]));
   // Pictures stay inside the chart's drawing area (a trade near the top or bottom would push one out).
-  const pane = chart.api.paneSize?.() ?? { width: chart.pictures.clientWidth, height: chart.pictures.clientHeight };
+  const pane = chart.api.paneSize();
   // Marker size and the room kept for its label: CSS variables, so the design can change them.
   const size = cssNumber('--pons-marker-size', 24);
   const labelWidth = cssNumber('--pons-marker-label-width', 90);
@@ -909,7 +926,7 @@ function chartStart(msg) {
   m.origin = Math.floor(msg.chartAt / 1000) * 1000;
   applyChartTheme();
   chart.series.setData(startBars(msg.chart?.history, msg.bars ?? [], m.origin));
-  chart.markers.setMarkers([]);
+  chart.series.setMarkers([]);
   chart.pictures.replaceChildren();
   // With history, show it all; a generated chart starts empty, so keep normal candle widths instead.
   const ts = chart.api.timeScale();
@@ -924,7 +941,9 @@ function chartStart(msg) {
 // a sample chart between matches, the live chart (trade markers and duel circles inside) in a
 // match, then the result. web/tv.js works out the state; each state is a hooked overlay.
 
-const attract = { bars: null, loading: null, timer: null, shown: 0, on: false };
+const attract = { bars: null, loading: null, timer: null, shown: 0, on: false, loop: 0, changing: false };
+// ?tv-seed=<64 hex digits>: the sample charts follow from this seed (the same series every load, for tests).
+const TV_SEED = new URLSearchParams(location.search).get('tv-seed');
 
 /** The clock the TV reads: the preview's stopped clock, or the real one. */
 const tvNow = () => state.frozenNow ?? Date.now();
@@ -977,51 +996,70 @@ function refreshTv() {
   }
 }
 
-/** Start the sample chart (the same generated chart every time) playing on the screen. */
+/** Make the next sample chart: a new one each loop (the preview always shows the same one). */
+async function loadAttract() {
+  const seed = PREVIEW ? ATTRACT_SEED : attractSeed(attract.loop++, TV_SEED);
+  attract.bars = await attractBars(seed).catch((err) => {
+    log(`could not make the sample chart: ${err.message}`);
+    return [];
+  });
+}
+
+/** Start the sample charts playing on the screen, a candle at a time, a new chart each loop. */
 function startAttract() {
   if (attract.on) return attract.loading;
   attract.on = true;
   ensureChart();
-  attract.loading = (attract.loading ?? attractBars().then((bars) => { attract.bars = bars; }).catch((err) => {
-    attract.bars = [];
-    log(`could not make the sample chart: ${err.message}`);
-  })).then(() => {
+  attract.loading = (attract.bars ? Promise.resolve() : loadAttract()).then(() => {
     if (!attract.on || !attract.bars.length) return;
-    applyChartTheme();
-    chart.markers.setMarkers([]);
-    chart.pictures.replaceChildren();
-    chart.api.timeScale().applyOptions({ barSpacing: 8 });
-    // The preview shows one still moment; the page plays it, a candle at a time, round and round.
-    attract.shown = PREVIEW ? Math.min(attract.bars.length, ATTRACT_FIRST * 2) : ATTRACT_FIRST;
-    chart.series.setData(attract.bars.slice(0, attract.shown));
-    chart.api.timeScale().scrollToRealTime();
-    if (PREVIEW) return;
+    showAttract();
+    if (PREVIEW) return; // the preview shows one still moment
     clearInterval(attract.timer);
-    attract.timer = setInterval(() => {
-      if (!attract.on) return;
-      if (attract.shown >= attract.bars.length) {
-        attract.shown = ATTRACT_FIRST;
-        chart.series.setData(attract.bars.slice(0, attract.shown));
-        chart.api.timeScale().scrollToRealTime();
-      } else {
-        chart.series.update(attract.bars[attract.shown++]);
-      }
-    }, Math.max(100, cssNumber('--pons-tv-attract-step', 700)));
+    attract.timer = setInterval(stepAttract, Math.max(100, cssNumber('--pons-tv-attract-step', 700)));
   });
   return attract.loading;
+}
+
+/** Put the current sample chart on the screen, from its first candles. */
+function showAttract() {
+  applyChartTheme();
+  chart.series.setMarkers([]);
+  chart.pictures.replaceChildren();
+  chart.api.timeScale().applyOptions({ barSpacing: 8 });
+  attract.shown = PREVIEW ? Math.min(attract.bars.length, ATTRACT_FIRST * 2) : ATTRACT_FIRST;
+  chart.series.setData(attract.bars.slice(0, attract.shown));
+  chart.api.timeScale().scrollToRealTime();
+}
+
+/** One more candle; at the end of a chart, a moment of static (a channel change), then a new chart. */
+function stepAttract() {
+  if (!attract.on || attract.changing) return;
+  if (attract.shown < attract.bars.length) {
+    chart.series.update(attract.bars[attract.shown++]);
+    return;
+  }
+  attract.changing = true;
+  $('chart-tv').dataset.channelChange = 'true';
+  Promise.all([loadAttract(), new Promise((r) => setTimeout(r, CHANNEL_CHANGE_MS))]).then(() => {
+    attract.changing = false;
+    $('chart-tv').dataset.channelChange = 'false';
+    if (attract.on && attract.bars.length) showAttract();
+  });
 }
 
 function stopAttract() {
   attract.on = false;
   clearInterval(attract.timer);
   attract.timer = null;
+  if (!attract.changing) attract.bars = null; // next time between matches: a new chart
+  $('chart-tv').dataset.channelChange = 'false';
 }
 
 /** Trade markers for both players: yours blue, your opponent's yellow. */
 function refreshTrades() {
   const m = state.match;
   if (!chart.series || !m) return;
-  chart.markers.setMarkers(tradeMarkers(m.trades, m.seat, tradeColorsFrom(cssVar)));
+  chart.series.setMarkers(tradeMarkers(m.trades, m.seat, tradeColorsFrom(cssVar)));
   placePictures();
 }
 
@@ -1486,6 +1524,7 @@ $('wallet-disconnect').onclick = async () => {
   setText('wallet-name', '');
   setText('wallet-signed-in', 'no');
   show('profile-panel', false);
+  show('player-card', false);
   state.ws?.close(); // a fresh connection drops the server session
 };
 $('wallet-new').onclick = () => {

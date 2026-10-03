@@ -38,7 +38,7 @@
   --pons-avatar-bot: #475569;
   /* Avatars made from a wallet address: the hue comes from the address; these are saturation and lightness. */
   --pons-avatar-generated-ink: 65% 45%; --pons-avatar-generated-paper: 70% 92%;
-  /* The match chart's own drawing (TradingView Lightweight Charts). Empty: the chart library's default. */
+  /* The match chart's own drawing (web/pons-chart.js): background, scale text, grid lines, scale borders. */
   /* Dark, like the TV screen it sits in (phosphor-green scales). */
   --pons-chart-background: #050805; --pons-chart-text: #b8ff6a; --pons-chart-grid: #142614;
   --pons-chart-border: #2b4d2f;
@@ -81,6 +81,48 @@
   --pons-size-tv-max: 880px;           /* the whole TV's widest */
   --pons-size-chart-height-phone: 300px; /* the screen's height below 600 pixels wide */
 
+  /* ---------- the play page in the TV's look: layout, panels, buttons, icons, the player card ---------- */
+  /* Layout: your player on the left, the TV and the match controls in the middle, money and the server on the right. */
+  --pons-size-layout-max: 1680px;      /* the whole layout's widest */
+  --pons-size-side: 270px;             /* each side column on a wide screen */
+  --pons-layout-gap: 20px;             /* between the columns and between panels */
+  --pons-play-page: #fdf0dc;           /* the play page's background (warm, like a TV room wall) */
+  --pons-play-page-dots: rgba(26, 15, 11, 0.07); --pons-play-page-dot-size: 18px; /* a faint dot pattern on it */
+  /* Panels: framed like the TV (dark outline, round corners, a hard shadow), with a cream face. */
+  --pons-panel-face: #fff8ec; --pons-panel-edge: #1a0f0b; --pons-panel-text: #1a0f0b; --pons-panel-muted: #6b5544;
+  --pons-panel-border: 3px; --pons-panel-radius: 18px; --pons-panel-padding: 14px;
+  --pons-panel-shadow: 6px 6px 0 0 #1a0f0b;
+  /* Panel titles are channel labels: phosphor-green letters on a dark plate, an icon in front. */
+  --pons-label-face: #1a0f0b; --pons-label-text: #b8ff6a; --pons-label-font-size: 14px; --pons-label-radius: 10px;
+  --pons-label-glow: 0 0 5px rgba(160, 255, 90, 0.7); --pons-label-spacing: 0.05em;
+  --pons-icon-size: 18px; --pons-icon-size-large: 28px;
+  /* Icons: drawn for this site (web/assets/tv), one colour each; the page paints them in a token colour. */
+  --pons-icon-buy: url("assets/tv/buy.svg"); --pons-icon-sell: url("assets/tv/sell.svg"); --pons-icon-duel: url("assets/tv/duel.svg");
+  --pons-icon-trophy: url("assets/tv/trophy.svg"); --pons-icon-coin: url("assets/tv/coin.svg"); --pons-icon-calendar: url("assets/tv/calendar.svg");
+  --pons-icon-wallet: url("assets/tv/wallet.svg"); --pons-icon-signal: url("assets/tv/signal.svg"); --pons-icon-candles: url("assets/tv/candles.svg");
+  --pons-icon-player: url("assets/tv/player.svg"); --pons-icon-star: url("assets/tv/star.svg"); --pons-icon-clock: url("assets/tv/clock.svg");
+  --pons-icon-tv: url("assets/tv/tv.svg"); --pons-icon-upload: url("assets/tv/upload.svg"); --pons-icon-badge: url("assets/tv/badge.svg");
+  /* Buttons are TV switches: a yellow knob face, a dark outline, a hard shadow that goes when pressed. */
+  --pons-button-face: #f3d440; --pons-button-face-light: #fff3b0; --pons-button-text: #1a0f0b;
+  --pons-button-main-light: #ffb36b; --pons-button-main: #ef9043; /* the main action in a panel: the TV body's orange */
+  --pons-button-off-face: #e3d6c1; --pons-button-off-text: #8a7563; /* a switch that cannot be pressed now */
+  --pons-button-border: 3px; --pons-button-radius: 999px; --pons-button-padding: 6px 14px;
+  --pons-button-shadow: 3px 3px 0 0 #1a0f0b; --pons-button-press: 3px;
+  --pons-field-face: #ffffff; --pons-field-border: 2px; --pons-field-radius: 10px; --pons-field-padding: 4px 8px;
+  /* Trade buttons are round knobs beside the TV: buys green, sells red. */
+  --pons-knob-size: 54px;
+  --pons-knob-buy-light: #d9fbe3; --pons-knob-buy: #4ade80; --pons-knob-buy-dark: #16a34a;
+  --pons-knob-sell-light: #ffe0dc; --pons-knob-sell: #ff8a7a; --pons-knob-sell-dark: #dc2626;
+  --pons-size-trade-knobs: 160px;      /* the trade knobs' column beside the TV */
+  /* The scoreboard above the TV: a dark strip like the TV's on-screen text. */
+  --pons-scoreboard-face: #1a0f0b; --pons-scoreboard-text: #f5ead8; --pons-scoreboard-gain: #4ade80; --pons-scoreboard-loss: #ff7a6a;
+  /* The player card: a mini TV with your picture in its screen. */
+  --pons-player-tv-width: 168px; --pons-player-tv-screen: 104px; --pons-player-tv-knob: 18px;
+  --pons-player-tv-antenna: 34px; --pons-player-tv-radius: 18px;
+  /* Rank badges by tier (from live wins): 0 Rookie, 1 Bronze, 2 Silver, 3 Gold, 4 Diamond. */
+  --pons-badge-size: 34px;
+  --pons-badge-tier-0: #b8a68f; --pons-badge-tier-1: #cd7f32; --pons-badge-tier-2: #c3cad3; --pons-badge-tier-3: #f3c623; --pons-badge-tier-4: #7dd3fc;
+
   /* ---------- colours: the design preview and gallery pages' own frame (not the game) ---------- */
   --pons-preview-background: #f3f4f6; --pons-preview-frame: #fff; --pons-preview-line: #d1d5db;
   --pons-preview-label-background: #111827; --pons-preview-label-text: #fff;
@@ -113,6 +155,7 @@
   --pons-size-duel: 200px;
   --pons-size-next-step: 48rem;
   --pons-size-tour-card: 28rem;
+  --pons-tour-scroll-margin: 16px;     /* room above a part the intro tour scrolls to */
   --pons-size-library-chart-height: 280px; --pons-size-library-chart-max: 900px; --pons-size-library-start: 420px;
   /* Duel circles, in units of the 200 x 200 duel picture: radius = base x (1 + exaggeration x profit-or-loss). Read by the scripts. */
   --pons-duel-exaggeration: 10;

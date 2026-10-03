@@ -219,7 +219,9 @@ export class Tour {
       else d.removeAttribute('aria-current');
     }
     const target = this.targetElement(step);
-    if (target) target.scrollIntoView({ block: 'center', inline: 'nearest' });
+    // The part goes near the window's top (base.css keeps a small margin above it), leaving the
+    // lower part of the window for the card.
+    if (target) target.scrollIntoView({ block: 'start', inline: 'nearest' });
     this.placeHighlight();
     this.el('tour-next').focus();
     this.onStep({ index: this.index, step });
