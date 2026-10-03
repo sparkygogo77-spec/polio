@@ -61,7 +61,8 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const ROOT = "tests/fixtures/pst-tv";
+/* PST_ROOT=path to a copy of PST's web/ and builder.json scores another revision of it (with SCORE_ONLY=1). */
+const ROOT = process.env.PST_ROOT ?? "tests/fixtures/pst-tv";
 const FILES = {};
 const walk = (d, rel = "") => { for (const n of readdirSync(d)) { const p = join(d, n); const r = rel ? `${rel}/${n}` : n; if (statSync(p).isDirectory()) walk(p, r); else if (n !== "FROM.md") FILES[r] = readFileSync(p); } };
 walk(ROOT);
