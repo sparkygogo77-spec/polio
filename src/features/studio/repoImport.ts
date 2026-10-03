@@ -33,12 +33,21 @@
  *
  * Pure: no fetch, no browser, no keys. `tests/repo-import.mjs` holds it.
  */
-import { pageEntry } from "./zipImport.ts";
+import { MAX_FILES, pageEntry } from "./zipImport.ts";
 
-/** How many files of a repository are worth pulling. Past this it is a project, not a page. */
-export const MAX_REPO_FILES = 80;
-/** And how much of it, unpacked. The zip route's own cap is the one that matters; this is the fetch's. */
-export const MAX_REPO_BYTES = 8 * 1024 * 1024;
+/**
+ * How many files of a repository are pulled for its site: as many as the
+ * zip route itself opens (`MAX_FILES`). It was 80, and PonsStars asked for
+ * 85 (its pages, plus the screenshots in docs/ and the design kit's copies,
+ * which the page never asks for), so nothing came at all. What is pulled is
+ * the site's own folder and what its pages ask for outside it
+ * (`siteFolders`, `referenced`), fetched a few at a time with a count.
+ */
+export const MAX_REPO_FILES = MAX_FILES;
+/** And how much of it, unpacked. */
+export const MAX_REPO_BYTES = 40 * 1024 * 1024;
+/** What goes to the zip route in one request, packed: under the host's 4.5 MB a request. */
+export const MAX_SEND_BYTES = 4_200_000;
 
 export type RepoRefusal = "not-a-repo" | "no-token" | "no-page" | "too-big" | "github";
 
@@ -227,6 +236,76 @@ export function wanted(paths: string[]): string[] {
 }
 
 /**
+ * THE SITE'S OWN FOLDERS: where its pages are. A repository is more than its
+ * site (PonsStars keeps docs/screenshots, design/site and kit/starter beside
+ * web/), and what a page needs is next to it; what it asks for from
+ * elsewhere is followed by `referenced`. A page at the root is the whole
+ * repository's, as before.
+ */
+export function siteFolders(pages: string[]): string[] {
+  const dirs = [...new Set(pages.map((p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/") + 1) : "")))];
+  if (dirs.includes("")) return [""];
+  /* A folder inside another is in it already. */
+  return dirs.filter((d) => !dirs.some((e) => e !== d && d.startsWith(e)));
+}
+
+export const inFolders = (path: string, folders: readonly string[]) => folders.some((f) => path.startsWith(f));
+
+/**
+ * The repository's files a page or a stylesheet asks for by a relative
+ * address (`src`, `href`, `url()`, `@import`): `../assets/logo.svg` from
+ * `web/index.html` is `assets/logo.svg`. An address from the root (`/x`) is
+ * tried from the page's folder and from the repository's root; one with a
+ * scheme or `//` is another site's.
+ */
+export function referenced(text: string, from: string, paths: ReadonlySet<string>, folders: readonly string[] = []): string[] {
+  const dir = from.includes("/") ? from.slice(0, from.lastIndexOf("/") + 1) : "";
+  const out = new Set<string>();
+  const norm = (p: string) => {
+    const bits: string[] = [];
+    for (const b of p.split("/")) { if (b === "..") { if (!bits.length) return null; bits.pop(); } else if (b && b !== ".") bits.push(b); }
+    return bits.join("/");
+  };
+  const re = /(?:\b(?:src|href|poster|data-src)\s*=\s*["']([^"'#?]+)|url\(\s*["']?([^"')#?]+)|@import\s+["']([^"'#?]+)|\bsrcset\s*=\s*["']([^"']+))/gi;
+  for (const m of text.matchAll(re)) {
+    const raw = m[4] ? m[4].split(",").map((c) => c.trim().split(/\s+/)[0] ?? "") : [m[1] ?? m[2] ?? m[3] ?? ""];
+    for (const r0 of raw) {
+      const r = r0.trim();
+      if (!r || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(r)) continue;
+      const tries = r.startsWith("/") ? [...folders.map((f) => `${f}${r.slice(1)}`), r.slice(1)] : [`${dir}${r}`];
+      for (const t of tries) { const n = norm(decodeURIComponent(t)); if (n && paths.has(n)) { out.add(n); break; } }
+    }
+  }
+  return [...out];
+}
+
+/** Where a too-big repository's files are, biggest folder first: what to point the import at instead. */
+export function heaviestFolders(paths: readonly string[], most = 3): string {
+  const by = new Map<string, number>();
+  for (const p of paths) { const d = p.includes("/") ? p.split("/").slice(0, -1).slice(0, 2).join("/") + "/" : "(root)"; by.set(d, (by.get(d) ?? 0) + 1); }
+  return [...by].sort((a, b) => b[1] - a[1]).slice(0, most).map(([d, n]) => `${d} ${n}`).join(", ");
+}
+
+/**
+ * A zip whose entries are deflated where that makes them smaller (pages,
+ * styles, svgs; a png is packed already and stays stored), so what is sent
+ * to the zip route fits in one request. Where the browser cannot deflate,
+ * it is the stored zip.
+ */
+export async function packedZipOf(files: { name: string; bytes: Uint8Array }[]): Promise<Uint8Array> {
+  if (typeof CompressionStream === "undefined") return zipOf(files);
+  const packed: { name: string; bytes: Uint8Array; raw?: { size: number; crc: number } }[] = [];
+  for (const f of files) {
+    if (f.bytes.length < 256 || /\.(png|jpe?g|webp|avif|gif|woff2?|zip|gz)$/i.test(f.name)) { packed.push(f); continue; }
+    try {
+      const d = new Uint8Array(await new Response(new Blob([f.bytes as BlobPart]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+      packed.push(d.length < f.bytes.length ? { name: f.name, bytes: d, raw: { size: f.bytes.length, crc: crc32(f.bytes) } } : f);
+    } catch { packed.push(f); }
+  }
+  return zipOf(packed);
+}
+
+/**
  * The page to open, out of what the repository holds.
  *
  * Not a second rule: `pageEntry` is what the zip route itself opens, so
@@ -289,7 +368,8 @@ export function crc32(bytes: Uint8Array): number {
 }
 
 /**
- * A zip, stored rather than deflated.
+ * A zip, stored rather than deflated (or holding entries `packedZipOf`
+ * deflated already).
  *
  * Forty lines for the same reason the reader beside it is forty lines: the
  * format is short, the one method needed is the one that packs nothing, and
@@ -298,7 +378,7 @@ export function crc32(bytes: Uint8Array): number {
  * in it comes back as itself. The bytes are bigger than a deflated zip and
  * never leave this machine's own request, so the size buys nothing to save.
  */
-export function zipOf(files: { name: string; bytes: Uint8Array }[]): Uint8Array {
+export function zipOf(files: { name: string; bytes: Uint8Array; raw?: { size: number; crc: number } }[]): Uint8Array {
   const enc = new TextEncoder();
   const locals: Uint8Array[] = [];
   const central: Uint8Array[] = [];
@@ -306,16 +386,19 @@ export function zipOf(files: { name: string; bytes: Uint8Array }[]): Uint8Array 
 
   for (const f of files) {
     const name = enc.encode(f.name);
-    const crc = crc32(f.bytes);
+    /* Already deflated (`packedZipOf`): its own size and crc are the unpacked file's. */
+    const method = f.raw ? 8 : 0;
+    const crc = f.raw ? f.raw.crc : crc32(f.bytes);
+    const size = f.raw ? f.raw.size : f.bytes.length;
     const local = new Uint8Array(30 + name.length);
     const lv = new DataView(local.buffer);
     lv.setUint32(0, 0x04034b50, true);
     lv.setUint16(4, 20, true);          // version needed
     lv.setUint16(6, 0x0800, true);      // names are UTF-8
-    lv.setUint16(8, 0, true);           // stored
+    lv.setUint16(8, method, true);      // stored, or deflated
     lv.setUint32(14, crc, true);
     lv.setUint32(18, f.bytes.length, true);
-    lv.setUint32(22, f.bytes.length, true);
+    lv.setUint32(22, size, true);
     lv.setUint16(26, name.length, true);
     local.set(name, 30);
     locals.push(local, f.bytes);
@@ -326,10 +409,10 @@ export function zipOf(files: { name: string; bytes: Uint8Array }[]): Uint8Array 
     dv.setUint16(4, 20, true);          // version made by
     dv.setUint16(6, 20, true);          // version needed
     dv.setUint16(8, 0x0800, true);
-    dv.setUint16(10, 0, true);          // stored
+    dv.setUint16(10, method, true);
     dv.setUint32(16, crc, true);
     dv.setUint32(20, f.bytes.length, true);
-    dv.setUint32(24, f.bytes.length, true);
+    dv.setUint32(24, size, true);
     dv.setUint16(28, name.length, true);
     dv.setUint32(42, at, true);         // where its local header is
     dir.set(name, 46);

@@ -26,7 +26,7 @@ import { handoffFrom } from "./polioMd";
 import { ArtifactRefused, artifactFiles, artifactName, artifactSays, findArtifact, rangeReader, runOf, runRef } from "./captureArtifact";
 import { MOST_CHARS, MOST_READS } from "./standIn";
 import { stillFiles, stillsAsk, type StillsAsk } from "./stills";
-import { docPathIn, pathIn, withPath, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { docPathIn, pathIn, withPath, heaviestFolders, inFolders, packedZipOf, referenced, siteFolders, MAX_REPO_BYTES, MAX_REPO_FILES, MAX_SEND_BYTES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 import { namedPictures } from "./siteHead";
 import { manifestIn, readManifest, type BuilderManifest } from "./builderManifest";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
@@ -466,36 +466,53 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     return { no: "no-page", says: noPageSays(repo, kinds, page.at, made), deployedAt: homepage || null, pageAt: page.at, pageWhy: page.why, madeHere: made };
   }
 
-  /* The manifest's pages and the files it names come whatever the filter thinks of them. */
-  const keep = [...wanted(paths), ...(manifest ? [...manifest.pages.map((p) => p.file), manifest.tokens, manifest.styleLayer].filter((p): p is string => !!p && paths.includes(p)) : [])];
-  const want = new Map(blobs.filter((e) => keep.includes(e.path)).map((e) => [e.path, e]));
-  // The page itself always comes, whatever the filter thought of its name.
-  if (!want.has(page)) {
-    const it = blobs.find((e) => e.path === page);
-    if (it) want.set(page, it);
-  }
-  if (want.size > MAX_REPO_FILES) return { no: "too-big", says: `${REPO_REFUSAL_SAYS["too-big"]} It has ${want.size} files a page would ask for, and this reads ${MAX_REPO_FILES}.` };
-  const weight = [...want.values()].reduce((n, e) => n + (e.size ?? 0), 0);
-  if (weight > MAX_REPO_BYTES) return { no: "too-big", says: `${REPO_REFUSAL_SAYS["too-big"]} Its page and what it uses come to ${Math.round(weight / 1024 / 1024)} MB.` };
-
-  const list = [...want.values()];
+  /*
+   * THE SITE'S OWN FOLDER, AND WHAT ITS PAGES ASK FOR FROM ELSEWHERE. The
+   * manifest's pages and the files it names come whatever the filter thinks
+   * of them; of the rest, what is in the pages' folders (`siteFolders`), and
+   * then whatever a page or stylesheet fetched asks for outside them
+   * (`referenced`), until nothing new is asked for. PonsStars' 85 wanted
+   * files were 29 in web/ and 56 in docs/, design/ and kit/ that no page asks for.
+   */
+  const named = manifest ? [...manifest.pages.map((p) => p.file), manifest.tokens, manifest.styleLayer].filter((p): p is string => !!p && paths.includes(p)) : [];
+  const folders = siteFolders([page, ...(manifest?.pages.map((p) => p.file) ?? [])]);
+  const wantedAll = new Set(wanted(paths));
+  const keep = new Set([page, ...named, ...[...wantedAll].filter((p) => inFolders(p, folders))]);
+  const byPath = new Map(blobs.map((e) => [e.path, e]));
+  const tooMany = (n: number, list: string[]) => ({ no: "too-big" as const, says: `${REPO_REFUSAL_SAYS["too-big"]} Its site asks for ${n} files, and this reads up to ${MAX_REPO_FILES}. Most are in ${heaviestFolders(list)}.` });
   const got: { name: string; bytes: Uint8Array }[] = [];
   const AT_ONCE = 6;
-  for (let i = 0; i < list.length; i += AT_ONCE) {
-    say(`Fetching the page and what it uses… ${Math.min(i + AT_ONCE, list.length)} of ${list.length}`);
-    const batch = await Promise.all(
-      list.slice(i, i + AT_ONCE).map(async (e) => {
-        const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token);
-        if (isNo(blob)) return blob;
-        const it = blob as { content?: string; encoding?: string };
-        if (it.encoding !== "base64" || typeof it.content !== "string") return { no: "github" as const, says: `GitHub would not hand over ${e.path}.` };
-        return { name: e.path, bytes: unbase64(it.content) };
-      }),
-    );
-    for (const one of batch) {
-      if (isNo(one)) return one;
-      got.push(one);
+  let weight = 0;
+  let queue = [...keep].filter((p) => byPath.has(p));
+  const asked = new Set(queue);
+  const decoder0 = new TextDecoder();
+  while (queue.length) {
+    if (asked.size > MAX_REPO_FILES) return tooMany(asked.size, [...asked]);
+    weight += queue.reduce((n, p) => n + (byPath.get(p)?.size ?? 0), 0);
+    if (weight > MAX_REPO_BYTES) return { no: "too-big", says: `${REPO_REFUSAL_SAYS["too-big"]} Its site and what it uses come to more than ${Math.round(MAX_REPO_BYTES / 1024 / 1024)} MB.` };
+    const round: { name: string; bytes: Uint8Array }[] = [];
+    for (let i = 0; i < queue.length; i += AT_ONCE) {
+      say(`Fetching the site and what it uses… ${got.length + round.length + Math.min(AT_ONCE, queue.length - i)} of ${asked.size}`);
+      const batch = await Promise.all(
+        queue.slice(i, i + AT_ONCE).map(async (path) => {
+          const e = byPath.get(path)!;
+          const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token);
+          if (isNo(blob)) return blob;
+          const it = blob as { content?: string; encoding?: string };
+          if (it.encoding !== "base64" || typeof it.content !== "string") return { no: "github" as const, says: `GitHub would not hand over ${e.path}.` };
+          return { name: e.path, bytes: unbase64(it.content) };
+        }),
+      );
+      for (const one of batch) {
+        if (isNo(one)) return one;
+        round.push(one);
+      }
     }
+    got.push(...round);
+    /* What these pages and stylesheets ask for that has not come yet. */
+    const next = new Set<string>();
+    for (const f of round) if (/\.(html?|css|svg)$/i.test(f.name)) for (const r of referenced(decoder0.decode(f.bytes), f.name, wantedAll, folders)) if (!asked.has(r) && byPath.has(r)) { next.add(r); asked.add(r); }
+    queue = [...next];
   }
 
   /*
@@ -550,7 +567,8 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
   }
 
   say("Packing it…");
-  const zip = zipOf(got);
+  const zip = await packedZipOf(got);
+  if (zip.length > MAX_SEND_BYTES) return { no: "too-big", says: `${REPO_REFUSAL_SAYS["too-big"]} Its site packs to ${(zip.length / 1048576).toFixed(1)} MB, and the server takes ${(MAX_SEND_BYTES / 1048576).toFixed(1)} MB in one go. Most of its ${got.length} files are in ${heaviestFolders(got.map((g) => g.name))}.` };
   const name = `${repo.owner}-${repo.name}.zip`;
   /*
    * ITS PREVIEW SCREENS run its own code (`boardStates.ts`): the pages with
