@@ -73,7 +73,15 @@ check("…and it ends ready", seen.has("ready"), [...seen].join(" → "));
 
 /* Pressed at once after another reload, while the keys are still being opened. */
 await page.reload({ waitUntil: "domcontentloaded" });
-for (let i = 0; i < 100 && !(await bar.count()); i++) await page.waitForTimeout(30);
+/*
+ * At once, but on a button React has taken over: the server's markup is there
+ * before the page's script is, and a press on it does nothing at all. Beside
+ * other tests the script came late and the press landed on that markup
+ * ("pressed while blocked", no push, no panel). The moment pressed in is
+ * still the one this checks: the keys are still being opened.
+ */
+const live = () => page.evaluate(() => { const b = document.querySelector("header [data-go-live]"); return !!b && Object.keys(b).some((k) => k.startsWith("__reactProps")); });
+for (let i = 0; i < 300 && !(await live()); i++) await page.waitForTimeout(30);
 const pressedIn = await bar.getAttribute("data-go-live-state");
 const n = pushes.length;
 await bar.click({ force: true });
