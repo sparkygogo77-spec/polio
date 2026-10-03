@@ -82,8 +82,7 @@ for (const [site, from] of PAIRS) {
   const depth0 = await s.undoDepth();
   await card.locator(`[data-remix-place="${partId}"]`).click();
   await page.waitForTimeout(800);
-  const doc1 = await s.doc();
-  const placed = doc1.nodes.filter((n) => n.remix?.site === from);
+  const placed = await page.evaluate((from) => window.__studioPublishDoc().nodes.filter((n) => n.remix?.site === from), from);
   const comp = componentOf(src.nodes, part, true);
   check(`${site}: placed as one undo step, with the ${comp.length - 1} parts inside it`, (await s.undoDepth()) === depth0 + 1 && placed.length === comp.length, `${placed.length} placed of ${comp.length}; depth ${depth0} → ${await s.undoDepth()}`);
   const lead = placed.find((n) => n.remix.part === part.id);
@@ -122,7 +121,7 @@ for (const [site, from] of PAIRS) {
     const d1 = await s.undoDepth();
     await sw.click();
     await page.waitForTimeout(500);
-    const now = (await s.doc()).nodes.find((n) => n.id === lead.id);
+    const now = await s.node(lead.id);
     const theirLook = lookOf(part).facets, mineNow = lookOf(now).facets;
     const differ = FACETS.filter((f) => J(theirLook[f]) !== J(mineNow[f]));
     check(`${site}: Keep its original look: it wears the look it had on ${from}, facet for facet, in one step`, now.remix.kept === true && differ.length === 0 && (await s.undoDepth()) === d1 + 1, `${differ.join(", ")}; depth ${d1} → ${await s.undoDepth()}`);
@@ -133,7 +132,7 @@ for (const [site, from] of PAIRS) {
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+z");
   await page.waitForTimeout(500);
-  check(`${site}: Undo takes it all off again`, (await s.doc()).nodes.filter((n) => n.remix).length === 0);
+  check(`${site}: Undo takes it all off again`, (await page.evaluate(() => window.__studioPublishDoc().nodes.filter((n) => n.remix).length)) === 0);
   check(`${site}: no page errors`, s.errors.length === 0, s.errors.slice(0, 2).join(" | "));
   await s.close();
 }

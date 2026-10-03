@@ -4,7 +4,7 @@
  * state read back, parts picked by clicking them, and the export served.
  *
  *   const s = await openSite(BASE, SINK_ROOT, "trumpmorty-fun");
- *   s.doc()            the board's document now
+ *   s.doc()            the board's document now (slow on a big site: s.node(id) and s.ids() read less)
  *   s.pick(id, more)   click a part (more: hold Shift to add it)
  *   s.served()         the export, served; returns its address
  *   s.paint(p, sel)    what a part's box and words are painted with
@@ -72,7 +72,12 @@ export async function openSite(browser, BASE, root, site, { width = 1500, height
   await page.evaluate((d) => window.__studioLoadDoc(d), { ...doc0, activePageId: doc0.pages[0].id });
   await page.waitForTimeout(2500);
   const doc = () => page.evaluate(() => window.__studioPublishDoc());
-  const node = async (id) => (await doc()).nodes.find((n) => n.id === id) ?? null;
+  /* One part, found in the page: a whole document of a big site (9138 parts on Parasite) took 9s to hand across for each part read. */
+  const node = (id) => page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id) ?? null, id);
+  /* The ids of every part, without the parts. */
+  const ids = () => page.evaluate(() => window.__studioPublishDoc().nodes.map((n) => n.id));
+  /* The parts not among `ids`: what a step added. */
+  const added = (ids) => page.evaluate((ids) => { const had = new Set(ids); return window.__studioPublishDoc().nodes.filter((n) => !had.has(n.id)); }, ids);
   const pick = async (id, more = false) => {
     const el = page.locator(`[data-node-id="${id}"]`).first();
     await el.scrollIntoViewIfNeeded().catch(() => {});
@@ -112,7 +117,7 @@ export async function openSite(browser, BASE, root, site, { width = 1500, height
     return `http://127.0.0.1:${server.address().port}/`;
   };
   const close = async () => { server?.close(); await page.close(); };
-  return { page, errors, doc, node, pick, undoDepth, served, close };
+  return { page, errors, doc, node, ids, added, pick, undoDepth, served, close };
 }
 
 /**

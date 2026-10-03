@@ -56,8 +56,8 @@ for (const [site, from] of PAIRS) {
   const mine = siteDoc(ROOT, site);
   await page.evaluate((d) => window.__studioLoadDoc(d), { ...mine, activePageId: mine.pages[0].id });
   await page.waitForTimeout(3000);
-  const here = await s.doc();
-  const button = here.nodes.find((n) => n.pageId === here.activePageId && n.featureId === "cta-primary");
+  const button = await page.evaluate(() => { const here = window.__studioPublishDoc(); return here.nodes.find((n) => n.pageId === here.activePageId && n.featureId === "cta-primary"); });
+  const hereIds = await s.ids();
 
   const openRemix = async () => {
     await s.pick(button.id);
@@ -93,11 +93,11 @@ for (const [site, from] of PAIRS) {
     await card.locator("[data-remix-keep]").click();
     await page.waitForTimeout(200);
     const d0 = await s.undoDepth();
-    const before = new Set(here.nodes.map((n) => n.id));
+    const before = hereIds;
     await card.locator(`[data-remix-place="${kitId}"]`).click();
     await page.waitForTimeout(700);
-    const doc1 = await s.doc();
-    const placed = doc1.nodes.filter((n) => !before.has(n.id));
+    const placed = await s.added(before);
+    const ids1 = await s.ids();
     const p = placed[0];
     const base = { id: "kit", featureId: "cta-primary", colour: null, font: null, edge: null, radius: null };
     const want = lookOf({ ...base, ...lookPatch(base, lookOfKit(kit, { button: true }), KIT_FACETS) });
@@ -116,10 +116,10 @@ for (const [site, from] of PAIRS) {
     /* Not kept: this site's look. */
     await card.locator("[data-remix-keep]").click();
     await page.waitForTimeout(200);
-    const before2 = new Set(doc1.nodes.map((n) => n.id));
+    const before2 = ids1;
     await card.locator(`[data-remix-place="${kitId}"]`).click();
     await page.waitForTimeout(700);
-    const q = (await s.doc()).nodes.find((n) => !before2.has(n.id));
+    const q = (await s.added(before2))[0];
     check(`${site}: placed without keeping, it wears this site's look, not ${from}'s`, !!q && q.remix?.kept === false && KIT_FACETS.some((f) => J(lookOf(q).facets[f]) !== J(want.facets[f])), q ? "" : "nothing placed");
   }
 
@@ -133,11 +133,11 @@ for (const [site, from] of PAIRS) {
   await page.waitForTimeout(300);
   const put = card.locator("[data-remix-put]").first();
   if (await put.count()) {
-    const was = J((await s.doc()).nodes.find((n) => n.id === button.id));
+    const was = J((await s.node(button.id)));
     const d1 = await s.undoDepth();
     await put.click();
     await page.waitForTimeout(600);
-    const now = (await s.doc()).nodes.find((n) => n.id === button.id);
+    const now = (await s.node(button.id));
     check(`${site}: a motion ${from} taught is put on the picked part, in one undo step`, J(now) !== was && (await s.undoDepth()) === d1 + 1, `depth ${d1} → ${await s.undoDepth()}`);
   } else check(`${site}: ${from} taught a motion to offer`, false, "no motion rows");
   await page.keyboard.press("Escape");
@@ -147,19 +147,19 @@ for (const [site, from] of PAIRS) {
   const styles = page.locator("[data-kit-styles-learned] [data-kit-style]");
   await styles.first().scrollIntoViewIfNeeded().catch(() => {});
   const paint = () => page.evaluate(PAINT, `[data-node-id="${button.id}"] [data-part-box]`);
-  const p0 = await paint(), w0 = J((await s.doc()).nodes.find((n) => n.id === button.id));
+  const p0 = await paint(), w0 = J((await s.node(button.id)));
   let worn = null;
   for (let i = 0; i < Math.min(6, await styles.count()); i++) {
     await styles.nth(i).hover();
     await page.waitForTimeout(250);
     if (J(await paint()) !== J(p0)) { worn = i; break; }
   }
-  check(`${site}: the Styles row offers styles learned from other sites; pointed at, the part wears one, nothing written`, worn !== null && J((await s.doc()).nodes.find((n) => n.id === button.id)) === w0, `${await styles.count()} learned styles`);
+  check(`${site}: the Styles row offers styles learned from other sites; pointed at, the part wears one, nothing written`, worn !== null && J((await s.node(button.id))) === w0, `${await styles.count()} learned styles`);
   if (worn !== null) {
     const d2 = await s.undoDepth();
     await styles.nth(worn).click();
     await page.waitForTimeout(500);
-    check(`${site}: …clicked, it is written, in one undo step`, J((await s.doc()).nodes.find((n) => n.id === button.id)) !== w0 && (await s.undoDepth()) === d2 + 1);
+    check(`${site}: …clicked, it is written, in one undo step`, J((await s.node(button.id))) !== w0 && (await s.undoDepth()) === d2 + 1);
   }
 
   /* A saved component, back through the same window. */
@@ -178,11 +178,11 @@ for (const [site, from] of PAIRS) {
       await saved.click();
       await page.waitForTimeout(300);
       const place = card.locator('[data-remix-row-kind="saved"] [data-remix-place]').first();
-      const before3 = new Set((await s.doc()).nodes.map((n) => n.id));
+      const before3 = await s.ids();
       const d3 = await s.undoDepth();
       await place.click();
       await page.waitForTimeout(700);
-      const added = (await s.doc()).nodes.filter((n) => !before3.has(n.id));
+      const added = await s.added(before3);
       check(`${site}: …placed whole, in one undo step`, added.length >= 1 && (await s.undoDepth()) === d3 + 1 && added.every((n) => n.remix), `${added.length} placed; depth ${d3} → ${await s.undoDepth()}`);
     }
   } else check(`${site}: the part panel offers Save as component`, false, "not found");
