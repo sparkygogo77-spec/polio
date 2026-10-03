@@ -467,6 +467,38 @@ if (process.env.SCORE_FILE) { const { writeFileSync } = await import("node:fs");
 /* What this branch reached, held so it cannot slip back. */
 const HOLD = { 1440: { share: 1, pixels: 0.02 }, 390: { share: 0.93, pixels: 0.04 } };
 for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at least what it reached (${Math.round(HOLD[r.width].share * 100)}% of parts, at most ${Math.round(HOLD[r.width].pixels * 100)}% of pixels off)`, !!process.env.SCORE_ONLY || (r.parts > 60 && r.matching / r.parts >= HOLD[r.width].share && r.pixels <= HOLD[r.width].pixels), `${r.matching}/${r.parts} parts, ${(r.pixels * 100).toFixed(1)}% pixels`);
+/*
+ * …AND A LINE HELD ON ONE LINE IS NEVER CUT. J (2026-10-03), on the live
+ * builder: PST's title drew "PonsStars test pag". Its part was 314px wide, as
+ * the capture measured it, and its words in the viewer's monospace needed
+ * 334. The words of a one-line part are set as wide as they need, so here
+ * the title is stored at half its width (another machine's font, in short)
+ * and its words, which run past the box, must be cut by nothing between them
+ * and the page: not on the board, not in the Preview.
+ */
+{
+  const title = byHook("page-title");
+  const cut = async (url, nodeSel) => {
+    await ui.goto(`${URL_BASE}${url}`, { waitUntil: "networkidle" });
+    await ui.waitForTimeout(2000);
+    return ui.evaluate(({ id, nodeSel }) => {
+      const host = document.querySelector(nodeSel.replace("ID", id));
+      const words = host && Array.from(host.querySelectorAll("*")).find((e) => Array.from(e.childNodes).some((c) => c.nodeType === 3 && c.textContent.includes("PonsStars")));
+      if (!host || !words) return { found: false };
+      const range = document.createRange(); range.selectNodeContents(words);
+      const ink = range.getBoundingClientRect(), box = host.getBoundingClientRect();
+      const cutBy = [];
+      for (let e = words; e && e !== host.parentElement; e = e.parentElement) { const c = getComputedStyle(e); if (/hidden|clip|scroll|auto/.test(c.overflowX) || c.clipPath !== "none") cutBy.push(`${e.tagName.toLowerCase()} ${c.overflowX}`); }
+      return { found: true, past: Math.round(ink.right - box.right), cutBy, oneLine: ink.height < 1.8 * parseFloat(getComputedStyle(words).fontSize) };
+    }, { id: title.id, nodeSel });
+  };
+  /* Half the width the page's own words take (the h1 itself is the page's width). */
+  const wordsW = await live.evaluate(() => { const e = document.querySelector('[data-hook="page-title"]'); const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; });
+  await ui.evaluate(({ id, w }) => { const k = "builder.studio", env = JSON.parse(localStorage.getItem(k)); env.state.nodes = env.state.nodes.map((n) => (n.id === id ? { ...n, w } : n)); localStorage.setItem(k, JSON.stringify(env)); }, { id: title?.id, w: Math.round(wordsW / 2) });
+    const onBoardCut = await cut("/builder", '[data-node-id="ID"]');
+  const inPreview = await cut("/builder/preview", '[data-live-node="ID"]');
+  for (const [where, r] of [["on the board", onBoardCut], ["in the Preview", inPreview]]) check(`7. the title stored at half its width runs past its box on one line ${where}, cut by nothing`, !!title && r.found && r.past > 10 && r.oneLine && r.cutBy.length === 0, JSON.stringify(r));
+}
 await prev.setViewportSize({ width: 1440, height: 900 });
 if (process.env.SHOT) { const tv = byHook("chart-tv"); const loc = ui.locator(`[data-node-id="${tv?.id}"]`).first(); await loc.scrollIntoViewIfNeeded().catch(() => {}); await ui.screenshot({ path: process.env.SHOT }); }
 
