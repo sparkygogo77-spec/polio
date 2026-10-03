@@ -13,7 +13,7 @@
  *   · the preview screens are read as the repository's own code builds
  *     them, and the States control lists them with the hidden groups;
  *   · a screen on (mid-match) shows exactly what that screen shows: its
- *     hidden parts drawn in place, the parts it hides hidden;
+ *     hidden parts drawn where that screen draws them, the parts it hides hidden;
  *   · picking a hidden part with its state off switches the state on, so it
  *     is drawn and the board pans to it;
  *   · moved and resized while the state is on, the chart and the trade
@@ -171,7 +171,11 @@ try {
   }
   check(`${PLAN.screen} on: the board shows exactly what that screen shows`, wrong.length === 0, wrong.length ? `${wrong.length} off: ${wrong.slice(0, 10).join(", ")}` : `${pageNodes.filter((n) => shows.has(n.hooks?.["data-hook"])).length} parts shown, the rest of the page hidden`);
   const at = await page.evaluate((id) => { const el = document.querySelector(`[data-node-id="${id}"]`); return el ? { left: el.style.left, top: el.style.top } : null; }, target.id);
-  check(`${PLAN.target} is drawn in place, where the page has it`, (await drawn(target.id)) && at?.left === `${target.x}px` && at?.top === `${target.y}px`, JSON.stringify(at));
+  /* Where that screen draws it (its boxes, read at import: `boardStates.ts#screenPlaces`), else where the page has it. */
+  const scrNow = (await state()).look?.styleSource?.screens?.find((x) => x.name === PLAN.screen);
+  const box = scrNow?.boxes?.[PLAN.target];
+  const want = box ? { x: box[0], y: box[1] } : { x: target.x, y: target.y };
+  check(`${PLAN.target} is drawn where that screen draws it`, (await drawn(target.id)) && Math.abs(parseFloat(at?.left) - want.x) <= 3 && Math.abs(parseFloat(at?.top) - want.y) <= 3, JSON.stringify({ at, want, was: { x: target.x, y: target.y } }));
 
   /* Picking a hidden part switches its state on, so it is drawn and the board goes to it. */
   await act("setStatesOn", []);

@@ -83,14 +83,17 @@ export function setVar(name: string, value: string | null) {
  * THE PART'S SCRIPT SETTINGS, in its panel: the tokens it and the code that
  * runs it use (`partTokens`), each editable here as in the style layer.
  */
-export function PartSettings({ code, hook }: { code: Parameters<typeof partTokens>[0]; hook: string }) {
+export function PartSettings({ code, hook, inside = [] }: { code: Parameters<typeof partTokens>[0]; hook: string; /** Hooks of the parts inside this one: their slots show here too, named by part, for a part its parent covers on the board. */ inside?: string[] }) {
   const source = useStudio((s) => (s.look as { styleSource?: StyleSource | null }).styleSource ?? null);
   /* Slots first (builder.json rules.slots, named by the code for this part), then the tokens its code uses. */
   const list = React.useMemo(() => {
     if (!source) return [];
     const slots = partSlots(hook, source);
-    return [...slots, ...partTokens(code, source).filter((v) => !slots.some((s) => s.name === v.name))];
-  }, [code, source, hook]);
+    const own = [...slots, ...partTokens(code, source).filter((v) => !slots.some((s) => s.name === v.name))];
+    const theirs = inside.filter((h) => h !== hook).flatMap((h) => partSlots(h, source).map((s) => ({ ...s, label: `${s.label} · ${h}` })));
+    const seen = new Set(own.map((v) => v.name));
+    return [...own, ...theirs.filter((v) => (seen.has(v.name) ? false : (seen.add(v.name), true)))];
+  }, [code, source, hook, inside.join(" ")]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!source || !list.length) return null;
   return (
     <div data-part-settings={hook} className="space-y-1">

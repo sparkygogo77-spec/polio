@@ -10,7 +10,7 @@
  * Drag snaps to the frame's edges and centre and to other parts' edges, with
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
-import { boardShows, type ScreenRead } from "./boardStates";
+import { boardShows, partUnder, screenPlaces, type PlaceBox, type ScreenRead } from "./boardStates";
 import { clampMove, frameRiders, inside, keepInFrame, stateFrames } from "./stateFrames";
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
@@ -89,6 +89,19 @@ function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNo
   const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null) : (n: StudioNode) => !n.state;
   shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
+}
+/** Where a lit screen draws its parts (`boardStates.ts#screenPlaces`), kept while the states, screens and parts are the same. */
+let placedMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; places: Map<string, PlaceBox> } | null = null;
+const NO_PLACES = new Map<string, PlaceBox>();
+function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, PlaceBox> {
+  const on = s.statesOn ?? [];
+  if (!on.some((k) => k.startsWith("screen:"))) return NO_PLACES;
+  const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
+  if (placedMemo && placedMemo.on === on && placedMemo.screens === source?.screens && placedMemo.files === source?.files && placedMemo.nodes === s.nodes) return placedMemo.places;
+  const shows = shownOnBoard(s);
+  const places = screenPlaces((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, shows as never);
+  placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places };
+  return places;
 }
 /** A box as the board has it: where a part was before he first moved it (`StudioNode.handFrom`). */
 const boxOf = (n: { x: number; y: number; w: number; h: number }) => ({ x: n.x, y: n.y, w: n.w, h: n.h });
@@ -1187,6 +1200,20 @@ function DesktopCanvas() {
            */
           /* A part that points somewhere goes there on two presses (below,
              `tests/press-in-builder.mjs`): its words are Enter away. */
+          /* TWO PRESSES ON A PART THAT HOLDS OTHERS GO IN: the smallest part under the hand, inside it, even one it covers (`boardStates.ts#partUnder`). Escape climbs back out. */
+          if (twice && hit && !e.shiftKey && !HANDS_ON.has(hit.featureId) && !isControl(hit) && ownsOthers(store.nodes, hit)) {
+            const st = useStudio.getState();
+            const places = placedOnBoard(st);
+            const inner = partUnder(st.nodes, hit, p, shownOnBoard(st), (n) => places.get(n.id));
+            if (inner) {
+              pressed.current = null;
+              store.setSelection([inner.id]);
+              store.want({ panel: "inspector", id: inner.id });
+              play("select");
+              e.preventDefault();
+              return;
+            }
+          }
           const goes = !!hit?.link && isLinkable(hit.featureId);
           if (twice && hit && !goes && !e.shiftKey && !HANDS_ON.has(hit.featureId) && (wordsOf(hit) || (hit.id === store.selection[0] && store.selection.length === 1 && getFeature(hit.featureId)?.content))) {
             pressed.current = null;
@@ -2856,6 +2883,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
   const held = useBoxEntry(node.id, body);
   /* A part of a hidden state is drawn only while that state is on (the States control, `boardStates.ts`). */
   const shownHere = useStudio((s) => shownOnBoard(s)(node));
+  /* Drawn where a lit screen draws it, so two states in one flow do not sit on top of each other. */
+  const place = useStudio((s) => placedOnBoard(s).get(node.id));
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
   const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
@@ -2897,10 +2926,10 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
       /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only. */
       className={cn("group absolute cursor-grab active:cursor-grabbing", (node as { inert?: boolean }).inert && !selected ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
-        left: node.x, top: node.y, width: node.w,
+        left: place?.x ?? node.x, top: place?.y ?? node.y, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words
            need the room. `parts/primitives.tsx` holds the reasoning. */
-        minHeight: node.h, display: "flex", flexDirection: "column",
+        minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),

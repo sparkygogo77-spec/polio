@@ -359,6 +359,19 @@ const DRAWN_HOOKS = `() => {
   return [...out].sort();
 }`;
 
+/** In the page: where each drawn hook is, in page pixels (its first box), so the board can draw a screen where the code drew it (`boardStates.ts#screenPlaces`). */
+const DRAWN_BOXES = `() => {
+  const out = {};
+  for (const el of Array.from(document.querySelectorAll("[data-hook]"))) {
+    if (el.closest("template") || !el.getClientRects().length || getComputedStyle(el).visibility === "hidden") continue;
+    const v = el.getAttribute("data-hook");
+    if (!v || out[v]) continue;
+    const r = el.getBoundingClientRect();
+    out[v] = [Math.round(r.x + scrollX), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)];
+  }
+  return out;
+}`;
+
 /** In the preview page, once built: each screen's name, its label and the page it is a state of. */
 const SCREEN_LIST = `() => {
   const out = [];
@@ -370,12 +383,17 @@ const SCREEN_LIST = `() => {
     /* The screen as the preview copied it in (PonsStars': the real page, its hooks kept): what it draws, not counting the preview's own. */
     const body = el.querySelector("[data-preview-body]");
     const shows = new Set();
+    /* Where each sits, from the copy's own corner: the board lines these up with the page's parts (\`boardStates.ts#screenPlaces\`). */
+    const boxes = {};
+    const at = body ? body.getBoundingClientRect() : null;
     if (body) for (const h of Array.from(body.querySelectorAll("[data-hook]"))) {
       if (h.closest("template") || !h.getClientRects().length || getComputedStyle(h).visibility === "hidden") continue;
       const v = h.getAttribute("data-hook");
-      if (v && !v.startsWith("preview-")) shows.add(v);
+      if (!v || v.startsWith("preview-")) continue;
+      shows.add(v);
+      if (!boxes[v]) { const r = h.getBoundingClientRect(); boxes[v] = [Math.round(r.x - at.x), Math.round(r.y - at.y), Math.round(r.width), Math.round(r.height)]; }
     }
-    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort() });
+    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes });
   }
   return out;
 }`;
@@ -389,7 +407,8 @@ const BUSY = `() => [document.documentElement, document.body].some((el) => el &&
  * each screen's page is then opened at its own address, with `still=1`, and
  * read once what it draws has stopped changing.
  */
-async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[] }[]> {
+type Boxes = Record<string, [number, number, number, number]>;
+async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[]; boxes?: Boxes }[]> {
   type Evaluating = { evaluate: (fn: string) => Promise<unknown>; goto: (url: string, o: { waitUntil: "load"; timeout: number }) => Promise<unknown>; waitForTimeout: (ms: number) => Promise<void> };
   const p = page as unknown as Evaluating;
   const settle = async (most: number) => {
@@ -405,27 +424,27 @@ async function readScreens(page: PWPage, ask: { page: string | null; list: { nam
     }
   };
   /* The manifest's own list when it gives each screen's page (the kit's); else the screens the built preview page shows (PonsStars'). */
-  let listed: { name: string; label: string; href: string; shows?: string[] }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
+  let listed: { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
   if (!listed.length && ask.page) {
     await p.goto(`${HOME}/${ask.page}?still=1`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
     await settle(90000);
-    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[] }[];
+    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes }[];
   }
-  const out: { name: string; label: string; page: string; shows: string[] }[] = [];
+  const out: { name: string; label: string; page: string; shows: string[]; boxes?: Boxes }[] = [];
   for (const s of listed.slice(0, 40)) {
     let u: URL | null = null;
     try { u = new URL(s.href); } catch { /* no address of its own */ }
     const file = u && u.origin === HOME ? decodeURIComponent(u.pathname.slice(1)) : "";
     /* Its address is the preview page again (PonsStars' links open the screen alone there): what the preview copied in is the screen, and its page is the one whose hooks it carries (`boardStates.ts`). */
     if (!file || file === ask.page || !u) {
-      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows });
+      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}) });
       continue;
     }
     if (!u.searchParams.has("still")) u.searchParams.set("still", "1");
     try {
       await p.goto(u.toString(), { waitUntil: "load", timeout: ZIP_BUDGET_MS });
       await settle(20000);
-      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[] });
+      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[], boxes: (await p.evaluate(`(${DRAWN_BOXES})()`).catch(() => ({}))) as Boxes });
     } catch {
       /* A screen whose page will not open is left out. */
     }
