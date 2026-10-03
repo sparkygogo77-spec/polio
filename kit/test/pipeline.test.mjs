@@ -92,3 +92,37 @@ test('kit:diff --style-only: the design may change only the style layer and toke
     assert.match(r.problems.join('\n'), /hook "about-note" was added/);
   } finally { rmSync(dirname(dir), { recursive: true, force: true }); }
 });
+
+test('kit:diff: a design record fails only on states that newly leave their frame; old ones are warnings', () => {
+  const dir = siteRepo();
+  const record = (findY) => JSON.stringify({ record: 1, source: 'builder', pages: [{ file: 'web/index.html', tree: { t: 'body', hook: 'page', x: 0, y: 0, w: 1440, h: 900, kids: [
+    { t: 'section', hook: 'queue-box', x: 100, y: 100, w: 300, h: 120, kids: [
+      { t: 'button', hook: 'queue-find-button', states: { hidden: { hidden: true } }, x: 110, y: findY, w: 280, h: 50 },
+      { t: 'p', hook: 'queue-old', states: { hidden: { hidden: true } }, x: 110, y: 400, w: 280, h: 40 },
+    ] },
+  ] } }] });
+  try {
+    mkdirSync(join(dir, 'design'), { recursive: true });
+    writeFileSync(join(dir, 'design/record.json'), record(160));
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '-q', '-m', 'A record with old debt');
+    git(dir, 'checkout', '-q', '-b', 'style');
+    // The record changes, and its old debt is still there: a warning, never a failure.
+    writeFileSync(join(dir, 'design/record.json'), record(161));
+    let r = diff(join(dir, 'builder.json'), { base: 'main', styleOnly: true });
+    assert.deepEqual(r.problems, []);
+    assert.equal(r.warnings.length, 1);
+    assert.match(r.warnings[0], /"queue-old"|state "queue-old"/);
+    // A state this change pushes out of its frame fails.
+    writeFileSync(join(dir, 'design/record.json'), record(200));
+    r = diff(join(dir, 'builder.json'), { base: 'main', styleOnly: true });
+    assert.equal(r.problems.length, 1);
+    assert.match(r.problems[0], /queue-find-button/);
+    assert.equal(r.warnings.length, 1);
+    // A part recorded for the first time inside old debt (the icon in an old title) is old debt too.
+    writeFileSync(join(dir, 'design/record.json'), record(161).replace('"h":40}', '"h":40,"kids":[{"t":"span","hook":"queue-old-icon","x":120,"y":402,"w":18,"h":18}]}'));
+    r = diff(join(dir, 'builder.json'), { base: 'main', styleOnly: true });
+    assert.deepEqual(r.problems, []);
+    assert.equal(r.warnings.length, 2);
+  } finally { rmSync(dirname(dir), { recursive: true, force: true }); }
+});

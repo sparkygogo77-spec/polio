@@ -20,7 +20,7 @@
 // Both also run the full contract check.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { check } from './kit-check.mjs';
 import { sayFrame, stateFrames } from './state-frames.mjs';
 
@@ -41,6 +41,7 @@ export function diff(manifestPath, { base, styleOnly = false, allowRemoved = fal
   const dir = dirname(resolve(manifestPath));
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const problems = [];
+  const warnings = [];
   let from = base;
   try { from = git(dir, 'merge-base', base, 'HEAD').trim(); } catch { /* not a branch of HEAD; compare with the ref itself */ }
 
@@ -76,10 +77,45 @@ export function diff(manifestPath, { base, styleOnly = false, allowRemoved = fal
   if (recordFile) {
     let fresh = true;
     try { fresh = git(root, 'diff', '--name-only', from, '--', recordFile).trim() !== '' || git(root, 'ls-files', '--others', '--exclude-standard', '--', recordFile).trim() !== ''; } catch { /* no history: check it */ }
-    if (fresh) for (const x of stateFrames(JSON.parse(readFileSync(recordFile, 'utf8')))) problems.push(`design/record.json: ${sayFrame(x)}`);
+    if (fresh) {
+      /* Only what this change brings fails: a state the base's record already had outside its frame is old debt, said as a warning and counted. */
+      const key = (x) => JSON.stringify([x.page ?? '', x.hook, x.state, x.frame]);
+      /* A part the base's record did not list yet (a title's icon and words, recorded inside it for the first time) answers for its nearest listed part: inside old debt, it is old debt too. */
+      let had = new Set();
+      let known = new Set();
+      try {
+        const was = JSON.parse(git(root, 'show', `${from}:${relative(root, recordFile).split(sep).join('/')}`));
+        had = new Set(stateFrames(was).map(key));
+        known = new Set(recordHooks(was).map(([page, hook]) => `${page}\n${hook}`));
+      } catch { /* no record on the base: everything is new */ }
+      const record = JSON.parse(readFileSync(recordFile, 'utf8'));
+      const parentOf = new Map(recordHooks(record).map(([page, hook, parent]) => [`${page}\n${hook}`, parent]));
+      const old = (x) => {
+        if (had.has(key(x))) return true;
+        let hook = x.hook;
+        while (hook && !known.has(`${x.page ?? ''}\n${hook}`)) hook = parentOf.get(`${x.page ?? ''}\n${hook}`);
+        return !!hook && hook !== x.hook && had.has(key({ ...x, hook }));
+      };
+      for (const x of stateFrames(record)) {
+        if (old(x)) warnings.push(`design/record.json: ${sayFrame(x)}`);
+        else problems.push(`design/record.json: ${sayFrame(x)}`);
+      }
+    }
   }
   const deleted = removed.filter((h) => listed.has(h));
-  return { problems, removed, added, changed, lostTokens, from, deleted };
+  return { problems, warnings, removed, added, changed, lostTokens, from, deleted };
+}
+
+/** Every hooked part of a design record, as [page, hook, nearest hooked parent]. */
+function recordHooks(record) {
+  const out = [];
+  const walk = (n, page, parent) => {
+    if (!n || typeof n !== 'object') return;
+    if (n.hook) out.push([page, n.hook, parent]);
+    for (const k of n.kids ?? []) walk(k, page, n.hook ?? parent);
+  };
+  for (const p of record?.pages ?? []) walk(p.tree, p.file ?? '', null);
+  return out;
 }
 
 if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
@@ -97,6 +133,8 @@ if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href
   const list = (xs) => (xs.length ? xs.join(', ') : 'none');
   console.log(`Compared with ${base}: hooks added: ${list(r.added)}; removed: ${list(r.removed)}; element changed: ${list(r.changed)}; tokens removed: ${list(r.lostTokens)}.`);
   if (r.deleted.length) console.log(`Removed as the design asked (design/HOOK-CHANGES.json): ${list(r.deleted)}.`);
+  if (r.warnings.length) console.log(`${r.warnings.length} state(s) already left their frame in the base's design record (old debt; not counted against this change). --verbose lists them.`);
+  if (args.includes('--verbose')) for (const w of r.warnings) console.log(`  ! ${w}`);
   for (const p of r.problems) console.log(`  ✗ ${p}`);
   const kind = styleOnly ? 'style change' : 'code change';
   console.log(r.problems.length ? `kit:diff failed: ${r.problems.length} problem(s) in this ${kind}` : `kit:diff passed: this ${kind} keeps every hook the design uses`);

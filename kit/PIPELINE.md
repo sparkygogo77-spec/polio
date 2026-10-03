@@ -27,7 +27,7 @@ styles.
 | `npm run kit:check` | every page, stylesheet and script keeps the contract; `hooks.json` is current | every push (GitHub Actions) |
 | `npm test` | the kit's own tests | every push |
 | `npm run kit:diff -- --base origin/main` | a code change drops no hook the base had | every pull request |
-| `npm run kit:diff -- --base origin/main --style-only` | a design change touches only the style layer and token values, and changes no hook | every pull request from a `style/...` branch |
+| `npm run kit:diff -- --base origin/main --style-only` | a design change touches only the style layer and token values, and changes no hook; a new `design/record.json` fails only on states it newly puts outside their frame (ones the base's record already had are warned about and counted, never blocking) | every pull request from a `style/...` branch |
 | `preview.html?still=1&screen=<name>` | each state of each page renders, still, with sample data | by eye, and in the builder |
 
 The workflow in `.github/workflows/kit-check.yml` runs all of these by itself.
