@@ -820,10 +820,9 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
     await cat.click();
     await page.waitForTimeout(900);
     const open = await look();
-    /* Larger, up to about a third of the canvas: no longer double, since the
-       owner capped an open category there (d71dd55, tests/shelf-strip.mjs). */
-    check("opening a category gives the shelf a larger box to scroll in, up to about a third of the canvas",
-      open.shelf.h > shut.shelf.h * 1.3 && open.band.h <= Math.round((open.fold - 88) * 0.34) + 2,
+    /* J, after #19: the board stays its size. Opening a category keeps the band's height; its cards scroll inside it. */
+    check("opening a category keeps the band's height, so the board stays its size",
+      Math.abs(open.band.h - shut.band.h) <= 1,
       `the band ${shut.band.h} → ${open.band.h}, the shelf's own box ${shut.shelf.h} → ${open.shelf.h}`);
     check("and it scrolls on its own, without the pane moving",
       open.shelfTravel > 0 && open.paneAt === shut.paneAt,
@@ -849,8 +848,9 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
     await cat.click();
     await page.waitForTimeout(900);
     const again = await look();
-    check("closing it gives the room back",
-      again.band.h === shut.band.h, `${open.band.h} → ${again.band.h}, against ${shut.band.h} before it was opened`);
+    /* One height open or shut (J, after #19): closing changes nothing; only his own wheel or grip set the height it has. */
+    check("closing it leaves the band as it was, so the board stays its size",
+      Math.abs(again.band.h - after.band.h) <= 1, `${after.band.h} → ${again.band.h}`);
   }
   await ctx.close();
 }
