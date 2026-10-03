@@ -79,7 +79,7 @@ export function KitSwatch({ kit, className }: { kit: StyleKit; className?: strin
   const scale = Math.min(1, 26 / Math.max(1, kit.size.h));
   const shadow = kit.shadows.slice(0, 2).map((s) => `${s.dx * scale}px ${s.dy * scale}px ${s.hard ? 0 : s.blur * scale}px ${s.colour}`).join(", ");
   return (
-    <span className={cn("flex h-6 w-12 items-center justify-center text-[9px] leading-none", className)} style={{
+    <span className={cn("flex h-6 w-12 items-center justify-center text-fine leading-none", className)} style={{
       background: bg,
       border: kit.border && kit.border.width > 0 ? `${Math.max(1, Math.round(kit.border.width * scale))}px ${kit.border.style || "solid"} ${kit.border.colour}` : undefined,
       borderRadius: Math.min(12, kit.radius * scale),

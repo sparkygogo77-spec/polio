@@ -539,7 +539,7 @@ function ScriptLines({ refs, from, hook }: { refs: CodeRef[]; from: { repo: stri
               {href ? <a href={href} target="_blank" rel="noreferrer" className="underline">{r.file} line {r.line}</a> : `${r.file} line ${r.line}`}
               {text ? null : " · could not read the file; its line as imported"}
             </p>
-            <pre className="overflow-x-auto px-2 pb-1 font-mono text-[11px] leading-snug">
+            <pre className="overflow-x-auto px-2 pb-1 font-mono text-plain leading-snug">
               {lines.map((l) => <div key={l.n} data-code-line={l.at ? "at" : ""} className={l.at ? "text-fg" : "text-fg-faint"}><span className="mr-2 inline-block w-8 select-none text-right text-fg-faint">{l.n}</span>{l.text}</div>)}
             </pre>
           </div>

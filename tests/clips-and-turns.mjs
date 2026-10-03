@@ -92,8 +92,8 @@ check("sink's document has the TV's screen and picture, the CA bar and its ends,
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
-/* A window the board draws its 1440 page in at 1:1 (the fit is by height). */
-const page = await browser.newPage({ viewport: { width: 2200, height: 1305 }, deviceScaleFactor: 1 });
+/* A window the board draws its 1440 page in at 1:1 (the fit is by the page's width: 1440 plus the 128px gutter and the 300px panel). */
+const page = await browser.newPage({ viewport: { width: 1868, height: 1305 }, deviceScaleFactor: 1 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("https://api.github.com/**", (r) => {
@@ -246,9 +246,9 @@ await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(2500);
 await page.mouse.move(2, 2);
 const zoomNow = () => page.evaluate(() => document.querySelector("[data-frame]").getBoundingClientRect().width / 1440);
-/* The board fits its first screen to the window's height: the height that makes it 1:1. */
+/* The board fits the page's width to the window: the width that makes it 1:1. */
 for (let i = 0, z = await zoomNow(); i < 4 && Math.abs(z - 1) >= 0.002; i++, z = await zoomNow()) {
-  await page.setViewportSize({ width: 2200, height: Math.round(page.viewportSize().height - (z - 1) * 900) });
+  await page.setViewportSize({ width: Math.round(page.viewportSize().width - (z - 1) * 1440), height: 1305 });
   await page.waitForTimeout(900);
 }
 const zoom = await zoomNow();

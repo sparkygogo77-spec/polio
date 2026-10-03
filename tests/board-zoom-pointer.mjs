@@ -48,8 +48,9 @@ const doc = JSON.stringify({ state: {
 }, version: 0 });
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
-for (const [target, h] of [[0.79, 1082], [0.83, 1118]]) {
-  const ctx = await browser.newContext({ viewport: { width: 1800, height: h }, deviceScaleFactor: 1 });
+/* The board fits the page's width (J, 2026-10-03), so the window's width sets the zoom: the pane is the window less the 300px panel, less a 128px gutter. */
+for (const [target, w] of [[0.79, 1566], [0.83, 1623]]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: 1100 }, deviceScaleFactor: 1 });
   await ctx.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, doc);
   const page = await ctx.newPage();
   const errors = [];
