@@ -270,6 +270,22 @@ const n2 = (v: number) => Math.round(v * 100) / 100;
  * multiplies (16 for a page read at the browser's default); `family` turns
  * the Builder's family names into a stack.
  */
+/**
+ * THE BOARD AS LANDED IS THE BASELINE. An import reads each part's look from
+ * the code (`source.was`), then the board's own clean-up (the sweep's
+ * repaint and refit, the palette's role names) runs over what landed. None
+ * of that is a design: re-read every part's baseline from the board as it
+ * landed, so the style layer holds only what the owner changes after.
+ */
+export function baselineAsLanded<T extends LayerNode>(nodes: readonly T[], palette?: Record<string, string> | null): T[] {
+  return nodes.map((n) => {
+    if (!n.source?.was) return n;
+    const f = n.font;
+    const base = f && typeof f.px === "number" && typeof f.size === "number" && f.size > 0 ? f.px / f.size : 16;
+    return { ...n, source: { ...n.source, was: lookOf(n, palette, { base }) } };
+  });
+}
+
 export function lookOf(n: LayerNode, palette?: Record<string, string> | null, opts: { base?: number; family?: (name: string) => string | undefined } = {}): CssLook {
   const base = opts.base ?? 16;
   const c = n.colour ?? {};

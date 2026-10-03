@@ -64,6 +64,8 @@ export interface KitSeen {
   /** Hook name to its element kind (`button`, `input[type=text]`); "" where it is not known. */
   hooks: Record<string, string>;
   tokens: string[];
+  /** Each token's value where the map gives one (`builder-hooks.json` "default"): "Take these in" brings them onto the site. */
+  values?: Record<string, string>;
 }
 
 export async function gh(f: Fetch, token: string, path: string, init?: { method?: string; body?: unknown }): Promise<{ status: number; json: Record<string, unknown> | null }> {
@@ -105,7 +107,42 @@ export function seenOfKit(manifest: KitManifest, hooksJson: string | null, ref: 
     pages: manifest.pages.map((p) => p.file).sort(),
     hooks: Object.fromEntries(Object.entries(map.hooks ?? {}).map(([h, v]) => [h, v?.element ?? ""])),
     tokens: Object.keys(map.tokens ?? {}).sort(),
+    values: Object.fromEntries(Object.entries(map.tokens ?? {}).flatMap(([t, v]) => {
+      const d = (v as { default?: unknown } | null)?.default;
+      return typeof d === "string" || typeof d === "number" ? [[t, String(d)]] : [];
+    })),
   };
+}
+
+/**
+ * "Take these in": the tokens the code has now, with their values, onto the
+ * site's reading of its code (`source.files`). A value the code changed is
+ * updated; a token it added is added (to the page that already holds most of
+ * the tokens file), so its slot shows and the counts are the code's own.
+ * What the owner set by hand (`varsSet`) stays.
+ */
+export function takeTokens<S extends Pick<StyleSource, "files" | "tokensFile">>(source: S, seen: KitSeen): S {
+  const values = seen.values ?? {};
+  const names = Object.keys(values);
+  if (!names.length) return source;
+  const file = source.tokensFile ?? source.files.flatMap((f) => f.vars).find((v) => v.token)?.file ?? null;
+  if (!file) return source;
+  const had = new Set<string>();
+  let files = source.files.map((f) => ({
+    ...f,
+    vars: f.vars.map((v) => {
+      if (v.file !== file || !(v.name in values)) return v;
+      had.add(v.name);
+      return values[v.name] === v.value ? v : { ...v, value: values[v.name]! };
+    }),
+  }));
+  const fresh = names.filter((t) => !had.has(t) && !files.some((f) => f.vars.some((v) => v.name === t)));
+  if (fresh.length) {
+    const holds = (f: (typeof files)[number]) => f.vars.filter((v) => v.file === file).length;
+    const at = files.reduce((best, f, i) => (holds(f) > holds(files[best]!) ? i : best), 0);
+    if (files[at]) files = files.map((f, i) => (i === at ? { ...f, vars: [...f.vars, ...fresh.map((name) => ({ name, value: values[name]!, file, line: 0, token: true }))] } : f));
+  }
+  return { ...source, files };
 }
 
 /** The snapshot of a repository with no `builder.json`, from its pages' hooks as read at import. */
