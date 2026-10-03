@@ -261,7 +261,8 @@ const SHELF_KEY = "builder.shelf.height";
 const canvasHeight = () => {
   if (typeof window === "undefined") return 812;
   const pane = document.querySelector<HTMLElement>("[data-studio-pane]");
-  return pane?.clientHeight || window.innerHeight - 88;
+  /* The board and the shelf under it: the shelf is the pane's sibling now (the board stops above it), so the canvas is the column they share. */
+  return pane?.parentElement?.clientHeight || pane?.clientHeight || window.innerHeight - 88;
 };
 const shelfMax = () => Math.max(SHELF_MIN, Math.round(canvasHeight() * SHELF_SHARE));
 const gripMax = () => Math.max(SHELF_MIN, Math.round(canvasHeight() * SHELF_GRIP_SHARE));

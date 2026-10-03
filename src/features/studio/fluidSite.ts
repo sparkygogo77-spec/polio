@@ -279,7 +279,18 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
     const still = !grow.css && Math.abs(grow.k) < 1e-9;
     const border = Math.max(0, P.edge ?? 0);
     const padL = (P.pad?.left ?? 0) + border, padR = (P.pad?.right ?? 0) + border;
-    const inL = P.x + padL, inR = P.x + P.w - padR;
+    let inL = P.x + padL, inR = P.x + P.w - padR;
+    /*
+     * THE BODY'S MARGIN IS NOT A CENTRED BOX. A page's own wrapper 8px in
+     * from both edges (the browser's body margin, PonsStars' app) read as
+     * "centred, narrower than the page" and was frozen at its capture width,
+     * centred, at every window. Equal small gaps at the page's two edges are
+     * the page's margin: what spans between them spans the page.
+     */
+    if (!P.id) {
+      const m = kids.filter((c) => Math.abs((c.x - inL) - (inR - c.x - c.w)) <= E && c.x - inL > E && c.x - inL <= 24).map((c) => c.x - inL);
+      if (m.length) { const g = Math.min(...m); inL += g; inR -= g; }
+    }
     const L = P.layout;
     const row = L?.display === "flex" && L.direction !== "column";
     const col = L?.display === "flex" && L.direction === "column";

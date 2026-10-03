@@ -663,6 +663,11 @@ export interface PartStyle {
   paintOrder?: string;
   /** Each corner, top-left clockwise, where they differ. */
   radii?: number[];
+  /** It clips what it holds (overflow other than visible): a rounded one rounds the corners of the parts in its corners (`pageParts.ts`). */
+  clips?: boolean;
+  maxw?: number;
+  /** Its inside, when it is a flex row or column or a grid (as sink records it): the export grows its children as the page does (`fluidSite.ts`). */
+  layout?: { display: "flex" | "grid"; direction?: "row" | "column"; align?: string; justify?: string; gap?: number; wrap?: boolean; columns?: number };
   /**
    * How it answers the pointer and the keyboard: each `:hover`, `:active` and
    * `:focus` rule that reaches it, its selector as written and its
@@ -859,6 +864,15 @@ export const PARTS = (cap: number): PageRead => {
       align: s.textAlign,
       leading: Math.round((parseFloat(s.lineHeight) || normalLine(s, px)) * 100) / 100,
       transform: s.textTransform,
+      ...(!which && (s.overflowX !== "visible" || s.overflowY !== "visible") ? { clips: true } : {}),
+      /* Its max-width in pixels, where it has one: the export lets it grow with the window up to this and no further (`fluidSite.ts`, node.maxw). */
+      ...(!which && /^[\d.]+px$/.test(s.maxWidth) ? { maxw: Math.round(parseFloat(s.maxWidth)) } : {}),
+      ...(!which && /^(inline-)?(flex|grid)$/.test(s.display) ? { layout: {
+        display: s.display.endsWith("grid") ? "grid" as const : "flex" as const,
+        ...(s.display.endsWith("flex") ? { direction: s.flexDirection.startsWith("column") ? "column" as const : "row" as const, ...(s.flexWrap === "wrap" ? { wrap: true } : {}) } : { columns: s.gridTemplateColumns.split(/\s+(?![^(]*\))/).filter(Boolean).length }),
+        align: s.alignItems, justify: s.justifyContent,
+        ...(parseFloat(s.columnGap) > 0 ? { gap: Math.round(parseFloat(s.columnGap) * 100) / 100 } : {}),
+      } } : {}),
     };
   };
   const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border || !!paintOf(css(e)).image; };

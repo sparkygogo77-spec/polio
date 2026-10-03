@@ -241,9 +241,10 @@ check("3. at most one element that could move the site scrolls, and it is the pa
   m.movers.length <= 1 && (m.movers.length === 0 || m.movers[0].isPane),
   (m.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "NOTHING scrolls, in any direction")
     + (m.elsewhere.length ? `  (elsewhere, not the site: ${m.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
-check("   and its travel is the site plus the shelf less the window",
-  Math.abs(m.paneTravel - (m.boardH + band - m.paneH)) <= 4,
-  `${m.paneTravel}, wanted ${m.boardH + band - m.paneH}`);
+/* J's review (d0943c6): the board stops above the shelf, which is the pane's sibling now, so the pane's travel is the site less the pane. */
+check("   and its travel is the site less the pane (the shelf is under it, not in it)",
+  Math.abs(m.paneTravel - (m.boardH - m.paneH)) <= 4,
+  `${m.paneTravel}, wanted ${m.boardH - m.paneH}`);
 
 const box = await page.locator("[data-studio-pane]").boundingBox();
 await page.mouse.move(box.x + box.width / 2, box.y + 80);
@@ -304,9 +305,9 @@ await page.close();
     lm.movers.length === 1 && lm.movers[0].isPane,
     (lm.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "NOTHING scrolls, in any direction")
       + (lm.elsewhere.length ? `  (elsewhere, not the site: ${lm.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
-  check("   its travel is the site plus the shelf less the window",
-    Math.abs(lm.paneTravel - (lm.boardH + band - lm.paneH)) <= 4,
-    `${lm.paneTravel}, wanted ${lm.boardH + band - lm.paneH}`);
+  check("   its travel is the site less the pane",
+    Math.abs(lm.paneTravel - (lm.boardH - lm.paneH)) <= 4,
+    `${lm.paneTravel}, wanted ${lm.boardH - lm.paneH}`);
   /*
    * And here is the half of J's fourth assertion that does not survive his
    * own rule, said out loud rather than quietly dropped. It read "the search
@@ -411,9 +412,9 @@ for (const [w, h] of [[1500, 950], [1280, 720], [1100, 800], [980, 820]]) {
   const r = await p.evaluate(LOOK);
   check(`${w}×${h}: the board is the site`, Math.abs(r.boardH - (r.siteH + GUTTER)) <= 4, `${r.boardH} for ${r.siteH}`);
   check(`${w}×${h}: nothing hides any of it`, r.hiders.length === 0, r.hiders.join("; ") || "clean");
-  check(`${w}×${h}: one scroller over the site, travel is site + shelf − window`,
-    r.movers.length === 1 && r.movers[0].isPane && Math.abs(r.paneTravel - (r.boardH + b - r.paneH)) <= 4,
-    `${r.movers.length} over the site, ${r.paneTravel} against ${r.boardH + b - r.paneH}`
+  check(`${w}×${h}: one scroller over the site, travel is site − pane`,
+    r.movers.length === 1 && r.movers[0].isPane && Math.abs(r.paneTravel - (r.boardH - r.paneH)) <= 4,
+    `${r.movers.length} over the site, ${r.paneTravel} against ${r.boardH - r.paneH}`
       + (r.elsewhere.length ? `  (elsewhere: ${r.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
   /* Edge to edge is what J saw on opening: a frame that leaves no ground is
      a frame with nothing else to look at, and bare ground is the handle. */

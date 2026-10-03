@@ -1598,22 +1598,7 @@ export function StudioPage() {
               own surface it would read as a wash over the nebula instead of
               the panel it has always been.
             */}
-            {design ? (
-              <div
-                data-studio-band=""
-                data-band-over=""
-                /* The tallest the shelf opens to without his hand on it: the phone window stands above this, so it neither moves as a category opens nor sits over the cards (`Preview.tsx`). */
-                data-band-reach={SHELF_OPEN_H}
-                data-band-set={shelfTall == null ? undefined : "1"}
-                data-band-folded={shelfFolded ? "" : undefined}
-                className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg"
-                /* His height if he has set one with the wheel over the
-                   categories, otherwise the two the band has always had. */
-                style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
-              >
-                <Palette />
-              </div>
-            ) : book ? (
+            {design ? null : book ? (
               /* Taller for the backend, which is a surface you work at
                  rather than a page of text: at the strip's height its
                  transcript was 80px and the prompt box was below the fold. */
@@ -1643,6 +1628,29 @@ export function StudioPage() {
               )
             ) : null}
           </div>
+          {/*
+            THE BOARD STOPS ABOVE THE SHELF (J's review, d0943c6). The shelf was
+            stuck to the bottom of the board's own scroller, so the site ran on
+            behind it and showed below and through it. It is the pane's sibling
+            now: the board scrolls in its own area, and the categories are
+            always on screen under it.
+          */}
+          {design ? (
+                <div
+                  data-studio-band=""
+                  data-band-over=""
+                  /* The tallest the shelf opens to without his hand on it: the phone window stands above this, so it neither moves as a category opens nor sits over the cards (`Preview.tsx`). */
+                  data-band-reach={SHELF_OPEN_H}
+                  data-band-set={shelfTall == null ? undefined : "1"}
+                  data-band-folded={shelfFolded ? "" : undefined}
+                  className="relative z-10 w-full shrink-0 border-t border-border bg-bg"
+                  /* His height if he has set one with the wheel over the
+                     categories, otherwise the two the band has always had. */
+                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
+                >
+                  <Palette />
+                </div>
+          ) : null}
         </div>
 
       </div>

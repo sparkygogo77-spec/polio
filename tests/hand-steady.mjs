@@ -99,6 +99,11 @@ const LOOK = () => {
     board: Math.round(board.getBoundingClientRect().height),
     shelf: shelf ? Math.round(shelf.getBoundingClientRect().top) : null,
     travel: pane.scrollHeight - pane.clientHeight,
+    /* The ground the pane keeps under the board (its gutter): a part hanging past the board's foot runs on into it. */
+    /* The lowest thing drawn in the pane, the picked part's handles and name tag included: they hang below its box. */
+    hang: (() => { const n = document.querySelector('[data-node-id="n0"]'); if (!n) return 0; let low = n.getBoundingClientRect().bottom; for (const e of pane.querySelectorAll("[data-resize], [data-node-label], [data-picked] *")) { const r = e.getBoundingClientRect(); if (r.height) low = Math.max(low, r.bottom); } return Math.max(0, Math.round(low - n.getBoundingClientRect().bottom)); })(),
+    scroll: pane.scrollTop,
+    scale: frame.getBoundingClientRect().height / Math.max(1, frame.clientHeight),
     /* How far the part in hand hangs past the board's foot, on screen. */
     over: (() => { const n = document.querySelector('[data-node-id="n0"]'); if (!n) return 0; return Math.max(0, Math.round(n.getBoundingClientRect().bottom - board.getBoundingClientRect().bottom)); })(),
     y: d?.state?.nodes?.find((n) => n.id === "n0")?.y ?? null,
@@ -148,8 +153,10 @@ for (const [what, key] of [["the preview box", "preview"], ["the page", "page"],
    on down (Canvas, THE EDGE SCROLL), so the page is not grown under the hand
    but the part is never cut off by the pane either. */
 check("and the pane's travel grew by no more than the part hangs past the page",
-  during.every((d) => d.travel >= rest.travel && d.travel - rest.travel <= d.over + 2),
+  during.every((d) => d.travel >= rest.travel && d.travel - rest.travel <= d.over + Math.max(d.hang, 0) + 2),
   during.map((d) => `+${d.travel - rest.travel} for ${d.over} over`).join(", "));
+/* Read again at the moment of letting go: the board stops above the shelf now, so the page's last part is at the pane's foot and the edge scroll carries it on while the hand is held (Canvas, THE EDGE SCROLL). */
+const atRelease = await page.evaluate(LOOK);
 await page.mouse.up();
 await page.waitForTimeout(700);
 const after = await page.evaluate(LOOK);
@@ -162,7 +169,8 @@ check("the page settles to hold the part once the hand comes off",
    read 1979 under the hand and 1976 at rest, and demanding they be equal
    called a correct snap a failure. */
 check("and the part is where it was put, give or take the grid",
-  Math.abs(after.y - moved.y) <= 8, `y ${moved.y} under the hand, ${after.y} at rest`);
+  /* Less what the edge scroll carried it on by between the reading and the release (the pane's own scroll, in page pixels). */
+  Math.abs(after.y - atRelease.y - (after.scroll - atRelease.scroll) / Math.max(0.01, atRelease.scale)) <= 8, `y ${atRelease.y} under the hand, ${after.y} at rest, the pane scrolled ${after.scroll - atRelease.scroll}px between`);
 await page.close();
 
 /* ------------------------------------------------------------------ */
