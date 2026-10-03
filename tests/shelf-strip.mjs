@@ -57,7 +57,8 @@ await page.waitForSelector('[data-node-id="row0"]', { timeout: 20000 });
 await page.waitForTimeout(1500);
 
 const bandH = () => page.evaluate(() => Math.round(document.querySelector("[data-studio-band]").getBoundingClientRect().height));
-const paneH = () => page.evaluate(() => document.querySelector("[data-studio-pane]").clientHeight);
+/* The canvas: the board and the shelf under it (the shelf is the pane's sibling; the board stops above it). */
+const paneH = () => page.evaluate(() => document.querySelector("[data-studio-pane]").parentElement.clientHeight);
 
 /* fold and unfold, remembered */
 const open0 = await bandH();

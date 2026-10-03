@@ -183,6 +183,7 @@ for (const [w, h, what] of [[2048, 1152, "his screen"], [1267, 1278, "the window
         gap: shelf ? Math.round(shelf.top - board.bottom) : null,
         pageGap: shelf ? Math.round(shelf.top - f.bottom) : null,
         shelfBottom: shelf ? Math.round(shelf.bottom) : null,
+        shelfTop: shelf ? Math.round(shelf.top) : null,
         paneBottom: Math.round(pane.getBoundingClientRect().bottom),
       });
     })));
@@ -201,8 +202,9 @@ for (const [w, h, what] of [[2048, 1152, "his screen"], [1267, 1278, "the window
       end.travel === 0, `${end.gap}px of ground between the site and the categories`);
   }
   check(`${tag}: and the categories are still whole at the end of it`,
-    end.shelfBottom !== null && Math.abs(end.shelfBottom - end.paneBottom) <= 2,
-    `shelf ends at ${end.shelfBottom}, pane at ${end.paneBottom}`);
+    /* The shelf is under the pane now (J's review, d0943c6: the board stops above it): whole means it ends at the window's foot, and the pane ends where it begins. */
+    end.shelfBottom !== null && Math.abs(end.shelfBottom - h) <= 2 && end.shelfTop !== undefined && Math.abs(end.shelfTop - end.paneBottom) <= 2,
+    `shelf ${end.shelfTop}–${end.shelfBottom} in a ${h} window, pane ends at ${end.paneBottom}`);
   await page.close();
 }
 

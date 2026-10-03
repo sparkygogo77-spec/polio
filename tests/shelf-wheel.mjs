@@ -69,7 +69,8 @@ await page.waitForTimeout(400);
 const after = await list();
 check("wheeling down over a card scrolls the open category", after.top > before.top + 100, `${before.top} -> ${after.top} of ${after.sh - after.h}`);
 const band = await page.evaluate(() => Math.round(document.querySelector("[data-studio-band]").getBoundingClientRect().height));
-const pane = await page.evaluate(() => document.querySelector("[data-studio-pane]").clientHeight);
+/* The canvas: the board and the shelf under it (the shelf is the pane's sibling). */
+const pane = await page.evaluate(() => document.querySelector("[data-studio-pane]").parentElement.clientHeight);
 check("…while the shelf stays at no more than a third of the canvas", band <= Math.round(pane * 0.36), `${band} of ${pane}`);
 await page.waitForTimeout(400);
 const swallowedAtCap = await page.evaluate(({ x, y }) => {

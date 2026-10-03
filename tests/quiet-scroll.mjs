@@ -141,8 +141,12 @@ check("the categories are there at the end of the gesture, on the same surface",
   }),
   `the shelf's top ${before.shelf} → ${after.shelf} over ${travel}px of travel` +
     (before.shelf === after.shelf ? " — held, because it is stuck to the pane's bottom and was never away" : ""));
-check("and they are in the pane, which is why", await page.evaluate(() =>
-  !!document.querySelector("[data-studio-pane]")?.contains(document.querySelector("[data-drawer]"))));
+/* J's review (d0943c6): the board stops above the shelf. The categories are the pane's sibling, under it: always on screen, and nothing of the site runs behind them. */
+check("and they sit under the pane, which ends where they begin", await page.evaluate(() => {
+  const pane = document.querySelector("[data-studio-pane]"), drawer = document.querySelector("[data-drawer]");
+  if (!pane || !drawer || pane.contains(drawer)) return false;
+  return Math.abs(pane.getBoundingClientRect().bottom - drawer.closest("[data-studio-band]").getBoundingClientRect().top) <= 1;
+}));
 check("and the side panels do not move either",
   before.panels.length > 0 && before.panels.every((t, i) => t === after.panels[i]),
   before.panels.length ? `${before.panels.join(",")} → ${after.panels.join(",")}` : "no side panel was open");

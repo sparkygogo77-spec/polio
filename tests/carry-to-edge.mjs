@@ -125,7 +125,8 @@ check(
 );
 
 /* And back up. */
-await page.evaluate(() => { const p = document.querySelector("[data-studio-pane]"); if (p) p.scrollTop = Math.round((p.scrollHeight - p.clientHeight) / 2); });
+/* The part in view, low in the pane, with room above it to scroll: the pane is the board's alone (the shelf is under it), so its middle need not hold the part. */
+await page.evaluate((id) => { const p = document.querySelector("[data-studio-pane]"); const n = document.querySelector(`[data-node-id="${id}"]`); if (p && n) p.scrollTop = Math.max(1, p.scrollTop + n.getBoundingClientRect().top - p.getBoundingClientRect().top - p.clientHeight * 0.6); }, seed.id);
 await page.waitForTimeout(400);
 const up = await carryTo(paneBox.x + paneBox.width / 2, paneBox.y + 6);
 await letGo();
