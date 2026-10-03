@@ -119,7 +119,8 @@ check("code view: a part no script names says so, and is not filled by code", h1
 
 /* An inline svg and its shapes: PST's duel circles came in as nothing, and the hook check called them deleted. */
 const svgPart = byHook("duel-svg"), meC = byHook("duel-circle-me"), oppC = byHook("duel-circle-opponent");
-check("an inline svg is a picture part with its hook", svgPart?.featureId === "picture" && svgPart.w === 200 && svgPart.h === 200, JSON.stringify(svgPart && [svgPart.featureId, svgPart.w, svgPart.h]));
+/* Painted by a copy of itself, as the page draws it (tests/svg-icons.mjs): not a picture with no file. */
+check("an inline svg is a part with its hook, painted by its own copy", svgPart?.w === 200 && svgPart.h === 200 && /^url\("data:image\/svg\+xml/.test(svgPart.art?.background ?? ""), JSON.stringify(svgPart && [svgPart.featureId, svgPart.w, svgPart.h]));
 check("…and each hooked shape in it is a part of its own, a circle drawn as a circle, with its fill and stroke", meC?.featureId === "box" && meC.shape === "circle" && meC.w === 100 && meC.colour?.bg === "rgb(37, 99, 235)" && meC.edge?.colour === "rgb(37, 99, 235)" && oppC?.colour?.bg === "rgb(234, 179, 8)", JSON.stringify(meC && { shape: meC.shape, w: meC.w, colour: meC.colour, edge: meC.edge }));
 check("…under the picture, by its path", meC?.from?.selector.startsWith(`${svgPart?.from?.selector} `));
 const fresh = buildLayer(nodes, null, source);

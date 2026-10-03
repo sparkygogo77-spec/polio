@@ -1426,7 +1426,39 @@ export const PARTS = (cap: number): PageRead => {
       try { const cv = el as HTMLCanvasElement, blank = document.createElement("canvas"); blank.width = cv.width; blank.height = cv.height; const u = cv.toDataURL(); if (u !== blank.toDataURL()) drawn = u; } catch { /* a canvas another origin drew into is not readable: blank to us */ }
       if (!drawn) { push({ kind: "shape", tag: "canvas", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style }, el); return; }
     }
-    const at = push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: drawn || im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
+    /*
+     * AN INLINE SVG IS ITS OWN PICTURE. PST's title icons are inline svgs
+     * filled with currentColor: with no file to point at, each came in as a
+     * picture with nothing in it, drawn as the stand-in (71px tall, its alt
+     * words over the heading) with its path as a solid block on top. Drawn
+     * here as the browser drew it: a copy of the svg with every colour it
+     * takes from the page (currentColor, the stylesheet's fill and stroke)
+     * written on, as a data: picture of its own size.
+     */
+    const inline = el.tagName.toLowerCase() === "svg";
+    const kept = new Set<Element>();
+    if (inline && !drawn) {
+      try {
+        const copy = el.cloneNode(true) as SVGSVGElement;
+        const from = [el, ...Array.from(el.querySelectorAll("*"))], to = [copy, ...Array.from(copy.querySelectorAll("*"))];
+        from.forEach((s, i) => {
+          const c = to[i] as SVGElement | undefined;
+          if (!c || !/^(svg|g|path|circle|ellipse|rect|polygon|polyline|line|text|tspan|use)$/i.test(s.tagName)) return;
+          const sc = css(s);
+          /* A circle, an ellipse or a box with a hook is a part of its own (below), drawn there: not twice. */
+          if (/^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
+          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};opacity:${sc.opacity};color:${sc.color}`);
+        });
+        copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        copy.setAttribute("width", String(b.w));
+        copy.setAttribute("height", String(b.h));
+        drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
+      } catch { /* drawn as it was */ }
+    }
+    /* Painted as the box's own picture, as a data: background is: no file to carry, nothing to stand in for. */
+    const at = inline && drawn
+      ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] } }, el)
+      : push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: drawn || im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
     /*
      * AN INLINE SVG KEEPS ITS SHAPES' HOOKS. PST's duel is an svg holding two
      * circles its script resizes (duel-circle-me, duel-circle-opponent): each
@@ -1439,8 +1471,10 @@ export const PARTS = (cap: number): PageRead => {
         if (truncated) break;
         const sc = css(s);
         const sb = box(s.getBoundingClientRect());
-        const fill = sc.fill && sc.fill !== "none" && !seeThrough(sc.fill) ? sc.fill : null;
-        const stroke = sc.stroke && sc.stroke !== "none" && !seeThrough(sc.stroke) ? sc.stroke : null;
+        /* A path, a line or words inside a drawn svg are in its picture: the part keeps the hook and paints nothing over it. */
+        const own = !drawn || kept.has(s);
+        const fill = own && sc.fill && sc.fill !== "none" && !seeThrough(sc.fill) ? sc.fill : null;
+        const stroke = own && sc.stroke && sc.stroke !== "none" && !seeThrough(sc.stroke) ? sc.stroke : null;
         const sw = parseFloat(sc.strokeWidth) || 0;
         const base = styleOf(s);
         push({
