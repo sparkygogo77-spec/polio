@@ -65,6 +65,9 @@ check("a part outside it is left alone", !parts[2].motion);
 const page = readFileSync(join(here, "..", "src", "features", "studio", "StudioPage.tsx"), "utf8");
 check("the States menu lists parts, each opening its timeline (source read)", /data-states-frame=\{f\.frame\}/.test(page) && /openStatesTimeline\(f\.frame\)/.test(page) && /data-states-more/.test(page));
 
+const tl = readFileSync(join(here, "..", "src", "features", "studio", "StatesTimeline.tsx"), "utf8");
+check("the timeline takes the categories' place in the shelf, not a box of its own (source read)", /\{timelineFor \? <StatesTimeline \/> : <Palette \/>\}/.test(page) && !/<StatesTimeline \/>\s*\n\s*\{\/\*/.test(page) && !/className="fixed[^"]*"[^>]*data-states|data-states-timeline=""[^>]*fixed/.test(tl));
+
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
 process.exit(failed ? 1 : 0);

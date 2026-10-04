@@ -32,6 +32,8 @@ function useOpenFor() {
   return openFor;
 }
 const close = () => { openFor = null; play("close"); changed(); };
+/** The part whose timeline is open, if any: the shelf shows the timeline in place of the categories while it is. */
+export const useStatesTimelineOpen = useOpenFor;
 
 /** Does this part have a timeline to open? */
 export function hasStates(nodes: readonly StudioNode[], id: string): boolean {
@@ -107,6 +109,11 @@ function Step({ nodes, frame, step, at, lit }: { nodes: readonly StudioNode[]; f
   );
 }
 
+/**
+ * In the shelf, where the categories are (J, 2026-10-04): the timeline takes
+ * the categories' place rather than a box of its own over the board, and
+ * closing it gives them back.
+ */
 export function StatesTimeline() {
   const id = useOpenFor();
   const nodes = useStudio((s) => s.nodes);
@@ -135,7 +142,7 @@ export function StatesTimeline() {
     st.setStatesOn(name ? [...rest, screenKey(name)] : rest);
   };
   return (
-    <div data-states-timeline="" role="dialog" aria-label={`States timeline: ${fr.hook ?? frame.label}`} className="fixed bottom-24 left-1/2 z-[70] flex w-[min(820px,94vw)] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-panel p-3 shadow-2xl">
+    <div data-states-timeline="" role="region" aria-label={`States timeline: ${fr.hook ?? frame.label}`} className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
       <div className="flex items-center gap-2">
         <p className="text-plain font-medium text-fg">States timeline</p>
         <p className="min-w-0 flex-1 truncate text-small text-fg-muted">{fr.hook ?? frame.label} · {fr.steps.length + its.length} states, in order. Pick one to see it on the board.</p>

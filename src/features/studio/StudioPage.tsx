@@ -10,7 +10,7 @@ import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { RemakeCard } from "./RemakePicture";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
-import { StatesTimeline, openStatesTimeline } from "./StatesTimeline";
+import { StatesTimeline, openStatesTimeline, useStatesTimelineOpen } from "./StatesTimeline";
 import { stateFrames, type FrameNode } from "./stateFrames";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
@@ -1175,6 +1175,7 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
   const shelfTall = useShelfTall();
+  const timelineFor = useStatesTimelineOpen();
   const shelfFolded = useShelfFolded();
   const design = mode === "design";
   const book = mode === "book";
@@ -1552,7 +1553,6 @@ export function StudioPage() {
           <LearnedDialog />
           <RemixCard />
           {/* A part's states in order, opened from its right-click menu. */}
-          <StatesTimeline />
           {/*
             The one scroller: the site, then the categories under it.
 
@@ -1675,9 +1675,10 @@ export function StudioPage() {
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
                   /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
+                  style={{ height: shelfFolded && !timelineFor ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
-                  <Palette />
+                  {/* A part's states timeline takes the categories' place while it is open (`StatesTimeline.tsx`). */}
+                  {timelineFor ? <StatesTimeline /> : <Palette />}
                 </div>
           ) : null}
         </div>
