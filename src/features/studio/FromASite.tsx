@@ -230,6 +230,39 @@ function pageCarrying(shows: string[], files: StyleSource["files"]): string {
   return best;
 }
 
+/**
+ * The pictures its scripts draw (`/api/studio/zip`, pictures): the page is
+ * read without its scripts, so an <img> its code fills came in as a stand-in.
+ * Each is put on its part as the picture it shows, without an undo step of
+ * its own; one the board already holds a picture for keeps it.
+ */
+async function readPicturesOf(file: File, pages: string[], repo: string): Promise<void> {
+  if (!pages.length) return;
+  const form = new FormData();
+  form.set("zip", file, file.name);
+  form.set("pictures", JSON.stringify(pages));
+  const got = await fetch("/api/studio/zip", { method: "POST", body: form, signal: AbortSignal.timeout(240_000) }).then((r) => r.json() as Promise<Record<string, unknown>>).catch(() => null);
+  const byFile = (got?.ok && got.pictures && typeof got.pictures === "object" ? got.pictures : {}) as Record<string, Record<string, string>>;
+  const source = (useStudio.getState().look as { styleSource?: StyleSource }).styleSource;
+  if (!source || source.repo !== repo) return;
+  await fillPictures(new Map(Object.entries(byFile).flatMap(([f, hooks]) => { const id = source.files.find((x) => x.file === f)?.pageId; return id ? [[id, hooks] as const] : []; })));
+}
+
+/** Stand-ins its code fills, by page and hook, given the pictures it drew there. */
+async function fillPictures(byPage: Map<string, Record<string, string>>): Promise<void> {
+  const put = new Map<string, Awaited<ReturnType<typeof putPicture>>>();
+  for (const [pageId, hooks] of byPage) {
+    for (const n of useStudio.getState().nodes) {
+      const hook = n.pageId === pageId && n.featureId === "picture" && !(n as { picture?: unknown }).picture ? n.hooks?.["data-hook"] : undefined;
+      const src = hook ? hooks[hook] : undefined;
+      if (!src) continue;
+      try { put.set(n.id, await putPicture(await (await fetch(src)).blob(), { alt: hook!, from: "upload" })); } catch { /* no file storage here: it stays a stand-in */ }
+    }
+  }
+  if (!put.size) return;
+  useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (put.has(n.id) ? ({ ...n, picture: put.get(n.id) } as typeof n) : n)) });
+}
+
 /** A repository's preview screens, read off its preview page and kept on the site it came in as, without an undo step of their own. */
 async function readScreensOf(file: File, ask: { page: string | null; list: { name: string; src: string }[] }, repo: string, width?: number): Promise<void> {
   /* Its own deadline: the preview builds every screen before it lists them, and nobody waits on this. */
@@ -244,8 +277,16 @@ async function readScreensOf(file: File, ask: { page: string | null; list: { nam
   const source = (st.look as { styleSource?: StyleSource }).styleSource;
   if (!read.length || !source || source.repo !== repo) return;
   /* A screen read off the preview's own copy names no page: it is the page whose hooks it carries most of. */
-  const screens = read.map((x) => (x.page ? x : { ...x, page: pageCarrying(x.shows, source.files) })).filter((x) => x.page);
+  const placed = read.map((x) => (x.page ? x : { ...x, page: pageCarrying(x.shows, source.files) })).filter((x) => x.page);
+  /* What its code drew into its pictures, in these screens: onto the stand-ins it fills (`fillPictures`), and not kept on the screens. */
+  const drawn = new Map<string, Record<string, string>>();
+  for (const x of placed as (ScreenRead & { pictures?: Record<string, string> })[]) {
+    const id = source.files.find((f) => f.file === x.page)?.pageId;
+    if (id && x.pictures) drawn.set(id, { ...x.pictures, ...(drawn.get(id) ?? {}) });
+  }
+  const screens = placed.map(({ pictures: _p, ...x }: ScreenRead & { pictures?: unknown }) => x);
   useStudio.setState({ look: { ...st.look, styleSource: { ...source, screens } } as typeof st.look });
+  if (drawn.size) await fillPictures(drawn);
 }
 
 function landAsBrought(doc: Record<string, unknown>): void {
@@ -714,6 +755,8 @@ export function FromASite({ space }: { space: Space }) {
     useStudio.getState().oneStepSince(mark);
     /* Its preview screens, read in the background as its own code builds them: the States control lists them when they land (`boardStates.ts`). */
     if (m?.previewPage || m?.screenPages.length) void readScreensOf(got.screensFile ?? got.file, { page: m.previewPage, list: m.screenPages.map((x) => ({ name: x.name, src: `${x.page}${(m.previewQuery ?? "?still=1&screen=<name>").replace("<name>", encodeURIComponent(x.name))}` })) }, styleSource.repo, doc.frameWidth || st0.frameWidth || 1440);
+    /* The pictures its scripts draw, read in the background with its scripts on, onto the stand-ins they fill. */
+    if (files.some((f) => f.scripts)) void readPicturesOf(got.file, (styleSource.files ?? []).map((f) => f.file), styleSource.repo);
     /* Locked as the page had it, when it landed in a space: the layout is the specification. */
     if (!isHeadless(space)) lockNow(space.id);
     /* The space this panel runs on stays picked, so its line is read where it was asked for; a repository's import has none (`BringHost`). */

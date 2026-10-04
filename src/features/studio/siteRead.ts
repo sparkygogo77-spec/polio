@@ -1469,6 +1469,33 @@ export const PARTS = (cap: number): PageRead => {
         drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
       } catch { /* drawn as it was */ }
     }
+    /*
+     * A PICTURE ITS SCRIPT DREW IS KEPT. PonsStars' avatars and profile
+     * picture are <img>s whose src its script writes (a data: SVG, or a file
+     * of its own); read for their src attribute alone they came in as grey
+     * stand-ins with their hook for words. A loaded <img> is kept as what it
+     * shows: its data: address as it is, else read through a canvas (one
+     * from another origin cannot be read, and stays a stand-in).
+     */
+    let shown: string | null = null;
+    if (!inline && !drawn && el.tagName === "IMG" && im.complete && im.naturalWidth > 0) {
+      const src = im.currentSrc || im.src || "";
+      if (src.startsWith("data:")) shown = src;
+      else {
+        try {
+          const k = Math.min(1, 256 / Math.max(im.naturalWidth, im.naturalHeight));
+          const cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+          cv.getContext("2d")?.drawImage(im, 0, 0, cv.width, cv.height);
+          shown = cv.toDataURL("image/webp", 0.85);
+        } catch { /* another origin's picture: not readable here */ }
+      }
+    }
+    const fit = css(el).objectFit;
+    if (shown) {
+      push({ kind: "shape", tag: "img", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${shown}")`, imageOptions: [fit === "cover" ? "cover" : fit === "contain" || fit === "scale-down" ? "contain" : "100% 100%", css(el).objectPosition || "50% 50%", "no-repeat"] } }, el);
+      return;
+    }
     /* Painted as the box's own picture, as a data: background is: no file to carry, nothing to stand in for. */
     const at = inline && drawn
       ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] } }, el)
