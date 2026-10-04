@@ -23,6 +23,9 @@ import { held, put } from "./pictures";
 import { readableFixes } from "./siteColours";
 import { checkBoard, KIND_ORDER, type Problem } from "./publishCheck";
 import { useStudio } from "./store";
+import { heldKeys } from "@/features/keys/store";
+import { activeProject } from "@/features/builds/store";
+import { issueFiles, pushBranch } from "./codePublish";
 import { goToPart } from "./PartTreePanel";
 import { stillCopyWords, useStillCopy } from "./stillCopy";
 import { openRepoPicker } from "./RepoPicker";
@@ -119,6 +122,29 @@ export function PublishCheckDialog() {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [note, setNote] = React.useState<string | null>(null);
   const close = () => useCheck.setState({ open: false, go: null });
+  /*
+   * A SITE FROM CODE: WHAT THE BOARD CANNOT FIX GOES TO THE CODE. The lines,
+   * by hook and page, onto a new fix/ branch as design/ISSUES.md (and the
+   * same as data) for a code chat on that branch to work through
+   * (`codePublish.ts#issueFiles`). Nothing is published by it.
+   */
+  const code = useStudio((st) => (st.look as { styleSource?: { repo?: string } | null }).styleSource ?? null);
+  const [sending, setSending] = React.useState(false);
+  const toBranch = async () => {
+    const st = useStudio.getState();
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    if (!code?.repo || !token) { setNote("Sending these to the code needs your GitHub key, under Keys."); return; }
+    setSending(true);
+    try {
+      const site = activeProject()?.name || code.repo.split("/")[1] || "site";
+      const when = new Date().toISOString().slice(0, 10);
+      const heading = (k: string) => KIND_ORDER.find((x) => x.kind === k)?.heading ?? k;
+      const issues = problems.map((p) => ({ kind: heading(p.kind), hook: st.nodes.find((n) => n.id === p.id)?.hooks?.["data-hook"] ?? null, page: st.pages.find((x) => x.id === p.pageId)?.name ?? p.pageId, says: p.says }));
+      const slug = site.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "site";
+      const done = await pushBranch(code.repo, token, issueFiles(issues, { repo: code.repo, site, when }), { branch: `fix/${slug}-${when}`, message: `Design issues from the Builder: ${issues.length}\n\nFor a code chat on this branch: design/ISSUES.md lists each by its hook.` });
+      setNote(done.ok ? `Sent: ${issues.length} line${issues.length === 1 ? "" : "s"} on a new branch ${done.branch} of ${code.repo} (design/ISSUES.md). Point a code chat at that branch to fix them: ${done.url}` : done.says);
+    } finally { setSending(false); }
+  };
   const again = async (): Promise<Problem[]> => { const next = await readBoard(); useCheck.setState({ problems: next }); return next; };
   const press = async (p: Problem, choice: "fix" | "keep" = "fix") => {
     setBusy(p.key);
@@ -145,6 +171,9 @@ export function PublishCheckDialog() {
         <div className="flex w-full items-center gap-2">
           <Button variant="ghost" size="sm" onClick={close}>Back to the board</Button>
           <span className="flex-1" />
+          {code?.repo && problems.length ? (
+            <Button variant="ghost" size="sm" data-check-to-branch="" loading={sending} onClick={() => void toBranch()}>Send these to a code branch</Button>
+          ) : null}
           <Button variant={problems.length ? "outline" : "primary"} size="sm" data-publish-anyway="" onClick={() => { const g = go; close(); g?.(); }}>
             <Globe /> {problems.length ? "Publish anyway" : "Publish"}
           </Button>
