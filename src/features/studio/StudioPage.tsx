@@ -8,6 +8,7 @@
  */
 import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { RemakeCard } from "./RemakePicture";
+import { ClearBackgroundCard } from "./ClearBackground";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
 import { StatesTimeline, openStatesTimeline, useStatesTimelineOpen } from "./StatesTimeline";
@@ -1555,6 +1556,8 @@ export function StudioPage() {
           <PreviewWindow />
           {/* "Remake this picture…", opened from the wheel's tray or a parts-tree row. */}
           <RemakeCard />
+          {/* "Transparent background…", from the wheel's tray under a picture. */}
+          <ClearBackgroundCard />
           <LearnedDialog />
           <RemixCard />
           {/* A part's states in order, opened from its right-click menu. */}
