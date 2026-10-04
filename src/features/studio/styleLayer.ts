@@ -121,6 +121,10 @@ export interface StyleSource {
   files: { file: string; pageId: string; hooks: (SourceHook & { imported: boolean })[]; vars: SourceVar[] }[];
   /** Variables the owner set by hand, by name. */
   varsSet?: Record<string, string>;
+  /** The commit of its branch the board was read at (`codePublish.ts`): Refresh is green while the branch is still there. */
+  commit?: string | null;
+  /** The fingerprint of the layer last published into the code (`codePublish.ts#layerPrint`): a design not yet published is one that differs. */
+  sent?: string | null;
   /** What the repository was when last read (`kitRun.ts`): the baseline each design round is compared with. */
   seen?: import("./kitRun.ts").KitSeen;
   /** Its `builder.json`, when it is builder-ready: the design then goes back by the kit's contract. */

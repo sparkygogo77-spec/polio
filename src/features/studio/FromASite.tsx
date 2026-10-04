@@ -46,6 +46,7 @@ import { stillAlt, type StillsAsk, type StillTaken } from "./stills";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { readKit, seenOfSource } from "./kitRun";
+import { headOf } from "./codePublish";
 import { hooksOnBoard } from "./designBranch";
 import type { ScreenRead } from "./boardStates";
 import { oneAddress, withoutJoinedAddress } from "./captureSite";
@@ -675,11 +676,19 @@ export function FromASite({ space }: { space: Space }) {
    */
   const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File; stills?: { file: File; ask: StillsAsk } }): Promise<boolean> => {
     const st0 = useStudio.getState();
+    /*
+     * READ AT HIS WINDOW'S WIDTH (J, 2026-10-04): PonsStars on his ~2000px
+     * screen looked like the board only zoomed to 150%, because the board
+     * read it at 1440. A site from code is read at the width of the window
+     * he is looking from, so the board is the site 1:1 as he sees it.
+     */
+    const seen = typeof window === "undefined" ? 0 : Math.round(window.innerWidth);
+    const readAt = seen >= 1280 ? Math.min(2560, seen) : st0.frameWidth || 1440;
     /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
     const m = got.manifest ?? null;
     const zr = await askZip(got.file, {
       parts: "1",
-      width: String(st0.frameWidth || 1440),
+      width: String(readAt),
       ...(m?.pages.length ? { entry: m.pages[0]!.file, pages: JSON.stringify(m.pages.slice(1).map((p) => p.file)) } : {}),
       ...(m?.tokens ? { tokens: m.tokens } : {}),
     });
@@ -696,7 +705,7 @@ export function FromASite({ space }: { space: Space }) {
     let stillsSaid = "";
     if (got.stills) {
       busy(`Taking a still of what its code draws into ${got.stills.ask.shots.map((x) => x.hook).join(", ")}…`);
-      const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(st0.frameWidth || 1440) }).catch(() => ({ ok: false }) as Record<string, unknown>);
+      const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(readAt) }).catch(() => ({ ok: false }) as Record<string, unknown>);
       const taken = Array.isArray(sr.stills) ? (sr.stills as StillTaken[]) : [];
       const put: string[] = [];
       for (const t of taken) {
@@ -731,6 +740,9 @@ export function FromASite({ space }: { space: Space }) {
       styleSource.kit = kit.manifest;
       if (kit.manifest.links) format = { ...format, "links.offsite": kitLinksToOffsite(kit.manifest.links) };
     } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
+    /* The commit it was read at: Refresh is green while its branch is still there (`codePublish.ts`). */
+    styleSource.commit = await headOf(styleSource.repo, styleSource.ref || "HEAD", heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "").catch(() => null);
+    styleSource.sent = null;
     /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
     landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });

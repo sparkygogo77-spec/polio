@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       return null;
     }
   })();
-  const width = Math.max(360, Math.min(1920, Number(form.get("width")) || 1280));
+  const width = Math.max(360, Math.min(2560, Number(form.get("width")) || 1280));
   /* The preview page a builder.json names, and how a screen is asked for: its screens are read instead of its parts. */
   /* The pages whose pictures its scripts draw, asked for after the import (`FromASite.tsx#readPicturesOf`). */
   const picturesAsk = (() => {

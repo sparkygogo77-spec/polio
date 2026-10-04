@@ -27,10 +27,8 @@ import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
-import { prepareLayer, publishLayer } from "./styleLayerRun";
-import { fileAt, layerHooksOf, readRound, takeTokens, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
-import { readHookMap } from "./designBranch";
-import { boardRecord } from "./exportForCode";
+import { sendDesign } from "./codeSend";
+import { layerHooksOf, readRound, takeTokens, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./parts/offsite";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
@@ -159,22 +157,12 @@ export function StyleLayerSection() {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (!token) { setSaid({ text: "This writes to the repository with your own GitHub token, and there is not one saved yet. Add one under Keys.", bad: true }); return; }
     setBusy(true);
-    setSaid({ text: `Reading the pages from ${source.repo} on ${source.ref}…` });
     try {
-      const prepared = await prepareLayer(nodes as unknown as LayerNode[], palette, source, token, { family, when: new Date().toISOString().slice(0, 10) });
-      if (!prepared.ok) { setSaid({ text: prepared.says, bad: true }); return; }
-      setSaid({ text: "Making the branch…" });
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
-      /* The design record goes with it (design/record.json), with the parts each sits in from the repository's hooks.json. */
-      if (prepared.files.length) {
-        const mapPath = source.kit?.hooks ?? null;
-        const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
-        prepared.files.push({ path: "design/record.json", content: boardRecord(map) });
-      }
-      const done = await publishLayer(prepared, source, token, { site });
+      const done = await sendDesign(nodes as unknown as LayerNode[], palette, source, token, { site, family, say: (text) => setSaid({ text }) });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
-      if (prepared.kit) { const held = prepared.skipped.length ? ` Held back: ${prepared.skipped.map((s) => s.from).join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }
-      const skipped = prepared.skipped.length ? ` ${prepared.skipped.length} word change${prepared.skipped.length === 1 ? " was" : "s were"} left out: ${prepared.skipped.map((s) => `“${s.from.slice(0, 40)}” (${s.why})`).join("; ")}.` : "";
+      if (done.kit) { const held = done.held.length ? ` Held back: ${done.held.join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }
+      const skipped = done.held.length ? ` ${done.held.length} word change${done.held.length === 1 ? " was" : "s were"} left out: ${done.held.join("; ")}.` : "";
       setSaid({ text: `${done.says}${skipped}`, link: done.pull ?? done.compare });
     } finally {
       setBusy(false);

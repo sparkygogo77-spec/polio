@@ -151,6 +151,8 @@ export function checkBoard(input: CheckInput): Problem[] {
   /* Buttons and links that do nothing yet. */
   for (const d of decisions(input.nodes as never).filter((x) => x.why === "nowhere")) {
     const n = input.nodes.find((x) => x.id === d.id);
+    /* A part its own code wires up (a site brought in from a code repository: the scripts that find it by its hook) does something; only the board cannot see what. */
+    if (n && ((n as { source?: { code?: { refs?: unknown[] } } }).source?.code?.refs?.length ?? 0) > 0) continue;
     if (n) out.push({ key: `nowhere:${n.id}`, kind: "nowhere", id: n.id, pageId: n.pageId, says: `${name(n)}${onPage(n.pageId)} is a button or link that does nothing yet.`, fix: "Leave it doing nothing" });
   }
   return out;
