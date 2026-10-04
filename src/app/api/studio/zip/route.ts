@@ -80,6 +80,10 @@ export async function POST(request: Request) {
   })();
   const width = Math.max(360, Math.min(1920, Number(form.get("width")) || 1280));
   /* The preview page a builder.json names, and how a screen is asked for: its screens are read instead of its parts. */
+  /* The pages whose pictures its scripts draw, asked for after the import (`FromASite.tsx#readPicturesOf`). */
+  const picturesAsk = (() => {
+    try { const v = JSON.parse(String(form.get("pictures") ?? "null")) as unknown; return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 12) : null; } catch { return null; }
+  })();
   const screensAsk = (() => {
     try {
       const v = JSON.parse(String(form.get("screens") ?? "null")) as { page?: unknown; list?: unknown } | null;
@@ -155,6 +159,27 @@ export async function POST(request: Request) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     /* The repository's preview screens, read as its own code builds them (`boardStates.ts`): its scripts run here, and only here, with nothing reachable but the zip's own files. */
+    /*
+     * THE PICTURES ITS SCRIPTS DRAW. The page is read without its scripts
+     * (below), so an <img> its code fills (PonsStars' avatars, written as
+     * data: SVG at load) came in as a stand-in. Each asked page is opened
+     * here with its scripts, and every hooked <img> it shows is handed back
+     * as what it draws: its data: address, or read through a canvas.
+     */
+    if (picturesAsk) {
+      await serveZip(page, names, "", (n) => unpacked(n));
+      const out: Record<string, Record<string, string>> = {};
+      for (const file of picturesAsk) {
+        if (!names.has(file)) continue;
+        try {
+          await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
+          await page.waitForTimeout(1500);
+          out[file] = (await (page as unknown as { evaluate: (fn: string) => Promise<unknown> }).evaluate(`(${DRAWN_PICTURES})()`)) as Record<string, string>;
+        } catch { /* a page that will not open keeps its stand-ins */ }
+      }
+      await context.close();
+      return NextResponse.json({ ok: true, name, pictures: out, took: took() });
+    }
     if (screensAsk) {
       await serveZip(page, names, "", (n) => unpacked(n));
       const got = await readScreens(page, screensAsk);
@@ -359,6 +384,25 @@ const DRAWN_HOOKS = `() => {
   return [...out].sort();
 }`;
 
+/** In the page: each hooked <img> it shows, as what it draws (a data: address, at most 256px across). */
+const DRAWN_PICTURES = `() => {
+  const out = {};
+  for (const im of Array.from(document.querySelectorAll("img[data-hook]"))) {
+    const v = im.getAttribute("data-hook");
+    if (!v || out[v] || !im.complete || !im.naturalWidth) continue;
+    const src = im.currentSrc || im.src || "";
+    if (src.startsWith("data:")) { if (src.length < 400000) out[v] = src; continue; }
+    try {
+      const k = Math.min(1, 256 / Math.max(im.naturalWidth, im.naturalHeight));
+      const cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+      cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+      out[v] = cv.toDataURL("image/webp", 0.85);
+    } catch (e) { /* another origin's picture */ }
+  }
+  return out;
+}`;
+
 /** In the page: where each drawn hook is, in page pixels (its first box), so the board can draw a screen where the code drew it (`boardStates.ts#screenPlaces`). */
 const DRAWN_BOXES = `() => {
   const out = {};
@@ -393,7 +437,13 @@ const SCREEN_LIST = `() => {
       shows.add(v);
       if (!boxes[v]) { const r = h.getBoundingClientRect(); boxes[v] = [Math.round(r.x - at.x), Math.round(r.y - at.y), Math.round(r.width), Math.round(r.height)]; }
     }
-    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes });
+    /* And what each hooked <img> draws here, where its code drew it (\`FromASite.tsx#readScreensOf\`): small data: addresses as they are. */
+    const pictures = {};
+    if (body) for (const im of Array.from(body.querySelectorAll("img[data-hook]"))) {
+      const v = im.getAttribute("data-hook"); const src = im.currentSrc || im.src || "";
+      if (v && !pictures[v] && im.complete && im.naturalWidth && src.startsWith("data:") && src.length < 200000) pictures[v] = src;
+    }
+    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes, pictures });
   }
   return out;
 }`;
@@ -408,7 +458,8 @@ const BUSY = `() => [document.documentElement, document.body].some((el) => el &&
  * read once what it draws has stopped changing.
  */
 type Boxes = Record<string, [number, number, number, number]>;
-async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[]; boxes?: Boxes }[]> {
+type Pictures = Record<string, string>;
+async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures }[]> {
   type Evaluating = { evaluate: (fn: string) => Promise<unknown>; goto: (url: string, o: { waitUntil: "load"; timeout: number }) => Promise<unknown>; waitForTimeout: (ms: number) => Promise<void> };
   const p = page as unknown as Evaluating;
   const settle = async (most: number) => {
@@ -424,27 +475,27 @@ async function readScreens(page: PWPage, ask: { page: string | null; list: { nam
     }
   };
   /* The manifest's own list when it gives each screen's page (the kit's); else the screens the built preview page shows (PonsStars'). */
-  let listed: { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
+  let listed: { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes; pictures?: Pictures }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
   if (!listed.length && ask.page) {
     await p.goto(`${HOME}/${ask.page}?still=1`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
     await settle(90000);
-    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes }[];
+    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes; pictures?: Pictures }[];
   }
-  const out: { name: string; label: string; page: string; shows: string[]; boxes?: Boxes }[] = [];
+  const out: { name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures }[] = [];
   for (const s of listed.slice(0, 40)) {
     let u: URL | null = null;
     try { u = new URL(s.href); } catch { /* no address of its own */ }
     const file = u && u.origin === HOME ? decodeURIComponent(u.pathname.slice(1)) : "";
     /* Its address is the preview page again (PonsStars' links open the screen alone there): what the preview copied in is the screen, and its page is the one whose hooks it carries (`boardStates.ts`). */
     if (!file || file === ask.page || !u) {
-      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}) });
+      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}), ...(s.pictures ? { pictures: s.pictures } : {}) });
       continue;
     }
     if (!u.searchParams.has("still")) u.searchParams.set("still", "1");
     try {
       await p.goto(u.toString(), { waitUntil: "load", timeout: ZIP_BUDGET_MS });
       await settle(20000);
-      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[], boxes: (await p.evaluate(`(${DRAWN_BOXES})()`).catch(() => ({}))) as Boxes });
+      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[], boxes: (await p.evaluate(`(${DRAWN_BOXES})()`).catch(() => ({}))) as Boxes, pictures: (await p.evaluate(`(${DRAWN_PICTURES})()`).catch(() => ({}))) as Pictures });
     } catch {
       /* A screen whose page will not open is left out. */
     }

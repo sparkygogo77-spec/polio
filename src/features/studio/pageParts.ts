@@ -349,6 +349,36 @@ export function lookFromCapture(p: PagePart, shadow: string | null, art: Record<
  * A part with no rounding of its own, sitting in a corner of its nearest
  * clipping, rounded ancestor, takes that corner's radius.
  */
+/**
+ * WHAT A MOVING PART HOLDS MOVES WITH IT. PonsStars' antenna swings
+ * (a rotate keyframe about its foot) and the ball on its tip is an element
+ * inside it; on the page the ball swings with the rod. On the board each is
+ * a part of its own, so the rod swung and the ball stayed put. A part inside
+ * an animated, transformed part, with no animation of its own, takes the
+ * same animation, turning about the same point (the holder's origin, said
+ * from the part's own corner), and stands still as the holder stands it:
+ * the holder's transform about that point.
+ */
+export function rideAnimations(nodes: Record<string, unknown>[]): void {
+  type N = { id?: string; x: number; y: number; from?: { selector?: string }; motion?: { animation?: unknown[] } | null; art?: Record<string, unknown> | null };
+  const all = nodes as unknown as N[];
+  const px = (v: unknown, i: number): number | null => { const m = String(v ?? "").trim().split(/\s+/)[i]; return m && /^-?[\d.]+px$/.test(m) ? parseFloat(m) : null; };
+  const movers = all.filter((n) => n.motion?.animation?.length && n.from?.selector && (n.art?.transform || n.art?.origin));
+  for (const m of movers) {
+    const sel = m.from!.selector!;
+    const ox = px(m.art?.origin, 0), oy = px(m.art?.origin, 1);
+    if (ox === null || oy === null) continue;
+    for (const c of all) {
+      if (c === m || c.motion?.animation?.length || !c.from?.selector?.startsWith(`${sel} > `)) continue;
+      c.motion = { ...(c.motion ?? {}), animation: m.motion!.animation };
+      /* Still, it stands as the holder stands it: the holder's own transform, about the same point, is exactly what the page does to it. */
+      const art: Record<string, unknown> = { ...(c.art ?? {}), ...(m.art?.transform ? { transform: m.art.transform } : {}) };
+      art.origin = `${Math.round((m.x + ox - c.x) * 100) / 100}px ${Math.round((m.y + oy - c.y) * 100) / 100}px`;
+      c.art = art;
+    }
+  }
+}
+
 export function clippedCorners(parts: readonly PagePart[], i: number): PagePart["style"] {
   const p = parts[i]!;
   const s = p.style;
@@ -407,6 +437,7 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
       const was = (n.source as { was?: { box?: { y: number } } } | undefined)?.was;
       if (was?.box) was.box.y = to.y;
     }
+    rideAnimations(landed);
     nodes.push(...landed);
     const hidden = f.read.parts.filter((p) => p.hidden).length;
     report.pages.push({ name: pages[i]!.name, file: f.file, parts: landed.length, hidden });

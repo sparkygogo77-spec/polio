@@ -10,7 +10,8 @@ import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { RemakeCard } from "./RemakePicture";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
-import { StatesTimeline } from "./StatesTimeline";
+import { StatesTimeline, openStatesTimeline, useStatesTimelineOpen } from "./StatesTimeline";
+import { stateFrames, type FrameNode } from "./stateFrames";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -344,9 +345,15 @@ function StatesChip({ pageId }: { pageId: string }) {
   const source = useStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
   const [open, setOpen] = React.useState(false);
   const groups = React.useMemo(() => hiddenGroups(nodes, pageId), [nodes, pageId]);
+  /* The page's parts that go through states (the TV, the balance panel), outermost first: each opens its own timeline (`StatesTimeline.tsx`). */
+  const frames = React.useMemo(() => {
+    const r = stateFrames(nodes as unknown as FrameNode[]);
+    return r.frames.filter((f) => f.pageId === pageId && f.steps.length > 1 && (r.inFrame.get(f.frame) ?? f.frame) === f.frame);
+  }, [nodes, pageId]);
+  const [more, setMore] = React.useState(false);
   const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
   const screens = (source?.screens ?? []).filter((x) => x.page === file);
-  if (!groups.length && !screens.length) return null;
+  if (!groups.length && !screens.length && !frames.length) return null;
   const here = [...screens.map((x) => screenKey(x.name)), ...groups.map((g) => g.group)];
   const lit = here.filter((k) => on.includes(k)).length;
   const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
@@ -376,11 +383,33 @@ function StatesChip({ pageId }: { pageId: string }) {
         className="max-h-[70vh] w-auto min-w-[240px] max-w-[340px] overflow-y-auto p-1"
         content={
           <div data-states-menu="" className="flex flex-col gap-0.5">
-            <p className="px-2 py-1 text-fine text-fg-faint">Shown on the board only. The page still opens with them hidden.</p>
-            {screens.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Screens</p> : null}
-            {screens.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label || x.name} note={x.name} />)}
-            {groups.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Hidden parts</p> : null}
-            {groups.map((g) => <Row key={g.group} k={g.group} name={g.template ? `${g.hook} (template)` : g.hook} note={String(g.parts)} />)}
+            <p className="px-2 py-1 text-fine text-fg-faint">Pick a part to see the states it goes through. Shown on the board only: the page still opens as its code says.</p>
+            {/* J: one part, its timeline; not an endless list of every state on the page. */}
+            {frames.map((f) => {
+              const n = nodes.find((x) => x.id === f.frame);
+              return (
+                <button key={f.frame} type="button" data-states-frame={f.frame} onClick={() => { setOpen(false); useStudio.getState().setSelection([f.frame]); openStatesTimeline(f.frame); }}
+                  className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
+                  <Layers className="size-3 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{f.hook ?? n?.label ?? "A part"}</span>
+                  <span className="num shrink-0 pl-2 text-fine text-fg-faint">{f.steps.length} states</span>
+                </button>
+              );
+            })}
+            {screens.length || groups.length ? (
+              <button type="button" data-states-more="" aria-expanded={more} onClick={() => setMore((v) => !v)} className="tactile mt-1 flex h-7 items-center gap-1 rounded-md px-2 text-left text-fine text-fg-faint hover:bg-hover hover:text-fg">
+                <ChevronDown className={cn("size-3 shrink-0 transition-transform", more && "rotate-180")} />
+                {frames.length ? "More: whole screens and every hidden part" : "Whole screens and every hidden part"}
+              </button>
+            ) : null}
+            {more || !frames.length ? (
+              <>
+                {screens.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Screens</p> : null}
+                {screens.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label || x.name} note={x.name} />)}
+                {groups.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Hidden parts</p> : null}
+                {groups.map((g) => <Row key={g.group} k={g.group} name={g.template ? `${g.hook} (template)` : g.hook} note={String(g.parts)} />)}
+              </>
+            ) : null}
             {lit ? (
               <button type="button" data-states-off="" onClick={() => { play("tap"); useStudio.getState().setStatesOn((useStudio.getState().statesOn ?? []).filter((k) => !here.includes(k))); }} className="tactile mt-1 h-7 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
                 Hide them all again
@@ -1146,6 +1175,7 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
   const shelfTall = useShelfTall();
+  const timelineFor = useStatesTimelineOpen();
   const shelfFolded = useShelfFolded();
   const design = mode === "design";
   const book = mode === "book";
@@ -1523,7 +1553,6 @@ export function StudioPage() {
           <LearnedDialog />
           <RemixCard />
           {/* A part's states in order, opened from its right-click menu. */}
-          <StatesTimeline />
           {/*
             The one scroller: the site, then the categories under it.
 
@@ -1646,9 +1675,10 @@ export function StudioPage() {
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
                   /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
+                  style={{ height: shelfFolded && !timelineFor ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
-                  <Palette />
+                  {/* A part's states timeline takes the categories' place while it is open (`StatesTimeline.tsx`). */}
+                  {timelineFor ? <StatesTimeline /> : <Palette />}
                 </div>
           ) : null}
         </div>

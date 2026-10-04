@@ -174,3 +174,43 @@ export function partUnder<T extends PlaceNode>(nodes: readonly T[], outer: T, at
   }
   return best;
 }
+
+/**
+ * THE SCREENS THAT CHANGE THIS PART. A part's own hidden faces are not all
+ * it goes through: PonsStars' TV wakes, goes offline, plays a sample, plays
+ * the match and shows the result, each a preview screen of its code. A
+ * screen is one of this part's states when what it draws inside the part
+ * differs from what the page opens with there; screens that draw the same
+ * inside it are one state, the first named.
+ */
+export function screensOfPart(nodes: readonly PlaceNode[], frame: PlaceNode, screens: readonly ScreenRead[], pageFile: string | null): ScreenRead[] {
+  /* Wholly inside it (2px either way), and smaller: a wrapper whose middle happens to fall in it is not in it. */
+  const E = 2;
+  const inside = nodes.filter((n) => n.pageId === frame.pageId && n.id !== frame.id && n.w * n.h < frame.w * frame.h && n.x >= frame.x - E && n.y >= frame.y - E && n.x + n.w <= frame.x + frame.w + E && n.y + n.h <= frame.y + frame.h + E);
+  const hooks = new Set(inside.map((n) => n.hooks?.["data-hook"]).filter((h): h is string => !!h));
+  const opens = [...new Set(inside.filter((n) => !n.state).map((n) => n.hooks?.["data-hook"]).filter((h): h is string => !!h))].sort().join(" ");
+  /*
+   * One per distinct state, in the order it first appears; named by the
+   * screen most about this part: its name or label says the part's words
+   * (PonsStars' "Chart TV: a match on screen" over the page-wide
+   * "mid-match"), and, the same, the most of what it draws is inside it.
+   */
+  const PLAIN = new Set(["row", "panel", "box", "area", "wrap", "inner", "body", "frame", "line", "text", "label", "icon", "shape"]);
+  const words = new Set([frame, ...inside.slice().sort((a, b) => b.w * b.h - a.w * a.h).slice(0, 4)]
+    .flatMap((n) => (n.hooks?.["data-hook"] ?? "").toLowerCase().split(/[^a-z0-9]+/)).filter((w) => w.length > 1 && !PLAIN.has(w)));
+  const says = (sc: ScreenRead) => { const t = `${sc.name} ${sc.label ?? ""}`.toLowerCase().split(/[^a-z0-9]+/); return [...words].filter((w) => t.includes(w)).length; };
+  const groups = new Map<string, { at: number; best: ScreenRead; share: number; said: number }>();
+  screens.forEach((sc, at) => {
+    if (pageFile && sc.page !== pageFile) return;
+    const mine = sc.shows.filter((h) => hooks.has(h));
+    const here = [...new Set(mine)].sort().join(" ");
+    if (!here || here === opens) return;
+    const share = mine.length / Math.max(1, sc.shows.length);
+    const said = says(sc);
+    const g = groups.get(here);
+    if (!g) groups.set(here, { at, best: sc, share, said });
+    else if (said > g.said || (said === g.said && share > g.share + 1e-9)) { g.best = sc; g.share = share; g.said = said; }
+  });
+  return [...groups.values()].sort((a, b) => a.at - b.at).map((g) => g.best);
+}
+

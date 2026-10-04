@@ -18,6 +18,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { useStudio, type StudioNode } from "./store";
+import { screenKey, screensOfPart, type ScreenRead } from "./boardStates";
 import { frameFor, readStepKey, stepData, stepKey, type StateFrame, type StateStep } from "./stateFrames";
 
 let openFor: string | null = null;
@@ -31,6 +32,8 @@ function useOpenFor() {
   return openFor;
 }
 const close = () => { openFor = null; play("close"); changed(); };
+/** The part whose timeline is open, if any: the shelf shows the timeline in place of the categories while it is. */
+export const useStatesTimelineOpen = useOpenFor;
 
 /** Does this part have a timeline to open? */
 export function hasStates(nodes: readonly StudioNode[], id: string): boolean {
@@ -106,6 +109,11 @@ function Step({ nodes, frame, step, at, lit }: { nodes: readonly StudioNode[]; f
   );
 }
 
+/**
+ * In the shelf, where the categories are (J, 2026-10-04): the timeline takes
+ * the categories' place rather than a box of its own over the board, and
+ * closing it gives them back.
+ */
 export function StatesTimeline() {
   const id = useOpenFor();
   const nodes = useStudio((s) => s.nodes);
@@ -121,11 +129,23 @@ export function StatesTimeline() {
   const frame = fr ? nodes.find((n) => n.id === fr.frame) : null;
   if (!fr || !frame) return null;
   const picked = on.map(readStepKey).find((k) => k?.frame === fr.frame)?.step ?? null;
+  const source = (useStudio.getState().look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource;
+  const pageFile = source?.files?.find((f) => f.pageId === frame.pageId)?.file ?? null;
+  const its = screensOfPart(nodes, frame, source?.screens ?? [], pageFile);
+  const litScreen = its.find((x) => on.includes(screenKey(x.name)))?.name ?? null;
+  /* One of its screens at a time: the others of this page go off. */
+  const showScreen = (name: string | null) => {
+    play("tap");
+    const st = useStudio.getState();
+    const mine = new Set((source?.screens ?? []).filter((x) => x.page === pageFile).map((x) => screenKey(x.name)));
+    const rest = (st.statesOn ?? []).filter((k) => !mine.has(k));
+    st.setStatesOn(name ? [...rest, screenKey(name)] : rest);
+  };
   return (
-    <div data-states-timeline="" role="dialog" aria-label={`States timeline: ${fr.hook ?? frame.label}`} className="fixed bottom-24 left-1/2 z-[70] flex w-[min(820px,94vw)] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-panel p-3 shadow-2xl">
+    <div data-states-timeline="" role="region" aria-label={`States timeline: ${fr.hook ?? frame.label}`} className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
       <div className="flex items-center gap-2">
         <p className="text-plain font-medium text-fg">States timeline</p>
-        <p className="min-w-0 flex-1 truncate text-small text-fg-muted">{fr.hook ?? frame.label} · {fr.steps.length} states, in order. Pick one to see it on the board.</p>
+        <p className="min-w-0 flex-1 truncate text-small text-fg-muted">{fr.hook ?? frame.label} · {fr.steps.length + its.length} states, in order. Pick one to see it on the board.</p>
         {picked ? (
           <button type="button" data-state-step-off="" onClick={() => { play("tap"); showStep(fr.frame, null); }} className="tactile h-6 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">As the page opens</button>
         ) : null}
@@ -139,6 +159,23 @@ export function StatesTimeline() {
           </React.Fragment>
         ))}
       </div>
+      {its.length ? (
+        <div className="flex flex-col gap-1" data-state-screens="">
+          <p className="text-small text-fg-muted">What its code shows in it, screen by screen</p>
+          <div className="flex items-center overflow-x-auto pb-1">
+            {its.map((x, i) => (
+              <React.Fragment key={x.name}>
+                {i ? <span aria-hidden className="h-1 w-6 shrink-0 rounded-full" style={{ background: "linear-gradient(90deg, oklch(0.55 0.14 150), oklch(0.72 0.17 150), oklch(0.55 0.14 150))" }} /> : null}
+                <button type="button" data-state-screen={x.name} aria-pressed={litScreen === x.name} onClick={() => showScreen(litScreen === x.name ? null : x.name)}
+                  className={cn("tactile flex h-12 w-40 shrink-0 flex-col justify-center rounded-md border px-2 text-left", litScreen === x.name ? "border-accent bg-accent-soft text-fg" : "border-border text-fg-muted hover:bg-hover hover:text-fg")}>
+                  <span className="truncate text-small">{x.label || x.name}</span>
+                  <span className="truncate text-fine text-fg-faint">{x.name}</span>
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
