@@ -1,9 +1,8 @@
 /**
- * Open the drawing tool where it lives now: inside a part's "Make a picture".
- *
- * It was a Generate tab of its own (tests/side-panel-h.mjs). A board with no
- * part on it is given one plain box first, so a test that only wants the
- * tool can still reach it. Returns the tool's panel.
+ * Open the drawing tool where it lives now: the Pictures tab, with a part
+ * picked so it draws for that part (tests/side-panel-h.mjs). A board with no
+ * part on it is given one plain box first, so a test that wants "Put it on
+ * this part" has a part to put it on. Returns the tool's panel.
  */
 const box = (id) => ({
   id, pageId: "page_home", featureId: "box", label: "", prompt: "", content: "", data: "", x: 120, y: 120, w: 320, h: 200, groupId: null, options: {},
@@ -30,9 +29,7 @@ export async function openGenerate(page) {
   await part.scrollIntoViewIfNeeded().catch(() => {});
   await part.click({ force: true });
   await page.waitForTimeout(500);
-  await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Element" }).first().click({ force: true });
+  await page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Pictures" }).first().click({ force: true });
   await page.waitForTimeout(400);
-  const section = page.locator('[data-side-panel] [data-part-section="make-picture"]');
-  if ((await section.getAttribute("data-open")) === null) { await section.locator("[data-section-head]").click(); await page.waitForTimeout(400); }
-  return page.locator("[data-render-panel]").first();
+  return page.locator("[data-pictures-panel] [data-render-panel]").first();
 }

@@ -16,7 +16,7 @@ import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, EyeOff, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, EyeOff, FileText, Image as ImageIcon, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { HistoryControls } from "./HistoryControls";
 import { Canvas } from "./Canvas";
@@ -38,6 +38,7 @@ import { Palette, useShelfFolded, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
+import { PicturesPanel } from "./PicturesPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog } from "./BriefDialog";
@@ -1037,8 +1038,11 @@ const SIDE_TABS = [
   { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
   { value: "look", label: "Look", icon: <PaletteIcon />, hue: 320 },
   { value: "motion", label: "Motion", icon: <Clapperboard />, hue: 170 },
-  /* Generate was a tab of its own: it went into each part's "Make a picture",
-     the one place a picture is made (tests/side-panel-h.mjs). */
+  /* The drawing tool on a tab of its own (PicturesPanel.tsx). It spent a while
+     folded at the foot of each part's Element panel, where with nothing picked
+     it could not be found at all; his words: "give the ai image generator its
+     own section/display panel option". 50 is the one gap left on the wheel. */
+  { value: "pictures", label: "Pictures", icon: <ImageIcon />, hue: 50 },
 ] as const;
 
 /*
@@ -1482,6 +1486,7 @@ export function StudioPage() {
                 : sideTab === "format" ? <FormatPanel />
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />
+                : sideTab === "pictures" ? <PicturesPanel />
                 : <LookPanel />}
             </div>
           </aside>
