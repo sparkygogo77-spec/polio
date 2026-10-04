@@ -2,10 +2,13 @@
 /**
  * THE SIDE PANEL'S FOLLOW-UPS, APPROVED BY THE OWNER, ON TRUMP & MORTY.
  *
- *   1  GENERATE IS ONE PLACE. The Generate tab was nearly empty and did what
- *      a part's "Make a picture" does. The tab is gone; the drawing tool is
- *      inside "Make a picture", a picture's "Draw one" opens it, and what it
- *      draws is put on the part in one press.
+ *   1  PICTURES IS ONE PLACE, ON A TAB OF ITS OWN. The drawing tool went into
+ *      each part's "Make a picture", at the foot of Element, where with
+ *      nothing picked it could not be found; his words: "give the ai image
+ *      generator its own section/display panel option". It is the Pictures
+ *      tab now, there with nothing picked, a picture's "Draw one" opens it,
+ *      it draws for the part that is picked, and what it draws is put on that
+ *      part in one press. There is still one drawing tool, not two.
  *   2  PAGES SHOWS THE SHARED LINK. Under the site's name and description,
  *      the card a pasted link draws (picture, address, title, the line under
  *      it), from exactly what those boxes say, and a character guide on both.
@@ -102,7 +105,9 @@ const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("builde
 
 /* 1 Generate */
 const names = await side.locator("[role=radio]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? e.textContent.trim()));
-check("1 there is no Generate tab", names.length === 5 && !names.includes("Generate"), names.join(", "));
+check("1 there is a Pictures tab, and no Generate tab", names.length === 6 && names.includes("Pictures") && !names.includes("Generate"), names.join(", "));
+await tab("Pictures");
+check("1 with nothing picked, the Pictures tab has the drawing tool", (await side.locator("[data-pictures-panel] [data-render-panel]").count()) === 1 && (await side.locator("[data-render-put]").count()) === 0);
 await tab("Element");
 /* A picture part, picked the way the tree offers it: its holders opened in turn, then its row. */
 const { partTree, ancestors } = await src("partTree.ts");
@@ -120,9 +125,10 @@ check("1 a picture part's panel opens", (await panel.count()) === 1, PIC);
 check("1 …with Make a picture closed", (await panel.locator('[data-part-section="make-picture"]').getAttribute("data-open")) === null);
 await panel.locator("[data-draw-one]").click();
 await wait(600);
-check("1 the picture's “Draw one” opens Make a picture, where the drawing tool is", (await panel.locator('[data-part-section="make-picture"]').getAttribute("data-open")) === "" && (await panel.locator('[data-part-section="make-picture"] [data-render-panel]').count()) === 1);
-check("1 …and there is one drawing tool, not two", (await side.locator("[data-render-panel]").count()) === 1 && (await panel.getByPlaceholder("what the picture should be").count()) === 0);
-const tool = panel.locator("[data-render-panel]");
+const forPart = await side.locator("[data-pictures-for]").getAttribute("data-pictures-for").catch(() => null);
+check("1 the picture's “Draw one” opens the Pictures tab, drawing for that part", (await side.locator("[data-pictures-panel] [data-render-panel]").count()) === 1 && forPart === PIC, `for ${forPart}`);
+check("1 …and there is one drawing tool, not two", (await side.locator("[data-render-panel]").count()) === 1 && (await side.getByPlaceholder("what the picture should be").count()) === 0);
+const tool = side.locator("[data-pictures-panel] [data-render-panel]");
 await tool.locator("[data-render-tweak]").fill("a green television, flat colours");
 await tool.locator("[data-render-go]").click();
 await wait(1500);

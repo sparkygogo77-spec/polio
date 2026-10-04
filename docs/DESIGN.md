@@ -280,10 +280,15 @@ same boxes as everywhere else, in the screen's colours.
   back, its name and kind, then Content, Position and size, Look, Motion,
   and the prompt and Make a picture folded; sections remember being folded.
   A link's words are edited on the label inside it. `tests/side-panel-g.mjs`.
-- **A picture is made in one place**: a part's "Make a picture", which holds
-  the drawing tool and puts what it draws on the part. There is no Generate
-  tab, and a picture's "Draw one" opens that section rather than being a
-  second generator. `tests/side-panel-h.mjs`.
+- **A picture is made in one place**: the Pictures tab, the drawing tool on
+  a tab of its own, there whether or not anything is picked. With one part
+  picked it draws for that part and puts what it draws on it; a drawing also
+  drags onto the page at its own size. A picture's "Draw one" opens the tab
+  rather than being a second generator. A part's closed "Make a picture"
+  keeps only where a picture of that part is sent (the model and its
+  options), with a press that opens the tab. It sat inside "Make a picture"
+  for a while and could not be found with nothing picked; the owner asked
+  for it back on a panel of its own. `tests/side-panel-h.mjs`.
 - **Pages shows the link as it will be shared**: the card a pasted link
   draws, from exactly what the head will say (`pageHead`'s rule: the typed
   description), and a character count on the name (60) and the description

@@ -1037,8 +1037,8 @@ interface StudioState extends Doc {
    * wants the Pages panel open on the new page's name. The panel that
    * answers clears it.
    */
-  wanted: { panel: "inspector" | "pages" | "look" | "motion"; focus?: "words" | "name"; id?: string; at: number } | null;
-  want: (w: { panel: "inspector" | "pages" | "look" | "motion"; focus?: "words" | "name"; id?: string } | null) => void;
+  wanted: { panel: "inspector" | "pages" | "look" | "motion" | "pictures"; focus?: "words" | "name"; id?: string; at: number } | null;
+  want: (w: { panel: "inspector" | "pages" | "look" | "motion" | "pictures"; focus?: "words" | "name"; id?: string } | null) => void;
   hold: (nodeId: string | null) => void;
   /**
    * When he last opened the timeline.

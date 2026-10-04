@@ -116,7 +116,7 @@ const width = Math.round((await side.boundingBox()).width);
 check("4 the panel starts about 300px wide", Math.abs(width - 300) <= 2, `${width}px`);
 const tabWords = async () => side.locator("[data-tab-word]").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { w: r.width, cut: e.scrollWidth > e.clientWidth + 1, sr: e.classList.contains("sr-only") }; }));
 let words = await tabWords();
-check("4 every tab says its name at 300px, none cut", words.length === 5 && words.every((w) => w.w > 10 && !w.sr && !w.cut), JSON.stringify(words));
+check("4 every tab says its name at 300px, none cut", words.length === 6 && words.every((w) => w.w > 10 && !w.sr && !w.cut), JSON.stringify(words));
 
 /* 1 Format */
 await tab("Format");

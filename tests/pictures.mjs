@@ -129,9 +129,9 @@ if (await drawIt.count()) {
   await page.waitForTimeout(400);
   const panelText = await page.locator("[data-side-panel]").first().innerText();
   check("and says what it will cost before it is pressed", /\$0\.04/.test(panelText), (panelText.match(/.{0,60}\$0\.0.{0,40}/) ?? ["nothing about money"])[0].replace(/\n/g, " "));
-  /* The part's own Make a picture section is the render panel now (Lane G):
-     say it, draw it, and put what came back on this part. */
-  const make = page.locator("[data-make-picture]").first();
+  /* "Draw one" opens the Pictures tab, drawing for this part: say it, draw
+     it, and put what came back on this part. */
+  const make = page.locator("[data-pictures-panel]").first();
   await make.locator("[data-render-tweak]").first().fill("a black orb over a dark sea");
   await make.locator("[data-render-go]").first().click();
   await page.waitForTimeout(2000);

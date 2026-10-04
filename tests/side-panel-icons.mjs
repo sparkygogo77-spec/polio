@@ -29,7 +29,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 /* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
-const WORDS = ["Element", "Format", "Pages", "Look", "Motion"];
+const WORDS = ["Element", "Format", "Pages", "Look", "Motion", "Pictures"];
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
@@ -64,7 +64,7 @@ const read = () => row.evaluate((r) => {
 });
 
 let tabs = await read();
-check("five tabs", tabs.length === WORDS.length, tabs.map((t) => t.name).join(", "));
+check("six tabs", tabs.length === WORDS.length, tabs.map((t) => t.name).join(", "));
 check("every tab wears an icon", tabs.length === WORDS.length && tabs.every((t) => t.svg), tabs.filter((t) => !t.svg).map((t) => t.name).join(", ") || "all of them");
 check("…each in its panel's own hue, not one colour for all", new Set(tabs.map((t) => t.hue)).size === WORDS.length, tabs.map((t) => t.hue).join(" "));
 check("every tab is named by its word", JSON.stringify(tabs.map((t) => t.name)) === JSON.stringify(WORDS), tabs.map((t) => t.name).join(", "));

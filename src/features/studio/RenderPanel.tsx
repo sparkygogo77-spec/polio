@@ -66,9 +66,9 @@ function choices(card: ModelCard | undefined, name: string): string[] {
 }
 
 /**
- * The drawing tool, inside a part's "Make a picture" (it was a tab of its own
- * that mostly sat empty beside the same thing in the part's panel). With
- * `forNode`, each picture it draws can be put on that part in one press.
+ * The drawing tool, on the Pictures tab (`PicturesPanel.tsx`). With
+ * `forNode`, the part picked, each picture it draws can be put on that part
+ * in one press.
  */
 export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const models = React.useMemo(drawingModels, []);

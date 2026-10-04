@@ -43,13 +43,12 @@ import { wordsIn } from "./owner";
 import { decisionSays } from "./library/badge";
 import { movingParts } from "./motionInventory";
 import { MoveRowView } from "./MotionPanel";
-import { RenderPanel } from "./RenderPanel";
 import { TourEditor } from "./TourEditor";
 import { KIND_SAYS, linesAround, type CodeRef } from "./codeRefs";
 import { fileAt } from "./kitRun";
 import { PartSettings } from "./StyleLayerPanel";
 import { heldKeys } from "@/features/keys/store";
-import { Crumbs, KindIcon, PanelSection, openSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
+import { Crumbs, KindIcon, PanelSection, PartsBehind, ElementList, kindWord, useDecisions } from "./PartTreePanel";
 import { ComponentFields } from "./ComponentFields";
 import { componentsOf, KIND_WORD, type CompNode } from "./components";
 import { PartFields } from "./PartFields";
@@ -239,7 +238,7 @@ function PictureField({ node }: { node: StudioNode }) {
           <Button variant="outline" size="xs" disabled={busy} onClick={() => file.current?.click()}>
             {pic ? "Choose another" : "Choose a picture"}
           </Button>
-          <Button variant="ghost" size="xs" disabled={busy} data-draw-one="" onClick={() => openSection("make-picture")}>
+          <Button variant="ghost" size="xs" disabled={busy} data-draw-one="" onClick={() => useStudio.getState().want({ panel: "pictures" })}>
             <Sparkles className="size-3" /> Draw one
           </Button>
           {pic ? <Button variant="ghost" size="xs" data-remake-open="" onClick={() => openRemake(node.id)}><Sparkles className="size-3" /> Remake…</Button> : null}
@@ -1155,15 +1154,14 @@ export function Inspector() {
           ) : null}
         </PanelSection>
 
-        {/* MAKE A PICTURE, closed. The model and its settings, for the one
-            time in many a part is handed to a picture model. */}
+        {/* MAKE A PICTURE, closed. Where a picture of this part is sent: the
+            model and its settings, for the one time in many a part is handed
+            to a picture model. The drawing tool itself is the Pictures tab
+            (PicturesPanel.tsx), which draws for this part while it is picked. */}
         <PanelSection id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
-          {/* The one place a picture is made: draw one here and put it on
-              this part. It was also a Generate tab, mostly empty, and a
-              second "Draw one" on the picture field. */}
-          <div data-make-picture="" className="-mx-3">
-            <RenderPanel forNode={node.id} />
-          </div>
+          <Button variant="outline" size="xs" data-open-pictures="" onClick={() => { play("open"); useStudio.getState().want({ panel: "pictures" }); }}>
+            <Sparkles className="size-3" /> Draw one in Pictures
+          </Button>
           <div data-fold="make-picture">
             <Field label="Where a picture of this part is sent" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
               <AuditPanel node={node} />
