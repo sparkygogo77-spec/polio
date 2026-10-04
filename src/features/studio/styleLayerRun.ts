@@ -79,6 +79,27 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
 }
 
 /**
+ * THIS ROUND'S RULES INTO THE LAYER ALREADY MERGED. A rule for a part the
+ * layer already styles replaces the old one (and any copies of it) rather
+ * than following it as a second copy; a part new to the layer is added
+ * after the rest, so it wins. A round that changes nothing leaves the file
+ * as it was.
+ */
+export function mergeLayer(had: string, rules: string, when?: string): string {
+  const blocks = (css: string) => [...css.matchAll(/(^|\n)([^{}\n/*][^{}\n]*?)\s*\{([^{}]*)\}/g)].map((m) => ({ selector: m[2]!.trim(), body: m[3]!.trim().replace(/\s+/g, " "), text: m[0].replace(/^\n/, "") }));
+  const fresh = blocks(rules);
+  if (!fresh.length) return had;
+  const old = blocks(had);
+  const same = (a: { selector: string; body: string }) => old.some((o) => o.selector === a.selector && o.body === a.body);
+  if (fresh.every(same) && fresh.every((f) => old.filter((o) => o.selector === f.selector).length === 1)) return had;
+  let out = had;
+  for (const f of fresh) for (const o of old) if (o.selector === f.selector) out = out.replace(o.text, "");
+  /* A round's note left with no rule under it goes too. */
+  out = out.replace(/\/\* From the Builder[^*]*\*\/\s*(?=(\/\*|$))/g, "").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return `${out}\n\n/* From the Builder${when ? `, ${when}` : ""}: this round's rules, after the ones already here, so they win. */\n${fresh.map((f) => f.text.trim()).join("\n\n")}\n`;
+}
+
+/**
  * A builder-ready repository (kit/BUILDER-CONTRACT.md): the design is its
  * style layer and nothing else. Rules keyed by data-hook, colours in custom
  * properties, no page touched; what was already in the layer is kept, with
@@ -94,7 +115,7 @@ async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, strin
   /* Its rules alone, without the header: a layer already merged stays, and this round follows it, so its rules win. */
   const rules = layer.css.slice(layer.css.indexOf("*/") + 2).trim();
   const kept = had.replace(/\/\*[\s\S]*?\*\//g, "").trim();
-  const css = !rules ? had || layer.css : kept ? `${had.trimEnd()}\n\n/* From the Builder${opts.when ? `, ${opts.when}` : ""}: this round's rules, after the ones already here, so they win. */\n${rules}\n` : layer.css;
+  const css = !rules ? had || layer.css : kept ? mergeLayer(had, rules, opts.when) : layer.css;
   const after = { ...got.files, [cssPath]: css };
   const map = await (opts.kitMap ?? kitMapOnServer)(after);
   if (map.problems.length) return { ok: false, says: `The kit's check finds ${map.problems.length} problem${map.problems.length === 1 ? "" : "s"} with the code and this design together, so nothing was written: ${map.problems.slice(0, 5).join("; ")}${map.problems.length > 5 ? "; and more" : ""}.` };

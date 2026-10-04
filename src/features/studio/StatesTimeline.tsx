@@ -82,7 +82,7 @@ function Thumb({ nodes, frame, step }: { nodes: readonly StudioNode[]; frame: St
   );
 }
 
-function Step({ nodes, frame, step, at, lit }: { nodes: readonly StudioNode[]; frame: StudioNode; step: StateStep; at: number; lit: boolean }) {
+function Step({ nodes, frame, step, at, lit, onPick }: { nodes: readonly StudioNode[]; frame: StudioNode; step: StateStep; at: number; lit: boolean; /** A screen's step turns its screen on instead of a face. */ onPick?: () => void }) {
   const data = stepData(nodes, step);
   const line = (name: string, list: string[]) => (list.length ? <p className="truncate" title={list.join(" · ")}><span className="opacity-70">{name}</span> {list.slice(0, 3).join(" · ")}</p> : null);
   return (
@@ -91,7 +91,7 @@ function Step({ nodes, frame, step, at, lit }: { nodes: readonly StudioNode[]; f
       data-state-step={step.key}
       aria-pressed={lit}
       aria-label={`State ${at + 1}: ${step.label}`}
-      onClick={() => { play("tap"); showStep(frame.id, step.key); useStudio.getState().setSelection([frame.id]); }}
+      onClick={() => { play("tap"); if (onPick) onPick(); else showStep(frame.id, step.key); useStudio.getState().setSelection([frame.id]); }}
       className={cn(moltenClass("verdant"), "tactile flex w-[184px] shrink-0 flex-col gap-1 rounded-lg p-2 text-left text-small leading-snug transition-[filter,transform]")}
       style={{ ...moltenSeed(`${frame.id}:${step.key}`), color: "oklch(0.93 0.055 150)", textShadow: "0 1px 2px oklch(0 0 0 / 0.7)", filter: lit ? "brightness(1.18)" : "none", transform: lit ? "translateY(-2px)" : "none", boxShadow: lit ? "0 0 0 2px oklch(0.85 0.15 150), 0 6px 16px oklch(0 0 0 / 0.5)" : "0 3px 6px oklch(0 0 0 / 0.5)" }}
     >
@@ -133,6 +133,16 @@ export function StatesTimeline() {
   const pageFile = source?.files?.find((f) => f.pageId === frame.pageId)?.file ?? null;
   const its = screensOfPart(nodes, frame, source?.screens ?? [], pageFile);
   const litScreen = its.find((x) => on.includes(screenKey(x.name)))?.name ?? null;
+  /* A screen as a step: the parts inside the part it draws, named as the screen is (less the part's own name before a colon). */
+  const inside = nodes.filter((n) => n.pageId === frame.pageId && n.id !== frame.id && n.x >= frame.x - 2 && n.y >= frame.y - 2 && n.x + n.w <= frame.x + frame.w + 2 && n.y + n.h <= frame.y + frame.h + 2);
+  const cards: { step: StateStep; screen?: string }[] = [
+    ...fr.steps.map((step) => ({ step })),
+    ...its.map((x) => {
+      const shows = new Set(x.shows);
+      const parts = inside.filter((n) => { const h = n.hooks?.["data-hook"]; return h ? shows.has(h) : !n.state || shows.has(n.state.group.replace(/^hidden:(template:)?/, "")); }).map((n) => n.id);
+      return { step: { key: `screen:${x.name}`, label: (x.label || x.name).replace(/^[^:]{1,40}:\s*/, ""), hook: null, parts }, screen: x.name };
+    }),
+  ];
   /* One of its screens at a time: the others of this page go off. */
   const showScreen = (name: string | null) => {
     play("tap");
@@ -145,37 +155,27 @@ export function StatesTimeline() {
     <div data-states-timeline="" role="region" aria-label={`States timeline: ${fr.hook ?? frame.label}`} className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
       <div className="flex items-center gap-2">
         <p className="text-plain font-medium text-fg">States timeline</p>
-        <p className="min-w-0 flex-1 truncate text-small text-fg-muted">{fr.hook ?? frame.label} · {fr.steps.length + its.length} states, in order. Pick one to see it on the board.</p>
-        {picked ? (
-          <button type="button" data-state-step-off="" onClick={() => { play("tap"); showStep(fr.frame, null); }} className="tactile h-6 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">As the page opens</button>
+        <p className="min-w-0 flex-1 truncate text-small text-fg-muted">{fr.hook ?? frame.label} · {cards.length} states, in order. Pick one to see it on the board.</p>
+        {picked || litScreen ? (
+          <button type="button" data-state-step-off="" onClick={() => { play("tap"); showStep(fr.frame, null); showScreen(null); }} className="tactile h-6 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">As the page opens</button>
         ) : null}
         <button type="button" aria-label="Close the states timeline" onClick={close} className="tactile flex size-6 items-center justify-center rounded-md text-fg-muted hover:bg-hover hover:text-fg"><X className="size-3.5" /></button>
       </div>
+      {/* One row, one card each, whatever the state is: a face of its own, or a screen its code draws it in (J: consistent, nothing lost on some). */}
       <div className="flex items-center overflow-x-auto pb-1" data-state-steps="">
-        {fr.steps.map((s, i) => (
-          <React.Fragment key={s.key}>
+        {cards.map((c, i) => (
+          <React.Fragment key={c.step.key}>
             {i ? <span aria-hidden className="h-1 w-6 shrink-0 rounded-full" style={{ background: "linear-gradient(90deg, oklch(0.55 0.14 150), oklch(0.72 0.17 150), oklch(0.55 0.14 150))", boxShadow: "0 0 6px oklch(0.7 0.16 150 / 0.6)" }} /> : null}
-            <Step nodes={nodes} frame={frame} step={s} at={i} lit={picked === s.key} />
+            {c.screen ? (
+              <span data-state-screen={c.screen} className="contents">
+                <Step nodes={nodes} frame={frame} step={c.step} at={i} lit={litScreen === c.screen} onPick={() => { showStep(fr.frame, null); showScreen(litScreen === c.screen ? null : c.screen!); }} />
+              </span>
+            ) : (
+              <Step nodes={nodes} frame={frame} step={c.step} at={i} lit={!litScreen && picked === c.step.key} onPick={() => { showScreen(null); showStep(fr.frame, c.step.key); }} />
+            )}
           </React.Fragment>
         ))}
       </div>
-      {its.length ? (
-        <div className="flex flex-col gap-1" data-state-screens="">
-          <p className="text-small text-fg-muted">What its code shows in it, screen by screen</p>
-          <div className="flex items-center overflow-x-auto pb-1">
-            {its.map((x, i) => (
-              <React.Fragment key={x.name}>
-                {i ? <span aria-hidden className="h-1 w-6 shrink-0 rounded-full" style={{ background: "linear-gradient(90deg, oklch(0.55 0.14 150), oklch(0.72 0.17 150), oklch(0.55 0.14 150))" }} /> : null}
-                <button type="button" data-state-screen={x.name} aria-pressed={litScreen === x.name} onClick={() => showScreen(litScreen === x.name ? null : x.name)}
-                  className={cn("tactile flex h-12 w-40 shrink-0 flex-col justify-center rounded-md border px-2 text-left", litScreen === x.name ? "border-accent bg-accent-soft text-fg" : "border-border text-fg-muted hover:bg-hover hover:text-fg")}>
-                  <span className="truncate text-small">{x.label || x.name}</span>
-                  <span className="truncate text-fine text-fg-faint">{x.name}</span>
-                </button>
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
