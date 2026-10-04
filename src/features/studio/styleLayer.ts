@@ -345,7 +345,18 @@ export function changedDeclarations(was: CssLook, now: CssLook, move: { dx: numb
   const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   const colourSame = (a?: string, b?: string) => colourKey(a) === colourKey(b);
   if (!colourSame(was.color, now.color) && now.color) out.push(`color: ${now.color}`);
-  if (!colourSame(was.background, now.background)) out.push(`background-color: ${now.background ?? "transparent"}`);
+  if (!colourSame(was.background, now.background)) {
+    out.push(`background-color: ${now.background ?? "transparent"}`);
+    /*
+     * A FILL PICKED ON THE BOARD IS THE FILL ON THE PAGE. The board draws a
+     * picked fill alone; the page's code may paint a background image over
+     * its colour (PonsStars' next-step: a linear-gradient in base.css), and
+     * a colour under an image never shows. So the image the code painted
+     * goes, unless the image itself was changed here (the slots below say).
+     */
+    const img = (l: CssLook) => (l.art?.["background-image"] ?? "").replace(/\s+/g, " ").trim();
+    if (now.background && img(was) && img(was) !== "none" && img(was) === img(now)) out.push("background-image: none");
+  }
   const edgeWas = `${was.borderWidth ?? 0}|${was.borderStyle ?? ""}|${colourKey(was.borderColor)}`;
   const edgeNow = `${now.borderWidth ?? 0}|${now.borderStyle ?? ""}|${colourKey(now.borderColor)}`;
   if (edgeWas !== edgeNow) out.push(now.borderWidth ? `border: ${now.borderWidth}px ${now.borderStyle ?? "solid"}${now.borderColor ? ` ${now.borderColor}` : ""}` : "border: none");

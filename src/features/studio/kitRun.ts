@@ -106,7 +106,8 @@ export function seenOfKit(manifest: KitManifest, hooksJson: string | null, ref: 
     ref, at, kit: true,
     pages: manifest.pages.map((p) => p.file).sort(),
     hooks: Object.fromEntries(Object.entries(map.hooks ?? {}).map(([h, v]) => [h, v?.element ?? ""])),
-    tokens: Object.keys(map.tokens ?? {}).sort(),
+    /* The code's tokens: one the map lists with no value (null) is the style layer's own variable (--next-step-background-color), not the code's, and is no new token. */
+    tokens: Object.entries(map.tokens ?? {}).filter(([, v]) => (v as { default?: unknown } | null)?.default !== null).map(([t]) => t).sort(),
     values: Object.fromEntries(Object.entries(map.tokens ?? {}).flatMap(([t, v]) => {
       const d = (v as { default?: unknown } | null)?.default;
       return typeof d === "string" || typeof d === "number" ? [[t, String(d)]] : [];
