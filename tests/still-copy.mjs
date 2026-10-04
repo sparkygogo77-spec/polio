@@ -8,9 +8,10 @@
  *   1. The words, read directly: the repository named, "still copy", "without
  *      the repository's scripts", and Send the design back pointed to. A site
  *      made on the board has no question.
- *   2. In the Builder: Update live site on a site from code asks first and
- *      pushes nothing. Back pushes nothing; Send the design back opens the repo
- *      menu and pushes nothing; Publish the still copy pushes once.
+ *   2. In the Builder, a site from code has Refresh and Publish in Go live's
+ *      place (J, 2026-10-04: its code is the site); Publish with nothing
+ *      changed pushes nothing. The still copy stays guarded wherever Go live
+ *      is still pressed (the book), as the words above.
  *   3. A site made on the board publishes straight away, no question.
  *
  * The Builder's own publish routes are answered in the browser; nothing
@@ -91,28 +92,14 @@ const fromCode = { palette: {}, texture: [], target: "page", styleSource: { repo
 const waitPush = async (page, calls, n) => { for (let i = 0; i < 80 && calls.push < n; i++) await page.waitForTimeout(250); };
 
 {
+  /* J (2026-10-04): on a site from code, Go live (the still copy) is replaced by Refresh and Publish (`CodeSiteButtons.tsx`). */
   const { ctx, page, calls } = await builder([node("a", "From code")], fromCode);
-  await press(page);
-  const ask = page.locator("[data-still-copy]");
-  check("Update live site on a site from code asks first, and pushes nothing", (await ask.count()) === 1 && calls.push === 0, `${calls.push} pushes`);
-  check("the question names the repository and Send the design back", /them\/app/.test(await ask.innerText()) && (await page.locator("[data-still-send-back]").count()) === 1);
-  await page.getByRole("button", { name: "Back to the board" }).click();
   await page.waitForTimeout(800);
-  check("Back to the board pushes nothing", calls.push === 0 && (await ask.count()) === 0, `${calls.push} pushes`);
-  await press(page);
-  let opened = false;
-  await page.exposeFunction("__repoMenu", () => { opened = true; });
-  await page.evaluate(() => window.addEventListener("studio:bring-repo", () => window.__repoMenu()));
-  await page.locator("[data-still-send-back]").click();
-  await page.waitForTimeout(800);
-  check("Send the design back opens the repo menu and pushes nothing", opened && calls.push === 0, J({ opened, push: calls.push }));
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(400);
-  await press(page);
-  await page.locator("[data-still-publish]").click();
-  await waitPush(page, calls, 1);
-  await page.waitForTimeout(800);
-  check("Publish the still copy publishes: one push", calls.push === 1, `${calls.push} pushes`);
+  const has = async (sel) => (await page.locator(`header ${sel}`).count()) > 0;
+  check("a site from code shows Refresh and Publish in the top bar, and no Go live", (await has("[data-code-refresh]")) && (await has("[data-code-publish]")) && !(await has("[data-go-live]")));
+  await page.locator("header [data-code-publish]").first().click();
+  await page.waitForTimeout(1200);
+  check("Publish with nothing on the board changed pushes nothing, and says so", calls.push === 0 && (await page.locator("[data-code-publish-says]").count()) === 0, `${calls.push} pushes`);
   await ctx.close();
 }
 {
