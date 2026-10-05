@@ -54,6 +54,8 @@ export interface Picture {
   published?: string;
   /** Pixel art its page drew square (`image-rendering: pixelated`): drawn square here too, never smoothed, when shown larger than it is. */
   pixelated?: boolean;
+  /** Its background was cleared ("Transparent background…", `ClearBackground.tsx`): drawn with no frame and no floor behind it, so what shows through is the page. */
+  seeThrough?: boolean;
 }
 
 const ok = () => typeof indexedDB !== "undefined";

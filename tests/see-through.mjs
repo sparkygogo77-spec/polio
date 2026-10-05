@@ -10,13 +10,24 @@
  *   · touching what was pressed, the plate goes and the mark inside stays;
  *   · "everywhere", the mark goes too;
  *   · the edge fades over the feather band rather than cutting hard;
- *   · nothing pressed, nothing changes.
+ *   · nothing pressed, nothing changes;
+ *   · an edge pixel half white, half gold, keeps the gold, not the white: the
+ *     fade takes the background out of its colour, so no pale specks are
+ *     left along the edge on a dark page;
+ *   · "Trim edge" takes a ring off what is kept, and no more.
  *
  * The browser half goes the way he would: a picture dropped on the board,
  * a right press on it, "Transparent background…" in the wheel's tray, a
  * press on the plate in the card, Apply. The part's picture is then a new
  * PNG whose plate is see-through and whose card is not, the old one kept in
  * its versions, and one Undo puts the old one back.
+ *
+ * And what showed on his site after the first try: the part still drew a
+ * frame round the cleared picture, a rounded line and the page's floor
+ * behind it, and the line ran along the top of the card where no "How
+ * close" could reach it. A see-through picture is drawn with no line, no
+ * floor and no corners, on the board, after a reload, and in what Publish
+ * sends.
  *
  *   npx next start -p 3013
  *   node tests/see-through.mjs http://127.0.0.1:3013
@@ -61,6 +72,14 @@ const e = (20 * W + 9) * 4; soft[e] = soft[e + 1] = soft[e + 2] = 215; /* 35 fro
 const faded = seeThrough(soft, W, H, { seeds: [[0, 0]], tolerance: 20, feather: 30 });
 check("an edge pixel just past “how close” fades instead of cutting hard", a(faded, 9, 20) > 0 && a(faded, 9, 20) < 255, `alpha ${a(faded, 9, 20)}`);
 check("nothing pressed, nothing changes", seeThrough(px, W, H, { seeds: [], tolerance: 40 }).every((v, i) => v === px[i]));
+/* An edge pixel mixed half and half of the gold (230,190,40) and the white plate (250): its colour comes back gold. */
+const mixed = new Uint8ClampedArray(px);
+const m = (20 * W + 9) * 4; mixed[m] = 240; mixed[m + 1] = 220; mixed[m + 2] = 145;
+const unmixed = seeThrough(mixed, W, H, { seeds: [[0, 0]], tolerance: 20, feather: 80 });
+const am = a(unmixed, 9, 20);
+check("a half-white edge pixel keeps the subject's colour, not the white", am > 0 && am < 255 && unmixed[m + 2] < 145 && unmixed[m] < 250, `alpha ${am}, rgb ${unmixed[m]},${unmixed[m + 1]},${unmixed[m + 2]}`);
+const trimmed = seeThrough(px, W, H, { seeds: [[0, 0]], tolerance: 20, trim: 1 });
+check("Trim edge 1 takes one ring off the card, and no more", a(trimmed, 10, 20) === 0 && a(trimmed, 11, 20) === 255 && a(trimmed, 20, 10) === 0 && a(trimmed, 20, 11) === 255);
 
 /* ------------------------------------------------------------ the browser half */
 const { chromium } = createRequire(import.meta.url)("playwright-core");
@@ -138,10 +157,42 @@ const alphaAt = await page.evaluate(async (id) => {
 check("the plate is see-through on the board", alphaAt.plate === 0 && alphaAt.plateBottom === 0, JSON.stringify(alphaAt));
 check("…and the card, its art and the light mark inside it are not", alphaAt.card === 255 && alphaAt.art === 255 && alphaAt.mark === 255, JSON.stringify(alphaAt));
 
+/* No frame round it: no line, no corners, no floor behind it. */
+const frame = async () => page.evaluate((id) => {
+  const part = document.querySelector(`[data-node-id="${id}"]`);
+  const img = part?.querySelector("img");
+  const fill = img?.closest("[data-part-picture]");
+  if (!img || !fill) return null;
+  const st = getComputedStyle(img), fs = getComputedStyle(fill);
+  return { border: st.borderTopWidth, radius: st.borderTopLeftRadius, floor: fs.backgroundColor, flag: fill.hasAttribute("data-see-through") };
+}, node.id);
+const f1 = await frame();
+check("the cleared picture wears no frame on the board: no line, no corners, no floor", !!f1 && f1.flag && f1.border === "0px" && f1.radius === "0px" && /rgba\(0, 0, 0, 0\)|transparent/.test(f1.floor), JSON.stringify(f1));
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(500);
 const undone = await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.picture?.id, node.id);
 check("one Undo puts the old picture back", undone === was.id, undone);
+
+/* Cleared again, the same way, to be read after a reload and in what Publish sends (the undo history is not kept across a reload). */
+const b2 = await page.locator(`[data-node-id="${node.id}"]`).first().boundingBox();
+await page.mouse.click(b2.x + b2.width / 2, b2.y + b2.height / 2, { button: "right" });
+await page.waitForTimeout(600);
+if (await tray.count()) { await tray.hover(); await page.waitForTimeout(300); }
+await page.locator('[data-tray-item="clear-bg"]').first().click();
+await canvas.waitFor({ timeout: 5000 });
+await page.waitForTimeout(400);
+await card.locator("[data-clear-bg-apply]").click();
+await page.waitForTimeout(1500);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForFunction(() => typeof window.__studioPublishDoc === "function", null, { timeout: 30000 });
+await page.waitForTimeout(1200);
+const f2 = await frame();
+check("…and still none after a reload", !!f2 && f2.flag && f2.border === "0px", JSON.stringify(f2));
+const sent = await page.evaluate(async () => (await window.__studioExport()).filter((x) => typeof x.content === "string" && /\.html$/.test(x.path)).map((x) => x.content).join("\n"));
+/* Publish drops the Builder's data- marks, so the cleared picture is found by its own file. */
+const path = (await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.picture?.path, node.id)) ?? "";
+const tag = (sent.match(new RegExp(`<div[^>]*>\\s*<img[^>]*${path.replace(/[.]/g, "\\.")}[^>]*>`)) ?? [""])[0];
+check("…nor in what Publish sends", !!tag && !/border:\s*1px solid/.test(tag) && /background:\s*transparent/.test(tag), tag.slice(0, 220));
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();

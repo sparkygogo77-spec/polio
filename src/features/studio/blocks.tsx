@@ -225,7 +225,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * node with no box is untouched, its part filling it exactly as before.
    * `tests/box-fill.mjs` holds it in pixels.
    */
-  const ground = boxed ? (t.ownBackground ?? t.partGround) : undefined;
+  const ground = boxed && !node.picture?.seeThrough ? (t.ownBackground ?? t.partGround) : undefined;
   /* A captured part with words of its own (a remote key, a stat tile's label): they may overflow the box the capture measured by a hair of face or rounding, never be cut by it (`tests/button-words-whole.mjs`). */
   const wordsOwn = !!node.from?.selector?.trim() && !node.picture && plain(node.content).trim() !== "";
   const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;

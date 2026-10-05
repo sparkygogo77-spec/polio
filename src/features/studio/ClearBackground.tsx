@@ -59,6 +59,7 @@ export function ClearBackgroundCard() {
   const [seeds, setSeeds] = React.useState<[number, number][]>([]);
   const [tolerance, setTolerance] = React.useState(30);
   const [everywhere, setEverywhere] = React.useState(false);
+  const [trim, setTrim] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [share, setShare] = React.useState(0);
   const canvas = React.useRef<HTMLCanvasElement>(null);
@@ -94,7 +95,7 @@ export function ClearBackgroundCard() {
   React.useEffect(() => {
     if (!loaded || "error" in loaded || !canvas.current) return;
     const id = requestAnimationFrame(() => {
-      const out = seeThrough(loaded.data, loaded.w, loaded.h, { seeds, tolerance, everywhere });
+      const out = seeThrough(loaded.data, loaded.w, loaded.h, { seeds, tolerance, everywhere, trim });
       result.current = out;
       const c = canvas.current;
       if (!c) return;
@@ -103,7 +104,7 @@ export function ClearBackgroundCard() {
       setShare(clearShare(out));
     });
     return () => cancelAnimationFrame(id);
-  }, [loaded, seeds, tolerance, everywhere]);
+  }, [loaded, seeds, tolerance, everywhere, trim]);
 
   React.useEffect(() => {
     if (!nodeId) return;
@@ -137,7 +138,7 @@ export function ClearBackgroundCard() {
       /* PNG, always: a JPEG or a WebP saved lossy has nowhere to keep see-through. */
       const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/png"));
       if (!blob) throw new Error("no file");
-      const made = await putPicture(blob, { alt: pic.alt, from: pic.from });
+      const made = { ...(await putPicture(blob, { alt: pic.alt, from: pic.from })), seeThrough: true };
       const now = useStudio.getState().nodes.find((n) => n.id === node.id);
       if (!now) return;
       /* The old one kept in the part's versions, the original first, as Remake keeps them. */
@@ -192,6 +193,21 @@ export function ClearBackgroundCard() {
           aria-label="How close a colour must be to clear"
         />
         <span className="num w-7 text-right text-fg">{tolerance}</span>
+      </label>
+      {/* A thin ring of the old background can cling to the subject's edge; this takes it off, a pixel at a time, without reaching further into the picture. */}
+      <label className="mt-1 flex items-center gap-2 text-small text-fg-muted">
+        <span className="shrink-0">Trim edge</span>
+        <input
+          type="range"
+          data-clear-bg-trim=""
+          min={0}
+          max={4}
+          value={trim}
+          onChange={(e) => setTrim(Number(e.target.value))}
+          className="min-w-0 flex-1 accent-[var(--color-accent)]"
+          aria-label="Pixels taken off the edge of what is kept"
+        />
+        <span className="num w-7 text-right text-fg">{trim}px</span>
       </label>
       <label className="mt-1 flex items-center gap-2 text-small text-fg-muted">
         <input type="checkbox" data-clear-bg-everywhere="" checked={everywhere} onChange={(e) => setEverywhere(e.target.checked)} />

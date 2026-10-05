@@ -143,7 +143,7 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
  */
 export function PictureSlot({ t, pic, src, label, mode = "board" }: {
   t: Theme;
-  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean } | null;
+  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
@@ -157,7 +157,10 @@ export function PictureSlot({ t, pic, src, label, mode = "board" }: {
       <img
         src={src}
         alt={pic.alt ?? ""}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: t.captured ? "none" : `1px solid ${t.line}`, ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
+        /* A see-through picture wears no frame: the line round it was drawn
+           over the picture's own edge, a pale rule along the top of a card
+           whose background had been cleared, that no "How close" could reach. */
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: pic.seeThrough ? 0 : Math.min(t.radius, 10), border: t.captured || pic.seeThrough ? "none" : `1px solid ${t.line}`, ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
       />
     );
   }
