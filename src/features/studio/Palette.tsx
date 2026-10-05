@@ -22,7 +22,7 @@
 import { SavedComponentsBand } from "./SavedComponents";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, ChevronUp, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
+import { ChevronDown, EyeOff, Plus, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import {
   CATEGORIES, allCategories, getFeature, searchFeatures, type CategoryDef,
   type CategoryId, type FeatureDef,
@@ -289,8 +289,10 @@ function setShelfTall(px: number | null, by: "wheel" | "grip" = "wheel") {
  * to work rather than about the site.
  */
 const SHUT_KEY = "builder.shelf.folded";
+/* Folded until someone opens it (J, 2026-10-05): the thirteen category
+   icons were a row of the screen nobody was using; one "+ Add" stands in. */
 let shelfFolded = (() => {
-  try { return typeof window !== "undefined" && window.localStorage.getItem(SHUT_KEY) === "1"; } catch { return false; }
+  try { return typeof window !== "undefined" && window.localStorage.getItem(SHUT_KEY) !== "0"; } catch { return true; }
 })();
 export function setShelfFolded(v: boolean) {
   if (shelfFolded === v) return;
@@ -322,18 +324,19 @@ export function Palette() {
   return <OpenShelf />;
 }
 
-/** The shelf folded away: one strip, and the way back. */
+/** The shelf folded away: one "+ Add" button, which opens the categories. */
 function ShelfStrip() {
   return (
     <div data-drawer="" data-shelf-folded="" className="flex h-full items-center gap-2 border-t border-border bg-panel/50 px-3">
       <button
         type="button"
+        data-shelf-add=""
         onClick={() => { play("select"); setShelfFolded(false); }}
         aria-label="Open the parts shelf"
-        className="tactile flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-small text-fg-muted hover:bg-hover hover:text-fg"
+        className="tactile flex items-center gap-1 rounded-md px-2 py-0.5 text-small font-medium text-fg hover:bg-hover"
       >
-        <ChevronUp className="size-3.5" />
-        Parts shelf
+        <Plus className="size-3.5 text-accent" />
+        Add
       </button>
     </div>
   );

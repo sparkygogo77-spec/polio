@@ -337,7 +337,7 @@ export const useBuilds = create<Builds>()(
         if (repo && sourceOf(repoLabel(repo)!)) return false;
         /* Never a target another site already publishes to: one press would replace that site's live site. */
         if (repo && targetTakenBy(id, repo)) return false;
-        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? (p.bound === "import" ? undefined : p.bound) ?? "connected") : undefined } : p)) }));
+        set((s) => ({ projects: settle(s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? (p.bound === "import" ? undefined : p.bound) ?? "connected") : undefined } : p))) }));
         return true;
       },
 
@@ -446,8 +446,25 @@ export function settle(projects: Project[]): Project[] {
     p.bound === "import" ? { ...p, source: p.source ?? p.repo, repo: undefined, bound: undefined } : p,
   );
   const sources = read.map((p) => p.source).filter(Boolean);
-  return read.map((p) => (p.repo && sources.some((s) => sameRepo(s, p.repo)) ? { ...p, repo: undefined, bound: undefined } : p));
+  return read
+    .map((p) => (p.repo && sources.some((s) => sameRepo(s, p.repo)) ? { ...p, repo: undefined, bound: undefined } : p))
+    .map((p) => {
+      /* A site still on its stand-in name ("Site 10") takes the name of the
+         site it was brought in from, or else the repository it publishes to.
+         A name someone typed is never touched. */
+      const real = defaultName(p.name) ? realName(p) : null;
+      return real ? { ...p, name: real } : p;
+    });
 }
+
+/** The name `create` gives a site nobody named: "Site 3". */
+export const defaultName = (name: string): boolean => /^Site \d+$/.test(name.trim());
+
+/** What a site is really called: the folder or repository it came from, or the one it publishes to. */
+export const realName = (p: Pick<Project, "source" | "repo">): string | null => {
+  const dir = p.source?.dir?.split("/").filter(Boolean).pop();
+  return dir || p.source?.name || p.repo?.name || null;
+};
 
 /**
  * The site a repository was brought in from, if any, its own included. No

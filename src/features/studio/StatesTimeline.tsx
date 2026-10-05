@@ -134,8 +134,8 @@ function pick(row: Row, at: number) {
  * THE STEP BAR, ON THE BOARD. The part picked (or the part round the one
  * picked), and any part stepped away from how the page opens: its name, a
  * key for each step, back and next, and Finish at the end, which puts it
- * back as the page opens. Pinned to the foot of the board, so a tall
- * panel's bar is never below the fold.
+ * back as the page opens. Docked in one strip above the board (J,
+ * 2026-10-05: floating on the board, the bars covered its panels).
  */
 export function StepBar() {
   const pageId = useStudio((s) => s.activePageId);
@@ -162,10 +162,8 @@ export function StepBar() {
   if (!show.length) return null;
   const screen = litScreenOf(on, screens);
   return (
-    <div data-step-bars="" className="pointer-events-none sticky bottom-3 z-30 flex h-0 w-full justify-center overflow-visible">
-      <div className="absolute bottom-0 flex flex-col items-center gap-1.5">
-        {show.slice(0, 3).map((row) => <Bar key={row.frame.id} row={row} now={stepNow(row, on, screen)} />)}
-      </div>
+    <div data-step-bars="" className="relative z-30 flex w-full shrink-0 flex-wrap items-center justify-center gap-1.5 border-b border-border bg-panel/95 px-2 py-1 backdrop-blur">
+      {show.slice(0, 3).map((row) => <Bar key={row.frame.id} row={row} now={stepNow(row, on, screen)} />)}
     </div>
   );
 }
@@ -179,7 +177,7 @@ function Bar({ row, now }: { row: Row; now: { at: number; byPage: boolean } }) {
       role="toolbar"
       aria-label={`States of ${nameOf(row)}: ${at + 1} of ${n}`}
       onPointerDown={(e) => e.stopPropagation()}
-      className="pointer-events-auto flex items-center gap-1 rounded-xl border border-border-strong bg-panel/95 p-1 shadow-panel backdrop-blur"
+      className="flex items-center gap-1 rounded-lg border border-border p-0.5"
     >
       <span className="flex items-center gap-1.5 pl-1.5 pr-1 text-plain font-medium text-fg">
         <Layers className="size-3.5 shrink-0 text-accent" />
