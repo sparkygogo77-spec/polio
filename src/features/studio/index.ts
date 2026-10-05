@@ -4,6 +4,7 @@ import { openLearned } from "./LearnedPanel";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
+import { LiveSiteLink } from "./LiveSiteLink";
 import { GoLiveButton } from "./GoLiveButton";
 import { openRepoPicker, RepoMenuHost } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
@@ -199,6 +200,8 @@ export const studio = defineFeature({
     { id: "studio.saved", order: 5, slot: "status", component: SaveLine, routes: onSiteRoutes },
     { id: "studio.queue", order: 10, slot: "status", component: QueueStrip },
     { id: "studio.github", order: 20, component: GithubButton, routes: onSiteRoutes },
+    /* The site's website, from its repository on GitHub, in a new tab (`LiveSiteLink.tsx`). */
+    { id: "studio.liveSite", order: 20.5, component: LiveSiteLink, routes: onSiteRoutes },
     /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
     { id: "studio.golive", order: 21, component: GoLiveButton, routes: onSiteRoutes },
     /* The list Update live site shows first when the board has something wrong (`PublishCheck.tsx`). Draws nothing in the bar itself. */
