@@ -6,7 +6,7 @@
  * pointing away takes it off; a click puts it on, as one undo step.
  *
  * Under them, the styles learned from every other site you imported
- * (library/learned.ts), for the same kind of part.
+ * (library/learned.ts) and the other boards' own, for the same kind of part.
  *
  * A kit dresses the part's fill, outline, shadow, light, corners, type and
  * hover and press (kitLook.ts); its size, words and place are its own.
@@ -28,7 +28,7 @@ export const KIT_FACETS: Facet[] = ["fill", "outline", "shadow", "light", "corne
 const MOST = 8;
 
 export function KitStyles({ node }: { node: StudioNode }) {
-  const { here } = useBoardKits(true);
+  const { here, elsewhere } = useBoardKits(true);
   const lib = useLearned((s) => s.lib);
   const role = roleOf(node as unknown as KitNode);
   const kits = React.useMemo(() => {
@@ -38,16 +38,19 @@ export function KitStyles({ node }: { node: StudioNode }) {
   /* And every other site's, learned on import (library/learned.ts): builder-wide, so a style from any site is on every board. */
   const learned = React.useMemo(() => {
     const hereHost = here[0]?.host ?? null;
-    return Object.values(lib.sites).filter((l) => l.host !== hereHost)
-      .flatMap((l) => l.kits.filter((k) => !role || k.role === role).slice(0, 3).map((k) => ({ k, site: l.name })))
-      .slice(0, MOST);
-  }, [lib, here, role]);
+    const fromLib = Object.values(lib.sites).filter((l) => l.host !== hereHost)
+      .flatMap((l) => l.kits.filter((k) => !role || k.role === role).slice(0, 3).map((k) => ({ k, site: l.name })));
+    /* And the other boards' own (once "Button looks from your sites" under Effects), one list, each style once. */
+    const fromBoards = elsewhere.flatMap((e) => e.kits.filter((k) => k.host !== hereHost && (!role || k.role === role)).slice(0, 3).map((k) => ({ k, site: e.site })));
+    const seen = new Set<string>();
+    return [...fromLib, ...fromBoards].filter(({ k }) => { const key = `${k.host}:${k.id}`; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, MOST);
+  }, [lib, here, elsewhere, role]);
   if (!kits.length && !learned.length) return <div className="text-small text-fg-muted">This site has no styles of its own yet.</div>;
   const button = node.featureId === "cta-primary";
   const swatch = (k: StyleKit, title: string, from: "here" | "learned") => {
     const look = lookOfKit(k, { button });
     return (
-      <button key={`${from}:${k.id}`} type="button" data-kit-style={k.id} data-kit-from={from} aria-label={`Wear ${title}`} title={title}
+      <button key={`${from}:${k.host}:${k.id}`} type="button" data-kit-style={k.id} data-kit-from={from} aria-label={`Wear ${title}`} title={title}
         className="tactile flex h-8 w-14 items-center justify-center overflow-hidden"
         {...tryProps(
           () => ({ patches: { [node.id]: lookPatch(node as never, look, KIT_FACETS) }, what: title }),

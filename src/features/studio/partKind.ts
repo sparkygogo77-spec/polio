@@ -46,3 +46,64 @@ export function sameKind<T extends Part>(nodes: readonly T[], n: T): T[] {
   const key = kindKey(n);
   return nodes.filter((m) => m.id !== n.id && !m.inert && kindKey(m) === key);
 }
+
+/**
+ * WHICH OF THE PART PANEL'S SECTIONS FIT A PART, by what the part is.
+ *
+ * A section that cannot mean anything on a part is not shown on it: a mark
+ * is for a new idea drawn on the board, not a part brought in from a site
+ * or the words on a control; a picture is drawn for a box, a picture or a
+ * section, not for a button, a link or a line of words; a button's job is
+ * said where its link is ("or say what it should do"), so it has no prompt
+ * of its own. `kind` is the panel's kind word (`partNames.kindOf`). Pure.
+ */
+export interface PanelFacts {
+  kind: string;
+  /** The words on a button or a link: its label. */
+  label: boolean;
+  /** Brought in from a site or a repository, not drawn here. */
+  brought: boolean;
+  /** Its own mark, if it was given one. */
+  glyph: string | null;
+  /** It holds or is a picture. */
+  picture: boolean;
+}
+
+const CONTROLS = new Set(["Button", "Link"]);
+const WORDS = new Set(["Words", "Heading", "Text"]);
+
+export function panelFits(f: PanelFacts): { mark: boolean; picture: boolean; prompt: boolean } {
+  return {
+    mark: !!f.glyph || (!f.brought && !f.label && !CONTROLS.has(f.kind)),
+    picture: f.picture || (!f.label && !CONTROLS.has(f.kind) && !WORDS.has(f.kind)),
+    prompt: f.kind !== "Button" && !(f.label && f.kind !== "Link"),
+  };
+}
+
+/** What a part's code is known to do with it, as the import read it (`codeRefs.ts`, `sourceHooks.ts`). */
+export interface PartCode {
+  refs: readonly { kind: string; code: string }[];
+  vars?: readonly string[] | null;
+}
+
+/** A place a script sets: a box edge, a transform, or a variable named for one (`--x-left`, `--marker-top`, `--tour-box-x`). */
+const PLACED_PROP = /\b(left|top|right|bottom|inset|transform|translate|position)\b/i;
+const PLACED_VAR = /^--[\w-]*?-(left|top|right|bottom|x|y|pos|position|offset|translate)$/i;
+
+/**
+ * Whether the page's own code positions the part, so its Position and size
+ * would be overwritten when the code runs: a script line that styles its
+ * place, or a position variable among the CSS variables it uses (the rule
+ * every builder-ready site keeps: scripts set positions only as variables).
+ * Pure.
+ */
+export function codePlaced(code: PartCode | null | undefined): boolean {
+  if (!code) return false;
+  if (code.refs.some((r) => r.kind === "styles" && PLACED_PROP.test(r.code))) return true;
+  return !!code.vars?.some((v) => PLACED_VAR.test(v.trim()));
+}
+
+/** How many scripts touch a part: the files its code references are in. */
+export function scriptCount(code: { refs: readonly { file: string }[] } | null | undefined): number {
+  return code ? new Set(code.refs.map((r) => r.file)).size : 0;
+}
