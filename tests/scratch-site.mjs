@@ -117,7 +117,7 @@ const row = await page.evaluate(() => {
   const li = field?.closest("li");
   return { placeholder: field?.getAttribute("placeholder"), value: field?.value, branch: branch?.value, none: !!li?.querySelector("[data-repo-none]"), text: li?.innerText.replace(/\s+/g, " ") ?? "" };
 });
-check("the Repos tab field is empty with owner/name as its placeholder, not the server's repository", row.placeholder === "owner/name" && row.value === "", `${row.placeholder} / ${row.value}`);
+check("the Repos field is empty with owner/name in its placeholder, not the server's repository", /owner\/name$/.test(row.placeholder ?? "") && !/him\/real/.test(row.placeholder ?? "") && row.value === "", `${row.placeholder} / ${row.value}`);
 check("its branch field reads main, not the server's branch", row.branch === "main", row.branch);
 check("and the line under it says the site has none of its own yet", row.none && /No repository of its own yet/.test(row.text) && !/him\/real/.test(row.text), row.text);
 

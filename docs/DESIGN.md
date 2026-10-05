@@ -447,6 +447,13 @@ same boxes as everywhere else, in the screen's colours.
   per-part "On tablet" / "On phone" settings on top. A setting at one width
   changes nothing at another. Format and rules: `docs/RESPONSIVE.md`;
   `tests/small-plan.mjs`, `tests/small-pages.mjs`.
+- **Builds shows the sites and their repos at once, never as tabs.** The
+  sites take the page, each card led by its picture, as large as the row
+  allows; Repos is a column beside them (under them on a phone). With his
+  GitHub key held, his repositories are read once and offered under each
+  site's field, so a publish target is one press with that repo's own
+  default branch; typing owner/name is the fallback. His repos are listed
+  below, each naming the site that publishes there. `tests/builds-repos.mjs`.
 
 ## 3. The drawing board
 

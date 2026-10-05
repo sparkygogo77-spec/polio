@@ -92,8 +92,8 @@ await page.waitForTimeout(1200);
 {
   const cards = await page.evaluate(() => [...document.querySelectorAll("[data-card-shared]")].map((e) => e.closest("li")?.textContent ?? ""));
   check("the SOLCINERATOR card is flagged, and only it", cards.length === 1 && /SOLCINERATOR/.test(cards[0]), `${cards.length}`);
-  await page.getByRole("radio", { name: /Repos/ }).or(page.getByRole("button", { name: /^Repos$/ })).or(page.getByRole("tab", { name: /Repos/ })).first().click();
-  await page.waitForTimeout(600);
+  /* Repos is a column beside the cards now, never a tab: nothing to press to see it. */
+  check("Builds shows Repos beside Sites, with no tab to press", (await page.locator("[data-builds-repos]").count()) === 1 && (await page.getByRole("radio", { name: /Repos/ }).count()) === 0);
   const rows = await page.evaluate(() => [...document.querySelectorAll("[data-repo-shared]")].map((e) => e.closest("li")?.textContent ?? ""));
   check("Builds, Repos flags SOLCINERATOR, and only it", rows.length === 1 && /SOLCINERATOR/.test(rows[0]), `${rows.length}`);
   await shot("4-repos");
