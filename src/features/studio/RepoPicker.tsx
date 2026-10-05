@@ -53,7 +53,7 @@ interface Mine { name: string; private: boolean; branch?: string }
 interface Choices { base: string; ref: string; branches: string[]; sites: string[] }
 
 /** The token rides with the call, out of the Keys panel, in his browser. */
-const token = (): Record<string, string> => {
+export const token = (): Record<string, string> => {
   const t = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
   return t ? { "x-github-token": t } : {};
 };
@@ -71,7 +71,7 @@ type Said = { ok?: boolean; message?: string };
 export function serverFailed(status: number): string {
   return `The Builder's server failed (status ${status}), so GitHub was not asked. Try again in a minute.`;
 }
-async function askRoute<T>(url: string, init?: RequestInit): Promise<T & Said> {
+export async function askRoute<T>(url: string, init?: RequestInit): Promise<T & Said> {
   let res: Response;
   try {
     res = await fetch(url, init);
