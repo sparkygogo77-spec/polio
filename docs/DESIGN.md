@@ -295,7 +295,11 @@ same boxes as everywhere else, in the screen's colours.
   picture picks that colour (Shift adds one), "How close" and "Everywhere in
   the picture" say how far it reaches. Apply keeps a new PNG on the part,
   the old one in its versions, and one Undo puts it back. The edge fades
-  rather than cutting hard (`seeThrough.ts`, `tests/see-through.mjs`).
+  rather than cutting hard, with the background taken out of the faded
+  pixels' colour so no pale specks are left on a dark page, and "Trim edge"
+  takes off a ring of halo a pixel at a time. A cleared picture is drawn
+  with no frame: no line, no corners, no floor behind it, on the board and
+  on the published page (`seeThrough.ts`, `tests/see-through.mjs`).
 - **Pages shows the link as it will be shared**: the card a pasted link
   draws, from exactly what the head will say (`pageHead`'s rule: the typed
   description), and a character count on the name (60) and the description

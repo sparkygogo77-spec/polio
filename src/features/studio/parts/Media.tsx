@@ -94,8 +94,10 @@ export function Picture({ id, label, theme: t, picture, media, world, mode, w, h
     );
   }
   if (picture?.pic) {
+    /* A see-through picture (its background cleared) stands on the page itself: no floor, no lit face, no corners behind it. */
+    const clear = !!picture.pic.seeThrough;
     return (
-      <Fill t={t} data-part={id} data-part-picture="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius }}>
+      <Fill t={clear ? { ...t, sheen: undefined } : t} data-part={id} data-part-picture="" data-see-through={clear ? "" : undefined} style={{ padding: 0, overflow: "hidden", borderRadius: clear ? 0 : t.radius, ...(clear ? { background: "transparent" } : null) }}>
         <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
       </Fill>
     );
