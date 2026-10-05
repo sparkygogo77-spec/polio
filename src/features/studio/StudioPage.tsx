@@ -540,7 +540,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    *
    *   1. the search's own words    (below xl)  — it becomes a magnifier
    *   2. the ink hues              (below lg)  — only out while drawing
-   *   5. the search entirely       (below md)  — mod+k still opens it
+   *   5. the search entirely       (below lg)  — mod+k still opens it,
+   *                                              and More carries it there
    *   7. the page chips            (below md)  — Pages is a panel tab, and
    *                                              the panel's toggle is in
    *                                              this bar at every width
@@ -960,7 +961,7 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:min-w-[6.5rem] xl:flex-1 xl:justify-start xl:px-2")}
+        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 lg:flex xl:w-auto xl:min-w-[6.5rem] xl:flex-1 xl:justify-start xl:px-2")}
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />

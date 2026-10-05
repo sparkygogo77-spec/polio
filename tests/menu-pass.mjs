@@ -428,7 +428,7 @@ async function ladder() {
   const LADDER = [
     { rung: 1, what: "the search's own words", goes: 1280, key: "words" },
     { rung: 2, what: "the drawing row", goes: 1024, key: "hues" },
-    { rung: 5, what: "the search entirely", goes: 768, key: "search" },
+    { rung: 5, what: "the search entirely", goes: 1024, key: "search" },
     { rung: 7, what: "the page chips", goes: 768, key: "pages" },
     { rung: 8, what: "the site's name", goes: 640, key: "name" },
   ];
