@@ -27,6 +27,7 @@ import { resolvePalette } from "./parts/theme";
 import { play } from "@/core/audio/engine";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
+const onSiteRoutes = ["/builder", "/builder/*", "/studio", "/studio/*"];
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
 const onPreview = () => typeof window !== "undefined" && /^\/builder\/preview/.test(window.location.pathname);
 const onBoard = () => onStudio() && !onPreview();
@@ -183,20 +184,27 @@ export const studio = defineFeature({
    * head of that same bar; the command palette and /builder still get here.
    */
   nav: [],
+  /*
+   * The open site's own controls (its save line, repository, Refresh,
+   * Publish, Update live site and the links beside it) show on the Builder's
+   * pages only. On Builds no site is being worked on, and the bar there said
+   * whatever the last one had said. Work in flight and the hosts that draw
+   * nothing stay everywhere.
+   */
   topBarItems: [
     /* Work in flight goes on the near side of the bell, where the eye already
        looks to find out what is happening; the repository link is a control
        and stays over with the rest of them. */
     /* Whether the board is kept, and its backups: a glance, before the work in flight (`SaveLine.tsx`). */
-    { id: "studio.saved", order: 5, slot: "status", component: SaveLine },
+    { id: "studio.saved", order: 5, slot: "status", component: SaveLine, routes: onSiteRoutes },
     { id: "studio.queue", order: 10, slot: "status", component: QueueStrip },
-    { id: "studio.github", order: 20, component: GithubButton },
+    { id: "studio.github", order: 20, component: GithubButton, routes: onSiteRoutes },
     /* Beside it, labelled: the owner could not find Go live at the foot of the book. */
-    { id: "studio.golive", order: 21, component: GoLiveButton },
+    { id: "studio.golive", order: 21, component: GoLiveButton, routes: onSiteRoutes },
     /* The list Update live site shows first when the board has something wrong (`PublishCheck.tsx`). Draws nothing in the bar itself. */
     { id: "studio.publishCheck", order: 98, component: PublishCheckDialog },
     /* The launch kit: share card, X banner, icons and memes from the site's own style (`LaunchKit.tsx`). */
-    { id: "studio.launchKit", order: 22, component: LaunchKitKey },
+    { id: "studio.launchKit", order: 22, component: LaunchKitKey, routes: onSiteRoutes },
     /* The one repo menu, mounted once so every way in opens the same one. It draws nothing in the bar itself. */
     { id: "studio.repoMenu", order: 99, component: RepoMenuHost },
   ],

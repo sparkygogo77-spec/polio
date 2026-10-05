@@ -3699,6 +3699,10 @@ remove it from `src/features/index.ts` when you're sure.
   component }]` on a feature module. The bar renders
   whatever is registered and imports no feature; anything that has to live up
   there arrives this way. `keys` contributes the key, `studio` the GitHub mark.
+  An item that acts on the open site names its pages, `routes: ["/builder",
+  "/builder/*"]`, and the bar leaves it off everywhere else: on Builds the
+  bar never shows the last site's Publish or live link. No `routes`, every
+  page.
 - **Keys are read on the server and never prefixed for the browser.**
   `ANTHROPIC_API_KEY`, `REPLICATE_API_TOKEN`, `GITHUB_TOKEN`, `VERCEL_TOKEN`,
   the four `X_*`, `VERCEL_DEPLOY_HOOK`: read in route handlers, never
