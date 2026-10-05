@@ -20,7 +20,8 @@
  *   4. the page's states list: its screens, and a row per part, a screen
  *      that is a step of the part round it not listed again inside it
  *      (source read: the panel imports the client store);
- *   5. the step bar sits on the board, pinned to its foot (source read).
+ *   5. the step bar is docked in one strip above the board, not floating
+ *      over it (J, 2026-10-05), with Finish at the end (source read).
  *
  *   node tests/part-steps.mjs
  *
@@ -97,7 +98,7 @@ check("picking the whole page's state puts its parts back to follow it (source r
 
 /* 5. On the board */
 const page = readFileSync(join(here, "..", "src", "features", "studio", "StudioPage.tsx"), "utf8");
-check("the step bar is on the board, pinned to its foot, with Finish at the end (source read)", /\{design \? <StepBar \/> : null\}/.test(page) && /sticky bottom-3/.test(tl) && /data-step-finish/.test(tl) && /data-step-next/.test(tl));
+check("the step bar is docked above the board, not over it, with Finish at the end (source read)", /\{design \? <StepBar \/> : null\}\s*<Workspace \/>/.test(page) && !/sticky bottom-3/.test(tl) && /data-step-finish/.test(tl) && /data-step-next/.test(tl));
 check("the states in the shelf are plain cards, not shrunk pictures of the part (source read)", !/data-state-thumb/.test(tl) && !/moltenClass/.test(tl));
 
 const passed = results.filter(Boolean).length;
