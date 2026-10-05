@@ -92,7 +92,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
-await page.locator("[data-updates-toggle]").first().click();
+await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-updates-toggle]").first().click();
 await page.waitForSelector("[data-updates-panel][data-updates-source='github']", { timeout: 8000 }).catch(() => null);
 const panel = await page.evaluate(() => ({
   live: document.querySelector("[data-updates-live]")?.textContent ?? null,

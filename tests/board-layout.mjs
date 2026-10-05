@@ -462,9 +462,10 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
 
   const search = await page.locator("[data-tool-search]").boundingBox();
   const phone = await page.getByRole("radio", { name: "Phone" }).boundingBox();
-  const shape = await page.locator("[data-menu-shape]").boundingBox();
+  /* The menu's edge switch is in More now, so More is what follows the search. */
+  const shape = await page.locator("[data-toolbar-more]").boundingBox();
   check("the tool search is in the row of tools", !!search, search ? `${Math.round(search.width)}px` : "missing");
-  check("between Phone and the menu's own switch", !!search && !!phone && !!shape && phone.x < search.x && search.x < shape.x, `${Math.round(phone?.x ?? -1)} < ${Math.round(search?.x ?? -1)} < ${Math.round(shape?.x ?? -1)}`);
+  check("between Phone and More", !!search && !!phone && !!shape && phone.x < search.x && search.x < shape.x, `${Math.round(phone?.x ?? -1)} < ${Math.round(search?.x ?? -1)} < ${Math.round(shape?.x ?? -1)}`);
 
   /* The ground keeps its light while the lamp is being placed. */
   const ground = () => page.locator("[data-ground-sparks]").evaluate((el) => {

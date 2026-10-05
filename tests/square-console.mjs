@@ -33,11 +33,13 @@ async function openSpectrum(shape) {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
   await page.goto(`${URL}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
+  await page.locator("[data-toolbar-more]").first().click();
   const toggle = page.locator("[data-menu-shape]").first();
   if ((await toggle.getAttribute("data-menu-shape")) !== shape) {
     await toggle.click();
     await page.waitForTimeout(350);
   }
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Control+k");
   await page.waitForTimeout(250);
   await page.keyboard.type("drop a new idea");
@@ -93,8 +95,10 @@ async function press(page, label, x, y) {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
   await page.goto(`${URL}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
+  await page.locator("[data-toolbar-more]").first().click();
   const toggle = page.locator("[data-menu-shape]").first();
   if ((await toggle.getAttribute("data-menu-shape")) !== "square") { await toggle.click(); await page.waitForTimeout(350); }
+  await page.keyboard.press("Escape");
   /*
    * A part's wheel, not the page's: the page has no six roles to show, no
    * texture tile and nothing of its own to wear on the Looks button. Square

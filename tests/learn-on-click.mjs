@@ -59,6 +59,8 @@ check("…and not queued again unless Learn again", L.queued(learned, held).queu
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+/* Every part's ! on the board, as the top bar's count shows them (`decideShown.ts`): by default only the picked part wears one. */
+await page.addInitScript(() => localStorage.setItem("builder.decideBadges.v1", "all"));
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const dispatches = [];

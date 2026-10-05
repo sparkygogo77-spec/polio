@@ -41,6 +41,7 @@ import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./S
 import { BringHost } from "./FromASite";
 import { LearnBadge } from "./LearnPanel";
 import { heldSays, partLearned } from "./learn";
+import { useDecideAll } from "./decideShown";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { useBoxEntry } from "./boxEntry";
 import { hasPicture, pictureFrom, readDrop } from "./pictureDrop";
@@ -313,6 +314,8 @@ function DesktopCanvas() {
   const learnState = useStudio((s) => s.learn);
   /* The names the side panel prints, worked out once for the page: the tag over a part says the same. */
   const names = React.useMemo(() => new Map(nodes.map((n) => [n.id, partName(n, nodes, (id) => getFeature(id)?.name)])), [nodes]);
+  /* Only the picked part wears its ! unless the top bar's count says show them all (`decideShown.ts`). */
+  const decideAll = useDecideAll();
   const decide = React.useMemo(() => new Map(decisions(nodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [nodes, learnState]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
@@ -2181,7 +2184,7 @@ function DesktopCanvas() {
             page={{ w: frameWidth, h: frameH }}
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
-            decide={decide.get(n.id) ?? null}
+            decide={decideAll || selection.includes(n.id) ? decide.get(n.id) ?? null : null}
             name={names.get(n.id) ?? n.label}
           />
         ))}
@@ -3264,8 +3267,9 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
 /**
  * The orange !: this part still needs a decision.
  *
- * On every clickable part that goes nowhere and every live-data spot
- * (`library/badge.ts`), in the Builder only: it is drawn by the board over
+ * On the picked part, when it goes nowhere or is a live-data spot
+ * (`library/badge.ts`); on all of them only while the top bar's count is
+ * pressed (`decideShown.ts`). In the Builder only: it is drawn by the board over
  * the part, never by the part, so a published page cannot carry it. It sits
  * just above the part's top-right corner rather than on the part, because a
  * badge inside a 16px icon covers the icon it is about. Pressing it opens the

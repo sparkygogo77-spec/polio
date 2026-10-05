@@ -136,7 +136,7 @@ if (!URL_) {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
   await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 
-  await page.locator("[data-updates-toggle]").first().click();
+  await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-updates-toggle]").first().click();
   await page.waitForSelector("[data-updates-panel]", { timeout: 5000 });
   const seen = await page.locator("[data-updates-panel]").innerText();
   check("the panel opens and has something on it", seen.length > 200, `${seen.split(/\s+/).length} words on screen`);

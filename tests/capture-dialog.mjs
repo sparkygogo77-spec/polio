@@ -85,7 +85,7 @@ await keys.getByRole("button", { name: "Close keys" }).click();
 await page.waitForTimeout(500);
 
 /* Each field keeps its keys. */
-await page.locator("[data-capture-site]").first().click();
+await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-capture-site]").first().click();
 await page.waitForSelector("[data-capture-url]");
 const val = (sel) => page.locator(sel).inputValue();
 check("the address has the keys when the dialog opens", await page.evaluate(() => document.activeElement?.hasAttribute("data-capture-url")));
@@ -120,7 +120,7 @@ for (let i = 0; i < 30; i++) { after = await page.evaluate(() => JSON.parse(loca
 check("after a reload the run is watched again, and its end written down", after[0]?.at === "done" && after[0]?.ref === "run:51", JSON.stringify(after[0]));
 
 /* Listed, and brought into a new site. */
-await page.locator("[data-capture-site]").first().click();
+await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-capture-site]").first().click();
 await page.waitForSelector("[data-capture-recent]", { timeout: 5000 }).catch(() => {});
 const row = page.locator('[data-capture-run="51"]');
 check("Recent captures lists it, with Bring into a new site", (await row.count()) === 1 && (await row.locator("[data-capture-recent-bring]").count()) === 1, await row.innerText().catch(() => "none"));

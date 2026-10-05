@@ -15,6 +15,7 @@
  * for faces. The wheel's "every part like it" is the same call.
  */
 import * as React from "react";
+import { MoreHint } from "@/core/ui/more-hint";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ROLES, css, parseColor, toHex, type Oklch, type Palette } from "./look";
@@ -363,7 +364,7 @@ function RoleDetail({ swatch, palette, onDone }: { swatch: RoleSwatch; palette: 
         </div>
       ) : null}
       <PartsList spots={swatch.spots} rest={here} />
-      {swatch.fromPictures ? <p className="text-fine text-fg-faint">Colours inside a picture are the picture&rsquo;s own: they are shown here, and recolouring leaves them as they are.</p> : null}
+      {swatch.fromPictures ? <MoreHint className="text-fine text-fg-faint" text="Colours inside a picture are the picture’s own. They are shown here, and recolouring leaves them as they are." /> : null}
       {only.length ? (
         <>
           <div className="flex items-center gap-1">
@@ -454,7 +455,7 @@ function RolePalette({ roles, palette, children, forNewParts = null }: { roles: 
         </button>
         {more ? (
           <div className="mt-1 space-y-2">
-            <p className="text-fine text-fg-faint">Every other colour on parts on top of the page, by role; a colour worn by one or two parts is here too.</p>
+            <MoreHint className="text-fine text-fg-faint" text="Every other colour on parts on top of the page, by role. A colour worn by one or two parts is here too." />
             {roles.more.map((s) => (
               <React.Fragment key={s.id}>
                 <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
@@ -519,11 +520,12 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
             </button>
           ) : null}
         </div>
-        <p className="text-small leading-snug text-fg-muted">
-          {captured
+        <MoreHint
+          className="text-small leading-snug text-fg-muted"
+          text={captured
             ? "The colours of the parts on top of the page, by what they are for. Close shades are one swatch. Press one to see its parts outlined on the board, pick them, and change the colour."
             : "The site's colours. Press one to change it; every part that follows it changes with it."}
-        </p>
+        />
       </div>
       {captured ? null : paletteRoles}
       <RolePalette roles={roles} palette={palette} forNewParts={captured ? paletteRoles : null}>
@@ -571,9 +573,11 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
           ) : null}
         </div>
       </RolePalette>
-      <p data-site-left-out="" className="text-small leading-snug text-fg-faint">
-        Left out: the page&rsquo;s own colour{left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}{roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}{roles.left.pictureWords ? `; words drawn inside ${roles.left.pictureWords} picture${roles.left.pictureWords === 1 ? "" : "s"} are not counted as words` : ""}. A picture standing on the page adds its few main colours under Pictures on top.
-      </p>
+      <MoreHint
+        data-site-left-out=""
+        className="text-small leading-snug text-fg-faint"
+        text={`Left out: the page’s own colour${left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}${roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}${roles.left.pictureWords ? `; words drawn inside ${roles.left.pictureWords} picture${roles.left.pictureWords === 1 ? "" : "s"} are not counted as words` : ""}. A picture standing on the page adds its few main colours under Pictures on top.`}
+      />
     </section>
   );
 }
@@ -606,7 +610,7 @@ export function SiteFontsSection() {
     <section data-site-fonts="" className="space-y-2 border-b border-border p-3">
       <div>
         <h3 data-look-heading className="text-plain font-semibold text-fg">Fonts on this site</h3>
-        <p className="text-small leading-snug text-fg-muted">Each face the words are set in, top of the site to the bottom, and how many parts use it. Press one to swap it everywhere it is used.</p>
+        <MoreHint className="text-small leading-snug text-fg-muted" text="Each face the words are set in, top of the site to the bottom, and how many parts use it. Press one to swap it everywhere it is used." />
       </div>
       <div className="space-y-1">
         {fonts.map((f) => (

@@ -419,7 +419,7 @@ async function ladder() {
     check(`${w}px: the tool control carries no word`, r.toolWords === "", `reads "${r.toolWords}"`);
     check(`${w}px: no control wears a word its icon already says`, r.wordy === "", r.wordy || "none");
     if (w < 768) check(`${w}px: the search has gone`, !r.search);
-    if (w < 1024) check(`${w}px: Updates has gone`, !r.updates);
+    check(`${w}px: Updates is behind More`, !r.updates);
   }
   /* ---------------------------------------------- the ladder, rung by rung */
   /* Copied from the bar's comment, not imported from its classes, so that
@@ -428,10 +428,7 @@ async function ladder() {
   const LADDER = [
     { rung: 1, what: "the search's own words", goes: 1280, key: "words" },
     { rung: 2, what: "the drawing row", goes: 1024, key: "hues" },
-    { rung: 3, what: "Wires", goes: 1024, key: "wires" },
-    { rung: 4, what: "Updates", goes: 1024, key: "updates" },
     { rung: 5, what: "the search entirely", goes: 768, key: "search" },
-    { rung: 6, what: "the menu's edge switch", goes: 768, key: "edge" },
     { rung: 7, what: "the page chips", goes: 768, key: "pages" },
     { rung: 8, what: "the site's name", goes: 640, key: "name" },
   ];
@@ -448,6 +445,8 @@ async function ladder() {
    * holding the bar to an older shape. There is no "Fit" key any more
    * either: the button is gone and the readout does its job.
    */
+  /* Wires, Updates and the menu's edge are in More at every width now (`StudioPage.tsx#MoreTools`): never in the row. */
+  const IN_MORE = ["wires", "updates", "edge"];
   const SURVIVES = ["tool", "devices", "undo", "redo", "zoomOut", "zoom", "zoomIn", "preview", "finish", "panel"];
 
   /* The drawing row is only out while drawing, so the pen goes in hand — with a
@@ -505,6 +504,10 @@ async function ladder() {
   for (const k of SURVIVES) {
     const lost = rungWidths.filter((w) => !rungsAt[w][k]);
     check(`${k} survives every rung`, lost.length === 0, lost.length ? `missing at ${lost.join("px, ")}px` : `there at all ${rungWidths.length}`);
+  }
+  for (const k of IN_MORE) {
+    const shown = rungWidths.filter((w) => rungsAt[w][k]);
+    check(`${k} is in More, not the row`, shown.length === 0, shown.length ? `in the row at ${shown.join("px, ")}px` : "behind More at every width");
   }
   const spilled = rungWidths.filter((w) => rungsAt[w].over > 1);
   check("nothing is cut off on either side of a rung", spilled.length === 0, spilled.length ? spilled.map((w) => `${rungsAt[w].over}px at ${w}`).join(", ") : "0px past the edge at all of them");
