@@ -105,7 +105,12 @@ await page.waitForTimeout(300);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 /* The mute it used to press is gone too (TopBar: "There was a mute here"), so
-   the press is Go live with no key held, which always says why in a toast. */
+   the press is Go live with no key held, which always says why in a toast.
+   Go live is the open site's, so it is in the Builder's bar only. */
+await page.goto(new URL("/builder", URL_).href, { waitUntil: "networkidle" });
+await page.waitForTimeout(700);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
 const golive = page.locator("header [data-go-live]").first();
 if (await golive.count()) {
   for (let i = 0; i < 40 && (await golive.getAttribute("data-go-live-state")) === "checking"; i++) await page.waitForTimeout(250);
