@@ -44,7 +44,7 @@ import { heldSays, partLearned } from "./learn";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { useBoxEntry } from "./boxEntry";
 import { hasPicture, pictureFrom, readDrop } from "./pictureDrop";
-import { put as putPicture } from "./pictures";
+import { put as putPicture, seesThrough, usePicture } from "./pictures";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
@@ -2815,6 +2815,24 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
   const mark = React.useMemo(() => markColour(node, palette), [node, palette]);
+  /*
+   * A see-through picture not yet marked so (cleared before the mark
+   * existed, or a logo that came see-through): looked at once, at its
+   * corners, and marked, so it wears no frame (`parts/primitives.tsx`).
+   * Quietly: it is the board noticing, not an edit to undo.
+   */
+  const unmarked = node.picture && !node.picture.seeThrough ? node.picture : null;
+  const { src: unmarkedSrc } = usePicture(unmarked);
+  React.useEffect(() => {
+    if (!unmarked || !unmarkedSrc) return;
+    let live = true;
+    void seesThrough(unmarkedSrc).then((clear) => {
+      if (!live || !clear) return;
+      const now = useStudio.getState().nodes.find((n) => n.id === node.id)?.picture;
+      if (now?.id === unmarked.id && !now.seeThrough) useStudio.getState().updateNodeQuiet(node.id, { picture: { ...now, seeThrough: true } });
+    });
+    return () => { live = false; };
+  }, [node.id, unmarked?.id, unmarkedSrc]); // eslint-disable-line react-hooks/exhaustive-deps
   /*
    * Where this part stands under the page's lamp.
    *

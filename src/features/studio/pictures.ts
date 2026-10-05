@@ -275,6 +275,30 @@ import * as React from "react";
  * kept for the life of the page, so a re-render is not a re-read and not a
  * flicker.
  */
+/**
+ * Does this picture see through at its corners? Four one-pixel reads, never
+ * the whole picture. A picture cleared before cleared pictures were marked
+ * (`seeThrough`), or a logo that came see-through, is found this way and
+ * marked, so it stands on the page with no frame like one cleared today.
+ */
+export async function seesThrough(src: string): Promise<boolean> {
+  const img = new Image();
+  img.src = src;
+  try { await img.decode(); } catch { return false; }
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return false;
+  const c = document.createElement("canvas");
+  c.width = c.height = 1;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  if (!x) return false;
+  for (const [sx, sy] of [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]] as const) {
+    x.clearRect(0, 0, 1, 1);
+    x.drawImage(img, sx, sy, 1, 1, 0, 0, 1, 1);
+    try { if (x.getImageData(0, 0, 1, 1).data[3]! < 250) return true; } catch { return false; }
+  }
+  return false;
+}
+
 export function usePicture(pic: Picture | null | undefined): { src?: string; looked: boolean } {
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
   const id = pic?.id;
