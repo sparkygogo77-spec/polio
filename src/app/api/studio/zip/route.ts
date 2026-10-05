@@ -429,6 +429,9 @@ const SCREEN_LIST = `() => {
     const shows = new Set();
     /* Where each sits, from the copy's own corner: the board lines these up with the page's parts (\`boardStates.ts#screenPlaces\`). */
     const boxes = {};
+    /* What each says in its own words, as a short mark: two screens that draw the same parts but say different things (you won, you lost) are two states (\`boardStates.ts#screensOfPart\`). */
+    const words = {};
+    const mark = (t) => { let k = 5381; for (let i = 0; i < t.length; i++) k = ((k * 33) ^ t.charCodeAt(i)) >>> 0; return k.toString(36); };
     const at = body ? body.getBoundingClientRect() : null;
     if (body) for (const h of Array.from(body.querySelectorAll("[data-hook]"))) {
       if (h.closest("template") || !h.getClientRects().length || getComputedStyle(h).visibility === "hidden") continue;
@@ -436,14 +439,18 @@ const SCREEN_LIST = `() => {
       if (!v || v.startsWith("preview-")) continue;
       shows.add(v);
       if (!boxes[v]) { const r = h.getBoundingClientRect(); boxes[v] = [Math.round(r.x - at.x), Math.round(r.y - at.y), Math.round(r.width), Math.round(r.height)]; }
+      const own = Array.from(h.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent || "").join("").replace(/\s+/g, " ").trim();
+      if (own && !words[v]) words[v] = mark(own);
     }
+    /* The step of the site's flow it shows, when the site says (\`data-preview-step\`): a part is stepped through these, in this order. */
+    const step = (el.getAttribute("data-preview-step") || "").trim();
     /* And what each hooked <img> draws here, where its code drew it (\`FromASite.tsx#readScreensOf\`): small data: addresses as they are. */
     const pictures = {};
     if (body) for (const im of Array.from(body.querySelectorAll("img[data-hook]"))) {
       const v = im.getAttribute("data-hook"); const src = im.currentSrc || im.src || "";
       if (v && !pictures[v] && im.complete && im.naturalWidth && src.startsWith("data:") && src.length < 200000) pictures[v] = src;
     }
-    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes, pictures });
+    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes, pictures, words, ...(step ? { step } : {}) });
   }
   return out;
 }`;
@@ -459,7 +466,8 @@ const BUSY = `() => [document.documentElement, document.body].some((el) => el &&
  */
 type Boxes = Record<string, [number, number, number, number]>;
 type Pictures = Record<string, string>;
-async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<{ name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures }[]> {
+type Read = { name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures; words?: Record<string, string>; step?: string };
+async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }): Promise<Read[]> {
   type Evaluating = { evaluate: (fn: string) => Promise<unknown>; goto: (url: string, o: { waitUntil: "load"; timeout: number }) => Promise<unknown>; waitForTimeout: (ms: number) => Promise<void> };
   const p = page as unknown as Evaluating;
   const settle = async (most: number) => {
@@ -475,20 +483,20 @@ async function readScreens(page: PWPage, ask: { page: string | null; list: { nam
     }
   };
   /* The manifest's own list when it gives each screen's page (the kit's); else the screens the built preview page shows (PonsStars'). */
-  let listed: { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes; pictures?: Pictures }[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
+  let listed: (Omit<Read, "page" | "shows"> & { href: string; shows?: string[] })[] = ask.list.map((x) => ({ name: x.name, label: "", href: `${HOME}/${x.src}` }));
   if (!listed.length && ask.page) {
     await p.goto(`${HOME}/${ask.page}?still=1`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
     await settle(90000);
-    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as { name: string; label: string; href: string; shows?: string[]; boxes?: Boxes; pictures?: Pictures }[];
+    listed = (await p.evaluate(`(${SCREEN_LIST})()`)) as typeof listed;
   }
-  const out: { name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures }[] = [];
+  const out: Read[] = [];
   for (const s of listed.slice(0, 40)) {
     let u: URL | null = null;
     try { u = new URL(s.href); } catch { /* no address of its own */ }
     const file = u && u.origin === HOME ? decodeURIComponent(u.pathname.slice(1)) : "";
     /* Its address is the preview page again (PonsStars' links open the screen alone there): what the preview copied in is the screen, and its page is the one whose hooks it carries (`boardStates.ts`). */
     if (!file || file === ask.page || !u) {
-      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}), ...(s.pictures ? { pictures: s.pictures } : {}) });
+      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}), ...(s.pictures ? { pictures: s.pictures } : {}), ...(s.words ? { words: s.words } : {}), ...(s.step ? { step: s.step } : {}) });
       continue;
     }
     if (!u.searchParams.has("still")) u.searchParams.set("still", "1");

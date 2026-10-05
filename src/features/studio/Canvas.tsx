@@ -140,11 +140,11 @@ function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioN
       if (st.places.has(id) || d.x || d.y) places.set(id, { ...b, x: b.x + d.x, y: b.y + d.y });
       else places.delete(id);
     }
-    /* A part grown to hold its step, where it stands. */
+    /* A part grown to hold its step, where it stands; what is under it in its column, moved down by as much. */
     for (const [id, b] of st.places) {
       if (st.within.has(id)) continue;
-      const at = places.get(id);
-      places.set(id, at ? { ...at, h: b.h } : b);
+      const at = places.get(id), n = byId.get(id);
+      places.set(id, at && n ? { ...at, y: at.y + (b.y - n.y), h: b.h } : b);
     }
   }
   placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places };

@@ -12,6 +12,7 @@
  * browser, the repository it publishes to, and the address it went live at —
  * three facts, all of them the owner's.
  */
+import { siteName } from "./siteName";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
@@ -442,11 +443,16 @@ const sameRepo = (a: Project["repo"] | undefined, b: Project["repo"] | undefined
  * repository a board came from.
  */
 export function settle(projects: Project[]): Project[] {
-  const read = projects.map((p) =>
+  const read = projects.map((p) => named(
     p.bound === "import" ? { ...p, source: p.source ?? p.repo, repo: undefined, bound: undefined } : p,
-  );
+  ));
   const sources = read.map((p) => p.source).filter(Boolean);
   return read.map((p) => (p.repo && sources.some((s) => sameRepo(s, p.repo)) ? { ...p, repo: undefined, bound: undefined } : p));
+}
+
+function named(p: Project): Project {
+  const name = siteName(p.name, p.source);
+  return name === p.name ? p : { ...p, name };
 }
 
 /**
