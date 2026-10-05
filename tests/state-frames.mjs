@@ -20,7 +20,8 @@
  *      face's part; it lists the three in order with a thumbnail each and
  *      their words, values and settings;
  *   4. pressing "idle" shows that face on the board and hides the others;
- *      "As the page opens" puts it back;
+ *      "As the page opens" puts it back; the step bar on the board clicks
+ *      it through, next by next, and Finish puts it back;
  *   5. dragged, the box takes every face, hidden ones too; resized, the
  *      faces keep their place and size on it;
  *   6. a face's part dragged far out stops at the box's edge.
@@ -161,12 +162,11 @@ check("the box's right-click menu offers the States timeline", (await openMenu(b
 await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
 await ui.waitForTimeout(600);
 const tl = ui.locator("[data-states-timeline]");
-const steps = await tl.locator("[data-state-step]").evaluateAll((els) => els.map((e) => ({ key: e.getAttribute("data-state-step"), label: e.getAttribute("aria-label"), thumb: !!e.querySelector("[data-state-thumb]"), data: e.querySelector("[data-state-data]")?.textContent ?? "" })));
-check("the timeline lists the three in order", steps.map((s) => s.label).join(" | ") === "State 1: loading | State 2: idle | State 3: result", steps.map((s) => s.label).join(" | "));
-check("each with a thumbnail", steps.length === 3 && steps.every((s) => s.thumb));
-check("and the data each holds: words, values, settings", /Tuning in/.test(steps[0]?.data) && /chart-tv-loading-bar: 0 of 100/.test(steps[0]?.data) && /step=contacting/.test(steps[0]?.data) && /Find a match/.test(steps[1]?.data) && /You won/.test(steps[2]?.data), steps.map((s) => s.data).join(" / "));
-const thumbDrawn = await tl.locator("[data-state-thumb]").nth(1).evaluate((t) => t.children.length);
-check("the thumbnail draws the face's own parts", thumbDrawn === tvf.steps[1].parts.length, String(thumbDrawn));
+const steps = await tl.locator(`[data-state-row="${box.id}"] [data-state-step]`).evaluateAll((els) => els.map((e) => ({ key: e.getAttribute("data-state-step"), label: e.getAttribute("aria-label"), thumb: !!e.querySelector("[data-state-thumb]"), data: e.getAttribute("data-state-data") ?? "" })));
+check("the box's row lists the three in order", steps.map((s) => s.label).join(" | ") === "State 1: loading | State 2: idle | State 3: result", steps.map((s) => s.label).join(" | "));
+/* J (2026-10-05): the thumbnails were shrunk past reading; the board is the picture now, and a card says its name. */
+check("each a plain card, its name and number, no shrunk picture", steps.length === 3 && steps.every((s) => !s.thumb));
+check("and the data each holds on hover: words, values, settings", /Tuning in/.test(steps[0]?.data) && /chart-tv-loading-bar: 0 of 100/.test(steps[0]?.data) && /step=contacting/.test(steps[0]?.data) && /Find a match/.test(steps[1]?.data) && /You won/.test(steps[2]?.data), steps.map((s) => s.data).join(" / "));
 
 /* ------------------------------------------------------------------ */
 /* 4. A step pressed shows it on the board                             */
@@ -174,9 +174,9 @@ check("the thumbnail draws the face's own parts", thumbDrawn === tvf.steps[1].pa
 
 const drawn = async (h) => ((await ui.locator(`[data-node-id="${hook(h).id}"]`).first().isVisible()) ? 1 : 0);
 check("before: the loading face is drawn, idle is not", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-idle-title")) === 0);
-await tl.locator('[data-state-step="hidden:chart-tv-idle"]').click();
+await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).click();
 await ui.waitForTimeout(600);
-check("pressing idle draws idle in the box and hides loading and result", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await drawn("chart-tv-result-headline")) === 0 && (await tl.locator('[data-state-step="hidden:chart-tv-idle"]').getAttribute("aria-pressed")) === "true");
+check("pressing idle draws idle in the box and hides loading and result", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await drawn("chart-tv-result-headline")) === 0 && (await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).getAttribute("aria-pressed")) === "true");
 const ib = await el(hook("chart-tv-idle-title").id).boundingBox(), bb = await el(box.id).boundingBox();
 check("drawn inside the box on the board", ib.x >= bb.x - 1 && ib.y >= bb.y - 1 && ib.x + ib.width <= bb.x + bb.width + 1 && ib.y + ib.height <= bb.y + bb.height + 1);
 const onState = (await board()).statesOn ?? [];
@@ -184,6 +184,18 @@ check("a board-only switch: the page's parts keep their state", onState.some((k)
 await tl.locator("[data-state-step-off]").click();
 await ui.waitForTimeout(500);
 check("'As the page opens' puts it back", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-idle-title")) === 0);
+/* J (2026-10-05): "on the board I can click through 1 to 5 / finish": the step bar, on the board, for the part picked. */
+const bar = ui.locator(`[data-step-bar="${box.id}"]`);
+check("the box picked, its step bar is on the board: a key for each of its three steps", (await bar.count()) === 1 && (await bar.locator("[data-step-key]").count()) === 3, await bar.getAttribute("aria-label").catch(() => "no bar"));
+await bar.locator("[data-step-next]").click();
+await ui.waitForTimeout(500);
+check("next: idle in the box, loading gone", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await bar.getAttribute("aria-label")) === "States of chart-tv-box: 2 of 3");
+await bar.locator("[data-step-next]").click();
+await ui.waitForTimeout(500);
+check("next again: the result, and Finish in place of next at the end", (await drawn("chart-tv-result-headline")) === 1 && (await drawn("chart-tv-idle-title")) === 0 && (await bar.locator("[data-step-finish]").count()) === 1);
+await bar.locator("[data-step-finish]").click();
+await ui.waitForTimeout(500);
+check("Finish puts it back as the page opens", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-result-headline")) === 0 && !((await board()).statesOn ?? []).some((k) => k.startsWith("step:")));
 await ui.keyboard.press("Escape");
 await ui.waitForTimeout(300);
 check("Escape closes it", (await tl.count()) === 0);
@@ -239,7 +251,7 @@ if (await handle.count()) {
 await openMenu(box.id);
 await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
 await ui.waitForTimeout(500);
-await tl.locator('[data-state-step="hidden:chart-tv-idle"]').click();
+await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).click();
 await ui.waitForTimeout(400);
 await ui.keyboard.press("Escape");
 await ui.waitForTimeout(300);

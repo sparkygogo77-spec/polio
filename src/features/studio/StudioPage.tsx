@@ -11,7 +11,7 @@ import { RemakeCard } from "./RemakePicture";
 import { ClearBackgroundCard } from "./ClearBackground";
 import { putComponent } from "./SavedComponents";
 import { RemixCard } from "./RemixCard";
-import { StatesTimeline, openStatesTimeline, useStatesTimelineOpen } from "./StatesTimeline";
+import { StatesTimeline, StepBar, openStatesTimeline, useStatesTimelineOpen } from "./StatesTimeline";
 import { stateFrames, type FrameNode } from "./stateFrames";
 import { FeatureOffers } from "./WorkShelf";
 import * as React from "react";
@@ -386,6 +386,11 @@ function StatesChip({ pageId }: { pageId: string }) {
         content={
           <div data-states-menu="" className="flex flex-col gap-0.5">
             <p className="px-2 py-1 text-fine text-fg-faint">Pick a part to see the states it goes through. Shown on the board only: the page still opens as its code says.</p>
+            <button type="button" data-states-all="" onClick={() => { setOpen(false); openStatesTimeline(null); }}
+              className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain font-medium text-fg hover:bg-hover">
+              <Layers className="size-3 shrink-0 text-accent" />
+              <span className="min-w-0 flex-1 truncate">Every state on this page, at a glance</span>
+            </button>
             {/* J: one part, its timeline; not an endless list of every state on the page. */}
             {frames.map((f) => {
               const n = nodes.find((x) => x.id === f.frame);
@@ -1591,6 +1596,8 @@ export function StudioPage() {
             ) : (
               <LiveStage device={viewportDevice} pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
+            {/* A part's states, clicked through on the board itself: pinned to the board's foot (`StatesTimeline.tsx#StepBar`). */}
+            {design ? <StepBar /> : null}
             {/*
               The categories, in the same scroller as the site.
 
@@ -1683,10 +1690,10 @@ export function StudioPage() {
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
                   /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded && !timelineFor ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
+                  style={{ height: shelfFolded && timelineFor == null ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
                   {/* A part's states timeline takes the categories' place while it is open (`StatesTimeline.tsx`). */}
-                  {timelineFor ? <StatesTimeline /> : <Palette />}
+                  {timelineFor != null ? <StatesTimeline /> : <Palette />}
                 </div>
           ) : null}
         </div>
