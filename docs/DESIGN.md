@@ -289,6 +289,16 @@ same boxes as everywhere else, in the screen's colours.
   options), with a press that opens the tab. It sat inside "Make a picture"
   for a while and could not be found with nothing picked; the owner asked
   for it back on a panel of its own. `tests/side-panel-h.mjs`.
+- **A site made here has Refresh and Publish beside Go live.** Both work
+  on the repository Go live made for it. Publish puts the board in as the
+  builder-ready kit (builder.json, a data-hook on every part, tokens, the
+  style layer, the kit's CLAUDE.md and checks) on a kit/ branch, merged, so a
+  code chat can work there; it waits once a chat has pushed, so the chat's
+  work is never written over. Refresh is green while the repository is where
+  the board left it; once a chat has pushed it asks, then brings the
+  repository in, and the site is a site from code from then on, with the
+  code site's own Refresh and Publish (`BuilderSiteButtons.tsx`,
+  `kitPublish.ts`, `tests/builder-site-code.mjs`).
 - **A picture's background is cleared by pointing at it.** The wheel's tray
   under any picture has "Transparent background…": the picture over a
   checkerboard, the four corners picked as a first guess, a click on the
