@@ -18,6 +18,7 @@ import { ExternalLink, Globe, Loader2 } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { CodeSiteButtons } from "./CodeSiteButtons";
+import { BuilderSiteButtons } from "./BuilderSiteButtons";
 import type { StyleSource } from "./styleLayer";
 import { useActions } from "@/core/actions";
 import { sharedTargetSays, useBuilds, useSharedTargetSays } from "@/features/builds/store";
@@ -41,7 +42,8 @@ export function GoLiveButton() {
   const [fold, setFold] = React.useState(false);
   /* A site from a code repository: Refresh from it and Publish into it, in Go live's place (`CodeSiteButtons.tsx`). */
   const fromCode = useStudio((s) => { const src = (s.look as { styleSource?: StyleSource | null }).styleSource; return src?.repo ? src : null; });
-  const button = <GoLiveControl />;
+  /* A site made here: Refresh and Publish beside Go live, on the repository Go live made for it (`BuilderSiteButtons.tsx`). */
+  const button = <span className="flex items-center gap-1.5"><BuilderSiteButtons /><GoLiveControl /></span>;
   if (fromCode) return <CodeSiteButtons source={fromCode} />;
   /* Only this site's refusal, and named: another site's never shows here. */
   const refused = said && (!said.siteId || said.siteId === activeId) ? said : null;

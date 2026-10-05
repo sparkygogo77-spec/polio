@@ -82,7 +82,7 @@ export function issueFiles(issues: readonly Issue[], o: { repo: string; site: st
 }
 
 /** Files onto a new branch from the default branch's head; the next free name when one is taken. Never the default branch. */
-export async function pushBranch(repo: string, token: string, files: { path: string; content: string }[], o: { branch: string; message: string; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; url: string }>> {
+export async function pushBranch(repo: string, token: string, files: { path: string; content: string; encoding?: "base64" }[], o: { branch: string; message: string; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; url: string; base: string }>> {
   const f = o.fetch ?? fetch;
   const info = await gh(f, token, `/repos/${repo}`);
   const base = typeof info.json?.default_branch === "string" ? info.json.default_branch : null;
@@ -96,7 +96,8 @@ export async function pushBranch(repo: string, token: string, files: { path: str
   if (!baseTree) return { ok: false, says: "GitHub would not show the branch's last commit." };
   const tree: { path: string; mode: string; type: string; sha: string }[] = [];
   for (const file of files) {
-    const blob = await gh(f, token, `/repos/${repo}/git/blobs`, { method: "POST", body: { content: file.content, encoding: "utf-8" } });
+    /* A picture travels as the base64 it already is; everything else as text. */
+    const blob = await gh(f, token, `/repos/${repo}/git/blobs`, { method: "POST", body: { content: file.content, encoding: file.encoding === "base64" ? "base64" : "utf-8" } });
     if (typeof blob.json?.sha !== "string") return { ok: false, says: `GitHub would not take ${file.path}. Does the key have write access to ${repo}?` };
     tree.push({ path: file.path, mode: "100644", type: "blob", sha: blob.json.sha });
   }
@@ -108,7 +109,7 @@ export async function pushBranch(repo: string, token: string, files: { path: str
   for (let k = 1; k <= 20; k++) {
     const name = k === 1 ? o.branch : `${o.branch}-${k}`;
     const put = await gh(f, token, `/repos/${repo}/git/refs`, { method: "POST", body: { ref: `refs/heads/${name}`, sha } });
-    if (put.status === 201 || put.status === 200) return { ok: true, branch: name, sha, url: `https://github.com/${repo}/tree/${pathOf(name)}` };
+    if (put.status === 201 || put.status === 200) return { ok: true, branch: name, sha, url: `https://github.com/${repo}/tree/${pathOf(name)}`, base };
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${name} (it answered ${put.status}).` };
   }
   return { ok: false, says: `Every branch name like ${o.branch} is taken in ${repo}.` };

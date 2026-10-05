@@ -193,6 +193,31 @@ const sent = await page.evaluate(async () => (await window.__studioExport()).fil
 const path = (await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.picture?.path, node.id)) ?? "";
 const tag = (sent.match(new RegExp(`<div[^>]*>\\s*<img[^>]*${path.replace(/[.]/g, "\\.")}[^>]*>`)) ?? [""])[0];
 check("…nor in what Publish sends", !!tag && !/border:\s*1px solid/.test(tag) && /background:\s*transparent/.test(tag), tag.slice(0, 220));
+/* Cleared before the mark existed: the same picture with no mark, as his was. The board finds it see-through at its corners and marks it. */
+await page.evaluate((id) => {
+  const d = JSON.parse(localStorage.getItem("builder.studio"));
+  const n = d.state.nodes.find((x) => x.id === id);
+  delete n.picture.seeThrough;
+  localStorage.setItem("builder.studio", JSON.stringify(d));
+}, node.id);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForFunction(() => typeof window.__studioPublishDoc === "function", null, { timeout: 30000 });
+let f3 = null;
+for (let t = 0; t < 30 && !f3?.flag; t++) { await page.waitForTimeout(200); f3 = await frame(); }
+check("a picture cleared before the mark existed is found see-through and loses its frame by itself", !!f3 && f3.flag && f3.border === "0px" && /rgba\(0, 0, 0, 0\)/.test(f3.floor), JSON.stringify(f3));
+/* An ordinary picture, see-through nowhere, keeps its frame. */
+await page.evaluate(async () => {
+  const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"); x.fillStyle = "#3a6"; x.fillRect(0, 0, 64, 64);
+  const frame = document.querySelector("[data-frame]"); const r = frame.getBoundingClientRect();
+  const dt = new DataTransfer(); dt.setData("application/x-studio-picture", JSON.stringify({ src: c.toDataURL("image/png"), w: 64, h: 64 }));
+  const at = { clientX: r.left + 80, clientY: r.top + 80 };
+  const target = document.elementFromPoint(at.clientX, at.clientY) ?? frame;
+  for (const t of ["dragenter", "dragover", "drop"]) target.dispatchEvent(new DragEvent(t, { bubbles: true, cancelable: true, dataTransfer: dt, ...at }));
+});
+await page.waitForTimeout(2500);
+const plain = await page.evaluate(() => window.__studioPublishDoc().nodes.at(-1));
+const plainFrame = await page.evaluate((id) => { const img = document.querySelector(`[data-node-id="${id}"] img`); return img ? getComputedStyle(img).borderTopWidth : null; }, plain.id);
+check("…while a picture that is see-through nowhere keeps its frame", !plain.picture?.seeThrough && plainFrame !== "0px", JSON.stringify({ seeThrough: plain.picture?.seeThrough, border: plainFrame }));
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();
