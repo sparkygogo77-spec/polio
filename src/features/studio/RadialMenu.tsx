@@ -41,6 +41,7 @@
  * menu itself), which is the draft option to compare against.
  */
 import { canRemake, openRemake } from "./RemakePicture";
+import { canClearBackground, openClearBackground } from "./ClearBackground";
 import * as React from "react";
 /* Alphabetical by imported name, so a merge from any branch resolves the
    same way: this line conflicted three times in one night otherwise.
@@ -989,6 +990,8 @@ export function RadialMenu() {
         ...(hasStates(nodes, node!.id) ? [{ id: "states", label: "States timeline", icon: <History className="size-3" />, onClick: () => { closeRadial(); openStatesTimeline(node!.id); } }] : []),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
         ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
+        /* …or its background pointed at and made see-through (ClearBackground.tsx). */
+        ...(canClearBackground(node) ? [{ id: "clear-bg", label: "Transparent background…", icon: <Eraser className="size-3" />, onClick: () => { closeRadial(); openClearBackground(node!.id); } }] : []),
         /* The look in full (fill, outline, shadow, light, corners, font, hover and press, motion), held across boards; Paste puts the facets chosen in the panel on this part, or every picked part it is one of, in one step (partLookApply.ts). */
         {
           id: "copy", label: "Copy look", icon: <Pipette className="size-3" />,

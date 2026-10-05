@@ -289,6 +289,13 @@ same boxes as everywhere else, in the screen's colours.
   options), with a press that opens the tab. It sat inside "Make a picture"
   for a while and could not be found with nothing picked; the owner asked
   for it back on a panel of its own. `tests/side-panel-h.mjs`.
+- **A picture's background is cleared by pointing at it.** The wheel's tray
+  under any picture has "Transparent background…": the picture over a
+  checkerboard, the four corners picked as a first guess, a click on the
+  picture picks that colour (Shift adds one), "How close" and "Everywhere in
+  the picture" say how far it reaches. Apply keeps a new PNG on the part,
+  the old one in its versions, and one Undo puts it back. The edge fades
+  rather than cutting hard (`seeThrough.ts`, `tests/see-through.mjs`).
 - **Pages shows the link as it will be shared**: the card a pasted link
   draws, from exactly what the head will say (`pageHead`'s rule: the typed
   description), and a character count on the name (60) and the description
