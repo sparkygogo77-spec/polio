@@ -33,8 +33,12 @@ export interface ScreenRead {
   shows: string[];
   /** Where each drawn hook is in this screen, [x, y, w, h] from the screen's own corner (read at import). */
   boxes?: Record<string, [number, number, number, number]>;
-  /** What each drawn hook says in its own words, as a short mark (read at import): the same parts saying other things (you won, you lost) are another state. */
-  words?: Record<string, string>;
+  /** What each drawn hook says in this screen (read at import): a step shows these words, and the same parts saying other things (you won, you lost) are another state. */
+  texts?: Record<string, string>;
+  /** The size, in px, each of those hooks' words are set at in this screen. */
+  sizes?: Record<string, number>;
+  /** What a part with a still draws in this screen, as its picture (PST's chart: the match's candles). */
+  stills?: Record<string, unknown>;
   /** The step of the site's flow this screen shows (its preview's `data-preview-step`): a part goes through these, in the order they first come. */
   step?: string;
 }
@@ -158,6 +162,50 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
       const to = target.get(by.id)!;
       if (to.x !== by.x || to.y !== by.y) out.set(n.id, { x: n.x + (to.x - by.x), y: n.y + (to.y - by.y), w: n.w, h: n.h });
     }
+    keepOverlaysOnPage(here, out, shows);
+  }
+  return out;
+}
+
+/**
+ * AN OVERLAY STAYS ON THE PAGE. A part pinned to the window (PST's tour: its
+ * shade and its card, where the screen had scrolled to the queue) was read
+ * where that window stood, and could land below the board's page, outside
+ * it (J, 2026-10-05). Each one pinned to the window, with everything in it,
+ * is moved up until its foot is on the page, and down to the page's top.
+ */
+function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBox>, shows: (n: PlaceNode) => boolean): void {
+  const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
+  const box = (n: PlaceNode) => out.get(n.id) ?? n;
+  const flow = here.filter((n) => !n.state && !pinned(n));
+  if (!flow.length) return;
+  const foot = Math.max(...flow.map((n) => box(n).y + box(n).h));
+  const roots = here.filter((n) => pinned(n) && shows(n)).filter((n, _, all) => !all.some((o) => o !== n && contains(box(o), box(n))));
+  for (const r of roots) {
+    const b = box(r);
+    const dy = b.y + b.h > foot ? Math.max(-b.y, foot - (b.y + b.h)) : b.y < 0 ? -b.y : 0;
+    if (!dy) continue;
+    for (const n of here) {
+      if (n !== r && !contains(b, box(n))) continue;
+      const at = box(n);
+      out.set(n.id, { ...at, y: at.y + dy });
+    }
+  }
+}
+const contains = (o: PlaceBox, n: PlaceBox) => n.x >= o.x - 1 && n.y >= o.y - 1 && n.x + n.w <= o.x + o.w + 1 && n.y + n.h <= o.y + o.h + 1;
+
+/** Each shown part's words and picture as the lit page screens have them (the tour card's "How it works"), by id. */
+export function screenLooks(nodes: readonly (PlaceNode & { content?: unknown })[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null): Map<string, StepLook> {
+  const out = new Map<string, StepLook>();
+  for (const s of screens ?? []) {
+    if (!on.includes(screenKey(s.name))) continue;
+    const page = s.page ? pageOf(s.page) : null;
+    const shows = new Set(s.shows);
+    for (const n of nodes) {
+      if ((page && n.pageId !== page) || out.has(n.id) || !n.hooks?.["data-hook"] || !shows.has(n.hooks["data-hook"])) continue;
+      const look = stepLook(n, s);
+      if (look) out.set(n.id, look);
+    }
   }
   return out;
 }
@@ -216,14 +264,17 @@ export function screensOfPart(nodes: readonly PlaceNode[], frame: PlaceNode, scr
    */
   const flow = mine.some((sc) => sc.step);
   const groups = new Map<string, { at: number; best: ScreenRead; share: number; said: number; drawn: string }>();
+  /* A part the page hides until its code shows it (the match panel) has a step only where the screen draws it: in the lobby it is not on the page at all. */
+  const fh = frame.hooks?.["data-hook"];
   mine.forEach((sc, at) => {
     if (flow && !sc.step) return;
+    if (frame.state && fh && !sc.shows.includes(fh)) return;
     const own = sc.shows.filter((h) => hooks.has(h));
     const here = [...new Set(own)].sort().join(" ");
     if (!here || here === opens) return;
     const share = own.length / Math.max(1, sc.shows.length);
     const said = says(sc);
-    const drawn = `${here}|${here.split(" ").map((h) => sc.words?.[h] ?? "").join(" ")}`;
+    const drawn = `${here}|${here.split(" ").map((h) => sc.texts?.[h] ?? "").join("\u0001")}`;
     const key = flow ? sc.step! : here;
     const g = groups.get(key);
     if (!g) groups.set(key, { at, best: sc, share, said, drawn });
@@ -438,11 +489,12 @@ interface FrameRead { byFrame: Map<string, { frame: string; steps: { key: string
  * Whatever is not in the map is the page's to decide (`boardShows`). A part
  * taller in its step than on the board is in `places` itself, grown.
  */
-export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, fileOf: (pageId: string) => string | null, frames: FrameRead): { decide: Map<string, boolean>; places: Map<string, PlaceBox>; within: Map<string, string> } {
+export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, fileOf: (pageId: string) => string | null, frames: FrameRead): { decide: Map<string, boolean>; places: Map<string, PlaceBox>; within: Map<string, string>; looks: Map<string, StepLook> } {
   const decide = new Map<string, boolean>();
   /* Each decided part, to the part stepped that decides it. */
   const within = new Map<string, string>();
   const places = new Map<string, PlaceBox>();
+  const looks = new Map<string, StepLook>();
   const byId = new Map(nodes.map((n) => [n.id, n]));
   for (const k of on) {
     const s = readStepKey(k);
@@ -459,6 +511,12 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
       const shown = new Set(inner.filter((n) => screenDraws(shows, n)).map((n) => n.id));
       for (const n of inner) { decide.set(n.id, shown.has(n.id)); within.set(n.id, f.id); }
       for (const [id, b] of partPlaces(nodes, f, screen, shown)) places.set(id, b);
+      /* Its words and its drawing as this screen has them ("You lost.", FINAL, the match's chart), not the page's as it opens. */
+      for (const n of inner) {
+        if (!shown.has(n.id)) continue;
+        const look = stepLook(n, screen);
+        if (look) looks.set(n.id, look);
+      }
       continue;
     }
     const step = fr.steps.find((x) => x.key === s.step);
@@ -487,10 +545,42 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
     const by = b.h - f.h, foot = f.y + f.h;
     for (const n of nodes) {
       if (n.pageId !== f.pageId || n.id === f.id || within.has(n.id) || n.x >= f.x + f.w || n.x + n.w <= f.x) continue;
+      /* An overlay pinned to the window (the tour) is not in the page's flow. */
+      if ((n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed") continue;
       const at = places.get(n.id) ?? { x: n.x, y: n.y, w: n.w, h: n.h };
       if (n.y >= foot - 1) places.set(n.id, { ...at, y: at.y + by });
       else if (n.y <= f.y && n.y + n.h >= foot - 1 && !(n.x === f.x && n.y === f.y && n.w === f.w && n.h === f.h)) places.set(n.id, { ...at, h: at.h + by });
     }
   }
-  return { decide, places, within };
+  return { decide, places, within, looks };
+}
+
+/** What a part shows in a step instead of what it opens with: its words, its picture. */
+export interface StepLook { content?: unknown; picture?: unknown; font?: { px: number } & Record<string, unknown> }
+type Run = { text?: string; hooks?: Record<string, string> | null } & Record<string, unknown>;
+/** A part's words and picture as a screen has them, where they differ from the page as it opens. */
+export function stepLook(n: PlaceNode & { content?: unknown }, screen: ScreenRead): StepLook | null {
+  const texts = screen.texts ?? {};
+  const hook = n.hooks?.["data-hook"];
+  const out: StepLook = {};
+  if (typeof n.content === "string") {
+    const t = hook ? texts[hook] : undefined;
+    if (t !== undefined && t !== n.content.replace(/\s+/g, " ").trim()) out.content = t;
+  } else if (Array.isArray(n.content)) {
+    let changed = false;
+    const runs = (n.content as Run[]).map((r) => {
+      const h = r && typeof r === "object" ? r.hooks?.["data-hook"] : undefined;
+      const t = h ? texts[h] : undefined;
+      if (t === undefined || t === (r.text ?? "").replace(/\s+/g, " ").trim()) return r;
+      changed = true;
+      return { ...r, text: t };
+    });
+    if (changed) out.content = runs;
+  }
+  /* A part the page left empty as it opens came in with no type size: its words are set at the screen's. */
+  const px = hook ? screen.sizes?.[hook] : undefined;
+  if (out.content !== undefined && !(n as { font?: unknown }).font && px) out.font = { px };
+  const pic = hook ? screen.stills?.[hook] : undefined;
+  if (pic) out.picture = pic;
+  return out.content !== undefined || out.picture !== undefined ? out : null;
 }

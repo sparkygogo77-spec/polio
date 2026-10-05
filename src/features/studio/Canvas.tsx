@@ -10,7 +10,7 @@
  * Drag snaps to the frame's edges and centre and to other parts' edges, with
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
-import { boardShows, partUnder, screenPlaces, steppedParts, type PlaceBox, type ScreenRead } from "./boardStates";
+import { boardShows, partUnder, screenLooks, screenPlaces, steppedParts, type PlaceBox, type ScreenRead, type StepLook } from "./boardStates";
 import { clampMove, frameRiders, inside, keepInFrame, stateFrames } from "./stateFrames";
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
@@ -82,7 +82,7 @@ type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead
 const sourceOf = (s: { look?: unknown }) => (s.look as { styleSource?: Source } | undefined)?.styleSource;
 /** What the parts stepped on the board decide inside them, and where they draw it (`boardStates.ts#steppedParts`). */
 let steppedMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; read: ReturnType<typeof steppedParts> } | null = null;
-const NO_STEPS: ReturnType<typeof steppedParts> = { decide: new Map(), places: new Map(), within: new Map() };
+const NO_STEPS: ReturnType<typeof steppedParts> = { decide: new Map(), places: new Map(), within: new Map(), looks: new Map() };
 function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): ReturnType<typeof steppedParts> {
   const on = s.statesOn ?? [];
   if (!on.some((k) => k.startsWith("step:"))) return NO_STEPS;
@@ -92,6 +92,19 @@ function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: Studio
   const read = steppedParts(nodes, on, source?.screens, (pageId) => source?.files?.find((f) => f.pageId === pageId)?.file ?? null, stateFrames(nodes));
   steppedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, read };
   return read;
+}
+/** Each part's words and picture as the lit screens and the picked steps have them: a step's own win inside its part. */
+let looksMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; looks: Map<string, StepLook> } | null = null;
+const NO_LOOKS = new Map<string, StepLook>();
+function looksOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, StepLook> {
+  const on = s.statesOn ?? [];
+  if (!on.length) return NO_LOOKS;
+  const source = sourceOf(s);
+  if (looksMemo && looksMemo.on === on && looksMemo.screens === source?.screens && looksMemo.files === source?.files && looksMemo.nodes === s.nodes) return looksMemo.looks;
+  const looks = on.some((k) => k.startsWith("screen:")) ? screenLooks((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : new Map<string, StepLook>();
+  for (const [id, l] of steppedOnBoard(s).looks) looks.set(id, l);
+  looksMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, looks };
+  return looks;
 }
 /** A part stepped through, and everything it decides: drawn over its neighbours, so a part taller in its step covers what is under it rather than moving it. */
 let liftedMemo: { read: unknown; ids: Set<string> } | null = null;
@@ -446,7 +459,15 @@ function DesktopCanvas() {
    * because it is derived — reading it must not cause the render that
    * would change it.
    */
-  const wanted = Math.max(stock, frameHeight(nodes, 900, { shapes, spaces }));
+  /* With a state on, the page holds what it draws: a step that grows a part, and moves what is under it down, grows the page (J, 2026-10-05: nothing outside the page). */
+  const statesFoot = useStudio((s) => {
+    if (!(s.statesOn ?? []).length) return 0;
+    const places = placedOnBoard(s), shows = shownOnBoard(s);
+    let m = 0;
+    for (const n of nodes) { if (!shows(n)) continue; const b = places.get(n.id) ?? n; m = Math.max(m, b.y + b.h); }
+    return Math.round(m);
+  });
+  const wanted = Math.max(stock, frameHeight(nodes, 900, { shapes, spaces }), statesFoot);
   const settled = React.useRef(wanted);
   /* A drag that moves or resizes something. A pan is not one: it changes
      nothing about the document, so there is nothing to hold still. */
@@ -2951,6 +2972,10 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
   /* Drawn where a lit screen draws it, so two states in one flow do not sit on top of each other. */
   const place = useStudio((s) => placedOnBoard(s).get(node.id));
   const lifted = useStudio((s) => liftedOnBoard(s).has(node.id));
+  /* Its words and picture as the step picked has them ("You lost.", FINAL, the match's chart): the board's drawing only, the part keeps its own. */
+  const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
+  /* …in the box the state draws it in, so words that wrap there wrap here (the tour's text: four lines, not one). */
+  const drawn = React.useMemo(() => (stepLook || place ? ({ ...node, ...stepLook, ...(place ? { w: place.w, h: place.h } : {}) } as StudioNode) : node), [node, stepLook, place]);
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
   const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
@@ -3106,7 +3131,7 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
         }}
       >
         <Block
-          node={node}
+          node={drawn}
           t={theme}
           palette={palette}
           light={light}
@@ -3256,7 +3281,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
             ))
         : null}
       {selected && !node.locked && !inHeldGroup ? <FillTab node={node} chipScale={chipScale} /> : null}
-      {decide ? <DecideBadge node={node} why={decide} chipScale={chipScale} /> : null}
+      {/* Not on a part only its code shows (a hidden state's buttons: the trade knobs, the tour's dots): what it does is its code's, and a badge on each stacked over the state (J, 2026-10-05). */}
+      {decide && !node.state ? <DecideBadge node={node} why={decide} chipScale={chipScale} /> : null}
     </div>
   );
 });
