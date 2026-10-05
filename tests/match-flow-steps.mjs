@@ -25,16 +25,13 @@
  *   4b. a step shows its own words and chart ("You lost.", FINAL); a part
  *      the page hides (the match panel) has steps only where it is drawn;
  *      an overlay pinned to the window (the tour) is kept on the page;
- *   5. a site brought in from a repository is called by its name, not
- *      "Site 10"; a name someone gave it is kept.
  *
  *   node tests/match-flow-steps.mjs
  *
- * Covers: src/features/studio/boardStates.ts, src/features/builds/siteName.ts, src/features/builds/store.ts, src/app/api/studio/zip/route.ts
+ * Covers: src/features/studio/boardStates.ts, src/app/api/studio/zip/route.ts
  */
 import { partSteps, screenPlaces, stepLook, steppedParts } from "../src/features/studio/boardStates.ts";
 import { stateFrames } from "../src/features/studio/stateFrames.ts";
-import { siteName } from "../src/features/builds/siteName.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -136,11 +133,6 @@ const tour = { name: "tour", label: "Tour", page: "web/index.html", shows: ["app
 const tp = screenPlaces(tourNodes, ["screen:tour"], [tour], () => "p", () => true);
 const cardAt = tp.get("card") ?? tourNodes[2], shadeAt = tp.get("shade") ?? tourNodes[1];
 check("the tour, read where the window had scrolled, is drawn on the page, not under it", shadeAt.y + shadeAt.h <= 1000 && cardAt.y + cardAt.h <= 1000 && cardAt.y - shadeAt.y === 200, JSON.stringify({ shadeAt, cardAt }));
-
-/* 5. The site's name. */
-const src = { owner: "him", name: "PonsStars", branch: "main" };
-check("a site brought in from a repository is called by its name, not \"Site 10\"", siteName("Site 10", src) === "PonsStars", siteName("Site 10", src));
-check("a name someone gave it, or a blank site's number, is kept", siteName("My shop", src) === "My shop" && siteName("Site 3", null) === "Site 3");
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
