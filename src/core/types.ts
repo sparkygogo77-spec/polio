@@ -349,6 +349,14 @@ export interface TopBarItemDef {
    * goes to find out what is happening.
    */
   slot?: "status" | "action";
+  /**
+   * The pages it shows on, as route paths (`/builder`, `/builder/*`).
+   *
+   * Left out, it shows everywhere. A control that acts on the open site (its
+   * Publish, its live link) names the Builder's pages, so the bar on Builds
+   * says nothing about whichever site was last open there.
+   */
+  routes?: string[];
   component: ComponentType;
 }
 

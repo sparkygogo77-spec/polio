@@ -21,6 +21,8 @@ export function TopBar() {
   const panels = useUi((s) => s.panels);
   const [mode, setMode] = useSetting<string>("appearance.mode");
   const topTabs = useSettingValue<boolean>("appearance.topTabs");
+  /* Only what belongs on this page: the open site's controls stay in the Builder. */
+  const items = registry.topBarItems.filter((i) => i.shows(pathname));
   const tabs = registry.nav.filter((n) => n.placement !== "side");
   const ownSearch = !!resolveRoute(pathname)?.route.ownSearch;
   const dark = mode !== "light";
@@ -85,7 +87,7 @@ export function TopBar() {
         {/* What a module wants *shown* rather than pressed, on the near side
             of the controls: work in flight, and anything else that is a
             glance rather than a control. The bar knows none by name. */}
-        {registry.topBarItems.filter((i) => i.slot === "status").map((i) => (
+        {items.filter((i) => i.slot === "status").map((i) => (
           <Guarded key={i.id} id={i.id}><i.component /></Guarded>
         ))}
 
@@ -99,7 +101,7 @@ export function TopBar() {
 
         {/* What the modules put here: the repository, the keys panel. The bar
             knows none of them by name. */}
-        {registry.topBarItems.filter((i) => i.slot !== "status").map((i) => (
+        {items.filter((i) => i.slot !== "status").map((i) => (
           <Guarded key={i.id} id={i.id}><i.component /></Guarded>
         ))}
 

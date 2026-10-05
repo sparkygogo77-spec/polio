@@ -21,7 +21,7 @@ export interface Registry {
   commands: (CommandDef & { module: FeatureModule })[];
   shortcuts: (ShortcutDef & { module: FeatureModule })[];
   contextMenus: Map<string, ContextMenuContribution[]>;
-  topBarItems: (TopBarItemDef & { module: FeatureModule })[];
+  topBarItems: (TopBarItemDef & { module: FeatureModule; shows: (pathname: string) => boolean })[];
   byId: Map<string, FeatureModule>;
 }
 
@@ -70,7 +70,10 @@ export function buildRegistry(mods: FeatureModule[]): Registry {
       list.push(cm);
       reg.contextMenus.set(cm.scope, list);
     }
-    for (const s of m.topBarItems ?? []) reg.topBarItems.push({ ...s, module: m });
+    for (const s of m.topBarItems ?? []) {
+      const on = s.routes?.map(compilePath);
+      reg.topBarItems.push({ ...s, module: m, shows: on ? (p) => on.some((match) => match(p) !== null) : () => true });
+    }
     registerSettingGroups(m.settingGroups);
     registerSettingDefs(m.settings);
   }
