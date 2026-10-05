@@ -454,6 +454,19 @@ same boxes as everywhere else, in the screen's colours.
   site's field, so a publish target is one press with that repo's own
   default branch; typing owner/name is the fallback. His repos are listed
   below, each naming the site that publishes there. `tests/builds-repos.mjs`.
+- **A part's state changes that part and nothing else; the board is the
+  picture.** A part with states gets a step bar on the board when picked
+  (`StatesTimeline.tsx#StepBar`, pinned to the board's foot so a tall
+  panel's bar is never below the fold): its name, a key per step, back and
+  next, Finish at the end back to how the page opens. A step changes only
+  what is inside the part: a face the page adds slots into the part's flow
+  and the part grows, drawn over its neighbours rather than moving them; a
+  screen that changes the part is kept to the part. What comes in on the
+  page as a whole is the page's state, picked in its own strip. The shelf's
+  States shows the page at a glance: the page's states, then a row per part
+  with the step it is in lit (dashed when the page's state put it there).
+  Plain cards with a name and a number; never a shrunk picture of the part.
+  `tests/part-steps.mjs`, `tests/state-frames.mjs`.
 
 ## 3. The drawing board
 

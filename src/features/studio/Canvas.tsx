@@ -10,7 +10,7 @@
  * Drag snaps to the frame's edges and centre and to other parts' edges, with
  * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
-import { boardShows, partUnder, screenPlaces, type PlaceBox, type ScreenRead } from "./boardStates";
+import { boardShows, partUnder, screenPlaces, steppedParts, type PlaceBox, type ScreenRead } from "./boardStates";
 import { clampMove, frameRiders, inside, keepInFrame, stateFrames } from "./stateFrames";
 import { RemakeOnPart } from "./RemakePicture";
 import * as React from "react";
@@ -78,28 +78,75 @@ import { AMBIENT } from "./library/behaviours";
 import { runWorks } from "./live/runWorks";
 
 const GRID = 8;
+type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] };
+const sourceOf = (s: { look?: unknown }) => (s.look as { styleSource?: Source } | undefined)?.styleSource;
+/** What the parts stepped on the board decide inside them, and where they draw it (`boardStates.ts#steppedParts`). */
+let steppedMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; read: ReturnType<typeof steppedParts> } | null = null;
+const NO_STEPS: ReturnType<typeof steppedParts> = { decide: new Map(), places: new Map(), within: new Map() };
+function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): ReturnType<typeof steppedParts> {
+  const on = s.statesOn ?? [];
+  if (!on.some((k) => k.startsWith("step:"))) return NO_STEPS;
+  const source = sourceOf(s);
+  if (steppedMemo && steppedMemo.on === on && steppedMemo.screens === source?.screens && steppedMemo.files === source?.files && steppedMemo.nodes === s.nodes) return steppedMemo.read;
+  const nodes = s.nodes ?? [];
+  const read = steppedParts(nodes, on, source?.screens, (pageId) => source?.files?.find((f) => f.pageId === pageId)?.file ?? null, stateFrames(nodes));
+  steppedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, read };
+  return read;
+}
+/** A part stepped through, and everything it decides: drawn over its neighbours, so a part taller in its step covers what is under it rather than moving it. */
+let liftedMemo: { read: unknown; ids: Set<string> } | null = null;
+const NO_LIFT = new Set<string>();
+function liftedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Set<string> {
+  const read = steppedOnBoard(s);
+  if (read === NO_STEPS) return NO_LIFT;
+  if (liftedMemo?.read === read) return liftedMemo.ids;
+  const ids = new Set([...read.within.keys(), ...read.within.values()]);
+  liftedMemo = { read, ids };
+  return ids;
+}
 /** What the board draws with its states on, kept while the states and screens are the same. */
 let shownMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; shows: (n: StudioNode) => boolean } | null = null;
 function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): (n: StudioNode) => boolean {
   const on = s.statesOn ?? [];
-  const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
-  /* A face picked on a States timeline is read off the parts, so the parts count only then. */
+  const source = sourceOf(s);
+  /* A part stepped on the board is read off the parts, so the parts count only then. */
   const steps = on.some((k) => k.startsWith("step:")) ? s.nodes ?? [] : null;
   if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files && shownMemo.nodes === steps) return shownMemo.shows;
-  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null) : (n: StudioNode) => !n.state;
+  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null, steps ? steppedOnBoard(s).decide : null) : (n: StudioNode) => !n.state;
   shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
 }
-/** Where a lit screen draws its parts (`boardStates.ts#screenPlaces`), kept while the states, screens and parts are the same. */
+/** Where a lit screen, or a part stepped through, draws its parts (`boardStates.ts#screenPlaces`, `#steppedParts`), kept while the states, screens and parts are the same. */
 let placedMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; places: Map<string, PlaceBox> } | null = null;
 const NO_PLACES = new Map<string, PlaceBox>();
 function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, PlaceBox> {
   const on = s.statesOn ?? [];
-  if (!on.some((k) => k.startsWith("screen:"))) return NO_PLACES;
-  const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
+  const screensOn = on.some((k) => k.startsWith("screen:")), stepsOn = on.some((k) => k.startsWith("step:"));
+  if (!screensOn && !stepsOn) return NO_PLACES;
+  const source = sourceOf(s);
   if (placedMemo && placedMemo.on === on && placedMemo.screens === source?.screens && placedMemo.files === source?.files && placedMemo.nodes === s.nodes) return placedMemo.places;
   const shows = shownOnBoard(s);
-  const places = screenPlaces((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, shows as never);
+  const places = screensOn ? screenPlaces((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, shows as never) : new Map<string, PlaceBox>();
+  /* A part's own step wins inside it: its parts drawn where it draws them, the rest of the page left alone. */
+  if (stepsOn) {
+    const st = steppedOnBoard(s);
+    /* …and, where a whole-page screen has moved the part itself, they go with it. */
+    const byId = new Map((s.nodes ?? []).map((n) => [n.id, n]));
+    const shift = (f: string) => { const to = places.get(f), n = byId.get(f); return to && n ? { x: to.x - n.x, y: to.y - n.y } : { x: 0, y: 0 }; };
+    const moves = new Map([...new Set(st.within.values())].map((f) => [f, shift(f)]));
+    for (const [id, f] of st.within) {
+      const d = moves.get(f)!, n = byId.get(id), b = st.places.get(id) ?? (n ? { x: n.x, y: n.y, w: n.w, h: n.h } : null);
+      if (!b) continue;
+      if (st.places.has(id) || d.x || d.y) places.set(id, { ...b, x: b.x + d.x, y: b.y + d.y });
+      else places.delete(id);
+    }
+    /* A part grown to hold its step, where it stands. */
+    for (const [id, b] of st.places) {
+      if (st.within.has(id)) continue;
+      const at = places.get(id);
+      places.set(id, at ? { ...at, h: b.h } : b);
+    }
+  }
   placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places };
   return places;
 }
@@ -2903,6 +2950,7 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
   const shownHere = useStudio((s) => shownOnBoard(s)(node));
   /* Drawn where a lit screen draws it, so two states in one flow do not sit on top of each other. */
   const place = useStudio((s) => placedOnBoard(s).get(node.id));
+  const lifted = useStudio((s) => liftedOnBoard(s).has(node.id));
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
   const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
@@ -2948,6 +2996,8 @@ const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGrou
         /* A minimum, not a height: the part grows past it when its words
            need the room. `parts/primitives.tsx` holds the reasoning. */
         minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
+        /* A part stepped through on the board stands over its neighbours (`liftedOnBoard`). */
+        ...(lifted ? { zIndex: 4 } : {}),
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),

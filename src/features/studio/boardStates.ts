@@ -52,7 +52,7 @@ export const screenKey = (name: string) => `screen:${name}`;
  * What the board draws, with these states on. `pageOf` turns a screen's page
  * file into the board's page id.
  */
-export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, frames?: Pick<FramesRead, "inFrame" | "stepOf"> | null) {
+export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, frames?: Pick<FramesRead, "inFrame" | "stepOf"> | null, decide?: ReadonlyMap<string, boolean> | null) {
   const groups = new Set(on.filter((k) => !k.startsWith("screen:") && !k.startsWith("step:")));
   /* One face of a frame, picked on its States timeline: that face alone, in its frame (`stateFrames.ts`). */
   const picked = new Map<string, string>();
@@ -67,6 +67,9 @@ export function boardShows(on: readonly string[], screens: readonly ScreenRead[]
     byPage.set(page, list);
   }
   return (n: StateNode): boolean => {
+    /* A part stepped on the board decides what is inside it, and only that (`steppedParts`). */
+    const said = n.id ? decide?.get(n.id) : undefined;
+    if (said !== undefined) return said;
     if (picked.size && frames && n.id) {
       const f = frames.inFrame.get(n.id);
       const want = f ? picked.get(f) : undefined;
@@ -214,3 +217,170 @@ export function screensOfPart(nodes: readonly PlaceNode[], frame: PlaceNode, scr
   return [...groups.values()].sort((a, b) => a.at - b.at).map((g) => g.best);
 }
 
+
+/**
+ * A PART'S STEPS, ALL OF THEM, KEPT TO THE PART.
+ *
+ * J (2026-10-05): "some parts problematically shift the whole board or
+ * aren't limited to just the one panel": a part's step that came from a
+ * preview screen switched the whole screen on, so the rest of the page
+ * hid, moved or came in with it. A part's step is its own now: its hidden
+ * faces (`stateFrames.ts`) and the screens that change what it draws
+ * (`screensOfPart`), each switched on as `step:<frame>=<key>`, a screen's
+ * key being `screen:<name>`. Only the parts inside the part go through it;
+ * everything outside stays as the page opens (or as a whole-page screen
+ * has it). What comes in on the page as a whole is the page's state: its
+ * screens, picked as the page's own.
+ */
+export interface PartStep {
+  key: string;
+  label: string;
+  hook: string | null;
+  parts: string[];
+  /** The screen it is, when it is one: a screen kept to the part. */
+  screen?: string;
+}
+
+const insideBox = (n: PlaceBox, f: PlaceBox, e = 2) => n.x >= f.x - e && n.y >= f.y - e && n.x + n.w <= f.x + f.w + e && n.y + n.h <= f.y + f.h + e;
+/** The parts in a part's own box (2px either way) on its page, smaller than it. */
+export function partsInside<T extends PlaceNode>(nodes: readonly T[], frame: PlaceBox & { id: string; pageId: string }): T[] {
+  return nodes.filter((n) => n.pageId === frame.pageId && n.id !== frame.id && n.w * n.h < frame.w * frame.h && insideBox(n, frame));
+}
+/** Does a screen draw this part? Its hook, or its group's hook, or as the page opens. */
+export const screenDraws = (shows: ReadonlySet<string>, n: StateNode): boolean => {
+  const h = n.hooks?.["data-hook"];
+  return h ? shows.has(h) : !n.state || shows.has(groupHook(n.state.group));
+};
+
+/** Every step of a part, in order: its faces, then the screens that change it. */
+export function partSteps(nodes: readonly PlaceNode[], frame: PlaceNode, faces: readonly { key: string; label: string; hook: string | null; parts: string[] }[], screens: readonly ScreenRead[], pageFile: string | null): PartStep[] {
+  const inside = partsInside(nodes, frame);
+  return [
+    ...faces.map((s) => ({ ...s })),
+    ...screensOfPart(nodes, frame, screens, pageFile).map((x) => {
+      const shows = new Set(x.shows);
+      return { key: screenKey(x.name), label: (x.label || x.name).replace(/^[^:]{1,40}:\s*/, ""), hook: null, parts: inside.filter((n) => screenDraws(shows, n)).map((n) => n.id), screen: x.name };
+    }),
+  ];
+}
+
+/**
+ * Where these parts of a part are drawn as a screen draws them: set where
+ * that screen has them relative to the part (the part itself does not
+ * move), and kept inside it. Nothing outside the part is here.
+ */
+export function partPlaces(nodes: readonly PlaceNode[], frame: PlaceNode, screen: ScreenRead, shown: ReadonlySet<string>): Map<string, PlaceBox> {
+  const inside = new Set(partsInside(nodes, frame).map((n) => n.id));
+  const draw = (n: PlaceNode) => n.id === frame.id || (inside.has(n.id) ? shown.has(n.id) : !n.state);
+  const all = screenPlaces(nodes.filter((n) => n.pageId === frame.pageId), [screenKey(screen.name)], [screen], () => frame.pageId, draw);
+  const f = all.get(frame.id);
+  const dx = f ? frame.x - f.x : 0, dy = f ? frame.y - f.y : 0;
+  const places = new Map<string, PlaceBox>();
+  let foot = frame.y + frame.h;
+  for (const [id, b] of all) {
+    if (!inside.has(id) || !shown.has(id)) continue;
+    const w = Math.min(b.w, frame.w);
+    const at = { x: Math.min(Math.max(b.x + dx, frame.x), frame.x + frame.w - w), y: Math.max(b.y + dy, frame.y), w, h: b.h };
+    places.set(id, at);
+    foot = Math.max(foot, at.y + at.h);
+  }
+  /*
+   * Taller in this state, as the page draws it (the balance panel with its
+   * play-money note is 195px longer): the part grows to hold it rather than
+   * its lines being pushed up over each other. Its own margin under the
+   * last line is kept.
+   */
+  if (foot > frame.y + frame.h) {
+    const opens = partsInside(nodes, frame).filter((n) => !n.state);
+    const last = opens.length ? Math.max(...opens.map((n) => n.y + n.h)) : frame.y + frame.h;
+    const pad = Math.min(40, Math.max(0, frame.y + frame.h - last));
+    places.set(frame.id, { x: frame.x, y: frame.y, w: frame.w, h: Math.round(foot + pad - frame.y) });
+  }
+  return places;
+}
+
+/**
+ * A FACE THE PAGE ADDS, IN THE PART'S FLOW. The balance panel's play-money
+ * note was read where the page draws it once shown: in its column, between
+ * the lines it comes between. So it stays there, and everything in the part
+ * from there down moves down by its height and the gap the column keeps;
+ * what holds it grows by as much, the part too. Nothing is borrowed from a
+ * screen that also changes other things.
+ */
+export function facePlaces(nodes: readonly PlaceNode[], frame: PlaceNode, face: readonly string[], shown: ReadonlySet<string>): Map<string, PlaceBox> {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const own = face.map((id) => byId.get(id)).filter((n): n is PlaceNode => !!n);
+  const places = new Map<string, PlaceBox>();
+  if (!own.length) return places;
+  const top = Math.min(...own.map((n) => n.y)), foot = Math.max(...own.map((n) => n.y + n.h));
+  const faceIds = new Set(face);
+  const rest = partsInside(nodes, frame).filter((n) => shown.has(n.id) && !faceIds.has(n.id));
+  /* The column's own gap: the commonest space between one line and the next below it. */
+  const lines = rest.filter((n) => n.w >= frame.w * 0.5 && n.h < frame.h * 0.5).sort((a, b) => a.y - b.y);
+  const gaps = lines.slice(1).map((n, i) => n.y - (lines[i]!.y + lines[i]!.h)).filter((g) => g > 0 && g < 48);
+  const gap = gaps.length ? median(gaps) : 12;
+  const by = Math.round(foot - top + gap);
+  for (const n of rest) {
+    if (n.y >= top - 1) places.set(n.id, { x: n.x, y: n.y + by, w: n.w, h: n.h });
+    else if (n.y + n.h > top) places.set(n.id, { x: n.x, y: n.y, w: n.w, h: n.h + by });
+  }
+  places.set(frame.id, { x: frame.x, y: frame.y, w: frame.w, h: frame.h + by });
+  return places;
+}
+
+interface FrameRead { byFrame: Map<string, { frame: string; steps: { key: string; hook: string | null; parts: string[] }[] }>; inFrame: Map<string, string>; stepOf: Map<string, string> }
+
+/**
+ * THE PARTS A PICKED STEP DECIDES, AND WHERE IT DRAWS THEM. For each part
+ * stepped on the board (`step:<frame>=<key>`), only the parts inside it:
+ *
+ *   · a screen kept to the part: what that screen draws inside it, where it
+ *     draws it;
+ *   · a face of a part that shows one face at a time (`data-state`, the TV
+ *     box): that face alone;
+ *   · a face the page adds to what the part opens with (the balance panel's
+ *     play-money note): what it opens with and that face, in the part's
+ *     flow (`facePlaces`).
+ *
+ * Whatever is not in the map is the page's to decide (`boardShows`). A part
+ * taller in its step than on the board is in `places` itself, grown.
+ */
+export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, fileOf: (pageId: string) => string | null, frames: FrameRead): { decide: Map<string, boolean>; places: Map<string, PlaceBox>; within: Map<string, string> } {
+  const decide = new Map<string, boolean>();
+  /* Each decided part, to the part stepped that decides it. */
+  const within = new Map<string, string>();
+  const places = new Map<string, PlaceBox>();
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  for (const k of on) {
+    const s = readStepKey(k);
+    const f = s ? byId.get(s.frame) : undefined;
+    const fr = f ? frames.byFrame.get(f.id) : undefined;
+    if (!s || !f || !fr) continue;
+    const file = fileOf(f.pageId);
+    const mine = (x: ScreenRead) => !file || !x.page || x.page === file;
+    if (s.step.startsWith("screen:")) {
+      const screen = (screens ?? []).find((x) => screenKey(x.name) === s.step && mine(x));
+      if (!screen) continue;
+      const shows = new Set(screen.shows);
+      const inner = partsInside(nodes, f);
+      const shown = new Set(inner.filter((n) => screenDraws(shows, n)).map((n) => n.id));
+      for (const n of inner) { decide.set(n.id, shown.has(n.id)); within.set(n.id, f.id); }
+      for (const [id, b] of partPlaces(nodes, f, screen, shown)) places.set(id, b);
+      continue;
+    }
+    const step = fr.steps.find((x) => x.key === s.step);
+    if (!step) continue;
+    const adds = s.step !== "open" && f.hooks?.["data-state"] === undefined && fr.steps.some((x) => x.key === "open");
+    const shown = new Set<string>();
+    for (const st of fr.steps) for (const id of st.parts) {
+      if (frames.inFrame.get(id) !== f.id) continue;
+      /* What it opens with is what no state hides: a hidden block inside that face is not shown with it. */
+      const v = st.key === s.step || (adds && st.key === "open" && !byId.get(id)?.state);
+      decide.set(id, v);
+      within.set(id, f.id);
+      if (v) shown.add(id);
+    }
+    if (adds) for (const [id, b] of facePlaces(nodes, f, step.parts.filter((id) => frames.inFrame.get(id) === f.id), shown)) places.set(id, b);
+  }
+  return { decide, places, within };
+}
