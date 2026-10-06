@@ -16,7 +16,7 @@
  *
  *   node tests/drawn-part.mjs
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { paintRoles, rolesFor, inksOf } from "../src/features/studio/bodyPaint.ts";
 import { discLanding, outlinePath } from "../src/features/studio/sketch.ts";
 
@@ -61,7 +61,7 @@ check("it is open: a band along the stroke, not a box", !!clip && !clip.closed &
 check("the band has enough of an edge for the handles to sit on", !!clip && (clip.cut.match(/[ML]/g) ?? []).length >= 4);
 check("a dot is still nothing", outlinePath({ strokes: [[[0.5, 0.5]]], words: "" }) === null);
 check("the board marks the selection along the outline when there is one, and puts the aura on the shape", (() => {
-  const src = readFileSync("src/features/studio/Canvas.tsx", "utf8");
+  const src = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   return /const hugs = React\.useMemo\(\(\) => \(node\.outline\?\.cut \? handlePoints\(node\.outline\.cut\) : null\)/.test(src)
     && /selected && hugs && node\.outline \?/.test(src) && /hugs \? \(\(auraFilter\(/.test(src);
 })());
