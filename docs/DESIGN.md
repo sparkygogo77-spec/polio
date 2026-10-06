@@ -464,16 +464,23 @@ same boxes as everywhere else, in the screen's colours.
   a panel comes or goes, parts move or resize (J, 2026-10-06). Screens
   drawing the same hooks at the same boxes are one state, whatever their
   words say; their words are **samples of data** (won, lost, draw;
-  connecting, offline), flipped by chips, never states of their own. Each
-  is drawn from its one real capture, positions and words together. States
-  come in the order a visitor meets them (connecting, lobby, queue, match,
-  result). What is drawn over the page (the tour, a menu) is a toggle
-  beside them (`scenes.ts`). The shelf's States is that strip (about 8
-  controls) and the **Panels** library: every part with states drawn alone
-  at real size, whatever state it lives in, its samples as chips; pressing
-  it picks the same part, so it is edited as on the page. **Focus** opens
-  one part alone with all its states side by side (`PartFocus.tsx`).
-  `tests/part-steps.mjs`, `tests/state-frames.mjs`.
+  connecting, offline), flipped by chips, never states of their own; two
+  captures of one moment drawing nearly the same parts are one state too
+  (a draw adding its rematch offer is still the result). Each is drawn
+  from its one real capture, positions and words together. States come in
+  the order a visitor meets them (connecting, lobby, queue, match,
+  result). What is drawn over the page (the tour, a menu, a banner, a
+  pop-up) is a toggle beside them (`scenes.ts`), in the page bar's States
+  menu. Data panels have a **Panels** page of their own beside the page
+  (J, 2026-10-06; the Panels shelf went): every panel of the page down the
+  left, the picked one's states down a side list with the lit state's
+  samples as chips, and the panel alone at real size in that state,
+  drawing only what is visible in it (`panels.ts`, `PanelsPage.tsx`).
+  Right-click any panel, or a part in one, for **See states**. Pressing
+  the drawing picks the same part, so it is edited as on the page.
+  **Focus** opens one part alone with all its states side by side
+  (`PartFocus.tsx`). `tests/panels-page.mjs`, `tests/page-scenes.mjs`,
+  `tests/state-frames.mjs`.
 
 ## 3. The drawing board
 

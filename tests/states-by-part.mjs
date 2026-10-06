@@ -63,10 +63,10 @@ check("and stands still as the rod stands it", parts[1].art.transform === parts[
 check("a part outside it is left alone", !parts[2].motion);
 
 const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
-check("the States menu lists parts, each opening its timeline (source read)", /data-states-frame=\{f\.frame\}/.test(page) && /openStatesTimeline\(f\.frame\)/.test(page) && /data-states-more/.test(page));
+check("the States menu lists parts, each opening its timeline (source read)", /data-states-frame=\{f\.frame\}/.test(page) && /openPanelsPage\(f\.frame\)/.test(page) && /data-states-more/.test(page));
 
-const tl = readFileSync(join(here, "..", "src", "features", "studio", "StatesTimeline.tsx"), "utf8");
-check("the timeline takes the categories' place in the shelf, not a box of its own (source read)", /\{timelineFor != null \? <StatesTimeline \/> : <Palette \/>\}/.test(page) && !/<StatesTimeline \/>\s*\n\s*\{\/\*/.test(page) && !/className="fixed[^"]*"[^>]*data-states|data-states-timeline=""[^>]*fixed/.test(tl));
+const studio = readFileSync(join(here, "..", "src", "features", "studio", "page", "StudioPage.tsx"), "utf8");
+check("the Panels shelf is gone: the shelf keeps its categories and the Panels page sits over the board (source read)", !/<StatesTimeline/.test(studio) && /<Palette \/>/.test(studio) && /\{design \? <PanelsPage \/> : null\}/.test(studio));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

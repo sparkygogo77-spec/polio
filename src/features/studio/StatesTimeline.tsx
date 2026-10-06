@@ -21,28 +21,13 @@
  * `statesOn`): the page still opens as its code says.
  */
 import * as React from "react";
-import { Layers, X, Maximize2 } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { useStudio, type StudioNode } from "./store";
 import { partSteps, screenKey, type ScreenRead } from "./boardStates";
 import { frameFor, readStepKey, stateFrames, stepData, stepKey } from "./stateFrames";
-import { pageScenes } from "./scenes";
-import { openPartFocus, PartAtSize } from "./PartFocus";
-
-let openFor: string | null = null;
-const listeners = new Set<() => void>();
-const changed = () => { for (const l of listeners) l(); };
-/** Open the states in the shelf, on a part (a frame, or any of its states), or on the page alone. */
-export function openStatesTimeline(nodeId: string | null) { openFor = nodeId ?? ""; play("open"); changed(); }
-function useOpenFor() {
-  const [, bump] = React.useReducer((n: number) => n + 1, 0);
-  React.useEffect(() => { listeners.add(bump); return () => { listeners.delete(bump); }; }, []);
-  return openFor;
-}
-const close = () => { openFor = null; play("close"); changed(); };
-/** Whether the states are open in the shelf (a part's id, "" for the page alone, null when shut): they show in place of the categories while they are. */
-export const useStatesTimelineOpen = useOpenFor;
+import { openPartFocus } from "./PartFocus";
 
 /** Does this part have states to step through? */
 export function hasStates(nodes: readonly StudioNode[], id: string): boolean {
@@ -242,146 +227,4 @@ function saidOf(card: Card | undefined): string {
   if (!card) return "";
   const data = stepData(useStudio.getState().nodes as never, { key: card.key ?? "open", label: card.label, hook: card.hook, parts: card.parts });
   return [data.words.length ? `Words: ${data.words.slice(0, 4).join(" · ")}` : "", data.values.length ? `Values: ${data.values.slice(0, 4).join(" · ")}` : "", data.settings.length ? `Settings: ${data.settings.slice(0, 3).join(" · ")}` : ""].filter(Boolean).join("\n");
-}
-
-/** Show one scene of the page (a variant's `screen:<name>`), or none: the page's parts follow it, so their own swaps go. Overlays on top stay. */
-export function showScene(screens: readonly ScreenRead[], rows: readonly Row[], key: string | null) {
-  const st = useStudio.getState();
-  const mineScreens = new Set(screens.map((x) => screenKey(x.name)));
-  const mineFrames = new Set(rows.map((r) => r.frame.id));
-  const rest = (st.statesOn ?? []).filter((k) => !mineScreens.has(k) && !mineFrames.has(readStepKey(k)?.frame ?? ""));
-  st.setStatesOn(key ? [...rest, key] : rest);
-}
-/** Switch an overlay on over the scene, or off. */
-export function flipOnTop(key: string) {
-  const st = useStudio.getState();
-  const now = st.statesOn ?? [];
-  st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]);
-}
-
-/**
- * THE PAGE'S STATES AND ITS PANELS, IN THE SHELF (J, 2026-10-06).
- *
- * "different data within the same frame doesnt classify a different state
- * … i should be able to see these panels somewhere regardless for editing."
- * So the shelf holds two things:
- *
- *   · the states strip: as the page opens, then each real layout of the
- *     page in game order (`scenes.ts`: screens with the same parts at the
- *     same places are one state), the lit one's samples of data (won, lost,
- *     draw) as small chips, and a toggle for each overlay (the tour, the
- *     phone menu);
- *   · the Panels library: every part that goes through states (the
- *     scoreboard, the trades panel, the result panel, the balance panel…)
- *     drawn alone at real size, whichever state it lives in, with its
- *     samples as chips. It is the same part as on the page: pressing it
- *     picks it, so the side panel edits it, same data-hook, same style layer.
- */
-export function StatesTimeline() {
-  const id = useOpenFor();
-  const pageId = useStudio((s) => s.activePageId);
-  const on = useStudio((s) => s.statesOn ?? []);
-  const nodes = useStudio((s) => s.nodes);
-  const source = useStudio((s) => sourceOf(s.look));
-  const { screens, rows } = usePageStates(pageId);
-  const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
-  const scenes = React.useMemo(() => pageScenes(screens, file), [screens, file]);
-  React.useEffect(() => {
-    if (id === null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopImmediatePropagation(); close(); } };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [id]);
-  /* Opened on a part: its panel in the library, scrolled to. */
-  const focus = React.useMemo(() => (id ? rowFor(rows, nodes, id)?.frame.id ?? null : null), [id, rows, nodes]);
-  const ref = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => { if (focus) ref.current?.querySelector(`[data-panel="${CSS.escape(focus)}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [focus]);
-  if (id === null) return null;
-  const screen = litScreenOf(on, screens);
-  const litScene = screen ? scenes.scenes.find((sc) => sc.variants.some((v) => v.screen.name === screen.name || v.same.includes(screen.name))) ?? null : null;
-  const anyOn = !!screen || rows.some((r) => pickedOf(on, r.frame.id)) || scenes.onTop.some((v) => on.includes(v.key));
-  const pickScene = (key: string | null) => { play("tap"); showScene(screens, rows, key); };
-  const opening = () => { play("tap"); const st = useStudio.getState(); st.setStatesOn((st.statesOn ?? []).filter((k) => !k.startsWith("top:"))); showScene(screens, rows, null); };
-  const pill = (lit: boolean) => cn("tactile flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg ring-1 ring-accent" : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg");
-  return (
-    <div ref={ref} data-states-timeline="" role="region" aria-label="The page's states and its panels" className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
-      {/* The states strip: a state only where the layout changes. */}
-      <div className="flex flex-wrap items-center gap-1.5" data-states-strip="">
-        <p className="mr-1 text-plain font-medium text-fg">States</p>
-        <button type="button" data-page-state="open" data-state-step-off="" aria-pressed={!anyOn} title="The page as it opens: every state, sample and overlay off" onClick={opening} className={pill(!anyOn)}>As it opens</button>
-        {scenes.scenes.map((sc) => {
-          const lit = sc === litScene;
-          const first = sc.variants[0]!;
-          return (
-            <button key={sc.key} type="button" data-scene-state={sc.key} data-page-state={first.screen.name} aria-pressed={lit}
-              title={`${sc.name}: ${sc.variants.length} ${sc.variants.length === 1 ? "sample" : "samples of data"} (${sc.variants.map((v) => v.label).join(", ")})`}
-              onClick={() => { if (!lit) pickScene(first.key); }} className={pill(lit)}>
-              <span className="min-w-0 max-w-[180px] truncate">{sc.name}</span>
-              {sc.variants.length > 1 ? <span className="num text-fine text-fg-faint">{sc.variants.length}</span> : null}
-            </button>
-          );
-        })}
-        {scenes.onTop.length ? <span className="mx-0.5 h-4 w-px shrink-0 bg-border" /> : null}
-        {scenes.onTop.map((v) => {
-          const lit = on.includes(v.key);
-          return (
-            <button key={v.key} type="button" data-on-top-toggle={v.screen.name} aria-pressed={lit} title={`${v.screen.label || v.screen.name}: drawn over the state that is on`} onClick={() => { play("tap"); flipOnTop(v.key); }}
-              className={cn("tactile flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg" : "border-dashed border-border text-fg-muted hover:text-fg")}>
-              <Layers className={cn("size-3", lit && "text-accent")} />{v.label}
-            </button>
-          );
-        })}
-        <span className="flex-1" />
-        <button type="button" aria-label="Close the states" onClick={close} className="tactile flex size-6 items-center justify-center rounded-md text-fg-muted hover:bg-hover hover:text-fg"><X className="size-3.5" /></button>
-      </div>
-      {/* The lit state's samples of data: same layout, other words. */}
-      {litScene && litScene.variants.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1" data-scene-samples={litScene.key}>
-          <span className="pr-1 text-small text-fg-muted">Samples of data</span>
-          {litScene.variants.map((v) => {
-            const lit = v.screen.name === screen!.name || v.same.includes(screen!.name);
-            return (
-              <button key={v.key} type="button" data-sample={v.screen.name} aria-pressed={lit} title={`${v.screen.label || v.screen.name}${v.same.length ? ` (also ${v.same.join(", ")})` : ""}`} onClick={() => { if (!lit) pickScene(v.key); }}
-                className={cn("tactile h-6 max-w-[180px] truncate rounded-full border px-2 text-small", lit ? "border-accent bg-accent text-accent-fg" : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg")}>
-                {v.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      <PanelsLibrary rows={rows} screens={screens} on={on} focus={focus} />
-    </div>
-  );
-}
-
-/** Every panel that shows data, alone at real size, whichever state it lives in, each with its samples as chips. */
-function PanelsLibrary({ rows, screens, on, focus }: { rows: readonly Row[]; screens: readonly ScreenRead[]; on: readonly string[]; focus: string | null }) {
-  if (!rows.length) return null;
-  const screen = litScreenOf(on, screens);
-  return (
-    <div data-panels-library="" className="flex flex-col gap-1.5 border-t border-border pt-2">
-      <p className="text-small text-fg-muted"><span className="font-medium text-fg">Panels</span> · every part that shows data, at real size, whatever state it lives in. Press one to edit it.</p>
-      <div className="flex items-start gap-4 overflow-x-auto pb-2">
-        {rows.map((row) => {
-          const now = stepNow(row, on, screen, screens);
-          const card = row.steps[now.at] ?? row.steps[0]!;
-          const select = () => { play("tap"); useStudio.getState().setSelection([row.frame.id]); snapTo(row.frame.id); };
-          return (
-            <figure key={row.frame.id} data-panel={row.frame.id} data-state-row={row.frame.id} className={cn("flex shrink-0 flex-col gap-1.5 rounded-md p-1.5", focus === row.frame.id && "bg-accent-soft/40")}>
-              <div className="flex items-center gap-1">
-                <button type="button" data-state-part={row.frame.id} onClick={select} className="tactile min-w-0 truncate rounded px-1 text-left text-small font-medium text-fg hover:bg-hover" title={`${nameOf(row)}: pick it to edit`}>{nameOf(row)}</button>
-                <button type="button" data-state-focus={row.frame.id} aria-label={`Focus on ${nameOf(row)}: every state at real size`} title="Focus: this part alone, every state at real size" onClick={() => openPartFocus(row.frame.id)} className="tactile flex size-6 shrink-0 items-center justify-center rounded text-fg-faint hover:bg-hover hover:text-fg">
-                  <Maximize2 className="size-3" />
-                </button>
-              </div>
-              <Samples row={row} at={now.at} byPage={now.byPage} />
-              <div role="button" tabIndex={0} data-panel-drawing={row.frame.id} aria-label={`Edit ${nameOf(row)}`} onClick={select} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); } }} className="cursor-pointer self-start">
-                <PartAtSize frame={row.frame} card={card} />
-              </div>
-            </figure>
-          );
-        })}
-      </div>
-    </div>
-  );
 }

@@ -11,7 +11,7 @@ import { RemakeCard } from "../RemakePicture";
 import { ClearBackgroundCard } from "../ClearBackground";
 import { putComponent } from "../SavedComponents";
 import { RemixCard } from "../RemixCard";
-import { StatesTimeline, useStatesTimelineOpen } from "../StatesTimeline";
+import { PanelsPage } from "../PanelsPage";
 import { PartFocus } from "../PartFocus";
 import { FeatureOffers } from "../WorkShelf";
 import * as React from "react";
@@ -25,7 +25,7 @@ import { Workspace } from "../Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { ImportFlow } from "../ImportFlow";
 import { PreviewWindow } from "../Preview";
-import { Palette, ShelfGrip, useShelfFolded, useShelfTall } from "../Palette";
+import { Palette, useShelfFolded, useShelfTall } from "../Palette";
 import { Inspector } from "../Inspector";
 import { LookPanel } from "../LookPanel";
 import { MotionPanel } from "../MotionPanel";
@@ -82,7 +82,6 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
   const shelfTall = useShelfTall();
-  const timelineFor = useStatesTimelineOpen();
   const shelfFolded = useShelfFolded();
   const design = mode === "design";
   const book = mode === "book";
@@ -462,7 +461,8 @@ export function StudioPage() {
           <ClearBackgroundCard />
           <LearnedDialog />
           <RemixCard />
-          {/* A part's states in order, opened from its right-click menu. */}
+          {/* The Panels page: every data panel and its states, over the board and shelf (`PanelsPage.tsx`). */}
+          {design ? <PanelsPage /> : null}
           {/*
             The one scroller: the site, then the categories under it.
 
@@ -590,11 +590,10 @@ export function StudioPage() {
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
                   /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded && timelineFor == null ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
+                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
-                  {/* A part's states timeline takes the categories' place while it is open (`StatesTimeline.tsx`). */}
-                  {/* …with the shelf's grip on its top edge, so it still grows and shrinks (J, 2026-10-06). */}
-                  {timelineFor != null ? <><ShelfGrip /><StatesTimeline /></> : <Palette />}
+                  {/* The Panels shelf went: panels and their states have their own page (`PanelsPage.tsx`, J 2026-10-06). */}
+                  <Palette />
                 </div>
           ) : null}
         </div>

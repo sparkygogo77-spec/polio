@@ -1,6 +1,6 @@
 "use client";
 import { hiddenGroups, screenKey, type ScreenRead } from "../boardStates";
-import { openStatesTimeline } from "../StatesTimeline";
+import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../PanelsPage";
 import { pageScenes } from "../scenes";
 import { stateFrames, type FrameNode } from "../stateFrames";
 import * as React from "react";
@@ -113,6 +113,7 @@ export function PageChips() {
   const activeId = useStudio((s) => s.activePageId);
   const nodes = useStudio((s) => s.nodes);
   const [open, setOpen] = React.useState(false);
+  const panelsOpen = usePanelsPageOpen();
   const count = (id: string) => nodes.filter((n) => n.pageId === id).length;
   const current = pages.find((p) => p.id === activeId) ?? pages[0];
   if (!current) return null;
@@ -151,7 +152,7 @@ export function PageChips() {
                   type="button"
                   {...ctxProps("studio-page", p.id, p)}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); setOpen(false); }}
+                  onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); closePanelsPage(); setOpen(false); }}
                   className={cn(
                     "tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain",
                     active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
@@ -171,14 +172,26 @@ export function PageChips() {
           data-page-current=""
           {...ctxProps("studio-page", current.id, current)}
           aria-label={`Page: ${current.name}${here ? `, ${here} parts` : ""}. Choose another page`}
-          className="tactile flex h-6 shrink-0 items-center gap-1 rounded-md bg-accent-soft px-1.5 text-plain text-fg"
+          className={cn("tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain", panelsOpen ? "text-fg-muted hover:bg-hover hover:text-fg" : "bg-accent-soft text-fg")}
         >
-          <FileText className="size-3 shrink-0 text-accent" />
+          <FileText className={cn("size-3 shrink-0", !panelsOpen && "text-accent")} />
           <span className="max-w-[160px] truncate">{current.name}</span>
           {here ? <span className="num text-fine text-fg-faint">{here}</span> : null}
           <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
         </button>
       </Popover>
+      {/* The page's data panels and their states, on a page of their own beside this one (`PanelsPage.tsx`, J 2026-10-06). */}
+      <button
+        type="button"
+        data-panels-tab=""
+        aria-pressed={panelsOpen}
+        aria-label={panelsOpen ? "Panels page is open. Back to the page" : "Panels: every data panel of this page and its states"}
+        onClick={() => (panelsOpen ? closePanelsPage() : openPanelsPage(null))}
+        className={cn("tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain", panelsOpen ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+      >
+        <Layers className={cn("size-3 shrink-0", panelsOpen && "text-accent")} />
+        Panels
+      </button>
       <StatesChip pageId={current.id} />
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
@@ -246,7 +259,7 @@ export function StatesChip({ pageId }: { pageId: string }) {
         content={
           <div data-states-menu="" className="flex flex-col gap-0.5">
             <p className="px-2 py-1 text-fine text-fg-faint">Pick a part to see the states it goes through. Shown on the board only: the page still opens as its code says.</p>
-            <button type="button" data-states-all="" onClick={() => { setOpen(false); openStatesTimeline(null); }}
+            <button type="button" data-states-all="" onClick={() => { setOpen(false); openPanelsPage(null); }}
               className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain font-medium text-fg hover:bg-hover">
               <Layers className="size-3 shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">Every state on this page, at a glance</span>
@@ -255,7 +268,7 @@ export function StatesChip({ pageId }: { pageId: string }) {
             {frames.map((f) => {
               const n = nodes.find((x) => x.id === f.frame);
               return (
-                <button key={f.frame} type="button" data-states-frame={f.frame} onClick={() => { setOpen(false); useStudio.getState().setSelection([f.frame]); openStatesTimeline(f.frame); }}
+                <button key={f.frame} type="button" data-states-frame={f.frame} onClick={() => { setOpen(false); useStudio.getState().setSelection([f.frame]); openPanelsPage(f.frame); }}
                   className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
                   <Layers className="size-3 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{f.hook ?? n?.label ?? "A part"}</span>
