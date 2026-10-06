@@ -799,10 +799,25 @@ export const PARTS = (cap: number): PageRead => {
     const hooks = runs.find((r) => r.hooks)?.hooks;
     if (!words.trim() && !hooks) return;
     if (!hooks && SEPARATORS.test(words)) return;
+    /*
+     * The line's own nodes, not the stretch between its first and last: what
+     * was taken out of the run sits in that stretch too, and a closed
+     * <details>' folded text still has boxes there. PST's "?" help (its
+     * summary, then the folded paragraph) read as 236x234 over the lines
+     * under it (J, 2026-10-06).
+     */
     const range = document.createRange();
-    range.setStartBefore(nodes[0]!);
-    range.setEndAfter(nodes[nodes.length - 1]!);
-    const r = range.getBoundingClientRect();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of nodes) {
+      if (n.nodeType === Node.TEXT_NODE && !(n.textContent ?? "").trim()) continue;
+      range.selectNode(n);
+      for (const q of Array.from(range.getClientRects())) {
+        if (q.width <= 0 || q.height <= 0) continue;
+        x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom);
+      }
+    }
+    if (x0 === Infinity) { range.setStartBefore(nodes[0]!); range.setEndAfter(nodes[nodes.length - 1]!); const a = range.getBoundingClientRect(); x0 = a.left; y0 = a.top; x1 = a.right; y1 = a.bottom; }
+    const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
     if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
     push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder);
