@@ -743,6 +743,77 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
   return { decide, places, within, looks };
 }
 
+/**
+ * A LINE'S RUNS WITH A SCREEN'S WORDS, EACH WORD ONCE. A run's hook is the
+ * nearest hooked element round it, and a screen's words for a hook are all
+ * the words inside it, the hooks it holds included. PST's "Pot: <span
+ * queue-pot>-</span> SOL." is three runs, "Pot: " and " SOL." on the line's
+ * hook round the pot's "-": each of the two took the whole "Pot: - SOL." and
+ * the queue panel read "Pot: - SOL.-Pot: - SOL." in both its states (J,
+ * 2026-10-06). So the hooks that hold others are done last, and what they
+ * add is only what lies between the words of the hooks they hold.
+ */
+export function runsAsShown(content: readonly Run[], texts: Record<string, string>): Run[] | null {
+  const flat = (x: string) => x.replace(/\s+/g, " ");
+  const hookAt = content.map((r) => (r && typeof r === "object" ? r.hooks?.["data-hook"] : undefined));
+  const now = content.map((r) => (r && typeof r === "object" ? r.text ?? "" : ""));
+  const spans: { h: string; t: string; from: number; to: number }[] = [];
+  for (const h of new Set(hookAt.filter((x): x is string => !!x))) {
+    const t = texts[h];
+    if (t === undefined) continue;
+    let from = hookAt.indexOf(h), to = hookAt.lastIndexOf(h);
+    /* A hook whose words go on past its own runs holds the hooked runs there: "Pot: <span>-</span>" ends on the pot's run. */
+    const words = flat(t).trim();
+    const reach = (i: number, j: number) => flat(now.slice(i, j + 1).map((x, k) => (hookAt[i + k] ? texts[hookAt[i + k]!] : undefined) ?? x).join("")).trim();
+    for (let k = to + 1; k < content.length && hookAt[k] && hookAt[k] !== h; k++) if (words.endsWith(reach(to + 1, k)) && words.length > reach(to + 1, k).length && reach(to + 1, k)) to = k;
+    for (let k = from - 1; k >= 0 && hookAt[k] && hookAt[k] !== h; k--) if (words.startsWith(reach(k, from - 1)) && words.length > reach(k, from - 1).length && reach(k, from - 1)) from = k;
+    spans.push({ h, t: words, from, to });
+  }
+  /* Smallest first: what a hook holds has its screen's words before the hook round it is fitted. */
+  spans.sort((a, b) => a.to - a.from - (b.to - b.from));
+  const text = [...now];
+  for (const { h, t, from, to } of spans) {
+    if (flat(text.slice(from, to + 1).join("")).trim() === t) continue;
+    const own = (i: number) => hookAt[i] === h;
+    if (!Array.from({ length: to - from + 1 }, (_, i) => from + i).some((i) => !own(i))) {
+      /* Only its own runs (one, or its words in a few looks): the screen's words go in the first. */
+      text[from] = t;
+      for (let i = from + 1; i <= to; i++) text[i] = "";
+      continue;
+    }
+    /* Its own runs are what lies between the words of the runs it holds. */
+    const next = [...text];
+    let at = 0, pending: number[] = [], ok = true;
+    const settle = (upTo: number) => {
+      const said = t.slice(at, upTo);
+      if (pending.length) { next[pending[0]!] = said; for (const i of pending.slice(1)) next[i] = ""; }
+      else if (said.trim()) ok = false;
+      pending = [];
+    };
+    for (let i = from; i <= to && ok; i++) {
+      if (own(i)) { pending.push(i); continue; }
+      const held = flat(text[i]!).trim();
+      if (!held) continue;
+      const idx = t.indexOf(held, at);
+      if (idx < 0) { ok = false; break; }
+      settle(idx);
+      at = idx + held.length;
+    }
+    if (ok) settle(t.length);
+    if (!ok) continue;
+    /* Spaces the page set between runs stay where they were: only words change. */
+    for (const i of Array.from({ length: to - from + 1 }, (_, k) => from + k)) if (own(i) && flat(next[i]!).trim() !== flat(text[i]!).trim()) text[i] = keepEdges(text[i]!, next[i]!.trim());
+  }
+  let changed = false;
+  const out = content.map((r, i) => {
+    if (text[i] === now[i] || !r || typeof r !== "object") return r;
+    changed = true;
+    return { ...r, text: text[i] };
+  });
+  return changed ? out : null;
+}
+const keepEdges = (was: string, words: string) => `${/^\s/.test(was) && words ? " " : ""}${words}${/\s$/.test(was) && words ? " " : ""}`;
+
 /** What a part shows in a step instead of what it opens with: its words, its picture. */
 export interface StepLook { content?: unknown; picture?: unknown; font?: { px: number } & Record<string, unknown> }
 type Run = { text?: string; hooks?: Record<string, string> | null } & Record<string, unknown>;
@@ -756,15 +827,8 @@ export function stepLook(n: PlaceNode & { content?: unknown }, screen: ScreenRea
     const t = hook ? texts[hook] : undefined;
     if (t !== undefined && t !== n.content.replace(/\s+/g, " ").trim()) out.content = t;
   } else if (Array.isArray(n.content)) {
-    let changed = false;
-    const runs = (n.content as Run[]).map((r) => {
-      const h = r && typeof r === "object" ? r.hooks?.["data-hook"] : undefined;
-      const t = h ? texts[h] : undefined;
-      if (t === undefined || t === (r.text ?? "").replace(/\s+/g, " ").trim()) return r;
-      changed = true;
-      return { ...r, text: t };
-    });
-    if (changed) out.content = runs;
+    const runs = runsAsShown(n.content as Run[], texts);
+    if (runs) out.content = runs;
   }
   /* A part the page left empty as it opens came in with no type size: its words are set at the screen's. */
   const px = hook ? screen.sizes?.[hook] : undefined;
