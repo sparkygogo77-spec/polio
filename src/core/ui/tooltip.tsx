@@ -5,9 +5,18 @@ import { cn } from "@/core/lib/cn";
 import { Kbd } from "./kbd";
 import { useSettingValue } from "@/core/settings/useSetting";
 
+/**
+ * LABELS, NOT LITTLE PANELS: `disableHoverableContent`. With it on, Radix
+ * keeps a "grace area" between an open tooltip and its trigger so the
+ * pointer can travel onto the content, and while the pointer is inside
+ * that area no other trigger may open. Running along a row of chips (the
+ * import's counts, J 2026-10-06) every second chip stayed silent: the move
+ * from one chip to the next crossed the last one's grace area. Nothing in
+ * a tooltip here is meant to be pointed at, so there is no area to keep.
+ */
 export function TooltipProvider({ children }: { children: React.ReactNode }) {
   return (
-    <T.Provider delayDuration={350} skipDelayDuration={200}>
+    <T.Provider delayDuration={350} skipDelayDuration={200} disableHoverableContent>
       {children}
     </T.Provider>
   );
