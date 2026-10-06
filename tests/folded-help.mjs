@@ -19,10 +19,10 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
-await page.setContent(`<!doctype html><body style="margin:0"><section data-hook="balance-panel" style="width:236px;padding:8px">
+await page.setContent(`<!doctype html><body style="margin:0"><section data-hook="balance-panel" style="width:236px;padding:8px;border:3px solid #222;border-radius:16px;background:#fff8ee">
   <p data-hook="balance-note" style="display:inline">One escrow balance for all your matches.</p>
   <details data-hook="balance-note-more" style="display:inline">
-    <summary data-hook="balance-note-more-toggle" style="display:inline-flex;width:24px;height:24px;list-style:none">?</summary>
+    <summary data-hook="balance-note-more-toggle" style="display:inline-flex;width:24px;height:24px;list-style:none;border-radius:50%;background:#f5c542;border:2px solid #222">?</summary>
     <p data-hook="balance-note-more-text">Deposit once, play as many matches as it covers, and withdraw whenever you are not in a match. Stakes leave it when a match starts.</p>
   </details>
   <p data-hook="balance-wallet-line">In your wallet: - SOL</p>
@@ -34,6 +34,10 @@ const q = parts.find((p) => p.words === "?");
 check("the \"?\" is read", !!q, JSON.stringify(parts.map((p) => p.words).slice(0, 12)));
 check("its box is the \"?\" itself", !!q && Math.abs(q.box.w - real.q[2]) <= 2 && Math.abs(q.box.h - real.q[3]) <= 2 && Math.abs(q.box.x - real.q[0]) <= 2, JSON.stringify({ read: q?.box, real: real.q }));
 check("it ends above the wallet line", !!q && q.box.y + q.box.h <= real.wallet, JSON.stringify({ read: q?.box, wallet: real.wallet }));
+const note = parts.find((p) => p.words?.startsWith("One escrow"));
+check("the note line has no outline, fill or padding of its own", !!note && !note.style.border && !note.style.bg && !note.style.radius && note.style.pad.every((v) => v === 0), JSON.stringify(note?.style ? { border: note.style.border, bg: note.style.bg, radius: note.style.radius, pad: note.style.pad } : null));
+check("the \"?\" keeps its round yellow face", !!q && !!q.style.bg && q.style.radius >= 10 && !!q.style.border, JSON.stringify(q?.style ? { bg: q.style.bg, radius: q.style.radius, border: q.style.border } : null));
+check("the \"?\" sits after the note's words", !!q && !!note && !(note.words ?? "").includes("?"), note?.words);
 await browser.close();
 const bad = results.filter((x) => !x).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

@@ -828,7 +828,15 @@ export const PARTS = (cap: number): PageRead => {
     const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
     if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
-    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder);
+    /*
+     * The line wears its holder's words, never its box: the holder is a part
+     * of its own when it paints, and drew its fill, outline and padding there.
+     * Worn twice, PST's Balance note came in as a second panel outline round
+     * "One escrow balance for all your matches." (J, 2026-10-06).
+     */
+    const worn = styleOf(holder);
+    delete worn.layout; delete worn.clips; delete worn.maxw;
+    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
   };
 
   /* Inline content, with the parts among it taken out as they come. */
@@ -848,6 +856,8 @@ export const PARTS = (cap: number): PageRead => {
       if (checkLabel(e)) { flush(); checkPart(e, parent, hidden); continue; }
       if (isControl(e)) { flush(); control(e, parent, hidden); continue; }
       if (e.tagName === "A" && e.hasAttribute("href") && lone) { flush(); link(e, parent, hidden); continue; }
+      /* A <details>' own "?" that paints (PST's round yellow help button) is a part with its own look where the page draws it, not a stretch of the line's words. */
+      if (e.tagName === "SUMMARY" && paints(e)) { flush(); block(e, parent, hidden); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
         /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */
