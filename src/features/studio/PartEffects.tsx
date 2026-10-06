@@ -16,7 +16,7 @@
  */
 import * as React from "react";
 import { Bookmark, Check } from "lucide-react";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import { getWork, usesOf, withWork, withoutWork } from "./library/works";
 import { effectsFor, familyOf } from "./library/partEffects";
 import { componentOf } from "./library/components";
@@ -105,8 +105,8 @@ export function componentPlace(kind: string, node: StudioNode, nodes: readonly S
 }
 
 export function SaveAsComponent({ node, kind }: { node: StudioNode; kind: string }) {
-  const all = useStudio((s) => s.nodes);
-  const look = useStudio((s) => s.look) as { keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[]; fonts?: { family: string; id?: string }[] };
+  const all = useHeldStudio((s) => s.nodes);
+  const look = useHeldStudio((s) => s.look) as { keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[]; fonts?: { family: string; id?: string }[] };
   const place = componentPlace(kind, node, all);
   const [name, setName] = React.useState(() => partName(node as never, all as never));
   const [category, setCategory] = React.useState(place.category);

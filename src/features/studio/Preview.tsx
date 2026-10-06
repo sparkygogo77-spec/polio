@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { Eye, GripHorizontal, Maximize2, Minimize2, Smartphone, Tablet } from "lucide-react";
-import { activePage, useStudio } from "./store";
+import { activePage, useHeldStudio, useStudio } from "./store";
 import { DEVICE_WIDTH } from "./live/layout";
 import { LiveSite } from "./live/LiveSite";
 import { cn } from "@/core/lib/cn";
@@ -25,20 +25,20 @@ export function PreviewWindow() {
   const [drag, setDrag] = React.useState<{ dx: number; dy: number } | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
 
-  const pages = useStudio((s) => s.pages);
-  const nodes = useStudio((s) => s.nodes);
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
-  const shapes = useStudio((s) => s.shapes);
-  const siteName = useStudio((s) => s.brief.name);
-  const frameWidth = useStudio((s) => s.frameWidth);
-  const activeId = useStudio((s) => s.activePageId);
-  const page = useStudio(activePage);
+  const pages = useHeldStudio((s) => s.pages);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
+  const shapes = useHeldStudio((s) => s.shapes);
+  const siteName = useHeldStudio((s) => s.brief.name);
+  const frameWidth = useHeldStudio((s) => s.frameWidth);
+  const activeId = useHeldStudio((s) => s.activePageId);
+  const page = useHeldStudio(activePage);
   // A document that arrived without one (a published site, a thread the
   // board stood back on) leaves this null; the window simply is not there.
-  const companion = useStudio((s) => s.companion);
+  const companion = useHeldStudio((s) => s.companion);
   const { device, x, y, open } = companion ?? { device: "phone" as const, x: 0, y: 0, open: false };
-  const set = useStudio((s) => s.setCompanion);
+  const set = useHeldStudio((s) => s.setCompanion);
 
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === activeId), [nodes, activeId]);
   const width = DEVICE_WIDTH[device];

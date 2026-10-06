@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { pageNodes, useStudio, type StudioNode } from "../store";
+import { pageNodes, useHeldStudio, useStudio, type StudioNode } from "../store";
 import { CUBE_SIDES, emptyFace, written } from "../parts/cubeFaces";
 import { makeSolid, showCube, showSolid, solidModel } from "../solidRun";
 import { rendererReady } from "../agent";
@@ -27,16 +27,16 @@ export const FACE_COLOURS = [
 ] as const;
 
 export function Faces({ node, palette }: { node: StudioNode; palette: Record<string, string> | null }) {
-  const set = useStudio((s) => s.setCubeFace);
+  const set = useHeldStudio((s) => s.setCubeFace);
   /*
    * Every page but the one the cube is standing on. A surface showing the
    * page it is part of is a mirror, so it is not offered — the cube would
    * draw nothing there and the face would fall back to its words, which
    * looks like a bug rather than a rule.
    */
-  const pages = useStudio((s) => s.pages);
+  const pages = useHeldStudio((s) => s.pages);
   const sites = React.useMemo(() => pages.filter((p) => p.id !== node.pageId), [pages, node.pageId]);
-  const picked = useStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
+  const picked = useHeldStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const faces = React.useMemo(() => CUBE_SIDES.map((_, i) => node.cube?.faces?.[i] ?? emptyFace()), [node.cube]);
   const filled = written(node.cube);
   /*
@@ -266,11 +266,11 @@ export function Solid({ node, palette }: { node: StudioNode; palette: Record<str
 }
 
 export function LinkField({ node }: { node: StudioNode }) {
-  const pages = useStudio((s) => s.pages);
+  const pages = useHeldStudio((s) => s.pages);
   // A link drawn as an arrow points at another part; it is named here by
   // that part's name, where before no UI showed it at all.
-  const other = useStudio((s) => (node.link?.kind === "node" ? s.nodes.find((n) => n.id === node.link!.target) ?? null : null));
-  const nodesHere = useStudio(useShallow(pageNodes));
+  const other = useHeldStudio((s) => (node.link?.kind === "node" ? s.nodes.find((n) => n.id === node.link!.target) ?? null : null));
+  const nodesHere = useHeldStudio(useShallow(pageNodes));
   const sections = React.useMemo(() => nodesHere.filter((n) => n.id !== node.id && kindWord(n) === "Section").sort((a, b) => a.y - b.y), [nodesHere, node.id]);
   const link = node.link;
   const toSection = link?.kind === "node" && sections.some((n) => n.id === link.target);

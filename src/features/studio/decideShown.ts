@@ -3,7 +3,7 @@
 import * as React from "react";
 import { decisions } from "./library/badge";
 import { partLearned } from "./learn";
-import { pageNodes, useStudio, useSteady } from "./store";
+import { pageNodes, useHeldStudio, useSteady } from "./store";
 import { useShallow } from "zustand/react/shallow";
 
 /**
@@ -45,7 +45,7 @@ export function useDecideAll(): boolean {
 
 /** The parts on this page still waiting on a decision, as the board works them out: a learned part has none. */
 export function useDecideCount(): number {
-  const nodes = useSteady(useStudio(useShallow(pageNodes)));
-  const learnState = useStudio((s) => s.learn);
+  const nodes = useSteady(useHeldStudio(useShallow(pageNodes)));
+  const learnState = useHeldStudio((s) => s.learn);
   return React.useMemo(() => decisions(nodes).filter((d) => !learnState || !partLearned(learnState, d.id)).length, [nodes, learnState]);
 }
