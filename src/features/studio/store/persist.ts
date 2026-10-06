@@ -21,6 +21,8 @@ import type { StudioState } from "./state";
  * site with nothing saved has to be loaded as. A key added here is saved and
  * blanked by the same edit.
  */
+/** One empty list, so an unchanged document hands over the same value every time (`create.ts#keptOnly`). */
+const NO_STATES: string[] = [];
 export function docOnly(s: StudioState) {
   return {
         pages: s.pages,
@@ -48,7 +50,7 @@ export function docOnly(s: StudioState) {
         taken: s.taken ?? null,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
-        statesOn: s.statesOn ?? [],
+        statesOn: s.statesOn ?? NO_STATES,
         hiddenFeatures: s.hiddenFeatures,
         brought: s.brought,
         broughtParts: s.broughtParts,
