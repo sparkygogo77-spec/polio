@@ -26,7 +26,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { docOfStored, useBuilds } from "@/features/builds/store";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, useSteady, type StudioNode } from "./store";
 import { kitsFromDoc, motionsFromDoc, PLAIN_BAR, siteBar, type BoardMotion, type KitDoc, type StyleKit } from "./styleKits";
 import { WornShape } from "./WornShape";
 import { colourChoices, combine, piecesOf, toBox, wordsColour, type Worn } from "./wornShape";
@@ -85,7 +85,7 @@ const others = new Map<string, { at: number; kits: StyleKit[]; motions: BoardMot
 
 /** Kits and motions of the site that is open, and of every other site in Builds (read once per save). */
 export function useBoardKits(active: boolean): { here: StyleKit[]; hereMotions: BoardMotion[]; elsewhere: { site: string; kits: StyleKit[] }[]; motions: BoardMotion[] } {
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useSteady(useStudio((s) => s.nodes));
   const look = useStudio((s) => s.look);
   const brief = useStudio((s) => s.brief);
   const projects = useBuilds((s) => s.projects);

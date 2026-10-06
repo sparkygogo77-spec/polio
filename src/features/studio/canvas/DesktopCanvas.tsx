@@ -28,7 +28,7 @@ import { useImportPreview } from "../ImportFlow";
 import { hasPicture,pictureFrom,readDrop } from "../pictureDrop";
 import { put as putPicture } from "../pictures";
 import { isBoundary,spaceAtLine } from "../space";
-import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN } from "../store";
+import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN,holdSaves,useSteady } from "../store";
 import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
 import { ownsOthers } from "../holds";
@@ -101,7 +101,9 @@ export function DesktopCanvas() {
   const names = React.useMemo(() => new Map(nodes.map((n) => [n.id, partName(n, nodes, (id) => getFeature(id)?.name)])), [nodes]);
   /* Only the picked part wears its ! unless the top bar's count says show them all (`decideShown.ts`). */
   const decideAll = useDecideAll();
-  const decide = React.useMemo(() => new Map(decisions(nodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [nodes, learnState]);
+  /* Which parts ask a question does not change under the hand: read from the parts as they were when it went down (`store/hold.ts`). */
+  const steadyNodes = useSteady(nodes);
+  const decide = React.useMemo(() => new Map(decisions(steadyNodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [steadyNodes, learnState]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
    *
@@ -211,6 +213,13 @@ export function DesktopCanvas() {
   /* Everything the page draws, not only its parts: ink and drawn spaces
      reach below the last part and the window is sized from this. */
   const [drag, setDrag] = React.useState<Drag | null>(null);
+  /* A part under the hand is saved once, when it is let go (`store/create.ts#holdSaves`). */
+  const holding = drag?.kind === "node" || drag?.kind === "resize";
+  React.useEffect(() => {
+    if (!holding) return;
+    holdSaves(true);
+    return () => holdSaves(false);
+  }, [holding]);
   /*
    * The page's height does not follow a hand.
    *

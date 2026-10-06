@@ -1,7 +1,8 @@
 "use client";
 import { create } from "zustand";
-import { persist, createJSONStorage, type PersistStorage } from "zustand/middleware";
+import { persist, createJSONStorage, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { readDoc, writeDoc } from "../docStore";
+import { afterRelease, isHeld } from "./hold";
 import { uid } from "@/core/lib/ids";
 import { type ThreadDoc } from "../threads";
 import { activeRepo } from "@/features/builds/store";
@@ -27,18 +28,34 @@ import { viewActions } from "./view";
  * none of them hands over the same references: compared one by one, and
  * nothing written when every one is the one written last.
  */
+/*
+ * …AND A PART UNDER THE HAND IS SAVED WHEN IT IS LET GO.
+ *
+ * A drag or a resize does change the document, on every move, so the check
+ * above lets each one through: for a 700-part import, 2 MB written forty
+ * times in one short drag, and frames held up to half a second. While the
+ * board holds the saves (`hold.ts#holdSaves`, set by the board for the length
+ * of a drag), only the latest is kept, and it is written the moment the hand
+ * comes up (`tests/drag-saves-once.mjs`).
+ */
 function keptOnly<S>(inner: PersistStorage<S>): PersistStorage<S> {
   let last: { key: string; version: number | undefined; state: Record<string, unknown> } | null = null;
+  let pending: { key: string; value: StorageValue<S> } | null = null;
+  const flush = () => { const p = pending; pending = null; if (p && pen.read && !pen.swapping) void write(p.key, p.value); };
+  const write = (key: string, value: StorageValue<S>) => {
+    const state = value.state as Record<string, unknown>;
+    if (last && last.key === key && last.version === value.version && sameSlices(last.state, state)) return;
+    last = { key, version: value.version, state };
+    return inner.setItem(key, value);
+  };
   return {
     getItem: inner.getItem,
     setItem: (key, value) => {
       if (!pen.read || pen.swapping) return;
-      const state = value.state as Record<string, unknown>;
-      if (last && last.key === key && last.version === value.version && sameSlices(last.state, state)) return;
-      last = { key, version: value.version, state };
-      return inner.setItem(key, value);
+      if (isHeld()) { pending = { key, value }; afterRelease(flush); return; }
+      return write(key, value);
     },
-    removeItem: (key) => { last = null; return inner.removeItem(key); },
+    removeItem: (key) => { last = null; pending = null; return inner.removeItem(key); },
   };
 }
 function sameSlices(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
