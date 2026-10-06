@@ -264,18 +264,16 @@ await page.waitForTimeout(800);
   const ghost = await page.evaluate((id) => !!document.querySelector(`[data-node-id="${id}"] [data-cut-ghost]`), picture.id);
   const x0 = (await state()).nodes.find((n) => n.id === picture.id)?.x;
   await page.waitForTimeout(1200); /* past a double press, which opens a part for handling rather than moving it */
-  /* It holds the screen's scanlines, glare and caption, so a plain press on it draws a marquee; Ctrl moves it on purpose (Canvas.tsx, "A part that holds others"). */
+  /* It holds the screen's scanlines, glare and caption; a plain drag moves it all the same (J, 2026-10-06, "Always moves"). */
   await page.mouse.move(pb.x + pb.w / 2, pb.y + pb.h / 2);
-  await page.keyboard.down("Control");
   await page.mouse.down();
   for (let i = 1; i <= 12; i++) await page.mouse.move(pb.x + pb.w / 2 + (40 * i) / 12, pb.y + pb.h / 2);
   await page.mouse.up();
-  await page.keyboard.up("Control");
   await page.waitForTimeout(800);
   const pb1 = await find(page, "data-node-id", picture.id);
   const after = (await state()).nodes;
   const x1 = after.find((n) => n.id === picture.id)?.x;
-  check("board: the cut picture is the part a press takes and a drag (Ctrl, as it holds others) moves, and its cut-off shows faintly while picked", picked.includes(picture.id) && ghost && Math.abs(x1 - x0 - 40) <= 2 && Math.abs(pb1.x - pb.x - 40) <= 2, J({ picked, ghost, stored: [x0, x1], drawn: [r1(pb.x), r1(pb1.x)] }));
+  check("board: the cut picture is the part a press takes and a drag moves, and its cut-off shows faintly while picked", picked.includes(picture.id) && ghost && Math.abs(x1 - x0 - 40) <= 2 && Math.abs(pb1.x - pb.x - 40) <= 2, J({ picked, ghost, stored: [x0, x1], drawn: [r1(pb.x), r1(pb1.x)] }));
   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
 }
 await page.mouse.click(4, 400); /* the ground: nothing picked, as the pictures below are taken */

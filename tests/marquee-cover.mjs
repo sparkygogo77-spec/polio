@@ -11,8 +11,10 @@
  * with a link or a button or link role — which is always grabbed, because
  * all eight sidebar buttons on his home page hold their icon; a press on a
  * leaf grabs the leaf; the held
- * modifier (Ctrl, or ⌘ on a Mac) moves the container on purpose; and a plain
- * press on the container with no drag still picks it.
+ * modifier (Ctrl, or ⌘ on a Mac) is what draws the marquee across it, since
+ * J turned the rule round on 2026-10-06 ("Always moves": a plain drag moves
+ * the container); and a plain press on the container with no drag still
+ * picks it.
  *
  * Every drag asserts it happened: the marquee rectangle is looked for while
  * the hand is still down, the press point is checked to be over the part the
@@ -110,8 +112,8 @@ let at = await map();
 const start = at(120, 130), end = at(480, 240);
 check("the press point is over the panel and nothing else", (await ownerAt(...start)) === "panel", await ownerAt(...start));
 const panelBefore = await rectOf("panel");
-const drawn = await drag(start, end);
-check("a press-drag on a part that holds others draws a marquee", !!drawn, JSON.stringify(drawn));
+const drawn = await drag(start, end, ["Control"]);
+check("with Ctrl held, a press-drag on a part that holds others draws a marquee", !!drawn, JSON.stringify(drawn));
 const panelAfter = await rectOf("panel");
 check("…and does not move the panel", Math.abs(panelAfter.x - panelBefore.x) < 1 && Math.abs(panelAfter.y - panelBefore.y) < 1, `${panelBefore.x},${panelBefore.y} → ${panelAfter.x},${panelAfter.y}`);
 const got = await picked();
@@ -172,14 +174,14 @@ for (const [id, w, kid] of [["btn", 223, "btnIcon"], ["boxBtn", 32, "boxIcon"]])
   check(`${id}: …and moves it`, Math.abs((r1.x - r0.x) / kk - 50) < 12, `${((r1.x - r0.x) / kk).toFixed(1)} board px`);
 }
 
-/* 5. With the modifier held, the panel moves on purpose. */
+/* 5. A plain drag moves the panel, like any part (J, 2026-10-06: "Always moves"). */
 at = await map();
 const p0 = await rectOf("panel");
 const grab = at(120, 460);
 check("the press point is over the panel", (await ownerAt(...grab)) === "panel", await ownerAt(...grab));
-await drag(grab, [grab[0] + 40 * k, grab[1]], ["Control"]);
+await drag(grab, [grab[0] + 40 * k, grab[1]]);
 const p1 = await rectOf("panel");
-check("with Ctrl held, a press-drag on the panel moves the panel", Math.abs((p1.x - p0.x) / k - 40) < 12, `${((p1.x - p0.x) / k).toFixed(1)} board px`);
+check("a plain press-drag on the panel moves the panel", Math.abs((p1.x - p0.x) / k - 40) < 12, `${((p1.x - p0.x) / k).toFixed(1)} board px`);
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

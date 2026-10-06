@@ -78,7 +78,8 @@ const burst = (page, ref, from, path) => page.evaluate(async ({ ref, from, path 
   const [x0, y0] = at(from);
   const target = document.elementFromPoint(x0, y0);
   const pressedOn = target?.closest("[data-node-id]")?.getAttribute("data-node-id") ?? (target?.closest("[data-frame]") ? "frame" : "elsewhere");
-  const o = (x, y, buttons) => ({ bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons });
+  const o = (x, y, buttons) => ({ bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons, ctrlKey: true });
+  /* Ctrl held: a press on a part that holds others draws the box only with it (J, 2026-10-06, "Always moves"). */
   const frame = () => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(() => f())));
   target.dispatchEvent(new PointerEvent("pointerdown", o(x0, y0, 1)));
   await frame();
