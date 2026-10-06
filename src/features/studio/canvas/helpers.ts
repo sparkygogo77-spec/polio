@@ -159,6 +159,8 @@ export const TOP_GUTTER = 20;
  */
 export const LABEL_LINE = 14;
 export const LABEL_GAP = 4;
+/** How far above the page's top a site part may start and still draw the page up to it (`DesktopCanvas#siteTop`); higher is overhang. */
+export const SITE_TOP_MAX = 240;
 
 
 /** The screen each device actually has, so the frame is a real viewport. */

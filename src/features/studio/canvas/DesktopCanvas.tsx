@@ -54,7 +54,7 @@ import { pageFeatures } from "../library/works";
 import { AMBIENT } from "../library/behaviours";
 import { runWorks } from "../live/runWorks";
 
-import { shownOnBoard,placedOnBoard,boxOf,HANDS_ON,DOUBLE_MS,DOUBLE_SLOP,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
+import { shownOnBoard,placedOnBoard,boxOf,HANDS_ON,DOUBLE_MS,DOUBLE_SLOP,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
 import { isChain,reasonOn,ShapeView,GROUP_HANDLES,HANDLE_CURSOR } from "./ShapeView";
 import { NodeView } from "./NodeView";
@@ -296,7 +296,30 @@ export function DesktopCanvas() {
    * the ground above the page is theirs to reach, so ink and drawn spaces
    * still make room. `tests/board-overhang-fit.mjs`.
    */
-  const above = Math.round(frameTopReach({ shapes, spaces }) * zoom);
+  /*
+   * THE SITE'S OWN TOP, when it reaches above the page's (J, 2026-10-06).
+   * A site part drawn above y 0 (an import's nav a few pixels up, a screen
+   * or a step that lifts the page's head) sat in the gutter under the
+   * page's name and was cut by the pane's top as the board scrolled: "a
+   * forced overhead barrier". The page is drawn from the highest site part
+   * instead, the name above that. Only parts in the site's flow count: one
+   * placed by the site itself (`position: absolute` or `fixed`, like
+   * trumpmorty's planets) or reaching more than `SITE_TOP_MAX` up is
+   * decoration hanging off, and moves nothing (`tests/board-overhang-fit.mjs`).
+   */
+  const siteTop = useStudio((s) => {
+    const places = placedOnBoard(s), shows = shownOnBoard(s);
+    let top = 0;
+    for (const n of nodes) {
+      const pos = (n as { from?: { position?: string } | null }).from?.position;
+      if (!shows(n) || pos === "fixed" || pos === "absolute") continue;
+      const b = places.get(n.id) ?? n;
+      if (b.y >= 0 || b.y + b.h <= 0 || b.y < -SITE_TOP_MAX) continue;
+      top = Math.min(top, b.y);
+    }
+    return Math.round(top);
+  });
+  const above = Math.round(Math.max(frameTopReach({ shapes, spaces }), -siteTop) * zoom);
   const boardH = Math.round(pageH * zoom) + TOP_GUTTER + above;
 
   /*
@@ -1783,6 +1806,7 @@ export function DesktopCanvas() {
           data-page-window=""
           className="absolute left-0 top-0 rounded-[3px]"
           style={{ width: frameWidth, height: frameH }}
+          data-site-top={siteTop || undefined}
         >
         {/* ---------- the page frame: this is the website ---------- */}
         <div
@@ -1804,10 +1828,12 @@ export function DesktopCanvas() {
             e.preventDefault();
             e.stopPropagation();
           }}
-          className="absolute left-0 top-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
+          className="absolute left-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
           style={{
             width: frameWidth,
-            height: frameH,
+            /* From the site's own top when a part of it reaches above the page's (`siteTop`). */
+            top: siteTop,
+            height: frameH - siteTop,
             /* No size patched on here. The backdrop carries its own now —
                a grid arrived unsized, so this tiled it at 24px while the
                swatch said 8 and the live page drew a hairline. */
@@ -1888,11 +1914,11 @@ export function DesktopCanvas() {
         <div
           data-page-label=""
           className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted"
-          style={{ bottom: "100%", paddingBottom: LABEL_GAP / zoom, fontSize: 11 / zoom, lineHeight: `${LABEL_LINE / zoom}px` }}
+          style={{ bottom: `calc(100% + ${-siteTop}px)`, paddingBottom: LABEL_GAP / zoom, fontSize: 11 / zoom, lineHeight: `${LABEL_LINE / zoom}px` }}
         >
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>
-          <span className="num">{frameWidth} × {Math.round(frameH)}</span>
+          <span className="num">{frameWidth} × {Math.round(frameH - siteTop)}</span>
         </div>
         {/*
           The fold is the window's own bottom edge now.
