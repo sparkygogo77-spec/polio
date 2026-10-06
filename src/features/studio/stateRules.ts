@@ -40,6 +40,8 @@ export interface DeclaredScene {
   screen?: string;
   /** Every panel present, by id, and its state. */
   panels: Record<string, string>;
+  /** The one part this scene is a state of (rule 31): the builder shows it as that panel's state, never as a page state. */
+  part?: string;
 }
 /** Sample words by hook (builder.json "samples"). */
 export type Samples = Record<string, string[]>;
@@ -59,7 +61,7 @@ export function readScenes(text: string | null | undefined, base = ""): Declared
     const panels: Record<string, string> = {};
     if (o.panels && typeof o.panels === "object") for (const [k, v] of Object.entries(o.panels as Record<string, unknown>)) if (typeof v === "string") panels[k] = v;
     const page = o.page.replace(/^\.\//, "");
-    out.push({ name: o.name, label: typeof o.label === "string" && o.label.trim() ? o.label : o.name, page: page.startsWith("/") ? page.slice(1) : `${base}${page}`, ...(typeof o.screen === "string" ? { screen: o.screen } : {}), panels });
+    out.push({ name: o.name, label: typeof o.label === "string" && o.label.trim() ? o.label : o.name, page: page.startsWith("/") ? page.slice(1) : `${base}${page}`, ...(typeof o.screen === "string" ? { screen: o.screen } : {}), panels, ...(typeof o.part === "string" && o.part ? { part: o.part } : {}) });
   }
   return out;
 }
@@ -192,8 +194,68 @@ function showsOf(nodes: readonly RuleNode[], d: Declared, pageId: string, stateO
 /** The capture of a screen, lending its places, words and pictures (never what is shown). */
 const lent = (c: ScreenRead | undefined): Partial<ScreenRead> => (c ? { ...(c.boxes ? { boxes: c.boxes } : {}), ...(c.texts ? { texts: c.texts } : {}), ...(c.sizes ? { sizes: c.sizes } : {}), ...(c.stills ? { stills: c.stills } : {}), ...(c.opened ? { opened: c.opened } : {}) } : {});
 
-/** A declared scene as a screen of the board, plus where live differs from it (hooks the capture of it draws that the scene does not, and the other way). */
-export interface SceneScreen extends ScreenRead { declared: true; panels: Record<string, string>; differs?: { extra: string[]; missing: string[] } }
+/**
+ * A declared scene as a screen of the board, plus where live differs from it
+ * (hooks the capture of it draws that the scene does not, and the other way).
+ * `part`: the one panel it changes, so it is that panel's state and not a
+ * page state; `sameAs`: the page state it does not differ from (rule 31).
+ */
+export interface SceneScreen extends ScreenRead { declared: true; panels: Record<string, string>; differs?: { extra: string[]; missing: string[] }; part?: string; sameAs?: string }
+
+/** Is this scene one of its page's states (not folded into one part's state, rule 31)? */
+export const isPageState = (s: Pick<SceneScreen, "part" | "sameAs">): boolean => !s.part && !s.sameAs;
+
+/** Each panel on a page and the panel round it (null: none). */
+function panelParents(d: Declared, pageId: string): Map<string, string | null> {
+  const out = new Map<string, string | null>();
+  for (const p of d.panels.values()) {
+    const root = p.roots.map((r) => d.byId.get(r)!).find((r) => r.pageId === pageId);
+    if (!root) continue;
+    const owner = d.byId.get(d.ownerOf.get(root.id) ?? "");
+    out.set(p.id, owner ? panelId(owner) : null);
+  }
+  return out;
+}
+const within = (parents: Map<string, string | null>, id: string, part: string) => { for (let q: string | null | undefined = id, i = 0; q && i < 40; q = parents.get(q), i++) if (q === part) return true; return false; };
+
+/** The parts one scene changes against another: the panels in another state, leaving out a panel inside one that changes too (the TV's duel circles come and go with the TV). */
+export function partsChanged(d: Declared, parents: Map<string, string | null>, a: Pick<DeclaredScene, "panels">, b: Pick<DeclaredScene, "panels">): string[] {
+  const changed = [...parents.keys()].filter((id) => stateIn(d.panels.get(id)!, a) !== stateIn(d.panels.get(id)!, b));
+  const set = new Set(changed);
+  return changed.filter((id) => { for (let q = parents.get(id), i = 0; q && i < 40; q = parents.get(q), i++) if (set.has(q)) return false; return true; });
+}
+
+/**
+ * Rule 31 (J, 2026-10-06): a page state changes more than one part at once.
+ * A scene that changes one part, against a page state before it on its page,
+ * is that part's state: its capture is that state's look, and it leaves the
+ * page states. A scene that changes nothing is the same page state twice. A
+ * scene that names its `part` folds into it when everything it changes, against
+ * any scene before it, is inside that part (the six Chart TV scenes of
+ * PonsStars are the TV's states). Gives each folded scene its part, or the
+ * page state it is the same as.
+ */
+export function foldScenes(nodes: readonly RuleNode[], files: readonly { file: string; pageId: string }[], scenes: readonly DeclaredScene[]): Map<string, { part: string } | { sameAs: string }> {
+  const d = readDeclared(nodes);
+  const out = new Map<string, { part: string } | { sameAs: string }>();
+  const parentsOf = new Map<string, Map<string, string | null>>();
+  const seen = new Map<string, DeclaredScene[]>(), kept = new Map<string, DeclaredScene[]>();
+  for (const sc of scenes) {
+    const pageId = files.find((f) => f.file === sc.page)?.pageId;
+    if (!pageId) continue;
+    if (!parentsOf.has(pageId)) parentsOf.set(pageId, panelParents(d, pageId));
+    const parents = parentsOf.get(pageId)!;
+    const before = seen.get(pageId) ?? [], pages = kept.get(pageId) ?? [];
+    seen.set(pageId, [...before, sc]);
+    if (sc.part && parents.has(sc.part) && before.some((b) => partsChanged(d, parents, sc, b).every((id) => within(parents, id, sc.part!)))) { out.set(sc.name, { part: sc.part }); continue; }
+    let best: { by: DeclaredScene; parts: string[] } | null = null;
+    for (const k of pages) { const parts = partsChanged(d, parents, sc, k); if (!best || parts.length < best.parts.length) best = { by: k, parts }; }
+    if (best && best.parts.length === 0) out.set(sc.name, { sameAs: best.by.name });
+    else if (best && best.parts.length === 1 && stateIn(d.panels.get(best.parts[0]!)!, sc) !== "off") out.set(sc.name, { part: best.parts[0]! });
+    else kept.set(pageId, [...pages, sc]);
+  }
+  return out;
+}
 
 /**
  * The site's scenes as screens the board draws (`boardStates.ts`): each
@@ -203,6 +265,7 @@ export interface SceneScreen extends ScreenRead { declared: true; panels: Record
 export function sceneScreens(nodes: readonly RuleNode[], files: readonly { file: string; pageId: string }[], scenes: readonly DeclaredScene[], captured: readonly ScreenRead[] = []): SceneScreen[] {
   const d = readDeclared(nodes);
   const out: SceneScreen[] = [];
+  const folded = foldScenes(nodes, files, scenes);
   for (const sc of scenes) {
     const pageId = files.find((f) => f.file === sc.page)?.pageId;
     if (!pageId) continue;
@@ -225,7 +288,7 @@ export function sceneScreens(nodes: readonly RuleNode[], files: readonly { file:
       };
       shows = shows.filter((h) => live.has(h) || !quiet.has(h) || !holderDrawn(h));
     }
-    const screen: SceneScreen = { name: sc.name, label: sc.label, page: sc.page, shows, ...lent(cap), declared: true, panels: { ...sc.panels } };
+    const screen: SceneScreen = { name: sc.name, label: sc.label, page: sc.page, shows, ...lent(cap), declared: true, panels: { ...sc.panels }, ...(folded.get(sc.name) ?? {}) };
     if (cap) {
       const mine = new Set(shows), live = new Set(cap.shows);
       const extra = cap.shows.filter((h) => !mine.has(h)), missing = shows.filter((h) => !live.has(h));
@@ -262,27 +325,37 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
     const inner = nodes.filter((n) => n.pageId === pageId && (d.up.get(n.id) ?? []).some((a) => a.id === root.id));
     const sampled = [...new Set(inner.map((n) => attr(n, "data-hook")).filter((h): h is string => !!h && !!samples?.[h]))];
     const most = Math.max(0, ...sampled.map((h) => samples![h]!.length));
+    /* Rule 31: the scenes folded into this panel (or one round it) are its states' own captures, the accurate ones (the TV's scenes for the TV); a page state lends one only where none is (J, 2026-10-06). */
+    const parents = panelParents(d, pageId);
+    const ownScenes = mine.filter((x) => x.part && within(parents, p.id, x.part));
     const states: PanelState[] = p.states.filter((s) => s !== "off").map((s) => {
-      const scene = mine.find((x) => x.panels[p.id] === s) ?? null;
-      const stateOf = (id: string) => (id === p.id ? s : scene ? stateIn(d.panels.get(id)!, scene) : d.panels.get(id)!.start);
-      const shows = showsOf(nodes, d, pageId, stateOf);
-      const base: ScreenRead = { name: `${p.id}:${s}`, label: s, page: pageFile ?? "", shows, ...(scene ? lent(scene) : {}) };
-      /* Only the samples that fit this state: where its scene says "Ahead by 0.5 points", "Ahead by 1.16" and "Ahead by 1.83" are its chips, "Level" and "Behind by …" are not (J, 2026-10-06). */
-      const fits = new Map(sampled.map((h) => [h, samplesFor(samples![h]!, base.texts?.[h])]));
-      const lead = sampled.find((h) => new Set(fits.get(h)).size > 1) ?? sampled[0];
-      /* Rows: where the lead's every sample fits this state, the hooks with as many samples go row by row with it (the tour's step 4 is its own "Step 4 of 10", title and text), never thinned to the one the scene shows (J, 2026-10-06). */
-      const rows = lead ? samples![lead]!.length : 0;
-      if (rows > 1 && fits.get(lead!)!.length === rows) for (const h of sampled) if (samples![h]!.length === rows) fits.set(h, [...samples![h]!]);
-      const many = Math.max(0, ...[...fits.values()].map((l) => l.length));
-      const samplesOf = most && many ? Array.from({ length: many }, (_, i) => {
-        const texts = { ...(base.texts ?? {}) };
-        for (const h of sampled) { const l = fits.get(h)!; texts[h] = l[i % l.length]!; }
-        return { key: `${s}:${i}`, label: (texts[lead!] ?? `sample ${i + 1}`).slice(0, 40), screen: { ...base, texts } };
-      }) : [{ key: s, label: s, screen: base }];
+      /* Its own scenes each a chip; a part inside a folded one (the duel circles in the TV) takes the first of them. */
+      const own = ownScenes.filter((x) => x.panels[p.id] === s && x.part === p.id);
+      if (!own.length) { const round = ownScenes.find((x) => x.panels[p.id] === s); if (round) own.push(round); }
+      const sources: (SceneScreen | null)[] = own.length ? own : [mine.find((x) => isPageState(x) && x.panels[p.id] === s) ?? mine.find((x) => x.panels[p.id] === s) ?? null];
+      const samplesOf = sources.flatMap((scene, at) => {
+        const tag = at ? `${scene!.name}:` : "";
+        const stateOf = (id: string) => (id === p.id ? s : scene ? stateIn(d.panels.get(id)!, scene) : d.panels.get(id)!.start);
+        const shows = showsOf(nodes, d, pageId, stateOf);
+        const base: ScreenRead = { name: `${p.id}:${s}${at ? `:${scene!.name}` : ""}`, label: s, page: pageFile ?? "", shows, ...(scene ? lent(scene) : {}) };
+        /* Only the samples that fit this state: where its scene says "Ahead by 0.5 points", "Ahead by 1.16" and "Ahead by 1.83" are its chips, "Level" and "Behind by …" are not (J, 2026-10-06). */
+        const fits = new Map(sampled.map((h) => [h, samplesFor(samples![h]!, base.texts?.[h])]));
+        const lead = sampled.find((h) => new Set(fits.get(h)).size > 1) ?? sampled[0];
+        /* Rows: where the lead's every sample fits this state, the hooks with as many samples go row by row with it (the tour's step 4 is its own "Step 4 of 10", title and text), never thinned to the one the scene shows (J, 2026-10-06). */
+        const rows = lead ? samples![lead]!.length : 0;
+        if (rows > 1 && fits.get(lead!)!.length === rows) for (const h of sampled) if (samples![h]!.length === rows) fits.set(h, [...samples![h]!]);
+        const many = Math.max(0, ...[...fits.values()].map((l) => l.length));
+        const list = most && many ? Array.from({ length: many }, (_, i) => {
+          const texts = { ...(base.texts ?? {}) };
+          for (const h of sampled) { const l = fits.get(h)!; texts[h] = l[i % l.length]!; }
+          return { key: `${tag}${s}:${i}`, label: (texts[lead!] ?? `sample ${i + 1}`).slice(0, 40), screen: { ...base, texts } };
+        }) : [{ key: at ? `${tag}${s}` : s, label: sources.length > 1 && scene ? (scene.label ?? s).replace(/^[^:]*:\s*/, "").slice(0, 40) : s, screen: base }];
+        return list;
+      });
       return { key: s, label: s, samples: samplesOf };
     });
     /* One state that a whole-page scene shows (a lone text block) is no panel: it is edited on its page in that scene. One that no scene shows (a pop-up such as the sign panel) stays, and so does one with sample chips to step through (the intro tour's steps) (J, 2026-10-06). */
-    if (states.length < 2 && (states[0]?.samples.length ?? 0) < 2 && mine.some((x) => x.panels[p.id] && x.panels[p.id] !== "off")) continue;
+    if (states.length < 2 && (states[0]?.samples.length ?? 0) < 2 && mine.some((x) => x.panels[p.id] && x.panels[p.id] !== "off" && x.part !== p.id && (isPageState(x) || within(parents, p.id, x.part ?? "")))) continue;
     out.push({ id: root.id, hook: p.id, ...(attr(root, "data-label") ? { label: attr(root, "data-label")! } : {}), states });
   }
   return out.sort((a, b) => { const x = d.byId.get(a.id) as PanelNode | undefined, y = d.byId.get(b.id) as PanelNode | undefined; return (x?.y ?? 0) - (y?.y ?? 0) || (x?.x ?? 0) - (y?.x ?? 0); });

@@ -404,7 +404,7 @@ export function check(manifestPath, { write = false } = {}) {
       for (let e = el.parent; e && e !== outer; e = e.parent) if (e.attrs['data-show'] !== undefined) { problems.push(`${at_}: panel "${id}" sits inside a state of panel "${outer?.attrs['data-panel']}" (${e.attrs['data-hook']} shows only in "${e.attrs['data-show']}"); make it its own panel with an "off" state`); break; }
       const known = panels.get(id);
       if (known && known.states.join(' ') !== states.join(' ')) problems.push(`${at_}: panel "${id}" declares "${states.join(' ')}" here but "${known.states.join(' ')}" elsewhere (one id is one panel)`);
-      if (!known) panels.set(id, { states, pages: new Set([p.file]), parent: outer?.attrs['data-panel'] ?? null, hasShow: false, copied: el.template !== null });
+      if (!known) panels.set(id, { states, start: a['data-state'], pages: new Set([p.file]), parent: outer?.attrs['data-panel'] ?? null, hasShow: false, copied: el.template !== null });
       else known.pages.add(p.file);
     } else if (a['data-state'] !== undefined) problems.push(`${at_}: data-state on ${a['data-hook'] ?? `<${el.tag}>`}, which is not a panel (only a panel's root has a state; for data use another data- attribute)`);
     if (a['data-states'] !== undefined && id === undefined) problems.push(`${at_}: data-states on ${a['data-hook'] ?? `<${el.tag}>`}, which is not a panel (add data-panel)`);
@@ -640,6 +640,7 @@ export function check(manifestPath, { write = false } = {}) {
   const scenes = readJson('scenes');
   if (scenes) {
     const names = new Set();
+    const earlier = new Map(); // page -> the panels of each scene before, in order
     for (const sc of scenes.scenes ?? []) {
       const name = `${manifest.scenes}: scene "${sc.name}"`;
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(sc.name ?? '') || names.has(sc.name)) problems.push(`${name}: a scene needs a unique lower-case name`);
@@ -653,6 +654,16 @@ export function check(manifestPath, { write = false } = {}) {
         else if (pnl.parent && panels.get(pnl.parent)?.states.includes('off') && !(pnl.parent in shown)) problems.push(`${name}: panel "${id}" sits in panel "${pnl.parent}", which the scene leaves out`);
       }
       for (const [id, pnl] of panels) if (pnl.pages.has(sc.page) && !pnl.copied && !pnl.states.includes('off') && !(id in shown)) problems.push(`${name}: panel "${id}" has no "off" state, so the scene must give its state`);
+      // A scene made to show one part (BUILDER-RULES.md, rule 31): everything it changes, against a scene before it, is inside that part.
+      const before = earlier.get(sc.page) ?? [];
+      earlier.set(sc.page, [...before, shown]);
+      if (sc.part !== undefined) {
+        const inPart = (id) => { for (let q = id, i = 0; q && i < 40; q = panels.get(q)?.parent, i++) if (q === sc.part) return true; return false; };
+        const stateOf = (id, sh) => sh[id] ?? (panels.get(id).states.includes('off') ? 'off' : panels.get(id).start);
+        const onPage = [...panels.keys()].filter((id) => panels.get(id).pages.has(sc.page) && !panels.get(id).copied);
+        if (typeof sc.part !== 'string' || !panels.get(sc.part)?.pages.has(sc.page)) problems.push(`${name}: "part" names "${sc.part}", which is no panel on ${sc.page}`);
+        else if (!before.some((b) => onPage.every((id) => stateOf(id, shown) === stateOf(id, b) || inPart(id)))) problems.push(`${name}: it says it is a state of "${sc.part}" but changes another part too against every scene before it (a page state changes several parts; drop "part", or make it change only "${sc.part}")`);
+      }
     }
   }
   const samples = readJson('samples');
