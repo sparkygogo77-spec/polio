@@ -28,20 +28,20 @@ export function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?:
 }
 /**
  * ONE PANEL, ISOLATED ON THE BOARD (J, 2026-10-06): picked from the Panels
- * rail, the rest of its page steps away and the panel stands alone where
- * it really sits, on what it sits in (the page's dotted ground, the card
- * round it), in the state picked, so it is seen and edited with the
- * contrast and place it really has. Only while it is picked:
+ * rail, the rest of its page steps away and the panel stands alone in the
+ * middle of its page (`centreIsolated`), never under the rail, on what
+ * still holds it there (the page's dotted ground), in the state picked, so
+ * it is seen and edited with its real contrast. Only while it is picked:
  * the rail lets go of it when the pick moves off it (`PanelsPage.tsx`).
  */
 export type Isolated = { pageId: string; shows: Set<string>; places: Map<string, PlaceBox>; looks: Map<string, StepLook>; panelId: string };
-export let isolatedMemo: { on: unknown; nodes: unknown; source: unknown; read: Isolated | null } | null = null;
+export let isolatedMemo: { on: unknown; nodes: unknown; source: unknown; frameWidth?: number; read: Isolated | null } | null = null;
 export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[]; frameWidth?: number }): Isolated | null {
   const on = s.statesOn ?? [];
   const key = on.map(readIsolateKey).find((x) => !!x);
   if (!key) return null;
   const source = sourceOf(s) as PanelSource;
-  if (isolatedMemo && isolatedMemo.on === on && isolatedMemo.nodes === s.nodes && isolatedMemo.source === source) return isolatedMemo.read;
+  if (isolatedMemo && isolatedMemo.on === on && isolatedMemo.nodes === s.nodes && isolatedMemo.source === source && isolatedMemo.frameWidth === s.frameWidth) return isolatedMemo.read;
   const nodes = (s.nodes ?? []) as unknown as PanelNode[];
   const p = nodes.find((n) => n.id === key.panelId);
   let read: Isolated | null = null;
@@ -53,13 +53,25 @@ export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?
     const d = panelDrawing(page, p.id, sample?.screen ?? null);
     const places = new Map<string, PlaceBox>();
     const looks = new Map<string, StepLook>();
-    for (const x of d.placed) { places.set(x.node.id, { x: x.x, y: x.y, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
-    const shows = new Set([...d.around, ...d.placed.map((x) => x.node)].map((n) => n.id));
+    /* Centred on a lone page, so it never sits under the rail or off the side (J, 2026-10-06). */
+    const c = centreIsolated(page, d.placed[0] ?? null, s.frameWidth);
+    for (const x of d.placed) { places.set(x.node.id, { x: x.x + c.dx, y: x.y + c.dy, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
+    /* What it sits in stays only where it still holds it (the page's dotted ground); a card it has moved out of steps away. */
+    const box = d.placed[0] ? { x: d.placed[0].x + c.dx, y: d.placed[0].y + c.dy, w: d.placed[0].w, h: d.placed[0].h } : null;
+    const around = d.around.filter((a) => !box || (a.x <= box.x && a.y <= box.y && a.x + a.w >= box.x + box.w && a.y + a.h >= box.y + box.h));
+    const shows = new Set([...around, ...d.placed.map((x) => x.node)].map((n) => n.id));
     /* Longer words than the page opens with push what follows on their line along (`roomForWords.ts`). */
     read = { pageId: p.pageId, shows, places: roomForWords(nodes as never, p.pageId, (n) => shows.has(n.id), places, looks), looks, panelId: p.id };
   }
-  isolatedMemo = { on, nodes: s.nodes, source, read };
+  isolatedMemo = { on, nodes: s.nodes, source, frameWidth: s.frameWidth, read };
   return read;
+}
+/** How far to move an isolated panel so it sits in the middle of its page: across the frame, and down the page's height. */
+export function centreIsolated(page: readonly { x: number; y: number; w: number; h: number }[], box: { x: number; y: number; w: number; h: number } | null, frameWidth?: number): { dx: number; dy: number } {
+  if (!box) return { dx: 0, dy: 0 };
+  const width = frameWidth && frameWidth > 0 ? frameWidth : Math.max(box.x + box.w, ...page.map((n) => n.x + n.w));
+  const height = Math.max(box.y + box.h, ...page.map((n) => n.y + n.h));
+  return { dx: Math.round(Math.max(0, (width - box.w) / 2) - box.x), dy: Math.round(Math.max(0, (height - box.h) / 2) - box.y) };
 }
 /** Each part's words and picture as the lit screens and the picked steps have them: a step's own win inside its part. */
 export let looksMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; looks: Map<string, StepLook> } | null = null;
