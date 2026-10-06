@@ -455,30 +455,24 @@ same boxes as everywhere else, in the screen's colours.
   default branch; typing owner/name is the fallback. His repos are listed
   below, each naming the site that publishes there. `tests/builds-repos.mjs`.
 - **A part's state changes that part and nothing else; the board is the
-  picture.** A part with states gets a step bar on the board when picked
-  (`StatesTimeline.tsx#StepBar`, pinned to the board's foot so a tall
-  panel's bar is never below the fold): its name, a key per step, back and
-  next, Finish at the end back to how the page opens. A step changes only
-  what is inside the part: a face the page adds slots into the part's flow
-  and the part grows, drawn over its neighbours rather than moving them; a
-  screen that changes the part is kept to the part. What comes in on the
-  page as a whole is a **scene**: one real capture of one moment of the
-  site, its positions and its words together, never one moment's words at
-  another's places. In a scene every part sits where that capture drew it,
-  so a part that grows moves its neighbours as the live page does, and no
-  words land on other words beyond what the live page has. A page has a
-  handful of scenes in the order a visitor meets them (connecting, sign in,
-  lobby, queue, match, result), each with its variants (offline; won, lost,
-  draw); two captures of the same step drawing the same parts are one. What
-  is drawn over the page rather than being a moment of it (the tour, a menu)
-  sits in its own **On top** row and goes over whichever scene is on
-  (`scenes.ts`). The shelf's States is a scenes-by-parts grid: a column per
-  scene, a row per part with states, each cell the state that scene puts
-  the part in; pressing a cell in another column swaps that part's state
-  into the scene that is on, one state per part. **Focus** (a row's
-  expand key, the step bar, or the wheel) opens one part alone at real size
-  with all its states side by side (`PartFocus.tsx`). Plain cards with a
-  name and a number; never a shrunk picture of the part.
+  picture.** A picked part with states shows them as chips in the side
+  panel, next to Focus (`StatesTimeline.tsx#PartSamples`); there is no step
+  bar on the board. A step changes only what is inside the part: a face the
+  page adds slots into the part's flow and the part grows; a screen that
+  changes the part is kept to the part. What comes in on the page as a
+  whole is a **state**, and a state exists only where the layout changes:
+  a panel comes or goes, parts move or resize (J, 2026-10-06). Screens
+  drawing the same hooks at the same boxes are one state, whatever their
+  words say; their words are **samples of data** (won, lost, draw;
+  connecting, offline), flipped by chips, never states of their own. Each
+  is drawn from its one real capture, positions and words together. States
+  come in the order a visitor meets them (connecting, lobby, queue, match,
+  result). What is drawn over the page (the tour, a menu) is a toggle
+  beside them (`scenes.ts`). The shelf's States is that strip (about 8
+  controls) and the **Panels** library: every part with states drawn alone
+  at real size, whatever state it lives in, its samples as chips; pressing
+  it picks the same part, so it is edited as on the page. **Focus** opens
+  one part alone with all its states side by side (`PartFocus.tsx`).
   `tests/part-steps.mjs`, `tests/state-frames.mjs`.
 
 ## 3. The drawing board

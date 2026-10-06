@@ -11,7 +11,7 @@ import { RemakeCard } from "../RemakePicture";
 import { ClearBackgroundCard } from "../ClearBackground";
 import { putComponent } from "../SavedComponents";
 import { RemixCard } from "../RemixCard";
-import { StatesTimeline, StepBar, useStatesTimelineOpen } from "../StatesTimeline";
+import { StatesTimeline, useStatesTimelineOpen } from "../StatesTimeline";
 import { PartFocus } from "../PartFocus";
 import { FeatureOffers } from "../WorkShelf";
 import * as React from "react";
@@ -573,12 +573,9 @@ export function StudioPage() {
             now: the board scrolls in its own area, and the categories are
             always on screen under it.
           */}
-          {/* A part's states, clicked through: docked in one strip under the
-              board, over the shelf (`StatesTimeline.tsx#StepBar`). Floating on
-              the board the bars covered its panels; docked above it, the strip
-              came and went with the pick and cut the site's top as it
-              scrolled (J, 2026-10-06). */}
-          {design ? <StepBar /> : null}
+          {/* A part's states are chips in the side panel next to Focus
+              (`StatesTimeline.tsx#PartSamples`): the step bar docked under
+              the board went (J, 2026-10-06). */}
           {/* A part alone, at real size, with every state it goes through side by side (`PartFocus.tsx`). */}
           {design ? <PartFocus /> : null}
           {design ? (

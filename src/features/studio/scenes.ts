@@ -7,12 +7,15 @@
  * matches" and "Player card"), the tour and the phone menu sat among them as
  * if they were moments of the game, and eight of them came after the draw.
  *
- * So a page's screens are read as scenes, each one capture of one moment:
+ * So a page's screens are read as scenes, each one layout of the page:
  *
- *   · a scene is a moment of the site's flow (connecting, sign in, lobby,
- *     queue, match, result), its variants the screens of that moment that
- *     draw something different (connecting, then offline; won, lost, draw);
- *   · two screens of the same step drawing the same parts are one variant,
+ *   · a scene (a state) exists only where the layout changes: a panel comes
+ *     or goes, parts move or resize (J, 2026-10-06). Screens drawing the same
+ *     hooks at the same boxes are one scene whatever their words say; its
+ *     variants are samples of its data (won, lost, draw; connecting, offline);
+ *   · a scene is named by its moment of the site's flow (connecting, sign in,
+ *     lobby, queue, match, result), in that order;
+ *   · two screens of the same layout saying the same words are one variant,
  *     the first named (the others are listed as `same`);
  *   · a screen that is not a moment of the page but something over it (the
  *     tour, a menu, a pop-up with no step) goes in its own "on top" row,
@@ -70,10 +73,36 @@ const rest = (s: ScreenRead) => (s.label || s.name).replace(/^[^:]{1,40}:\s*/, "
 const overName = (s: ScreenRead) => { const l = (s.label || s.name).trim(); const lead = /^([^:]{1,40}):/.exec(l); return (lead ? lead[1]! : l.split(/[,(]/)[0]!).trim(); };
 const sameDrawing = (a: ScreenRead, b: ScreenRead) => a.shows.length === b.shows.length && [...a.shows].sort().join(" ") === [...b.shows].sort().join(" ");
 
-/** The scenes of one page, from its screens (`pageFile` keeps the page's own; a screen naming no page is kept). */
+/**
+ * Do two captures draw the same layout? The same hooks, each at the same
+ * place and size (8px, or a tenth of its size, either way). A hook whose
+ * words differ between the two is not measured: its box is its words' (J,
+ * 2026-10-06: "different data within the same frame doesnt classify a
+ * different state").
+ */
+export function sameLayout(a: ScreenRead, b: ScreenRead): boolean {
+  if (!sameDrawing(a, b)) return false;
+  const ab = a.boxes ?? {}, bb = b.boxes ?? {};
+  const near = (p: number, q: number, size = 0) => Math.abs(p - q) <= Math.max(8, size / 10);
+  for (const h of a.shows) {
+    const p = ab[h], q = bb[h];
+    if (!p || !q || (a.texts?.[h] ?? "") !== (b.texts?.[h] ?? "")) continue;
+    if (!near(p[0], q[0]) || !near(p[1], q[1]) || !near(p[2], q[2], Math.max(p[2], q[2])) || !near(p[3], q[3], Math.max(p[3], q[3]))) return false;
+  }
+  return true;
+}
+const sameWords = (a: ScreenRead, b: ScreenRead) => (a.step ?? "") === (b.step ?? "") && JSON.stringify(a.texts ?? {}) === JSON.stringify(b.texts ?? {});
+
+/**
+ * The states of one page, from its screens (`pageFile` keeps the page's own;
+ * a screen naming no page is kept). A state is a layout: screens drawing the
+ * same parts at the same places are one state, whatever their words say, and
+ * each is a sample of its data (won, lost, draw). A state is named by the
+ * moment of its first screen, and they come in the order of the game.
+ */
 export function pageScenes(screens: readonly ScreenRead[] | null | undefined, pageFile: string | null): PageScenes {
   const mine = (screens ?? []).filter((s) => !pageFile || !s.page || s.page === pageFile);
-  const scenes: (Scene & { rank: number })[] = [];
+  const scenes: (Scene & { rank: number; moment: string })[] = [];
   const onTop: SceneVariant[] = [];
   mine.forEach((s, at) => {
     /* The site's word for the moment first; a screen with none is known by its name and label. */
@@ -84,19 +113,20 @@ export function pageScenes(screens: readonly ScreenRead[] | null | undefined, pa
       else onTop.push({ screen: s, label: overName(s), key: topKey(s.name), same: [] });
       return;
     }
-    const key = m?.key ?? `step:${plain(s.step || s.name)}`;
-    let scene = scenes.find((x) => x.key === key);
+    /* The same layout is the same state, whichever moment it was captured at. */
+    let scene = scenes.find((x) => sameLayout(x.variants[0]!.screen, s));
     if (!scene) {
+      const moment = m?.key ?? `step:${plain(s.step || s.name)}`;
       const name = m?.name ?? (s.step ? s.step.charAt(0).toUpperCase() + s.step.slice(1) : rest(s));
-      scene = { key, name, variants: [], rank: m ? MOMENTS.indexOf(m) : 100 + at };
+      scene = { key: moment, moment, name, variants: [], rank: m ? MOMENTS.indexOf(m) : 100 + at };
       scenes.push(scene);
     }
-    /* The same step drawing the same parts is the same variant: the first is kept. */
-    const twin = scene.variants.find((v) => (v.screen.step ?? "") === (s.step ?? "") && sameDrawing(v.screen, s));
+    /* The same words in the same layout is the same capture taken twice: the first is kept. */
+    const twin = scene.variants.find((v) => sameWords(v.screen, s));
     if (twin) { twin.same.push(s.name); return; }
     scene.variants.push({ screen: s, label: "", key: screenKey(s.name), same: [] });
   });
-  /* Each variant named by its step where that tells it from the others, else by its label. */
+  /* Each sample named by its step where that tells it from the others, else by its label. */
   for (const sc of scenes) {
     const steps = sc.variants.map((v) => v.screen.step ?? "");
     for (const v of sc.variants) {
@@ -105,7 +135,15 @@ export function pageScenes(screens: readonly ScreenRead[] | null | undefined, pa
     }
   }
   scenes.sort((a, b) => a.rank - b.rank);
-  return { scenes: scenes.map(({ rank: _rank, ...s }) => s), onTop };
+  /* Two layouts of one moment (the match starting, then live): each keyed and named apart by its first sample. */
+  for (const sc of scenes) {
+    const twins = scenes.filter((x) => x.moment === sc.moment);
+    if (twins.length < 2) continue;
+    const n = twins.indexOf(sc);
+    if (n > 0) sc.key = `${sc.moment}-${n + 1}`;
+    sc.name = `${sc.name}: ${sc.variants[0]!.label}`;
+  }
+  return { scenes: scenes.map(({ rank: _rank, moment: _moment, ...s }) => s), onTop };
 }
 
 /** Every variant, scenes in order then the ones on top. */

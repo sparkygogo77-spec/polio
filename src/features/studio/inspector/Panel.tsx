@@ -43,6 +43,7 @@ import { VERSION_ONLY, GLYPHS, OptionRange, OptionSet, WordsField, PictureField,
 import { PageSummary, CodeLink, CodeView } from "./codeView";
 import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { Faces, Solid, LinkField } from "./solid";
+import { PartSamples } from "../StatesTimeline";
 
 export function Inspector() {
   const selection = useStudio((s) => s.selection);
@@ -438,6 +439,8 @@ export function Inspector() {
           </Tooltip>
         </div>
         {node.source ? <CodeLink node={node} /> : null}
+        {/* A part that goes through states: its samples of data, next to Focus (`StatesTimeline.tsx#PartSamples`). */}
+        <PartSamples nodeId={node.id} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
