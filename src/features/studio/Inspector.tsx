@@ -8,7 +8,7 @@ import { isKeptVersion, openRemake, PictureVersions } from "./RemakePicture";
 import * as React from "react";
 import { LookFields, lookCount } from "./LookFields";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Paintbrush, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, ChevronRight, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { BACKGROUND_ID, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
@@ -57,6 +57,7 @@ import { PartEffects, SaveAsComponent, offeredIds } from "./PartEffects";
 import { usesOf } from "./library/works";
 import { LookCopy } from "./LookCopy";
 import { MakeAllLike } from "./MakeAllLike";
+import { codePlaced, panelFits, scriptCount } from "./partKind";
 import { KitStyles } from "./KitStyles";
 import { RemixKept } from "./RemixCard";
 
@@ -300,6 +301,8 @@ const featureName = (id: string) => getFeature(id)?.name;
 const TEXTY = new Set(["prose", "eyebrow-rule", "highlight", "heading-scale", "fluid-type"]);
 /** Options that mean nothing on a control's label: a label is one line. */
 const LABEL_HIDES = new Set(["measure"]);
+/** A feature option that is the part's look ("Look": solid, outline, ghost), shown in the Look section, not under Content. */
+const isLookOption = (o: FeatureOption) => /^(variant|look|style|tone|theme)$/i.test(o.id) || /^look$/i.test(o.label);
 const insideLink = (n: StudioNode) => /(^|>)\s*a(\b|[.:#[])/.test(n.from?.selector ?? "") || /computes it as an? link/i.test(n.prompt) || (!!n.link && !/(^|>)\s*button\b/.test(n.from?.selector ?? ""));
 
 /**
@@ -894,6 +897,13 @@ export function Inspector() {
   const control = !node.worn && (kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId));
   const decision = openDecisions.find((d) => d.id === node.id) ?? null;
   const featureOptions = feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))) ?? [];
+  const contentOptions = featureOptions.filter((o) => !isLookOption(o));
+  const lookOptions = featureOptions.filter(isLookOption);
+  /* Only the sections that mean something on this kind of part (`partKind.ts#panelFits`). */
+  const fits = panelFits({ kind, label: isLabel, brought: !!(node.source || node.from), glyph: node.glyph ?? null, picture: !!node.picture || feature?.id === "picture" || kind === "Picture" });
+  /* The page's code sets where it sits: typing a place here would be undone when the code runs. */
+  const placedByCode = codePlaced(node.source?.code);
+  const nowhere = decision?.why === "nowhere";
   /*
    * Typing a number into X, Y, W or H is his hand on the box exactly as a
    * drag is, so it marks the part his and the healing leaves it alone from
@@ -904,6 +914,19 @@ export function Inspector() {
     const movesTheBox = patch && ("x" in patch || "y" in patch || "w" in patch || "h" in patch);
     useStudio.getState().updateNode(node.id, movesTheBox && !node.byHand ? { ...patch, byHand: true, handFrom: { x: node.x, y: node.y, w: node.w, h: node.h } } : patch);
   };
+
+  const optionField = (opt: FeatureOption) =>
+    opt.kind === "set" ? (
+      <OptionSet key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
+    ) : opt.kind === "range" ? (
+      <OptionRange key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
+    ) : (
+      <div key={opt.id} className="flex items-center justify-between gap-2">
+        <span className="text-plain text-fg">{opt.label}</span>
+        <Select className="w-32" value={node.options[opt.id] ?? opt.values[0]!} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
+          options={opt.values.map((v) => ({ value: v, label: v }))} aria-label={opt.label} />
+      </div>
+    );
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-part-panel={node.id}>
@@ -939,11 +962,12 @@ export function Inspector() {
               <span className="mt-px shrink-0 font-bold" style={{ color: "oklch(0.74 0.18 55)" }}>!</span>
               <span>This is {decisionSays(decision.why, kind)}.</span>
             </p>
-            {decision.why === "nowhere" ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-small text-fg-muted">Choose it under Links to, below, or:</span>
-                <Button size="xs" variant="outline" data-nowhere-on-purpose="" onClick={() => { play("confirm"); update({ nowhere: true }); }}>It goes nowhere, on purpose</Button>
-              </div>
+            {/* Said once, here, with its fix: where it leads, or that it stays unlinked on purpose. */}
+            {nowhere ? (
+              <>
+                <LinkField node={node} />
+                <Button size="xs" variant="outline" data-nowhere-on-purpose="" onClick={() => { play("confirm"); update({ nowhere: true }); }}>Leave it unlinked, on purpose</Button>
+              </>
             ) : null}
           </div>
         ) : null}
@@ -971,8 +995,8 @@ export function Inspector() {
           ) : feature?.content && !node.worn ? (
             <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} />
           ) : null}
-          {/* While it goes nowhere, the box at the top is where it is decided; the other half, saying what it should do, stays here. */}
-          {control || decision?.why === "nowhere" ? <LinkField node={node} /> : null}
+          {/* While it goes nowhere, the box at the top holds where it leads, so it is not asked twice. */}
+          {control && !nowhere ? <LinkField node={node} /> : null}
           {node.worn ? <WornWords node={node} /> : null}
           {!node.worn && (node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node)) ? <PictureField node={node} /> : null}
           <WorkFields node={node} pick={(id) => !effectIds.has(id)} />
@@ -981,44 +1005,22 @@ export function Inspector() {
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
           {/* The shelf item's versions, read off the item's data (`partOptions.ts`): switching one swaps the part that draws. */}
           <PartFields node={node} only={VERSION_ONLY} />
-          {featureOptions.length ? (
+          {contentOptions.length ? (
             <div className="space-y-2">
               <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
-              {featureOptions.map((opt) =>
-                opt.kind === "set" ? (
-                  <OptionSet key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
-                ) : opt.kind === "range" ? (
-                  <OptionRange key={opt.id} option={opt} value={node.options[opt.id]} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })} />
-                ) : (
-                  <div key={opt.id} className="flex items-center justify-between gap-2">
-                    <span className="text-plain text-fg">{opt.label}</span>
-                    <Select className="w-32" value={node.options[opt.id] ?? opt.values[0]!} onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                      options={opt.values.map((v) => ({ value: v, label: v }))} aria-label={opt.label} />
-                  </div>
-                ),
-              )}
+              {contentOptions.map(optionField)}
             </div>
           ) : null}
         </PanelSection>
 
-        {node.source?.look?.length ? (
-          <p className="px-3 pb-1 text-small text-fg-muted" data-look-from-capture="">
-            Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it; edit it under Page look.
-          </p>
-        ) : null}
-
-        {/* Everything else it wears, as CSS, one slot each (`LookFields.tsx`); closed until opened, as an advanced option is. */}
-        <PanelSection id="page-look" title="Page look" icon={<Paintbrush />} note={`${lookCount(node)} set`} defaultOpen={false}>
-          <LookFields node={node} />
-        </PanelSection>
-
-        {node.source?.code ? (
-          <PanelSection id="code" title="Code" icon={<Code2 />} note={`${node.source.code.refs.length} in scripts`}>
-            <CodeView node={node} />
-          </PanelSection>
-        ) : null}
-
-        <PanelSection id="place" title="Position and size" icon={<Frame />} note={`${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% wide`}>
+        <PanelSection id="place" title="Position and size" icon={<Frame />} note={placedByCode ? "set by its code" : `${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% wide`}>
+          {placedByCode ? (
+            <p data-place-by-code="" className="flex items-start gap-1.5 text-small leading-snug text-fg-muted">
+              <Lock className="mt-0.5 size-3 shrink-0" />
+              <span>The page&apos;s code sets where this sits, so it is locked here. Ask the code chat under Filled by code to move it.</span>
+            </p>
+          ) : null}
+          <fieldset disabled={placedByCode} data-place-locked={placedByCode ? "" : undefined} className="m-0 min-w-0 space-y-1.5 border-0 p-0 disabled:opacity-60">
           <div className="grid grid-cols-2 gap-1.5" data-place="">
             {(["x", "y", "w", "h"] as const).map((k) => {
               const word = k === "w" ? "Width" : k === "h" ? "Height" : k === "x" ? "Across" : "Down";
@@ -1056,6 +1058,7 @@ export function Inspector() {
               <Button size="xs" variant="outline" className="flex-1" aria-label="Flush right" onClick={() => update({ x: frameWidth - node.w })}><AlignRight /></Button>
             </Tooltip>
           </div>
+          </fieldset>
         </PanelSection>
 
         <PanelSection id="look" title="Look" icon={<PaletteIcon />} note={node.worn ? node.worn.kit.name : node.colour && Object.keys(node.colour).length ? "own colours" : undefined}>
@@ -1066,14 +1069,9 @@ export function Inspector() {
               <ComponentFields comp={comp} nodes={nodes} />
             </div>
           ) : null}
+          {lookOptions.length ? <div className="space-y-2" data-look-options="">{lookOptions.map(optionField)}</div> : null}
           <RemixKept nodes={[node]} />
           <LookCopy node={node} targets={[node.id]} />
-          <Field label="Styles" hint="This site's own styles. Point at one to see it on the part; click to put it on.">
-            <KitStyles node={node} />
-          </Field>
-          <Field label="Make all like this" hint="Every part of this kind on the site, restyled to match, in one step.">
-            <MakeAllLike node={node} />
-          </Field>
           {/* A shape drawn wearing a style kit: its colour, style, lighting bar and outline (`DrawKits.tsx`). */}
           {node.worn ? <WornLook node={node} /> : null}
           {node.worn ? null : <>
@@ -1086,7 +1084,7 @@ export function Inspector() {
             <Segmented size="xs" value={node.shape ?? "box"} onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
               options={NODE_SHAPES.map((v) => ({ value: v, label: v }))} />
           </Field>
-          <Field label="Mark" hint="Give a new idea its own mark so you can spot it on the board.">
+          {fits.mark ? <Field label="Mark" hint="Give a new idea its own mark so you can spot it on the board.">
             <div className="flex flex-wrap gap-1">
               <button type="button" onClick={() => update({ glyph: null })} className={cn("tactile size-6 rounded-sm border text-small", node.glyph === null ? "border-accent" : "border-border")}>
                 <PaletteIcon className="mx-auto size-3" />
@@ -1095,24 +1093,44 @@ export function Inspector() {
                 <button key={g} type="button" onClick={() => update({ glyph: g })} className={cn("tactile size-6 rounded-sm border text-xs", node.glyph === g ? "border-accent" : "border-border")}>{g}</button>
               ))}
             </div>
-          </Field>
+          </Field> : null}
           </>}
+          {/* The rest of the look, folded: the site's styles, making every part of its kind match, and every CSS slot it wears. */}
+          <Fold id="look-styles" title="Styles from your sites">
+            <p className="text-small leading-snug text-fg-muted">Point at one to see it on the part; click to put it on.</p>
+            <KitStyles node={node} />
+          </Fold>
+          <Fold id="look-make-all" title="Make all like this">
+            <p className="text-small leading-snug text-fg-muted">Every part of this kind on the site, restyled to match, in one step.</p>
+            <MakeAllLike node={node} />
+          </Fold>
+          {/* Everything else it wears, as CSS, one slot each (`LookFields.tsx`). */}
+          <Fold id="look-css" title="Every CSS slot" note={`${lookCount(node)} set`}>
+            {node.source?.look?.length ? (
+              <p className="text-small text-fg-muted" data-look-from-capture="">Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it.</p>
+            ) : null}
+            <LookFields node={node} />
+          </Fold>
         </PanelSection>
 
-        <PanelSection id="motion" title="Motion" icon={<Play />} note={node.worn?.motion?.name}>
+        {/* MOTION: how it moves, and the effects that fit this kind of part, plain or as a site had them (PartEffects.tsx). */}
+        <PanelSection id="motion" title="Motion" icon={<Play />} note={node.worn?.motion?.name ?? (effectsOn ? `${effectsOn} ${effectsOn === 1 ? "effect" : "effects"} on` : undefined)}>
           {node.worn ? <WornMotion node={node} /> : <PartMotions node={node} />}
-        </PanelSection>
-
-        {/* EFFECTS: the ones that fit this kind of part, plain or as a site had them, with their settings (PartEffects.tsx). */}
-        <PanelSection id="effects" title="Effects" icon={<Sparkles />} note={effectsOn ? `${effectsOn} on` : undefined}>
           <PartEffects node={node} kind={kind} nodes={nodes} />
         </PanelSection>
+
+        {/* CODE, one line until opened: what the page's scripts do with it, and asking the code chat. */}
+        {node.source?.code ? (
+          <PanelSection id="code" title="Filled by code" icon={<Code2 />} note={`${scriptCount(node.source.code)} ${scriptCount(node.source.code) === 1 ? "script" : "scripts"}`} defaultOpen={false}>
+            <CodeView node={node} />
+          </PanelSection>
+        ) : null}
 
         <PanelSection id="save-component" title="Save as a component" icon={<Bookmark />} defaultOpen={false}>
           <SaveAsComponent node={node} kind={kind} />
         </PanelSection>
 
-        <PanelSection id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>
+        {fits.prompt ? <PanelSection id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>
           <Field label="Prompt for this part" hint="Mention the parts beside it by name and the builder will keep them together.">
             {/* Where a captured part came from, said the way a person would: the
                 site and the section, never the element path the capture used to
@@ -1152,13 +1170,18 @@ export function Inspector() {
               {cat ? <span className="text-fg-faint"> ({cat.label})</span> : null}
             </p>
           ) : null}
-        </PanelSection>
+        </PanelSection> : (
+          /* A button says what it does where its link is: only its name is asked here. */
+          <PanelSection id="name" title="Name" icon={<Pencil />} defaultOpen={false} note={isMachineLabel(node.label) ? undefined : node.label}>
+            <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
+          </PanelSection>
+        )}
 
         {/* MAKE A PICTURE, closed. Where a picture of this part is sent: the
             model and its settings, for the one time in many a part is handed
             to a picture model. The drawing tool itself is the Pictures tab
             (PicturesPanel.tsx), which draws for this part while it is picked. */}
-        <PanelSection id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
+        {fits.picture ? <PanelSection id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
           <Button variant="outline" size="xs" data-open-pictures="" onClick={() => { play("open"); useStudio.getState().want({ panel: "pictures" }); }}>
             <Sparkles className="size-3" /> Draw one in Pictures
           </Button>
@@ -1167,7 +1190,7 @@ export function Inspector() {
               <AuditPanel node={node} />
             </Field>
           </div>
-        </PanelSection>
+        </PanelSection> : null}
       </div>
     </div>
   );
@@ -1255,7 +1278,7 @@ function PartMotions({ node }: { node: StudioNode }) {
   }
   return (
     <div className="space-y-1" data-part-motions="">
-      {rows.map((r) => <MoveRowView key={r.key} row={r} selected note={note?.key === r.key ? note.says : null} onNote={(says) => setNote(says ? { key: r.key, says } : null)} />)}
+      {rows.map((r) => <MoveRowView key={r.key} row={r} selected here note={note?.key === r.key ? note.says : null} onNote={(says) => setNote(says ? { key: r.key, says } : null)} />)}
     </div>
   );
 }
@@ -1590,7 +1613,7 @@ function LinkField({ node }: { node: StudioNode }) {
         value={value}
         onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : v === "node" ? undefined : v.startsWith("node:") ? set({ kind: "node", target: v.slice(5) }) : set({ kind: "page", target: v.slice(5) }))}
         options={[
-          { value: "none", label: "Nowhere" },
+          { value: "none", label: node.nowhere ? "Nowhere, on purpose" : "Not linked yet" },
           ...pages.map((p) => ({ value: `page:${p.id}`, label: `${p.name}  ${p.path}` })),
           ...sections.map((n) => ({ value: `node:${n.id}`, label: `Section: ${partName(n, nodesHere, featureName).replace(/^Section\s+/, "")}` })),
           { value: "url", label: "Web address…" },

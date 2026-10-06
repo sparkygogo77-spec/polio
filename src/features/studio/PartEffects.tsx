@@ -4,7 +4,7 @@
  *
  * When a part is clicked its panel offers the effects that fit its kind
  * (`library/partEffects.ts`): a picture its filters, a button its hover and
- * press and the button looks every site taught, a section its background
+ * press (the looks every site taught are under Look, `KitStyles.tsx`), a section its background
  * motions, any part the openings. Each comes plain or as a site had it (the
  * site's version, from the board or the learned library), and once on, its
  * settings are right here. They are library features, so the published page
@@ -18,15 +18,14 @@ import * as React from "react";
 import { Bookmark, Check } from "lucide-react";
 import { useStudio, type StudioNode } from "./store";
 import { getWork, usesOf, withWork, withoutWork } from "./library/works";
-import { effectsFor, familyOf, kitPatch } from "./library/partEffects";
+import { effectsFor, familyOf } from "./library/partEffects";
 import { componentOf } from "./library/components";
 import { useLearned } from "./library/useLearned";
 import { useSiteVersions } from "./ShelfCards";
-import { useBoardKits, KitSample } from "./DrawKits";
 import { WorkFields } from "./WorkFields";
 import { CATEGORIES, getFeature } from "./catalog";
 import { partName } from "./partNames";
-import { siteShortName, type StyleKit } from "./styleKits";
+import { siteShortName } from "./styleKits";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
@@ -92,41 +91,6 @@ export function PartEffects({ node, kind, nodes }: { node: StudioNode; kind: str
       </ul>
       {/* Every effect on it, with its settings, here where it was added; the Content section keeps the rest. */}
       <WorkFields node={node} pick={(id) => ids.has(id)} title="Its effects" />
-      {fam === "button" ? <ButtonLooks node={node} /> : null}
-    </div>
-  );
-}
-
-/** The button looks the sites taught, put on this button: its colours, edge, corners, and its hover and press. */
-function ButtonLooks({ node }: { node: StudioNode }) {
-  const { here, elsewhere } = useBoardKits(true);
-  const kits: StyleKit[] = [...here, ...elsewhere.flatMap((e) => e.kits)].filter((k) => k.role === "button" || k.role === "badge").slice(0, 12);
-  if (!kits.length) return null;
-  const wear = (kit: StyleKit) => {
-    const p = kitPatch(kit);
-    let work = node.work ?? null;
-    for (const w of p.works) work = withWork(work, w);
-    useStudio.getState().updateNode(node.id, {
-      colour: { ...(node.colour ?? {}), ...p.colour } as StudioNode["colour"],
-      art: { ...(node.art ?? {}), ...p.art },
-      edge: p.edge ? { ...(node.edge ?? {}), ...p.edge } : node.edge ?? null,
-      radius: p.radius,
-      work,
-    });
-    play("confirm");
-  };
-  return (
-    <div data-button-looks="" className="space-y-1">
-      <span className="block text-small font-medium uppercase tracking-wider text-fg-faint">Button looks from your sites</span>
-      <div className="flex flex-wrap gap-1.5">
-        {kits.map((k) => (
-          <button key={`${k.host}-${k.id}`} type="button" data-button-look={k.id} title={k.name} onClick={() => wear(k)}
-            className="tactile flex flex-col items-center gap-0.5 rounded-sm border border-border p-1 hover:border-accent">
-            <KitSample kit={k} w={56} h={24} />
-            <span className="max-w-[64px] truncate text-fine text-fg-muted">{k.name}</span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

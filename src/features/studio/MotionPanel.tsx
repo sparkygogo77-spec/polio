@@ -403,7 +403,7 @@ function speedText(v: number | string, unit: string): string {
   return `${n} ${UNIT_WORDS[unit] ?? unit}`;
 }
 
-export function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; selected: boolean; note: string | null; onNote: (says: string | null) => void }) {
+export function MoveRowView({ row, selected, here, note, onNote }: { row: MoveRow; selected: boolean; here?: boolean; note: string | null; onNote: (says: string | null) => void }) {
   const sp = row.speed;
   /* The slider follows the hand from here; the part is written once, where the hand lets go: one undo step. */
   const [drag, setDrag] = React.useState<number | null>(null);
@@ -416,16 +416,23 @@ export function MoveRowView({ row, selected, note, onNote }: { row: MoveRow; sel
       className={cn("space-y-1 rounded-md border p-1", selected ? "border-accent/60 bg-accent-soft/40" : "border-border", row.off && "opacity-60")}
     >
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          data-move-go=""
-          onClick={() => { play("tap"); goTo(row.nodeId); }}
-          className="tactile min-h-6 min-w-0 flex-1 rounded-sm px-1 text-left hover:bg-hover"
-          title="Select it and show it on the board"
-        >
-          <span className="block truncate text-small text-fg">{row.name}</span>
-          <span className="block truncate text-fine text-fg-faint">{row.what}{row.off ? ", turned off" : ""}</span>
-        </button>
+        {/* In the part's own panel the part is already picked: the row says what moves, it is not a way to it. */}
+        {here ? (
+          <span className="min-h-6 min-w-0 flex-1 px-1">
+            <span className="block truncate text-small text-fg">{row.what}{row.off ? ", turned off" : ""}</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            data-move-go=""
+            onClick={() => { play("tap"); goTo(row.nodeId); }}
+            className="tactile min-h-6 min-w-0 flex-1 rounded-sm px-1 text-left hover:bg-hover"
+            title="Select it and show it on the board"
+          >
+            <span className="block truncate text-small text-fg">{row.name}</span>
+            <span className="block truncate text-fine text-fg-faint">{row.what}{row.off ? ", turned off" : ""}</span>
+          </button>
+        )}
         <Button
           size="iconXs"
           variant="ghost"

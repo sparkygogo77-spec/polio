@@ -18,8 +18,10 @@
  *      pressing it picks it, brings it into view and opens its panel; a part
  *      picked on the board is lit in the tree.
  *   3  A PART'S OWN PANEL: a breadcrumb with a way back, the name and kind,
- *      then Content, Position and size, Look, Motion, then the prompt and
- *      Make a picture folded. A link's words are its label's, editable
+ *      then Content, Position and size, one Look (the site's styles, Make
+ *      all like this and every CSS slot folded inside it), one Motion (its
+ *      effects with it), then the prompt folded; only sections that fit
+ *      the part (no Make a picture or mark on a link). A link's words are its label's, editable
  *      there, and so is where it leads. Sections fold and remember it. The
  *      prompt line says the name once; no jargon line under it.
  *   4  LOOKS: the panel starts about 300px wide and every tab says its
@@ -188,8 +190,10 @@ const crumbs = (await panel.locator("[data-crumbs]").innerText()).replace(/\s+/g
 check("3 a breadcrumb from the page to the link", /^Home\b.*Section.*Link$/.test(crumbs), crumbs);
 check("3 the name and kind", (await panel.locator("[data-element-name]").innerText()) === "Link “BUY ON PUMP.FUN”" && (await panel.locator("[data-element-kind]").innerText()) === "Link");
 const secs = await panel.locator("[data-part-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part-section")));
-check("3 sections: Content, Page look, Position and size, Look, Motion, Effects, Save as a component, Prompt, Make a picture", secs.join(",") === "content,page-look,place,look,motion,effects,save-component,prompt,make-picture", secs.join(","));
-check("3 …the prompt and Make a picture folded", (await panel.locator('[data-part-section="prompt"][data-open]').count()) === 0 && (await panel.locator('[data-part-section="make-picture"][data-open]').count()) === 0);
+check("3 sections: Content, Position and size, one Look, one Motion, Save as a component, Prompt; no Make a picture on a link", secs.join(",") === "content,place,look,motion,save-component,prompt", secs.join(","));
+check("3 …the prompt folded", (await panel.locator('[data-part-section="prompt"][data-open]').count()) === 0);
+check("3 Look holds the site's styles, Make all like this and every CSS slot, folded", (await panel.locator('[data-part-section="look"] [data-fold="look-styles"]').count()) === 1 && (await panel.locator('[data-part-section="look"] [data-fold="look-make-all"]').count()) === 1 && (await panel.locator('[data-part-section="look"] [data-fold="look-css"]').count()) === 1 && (await panel.locator('[data-part-section="look"] details[open]').count()) === 0);
+check("3 no mark picker on a link brought in from a site", !(await panel.innerText()).includes("Give a new idea its own mark"));
 const wordsBox = panel.getByLabel("Words");
 check("3 the link's words are there to edit, from the label inside it", (await wordsBox.inputValue()) === "BUY ON PUMP.FUN", await wordsBox.inputValue());
 check("3 …and where it leads", (await panel.locator("[data-link-field]").count()) === 1 && (await panel.getByLabel("Web address").inputValue()).startsWith("https://pump.fun/"));
@@ -256,6 +260,7 @@ const c = listed[2];
 await list.locator(`[data-behind-row="${c}"] [data-behind-go]`).click();
 await wait(900);
 check("5 pressing a row opens that part's own panel, with the decision at the top", (await side.locator(`[data-part-panel="${c}"] [data-part-decision="nowhere"]`).count()) === 1);
+check("5 …said once, with where it leads inside it and no second Links to below", (await side.locator(`[data-part-panel="${c}"] [data-link-field]`).count()) === 1 && (await side.locator(`[data-part-panel="${c}"] [data-part-decision] [data-link-field]`).count()) === 1 && ((await side.locator(`[data-part-panel="${c}"]`).innerText()).match(/goes nowhere/g) ?? []).length === 1);
 await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
 await wait(400);
 const d = listed[3];
