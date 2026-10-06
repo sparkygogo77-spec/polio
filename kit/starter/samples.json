@@ -1,7 +1,32 @@
 {
   "about": "Sample values for text a script fills in, by hook. The builder shows them as sample chips. Data is not a state (BUILDER-RULES.md, rule 15).",
   "hooks": {
-    "modal-text": ["One short note when something new ships.", "Thanks, you are on the list."],
-    "footer-year": ["2026"]
+    "modal-text": [
+      "One short note when something new ships.",
+      "Thanks, you are on the list."
+    ],
+    "footer-year": [
+      "2026"
+    ],
+    "scoreboard-name": [
+      "You",
+      "Them",
+      "Team blue"
+    ],
+    "scoreboard-score": [
+      "+12.40",
+      "-3.75",
+      "0.00"
+    ],
+    "countdown-time": [
+      "1:00",
+      "0:08",
+      "0:00"
+    ],
+    "screen-message": [
+      "Nothing on yet.",
+      "Tuning in\u2026",
+      "Lost the signal."
+    ]
   }
 }

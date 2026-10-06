@@ -13,6 +13,7 @@ chat working there follows the contract without being told.
 | `tools/kit-check.mjs` | The checker: builds `hooks.json`, fails on any broken rule. No dependencies |
 | `.github/workflows/kit-check.yml` | Runs the check and tests on every push and pull request |
 | `starter/` | A small sample site built to the contract: home (with a modal), about, a form, a list drawn by script, plus `preview.html`, `gallery.html`, `tokens.css`, an empty `style-layer.css` and `hooks.json` |
+| `starter/game.html`, `starter/parts/`, `starter/parts.json` | Ready-made game parts from PonsStars, made general: scoreboard, buy and sell grid, countdown, TV screen, duel circles (rule 28). `kit:part` adds one to a site |
 | `test/` | Tests: the check passes on `starter/` and fails on each purpose-broken fixture |
 | `PIPELINE.md` | Who does what, with which command, from a new site to the builder and back, either way round; a new-site checklist and a first prompt for a code chat |
 | `tools/new-site.mjs`, `tools/kit-diff.mjs` | `kit:new` starts a new site from this kit; `kit:diff` checks a branch against the one it merges into |
@@ -23,6 +24,7 @@ npm run kit:check   # check everything builder.json lists
 npm run kit:hooks   # rewrite hooks.json from the code
 npm run kit:diff -- --base origin/main   # no hook the design uses was dropped (--style-only for the builder's design)
 npm run kit:new -- ../my-site --name "My site"   # start a new site from this kit
+npm run kit:part -- scoreboard ../my-site          # add a ready-made game part to a site
 npm test            # kit tests
 npm run serve       # then open http://localhost:8080/starter/preview.html
 ```

@@ -8,6 +8,11 @@
     { "name": "list-empty", "label": "List: nothing yet", "page": "starter/list.html", "screen": "list-empty", "panels": { "list-empty": "on" } },
     { "name": "contact", "label": "Contact", "page": "starter/contact.html", "screen": "contact", "panels": { "contact-form": "on" } },
     { "name": "contact-errors", "label": "Contact: both fields wrong", "page": "starter/contact.html", "screen": "contact-errors", "panels": { "contact-form": "on", "name-error": "on", "email-error": "on" } },
-    { "name": "contact-sent", "label": "Contact: note sent", "page": "starter/contact.html", "screen": "contact-sent", "panels": { "form-sent": "on" } }
+    { "name": "contact-sent", "label": "Contact: note sent", "page": "starter/contact.html", "screen": "contact-sent", "panels": { "form-sent": "on" } },
+    { "name": "game", "label": "Game parts: waiting", "page": "starter/game.html", "screen": "game", "panels": { "screen": "idle", "markers": "idle", "countdown": "idle", "scoreboard": "idle", "action-grid": "idle" } },
+    { "name": "game-loading", "label": "Game parts: tuning in", "page": "starter/game.html", "screen": "game-loading", "panels": { "screen": "loading", "markers": "idle", "countdown": "idle", "scoreboard": "idle", "action-grid": "idle" } },
+    { "name": "game-live", "label": "Game parts: live", "page": "starter/game.html", "screen": "game-live", "panels": { "screen": "live", "markers": "live", "countdown": "live", "scoreboard": "live", "action-grid": "live" } },
+    { "name": "game-warning", "label": "Game parts: last seconds", "page": "starter/game.html", "screen": "game-warning", "panels": { "screen": "live", "markers": "live", "countdown": "warning", "scoreboard": "live", "action-grid": "live" } },
+    { "name": "game-done", "label": "Game parts: time's up", "page": "starter/game.html", "screen": "game-done", "panels": { "screen": "live", "markers": "live", "countdown": "done", "scoreboard": "done", "action-grid": "done" } }
   ]
 }

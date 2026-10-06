@@ -33,6 +33,11 @@ export function setState(name, state) {
   for (const root of document.querySelectorAll(`[data-panel="${name}"]`)) root.dataset.state = state;
 }
 
+/** The state a panel is in now. */
+export function stateOf(name) {
+  return document.querySelector(`[data-panel="${name}"]`)?.dataset.state ?? '';
+}
+
 /** A two-state panel (data-states="off on"): on or off. */
 export const setOn = (name, on) => setState(name, on ? 'on' : 'off');
 

@@ -52,7 +52,7 @@ export interface KitSlot {
   token: string;
   hook: string;
   label: string;
-  kind?: "colour" | "length" | "number" | "text" | "choice" | "shadow" | "filter" | "time" | "any";
+  kind?: "colour" | "length" | "number" | "text" | "choice" | "shadow" | "filter" | "time" | "sound" | "key" | "format" | "line" | "any";
   options?: string[];
   why?: string;
 }
