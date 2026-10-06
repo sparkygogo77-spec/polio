@@ -380,6 +380,14 @@ function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBo
       out.set(n.id, { ...at, y: at.y + dy });
     }
   }
+  /* A window-wide overlay (the tour's dimmed screen) shades the whole page, not just the window it was read in: its own box reaches from the page's top to its foot, what it holds stays put (J, 2026-10-06). */
+  const left = Math.min(...flow.map((n) => box(n).x)), right = Math.max(...flow.map((n) => box(n).x + box(n).w));
+  const top = Math.min(...flow.map((n) => box(n).y));
+  for (const r of roots) {
+    const b = box(r);
+    if (b.w < (right - left) * 0.9 || foot - top <= b.h) continue;
+    out.set(r.id, { ...b, y: top, h: foot - top });
+  }
 }
 const contains = (o: PlaceBox, n: PlaceBox) => n.x >= o.x - 1 && n.y >= o.y - 1 && n.x + n.w <= o.x + o.w + 1 && n.y + n.h <= o.y + o.h + 1;
 

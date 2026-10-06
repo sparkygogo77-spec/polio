@@ -24,7 +24,8 @@
  *      as it grew, what holds it growing with it;
  *   4b. a step shows its own words and chart ("You lost.", FINAL); a part
  *      the page hides (the match panel) has steps only where it is drawn;
- *      an overlay pinned to the window (the tour) is kept on the page;
+ *      an overlay pinned to the window (the tour) is kept on the page, and a
+ *      window-wide one shades the whole page;
  *
  *   node tests/match-flow-steps.mjs
  *
@@ -132,7 +133,9 @@ const tourNodes = [
 const tour = { name: "tour", label: "Tour", page: "web/index.html", shows: ["app", "nav", "intro", "foot", "tour", "tour-card"], boxes: { app: [0, 0, 1000, 1000], nav: [0, 0, 1000, 40], intro: [0, 50, 1000, 40], foot: [0, 940, 1000, 60], tour: [0, 900, 1000, 600], "tour-card": [300, 1100, 400, 300] } };
 const tp = screenPlaces(tourNodes, ["screen:tour"], [tour], () => "p", () => true);
 const cardAt = tp.get("card") ?? tourNodes[2], shadeAt = tp.get("shade") ?? tourNodes[1];
-check("the tour, read where the window had scrolled, is drawn on the page, not under it", shadeAt.y + shadeAt.h <= 1000 && cardAt.y + cardAt.h <= 1000 && cardAt.y - shadeAt.y === 200, JSON.stringify({ shadeAt, cardAt }));
+check("the tour, read where the window had scrolled, is drawn on the page, not under it", shadeAt.y + shadeAt.h <= 1000 && cardAt.y + cardAt.h <= 1000 && cardAt.y === 600, JSON.stringify({ shadeAt, cardAt }));
+/* J (2026-10-06): the tour's dim stopped at the top of the window it was read in; a window-wide overlay shades the whole page. */
+check("a window-wide overlay shades the whole page, top to foot", shadeAt.y === 0 && shadeAt.h === 1000 && shadeAt.w === 1000, JSON.stringify(shadeAt));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
