@@ -9,7 +9,7 @@
  * that part on the board.
  */
 import * as React from "react";
-import { Eye, GripHorizontal, Maximize2, Minimize2, Smartphone, Tablet } from "lucide-react";
+import { EyeOff, GripHorizontal, Maximize2, Minimize2, Smartphone, Tablet } from "lucide-react";
 import { activePage, useHeldStudio, useStudio } from "./store";
 import { DEVICE_WIDTH } from "./live/layout";
 import { LiveSite } from "./live/LiveSite";
@@ -37,7 +37,7 @@ export function PreviewWindow() {
   // A document that arrived without one (a published site, a thread the
   // board stood back on) leaves this null; the window simply is not there.
   const companion = useHeldStudio((s) => s.companion);
-  const { device, x, y, open } = companion ?? { device: "phone" as const, x: 0, y: 0, open: false };
+  const { device, x, y, open, hidden, placed } = companion ?? { device: "phone" as const, x: 0, y: 0, open: false, hidden: false, placed: false };
   const set = useHeldStudio((s) => s.setCompanion);
 
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === activeId), [nodes, activeId]);
@@ -112,6 +112,7 @@ export function PreviewWindow() {
       const left = e.clientX - drag.dx - p.left;
       const top = e.clientY - drag.dy - p.top;
       set({
+        placed: true,
         x: Math.round(Math.max(-p.width + 60, Math.min(-8, left - p.width + box.width))),
         y: Math.round(Math.max(-p.height + 60, Math.min(-8, top - p.height + box.height))),
       });
@@ -136,12 +137,14 @@ export function PreviewWindow() {
     useStudio.getState().setSelection([id]);
   };
 
+  if (hidden) return null;
   return (
     <div
       ref={ref}
       data-preview-window=""
       className="absolute z-20 flex flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-panel"
-      style={{ right: -x, bottom: Math.max(-y, lift + 8), width: open ? boxW : 132 }}
+      /* Dragged by hand, it goes where he put it, down to the column's foot (J, 2026-10-06: "cant be dragged below a certain point"); until then it stands clear of the band. */
+      style={{ right: -x, bottom: placed ? -y : Math.max(-y, lift + 8), width: open ? boxW : 132 }}
     >
       <header
         className="flex h-7 shrink-0 cursor-grab items-center gap-1 border-b border-border px-1.5 active:cursor-grabbing"
@@ -168,9 +171,12 @@ export function PreviewWindow() {
               </button>
             </Tooltip>
           </>
-        ) : (
-          <Eye className="size-3 text-accent" />
-        )}
+        ) : null}
+        <Tooltip content="Hide the preview: the eye beside Desktop, Tablet and Phone brings it back">
+          <Button variant="ghost" size="iconXs" aria-label="Hide companion" data-companion-hide="" onClick={() => { play("select"); set({ hidden: true }); }}>
+            <EyeOff />
+          </Button>
+        </Tooltip>
         <Tooltip content={open ? "Collapse" : "Expand"}>
           <Button variant="ghost" size="iconXs" aria-label="Toggle companion" onClick={() => set({ open: !open })}>
             {open ? <Minimize2 /> : <Maximize2 />}

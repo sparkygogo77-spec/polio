@@ -480,6 +480,28 @@ export function kindsSaid(kinds: Record<string, number>): string {
     .join(", ");
 }
 
+/** One count on the import's strip, drawn as an icon and its number: `k` is a part kind, or pages, hidden, hooks or placeholders. */
+export interface ReportChip { k: string; n: number; label: string }
+
+/**
+ * THE COUNTS AS CHIPS (J, 2026-10-06: "make symbols of what can"). The
+ * pages, each kind biggest first, and the hidden, hooked and placeholder
+ * counts; the long line goes under "details".
+ */
+export function reportChips(report: PageReport): ReportChip[] {
+  const word = (n: number, w: [string, string]) => w[n === 1 ? 0 : 1];
+  const pages = report.pages.length;
+  const out: ReportChip[] = [];
+  if (pages > 1) out.push({ k: "pages", n: pages, label: `${pages} pages: ${report.pages.map((p) => `${p.name} ${p.parts}`).join(", ")}` });
+  for (const [k, n] of Object.entries(report.kinds).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])) {
+    out.push({ k, n, label: `${n} ${KIND_WORDS[k as PagePart["kind"]] ? word(n, KIND_WORDS[k as PagePart["kind"]]) : k}` });
+  }
+  if (report.hidden) out.push({ k: "hidden", n: report.hidden, label: `${report.hidden} hidden as the page opens, kept as hidden parts` });
+  if (report.hooks) out.push({ k: "hooks", n: report.hooks, label: `${report.hooks} keep the id or data-hook the code finds them by` });
+  if (report.pictures) out.push({ k: "placeholders", n: report.pictures, label: `${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}` });
+  return out;
+}
+
 /**
  * THE LINE HE READS, and every number in it is a count of what landed.
  *

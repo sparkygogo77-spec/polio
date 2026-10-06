@@ -160,8 +160,10 @@ export interface StudioState extends Doc {
   recentColours: string[];
   /** The phone/tablet companion: which device, where it sits, whether it is open.
    * Closed to start: it floats over the board, and a panel that covers a resize
-   * handle you cannot see is worse than one click to open it. */
-  companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean };
+   * handle you cannot see is worse than one click to open it. `hidden` takes it
+   * off the board (its eye; the eye beside the device switch brings it back);
+   * `placed` once he has dragged it, so his place wins over the lift. */
+  companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean; hidden?: boolean; placed?: boolean };
   /** Every prompt as written, critiqued and revised. Not part of undo: it is the record of the document, not the document. */
   trail: TrailEntry[];
   /**

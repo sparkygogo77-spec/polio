@@ -74,13 +74,14 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
 
   const refresh = () => {
     play("tap");
-    if (status?.at === "current") { say("Up to date", status.says, "success"); void read(); return; }
+    /* Up to date or not, it asks and brings the code in again (J, 2026-10-06): the board can drift from the code without the code moving. */
+    void read();
     setAsk("refresh");
   };
-  const bringAgain = () => {
+  const bringAgain = (keep: boolean) => {
     setAsk(null);
-    placeBring(wantOf(source));
-    say("Bringing it in again", `Reading ${source.repo} as it is now.`);
+    placeBring(wantOf(source), keep);
+    say("Bringing it in again", keep ? `Reading ${source.repo} as it is now, keeping what you changed on the board.` : `Reading ${source.repo} as it is now, from a clear board.`);
   };
 
   const publish = () => {
@@ -141,13 +142,14 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
           <div className="flex w-full items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setAsk(null)}>Back to the board</Button>
             <span className="flex-1" />
-            <Button variant="primary" size="sm" data-code-refresh-go="" onClick={bringAgain}><RefreshCw /> Bring it in again</Button>
+            <Button variant="outline" size="sm" data-code-refresh-keep="" onClick={() => bringAgain(true)}>Keep my changes</Button>
+            <Button variant="primary" size="sm" data-code-refresh-go="" onClick={() => bringAgain(false)}><RefreshCw /> Clear and bring in</Button>
           </div>
         }
       >
         <p data-code-refresh-says="" className="text-plain text-fg-muted">
-          {status?.says ?? ""} The board is read again from the code as it is now.
-          {status?.pending ? " The design on the board is not published yet and would be lost: Publish it first to keep it." : " Everything already published is in the code, so it comes back with it."}
+          {status?.says ?? ""} The board is read again from the code as it is now. Keep my changes lays it over the board and keeps what you changed by hand; Clear and bring in starts from the code alone.
+          {status?.pending ? " The design on the board is not published yet: Clear would lose it, so Publish it first or keep your changes." : " Everything already published is in the code, so it comes back with it."}
         </p>
       </Dialog>
       <Dialog

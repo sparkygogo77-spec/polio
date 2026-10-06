@@ -62,7 +62,7 @@ import { holdIncoming } from "../boxEntry";
 import { lockNow } from "../surfaceRun";
 import { drawnOnBoard, tidyToWords } from "../textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "../zipImport";
-import { pagesToDoc, reportSays, type FileRead } from "../pageParts";
+import { pagesToDoc, reportSays, reportChips, type FileRead } from "../pageParts";
 import type { BuilderManifest } from "../builderManifest";
 import { SWEEP } from "../reassemble";
 import { askSite, askZip, nameOf, repoOf, deployedBy, NOTHING, stageOf, latest, putStage, subscribeStages, STEP_PATIENCE_MS, isHeadless, readPicturesOf, readScreensOf, landAsBrought, boardNow } from "./bring";
@@ -490,7 +490,10 @@ export function FromASite({ space }: { space: Space }) {
     const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${stillsSaid}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
     const total = report.pages.reduce((n, p) => n + p.parts, 0);
     ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });
-    setStage({ at: "said", says });
+    /* The counts as chips, a short line beside them, and the whole account under "details" (J, 2026-10-06: too much text to read). */
+    const notes = [anyScripts ? "scripts not run" : "", report.truncated.length ? `${report.truncated.join(", ")} cut short` : "", left ? `${left} more page${left === 1 ? "" : "s"} not read` : "", failed ? `${failed} page${failed === 1 ? "" : "s"} would not open` : ""].filter(Boolean);
+    const short = `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed${notes.length ? ` (${notes.join(", ")})` : ""}. One undo takes it all back.`;
+    setStage({ at: "said", says: short, details: says, chips: reportChips(report) });
     play("confirm");
     return true;
   };
