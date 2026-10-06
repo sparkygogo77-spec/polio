@@ -27,7 +27,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
-import { useStudio } from "./store";
+import { useStudio, useSteady } from "./store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, type LayerNode, type StyleSource } from "./styleLayer";
 import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./codePublish";
@@ -46,7 +46,8 @@ function wantOf(source: StyleSource): string {
 
 export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const ctx = useActions();
-  const nodes = useStudio((s) => s.nodes);
+  /* Held still under the hand: the whole style layer is rebuilt from it (`store/hold.ts`). */
+  const nodes = useSteady(useStudio((s) => s.nodes));
   const palette = useStudio((s) => s.look.palette as Record<string, string>);
   const layer = React.useMemo(() => buildLayer(nodes as unknown as LayerNode[], palette, source, { family, kit: !!source.kit }), [nodes, palette, source]);
   const empty = !layer.rules.length && !layer.vars.length;

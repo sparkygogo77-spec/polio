@@ -34,7 +34,7 @@ import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
 import { auditCounts, auditSite, type PageAudit } from "./staticSite";
-import { useStudio } from "./store";
+import { useStudio, useSteady } from "./store";
 import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { useKeys } from "@/features/keys/store";
 import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./goLive";
@@ -55,7 +55,8 @@ import { claudeSpend } from "./spend";
 
 export function useCompiledBrief() {
   const pages = useStudio((s) => s.pages);
-  const nodes = useStudio((s) => s.nodes);
+  /* Held still under the hand: the whole brief is compiled from it (`store/hold.ts`). */
+  const nodes = useSteady(useStudio((s) => s.nodes));
   const groups = useStudio((s) => s.groups);
   const shapes = useStudio((s) => s.shapes);
   const format = useStudio((s) => s.format);

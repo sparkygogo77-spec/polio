@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useStudio, type StudioNode } from "../store";
+import { useStudio, useSteady, type StudioNode } from "../store";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "../vector";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -87,7 +87,7 @@ export function EdgeField({ node }: { node: StudioNode }) {
 
 /** This part's own motions: the rows the Motion tab lists for it, with the same controls. */
 export function PartMotions({ node }: { node: StudioNode }) {
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useSteady(useStudio((s) => s.nodes));
   const crates = useStudio((s) => s.motion);
   const rows = React.useMemo(() => movingParts(nodes, crates, node.pageId).filter((r) => r.nodeId === node.id), [nodes, crates, node.pageId, node.id]);
   const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);

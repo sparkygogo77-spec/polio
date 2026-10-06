@@ -10,7 +10,7 @@ import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "../parts/theme";
 import { usePicture } from "../pictures";
 import { siteLogo } from "../siteMark";
-import { useStudio } from "../store";
+import { useStudio, useSteady } from "../store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -199,7 +199,7 @@ export function PageChips() {
  * page still opens with them hidden, wherever it is published or exported.
  */
 export function StatesChip({ pageId }: { pageId: string }) {
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useSteady(useStudio((s) => s.nodes));
   const on = useStudio((s) => s.statesOn ?? []);
   const source = useStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
   const [open, setOpen] = React.useState(false);
