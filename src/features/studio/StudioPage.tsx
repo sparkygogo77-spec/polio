@@ -1552,10 +1552,6 @@ export function StudioPage() {
               no panel's clipping and no toast setting can hide it. */}
           <NewSiteOffer />
           <ImportStrip />
-          {/* A part's states, clicked through: docked in one strip above the
-              board rather than floating over it, where the bars covered the
-              site's own panels (`StatesTimeline.tsx#StepBar`). */}
-          {design ? <StepBar /> : null}
           <Workspace />
           {/* The little live window floats over the column, not inside the
               scroll: a companion that slid away as the page went by would be
@@ -1678,6 +1674,12 @@ export function StudioPage() {
             now: the board scrolls in its own area, and the categories are
             always on screen under it.
           */}
+          {/* A part's states, clicked through: docked in one strip under the
+              board, over the shelf (`StatesTimeline.tsx#StepBar`). Floating on
+              the board the bars covered its panels; docked above it, the strip
+              came and went with the pick and cut the site's top as it
+              scrolled (J, 2026-10-06). */}
+          {design ? <StepBar /> : null}
           {design ? (
                 <div
                   data-studio-band=""
