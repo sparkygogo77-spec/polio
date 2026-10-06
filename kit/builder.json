@@ -42,7 +42,7 @@
   "rules": {
     "about": "Design and build rules every code chat follows. The full text is in doc; the checks named enforce them. Missing a style or setting? Add a slot.",
     "doc": "BUILDER-RULES.md",
-    "version": 4,
+    "version": 5,
     "list": [
       {
         "id": "real-elements",
@@ -192,8 +192,21 @@
         "title": "Pictures on parts",
         "checkedBy": "",
         "rule": "A picture dropped on a part's Contents arrives in design/pictures.json with its hook, crop box and note: the code makes it that part's look through a token, cut to its crop, keeping the same element, data-hook, words and behaviour."
+      },
+      {
+        "id": "leave-a-change-note",
+        "title": "Leave a change note",
+        "checkedBy": "",
+        "rule": "Every code pull request that changes parts, panel states, slots or tokens runs npm run kit:notes -- --base <default branch> --why \"...\" and commits design/CODE-CHANGES.json and .md; the builder shows them as New from code."
+      },
+      {
+        "id": "ask-the-builder-to-learn-what-it-cant-edit",
+        "title": "Ask the builder to learn what it can't edit",
+        "checkedBy": "kit:check",
+        "rule": "A look the builder can't edit in any slot kind yet goes in rules.requests ({ hook, need, kind, why }); kit:notes gives each one a prompt for a Polio chat. Once the builder learns it, move it into rules.slots."
       }
     ],
+    "requests": [],
     "slots": [
       {
         "token": "--shadow",

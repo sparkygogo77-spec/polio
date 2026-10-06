@@ -27,7 +27,7 @@
  *
  *   node tests/kit-round-trip.mjs
  *
- * Covers: src/features/studio/kitRun.ts, src/features/studio/kitMap.ts, src/features/studio/styleLayerRun.ts, src/features/studio/styleLayer.ts, src/features/studio/parts/offsite.ts, kit/tools/kit-diff.mjs
+ * Covers: src/features/studio/kitRun.ts, src/features/studio/kitMap.ts, src/features/studio/styleLayerRun.ts, src/features/studio/styleLayer.ts, src/features/studio/parts/offsite.ts, kit/tools/kit-diff.mjs, kit/tools/code-notes.mjs
  */
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -152,11 +152,19 @@ const changed = home.replace(/\s*<p data-hook="feature-hooks-text">[^<]*<\/p>/, 
 writeFileSync(join(REPO_DIR, "starter/index.html"), changed);
 const gallery = readFileSync(join(REPO_DIR, "starter/gallery.html"), "utf8");
 writeFileSync(join(REPO_DIR, "starter/gallery.html"), gallery.replace(/\s*<p data-hook="feature-hooks-text">[^<]*<\/p>/, ""));
+/* The code chat asks the builder to learn the note's sound (rule 27) and leaves its change note (rule 26). */
+const bj = readFileSync(join(REPO_DIR, "builder.json"), "utf8");
+writeFileSync(join(REPO_DIR, "builder.json"), bj.replace('"requests": []', '"requests": [{ "hook": "hero-note", "need": "the note\'s chime", "kind": "sound" }]'));
+writeFileSync(join(REPO_DIR, "starter/index.html"), changed.replace('<p data-hook="hero-note">', '<p data-hook="hero-note" data-label="Weekly note">'));
 execFileSync("node", ["tools/kit-check.mjs", "builder.json", "--write"], { cwd: REPO_DIR });
+execFileSync("node", ["tools/code-notes.mjs", "builder.json", "--base", "HEAD", "--why", "A weekly note on the home page", "--branch", "hero-note"], { cwd: REPO_DIR });
+git("add", "-A");
 git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "a code chat: hero note, one feature line gone");
 const round = await readRound(source, "tok", { fetch: stand, layerHooks: layerHooksOf(before.rules), when: "2026-10-03T00:00:00Z" });
 check("the round reads builder.json and hooks.json again from the default branch", round.ok && calls.filter((c) => c.startsWith("GET /repos/j/starter/contents/builder.json?ref=main")).length >= 2);
 check("the round says the hook added and the hook gone", round.ok && round.changes.hooksAdded.join() === "hero-note" && round.changes.hooksRemoved.join() === "feature-hooks-text" && /1 new hook: hero-note/.test(round.changes.says) && /1 hook gone: feature-hooks-text/.test(round.changes.says), round.ok ? round.changes.says : round.says);
+check("the round brings the code chat's note: the new part by its plain name, and why", round.ok && round.notes?.entries[0]?.why === "A weekly note on the home page" && round.notes.entries[0].parts.some((p) => p.hook === "hero-note" && p.label === "Weekly note"), JSON.stringify(round.ok ? round.notes : null)?.slice(0, 300));
+check("and the request to learn the chime, with a prompt for a Polio chat", round.ok && round.notes?.requests[0]?.need === "the note's chime" && /sparkygogo77-spec\/polio/.test(round.notes.requests[0].prompt ?? ""));
 check("and flags the design's rule for the hook no page has now", round.ok && round.changes.staleRules.join() === "feature-hooks-text" && /Warning: your design styles feature-hooks-text/.test(round.changes.says));
 /* He takes the round in: the new baseline, and his rule for the gone hook taken off. */
 source.seen = round.seen;

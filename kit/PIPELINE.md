@@ -64,7 +64,7 @@ A code chat builds the site from the starter; J designs it afterwards.
 
 | Change | Who | Steps | Check |
 | --- | --- | --- | --- |
-| New logic or a new page | a code chat | branch; change; `npm run kit:hooks`; `npm run kit:check`; `npm run kit:diff -- --base origin/main`; pull request; merge | CI green |
+| New logic or a new page | a code chat | branch; change; `npm run kit:hooks`; `npm run kit:check`; `npm run kit:diff -- --base origin/main`; `npm run kit:notes -- --base origin/main --why "..."` (the change note, rule 26; a look the builder can't edit yet goes in `rules.requests` first, rule 27); pull request; merge | CI green; **Check the code again** shows it as "New from code" |
 | A hook must go or be renamed | a code chat | as above with `--allow-removed`, and say in the pull request which hooks went, so J can move their style | CI green; J sees the note |
 | J deleted a part in the builder | a code chat, from the builder's `design/` branch | delete the element and every code reference to it; `npm run kit:diff -- --base <default branch>` passes because `design/HOOK-CHANGES.json` lists the hook as removed (any hook not listed there still fails) | CI green; the hook is gone |
 | Build from a design | a code chat, from a `design/` branch carrying `design/record.json` | build each part from the record (hooks kept, token values into tokens), then a look-only capture and `npm run kit:record-diff -- design/record.json <capture>` | record-diff lists no part; kit:check and kit:diff pass |
@@ -103,7 +103,8 @@ Rules:
 - Add every page state to builder.json preview.screens so the builder can show it.
 - Work on a branch, one pull request per job. Before you call it done, run
   npm run kit:hooks, npm run kit:check, npm test and npm run kit:diff -- --base origin/main,
-  and paste their summary lines.
+  and paste their summary lines. Then leave a change note for the builder:
+  npm run kit:notes -- --base origin/main --why "<what it is for>" (BUILDER-RULES.md rules 26 and 27).
 - Pull requests from style/... branches are J's design from the builder: merge them once CI is green.
 - Keep messages to J short and simple; ask only for real choices (money, keys, accounts, rules).
 ```

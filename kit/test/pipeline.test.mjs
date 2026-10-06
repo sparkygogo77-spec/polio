@@ -126,3 +126,32 @@ test('kit:diff: a design record fails only on states that newly leave their fram
     assert.equal(r.warnings.length, 2);
   } finally { rmSync(dirname(dir), { recursive: true, force: true }); }
 });
+
+test('kit:notes: a change note lists new parts by name, panel states and slots, and a request carries a Polio prompt', async () => {
+  const { notes } = await import('../tools/code-notes.mjs');
+  const dir = siteRepo();
+  try {
+    git(dir, 'checkout', '-q', '-b', 'logic');
+    edit(dir, 'starter/about.html', (s) => s.replace('</main>', '<p data-hook="about-note" data-label="Opening hours">New.</p>\n</main>'));
+    edit(dir, 'builder.json', (s) => s.replace('"requests": []', '"requests": [{ "hook": "about-note", "need": "the note\'s sound", "kind": "sound", "why": "it chimes when it opens" }]'));
+    check(join(dir, 'builder.json'), { write: true });
+    const { entry, requests } = notes(join(dir, 'builder.json'), { base: 'main', why: 'Opening hours on the About page', today: '2026-10-06' });
+    assert.deepEqual(entry.parts, [{ hook: 'about-note', label: 'Opening hours', page: 'starter/about.html', parent: entry.parts[0].parent }]);
+    assert.equal(entry.why, 'Opening hours on the About page');
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].prompt, /sparkygogo77-spec\/polio/);
+    assert.match(requests[0].prompt, /part "Opening hours" \(data-hook="about-note"\)/);
+    assert.match(requests[0].prompt, /Suggested slot kind: sound/);
+    const log = JSON.parse(readFileSync(join(dir, 'design/CODE-CHANGES.json'), 'utf8'));
+    assert.equal(log.site, 'Test shop');
+    assert.equal(log.entries.length, 1);
+    const md = readFileSync(join(dir, 'design/CODE-CHANGES.md'), 'utf8');
+    assert.match(md, /## Builder requests/);
+    assert.match(md, /New parts: Opening hours \(`about-note`\)/);
+    // The same branch again replaces its entry; the kit check still passes with the request.
+    notes(join(dir, 'builder.json'), { base: 'main', why: 'Opening hours, take two', today: '2026-10-06' });
+    const again = JSON.parse(readFileSync(join(dir, 'design/CODE-CHANGES.json'), 'utf8'));
+    assert.deepEqual(again.entries.map((e) => e.why), ['Opening hours, take two']);
+    assert.deepEqual(check(join(dir, 'builder.json')).problems, []);
+  } finally { rmSync(dirname(dir), { recursive: true, force: true }); }
+});
