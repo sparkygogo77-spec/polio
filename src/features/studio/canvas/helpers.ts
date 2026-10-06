@@ -142,6 +142,24 @@ export function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: S
   shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
 }
+/** The see-through outlined parts a dimmed screen holds (the tour's ring round the part it points at), as "x,y,w,h" boxes inside the screen joined by ";": the screen leaves them undimmed, as the page's own spotlight shadow does (J 2026-10-06). A string, so the board redraws the screen only when one moves. */
+export function screenHoles(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }, shade: StudioNode): string {
+  const sel = shade.from?.selector;
+  if (!sel) return "";
+  const shows = shownOnBoard(s), places = placedOnBoard(s), at = places.get(shade.id) ?? shade;
+  const out: string[] = [];
+  for (const n of s.nodes ?? []) {
+    const ns = n.from?.selector;
+    if (n.pageId !== shade.pageId || !ns?.startsWith(`${sel} > `) || !shows(n)) continue;
+    const e = (n as { edge?: { width?: number } | null }).edge;
+    const bg = (n.colour as { bg?: string } | null | undefined)?.bg;
+    if (!e?.width || (bg && !/^(transparent|rgba\([^)]*,\s*0\))$/.test(bg))) continue;
+    const b = places.get(n.id) ?? n;
+    if (b.w <= 8 || b.h <= 8) continue;
+    out.push([b.x - at.x, b.y - at.y, b.w, b.h].map(Math.round).join(","));
+  }
+  return out.join(";");
+}
 /** Where a lit screen, or a part stepped through, draws its parts (`boardStates.ts#screenPlaces`, `#steppedParts`), kept while the states, screens and parts are the same. */
 export let placedMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; places: Map<string, PlaceBox> } | null = null;
 export const NO_PLACES = new Map<string, PlaceBox>();

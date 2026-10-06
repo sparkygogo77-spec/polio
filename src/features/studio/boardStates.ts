@@ -414,7 +414,9 @@ function keepApart(r: PlaceNode, inside: readonly PlaceNode[], out: Map<string, 
   const sel = (n: PlaceNode) => (n as PlaceNode & { from?: { selector?: string } | null }).from?.selector ?? null;
   const rs = sel(r);
   if (!rs) return;
-  const kids = inside.filter((n) => { const s = sel(n); return !!s && s.startsWith(`${rs} > `) && !s.slice(rs.length + 3).includes(" > ") && box(n).w > 8 && box(n).h > 8; });
+  /* In the page's order, so the later part (the card) moves and the earlier (the ring on the part it points at) stays, whatever order the parts were stored in. */
+  const kids = inside.filter((n) => { const s = sel(n); return !!s && s.startsWith(`${rs} > `) && !s.slice(rs.length + 3).includes(" > ") && box(n).w > 8 && box(n).h > 8; })
+    .sort((a, b) => sel(a)!.localeCompare(sel(b)!, undefined, { numeric: true }));
   const gap = 8;
   for (let i = 1; i < kids.length; i++) {
     const k = kids[i]!, kb = box(k);

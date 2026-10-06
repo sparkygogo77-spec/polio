@@ -11,7 +11,10 @@
  *   3. a panel as wide as the page (the dimmed screen and its ring), picked,
  *      is drawn over the page its scene shows: the part the ring points at
  *      is drawn, under the ring, and the dimmed screen covers the whole page;
- *   4. a step's longer words wrap inside the card, never past its side.
+ *   4. a step's longer words wrap inside the card, never past its side;
+ *   5. the dimmed screen leaves its outline (the ring) bright: a hole over
+ *      the see-through outlined part, none over the filled card (J, 2026-10-06:
+ *      "the blue highlight box also shouldnt be dimmed").
  *
  *   node tests/tour-panel.mjs
  *
@@ -37,8 +40,8 @@ const nodes = [
   n("main", { "data-hook": "app" }, M, [0, 0, 1920, 1800]),
   n("q", { "data-hook": "queue-panel" }, `${M} > section`, [100, 300, 800, 200]),
   n("t", { "data-hook": "tour", "data-panel": "tour", "data-states": "off on", "data-state": "off" }, T, [0, 0, 1920, 900], "fixed"),
-  n("t-ring", { "data-hook": "tour-highlight" }, `${T} > div:nth-of-type(1)`, [0, 0, 10, 10]),
-  n("t-card", { "data-hook": "tour-card" }, `${T} > div:nth-of-type(2)`, [700, 400, 500, 300]),
+  { ...n("t-ring", { "data-hook": "tour-highlight" }, `${T} > div:nth-of-type(1)`, [0, 0, 10, 10]), edge: { width: 3, colour: "rgb(37, 99, 235)" } },
+  { ...n("t-card", { "data-hook": "tour-card" }, `${T} > div:nth-of-type(2)`, [700, 400, 500, 300]), edge: { width: 1 }, colour: { bg: "rgb(255, 255, 255)" } },
   n("t-step", { "data-hook": "tour-progress" }, `${T} > div:nth-of-type(2) > p:nth-of-type(1)`, [716, 416, 400, 20]),
   n("t-title", { "data-hook": "tour-title" }, `${T} > div:nth-of-type(2) > h2`, [716, 446, 400, 30]),
 ];
@@ -77,6 +80,10 @@ const word = { id: "w", pageId: "p", x: 10, y: 10, w: 40, h: 20, content: "Level
 const looks = new Map([["x", { content: "Two players trade the same coin for a few minutes. The bigger percentage gain wins the pot." }], ["w", { content: "Behind by 1.83 points" }]]);
 const room = W.roomForWords([card, text, word], "p", () => true, new Map(), looks);
 check("4. a step's longer words wrap in their card; a lone word with room still widens", room.get("x") === undefined && (room.get("w")?.w ?? 0) > 40, J([...room]));
+
+/* 5. */
+const holes = H.screenHoles(st, nodes.find((x) => x.id === "t"));
+check("5. the dimmed screen has one hole, over the ring and none over the card", !!ring && holes === [ring.x - root.x, ring.y - root.y, ring.w, ring.h].join(","), J({ holes, ring, root }));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
