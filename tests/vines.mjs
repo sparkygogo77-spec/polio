@@ -28,7 +28,7 @@
  *
  *   node tests/vines.mjs [url]        # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { STRAND_WIDTH, VINE, strandMiddle, strandPath } from "../src/features/studio/strand.ts";
 
 const results = [];
@@ -172,7 +172,7 @@ check("the light comes from within: no specular painted down a side, and no ligh
 check("the ribbon gathers a little where it meets a board rather than being butted against it",
   /function gather\(/.test(strandSrc));
 check("the board says what each vine joins", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   return /ends: \[/.test(tl) && /isElement\(byId\.get\(c\.from\)!\) \? "drawing" : "iteration"/.test(tl);
 })());
 /*
@@ -340,7 +340,7 @@ check("…laid over the bark rather than painted on it, so nothing is repainted 
  * compositor (`tests/idle-cost.mjs`).
  */
 check("…each half under its own end's cloud, so a red half goes redder and never brown", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   const css = readFileSync("src/core/ui/molten.css", "utf8");
   const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
   return /const heats = \[0, 1\]\.map\(\(b\) => \(v\.ends\[b\] === "drawing" \? "ember" : "verdant"\)\);/.test(fn)
@@ -351,19 +351,19 @@ check("…each half under its own end's cloud, so a red half goes redder and nev
     && /\.molten-vine\[data-heat="ember"\] > i \{ background-image: var\(--nebula-ember, none\); \}/.test(css);
 })());
 check("…and where it does not change, one light carries both halves and draws the same picture", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
   // Both envelopes in one clip path: two subpaths clip to their union, which
   // is the whole rope and exactly what the two elements covered between them.
   return /const d = b === "a" \? \[envelope\(0\), envelope\(1\)\]\.filter\(Boolean\)\.join\(" "\) : envelope\(b\);/.test(fn);
 })());
 check("…and not through the construct's own class, which costs two milliseconds a change", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
   return fn.length > 0 && !/moltenClass\(/.test(fn) && /el\.className = "molten-vine";/.test(fn);
 })());
 check("…clipped to one half of its length each, over the body of it, so the filaments cross a vine as they cross a card", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   return /export function strandEnvelope\(/.test(strand)
     && /return `\$\{sidePath\(sub, 0, CLOUD_IN, CLOUD_OUT, half, null\)\}\$\{sidePath\(sub, 1, CLOUD_IN, CLOUD_OUT, half, null\)\}`;/.test(strand)
     && /const cut = s\.findIndex\(\(p\) => p\.t >= 0\.5\);/.test(strand)
@@ -393,7 +393,7 @@ check("…and enough of the cloud to read, now that there is a render in it rath
   return o >= 0.55 && o <= 0.8;
 })(), `${/\.molten-vine > i \{[\s\S]*?opacity: ([\d.]+);/.exec(readFileSync("src/core/ui/molten.css", "utf8"))?.[1]}`);
 check("…and laid only when the vine is at rest: lifted while its board is held, and not until it has grown", (() => {
-  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const tl = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
   return /if \(!rest \|\| v\.grow < 1\) \{/.test(tl) && /el\.style\.clipPath = "inset\(100%\)"; \}\s*continue;/.test(tl);
 })());
 
@@ -401,7 +401,7 @@ check("…and laid only when the vine is at rest: lifted while its board is held
 /* 4. Green boards, red drawings, on a purple ground                   */
 /* ------------------------------------------------------------------ */
 
-const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 /*
  * Both spellings, because a colour can be written two ways here and only one

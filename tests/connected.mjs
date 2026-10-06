@@ -99,7 +99,7 @@ check("and nothing in it reads a timestamp or a parent", (() => {
 })());
 
 check("no clock is printed on a board or under one",
-  !/toLocaleTimeString/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8"))
+  !/toLocaleTimeString/.test(["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n"))
   && !/toLocaleTimeString/.test(readFileSync("src/features/studio/TimelineDetail.tsx", "utf8")));
 
 /* ------------------------------------------------------------------ */
@@ -112,7 +112,7 @@ check("a new iteration falls back to the newest there is",
 check("dropping the oldest re-hangs whoever hung off them",
   /t\.parentId && !here\.has\(t\.parentId\)/.test(store));
 
-const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the timeline draws the chain, not the tree", /chainOf\(threads\)/.test(timeline) && !/threadTree\(/.test(timeline));
 check("and lays the boxes out as one chain rather than by depth", !/n\.depth \* DRIFT/.test(timeline));
 check("and never draws a strand from something that is not there", /byId\.has\(c\.from\)/.test(timeline));

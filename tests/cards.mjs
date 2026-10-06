@@ -24,7 +24,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 
 /* ------------------------------------------------------------------ */
 /* 1. Two shapes, one weight                                           */
@@ -227,7 +227,7 @@ check("…which runs the book's own ask rather than a second pipeline of its own
 check("the green card shows the site the way Builds shows it, from one definition", (() => {
   const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
   return /<SitePreview doc=\{from\} width=\{W\} height=\{H\} \/>/.test(site)
-    && /import \{ SitePreview, type PreviewDoc \} from ".\/SitePreview";/.test(timeline);
+    && /import \{ SitePreview, type PreviewDoc \} from "\.\.?\/SitePreview";/.test(timeline);
 })());
 check("…and there is only one of it: Builds imports the same file", (() => {
   const builds = readFileSync("src/features/builds/BuildsPage.tsx", "utf8");

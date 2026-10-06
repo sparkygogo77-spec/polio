@@ -17,7 +17,7 @@
  *
  *   node tests/molten.mjs [url]      # default http://localhost:3000
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { MOLTEN_KEYFRAMES, MOLTEN_MEANS, MOLTEN_MOTION, MOLTEN_STOPS, moltenClass, moltenSeed } from "../src/core/ui/molten.ts";
 
 const results = [];
@@ -41,7 +41,7 @@ const stop = (name) => {
 check("the stops and the keyframes live in core/ui/molten.css",
   /--molten-white:/.test(css) && /@keyframes molten-drift/.test(css));
 
-const elsewhere = ["src/features/studio/Timeline.tsx", "src/features/studio/TimelineDetail.tsx", "src/app/globals.css"];
+const elsewhere = ["src/features/studio/Timeline.tsx", ...readdirSync("src/features/studio/timeline").map((f) => `src/features/studio/timeline/${f}`), "src/features/studio/TimelineDetail.tsx", "src/app/globals.css"];
 for (const f of elsewhere) {
   const src = readFileSync(f, "utf8");
   check(`${f.split("/").pop()} declares no molten property of its own`, !/--molten-(white|hot|body|deep|char)\s*:/.test(src));
@@ -495,7 +495,7 @@ check("the sheets have no tab hanging off a side, which a stretched strip would 
   return /The tabs come off/.test(cut) && /\["box-green\.png", "rim-green\.png", \[6, 5, 530, 268\]\]/.test(cut);
 })());
 check("and the boxes throw only weight, never colour",
-  !/0 0 2\dpx -\dpx oklch\(0\.[78]/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8")));
+  !/0 0 2\dpx -\dpx oklch\(0\.[78]/.test(["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n")));
 check("there is no canvas and no loop in any of it", (() => {
   // The word appears in the file's own account of itself; what matters is
   // that no rule draws into one and nothing here runs a frame loop.
@@ -520,7 +520,7 @@ check("every animation gets its own offset, so thirty are not one machine",
   // and nothing else, and the ember was the one thing that left the rim.
   (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 2);
 
-const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("an iteration is the green construct, and a lane's work the blue one", /moltenClass\(lane \? "azure" : "verdant"\)/.test(timeline));
 check("a drawing is the red one", /moltenClass\("ember"\)/.test(timeline));
 check("and nothing on the timeline still asks for the base set", !/moltenClass\("lantern"\)/.test(timeline));
