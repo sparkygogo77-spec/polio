@@ -98,7 +98,7 @@ check("…and the landing that follows fills that one in rather than making a se
 check("the box is complete when the job is, and a pass still running says so",
   /if \(!r\.pending && job\.threadId\) useStudio\.getState\(\)\.markThread\(job\.threadId, "done"\);/.test(queue)
   && /\.finally\(done\);/.test(readFileSync("src/features/studio/reshapeRun.ts", "utf8")));
-const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("what is shown follows the truth at a capped rate rather than jumping", /const WHOLE_MS = 2600;/.test(timeline) && /Math\.max\(0, at\) \+ dt \/ WHOLE_MS/.test(timeline));
 /*
  * This used to pin the opposite: "nothing forms on a reload of something
