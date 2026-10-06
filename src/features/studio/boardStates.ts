@@ -137,7 +137,17 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
     let k = median(anchors.map((n) => n.w / s.boxes![hookOf(n)!]![2]));
     if (!Number.isFinite(k) || k <= 0 || Math.abs(k - 1) < 0.02) k = 1;
     const dx = median(anchors.map((n) => n.x - k * s.boxes![hookOf(n)!]![0]));
-    const dy = median(anchors.map((n) => n.y - k * s.boxes![hookOf(n)!]![1]));
+    let dy = median(anchors.map((n) => n.y - k * s.boxes![hookOf(n)!]![1]));
+    /* The screen's top stays on the page's top (J, 2026-10-06): a line a
+       screen adds high up (PST's "Game server offline.") moves most parts
+       down, and their median offset lifted the nav and the title above the
+       page, under the board's name. */
+    const tops = here.filter((n) => !n.state && !pinned(n) && shows(n) && hookOf(n) && s.boxes![hookOf(n)!]);
+    if (tops.length) {
+      const pageTop = Math.min(...tops.map((n) => n.y));
+      const drawnTop = Math.min(...tops.map((n) => k * s.boxes![hookOf(n)!]![1] + dy));
+      if (drawnTop < pageTop) dy += pageTop - drawnTop;
+    }
     /* Every shown hooked part the screen drew, where it drew it; those more than 2px off are moved. */
     const target = new Map<string, PlaceBox>();
     const moved = new Map<string, PlaceBox>();
@@ -174,8 +184,10 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
  * it (J, 2026-10-05). Each one pinned to the window, with everything in it,
  * is moved up until its foot is on the page, and down to the page's top.
  */
+/** Pinned to the window rather than in the page's flow. */
+const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
+
 function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBox>, shows: (n: PlaceNode) => boolean): void {
-  const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
   const box = (n: PlaceNode) => out.get(n.id) ?? n;
   const flow = here.filter((n) => !n.state && !pinned(n));
   if (!flow.length) return;

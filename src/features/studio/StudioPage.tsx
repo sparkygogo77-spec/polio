@@ -35,7 +35,7 @@ import { siteLogo } from "./siteMark";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette, useShelfFolded, useShelfTall } from "./Palette";
+import { Palette, ShelfGrip, useShelfFolded, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
@@ -1693,7 +1693,8 @@ export function StudioPage() {
                   style={{ height: shelfFolded && timelineFor == null ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
                   {/* A part's states timeline takes the categories' place while it is open (`StatesTimeline.tsx`). */}
-                  {timelineFor != null ? <StatesTimeline /> : <Palette />}
+                  {/* …with the shelf's grip on its top edge, so it still grows and shrinks (J, 2026-10-06). */}
+                  {timelineFor != null ? <><ShelfGrip /><StatesTimeline /></> : <Palette />}
                 </div>
           ) : null}
         </div>
