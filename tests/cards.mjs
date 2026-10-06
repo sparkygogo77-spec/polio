@@ -320,7 +320,7 @@ check("a detail box is the reading family, not another card: no lift, squarer, n
   && /face: "oklch\(0\.15 0\.018 18\)"/.test(cardBlock) && /face: `oklch\(0\.145 0\.016 \$\{hue\}\)`/.test(cardBlock) && /const hue = thread\.mode === LANE_MODE \? 210 : 152/.test(cardBlock));
 check("its colour lives in a hairline rim rather than a filled face", /rim: "oklch\([\d. ]+ 18 \/ 0\.7\)"/.test(cardBlock));
 
-const studio = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
+const studio = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("the side panel stays up in the timeline", /\{book && libraryOpen \? \(/.test(studio) && /data-side-panel-timeline=""/.test(studio));
 check("and in the timeline it carries the card you clicked", /<TimelinePanel \/>/.test(studio));
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");

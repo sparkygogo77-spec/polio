@@ -97,7 +97,7 @@ check("a screen that is a step of the part round it is not listed again inside i
 check("picking the whole page's state puts its parts back to follow it (source read)", /The page as a whole: its parts follow it/.test(tl));
 
 /* 5. On the board */
-const page = readFileSync(join(here, "..", "src", "features", "studio", "StudioPage.tsx"), "utf8");
+const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
 check("the step bar is docked above the board, not over it, with Finish at the end (source read)", /\{design \? <StepBar \/> : null\}\s*<Workspace \/>/.test(page) && !/sticky bottom-3/.test(tl) && /data-step-finish/.test(tl) && /data-step-next/.test(tl));
 check("the states in the shelf are plain cards, not shrunk pictures of the part (source read)", !/data-state-thumb/.test(tl) && !/moltenClass/.test(tl));
 

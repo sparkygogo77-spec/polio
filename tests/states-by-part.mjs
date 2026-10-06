@@ -62,7 +62,7 @@ check("about the rod's foot, said from the ball's corner", parts[1].art.origin =
 check("and stands still as the rod stands it", parts[1].art.transform === parts[0].art.transform);
 check("a part outside it is left alone", !parts[2].motion);
 
-const page = readFileSync(join(here, "..", "src", "features", "studio", "StudioPage.tsx"), "utf8");
+const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
 check("the States menu lists parts, each opening its timeline (source read)", /data-states-frame=\{f\.frame\}/.test(page) && /openStatesTimeline\(f\.frame\)/.test(page) && /data-states-more/.test(page));
 
 const tl = readFileSync(join(here, "..", "src", "features", "studio", "StatesTimeline.tsx"), "utf8");
