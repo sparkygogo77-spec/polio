@@ -10,7 +10,7 @@
  *
  *   node tests/look-no-background-head.mjs http://127.0.0.1:3013
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const { chromium } = createRequire(import.meta.url)("playwright-core");
@@ -26,7 +26,7 @@ const bare = (f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").rep
 /* Nothing else leans on the block: no other file renders it or reads its mark. */
 const look = bare("src/features/studio/LookPanel.tsx");
 check("the Look panel no longer renders the Background block", !/BackgroundInspector/.test(look));
-check("and nothing else exports or renders it", !/BackgroundInspector/.test(bare("src/features/studio/Inspector.tsx")));
+check("and nothing else exports or renders it", !/BackgroundInspector/.test(["Inspector.tsx", ...readdirSync("src/features/studio/inspector").filter((f) => f.endsWith(".tsx")).map((f) => `inspector/${f}`)].map((f) => bare(`src/features/studio/${f}`)).join("\n")));
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
