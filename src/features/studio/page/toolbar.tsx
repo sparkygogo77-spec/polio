@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis, Eye, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis, Eye, EyeOff, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { HistoryControls } from "../HistoryControls";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
@@ -176,6 +176,7 @@ export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean
 
       <span className="mx-1 hidden h-4 w-px bg-border md:block" />
       <DeviceSwitch width={frameWidth} />
+      <CompanionToggle />
 
       {/*
         The search for a tool, in the row of tools.
@@ -472,6 +473,21 @@ export function DeviceSwitch({ width }: { width: number }) {
         );
       })}
     </div>
+  );
+}
+
+/** Shows or hides the floating phone/tablet preview (`Preview.tsx`); its own eye hides it, this brings it back. */
+export function CompanionToggle() {
+  const hidden = useStudio((s) => !!s.companion?.hidden);
+  const set = useStudio((s) => s.setCompanion);
+  return (
+    <Tooltip content={hidden ? "Show the phone preview" : "Hide the phone preview"}>
+      <button type="button" aria-label={hidden ? "Show the phone preview" : "Hide the phone preview"} aria-pressed={!hidden} data-companion-toggle={hidden ? "off" : "on"}
+        onClick={() => { play("select"); set({ hidden: !hidden }); }}
+        className="tactile inline-flex size-6 items-center justify-center rounded-sm text-fg-muted hover:bg-hover hover:text-fg [&_svg]:size-3.5">
+        {hidden ? <EyeOff /> : <Eye />}
+      </button>
+    </Tooltip>
   );
 }
 

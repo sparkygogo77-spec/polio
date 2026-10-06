@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Loader2, X } from "lucide-react";
+import { Anchor, Code, EyeOff, Files, Heading, Image, ImageOff, LayoutPanelTop, Link, Loader2, MousePointerClick, Shapes, SquareCheck, SquareDashed, TextCursorInput, Type, X, type LucideIcon } from "lucide-react";
+import { type ReportChip } from "../pageParts";
 import { VOID } from "@/core/ui/void";
 import { repoName, type Repo } from "../repoImport";
 import { type RepoCopy } from "../repoRun";
@@ -36,7 +37,7 @@ export type Stage =
   | { at: "nothing" }
   | { at: "busy"; says: string }
   | Picking
-  | { at: "said"; says: string; details?: string };
+  | { at: "said"; says: string; details?: string; chips?: ReportChip[] };
 
 /** Ask a route, with a deadline of our own and a sentence for every ending. */
 async function ask(url: string, init: RequestInit): Promise<Record<string, unknown>> {
@@ -133,6 +134,29 @@ export const STEP_PATIENCE_MS = 90_000;
  * too, across the top of the board, in the same words, until he dismisses
  * it or starts another.
  */
+const CHIP_ICONS: Record<string, LucideIcon> = {
+  pages: Files, section: LayoutPanelTop, slot: SquareDashed, heading: Heading, text: Type, code: Code, button: MousePointerClick,
+  link: Link, field: TextCursorInput, check: SquareCheck, picture: Image, shape: Shapes, hidden: EyeOff, hooks: Anchor, placeholders: ImageOff,
+};
+const CHIP_GREEN = "oklch(0.82 0.17 150)";
+
+/** The counts an import landed, as green icon-and-number chips; each says its words on hover. */
+export function ReportChips({ chips }: { chips: ReportChip[] }) {
+  return (
+    <span data-import-chips="" className="mr-2 inline-flex flex-wrap items-center gap-1 align-middle">
+      {chips.map((c) => {
+        const Icon = CHIP_ICONS[c.k] ?? Shapes;
+        return (
+          <span key={c.k} data-import-chip={c.k} title={c.label} aria-label={c.label} className="inline-flex items-center gap-0.5 rounded-full border px-1.5 text-small tabular-nums" style={{ color: CHIP_GREEN, borderColor: "oklch(0.72 0.17 150 / 0.45)", background: "oklch(0.72 0.17 150 / 0.1)" }}>
+            <Icon className="size-3" aria-hidden />
+            {c.n}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function ImportStrip() {
   const it = React.useSyncExternalStore(subscribeStages, () => latest, () => null);
   if (!it || it.stage.at === "nothing" || it.stage.at === "picking") return null;
@@ -148,6 +172,7 @@ export function ImportStrip() {
     >
       {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
       <span className="min-w-0 flex-1">
+        {it.stage.at === "said" && it.stage.chips?.length ? <ReportChips chips={it.stage.chips} /> : null}
         {says}
         {it.stage.at === "said" && it.stage.details ? <Details text={it.stage.details} /> : null}
       </span>
