@@ -206,6 +206,17 @@ export function PanelsPage() {
     const inside = new Set(isolatedOnBoard(useStudio.getState())?.places.keys() ?? []);
     if (!selection.length || !selection.some((id) => id === iso.panelId || inside.has(id))) letGo();
   }, [selection, iso?.panelId]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* Picked on the board while the rail is open: the panel round it, isolated, as if picked in the rail (J, 2026-10-06: he clicked the tour to edit it and the board stayed as it was). Only on a new pick, so letting go in the rail stays let go. */
+  const lastPick = React.useRef(selection);
+  React.useEffect(() => {
+    if (lastPick.current === selection) return;
+    lastPick.current = selection;
+    if (!isOpen || previewing.current || selection.length !== 1) return;
+    const id = selection[0]!;
+    if (iso && (id === iso.panelId || isolatedOnBoard(useStudio.getState())?.places.has(id))) return;
+    const p = panelOf(nodes, panels, id);
+    if (p && p.id !== iso?.panelId) isolate(p.id, null, null);
+  }, [selection]); // eslint-disable-line react-hooks/exhaustive-deps
   /* The rail closed: the board as it was. */
   React.useEffect(() => { if (!isOpen) letGo(); }, [isOpen, letGo]);
   /* ↑ ↓ step the picked panel's states. */

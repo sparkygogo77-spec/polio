@@ -60,6 +60,8 @@ export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?
     const c = under ? (at && d.placed[0] ? { dx: at.x - d.placed[0].x, dy: at.y - d.placed[0].y } : { dx: 0, dy: 0 }) : centreIsolated(page, d.placed[0] ?? null, s.frameWidth);
     if (under) for (const n of page) if (n.id !== p.id && !d.inner.has(n.id) && under.shows(n as never)) { const b = under.places.get(n.id); if (b) places.set(n.id, b); const l = under.looks.get(n.id); if (l) looks.set(n.id, l); }
     for (const x of d.placed) { places.set(x.node.id, { x: x.x + c.dx, y: x.y + c.dy, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
+    /* …and its own box is the scene's: the dimmed screen over the whole page, not just the window it was read in. */
+    if (under && at) places.set(p.id, at);
     /* What it sits in stays only where it still holds it (the page's dotted ground); a card it has moved out of steps away. */
     const box = d.placed[0] ? { x: d.placed[0].x + c.dx, y: d.placed[0].y + c.dy, w: d.placed[0].w, h: d.placed[0].h } : null;
     const around = d.around.filter((a) => !box || (a.x <= box.x && a.y <= box.y && a.x + a.w >= box.x + box.w && a.y + a.h >= box.y + box.h));
