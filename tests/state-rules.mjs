@@ -86,6 +86,10 @@ const live = [{ name: "queued", page: "web/index.html", shows: ["app", "queue-pa
 const ss = R.sceneScreens(nodes, files, scenes, live);
 check("3. a scene is a screen; its capture lends places and words and says where live differs", ss.length === 3 && ss.every((s) => s.declared) && ss[1].boxes?.["queue-panel"]?.[2] === 300 && ss[1].texts?.["queue-count"] === "3 waiting" && J(ss[1].differs) === J({ extra: ["queue-spinner"], missing: [] }) && !ss[0].differs && !ss[1].shows.includes("queue-spinner"));
 
+/* 3b. J (2026-10-06): the TV's static, which the site shows only while offline, sat over the chart in "Match starting". A part the rules say nothing about, which the live screen does not draw inside a part it does draw, is not drawn; one the rules show stays. */
+const quietHid = R.sceneScreens(nodes, files, [scenes[1]], [{ ...live[0], shows: ["app", "queue-panel", "queue-count"] }])[0];
+check("3b. a part with no rule of its own, hidden live inside a drawn part, is hidden; a ruled part stays", !quietHid.shows.includes("queue-title") && quietHid.shows.includes("queue-leave") && J(quietHid.differs?.missing) === J(["queue-leave"]), J(quietHid));
+
 /* 4. */
 const panels = R.declaredPagePanels(nodes, "p", "web/index.html", ss, samples);
 const qp = panels.find((p) => p.hook === "queue-panel");
@@ -145,6 +149,11 @@ const sb = (id, x, w, text) => ({ id, pageId: "p", x, y: 10, w, h: 22, content: 
 const row = [sb(1, 0, 50, "Level"), sb(2, 60, 100, "Time left 1:00"), sb(3, 170, 100, "Trades left 10"), { id: 4, pageId: "p", x: 0, y: 60, w: 300, h: 22, content: "Legend", from: { selector: "body > section > p:nth-of-type(4)" } }];
 const room = RW.roomForWords(row, "p", () => true, new Map(), new Map([[1, { content: "Behind by 1.83 points" }]]));
 check("10. longer words widen their part and push what follows on its line, not the line below", room.get(1).w === 210 && room.get(2).x === 220 && room.get(3).x === 330 && !room.has(4), J([...room]));
+
+/* 10b. J (2026-10-06, page state 9): a place read off a capture already holds that capture's words, so "-" becoming "Go to the match" does not stretch the button fifteen times over. */
+const btn = [{ id: 7, pageId: "p", x: 400, y: 10, w: 20, h: 40, content: "-", from: { selector: "body > section > button" } }];
+const kept = RW.roomForWords(btn, "p", () => true, new Map([[7, { x: 870, y: 10, w: 169, h: 43 }]]), new Map([[7, { content: "Go to the match" }]]), new Map([[7, "Go to the match"]]));
+check("10b. a captured place grows only past the words it was read with", kept.get(7).w === 169, J([...kept]));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);

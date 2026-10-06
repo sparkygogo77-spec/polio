@@ -161,7 +161,17 @@ export function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: 
   /* A scene's longer words push what follows on their line along (`roomForWords.ts`). */
   const looks = looksOnBoard(s);
   let roomy: Map<string, PlaceBox> = places;
-  if (looks.size) { const pages = new Set((s.nodes ?? []).filter((n) => looks.has(n.id)).map((n) => n.pageId)); for (const pg of pages) roomy = roomForWords((s.nodes ?? []) as never, pg, shows as never, roomy, looks); }
+  if (looks.size) {
+    /* The words each captured place was read with: a part grows only past those (`roomForWords.ts`). */
+    const lit = ((source?.screens ?? []) as ScreenRead[]).filter((x) => x.texts && on.includes(screenKey(x.name)));
+    const readWith = new Map<string, string>();
+    for (const n of s.nodes ?? []) {
+      const h = n.hooks?.["data-hook"], t = h && places.has(n.id) ? lit.find((x) => typeof x.texts![h] === "string")?.texts![h] : undefined;
+      if (t !== undefined) readWith.set(n.id, t);
+    }
+    const pages = new Set((s.nodes ?? []).filter((n) => looks.has(n.id)).map((n) => n.pageId));
+    for (const pg of pages) roomy = roomForWords((s.nodes ?? []) as never, pg, shows as never, roomy, looks, readWith);
+  }
   placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places: roomy };
   return roomy;
 }

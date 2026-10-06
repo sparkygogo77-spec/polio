@@ -9,6 +9,12 @@
  * per letter, so its face and size count), and what follows it on its line,
  * in the same holder, moves along by that much, with everything inside it.
  *
+ * A place read off a capture was measured with that capture's words
+ * (`readWith`), so it grows only past those: "Go to the match" on a button
+ * read holding "Go to the match" stays its width, not fifteen times the
+ * "-" the page opened with (J, 2026-10-06: page state 9's button ran off
+ * the board).
+ *
  * Pure: `tests/state-rules.mjs`.
  */
 import { plain } from "./parts/spans";
@@ -18,7 +24,7 @@ type RoomNode = { id: string; pageId: string; x: number; y: number; w: number; h
 
 const parentSel = (s: string) => { const i = s.lastIndexOf(" > "); return i > 0 ? s.slice(0, i) : ""; };
 
-export function roomForWords(nodes: readonly RoomNode[], pageId: string, shows: (n: RoomNode) => boolean, places: ReadonlyMap<string, RoomBox>, looks: ReadonlyMap<string, { content?: unknown }>): Map<string, RoomBox> {
+export function roomForWords(nodes: readonly RoomNode[], pageId: string, shows: (n: RoomNode) => boolean, places: ReadonlyMap<string, RoomBox>, looks: ReadonlyMap<string, { content?: unknown }>, readWith: ReadonlyMap<string, string> = new Map()): Map<string, RoomBox> {
   const out = new Map(places);
   const here = nodes.filter((n) => n.pageId === pageId && shows(n));
   const box = (n: RoomNode): RoomBox => out.get(n.id) ?? { x: n.x, y: n.y, w: n.w, h: n.h };
@@ -26,7 +32,7 @@ export function roomForWords(nodes: readonly RoomNode[], pageId: string, shows: 
   for (const n of here) {
     const look = looks.get(n.id);
     if (!look || look.content === undefined) continue;
-    const was = plain(n.content as never).trim(), now = plain(look.content as never).trim();
+    const was = (out.has(n.id) ? readWith.get(n.id) : undefined)?.trim() ?? plain(n.content as never).trim(), now = plain(look.content as never).trim();
     if (!was || now.length <= was.length || now.includes("\n")) continue;
     const b = box(n);
     /* One line: about as tall as its letters are wide apart allows (a wrapped block keeps its width and grows down instead). */

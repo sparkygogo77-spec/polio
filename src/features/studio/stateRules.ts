@@ -206,8 +206,25 @@ export function sceneScreens(nodes: readonly RuleNode[], files: readonly { file:
   for (const sc of scenes) {
     const pageId = files.find((f) => f.file === sc.page)?.pageId;
     if (!pageId) continue;
-    const shows = showsOf(nodes, d, pageId, (id) => { const p = d.panels.get(id); return p ? stateIn(p, sc) : "on"; });
+    let shows = showsOf(nodes, d, pageId, (id) => { const p = d.panels.get(id); return p ? stateIn(p, sc) : "on"; });
     const cap = captured.find((c) => c.name === (sc.screen ?? sc.name));
+    /*
+     * A part the rules say nothing about (no data-show, not a panel), which
+     * the live screen of this scene does not draw though it draws the part
+     * round it: the site's own code hides it there, so the board does too
+     * (J, 2026-10-06: the TV's static, shown by the site only while the
+     * server is offline, sat over the chart in "Match starting").
+     */
+    if (cap) {
+      const live = new Set(cap.shows);
+      const quiet = new Set(nodes.filter((n) => n.pageId === pageId && attr(n, "data-show") === undefined && panelId(n) === null).map((n) => attr(n, "data-hook")));
+      const holderDrawn = (h: string) => {
+        const n = nodes.find((x) => x.pageId === pageId && attr(x, "data-hook") === h);
+        const up = n ? (d.up.get(n.id) ?? []).find((a) => attr(a, "data-hook")) : undefined;
+        return !!up && live.has(attr(up, "data-hook")!);
+      };
+      shows = shows.filter((h) => live.has(h) || !quiet.has(h) || !holderDrawn(h));
+    }
     const screen: SceneScreen = { name: sc.name, label: sc.label, page: sc.page, shows, ...lent(cap), declared: true, panels: { ...sc.panels } };
     if (cap) {
       const mine = new Set(shows), live = new Set(cap.shows);
