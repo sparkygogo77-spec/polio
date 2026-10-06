@@ -10,7 +10,8 @@
  *      the same inside it as the page opens with is not one of its states.
  *   2. `rideAnimations`: a part inside an animated, transformed part takes
  *      its animation and its pose, about the same point.
- *   3. The States menu lists parts and opens their timeline (source read).
+ *   3. The States menu is gone (J, 2026-10-06): the Panels rail lists the
+ *      parts with states, and its foot keeps scenes and hidden parts (source read).
  *
  *   node tests/states-by-part.mjs
  *
@@ -62,8 +63,8 @@ check("about the rod's foot, said from the ball's corner", parts[1].art.origin =
 check("and stands still as the rod stands it", parts[1].art.transform === parts[0].art.transform);
 check("a part outside it is left alone", !parts[2].motion);
 
-const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
-check("the States menu lists parts, each opening its timeline (source read)", /data-states-frame=\{f\.frame\}/.test(page) && /openPanelsPage\(f\.frame\)/.test(page) && /data-states-more/.test(page));
+const page = ["StudioPage.tsx", "PanelsPage.tsx", "PanelsMore.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
+check("no States menu on the page strip; the Panels rail lists parts and keeps scenes and hidden parts at its foot (source read)", !/StatesChip|data-states-button/.test(page) && /data-panels-item/.test(page) && /<MoreStates /.test(page) && /data-states-more/.test(page) && /useSceneKeys\(/.test(page));
 
 const studio = readFileSync(join(here, "..", "src", "features", "studio", "page", "StudioPage.tsx"), "utf8");
 check("the Panels shelf is gone: the shelf keeps its categories and the Panels page sits over the board (source read)", !/<StatesTimeline/.test(studio) && /<Palette \/>/.test(studio) && /\{design \? <PanelsPage \/> : null\}/.test(studio));

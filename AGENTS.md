@@ -489,8 +489,8 @@ A move is measured from where he first took the part in hand
 
 **A page's hidden states are designed on the board, and stay hidden on the
 page.** Parts a page starts hidden come in as state groups
-(`hidden:<hook>`). The States control on the page strip (`StatesChip`,
-`boardStates.ts`) switches groups, or the repository's preview screens, on
+(`hidden:<hook>`). The foot of the Panels rail (`PanelsMore.tsx`,
+`boardStates.ts`; the old States menu is gone, J 2026-10-06) switches groups, or the repository's preview screens, on
 for the board alone (`statesOn`); a screen shows exactly the hooks it showed
 when the repository's own code built it, read at import in the background
 (`/api/studio/zip` with `screens`, kept as `styleSource.screens`; the only

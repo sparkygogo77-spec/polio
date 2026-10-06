@@ -5,13 +5,13 @@
  * J (2026-10-02): on PonsStars brought in from its repository, 375 of the
  * 620 parts start hidden (the match panel, the chart, the result, the
  * pop-ups), so they took no room on the board, could not be seen or
- * arranged, and picking the chart panned to empty space. The States control
- * on the page strip lists the hidden groups by hook and the repository's
+ * arranged, and picking the chart panned to empty space. The foot of the Panels rail
+ * lists the hidden groups by hook and the repository's
  * preview screens, and switches them on for the board alone
  * (`boardStates.ts`). Through the real door, against a GitHub stood in:
  *
  *   · the preview screens are read as the repository's own code builds
- *     them, and the States control lists them with the hidden groups;
+ *     them, and the Panels rail lists them with the hidden groups;
  *   · a screen on (mid-match) shows exactly what that screen shows: its
  *     hidden parts drawn where that screen draws them, the parts it hides hidden;
  *   · picking a hidden part with its state off switches the state on, so it
@@ -150,14 +150,16 @@ try {
   await page.waitForTimeout(800);
   check(`${PLAN.target} starts hidden on the board`, !(await drawn(target.id)) && target.state?.group === PLAN.group, JSON.stringify(target.state));
 
-  /* The States control: the screens and the hidden groups of this page, by hook. */
-  await page.locator("[data-states-button]").click();
+  /* The foot of the Panels rail (the States menu is gone, J 2026-10-06): the screens and the hidden groups of this page, by hook. */
+  await page.locator("[data-panels-tab]").click();
   await page.waitForTimeout(400);
+  await page.locator("[data-states-more]").click();
+  await page.waitForTimeout(300);
   const menu = page.locator("[data-states-menu]");
   const listed = { screens: await menu.locator("[data-screen-toggle]").count(), groups: await menu.locator("[data-state-toggle]").count() };
   const groupListed = (await menu.locator(`[data-state-toggle="${PLAN.group}"]`).count()) === 1;
   if (await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).count()) { await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).click(); await page.waitForTimeout(800); }
-  await page.keyboard.press("Escape");
+  await page.locator("[data-panels-back]").click();
   /* A site that lists its scenes picks them from "Page state" by the search bar, not this menu (J, 2026-10-06). */
   if (!listed.screens && (await page.locator("[data-scene-now]").count())) {
     await page.locator("[data-scene-now]").click();

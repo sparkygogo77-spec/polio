@@ -1,18 +1,14 @@
 "use client";
-import { hiddenGroups, screenKey, type ScreenRead } from "../boardStates";
 import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../PanelsPage";
-import { pageScenes } from "../scenes";
-import type { SceneScreen } from "../stateRules";
-import { stepScene } from "../sceneStep";
-import { stateFrames, type FrameNode } from "../stateFrames";
+import { useSceneKeys } from "../PanelsMore";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Eye, EyeOff, FileText, Layers, Plus } from "lucide-react";
+import { ChevronDown, FileText, Layers, Plus } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "../parts/theme";
 import { usePicture } from "../pictures";
 import { siteLogo } from "../siteMark";
-import { useHeldStudio, useStudio, useSteady } from "../store";
+import { useHeldStudio, useStudio } from "../store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -116,6 +112,8 @@ export function PageChips() {
   const nodes = useHeldStudio((s) => s.nodes);
   const [open, setOpen] = React.useState(false);
   const panelsOpen = usePanelsPageOpen();
+  /* ← → step the declared scenes; the States button that carried this is gone (J: Panels and Page state cover it, `PanelsMore.tsx`). */
+  useSceneKeys(activeId);
   const count = (id: string) => nodes.filter((n) => n.pageId === id).length;
   const current = pages.find((p) => p.id === activeId) ?? pages[0];
   if (!current) return null;
@@ -194,7 +192,6 @@ export function PageChips() {
         <Layers className={cn("size-3 shrink-0", panelsOpen && "text-accent")} />
         Panels
       </button>
-      <StatesChip pageId={current.id} />
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
         <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => { const id = useStudio.getState().addPage(); useStudio.getState().want({ panel: "pages", focus: "name", id }); }}>
@@ -202,142 +199,5 @@ export function PageChips() {
         </Button>
       </Tooltip>
     </div>
-  );
-}
-
-/**
- * THE PAGE'S HIDDEN STATES, switched on for the board (`boardStates.ts`).
- *
- * Only on a page that has some: its preview screens first, when the
- * repository it came from lists them (one shows exactly what that screen
- * shows), then each hidden group by its hook. One or more at a time; the
- * page still opens with them hidden, wherever it is published or exported.
- */
-export function StatesChip({ pageId }: { pageId: string }) {
-  const nodes = useSteady(useHeldStudio((s) => s.nodes));
-  const on = useHeldStudio((s) => s.statesOn ?? []);
-  const source = useHeldStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
-  const [open, setOpen] = React.useState(false);
-  const groups = React.useMemo(() => hiddenGroups(nodes, pageId), [nodes, pageId]);
-  /* The page's parts that go through states (the TV, the balance panel), outermost first: each opens its own timeline (`StatesTimeline.tsx`). */
-  const frames = React.useMemo(() => {
-    const r = stateFrames(nodes as unknown as FrameNode[]);
-    return r.frames.filter((f) => f.pageId === pageId && f.steps.length > 1 && (r.inFrame.get(f.frame) ?? f.frame) === f.frame);
-  }, [nodes, pageId]);
-  const [more, setMore] = React.useState(false);
-  const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
-  const screens = (source?.screens ?? []).filter((x) => x.page === file);
-  /* A site that follows the state rules lists its own scenes, in its order: nothing is grouped by guessing (`stateRules.ts`). */
-  const declared = screens.filter((x) => (x as SceneScreen).declared) as SceneScreen[];
-  /* ← and → step through them on the board (`sceneStep.ts`), when nothing is picked (the arrows move what is picked) and nothing is typed in. */
-  const stepping = declared.length > 0;
-  React.useEffect(() => {
-    if (!stepping) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      const st = useStudio.getState();
-      if (st.mode !== "design" || st.selection.length || document.querySelector("[role='dialog'], [data-radial]")) return;
-      e.preventDefault();
-      stepScene(e.key === "ArrowRight" ? 1 : -1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [stepping]);
-  if (!groups.length && !screens.length && !frames.length) return null;
-  const scenes = declared.length ? { scenes: [], onTop: [] } : pageScenes(screens, file);
-  const here = [...screens.map((x) => screenKey(x.name)), ...scenes.onTop.map((v) => v.key), ...groups.map((g) => g.group)];
-  const lit = here.filter((k) => on.includes(k)).length;
-  const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
-  /* One scene at a time: a scene is one capture of the whole page, so picking one puts the last away. */
-  const pickScene = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; const mine = new Set(screens.map((x) => screenKey(x.name))); st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now.filter((k) => !mine.has(k)), key]); };
-  const Row = ({ k, name, note }: { k: string; name: string; note: string }) => {
-    const pressed = on.includes(k);
-    return (
-      <button
-        type="button"
-        aria-pressed={pressed}
-        {...(k.startsWith("screen:") ? { "data-screen-toggle": k.slice(7) } : k.startsWith("top:") ? { "data-on-top-toggle": k.slice(4) } : { "data-state-toggle": k })}
-        onClick={() => (k.startsWith("screen:") ? pickScene(k) : flip(k))}
-        className={cn("tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain", pressed ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
-      >
-        {pressed ? <Eye className="size-3 shrink-0 text-accent" /> : <EyeOff className="size-3 shrink-0" />}
-        <span className="min-w-0 flex-1 truncate">{name}</span>
-        <span className="num shrink-0 pl-2 text-fine text-fg-faint">{note}</span>
-      </button>
-    );
-  };
-  return (
-    <>
-      <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        align="start"
-        className="max-h-[70vh] w-auto min-w-[240px] max-w-[340px] overflow-y-auto p-1"
-        content={
-          <div data-states-menu="" className="flex flex-col gap-0.5">
-            <p className="px-2 py-1 text-fine text-fg-faint">Pick a part to see the states it goes through. Shown on the board only: the page still opens as its code says.</p>
-            <button type="button" data-states-all="" onClick={() => { setOpen(false); openPanelsPage(null); }}
-              className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain font-medium text-fg hover:bg-hover">
-              <Layers className="size-3 shrink-0 text-accent" />
-              <span className="min-w-0 flex-1 truncate">Every state on this page, at a glance</span>
-            </button>
-            {/* Declared scenes step from "Page state" by the search bar (J: this list is not needed here). */}
-            {/* J: one part, its timeline; not an endless list of every state on the page. */}
-            {frames.map((f) => {
-              const n = nodes.find((x) => x.id === f.frame);
-              return (
-                <button key={f.frame} type="button" data-states-frame={f.frame} onClick={() => { setOpen(false); useStudio.getState().setSelection([f.frame]); openPanelsPage(f.frame); }}
-                  className="tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
-                  <Layers className="size-3 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{f.hook ?? n?.label ?? "A part"}</span>
-                  <span className="num shrink-0 pl-2 text-fine text-fg-faint">{f.steps.length} states</span>
-                </button>
-              );
-            })}
-            {screens.length || groups.length ? (
-              <button type="button" data-states-more="" aria-expanded={more} onClick={() => setMore((v) => !v)} className="tactile mt-1 flex h-7 items-center gap-1 rounded-md px-2 text-left text-fine text-fg-faint hover:bg-hover hover:text-fg">
-                <ChevronDown className={cn("size-3 shrink-0 transition-transform", more && "rotate-180")} />
-                {frames.length ? "More: scenes and every hidden part" : "Scenes and every hidden part"}
-              </button>
-            ) : null}
-            {more || !frames.length ? (
-              <>
-                {/* The page's scenes in game order, each with its variants; then what goes on top of them (`scenes.ts`). */}
-                {scenes.scenes.map((sc) => (
-                  <React.Fragment key={sc.key}>
-                    <p data-scene={sc.key} className="px-2 pt-1 text-fine font-medium text-fg-muted">{sc.name}</p>
-                    {sc.variants.map((v) => <Row key={v.key} k={v.key} name={v.label} note={v.screen.name} />)}
-                  </React.Fragment>
-                ))}
-                {scenes.onTop.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">On top</p> : null}
-                {scenes.onTop.map((v) => <Row key={v.key} k={v.key} name={v.label} note={v.screen.name} />)}
-                {groups.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Hidden parts</p> : null}
-                {groups.map((g) => <Row key={g.group} k={g.group} name={g.template ? `${g.hook} (template)` : g.hook} note={String(g.parts)} />)}
-              </>
-            ) : null}
-            {lit ? (
-              <button type="button" data-states-off="" onClick={() => { play("tap"); useStudio.getState().setStatesOn((useStudio.getState().statesOn ?? []).filter((k) => !here.includes(k))); }} className="tactile mt-1 h-7 rounded-md px-2 text-left text-plain text-fg-muted hover:bg-hover hover:text-fg">
-                Hide them all again
-              </button>
-            ) : null}
-          </div>
-        }
-      >
-        <button
-          type="button"
-          data-states-button=""
-          aria-label={`States: ${lit} of ${here.length} shown on the board`}
-          className={cn("tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain", lit ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
-        >
-          <Layers className={cn("size-3 shrink-0", lit && "text-accent")} />
-          <span>States</span>
-          {/* Its room kept when nothing is lit, so what follows on the bar (the Page state arrows) never moves. */}
-          <span className="num min-w-[1.5ch] text-fine text-fg-faint">{lit || ""}</span>
-        </button>
-      </Popover>
-    </>
   );
 }
