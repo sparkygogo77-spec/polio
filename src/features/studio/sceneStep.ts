@@ -8,7 +8,7 @@
  */
 import { play } from "@/core/audio/engine";
 import { screenKey } from "./boardStates";
-import type { SceneScreen } from "./stateRules";
+import { isPageState, type SceneScreen } from "./stateRules";
 import { useStudio, type StudioNode } from "./store";
 import { looksOnBoard, placedOnBoard, shownOnBoard } from "./canvas/helpers";
 
@@ -52,7 +52,8 @@ type Src = { files?: { file: string; pageId: string }[]; screens?: unknown[] } |
 export function scenesOnPage(s: { activePageId: string; look?: unknown; statesOn?: string[] }): { scenes: SceneScreen[]; at: number } {
   const source = (s.look as { styleSource?: Src } | undefined)?.styleSource;
   const file = source?.files?.find((f) => f.pageId === s.activePageId)?.file ?? null;
-  const scenes = ((source?.screens ?? []) as SceneScreen[]).filter((x) => x.declared && x.page === file);
+  /* Only page states: a scene that changes one part is that part's state, on the Panels page (rule 31). */
+  const scenes = ((source?.screens ?? []) as SceneScreen[]).filter((x) => x.declared && x.page === file && isPageState(x));
   const on = s.statesOn ?? [];
   return { scenes, at: scenes.findIndex((x) => on.includes(screenKey(x.name))) };
 }

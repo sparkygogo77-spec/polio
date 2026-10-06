@@ -371,3 +371,17 @@ copies its stylesheet and script (and the shared `slots.js` and `sound.js`) into
 `parts/` folder, adds its tokens and slots, and prints the markup to paste and the call to make.
 `kit:check` fails when a listed part is not a panel on the page, its files or token block are
 missing, or its states differ from its panel's.
+
+## 31. A page state changes more than one part
+
+**(checked)** A page state is a moment when more than one part of the page changes at once (the
+match starts: the TV, the trade buttons and the scoreboard all change). A scene that changes only
+one part, against a scene before it on its page, is that part's state, not a page state: the
+builder shows it on the Panels page as that part's state, drawn from that scene's capture, and
+steps the page states without it. A scene that changes nothing is the same page state twice and is
+left out. A scene made to show one part (the TV's own scenes) says so with `"part": "<panel id>"`;
+it is that part's state as long as everything it changes, against a scene before it, is inside
+that part, and its capture is the look of that state, ahead of any page state's. When it also
+changes another part (the trade buttons appear), it stays a page state. `kit:check` fails on a
+`part` that names no panel on the scene's page, or a scene that changes more than that part.
+

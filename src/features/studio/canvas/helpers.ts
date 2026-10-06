@@ -78,7 +78,9 @@ function overlayScene(page: readonly { x: number; w: number }[], root: { w: numb
   if (!root || !hook || !state) return null;
   const width = s.frameWidth && s.frameWidth > 0 ? s.frameWidth : Math.max(0, ...page.map((n) => n.x + n.w));
   if (!width || root.w < width * 0.9) return null;
-  const scene = (source?.screens ?? []).find((x) => (x as { declared?: boolean }).declared && (x as { panels?: Record<string, string> }).panels?.[hook] === state);
+  const all = (source?.screens ?? []).filter((x) => (x as { declared?: boolean }).declared && (x as { panels?: Record<string, string> }).panels?.[hook] === state);
+  /* The scene folded into this panel is its state's own look (rule 31). */
+  const scene = all.find((x) => (x as { part?: string }).part === hook) ?? all[0];
   if (!scene) return null;
   const lit = { statesOn: [screenKey(scene.name)], look: s.look, nodes: s.nodes };
   return { shows: shownOnBoard(lit), places: placedOnBoard(lit), looks: looksOnBoard(lit) };
