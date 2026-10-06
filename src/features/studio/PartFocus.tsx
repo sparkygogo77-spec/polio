@@ -56,6 +56,25 @@ export function stateDrawing(nodes: readonly StudioNode[], frame: StudioNode, ca
   return { box: { w: fb.w, h: fb.h }, placed };
 }
 
+/** One part drawn alone at real size, in one of its states: what Focus and the Panels library show (`StatesTimeline.tsx#PanelsLibrary`). */
+export function PartAtSize({ frame, card }: { frame: StudioNode; card: Pick<Card, "key"> }) {
+  const nodes = useStudio((s) => s.nodes);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const siteName = useStudio((s) => s.brief.name);
+  const source = (look as { styleSource?: Source } | undefined)?.styleSource;
+  const page = React.useMemo(() => nodes.filter((n) => n.pageId === frame.pageId), [nodes, frame.pageId]);
+  const leads = React.useMemo(() => leadsOf(page), [page]);
+  const t = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const d = React.useMemo(() => stateDrawing(nodes, frame, card, source), [nodes, frame, card.key, source]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="rounded-sm outline outline-1 outline-white/20" style={{ width: d.box.w, height: d.box.h }} data-part-at-size={frame.id}>
+      <PartCopy of={frame.id} box={d.box} placed={d.placed} leads={leads} t={t} palette={palette} light={look?.light} look={look} still />
+    </div>
+  );
+}
+
 export function PartFocus() {
   const id = useFocusFor();
   const nodes = useStudio((s) => s.nodes);

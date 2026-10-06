@@ -20,8 +20,8 @@
  *   4. the page's states list: its screens, and a row per part, a screen
  *      that is a step of the part round it not listed again inside it
  *      (source read: the panel imports the client store);
- *   5. the step bar is docked in one strip above the board, not floating
- *      over it (J, 2026-10-05), with Finish at the end (source read).
+ *   5. a part's states are chips in the side panel next to Focus; the step
+ *      bar under the board went (J, 2026-10-06) (source read).
  *
  *   node tests/part-steps.mjs
  *
@@ -98,7 +98,7 @@ check("picking the whole page's state puts its parts back to follow it (source r
 
 /* 5. On the board */
 const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
-check("the step bar is docked above the board, not over it, with Finish at the end (source read)", /\{design \? <StepBar \/> : null\}\s*<Workspace \/>/.test(page) && !/sticky bottom-3/.test(tl) && /data-step-finish/.test(tl) && /data-step-next/.test(tl));
+check("a part's states are chips in the side panel next to Focus, not a step bar under the board (source read)", !/<StepBar \/>/.test(page) && /data-part-samples/.test(tl) && /data-step-focus/.test(tl));
 check("the states in the shelf are plain cards, not shrunk pictures of the part (source read)", !/data-state-thumb/.test(tl) && !/moltenClass/.test(tl));
 
 const passed = results.filter(Boolean).length;

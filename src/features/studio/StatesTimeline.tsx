@@ -7,8 +7,9 @@
  * which panels in which state", the thumbnails were shrunk past reading, and
  * picking some steps changed the whole site. So:
  *
- *   · the board is the picture: a step bar on the board (`StepBar`) clicks a
- *     part through 1 to N and Finish, swapping it in the Builder itself;
+ *   · the board is the picture: a picked part's states are chips in the side
+ *     panel next to Focus (`PartSamples`), swapping it in the Builder itself
+ *     (2026-10-06: the step bar under the board went);
  *   · the shelf shows the page at a glance (`StatesTimeline`): the page's
  *     own states (its preview screens, which change the page as a whole) in
  *     one strip, and under it one row per part that goes through states,
@@ -20,14 +21,14 @@
  * `statesOn`): the page still opens as its code says.
  */
 import * as React from "react";
-import { ChevronLeft, ChevronRight, ChevronDown, Layers, X, Flag, Maximize2 } from "lucide-react";
+import { Layers, X, Maximize2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { useStudio, type StudioNode } from "./store";
 import { partSteps, screenKey, type ScreenRead } from "./boardStates";
 import { frameFor, readStepKey, stateFrames, stepData, stepKey } from "./stateFrames";
 import { pageScenes } from "./scenes";
-import { openPartFocus } from "./PartFocus";
+import { openPartFocus, PartAtSize } from "./PartFocus";
 
 let openFor: string | null = null;
 const listeners = new Set<() => void>();
@@ -174,95 +175,64 @@ export function snapTo(id: string) {
   }));
 }
 
+/** The row of the part picked, or of the innermost part round it that goes through states. */
+function rowFor(rows: readonly Row[], nodes: readonly StudioNode[], id: string): Row | null {
+  const byFrame = new Map(rows.map((r) => [r.frame.id, r]));
+  const r = stateFrames(nodes as never);
+  for (let at: string | undefined = id, i = 0; at && i < 12; i++) {
+    const row = byFrame.get(at);
+    if (row) return row;
+    const up: string | undefined = r.inFrame.get(at);
+    at = up && up !== at ? up : undefined;
+  }
+  return null;
+}
+
 /**
- * THE STEP BAR, ON THE BOARD. The part picked (or the part round the one
- * picked), and any part stepped away from how the page opens: its name, a
- * key for each step, back and next, and Finish at the end, which puts it
- * back as the page opens. Docked in one strip under the board, over the
- * shelf (J, 2026-10-05: floating on the board, the bars covered its panels;
- * 2026-10-06: above it, the strip cut the site's top as it scrolled).
+ * A PICKED PART'S SAMPLES OF DATA, IN THE SIDE PANEL, NEXT TO FOCUS (J,
+ * 2026-10-06). The floating step bar under the board is gone: the part's
+ * states (what it says when won, lost, waiting) are chips here, the one on
+ * the board lit; pressing one swaps the part into it on the board.
  */
-export function StepBar() {
+export function PartSamples({ nodeId }: { nodeId: string }) {
   const pageId = useStudio((s) => s.activePageId);
-  const selection = useStudio((s) => s.selection);
+  const nodes = useStudio((s) => s.nodes);
   const on = useStudio((s) => s.statesOn ?? []);
   const { screens, rows } = usePageStates(pageId);
-  if (!rows.length) return null;
-  const byFrame = new Map(rows.map((r) => [r.frame.id, r]));
-  /* The picked part's own row, else the innermost row round it. */
-  const r = stateFrames(useStudio.getState().nodes as never);
-  const rowOf = (id: string): Row | null => {
-    for (let at: string | undefined = id, i = 0; at && i < 12; i++) {
-      const row = byFrame.get(at);
-      if (row) return row;
-      const up: string | undefined = r.inFrame.get(at);
-      at = up && up !== at ? up : undefined;
-    }
-    return null;
-  };
-  const show: Row[] = [];
-  const sel = selection.length === 1 ? rowOf(selection[0]!) : null;
-  if (sel) show.push(sel);
-  for (const row of rows) if (!show.includes(row) && pickedOf(on, row.frame.id)) show.push(row);
-  if (!show.length) return null;
-  const screen = litScreenOf(on, screens);
+  const row = rowFor(rows, nodes, nodeId);
+  if (!row) return null;
+  const now = stepNow(row, on, litScreenOf(on, screens), screens);
   return (
-    <div data-step-bars="" className="relative z-30 flex w-full shrink-0 flex-wrap items-center justify-center gap-1.5 border-t border-border bg-panel/95 px-2 py-1 backdrop-blur">
-      {show.slice(0, 3).map((row) => <Bar key={row.frame.id} row={row} now={stepNow(row, on, screen, screens)} />)}
+    <div data-part-samples={row.frame.id} className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <span className="min-w-0 flex-1 truncate text-small text-fg-muted" title={nameOf(row)}>{row.frame.id === nodeId ? "Samples of its data" : `Samples of ${nameOf(row)}`}</span>
+        <button type="button" data-step-focus="" aria-label={`Focus on ${nameOf(row)}: every state at real size`} title="Focus: this part alone, every state at real size" onClick={() => openPartFocus(row.frame.id)} className="tactile flex h-6 items-center gap-1 rounded-md px-1.5 text-small text-fg-muted hover:bg-hover hover:text-fg">
+          <Maximize2 className="size-3" /> Focus
+        </button>
+      </div>
+      <Samples row={row} at={now.at} byPage={now.byPage} />
     </div>
   );
 }
 
-function Bar({ row, now }: { row: Row; now: { at: number; byPage: boolean } }) {
-  const n = row.steps.length, at = now.at, last = at === n - 1;
-  const go = (i: number) => { play("tap"); pick(row, i); };
+/** A part's samples as chips: the one on the board lit (dashed when the scene put it there). */
+function Samples({ row, at, byPage }: { row: Row; at: number; byPage: boolean }) {
   return (
-    <div
-      data-step-bar={row.frame.id}
-      role="toolbar"
-      aria-label={`States of ${nameOf(row)}: ${at + 1} of ${n}`}
-      onPointerDown={(e) => e.stopPropagation()}
-      className="flex items-center gap-1 rounded-lg border border-border p-0.5"
-    >
-      <span className="flex items-center gap-1.5 pl-1.5 pr-1 text-plain font-medium text-fg">
-        <Layers className="size-3.5 shrink-0 text-accent" />
-        <span className="max-w-[160px] truncate">{nameOf(row)}</span>
-      </span>
-      <button type="button" data-step-back="" aria-label="The step before" disabled={at === 0} onClick={() => go(at - 1)} className="tactile flex size-7 items-center justify-center rounded-md text-fg-muted enabled:hover:bg-hover enabled:hover:text-fg disabled:opacity-30">
-        <ChevronLeft className="size-4" />
-      </button>
+    <div className="flex max-w-[480px] flex-wrap gap-1" role="group" aria-label={`Samples of ${nameOf(row)}`}>
       {row.steps.map((c, i) => (
         <button
           key={c.key ?? "open"}
           type="button"
-          data-step-key={c.key ?? "open"}
+          data-state-step={c.key ?? "open"}
+          {...(c.screen ? { "data-state-screen": c.screen } : {})}
           aria-pressed={i === at}
-          aria-label={`Step ${i + 1}: ${c.label}`}
-          title={`${i + 1}. ${c.label}`}
-          onClick={() => go(i)}
-          className={cn("tactile num flex size-7 items-center justify-center rounded-md text-plain font-semibold", i === at ? (now.byPage ? "bg-accent-soft text-fg outline-dashed outline-1 outline-accent" : "bg-accent text-accent-fg") : "text-fg-muted hover:bg-hover hover:text-fg")}
+          title={[`${i + 1}. ${c.label}`, saidOf(c)].filter(Boolean).join("\n")}
+          onClick={() => { play("tap"); pick(row, i); }}
+          className={cn("tactile h-6 max-w-[160px] truncate rounded-full border px-2 text-small", i === at ? (byPage ? "border-dashed border-accent bg-accent-soft text-fg" : "border-accent bg-accent text-accent-fg") : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg")}
         >
-          {i + 1}
+          {c.label}
         </button>
       ))}
-      {last ? (
-        <button type="button" data-step-finish="" onClick={() => go(0)} className="tactile flex h-7 items-center gap-1 rounded-md px-2 text-plain font-medium text-fg hover:bg-hover">
-          <Flag className="size-3.5 text-accent" /> Finish
-        </button>
-      ) : (
-        <button type="button" data-step-next="" aria-label="The next step" onClick={() => go(at + 1)} className="tactile flex size-7 items-center justify-center rounded-md text-fg hover:bg-hover">
-          <ChevronRight className="size-4" />
-        </button>
-      )}
-      <span data-step-label="" className="max-w-[260px] truncate border-l border-border pl-2 pr-1.5 text-plain text-fg-muted">
-        {now.byPage ? "as the page has it: " : ""}{row.steps[at]?.label}
-      </span>
-      <button type="button" data-step-all="" onClick={() => { play("tap"); openStatesTimeline(row.frame.id); }} className="tactile h-7 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">
-        All states
-      </button>
-      <button type="button" data-step-focus="" aria-label={`Focus on ${nameOf(row)}: every state at real size`} title="Focus: this part alone, every state at real size" onClick={() => openPartFocus(row.frame.id)} className="tactile flex h-7 items-center gap-1 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">
-        <Maximize2 className="size-3.5" /> Focus
-      </button>
     </div>
   );
 }
@@ -290,171 +260,127 @@ export function flipOnTop(key: string) {
 }
 
 /**
- * THE PAGE'S SCENES BY ITS PARTS, IN THE SHELF (J, 2026-10-06).
+ * THE PAGE'S STATES AND ITS PANELS, IN THE SHELF (J, 2026-10-06).
  *
- * Columns are the page's scenes in game order (`scenes.ts`), each with its
- * variants (connecting, then offline; won, lost, draw); the row under them
- * holds what goes on top (the tour, the phone menu), switched on over any
- * scene. Then one row per part that goes through states, a cell per scene:
- * the state that scene puts the part in. A scene is built from its parts'
- * states, one state per part: pressing a cell in another column swaps that
- * part into that state inside the scene that is on (swap, never stack),
- * and what is under it moves with it; pressing it in the lit column puts it
- * back. Focus opens a part alone at real size with all its states.
+ * "different data within the same frame doesnt classify a different state
+ * … i should be able to see these panels somewhere regardless for editing."
+ * So the shelf holds two things:
+ *
+ *   · the states strip: as the page opens, then each real layout of the
+ *     page in game order (`scenes.ts`: screens with the same parts at the
+ *     same places are one state), the lit one's samples of data (won, lost,
+ *     draw) as small chips, and a toggle for each overlay (the tour, the
+ *     phone menu);
+ *   · the Panels library: every part that goes through states (the
+ *     scoreboard, the trades panel, the result panel, the balance panel…)
+ *     drawn alone at real size, whichever state it lives in, with its
+ *     samples as chips. It is the same part as on the page: pressing it
+ *     picks it, so the side panel edits it, same data-hook, same style layer.
  */
 export function StatesTimeline() {
   const id = useOpenFor();
   const pageId = useStudio((s) => s.activePageId);
   const on = useStudio((s) => s.statesOn ?? []);
+  const nodes = useStudio((s) => s.nodes);
   const source = useStudio((s) => sourceOf(s.look));
   const { screens, rows } = usePageStates(pageId);
   const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
   const scenes = React.useMemo(() => pageScenes(screens, file), [screens, file]);
-  const [opened, setOpened] = React.useState<Set<string>>(() => new Set());
   React.useEffect(() => {
     if (id === null) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopImmediatePropagation(); close(); } };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [id]);
-  /* The part it was opened on: its own row, and every row round it open. */
-  const nodes = useStudio((s) => s.nodes);
-  const focus = React.useMemo(() => {
-    if (!id) return null;
-    const fr = frameFor(nodes, id);
-    if (!fr) return null;
-    const r = stateFrames(nodes as never);
-    for (let at: string | undefined = fr.frame, i = 0; at && i < 12; i++) {
-      if (rows.some((row) => row.frame.id === at)) return at;
-      const up: string | undefined = r.inFrame.get(at);
-      at = up && up !== at ? up : undefined;
-    }
-    return null;
-  }, [id, nodes, rows]);
+  /* Opened on a part: its panel in the library, scrolled to. */
+  const focus = React.useMemo(() => (id ? rowFor(rows, nodes, id)?.frame.id ?? null : null), [id, rows, nodes]);
   const ref = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => { if (focus) ref.current?.querySelector(`[data-state-row="${focus}"]`)?.scrollIntoView({ block: "nearest" }); }, [focus]);
+  React.useEffect(() => { if (focus) ref.current?.querySelector(`[data-panel="${CSS.escape(focus)}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [focus]);
   if (id === null) return null;
-  const byFrame = new Map(rows.map((r) => [r.frame.id, r]));
-  const chainOpen = (row: Row) => { for (let p = row.parent; p; p = byFrame.get(p)?.parent ?? null) if (!opened.has(p) && !isAbove(p)) return false; return true; };
-  const isAbove = (frame: string) => { for (let at = focus ? byFrame.get(focus) : undefined; at; at = at.parent ? byFrame.get(at.parent) : undefined) if (at.parent === frame) return true; return false; };
-  const inside = (frame: string) => rows.filter((r) => r.parent === frame).length;
   const screen = litScreenOf(on, screens);
+  const litScene = screen ? scenes.scenes.find((sc) => sc.variants.some((v) => v.screen.name === screen.name || v.same.includes(screen.name))) ?? null : null;
   const anyOn = !!screen || rows.some((r) => pickedOf(on, r.frame.id)) || scenes.onTop.some((v) => on.includes(v.key));
-  /* The columns: as the page opens, then every variant of every scene, in order. */
-  const cols: { key: string | null; label: string; scene: string; screen: ScreenRead | null; n: number }[] = [
-    { key: null, label: "as it opens", scene: "Page", screen: null, n: 1 },
-    ...scenes.scenes.flatMap((sc) => sc.variants.map((v, i) => ({ key: v.key, label: v.label, scene: sc.name, screen: v.screen, n: i + 1 }))),
-  ];
-  const litCol = screen ? cols.findIndex((c) => c.screen?.name === screen.name) : 0;
-  const grid = { gridTemplateColumns: `170px repeat(${cols.length}, minmax(112px, 1fr))` };
   const pickScene = (key: string | null) => { play("tap"); showScene(screens, rows, key); };
-  /* A cell: the part in the state this column's scene puts it in. Pressed in the lit column it goes back to the scene's own; in another, it swaps into the scene that is on. */
-  const pressCell = (row: Row, col: number, at: number) => {
-    play("tap");
-    if (col === litCol) { showStep(row.frame.id, null); return; }
-    if (litCol < 0 || (!screen && col !== 0 && !rows.some((r) => pickedOf(on, r.frame.id)))) { showScene(screens, rows, cols[col]!.key); return; }
-    showStep(row.frame.id, row.steps[at]?.key ?? "open");
-    useStudio.getState().setSelection([row.frame.id]);
-    snapTo(row.frame.id);
-  };
+  const opening = () => { play("tap"); const st = useStudio.getState(); st.setStatesOn((st.statesOn ?? []).filter((k) => !k.startsWith("top:"))); showScene(screens, rows, null); };
+  const pill = (lit: boolean) => cn("tactile flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg ring-1 ring-accent" : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg");
   return (
-    <div ref={ref} data-states-timeline="" role="region" aria-label="Scenes and each part's states" className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
-      <div className="flex items-center gap-2">
-        <p className="text-plain font-medium text-fg">Scenes</p>
-        <p className="min-w-0 flex-1 truncate text-small text-fg-muted">Each scene is one capture of a moment of the page. A cell is the state a scene puts that part in: press one in another column to swap the part into the scene that is on.</p>
-        {anyOn ? (
-          <button type="button" data-state-step-off="" onClick={() => { play("tap"); const st = useStudio.getState(); st.setStatesOn((st.statesOn ?? []).filter((k) => !k.startsWith("top:"))); showScene(screens, rows, null); }} className="tactile h-6 rounded-md px-2 text-small text-fg-muted hover:bg-hover hover:text-fg">All as the page opens</button>
-        ) : null}
+    <div ref={ref} data-states-timeline="" role="region" aria-label="The page's states and its panels" className="flex h-full w-full flex-col gap-2 overflow-y-auto bg-panel/50 p-3">
+      {/* The states strip: a state only where the layout changes. */}
+      <div className="flex flex-wrap items-center gap-1.5" data-states-strip="">
+        <p className="mr-1 text-plain font-medium text-fg">States</p>
+        <button type="button" data-page-state="open" data-state-step-off="" aria-pressed={!anyOn} title="The page as it opens: every state, sample and overlay off" onClick={opening} className={pill(!anyOn)}>As it opens</button>
+        {scenes.scenes.map((sc) => {
+          const lit = sc === litScene;
+          const first = sc.variants[0]!;
+          return (
+            <button key={sc.key} type="button" data-scene-state={sc.key} data-page-state={first.screen.name} aria-pressed={lit}
+              title={`${sc.name}: ${sc.variants.length} ${sc.variants.length === 1 ? "sample" : "samples of data"} (${sc.variants.map((v) => v.label).join(", ")})`}
+              onClick={() => { if (!lit) pickScene(first.key); }} className={pill(lit)}>
+              <span className="min-w-0 max-w-[180px] truncate">{sc.name}</span>
+              {sc.variants.length > 1 ? <span className="num text-fine text-fg-faint">{sc.variants.length}</span> : null}
+            </button>
+          );
+        })}
+        {scenes.onTop.length ? <span className="mx-0.5 h-4 w-px shrink-0 bg-border" /> : null}
+        {scenes.onTop.map((v) => {
+          const lit = on.includes(v.key);
+          return (
+            <button key={v.key} type="button" data-on-top-toggle={v.screen.name} aria-pressed={lit} title={`${v.screen.label || v.screen.name}: drawn over the state that is on`} onClick={() => { play("tap"); flipOnTop(v.key); }}
+              className={cn("tactile flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg" : "border-dashed border-border text-fg-muted hover:text-fg")}>
+              <Layers className={cn("size-3", lit && "text-accent")} />{v.label}
+            </button>
+          );
+        })}
+        <span className="flex-1" />
         <button type="button" aria-label="Close the states" onClick={close} className="tactile flex size-6 items-center justify-center rounded-md text-fg-muted hover:bg-hover hover:text-fg"><X className="size-3.5" /></button>
       </div>
-
-      <div className="overflow-x-auto pb-1">
-        <div className="grid min-w-max gap-x-1 gap-y-1" style={grid} data-scenes-grid="">
-          {/* The scenes, each over its variants. */}
-          <span />
-          {cols.map((c, i) => (
-            <span key={`s${i}`} data-scene-name={c.scene} className={cn("truncate px-1 text-fine font-medium uppercase tracking-wide", c.n === 1 ? "text-fg-muted" : "text-transparent")}>{c.scene}</span>
-          ))}
-          <span className="self-center truncate text-small font-medium text-fg">The whole page</span>
-          {cols.map((c, i) => {
-            const lit = i === litCol;
+      {/* The lit state's samples of data: same layout, other words. */}
+      {litScene && litScene.variants.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-1" data-scene-samples={litScene.key}>
+          <span className="pr-1 text-small text-fg-muted">Samples of data</span>
+          {litScene.variants.map((v) => {
+            const lit = v.screen.name === screen!.name || v.same.includes(screen!.name);
             return (
-              <button
-                key={c.key ?? "open"}
-                type="button"
-                data-page-state={c.screen?.name ?? "open"}
-                aria-pressed={lit}
-                title={c.screen ? `${c.scene}: ${c.label} (${c.screen.name})` : "The page as it opens"}
-                onClick={() => pickScene(c.key)}
-                className={cn("tactile flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg ring-1 ring-accent" : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg")}
-              >
-                <span className={cn("num flex size-5 shrink-0 items-center justify-center rounded-full text-fine font-semibold", lit ? "bg-accent text-accent-fg" : "bg-hover text-fg-muted")}>{c.n}</span>
-                <span className="min-w-0 truncate">{c.label}</span>
+              <button key={v.key} type="button" data-sample={v.screen.name} aria-pressed={lit} title={`${v.screen.label || v.screen.name}${v.same.length ? ` (also ${v.same.join(", ")})` : ""}`} onClick={() => { if (!lit) pickScene(v.key); }}
+                className={cn("tactile h-6 max-w-[180px] truncate rounded-full border px-2 text-small", lit ? "border-accent bg-accent text-accent-fg" : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg")}>
+                {v.label}
               </button>
             );
           })}
-          {scenes.onTop.length ? (
-            <>
-              <span className="self-center truncate text-small font-medium text-fg" title="Not moments of the page: drawn over whichever scene is on">On top</span>
-              <div className="flex items-center gap-1.5" style={{ gridColumn: `span ${cols.length}` }} data-on-top="">
-                {scenes.onTop.map((v) => {
-                  const lit = on.includes(v.key);
-                  return (
-                    <button key={v.key} type="button" data-on-top-toggle={v.screen.name} aria-pressed={lit} title={`${v.screen.label || v.screen.name}: drawn over the scene that is on`} onClick={() => { play("tap"); flipOnTop(v.key); }}
-                      className={cn("tactile flex h-7 items-center gap-1.5 rounded-md border px-2 text-plain", lit ? "border-accent bg-accent-soft text-fg" : "border-dashed border-border text-fg-muted hover:text-fg")}>
-                      <Layers className={cn("size-3", lit && "text-accent")} />{v.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : null}
-          {rows.length ? <p className="pt-1 text-fine text-fg-faint" style={{ gridColumn: `span ${cols.length + 1}` }}>Parts with states of their own, in each scene.</p> : null}
-          {rows.filter(chainOpen).map((row) => {
-            const now = stepNow(row, on, screen, screens);
-            const n = inside(row.frame.id), open = opened.has(row.frame.id) || isAbove(row.frame.id);
-            return (
-              <React.Fragment key={row.frame.id}>
-                <div data-state-row={row.frame.id} className={cn("flex min-w-0 items-center gap-1 rounded-md", focus === row.frame.id && "bg-accent-soft/40")} style={{ paddingLeft: row.depth * 12 }}>
-                  {n ? (
-                    <button type="button" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} the ${n} inside`} onClick={() => setOpened((s) => { const t = new Set(s); if (t.has(row.frame.id)) t.delete(row.frame.id); else t.add(row.frame.id); return t; })} className="tactile flex size-5 shrink-0 items-center justify-center rounded text-fg-faint hover:bg-hover hover:text-fg">
-                      <ChevronDown className={cn("size-3 transition-transform", !open && "-rotate-90")} />
-                    </button>
-                  ) : <span className="size-5 shrink-0" />}
-                  <button type="button" data-state-part={row.frame.id} onClick={() => { play("tap"); useStudio.getState().setSelection([row.frame.id]); snapTo(row.frame.id); }} className="tactile min-w-0 flex-1 truncate rounded px-1 text-left text-small font-medium text-fg hover:bg-hover" title={`${nameOf(row)}: pick it on the board${n ? ` (${n} inside)` : ""}`}>
-                    {nameOf(row)}
-                  </button>
-                  <button type="button" data-state-focus={row.frame.id} aria-label={`Focus on ${nameOf(row)}: every state at real size`} title="Focus: this part alone, every state at real size" onClick={() => openPartFocus(row.frame.id)} className="tactile flex size-6 shrink-0 items-center justify-center rounded text-fg-faint hover:bg-hover hover:text-fg">
-                    <Maximize2 className="size-3" />
-                  </button>
-                </div>
-                {cols.map((c, i) => {
-                  const at = i === litCol ? now.at : c.screen ? followsPage(row, c.screen, screens) : 0;
-                  const card = row.steps[at];
-                  const lit = i === litCol;
-                  return (
-                    <button
-                      key={`${row.frame.id}:${c.key ?? "open"}`}
-                      type="button"
-                      data-state-cell={c.screen?.name ?? "open"}
-                      data-state-step={card?.key ?? "open"}
-                      {...(card?.screen ? { "data-state-screen": card.screen } : {})}
-                      data-state-data={lit ? saidOf(card) : undefined}
-                      aria-pressed={lit}
-                      title={`${nameOf(row)} in ${c.scene === "Page" ? "the page as it opens" : `${c.scene}, ${c.label}`}: ${at + 1}. ${card?.label ?? ""}${lit ? (now.byPage ? "" : " (swapped in)") : litCol >= 0 && (screen || i === 0) ? "\nPress to swap it into the scene that is on" : ""}`}
-                      onClick={() => pressCell(row, i, at)}
-                      className={cn("tactile flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 text-left text-plain",
-                        lit ? (now.byPage || !pickedOf(on, row.frame.id) ? "border-dashed border-accent bg-accent-soft text-fg" : "border-accent bg-accent-soft text-fg ring-1 ring-accent") : "border-border bg-panel text-fg-muted hover:border-border-strong hover:text-fg")}
-                    >
-                      <span className={cn("num flex size-5 shrink-0 items-center justify-center rounded-full text-fine font-semibold", lit ? "bg-accent text-accent-fg" : "bg-hover text-fg-muted")}>{at + 1}</span>
-                      <span className="min-w-0 truncate">{card?.label}</span>
-                    </button>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })}
         </div>
+      ) : null}
+      <PanelsLibrary rows={rows} screens={screens} on={on} focus={focus} />
+    </div>
+  );
+}
+
+/** Every panel that shows data, alone at real size, whichever state it lives in, each with its samples as chips. */
+function PanelsLibrary({ rows, screens, on, focus }: { rows: readonly Row[]; screens: readonly ScreenRead[]; on: readonly string[]; focus: string | null }) {
+  if (!rows.length) return null;
+  const screen = litScreenOf(on, screens);
+  return (
+    <div data-panels-library="" className="flex flex-col gap-1.5 border-t border-border pt-2">
+      <p className="text-small text-fg-muted"><span className="font-medium text-fg">Panels</span> · every part that shows data, at real size, whatever state it lives in. Press one to edit it.</p>
+      <div className="flex items-start gap-4 overflow-x-auto pb-2">
+        {rows.map((row) => {
+          const now = stepNow(row, on, screen, screens);
+          const card = row.steps[now.at] ?? row.steps[0]!;
+          const select = () => { play("tap"); useStudio.getState().setSelection([row.frame.id]); snapTo(row.frame.id); };
+          return (
+            <figure key={row.frame.id} data-panel={row.frame.id} data-state-row={row.frame.id} className={cn("flex shrink-0 flex-col gap-1.5 rounded-md p-1.5", focus === row.frame.id && "bg-accent-soft/40")}>
+              <div className="flex items-center gap-1">
+                <button type="button" data-state-part={row.frame.id} onClick={select} className="tactile min-w-0 truncate rounded px-1 text-left text-small font-medium text-fg hover:bg-hover" title={`${nameOf(row)}: pick it to edit`}>{nameOf(row)}</button>
+                <button type="button" data-state-focus={row.frame.id} aria-label={`Focus on ${nameOf(row)}: every state at real size`} title="Focus: this part alone, every state at real size" onClick={() => openPartFocus(row.frame.id)} className="tactile flex size-6 shrink-0 items-center justify-center rounded text-fg-faint hover:bg-hover hover:text-fg">
+                  <Maximize2 className="size-3" />
+                </button>
+              </div>
+              <Samples row={row} at={now.at} byPage={now.byPage} />
+              <div role="button" tabIndex={0} data-panel-drawing={row.frame.id} aria-label={`Edit ${nameOf(row)}`} onClick={select} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); } }} className="cursor-pointer self-start">
+                <PartAtSize frame={row.frame} card={card} />
+              </div>
+            </figure>
+          );
+        })}
       </div>
     </div>
   );
