@@ -379,6 +379,9 @@ const DRAWN_HOOKS = `() => {
     if (el.closest("template")) continue;
     if (!el.getClientRects().length) continue;
     if (getComputedStyle(el).visibility === "hidden") continue;
+    /* Inside a <details> the page keeps shut (a "?" box): not drawn, though the browser still gives it a box. */
+    const shut = el.parentElement && el.parentElement.closest("details:not([open])");
+    if (shut && !el.closest("summary")) continue;
     out.add(el.getAttribute("data-hook"));
   }
   return [...out].sort();
@@ -408,6 +411,8 @@ const DRAWN_BOXES = `() => {
   const out = {};
   for (const el of Array.from(document.querySelectorAll("[data-hook]"))) {
     if (el.closest("template") || !el.getClientRects().length || getComputedStyle(el).visibility === "hidden") continue;
+    const shut = el.parentElement && el.parentElement.closest("details:not([open])");
+    if (shut && !el.closest("summary")) continue;
     const v = el.getAttribute("data-hook");
     if (!v || out[v]) continue;
     const r = el.getBoundingClientRect();
@@ -433,8 +438,12 @@ const SCREEN_LIST = `() => {
     const texts = {};
     const sizes = {};
     const at = body ? body.getBoundingClientRect() : null;
+    /* The <details> open in this screen, by hook: what is inside a shut one (a "?" box's words) is not drawn, though the browser still gives it a box. */
+    const opened = body ? Array.from(body.querySelectorAll("details[open][data-hook]")).map((d) => d.getAttribute("data-hook")) : [];
     if (body) for (const h of Array.from(body.querySelectorAll("[data-hook]"))) {
       if (h.closest("template") || !h.getClientRects().length || getComputedStyle(h).visibility === "hidden") continue;
+      const shut = h.parentElement && h.parentElement.closest("details:not([open])");
+      if (shut && !h.closest("summary")) continue;
       const v = h.getAttribute("data-hook");
       if (!v || v.startsWith("preview-")) continue;
       shows.add(v);
@@ -459,7 +468,7 @@ const SCREEN_LIST = `() => {
         if (u && !pictures[u] && b && a.width * a.height >= 0.8 * b.width * b.height) pictures[u] = src;
       }
     }
-    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes, pictures, texts, sizes, ...(step ? { step } : {}) });
+    out.push({ name, label, href: a ? a.href : "", shows: [...shows].sort(), boxes, pictures, texts, sizes, opened, ...(step ? { step } : {}) });
   }
   return out;
 }`;
@@ -475,7 +484,7 @@ const BUSY = `() => [document.documentElement, document.body].some((el) => el &&
  */
 type Boxes = Record<string, [number, number, number, number]>;
 type Pictures = Record<string, string>;
-type Read = { name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures; texts?: Record<string, string>; sizes?: Record<string, number>; step?: string };
+type Read = { name: string; label: string; page: string; shows: string[]; boxes?: Boxes; pictures?: Pictures; texts?: Record<string, string>; sizes?: Record<string, number>; step?: string; opened?: string[] };
 async function readScreens(page: PWPage, ask: { page: string | null; list: { name: string; src: string }[] }, width: number): Promise<Read[]> {
   type Evaluating = { evaluate: (fn: string) => Promise<unknown>; goto: (url: string, o: { waitUntil: "load"; timeout: number }) => Promise<unknown>; waitForTimeout: (ms: number) => Promise<void> };
   const p = page as unknown as Evaluating;
@@ -506,14 +515,14 @@ async function readScreens(page: PWPage, ask: { page: string | null; list: { nam
     const file = u && u.origin === HOME ? decodeURIComponent(u.pathname.slice(1)) : "";
     /* Its address is the preview page again (PonsStars' links open the screen alone there): what the preview copied in is the screen, and its page is the one whose hooks it carries (`boardStates.ts`). */
     if (!file || file === ask.page || !u) {
-      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}), ...(s.pictures ? { pictures: s.pictures } : {}), ...(s.texts ? { texts: s.texts } : {}), ...(s.sizes ? { sizes: s.sizes } : {}), ...(s.step ? { step: s.step } : {}) });
+      if (s.shows?.length) out.push({ name: s.name, label: s.label, page: "", shows: s.shows, ...(s.boxes ? { boxes: s.boxes } : {}), ...(s.pictures ? { pictures: s.pictures } : {}), ...(s.texts ? { texts: s.texts } : {}), ...(s.sizes ? { sizes: s.sizes } : {}), ...(s.opened ? { opened: s.opened } : {}), ...(s.step ? { step: s.step } : {}) });
       continue;
     }
     if (!u.searchParams.has("still")) u.searchParams.set("still", "1");
     try {
       await p.goto(u.toString(), { waitUntil: "load", timeout: ZIP_BUDGET_MS });
       await settle(20000);
-      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[], boxes: (await p.evaluate(`(${DRAWN_BOXES})()`).catch(() => ({}))) as Boxes, pictures: (await p.evaluate(`(${DRAWN_PICTURES})()`).catch(() => ({}))) as Pictures });
+      out.push({ name: s.name, label: s.label, page: file, shows: (await p.evaluate(`(${DRAWN_HOOKS})()`)) as string[], boxes: (await p.evaluate(`(${DRAWN_BOXES})()`).catch(() => ({}))) as Boxes, pictures: (await p.evaluate(`(${DRAWN_PICTURES})()`).catch(() => ({}))) as Pictures, opened: (await p.evaluate(`() => Array.from(document.querySelectorAll("details[open][data-hook]")).map((d) => d.getAttribute("data-hook"))`).catch(() => [])) as string[] });
     } catch {
       /* A screen whose page will not open is left out. */
     }

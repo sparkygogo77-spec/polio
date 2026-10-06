@@ -30,7 +30,7 @@ export function looksOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: S
   if (!on.length) return NO_LOOKS;
   const source = sourceOf(s);
   if (looksMemo && looksMemo.on === on && looksMemo.screens === source?.screens && looksMemo.files === source?.files && looksMemo.nodes === s.nodes) return looksMemo.looks;
-  const looks = on.some((k) => k.startsWith("screen:")) ? screenLooks((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : new Map<string, StepLook>();
+  const looks = on.some((k) => k.startsWith("screen:") || k.startsWith("top:")) ? screenLooks((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : new Map<string, StepLook>();
   for (const [id, l] of steppedOnBoard(s).looks) looks.set(id, l);
   looksMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, looks };
   return looks;
@@ -51,10 +51,10 @@ export let shownMemo: { on: unknown; screens: unknown; files: unknown; nodes: un
 export function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): (n: StudioNode) => boolean {
   const on = s.statesOn ?? [];
   const source = sourceOf(s);
-  /* A part stepped on the board is read off the parts, so the parts count only then. */
-  const steps = on.some((k) => k.startsWith("step:")) ? s.nodes ?? [] : null;
+  /* A part stepped on the board, or a scene's part with no hook of its own (it goes with the part round it), is read off the parts, so the parts count only then. */
+  const steps = on.some((k) => k.startsWith("step:") || k.startsWith("screen:") || k.startsWith("top:")) ? s.nodes ?? [] : null;
   if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files && shownMemo.nodes === steps) return shownMemo.shows;
-  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null, steps ? steppedOnBoard(s).decide : null) : (n: StudioNode) => !n.state;
+  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null, steps ? steppedOnBoard(s).decide : null, steps as never) : (n: StudioNode) => !n.state;
   shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
 }
@@ -63,7 +63,7 @@ export let placedMemo: { on: unknown; screens: unknown; files: unknown; nodes: u
 export const NO_PLACES = new Map<string, PlaceBox>();
 export function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, PlaceBox> {
   const on = s.statesOn ?? [];
-  const screensOn = on.some((k) => k.startsWith("screen:")), stepsOn = on.some((k) => k.startsWith("step:"));
+  const screensOn = on.some((k) => k.startsWith("screen:") || k.startsWith("top:")), stepsOn = on.some((k) => k.startsWith("step:"));
   if (!screensOn && !stepsOn) return NO_PLACES;
   const source = sourceOf(s);
   if (placedMemo && placedMemo.on === on && placedMemo.screens === source?.screens && placedMemo.files === source?.files && placedMemo.nodes === s.nodes) return placedMemo.places;

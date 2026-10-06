@@ -47,7 +47,7 @@
 import { canRemake, openRemake } from "../RemakePicture";
 import { canClearBackground, openClearBackground } from "../ClearBackground";
 import * as React from "react";
-import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Lock, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
+import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "../AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../store";
@@ -71,6 +71,8 @@ import { lookOf } from "../partLook";
 import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../partLookApply";
 import { openRemix } from "../RemixCard";
 import { hasStates, openStatesTimeline } from "../StatesTimeline";
+import { openPartFocus } from "../PartFocus";
+import { frameFor } from "../stateFrames";
 import { current, openedAt, pageSpot, openRadial, openBoard, closeRadial, moveRadial, useRadial } from "./open";
 import { PULL_FROM, PULL_LOCK, TRAY_DROP, PullStage, Pull, SlotId, Slot, SLOTS, GREEN, GREEN_SHRINK, ANIM_SLAB, Choice, choicesFor, SLOTS_BG, bgChoicesFor } from "./choices";
 import { PullLine, PullEnds, RingPiece, inkOn, Ring, HueSwatch, textureWear, AuraSwatch, Editor } from "./ring";
@@ -569,6 +571,8 @@ export function RadialMenu() {
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
         /* A part with states (the TV box: connecting, Find a match, the result), or one of them: its faces in order (StatesTimeline.tsx). */
         ...(hasStates(nodes, node!.id) ? [{ id: "states", label: "States timeline", icon: <History className="size-3" />, onClick: () => { closeRadial(); openStatesTimeline(node!.id); } }] : []),
+        /* …and the part alone, at real size, every state side by side (PartFocus.tsx). */
+        ...(hasStates(nodes, node!.id) ? [{ id: "focus", label: "Focus: every state", icon: <Maximize2 className="size-3" />, onClick: () => { closeRadial(); openPartFocus(frameFor(nodes, node!.id)?.frame ?? node!.id); } }] : []),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
         ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
         /* …or its background pointed at and made see-through (ClearBackground.tsx). */

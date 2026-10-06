@@ -1,6 +1,7 @@
 "use client";
 import { hiddenGroups, screenKey, type ScreenRead } from "../boardStates";
 import { openStatesTimeline } from "../StatesTimeline";
+import { pageScenes } from "../scenes";
 import { stateFrames, type FrameNode } from "../stateFrames";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -212,17 +213,20 @@ export function StatesChip({ pageId }: { pageId: string }) {
   const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
   const screens = (source?.screens ?? []).filter((x) => x.page === file);
   if (!groups.length && !screens.length && !frames.length) return null;
-  const here = [...screens.map((x) => screenKey(x.name)), ...groups.map((g) => g.group)];
+  const scenes = pageScenes(screens, file);
+  const here = [...screens.map((x) => screenKey(x.name)), ...scenes.onTop.map((v) => v.key), ...groups.map((g) => g.group)];
   const lit = here.filter((k) => on.includes(k)).length;
   const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
+  /* One scene at a time: a scene is one capture of the whole page, so picking one puts the last away. */
+  const pickScene = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; const mine = new Set(screens.map((x) => screenKey(x.name))); st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now.filter((k) => !mine.has(k)), key]); };
   const Row = ({ k, name, note }: { k: string; name: string; note: string }) => {
     const pressed = on.includes(k);
     return (
       <button
         type="button"
         aria-pressed={pressed}
-        {...(k.startsWith("screen:") ? { "data-screen-toggle": k.slice(7) } : { "data-state-toggle": k })}
-        onClick={() => flip(k)}
+        {...(k.startsWith("screen:") ? { "data-screen-toggle": k.slice(7) } : k.startsWith("top:") ? { "data-on-top-toggle": k.slice(4) } : { "data-state-toggle": k })}
+        onClick={() => (k.startsWith("screen:") ? pickScene(k) : flip(k))}
         className={cn("tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain", pressed ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
       >
         {pressed ? <Eye className="size-3 shrink-0 text-accent" /> : <EyeOff className="size-3 shrink-0" />}
@@ -262,13 +266,20 @@ export function StatesChip({ pageId }: { pageId: string }) {
             {screens.length || groups.length ? (
               <button type="button" data-states-more="" aria-expanded={more} onClick={() => setMore((v) => !v)} className="tactile mt-1 flex h-7 items-center gap-1 rounded-md px-2 text-left text-fine text-fg-faint hover:bg-hover hover:text-fg">
                 <ChevronDown className={cn("size-3 shrink-0 transition-transform", more && "rotate-180")} />
-                {frames.length ? "More: whole screens and every hidden part" : "Whole screens and every hidden part"}
+                {frames.length ? "More: scenes and every hidden part" : "Scenes and every hidden part"}
               </button>
             ) : null}
             {more || !frames.length ? (
               <>
-                {screens.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Screens</p> : null}
-                {screens.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label || x.name} note={x.name} />)}
+                {/* The page's scenes in game order, each with its variants; then what goes on top of them (`scenes.ts`). */}
+                {scenes.scenes.map((sc) => (
+                  <React.Fragment key={sc.key}>
+                    <p data-scene={sc.key} className="px-2 pt-1 text-fine font-medium text-fg-muted">{sc.name}</p>
+                    {sc.variants.map((v) => <Row key={v.key} k={v.key} name={v.label} note={v.screen.name} />)}
+                  </React.Fragment>
+                ))}
+                {scenes.onTop.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">On top</p> : null}
+                {scenes.onTop.map((v) => <Row key={v.key} k={v.key} name={v.label} note={v.screen.name} />)}
                 {groups.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Hidden parts</p> : null}
                 {groups.map((g) => <Row key={g.group} k={g.group} name={g.template ? `${g.hook} (template)` : g.hook} note={String(g.parts)} />)}
               </>

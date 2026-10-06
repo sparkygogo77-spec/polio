@@ -41,6 +41,8 @@ export interface ScreenRead {
   stills?: Record<string, unknown>;
   /** The step of the site's flow this screen shows (its preview's `data-preview-step`): a part goes through these, in the order they first come. */
   step?: string;
+  /** The <details> open in this screen, by hook: what is inside any other is not drawn. Absent on a screen read before it was kept: every one shut. */
+  opened?: string[];
 }
 
 export interface StateNode {
@@ -48,34 +50,113 @@ export interface StateNode {
   pageId: string;
   hooks?: Record<string, string> | null;
   state?: { group: string; option: number } | null;
+  /** Where on the page it was read (`body > main > p ::line(2)`): a part with no hook of its own goes with the hooked part round it. */
+  from?: { selector?: string | null; position?: string | null } | null;
 }
 
 /** A group's own hook: `hidden:match-panel` is match-panel; a template's group names its template. */
 export const groupHook = (group: string): string => group.replace(/^hidden:(template:)?/, "");
 
-/** The key a screen is switched on by. */
+/** The key a screen is switched on by: a scene of the page, drawn from that one capture. */
 export const screenKey = (name: string) => `screen:${name}`;
+/** The key an overlay is switched on by: what it adds (the tour, a menu), drawn on top of the scene that is on (`scenes.ts`). */
+export const topKey = (name: string) => `top:${name}`;
+const isScreenKey = (k: string) => k.startsWith("screen:") || k.startsWith("top:") || k.startsWith("step:");
+
+const selOf = (n: StateNode): string | null => n.from?.selector ?? null;
+/**
+ * THE HOOKED PART ROUND EACH PART WITHOUT A HOOK, BY WHERE IT WAS READ. A
+ * line of words (`label ::line(8)`) or a bare <div> belongs to the nearest
+ * part up its path that has a hook: it is drawn when that part is, and moves
+ * with it. By path, not by box: a box can sit over a neighbour's.
+ */
+export function hookedHolders<T extends StateNode & { id?: string }>(nodes: readonly T[]): Map<string, T> {
+  const bySel = new Map<string, T>();
+  for (const n of nodes) { const sl = selOf(n); if (sl && n.hooks?.["data-hook"]) bySel.set(`${n.pageId}|${sl}`, n); }
+  const out = new Map<string, T>();
+  if (!bySel.size) return out;
+  for (const n of nodes) {
+    if (!n.id || n.hooks?.["data-hook"]) continue;
+    let sl = selOf(n);
+    if (!sl) continue;
+    sl = sl.replace(/ ::line\(\d+\)$/, "");
+    for (let i = 0; i < 40 && sl; i++) {
+      const h = bySel.get(`${n.pageId}|${sl}`);
+      if (h && h !== n) { out.set(n.id, h); break; }
+      const cut = sl.lastIndexOf(" > ");
+      sl = cut > 0 ? sl.slice(0, cut) : "";
+    }
+  }
+  return out;
+}
+
+/**
+ * INSIDE A <details> THE PAGE KEEPS SHUT. The "?" boxes' words (PST's
+ * balance note, the pot's house cut) are not on the page until pressed; a
+ * capture taken before they were left out read them as drawn, and the board
+ * drew them over the lines under the "?". Returns, for each part inside one,
+ * the hook of its <details>; its <summary> (the "?") is not inside.
+ */
+export function inDetails<T extends StateNode & { id?: string }>(nodes: readonly T[]): Map<string, string> {
+  const details = new Map<string, string>();
+  for (const n of nodes) { const sl = selOf(n), h = n.hooks?.["data-hook"]; if (sl && h && /(^| > )details(:nth-of-type\(\d+\))?$/.test(sl)) details.set(`${n.pageId}|${sl}`, h); }
+  const out = new Map<string, string>();
+  if (!details.size) return out;
+  for (const n of nodes) {
+    const sl = selOf(n)?.replace(/ ::line\(\d+\)$/, "");
+    if (!n.id || !sl) continue;
+    const m = /^(.*?(?:^| > )details(?::nth-of-type\(\d+\))?) > (.+)$/.exec(sl);
+    if (!m || /^summary(\b|:)/.test(m[2]!)) continue;
+    const h = details.get(`${n.pageId}|${m[1]}`);
+    if (h) out.set(n.id, h);
+  }
+  return out;
+}
+
+/** Each lit screen and overlay, by the board's page it is a state of. */
+function litByPage(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null): Map<string, { base: ScreenRead[]; top: ScreenRead[] }> {
+  const out = new Map<string, { base: ScreenRead[]; top: ScreenRead[] }>();
+  for (const s of screens ?? []) {
+    const base = on.includes(screenKey(s.name)), top = on.includes(topKey(s.name));
+    if (!base && !top) continue;
+    const page = pageOf(s.page);
+    if (!page) continue;
+    const at = out.get(page) ?? { base: [], top: [] };
+    (base ? at.base : at.top).push(s);
+    out.set(page, at);
+  }
+  return out;
+}
+
+/** What an overlay adds to the scene under it: the hooks it draws that the scene does not (the tour's shade and card). */
+export function overlayAdds(top: ScreenRead, base: ScreenRead | null): Set<string> {
+  const under = new Set(base?.shows ?? []);
+  return new Set(top.shows.filter((h) => !under.has(h)));
+}
 
 /**
  * What the board draws, with these states on. `pageOf` turns a screen's page
- * file into the board's page id.
+ * file into the board's page id. With `all` (the page's parts), a part with
+ * no hook goes with the hooked part round it, and what is inside a shut
+ * <details> stays shut unless the screen opened it.
  */
-export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, frames?: Pick<FramesRead, "inFrame" | "stepOf"> | null, decide?: ReadonlyMap<string, boolean> | null) {
-  const groups = new Set(on.filter((k) => !k.startsWith("screen:") && !k.startsWith("step:")));
+export function boardShows(on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, frames?: Pick<FramesRead, "inFrame" | "stepOf"> | null, decide?: ReadonlyMap<string, boolean> | null, all?: readonly StateNode[] | null) {
+  const groups = new Set(on.filter((k) => !isScreenKey(k)));
   /* One face of a frame, picked on its States timeline: that face alone, in its frame (`stateFrames.ts`). */
   const picked = new Map<string, string>();
   for (const k of on) { const s = readStepKey(k); if (s) picked.set(s.frame, s.step); }
+  const lit = litByPage(on, screens, pageOf);
   const byPage = new Map<string, Set<string>[]>();
-  for (const s of screens ?? []) {
-    if (!on.includes(screenKey(s.name))) continue;
-    const page = pageOf(s.page);
-    if (!page) continue;
-    const list = byPage.get(page) ?? [];
-    list.push(new Set(s.shows));
-    byPage.set(page, list);
+  const addsByPage = new Map<string, Set<string>[]>();
+  const openByPage = new Map<string, Set<string>>();
+  for (const [page, l] of lit) {
+    if (l.base.length) byPage.set(page, l.base.map((s) => new Set(s.shows)));
+    if (l.top.length) addsByPage.set(page, l.top.map((t) => overlayAdds(t, l.base[0] ?? null)));
+    openByPage.set(page, new Set([...l.base, ...l.top].flatMap((s) => s.opened ?? [])));
   }
-  return (n: StateNode): boolean => {
-    /* A part stepped on the board decides what is inside it, and only that (`steppedParts`). */
+  const holders = all && lit.size ? hookedHolders(all) : null;
+  const shut = all && lit.size ? inDetails(all) : null;
+  const self = (n: StateNode): boolean => {
     const said = n.id ? decide?.get(n.id) : undefined;
     if (said !== undefined) return said;
     if (picked.size && frames && n.id) {
@@ -84,13 +165,21 @@ export function boardShows(on: readonly string[], screens: readonly ScreenRead[]
       if (want !== undefined) return frames.stepOf.get(n.id) === want;
     }
     if (n.state && groups.has(n.state.group)) return true;
+    const hook = n.hooks?.["data-hook"];
+    const adds = addsByPage.get(n.pageId);
+    if (adds && (hook ? adds.some((a) => a.has(hook)) : !!n.state && adds.some((a) => a.has(groupHook(n.state!.group))))) return true;
+    /* Inside a "?" the page keeps shut: only when this screen opened it. */
+    const d = n.id ? shut?.get(n.id) : undefined;
+    if (d && byPage.has(n.pageId) && !openByPage.get(n.pageId)?.has(d)) return false;
     const shown = byPage.get(n.pageId);
     if (!shown) return !n.state;
-    const hook = n.hooks?.["data-hook"];
     if (hook) return shown.some((s) => s.has(hook));
-    /* A part with no hook of its own goes with its group, or stays as the page opens. */
+    /* A part with no hook of its own goes with the hooked part round it, else with its group, else stays as the page opens. */
+    const by = n.id ? holders?.get(n.id) : undefined;
+    if (by) return self(by);
     return n.state ? shown.some((s) => s.has(groupHook(n.state!.group))) : true;
   };
+  return self;
 }
 
 /** The hidden groups on one page, by hook, with their part counts: templates last. */
@@ -112,71 +201,137 @@ const median = (xs: number[]): number => {
 };
 
 /**
- * WHERE A SCREEN DRAWS ITS PARTS. A state the code shows sits in the page's
- * flow: the practice note shown, the lines under it move down. The board
- * keeps each part where the page first drew it, so a screen that shows two
- * states drew them on top of each other. Each screen read at import says
- * where every hook it drew sat (`boxes`); lined up with the page's parts
- * (the median offset and scale of the parts both have), each shown part is
- * drawn there while that screen is on, and a part with no hook moves with
- * the hooked part that holds it. Only the board's drawing: the parts keep
- * their own boxes. Returns the parts to draw elsewhere, by id.
+ * WHERE A SCREEN DRAWS ITS PARTS: ALL OF THEM, FROM THAT ONE CAPTURE (J,
+ * 2026-10-06). A screen is one real capture of one moment of the page, its
+ * positions and its words read together (`boxes`, `texts`). The board drew
+ * some parts where the capture had them and kept others where the page
+ * opens, so one moment's words sat at another moment's places: the balance
+ * panel's in-match lines ran into Deposit, still at the connecting screen's
+ * top, and the TV stayed 159px above its row. Now every part the capture
+ * drew is drawn at its box there, size and all; what flows under a part
+ * that grew is where the capture has it, because the capture is the page's
+ * flow. The capture's corner is lined up with the page's own by the parts
+ * at its top (the nav, the title), never pushed above the page's top; a
+ * capture read at another width is scaled. A part with no hook moves with
+ * the hooked part round it. Only the board's drawing: the parts keep their
+ * own boxes. Returns the parts to draw elsewhere, by id.
+ *
+ * An overlay switched on over the scene (`top:<name>`: the tour) draws what
+ * it adds where its own capture has it, lined up the same way.
  */
 export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null, shows: (n: PlaceNode) => boolean, pageHint?: (s: ScreenRead) => string | null): Map<string, PlaceBox> {
   const out = new Map<string, PlaceBox>();
   const done = new Set<string>();
-  for (const s of screens ?? []) {
-    if (!s.boxes || !on.includes(screenKey(s.name))) continue;
-    const page = (s.page ? pageOf(s.page) : null) ?? pageHint?.(s) ?? null;
-    if (!page || done.has(page)) continue;
-    done.add(page);
+  const hookOf = (n: PlaceNode) => n.hooks?.["data-hook"];
+  const holders = hookedHolders(nodes);
+  const lit = (screens ?? []).filter((s) => s.boxes && on.includes(screenKey(s.name)));
+  const tops = (screens ?? []).filter((s) => s.boxes && on.includes(topKey(s.name)));
+  const pageOfScreen = (s: ScreenRead) => (s.page ? pageOf(s.page) : null) ?? pageHint?.(s) ?? null;
+  const fits = new Map<string, ReturnType<typeof captureFit>>();
+  const fitOf = (o: ScreenRead, here: readonly PlaceNode[]) => { if (!fits.has(o.name)) fits.set(o.name, o.boxes ? captureFit(here, o.boxes, shows) : null); return fits.get(o.name)!; };
+  for (const s of [...lit, ...tops]) {
+    const page = pageOfScreen(s);
+    const isTop = !lit.includes(s);
+    if (!page || (!isTop && done.has(page))) continue;
+    if (!isTop) done.add(page);
     const here = nodes.filter((n) => n.pageId === page);
-    const hookOf = (n: PlaceNode) => n.hooks?.["data-hook"];
-    const anchors = here.filter((n) => !n.state && hookOf(n) && s.boxes![hookOf(n)!] && n.w > 8 && n.h > 8 && s.boxes![hookOf(n)!]![2] > 8);
-    if (anchors.length < 3) continue;
-    let k = median(anchors.map((n) => n.w / s.boxes![hookOf(n)!]![2]));
-    if (!Number.isFinite(k) || k <= 0 || Math.abs(k - 1) < 0.02) k = 1;
-    const dx = median(anchors.map((n) => n.x - k * s.boxes![hookOf(n)!]![0]));
-    let dy = median(anchors.map((n) => n.y - k * s.boxes![hookOf(n)!]![1]));
-    /* The screen's top stays on the page's top (J, 2026-10-06): a line a
-       screen adds high up (PST's "Game server offline.") moves most parts
-       down, and their median offset lifted the nav and the title above the
-       page, under the board's name. */
-    const tops = here.filter((n) => !n.state && !pinned(n) && shows(n) && hookOf(n) && s.boxes![hookOf(n)!]);
-    if (tops.length) {
-      const pageTop = Math.min(...tops.map((n) => n.y));
-      const drawnTop = Math.min(...tops.map((n) => k * s.boxes![hookOf(n)!]![1] + dy));
-      if (drawnTop < pageTop) dy += pageTop - drawnTop;
-    }
-    /* Every shown hooked part the screen drew, where it drew it; those more than 2px off are moved. */
+    const fit = fitOf(s, here);
+    if (!fit) continue;
+    /*
+     * Where a line sits from its first hooked word: on it when the line is
+     * as tall as the word; else as far from it as the page opens with, read
+     * off a capture where the word sits the same in the part round it (same
+     * left, same width, from that part's corner), so a line box taller than
+     * its words keeps its offset.
+     */
+    const runLift = (n: PlaceNode, rh: string, rb: [number, number, number, number]): number | null => {
+      if (Math.abs(n.h - fit.k * rb[3]) <= 2) return 0;
+      const by = holders.get(n.id);
+      if (!by || by.state) return null;
+      for (const o of screens ?? []) {
+        const b = o.boxes?.[rh], hb = o.boxes?.[hookOf(by) ?? ""];
+        if (!b || !hb || pageOfScreen(o) !== page) continue;
+        const f = fitOf(o, here);
+        if (!f) continue;
+        if (Math.abs(f.k * (b[0] - hb[0]) - (n.x - by.x)) <= 2 && Math.abs(f.k * b[2] - n.w) <= 2) return (n.y - by.y) - Math.round(f.k * (b[1] - hb[1]));
+      }
+      return null;
+    };
+    const { k, dx, dy } = fit;
+    const boxIn = (b: [number, number, number, number]): PlaceBox => ({ x: Math.round(k * b[0] + dx), y: Math.round(k * b[1] + dy), w: Math.round(k * b[2]), h: Math.round(k * b[3]) });
+    const adds = isTop ? overlayAdds(s, lit.find((x) => pageOfScreen(x) === page) ?? null) : null;
+    /* Every shown hooked part the capture drew, at its box there. */
     const target = new Map<string, PlaceBox>();
-    const moved = new Map<string, PlaceBox>();
     for (const n of here) {
-      const b = hookOf(n) ? s.boxes[hookOf(n)!] : undefined;
-      if (!b || !shows(n)) continue;
-      const to = { x: Math.round(k * b[0] + dx), y: Math.round(k * b[1] + dy), w: Math.round(k * b[2]), h: Math.round(k * b[3]) };
-      if (Math.abs(to.x - n.x) > 2 || Math.abs(to.y - n.y) > 2) { moved.set(n.id, to); target.set(n.id, to); }
-      else target.set(n.id, { x: n.x, y: n.y, w: n.w, h: n.h });
+      const h = hookOf(n);
+      const b = h ? s.boxes![h] : undefined;
+      if (!b || !shows(n) || (adds && !adds.has(h!))) continue;
+      target.set(n.id, boxIn(b));
     }
-    dropCollisions(here, moved, target, shows);
-    if (!moved.size) continue;
-    /* A part with no hook of its own goes with the smallest hooked part that holds it. */
+    /* A part with no hook of its own goes with the hooked part round it (by where it was read, else the smallest holding it). */
     const hooked = here.filter((n) => target.has(n.id)).sort((a, b) => a.w * a.h - b.w * b.h);
     for (const n of here) {
-      if (moved.has(n.id)) { out.set(n.id, moved.get(n.id)!); continue; }
-      if (hookOf(n) || !shows(n)) continue;
-      const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
-      const holding = hooked.filter((h) => cx >= h.x && cx <= h.x + h.w && cy >= h.y && cy <= h.y + h.h);
-      /* One of its own state first: a state's words go with that state, not with a line it was drawn over. */
-      const by = holding.find((h) => (h.state?.group ?? null) === (n.state?.group ?? null)) ?? holding[0];
+      if (target.has(n.id) || hookOf(n) || !shows(n)) continue;
+      /* A line of words whose words are hooked elements (PST's "Pot: - SOL ?", read as one line) goes where its first one is in this capture. */
+      const rh = runHook(n);
+      const rb = rh ? s.boxes![rh] : undefined;
+      const lift = rh && rb ? runLift(n, rh, rb) : null;
+      if (rb && lift !== null) { const to = boxIn(rb); target.set(n.id, { x: to.x, y: to.y + lift, w: Math.max(n.w, to.w), h: n.h }); continue; }
+      let by: PlaceNode | undefined = holders.get(n.id);
+      if (by && !target.has(by.id)) by = undefined;
+      if (!by && !holders.has(n.id)) {
+        const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+        const holding = hooked.filter((h) => cx >= h.x && cx <= h.x + h.w && cy >= h.y && cy <= h.y + h.h);
+        /* One of its own state first: a state's words go with that state, not with a line it was drawn over. */
+        by = holding.find((h) => (h.state?.group ?? null) === (n.state?.group ?? null)) ?? holding[0];
+      }
       if (!by) continue;
       const to = target.get(by.id)!;
-      if (to.x !== by.x || to.y !== by.y) out.set(n.id, { x: n.x + (to.x - by.x), y: n.y + (to.y - by.y), w: n.w, h: n.h });
+      target.set(n.id, { x: n.x + (to.x - by.x), y: n.y + (to.y - by.y), w: n.w, h: n.h });
+    }
+    for (const [id, b] of target) {
+      const n = here.find((x) => x.id === id)!;
+      if (b.x !== n.x || b.y !== n.y || b.w !== n.w || b.h !== n.h) out.set(id, b);
     }
     keepOverlaysOnPage(here, out, shows);
   }
   return out;
 }
+
+/** The hook of a line's first hooked word, when its words are runs. */
+const runHook = (n: PlaceNode): string | undefined => {
+  const c = (n as PlaceNode & { content?: unknown }).content;
+  return Array.isArray(c) ? (c as { hooks?: Record<string, string> | null }[]).find((r) => r && typeof r === "object" && r.hooks?.["data-hook"])?.hooks?.["data-hook"] : undefined;
+};
+
+/**
+ * HOW A CAPTURE LINES UP WITH THE PAGE: its scale (the median of the widths
+ * the two share) and its corner, from the parts at its top that are always
+ * on the page (the nav, the title). A screen that adds a line at the very
+ * top (PST's "Game server offline.") never lifts the page above its top.
+ */
+export function captureFit(here: readonly PlaceNode[], boxes: Record<string, [number, number, number, number]>, shows: (n: PlaceNode) => boolean): { k: number; dx: number; dy: number } | null {
+  const hookOf = (n: PlaceNode) => n.hooks?.["data-hook"];
+  const both = here.filter((n) => !n.state && !pinned(n) && hookOf(n) && boxes[hookOf(n)!] && n.w > 8 && n.h > 8 && boxes[hookOf(n)!]![2] > 8);
+  if (both.length < 3) return null;
+  let k = median(both.map((n) => n.w / boxes[hookOf(n)!]![2]));
+  if (!Number.isFinite(k) || k <= 0 || Math.abs(k - 1) < 0.02) k = 1;
+  const top = Math.min(...both.map((n) => boxes[hookOf(n)!]![1]));
+  const band = both.filter((n) => boxes[hookOf(n)!]![1] <= top + 120 / k);
+  const from = band.length ? band : both;
+  const dx = Math.round(median(from.map((n) => n.x - k * boxes[hookOf(n)!]![0])));
+  let dy = Math.round(median(from.map((n) => n.y - k * boxes[hookOf(n)!]![1])));
+  const flow = here.filter((n) => !n.state && !pinned(n) && shows(n) && hookOf(n) && boxes[hookOf(n)!]);
+  if (flow.length) {
+    const pageTop = Math.min(...here.filter((n) => !n.state && !pinned(n)).map((n) => n.y));
+    const drawnTop = Math.min(...flow.map((n) => k * boxes[hookOf(n)!]![1] + dy));
+    if (drawnTop < pageTop) dy += Math.round(pageTop - drawnTop);
+  }
+  return { k, dx, dy };
+}
+
+/** Pinned to the window rather than in the page's flow. */
+const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
 
 /**
  * AN OVERLAY STAYS ON THE PAGE. A part pinned to the window (PST's tour: its
@@ -185,34 +340,6 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
  * it (J, 2026-10-05). Each one pinned to the window, with everything in it,
  * is moved up until its foot is on the page, and down to the page's top.
  */
-/**
- * A SCREEN NEVER DRAWS ONE PART OVER ANOTHER (J, 2026-10-06). The board
- * moves parts to the screen's boxes without reflowing the rest, so where a
- * screen's box disagrees with the page (a line the page has since shortened,
- * PST's one-line help with its "?"), the moved part landed on the lines
- * under it and its words overlapped theirs. A move that puts a shown part
- * over another it was clear of on the page, neither holding the other, is
- * not made: the part stays where the page draws it.
- */
-function dropCollisions(here: readonly PlaceNode[], moved: Map<string, PlaceBox>, target: Map<string, PlaceBox>, shows: (n: PlaceNode) => boolean): void {
-  const flow = here.filter((n) => shows(n) && !pinned(n));
-  const now = (n: PlaceNode): PlaceBox => moved.get(n.id) ?? n;
-  for (let pass = 0; pass < 4; pass++) {
-    let dropped = false;
-    for (const n of flow) {
-      const to = moved.get(n.id);
-      if (!to) continue;
-      const hits = flow.some((o) => o !== n && !contains(o, n) && !contains(n, o) && !contains(now(o), to) && !contains(to, now(o)) && meets(to, now(o)) && !meets(n, o));
-      if (hits) { moved.delete(n.id); target.set(n.id, { x: n.x, y: n.y, w: n.w, h: n.h }); dropped = true; }
-    }
-    if (!dropped) return;
-  }
-}
-const meets = (a: PlaceBox, b: PlaceBox) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 2 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 2;
-
-/** Pinned to the window rather than in the page's flow. */
-const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
-
 function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBox>, shows: (n: PlaceNode) => boolean): void {
   const box = (n: PlaceNode) => out.get(n.id) ?? n;
   const flow = here.filter((n) => !n.state && !pinned(n));
@@ -235,15 +362,37 @@ const contains = (o: PlaceBox, n: PlaceBox) => n.x >= o.x - 1 && n.y >= o.y - 1 
 /** Each shown part's words and picture as the lit page screens have them (the tour card's "How it works"), by id. */
 export function screenLooks(nodes: readonly (PlaceNode & { content?: unknown })[], on: readonly string[], screens: readonly ScreenRead[] | null | undefined, pageOf: (file: string) => string | null): Map<string, StepLook> {
   const out = new Map<string, StepLook>();
-  for (const s of screens ?? []) {
-    if (!on.includes(screenKey(s.name))) continue;
+  const lined = linedParts(nodes);
+  /* The scene's capture first, then what an overlay on top of it adds. */
+  const lit = [...(screens ?? []).filter((s) => on.includes(screenKey(s.name))), ...(screens ?? []).filter((s) => on.includes(topKey(s.name)))];
+  for (const s of lit) {
     const page = s.page ? pageOf(s.page) : null;
     const shows = new Set(s.shows);
     for (const n of nodes) {
       if ((page && n.pageId !== page) || out.has(n.id) || !n.hooks?.["data-hook"] || !shows.has(n.hooks["data-hook"])) continue;
-      const look = stepLook(n, s);
+      const look = stepLook(n, s, lined);
       if (look) out.set(n.id, look);
     }
+  }
+  return out;
+}
+
+/**
+ * THE PARTS WHOSE WORDS ARE DRAWN BY LINES OF THEIR OWN. A label read off a
+ * page (`<label>Amount (SOL) <input></label>`) comes in as a box with its
+ * words as a line inside it (`label ::line(8)`). A capture says what the
+ * label says, and giving those words to the box as well drew "Amount (SOL)"
+ * twice, 1px apart (J, 2026-10-06). Such a box's words stay with its lines.
+ */
+export function linedParts(nodes: readonly StateNode[]): Set<string> {
+  const bySel = new Map<string, string>();
+  for (const n of nodes) { const sl = n.from?.selector; if (sl && n.id && !sl.includes("::line")) bySel.set(`${n.pageId}|${sl}`, n.id); }
+  const out = new Set<string>();
+  for (const n of nodes) {
+    const m = n.from?.selector ? / ::line\(\d+\)$/.exec(n.from.selector) : null;
+    if (!m) continue;
+    const holder = bySel.get(`${n.pageId}|${n.from!.selector!.slice(0, m.index)}`);
+    if (holder) out.add(holder);
   }
   return out;
 }
@@ -534,6 +683,7 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
   const places = new Map<string, PlaceBox>();
   const looks = new Map<string, StepLook>();
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const lined = linedParts(nodes);
   for (const k of on) {
     const s = readStepKey(k);
     const f = s ? byId.get(s.frame) : undefined;
@@ -552,7 +702,7 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
       /* Its words and its drawing as this screen has them ("You lost.", FINAL, the match's chart), not the page's as it opens. */
       for (const n of inner) {
         if (!shown.has(n.id)) continue;
-        const look = stepLook(n, screen);
+        const look = stepLook(n, screen, lined);
         if (look) looks.set(n.id, look);
       }
       continue;
@@ -597,8 +747,9 @@ export function steppedParts(nodes: readonly PlaceNode[], on: readonly string[],
 export interface StepLook { content?: unknown; picture?: unknown; font?: { px: number } & Record<string, unknown> }
 type Run = { text?: string; hooks?: Record<string, string> | null } & Record<string, unknown>;
 /** A part's words and picture as a screen has them, where they differ from the page as it opens. */
-export function stepLook(n: PlaceNode & { content?: unknown }, screen: ScreenRead): StepLook | null {
-  const texts = screen.texts ?? {};
+export function stepLook(n: PlaceNode & { content?: unknown }, screen: ScreenRead, lined?: ReadonlySet<string>): StepLook | null {
+  /* Its words are drawn by its own lines: they say them (`linedParts`). */
+  const texts = lined?.has(n.id) ? {} : screen.texts ?? {};
   const hook = n.hooks?.["data-hook"];
   const out: StepLook = {};
   if (typeof n.content === "string") {
