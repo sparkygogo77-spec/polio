@@ -85,8 +85,8 @@ export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?
 }
 
 /**
- * The parts a moving control or component carries with it: everything a
- * control holds, and every layer of a component (`components.ts`), its
+ * The parts a moving part carries with it: everything it holds (a control,
+ * a panel, a card), and every layer of a component (`components.ts`), its
  * children's too, that is not already in hand.
  */
 export function ridersOf<N extends Boxed>(nodes: readonly N[], ids: readonly string[], palette?: Record<string, string | undefined> | null): string[] {
@@ -96,8 +96,9 @@ export function ridersOf<N extends Boxed>(nodes: readonly N[], ids: readonly str
   const locked = new Set(nodes.filter((n) => n.locked).map((n) => n.id));
   for (const id of ids) {
     for (const p of carriedBy(comps, id)) if (!inHand.has(p) && !locked.has(p)) { inHand.add(p); out.push(p); }
+    /* A part that holds others carries them too, a control or not: a panel or the tour's card dragged with its words and buttons, never off them (J, 2026-10-06: "Always moves", then the card left its steps behind). */
     const c = nodes.find((n) => n.id === id);
-    if (!c || !isControl(c)) continue;
+    if (!c) continue;
     for (const n of nodes) if (!inHand.has(n.id) && !n.locked && holds(c, n)) { inHand.add(n.id); out.push(n.id); }
   }
   return out;
