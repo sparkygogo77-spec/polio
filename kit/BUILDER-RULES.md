@@ -80,13 +80,14 @@ draw it some way the builder can't see. Make it a slot:
 2. List it in `builder.json` under `"rules": { "slots": [...] }`:
    `{ "token": "--pons-tv-glow", "hook": "chart-tv-frame", "label": "Glow", "kind": "length", "why": "How far the TV glows" }`.
    `kind` is one of `colour`, `length`, `number`, `text`, `choice` (with `"options"`), `shadow`,
-   `filter`, `time`, `sound`, `key`, `format`, `line` (rule 26) or `any`.
+   `filter`, `time`, `sound`, `key`, `format`, `line` (rule 28) or `any`.
 3. The builder shows each slot by its label in that part's Settings, and sends a change back as a
    token change in the design branch. `kit:check` fails when a slot's token isn't in `tokens.css`,
    its hook is on no page, or nothing uses the token for that part.
 
-If something can't be a token at all, say so in the pull request: it is a request for the builder
-to learn a new kind of slot, and the design stays as J drew it in the meantime.
+If something can't be a token in any slot kind yet, it is a request for the builder to learn a
+new kind: list it in `builder.json` `rules.requests` (rule 27), and the design stays as J drew it in
+the meantime.
 
 ## 5. Styles live in stylesheets, and scripts never write them
 
@@ -287,7 +288,37 @@ entry:
   with `border-radius` or a `clip-path` token, so clicks land where the picture is.
 - Add the new token to the slots list (`rules.slots`) so the builder can edit it next round.
 
-## 26. Sounds, keys, number formats and lines are slots too
+## Change notes for the builder (rules 26 and 27)
+
+The builder learns from the code. Each code change says what it added and why, and each look the
+builder can't edit yet is written down as a request with a prompt J pastes into a Polio chat.
+
+## 26. Leave a change note
+
+Every code pull request that adds, removes or changes a part, a panel's states, a slot or a token
+runs, before it is pushed:
+
+```
+npm run kit:notes -- --base origin/<default branch> --why "<what this change is for, in plain words>"
+```
+
+It writes `design/CODE-CHANGES.json` (one entry per branch, newest first) and
+`design/CODE-CHANGES.md` (the same, readable): the new parts with their plain names, parts gone,
+panel states added or gone, new slots and tokens. Commit both. The builder's **Check the code
+again** shows the entries since the last round as "New from code", so J knows what each new part is
+for before designing it. Running it again on the same branch replaces that branch's entry.
+
+## 27. Ask the builder to learn what it can't edit
+
+**(checked)** When the code needs a look the builder can't edit in any slot kind yet (a sound, a
+keyboard key, a dashed line, a number format), add a request to `builder.json` `rules.requests`:
+`{ "hook": "chart", "need": "the break-even line's dash and colour", "kind": "line", "why": "..." }`.
+`kit:check` fails when its hook is on no page or `need` is empty. `kit:notes` puts each open request
+in the change note with a prompt to paste into a Polio chat (what the part is, where it lives, what
+to teach and how). The builder lists them in **Check the code again** with a button to copy the
+prompt. Once the builder has learned it, the code chat moves the request into `rules.slots`.
+
+## 28. Sounds, keys, number formats and lines are slots too
 
 **(checked)** Four kinds of slot are values a script reads when it runs, so the builder can change
 them without a code change. The token holds the value; the script reads it with `token()` from the
@@ -305,7 +336,7 @@ stylesheet rule. A key shows in its own hooked child (`buy-10-key`), never only 
 The builder edits each kind with its own control (play, press a key, a live sample, a line
 preview). `kit:check` fails on a value it could not edit.
 
-## 27. Shared state names
+## 29. Shared state names
 
 Panels on every site use the same words for the same moments, so the builder shows the same state
 tabs everywhere and a look made for one site's "loading" fits another's:
@@ -324,7 +355,7 @@ as they are). The list is `rules.stateNames` in `builder.json`, with the near tw
 `result`, `failed`) that `kit:check` notes without failing. Renaming a state in a live site moves
 its per-state looks in the builder, so rename when the panel is next redesigned, not on its own.
 
-## 28. Game parts on the shelf
+## 30. Game parts on the shelf
 
 **(checked)** The kit has ready-made parts first built for PonsStars and made general: the
 scoreboard, the buy and sell grid, the countdown, the TV screen and the duel circles. Each is a

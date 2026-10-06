@@ -1,4 +1,4 @@
-// The game parts (BUILDER-RULES.md rules 26 to 28): the slot readers, kit:check on slot values and
+// The game parts (BUILDER-RULES.md rules 28 to 30): the slot readers, kit:check on slot values and
 // state names, and kit:part adding a part to a site that has none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

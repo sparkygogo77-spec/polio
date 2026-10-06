@@ -663,7 +663,7 @@ export function check(manifestPath, { write = false } = {}) {
 
   // ---- slots (BUILDER-RULES.md): a style or setting the builder learns, as a token on a part
   const SLOT_KINDS = new Set(['colour', 'length', 'number', 'text', 'choice', 'shadow', 'filter', 'time', 'sound', 'key', 'format', 'line', 'any']);
-  // The four kinds a script reads (BUILDER-RULES.md, rule 26): each value must read the way the builder writes it.
+  // The four kinds a script reads (BUILDER-RULES.md, rule 28): each value must read the way the builder writes it.
   const SLOT_VALUES = {
     sound: [/^(none|beep(\s+\d+(\.\d+)?)?(\s+(0|1|0?\.\d+))?|(['"])[^'"]+\6(\s+(0|1|0?\.\d+))?)$/, 'none, beep [hz] [volume] or "file.mp3" [volume] (volume 0 to 1)'],
     key: [/^(none|(['"]).+\2)$/, 'none or a quoted key name ("q", "ArrowUp")'],
@@ -682,16 +682,16 @@ export function check(manifestPath, { write = false } = {}) {
     if (shape && typeof tokens.get(s.token) === 'string' && !shape[0].test(tokens.get(s.token).trim())) problems.push(`${name}: a ${s.kind} slot's value is ${shape[1]}, not ${tokens.get(s.token)}`);
   }
 
-  // ---- shared state names (BUILDER-RULES.md, rule 27): a note, not a problem, when a state is a near twin of one
+  // ---- shared state names (BUILDER-RULES.md, rule 29): a note, not a problem, when a state is a near twin of one
   const notes = [];
   const STATE_NAMES = manifest.rules?.stateNames?.names ?? [];
   const TWINS = manifest.rules?.stateNames?.twins ?? {};
   for (const [id, pnl] of panels) for (const st of pnl.states) {
     const shared = Object.entries(TWINS).find(([, list]) => list.includes(st))?.[0];
-    if (shared && STATE_NAMES.includes(shared) && !pnl.states.includes(shared)) notes.push(`panel "${id}": state "${st}" could use the shared name "${shared}" (rule 27)`);
+    if (shared && STATE_NAMES.includes(shared) && !pnl.states.includes(shared)) notes.push(`panel "${id}": state "${st}" could use the shared name "${shared}" (rule 29)`);
   }
 
-  // ---- game parts (BUILDER-RULES.md, rule 28): each part in the parts file is a panel on its page, with its files
+  // ---- game parts (BUILDER-RULES.md, rule 30): each part in the parts file is a panel on its page, with its files
   const parts = readJson('parts');
   if (parts) {
     const partsBase = dirname(at(manifest.parts));
@@ -705,6 +705,13 @@ export function check(manifestPath, { write = false } = {}) {
       for (const t of [pt.name, ...(parts.shared?.tokens ?? [])]) if (!tokenText.includes(`/* part: ${t} */`)) problems.push(`${manifest.parts}: part "${pt.name}": ${manifest.tokens} has no "/* part: ${t} */" block`);
       if (parts.page && !read(join(partsBase, parts.page)).includes(`<!-- part: ${pt.name} -->`)) problems.push(`${manifest.parts}: part "${pt.name}": ${parts.page} has no "<!-- part: ${pt.name} -->" block`);
     }
+  }
+
+  // ---- builder requests (BUILDER-RULES.md rule 27): a look the builder can't edit in any slot kind yet
+  for (const [i, q] of (manifest.rules?.requests ?? []).entries()) {
+    const name = `builder.json rules.requests[${i}]${q?.hook ? ` (${q.hook})` : ''}`;
+    if (!q?.hook || typeof q.need !== 'string' || !q.need.trim()) { problems.push(`${name}: a request needs "hook" and "need" (what the builder should learn to edit)`); continue; }
+    if (!where.has(q.hook)) problems.push(`${name}: hook "${q.hook}" is on no page`);
   }
 
   // ---- preview screens: each is named in its page's scripts

@@ -1,5 +1,5 @@
 /**
- * THE FOUR SLOT KINDS A SCRIPT READS (kit/BUILDER-RULES.md, rule 26): sound,
+ * THE FOUR SLOT KINDS A SCRIPT READS (kit/BUILDER-RULES.md, rule 28): sound,
  * key, format and line. The kit's `starter/parts/slots.js` reads them on the
  * site; this reads and writes them in the part's Settings (`SlotKindEditor`
  * in StyleLayerPanel.tsx), so what the builder writes is what the site reads.

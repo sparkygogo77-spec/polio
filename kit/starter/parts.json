@@ -1,5 +1,5 @@
 {
-  "about": "Ready-made game parts, first built for PonsStars and made general: each is a panel with its hooks, states (the shared state names), slots and tokens ready. Paths are relative to this file. Add one to a site with: npm run kit:part -- <part> <site folder> (it copies the files, the tokens and the slots, and prints the markup to paste). See BUILDER-RULES.md, rule 27.",
+  "about": "Ready-made game parts, first built for PonsStars and made general: each is a panel with its hooks, states (the shared state names), slots and tokens ready. Paths are relative to this file. Add one to a site with: npm run kit:part -- <part> <site folder> (it copies the files, the tokens and the slots, and prints the markup to paste). See BUILDER-RULES.md, rule 30.",
   "page": "game.html",
   "shared": { "js": ["parts/slots.js", "parts/sound.js"], "tokens": ["shared"] },
   "parts": [

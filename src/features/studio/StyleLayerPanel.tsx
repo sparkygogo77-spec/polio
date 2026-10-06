@@ -28,7 +28,7 @@ import { useStudio } from "./store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
 import { sendDesign } from "./codeSend";
-import { layerHooksOf, readRound, takeTokens, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
+import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./parts/offsite";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
 
@@ -43,7 +43,7 @@ function hexOf(v: string): string {
 }
 
 /** One variable: a colour picker for a colour, a box to type in for anything else (a size, a face), and what reads it. */
-export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean; /** A choice slot's values (builder.json rules.slots): picked, never typed. */ options?: string[]; /** A slot's kind: sound, key, format and line get their own control (rule 26). */ kind?: string }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
+export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean; /** A choice slot's values (builder.json rules.slots): picked, never typed. */ options?: string[]; /** A slot's kind: sound, key, format and line get their own control (rule 28). */ kind?: string }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
   const set = source.varsSet?.[v.name];
   const followed = layer?.vars.find((x) => x.name === v.name && x.why === "followed");
   const colour = isColour(v.value);
@@ -73,7 +73,7 @@ export function VarRow({ v, source, layer, setVar }: { v: { name: string; value:
 const box = "h-5 rounded border border-border bg-transparent px-1 font-mono text-fine";
 
 /**
- * A slot a script reads (kit/BUILDER-RULES.md, rule 26), edited as what it is: a sound J can play,
+ * A slot a script reads (kit/BUILDER-RULES.md, rule 28), edited as what it is: a sound J can play,
  * a key he presses, a number format with a live sample, a line with its look. What it writes is
  * what the kit's starter/parts/slots.js reads on the site.
  */
@@ -185,7 +185,7 @@ export function StyleLayerSection() {
   const [more, setMore] = React.useState(false);
   const family = React.useCallback((name: string) => FAMILY[name], []);
   const layer = React.useMemo(() => (source ? buildLayer(nodes as unknown as LayerNode[], palette, source, { family, kit: !!source.kit }) : null), [nodes, palette, source, family]);
-  const [round, setRound] = React.useState<{ busy?: boolean; changes?: RoundChanges; seen?: KitSeen; manifest?: KitManifest | null; says?: string } | null>(null);
+  const [round, setRound] = React.useState<{ busy?: boolean; changes?: RoundChanges; seen?: KitSeen; manifest?: KitManifest | null; notes?: CodeNotes | null; says?: string } | null>(null);
   const layerHooks = React.useMemo(() => (layer ? layerHooksOf(layer.rules) : []), [layer]);
   const check = React.useCallback(async () => {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
@@ -193,7 +193,7 @@ export function StyleLayerSection() {
     if (!token || !src) { setRound({ says: "Reading the code again needs your GitHub token, under Keys." }); return; }
     setRound({ busy: true });
     const got = await readRound(src, token, { layerHooks });
-    setRound(got.ok ? { changes: got.changes, seen: got.seen, manifest: got.manifest } : { says: got.says });
+    setRound(got.ok ? { changes: got.changes, seen: got.seen, manifest: got.manifest, notes: got.notes } : { says: got.says });
   }, [layerHooks]);
   /* Each time the section opens: a design round starts from the code as it is now. */
   const asked = React.useRef(false);
@@ -208,7 +208,7 @@ export function StyleLayerSection() {
     if (!now || !round?.seen) return;
     st.setLook({ styleSource: { ...takeTokens(now, round.seen), seen: round.seen, ...(round.manifest ? { kit: round.manifest } : {}) } } as never);
     if (round.manifest?.links) st.setFormat("links.offsite", kitLinksToOffsite(round.manifest.links));
-    setRound({ changes: { ...round.changes!, same: true, says: "Taken in: the next round is compared with the code as it is now." } });
+    setRound({ changes: { ...round.changes!, same: true, says: "Taken in: the next round is compared with the code as it is now." }, notes: round.notes });
   };
   if (!source || !layer) return null;
 
@@ -256,6 +256,7 @@ export function StyleLayerSection() {
           <Button size="sm" variant="ghost" data-style-layer-round-check="" disabled={!!round?.busy} onClick={() => void check()}>Check the code again</Button>
           {round?.changes && !round.changes.same ? <Button size="sm" variant="ghost" data-style-layer-round-take="" onClick={takeIn}>Take these in</Button> : null}
         </div>
+        {round?.notes ? <CodeNotesList notes={round.notes} /> : null}
       </div>
       <p data-style-layer-says="" className="text-plain text-fg">
         {layer.rules.length} part{layer.rules.length === 1 ? "" : "s"} restyled, {layer.vars.length} variable{layer.vars.length === 1 ? "" : "s"} set{source.kit ? "" : `, ${layer.text.length} line${layer.text.length === 1 ? "" : "s"} of words changed`}. Hooks: {count("covered")} restyled, {count("untouched")} untouched, {count("missing")} missing.
@@ -300,5 +301,40 @@ export function StyleLayerSection() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * "New from code" (BUILDER-RULES.md rules 26 and 27): each code change's
+ * note since the last round, by plain name, and the looks the code asks the
+ * builder to learn, each with its prompt for a Polio chat to copy.
+ */
+export function CodeNotesList({ notes }: { notes: CodeNotes }) {
+  const [copied, setCopied] = React.useState<number | null>(null);
+  const copy = (i: number, text: string) => {
+    void navigator.clipboard?.writeText(text).then(() => setCopied(i), () => setCopied(null));
+  };
+  const named = (p: { hook: string; label: string | null }) => p.label ?? p.hook;
+  return (
+    <div data-style-layer-notes="" className="flex flex-col gap-1 border-t border-border pt-1">
+      {notes.entries.length ? <p className="text-fg-muted">New from code:</p> : null}
+      {notes.entries.slice(0, 5).map((e) => (
+        <div key={e.branch} data-style-layer-note={e.branch} className="text-fg">
+          <p><span className="text-fg-muted">{e.date}</span> {e.why || e.branch}</p>
+          {e.parts.length ? <p className="text-fg-muted">New parts: {e.parts.slice(0, 8).map(named).join(", ")}{e.parts.length > 8 ? ` and ${e.parts.length - 8} more` : ""}.</p> : null}
+          {e.states.length ? <p className="text-fg-muted">States: {e.states.map((x) => `${x.label ?? x.panel} ${[...x.added.map((a) => `+${a}`), ...x.removed.map((a) => `-${a}`)].join(" ")}`).join("; ")}.</p> : null}
+          {e.slots.length ? <p className="text-fg-muted">New settings: {e.slots.map((x) => x.label).join(", ")}.</p> : null}
+          {e.removed.length ? <p className="text-fg-muted">Gone: {e.removed.slice(0, 8).join(", ")}{e.removed.length > 8 ? ` and ${e.removed.length - 8} more` : ""}.</p> : null}
+        </div>
+      ))}
+      {notes.entries.length > 5 ? <p className="text-fg-muted">And {notes.entries.length - 5} older notes in design/CODE-CHANGES.md.</p> : null}
+      {notes.requests.length ? <p className="text-fg-muted">The code asks the builder to learn:</p> : null}
+      {notes.requests.map((q, i) => (
+        <div key={`${q.hook}${i}`} data-style-layer-request={q.hook} className="flex flex-wrap items-center gap-1.5 text-fg">
+          <span>{q.need} <span className="text-fg-muted">({q.hook}{q.kind ? `, ${q.kind}` : ""})</span></span>
+          {q.prompt ? <Button size="sm" variant="ghost" data-style-layer-request-copy="" onClick={() => copy(i, q.prompt!)}>{copied === i ? "Copied" : "Copy the Polio prompt"}</Button> : null}
+        </div>
+      ))}
+    </div>
   );
 }

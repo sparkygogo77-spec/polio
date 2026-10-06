@@ -1,11 +1,11 @@
 /**
- * SOUNDS, KEYS, NUMBER FORMATS AND LINES ARE SLOTS TOO (kit/BUILDER-RULES.md, rule 26).
+ * SOUNDS, KEYS, NUMBER FORMATS AND LINES ARE SLOTS TOO (kit/BUILDER-RULES.md, rule 28).
  *
- * The kit's game parts (kit/starter/parts, rule 28) read four new slot kinds
+ * The kit's game parts (kit/starter/parts, rule 30) read four new slot kinds
  * when they run: sound, key, format and line. The Builder edits each with its
  * own control in the part's Settings (`SlotKindEditor`), and what it writes
  * must be what the site's `slots.js` reads. Also: the shared state names
- * (rule 27) travel with the rules every export carries.
+ * (rule 29) travel with the rules every export carries.
  *
  * Covers: src/features/studio/slotKinds.ts, src/features/studio/StyleLayerPanel.tsx, src/features/studio/kitRun.ts, kit/starter/parts/slots.js
  *

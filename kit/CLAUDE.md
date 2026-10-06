@@ -24,6 +24,9 @@ The short version:
   (parts that share a look).
 - Need a look or setting the builder can't edit yet? Don't drop it or hard-code it: make it a token
   and list it in `builder.json` `rules.slots` (BUILDER-RULES.md rule 4). States stay inside their frame.
+- Every code pull request leaves a change note (`npm run kit:notes`, rule 26). A look the builder
+  can't edit in any slot kind yet goes in `builder.json` `rules.requests` (rule 27), with a prompt
+  J pastes into a Polio chat.
 - The only `<iframe>` is the DexScreener chart embed; scripts set only the position variables
   `builder.json` `rules.scriptPositions` lists.
 - New page? Add it to `builder.json`, with at least one preview screen.
@@ -37,6 +40,7 @@ Commands:
 npm run kit:hooks   # rewrite hooks.json from the code (run after any page, CSS or script edit)
 npm run kit:check   # the contract check; must pass before you push
 npm run kit:diff -- --base origin/main   # no hook the design uses was dropped
+npm run kit:notes -- --base origin/main --why "..."   # the change note the builder reads (rules 26-27)
 npm run kit:states -- design/record.json # every state stays inside its frame
 npm test            # the kit's own tests
 ```

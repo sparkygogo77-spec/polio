@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Adds one of the kit's game parts (starter/parts.json, BUILDER-RULES.md rule 28) to a site:
+// Adds one of the kit's game parts (starter/parts.json, BUILDER-RULES.md rule 30) to a site:
 // copies its stylesheet and scripts into the site's parts/ folder (next to its tokens file), adds
 // its token blocks and slots, and prints the markup to paste and the call to make. No dependencies.
 //

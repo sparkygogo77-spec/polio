@@ -41,7 +41,7 @@ export interface KitManifest {
   gallery?: string;
   links?: KitLinks;
   /** BUILDER-RULES.md, machine-readable: the slots are settings the code asks the builder to learn. */
-  rules?: { doc?: string; slots?: KitSlot[] };
+  rules?: { doc?: string; slots?: KitSlot[]; requests?: BuilderRequest[] };
   /** The scene file and the samples file (BUILDER-RULES.md rules 15 and 17), read with it (`stateRules.ts`). */
   scenes?: string;
   samples?: string;
@@ -233,6 +233,38 @@ export const kitMapOnServer: KitMapCall = async (files) => {
   }
 };
 
+/** One code change's note (kit `tools/code-notes.mjs`, BUILDER-RULES.md rule 26): what it added and why. */
+export interface CodeNote {
+  branch: string;
+  date: string;
+  why: string;
+  pages?: { added: string[]; removed: string[] };
+  parts: { hook: string; label: string | null; page: string | null; parent: string | null }[];
+  removed: string[];
+  states: { panel: string; label: string | null; added: string[]; removed: string[] }[];
+  slots: { token: string; hook: string; label: string; kind: string; why?: string }[];
+  tokens: string[];
+}
+
+/** A look the code needs the builder to learn (rule 27), with the prompt for a Polio chat. */
+export interface BuilderRequest { hook: string; need: string; kind?: string; why?: string; prompt?: string }
+
+/** `design/CODE-CHANGES.json` on the default branch: the code chats' notes, newest first, and the open requests. */
+export interface CodeNotes { site?: string; repo?: string | null; requests: BuilderRequest[]; entries: CodeNote[] }
+
+export const CODE_NOTES = "design/CODE-CHANGES.json";
+
+/** The notes since a round (by day, inclusive), and the open requests: from the note file, else from builder.json without prompts. */
+export function notesSince(text: string | null, since: string, manifest: KitManifest | null): CodeNotes | null {
+  let log: CodeNotes | null = null;
+  try { log = text ? (JSON.parse(text) as CodeNotes) : null; } catch { log = null; }
+  const day = since.slice(0, 10);
+  const entries = (log?.entries ?? []).filter((e) => typeof e?.date === "string" && (!day || e.date >= day));
+  const requests = log?.requests?.length ? log.requests : (manifest?.rules?.requests ?? []);
+  if (!entries.length && !requests.length) return null;
+  return { site: log?.site, repo: log?.repo, requests, entries };
+}
+
 export interface RoundChanges {
   pagesAdded: string[];
   pagesRemoved: string[];
@@ -291,7 +323,7 @@ export function layerHooksOf(rules: { selector: string }[]): string[] {
  * against what the site was brought in from (`source.seen`, else the pages'
  * hooks read at import).
  */
-export async function readRound(source: StyleSource, token: string, opts: { fetch?: Fetch; layerHooks?: string[]; when?: string } = {}): Promise<Answer<{ changes: RoundChanges; seen: KitSeen; manifest: KitManifest | null; branch: string }>> {
+export async function readRound(source: StyleSource, token: string, opts: { fetch?: Fetch; layerHooks?: string[]; when?: string } = {}): Promise<Answer<{ changes: RoundChanges; seen: KitSeen; manifest: KitManifest | null; branch: string; notes: CodeNotes | null }>> {
   const f = opts.fetch ?? fetch;
   const main = await defaultBranch(f, token, source.repo);
   if (!main.ok) return main;
@@ -326,5 +358,8 @@ export async function readRound(source: StyleSource, token: string, opts: { fetc
     const said = `The board's design tokens are behind the code: ${behind.length} to take in (${behind.slice(0, 4).join(", ")}${behind.length > 4 ? ", …" : ""}).`;
     changes = { ...changes, tokensBehind: behind, same: false, says: changes.same ? said : `${changes.says} ${said}` };
   }
-  return { ok: true, changes, seen: now, manifest: kit ? kit.manifest : null, branch: main.branch };
+  /* What the code chats said they changed since the last round (rule 26), and what they ask the builder to learn (rule 27). */
+  const noteText = kit ? await fileAt(f, token, source.repo, main.branch, CODE_NOTES).catch(() => null) : null;
+  const notes = kit ? notesSince(noteText, source.seen?.at ?? "", kit.manifest) : null;
+  return { ok: true, changes, seen: now, manifest: kit ? kit.manifest : null, branch: main.branch, notes };
 }
