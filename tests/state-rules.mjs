@@ -89,7 +89,10 @@ check("3. a scene is a screen; its capture lends places and words and says where
 /* 4. */
 const panels = R.declaredPagePanels(nodes, "p", "web/index.html", ss, samples);
 const qp = panels.find((p) => p.hook === "queue-panel");
-check("4a. the Panels page lists each declared panel with every state but off", J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])) === J([["queue-panel", ["join", "waiting"]], ["result-panel", ["won", "lost"]], ["rematch-panel", ["on"]]]), J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])));
+check("4a. the Panels page lists each declared panel with every state but off", J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])) === J([["queue-panel", ["join", "waiting"]], ["result-panel", ["won", "lost"]]]), J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])));
+/* J: one state that a whole-page scene shows is no panel (edited on its page); a pop-up no scene shows stays. */
+const popup = R.declaredPagePanels(nodes, "p", "web/index.html", ss.filter((x) => !x.panels["rematch-panel"]), samples);
+check("4c. a single state is a panel only when no scene shows it (a pop-up)", !panels.some((p) => p.hook === "rematch-panel") && J(popup.find((p) => p.hook === "rematch-panel")?.states.map((s) => s.key)) === J(["on"]));
 check("4b. a state draws its own parts; samples are chips with other words, not states", qp.states[1].samples.length === 2 && qp.states[1].samples[1].screen.texts["queue-count"] === "12 waiting" && qp.states[1].samples[0].screen.shows.includes("queue-leave") && !qp.states[1].samples[0].screen.shows.includes("queue-join") && qp.states[1].samples[0].screen.boxes?.["queue-panel"]?.[2] === 300);
 
 /* 5. */

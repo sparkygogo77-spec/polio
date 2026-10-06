@@ -27,11 +27,18 @@ export function stepScene(by: number): void {
   const st = useStudio.getState();
   const { scenes, at } = scenesOnPage(st);
   if (!scenes.length) return;
+  showScene(at < 0 ? (by > 0 ? 0 : scenes.length - 1) : (at + by + scenes.length) % scenes.length, by);
+}
+
+/** One scene by its place in the list (-1: the page as it opens), sliding the way `by` says. */
+export function showScene(to: number, by = 1): void {
+  const { scenes } = scenesOnPage(useStudio.getState());
+  if (!scenes.length) return;
   const keys = scenes.map((x) => screenKey(x.name));
-  const next = keys[at < 0 ? (by > 0 ? 0 : keys.length - 1) : (at + by + keys.length) % keys.length]!;
+  const next = keys[to] ?? null;
   const swap = () => {
     const s = useStudio.getState();
-    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), next]);
+    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), ...(next ? [next] : [])]);
   };
   play("tap");
   const board = typeof document !== "undefined" ? (document.querySelector("[data-board-zoom]") as HTMLElement | null) : null;

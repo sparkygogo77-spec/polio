@@ -15,7 +15,7 @@
  *     of data as chips;
  *   · picking a panel or a state isolates it on the board itself
  *     (`canvas/helpers.ts#isolatedOnBoard`): the rest of the page steps away
- *     and the panel stands alone on the page's own background, centred, in
+ *     and the panel stands alone where it sits, on the page's own ground, in
  *     that state, so it is seen with its real contrast and edited in place.
  *     When the pick moves off it (Escape, a press on the empty board) the
  *     board comes back as it was;
@@ -136,7 +136,8 @@ export function PanelsPage() {
   /* Only while it is picked: when the pick moves off the panel and everything in it, the board comes back. */
   React.useEffect(() => {
     if (!iso) return;
-    const inside = new Set(isolatedOnBoard(useStudio.getState())?.shows ?? []);
+    /* Its own parts only: what it sits in is drawn round it, and picking that lets go. */
+    const inside = new Set(isolatedOnBoard(useStudio.getState())?.places.keys() ?? []);
     if (!selection.length || !selection.some((id) => id === iso.panelId || inside.has(id))) letGo();
   }, [selection, iso?.panelId]); // eslint-disable-line react-hooks/exhaustive-deps
   /* The rail closed: the board as it was. */

@@ -212,9 +212,9 @@ function panelStates(page: readonly PanelNode[], p: PanelNode, screens: readonly
  * and the parts drawn inside it, placed where the screen draws them from the
  * panel's corner, with that screen's words.
  */
-export function panelDrawing(nodes: readonly PanelNode[], panelId: string, screen: ScreenRead | null): { box: { w: number; h: number }; placed: { node: PanelNode; x: number; y: number; w: number; h: number; look: StepLook | null }[] } {
+export function panelDrawing(nodes: readonly PanelNode[], panelId: string, screen: ScreenRead | null): { box: { w: number; h: number }; placed: { node: PanelNode; x: number; y: number; w: number; h: number; look: StepLook | null }[]; around: PanelNode[] } {
   const p = nodes.find((n) => n.id === panelId);
-  if (!p) return { box: { w: 0, h: 0 }, placed: [] };
+  if (!p) return { box: { w: 0, h: 0 }, placed: [], around: [] };
   const page = nodes.filter((n) => n.pageId === p.pageId);
   const up = ancestry(page);
   const shut = inDetails(page as never);
@@ -248,5 +248,6 @@ export function panelDrawing(nodes: readonly PanelNode[], panelId: string, scree
     const look = screen && n.id !== p.id ? stepLook(n as never, screen, lined) : null;
     return { node: { ...n, ...(look ?? {}), state: null, x: b.x, y: b.y, w: b.w, h: b.h } as PanelNode, x: b.x, y: b.y, w: b.w, h: b.h, look };
   });
-  return { box, placed };
+  /* The parts the panel sits in (the page's dotted ground, the card round it), so it is seen on what it really sits on. */
+  return { box, placed, around: up.get(p.id) ?? [] };
 }

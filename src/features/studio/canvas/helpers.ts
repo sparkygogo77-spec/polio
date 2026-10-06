@@ -27,9 +27,10 @@ export function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?:
 }
 /**
  * ONE PANEL, ISOLATED ON THE BOARD (J, 2026-10-06): picked from the Panels
- * rail, the rest of its page steps away and the panel stands alone on the
- * page's own background, centred across it, in the state picked, so it is
- * seen and edited with the contrast it really has. Only while it is picked:
+ * rail, the rest of its page steps away and the panel stands alone where
+ * it really sits, on what it sits in (the page's dotted ground, the card
+ * round it), in the state picked, so it is seen and edited with the
+ * contrast and place it really has. Only while it is picked:
  * the rail lets go of it when the pick moves off it (`PanelsPage.tsx`).
  */
 export type Isolated = { pageId: string; shows: Set<string>; places: Map<string, PlaceBox>; looks: Map<string, StepLook>; panelId: string };
@@ -49,12 +50,10 @@ export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?
     const sample = state?.samples.find((x) => x.key === key.sample) ?? state?.samples[0];
     const page = nodes.filter((n) => n.pageId === p.pageId);
     const d = panelDrawing(page, p.id, sample?.screen ?? null);
-    const W = s.frameWidth || Math.max(...page.map((n) => n.x + n.w));
-    const dx = Math.round((W - d.box.w) / 2 - p.x);
     const places = new Map<string, PlaceBox>();
     const looks = new Map<string, StepLook>();
-    for (const x of d.placed) { places.set(x.node.id, { x: x.x + dx, y: x.y, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
-    read = { pageId: p.pageId, shows: new Set(d.placed.map((x) => x.node.id)), places, looks, panelId: p.id };
+    for (const x of d.placed) { places.set(x.node.id, { x: x.x, y: x.y, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
+    read = { pageId: p.pageId, shows: new Set([...d.around, ...d.placed.map((x) => x.node)].map((n) => n.id)), places, looks, panelId: p.id };
   }
   isolatedMemo = { on, nodes: s.nodes, source, read };
   return read;

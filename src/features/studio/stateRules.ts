@@ -247,6 +247,8 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
       }) : [{ key: s, label: s, screen: base }];
       return { key: s, label: s, samples: samplesOf };
     });
+    /* One state that a whole-page scene shows (a lone text block) is no panel: it is edited on its page in that scene. One that no scene shows (a pop-up such as the sign panel) stays (J, 2026-10-06). */
+    if (states.length < 2 && mine.some((x) => x.panels[p.id] && x.panels[p.id] !== "off")) continue;
     out.push({ id: root.id, hook: p.id, ...(attr(root, "data-label") ? { label: attr(root, "data-label")! } : {}), states });
   }
   return out.sort((a, b) => { const x = d.byId.get(a.id) as PanelNode | undefined, y = d.byId.get(b.id) as PanelNode | undefined; return (x?.y ?? 0) - (y?.y ?? 0) || (x?.x ?? 0) - (y?.x ?? 0); });

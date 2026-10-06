@@ -352,6 +352,8 @@ export const edited = () => { for (const fn of editListeners) { try { fn(); } ca
 export function pickedStates(s: StudioState, ids: string[]): { statesOn?: string[] } {
   if (!ids.length) return {};
   const on = s.statesOn ?? [];
+  /* A panel isolated on the board draws its own parts: picking one switches nothing on that would stay when it lets go. */
+  if (on.some((k) => k.startsWith("isolate:"))) return {};
   const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
   const pageOf = (file: string) => source?.files?.find((f) => f.file === file)?.pageId ?? null;
   const frames = on.some((k) => k.startsWith("step:")) ? stateFrames(s.nodes) : null;
