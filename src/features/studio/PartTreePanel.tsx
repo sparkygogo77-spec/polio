@@ -25,7 +25,7 @@ import {
   MousePointerClick, PanelBottom, PanelTop, PenTool, Sparkle, Square, TextCursorInput, Type, LayoutPanelTop, Copy, Shapes,
 } from "lucide-react";
 import { getFeature } from "./catalog";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "./partTree";
 import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "./components";
 import { resolvePalette } from "./parts/theme";
@@ -78,8 +78,8 @@ export function usePartTree(nodes: StudioNode[]): PartTree {
 
 /** The components among these parts, read with the site's own colour roles. */
 export function usePageComponents(nodes: StudioNode[]): Components {
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   return React.useMemo(() => componentsOf(nodes as unknown as CompNode[], palette), [nodes, palette]);
 }
@@ -205,7 +205,7 @@ const ROW_PX = 28;
 const LIST_ICON: Record<string, React.ComponentType<{ className?: string }>> = { "Copy bar": Copy, Shape: Shapes };
 
 export function ElementList({ nodes, picked, className }: { nodes: StudioNode[]; picked?: string | null; className?: string }) {
-  const siteName = useStudio((s) => s.brief.name);
+  const siteName = useHeldStudio((s) => s.brief.name);
   const [nesting, setNesting] = React.useState(() => {
     try { return typeof window !== "undefined" && window.localStorage.getItem(NESTING_KEY) === "1"; } catch { return false; }
   });
@@ -329,7 +329,7 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
 
 /** The parts wearing an orange ! on the board, read the way the board reads them (`Canvas.tsx`). */
 export function useDecisions(nodes: readonly StudioNode[]): Decision[] {
-  const learn = useStudio((s) => s.learn);
+  const learn = useHeldStudio((s) => s.learn);
   return React.useMemo(() => decisions(nodes).filter((d) => !learn || !partLearned(learn, d.id)), [nodes, learn]);
 }
 
@@ -346,7 +346,7 @@ function sectionsOf(nodes: readonly StudioNode[]): { id: string; name: string }[
  * a section of this page, a web address), or that it goes nowhere on purpose.
  */
 export function LeadsTo({ node, nodes, compact }: { node: StudioNode; nodes: readonly StudioNode[]; compact?: boolean }) {
-  const pages = useStudio((s) => s.pages);
+  const pages = useHeldStudio((s) => s.pages);
   const [choice, setChoice] = React.useState("");
   const [address, setAddress] = React.useState("https://");
   const sections = React.useMemo(() => sectionsOf(nodes).filter((s) => s.id !== node.id), [nodes, node.id]);
@@ -404,7 +404,7 @@ export function leadsSays(n: StudioNode, all: readonly StudioNode[], pages: read
  * the links and where each leads.
  */
 export function PartsBehind({ which, nodes, onClose }: { which: "decide" | "links"; nodes: StudioNode[]; onClose: () => void }) {
-  const pages = useStudio((s) => s.pages);
+  const pages = useHeldStudio((s) => s.pages);
   const tree = usePartTree(nodes);
   const order = React.useMemo(() => { const at = new Map<string, number>(); let i = 0; const walk = (ids: string[]) => { for (const id of ids) { at.set(id, i++); walk(tree.kids.get(id) ?? []); } }; walk(tree.roots); return at; }, [tree]);
   const open = useDecisions(nodes);

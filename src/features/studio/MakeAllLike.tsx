@@ -16,7 +16,7 @@ import { Button } from "@/core/ui/button";
 import { Switch } from "@/core/ui/switch";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import { useStudio, useSteady, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./store";
 import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./partLook";
 import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";
@@ -24,7 +24,7 @@ import { makeAllLike, makeAllReach, useMakeAll } from "./partLookApply";
 import { pointAt } from "./SiteColours";
 
 export function MakeAllLike({ node }: { node: StudioNode }) {
-  const nodes = useSteady(useStudio((s) => s.nodes));
+  const nodes = useSteady(useHeldStudio((s) => s.nodes));
   const chosen = useMakeAll((s) => s.chosen);
   const keepColour = useMakeAll((s) => s.keepColour);
   const [said, setSaid] = React.useState<string | null>(null);

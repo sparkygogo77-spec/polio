@@ -150,19 +150,19 @@ instead of capturing the live site and guessing; captures stay only as a check t
 matches.
 
 ```html
-<section data-hook="queue-panel" data-panel="queue-panel" data-states="join waiting" data-state="join">
-  <button data-hook="queue-join" data-show="join">Find a match</button>
-  <button data-hook="queue-leave" data-show="waiting">Leave queue</button>
+<section data-hook="signup-box" data-panel="signup-box" data-states="form sent" data-state="form" data-label="Sign-up box">
+  <form data-hook="signup-form" data-show="form">…</form>
+  <p data-hook="signup-thanks" data-show="sent">Thanks, you are on the list.</p>
 </section>
 ```
 
 ```json
-{ "scenes": [{ "name": "queue-waiting", "label": "Waiting in the queue", "page": "web/index.html",
-               "screen": "queue-waiting", "panels": { "queue-panel": "waiting" } }] }
+{ "scenes": [{ "name": "signed-up", "label": "Home: signed up", "page": "index.html",
+               "screen": "signed-up", "panels": { "signup-box": "sent" } }] }
 ```
 
 ```js
-setState('queue-panel', 'waiting');   // web/dom.js; setOn('sign-panel', true) for an "off on" panel
+setState('signup-box', 'sent');   // the site's hook helpers; setOn('form-error', true) for an "off on" panel
 ```
 
 ## 12. A panel that changes declares its states
@@ -192,26 +192,26 @@ something that is never shown (a drawing canvas, a download link).
 
 **(checked)** Text and numbers a script fills in (a balance, a name, a lead) are data, not states:
 they go into their part through its `data-hook`. Sample values for them go in the samples file
-(`"samples"` in `builder.json`; `kit/samples.json` in PonsStars) as
+(the file `"samples"` in `builder.json` names) as
 `{ "hooks": { "<hook>": ["sample", "another"] } }`, and the builder shows them as sample chips.
 `kit:check` fails on a sample for a hook no page has.
 
 ## 16. Panels never sit inside another panel's state
 
 **(checked)** A panel never sits inside a part that shows only in some states of another panel.
-If a TV state brings up a panel, that panel is its own `data-panel` (with an `off` state) beside or
-inside the TV's always-shown parts, and the script sets both. Panels may share data, never
+If one panel's state brings up another panel, that panel is its own `data-panel` (with an `off`
+state) beside or inside the first panel's always-shown parts, and the script sets both. Panels may share data, never
 structure.
 
 ## 17. The scene file lists each scene's panels
 
-**(checked)** The scene file (`"scenes"` in `builder.json`; `kit/scenes.json` in PonsStars) lists
+**(checked)** The scene file (the file `"scenes"` in `builder.json` names) lists
 each scene a person meets, in order: its name, label, page, the preview screen that shows it, and
 `"panels": { "<id>": "<state>" }` for every panel present. A panel appears only when the scene
 provides it: one left out is absent (its `off` state), so a panel without an `off` state is in every
 scene of its page (a panel inside a template comes and goes with its copies). Going from the landing page into the main page is just more scenes. `kit:check`
 fails on a panel or state that doesn't exist, a panel whose enclosing panel the scene leaves out,
-or a missing panel that has no `off` state. A browser test checks that each scene's preview screen
+or a missing panel that has no `off` state. A browser test should check that each scene's preview screen
 shows exactly those states.
 
 ## 18. One id is one panel
@@ -231,3 +231,38 @@ style-layer rules keyed by panel and state, so they go back to the code without 
 that its panel doesn't declare, a part with `data-show` outside any panel, a panel inside another
 panel's state, a `data-state` on anything but a panel, a `setState` or `setOn` naming a panel or
 state that doesn't exist, a stale shared rule, and the scene and sample file problems above.
+
+## Labels for the builder (rules 21 to 24)
+
+Four more labels tell the builder what a part is, so it doesn't have to guess. They change nothing a
+person sees.
+
+```html
+<ul data-hook="list-items" data-list="template-list-item" data-label="List entries"></ul>
+<span data-hook="order-total" data-kind="money">12.50</span>
+<label data-hook="name-field" data-group="form-field">…</label>
+```
+
+## 21. Plain names
+
+**(checked)** `data-label="Find a match box"` is the name the builder shows for a part instead of
+its hook. Every panel root and every list has one; any other part may. One to 60 characters, in
+the words a person would use.
+
+## 22. Say what the text is
+
+**(checked)** A part a script fills with a value says what kind it is: `data-kind` is one of
+`text`, `number`, `money`, `percent`, `time`, `date`, `address` or `hash`. The builder picks sample
+chips and type to fit (money keeps its width as the digits change, an address can be shortened).
+
+## 23. Lists name their template
+
+**(checked)** The part that copies of a `<template>` go into says so: `data-list="template-..."`.
+Every template on a designed page has its list, so the builder can show the list with none, one or
+many copies.
+
+## 24. Style groups
+
+**(checked)** Parts that share one look carry the same `data-group="name"` (all panel titles, all
+main buttons, all form fields). The builder edits a group once, the way one panel id is one panel. A group has at
+least two parts.

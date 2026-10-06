@@ -21,7 +21,9 @@
  *   7. an edit to one state is kept apart (checked out, then back in) and the
  *      style layer writes it keyed [data-panel][data-state];
  *   8. the kit the Builder writes carries the rules, the starter scene and
- *      samples files and kit:check (polio is the source).
+ *      samples files and kit:check (polio is the source);
+ *   9. the builder labels: a panel's plain name, a part's kind, and a style
+ *      group edited once.
  *
  *   node tests/state-rules.mjs
  *
@@ -87,7 +89,10 @@ check("3. a scene is a screen; its capture lends places and words and says where
 /* 4. */
 const panels = R.declaredPagePanels(nodes, "p", "web/index.html", ss, samples);
 const qp = panels.find((p) => p.hook === "queue-panel");
-check("4a. the Panels page lists each declared panel with every state but off", J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])) === J([["queue-panel", ["join", "waiting"]], ["result-panel", ["won", "lost"]], ["rematch-panel", ["on"]]]), J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])));
+check("4a. the Panels page lists each declared panel with every state but off", J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])) === J([["queue-panel", ["join", "waiting"]], ["result-panel", ["won", "lost"]]]), J(panels.map((p) => [p.hook, p.states.map((s) => s.key)])));
+/* J: one state that a whole-page scene shows is no panel (edited on its page); a pop-up no scene shows stays. */
+const popup = R.declaredPagePanels(nodes, "p", "web/index.html", ss.filter((x) => !x.panels["rematch-panel"]), samples);
+check("4c. a single state is a panel only when no scene shows it (a pop-up)", !panels.some((p) => p.hook === "rematch-panel") && J(popup.find((p) => p.hook === "rematch-panel")?.states.map((s) => s.key)) === J(["on"]));
 check("4b. a state draws its own parts; samples are chips with other words, not states", qp.states[1].samples.length === 2 && qp.states[1].samples[1].screen.texts["queue-count"] === "12 waiting" && qp.states[1].samples[0].screen.shows.includes("queue-leave") && !qp.states[1].samples[0].screen.shows.includes("queue-join") && qp.states[1].samples[0].screen.boxes?.["queue-panel"]?.[2] === 300);
 
 /* 5. */
@@ -127,6 +132,12 @@ const checked = kitMap(Object.fromEntries(ex.files.filter((f) => !f.encoding).ma
 const man = JSON.parse(ex.files.find((f) => f.path === "builder.json").content);
 const sc = JSON.parse(ex.files.find((f) => f.path === "scenes.json").content);
 check("8b. Export for code writes scenes.json and samples.json and names them in builder.json", man.scenes === "scenes.json" && man.samples === "samples.json" && sc.scenes.length === 1 && sc.scenes[0].page === "site/index.html" && !!ex.files.find((f) => f.path === "samples.json") && checked.problems.length === 0, J(checked.problems));
+
+/* 9. The builder labels (rules 21 to 24). */
+const labelled = nodes.map((x) => (x.id === "q" ? { ...x, hooks: { ...x.hooks, "data-label": "Find a match box" } } : x.id === "q-count" ? { ...x, hooks: { ...x.hooks, "data-kind": "number", "data-group": "panel-note" } } : x.id === "rm-yes" ? { ...x, hooks: { ...x.hooks, "data-group": "panel-note" } } : x));
+const lp = R.declaredPagePanels(labelled, "p", "web/index.html", ss, null);
+const tw = E.groupTwins(labelled, "q-count", { colour: { fg: "#fff" }, x: 9, content: "no" });
+check("9. plain names, kinds and groups are read; a group's look is edited once", lp.find((p) => p.hook === "queue-panel")?.label === "Find a match box" && J(R.labelsOf(labelled.find((x) => x.id === "q-count"))) === J({ kind: "number", group: "panel-note" }) && J(tw) === J({ ids: ["rm-yes"], patch: { colour: { fg: "#fff" } } }) && E.groupTwins(labelled, "q-title", { colour: {} }) === null, J(tw));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);

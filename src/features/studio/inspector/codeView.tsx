@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useStudio, type StudioNode } from "../store";
+import { useHeldStudio, useStudio, type StudioNode } from "../store";
 import { written } from "../parts/cubeFaces";
 import { screenshotPage } from "../agent";
 import { askCode } from "../askCode";
@@ -22,7 +22,7 @@ import { PartsBehind, useDecisions } from "../PartTreePanel";
  * somewhere is a press away from it.
  */
 export function PageSummary({ nodes }: { nodes: StudioNode[] }) {
-  const pages = useStudio((s) => s.pages);
+  const pages = useHeldStudio((s) => s.pages);
   const links = nodes.filter((n) => !!n.link).length;
   const open = useDecisions(nodes);
   const nowhere = open.filter((d) => d.why === "nowhere").length;
@@ -74,7 +74,7 @@ export function PageSummary({ nodes }: { nodes: StudioNode[] }) {
  * no hook says so: the style layer cannot reach it (`styleLayer.ts`).
  */
 export function CodeLink({ node }: { node: StudioNode }) {
-  const from = useStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
+  const from = useHeldStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
   const src = node.source!;
   const hook = src.hook ? (src.hook.attr === "id" ? `id="${src.hook.value}"` : `data-hook="${src.hook.value}"`) : null;
   const renamed = src.hook && node.hooks?.[src.hook.attr] !== undefined && node.hooks[src.hook.attr] !== src.hook.value;
@@ -112,7 +112,7 @@ export function insideHooks(node: StudioNode): string[] {
 }
 
 export function CodeView({ node }: { node: StudioNode }) {
-  const from = useStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
+  const from = useHeldStudio((s) => (s.look as { styleSource?: { repo: string; ref: string } | null }).styleSource ?? null);
   const code = node.source?.code;
   if (!code) return null;
   const link = (file: string, line: number | undefined, text: string) => {

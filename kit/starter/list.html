@@ -22,8 +22,8 @@
 <main data-hook="page-main">
   <h1 data-hook="page-title">List</h1>
   <p data-hook="page-intro">These rows are drawn by a script from one template.</p>
-  <ul data-hook="list-items"></ul>
-  <p data-hook="list-empty" data-panel="list-empty" data-states="off on" data-state="off">Nothing here yet.</p>
+  <ul data-hook="list-items" data-list="template-list-item" data-label="List entries"></ul>
+  <p data-hook="list-empty" data-label="Nothing yet note" data-panel="list-empty" data-states="off on" data-state="off">Nothing here yet.</p>
   <template data-hook="template-list-item">
     <li data-hook="list-item">
       <span data-hook="list-item-name">Name</span>
@@ -32,7 +32,7 @@
   </template>
 </main>
 <footer data-hook="site-footer">
-  <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>
+  <p data-hook="footer-line">© <span data-hook="footer-year" data-kind="date">2026</span> Starter. Built to the builder contract.</p>
 </footer>
 </body>
 </html>

@@ -586,6 +586,35 @@ export function check(manifestPath, { write = false } = {}) {
   for (const n of nowhere) if (!(refs.get(n.hook) ?? []).some((r) => r.uses === 'writes')) problems.push(n.text);
   for (const [hook, list] of refs) if (!where.has(hook)) for (const r of list) problems.push(`${r.file}:${r.line}: script uses hook "${hook}", which no page has`);
 
+  // ---- labels for the builder (BUILDER-RULES.md, rules 21-24): plain names, kinds of text, lists, style groups
+  const KINDS = ['text', 'number', 'money', 'percent', 'time', 'date', 'address', 'hash'];
+  const groups = new Map(); // group -> Set of hooks
+  for (const p of pages) {
+    if (!sitePages.has(p.file)) continue;
+    const templates = new Set(p.elements.filter((e) => e.tag === 'template').map((e) => e.attrs['data-hook']));
+    const listed = new Set();
+    for (const el of p.elements) {
+      if (!el.inBody) continue;
+      const a = el.attrs;
+      const at_ = `${p.file}:${el.line}`;
+      const what = a['data-hook'] ?? `<${el.tag}>`;
+      if (a['data-label'] !== undefined && !(a['data-label'].trim() && a['data-label'].length <= 60)) problems.push(`${at_}: ${what}: data-label is a plain name of 1 to 60 characters`);
+      if ((a['data-panel'] !== undefined || a['data-list'] !== undefined) && a['data-label'] === undefined) problems.push(`${at_}: ${what} is a ${a['data-panel'] !== undefined ? 'panel' : 'list'} with no plain name (data-label="...")`);
+      if (a['data-kind'] !== undefined && !KINDS.includes(a['data-kind'])) problems.push(`${at_}: ${what}: data-kind "${a['data-kind']}" is not one of ${KINDS.join(', ')}`);
+      if (a['data-list'] !== undefined) {
+        if (!templates.has(a['data-list'])) problems.push(`${at_}: ${what}: data-list names "${a['data-list']}", which is not a <template> on this page`);
+        listed.add(a['data-list']);
+      }
+      if (a['data-group'] !== undefined) {
+        if (!HOOK_NAME.test(a['data-group'])) problems.push(`${at_}: ${what}: data-group "${a['data-group']}" is not lower-case words joined by dashes`);
+        if (!groups.has(a['data-group'])) groups.set(a['data-group'], new Set());
+        groups.get(a['data-group']).add(a['data-hook']);
+      }
+    }
+    for (const t of templates) if (!listed.has(t)) problems.push(`${p.file}: ${t} has no list (put data-list="${t}" on the part its copies go into)`);
+  }
+  for (const [g, members] of groups) if (members.size < 2) problems.push(`style group "${g}" has one member (${[...members][0]}); a group is two or more parts that share a look`);
+
   // ---- states in scripts and in the scene and sample files (BUILDER-RULES.md, rules 13, 15, 17, 20)
   const HIDES = /\.hidden\s*=(?!=)|\b(?:set|remove|toggle)Attribute\(\s*['"]hidden['"]|\.style\.display\b|\.classList\b/;
   for (const [abs, text] of scripts) {

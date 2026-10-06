@@ -12,7 +12,7 @@ import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "../parts/theme";
 import { usePicture } from "../pictures";
 import { siteLogo } from "../siteMark";
-import { useStudio, useSteady } from "../store";
+import { useHeldStudio, useStudio, useSteady } from "../store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -32,9 +32,9 @@ import { Popover } from "@/core/ui/popover";
  */
 export function SiteHead() {
   const router = useRouter();
-  const brief = useStudio((s) => s.brief);
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const brief = useHeldStudio((s) => s.brief);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const projects = useBuilds((s) => s.projects);
   const activeId = useBuilds((s) => s.activeId);
   const project = projects.find((p) => p.id === activeId) ?? null;
@@ -45,7 +45,7 @@ export function SiteHead() {
   const initial = [...name][0]?.toUpperCase() ?? "S";
   // Its own logo when it has one (`siteMark.ts`), the letter when it has no
   // pictures or this browser no longer holds the bytes.
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useHeldStudio((s) => s.nodes);
   /* The icon the head names, when it names one: that is what the published site ships (`siteHead.ts`). */
   const headIcon = brief.head?.icons?.find((i) => i.rel === "icon" || i.rel === "shortcut icon")?.picture ?? brief.head?.icons?.[0]?.picture ?? null;
   const logo = React.useMemo(() => headIcon ?? siteLogo(nodes), [nodes, headIcon]);
@@ -111,9 +111,9 @@ export function SiteHead() {
  * board has (`tests/pages-dropdown.mjs`). Add page stays on the same edge.
  */
 export function PageChips() {
-  const pages = useStudio((s) => s.pages);
-  const activeId = useStudio((s) => s.activePageId);
-  const nodes = useStudio((s) => s.nodes);
+  const pages = useHeldStudio((s) => s.pages);
+  const activeId = useHeldStudio((s) => s.activePageId);
+  const nodes = useHeldStudio((s) => s.nodes);
   const [open, setOpen] = React.useState(false);
   const panelsOpen = usePanelsPageOpen();
   const count = (id: string) => nodes.filter((n) => n.pageId === id).length;
@@ -214,9 +214,9 @@ export function PageChips() {
  * page still opens with them hidden, wherever it is published or exported.
  */
 export function StatesChip({ pageId }: { pageId: string }) {
-  const nodes = useSteady(useStudio((s) => s.nodes));
-  const on = useStudio((s) => s.statesOn ?? []);
-  const source = useStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
+  const nodes = useSteady(useHeldStudio((s) => s.nodes));
+  const on = useHeldStudio((s) => s.statesOn ?? []);
+  const source = useHeldStudio((s) => (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } }).styleSource);
   const [open, setOpen] = React.useState(false);
   const groups = React.useMemo(() => hiddenGroups(nodes, pageId), [nodes, pageId]);
   /* The page's parts that go through states (the TV, the balance panel), outermost first: each opens its own timeline (`StatesTimeline.tsx`). */

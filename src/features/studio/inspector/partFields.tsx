@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useStudio, useSteady, type StudioNode } from "../store";
+import { useHeldStudio, useStudio, useSteady, type StudioNode } from "../store";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "../vector";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -16,9 +16,9 @@ import { Field } from "./fields";
 
 /** The face and size a part's words are set in, and a way to change both. */
 export function FontField({ node, base }: { node: StudioNode; base: number }) {
-  const nodes = useStudio((s) => s.nodes);
-  const carried = useStudio((s) => s.look.fonts);
-  const pages = useStudio((s) => s.pages);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const carried = useHeldStudio((s) => s.look.fonts);
+  const pages = useHeldStudio((s) => s.pages);
   /* The site's faces in page order, then any it carries that no part uses (`fontsInPageOrder`). */
   const faces = React.useMemo(() => [...new Set([...fontsInPageOrder(nodes, pages.map((p) => p.id)).map((f) => f.key).filter(Boolean), ...(carried ?? []).map((f) => f.family)])], [carried, nodes, pages]);
   if (!wordsOf(node) && !node.font) return null;
@@ -87,8 +87,8 @@ export function EdgeField({ node }: { node: StudioNode }) {
 
 /** This part's own motions: the rows the Motion tab lists for it, with the same controls. */
 export function PartMotions({ node }: { node: StudioNode }) {
-  const nodes = useSteady(useStudio((s) => s.nodes));
-  const crates = useStudio((s) => s.motion);
+  const nodes = useSteady(useHeldStudio((s) => s.nodes));
+  const crates = useHeldStudio((s) => s.motion);
   const rows = React.useMemo(() => movingParts(nodes, crates, node.pageId).filter((r) => r.nodeId === node.id), [nodes, crates, node.pageId, node.id]);
   const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
   if (!rows.length) {

@@ -32,7 +32,7 @@ import { endTry, pickedPart, startTry, tryProps, type Trying } from "./tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
 import { getFeature, categoryOf, type FeatureDef } from "./catalog";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import { PartPreview } from "./PartPreview";
 import { MotionDemo, hasDemo } from "./MotionDemo";
 import { shapeOf } from "./showcase";
@@ -165,9 +165,10 @@ export function useUsedBy(kind: "part" | "work", id: string): string[] {
  * each is a version of.
  */
 export function useSiteVersions(): Map<string, SiteVersion[]> {
-  const nodes = useStudio((s) => s.nodes);
-  const keyframes = useStudio((s) => (s.look as { keyframes?: unknown }).keyframes);
-  const name = useStudio((s) => s.brief.name);
+  /* Held still while a part is under the hand (`store/heldView.ts`): the Effects section reads this on every move otherwise. */
+  const nodes = useHeldStudio((s) => s.nodes);
+  const keyframes = useHeldStudio((s) => (s.look as { keyframes?: unknown }).keyframes);
+  const name = useHeldStudio((s) => s.brief.name);
   /* And every other site's, from the learned library (`library/learned.ts`): builder-wide, so they are on every board. */
   const lib = useLearned((s) => s.lib);
   return React.useMemo(() => {

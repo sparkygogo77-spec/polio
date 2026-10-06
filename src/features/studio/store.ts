@@ -20,6 +20,7 @@
 export { heldBackground, heldNodes } from "./store/board";
 export { useStudio } from "./store/create";
 export { holdSaves, useSteady } from "./store/hold";
+export { useHeldStudio } from "./store/heldView";
 export { frameHeight, frameTopReach, FRAME_WIDTHS, placeInFrame } from "./store/frame";
 export { EDIT_RUN_MS, HUES, snapshot, onBoardEdit } from "./store/history";
 export { holdImportMark, takeImportMark, swapDoc, pageNodes, pageShapes, pageSpaces, pageGroups, activePage, groupBounds, shapeBounds, useStudioHydration, livePath } from "./store/load";
