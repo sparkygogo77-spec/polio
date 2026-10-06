@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Anchor, Code, EyeOff, Files, Heading, Image, ImageOff, LayoutPanelTop, Link, Loader2, MousePointerClick, Shapes, SquareCheck, SquareDashed, TextCursorInput, Type, X, type LucideIcon } from "lucide-react";
 import { type ReportChip } from "../pageParts";
+import { Tooltip } from "@/core/ui/tooltip";
 import { VOID } from "@/core/ui/void";
 import { repoName, type Repo } from "../repoImport";
 import { type RepoCopy } from "../repoRun";
@@ -140,17 +141,19 @@ const CHIP_ICONS: Record<string, LucideIcon> = {
 };
 const CHIP_GREEN = "oklch(0.82 0.17 150)";
 
-/** The counts an import landed, as green icon-and-number chips; each says its words on hover. */
+/** The counts an import landed, as green icon-and-number chips; each says what it counts in a hover label (and on keyboard focus). */
 export function ReportChips({ chips }: { chips: ReportChip[] }) {
   return (
     <span data-import-chips="" className="mr-2 inline-flex flex-wrap items-center gap-1 align-middle">
       {chips.map((c) => {
         const Icon = CHIP_ICONS[c.k] ?? Shapes;
         return (
-          <span key={c.k} data-import-chip={c.k} title={c.label} aria-label={c.label} className="inline-flex items-center gap-0.5 rounded-full border px-1.5 text-small tabular-nums" style={{ color: CHIP_GREEN, borderColor: "oklch(0.72 0.17 150 / 0.45)", background: "oklch(0.72 0.17 150 / 0.1)" }}>
+          <Tooltip key={c.k} content={c.label} side="bottom">
+          <span data-import-chip={c.k} aria-label={c.label} tabIndex={0} className="inline-flex items-center gap-0.5 rounded-full border px-1.5 text-small tabular-nums" style={{ color: CHIP_GREEN, borderColor: "oklch(0.72 0.17 150 / 0.45)", background: "oklch(0.72 0.17 150 / 0.1)" }}>
             <Icon className="size-3" aria-hidden />
             {c.n}
           </span>
+          </Tooltip>
         );
       })}
     </span>

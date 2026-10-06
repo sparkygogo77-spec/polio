@@ -480,6 +480,25 @@ export function kindsSaid(kinds: Record<string, number>): string {
     .join(", ");
 }
 
+/**
+ * WHAT EACH CHIP COUNTS, IN PLAIN WORDS (J, 2026-10-06: "i would like to
+ * hover them and see what each of them mean"). The chip's name, then what
+ * that kind of part is, for the hover label.
+ */
+export const CHIP_MEANS: Record<PagePart["kind"], [string, string]> = {
+  section: ["Sections", "boxes that hold other parts"],
+  slot: ["Empty places", "spots left blank that the site's code fills in when it runs"],
+  heading: ["Headings", "titles over a part of the page"],
+  text: ["Text", "words that are not a heading, button or link"],
+  code: ["Code", "code shown on the page as text"],
+  button: ["Buttons", "things a person presses"],
+  link: ["Links", "words or parts that go to another page or place"],
+  field: ["Fields", "boxes a person types into"],
+  check: ["Checkboxes", "boxes a person ticks on or off"],
+  picture: ["Pictures", "images on the page"],
+  shape: ["Shapes", "pieces of a drawing (an SVG)"],
+};
+
 /** One count on the import's strip, drawn as an icon and its number: `k` is a part kind, or pages, hidden, hooks or placeholders. */
 export interface ReportChip { k: string; n: number; label: string }
 
@@ -492,13 +511,15 @@ export function reportChips(report: PageReport): ReportChip[] {
   const word = (n: number, w: [string, string]) => w[n === 1 ? 0 : 1];
   const pages = report.pages.length;
   const out: ReportChip[] = [];
-  if (pages > 1) out.push({ k: "pages", n: pages, label: `${pages} pages: ${report.pages.map((p) => `${p.name} ${p.parts}`).join(", ")}` });
+  if (pages > 1) out.push({ k: "pages", n: pages, label: `Pages: ${pages} pages of the site were read (${report.pages.map((p) => `${p.name} ${p.parts}`).join(", ")})` });
   for (const [k, n] of Object.entries(report.kinds).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])) {
-    out.push({ k, n, label: `${n} ${KIND_WORDS[k as PagePart["kind"]] ? word(n, KIND_WORDS[k as PagePart["kind"]]) : k}` });
+    const kind = k as PagePart["kind"];
+    const noun = KIND_WORDS[kind] ? word(n, KIND_WORDS[kind]) : k;
+    out.push({ k, n, label: CHIP_MEANS[kind] ? `${CHIP_MEANS[kind][0]}: ${n} ${noun}, ${CHIP_MEANS[kind][1]}` : `${n} ${noun}` });
   }
-  if (report.hidden) out.push({ k: "hidden", n: report.hidden, label: `${report.hidden} hidden as the page opens, kept as hidden parts` });
-  if (report.hooks) out.push({ k: "hooks", n: report.hooks, label: `${report.hooks} keep the id or data-hook the code finds them by` });
-  if (report.pictures) out.push({ k: "placeholders", n: report.pictures, label: `${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}` });
+  if (report.hidden) out.push({ k: "hidden", n: report.hidden, label: `Hidden: ${report.hidden} ${word(report.hidden, ["part is", "parts are"])} hidden as the page opens, kept as hidden parts that take no room` });
+  if (report.hooks) out.push({ k: "hooks", n: report.hooks, label: `Code names: ${report.hooks} ${word(report.hooks, ["part keeps", "parts keep"])} the id or data-hook the site's code finds ${report.hooks === 1 ? "it" : "them"} by` });
+  if (report.pictures) out.push({ k: "placeholders", n: report.pictures, label: `Stand-in pictures: ${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}, because picture files are not carried this way` });
   return out;
 }
 
