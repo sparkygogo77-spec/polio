@@ -14,7 +14,7 @@
  *
  *   node tests/bill.mjs [url]        # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   NOTHING, RENDER_PRICE, TOKEN_PRICE, add, claudeSpend, priceRender, priceTokens,
   renderSpend, sayBill, saySpend, sayWhere, spent, timed, took,
@@ -136,7 +136,7 @@ check("and keeps the two halves apart", /toClaude/.test(body) && /toRenderer/.te
 const brief = readFileSync("src/features/studio/BriefDialog.tsx", "utf8");
 check("the generate path is priced too, vined or not", /noteSpend\(claudeSpend\(/.test(brief));
 
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the bill accumulates rather than replacing", /calls: \(had\?\.calls \?\? 0\) \+ spend\.calls/.test(store));
 check("it is kept to the tenth of a cent, so a small call is not rounded to free",
   /Math\.round\(\(a \+ b\) \* 10000\) \/ 10000/.test(store));

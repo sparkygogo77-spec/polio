@@ -20,7 +20,7 @@
  *   node --experimental-strip-types tests/repo-control.mjs [url]
  */
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { nameRefusal, repoNameFor } from "../src/features/studio/repoName.ts";
 
 const results = [];
@@ -76,7 +76,7 @@ check("choosing a repository from the list runs the same path Bring it runs", /d
 check("and publishing is a separate control that binds without touching the board", /data-repo-publish-pick=\{r\.name\}/.test(menu0) && /The board is as it was\./.test(menu0));
 check("the button reads the browser's key live, the same value the menu reads", /const mineNow = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(button0) && /const unlocked = useKeys\(\(s\) => s\.unlocked && !!s\.values\.GITHUB_TOKEN\);/.test(menu0));
 check("and when the key locks again the list is taken down with the reason, not left under a button that says no token", /The key is locked again after five minutes idle\. Open Keys to unlock it, and the list comes back\./.test(menu0));
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 const builds = readFileSync("src/features/builds/store.ts", "utf8");
 const button = readFileSync("src/features/studio/GithubButton.tsx", "utf8");
 check("the choice is kept on the site in the builds store, the one place everything reads",

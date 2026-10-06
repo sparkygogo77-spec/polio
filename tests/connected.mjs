@@ -14,7 +14,7 @@
  *
  *   node tests/connected.mjs [url]     # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { chainOf } from "../src/features/studio/threads.ts";
 
 const results = [];
@@ -106,7 +106,7 @@ check("no clock is printed on a board or under one",
 /* 5. …and the store still records what was worked in                  */
 /* ------------------------------------------------------------------ */
 
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("a new iteration falls back to the newest there is",
   /parentId: s\.currentThreadId \?\? s\.liveThreadId \?\? \(s\.threads\.length/.test(store));
 check("dropping the oldest re-hangs whoever hung off them",

@@ -14,7 +14,7 @@
  *
  *   node tests/ink.mjs [url]        # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { NEAR_FLOOR, SITTING_MS, boundsOf, gap, inkGroups, near, nearestTo, touching, union } from "../src/features/studio/inkGroups.ts";
 
 const results = [];
@@ -199,7 +199,7 @@ check("the whole drawing is taken off the board, not one stroke", /removeShapes\
 check("the grouping can be seen", /data-ink-group=/.test(canvas));
 check("and changed, both ways", /data-ink-join=/.test(canvas) && /data-ink-split=/.test(canvas));
 
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("a stroke is stamped with when it went down", /at: Date\.now\(\)/.test(store));
 check("joining and splitting are undoable like everything else",
   /joinInk: \(ids\) => \{[\s\S]{0,240}push\(\);/.test(store) && /splitInk: \(ids\) => \{[\s\S]{0,240}push\(\);/.test(store));

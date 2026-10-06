@@ -12,7 +12,7 @@
  *
  *   node tests/change-made.mjs [url]      # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -27,7 +27,7 @@ const check = (name, ok, detail = "") => {
 const threads = readFileSync("src/features/studio/threads.ts", "utf8");
 check("a thread has somewhere to keep what it made", /madeId\?: string;/.test(threads));
 
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 /* That `madeId` is one of the things a landing thread is given, rather than
    the whole parameter list in that order. Pinned to all eight names, this
    broke the first time somebody added a ninth — the id a forming box fills
