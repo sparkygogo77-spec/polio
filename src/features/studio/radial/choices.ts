@@ -104,7 +104,7 @@ export interface Choice {
 }
 
 /** The icons the More pieces wear, by the tray item they came from. */
-export const TRAY_ICON: Record<string, typeof Wand2> = { preview: Eye, forward: ChevronsUp, back: ChevronsDown, copy: Pipette, paste: ClipboardPaste };
+const TRAY_ICON: Record<string, typeof Wand2> = { preview: Eye, forward: ChevronsUp, back: ChevronsDown, copy: Pipette, paste: ClipboardPaste };
 
 /** The options a part offers that are about motion: they sit under Animation, not Edit. */
 export function motionOptions(node: StudioNode) {
