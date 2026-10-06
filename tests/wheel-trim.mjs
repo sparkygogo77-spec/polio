@@ -57,7 +57,7 @@ check("and Put the background back is still there",
    `tray.map(...)` in so many words, and a raw scan read its own commit
    message as the thing it was looking for. */
 const code = (f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-const wheel = code("src/features/studio/RadialMenu.tsx");
+const wheel = ["RadialMenu.tsx", ...["open.ts", "choices.ts", "RadialMenu.tsx", "ring.tsx"].map((f) => `radial/${f}`)].map((f) => `src/features/studio/${f}`).map(code).join("\n");
 check("no slot is called More any more", !/more: \{ id: "more"/.test(wheel));
 check("and nothing maps the tray into the wheel a second time",
   !/g === "more"/.test(wheel) && !/tray\.map\(/.test(wheel));

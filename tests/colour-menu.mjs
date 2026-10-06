@@ -57,10 +57,10 @@ const check = (name, ok, detail = "") => {
  */
 const dir = "src/features/studio";
 /** The six places in the Builder that offer a colour. */
-const MENUS = ["BackgroundEditors.tsx", "RingEditors.tsx", "ColourOverride.tsx", "LookPanel.tsx", "MenuConsole.tsx", "RadialMenu.tsx"];
+const MENUS = ["BackgroundEditors.tsx", "RingEditors.tsx", "ColourOverride.tsx", "LookPanel.tsx", "MenuConsole.tsx", "radial/RadialMenu.tsx"];
 const source = Object.fromEntries(MENUS.map((f) => [f, readFileSync(`${dir}/${f}`, "utf8")]));
 
-const off = MENUS.filter((f) => !/from "\.\/colourMenu"/.test(source[f]));
+const off = MENUS.filter((f) => !/from "(\.\.?\/)+colourMenu"/.test(source[f]));
 check("every colour menu takes its answers from the one file", off.length === 0,
   off.length ? `${off.join(", ")} still on their own` : `all ${MENUS.length}`);
 
