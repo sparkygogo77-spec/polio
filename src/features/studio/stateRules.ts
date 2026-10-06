@@ -219,6 +219,16 @@ export function sceneScreens(nodes: readonly RuleNode[], files: readonly { file:
   return out;
 }
 
+/** Words with their numbers taken out: "Ahead by 1.16 points" and "Ahead by 1.83 points" are one shape, "Behind by 1.83 points" another. */
+export const wordShape = (t: string) => t.toLowerCase().replace(/[-+]?[\d.,]*\d[\d.,%]*/g, "#").replace(/\s+/g, " ").trim();
+/** A hook's samples that fit what a state shows there (same shape of words); all of them when the state shows nothing to go by, or none fit. */
+export function samplesFor(list: readonly string[], shown: string | undefined): string[] {
+  if (!shown) return [...list];
+  const want = wordShape(shown);
+  const fit = list.filter((x) => wordShape(x) === want);
+  return fit.length ? fit : [...list];
+}
+
 /**
  * A page's declared panels as the Panels page lists them (`panels.ts#Panel`):
  * every state but off, each a screen of the page with that panel in that
@@ -240,10 +250,14 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
       const stateOf = (id: string) => (id === p.id ? s : scene ? stateIn(d.panels.get(id)!, scene) : d.panels.get(id)!.start);
       const shows = showsOf(nodes, d, pageId, stateOf);
       const base: ScreenRead = { name: `${p.id}:${s}`, label: s, page: pageFile ?? "", shows, ...(scene ? lent(scene) : {}) };
-      const samplesOf = most ? Array.from({ length: most }, (_, i) => {
+      /* Only the samples that fit this state: where its scene says "Ahead by 0.5 points", "Ahead by 1.16" and "Ahead by 1.83" are its chips, "Level" and "Behind by …" are not (J, 2026-10-06). */
+      const fits = new Map(sampled.map((h) => [h, samplesFor(samples![h]!, base.texts?.[h])]));
+      const many = Math.max(0, ...[...fits.values()].map((l) => l.length));
+      const lead = sampled.find((h) => new Set(fits.get(h)).size > 1) ?? sampled[0];
+      const samplesOf = most && many ? Array.from({ length: many }, (_, i) => {
         const texts = { ...(base.texts ?? {}) };
-        for (const h of sampled) texts[h] = samples![h]![i % samples![h]!.length]!;
-        return { key: `${s}:${i}`, label: (texts[sampled[0]!] ?? `sample ${i + 1}`).slice(0, 40), screen: { ...base, texts } };
+        for (const h of sampled) { const l = fits.get(h)!; texts[h] = l[i % l.length]!; }
+        return { key: `${s}:${i}`, label: (texts[lead!] ?? `sample ${i + 1}`).slice(0, 40), screen: { ...base, texts } };
       }) : [{ key: s, label: s, screen: base }];
       return { key: s, label: s, samples: samplesOf };
     });
