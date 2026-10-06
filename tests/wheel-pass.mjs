@@ -42,7 +42,7 @@ const check = (name, ok, detail = "") => {
 
 /* The reason Edit went, stated as a count rather than an opinion: if the
    width ever stops being set in two other places, it has earned a slab. */
-const sets = ["src/features/studio/StudioPage.tsx", "src/features/studio/index.ts", "src/features/studio/BackgroundEditors.tsx"]
+const sets = ["src/features/studio/page/toolbar.tsx", "src/features/studio/index.ts", "src/features/studio/BackgroundEditors.tsx"]
   .filter((f) => /setFrameWidth\(/.test(readFileSync(f, "utf8")));
 check("the frame's width is still set somewhere other than the wheel", sets.length >= 2,
   `${sets.length} places: ${sets.map((f) => f.split("/").pop()).join(", ")}`);

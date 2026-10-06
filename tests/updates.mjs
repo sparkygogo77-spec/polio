@@ -159,7 +159,7 @@ check("the lines stay in a column a person can read", /max-w-\[1100px\]/.test(pa
 check("Escape and a press outside close it", /D\.Root/.test(panel) && /D\.Overlay/.test(panel));
 check("there is nothing to fold, so nothing holds an open state", !/const \[(open|folded|expanded|unfolded)\w*, set/i.test(panel) && !/<details/.test(panel));
 
-const bar = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
+const bar = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("one control was added to the bar, no more",
   (bar.match(/UpdatesToggle/g) || []).length === 2 && (bar.match(/UpdatesPanel/g) || []).length === 2);
 check("the addition says the bar belongs to the sibling", /belongs to the sibling/.test(bar));
