@@ -228,10 +228,17 @@ export const PARTS = (cap: number): PageRead => {
   };
   const turns = new Map<Element, DOMMatrix>();
   const lifted: { el: HTMLElement; had: string | null }[] = [];
-  {
+  /*
+   * Run on the page as it opens, and again on each hidden block once it is
+   * revealed for its read (and each template's copy): a box hidden as the
+   * page opens has no layout then, so its turn was never lifted. PST's
+   * player card antennas, in a panel shown only once a player is picked,
+   * came in as the box round each lean, upright, 19x31 (J, 2026-10-06).
+   */
+  const liftTurns = (root: Element) => {
     const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
-    for (const el of Array.from(document.body.querySelectorAll<HTMLElement>("*"))) {
-      if (!(el instanceof HTMLElement) || SKIP.has(el.tagName) || !el.getClientRects().length) continue;
+    for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]) {
+      if (!(el instanceof HTMLElement) || (root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
       const s = css(el);
       const moved = (v: string) => !!v && v !== "none";
       if (!moved(s.transform) && !moved(s.getPropertyValue("rotate")) && !moved(s.getPropertyValue("scale"))) continue;
@@ -259,7 +266,8 @@ export const PARTS = (cap: number): PageRead => {
       const [ox, oy] = originAt(t.origin, r.left + scrollX, r.top + scrollY, r.width, r.height);
       turns.set(t.el, about(t.m, ox, oy));
     }
-  }
+  };
+  liftTurns(document.body);
   /* Everything that turns it, in the page's space: what holds it first, its own last. */
   const turnOf = (el: Element | null, own: DOMMatrix | null = null): DOMMatrix | null => {
     let m = own;
@@ -898,6 +906,7 @@ export const PARTS = (cap: number): PageRead => {
       holder.appendChild((el as HTMLTemplateElement).content.cloneNode(true));
       el.parentElement?.insertBefore(holder, el);
       if (shown(holder)) {
+        liftTurns(holder);
         /* The template itself, by its hook (the kit's `template-history-row`): the box its copy stands in, at the copy's path, so what is in it is owned by it. */
         let at = parent;
         if (hooked(el)) { const i = push({ kind: "section", tag: "template", parent, box: box(holder.getBoundingClientRect()), words: "", hooks: hooksOf(el), hidden: `template:${key}`, selector: path(holder), style: styleOf(holder) }); if (i >= 0) at = i; }
@@ -920,6 +929,7 @@ export const PARTS = (cap: number): PageRead => {
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
+      liftTurns(el);
       if (isMedia(el)) picture(el, parent, key);
       else if (checkLabel(el)) checkPart(el, parent, key);
       else if (isControl(el)) control(el, parent, key);
