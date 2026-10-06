@@ -232,6 +232,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   const hue = node.hue ?? cat?.hue ?? 265;
   const Icon = feature?.icon;
   const hasPrompt = node.prompt.trim().length > 0;
+  /* Script-sized only where this part is picked or asks a question; the hover chips read `--chip-scale` off the board (`DesktopCanvas.tsx`). */
   const chipScale = Math.max(1, 1 / zoom);
   /*
    * A part cut to a drawn line is marked along that line.
@@ -497,7 +498,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       {feature && !selected ? (
         <div
           className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-plain leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"
-          style={{ top: `calc(100% + 8px)`, transform: `scale(${chipScale})` }}
+          style={{ top: `calc(100% + 8px)`, transform: "scale(var(--chip-scale, 1))" }}
         >
           <span className="mb-0.5 block font-medium text-fg">{feature.name}</span>
           {feature.explain ?? feature.blurb}
@@ -509,7 +510,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       {/* label chip: what this is, in the builder's words */}
       <div
         className={cn("pointer-events-none absolute left-0 flex origin-bottom-left items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-small text-fg shadow-sm transition-opacity", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
-        style={{ top: -6, transform: `translateY(-100%) scale(${chipScale})` }}
+        style={{ top: -6, transform: "translateY(-100%) scale(var(--chip-scale, 1))" }}
       >
         {node.glyph ? <span>{node.glyph}</span> : Icon ? <Icon className="size-3" style={{ color: `oklch(0.8 0.15 ${hue})` }} /> : null}
         {/* The side panel's readable name (`partNames.ts`), never the capture's "div · 1 inside". */}
