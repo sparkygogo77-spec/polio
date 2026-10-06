@@ -15,7 +15,10 @@
  * "-" the page opened with (J, 2026-10-06: page state 9's button ran off
  * the board).
  *
- * Pure: `tests/state-rules.mjs`.
+ * Words that would run past the holder's right side wrap instead: the part
+ * keeps its width (the tour's step text in its card).
+ *
+ * Pure: `tests/state-rules.mjs`, `tests/tour-panel.mjs`.
  */
 import { plain } from "./parts/spans";
 
@@ -39,10 +42,13 @@ export function roomForWords(nodes: readonly RoomNode[], pageId: string, shows: 
     if (b.h > 2.2 * Math.max(12, b.w / Math.max(1, was.length) * 1.9)) continue;
     const grow = Math.ceil(b.w * (now.length / was.length) - b.w);
     if (grow <= 0) continue;
-    out.set(n.id, { ...b, w: b.w + grow });
     const me = sel(n);
+    const holder = me ? parentSel(me) : "";
+    /* Never past its holder's right side: there the words wrap, as on the site (the tour's step text stays in its card, J 2026-10-06). */
+    const hold = holder ? here.find((o) => sel(o) === holder) : undefined;
+    if (hold && b.x + b.w + grow > box(hold).x + box(hold).w + 1) continue;
+    out.set(n.id, { ...b, w: b.w + grow });
     if (!me) continue;
-    const holder = parentSel(me);
     const right = b.x + b.w;
     /* What follows on its line, in its holder, and what is inside those. */
     const along = here.filter((o) => {
