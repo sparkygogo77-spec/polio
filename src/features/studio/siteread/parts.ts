@@ -782,8 +782,16 @@ export const PARTS = (cap: number): PageRead => {
         const sb = box(s.getBoundingClientRect());
         /* A path, a line or words inside a drawn svg are in its picture: the part keeps the hook and paints nothing over it. */
         const own = !drawn || kept.has(s);
-        const fill = own && sc.fill && sc.fill !== "none" && !seeThrough(sc.fill) ? sc.fill : null;
-        const stroke = own && sc.stroke && sc.stroke !== "none" && !seeThrough(sc.stroke) ? sc.stroke : null;
+        /* Its fill-opacity and stroke-opacity go into the colour: PST's duel circles are filled at 0.4, so the one under shows through the one over. */
+        const faded = (c: string, by: string) => {
+          const k = Math.min(1, Math.max(0, parseFloat(by)));
+          const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/i.exec(c);
+          if (!m || !Number.isFinite(k) || k >= 1) return c;
+          const a = Math.round((m[4] === undefined ? 1 : Number(m[4])) * k * 1000) / 1000;
+          return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a})`;
+        };
+        const fill = own && sc.fill && sc.fill !== "none" && !seeThrough(sc.fill) ? faded(sc.fill, sc.fillOpacity) : null;
+        const stroke = own && sc.stroke && sc.stroke !== "none" && !seeThrough(sc.stroke) ? faded(sc.stroke, sc.strokeOpacity) : null;
         const sw = parseFloat(sc.strokeWidth) || 0;
         const base = styleOf(s);
         push({
