@@ -5,6 +5,9 @@
  *   · a clickable part with nowhere to go — a button, a link's icon, a chip —
  *     that has no link, no feature and no task written for it (`task`, not
  *     `data`: a capture writes its own description into `data`);
+ *     A part read from a repo whose own script works it (listens on it,
+ *     finds it, writes into it) or whose words carry their link already
+ *     does something, and has nothing to decide;
  *   · a live-data spot — a price, a change, a balance, a count, a time ago,
  *     a shortened address — that shows a number the capture froze, with no
  *     feature and no task on it, and whose words the owner did not type
@@ -35,6 +38,8 @@ interface Part {
   nowhere?: boolean;
   work?: { id: string } | null;
   from?: { selector?: string | null } | null;
+  /** Where a part read from a site's code sits in that code (`pageParts.ts#codeOf`). */
+  source?: { code?: { refs?: readonly { kind?: string }[] | null; built?: unknown } | null } | null;
 }
 
 export interface Decision {
@@ -75,8 +80,19 @@ function controlOf(sel: string): string | null {
   return null;
 }
 
+/** A link written on its words: an imported `<a href>` carries its place on its span, not on the part. */
+function linkInWords(content: unknown): boolean {
+  return Array.isArray(content) && content.some((s) => !!s && typeof s === "object" && !!(s as { link?: unknown }).link);
+}
+
+/** The site's own script works this part: it listens on it, finds it or writes into it, so it does something already. */
+function codeWorks(n: Part): boolean {
+  const code = n.source?.code;
+  return !!code && (!!code.built || !!code.refs?.some((r) => r.kind !== "styles"));
+}
+
 export function answered(n: Part): boolean {
-  return !!n.link || !!n.work || !!(n.task && n.task.trim()) || n.nowhere === true;
+  return !!n.link || linkInWords(n.content) || !!n.work || !!(n.task && n.task.trim()) || n.nowhere === true || codeWorks(n);
 }
 
 export function isLiveWords(words: string): boolean {
