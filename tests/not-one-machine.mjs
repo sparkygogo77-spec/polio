@@ -100,7 +100,7 @@ if (live) {
   const p = await b.newPage({ viewport: { width: 1500, height: 1000 } });
   await p.goto(`${url}/builder`, { waitUntil: "networkidle" });
   await p.waitForTimeout(1200);
-  await p.locator("[data-updates-toggle]").first().click();
+  await p.locator("[data-toolbar-more]").first().click(); await p.locator("[data-updates-toggle]").first().click();
   await p.waitForTimeout(1400);
 
   const boxes = await p.evaluate(() => {

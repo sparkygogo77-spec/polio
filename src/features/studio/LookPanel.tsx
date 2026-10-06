@@ -9,6 +9,7 @@
  * compiling to plain CSS so it costs nothing and tiles for ever.
  */
 import * as React from "react";
+import { MoreHint, MoreHintSpan } from "@/core/ui/more-hint";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2, Undo2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
@@ -284,9 +285,7 @@ export function PaletteRoles({ captured }: { captured: boolean }) {
   return (
     <div data-look-colour="" className="space-y-1">
       {captured ? (
-        <p data-role-legend="" className="text-fine leading-snug text-fg-faint">
-          What a part you add from the shelf is painted with. Parts that came with the site and match one of these follow it.
-        </p>
+        <MoreHint data-role-legend="" className="text-fine leading-snug text-fg-faint" text="What a part you add from the shelf is painted with. Parts that came with the site and match one of these follow it." />
       ) : null}
       {ROLES.map((r) => (
         <div key={r} data-palette-row={r}>
@@ -386,10 +385,10 @@ export function PaletteRoles({ captured }: { captured: boolean }) {
                   </button>
                 </p>
               ) : (
-                <p className="text-small leading-snug text-fg-faint">
-                  Builds all six colours from {ROLE_LABEL[role].toLowerCase()}.{" "}
-                  {from ? "Only parts tied to one of the six move; the site's other colours are listed below." : "Every part reads these, and any one part can use its own instead."}
-                </p>
+                <MoreHint
+                  className="text-small leading-snug text-fg-faint"
+                  text={`Builds all six colours from ${ROLE_LABEL[role].toLowerCase()}. ${from ? "Only parts tied to one of the six move; the site's other colours are listed below." : "Every part reads these, and any one part can use its own instead."}`}
+                />
               )}
             </div>
           ) : null}
@@ -651,10 +650,10 @@ function TextureSection() {
       <StackPreview layers={look.texture} palette={palette} />
 
       {look.texture.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border p-3 text-center text-small leading-snug text-fg-muted">
-          Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any
-          palette colour, so the background colour always shows through it.
-        </p>
+        <MoreHint
+          className="rounded-md border border-dashed border-border p-3 text-center text-small leading-snug text-fg-muted"
+          text="Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any palette colour, so the background colour always shows through it."
+        />
       ) : null}
 
       <div className="space-y-1">
@@ -725,7 +724,7 @@ function TextureSection() {
                     aria-label="Where this layer lands"
                     className="w-full"
                   />
-                  <p className="text-small leading-snug text-fg-faint">{WHERE_HINT[layer.target ?? "page"]}</p>
+                  <MoreHint className="text-small leading-snug text-fg-faint" text={WHERE_HINT[layer.target ?? "page"]} />
 
                   <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
@@ -793,11 +792,12 @@ function TextureSection() {
                     options={BLENDS}
                     aria-label="Blend"
                   />
-                  <p className="text-small leading-snug text-fg-faint">
-                    {layer.kind === "flat"
+                  <MoreHint
+                    className="text-small leading-snug text-fg-faint"
+                    text={layer.kind === "flat"
                       ? "A flat colour. Solid at 0% fade, that is the static background, and it fades away along the angle as you turn it up."
-                      : kind?.hint}
-                  </p>
+                      : kind?.hint ?? ""}
+                  />
 
                   {i < look.texture.length - 1 ? (
                     <Button
@@ -935,7 +935,7 @@ function Toggle({ label, hint, checked, onChange, name }: { label: string; hint:
       />
       <span className="min-w-0">
         <span className="block text-small text-fg">{label}</span>
-        <span className="block text-fine leading-snug text-fg-faint">{hint}</span>
+        <MoreHintSpan className="block text-fine leading-snug text-fg-faint" text={hint} />
       </span>
     </label>
   );
@@ -1082,11 +1082,10 @@ function LightSection() {
         <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
           <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
         </Row>
-        <p className="text-small leading-snug text-fg-faint">
-          Every surface works out its own shadow from where it stands relative to the lamp, so a card on
-          the left throws left and one underneath throws almost nothing. The blueprint says where the
-          light is, not what each shadow was.
-        </p>
+        <MoreHint
+          className="text-small leading-snug text-fg-faint"
+          text="Every surface works out its own shadow from where it stands relative to the lamp. A card on the left throws left and one underneath throws almost nothing; the blueprint says where the light is, not what each shadow was."
+        />
         </div>
       ) : null}
     </section>

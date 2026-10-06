@@ -113,6 +113,8 @@ const meet = (a, b) => Math.min(a.r, b.r) - Math.max(a.x, b.x) > 0.5 && Math.min
 
 async function walk(name, doc) {
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+  /* Every part's ! on the board, as the top bar's count shows them (`decideShown.ts`): by default only the picked part wears one. */
+  await page.addInitScript(() => localStorage.setItem("builder.decideBadges.v1", "all"));
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.route("**/api/studio/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ github: { configured: false, missing: [] }, vercel: { hook: false } }) }));

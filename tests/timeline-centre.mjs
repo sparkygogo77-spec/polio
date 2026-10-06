@@ -465,8 +465,9 @@ const edges = () => page.evaluate(() => {
   await fresh.setViewportSize({ width: 1024, height: 768 });
   await fresh.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await fresh.waitForTimeout(1300);
+  await fresh.locator("[data-toolbar-more]").first().click();
   const up = fresh.locator("[data-updates-toggle]").first();
-  check("the bar has an Updates key", (await up.count()) === 1);
+  check("the bar's More has an Updates key", (await up.count()) === 1);
   if (await up.count()) { await up.click(); await fresh.waitForTimeout(1400); }
   const after = await fresh.evaluate(() => ({
     panel: document.querySelectorAll("[data-updates-panel]").length,

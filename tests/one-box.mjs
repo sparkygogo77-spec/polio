@@ -58,6 +58,8 @@ const STAT = homeNodes.find((n) => words(n) === "0.0000 SOL");
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+/* Every part's ! on the board, as the top bar's count shows them (`decideShown.ts`): by default only the picked part wears one. */
+await page.addInitScript(() => localStorage.setItem("builder.decideBadges.v1", "all"));
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 /* Nothing leaves the machine: the Builder's own API answers "not configured", everything else off-site is refused. */

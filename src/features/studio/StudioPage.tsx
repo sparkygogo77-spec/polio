@@ -62,6 +62,7 @@ import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Popover } from "@/core/ui/popover";
 import { ToolOptions } from "./toolOptions";
+import { setDecideAll, useDecideAll, useDecideCount } from "./decideShown";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
@@ -539,14 +540,15 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    *
    *   1. the search's own words    (below xl)  — it becomes a magnifier
    *   2. the ink hues              (below lg)  — only out while drawing
-   *   3. Wires                     (below lg)  — it has a key, w
-   *   4. Updates entirely          (below lg)
-   *   5. the search entirely       (below md)  — mod+k still opens it
-   *   6. the menu's edge switch    (below md)
+   *   5. the search entirely       (below lg)  — mod+k still opens it,
+   *                                              and More carries it there
    *   7. the page chips            (below md)  — Pages is a panel tab, and
    *                                              the panel's toggle is in
    *                                              this bar at every width
    *   8. the site's name           (below sm)  — its mark stays
+   *
+   * Rungs 3, 4 and 6 (Wires, Updates, the menu's edge) left the row at every
+   * width: they are rarely pressed, so they live in More with Capture a site.
    *
    * Two things left this ladder rather than moving down it. The zoom
    * readout no longer gives way at any width: it is the one press that
@@ -666,36 +668,9 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <span className="hidden flex-1 md:block xl:hidden" />
       <SearchTools />
 
-      {/*
-        The part menu's outer edge, set here rather than on the menu itself.
-        A toggle that only exists while the thing it changes is open is a
-        toggle you can never find again; and it lights up the moment a menu
-        opens, so which setting it belongs to needs no explaining.
-      */}
-      <Tooltip content={shape === "square" ? "Part menu: square edge, switch to round" : "Part menu: round edge, switch to square"}>
-        <Button
-          variant={menuOpen ? "subtle" : "ghost"}
-          size="iconXs"
-          aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"}
-          aria-pressed={shape === "round"}
-          data-menu-shape={shape}
-          className={cn("hidden md:inline-flex", menuOpen && "ring-1 ring-accent")}
-          onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
-        >
-          {shape === "square" ? <Square /> : <Circle />}
-        </Button>
-      </Tooltip>
-
-      {/* The "fit in view" button used to stand here. It and the zoom
-          readout two controls along did the same thing, so on his ruling
-          the readout is the one that does it: "remove the button at the top
-          to 'fit in view' when the zoom percentage number should be the
-          button doing that for both since they do the same thing now." */}
-      <Tooltip content={showWires ? "Hide the wires between parts" : "Show the wires between parts"} shortcut="w">
-        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} className="hidden lg:inline-flex" onClick={() => useStudio.getState().setShowWires(!showWires)}>
-          {showWires ? <Link2 /> : <Link2Off />}
-        </Button>
-      </Tooltip>
+      {/* The part menu's edge and the wires are in More now, with the other
+          controls that are rarely pressed: the bar had about twenty small
+          icons and these were the least used (`tests/decide-count.mjs`). */}
       {/* Undo and redo, each naming its step, and the list of steps behind them (`HistoryControls.tsx`). */}
       <HistoryControls />
 
@@ -734,7 +709,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
       <span className="mx-1 hidden h-4 w-px bg-border md:block" />
-      {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} /> : null}
+      <DecideCount />
+      <MoreTools folding={folding} shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} />
       {/* THE WAY IN, and it lives in the bar because a row above the board
           would move the board — which is the one thing the Builder promises
           not to do, and it moved a drawn space out from under a suite that
@@ -749,7 +725,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           phone too (`tests/bring-repo-door.mjs`). The capture dialog stays
           mounted either way; it is drawn in a portal, and More opens it. */}
       <BringRepoDoor />
-      <span className="hidden md:contents"><CaptureSiteDoor /></span>
+      <CaptureSiteDoor hidden />
       <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
       <ProcessCounter />
@@ -758,15 +734,15 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
 }
 
 /**
- * The bar's folded controls, on a narrow window.
+ * The bar's More key: the controls that are rarely pressed.
  *
- * Fit, Wires, the menu's edge, the zoom readout, Search, Updates and the
- * ink hues fold away below the desktop breakpoints, and used to fold into
- * nothing: seven controls a phone could never reach. They are behind one
- * More key now, drawn only while the bar is folding them; on a wide bar
- * the key is not there, because they are.
+ * The bar had about twenty small icons. The part menu's edge, the wires,
+ * Capture a site and Updates are pressed least, so they live here at every
+ * width, each with its name beside it. On a narrow window (`folding`) the
+ * controls the bar folds away join them: Fit, the tool's own settings and
+ * the search.
  */
-function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
+function MoreTools({ folding, shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { folding: boolean; shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
   const row = "flex items-center gap-1.5 text-plain text-fg";
   return (
@@ -776,10 +752,12 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
       align="end"
       content={
         <div data-toolbar-more-menu="" className="flex w-[220px] flex-col gap-1.5">
-          <div className={row}>
-            <span className="flex-1">Fit in view</span>
-            <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-small text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
-          </div>
+          {folding ? (
+            <div className={row}>
+              <span className="flex-1">Fit in view</span>
+              <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-small text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
+            </div>
+          ) : null}
           <div className={row}>
             <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>{showWires ? <Link2 /> : <Link2Off />}</Button>
             <span className="flex-1">{showWires ? "Hide the wires" : "Show the wires"}</span>
@@ -795,28 +773,52 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
             </Button>
             <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
           </div>
-          <ToolOptions tool={tool as Tool} compact />
-          {/* Folded here below 768, where the bar has no room for them. */}
-          <div className={cn(row, "md:hidden")}>
-            <Button variant="ghost" size="iconXs" aria-label="Capture a site" onClick={() => { setOpen(false); window.dispatchEvent(new Event("studio:capture-site")); }}><Camera /></Button>
+          {folding ? <ToolOptions tool={tool as Tool} compact /> : null}
+          <div className={row}>
+            <Button variant="ghost" size="iconXs" data-capture-site="" aria-label="Capture a site" onClick={() => { setOpen(false); window.dispatchEvent(new Event("studio:capture-site")); }}><Camera /></Button>
             <span className="flex-1">Capture a site</span>
           </div>
           <div className={row}>
-            <SearchTools always />
-            <Tooltip content="What has landed, and what is new to use">
-              <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" onClick={() => { setOpen(false); onUpdates(); }}>
-                <History />
-              </Button>
-            </Tooltip>
+            <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" onClick={() => { setOpen(false); onUpdates(); }}>
+              <History />
+            </Button>
+            <span className="flex-1">Updates</span>
           </div>
+          {folding ? <div className={row}><SearchTools always /></div> : null}
         </div>
       }
     >
-      <Button variant={open ? "subtle" : "ghost"} size="iconXs" data-toolbar-more="" aria-label="More tools" aria-pressed={open}>
-
+      <Button variant={open ? "subtle" : "ghost"} size="iconXs" data-toolbar-more="" aria-label="More tools" aria-pressed={open} className={cn(menuOpen && "ring-1 ring-accent")}>
         <Ellipsis />
       </Button>
     </Popover>
+  );
+}
+
+/**
+ * One count of the parts still waiting on a decision, in place of an orange
+ * ! on each of them (`decideShown.ts`). The board shows the picked part's !;
+ * pressing the count shows them all, and pressing it again hides them.
+ */
+function DecideCount() {
+  const count = useDecideCount();
+  const all = useDecideAll();
+  if (!count) return null;
+  const say = all ? `${count} parts need a decision: hide their ! marks` : `${count} parts need a decision: show their ! marks`;
+  return (
+    <Tooltip content={say}>
+      <button
+        type="button"
+        data-decide-count={count}
+        aria-label={say}
+        aria-pressed={all}
+        onClick={() => { play("tap"); setDecideAll(!all); }}
+        className={cn("tactile inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-small font-bold", all ? "border-[oklch(0.74_0.18_55)] text-fg" : "border-border text-fg-muted hover:text-fg")}
+      >
+        <span className="flex size-3.5 items-center justify-center rounded-full text-[10px] leading-none" style={{ background: "oklch(0.74 0.18 55)", color: "oklch(0.2 0.05 50)" }}>!</span>
+        <span className="num">{count}</span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -959,7 +961,7 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:min-w-[6.5rem] xl:flex-1 xl:justify-start xl:px-2")}
+        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 lg:flex xl:w-auto xl:min-w-[6.5rem] xl:flex-1 xl:justify-start xl:px-2")}
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
@@ -985,11 +987,7 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
 function UpdatesToggle({ open, onOpenChange: setOpen }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   return (
     <>
-      <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
-          <History />
-        </Button>
-      </Tooltip>
+      {/* Its key is in More (`MoreTools`); the panel stays the bar's own. */}
       <UpdatesPanel open={open} onOpenChange={setOpen} />
     </>
   );

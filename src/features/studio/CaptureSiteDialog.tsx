@@ -321,7 +321,8 @@ function RecentRuns({ runs, bring }: { runs: CaptureRun[]; bring: (run: CaptureR
 }
 
 /** The door in the bar, beside the one that brings a repository in. */
-export function CaptureSiteDoor() {
+/** `hidden`: no key in the bar, only the dialog; the bar's More opens it (`StudioPage.tsx#MoreTools`). */
+export function CaptureSiteDoor({ hidden = false }: { hidden?: boolean } = {}) {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     const on = () => setOpen(true);
@@ -330,11 +331,13 @@ export function CaptureSiteDoor() {
   }, []);
   return (
     <>
-      <Tooltip content="Capture a site: paste an address, it is captured in your repository and brought in.">
-        <Button variant="ghost" size="iconXs" data-capture-site="" aria-label="Capture a site" onClick={() => setOpen(true)}>
-          <Camera />
-        </Button>
-      </Tooltip>
+      {hidden ? null : (
+        <Tooltip content="Capture a site: paste an address, it is captured in your repository and brought in.">
+          <Button variant="ghost" size="iconXs" data-capture-site="" aria-label="Capture a site" onClick={() => setOpen(true)}>
+            <Camera />
+          </Button>
+        </Tooltip>
+      )}
       <CaptureSiteDialog open={open} onOpenChange={setOpen} />
     </>
   );

@@ -292,7 +292,7 @@ const askWhere = async (page) => {
   const board = askLine(await page.evaluate(() => document.body.innerText));
   if (board) return { where: "on the board", line: board };
   const looked = [];
-  for (const [name, open] of [["Updates", () => page.locator("[data-updates-toggle]").first().click()]]) {
+  for (const [name, open] of [["Updates", async () => { await page.locator("[data-toolbar-more]").first().click(); await page.locator("[data-updates-toggle]").first().click(); }]]) {
     try { await open(); await page.waitForTimeout(500); } catch { continue; }
     const line = askLine(await page.evaluate(() => document.body.innerText));
     looked.push(name);
