@@ -158,6 +158,7 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
       if (Math.abs(to.x - n.x) > 2 || Math.abs(to.y - n.y) > 2) { moved.set(n.id, to); target.set(n.id, to); }
       else target.set(n.id, { x: n.x, y: n.y, w: n.w, h: n.h });
     }
+    dropCollisions(here, moved, target, shows);
     if (!moved.size) continue;
     /* A part with no hook of its own goes with the smallest hooked part that holds it. */
     const hooked = here.filter((n) => target.has(n.id)).sort((a, b) => a.w * a.h - b.w * b.h);
@@ -184,6 +185,31 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
  * it (J, 2026-10-05). Each one pinned to the window, with everything in it,
  * is moved up until its foot is on the page, and down to the page's top.
  */
+/**
+ * A SCREEN NEVER DRAWS ONE PART OVER ANOTHER (J, 2026-10-06). The board
+ * moves parts to the screen's boxes without reflowing the rest, so where a
+ * screen's box disagrees with the page (a line the page has since shortened,
+ * PST's one-line help with its "?"), the moved part landed on the lines
+ * under it and its words overlapped theirs. A move that puts a shown part
+ * over another it was clear of on the page, neither holding the other, is
+ * not made: the part stays where the page draws it.
+ */
+function dropCollisions(here: readonly PlaceNode[], moved: Map<string, PlaceBox>, target: Map<string, PlaceBox>, shows: (n: PlaceNode) => boolean): void {
+  const flow = here.filter((n) => shows(n) && !pinned(n));
+  const now = (n: PlaceNode): PlaceBox => moved.get(n.id) ?? n;
+  for (let pass = 0; pass < 4; pass++) {
+    let dropped = false;
+    for (const n of flow) {
+      const to = moved.get(n.id);
+      if (!to) continue;
+      const hits = flow.some((o) => o !== n && !contains(o, n) && !contains(n, o) && !contains(now(o), to) && !contains(to, now(o)) && meets(to, now(o)) && !meets(n, o));
+      if (hits) { moved.delete(n.id); target.set(n.id, { x: n.x, y: n.y, w: n.w, h: n.h }); dropped = true; }
+    }
+    if (!dropped) return;
+  }
+}
+const meets = (a: PlaceBox, b: PlaceBox) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 2 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 2;
+
 /** Pinned to the window rather than in the page's flow. */
 const pinned = (n: PlaceNode) => (n as PlaceNode & { from?: { position?: string } | null }).from?.position === "fixed";
 

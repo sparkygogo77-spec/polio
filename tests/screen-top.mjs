@@ -7,7 +7,8 @@
  * server offline."), which moves most parts down; lined up by their median
  * offset, the nav and the title were drawn above the page's top edge. The
  * screen's top now stays on the page's top, and what the line pushed down
- * is drawn lower instead.
+ * is drawn lower instead. And a screen never draws one part over another
+ * it was clear of on the page (the balance panel's help over its lines).
  *
  *   node tests/screen-top.mjs
  *
@@ -51,6 +52,23 @@ check("the title stays under the nav", at("title").y === 60, J(at("title")));
 check("the offline line is drawn where the screen drew it", at("offline").y === 160, J(at("offline")));
 check("the panels the line pushed down are drawn lower", at("wallet").y === 210 && at("tv").y === 210 && at("balance").y === 210, J([at("wallet"), at("tv"), at("balance")]));
 check("a part pinned to the window does not set the page's top", at("nav").y >= 0, J(at("tour")));
+
+/* A screen whose box for the help line disagrees with the page: moved, it would land on the wallet lines under it. */
+const panel = [
+  node("bp", "balance-panel", 1000, 300, 300, 400),
+  node("note", "balance-note", 1010, 330, 280, 30),
+  node("hint", null, 1010, 335, 16, 20),
+  node("w1", "balance-wallet", 1010, 380, 280, 20),
+  node("w2", "balance-escrow", 1010, 410, 280, 20),
+  node("w3", "balance-in-match", 1010, 440, 280, 20),
+  node("w4", "balance-pending", 1010, 470, 280, 20),
+];
+const helpScreen = [{ name: "lobby", page: "web/index.html", shows: ["balance-panel", "balance-note", "balance-wallet", "balance-escrow", "balance-in-match", "balance-pending"], boxes: {
+  "balance-panel": [1000, 300, 300, 400], "balance-note": [1010, 405, 280, 50], "balance-wallet": [1010, 380, 280, 20], "balance-escrow": [1010, 410, 280, 20], "balance-in-match": [1010, 440, 280, 20], "balance-pending": [1010, 470, 280, 20],
+} }];
+const hp = B.screenPlaces(panel, on.map(() => "screen:lobby"), helpScreen, () => "p", B.boardShows(["screen:lobby"], helpScreen, () => "p"));
+const hAt = (id) => hp.get(id) ?? panel.find((n) => n.id === id);
+check("a part the screen would draw over the lines under it stays where the page draws it", hAt("note").y === 330 && hAt("hint").y === 335, J([hAt("note"), hAt("hint")]));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);
