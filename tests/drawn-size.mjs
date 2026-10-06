@@ -14,7 +14,7 @@
  *
  *   node tests/drawn-size.mjs [url]      # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { FULL_BLEED, checkAnswer } from "../src/features/studio/reshape.ts";
 
 const results = [];
@@ -115,7 +115,7 @@ check("a size of nothing is ignored rather than obeyed", (() => {
 /* 4. The board says how big the drawing was                           */
 /* ------------------------------------------------------------------ */
 
-const canvas = readFileSync("src/features/studio/Canvas.tsx", "utf8");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the ink door sends the size it measured", /drawn: \{ w: b\.w, h: b\.h \}/.test(canvas));
 
 const queue = readFileSync("src/features/studio/queue.ts", "utf8");

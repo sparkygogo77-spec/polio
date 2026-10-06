@@ -113,8 +113,8 @@ check(
 /* The vine's generosity                                               */
 /* ------------------------------------------------------------------ */
 
-const { readFileSync } = await import("node:fs");
-const src = readFileSync("src/features/studio/Canvas.tsx", "utf8");
+const { readFileSync, readdirSync } = await import("node:fs");
+const src = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check(
   "the eraser reaches as far as a vine does, rather than a number of its own",
   /const ERASE_REACH = REACH_WIDTH \/ 2;/.test(src),

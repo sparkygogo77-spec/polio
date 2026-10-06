@@ -21,7 +21,7 @@
  *   node --experimental-strip-types tests/kind-row.mjs [url]
  */
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { DRAW_KINDS } from "../src/features/studio/drawKinds.ts";
 import { IDEA_ID, checkAnswer } from "../src/features/studio/reshape.ts";
 
@@ -62,7 +62,7 @@ check(
 /* 2. Each one is a path that exists                                   */
 /* ------------------------------------------------------------------ */
 
-const canvas = readFileSync("src/features/studio/Canvas.tsx", "utf8");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 const parts = readFileSync("src/features/studio/parts/index.ts", "utf8");
 const cat = readFileSync("src/features/studio/catalog.ts", "utf8");
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");

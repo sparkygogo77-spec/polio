@@ -191,7 +191,7 @@ check("nothing at all is no drawings", inkGroups([]).length === 0);
 /* 7. The board hangs the door on the drawing                          */
 /* ------------------------------------------------------------------ */
 
-const canvas = readFileSync("src/features/studio/Canvas.tsx", "utf8");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the button is keyed to a group, not a stroke", /data-make-real=\{g\.id\}/.test(canvas));
 check("one button per drawing", /drawings\.map\(\(g\)/.test(canvas));
 check("every stroke in the drawing goes into the sketch", /group\.strokeIds\.includes/.test(canvas));
