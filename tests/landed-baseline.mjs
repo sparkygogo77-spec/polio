@@ -62,7 +62,7 @@ const fontNode = { ...read, font: { size: 1.38, px: 22 } };
 fontNode.source = { ...read.source, was: L.lookOf(fontNode, null, { base: 22 / 1.38 }) };
 check("the baseline is measured as the panel measures: a rounded font size is no restyle", L.buildLayer(L.baselineAsLanded([fontNode], {}), {}, source, { kit: true }).rules.length === 0);
 check("Take these in uses it (source read)", /takeTokens\(now, round\.seen\)/.test(readFileSync(join(here, "..", "src", "features", "studio", "StyleLayerPanel.tsx"), "utf8")));
-check("an import re-baselines what landed (source read)", /baselineAsLanded\(now\.nodes/.test(readFileSync(join(here, "..", "src", "features", "studio", "FromASite.tsx"), "utf8")));
+check("an import re-baselines what landed (source read)", /baselineAsLanded\(now\.nodes/.test(["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n")));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
