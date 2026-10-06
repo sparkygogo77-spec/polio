@@ -285,8 +285,26 @@ async function readScreensOf(file: File, ask: { page: string | null; list: { nam
     const id = source.files.find((f) => f.file === x.page)?.pageId;
     if (id && x.pictures) drawn.set(id, { ...x.pictures, ...(drawn.get(id) ?? {}) });
   }
-  const screens = placed.map(({ pictures: _p, ...x }: ScreenRead & { pictures?: unknown }) => x);
-  useStudio.setState({ look: { ...st.look, styleSource: { ...source, screens } } as typeof st.look });
+  /*
+   * What a part with a still draws in each screen (PST's chart: the match's
+   * candles in "match live", the final chart in the result), kept on the
+   * screen as a picture of its own, so a step shows its own chart and not
+   * the sample's (J, 2026-10-05). Pictures that are the same are put once.
+   */
+  const stilled = new Set(st.nodes.filter((n) => (n as { picture?: unknown }).picture && n.hooks?.["data-hook"]).map((n) => n.hooks!["data-hook"]!));
+  const putOnce = new Map<string, Promise<unknown>>();
+  const screens = await Promise.all(placed.map(async ({ pictures, ...x }: ScreenRead & { pictures?: Record<string, string> }) => {
+    const stills: Record<string, unknown> = {};
+    for (const [hook, src] of Object.entries(pictures ?? {})) {
+      if (!stilled.has(hook)) continue;
+      if (!putOnce.has(src)) putOnce.set(src, fetch(src).then((r) => r.blob()).then((b) => putPicture(b, { alt: `${hook} in ${x.name}`, from: "upload" })).catch(() => null));
+      const pic = await putOnce.get(src);
+      if (pic) stills[hook] = pic;
+    }
+    return Object.keys(stills).length ? { ...x, stills } : x;
+  }));
+  const now = useStudio.getState();
+  useStudio.setState({ look: { ...now.look, styleSource: { ...((now.look as { styleSource?: StyleSource }).styleSource ?? source), screens } } as typeof now.look });
   if (drawn.size) await fillPictures(drawn);
 }
 
