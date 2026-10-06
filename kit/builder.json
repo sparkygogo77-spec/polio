@@ -186,6 +186,12 @@
         "title": "Style groups",
         "checkedBy": "kit:check",
         "rule": "Parts that share one look carry the same data-group; the builder edits a group once. A group has at least two parts."
+      },
+      {
+        "id": "pictures-on-parts",
+        "title": "Pictures on parts",
+        "checkedBy": "",
+        "rule": "A picture dropped on a part's Contents arrives in design/pictures.json with its hook, crop box and note: the code makes it that part's look through a token, cut to its crop, keeping the same element, data-hook, words and behaviour."
       }
     ],
     "slots": [

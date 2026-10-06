@@ -10,6 +10,8 @@ import { boardRecord } from "./exportForCode";
 import { fileAt } from "./kitRun";
 import { layerPrint } from "./codePublish";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
+import { pictureFiles } from "./partPicture";
+import { base64, bytesFor } from "./pictures";
 import type { LayerNode, StyleSource } from "./styleLayer";
 
 export type Sent =
@@ -27,10 +29,16 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
     const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
     prepared.files.push({ path: "design/record.json", content: boardRecord(map) });
   }
+  /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook. */
+  const pics = await pictureFiles(nodes as never, async (look) => { const b = await bytesFor(look.picture as never); return b ? base64(b) : null; });
+  if (pics.files.length) {
+    o.say?.(`Adding ${pics.files.length - 1} picture${pics.files.length === 2 ? "" : "s"} for parts…`);
+    prepared.files.push(...pics.files);
+  }
   const done = await publishLayer(prepared, source, token, { site: o.site });
   if (!done.ok) return { ok: false, says: done.says };
   return {
-    ok: true, says: done.says, pull: done.pull, compare: done.compare, branch: done.branch, kit: prepared.kit,
+    ok: true, says: `${done.says}${pics.missing.length ? ` The picture for ${pics.missing.join(", ")} is no longer in this browser, so it was not sent; drop it on the part again.` : ""}${pics.unhooked.length ? ` ${pics.unhooked.join(", ")} has no data-hook, so its picture was not sent.` : ""}`, pull: done.pull, compare: done.compare, branch: done.branch, kit: prepared.kit,
     print: layerPrint(prepared.layer.css), files: prepared.files.map((x) => x.path),
     held: prepared.kit ? prepared.skipped.map((s) => s.from) : prepared.skipped.map((s) => `“${s.from.slice(0, 40)}” (${s.why})`),
   };

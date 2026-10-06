@@ -266,3 +266,23 @@ many copies.
 **(checked)** Parts that share one look carry the same `data-group="name"` (all panel titles, all
 main buttons, all form fields). The builder edits a group once, the way one panel id is one panel. A group has at
 least two parts.
+
+## 25. Pictures on parts
+
+A picture J drops on a part's Contents in the builder is how that part should look. "Send the
+design back" carries it as `design/pictures/<hook>.<ext>`, listed in `design/pictures.json` with the
+part's `hook`, the picture's `size`, its `crop` (the box round what it really shows, so a loosely
+cropped picture still fits) and J's `note`. The code chat that picks up the branch applies every
+entry:
+
+- Copy the picture into the site's own folder (it serves only that; `design/` is not served), cut to
+  its `crop` box; trim further only if what is left is still a plain margin.
+- Make it the part's look through a token in the token file (`--<hook>-picture: url(...)`), used as
+  the part's background in the stylesheet, sized to fit (`contain` unless the note says otherwise).
+  Size changes go in tokens too.
+- Keep the same element, its `data-hook`, its words (visually hidden if the picture already shows
+  them, so screen readers and scripts still read them), its states, and everything the scripts do
+  with it. A picture never replaces a part, and never adds an `<img>` the scripts don't know.
+- If the picture shows a shape (a rounded or angled button), match the part's clickable area to it
+  with `border-radius` or a `clip-path` token, so clicks land where the picture is.
+- Add the new token to the slots list (`rules.slots`) so the builder can edit it next round.

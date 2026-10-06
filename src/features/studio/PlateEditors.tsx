@@ -29,6 +29,7 @@ import { centreOf, wholeOf } from "./RingEditors";
 import { plain, reword } from "./parts/spans";
 import { growToWords } from "./growToWords";
 import { LookFields } from "./LookFields";
+import { PartPictureField } from "./PartPictureField";
 
 /* ------------------------------------------------------------------ */
 /* The pieces                                                          */
@@ -294,6 +295,8 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
           ) : (
             <p className="text-fine" style={{ color: SCREEN.dim }}>This part has nothing to list inside it.</p>
           )}
+          {/* A picture as its look, for the code to apply under the same hook (`partPicture.ts`). */}
+          <PartPictureField node={node} field={field} />
         </PlateQuad>
         {/*
           Make it a prompt: the place for turning what is listed here into a

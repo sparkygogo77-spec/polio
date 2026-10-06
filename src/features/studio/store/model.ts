@@ -9,6 +9,7 @@ import type { WorkUse } from "../library/works";
 import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "../parts/theme";
 import type { NodeEmbed, NodeMotion } from "../parts/capturedMotion";
 import { type OutlineClip, type Sketch } from "../sketch";
+import type { LookPicture } from "../partPicture";
 import type { Worn } from "../wornShape";
 import type { Remixed } from "../remix";
 import type { DrawnKind } from "../shapeKind";
@@ -224,6 +225,12 @@ export interface StudioNode {
    * one in `picture` is one of these. Absent until a picture is remade.
    */
   pictureVersions?: Picture[] | null;
+  /**
+   * A picture he wants this part to LOOK like, dropped on its Contents plate
+   * (`partPicture.ts`). Not shown in the part: it rides with "Send the
+   * design back" for the code to apply under the same hook. A reference only.
+   */
+  lookPicture?: LookPicture | null;
   /**
    * What was drawn for it on the drawing board, and the words beside it.
    * Kept so the board reopens with the drawing still on it, the blueprint
