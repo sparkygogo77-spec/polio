@@ -29,7 +29,7 @@ const check = (name, ok, detail = "") => {
 /** Source without its comments, so a pin never matches the sentence explaining a removal. */
 const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-const wheel = bare("src/features/studio/RadialMenu.tsx");
+const wheel = ["RadialMenu.tsx", ...["open.ts", "choices.ts", "RadialMenu.tsx", "ring.tsx"].map((f) => `radial/${f}`)].map((f) => `src/features/studio/${f}`).map(bare).join("\n");
 check("nothing on the part's wheel says soon", !/\(soon\)/.test(wheel), wheel.match(/"[^"]*\(soon\)"/g)?.join(", ") ?? "");
 
 const browser = await chromium.launch({ headless: true });
