@@ -18,6 +18,8 @@
  *   · its path keeps its hook and paints nothing over it;
  *   · a hooked circle (PST's duel) is still a part of its own, drawn there,
  *     and left out of the copy so it is not drawn twice;
+ *   · a hooked circle filled see-through (PST's duel, fill-opacity 0.4)
+ *     keeps that in its fill, its edge solid;
  *   · the copy, drawn, is the page's orange where the page is orange.
  *
  *   node tests/svg-icons.mjs
@@ -43,7 +45,7 @@ h1 { display: flex; gap: 8px; align-items: center; margin: 20px; font-size: 28px
 [data-hook="duel-ring"] { fill: rgb(40, 200, 120); }
 </style></head><body>
 <h1 data-hook="page-title"><svg data-hook="page-title-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path data-hook="page-title-icon-shape" fill-rule="evenodd" d="M2 5h20v14H2zM5 8v8h14V8z"/></svg> <span data-hook="page-title-text">PonsStars test page</span></h1>
-<svg data-hook="duel" viewBox="0 0 120 120"><circle data-hook="duel-circle-me" cx="40" cy="60" r="30" fill="rgb(255, 0, 0)"/><path data-hook="duel-ring" d="M0 0h20v20H0z"/></svg>
+<svg data-hook="duel" viewBox="0 0 120 120"><circle data-hook="duel-circle-me" cx="40" cy="60" r="30" fill="rgb(255, 0, 0)"/><circle data-hook="duel-circle-opponent" cx="80" cy="60" r="30" fill="rgb(37, 99, 235)" stroke="rgb(37, 99, 235)" stroke-width="3" fill-opacity="0.4"/><path data-hook="duel-ring" d="M0 0h20v20H0z"/></svg>
 </body></html>`;
 
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
@@ -64,6 +66,8 @@ check("its path keeps its hook and paints nothing over it", !!shape && !shape.co
 const me = hook("duel-circle-me"), ring = hook("duel-ring");
 const duel = decodeURIComponent(hook("duel")?.art?.background ?? "");
 check("a hooked circle is still a part of its own, drawn there", me?.colour?.bg === "rgb(255, 0, 0)" && me?.shape === "circle", JSON.stringify(me?.colour));
+const opp = hook("duel-circle-opponent");
+check("a circle filled see-through keeps it in its fill, its edge solid", opp?.colour?.bg === "rgba(37, 99, 235, 0.4)" && opp?.edge?.colour === "rgb(37, 99, 235)", JSON.stringify([opp?.colour, opp?.edge]));
 check("and left out of the copy, so it is not drawn twice", /visibility="hidden"/.test(duel) && duel.includes("fill:rgb(40, 200, 120)") && !ring?.colour?.bg);
 
 /* The copy, drawn: orange where the page's icon is orange, and see-through in its hole. */

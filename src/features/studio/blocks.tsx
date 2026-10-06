@@ -373,11 +373,18 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    */
   if (node.outline) return <Cut node={node}>{linked}</Cut>;
   if (!node.shape || node.shape === "box") return linked;
+  /*
+   * Grown and stretched, never only `height: 100%`: on the board a part has
+   * a minimum height in a flex column, where a percentage height resolves
+   * to the content. A circle with no words (PST's duel circles) was as tall
+   * as its edge, a flat line, everywhere (J, 2026-10-06;
+   * `tests/shape-fills.mjs`).
+   */
   return (
     <div
       data-shape={node.shape}
       style={{
-        width: "100%", height: "100%", overflow: "hidden",
+        width: "100%", height: "100%", flex: "1 1 auto", alignSelf: "stretch", display: "flex", flexDirection: "column", overflow: "hidden",
         borderRadius: node.shape === "rounded" ? Math.min(28, Math.min(size?.w ?? node.w, size?.h ?? node.h) / 6) : "50%",
       }}
     >
@@ -469,7 +476,7 @@ function Cut({ node, children }: { node: StudioNode; children: React.ReactNode }
     <div
       data-shape={node.outline!.closed ? "outline" : "stroke"}
       data-outline-points={node.outline!.points}
-      style={{ width: "100%", height: "100%", overflow: "hidden", clipPath: `url(#${id})`, WebkitClipPath: `url(#${id})` } as React.CSSProperties}
+      style={{ width: "100%", height: "100%", flex: "1 1 auto", alignSelf: "stretch", display: "flex", flexDirection: "column", overflow: "hidden", clipPath: `url(#${id})`, WebkitClipPath: `url(#${id})` } as React.CSSProperties}
     >
       <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
         <defs>
