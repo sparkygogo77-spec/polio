@@ -21,7 +21,7 @@ const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "
 const walk = (dir, out = []) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) walk(p, out); else if (/\.(tsx?|css)$/.test(f)) out.push(p); } return out; };
 const SRC = walk("src").map((p) => [p, readFileSync(p, "utf8")]);
 
-const studio = bare("src/features/studio/StudioPage.tsx");
+const studio = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map(bare).join("\n");
 const palette = bare("src/core/commands/CommandPalette.tsx");
 const listsParts = /FEATURES|catalog/.test(palette);
 const tip = /<Tooltip content="([^"]*[Ss]earch[^"]*)" shortcut="mod\+k">/.exec(studio)?.[1] ?? "";

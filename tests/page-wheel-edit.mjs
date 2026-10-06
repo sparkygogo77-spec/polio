@@ -20,7 +20,7 @@ const check = (name, ok, detail = "") => {
 };
 const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-const wheel = bare("src/features/studio/RadialMenu.tsx");
+const wheel = ["RadialMenu.tsx", ...["open.ts", "choices.ts", "RadialMenu.tsx", "ring.tsx"].map((f) => `radial/${f}`)].map((f) => `src/features/studio/${f}`).map(bare).join("\n");
 const editors = bare("src/features/studio/BackgroundEditors.tsx");
 const slotsBg = wheel.slice(wheel.indexOf("const SLOTS_BG"), wheel.indexOf("};", wheel.indexOf("const SLOTS_BG")));
 check("the page's slots hold no Edit", !/\bedit:\s*\{/.test(slotsBg), slotsBg.match(/^\s*(\w+):\s*\{/gm)?.map((s) => s.trim().replace(/:.*$/, "")).join(" "));

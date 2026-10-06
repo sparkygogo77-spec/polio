@@ -36,7 +36,7 @@ const check = (name, ok, detail = "") => {
 const bare = (f) => readFileSync(join(here, "..", f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 /* ------------------------------------------------------------ the source */
-const radial = bare("src/features/studio/RadialMenu.tsx");
+const radial = ["RadialMenu.tsx", ...["open.ts", "choices.ts", "RadialMenu.tsx", "ring.tsx"].map((f) => `radial/${f}`)].map((f) => `src/features/studio/${f}`).map(bare).join("\n");
 const editors = bare("src/features/studio/RingEditors.tsx");
 check("Looks offers Edge beside Hue, Texture and Aura", /case "look":[\s\S]{0,400}id: "edge"/.test(radial));
 check("Font still sets size, weight, letter spacing and family", ["Size", "Weight", "Letter spacing", "Family"].every((l) => editors.includes(`label="${l}"`)));

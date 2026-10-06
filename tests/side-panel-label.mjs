@@ -30,7 +30,7 @@ const check = (name, ok, detail = "") => {
 /** Source without its comments, so a pin never matches the sentence explaining a removal. */
 const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-const studioPage = bare("src/features/studio/StudioPage.tsx");
+const studioPage = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map(bare).join("\n");
 const index = bare("src/features/studio/index.ts");
 check("the tooltip names the side panel", /"Hide the side panel" : "Show the side panel"/.test(studioPage));
 check("and does not say colour & texture", !/colou?r & texture/.test(studioPage));

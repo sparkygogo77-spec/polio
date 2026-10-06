@@ -59,7 +59,7 @@ check("and waits a frame, because the board has to exist first", /requestAnimati
 /* 3. The board opens on the part                                      */
 /* ------------------------------------------------------------------ */
 
-const radial = readFileSync("src/features/studio/RadialMenu.tsx", "utf8");
+const radial = ["RadialMenu.tsx", ...["open.ts", "choices.ts", "RadialMenu.tsx", "ring.tsx"].map((f) => `radial/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("the wheel can be opened straight onto one slot", /slot\?: SlotId \| null;/.test(radial));
 check("drawing on a part is one call", /export function drawOnPart/.test(radial));
 check("writing on it is the other", /export function writeOnPart/.test(radial));

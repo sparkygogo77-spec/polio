@@ -9,7 +9,7 @@
  *
  *   node tests/folded-help.mjs
  *
- * Covers: src/features/studio/siteRead.ts
+ * Covers: src/features/studio/siteread/parts.ts
  */
 import { PARTS } from "../src/features/studio/siteRead.ts";
 import { launch } from "./fixtures/look-sites.mjs";
