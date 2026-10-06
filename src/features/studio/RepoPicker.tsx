@@ -31,11 +31,10 @@
  * exactly as a publish reads it.
  */
 import * as React from "react";
-import { Boxes, Camera, Loader2, Lock, Search } from "lucide-react";
+import { Camera, Loader2, Lock, Search } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Dialog } from "@/core/ui/dialog";
-import { Tooltip } from "@/core/ui/tooltip";
 import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
@@ -774,18 +773,4 @@ export function useRepoPickerDoor(): [boolean, (v: boolean) => void] {
 export function RepoMenuHost() {
   const [open, setOpen] = useRepoPickerDoor();
   return <RepoPicker open={open} onOpenChange={setOpen} />;
-}
-
-/**
- * The way in, on the board itself: quiet and always there, because the fault
- * it fixed was a person looking for a door and finding none.
- */
-export function BringRepoDoor() {
-  return (
-    <Tooltip content="Your repos: bring one in, or choose where this site publishes.">
-      <Button variant="ghost" size="iconXs" data-bring-repo="" aria-label="Bring a repository in" onClick={openRepoPicker}>
-        <Boxes />
-      </Button>
-    </Tooltip>
-  );
 }
