@@ -448,6 +448,10 @@ export function StudioPage() {
           */}
           {/* The latest import's line, across the top of the board, where
               no panel's clipping and no toast setting can hide it. */}
+          {/* Both strips are `relative z-[1]`: as plain blocks the ground,
+              positioned after them, painted over them, so a new site's offer
+              was an unseen 34px band and the board slid under a line of sky
+              (J, 2026-10-06, `tests/board-top-strip.mjs`). */}
           <NewSiteOffer />
           <ImportStrip />
           <Workspace />

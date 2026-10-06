@@ -142,7 +142,7 @@ export function ImportStrip() {
     <div
       data-import-strip={busyNow ? "busy" : refused ? "refused" : "done"}
       role="status"
-      className="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-plain"
+      className="relative z-[1] flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-plain"
       style={{ borderColor: refused ? "oklch(0.72 0.17 18 / 0.6)" : VOID.rim, background: refused ? "oklch(0.72 0.17 18 / 0.08)" : VOID.box, color: VOID.text }}
     >
       {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
