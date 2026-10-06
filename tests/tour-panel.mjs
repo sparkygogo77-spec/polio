@@ -14,7 +14,9 @@
  *   4. a step's longer words wrap inside the card, never past its side;
  *   5. the dimmed screen leaves its outline (the ring) bright: a hole over
  *      the see-through outlined part, none over the filled card (J, 2026-10-06:
- *      "the blue highlight box also shouldnt be dimmed").
+ *      "the blue highlight box also shouldnt be dimmed");
+ *   6. the card, dragged, carries its words and buttons (it holds them but is
+ *      not a button), and the dimmed screen it sits in stays put.
  *
  *   node tests/tour-panel.mjs
  *
@@ -30,6 +32,7 @@ const R = await studio("stateRules.ts");
 const P = await studio("panelsOf.ts");
 const H = await studio("canvas/helpers.ts");
 const W = await studio("roomForWords.ts");
+const O = await studio("owner.ts");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);
@@ -84,6 +87,10 @@ check("4. a step's longer words wrap in their card; a lone word with room still 
 /* 5. */
 const holes = H.screenHoles(st, nodes.find((x) => x.id === "t"));
 check("5. the dimmed screen has one hole, over the ring and none over the card", !!ring && holes === [ring.x - root.x, ring.y - root.y, ring.w, ring.h].join(","), J({ holes, ring, root }));
+
+/* 6. */
+const riders = O.ridersOf(nodes, ["t-card"]);
+check("6. the dragged card carries its step count and title, not the dimmed screen or the ring", J([...riders].sort()) === J(["t-step", "t-title"]), J(riders));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
