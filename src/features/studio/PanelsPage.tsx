@@ -41,6 +41,7 @@ import { checkIn, checkOut, stateEditKey, type CheckedOut } from "./stateEdits";
 import { scenesOnPage } from "./sceneStep";
 import { screenKey } from "./boardStates";
 import { spotlight } from "./panelSpotlight";
+import { MoreStates } from "./PanelsMore";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null };
 const sourceOf = (look: unknown) => (look as { styleSource?: Source } | undefined)?.styleSource;
@@ -307,6 +308,7 @@ export function PanelsPage() {
         );
       }) : <p className="px-2 text-small text-fg-muted">No panel on this page changes with its data.</p>}
       {partSays ? <p data-panel-part-states="" className="mt-1 px-2 text-fine text-fg-faint">{partSays}</p> : null}
+      <MoreStates pageId={pageId} />
     </div>
   );
 }

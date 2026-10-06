@@ -8,7 +8,7 @@
  * where the page opens, so they took no room on the board, could not be
  * seen or arranged, and picking the chart panned to empty space.
  *
- * The States control on the page strip (`StatesChip`) switches them on for
+ * The foot of the Panels rail (`PanelsMore.tsx`) switches them on for
  * the board alone (`statesOn`): a group by its hook (`hidden:match-panel`),
  * or a preview screen of the repository (`screen:mid-match`), which shows
  * exactly the parts that screen shows (read off the page as its own code
