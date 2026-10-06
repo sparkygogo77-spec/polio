@@ -1691,6 +1691,12 @@ export function DesktopCanvas() {
   /* Grabbing while a pan is under way, an arrow otherwise. There is no pan
      tool to point at any more, so the cursor follows the drag rather than a
      mode: it changes when you actually start pushing the ground. */
+  /* Every part is a `React.memo`, so what it is handed has to keep its identity
+     between renders. A pan re-renders the board on every move, and a fresh
+     `{ w, h }` or a fresh lead-in copy made every part redraw each time
+     (`tests/pan-no-redraw.mjs`). */
+  const pageBox = React.useMemo(() => ({ w: frameWidth, h: frameH }), [frameWidth, frameH]);
+  const ledNodes = React.useMemo(() => { const leads = leadsOf(nodes); return new Map(nodes.map((n) => [n.id, withLead(n, leads)])); }, [nodes]);
   const cursor = drag?.kind === "pan" ? "grabbing" : tool === "select" ? "default" : "crosshair";
 
   return (
@@ -1993,14 +1999,14 @@ export function DesktopCanvas() {
           <NodeView
             key={n.id}
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
-            node={tryOn(withLead(n, leadsOf(nodes)), trying)}
+            node={tryOn(ledNodes.get(n.id) ?? n, trying)}
             selected={selection.includes(n.id)}
             inHeldGroup={heldIds.has(n.id)}
             theme={theme}
             palette={palette}
             zoom={zoom}
             light={look.light}
-            page={{ w: frameWidth, h: frameH }}
+            page={pageBox}
             layers={look.texture}
             flash={!!fresh && fresh.nodes.includes(n.id)}
             decide={decideAll || selection.includes(n.id) ? decide.get(n.id) ?? null : null}
