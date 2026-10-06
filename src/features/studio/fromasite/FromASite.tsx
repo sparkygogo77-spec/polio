@@ -68,6 +68,7 @@ import { SWEEP } from "../reassemble";
 import { askSite, askZip, nameOf, repoOf, deployedBy, NOTHING, stageOf, latest, putStage, subscribeStages, STEP_PATIENCE_MS, isHeadless, readPicturesOf, readScreensOf, landAsBrought, boardNow } from "./bring";
 import type { Source, Picking, Stage, KeepFrom } from "./bring";
 import { Brought, Details, Waiting } from "./bits";
+import { followsStateRules, readSamples, readScenes, sceneScreens } from "../stateRules";
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
@@ -440,6 +441,8 @@ export function FromASite({ space }: { space: Space }) {
     if (kit?.ok) {
       styleSource.seen = kit.seen;
       styleSource.kit = kit.manifest;
+      styleSource.scenes = readScenes(kit.scenes);
+      styleSource.samples = readSamples(kit.samples);
       if (kit.manifest.links) format = { ...format, "links.offsite": kitLinksToOffsite(kit.manifest.links) };
     } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
     /* The commit it was read at: Refresh is green while its branch is still there (`codePublish.ts`). */
@@ -447,6 +450,8 @@ export function FromASite({ space }: { space: Space }) {
     styleSource.sent = null;
     /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
+    /* A site that follows the state rules: its scenes are the board's screens from the start, drawn from its markup (`stateRules.ts`). */
+    if (styleSource.scenes?.length && followsStateRules(doc.nodes as unknown as StudioNode[])) styleSource.screens = sceneScreens(doc.nodes as unknown as StudioNode[], styleSource.files ?? [], styleSource.scenes);
     landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
     /* What the landing itself changed (the sweep's repaint, the palette's roles) is no design: the board as landed is what the style layer is measured from (`baselineAsLanded`). */
     {

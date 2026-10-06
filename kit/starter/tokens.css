@@ -27,3 +27,8 @@
   --page-width: 60rem;
   --shadow: 0 1px 3px var(--color-shade);
 }
+
+/* kit:panels: the shared state rule (BUILDER-RULES.md, rule 14). Made by kit:check from the pages' data-panel,
+   data-states and data-show (npm run kit:hooks). Do not edit by hand. */
+[data-panel][data-state="off"] { display: none !important; }
+/* kit:panels end */

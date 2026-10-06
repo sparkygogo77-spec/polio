@@ -16,7 +16,8 @@ The short version:
 - `tokens.css` loads first, `style-layer.css` loads last. Never edit `style-layer.css`; it is the
   design's file.
 - Anything a script shows later (a box that becomes a button, a message, a result) is a state inside
-  a part the builder can see: a hooked child hidden until shown. Never append it outside a part.
+  a part the builder can see: a declared state of a panel (`data-panel`, `data-states`, parts with
+  `data-show`); scripts only set the panel's `data-state`. Never append it outside a part.
 - Every visible thing is a real tagged element: no `::before`/`::after` drawings.
 - Need a look or setting the builder can't edit yet? Don't drop it or hard-code it: make it a token
   and list it in `builder.json` `rules.slots` (BUILDER-RULES.md rule 4). States stay inside their frame.

@@ -540,11 +540,19 @@ ${inside}
     gallery: `${ROOT}gallery.html`,
     scripts: { hookCalls: HELPERS, helperFiles: [`${ROOT}js/hooks.js`], ignore: [`/${ROOT}assets/`, "/vendor/", "/node_modules/"] },
     links: offsiteToKitLinks(input.links),
+    /* The state rules' files (BUILDER-RULES.md, rules 12 to 20): one scene per page to start, no samples yet; a code chat adds panels and scenes as the pages change. */
+    scenes: "scenes.json",
+    samples: "samples.json",
     /* The design and build rules every code chat follows; the full text is BUILDER-RULES.md beside it. No slots yet: the starter's are its own. */
     rules: { ...KIT_RULES, slots: [], outsideParts: [] },
   };
   files.push(
     { path: "builder.json", content: `${JSON.stringify(manifest, null, 2)}\n` },
+    {
+      path: "scenes.json",
+      content: `${JSON.stringify({ about: "Each scene a person meets, in order: its page, the preview screen that shows it, and every panel present with its state. A panel left out is absent (its \"off\" state). BUILDER-RULES.md, rule 17. Made by the Builder's Export for code with one scene per page.", scenes: screens.map((x) => ({ name: x.name, label: x.name, page: x.page, screen: x.name, panels: {} })) }, null, 2)}\n`,
+    },
+    { path: "samples.json", content: `${JSON.stringify({ about: "Sample values for text a script fills in, by hook. The builder shows them as sample chips. Data is not a state (BUILDER-RULES.md, rule 15).", hooks: {} }, null, 2)}\n` },
     {
       path: "package.json",
       content: `${JSON.stringify({

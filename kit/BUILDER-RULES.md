@@ -16,7 +16,7 @@ request, when it is broken. If a check fails, fix the code, not the check.
 ## What the builder can and can't do
 
 It can: select, move, resize and restyle every element that has a `data-hook`; edit every token in
-`tokens.css`; show each hidden part and preview screen as a state; edit the settings (slots) a part
+`tokens.css`; show each panel in each of its declared states, and each scene; edit the settings (slots) a part
 lists; place the one allowed embed as a box.
 
 It can't: see what only a script makes (elements outside any part, styles a script writes), see
@@ -36,12 +36,13 @@ takes its colours and sizes from tokens (and slots), and the builder sees the ca
 of that part, never as a separate element outside it.
 
 Example: the "Connecting to the game server" box later becomes the "Find a match" button. Both are
-children of the one box part (say `queue-box`), each with its own hook. The page opens with "Find
-a match" carrying `hidden`, and the script swaps which child is hidden. The builder lists the
-hidden child under States, so J can show it on the board and design it in place.
+children of the one box part (say `queue-box`), each with its own hook. The box is a panel with the
+states `connecting ready` (rule 12); each child says which state it shows in (`data-show`), and the
+script only changes the box's `data-state`. The builder lists the panel's states, so J can show
+each one on the board and design it in place.
 
-- A state is a hooked child inside the part, hidden with the `hidden` attribute until the script
-  shows it, or a preview screen (`screens({...})`) that shows the part in that state.
+- A state is a declared state of a panel (rules 12 to 20), never a child the script hides or shows
+  itself.
 - Repeated parts are copies of a `<template data-hook="template-...">`, and every copy goes into a
   part the page declares, or into another copy that does.
 - `kit:check` follows every `append`, `prepend`, `appendChild`, `insertBefore`, `replaceChildren`,
@@ -91,7 +92,7 @@ to learn a new kind of slot, and the design stays as J drew it in the meantime.
 
 **(checked)** Every style is a rule in a stylesheet keyed by `[data-hook="..."]`: no inline
 `style`, no `<style>` blocks, no classes or ids, and no `el.style.x = ...` in scripts. A script
-changes how something looks by setting a data attribute or toggling `hidden`, and the stylesheet
+changes how something looks by setting a data attribute or a panel's `data-state` (rule 13), and the stylesheet
 keys on it. The one exception is positions (rule 9).
 
 ## 6. Values are tokens
@@ -139,3 +140,94 @@ an existing one keeps its name.
 (`DESIGN-RECORD.md`), build to it: keep each part's hook, parent and states, put each value it
 marks as a token in `tokens.css`, then compare a look-only capture with
 `npm run kit:record-diff -- design/record.json <capture>`.
+
+## State rules (rules 12 to 20)
+
+J's state rules 1 to 9, numbered here 12 to 20. A panel whose scripts hide k parts on their own has
+2^k possible looks, and the builder can't tell which are real. Declared states give exactly n looks,
+so designing a site is the sum of its panels' states, not the product. The builder reads them
+instead of capturing the live site and guessing; captures stay only as a check that live still
+matches.
+
+```html
+<section data-hook="queue-panel" data-panel="queue-panel" data-states="join waiting" data-state="join">
+  <button data-hook="queue-join" data-show="join">Find a match</button>
+  <button data-hook="queue-leave" data-show="waiting">Leave queue</button>
+</section>
+```
+
+```json
+{ "scenes": [{ "name": "queue-waiting", "label": "Waiting in the queue", "page": "web/index.html",
+               "screen": "queue-waiting", "panels": { "queue-panel": "waiting" } }] }
+```
+
+```js
+setState('queue-panel', 'waiting');   // web/dom.js; setOn('sign-panel', true) for an "off on" panel
+```
+
+## 12. A panel that changes declares its states
+
+**(checked)** A part whose look changes while the page runs is a panel: its root carries
+`data-panel="<id>"` and `data-states="a b c"`, and starts in one of them with `data-state="a"`. The
+id is the root's own hook. A panel that can be absent from the page has an `off` state, which hides
+the whole panel. `data-state` is only ever a panel's state: for data a stylesheet keys on, use
+another `data-` attribute.
+
+## 13. Scripts change only the panel's state
+
+**(checked)** To change what a panel shows, a script sets `data-state` on its root
+(`setState(id, state)`, or `setOn(id, on)` for an `off on` panel) and nothing else: never
+`hidden`, `style.display` or classes on the parts inside it.
+
+## 14. Parts say where they show; one shared rule hides the rest
+
+**(checked)** A part that shows only in some states lists them in the markup: `data-show="a b"`. A
+part without `data-show` shows in every state. One shared rule in `tokens.css`, between the
+`kit:panels` markers, hides the rest: a panel's `off` state, and in each other state every part that
+doesn't list it. CSS can't compare two attributes, so `npm run kit:hooks` writes that rule from the
+pages, and `kit:check` fails when it is stale. A `hidden` attribute in the markup is only for
+something that is never shown (a drawing canvas, a download link).
+
+## 15. Data is not a state
+
+**(checked)** Text and numbers a script fills in (a balance, a name, a lead) are data, not states:
+they go into their part through its `data-hook`. Sample values for them go in the samples file
+(`"samples"` in `builder.json`; `kit/samples.json` in PonsStars) as
+`{ "hooks": { "<hook>": ["sample", "another"] } }`, and the builder shows them as sample chips.
+`kit:check` fails on a sample for a hook no page has.
+
+## 16. Panels never sit inside another panel's state
+
+**(checked)** A panel never sits inside a part that shows only in some states of another panel.
+If a TV state brings up a panel, that panel is its own `data-panel` (with an `off` state) beside or
+inside the TV's always-shown parts, and the script sets both. Panels may share data, never
+structure.
+
+## 17. The scene file lists each scene's panels
+
+**(checked)** The scene file (`"scenes"` in `builder.json`; `kit/scenes.json` in PonsStars) lists
+each scene a person meets, in order: its name, label, page, the preview screen that shows it, and
+`"panels": { "<id>": "<state>" }` for every panel present. A panel appears only when the scene
+provides it: one left out is absent (its `off` state), so a panel without an `off` state is in every
+scene of its page (a panel inside a template comes and goes with its copies). Going from the landing page into the main page is just more scenes. `kit:check`
+fails on a panel or state that doesn't exist, a panel whose enclosing panel the scene leaves out,
+or a missing panel that has no `off` state. A browser test checks that each scene's preview screen
+shows exactly those states.
+
+## 18. One id is one panel
+
+**(checked)** The same `data-panel` id in several places (on several pages, or in each copy of a
+template) is one panel, edited once, so it declares the same states everywhere.
+
+## 19. Transitions on states are fine
+
+A stylesheet may animate between states with CSS transitions or animations keyed on
+`[data-panel="<id>"][data-state="<state>"]`. The builder saves its own edits the same way, as
+style-layer rules keyed by panel and state, so they go back to the code without touching scripts.
+
+## 20. kit:check enforces the state rules
+
+**(checked)** `kit:check` fails on a part a script hides or shows itself, a state in `data-show`
+that its panel doesn't declare, a part with `data-show` outside any panel, a panel inside another
+panel's state, a `data-state` on anything but a panel, a `setState` or `setOn` naming a panel or
+state that doesn't exist, a stale shared rule, and the scene and sample file problems above.

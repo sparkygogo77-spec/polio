@@ -38,8 +38,8 @@ for (const f of FIXTURES) {
       const text = readFileSync(path, 'utf8');
       assert.ok(text.includes(f.find), `fixture "${f.name}" no longer matches ${f.file}`);
       writeFileSync(path, text.replace(f.find, f.replace));
-      // Rewrite the map first unless the fixture is about a stale map, so only the broken rule shows.
-      if (f.file !== 'starter/hooks.json') check(join(dir, 'builder.json'), { write: true });
+      // Rewrite the map first unless the fixture is about a stale map or hide rule, so only the broken rule shows.
+      if (f.file !== 'starter/hooks.json' && f.file !== 'starter/tokens.css') check(join(dir, 'builder.json'), { write: true });
       const { problems } = check(join(dir, 'builder.json'));
       assert.ok(problems.some((p) => f.expect.test(p)), `expected ${f.expect}, got:\n${problems.join('\n')}`);
     } finally {
@@ -82,7 +82,7 @@ test('rules 8 and 9: the DexScreener embed and script-set positions pass; a posi
   try {
     const edit = (f, find, replace) => { const t = readFileSync(join(dir, f), 'utf8'); assert.ok(t.includes(find), find); writeFileSync(join(dir, f), t.replace(find, replace)); };
     edit('starter/about.html', '<section data-hook="about-story">', '<iframe data-hook="about-chart" src="https://dexscreener.com/solana?embed=1" title="Chart"></iframe>\n<section data-hook="about-story">');
-    edit('starter/js/list.js', "  hook('list-empty').hidden = items.length > 0;", "  hook('list-empty').hidden = items.length > 0;\n  hook('list-items').style.setProperty('--list-top', '4px');");
+    edit('starter/js/list.js', "  setOn('list-empty', items.length === 0);", "  setOn('list-empty', items.length === 0);\n  hook('list-items').style.setProperty('--list-top', '4px');");
     edit('starter/base.css', '[data-hook="list-item"] {', '[data-hook="list-items"] { --list-top: 0; top: var(--list-top); }\n[data-hook="list-item"] {');
     const m = JSON.parse(readFileSync(join(dir, 'builder.json'), 'utf8'));
     m.rules.scriptPositions.values = ['--list-top'];

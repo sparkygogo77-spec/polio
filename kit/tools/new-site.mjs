@@ -15,7 +15,9 @@ import { check } from './kit-check.mjs';
 
 const KIT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // Kit files a new site does not need: PST's own retrofit notes and anything installed or made locally.
-const SKIP = new Set(['RETROFIT.md', 'node_modules', '.git']);
+// samples.json and scenes.json here are PonsStars' own (its root builder.json points at them); the
+// starter's are starter/samples.json and starter/scenes.json.
+const SKIP = new Set(['RETROFIT.md', 'node_modules', '.git', 'samples.json', 'scenes.json']);
 
 export function newSite(target, { name } = {}) {
   const to = resolve(target);

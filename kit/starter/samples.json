@@ -1,0 +1,7 @@
+{
+  "about": "Sample values for text a script fills in, by hook. The builder shows them as sample chips. Data is not a state (BUILDER-RULES.md, rule 15).",
+  "hooks": {
+    "modal-text": ["One short note when something new ships.", "Thanks, you are on the list."],
+    "footer-year": ["2026"]
+  }
+}

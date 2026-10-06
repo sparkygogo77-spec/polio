@@ -141,6 +141,10 @@ export interface StyleSource {
   onBoard?: string[];
   /** Its preview screens, read at import as its code builds them: the States control shows one on the board (`boardStates.ts`). */
   screens?: import("./boardStates.ts").ScreenRead[];
+  /** A site that follows the state rules: its declared scenes and sample words (`stateRules.ts`). Its `screens` are then these scenes, and the live captures stay in `captured`, only as a check. */
+  scenes?: import("./stateRules.ts").DeclaredScene[] | null;
+  samples?: import("./stateRules.ts").Samples | null;
+  captured?: import("./boardStates.ts").ScreenRead[];
 }
 
 /**
@@ -205,6 +209,8 @@ export interface LayerNode {
   source?: NodeSource | null;
   /** He moved or resized it himself (`StudioNode.byHand`): only then is its size or place his design rather than the board's own tidying. */
   byHand?: boolean;
+  /** What one state of a panel changes of its look, by `<panel>=<state>` (`stateEdits.ts`). */
+  byState?: Record<string, Record<string, unknown>> | null;
 }
 
 /** A hover, press or focus rule, as a capture carries it (`parts/capturedMotion.ts#MotionState`). */
@@ -494,6 +500,21 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       if (opts.kit) decl = kitDeclarations(src.hook.value, decl);
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
+        styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
+      }
+      /* What one state of a panel changes of it (`stateEdits.ts`): a rule keyed by that panel and state, so the code's own state switch shows it. */
+      for (const [key, patch] of Object.entries(n.byState ?? {})) {
+        const at = key.lastIndexOf("=");
+        if (at <= 0) continue;
+        const panel = key.slice(0, at), st = key.slice(at + 1);
+        let sd = changedDeclarations(now, lookOf({ ...n, ...patch } as LayerNode, palette, opts), { dx: 0, dy: 0 });
+        if (src.svg) sd = svgDeclarations(sd);
+        if (opts.kit && src.hook.attr !== "data-hook") sd = [];
+        if (opts.kit) sd = kitDeclarations(`${src.hook.value}-${st}`, sd);
+        if (!sd.length) continue;
+        const q = (v: string) => v.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        const root = n.hooks?.["data-panel"] === panel;
+        rules.push({ selector: root ? `${selectorFor(src.hook)}[data-state="${q(st)}"]` : `[data-panel="${q(panel)}"][data-state="${q(st)}"] ${selectorFor(src.hook)}`, declarations: sd, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
       }
       /* Its own hover, press and focus, where they changed on the board: a rule of their own, the declarations that are new or different. */

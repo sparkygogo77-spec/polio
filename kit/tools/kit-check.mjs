@@ -384,6 +384,61 @@ export function check(manifestPath, { write = false } = {}) {
     if (new Set(list.map((w) => kindOf(w.el))).size > 1) problems.push(`hook "${hook}" is a different element on different pages: ${list.map((w) => `${w.page} ${kindOf(w.el)}`).join(', ')}`);
   }
 
+  // ---- panels and states (BUILDER-RULES.md, rules 12-20): a panel that changes declares its states
+  const panels = new Map(); // id -> { states, pages: Set, parent: id | null, hasShow }
+  const STATE_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+  const panelOf = (el) => { for (let e = el.parent; e; e = e.parent) if (e.attrs['data-panel'] !== undefined) return e; return null; };
+  for (const p of pages) for (const el of p.elements) {
+    if (!el.inBody) continue;
+    const a = el.attrs;
+    const at_ = `${p.file}:${el.line}`;
+    const id = a['data-panel'];
+    if (id !== undefined) {
+      const states = (a['data-states'] ?? '').split(/\s+/).filter(Boolean);
+      if (id !== a['data-hook']) problems.push(`${at_}: data-panel="${id}" must be its root's hook ("${a['data-hook'] ?? ''}")`);
+      if (!states.length) problems.push(`${at_}: panel "${id}" lists no states (data-states="a b c")`);
+      for (const s of states) if (!STATE_NAME.test(s)) problems.push(`${at_}: panel "${id}": state "${s}" is not lower-case words joined by dashes`);
+      if (!states.includes(a['data-state'])) problems.push(`${at_}: panel "${id}" starts in ${a['data-state'] === undefined ? 'no state' : `"${a['data-state']}", which it does not declare`} (data-state="${states[0] ?? ''}")`);
+      if (a['data-show'] !== undefined) problems.push(`${at_}: panel "${id}" has data-show: a panel is never a state of another panel (give it an "off" state instead)`);
+      const outer = panelOf(el);
+      for (let e = el.parent; e && e !== outer; e = e.parent) if (e.attrs['data-show'] !== undefined) { problems.push(`${at_}: panel "${id}" sits inside a state of panel "${outer?.attrs['data-panel']}" (${e.attrs['data-hook']} shows only in "${e.attrs['data-show']}"); make it its own panel with an "off" state`); break; }
+      const known = panels.get(id);
+      if (known && known.states.join(' ') !== states.join(' ')) problems.push(`${at_}: panel "${id}" declares "${states.join(' ')}" here but "${known.states.join(' ')}" elsewhere (one id is one panel)`);
+      if (!known) panels.set(id, { states, pages: new Set([p.file]), parent: outer?.attrs['data-panel'] ?? null, hasShow: false, copied: el.template !== null });
+      else known.pages.add(p.file);
+    } else if (a['data-state'] !== undefined) problems.push(`${at_}: data-state on ${a['data-hook'] ?? `<${el.tag}>`}, which is not a panel (only a panel's root has a state; for data use another data- attribute)`);
+    if (a['data-states'] !== undefined && id === undefined) problems.push(`${at_}: data-states on ${a['data-hook'] ?? `<${el.tag}>`}, which is not a panel (add data-panel)`);
+    if (a['data-show'] !== undefined) {
+      const root = panelOf(el);
+      const shows = a['data-show'].split(/\s+/).filter(Boolean);
+      if (!root) problems.push(`${at_}: ${a['data-hook']} has data-show="${a['data-show']}" but sits in no panel`);
+      else {
+        const declared = (root.attrs['data-states'] ?? '').split(/\s+/);
+        for (const s of shows) if (!declared.includes(s)) problems.push(`${at_}: ${a['data-hook']} shows in "${s}", a state panel "${root.attrs['data-panel']}" does not declare (${declared.join(', ')})`);
+        if (panels.has(root.attrs['data-panel'])) panels.get(root.attrs['data-panel']).hasShow = true;
+      }
+      if (a.hidden !== undefined) problems.push(`${at_}: ${a['data-hook']} has both hidden and data-show (data-show alone decides)`);
+    }
+  }
+  // The one shared hide rule, in tokens.css between its markers: a panel's "off" state hides it, and
+  // in each other state the parts that do not list that state are hidden. CSS cannot compare two
+  // attributes, so the rule names each panel's states; kit:hooks writes it, kit:check keeps it fresh.
+  const PANELS_START = '/* kit:panels';
+  const PANELS_END = '/* kit:panels end */';
+  const hideSelectors = ['[data-panel][data-state="off"]'];
+  for (const [id, pnl] of [...panels].sort(([x], [y]) => (x < y ? -1 : 1))) if (pnl.hasShow) for (const s of pnl.states) if (s !== 'off') hideSelectors.push(`[data-panel="${id}"][data-state="${s}"] [data-show]:not([data-show~="${s}"]):not([data-panel="${id}"] [data-panel] [data-show])`);
+  const hideBlock = panels.size ? `${PANELS_START}: the shared state rule (BUILDER-RULES.md, rule 14). Made by kit:check from the pages' data-panel,\n   data-states and data-show (npm run kit:hooks). Do not edit by hand. */\n${hideSelectors.join(',\n')} { display: none !important; }\n${PANELS_END}` : '';
+  {
+    const text = read(tokensFile);
+    const s = text.indexOf(PANELS_START);
+    const e = text.indexOf(PANELS_END);
+    const current = s === -1 || e === -1 ? '' : text.slice(s, e + PANELS_END.length);
+    if (current !== hideBlock) {
+      if (write) writeFileSync(tokensFile, s === -1 || e === -1 ? `${text.trimEnd()}\n\n${hideBlock}\n` : text.slice(0, s) + hideBlock + text.slice(e + PANELS_END.length));
+      else problems.push(`${manifest.tokens}: the shared state rule (kit:panels) is ${current ? 'stale' : 'missing'} (run npm run kit:hooks and commit it)`);
+    }
+  }
+
   // ---- stylesheets
   const sheetFiles = [...new Set(pages.flatMap((p) => p.sheets))].filter(existsSync);
   const tokens = new Map(); // name -> default
@@ -530,6 +585,52 @@ export function check(manifestPath, { write = false } = {}) {
   }
   for (const n of nowhere) if (!(refs.get(n.hook) ?? []).some((r) => r.uses === 'writes')) problems.push(n.text);
   for (const [hook, list] of refs) if (!where.has(hook)) for (const r of list) problems.push(`${r.file}:${r.line}: script uses hook "${hook}", which no page has`);
+
+  // ---- states in scripts and in the scene and sample files (BUILDER-RULES.md, rules 13, 15, 17, 20)
+  const HIDES = /\.hidden\s*=(?!=)|\b(?:set|remove|toggle)Attribute\(\s*['"]hidden['"]|\.style\.display\b|\.classList\b/;
+  for (const [abs, text] of scripts) {
+    if (!siteScripts.has(abs) || outsideOk.has(abs) || ignore.some((x) => abs.toLowerCase().includes(x))) continue;
+    const file = rel(abs);
+    text.split('\n').forEach((line, i) => {
+      const code = line.replace(/\/\/.*$/, '');
+      if (HIDES.test(code)) problems.push(`${file}:${i + 1}: script hides or shows a part itself (set data-state on its panel; the part lists its states in data-show)`);
+      for (const m of code.matchAll(/(?<![\w$.])(setState|setOn)\(\s*(['"])([a-z0-9-]+)\2\s*(?:,\s*(['"])([a-z0-9-]+)\4)?/g)) {
+        const pnl = panels.get(m[3]);
+        if (!pnl) problems.push(`${file}:${i + 1}: ${m[1]}('${m[3]}') names no panel (data-panel="${m[3]}" on a page)`);
+        else if (m[1] === 'setOn' && !(pnl.states.includes('on') && pnl.states.includes('off'))) problems.push(`${file}:${i + 1}: setOn('${m[3]}') needs the panel's states to be "off on"`);
+        else if (m[5] && !pnl.states.includes(m[5])) problems.push(`${file}:${i + 1}: setState('${m[3]}', '${m[5]}'): the panel does not declare that state (${pnl.states.join(', ')})`);
+      }
+    });
+  }
+  const readJson = (key) => {
+    if (!manifest[key]) return null;
+    if (!existsSync(at(manifest[key]))) { problems.push(`builder.json: ${manifest[key]} does not exist`); return null; }
+    try { return JSON.parse(read(at(manifest[key]))); } catch (e) { problems.push(`${manifest[key]}: cannot read (${e.message})`); return null; }
+  };
+  if (panels.size && !manifest.scenes) problems.push('builder.json: "scenes" is missing (the pages have panels, so a scene file lists which are present and in which state)');
+  const scenes = readJson('scenes');
+  if (scenes) {
+    const names = new Set();
+    for (const sc of scenes.scenes ?? []) {
+      const name = `${manifest.scenes}: scene "${sc.name}"`;
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(sc.name ?? '') || names.has(sc.name)) problems.push(`${name}: a scene needs a unique lower-case name`);
+      names.add(sc.name);
+      if (!sitePages.has(sc.page)) { problems.push(`${name}: page ${sc.page} is not a listed page`); continue; }
+      const shown = sc.panels ?? {};
+      for (const [id, s] of Object.entries(shown)) {
+        const pnl = panels.get(id);
+        if (!pnl || !pnl.pages.has(sc.page)) problems.push(`${name}: panel "${id}" is not on ${sc.page}`);
+        else if (!pnl.states.includes(s) || s === 'off') problems.push(`${name}: panel "${id}" has no state "${s}" to show (${pnl.states.filter((x) => x !== 'off').join(', ')})`);
+        else if (pnl.parent && panels.get(pnl.parent)?.states.includes('off') && !(pnl.parent in shown)) problems.push(`${name}: panel "${id}" sits in panel "${pnl.parent}", which the scene leaves out`);
+      }
+      for (const [id, pnl] of panels) if (pnl.pages.has(sc.page) && !pnl.copied && !pnl.states.includes('off') && !(id in shown)) problems.push(`${name}: panel "${id}" has no "off" state, so the scene must give its state`);
+    }
+  }
+  const samples = readJson('samples');
+  if (samples) for (const [hook, list] of Object.entries(samples.hooks ?? {})) {
+    if (!where.has(hook)) problems.push(`${manifest.samples}: hook "${hook}" is on no page`);
+    if (!Array.isArray(list) || !list.length || list.some((v) => typeof v !== 'string')) problems.push(`${manifest.samples}: "${hook}" needs a list of sample texts`);
+  }
 
   // ---- slots (BUILDER-RULES.md): a style or setting the builder learns, as a token on a part
   const SLOT_KINDS = new Set(['colour', 'length', 'number', 'text', 'choice', 'shadow', 'filter', 'time', 'any']);
