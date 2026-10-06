@@ -10,11 +10,13 @@
  *   1. numbers aside, words of one shape are one shape;
  *   2. each state's chips are only the samples that fit what its scene shows
  *      there ("Ahead by …" in winning), never another state's words;
- *   3. an isolated panel is moved to the middle of its page, wherever it sits.
+ *   3. an isolated panel is moved to the middle of its page, wherever it sits;
+ *   4. hovered, a panel some page state draws snaps the page state to it; one
+ *      none draws (a pop-up) says so, so the rail pops it up alone instead.
  *
  *   node tests/panels-hover.mjs
  *
- * Covers: src/features/studio/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/PanelsPage.tsx
+ * Covers: src/features/studio/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/PanelsPage.tsx, src/features/studio/sceneStep.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,6 +53,18 @@ check("2. a state with nothing to go by keeps every sample", J(R.samplesFor(samp
 /* 3 */
 const c = H.centreIsolated([{ x: 0, y: 0, w: 1920, h: 1300 }, ...nodes], { x: 1500, y: 300, w: 300, h: 120 }, 1920);
 check("3. moved to the middle of the page", 1500 + c.dx === 810 && 300 + c.dy === 590, J(c));
+
+/* 4 */
+const PP = await jiti.import(join(here, "..", "src", "features", "studio", "PanelsPage.tsx"));
+const { useStudio } = await jiti.import(join(here, "..", "src", "features", "studio", "store.ts"));
+const sc = (name, shows) => ({ name, label: name, page: "index.html", shows, declared: true, panels: {} });
+useStudio.setState({ activePageId: "p", statesOn: ["screen:start"], look: { ...(useStudio.getState().look ?? {}), styleSource: { files: [{ file: "index.html", pageId: "p" }], screens: [sc("start", ["intro"]), sc("mid", ["intro", "score"])] } } });
+const toScore = PP.snapToSceneShowing("score", false);
+check("4. a panel a page state draws snaps to it", toScore === true && J(useStudio.getState().statesOn) === J(["screen:mid"]), J(useStudio.getState().statesOn));
+const toSign = PP.snapToSceneShowing("sign-panel", false);
+check("4. a pop-up no page state draws says so, and the page state stays", toSign === false && J(useStudio.getState().statesOn) === J(["screen:mid"]), J(useStudio.getState().statesOn));
+const src = (await import("node:fs")).readFileSync(join(here, "..", "src", "features", "studio", "PanelsPage.tsx"), "utf8");
+check("4. the rail pops such a panel up alone on hover, and lets it go after (source read)", /if \(!drawn && s0\)[\s\S]{0,200}isolateKey\(p\.id/.test(src) && /previewing\.current = false;[\s\S]{0,160}!k\.startsWith\(ISOLATE\)/.test(src) && /bringToView\(p\.id, !drawn\)/.test(src));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
