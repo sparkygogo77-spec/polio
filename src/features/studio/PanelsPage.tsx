@@ -23,7 +23,8 @@
  *     states" is on (`stateEdits.ts`);
  *   · hovering a panel in the rail snaps the page state at once to a scene
  *     that shows it and spotlights it on the board (everything else dimmed,
- *     other panels too), so he knows where it is
+ *     other panels too), so he knows where it is; a panel no page state
+ *     draws (a pop-up) pops up alone in the middle instead
  *     before he clicks; clicking centres it on a lone page, clear of the
  *     rail (J, 2026-10-06).
  */
@@ -90,15 +91,17 @@ function beginStateEdit(key: string, ids: string[]) {
   useStudio.setState({ nodes: got.nodes as never });
 }
 
-/** The page state snapped, with no slide, to the first scene that draws this hook, unless the one on show (or the page as it opens) already does. */
-export function snapToSceneShowing(hook: string, openShows: boolean): void {
+/** The page state snapped, with no slide, to the first scene that draws this hook, unless the one on show (or the page as it opens) already does. Says whether it is drawn now: false for a panel no scene draws (a pop-up such as the sign panel). */
+export function snapToSceneShowing(hook: string, openShows: boolean): boolean {
   const st = useStudio.getState();
   const { scenes, at } = scenesOnPage(st);
-  if (!scenes.length || (at >= 0 ? scenes[at]!.shows.includes(hook) : openShows)) return;
+  if (!scenes.length) return openShows;
+  if (at >= 0 ? scenes[at]!.shows.includes(hook) : openShows) return true;
   const to = scenes.findIndex((x) => x.shows.includes(hook));
-  if (to < 0) return;
+  if (to < 0) return false;
   const keys = scenes.map((x) => screenKey(x.name));
   st.setStatesOn([...(st.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), keys[to]!]);
+  return true;
 }
 
 /** Scroll the board so a part sits in the middle of what the rail leaves visible (always, or only when it is not already in view). */
@@ -155,17 +158,32 @@ export function PanelsPage() {
   }, [panels]);
   /* Hovered in the rail: snapped to a scene that shows it, and lit on the board until the pointer leaves or he clicks. */
   const hovered = React.useRef<{ id: string; stop: (() => void) | null } | null>(null);
-  const unhover = React.useCallback(() => { hovered.current?.stop?.(); hovered.current = null; }, []);
+  /* A panel no page state draws (a pop-up) is shown on hover as it pops up: alone, in the middle, the rest dimmed (J, 2026-10-06). */
+  const previewing = React.useRef(false);
+  const unhover = React.useCallback(() => {
+    hovered.current?.stop?.();
+    hovered.current = null;
+    if (!previewing.current) return;
+    previewing.current = false;
+    const store = useStudio.getState();
+    store.setStatesOn((store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)));
+  }, []);
   const hover = React.useCallback((p: Panel) => {
     if (hovered.current?.id === p.id) return;
     unhover();
     if (useStudio.getState().statesOn?.some((k) => k.startsWith(ISOLATE))) return;
     hovered.current = { id: p.id, stop: null };
-    snapToSceneShowing(p.hook, !useStudio.getState().nodes.find((n) => n.id === p.id)?.state);
+    const drawn = snapToSceneShowing(p.hook, !useStudio.getState().nodes.find((n) => n.id === p.id)?.state);
+    const s0 = p.states[0];
+    if (!drawn && s0) {
+      previewing.current = true;
+      const store = useStudio.getState();
+      store.setStatesOn([...(store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)), isolateKey(p.id, s0.key, s0.samples[0]?.key ?? "")]);
+    }
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (hovered.current?.id !== p.id) return;
       hovered.current.stop = spotlight(p.id);
-      bringToView(p.id, false);
+      bringToView(p.id, !drawn);
     }));
   }, [unhover]);
   React.useEffect(() => { if (!isOpen) unhover(); }, [isOpen, unhover]);
@@ -183,7 +201,7 @@ export function PanelsPage() {
   }, [isOpen, nodes, panels, isolate]);
   /* Only while it is picked: when the pick moves off the panel and everything in it, the board comes back. */
   React.useEffect(() => {
-    if (!iso) return;
+    if (!iso || previewing.current) return;
     /* Its own parts only: what it sits in is drawn round it, and picking that lets go. */
     const inside = new Set(isolatedOnBoard(useStudio.getState())?.places.keys() ?? []);
     if (!selection.length || !selection.some((id) => id === iso.panelId || inside.has(id))) letGo();
@@ -214,7 +232,7 @@ export function PanelsPage() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [isOpen]);
   /* A declared panel's state on show is the one edited, unless "All states" is on (`stateEdits.ts`). */
-  const editKey = isOpen && iso && declared && panel && state && !allStates ? stateEditKey(panel.hook, state.key) : null;
+  const editKey = isOpen && iso && iso.panelId === panel?.id && declared && panel && state && !allStates ? stateEditKey(panel.hook, state.key) : null;
   const editIds = React.useMemo(() => {
     if (!editKey || !panel) return "";
     const d = readDeclared(nodes as unknown as PanelNode[]);
@@ -262,7 +280,7 @@ export function PanelsPage() {
         </div>
       ) : null}
       {panels.length ? panels.map((p) => {
-        const lit = p.id === panel?.id && !!iso;
+        const lit = p.id === panel?.id && !!iso && !previewing.current;
         return (
           <div key={p.id} className={cn("flex flex-col gap-1 rounded-md", lit && "bg-accent-soft/50 pb-1.5")}>
             <button type="button" data-panels-item={p.id} aria-pressed={lit} onPointerEnter={() => hover(p)} onPointerLeave={unhover} onFocus={() => hover(p)} onBlur={unhover} onClick={() => { play("tap"); unhover(); if (lit) letGo(); else isolate(p.id, null, null); }}
