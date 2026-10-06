@@ -2,6 +2,7 @@
 import { hiddenGroups, screenKey, type ScreenRead } from "../boardStates";
 import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../PanelsPage";
 import { pageScenes } from "../scenes";
+import type { SceneScreen } from "../stateRules";
 import { stateFrames, type FrameNode } from "../stateFrames";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -225,10 +226,39 @@ export function StatesChip({ pageId }: { pageId: string }) {
   const [more, setMore] = React.useState(false);
   const file = source?.files?.find((f) => f.pageId === pageId)?.file ?? null;
   const screens = (source?.screens ?? []).filter((x) => x.page === file);
+  /* A site that follows the state rules lists its own scenes, in its order: nothing is grouped by guessing (`stateRules.ts`). */
+  const declared = screens.filter((x) => (x as SceneScreen).declared) as SceneScreen[];
+  /* ← and → step through them on the board, when nothing is picked (the arrows move what is picked) and nothing is typed in. */
+  const stepRef = React.useRef<(by: number) => void>(() => {});
+  const stepping = declared.length > 0;
+  React.useEffect(() => {
+    if (!stepping) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const st = useStudio.getState();
+      if (st.mode !== "design" || st.selection.length || document.querySelector("[data-panels-page], [role='dialog'], [data-radial]")) return;
+      e.preventDefault();
+      stepRef.current(e.key === "ArrowRight" ? 1 : -1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stepping]);
   if (!groups.length && !screens.length && !frames.length) return null;
-  const scenes = pageScenes(screens, file);
+  const scenes = declared.length ? { scenes: [], onTop: [] } : pageScenes(screens, file);
   const here = [...screens.map((x) => screenKey(x.name)), ...scenes.onTop.map((v) => v.key), ...groups.map((g) => g.group)];
   const lit = here.filter((k) => on.includes(k)).length;
+  const stepScene = (by: number) => {
+    const st = useStudio.getState();
+    const now = st.statesOn ?? [];
+    const keys = declared.map((x) => screenKey(x.name));
+    const at = keys.findIndex((k) => now.includes(k));
+    const next = keys[at < 0 ? (by > 0 ? 0 : keys.length - 1) : (at + by + keys.length) % keys.length]!;
+    play("tap");
+    st.setStatesOn([...now.filter((k) => !keys.includes(k) && !k.startsWith("panel:")), next]);
+  };
+  stepRef.current = stepScene;
   const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
   /* One scene at a time: a scene is one capture of the whole page, so picking one puts the last away. */
   const pickScene = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; const mine = new Set(screens.map((x) => screenKey(x.name))); st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now.filter((k) => !mine.has(k)), key]); };
@@ -264,6 +294,9 @@ export function StatesChip({ pageId }: { pageId: string }) {
               <Layers className="size-3 shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">Every state on this page, at a glance</span>
             </button>
+            {/* Declared scenes, as the site lists them; where the live capture of one draws other parts, it says so. */}
+            {declared.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Scenes (← → to step)</p> : null}
+            {declared.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label ?? x.name} note={x.differs ? `live differs: ${x.differs.extra.length + x.differs.missing.length}` : x.name} />)}
             {/* J: one part, its timeline; not an endless list of every state on the page. */}
             {frames.map((f) => {
               const n = nodes.find((x) => x.id === f.frame);

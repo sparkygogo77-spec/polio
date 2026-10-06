@@ -15,6 +15,7 @@ import { useStudio, type StudioNode } from "../store";
 import { type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "../reimport";
 import { type Block } from "../zipImport";
 import { Details } from "./bits";
+import { followsStateRules, sceneScreens } from "../stateRules";
 import { FromASite } from "./FromASite";
 
 export type Source =
@@ -252,7 +253,10 @@ export async function readScreensOf(file: File, ask: { page: string | null; list
     return Object.keys(stills).length ? { ...x, stills } : x;
   }));
   const now = useStudio.getState();
-  useStudio.setState({ look: { ...now.look, styleSource: { ...((now.look as { styleSource?: StyleSource }).styleSource ?? source), screens } } as typeof now.look });
+  const was = (now.look as { styleSource?: StyleSource }).styleSource ?? source;
+  /* A site that follows the state rules keeps its declared scenes; the captures only lend places and words, and say where live differs (`stateRules.ts`). */
+  const declared = was.scenes?.length && followsStateRules(now.nodes) ? sceneScreens(now.nodes, was.files ?? [], was.scenes, screens) : null;
+  useStudio.setState({ look: { ...now.look, styleSource: { ...was, ...(declared ? { screens: declared, captured: screens } : { screens }) } } as typeof now.look });
   if (drawn.size) await fillPictures(drawn);
 }
 

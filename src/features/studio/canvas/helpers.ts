@@ -1,5 +1,6 @@
-import { boardShows,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../boardStates";
+import { boardShows,screenKey,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../boardStates";
 import { stateFrames } from "../stateFrames";
+import { panelDecides } from "../stateRules";
 import { REACH_WIDTH } from "../strand";
 import { type StudioNode } from "../store";
 import { type Box as HeldBox,type Held } from "../groupScale";
@@ -52,9 +53,16 @@ export function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: S
   const on = s.statesOn ?? [];
   const source = sourceOf(s);
   /* A part stepped on the board, or a scene's part with no hook of its own (it goes with the part round it), is read off the parts, so the parts count only then. */
-  const steps = on.some((k) => k.startsWith("step:") || k.startsWith("screen:") || k.startsWith("top:")) ? s.nodes ?? [] : null;
+  const panelsOn = on.some((k) => k.startsWith("panel:"));
+  const steps = panelsOn || on.some((k) => k.startsWith("step:") || k.startsWith("screen:") || k.startsWith("top:")) ? s.nodes ?? [] : null;
   if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files && shownMemo.nodes === steps) return shownMemo.shows;
-  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null, steps ? steppedOnBoard(s).decide : null, steps as never) : (n: StudioNode) => !n.state;
+  /* A declared panel switched on by itself (right-click, States) decides its own parts, over the scene that is on (`stateRules.ts#panelDecides`). */
+  let decide = steps ? steppedOnBoard(s).decide : null;
+  if (panelsOn && steps) {
+    const lit = (source?.screens ?? []).find((x) => on.includes(screenKey(x.name)) && (x as { declared?: boolean }).declared) as { panels?: Record<string, string> } | undefined;
+    decide = new Map([...(decide ?? []), ...panelDecides(steps, on, lit?.panels ? { panels: lit.panels } : null)]);
+  }
+  const shows = on.length ? boardShows(on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null, steps ? stateFrames(steps) : null, decide, steps as never) : (n: StudioNode) => !n.state;
   shownMemo = { on, screens: source?.screens, files: source?.files, nodes: steps, shows };
   return shows;
 }

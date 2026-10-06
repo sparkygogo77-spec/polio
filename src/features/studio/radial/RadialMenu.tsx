@@ -47,7 +47,7 @@
 import { canRemake, openRemake } from "../RemakePicture";
 import { canClearBackground, openClearBackground } from "../ClearBackground";
 import * as React from "react";
-import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
+import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "../AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../store";
@@ -73,6 +73,7 @@ import { openRemix } from "../RemixCard";
 import { hasStates } from "../StatesTimeline";
 import { openPanelsPage, panelOf } from "../PanelsPage";
 import { pagePanels, type PanelNode } from "../panels";
+import { followsStateRules, panelKey, readDeclared, readPanelKey, stateIn, type SceneScreen } from "../stateRules";
 import type { StudioNode } from "../store";
 import type { ScreenRead } from "../boardStates";
 import { openPartFocus } from "../PartFocus";
@@ -574,7 +575,9 @@ export function RadialMenu() {
         { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
         /* A data panel, or any part inside one: its states on the Panels page (PanelsPage.tsx, J 2026-10-06). */
-        ...(inPanel(nodes, node!) ? [{ id: "states", label: "See states", icon: <History className="size-3" />, onClick: () => { closeRadial(); openPanelsPage(node!.id); } }] : []),
+        /* A declared panel (`stateRules.ts`): States steps just that panel through its states on the board, over the scene that is on. */
+        ...(declaredPanelOf(nodes, node!) ? [(() => { const dp = declaredPanelOf(nodes, node!)!; return { id: "panel-states", label: `States: ${dp.now}, next ${dp.next}`, icon: <Layers className="size-3" />, onClick: () => { const st = s(); st.setStatesOn([...(st.statesOn ?? []).filter((k) => readPanelKey(k)?.panel !== dp.id), panelKey(dp.id, dp.next)]); play("tap"); setCarried((k) => k + 1); } }; })()] : []),
+        ...(inPanel(nodes, node!) ? [{ id: "states", label: "Edit on Panels page", icon: <History className="size-3" />, onClick: () => { closeRadial(); openPanelsPage(node!.id); } }] : []),
         /* …and the part alone, at real size, every state side by side (PartFocus.tsx). */
         ...(hasStates(nodes, node!.id) ? [{ id: "focus", label: "Focus: every state", icon: <Maximize2 className="size-3" />, onClick: () => { closeRadial(); openPartFocus(frameFor(nodes, node!.id)?.frame ?? node!.id); } }] : []),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
@@ -925,8 +928,26 @@ export function RadialMenu() {
   );
 }
 
-/** Is this part a data panel of its page, or inside one (`panels.ts`)? */
+/** The declared panel this part is, or is inside (`stateRules.ts`): its id, the state the board shows it in, and the next. */
+function declaredPanelOf(nodes: readonly StudioNode[], node: StudioNode): { id: string; now: string; next: string } | null {
+  if (!followsStateRules(nodes as unknown as PanelNode[], node.pageId)) return null;
+  const d = readDeclared(nodes as unknown as PanelNode[]);
+  const rootId = node.hooks?.["data-panel"] ? node.id : d.ownerOf.get(node.id);
+  const id = rootId ? d.byId.get(rootId)?.hooks?.["data-panel"] : undefined;
+  const p = id ? d.panels.get(id) : undefined;
+  if (!p) return null;
+  const st = useStudio.getState();
+  const on = st.statesOn ?? [];
+  const source = (st.look as { styleSource?: { screens?: ScreenRead[] } } | undefined)?.styleSource;
+  const lit = (source?.screens ?? []).find((x) => on.includes(`screen:${x.name}`) && (x as SceneScreen).declared) as SceneScreen | undefined;
+  const now = on.map(readPanelKey).find((x) => x?.panel === p.id)?.state ?? stateIn(p, lit ?? null);
+  const states = p.states;
+  return { id: p.id, now, next: states[(states.indexOf(now) + 1) % states.length] ?? states[0]! };
+}
+
+/** Is this part a data panel of its page, or inside one (`panels.ts`, or a declared one)? */
 function inPanel(nodes: readonly StudioNode[], node: StudioNode): boolean {
+  if (followsStateRules(nodes as unknown as PanelNode[], node.pageId)) return !!declaredPanelOf(nodes, node);
   const source = (useStudio.getState().look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
   const file = source?.files?.find((f) => f.pageId === node.pageId)?.file ?? null;
   const screens = (source?.screens ?? []).filter((x) => !file || !x.page || x.page === file);

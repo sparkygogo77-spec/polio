@@ -280,6 +280,8 @@ export interface StudioNode {
    * everything he has changed since.
    */
   byHand?: boolean;
+  /** What one state of a panel changes of its look, by `<panel>=<state>` (`stateEdits.ts`); the style layer writes each keyed `[data-panel][data-state]`. */
+  byState?: Record<string, Record<string, unknown>> | null;
   /**
    * Where the box was, as the board had it, the moment he first moved or
    * resized it by hand: what Export for code to a branch says his move is

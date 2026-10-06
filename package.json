@@ -18,6 +18,7 @@
     "capture:check": "node capture/run-checks.mjs",
     "capture:fixtures": "node capture/fixtures/unpack.mjs",
     "kit:files": "node scripts/kit-files.mjs",
+    "kit:copy": "node scripts/kit-copy.mjs",
     "kit:test": "cd kit && node --test test/*.test.mjs"
   },
   "dependencies": {

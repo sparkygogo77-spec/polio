@@ -53,8 +53,9 @@ design changes.
   `tokensModule` (`TOKENS['--flash-ms']`), never typed into the script. The builder lists each
   part's tokens, with the ones its scripts read, as its settings, and sends edits back as token
   changes. Values that decide the rules or money (fees, payouts, limits) stay in the code.
-- Scripts show and hide parts with the `hidden` attribute; `base.css` keeps
-  `[hidden] { display: none !important; }` so a design rule never shows a hidden part.
+- Scripts show and hide parts only by setting a panel's `data-state`; parts list where they show
+  with `data-show`, and the shared rule in `tokens.css` (`display: none !important`) hides the rest,
+  so a design rule never shows a part its state hides (BUILDER-RULES.md rules 12 to 20).
 
 ## 3. Stylesheet order
 

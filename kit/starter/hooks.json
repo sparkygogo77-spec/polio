@@ -384,7 +384,7 @@
           "file": "starter/js/contact.js",
           "line": 16,
           "function": "send",
-          "uses": "writes"
+          "uses": "reads"
         },
         {
           "file": "starter/js/contact.js",
@@ -417,7 +417,7 @@
           "file": "starter/js/contact.js",
           "line": 9,
           "function": "validate",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -673,7 +673,7 @@
           "file": "starter/js/contact.js",
           "line": 17,
           "function": "send",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -899,7 +899,7 @@
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 11,
+          "line": 17,
           "function": "setUp",
           "uses": "listens"
         }
@@ -948,7 +948,7 @@
           "file": "starter/js/list.js",
           "line": 19,
           "function": "draw",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -1122,7 +1122,7 @@
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 12,
+          "line": 18,
           "function": "setUp",
           "uses": "listens"
         }
@@ -1146,7 +1146,7 @@
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 13,
+          "line": 20,
           "function": "setUp",
           "uses": "listens"
         }
@@ -1164,7 +1164,7 @@
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 14,
+          "line": 21,
           "function": "click listener in setUp",
           "uses": "writes"
         }
@@ -1198,7 +1198,7 @@
           "file": "starter/js/contact.js",
           "line": 8,
           "function": "validate",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -1587,13 +1587,37 @@
           "file": "starter/js/home.js",
           "line": 5,
           "function": "openSignup",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 6,
+          "function": "openSignup",
           "uses": "writes"
         },
         {
           "file": "starter/js/home.js",
-          "line": 12,
-          "function": "setUp",
+          "line": 10,
+          "function": "closeSignup",
           "uses": "writes"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 11,
+          "function": "closeSignup",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 19,
+          "function": "setUp",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 19,
+          "function": "setUp",
+          "uses": "reads"
         }
       ]
     },

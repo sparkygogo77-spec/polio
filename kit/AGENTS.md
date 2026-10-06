@@ -5,7 +5,7 @@ restyles them. The builder reads `builder.json`, then `hooks.json`, and sends it
 `style-layer.css`. Your job is to change how the site works without ever breaking how it can be
 designed. The rules are in `BUILDER-CONTRACT.md` and `BUILDER-RULES.md`; `npm run kit:check` enforces them.
 Above all (`BUILDER-RULES.md` rule 1): anything a script shows later is a state inside a part the
-builder can see (a hooked child hidden until shown), never a new element outside it, and it stays
+builder can see (a declared state of a panel, rules 12 to 20), never a new element outside it, and it stays
 inside that part's frame. When the code needs a look or setting the builder lacks, add a slot
 (`rules.slots`, rule 4): never drop the design or work around the builder.
 
@@ -51,7 +51,8 @@ inside that part's frame. When the code needs a look or setting the builder lack
 
 - Reach elements only with the helpers or a literal `[data-hook="..."]` selector. If a name is
   built at run time, put `// hooks: name-{a,b,c}` on that line listing every possibility.
-- Show and hide with the `hidden` attribute. Never set inline styles; to pass a computed number
+- Show and hide only by setting a panel's state (`setState(id, state)`); parts list the states
+  they show in with `data-show` (BUILDER-RULES.md rules 12 to 20). Never set inline styles; to pass a computed number
   to CSS, set a variable: `el.style.setProperty('--bar-width', pct + '%')`.
 - Colours, numbers and text a script needs for how things look or read (charts, canvas, durations,
   labels) come from tokens via `getComputedStyle` or the `tokensModule`; never type them into a

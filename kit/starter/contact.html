@@ -22,16 +22,16 @@
 <main data-hook="page-main">
   <h1 data-hook="page-title">Contact</h1>
   <p data-hook="page-intro">Send a short note.</p>
-  <form data-hook="contact-form" novalidate>
+  <form data-hook="contact-form" data-panel="contact-form" data-states="off on" data-state="on" novalidate>
     <label data-hook="name-field">
       <span data-hook="name-label">Name</span>
       <input data-hook="name-input" name="name" autocomplete="name">
-      <span data-hook="name-error" hidden>Please give a name.</span>
+      <span data-hook="name-error" data-panel="name-error" data-states="off on" data-state="off">Please give a name.</span>
     </label>
     <label data-hook="email-field">
       <span data-hook="email-label">Email</span>
       <input data-hook="email-input" name="email" type="email" autocomplete="email">
-      <span data-hook="email-error" hidden>Please give a working email address.</span>
+      <span data-hook="email-error" data-panel="email-error" data-states="off on" data-state="off">Please give a working email address.</span>
     </label>
     <label data-hook="message-field">
       <span data-hook="message-label">Message</span>
@@ -39,7 +39,7 @@
     </label>
     <button data-hook="send-button" type="submit">Send</button>
   </form>
-  <p data-hook="form-sent" hidden>Thanks, your note is on its way.</p>
+  <p data-hook="form-sent" data-panel="form-sent" data-states="off on" data-state="off">Thanks, your note is on its way.</p>
 </main>
 <footer data-hook="site-footer">
   <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>

@@ -1,0 +1,13 @@
+{
+  "about": "Each scene a person meets, in order: its page, the preview screen that shows it, and every panel present with its state. A panel left out is absent (its \"off\" state). BUILDER-RULES.md, rule 17.",
+  "scenes": [
+    { "name": "home", "label": "Home", "page": "starter/index.html", "screen": "home", "panels": {} },
+    { "name": "home-modal", "label": "Home: the sign-up box open", "page": "starter/index.html", "screen": "home-modal", "panels": { "signup-modal": "on" } },
+    { "name": "about", "label": "About", "page": "starter/about.html", "screen": "about", "panels": {} },
+    { "name": "list", "label": "List", "page": "starter/list.html", "screen": "list", "panels": {} },
+    { "name": "list-empty", "label": "List: nothing yet", "page": "starter/list.html", "screen": "list-empty", "panels": { "list-empty": "on" } },
+    { "name": "contact", "label": "Contact", "page": "starter/contact.html", "screen": "contact", "panels": { "contact-form": "on" } },
+    { "name": "contact-errors", "label": "Contact: both fields wrong", "page": "starter/contact.html", "screen": "contact-errors", "panels": { "contact-form": "on", "name-error": "on", "email-error": "on" } },
+    { "name": "contact-sent", "label": "Contact: note sent", "page": "starter/contact.html", "screen": "contact-sent", "panels": { "form-sent": "on" } }
+  ]
+}

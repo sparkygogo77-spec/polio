@@ -42,6 +42,9 @@ export interface KitManifest {
   links?: KitLinks;
   /** BUILDER-RULES.md, machine-readable: the slots are settings the code asks the builder to learn. */
   rules?: { doc?: string; slots?: KitSlot[] };
+  /** The scene file and the samples file (BUILDER-RULES.md rules 15 and 17), read with it (`stateRules.ts`). */
+  scenes?: string;
+  samples?: string;
 }
 
 /** A style or setting the builder learns (BUILDER-RULES.md rule 4): a token one part uses, shown by its label in the part's Settings. */
@@ -161,7 +164,7 @@ export function seenOfSource(source: StyleSource, at = ""): KitSeen {
 }
 
 /** `builder.json` and a snapshot, or null when the repository has none (it is not builder-ready). */
-export async function readKit(repo: string, ref: string, token: string, opts: { fetch?: Fetch; when?: string } = {}): Promise<Answer<{ manifest: KitManifest; seen: KitSeen }> | null> {
+export async function readKit(repo: string, ref: string, token: string, opts: { fetch?: Fetch; when?: string } = {}): Promise<Answer<{ manifest: KitManifest; seen: KitSeen; scenes?: string | null; samples?: string | null }> | null> {
   const f = opts.fetch ?? fetch;
   const text = await fileAt(f, token, repo, ref, "builder.json");
   if (text === null) return null;
@@ -169,7 +172,10 @@ export async function readKit(repo: string, ref: string, token: string, opts: { 
   try { manifest = JSON.parse(text) as KitManifest; } catch { return { ok: false, says: `${repo}'s builder.json on ${ref} is not readable JSON.` }; }
   if (!Array.isArray(manifest.pages) || !manifest.hooks || !manifest.styleLayer || !manifest.tokens) return { ok: false, says: `${repo}'s builder.json on ${ref} does not name its pages, hooks, tokens and style layer.` };
   const hooks = await fileAt(f, token, repo, ref, manifest.hooks);
-  return { ok: true, manifest, seen: seenOfKit(manifest, hooks, ref, opts.when ?? new Date().toISOString()) };
+  /* A site that follows the state rules lists its scenes and samples: read with the manifest, so the board steps through them (`stateRules.ts`). */
+  const scenes = manifest.scenes ? await fileAt(f, token, repo, ref, manifest.scenes).catch(() => null) : null;
+  const samples = manifest.samples ? await fileAt(f, token, repo, ref, manifest.samples).catch(() => null) : null;
+  return { ok: true, manifest, seen: seenOfKit(manifest, hooks, ref, opts.when ?? new Date().toISOString()), scenes, samples };
 }
 
 const TEXT = /\.(html?|css|m?js|json|md|ya?ml)$/i;

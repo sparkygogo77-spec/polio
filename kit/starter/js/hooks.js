@@ -24,6 +24,18 @@ export function part(copy, name) {
   return copy.dataset.hook === name ? copy : hook(name, copy);
 }
 
+/**
+ * Puts a panel into one of its states (BUILDER-RULES.md, rules 12-20): sets data-state on every
+ * element with data-panel="name". Parts list the states they show in (data-show) and the shared
+ * rule in tokens.css hides the rest, so scripts never hide or show a part themselves.
+ */
+export function setState(name, state) {
+  for (const root of document.querySelectorAll(`[data-panel="${name}"]`)) root.dataset.state = state;
+}
+
+/** A two-state panel (data-states="off on"): on or off. */
+export const setOn = (name, on) => setState(name, on ? 'on' : 'off');
+
 /** The page's search parameters: ?still=1 freezes motion, &screen=<name> picks a preview state. */
 export const params = new URLSearchParams(location.search);
 export const still = params.get('still') === '1';

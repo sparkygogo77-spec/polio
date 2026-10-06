@@ -16,7 +16,7 @@
  *      its faces; a spill is found;
  *   2. brought in, the box is a frame of three faces (loading, idle,
  *      result), each face set where the first starts, none spilling;
- *   3. the right-click menu offers "See states" on the box and on a face's
+ *   3. the right-click menu offers "Edit on Panels page" (was "See states") on the box and on a face's
  *      part: the Panels page opens on the box, its three states down a side
  *      list, each drawn alone (J, 2026-10-06);
  *   4. pressing "idle" in the side panel's samples shows that face on the
@@ -157,7 +157,7 @@ const openMenu = async (id) => {
   await ui.waitForTimeout(700);
   return ui.locator('[data-tray-item="states"]').count();
 };
-check("the box's right-click menu offers See states", (await openMenu(box.id)) === 1 && /See states/.test(await ui.locator('[data-tray-item="states"]').textContent()));
+check("the box's right-click menu offers Edit on Panels page", (await openMenu(box.id)) === 1 && /Edit on Panels page/.test(await ui.locator('[data-tray-item="states"]').textContent()));
 await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
 await ui.waitForTimeout(700);
 const pp = ui.locator("[data-panels-page]");
