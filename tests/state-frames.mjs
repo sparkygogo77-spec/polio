@@ -188,8 +188,9 @@ check("'As the page opens' puts it back", (await drawn("chart-tv-loading-title")
 const bar = ui.locator(`[data-step-bar="${box.id}"]`);
 check("the box picked, its step bar is on the board: a key for each of its three steps", (await bar.count()) === 1 && (await bar.locator("[data-step-key]").count()) === 3, await bar.getAttribute("aria-label").catch(() => "no bar"));
 /* J (2026-10-05): the bars floated over the board and covered its panels; they dock in one strip above it. */
-const dock = await ui.evaluate(() => { const s = document.querySelector("[data-step-bars]"), p = document.querySelector("[data-studio-pane]"); return s && p ? { strip: Math.round(s.getBoundingClientRect().bottom), pane: Math.round(p.getBoundingClientRect().top) } : null; });
-check("the step bar is docked above the board, not over it", !!dock && dock.strip <= dock.pane + 1, JSON.stringify(dock));
+/* Docked under the board (J, 2026-10-06: above it, the strip cut the site's top as it scrolled). */
+const dock = await ui.evaluate(() => { const s = document.querySelector("[data-step-bars]"), p = document.querySelector("[data-studio-pane]"); return s && p ? { strip: Math.round(s.getBoundingClientRect().top), pane: Math.round(p.getBoundingClientRect().bottom) } : null; });
+check("the step bar is docked under the board, not over it", !!dock && dock.strip >= dock.pane - 1, JSON.stringify(dock));
 await bar.locator("[data-step-next]").click();
 await ui.waitForTimeout(500);
 check("next: idle in the box, loading gone", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await bar.getAttribute("aria-label")) === "States of chart-tv-box: 2 of 3");

@@ -158,8 +158,9 @@ export function snapTo(id: string) {
  * THE STEP BAR, ON THE BOARD. The part picked (or the part round the one
  * picked), and any part stepped away from how the page opens: its name, a
  * key for each step, back and next, and Finish at the end, which puts it
- * back as the page opens. Docked in one strip above the board (J,
- * 2026-10-05: floating on the board, the bars covered its panels).
+ * back as the page opens. Docked in one strip under the board, over the
+ * shelf (J, 2026-10-05: floating on the board, the bars covered its panels;
+ * 2026-10-06: above it, the strip cut the site's top as it scrolled).
  */
 export function StepBar() {
   const pageId = useStudio((s) => s.activePageId);
@@ -186,7 +187,7 @@ export function StepBar() {
   if (!show.length) return null;
   const screen = litScreenOf(on, screens);
   return (
-    <div data-step-bars="" className="relative z-30 flex w-full shrink-0 flex-wrap items-center justify-center gap-1.5 border-b border-border bg-panel/95 px-2 py-1 backdrop-blur">
+    <div data-step-bars="" className="relative z-30 flex w-full shrink-0 flex-wrap items-center justify-center gap-1.5 border-t border-border bg-panel/95 px-2 py-1 backdrop-blur">
       {show.slice(0, 3).map((row) => <Bar key={row.frame.id} row={row} now={stepNow(row, on, screen)} />)}
     </div>
   );
