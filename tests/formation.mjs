@@ -15,7 +15,7 @@
  *
  * Runs alone: reads a box's forming animation to its end; under load it was still forming when read.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { FORM, formOf, formVars, progressOf, stageOf, within } from "../src/features/studio/formation.ts";
 import { STAGGER_MS } from "../src/features/studio/timelineView.ts";
 
@@ -75,7 +75,7 @@ check("the face has no core while it forms; the centre comes last", /\.molten\[d
 /* 3. Wired: the store, the queue, the canvas, the stylesheet          */
 /* ------------------------------------------------------------------ */
 
-const store = readFileSync("src/features/studio/store.ts", "utf8");
+const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("progress only ever climbs", /const next = Math\.max\(had\.p, Math\.min\(1, p\)\);/.test(store));
 check("landing is one, whatever step it was on", /const form = state === "done" \? \{ \.\.\.\(t\.form \?\? \{ p: 0, gen: 0 \}\), p: 1 \}/.test(store));
 check("an update to a finished card forms it again", /function reformed\(/.test(store) && /return \{ p: 1, gen: had\.gen \+ 1 \};/.test(store));
