@@ -48,6 +48,8 @@ export interface PanelState {
 export interface Panel {
   id: string;
   hook: string;
+  /** Its plain name, where the site gives one (`data-label`, BUILDER-RULES.md rule 21). */
+  label?: string;
   states: PanelState[];
 }
 

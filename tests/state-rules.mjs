@@ -21,7 +21,9 @@
  *   7. an edit to one state is kept apart (checked out, then back in) and the
  *      style layer writes it keyed [data-panel][data-state];
  *   8. the kit the Builder writes carries the rules, the starter scene and
- *      samples files and kit:check (polio is the source).
+ *      samples files and kit:check (polio is the source);
+ *   9. the builder labels: a panel's plain name, a part's kind, and a style
+ *      group edited once.
  *
  *   node tests/state-rules.mjs
  *
@@ -127,6 +129,12 @@ const checked = kitMap(Object.fromEntries(ex.files.filter((f) => !f.encoding).ma
 const man = JSON.parse(ex.files.find((f) => f.path === "builder.json").content);
 const sc = JSON.parse(ex.files.find((f) => f.path === "scenes.json").content);
 check("8b. Export for code writes scenes.json and samples.json and names them in builder.json", man.scenes === "scenes.json" && man.samples === "samples.json" && sc.scenes.length === 1 && sc.scenes[0].page === "site/index.html" && !!ex.files.find((f) => f.path === "samples.json") && checked.problems.length === 0, J(checked.problems));
+
+/* 9. The builder labels (rules 21 to 24). */
+const labelled = nodes.map((x) => (x.id === "q" ? { ...x, hooks: { ...x.hooks, "data-label": "Find a match box" } } : x.id === "q-count" ? { ...x, hooks: { ...x.hooks, "data-kind": "number", "data-group": "panel-note" } } : x.id === "rm-yes" ? { ...x, hooks: { ...x.hooks, "data-group": "panel-note" } } : x));
+const lp = R.declaredPagePanels(labelled, "p", "web/index.html", ss, null);
+const tw = E.groupTwins(labelled, "q-count", { colour: { fg: "#fff" }, x: 9, content: "no" });
+check("9. plain names, kinds and groups are read; a group's look is edited once", lp.find((p) => p.hook === "queue-panel")?.label === "Find a match box" && J(R.labelsOf(labelled.find((x) => x.id === "q-count"))) === J({ kind: "number", group: "panel-note" }) && J(tw) === J({ ids: ["rm-yes"], patch: { colour: { fg: "#fff" } } }) && E.groupTwins(labelled, "q-title", { colour: {} }) === null, J(tw));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);

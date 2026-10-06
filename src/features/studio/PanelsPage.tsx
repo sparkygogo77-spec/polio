@@ -31,7 +31,7 @@ import type { ScreenRead } from "./boardStates";
 import type { Panel, PanelNode } from "./panels";
 import { panelsOfPage, ISOLATE, isolateKey, readIsolateKey } from "./panelsOf";
 import { isolatedOnBoard } from "./canvas/helpers";
-import { readDeclared, statesOfPart, type DeclaredScene, type Samples } from "./stateRules";
+import { labelsOf, readDeclared, statesOfPart, type DeclaredScene, type Samples } from "./stateRules";
 import { checkIn, checkOut, stateEditKey, type CheckedOut } from "./stateEdits";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null };
@@ -183,8 +183,16 @@ export function PanelsPage() {
     if (!declared || selection.length !== 1) return null;
     const d = readDeclared(nodes as unknown as PanelNode[]);
     const n = nodes.find((x) => x.id === selection[0]);
-    const said = n ? statesOfPart(d, n.id) : null;
-    return said && n ? `${n.hooks?.["data-hook"] ?? n.label} shows in: ${said.states.join(", ") || "no state"}` : null;
+    if (!n) return null;
+    const said = statesOfPart(d, n.id);
+    const l = labelsOf(n as unknown as PanelNode);
+    const bits = [
+      said ? `shows in: ${said.states.join(", ") || "no state"}` : null,
+      l.kind ? `its text is ${l.kind}` : null,
+      l.list ? `a list of rows (${l.list})` : null,
+      l.group ? `edited with its group "${l.group}"` : null,
+    ].filter(Boolean);
+    return bits.length ? `${l.label ?? n.hooks?.["data-hook"] ?? n.label}: ${bits.join("; ")}` : null;
   }, [declared, selection, nodes]);
   if (!isOpen) return null;
   const at = panel && state ? panel.states.indexOf(state) : -1;
@@ -211,7 +219,7 @@ export function PanelsPage() {
             <button type="button" data-panels-item={p.id} aria-pressed={lit} onClick={() => { play("tap"); if (lit) letGo(); else isolate(p.id, null, null); }}
               className={cn("tactile flex h-7 w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-left text-plain", lit ? "text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
               <Layers className={cn("size-3 shrink-0", lit && "text-accent")} />
-              <span className="min-w-0 flex-1 truncate">{p.hook}</span>
+              <span className="min-w-0 flex-1 truncate" title={p.hook}>{p.label ?? p.hook}</span>
               <span className="num shrink-0 text-fine text-fg-faint">{p.states.length}</span>
             </button>
             {lit && state ? (

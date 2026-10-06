@@ -247,7 +247,7 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
       }) : [{ key: s, label: s, screen: base }];
       return { key: s, label: s, samples: samplesOf };
     });
-    out.push({ id: root.id, hook: p.id, states });
+    out.push({ id: root.id, hook: p.id, ...(attr(root, "data-label") ? { label: attr(root, "data-label")! } : {}), states });
   }
   return out.sort((a, b) => { const x = d.byId.get(a.id) as PanelNode | undefined, y = d.byId.get(b.id) as PanelNode | undefined; return (x?.y ?? 0) - (y?.y ?? 0) || (x?.x ?? 0) - (y?.x ?? 0); });
 }
@@ -310,5 +310,18 @@ export function panelDecides(nodes: readonly RuleNode[], on: readonly string[], 
       out.set(n.id, drawnWith(d, n.id, stateOf));
     }
   }
+  return out;
+}
+
+/**
+ * WHAT THE BUILDER LABELS SAY OF A PART (BUILDER-RULES.md rules 21 to 24):
+ * its plain name (`data-label`), what its text is (`data-kind`: money,
+ * number, percent, time, date, address, hash, text), the template its rows
+ * come from when it is a list (`data-list`), and the style group it is edited
+ * with (`data-group`).
+ */
+export function labelsOf(n: Pick<RuleNode, "hooks"> | undefined): { label?: string; kind?: string; list?: string; group?: string } {
+  const out: { label?: string; kind?: string; list?: string; group?: string } = {};
+  for (const [k, a] of [["label", "data-label"], ["kind", "data-kind"], ["list", "data-list"], ["group", "data-group"]] as const) { const v = attr(n as RuleNode, a); if (v) out[k] = v; }
   return out;
 }
