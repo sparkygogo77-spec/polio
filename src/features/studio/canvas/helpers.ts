@@ -4,6 +4,7 @@ import { panelDecides } from "../stateRules";
 import { panelsOfPage, readIsolateKey, type PanelSource } from "../panelsOf";
 import { panelDrawing, type PanelNode } from "../panels";
 import { REACH_WIDTH } from "../strand";
+import { roomForWords } from "../roomForWords";
 import { type StudioNode } from "../store";
 import { type Box as HeldBox,type Held } from "../groupScale";
 
@@ -58,7 +59,9 @@ export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?
     /* What it sits in stays only where it still holds it (the page's dotted ground); a card it has moved out of steps away. */
     const box = d.placed[0] ? { x: d.placed[0].x + c.dx, y: d.placed[0].y + c.dy, w: d.placed[0].w, h: d.placed[0].h } : null;
     const around = d.around.filter((a) => !box || (a.x <= box.x && a.y <= box.y && a.x + a.w >= box.x + box.w && a.y + a.h >= box.y + box.h));
-    read = { pageId: p.pageId, shows: new Set([...around, ...d.placed.map((x) => x.node)].map((n) => n.id)), places, looks, panelId: p.id };
+    const shows = new Set([...around, ...d.placed.map((x) => x.node)].map((n) => n.id));
+    /* Longer words than the page opens with push what follows on their line along (`roomForWords.ts`). */
+    read = { pageId: p.pageId, shows, places: roomForWords(nodes as never, p.pageId, (n) => shows.has(n.id), places, looks), looks, panelId: p.id };
   }
   isolatedMemo = { on, nodes: s.nodes, source, frameWidth: s.frameWidth, read };
   return read;
@@ -155,8 +158,12 @@ export function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: 
       places.set(id, at && n ? { ...at, y: at.y + (b.y - n.y), h: b.h } : b);
     }
   }
-  placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places };
-  return places;
+  /* A scene's longer words push what follows on their line along (`roomForWords.ts`). */
+  const looks = looksOnBoard(s);
+  let roomy: Map<string, PlaceBox> = places;
+  if (looks.size) { const pages = new Set((s.nodes ?? []).filter((n) => looks.has(n.id)).map((n) => n.pageId)); for (const pg of pages) roomy = roomForWords((s.nodes ?? []) as never, pg, shows as never, roomy, looks); }
+  placedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, places: roomy };
+  return roomy;
 }
 /** A box as the board has it: where a part was before he first moved it (`StudioNode.handFrom`). */
 export const boxOf = (n: { x: number; y: number; w: number; h: number }) => ({ x: n.x, y: n.y, w: n.w, h: n.h });

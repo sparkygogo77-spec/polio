@@ -523,7 +523,8 @@ export function SceneArrows() {
   const pick = (i: number) => { setOpen(false); showScene(i, i >= at ? 1 : -1); };
   /* J could not find it as bare arrows: it says what it is, and the middle opens the whole list. */
   return (
-    <div data-scene-arrows="" className="flex h-6 shrink-0 items-center rounded-md border border-accent/60 bg-accent-soft/40">
+    /* A fixed width: a long name is cut short, so the arrows never move under a pointer clicking through. */
+    <div data-scene-arrows="" className="flex h-6 w-[20rem] shrink-0 items-center rounded-md border border-accent/60 bg-accent-soft/40">
       <button type="button" data-scene-prev="" aria-label="Previous page state" title="Previous page state (←)" onClick={() => stepScene(-1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronLeft className="size-3.5" /></button>
       <Popover
         open={open}
@@ -547,10 +548,10 @@ export function SceneArrows() {
           </div>
         }
       >
-        <button type="button" data-scene-now={now?.name ?? ""} title="Page states: pick one, or step with ← →" className="tactile flex h-6 max-w-[14rem] items-center gap-1 truncate px-1 text-small text-fg">
+        <button type="button" data-scene-now={now?.name ?? ""} title={`Page state: ${now?.label ?? "as it opens"}. Pick one, or step with ← →`} className="tactile flex h-6 min-w-0 flex-1 items-center gap-1 px-1 text-small text-fg">
           <span className="shrink-0 font-medium">Page state</span>
-          <span className="num text-fg-faint">{at + 1}/{scenes.length}</span>
-          <span className="hidden truncate text-fg-muted lg:inline">{now?.label ?? "as it opens"}</span>
+          <span className="num w-10 shrink-0 text-fg-faint">{at + 1}/{scenes.length}</span>
+          <span className="min-w-0 flex-1 truncate text-left text-fg-muted">{now?.label ?? "as it opens"}</span>
         </button>
       </Popover>
       <button type="button" data-scene-next="" aria-label="Next page state" title="Next page state (→)" onClick={() => stepScene(1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronRight className="size-3.5" /></button>
