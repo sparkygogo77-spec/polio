@@ -71,7 +71,6 @@ export function GithubButton() {
      publish makes one of its own. */
   const mine = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
   const name = mine;
-  const url = name ? `https://github.com/${name}` : (site.repository ?? null);
   /*
    * ONE ANSWER ABOUT THE TOKEN. The button used to take a snapshot: the
    * server asked once, the held key read at that moment. The Keys panel
@@ -93,9 +92,10 @@ export function GithubButton() {
       ? `${name} · ${project?.repo?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
       : `No repo of its own yet. The first Update live site makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
-  /* Nothing to open and nothing yet to describe: before a site is published
-     and with no token anywhere, this button has nothing to say. */
-  if (!url && !canPush) return null;
+  /* Always drawn: it is the one way to bring a repository in, so a fresh
+     site with no repository and no token still needs it. The cubes door that
+     used to stand in for it in the board's bar opened the same picker, and
+     was removed as a duplicate. */
 
   return (
     <Tooltip content={label}>
@@ -108,6 +108,7 @@ export function GithubButton() {
            exists as readily as after. */
         aria-label={name ? `Open ${name} on GitHub` : "GitHub: this site has no repository yet"}
         data-github-button=""
+        data-bring-repo=""
         data-repo={name ?? ""}
         className="relative"
         /* `aria-disabled`, not `disabled`: a disabled button takes no pointer

@@ -103,17 +103,14 @@ const onScreen = async (loc, W, H) => {
   const door = p.locator("[data-bring-repo]");
   check("a fresh site's Builder shows a way to bring a repository in", (await door.count()) === 1 && await onScreen(door, 1500, 1000));
   /*
-   * And it is a door of its own, not the GitHub control. That control draws
-   * nothing at all when a site has neither a repository nor a token
-   * (`if (!url && !canPush) return null`), which is exactly the state he was
-   * in, so a way in that depended on it would not have been there. Whether
-   * it happens to be drawn here — a server-side token makes it appear — is
-   * not the point and is not asserted.
+   * The door is the GitHub button now, drawn even before a site has a
+   * repository or a token. The cubes door that stood beside it opened the
+   * same picker and was removed as a duplicate.
    */
-  check("…and it is a control of its own, not the GitHub button that can vanish",
-    (await p.locator("[data-bring-repo][data-github-button]").count()) === 0
-    && /if \(!url && !canPush\) return null;/.test(button),
-    "the door does not depend on the GitHub control being drawn");
+  check("…and it is the GitHub button, with no second cubes door beside it",
+    (await p.locator("[data-bring-repo][data-github-button]").count()) === 1
+    && !/if \(!url && !canPush\) return null;/.test(button),
+    "the GitHub button is always drawn and is the one door");
   /* Guarded: with no door there is nothing to press, and the checks below
      should say what is missing rather than the suite dying on a timeout. */
   if (await door.count()) { await door.first().click(); await p.waitForTimeout(600); }

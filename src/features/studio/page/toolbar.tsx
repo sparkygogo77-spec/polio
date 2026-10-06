@@ -2,7 +2,6 @@
 import * as React from "react";
 import { Camera, ChevronDown, Circle, Ellipsis, Eye, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { HistoryControls } from "../HistoryControls";
-import { BringRepoDoor } from "../RepoPicker";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
 import { FRAME_WIDTHS, livePath, useStudio, type Tool } from "../store";
@@ -254,7 +253,6 @@ export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean
           (`tests/phone-way-out.mjs`). Bring stays, being the way in on a
           phone too (`tests/bring-repo-door.mjs`). The capture dialog stays
           mounted either way; it is drawn in a portal, and More opens it. */}
-      <BringRepoDoor />
       <CaptureSiteDoor hidden />
       <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
