@@ -152,6 +152,12 @@ const ring = wat("ring"), wcard = wat("card"), wq = wat("q"), wshade = wat("shad
 check("a window-wide overlay still shades the whole page with a part off to the side", wshade.y === 0 && wshade.h === 1400, JSON.stringify(wshade));
 check("its ring stays on the part it points at, the card below it, not over it", Math.abs(ring.x - (wq.x - 6)) <= 1 && Math.abs(ring.y - (wq.y - 6)) <= 1 && wcard.y >= ring.y + ring.h && wtitle.y - wcard.y === 16, JSON.stringify({ ring, wq, wcard, wtitle }));
 
+/* J (2026-10-06): stored card first, ring second (as a real import stores them), the ring still stays and the card moves. */
+const flipped = [...wide.filter((x) => x.id !== "ring"), wide.find((x) => x.id === "ring")];
+const fp = screenPlaces(flipped, ["screen:tour"], [wideCap], () => "p", () => true);
+const fat = (id) => fp.get(id) ?? flipped.find((x) => x.id === id);
+check("whatever order the parts are stored in, the ring stays on its part and the card goes below it", Math.abs(fat("ring").y - (fat("q").y - 6)) <= 1 && fat("card").y >= fat("ring").y + fat("ring").h, JSON.stringify({ ring: fat("ring"), card: fat("card") }));
+
 /* J (2026-10-06, re-imported): with no capture of the page state yet, the tour still shades the whole page. */
 const bare = screenPlaces(wide, ["screen:tour"], [{ name: "tour", label: "Tour", page: "web/index.html", shows: wideCap.shows }], () => "p", () => true);
 check("a page state with no capture still shades the whole page", bare.get("shade")?.y === 0 && bare.get("shade")?.h === 1400, JSON.stringify(bare.get("shade")));

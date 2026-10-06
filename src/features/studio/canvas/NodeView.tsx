@@ -28,7 +28,7 @@ import { getWork,usesOf } from "../library/works";
 import { missingDrawnCopy,namesDrawnCopy } from "../promised";
 import { plain } from "../parts/spans";
 
-import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,HANDS_ON } from "./helpers";
+import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,HANDS_ON } from "./helpers";
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";
 
 /**
@@ -172,6 +172,21 @@ export function useUnshown(node: StudioNode, body: React.RefObject<HTMLDivElemen
   return asks ? missing : [];
 }
 
+/** A part pinned to the window and as wide as the page: a dimmed screen over it, such as a tour's (`boardStates.ts#keepOverlaysOnPage` stretches it over the page). */
+export const isScreenShade = (n: { w: number; from?: { position?: string } | null }, pageW: number) => n.from?.position === "fixed" && pageW > 0 && n.w >= pageW * 0.9;
+/** A mask that is the whole part less each "x,y,w,h" box. */
+export function holeMask(holes: string): React.CSSProperties {
+  const boxes = holes.split(";").map((h) => h.split(",").map(Number));
+  const layer = (n: number) => Array(n).fill("linear-gradient(#000,#000)").join(",");
+  return {
+    maskImage: layer(boxes.length + 1),
+    maskRepeat: "no-repeat",
+    /* The holes on top, the whole part at the bottom; each hole cuts itself out of what is under it. */
+    maskPosition: [...boxes.map(([x, y]) => `${x}px ${y}px`), "0 0"].join(","),
+    maskSize: [...boxes.map(([, , w, h]) => `${w}px ${h}px`), "100% 100%"].join(","),
+    maskComposite: Array(boxes.length + 1).fill("exclude").join(","),
+  } as React.CSSProperties;
+}
 export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
@@ -267,6 +282,9 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   /* Drawn where a lit screen draws it, so two states in one flow do not sit on top of each other. */
   const place = useStudio((s) => placedOnBoard(s).get(node.id));
   const lifted = useStudio((s) => liftedOnBoard(s).has(node.id));
+  /* A dimmed screen leaves the outline it holds bright: a hole in its fill over each one. */
+  const shade = isScreenShade(node, page.w);
+  const holes = useStudio((s) => (shade ? screenHoles(s, node) : ""));
   /* Its words and picture as the step picked has them ("You lost.", FINAL, the match's chart): the board's drawing only, the part keeps its own. */
   const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
   /* …in the box the state draws it in, so words that wrap there wrap here (the tour's text: four lines, not one). */
@@ -310,7 +328,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         e.stopPropagation();
       }}
       /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only. */
-      className={cn("group absolute cursor-grab active:cursor-grabbing", (node as { inert?: boolean }).inert && !selected ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      /* A dimmed screen pinned over the whole window (PST's intro tour) is never grabbed off the board, picked or not: a press goes to what is on it, its card (J, 2026-10-06: dragging moved the dim). It is still picked from the Panels list or the layers. */
+      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected) || isScreenShade(node, page.w) ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: place?.x ?? node.x, top: place?.y ?? node.y, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words
@@ -318,6 +337,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
         /* A part stepped through on the board stands over its neighbours (`liftedOnBoard`). */
         ...(lifted ? { zIndex: 4 } : {}),
+        ...(holes ? holeMask(holes) : {}),
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
         ...(held ? { opacity: 0 } : {}),
