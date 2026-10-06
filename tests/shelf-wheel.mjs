@@ -27,7 +27,7 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await context.addInitScript(() => { if (!sessionStorage.getItem("seeded")) { localStorage.removeItem("builder.shelf.folded"); sessionStorage.setItem("seeded", "1"); } });
+await context.addInitScript(() => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.shelf.folded", "0"); sessionStorage.setItem("seeded", "1"); } });
 const page = await context.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));

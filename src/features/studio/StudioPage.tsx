@@ -1554,6 +1554,10 @@ export function StudioPage() {
               no panel's clipping and no toast setting can hide it. */}
           <NewSiteOffer />
           <ImportStrip />
+          {/* A part's states, clicked through: docked in one strip above the
+              board rather than floating over it, where the bars covered the
+              site's own panels (`StatesTimeline.tsx#StepBar`). */}
+          {design ? <StepBar /> : null}
           <Workspace />
           {/* The little live window floats over the column, not inside the
               scroll: a companion that slid away as the page went by would be
@@ -1596,8 +1600,6 @@ export function StudioPage() {
             ) : (
               <LiveStage device={viewportDevice} pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
-            {/* A part's states, clicked through on the board itself: pinned to the board's foot (`StatesTimeline.tsx#StepBar`). */}
-            {design ? <StepBar /> : null}
             {/*
               The categories, in the same scroller as the site.
 
