@@ -264,7 +264,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
       shape: null, outline: null, kind: null, vector: null, role: null, cube: null, mesh: null, code: null,
       aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
-      from: { url, host: fr.file, selector: p.selector, at },
+      from: { url, host: fr.file, selector: p.selector, at, ...(p.position ? { position: p.position } : {}) },
       ...(Object.keys(p.hooks).length ? { hooks: p.hooks } : {}),
       ...(p.hidden ? { state: { group: `hidden:${p.hidden}`, option: 1 } } : {}),
       ...(padded ? { pad } : {}),

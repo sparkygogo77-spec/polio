@@ -483,6 +483,8 @@ export const PARTS = (cap: number): PageRead => {
       if (lh > p.box.h + 0.5 && p.box.h < lh * 1.5) { const grow = Math.round(lh) - p.box.h; if (grow > 0) p.box = { ...p.box, y: p.box.y - Math.floor(grow / 2), h: p.box.h + grow }; }
     }
     if (el) {
+      /* Pinned to the window (PST's tour and its card): kept on the part, so the board keeps it on the page and shades the page with it (`boardStates.ts#keepOverlaysOnPage`). */
+      if (css(el).position === "fixed") p.position = "fixed";
       const rules = rulesFor(el);
       if (rules.length) p.rules = rules;
       const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
