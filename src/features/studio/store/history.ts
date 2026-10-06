@@ -355,7 +355,7 @@ export function pickedStates(s: StudioState, ids: string[]): { statesOn?: string
   const source = (s.look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
   const pageOf = (file: string) => source?.files?.find((f) => f.file === file)?.pageId ?? null;
   const frames = on.some((k) => k.startsWith("step:")) ? stateFrames(s.nodes) : null;
-  const shows = boardShows(on, source?.screens, pageOf, frames);
+  const shows = boardShows(on, source?.screens, pageOf, frames, null, s.nodes);
   const want = new Set<string>();
   let kept = on;
   for (const id of ids) {

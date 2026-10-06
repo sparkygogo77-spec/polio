@@ -7,8 +7,9 @@
  * server offline."), which moves most parts down; lined up by their median
  * offset, the nav and the title were drawn above the page's top edge. The
  * screen's top now stays on the page's top, and what the line pushed down
- * is drawn lower instead. And a screen never draws one part over another
- * it was clear of on the page (the balance panel's help over its lines).
+ * is drawn lower instead. And a scene takes every box from its one capture,
+ * size included, with what sits inside a part travelling with it (J,
+ * 2026-10-06: never one moment's words at another moment's places).
  *
  *   node tests/screen-top.mjs
  *
@@ -53,7 +54,7 @@ check("the offline line is drawn where the screen drew it", at("offline").y === 
 check("the panels the line pushed down are drawn lower", at("wallet").y === 210 && at("tv").y === 210 && at("balance").y === 210, J([at("wallet"), at("tv"), at("balance")]));
 check("a part pinned to the window does not set the page's top", at("nav").y >= 0, J(at("tour")));
 
-/* A screen whose box for the help line disagrees with the page: moved, it would land on the wallet lines under it. */
+/* A scene whose capture drew the help line lower than the page does: drawn where the capture has it, and the "?" inside it goes with it. */
 const panel = [
   node("bp", "balance-panel", 1000, 300, 300, 400),
   node("note", "balance-note", 1010, 330, 280, 30),
@@ -68,7 +69,7 @@ const helpScreen = [{ name: "lobby", page: "web/index.html", shows: ["balance-pa
 } }];
 const hp = B.screenPlaces(panel, on.map(() => "screen:lobby"), helpScreen, () => "p", B.boardShows(["screen:lobby"], helpScreen, () => "p"));
 const hAt = (id) => hp.get(id) ?? panel.find((n) => n.id === id);
-check("a part the screen would draw over the lines under it stays where the page draws it", hAt("note").y === 330 && hAt("hint").y === 335, J([hAt("note"), hAt("hint")]));
+check("a part is drawn at its capture's box, size included, and what is inside it goes with it", hAt("note").y === 405 && hAt("note").h === 50 && hAt("hint").y === 410, J([hAt("note"), hAt("hint")]));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);

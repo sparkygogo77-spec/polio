@@ -12,6 +12,7 @@ import { ClearBackgroundCard } from "../ClearBackground";
 import { putComponent } from "../SavedComponents";
 import { RemixCard } from "../RemixCard";
 import { StatesTimeline, StepBar, useStatesTimelineOpen } from "../StatesTimeline";
+import { PartFocus } from "../PartFocus";
 import { FeatureOffers } from "../WorkShelf";
 import * as React from "react";
 import { Bakers } from "../Bakers";
@@ -578,6 +579,8 @@ export function StudioPage() {
               came and went with the pick and cut the site's top as it
               scrolled (J, 2026-10-06). */}
           {design ? <StepBar /> : null}
+          {/* A part alone, at real size, with every state it goes through side by side (`PartFocus.tsx`). */}
+          {design ? <PartFocus /> : null}
           {design ? (
                 <div
                   data-studio-band=""

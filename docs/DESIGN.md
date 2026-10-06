@@ -462,10 +462,23 @@ same boxes as everywhere else, in the screen's colours.
   what is inside the part: a face the page adds slots into the part's flow
   and the part grows, drawn over its neighbours rather than moving them; a
   screen that changes the part is kept to the part. What comes in on the
-  page as a whole is the page's state, picked in its own strip. The shelf's
-  States shows the page at a glance: the page's states, then a row per part
-  with the step it is in lit (dashed when the page's state put it there).
-  Plain cards with a name and a number; never a shrunk picture of the part.
+  page as a whole is a **scene**: one real capture of one moment of the
+  site, its positions and its words together, never one moment's words at
+  another's places. In a scene every part sits where that capture drew it,
+  so a part that grows moves its neighbours as the live page does, and no
+  words land on other words beyond what the live page has. A page has a
+  handful of scenes in the order a visitor meets them (connecting, sign in,
+  lobby, queue, match, result), each with its variants (offline; won, lost,
+  draw); two captures of the same step drawing the same parts are one. What
+  is drawn over the page rather than being a moment of it (the tour, a menu)
+  sits in its own **On top** row and goes over whichever scene is on
+  (`scenes.ts`). The shelf's States is a scenes-by-parts grid: a column per
+  scene, a row per part with states, each cell the state that scene puts
+  the part in; pressing a cell in another column swaps that part's state
+  into the scene that is on, one state per part. **Focus** (a row's
+  expand key, the step bar, or the wheel) opens one part alone at real size
+  with all its states side by side (`PartFocus.tsx`). Plain cards with a
+  name and a number; never a shrunk picture of the part.
   `tests/part-steps.mjs`, `tests/state-frames.mjs`.
 
 ## 3. The drawing board
