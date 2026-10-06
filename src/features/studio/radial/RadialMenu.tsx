@@ -70,7 +70,11 @@ import { makeSolid } from "../solidRun";
 import { lookOf } from "../partLook";
 import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../partLookApply";
 import { openRemix } from "../RemixCard";
-import { hasStates, openStatesTimeline } from "../StatesTimeline";
+import { hasStates } from "../StatesTimeline";
+import { openPanelsPage, panelOf } from "../PanelsPage";
+import { pagePanels, type PanelNode } from "../panels";
+import type { StudioNode } from "../store";
+import type { ScreenRead } from "../boardStates";
 import { openPartFocus } from "../PartFocus";
 import { frameFor } from "../stateFrames";
 import { current, openedAt, pageSpot, openRadial, openBoard, closeRadial, moveRadial, useRadial } from "./open";
@@ -569,8 +573,8 @@ export function RadialMenu() {
         { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
         { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
         { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
-        /* A part with states (the TV box: connecting, Find a match, the result), or one of them: its faces in order (StatesTimeline.tsx). */
-        ...(hasStates(nodes, node!.id) ? [{ id: "states", label: "States timeline", icon: <History className="size-3" />, onClick: () => { closeRadial(); openStatesTimeline(node!.id); } }] : []),
+        /* A data panel, or any part inside one: its states on the Panels page (PanelsPage.tsx, J 2026-10-06). */
+        ...(inPanel(nodes, node!) ? [{ id: "states", label: "See states", icon: <History className="size-3" />, onClick: () => { closeRadial(); openPanelsPage(node!.id); } }] : []),
         /* …and the part alone, at real size, every state side by side (PartFocus.tsx). */
         ...(hasStates(nodes, node!.id) ? [{ id: "focus", label: "Focus: every state", icon: <Maximize2 className="size-3" />, onClick: () => { closeRadial(); openPartFocus(frameFor(nodes, node!.id)?.frame ?? node!.id); } }] : []),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
@@ -921,3 +925,10 @@ export function RadialMenu() {
   );
 }
 
+/** Is this part a data panel of its page, or inside one (`panels.ts`)? */
+function inPanel(nodes: readonly StudioNode[], node: StudioNode): boolean {
+  const source = (useStudio.getState().look as { styleSource?: { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] } } | undefined)?.styleSource;
+  const file = source?.files?.find((f) => f.pageId === node.pageId)?.file ?? null;
+  const screens = (source?.screens ?? []).filter((x) => !file || !x.page || x.page === file);
+  return !!panelOf(nodes, pagePanels(nodes as unknown as PanelNode[], node.pageId, screens), node.id);
+}

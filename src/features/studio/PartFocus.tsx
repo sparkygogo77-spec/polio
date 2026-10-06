@@ -56,7 +56,7 @@ export function stateDrawing(nodes: readonly StudioNode[], frame: StudioNode, ca
   return { box: { w: fb.w, h: fb.h }, placed };
 }
 
-/** One part drawn alone at real size, in one of its states: what Focus and the Panels library show (`StatesTimeline.tsx#PanelsLibrary`). */
+/** One part drawn alone at real size, in one of its states: what Focus shows. */
 export function PartAtSize({ frame, card }: { frame: StudioNode; card: Pick<Card, "key"> }) {
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);

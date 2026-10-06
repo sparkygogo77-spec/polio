@@ -16,12 +16,11 @@
  *      its faces; a spill is found;
  *   2. brought in, the box is a frame of three faces (loading, idle,
  *      result), each face set where the first starts, none spilling;
- *   3. the right-click menu offers the States timeline on the box and on a
- *      face's part; it lists the three in order with a thumbnail each and
- *      their words, values and settings;
- *   4. pressing "idle" shows that face on the board and hides the others;
- *      "As the page opens" puts it back; the step bar on the board clicks
- *      it through, next by next, and Finish puts it back;
+ *   3. the right-click menu offers "See states" on the box and on a face's
+ *      part: the Panels page opens on the box, its three states down a side
+ *      list, each drawn alone (J, 2026-10-06);
+ *   4. pressing "idle" in the side panel's samples shows that face on the
+ *      board and hides the others; "as it opens" puts it back;
  *   5. dragged, the box takes every face, hidden ones too; resized, the
  *      faces keep their place and size on it;
  *   6. a face's part dragged far out stops at the box's edge.
@@ -148,7 +147,7 @@ check("each face starts where the first does, inside the box", hook("chart-tv-id
 check("the faces stay hidden as the page opens", hook("chart-tv-idle")?.state?.group === "hidden:chart-tv-idle" && hook("chart-tv-loading")?.state == null);
 
 /* ------------------------------------------------------------------ */
-/* 3. The States timeline, from the right-click menu                    */
+/* 3. "See states", from the right-click menu: the Panels page          */
 /* ------------------------------------------------------------------ */
 
 const el = (id) => ui.locator(`[data-node-id="${id}"]`).first();
@@ -158,52 +157,48 @@ const openMenu = async (id) => {
   await ui.waitForTimeout(700);
   return ui.locator('[data-tray-item="states"]').count();
 };
-check("the box's right-click menu offers the States timeline", (await openMenu(box.id)) === 1);
+check("the box's right-click menu offers See states", (await openMenu(box.id)) === 1 && /See states/.test(await ui.locator('[data-tray-item="states"]').textContent()));
 await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
-await ui.waitForTimeout(600);
-const tl = ui.locator("[data-states-timeline]");
-const steps = await tl.locator(`[data-state-row="${box.id}"] [data-state-step]`).evaluateAll((els) => els.map((e) => ({ key: e.getAttribute("data-state-step"), label: e.getAttribute("aria-label"), thumb: !!e.querySelector("[data-state-thumb]"), data: e.getAttribute("data-state-data") ?? "" })));
-check("the box's row lists the three in order", steps.map((s) => s.label).join(" | ") === "State 1: loading | State 2: idle | State 3: result", steps.map((s) => s.label).join(" | "));
-/* J (2026-10-05): the thumbnails were shrunk past reading; the board is the picture now, and a card says its name. */
-check("each a plain card, its name and number, no shrunk picture", steps.length === 3 && steps.every((s) => !s.thumb));
-check("and the data each holds on hover: words, values, settings", /Tuning in/.test(steps[0]?.data) && /chart-tv-loading-bar: 0 of 100/.test(steps[0]?.data) && /step=contacting/.test(steps[0]?.data) && /Find a match/.test(steps[1]?.data) && /You won/.test(steps[2]?.data), steps.map((s) => s.data).join(" / "));
+await ui.waitForTimeout(700);
+const pp = ui.locator("[data-panels-page]");
+check("it opens the Panels page on the box", (await pp.count()) === 1 && (await pp.locator(`[data-panels-item="${box.id}"]`).getAttribute("aria-pressed")) === "true" && (await ui.locator("[data-panels-tab]").getAttribute("aria-pressed")) === "true");
+const states = await pp.locator(`[data-panel-states="${box.id}"] [data-panel-state]`).evaluateAll((els) => els.map((e) => e.textContent.trim()));
+check("its states down a side list, in order: as it opens, idle, result", states.join(" | ") === "As the page opens | idle | result", states.join(" | "));
+const stage = pp.locator(`[data-panel-drawing="${box.id}"]`);
+check("drawn alone as it opens: loading, not idle or the result", /Tuning in/.test(await stage.textContent()) && !/Find a match|You won/.test(await stage.textContent()), (await stage.textContent()).slice(0, 120));
+await pp.locator('[data-panel-state]').nth(1).click();
+await ui.waitForTimeout(400);
+check("pressing idle draws idle alone", /Find a match/.test(await stage.textContent()) && !/Tuning in|You won/.test(await stage.textContent()), (await stage.textContent()).slice(0, 120));
+await ui.keyboard.press("Escape");
+await ui.waitForTimeout(400);
+check("Escape goes back to the page", (await pp.count()) === 0);
 
 /* ------------------------------------------------------------------ */
-/* 4. A step pressed shows it on the board                             */
+/* 4. A sample pressed in the side panel shows it on the board          */
 /* ------------------------------------------------------------------ */
 
 const drawn = async (h) => ((await ui.locator(`[data-node-id="${hook(h).id}"]`).first().isVisible()) ? 1 : 0);
+const chips = ui.locator(`[data-part-samples="${box.id}"]`);
+/* The side panel open on the part, where its samples sit next to Focus. */
+const showChips = async () => {
+  if (await chips.count()) return;
+  const t = ui.getByRole("button", { name: "Toggle the side panel" });
+  if (!(await chips.count()) && (await t.getAttribute("aria-pressed")) !== "true") { await t.click(); await ui.waitForTimeout(400); }
+  if (!(await chips.count())) { await ui.locator("[data-tab-word]", { hasText: /^Element$/ }).first().click().catch(() => {}); await ui.waitForTimeout(400); }
+};
+await showChips();
 check("before: the loading face is drawn, idle is not", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-idle-title")) === 0);
-await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).click();
+await chips.locator('[data-state-step="hidden:chart-tv-idle"]').click();
 await ui.waitForTimeout(600);
-check("pressing idle draws idle in the box and hides loading and result", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await drawn("chart-tv-result-headline")) === 0 && (await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).getAttribute("aria-pressed")) === "true");
+check("pressing idle draws idle in the box and hides loading and result", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await drawn("chart-tv-result-headline")) === 0);
 const ib = await el(hook("chart-tv-idle-title").id).boundingBox(), bb = await el(box.id).boundingBox();
 check("drawn inside the box on the board", ib.x >= bb.x - 1 && ib.y >= bb.y - 1 && ib.x + ib.width <= bb.x + bb.width + 1 && ib.y + ib.height <= bb.y + bb.height + 1);
 const onState = (await board()).statesOn ?? [];
 check("a board-only switch: the page's parts keep their state", onState.some((k) => k.startsWith("step:")) && (await board()).nodes.find((n) => n.id === hook("chart-tv-idle").id).state?.group === "hidden:chart-tv-idle", JSON.stringify(onState));
-await tl.locator("[data-state-step-off]").click();
+await chips.locator('[data-state-step="open"]').click();
 await ui.waitForTimeout(500);
-check("'As the page opens' puts it back", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-idle-title")) === 0);
-/* J (2026-10-05): "on the board I can click through 1 to 5 / finish": the step bar, on the board, for the part picked. */
-const bar = ui.locator(`[data-step-bar="${box.id}"]`);
-check("the box picked, its step bar is on the board: a key for each of its three steps", (await bar.count()) === 1 && (await bar.locator("[data-step-key]").count()) === 3, await bar.getAttribute("aria-label").catch(() => "no bar"));
-/* J (2026-10-05): the bars floated over the board and covered its panels; they dock in one strip above it. */
-/* Docked under the board (J, 2026-10-06: above it, the strip cut the site's top as it scrolled). */
-const dock = await ui.evaluate(() => { const s = document.querySelector("[data-step-bars]"), p = document.querySelector("[data-studio-pane]"); return s && p ? { strip: Math.round(s.getBoundingClientRect().top), pane: Math.round(p.getBoundingClientRect().bottom) } : null; });
-check("the step bar is docked under the board, not over it", !!dock && dock.strip >= dock.pane - 1, JSON.stringify(dock));
-await bar.locator("[data-step-next]").click();
-await ui.waitForTimeout(500);
-check("next: idle in the box, loading gone", (await drawn("chart-tv-idle-title")) === 1 && (await drawn("chart-tv-loading-title")) === 0 && (await bar.getAttribute("aria-label")) === "States of chart-tv-box: 2 of 3");
-await bar.locator("[data-step-next]").click();
-await ui.waitForTimeout(500);
-check("next again: the result, and Finish in place of next at the end", (await drawn("chart-tv-result-headline")) === 1 && (await drawn("chart-tv-idle-title")) === 0 && (await bar.locator("[data-step-finish]").count()) === 1);
-await bar.locator("[data-step-finish]").click();
-await ui.waitForTimeout(500);
-check("Finish puts it back as the page opens", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-result-headline")) === 0 && !((await board()).statesOn ?? []).some((k) => k.startsWith("step:")));
-await ui.keyboard.press("Escape");
-await ui.waitForTimeout(300);
-check("Escape closes it", (await tl.count()) === 0);
-check("a face's own part offers the timeline too", (await openMenu(hook("chart-tv-loading-title").id)) === 1);
+check("'as it opens' puts it back", (await drawn("chart-tv-loading-title")) === 1 && (await drawn("chart-tv-idle-title")) === 0);
+check("a face's own part offers See states too", (await openMenu(hook("chart-tv-loading-title").id)) === 1);
 await ui.keyboard.press("Escape");
 await ui.waitForTimeout(400);
 
@@ -252,13 +247,9 @@ if (await handle.count()) {
 /* ------------------------------------------------------------------ */
 
 /* The idle face shown, its title dragged far out of the box. */
-await openMenu(box.id);
-await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
-await ui.waitForTimeout(500);
-await tl.locator(`[data-state-row="${box.id}"] [data-state-step="hidden:chart-tv-idle"]`).click();
+await showChips();
+await chips.locator('[data-state-step="hidden:chart-tv-idle"]').click();
 await ui.waitForTimeout(400);
-await ui.keyboard.press("Escape");
-await ui.waitForTimeout(300);
 const lt = hook("chart-tv-idle-title");
 const lb = await el(lt.id).boundingBox();
 await ui.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);

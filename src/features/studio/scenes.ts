@@ -11,14 +11,16 @@
  *
  *   · a scene (a state) exists only where the layout changes: a panel comes
  *     or goes, parts move or resize (J, 2026-10-06). Screens drawing the same
- *     hooks at the same boxes are one scene whatever their words say; its
- *     variants are samples of its data (won, lost, draw; connecting, offline);
+ *     hooks at the same boxes are one scene whatever their words say, and so
+ *     are two captures of one moment drawing nearly the same parts (`nearlySame`:
+ *     a draw adding its rematch offer is still the result); its variants are
+ *     samples of its data (won, lost, draw; connecting, offline);
  *   · a scene is named by its moment of the site's flow (connecting, sign in,
  *     lobby, queue, match, result), in that order;
  *   · two screens of the same layout saying the same words are one variant,
  *     the first named (the others are listed as `same`);
  *   · a screen that is not a moment of the page but something over it (the
- *     tour, a menu, a pop-up with no step) goes in its own "on top" row,
+ *     tour, a menu, a banner, a pop-up with no step) goes in its own "on top" row,
  *     switched on over whichever scene is on (`boardStates.ts#topKey`).
  *
  * The moments are known by the site's own words for them (its preview's
@@ -59,7 +61,7 @@ const MOMENTS: { key: string; name: string; words: RegExp }[] = [
   { key: "result", name: "Result", words: /\b(result|won|win|lost|loss|lose|draw|tie|rematch)\b/ },
 ];
 const TRY = ["result", "match", "queue", "lobby", "sign-in", "connecting"];
-const OVER = /\b(tour|menu|pop[ -]?up|dialog|modal|overlay|toast|tooltip)\b/;
+const OVER = /\b(tour|menu|pop[ -]?up|dialog|modal|overlay|toast|tooltip|banner)\b/;
 
 const plain = (s: string) => s.toLowerCase().replace(/[-_]+/g, " ");
 function momentOf(text: string): (typeof MOMENTS)[number] | null {
@@ -91,6 +93,19 @@ export function sameLayout(a: ScreenRead, b: ScreenRead): boolean {
   }
   return true;
 }
+/**
+ * Two captures of one moment drawing nearly the same parts (nine in ten of
+ * them shared) are one state: won, lost and draw are the result whether or
+ * not a draw adds its rematch offer (J, 2026-10-06: "won, lost and draw
+ * should be sample chips"). Each sample still draws from its own capture.
+ */
+export function nearlySame(a: ScreenRead, b: ScreenRead): boolean {
+  const A = new Set(a.shows), B = new Set(b.shows);
+  let both = 0;
+  for (const h of A) if (B.has(h)) both++;
+  const any = A.size + B.size - both;
+  return any > 0 && both / any >= 0.85;
+}
 const sameWords = (a: ScreenRead, b: ScreenRead) => (a.step ?? "") === (b.step ?? "") && JSON.stringify(a.texts ?? {}) === JSON.stringify(b.texts ?? {});
 
 /**
@@ -107,14 +122,19 @@ export function pageScenes(screens: readonly ScreenRead[] | null | undefined, pa
   mine.forEach((s, at) => {
     /* The site's word for the moment first; a screen with none is known by its name and label. */
     const m = s.step ? momentOf(s.step) ?? null : momentOf(`${s.name} ${s.label ?? ""}`);
-    if (!s.step && !m && OVER.test(plain(`${s.name} ${s.label ?? ""}`))) {
+    /* A screen with no step of the flow whose own kind is something over the page ("Pop-up: create a new wallet", "Devnet banner") goes on top, whatever words follow. */
+    const kind = /^([^:]{1,40}):/.exec(s.label ?? "")?.[1] ?? "";
+    if (!s.step && (OVER.test(plain(kind || s.name)) || (!m && OVER.test(plain(`${s.name} ${s.label ?? ""}`))))) {
       const twin = onTop.find((v) => sameDrawing(v.screen, s));
       if (twin) twin.same.push(s.name);
       else onTop.push({ screen: s, label: overName(s), key: topKey(s.name), same: [] });
       return;
     }
+    /* A capture that drew nothing of the page (read at a width that hides it) is folded into its moment's state. */
+    const blank = !s.shows.length && m ? scenes.find((x) => x.moment === m.key) : undefined;
+    if (blank) { blank.variants[0]!.same.push(s.name); return; }
     /* The same layout is the same state, whichever moment it was captured at. */
-    let scene = scenes.find((x) => sameLayout(x.variants[0]!.screen, s));
+    let scene = scenes.find((x) => sameLayout(x.variants[0]!.screen, s)) ?? (m ? scenes.find((x) => x.moment === m.key && x.variants.some((v) => nearlySame(v.screen, s))) : undefined);
     if (!scene) {
       const moment = m?.key ?? `step:${plain(s.step || s.name)}`;
       const name = m?.name ?? (s.step ? s.step.charAt(0).toUpperCase() + s.step.slice(1) : rest(s));

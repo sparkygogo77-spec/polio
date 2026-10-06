@@ -58,18 +58,35 @@ const list = [
   scr("tv-moved", "match live", "TV: the trades panel moved", ["tv", "scoreboard", "trades", "balance"], { scoreboard: "+2.1% you lead" }, bx(["tv", "scoreboard", "trades", "balance"], { trades: [100, 100, 180, 600] })),
 ];
 const ps = S.pageScenes(list, "web/index.html");
-check("states come in the game's order, one per layout", J(ps.scenes.map((s) => s.key)) === J(["connecting", "lobby", "queue", "match", "match-2", "match-3", "result"]), J(ps.scenes.map((s) => s.key)));
+check("states come in the game's order, one per layout", J(ps.scenes.map((s) => s.key)) === J(["connecting", "lobby", "queue", "match", "match-2", "result"]), J(ps.scenes.map((s) => s.key)));
 const con = ps.scenes[0];
 check("connecting and offline differ only in words: one state, two samples", con.variants.length === 2 && con.variants[1].screen.name === "server-offline", J(con.variants.map((v) => v.screen.name)));
 check("the same words in the same layout twice is folded into the first", J(con.variants[0].same) === J(["tv-connecting"]), J(con.variants.map((v) => v.same)));
 check("the scoreboard and trades panel arriving is a new state", ps.scenes[3].variants.length === 1 && ps.scenes[4].variants[0].screen.name === "mid-match", J(ps.scenes.map((s) => s.variants.map((v) => v.screen.name))));
 check("ahead and behind (a 4px nudge) are samples of one state", J(ps.scenes[4].variants.map((v) => v.screen.name)) === J(["mid-match", "mid-match-behind"]), J(ps.scenes[4].variants.map((v) => v.screen.name)));
-check("a panel that moves is a new state", J(ps.scenes[5].variants.map((v) => v.screen.name)) === J(["tv-moved"]));
+check("a panel moved within one moment is a sample of it, drawn from its own capture", J(ps.scenes[4].variants.map((v) => [v.screen.name, v.same])) === J([["mid-match", ["tv-moved"]], ["mid-match-behind", []]]), J(ps.scenes[4].variants.map((v) => [v.screen.name, v.same])));
 check("two layouts of one moment are named apart", ps.scenes[3].name === "Match: match starting" && ps.scenes[4].name === "Match: match live", J(ps.scenes.map((s) => s.name)));
-check("won, lost and draw are one result state with three samples", J(ps.scenes[6].variants.map((v) => v.label)) === J(["you won", "you lost", "draw"]), J(ps.scenes[6].variants.map((v) => v.label)));
+check("won, lost and draw are one result state with three samples", J(ps.scenes[5].variants.map((v) => v.label)) === J(["you won", "you lost", "draw"]), J(ps.scenes[5].variants.map((v) => v.label)));
 check("the tour and the phone menu go on top, not among the states", J(ps.onTop.map((v) => [v.label, v.key])) === J([["Intro tour", "top:tour"], ["Phone menu", "top:phone-menu"]]), J(ps.onTop.map((v) => [v.label, v.key])));
 check("every sample is a screen key, none dropped", ps.scenes.every((s) => s.variants.every((v) => v.key === `screen:${v.screen.name}`)) && ps.scenes.flatMap((s) => s.variants.flatMap((v) => [v.screen.name, ...v.same])).length + ps.onTop.length === list.length);
 check("the states strip holds about 8 controls, not ~90", 1 + ps.scenes.length + ps.onTop.length <= 10, String(1 + ps.scenes.length + ps.onTop.length));
+/* J (2026-10-06, on #57): won, lost and draw were still three states (the draw adds its rematch offer, the win its coin), connecting and offline two; a "Devnet banner" and a "Pop-up: create a new wallet" sat among the states. */
+const many = (n, extra = []) => [...Array.from({ length: n }, (_, i) => `p${i}`), ...extra];
+const real = [
+  scr("connecting", "connecting", "Loading: connecting", many(40, ["tv-loading"])),
+  scr("server-offline", "connecting", "Error: offline", many(40, ["tv-loading", "tv-error"]), { "tv-error": "offline" }),
+  scr("tv-connecting", "connecting", "Chart TV: waking the server", []),
+  scr("lobby", "between matches", "Signed in", many(60)),
+  scr("devnet-banner", null, "Devnet banner: test SOL only", many(60, ["devnet"])),
+  scr("new-wallet", null, "Pop-up: create a new wallet", many(60, ["newwallet"])),
+  scr("result-win", "you won", "Result: you won", many(80, ["coin", "reference"])),
+  scr("result-loss", "you lost", "Result: you lost", many(80, ["coin", "reference"]), { p1: "lost" }),
+  scr("tie-rematch", "draw", "Result: a draw, rematch offered", many(80, ["rematch", "rematch-offer"])),
+];
+const rs = S.pageScenes(real, "web/index.html");
+check("won, lost and draw are one state even when the draw adds a panel", J(rs.scenes.map((s) => [s.key, s.variants.map((v) => v.screen.name)])) === J([["connecting", ["connecting", "server-offline"]], ["lobby", ["lobby"]], ["result", ["result-win", "result-loss", "tie-rematch"]]]), J(rs.scenes.map((s) => [s.key, s.variants.map((v) => v.screen.name)])));
+check("a capture that drew nothing is folded into its moment", J(rs.scenes[0].variants[0].same) === J(["tv-connecting"]));
+check("a banner and a pop-up with no step go on top", J(rs.onTop.map((v) => v.screen.name)) === J(["devnet-banner", "new-wallet"]), J(rs.onTop.map((v) => v.screen.name)));
 
 /* 2. A whole scene from one capture: the balance panel's lines and the Deposit heading below them move together. */
 const node = (id, hook, x, y, w, h, extra = {}) => ({ id, pageId: "p", hooks: hook ? { "data-hook": hook } : {}, x, y, w, h, ...extra });
