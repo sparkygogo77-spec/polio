@@ -176,6 +176,8 @@ export interface PagePart {
   /** Null when it shows as the page opens; else what hides it (the hidden block's hook, id or path), and it took no room. */
   hidden: string | null;
   selector: string;
+  /** "fixed" when it is pinned to the window rather than in the page's flow. */
+  position?: "fixed";
   href?: string;
   src?: string;
   alt?: string;

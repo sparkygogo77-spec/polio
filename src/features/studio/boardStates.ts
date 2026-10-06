@@ -301,6 +301,13 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
     }
     keepOverlaysOnPage(here, out, shows);
   }
+  /* A page state with no capture to place it by still keeps its overlays on the page and shades it whole (a fresh import, before any capture). */
+  for (const s of (screens ?? []).filter((x) => on.includes(screenKey(x.name)))) {
+    const page = pageOfScreen(s);
+    if (!page || done.has(page)) continue;
+    done.add(page);
+    keepOverlaysOnPage(nodes.filter((n) => n.pageId === page), out, shows);
+  }
   return out;
 }
 
@@ -383,7 +390,9 @@ function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBo
      * Only a part that would hang past the page's foot is lifted onto it.
      */
     if (b.w >= box(page).w * 0.9 && foot - top > b.h) {
-      out.set(r.id, { ...b, y: top, h: foot - top });
+      /* To the board page's own foot, as its height is worked out: every part not in a state where it sits (`store/frame.ts#frameHeight`), and every part this state shows where it draws it. */
+      const bottom = Math.max(foot, ...here.filter((n) => !n.state && n !== r).map((n) => n.y + n.h), ...here.filter((n) => !pinned(n) && shows(n)).map((n) => box(n).y + box(n).h));
+      out.set(r.id, { ...b, y: top, h: bottom - top });
       for (const n of inside) {
         const at = box(n);
         if (at.y + at.h > foot) out.set(n.id, { ...at, y: Math.max(top, foot - at.h) });
