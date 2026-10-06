@@ -86,7 +86,7 @@ export function pointAt(ids: string[] | null) {
 export function PointMarks() {
   const [ids, setIds] = React.useState<string[] | null>(null);
   const [boxes, setBoxes] = React.useState<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
-  /* The board's own window: the outline is clipped to it, never drawn over the parts drawer or the panel. */
+  /* The board's own pane: the outline is clipped to it, never drawn over the shelf, the step bar or the panel. */
   const [clip, setClip] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   React.useEffect(() => {
     const on = (e: Event) => setIds((e as CustomEvent<string[] | null>).detail);
@@ -104,7 +104,8 @@ export function PointMarks() {
         if (r && r.width > 0 && r.height > 0) out.push({ id, x: r.left, y: r.top, w: r.width, h: r.height });
       }
       setBoxes((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
-      const sc = document.querySelector("[data-studio-scroll]")?.getBoundingClientRect();
+      /* The pane the board scrolls in, not the column round it: the column holds the step bar and the shelf too, and the marks drew over them (J, 2026-10-06). */
+      const sc = (document.querySelector("[data-studio-pane]") ?? document.querySelector("[data-studio-scroll]"))?.getBoundingClientRect();
       const c = sc ? { x: sc.left, y: sc.top, w: sc.width, h: sc.height } : null;
       setClip((was) => (JSON.stringify(was) === JSON.stringify(c) ? was : c));
       raf = requestAnimationFrame(measure);
