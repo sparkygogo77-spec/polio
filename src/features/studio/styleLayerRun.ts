@@ -24,7 +24,7 @@ import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitM
 export interface LayerFiles {
   layer: Layer;
   /** Every file the commit writes: the stylesheet, and each page with its link (and any word changes). */
-  files: { path: string; content: string }[];
+  files: { path: string; content: string; encoding?: "base64" }[];
   /** Word changes that could not be made exactly, with why. */
   skipped: { file: string; from: string; why: string }[];
   /** The stylesheet's path in the repository. */
@@ -149,7 +149,7 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
   if (!baseTree) return { ok: false, says: "GitHub would not show the branch's last commit." };
   const tree: { path: string; mode: string; type: string; sha: string }[] = [];
   for (const file of prepared.files) {
-    const blob = await gh(f, token, `/repos/${repo}/git/blobs`, { method: "POST", body: { content: file.content, encoding: "utf-8" } });
+    const blob = await gh(f, token, `/repos/${repo}/git/blobs`, { method: "POST", body: { content: file.content, encoding: file.encoding ?? "utf-8" } });
     const sha = blob.json?.sha;
     if (typeof sha !== "string") return { ok: false, says: `GitHub would not take ${file.path}. Does the token have write access to ${repo}?` };
     tree.push({ path: file.path, mode: "100644", type: "blob", sha });
@@ -175,6 +175,7 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
         prepared.layer.says,
         "",
         `Files: ${prepared.files.map((x) => `\`${x.path}\``).join(", ")}.`,
+        ...(prepared.files.some((x) => x.path === "design/pictures.json") ? [`Pictures on parts (${prepared.files.filter((x) => x.path.startsWith("design/pictures/")).length}): \`design/pictures.json\` names each part's hook and picture. Apply each as that part's look by BUILDER-RULES.md "Pictures on parts": copy it into the site, crop it to its \`crop\` box, make it the part's look through a token, and keep the same element, data-hook and behaviour.`, ""] : []),
         prepared.kit ? "Only the style layer (and the hooks map made from it) changes, so `kit:diff --style-only` holds it." : "Each page gains at most one <link> to the layer, and words written once as plain text.",
         ...(prepared.removed?.length ? ["", `Deleted on the board (${prepared.removed.length}): the layer leaves these as the page draws them. Delete each element and every reference to it in the code (selectors, handlers, tests, CSS), then remake hooks.json.`, ...prepared.removed.map((r) => `- ${removedLine(r)}`)] : []),
         "",

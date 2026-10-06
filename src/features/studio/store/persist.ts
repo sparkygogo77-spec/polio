@@ -113,6 +113,9 @@ export function mergeDoc(persisted: unknown, current: StudioState): StudioState 
             picture: n.picture && typeof n.picture === "object" && typeof (n.picture as Picture).id === "string" && typeof (n.picture as Picture).path === "string"
               ? (n.picture as Picture)
               : null,
+            lookPicture: n.lookPicture && typeof n.lookPicture === "object" && typeof n.lookPicture.picture?.id === "string" && typeof n.lookPicture.picture?.path === "string"
+              ? n.lookPicture
+              : null,
             pictureVersions: Array.isArray(n.pictureVersions)
               ? (n.pictureVersions as Picture[]).filter((v) => v && typeof v.id === "string" && typeof v.path === "string")
               : null,
