@@ -155,10 +155,29 @@ try {
   await page.waitForTimeout(400);
   const menu = page.locator("[data-states-menu]");
   const listed = { screens: await menu.locator("[data-screen-toggle]").count(), groups: await menu.locator("[data-state-toggle]").count() };
-  check("the States control lists this page's screens and its hidden groups by hook", listed.screens >= 1 && listed.groups >= 1 && (await menu.locator(`[data-state-toggle="${PLAN.group}"]`).count()) === 1, JSON.stringify(listed));
-  if (await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).count()) await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).click();
-  await page.waitForTimeout(800);
+  const groupListed = (await menu.locator(`[data-state-toggle="${PLAN.group}"]`).count()) === 1;
+  if (await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).count()) { await menu.locator(`[data-screen-toggle="${PLAN.screen}"]`).click(); await page.waitForTimeout(800); }
   await page.keyboard.press("Escape");
+  /* A site that lists its scenes picks them from "Page state" by the search bar, not this menu (J, 2026-10-06). */
+  if (!listed.screens && (await page.locator("[data-scene-now]").count())) {
+    await page.locator("[data-scene-now]").click();
+    await page.waitForTimeout(400);
+    listed.screens = (await page.locator("[data-scene-pick]").count()) - 1;
+    listed.fromPageState = true;
+    await page.locator(`[data-scene-pick="${PLAN.screen}"]`).click();
+    await page.waitForTimeout(800);
+  }
+  /* J: the arrows hold still whatever the name, and step 0 … N and round to 0 ("as it opens") again. */
+  if (listed.fromPageState) {
+    const nowAt = async () => (await page.locator("[data-scene-now]").textContent()).match(/(\d+)\/(\d+)/);
+    const nextX = async () => (await page.locator("[data-scene-next]").boundingBox()).x;
+    const [, a0, total] = await nowAt();
+    const xs = [];
+    for (let i = 0; i <= Number(total); i++) { xs.push(await nextX()); await page.locator("[data-scene-next]").click(); await page.waitForTimeout(250); }
+    const [, a1] = await nowAt();
+    check("Page state steps through every scene and as it opens, back to where it was, its arrows never moving", a1 === a0 && new Set(xs).size === 1, JSON.stringify({ a0, a1, total, xs: [...new Set(xs)] }));
+  }
+  check("the page's screens are listed (in States, or in Page state for a site that lists its scenes) and its hidden groups by hook", listed.screens >= 1 && listed.groups >= 1 && groupListed, JSON.stringify(listed));
   st = await state();
   const pageNodes = st.nodes.filter((n) => n.pageId === target.pageId);
   const shows = new Set(scr?.shows ?? []);

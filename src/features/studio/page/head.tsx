@@ -284,9 +284,7 @@ export function StatesChip({ pageId }: { pageId: string }) {
               <Layers className="size-3 shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">Every state on this page, at a glance</span>
             </button>
-            {/* Declared scenes, as the site lists them; where the live capture of one draws other parts, it says so. */}
-            {declared.length ? <p className="px-2 pt-1 text-fine font-medium text-fg-muted">Scenes (← → to step)</p> : null}
-            {declared.map((x) => <Row key={x.name} k={screenKey(x.name)} name={x.label ?? x.name} note={x.differs ? `live differs: ${x.differs.extra.length + x.differs.missing.length}` : x.name} />)}
+            {/* Declared scenes step from "Page state" by the search bar (J: this list is not needed here). */}
             {/* J: one part, its timeline; not an endless list of every state on the page. */}
             {frames.map((f) => {
               const n = nodes.find((x) => x.id === f.frame);
@@ -336,7 +334,8 @@ export function StatesChip({ pageId }: { pageId: string }) {
         >
           <Layers className={cn("size-3 shrink-0", lit && "text-accent")} />
           <span>States</span>
-          {lit ? <span className="num text-fine text-fg-faint">{lit}</span> : null}
+          {/* Its room kept when nothing is lit, so what follows on the bar (the Page state arrows) never moves. */}
+          <span className="num min-w-[1.5ch] text-fine text-fg-faint">{lit || ""}</span>
         </button>
       </Popover>
     </>

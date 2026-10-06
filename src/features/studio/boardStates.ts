@@ -276,7 +276,13 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
       const rh = runHook(n);
       const rb = rh ? s.boxes![rh] : undefined;
       const lift = rh && rb ? runLift(n, rh, rb) : null;
-      if (rb && lift !== null) { const to = boxIn(rb); target.set(n.id, { x: to.x, y: to.y + lift, w: Math.max(n.w, to.w), h: n.h }); continue; }
+      if (rb && lift !== null) {
+        const to = boxIn(rb);
+        /* Read wrapped as the page opened, one line here (its first word is one line tall): unwrapped, so it does not hang over what is under it ("Pot: - SOL" over Find a match, J 2026-10-06). */
+        const lines = to.h > 8 ? Math.floor(n.h / to.h) : 1;
+        target.set(n.id, lines > 1 ? { x: to.x, y: to.y + lift, w: Math.max(n.w * lines, to.w), h: n.h - (lines - 1) * to.h } : { x: to.x, y: to.y + lift, w: Math.max(n.w, to.w), h: n.h });
+        continue;
+      }
       let by: PlaceNode | undefined = holders.get(n.id);
       if (by && !target.has(by.id)) by = undefined;
       if (!by && !holders.has(n.id)) {

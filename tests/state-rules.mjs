@@ -139,6 +139,13 @@ const lp = R.declaredPagePanels(labelled, "p", "web/index.html", ss, null);
 const tw = E.groupTwins(labelled, "q-count", { colour: { fg: "#fff" }, x: 9, content: "no" });
 check("9. plain names, kinds and groups are read; a group's look is edited once", lp.find((p) => p.hook === "queue-panel")?.label === "Find a match box" && J(R.labelsOf(labelled.find((x) => x.id === "q-count"))) === J({ kind: "number", group: "panel-note" }) && J(tw) === J({ ids: ["rm-yes"], patch: { colour: { fg: "#fff" } } }) && E.groupTwins(labelled, "q-title", { colour: {} }) === null, J(tw));
 
+/* 10. J: "Behind by 1.83 points" ran over "Time left": longer words push what follows on their line along. */
+const RW = await studio("roomForWords.ts");
+const sb = (id, x, w, text) => ({ id, pageId: "p", x, y: 10, w, h: 22, content: text, from: { selector: `body > section > p:nth-of-type(${id})` } });
+const row = [sb(1, 0, 50, "Level"), sb(2, 60, 100, "Time left 1:00"), sb(3, 170, 100, "Trades left 10"), { id: 4, pageId: "p", x: 0, y: 60, w: 300, h: 22, content: "Legend", from: { selector: "body > section > p:nth-of-type(4)" } }];
+const room = RW.roomForWords(row, "p", () => true, new Map(), new Map([[1, { content: "Behind by 1.83 points" }]]));
+check("10. longer words widen their part and push what follows on its line, not the line below", room.get(1).w === 210 && room.get(2).x === 220 && room.get(3).x === 330 && !room.has(4), J([...room]));
+
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);
 process.exit(ok === results.length ? 0 : 1);
