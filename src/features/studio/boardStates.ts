@@ -369,24 +369,57 @@ function keepOverlaysOnPage(here: readonly PlaceNode[], out: Map<string, PlaceBo
   const flow = here.filter((n) => !n.state && !pinned(n));
   if (!flow.length) return;
   const foot = Math.max(...flow.map((n) => box(n).y + box(n).h));
+  const top = Math.min(...flow.map((n) => box(n).y));
+  /* The page's width is its biggest part's (the page itself), not the spread of every part: one part off to the side made the tour too narrow to count (J, 2026-10-06, page state 15). */
+  const page = flow.reduce((a, n) => (box(n).w * box(n).h > box(a).w * box(a).h ? n : a));
   const roots = here.filter((n) => pinned(n) && shows(n)).filter((n, _, all) => !all.some((o) => o !== n && contains(box(o), box(n))));
   for (const r of roots) {
     const b = box(r);
+    const inside = here.filter((n) => n !== r && contains(b, box(n)));
+    /*
+     * A window-wide overlay (the tour's dimmed screen) shades the whole page,
+     * top to foot, and what it holds stays where it was read: its ring is on
+     * the part it points at, and its card below that, not pulled up over it.
+     * Only a part that would hang past the page's foot is lifted onto it.
+     */
+    if (b.w >= box(page).w * 0.9 && foot - top > b.h) {
+      out.set(r.id, { ...b, y: top, h: foot - top });
+      for (const n of inside) {
+        const at = box(n);
+        if (at.y + at.h > foot) out.set(n.id, { ...at, y: Math.max(top, foot - at.h) });
+      }
+      keepApart(r, inside, out, top, foot);
+      continue;
+    }
     const dy = b.y + b.h > foot ? Math.max(-b.y, foot - (b.y + b.h)) : b.y < 0 ? -b.y : 0;
     if (!dy) continue;
-    for (const n of here) {
-      if (n !== r && !contains(b, box(n))) continue;
+    for (const n of [r, ...inside]) {
       const at = box(n);
       out.set(n.id, { ...at, y: at.y + dy });
     }
   }
-  /* A window-wide overlay (the tour's dimmed screen) shades the whole page, not just the window it was read in: its own box reaches from the page's top to its foot, what it holds stays put (J, 2026-10-06). */
-  const left = Math.min(...flow.map((n) => box(n).x)), right = Math.max(...flow.map((n) => box(n).x + box(n).w));
-  const top = Math.min(...flow.map((n) => box(n).y));
-  for (const r of roots) {
-    const b = box(r);
-    if (b.w < (right - left) * 0.9 || foot - top <= b.h) continue;
-    out.set(r.id, { ...b, y: top, h: foot - top });
+}
+/** The overlay's own parts side by side, one never over another (the tour's card over its ring, J 2026-10-06): a later part that crosses an earlier one goes below it, or above it when there is no room below, with what is inside it. */
+function keepApart(r: PlaceNode, inside: readonly PlaceNode[], out: Map<string, PlaceBox>, top: number, foot: number): void {
+  const box = (n: PlaceNode) => out.get(n.id) ?? n;
+  const sel = (n: PlaceNode) => (n as PlaceNode & { from?: { selector?: string } | null }).from?.selector ?? null;
+  const rs = sel(r);
+  if (!rs) return;
+  const kids = inside.filter((n) => { const s = sel(n); return !!s && s.startsWith(`${rs} > `) && !s.slice(rs.length + 3).includes(" > ") && box(n).w > 8 && box(n).h > 8; });
+  const gap = 8;
+  for (let i = 1; i < kids.length; i++) {
+    const k = kids[i]!, kb = box(k);
+    for (const e of kids.slice(0, i)) {
+      const eb = box(e);
+      const crosses = kb.x < eb.x + eb.w && kb.x + kb.w > eb.x && kb.y < eb.y + eb.h && kb.y + kb.h > eb.y;
+      if (!crosses || contains(eb, kb) || contains(kb, eb)) continue;
+      const below = eb.y + eb.h + gap, above = eb.y - gap - kb.h;
+      const y = below + kb.h <= foot ? below : above >= top ? above : null;
+      if (y === null) continue;
+      const dy = y - kb.y, ks = sel(k)!;
+      for (const n of inside) { const s = sel(n); if (n === k || (s && s.startsWith(`${ks} `))) { const at = box(n); out.set(n.id, { ...at, y: at.y + dy }); } }
+      break;
+    }
   }
 }
 const contains = (o: PlaceBox, n: PlaceBox) => n.x >= o.x - 1 && n.y >= o.y - 1 && n.x + n.w <= o.x + o.w + 1 && n.y + n.h <= o.y + o.h + 1;

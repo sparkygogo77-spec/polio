@@ -133,9 +133,24 @@ const tourNodes = [
 const tour = { name: "tour", label: "Tour", page: "web/index.html", shows: ["app", "nav", "intro", "foot", "tour", "tour-card"], boxes: { app: [0, 0, 1000, 1000], nav: [0, 0, 1000, 40], intro: [0, 50, 1000, 40], foot: [0, 940, 1000, 60], tour: [0, 900, 1000, 600], "tour-card": [300, 1100, 400, 300] } };
 const tp = screenPlaces(tourNodes, ["screen:tour"], [tour], () => "p", () => true);
 const cardAt = tp.get("card") ?? tourNodes[2], shadeAt = tp.get("shade") ?? tourNodes[1];
-check("the tour, read where the window had scrolled, is drawn on the page, not under it", shadeAt.y + shadeAt.h <= 1000 && cardAt.y + cardAt.h <= 1000 && cardAt.y === 600, JSON.stringify({ shadeAt, cardAt }));
+check("the tour, read where the window had scrolled, is drawn on the page, not under it", shadeAt.y + shadeAt.h <= 1000 && cardAt.y + cardAt.h <= 1000 && cardAt.y === 700, JSON.stringify({ shadeAt, cardAt }));
 /* J (2026-10-06): the tour's dim stopped at the top of the window it was read in; a window-wide overlay shades the whole page. */
 check("a window-wide overlay shades the whole page, top to foot", shadeAt.y === 0 && shadeAt.h === 1000 && shadeAt.w === 1000, JSON.stringify(shadeAt));
+/* J (2026-10-06, page state 15 again): a part off to the side of the page, the ring left on the part it points at, the card kept off the ring. */
+const wide = [
+  part("page", "app", "body > div", [0, 0, 1000, 1400]),
+  part("q", "queue-panel", "body > div > section", [100, 500, 800, 300]), part("side", "phone", "body > div > i", [1200, 10, 600, 20]),
+  part("shade", "tour", "body > aside", [0, 0, 1000, 600], { ...hidden("tour"), from: { selector: "body > aside", position: "fixed" } }),
+  part("ring", "tour-highlight", "body > aside > div:nth-of-type(1)", [0, 0, 10, 10], { ...hidden("tour"), from: { selector: "body > aside > div:nth-of-type(1)", position: "fixed" } }),
+  part("card", "tour-card", "body > aside > div:nth-of-type(2)", [300, 100, 400, 300], { ...hidden("tour"), from: { selector: "body > aside > div:nth-of-type(2)", position: "fixed" } }),
+  part("title", "tour-title", "body > aside > div:nth-of-type(2) > h2", [316, 116, 368, 30], { ...hidden("tour"), from: { selector: "body > aside > div:nth-of-type(2) > h2" } }),
+];
+const wideCap = { name: "tour", label: "Tour", page: "web/index.html", shows: ["app", "queue-panel", "phone", "tour", "tour-highlight", "tour-card", "tour-title"], boxes: { app: [0, 0, 1000, 1400], "queue-panel": [100, 500, 800, 300], phone: [1200, 10, 600, 20], tour: [0, 480, 1000, 600], "tour-highlight": [94, 494, 812, 312], "tour-card": [300, 760, 400, 300], "tour-title": [316, 776, 368, 30] } };
+const wp = screenPlaces(wide, ["screen:tour"], [wideCap], () => "p", () => true);
+const wat = (id) => wp.get(id) ?? wide.find((x) => x.id === id);
+const ring = wat("ring"), wcard = wat("card"), wq = wat("q"), wshade = wat("shade"), wtitle = wat("title");
+check("a window-wide overlay still shades the whole page with a part off to the side", wshade.y === 0 && wshade.h === 1400, JSON.stringify(wshade));
+check("its ring stays on the part it points at, the card below it, not over it", Math.abs(ring.x - (wq.x - 6)) <= 1 && Math.abs(ring.y - (wq.y - 6)) <= 1 && wcard.y >= ring.y + ring.h && wtitle.y - wcard.y === 16, JSON.stringify({ ring, wq, wcard, wtitle }));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
