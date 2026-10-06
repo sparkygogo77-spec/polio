@@ -53,18 +53,33 @@ export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?
     const d = panelDrawing(page, p.id, sample?.screen ?? null);
     const places = new Map<string, PlaceBox>();
     const looks = new Map<string, StepLook>();
+    /* A panel that covers its whole page (the intro tour's dimmed screen and ring) is seen over the page its scene shows, so the ring sits on the part it points at (J, 2026-10-06). */
+    const under = overlayScene(page, d.placed[0] ?? null, source, panel?.hook ?? null, state?.key ?? null, s);
     /* Centred on a lone page, so it never sits under the rail or off the side (J, 2026-10-06). */
-    const c = centreIsolated(page, d.placed[0] ?? null, s.frameWidth);
+    const at = under?.places.get(p.id);
+    const c = under ? (at && d.placed[0] ? { dx: at.x - d.placed[0].x, dy: at.y - d.placed[0].y } : { dx: 0, dy: 0 }) : centreIsolated(page, d.placed[0] ?? null, s.frameWidth);
+    if (under) for (const n of page) if (n.id !== p.id && !d.inner.has(n.id) && under.shows(n as never)) { const b = under.places.get(n.id); if (b) places.set(n.id, b); const l = under.looks.get(n.id); if (l) looks.set(n.id, l); }
     for (const x of d.placed) { places.set(x.node.id, { x: x.x + c.dx, y: x.y + c.dy, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
     /* What it sits in stays only where it still holds it (the page's dotted ground); a card it has moved out of steps away. */
     const box = d.placed[0] ? { x: d.placed[0].x + c.dx, y: d.placed[0].y + c.dy, w: d.placed[0].w, h: d.placed[0].h } : null;
     const around = d.around.filter((a) => !box || (a.x <= box.x && a.y <= box.y && a.x + a.w >= box.x + box.w && a.y + a.h >= box.y + box.h));
     const shows = new Set([...around, ...d.placed.map((x) => x.node)].map((n) => n.id));
+    if (under) for (const n of page) if (n.id !== p.id && !d.inner.has(n.id) && under.shows(n as never)) shows.add(n.id);
     /* Longer words than the page opens with push what follows on their line along (`roomForWords.ts`). */
     read = { pageId: p.pageId, shows, places: roomForWords(nodes as never, p.pageId, (n) => shows.has(n.id), places, looks), looks, panelId: p.id };
   }
   isolatedMemo = { on, nodes: s.nodes, source, frameWidth: s.frameWidth, read };
   return read;
+}
+/** The page under a panel that covers it (as wide as the frame): the declared scene that puts the panel in this state, drawn as the board draws that scene. Null for any other panel. */
+function overlayScene(page: readonly { x: number; w: number }[], root: { w: number } | null, source: PanelSource, hook: string | null, state: string | null, s: { look?: unknown; nodes?: StudioNode[]; frameWidth?: number }) {
+  if (!root || !hook || !state) return null;
+  const width = s.frameWidth && s.frameWidth > 0 ? s.frameWidth : Math.max(0, ...page.map((n) => n.x + n.w));
+  if (!width || root.w < width * 0.9) return null;
+  const scene = (source?.screens ?? []).find((x) => (x as { declared?: boolean }).declared && (x as { panels?: Record<string, string> }).panels?.[hook] === state);
+  if (!scene) return null;
+  const lit = { statesOn: [screenKey(scene.name)], look: s.look, nodes: s.nodes };
+  return { shows: shownOnBoard(lit), places: placedOnBoard(lit), looks: looksOnBoard(lit) };
 }
 /** How far to move an isolated panel so it sits in the middle of its page: across the frame, and down the page's height. */
 export function centreIsolated(page: readonly { x: number; y: number; w: number; h: number }[], box: { x: number; y: number; w: number; h: number } | null, frameWidth?: number): { dx: number; dy: number } {

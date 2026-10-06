@@ -252,8 +252,11 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
       const base: ScreenRead = { name: `${p.id}:${s}`, label: s, page: pageFile ?? "", shows, ...(scene ? lent(scene) : {}) };
       /* Only the samples that fit this state: where its scene says "Ahead by 0.5 points", "Ahead by 1.16" and "Ahead by 1.83" are its chips, "Level" and "Behind by …" are not (J, 2026-10-06). */
       const fits = new Map(sampled.map((h) => [h, samplesFor(samples![h]!, base.texts?.[h])]));
-      const many = Math.max(0, ...[...fits.values()].map((l) => l.length));
       const lead = sampled.find((h) => new Set(fits.get(h)).size > 1) ?? sampled[0];
+      /* Rows: where the lead's every sample fits this state, the hooks with as many samples go row by row with it (the tour's step 4 is its own "Step 4 of 10", title and text), never thinned to the one the scene shows (J, 2026-10-06). */
+      const rows = lead ? samples![lead]!.length : 0;
+      if (rows > 1 && fits.get(lead!)!.length === rows) for (const h of sampled) if (samples![h]!.length === rows) fits.set(h, [...samples![h]!]);
+      const many = Math.max(0, ...[...fits.values()].map((l) => l.length));
       const samplesOf = most && many ? Array.from({ length: many }, (_, i) => {
         const texts = { ...(base.texts ?? {}) };
         for (const h of sampled) { const l = fits.get(h)!; texts[h] = l[i % l.length]!; }
@@ -261,8 +264,8 @@ export function declaredPagePanels(nodes: readonly RuleNode[], pageId: string, p
       }) : [{ key: s, label: s, screen: base }];
       return { key: s, label: s, samples: samplesOf };
     });
-    /* One state that a whole-page scene shows (a lone text block) is no panel: it is edited on its page in that scene. One that no scene shows (a pop-up such as the sign panel) stays (J, 2026-10-06). */
-    if (states.length < 2 && mine.some((x) => x.panels[p.id] && x.panels[p.id] !== "off")) continue;
+    /* One state that a whole-page scene shows (a lone text block) is no panel: it is edited on its page in that scene. One that no scene shows (a pop-up such as the sign panel) stays, and so does one with sample chips to step through (the intro tour's steps) (J, 2026-10-06). */
+    if (states.length < 2 && (states[0]?.samples.length ?? 0) < 2 && mine.some((x) => x.panels[p.id] && x.panels[p.id] !== "off")) continue;
     out.push({ id: root.id, hook: p.id, ...(attr(root, "data-label") ? { label: attr(root, "data-label")! } : {}), states });
   }
   return out.sort((a, b) => { const x = d.byId.get(a.id) as PanelNode | undefined, y = d.byId.get(b.id) as PanelNode | undefined; return (x?.y ?? 0) - (y?.y ?? 0) || (x?.x ?? 0) - (y?.x ?? 0); });
