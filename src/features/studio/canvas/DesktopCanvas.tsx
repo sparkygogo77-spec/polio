@@ -1126,8 +1126,12 @@ export function DesktopCanvas() {
          * the holding rule alone none of them could be dragged, while the
          * same buttons on his docs page, holding nothing, could.
          * Released without a drag, the part is picked as any part is (see
-         * the marquee's release). The held modifier — Ctrl, or ⌘ on a Mac —
-         * moves it on purpose. A second press in quick succession falls
+         * the marquee's release).
+         *
+         * TURNED ROUND (J, 2026-10-06): "some panels are also undraggable",
+         * and on the card he chose "Always moves". So a plain drag moves a
+         * part that holds others, like any part, and the held modifier —
+         * Ctrl, or ⌘ on a Mac — is what draws the box across it now. A second press in quick succession falls
          * through to the double-press below, so a linked container still
          * goes where it points.
          */
@@ -1135,7 +1139,7 @@ export function DesktopCanvas() {
         const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
         /* A button, badge, tab, copy bar or card is one thing: grabbed whole, like a control (`components.ts`). */
         const whole = node ? componentsOf(store.nodes, pal).byId.get(node.id) : undefined;
-        if (node && !twice && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isControl(node) && !(whole && GRABBED.has(whole.kind)) && ownsOthers(store.nodes, node)) {
+        if (node && !twice && !e.shiftKey && (e.ctrlKey || e.metaKey) && !isControl(node) && !(whole && GRABBED.has(whole.kind)) && ownsOthers(store.nodes, node)) {
           pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
           capture();
           marqueeRef.current = null;
