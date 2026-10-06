@@ -6,7 +6,8 @@
     { "file": "starter/index.html", "title": "Home" },
     { "file": "starter/about.html", "title": "About" },
     { "file": "starter/list.html", "title": "List" },
-    { "file": "starter/contact.html", "title": "Contact" }
+    { "file": "starter/contact.html", "title": "Contact" },
+    { "file": "starter/game.html", "title": "Game parts" }
   ],
   "hooks": "starter/hooks.json",
   "tokens": "starter/tokens.css",
@@ -22,11 +23,17 @@
       { "name": "list-empty", "page": "starter/list.html" },
       { "name": "contact", "page": "starter/contact.html" },
       { "name": "contact-errors", "page": "starter/contact.html" },
-      { "name": "contact-sent", "page": "starter/contact.html" }
+      { "name": "contact-sent", "page": "starter/contact.html" },
+      { "name": "game", "page": "starter/game.html" },
+      { "name": "game-loading", "page": "starter/game.html" },
+      { "name": "game-live", "page": "starter/game.html" },
+      { "name": "game-warning", "page": "starter/game.html" },
+      { "name": "game-done", "page": "starter/game.html" }
     ]
   },
   "scenes": "starter/scenes.json",
   "samples": "starter/samples.json",
+  "parts": "starter/parts.json",
   "gallery": "starter/gallery.html",
   "scripts": {
     "hookCalls": { "hook": 0, "hooks": 0, "fromTemplate": 0, "part": 1, "setState": 0, "setOn": 0 },
@@ -42,7 +49,7 @@
   "rules": {
     "about": "Design and build rules every code chat follows. The full text is in doc; the checks named enforce them. Missing a style or setting? Add a slot.",
     "doc": "BUILDER-RULES.md",
-    "version": 5,
+    "version": 6,
     "list": [
       {
         "id": "real-elements",
@@ -205,6 +212,25 @@
         "checkedBy": "kit:check",
         "rule": "A look the builder can't edit in any slot kind yet goes in rules.requests ({ hook, need, kind, why }); kit:notes gives each one a prompt for a Polio chat. Once the builder learns it, move it into rules.slots."
       }
+   ,
+      {
+        "id": "slots-scripts-read",
+        "title": "Sounds, keys, number formats and lines are slots too",
+        "checkedBy": "kit:check",
+        "rule": "A sound, a shortcut key, how a number is written and a line's width and dashes are slots of kind sound, key, format and line: a token the script reads when it runs (none | beep [hz] [volume] | \"file.mp3\" [volume]; none | \"q\"; \"+0,0.00%\"; none | 2px dashed). kit:check fails on a value the builder could not edit."
+      },
+      {
+        "id": "shared-state-names",
+        "title": "Shared state names",
+        "checkedBy": "kit:check (notes)",
+        "rule": "When a panel's state means one of idle, loading, live, warning, done or error (rules.stateNames), it uses that name, so the builder shows the same state tabs on every site. Other states keep their own names; off and on stay as they are."
+      },
+      {
+        "id": "game-parts",
+        "title": "Game parts on the shelf",
+        "checkedBy": "kit:check",
+        "rule": "The kit's ready-made parts (scoreboard, buy and sell grid, countdown, TV screen, duel circles) are listed in the parts file (builder.json \"parts\"). Start from one with npm run kit:part instead of building it again; it brings its hooks, states, tokens and slots."
+      }
     ],
     "requests": [],
     "slots": [
@@ -215,7 +241,70 @@
         "kind": "shadow",
         "why": "The shadow under each list card"
       }
+   ,
+      { "token": "--scoreboard-format", "hook": "scoreboard-score", "label": "Number format", "kind": "format", "why": "How scores are written: sign, decimals, thousands, text before or after" },
+      { "token": "--action-grid-sound", "hook": "action-grid", "label": "Click sound", "kind": "sound", "why": "The sound a button press makes" },
+      { "token": "--key-buy-10", "hook": "buy-10-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 10%" },
+      { "token": "--key-buy-25", "hook": "buy-25-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 25%" },
+      { "token": "--key-buy-50", "hook": "buy-50-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 50%" },
+      { "token": "--key-buy-100", "hook": "buy-100-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 100%" },
+      { "token": "--key-sell-10", "hook": "sell-10-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 10%" },
+      { "token": "--key-sell-25", "hook": "sell-25-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 25%" },
+      { "token": "--key-sell-50", "hook": "sell-50-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 50%" },
+      { "token": "--key-sell-100", "hook": "sell-100-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 100%" },
+      { "token": "--countdown-warn-at", "hook": "countdown", "label": "Warn in the last (seconds)", "kind": "number", "why": "When the countdown turns to its warning state" },
+      { "token": "--countdown-tick-sound", "hook": "countdown", "label": "Tick sound", "kind": "sound", "why": "The tick in the warning seconds" },
+      { "token": "--screen-glow", "hook": "screen", "label": "Glow", "kind": "length", "why": "How far the TV glows" },
+      { "token": "--markers-size", "hook": "marker-a", "label": "Circle size (both circles)", "kind": "length", "why": "How big the duel circles are" },
+      { "token": "--markers-level-line", "hook": "markers-level", "label": "Line style", "kind": "line", "why": "The level line's width and dashes" }
     ],
+    "stateNames": {
+      "about": "The shared state names (BUILDER-RULES.md, rule 29), in the order the builder shows their tabs. twins: names that mean the same, which kit:check notes.",
+      "names": [
+        "idle",
+        "loading",
+        "live",
+        "warning",
+        "done",
+        "error"
+      ],
+      "twins": {
+        "idle": [
+          "waiting",
+          "ready",
+          "empty"
+        ],
+        "loading": [
+          "connecting",
+          "busy",
+          "pending",
+          "fetching"
+        ],
+        "live": [
+          "running",
+          "playing",
+          "active",
+          "open"
+        ],
+        "warning": [
+          "low",
+          "ending",
+          "urgent"
+        ],
+        "done": [
+          "finished",
+          "complete",
+          "over",
+          "ended",
+          "result"
+        ],
+        "error": [
+          "failed",
+          "broken",
+          "offline"
+        ]
+      }
+    },
     "outsideParts": [],
     "embeds": [
       {
@@ -243,7 +332,7 @@
         "cx",
         "cy"
       ],
-      "values": []
+      "values": ["--marker-a-x", "--marker-a-y", "--marker-b-x", "--marker-b-y", "--markers-level-y"]
     }
   }
 }

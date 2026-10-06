@@ -123,7 +123,7 @@ for (const file of PAGES) {
 await bare.close();
 const { doc } = pagesToDoc(reads, { at: 1, code: Object.entries(FILES).filter(([f]) => f.startsWith("starter/js/")).map(([path, text]) => ({ path, text })) });
 const kit = await readKit("j/starter", "main", "tok", { fetch: stand, when: "2026-10-02T00:00:00Z" });
-check("import reads builder.json and the hooks map as the baseline", kit?.ok && kit.seen.kit && kit.seen.pages.length === 4 && Object.keys(kit.seen.hooks).includes("hero-button") && kit.seen.hooks["hero-button"] === "button" && kit.seen.tokens.includes("--color-accent"), JSON.stringify(kit?.seen?.pages));
+check("import reads builder.json and the hooks map as the baseline", kit?.ok && kit.seen.kit && kit.seen.pages.length === 5 && Object.keys(kit.seen.hooks).includes("hero-button") && kit.seen.hooks["hero-button"] === "button" && kit.seen.tokens.includes("--color-accent"), JSON.stringify(kit?.seen?.pages));
 const source = { repo: "j/starter", ref: "main", dir: "starter/", ...doc.styleSource, seen: kit.seen, kit: kit.manifest };
 check("the starter's tokens are read as the variables the design can set", source.files[0].vars.some((v) => v.name === "--color-accent" && v.value === "#2f6fde"));
 const nodes = doc.nodes.map((n) => JSON.parse(JSON.stringify(n)));

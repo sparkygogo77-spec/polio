@@ -1,0 +1,6 @@
+/* part: countdown */
+[data-hook="countdown"] { display: inline-flex; align-items: baseline; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--color-surface); box-shadow: var(--shadow); }
+[data-hook="countdown-label"], [data-hook="countdown-done"] { color: var(--color-muted); font-size: var(--text-small); }
+[data-hook="countdown-time"] { font: bold var(--countdown-size) var(--font-body); font-variant-numeric: tabular-nums; }
+[data-panel="countdown"][data-state="warning"] [data-hook="countdown-time"] { color: var(--color-warning); animation: countdown-pulse 1s ease-in-out infinite; }
+@keyframes countdown-pulse { 50% { opacity: 0.55; } }

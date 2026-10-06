@@ -662,7 +662,14 @@ export function check(manifestPath, { write = false } = {}) {
   }
 
   // ---- slots (BUILDER-RULES.md): a style or setting the builder learns, as a token on a part
-  const SLOT_KINDS = new Set(['colour', 'length', 'number', 'text', 'choice', 'shadow', 'filter', 'time', 'any']);
+  const SLOT_KINDS = new Set(['colour', 'length', 'number', 'text', 'choice', 'shadow', 'filter', 'time', 'sound', 'key', 'format', 'line', 'any']);
+  // The four kinds a script reads (BUILDER-RULES.md, rule 28): each value must read the way the builder writes it.
+  const SLOT_VALUES = {
+    sound: [/^(none|beep(\s+\d+(\.\d+)?)?(\s+(0|1|0?\.\d+))?|(['"])[^'"]+\6(\s+(0|1|0?\.\d+))?)$/, 'none, beep [hz] [volume] or "file.mp3" [volume] (volume 0 to 1)'],
+    key: [/^(none|(['"]).+\2)$/, 'none or a quoted key name ("q", "ArrowUp")'],
+    format: [/^(['"])[^0+'"]*\+?0(,0)?(\.0+)?[^0'"]*\1$/, 'a quoted pattern such as "+0.00%" or "$0,0.00"'],
+    line: [/^(none|\d*\.?\d+px\s+(solid|dashed|dotted|double))$/, 'none or a width and a style ("2px dashed")'],
+  };
   for (const [i, s] of (manifest.rules?.slots ?? []).entries()) {
     const name = `builder.json rules.slots[${i}]${s?.token ? ` (${s.token})` : ''}`;
     if (!s?.token?.startsWith('--') || !s.hook || !s.label) { problems.push(`${name}: a slot needs "token" (--name), "hook" and "label"`); continue; }
@@ -671,6 +678,33 @@ export function check(manifestPath, { write = false } = {}) {
     else if (!(hookTokens.get(s.hook)?.has(s.token)) && ![...scripts.values()].some((t) => t.includes(s.token))) problems.push(`${name}: nothing uses ${s.token} for "${s.hook}" (a rule keyed by its hook, or a script reading the token)`);
     if (s.kind && !SLOT_KINDS.has(s.kind)) problems.push(`${name}: kind "${s.kind}" is not one of ${[...SLOT_KINDS].join(', ')}`);
     if (s.kind === 'choice' && !(Array.isArray(s.options) && s.options.length > 1)) problems.push(`${name}: a choice slot lists its "options"`);
+    const shape = SLOT_VALUES[s.kind];
+    if (shape && typeof tokens.get(s.token) === 'string' && !shape[0].test(tokens.get(s.token).trim())) problems.push(`${name}: a ${s.kind} slot's value is ${shape[1]}, not ${tokens.get(s.token)}`);
+  }
+
+  // ---- shared state names (BUILDER-RULES.md, rule 29): a note, not a problem, when a state is a near twin of one
+  const notes = [];
+  const STATE_NAMES = manifest.rules?.stateNames?.names ?? [];
+  const TWINS = manifest.rules?.stateNames?.twins ?? {};
+  for (const [id, pnl] of panels) for (const st of pnl.states) {
+    const shared = Object.entries(TWINS).find(([, list]) => list.includes(st))?.[0];
+    if (shared && STATE_NAMES.includes(shared) && !pnl.states.includes(shared)) notes.push(`panel "${id}": state "${st}" could use the shared name "${shared}" (rule 29)`);
+  }
+
+  // ---- game parts (BUILDER-RULES.md, rule 30): each part in the parts file is a panel on its page, with its files
+  const parts = readJson('parts');
+  if (parts) {
+    const partsBase = dirname(at(manifest.parts));
+    for (const pt of parts.parts ?? []) {
+      const pnl = panels.get(pt.name);
+      if (!pnl) { problems.push(`${manifest.parts}: part "${pt.name}" is no panel on a page (data-panel="${pt.name}")`); continue; }
+      if (pt.states && pt.states.join(' ') !== pnl.states.join(' ')) problems.push(`${manifest.parts}: part "${pt.name}" lists states ${pt.states.join(' ')}, its panel has ${pnl.states.join(' ')}`);
+      for (const f of [...(pt.css ?? []), ...(pt.js ?? []), ...(parts.shared?.js ?? [])]) if (!existsSync(join(partsBase, f))) problems.push(`${manifest.parts}: part "${pt.name}": ${f} does not exist`);
+      for (const v of pt.positions ?? []) if (!(positions.values ?? []).includes(v)) problems.push(`${manifest.parts}: part "${pt.name}": ${v} is not in rules.scriptPositions.values`);
+      const tokenText = read(tokensFile);
+      for (const t of [pt.name, ...(parts.shared?.tokens ?? [])]) if (!tokenText.includes(`/* part: ${t} */`)) problems.push(`${manifest.parts}: part "${pt.name}": ${manifest.tokens} has no "/* part: ${t} */" block`);
+      if (parts.page && !read(join(partsBase, parts.page)).includes(`<!-- part: ${pt.name} -->`)) problems.push(`${manifest.parts}: part "${pt.name}": ${parts.page} has no "<!-- part: ${pt.name} -->" block`);
+    }
   }
 
   // ---- builder requests (BUILDER-RULES.md rule 27): a look the builder can't edit in any slot kind yet
@@ -720,7 +754,7 @@ export function check(manifestPath, { write = false } = {}) {
   if (write) writeFileSync(hooksFile, json);
   else if (!existsSync(hooksFile)) problems.push(`${manifest.hooks} is missing (run npm run kit:hooks)`);
   else if (read(hooksFile) !== json) problems.push(`${manifest.hooks} is stale: it does not match the code (run npm run kit:hooks and commit it)`);
-  return { problems, map };
+  return { problems, map, notes };
 }
 
 // ------------------------------------------------------------------ command line
@@ -728,7 +762,8 @@ export function check(manifestPath, { write = false } = {}) {
 if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href) {
   const args = process.argv.slice(2);
   const manifestPath = args.find((a) => !a.startsWith('--')) ?? 'builder.json';
-  const { problems, map } = check(manifestPath, { write: args.includes('--write') });
+  const { problems, map, notes = [] } = check(manifestPath, { write: args.includes('--write') });
+  for (const n of notes) console.log(`  · ${n}`);
   for (const p of problems) console.log(`  ✗ ${p}`);
   const n = map ? Object.keys(map.hooks).length : 0;
   const pagesN = map ? Object.keys(map.pages).length : 0;

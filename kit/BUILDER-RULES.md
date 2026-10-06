@@ -80,7 +80,7 @@ draw it some way the builder can't see. Make it a slot:
 2. List it in `builder.json` under `"rules": { "slots": [...] }`:
    `{ "token": "--pons-tv-glow", "hook": "chart-tv-frame", "label": "Glow", "kind": "length", "why": "How far the TV glows" }`.
    `kind` is one of `colour`, `length`, `number`, `text`, `choice` (with `"options"`), `shadow`,
-   `filter`, `time` or `any`.
+   `filter`, `time`, `sound`, `key`, `format`, `line` (rule 28) or `any`.
 3. The builder shows each slot by its label in that part's Settings, and sends a change back as a
    token change in the design branch. `kit:check` fails when a slot's token isn't in `tokens.css`,
    its hook is on no page, or nothing uses the token for that part.
@@ -317,3 +317,57 @@ keyboard key, a dashed line, a number format), add a request to `builder.json` `
 in the change note with a prompt to paste into a Polio chat (what the part is, where it lives, what
 to teach and how). The builder lists them in **Check the code again** with a button to copy the
 prompt. Once the builder has learned it, the code chat moves the request into `rules.slots`.
+
+## 28. Sounds, keys, number formats and lines are slots too
+
+**(checked)** Four kinds of slot are values a script reads when it runs, so the builder can change
+them without a code change. The token holds the value; the script reads it with `token()` from the
+kit's `starter/parts/slots.js` (or the site's own copy).
+
+| Kind | Value | Example |
+| --- | --- | --- |
+| `sound` | `none`, `beep [hz] [volume]` or `"file.mp3" [volume]`, volume 0 to 1 | `--tick-sound: beep 880 0.3` |
+| `key` | `none` or a quoted key name, as the browser names it | `--key-buy-10: "1"` |
+| `format` | a quoted pattern: `+` always shows the sign, `0,0` groups thousands, `.00` sets decimals, text before or after stays | `--score-format: "+0.00%"` |
+| `line` | `none` or a width and `solid`, `dashed`, `dotted` or `double` | `--level-line: 2px dashed` |
+
+A number written by a `format` slot also gets `data-sign="up|down|flat"`, so colour by sign is a
+stylesheet rule. A key shows in its own hooked child (`buy-10-key`), never only in a tooltip.
+The builder edits each kind with its own control (play, press a key, a live sample, a line
+preview). `kit:check` fails on a value it could not edit.
+
+## 29. Shared state names
+
+Panels on every site use the same words for the same moments, so the builder shows the same state
+tabs everywhere and a look made for one site's "loading" fits another's:
+
+| Name | Means |
+| --- | --- |
+| `idle` | nothing is happening yet: waiting for a player, nothing on |
+| `loading` | waiting on the network or a person: connecting, sending, tuning in |
+| `live` | it is running: a round, a feed, a form being filled |
+| `warning` | still running, but needs attention soon: the last seconds, a low balance |
+| `done` | it finished as it should: time's up, sent, the result |
+| `error` | it failed: lost the signal, refused |
+
+A state that means one of these uses its name; any other state keeps its own (`off` and `on` stay
+as they are). The list is `rules.stateNames` in `builder.json`, with the near twins (`connecting`,
+`result`, `failed`) that `kit:check` notes without failing. Renaming a state in a live site moves
+its per-state looks in the builder, so rename when the panel is next redesigned, not on its own.
+
+## 30. Game parts on the shelf
+
+**(checked)** The kit has ready-made parts first built for PonsStars and made general: the
+scoreboard, the buy and sell grid, the countdown, the TV screen and the duel circles. Each is a
+panel using the shared state names, with its hooks, labels, tokens and slots ready; the parts file
+(`"parts"` in `builder.json`, `starter/parts.json`) lists them and `starter/game.html` shows them.
+Start from one instead of building it again:
+
+```
+npm run kit:part -- scoreboard ../my-site
+```
+
+copies its stylesheet and script (and the shared `slots.js` and `sound.js`) into the site's
+`parts/` folder, adds its tokens and slots, and prints the markup to paste and the call to make.
+`kit:check` fails when a listed part is not a panel on the page, its files or token block are
+missing, or its states differ from its panel's.

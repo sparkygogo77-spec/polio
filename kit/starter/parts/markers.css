@@ -1,0 +1,7 @@
+/* part: markers (the duel circles). Script-set positions: --marker-a-x/y, --marker-b-x/y, --markers-level-y. */
+[data-hook="markers"] { --marker-a-x: 30%; --marker-a-y: 60%; --marker-b-x: 70%; --marker-b-y: 40%; --markers-level-y: 50%; position: relative; height: var(--markers-height); border-radius: var(--radius); background: var(--color-surface); box-shadow: var(--shadow); overflow: hidden; }
+[data-hook="marker-a"], [data-hook="marker-b"] { position: absolute; width: var(--markers-size); height: var(--markers-size); margin: calc(var(--markers-size) / -2) 0 0 calc(var(--markers-size) / -2); border-radius: 50%; border: 2px solid var(--color-surface); }
+[data-hook="marker-a"] { left: var(--marker-a-x); top: var(--marker-a-y); background: var(--color-marker-a); }
+[data-hook="marker-b"] { left: var(--marker-b-x); top: var(--marker-b-y); background: var(--color-marker-b); }
+[data-hook="markers-level"] { position: absolute; left: 0; right: 0; top: var(--markers-level-y); border-top: var(--markers-level-line) var(--color-marker-a); }
+[data-hook="markers-empty"] { position: absolute; inset: 0; display: grid; place-items: center; color: var(--color-muted); font-size: var(--text-small); }

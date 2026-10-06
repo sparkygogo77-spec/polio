@@ -85,7 +85,7 @@ test('rules 8 and 9: the DexScreener embed and script-set positions pass; a posi
     edit('starter/js/list.js', "  setOn('list-empty', items.length === 0);", "  setOn('list-empty', items.length === 0);\n  hook('list-items').style.setProperty('--list-top', '4px');");
     edit('starter/base.css', '[data-hook="list-item"] {', '[data-hook="list-items"] { --list-top: 0; top: var(--list-top); }\n[data-hook="list-item"] {');
     const m = JSON.parse(readFileSync(join(dir, 'builder.json'), 'utf8'));
-    m.rules.scriptPositions.values = ['--list-top'];
+    m.rules.scriptPositions.values.push('--list-top');
     writeFileSync(join(dir, 'builder.json'), JSON.stringify(m, null, 2));
     check(join(dir, 'builder.json'), { write: true });
     assert.deepEqual(check(join(dir, 'builder.json')).problems, []);

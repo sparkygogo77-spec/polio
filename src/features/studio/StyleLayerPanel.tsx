@@ -30,6 +30,7 @@ import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode,
 import { sendDesign } from "./codeSend";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./parts/offsite";
+import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
 const warn = { borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" };
@@ -42,7 +43,7 @@ function hexOf(v: string): string {
 }
 
 /** One variable: a colour picker for a colour, a box to type in for anything else (a size, a face), and what reads it. */
-export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean; /** A choice slot's values (builder.json rules.slots): picked, never typed. */ options?: string[] }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
+export function VarRow({ v, source, layer, setVar }: { v: { name: string; value: string; file: string; line: number; token?: boolean; /** A choice slot's values (builder.json rules.slots): picked, never typed. */ options?: string[]; /** A slot's kind: sound, key, format and line get their own control (rule 28). */ kind?: string }; source: StyleSource; layer?: ReturnType<typeof buildLayer> | null; setVar: (name: string, value: string | null) => void }) {
   const set = source.varsSet?.[v.name];
   const followed = layer?.vars.find((x) => x.name === v.name && x.why === "followed");
   const colour = isColour(v.value);
@@ -50,7 +51,9 @@ export function VarRow({ v, source, layer, setVar }: { v: { name: string; value:
   const read = source.varsRead?.[v.name] ?? [];
   return (
     <label data-style-layer-var={v.name} data-token={v.token ? "" : undefined} className="flex flex-wrap items-center gap-2 text-small">
-      {v.options?.length ? (
+      {isScriptSlotKind(v.kind) ? (
+        <SlotKindEditor kind={v.kind} name={v.name} value={set ?? v.value} onChange={(x) => setVar(v.name, x === v.value ? null : x)} />
+      ) : v.options?.length ? (
         <select aria-label={v.name} data-slot-choice="" value={set ?? v.value} onChange={(e) => setVar(v.name, e.target.value === v.value ? null : e.target.value)} className="h-5 rounded border border-border bg-transparent px-1 font-mono text-fine">
           {[...new Set([v.value, ...v.options])].map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -64,6 +67,73 @@ export function VarRow({ v, source, layer, setVar }: { v: { name: string; value:
       {read.length ? <span className="text-fg-faint">read by {read[0]!.fn ?? read[0]!.file}{read.length > 1 ? ` and ${read.length - 1} more` : ""}</span> : null}
       {set ? <button type="button" className="text-fg-muted underline" onClick={() => { setTyped(v.value); setVar(v.name, null); }}>Reset</button> : null}
     </label>
+  );
+}
+
+const box = "h-5 rounded border border-border bg-transparent px-1 font-mono text-fine";
+
+/**
+ * A slot a script reads (kit/BUILDER-RULES.md, rule 28), edited as what it is: a sound J can play,
+ * a key he presses, a number format with a live sample, a line with its look. What it writes is
+ * what the kit's starter/parts/slots.js reads on the site.
+ */
+export function SlotKindEditor({ kind, name, value, onChange }: { kind: ScriptSlotKind; name: string; value: string; onChange: (value: string) => void }) {
+  const [listening, setListening] = React.useState(false);
+  if (kind === "sound") {
+    const s = parseSound(value) ?? { kind: "none" as const };
+    const vol = s.kind === "none" ? 0.5 : s.volume;
+    return (
+      <span data-slot-kind="sound" className="flex flex-wrap items-center gap-1">
+        <select aria-label={`${name} sound`} value={s.kind} className={box} onChange={(e) => onChange(writeSound(e.target.value === "beep" ? { kind: "beep", hz: 880, volume: vol } : e.target.value === "file" ? { kind: "file", src: "sounds/click.mp3", volume: vol } : { kind: "none" }))}>
+          <option value="none">No sound</option><option value="beep">Beep</option><option value="file">A sound file</option>
+        </select>
+        {s.kind === "beep" ? <input type="number" aria-label={`${name} pitch`} min={100} max={4000} step={20} value={s.hz} onChange={(e) => onChange(writeSound({ ...s, hz: Number(e.target.value) || 880 }))} className={`${box} w-16`} /> : null}
+        {s.kind === "file" ? <input type="text" aria-label={`${name} file`} defaultValue={s.src} onBlur={(e) => onChange(writeSound({ ...s, src: e.target.value.trim() || s.src }))} className={`${box} w-28`} /> : null}
+        {s.kind !== "none" ? <input type="range" aria-label={`${name} volume`} min={0} max={1} step={0.05} value={vol} onChange={(e) => onChange(writeSound({ ...s, volume: Number(e.target.value) }))} className="w-16" /> : null}
+        {s.kind !== "none" ? <button type="button" data-slot-play="" className="text-fg-muted underline" onClick={() => playSound(value, typeof location !== "undefined" ? location.href : undefined)}>Play</button> : null}
+      </span>
+    );
+  }
+  if (kind === "key") {
+    const key = parseKey(value) ?? "";
+    return (
+      <button type="button" data-slot-kind="key" aria-label={`${name} key`} className={`${box} min-w-12`} onClick={() => setListening(true)} onBlur={() => setListening(false)}
+        onKeyDown={(e) => {
+          if (!listening || ["Shift", "Control", "Alt", "Meta", "Tab"].includes(e.key)) return;
+          e.preventDefault();
+          onChange(e.key === "Escape" ? value : e.key === "Backspace" || e.key === "Delete" ? writeKey("") : writeKey(e.key));
+          setListening(false);
+        }}>
+        {listening ? "Press a key" : key ? (key === " " ? "Space" : key) : "No key"}
+      </button>
+    );
+  }
+  if (kind === "format") {
+    const f = parseFormat(value) ?? { before: "", sign: false, group: false, decimals: 0, after: "" };
+    const set = (x: Partial<typeof f>) => onChange(writeFormat({ ...f, ...x }));
+    return (
+      <span data-slot-kind="format" className="flex flex-wrap items-center gap-1">
+        <input type="text" aria-label={`${name} before`} value={f.before} placeholder="before" onChange={(e) => set({ before: e.target.value.replace(/[0+"]/g, "") })} className={`${box} w-10`} />
+        <select aria-label={`${name} decimals`} value={f.decimals} onChange={(e) => set({ decimals: Number(e.target.value) })} className={box}>
+          {[0, 1, 2, 3, 4].map((d) => <option key={d} value={d}>{d} decimals</option>)}
+        </select>
+        <input type="text" aria-label={`${name} after`} value={f.after} placeholder="after" onChange={(e) => set({ after: e.target.value.replace(/[0"]/g, "") })} className={`${box} w-10`} />
+        <label className="flex items-center gap-0.5"><input type="checkbox" checked={f.sign} onChange={(e) => set({ sign: e.target.checked })} />+ sign</label>
+        <label className="flex items-center gap-0.5"><input type="checkbox" checked={f.group} onChange={(e) => set({ group: e.target.checked })} />1,000</label>
+        <span data-slot-sample="" className="font-mono text-fg-muted">{[1234.5, -3.75].map((n) => formatNumber(n, value).text).join("  ")}</span>
+      </span>
+    );
+  }
+  const l = parseLine(value) ?? { width: 0, style: "none" as const };
+  return (
+    <span data-slot-kind="line" className="flex items-center gap-1">
+      <select aria-label={`${name} style`} value={l.style} onChange={(e) => onChange(writeLine({ width: l.width || 2, style: e.target.value as typeof l.style }))} className={box}>
+        <option value="none">No line</option>{LINE_STYLES.map((x) => <option key={x} value={x}>{x}</option>)}
+      </select>
+      {l.style !== "none" ? <input type="number" aria-label={`${name} width`} min={1} max={12} step={1} value={l.width} onChange={(e) => onChange(writeLine({ ...l, width: Number(e.target.value) }))} className={`${box} w-12`} /> : null}
+      {/* A preview of the line: a value the builder draws, not a style written into the site. */}
+      <svg data-slot-sample="" width="48" height="10" aria-hidden="true"><line x1="0" x2="48" y1="5" y2="5" stroke="currentColor" strokeWidth={l.width} strokeDasharray={l.style === "dashed" ? `${l.width * 3} ${l.width * 2}` : l.style === "dotted" ? `${l.width} ${l.width}` : undefined} opacity={l.style === "none" ? 0 : 1} /></svg>
+    </span>
   );
 }
 
