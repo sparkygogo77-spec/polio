@@ -12,7 +12,7 @@
 import * as React from "react";
 import { GitBranch, Plus, X } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
-import { useStudio } from "./store";
+import { useHeldStudio } from "./store";
 import { isStarter } from "./starterPage";
 import { VOID } from "@/core/ui/void";
 import { openRepoPicker } from "./RepoPicker";
@@ -26,7 +26,7 @@ function openPanel(field: "bring" | "new") {
 export function NewSiteOffer() {
   const project = useBuilds((s) => s.projects.find((p) => p.id === s.activeId) ?? null);
   /* The sample page a new site opens on is not work of his: the offer still stands over it. */
-  const parts = useStudio((s) => s.nodes.filter((n) => !isStarter(n.id)).length);
+  const parts = useHeldStudio((s) => s.nodes.filter((n) => !isStarter(n.id)).length);
   if (!project || project.repo || project.offered || parts > 0) return null;
   return (
     <div data-new-site-offer="" role="status" className="relative z-[1] flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5 text-plain" style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}>

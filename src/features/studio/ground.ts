@@ -52,6 +52,7 @@
  * opaque is painted on top of it — which is exactly what went wrong once.
  */
 import * as React from "react";
+import { isHeld } from "./store/hold";
 import {
   DRIFT_MS,
   fieldHeight,
@@ -311,7 +312,9 @@ export function useGround(
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
       last = t;
-      if (document.hidden) return;
+      /* And while a part is under the hand: thirty repaints a second of the
+         ground is a frame budget the drag needs more (J, 2026-10-06). */
+      if (document.hidden || isHeld()) return;
       clock += dt;
       if (clock >= nextSpark) {
         nextSpark = clock + SPARK_MS / 1000;

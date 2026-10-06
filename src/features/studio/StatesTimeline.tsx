@@ -24,7 +24,7 @@ import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import { partSteps, screenKey, type ScreenRead } from "./boardStates";
 import { frameFor, readStepKey, stateFrames, stepData, stepKey } from "./stateFrames";
 import { openPartFocus } from "./PartFocus";
@@ -84,8 +84,8 @@ export function pageStates(nodes: readonly StudioNode[], pageId: string, source:
 
 /** The page's states, kept while the parts and the page's screens are the same. */
 function usePageStates(pageId: string) {
-  const nodes = useStudio((s) => s.nodes);
-  const source = useStudio((s) => sourceOf(s.look));
+  const nodes = useHeldStudio((s) => s.nodes);
+  const source = useHeldStudio((s) => sourceOf(s.look));
   return React.useMemo(() => pageStates(nodes, pageId, source), [nodes, pageId, source]);
 }
 
@@ -180,9 +180,9 @@ function rowFor(rows: readonly Row[], nodes: readonly StudioNode[], id: string):
  * the board lit; pressing one swaps the part into it on the board.
  */
 export function PartSamples({ nodeId }: { nodeId: string }) {
-  const pageId = useStudio((s) => s.activePageId);
-  const nodes = useStudio((s) => s.nodes);
-  const on = useStudio((s) => s.statesOn ?? []);
+  const pageId = useHeldStudio((s) => s.activePageId);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const on = useHeldStudio((s) => s.statesOn ?? []);
   const { screens, rows } = usePageStates(pageId);
   const row = rowFor(rows, nodes, nodeId);
   if (!row) return null;

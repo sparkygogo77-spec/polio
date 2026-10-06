@@ -3,7 +3,7 @@ import { isKeptVersion, openRemake, PictureVersions } from "../RemakePicture";
 import * as React from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { getFeature, type FeatureOption } from "../catalog";
-import { HUES, useStudio, type StudioNode } from "../store";
+import { HUES, useHeldStudio, useStudio, type StudioNode } from "../store";
 import { drop as dropPicture, put as putPicture, usePicture } from "../pictures";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -108,7 +108,7 @@ export function OptionSet({ option, value, onChange }: { option: FeatureOption; 
 /** THE WORDS, FIRST. Two presses on the part put the caret here (`wanted`). */
 export function WordsField({ node, content, label, alsoFor }: { node: StudioNode; content: { label: string; placeholder?: string }; label?: "link" | "button"; alsoFor?: string }) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
-  const wanted = useStudio((s) => s.wanted);
+  const wanted = useHeldStudio((s) => s.wanted);
   React.useEffect(() => {
     if (!wanted || wanted.focus !== "words" || (wanted.id !== node.id && wanted.id !== alsoFor)) return;
     /* After the press that asked: the board takes the keys back on its

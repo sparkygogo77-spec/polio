@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { AlignCenter, AlignLeft, AlignRight, Bookmark, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "../catalog";
 import { isLinkable } from "../parts";
-import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio, type StudioNode } from "../store";
+import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useHeldStudio, useStudio, type StudioNode } from "../store";
 import { ColourOverride } from "../ColourOverride";
 import { AuditPanel, AuditReadout } from "../AuditPanel";
 import { written } from "../parts/cubeFaces";
@@ -46,12 +46,12 @@ import { Faces, Solid, LinkField } from "./solid";
 import { PartSamples } from "../StatesTimeline";
 
 export function Inspector() {
-  const selection = useStudio((s) => s.selection);
-  const nodes = useStudio(useShallow(pageNodes));
-  const shapes = useStudio(useShallow(pageShapes));
-  const groups = useStudio(useShallow(pageGroups));
-  const page = useStudio(activePage);
-  const frameWidth = useStudio((s) => s.frameWidth);
+  const selection = useHeldStudio((s) => s.selection);
+  const nodes = useHeldStudio(useShallow(pageNodes));
+  const shapes = useHeldStudio(useShallow(pageShapes));
+  const groups = useHeldStudio(useShallow(pageGroups));
+  const page = useHeldStudio(activePage);
+  const frameWidth = useHeldStudio((s) => s.frameWidth);
   /* Which mark is open. None is the resting state, and the prompt is
      always there under it — see the row below. */
   /* The back arrow on a part's panel shows the tree with the part still picked; picking another part opens its panel. */
@@ -60,8 +60,8 @@ export function Inspector() {
   React.useEffect(() => { setBackTo((b) => (b && selKey === b ? b : null)); }, [selKey]);
   /* Asked for again (its row pressed in the list, a double press on the board), the part's panel opens, even when it is the part the back arrow left. */
   React.useEffect(() => useStudio.subscribe((s, was) => { if (s.wanted && s.wanted !== was.wanted && s.wanted.panel === "inspector") setBackTo(null); }), []);
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const openDecisions = useDecisions(nodes);
 

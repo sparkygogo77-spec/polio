@@ -30,6 +30,8 @@ export function holdSaves(on: boolean): void {
 }
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+/** Told when the hand goes down on a part and when it comes up (`heldView.ts`). */
+export const onHold = subscribe;
 const snapshot = () => held;
 const serverSnapshot = () => false;
 

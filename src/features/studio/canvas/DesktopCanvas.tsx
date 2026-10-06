@@ -88,8 +88,10 @@ export function DesktopCanvas() {
     });
   }, [news]);
   const nodes = useStudio(useShallow(pageNodes));
+  /* The parts as they were when the hand went down, while one is under it (`store/hold.ts`): what is worked out from the whole page and does not change because a part is being carried — its features, its names, which parts ask a question, where a row's words start — is worked out once for the drag, not on every move (J, 2026-10-06, "dragging elements around is still laggy"). */
+  const steadyNodes = useSteady(nodes);
   /* What moves on its own (a spin, a float, the dust) plays on the board too, softly, on the drawn layer inside each part: the part's box stays put and editable (`live/runWorks.ts`, board). Again only when what they are told changes. */
-  const boardMoves = React.useMemo(() => JSON.stringify(pageFeatures(nodes).bindings.filter((b) => (AMBIENT as readonly string[]).includes(b.feature))), [nodes]);
+  const boardMoves = React.useMemo(() => JSON.stringify(pageFeatures(steadyNodes).bindings.filter((b) => (AMBIENT as readonly string[]).includes(b.feature))), [steadyNodes]);
   React.useEffect(() => {
     if (boardMoves === "[]" || !ref.current) return;
     return runWorks(ref.current, useStudio.getState().nodes.filter((n) => n.pageId === useStudio.getState().activePageId), { board: true });
@@ -98,11 +100,10 @@ export function DesktopCanvas() {
   /* A part whose held presses have all been learned loses its ! (`learn.ts`); every other ! is as it was. */
   const learnState = useStudio((s) => s.learn);
   /* The names the side panel prints, worked out once for the page: the tag over a part says the same. */
-  const names = React.useMemo(() => new Map(nodes.map((n) => [n.id, partName(n, nodes, (id) => getFeature(id)?.name)])), [nodes]);
+  const names = React.useMemo(() => new Map(steadyNodes.map((n) => [n.id, partName(n, steadyNodes, (id) => getFeature(id)?.name)])), [steadyNodes]);
   /* Only the picked part wears its ! unless the top bar's count says show them all (`decideShown.ts`). */
   const decideAll = useDecideAll();
   /* Which parts ask a question does not change under the hand: read from the parts as they were when it went down (`store/hold.ts`). */
-  const steadyNodes = useSteady(nodes);
   const decide = React.useMemo(() => new Map(decisions(steadyNodes).filter((d) => !learnState || !partLearned(learnState, d.id)).map((d) => [d.id, d.why])), [steadyNodes, learnState]);
   /*
    * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
@@ -1709,7 +1710,9 @@ export function DesktopCanvas() {
      `{ w, h }` or a fresh lead-in copy made every part redraw each time
      (`tests/pan-no-redraw.mjs`). */
   const pageBox = React.useMemo(() => ({ w: frameWidth, h: frameH }), [frameWidth, frameH]);
-  const ledNodes = React.useMemo(() => { const leads = leadsOf(nodes); return new Map(nodes.map((n) => [n.id, withLead(n, leads)])); }, [nodes]);
+  /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
+  const leads = React.useMemo(() => leadsOf(steadyNodes), [steadyNodes]);
+  const ledOf = React.useMemo(() => { const kept = new WeakMap<StudioNode, StudioNode>(); return (n: StudioNode) => { let v = kept.get(n); if (!v) { v = withLead(n, leads); kept.set(n, v); } return v; }; }, [leads]);
   const cursor = drag?.kind === "pan" ? "grabbing" : tool === "select" ? "default" : "crosshair";
 
   return (
@@ -2013,7 +2016,7 @@ export function DesktopCanvas() {
           <NodeView
             key={n.id}
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
-            node={tryOn(ledNodes.get(n.id) ?? n, trying)}
+            node={tryOn(ledOf(n), trying)}
             selected={selection.includes(n.id)}
             inHeldGroup={heldIds.has(n.id)}
             theme={theme}

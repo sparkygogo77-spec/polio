@@ -14,7 +14,7 @@ import { ClipboardPaste, Pipette } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import { FACET_WORDS, lookDiffers, lookHas, lookOf, lookPatch } from "./partLook";
 import { tryProps } from "./tryLook";
 import { pasteLook, useLookClip } from "./partLookApply";
@@ -22,7 +22,7 @@ import { pasteLook, useLookClip } from "./partLookApply";
 export function LookCopy({ node, targets }: { node: StudioNode | null; targets: string[] }) {
   const look = useLookClip((s) => s.look);
   const chosen = useLookClip((s) => s.chosen);
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useHeldStudio((s) => s.nodes);
   const [said, setSaid] = React.useState<string | null>(null);
   React.useEffect(() => setSaid(null), [targets.join(",")]);
 

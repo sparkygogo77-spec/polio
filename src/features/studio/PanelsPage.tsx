@@ -26,7 +26,7 @@ import * as React from "react";
 import { ChevronLeft, ChevronRight, Layers, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./store";
 import type { ScreenRead } from "./boardStates";
 import type { Panel, PanelNode } from "./panels";
 import { panelsOfPage, ISOLATE, isolateKey, readIsolateKey } from "./panelsOf";
@@ -57,8 +57,8 @@ export function usePanelsPageOpen() {
  * with notes on why.
  */
 export function usePagePanels(pageId: string): { panels: Panel[]; screens: ScreenRead[]; declared: boolean; notes: string[] } {
-  const nodes = useStudio((s) => s.nodes);
-  const source = useStudio((s) => sourceOf(s.look));
+  const nodes = useHeldStudio((s) => s.nodes);
+  const source = useHeldStudio((s) => sourceOf(s.look));
   return React.useMemo(() => panelsOfPage(nodes as unknown as PanelNode[], source, pageId), [nodes, pageId, source]);
 }
 
@@ -96,10 +96,10 @@ export function panelOf(nodes: readonly StudioNode[], panels: readonly Panel[], 
 
 export function PanelsPage() {
   const isOpen = usePanelsPageOpen();
-  const pageId = useStudio((s) => s.activePageId);
-  const nodes = useStudio((s) => s.nodes);
-  const selection = useStudio((s) => s.selection);
-  const on = useStudio((s) => s.statesOn ?? []);
+  const pageId = useHeldStudio((s) => s.activePageId);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const selection = useHeldStudio((s) => s.selection);
+  const on = useHeldStudio((s) => s.statesOn ?? []);
   const { panels, declared, notes } = usePagePanels(pageId);
   const [picked, setPicked] = React.useState<string | null>(null);
   const [stateKey, setStateKey] = React.useState<string | null>(null);
