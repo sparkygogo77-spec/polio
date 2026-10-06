@@ -1,6 +1,6 @@
 "use client";
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist, createJSONStorage, type PersistStorage } from "zustand/middleware";
 import { readDoc, writeDoc } from "../docStore";
 import { uid } from "@/core/lib/ids";
 import { type ThreadDoc } from "../threads";
@@ -14,6 +14,39 @@ import { docOnly, mergeDoc } from "./persist";
 import type { StudioState } from "./state";
 import { threadsActions } from "./threads";
 import { viewActions } from "./view";
+
+/*
+ * ONLY A CHANGED DOCUMENT IS WRITTEN.
+ *
+ * The persister saves on every change of state, and most changes are not to
+ * the document: a pan writes `pan` on every pointer move, and `pan` is not
+ * saved. Each of those still turned the whole document into text and wrote
+ * it to localStorage — for an imported site of 700 parts, 2 MB a move, and
+ * the bulk of what made panning lag (`tests/pan-no-save.mjs`). What is saved
+ * is `docOnly`, a list of the store's own slices, so a change that touched
+ * none of them hands over the same references: compared one by one, and
+ * nothing written when every one is the one written last.
+ */
+function keptOnly<S>(inner: PersistStorage<S>): PersistStorage<S> {
+  let last: { key: string; version: number | undefined; state: Record<string, unknown> } | null = null;
+  return {
+    getItem: inner.getItem,
+    setItem: (key, value) => {
+      if (!pen.read || pen.swapping) return;
+      const state = value.state as Record<string, unknown>;
+      if (last && last.key === key && last.version === value.version && sameSlices(last.state, state)) return;
+      last = { key, version: value.version, state };
+      return inner.setItem(key, value);
+    },
+    removeItem: (key) => { last = null; return inner.removeItem(key); },
+  };
+}
+function sameSlices(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) if (a[k] !== b[k]) return false;
+  return true;
+}
 
 export const useStudio = create<StudioState>()(
   persist(
@@ -271,11 +304,11 @@ export const useStudio = create<StudioState>()(
        * were kept. A document already in localStorage is read from there
        * and carried across, so what was on the board before this stays.
        */
-      storage: createJSONStorage(() => ({
+      storage: keptOnly(createJSONStorage(() => ({
         getItem: (k) => readDoc(k),
-        setItem: (k, v) => { if (!pen.read || pen.swapping) return; writeDoc(k, v); },
+        setItem: (k, v) => { writeDoc(k, v); },
         removeItem: (k) => { writeDoc(k, null); },
-      })),
+      }))!),
       merge: (persisted, current) => mergeDoc(persisted, current as StudioState),
       partialize: docOnly,
       skipHydration: true,
