@@ -135,6 +135,16 @@ if (import.meta.url === new URL(`file://${resolve(process.argv[1] ?? '')}`).href
   if (r.deleted.length) console.log(`Removed as the design asked (design/HOOK-CHANGES.json): ${list(r.deleted)}.`);
   if (r.warnings.length) console.log(`${r.warnings.length} state(s) already left their frame in the base's design record (old debt; not counted against this change). --verbose lists them.`);
   if (args.includes('--verbose')) for (const w of r.warnings) console.log(`  ! ${w}`);
+  if (!styleOnly && (r.added.length || r.removed.length)) {
+    /* Rule 26: the builder learns what this change is for from its change note. */
+    let noted = false;
+    try {
+      const root = git(dirname(resolve(manifestPath)), 'rev-parse', '--show-toplevel').trim();
+      const branch = git(root, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
+      noted = JSON.parse(readFileSync(resolve(root, 'design/CODE-CHANGES.json'), 'utf8')).entries?.some((e) => e.branch === branch);
+    } catch { /* no note yet */ }
+    if (!noted) console.log('Reminder: leave a change note for the builder: npm run kit:notes -- --base <this base> --why "<what it is for>" (BUILDER-RULES.md rule 26).');
+  }
   for (const p of r.problems) console.log(`  ✗ ${p}`);
   const kind = styleOnly ? 'style change' : 'code change';
   console.log(r.problems.length ? `kit:diff failed: ${r.problems.length} problem(s) in this ${kind}` : `kit:diff passed: this ${kind} keeps every hook the design uses`);

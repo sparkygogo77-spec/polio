@@ -673,6 +673,13 @@ export function check(manifestPath, { write = false } = {}) {
     if (s.kind === 'choice' && !(Array.isArray(s.options) && s.options.length > 1)) problems.push(`${name}: a choice slot lists its "options"`);
   }
 
+  // ---- builder requests (BUILDER-RULES.md rule 27): a look the builder can't edit in any slot kind yet
+  for (const [i, q] of (manifest.rules?.requests ?? []).entries()) {
+    const name = `builder.json rules.requests[${i}]${q?.hook ? ` (${q.hook})` : ''}`;
+    if (!q?.hook || typeof q.need !== 'string' || !q.need.trim()) { problems.push(`${name}: a request needs "hook" and "need" (what the builder should learn to edit)`); continue; }
+    if (!where.has(q.hook)) problems.push(`${name}: hook "${q.hook}" is on no page`);
+  }
+
   // ---- preview screens: each is named in its page's scripts
   for (const s of manifest.preview.screens ?? []) {
     const page = pages.find((p) => p.file === s.page);

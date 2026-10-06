@@ -170,6 +170,13 @@ export const FIXTURES = [
     expect: /rules\.slots\[0\] \(--shadow\): nothing uses --shadow for "page-title"/,
   },
   {
+    name: 'a builder request on a hook no page has',
+    file: 'builder.json',
+    find: '"requests": []',
+    replace: '"requests": [{ "hook": "no-such-part", "need": "a dashed line" }]',
+    expect: /rules\.requests\[0\] \(no-such-part\): hook "no-such-part" is on no page/,
+  },
+  {
     name: 'state rules: a script hides a part itself',
     file: 'starter/js/list.js',
     find: "  setOn('list-empty', items.length === 0);",

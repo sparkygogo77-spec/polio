@@ -11,6 +11,7 @@
     "kit:check": "node tools/kit-check.mjs builder.json",
     "kit:hooks": "node tools/kit-check.mjs builder.json --write",
     "kit:diff": "node tools/kit-diff.mjs builder.json",
+    "kit:notes": "node tools/code-notes.mjs builder.json",
     "kit:new": "node tools/new-site.mjs",
     "test": "node --test test/*.test.mjs",
     "serve": "python3 -m http.server 8080",
