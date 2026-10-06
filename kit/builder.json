@@ -271,7 +271,6 @@
       "twins": {
         "idle": [
           "waiting",
-          "ready",
           "empty"
         ],
         "loading": [
@@ -283,8 +282,7 @@
         "live": [
           "running",
           "playing",
-          "active",
-          "open"
+          "active"
         ],
         "warning": [
           "low",
