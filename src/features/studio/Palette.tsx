@@ -1087,7 +1087,7 @@ function Band({ title, children, hue, mark }: { title: string; children: React.R
  * Inside the shelf's own edge, never over the board: a part's resize handle
  * at the shelf's edge is the part's (`tests/hand-steady.mjs`).
  */
-function ShelfGrip() {
+export function ShelfGrip() {
   const start = React.useRef<{ y: number; h: number } | null>(null);
   return (
     <div

@@ -128,6 +128,30 @@ function pick(row: Row, at: number) {
   if (!c) return;
   showStep(row.frame.id, c.key);
   useStudio.getState().setSelection([row.frame.id]);
+  snapTo(row.frame.id);
+}
+
+/**
+ * The board goes to the part a step changes (J, 2026-10-06: "i cant tell
+ * where this one leads"): scrolled to it when it is not already on screen,
+ * and outlined for a moment either way. The pane is scrolled by hand, as
+ * `ShelfCards.tsx#jumpTo` does, so the shelf stays where it is.
+ */
+export function snapTo(id: string) {
+  if (typeof window === "undefined") return;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-studio-pane] [data-node-id="${CSS.escape(id)}"]`);
+    const pane = el?.closest("[data-studio-pane]");
+    if (!(el instanceof HTMLElement) || !(pane instanceof HTMLElement)) return;
+    const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+    const seen = r.top >= p.top && r.top < p.bottom - Math.min(r.height, p.height / 3);
+    if (!seen) pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
+    el.setAttribute("data-just-shown", "");
+    el.animate(
+      [{ outline: "3px solid var(--accent)", outlineOffset: "3px" }, { outline: "3px solid transparent", outlineOffset: "12px" }],
+      { duration: 1200, easing: "ease-out" },
+    ).onfinish = () => el.removeAttribute("data-just-shown");
+  }));
 }
 
 /**
@@ -344,7 +368,7 @@ export function StatesTimeline() {
                     <ChevronDown className={cn("size-3 transition-transform", !open && "-rotate-90")} />
                   </button>
                 ) : <span className="size-5 shrink-0" />}
-                <button type="button" data-state-part={row.frame.id} onClick={() => { play("tap"); useStudio.getState().setSelection([row.frame.id]); }} className="tactile min-w-0 truncate rounded px-1 text-left text-small font-medium text-fg hover:bg-hover" title={`${nameOf(row)}: pick it on the board${n ? ` (${n} inside)` : ""}`}>
+                <button type="button" data-state-part={row.frame.id} onClick={() => { play("tap"); useStudio.getState().setSelection([row.frame.id]); snapTo(row.frame.id); }} className="tactile min-w-0 truncate rounded px-1 text-left text-small font-medium text-fg hover:bg-hover" title={`${nameOf(row)}: pick it on the board${n ? ` (${n} inside)` : ""}`}>
                   {nameOf(row)}
                 </button>
               </div>
