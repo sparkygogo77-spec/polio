@@ -9,6 +9,7 @@ import { twins, twinSays } from "../twins";
 import { grownSays, grownTo, type Read } from "../owns";
 import { newTour, siteFaces } from "../tour";
 import { placeInFrame } from "./frame";
+import { groupTwins } from "../stateEdits";
 import { GetStudio, HUES, SetStudio, TYPED_FIELDS, inherit, withFits, withGrown, withJoins, withPaint, withoutTwins } from "./history";
 import { ShapeKind, ShapeRelation, StudioNode } from "./model";
 import type { StudioState } from "./state";
@@ -124,7 +125,10 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
       const keys = Object.keys(patch);
       if (keys.length && keys.every((k) => TYPED_FIELDS.has(k))) pushEdit(`node:${id}:${keys.join(",")}`);
       else push();
-      set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }));
+      /* A style group is edited once: its other parts take the same look (`stateEdits.ts#groupTwins`). */
+      const twins = groupTwins(get().nodes, id, patch as Record<string, unknown>);
+      const also = new Set(twins?.ids ?? []);
+      set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : also.has(n.id) ? { ...n, ...twins!.patch } : n)) }));
     },
 
     updateNodeQuiet: (id, patch) => set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) })),

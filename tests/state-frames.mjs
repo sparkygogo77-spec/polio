@@ -157,6 +157,7 @@ const openMenu = async (id) => {
   await ui.waitForTimeout(700);
   return ui.locator('[data-tray-item="states"]').count();
 };
+const onBefore = JSON.stringify((await board()).statesOn ?? []);
 check("the box's right-click menu offers Edit on Panels page", (await openMenu(box.id)) === 1 && /Edit on Panels page/.test(await ui.locator('[data-tray-item="states"]').textContent()));
 await ui.locator('[data-tray-item="states"]').evaluate((b) => b.click());
 await ui.waitForTimeout(700);
@@ -175,6 +176,8 @@ await ui.waitForTimeout(300);
 await ui.keyboard.press("Escape");
 await ui.waitForTimeout(400);
 check("letting go of the panel brings the board back", !(await isolated()));
+/* J: the states looked through do not stay on the board, piling up. */
+check("nothing the rail picked stays switched on", JSON.stringify((await board()).statesOn ?? []) === onBefore, JSON.stringify((await board()).statesOn));
 await pp.locator("[data-panels-back]").click();
 await ui.waitForTimeout(300);
 /* The box picked again, as section 4 starts from it. */

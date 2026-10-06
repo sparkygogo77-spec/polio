@@ -59,3 +59,19 @@ export function checkIn<T extends EditNode>(nodes: readonly T[], out: CheckedOut
     return back as T;
   });
 }
+
+/**
+ * A STYLE GROUP IS EDITED ONCE (BUILDER-RULES.md rule 24): the look an edit
+ * gives one part of a `data-group` goes to every part of that group, so all
+ * the panel titles change together. Only the look: place, size and words are
+ * each part's own. The ids to patch, with the patch each gets.
+ */
+export function groupTwins(nodes: readonly { id: string; hooks?: Record<string, string> | null }[], id: string, patch: Record<string, unknown>): { ids: string[]; patch: Record<string, unknown> } | null {
+  const me = nodes.find((n) => n.id === id);
+  const group = me?.hooks?.["data-group"];
+  if (!group) return null;
+  const look = Object.fromEntries(Object.entries(patch).filter(([k]) => !NOT_LOOK.has(k)));
+  if (!Object.keys(look).length) return null;
+  const ids = nodes.filter((n) => n.id !== id && n.hooks?.["data-group"] === group).map((n) => n.id);
+  return ids.length ? { ids, patch: look } : null;
+}

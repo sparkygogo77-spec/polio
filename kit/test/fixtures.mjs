@@ -186,8 +186,8 @@ export const FIXTURES = [
   {
     name: 'state rules: a panel inside another panel\'s state',
     file: 'starter/contact.html',
-    find: '<label data-hook="email-field">',
-    replace: '<label data-hook="email-field" data-show="on">',
+    find: '<label data-hook="email-field" data-group="form-field">',
+    replace: '<label data-hook="email-field" data-group="form-field" data-show="on">',
     expect: /panel "email-error" sits inside a state of panel "contact-form"/,
   },
   {
@@ -217,5 +217,33 @@ export const FIXTURES = [
     find: '[data-panel][data-state="off"]',
     replace: '[data-panel][data-state="gone"]',
     expect: /the shared state rule \(kit:panels\) is stale/,
+  },
+  {
+    name: 'labels: a panel with no plain name',
+    file: 'starter/contact.html',
+    find: ' data-label="Sent note"',
+    replace: '',
+    expect: /form-sent is a panel with no plain name/,
+  },
+  {
+    name: 'labels: a kind the builder does not know',
+    file: 'starter/contact.html',
+    find: 'data-hook="footer-year" data-kind="date"',
+    replace: 'data-hook="footer-year" data-kind="year"',
+    expect: /footer-year: data-kind "year" is not one of/,
+  },
+  {
+    name: 'labels: a template with no list',
+    file: 'starter/list.html',
+    find: ' data-list="template-list-item"',
+    replace: '',
+    expect: /template-list-item has no list/,
+  },
+  {
+    name: 'labels: a style group of one',
+    file: 'starter/contact.html',
+    find: '<label data-hook="message-field" data-group="form-field">',
+    replace: '<label data-hook="message-field" data-group="message-look">',
+    expect: /style group "message-look" has one member/,
   },
 ];

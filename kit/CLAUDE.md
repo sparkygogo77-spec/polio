@@ -19,6 +19,9 @@ The short version:
   a part the builder can see: a declared state of a panel (`data-panel`, `data-states`, parts with
   `data-show`); scripts only set the panel's `data-state`. Never append it outside a part.
 - Every visible thing is a real tagged element: no `::before`/`::after` drawings.
+- Label parts for the builder (BUILDER-RULES.md rules 21-24): `data-label` (plain name; every panel and
+  list), `data-kind` (what a filled-in value is), `data-list` (where template copies go), `data-group`
+  (parts that share a look).
 - Need a look or setting the builder can't edit yet? Don't drop it or hard-code it: make it a token
   and list it in `builder.json` `rules.slots` (BUILDER-RULES.md rule 4). States stay inside their frame.
 - The only `<iframe>` is the DexScreener chart embed; scripts set only the position variables

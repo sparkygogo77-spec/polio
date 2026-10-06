@@ -42,7 +42,7 @@
   "rules": {
     "about": "Design and build rules every code chat follows. The full text is in doc; the checks named enforce them. Missing a style or setting? Add a slot.",
     "doc": "BUILDER-RULES.md",
-    "version": 3,
+    "version": 4,
     "list": [
       {
         "id": "real-elements",
@@ -162,6 +162,30 @@
         "title": "kit:check enforces the state rules",
         "checkedBy": "kit:check",
         "rule": "kit:check fails on inner parts hidden by script, states in data-show that aren't declared, a panel inside another panel's state, data-state outside a panel, unknown panels or states in setState/setOn and the scene file, and a stale shared rule."
+      },
+      {
+        "id": "plain-names",
+        "title": "Plain names",
+        "checkedBy": "kit:check",
+        "rule": "Every panel root and every list has data-label: the plain name the builder shows instead of the hook. Any other part may have one."
+      },
+      {
+        "id": "say-what-the-text-is",
+        "title": "Say what the text is",
+        "checkedBy": "kit:check",
+        "rule": "A part a script fills with a value may say its kind: data-kind is text, number, money, percent, time, date, address or hash."
+      },
+      {
+        "id": "lists-name-their-template",
+        "title": "Lists name their template",
+        "checkedBy": "kit:check",
+        "rule": "The part that copies of a template go into has data-list=\"template-...\"; every template on a designed page has its list."
+      },
+      {
+        "id": "style-groups",
+        "title": "Style groups",
+        "checkedBy": "kit:check",
+        "rule": "Parts that share one look carry the same data-group; the builder edits a group once. A group has at least two parts."
       }
     ],
     "slots": [
