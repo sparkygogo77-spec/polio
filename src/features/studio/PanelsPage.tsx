@@ -22,7 +22,8 @@
  *   · for a declared panel, an edit goes to the state on show unless "All
  *     states" is on (`stateEdits.ts`);
  *   · hovering a panel in the rail snaps the page state at once to a scene
- *     that shows it and lights it on the board, so he knows where it is
+ *     that shows it and spotlights it on the board (everything else dimmed,
+ *     other panels too), so he knows where it is
  *     before he clicks; clicking centres it on a lone page, clear of the
  *     rail (J, 2026-10-06).
  */
@@ -39,6 +40,7 @@ import { labelsOf, readDeclared, statesOfPart, type DeclaredScene, type Samples 
 import { checkIn, checkOut, stateEditKey, type CheckedOut } from "./stateEdits";
 import { scenesOnPage } from "./sceneStep";
 import { screenKey } from "./boardStates";
+import { spotlight } from "./panelSpotlight";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null };
 const sourceOf = (look: unknown) => (look as { styleSource?: Source } | undefined)?.styleSource;
@@ -151,18 +153,17 @@ export function PanelsPage() {
     window.setTimeout(() => bringToView(id, true), 60);
   }, [panels]);
   /* Hovered in the rail: snapped to a scene that shows it, and lit on the board until the pointer leaves or he clicks. */
-  const hovered = React.useRef<{ id: string; glow: Animation | null } | null>(null);
-  const unhover = React.useCallback(() => { hovered.current?.glow?.cancel(); hovered.current = null; }, []);
+  const hovered = React.useRef<{ id: string; stop: (() => void) | null } | null>(null);
+  const unhover = React.useCallback(() => { hovered.current?.stop?.(); hovered.current = null; }, []);
   const hover = React.useCallback((p: Panel) => {
     if (hovered.current?.id === p.id) return;
     unhover();
     if (useStudio.getState().statesOn?.some((k) => k.startsWith(ISOLATE))) return;
-    hovered.current = { id: p.id, glow: null };
+    hovered.current = { id: p.id, stop: null };
     snapToSceneShowing(p.hook, !useStudio.getState().nodes.find((n) => n.id === p.id)?.state);
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-node-id="${CSS.escape(p.id)}"]`);
-      if (hovered.current?.id !== p.id || !(el instanceof HTMLElement) || !el.animate) return;
-      hovered.current.glow = el.animate([{ outline: "3px solid oklch(0.8 0.17 150)", outlineOffset: "3px", boxShadow: "0 0 0 9999px oklch(0 0 0 / 0.25)" }, { outline: "3px solid oklch(0.8 0.17 150 / 0.6)", outlineOffset: "6px", boxShadow: "0 0 0 9999px oklch(0 0 0 / 0.25)" }], { duration: 700, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
+      if (hovered.current?.id !== p.id) return;
+      hovered.current.stop = spotlight(p.id);
       bringToView(p.id, false);
     }));
   }, [unhover]);
