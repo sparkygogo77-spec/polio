@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Camera, ChevronDown, Circle, Ellipsis, Eye, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis, Eye, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { HistoryControls } from "../HistoryControls";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
@@ -18,6 +18,7 @@ import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { TOOLS, useMedia, FOLDING } from "./sizes";
 import { SiteHead, PageChips } from "./head";
+import { scenesOnPage, stepScene } from "../sceneStep";
 
 export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   // The More key exists only while the bar is folding controls away: on a
@@ -478,6 +479,8 @@ export function DeviceSwitch({ width }: { width: number }) {
 export function SearchTools({ always = false }: { always?: boolean } = {}) {
   const ctx = useActions();
   return (
+    <>
+    <SceneArrows />
     <Tooltip content="Search every command and setting" shortcut="mod+k">
       <button
         type="button"
@@ -499,6 +502,31 @@ export function SearchTools({ always = false }: { always?: boolean } = {}) {
         <span className={cn("min-w-0 flex-1 truncate text-left", always ? "inline" : "hidden xl:inline xl:min-w-[4.5rem]")}>Search commands…</span>
       </button>
     </Tooltip>
+    </>
+  );
+}
+
+/**
+ * ‹ SCENE › BY THE SEARCH BAR (J, 2026-10-06): a site that lists its scenes
+ * (`stateRules.ts`) steps through its whole-page layouts here, the board
+ * sliding one out and the next in (`sceneStep.ts`). Nothing for a site
+ * without them.
+ */
+export function SceneArrows() {
+  const activePageId = useStudio((s) => s.activePageId);
+  const look = useStudio((s) => s.look);
+  const statesOn = useStudio((s) => s.statesOn);
+  const { scenes, at } = React.useMemo(() => scenesOnPage({ activePageId, look, statesOn }), [activePageId, look, statesOn]);
+  if (!scenes.length) return null;
+  const now = at >= 0 ? scenes[at]! : null;
+  return (
+    <div data-scene-arrows="" className="flex h-6 shrink-0 items-center rounded-md border border-border">
+      <button type="button" data-scene-prev="" aria-label="Previous scene" onClick={() => stepScene(-1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronLeft className="size-3.5" /></button>
+      <span data-scene-now={now?.name ?? ""} className="hidden max-w-[11rem] truncate px-1 text-small text-fg-muted lg:inline" title={now?.label ?? "The page as it opens"}>
+        <span className="num text-fg-faint">{at + 1}/{scenes.length}</span> {now?.label ?? "as it opens"}
+      </span>
+      <button type="button" data-scene-next="" aria-label="Next scene" onClick={() => stepScene(1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronRight className="size-3.5" /></button>
+    </div>
   );
 }
 

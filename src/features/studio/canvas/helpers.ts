@@ -1,6 +1,8 @@
 import { boardShows,screenKey,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../boardStates";
 import { stateFrames } from "../stateFrames";
 import { panelDecides } from "../stateRules";
+import { panelsOfPage, readIsolateKey, type PanelSource } from "../panelsOf";
+import { panelDrawing, type PanelNode } from "../panels";
 import { REACH_WIDTH } from "../strand";
 import { type StudioNode } from "../store";
 import { type Box as HeldBox,type Held } from "../groupScale";
@@ -23,12 +25,48 @@ export function steppedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?:
   steppedMemo = { on, screens: source?.screens, files: source?.files, nodes: s.nodes, read };
   return read;
 }
+/**
+ * ONE PANEL, ISOLATED ON THE BOARD (J, 2026-10-06): picked from the Panels
+ * rail, the rest of its page steps away and the panel stands alone on the
+ * page's own background, centred across it, in the state picked, so it is
+ * seen and edited with the contrast it really has. Only while it is picked:
+ * the rail lets go of it when the pick moves off it (`PanelsPage.tsx`).
+ */
+export type Isolated = { pageId: string; shows: Set<string>; places: Map<string, PlaceBox>; looks: Map<string, StepLook>; panelId: string };
+export let isolatedMemo: { on: unknown; nodes: unknown; source: unknown; read: Isolated | null } | null = null;
+export function isolatedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[]; frameWidth?: number }): Isolated | null {
+  const on = s.statesOn ?? [];
+  const key = on.map(readIsolateKey).find((x) => !!x);
+  if (!key) return null;
+  const source = sourceOf(s) as PanelSource;
+  if (isolatedMemo && isolatedMemo.on === on && isolatedMemo.nodes === s.nodes && isolatedMemo.source === source) return isolatedMemo.read;
+  const nodes = (s.nodes ?? []) as unknown as PanelNode[];
+  const p = nodes.find((n) => n.id === key.panelId);
+  let read: Isolated | null = null;
+  if (p) {
+    const panel = panelsOfPage(nodes, source, p.pageId).panels.find((x) => x.id === p.id);
+    const state = panel?.states.find((x) => x.key === key.state) ?? panel?.states[0];
+    const sample = state?.samples.find((x) => x.key === key.sample) ?? state?.samples[0];
+    const page = nodes.filter((n) => n.pageId === p.pageId);
+    const d = panelDrawing(page, p.id, sample?.screen ?? null);
+    const W = s.frameWidth || Math.max(...page.map((n) => n.x + n.w));
+    const dx = Math.round((W - d.box.w) / 2 - p.x);
+    const places = new Map<string, PlaceBox>();
+    const looks = new Map<string, StepLook>();
+    for (const x of d.placed) { places.set(x.node.id, { x: x.x + dx, y: x.y, w: x.w, h: x.h }); if (x.look) looks.set(x.node.id, x.look); }
+    read = { pageId: p.pageId, shows: new Set(d.placed.map((x) => x.node.id)), places, looks, panelId: p.id };
+  }
+  isolatedMemo = { on, nodes: s.nodes, source, read };
+  return read;
+}
 /** Each part's words and picture as the lit screens and the picked steps have them: a step's own win inside its part. */
 export let looksMemo: { on: unknown; screens: unknown; files: unknown; nodes: unknown; looks: Map<string, StepLook> } | null = null;
 export const NO_LOOKS = new Map<string, StepLook>();
 export function looksOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, StepLook> {
   const on = s.statesOn ?? [];
   if (!on.length) return NO_LOOKS;
+  const iso = isolatedOnBoard(s);
+  if (iso) return iso.looks;
   const source = sourceOf(s);
   if (looksMemo && looksMemo.on === on && looksMemo.screens === source?.screens && looksMemo.files === source?.files && looksMemo.nodes === s.nodes) return looksMemo.looks;
   const looks = on.some((k) => k.startsWith("screen:") || k.startsWith("top:")) ? screenLooks((s.nodes ?? []) as never, on, source?.screens, (file) => source?.files?.find((f) => f.file === file)?.pageId ?? null) : new Map<string, StepLook>();
@@ -53,6 +91,13 @@ export function shownOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: S
   const on = s.statesOn ?? [];
   const source = sourceOf(s);
   /* A part stepped on the board, or a scene's part with no hook of its own (it goes with the part round it), is read off the parts, so the parts count only then. */
+  const iso = isolatedOnBoard(s);
+  if (iso) {
+    if (shownMemo?.on === on && shownMemo.nodes === iso) return shownMemo.shows;
+    const shows = (n: StudioNode) => (n.pageId === iso.pageId ? iso.shows.has(n.id) : !n.state);
+    shownMemo = { on, screens: null, files: null, nodes: iso, shows };
+    return shows;
+  }
   const panelsOn = on.some((k) => k.startsWith("panel:"));
   const steps = panelsOn || on.some((k) => k.startsWith("step:") || k.startsWith("screen:") || k.startsWith("top:")) ? s.nodes ?? [] : null;
   if (shownMemo && shownMemo.on === on && shownMemo.screens === source?.screens && shownMemo.files === source?.files && shownMemo.nodes === steps) return shownMemo.shows;
@@ -71,6 +116,8 @@ export let placedMemo: { on: unknown; screens: unknown; files: unknown; nodes: u
 export const NO_PLACES = new Map<string, PlaceBox>();
 export function placedOnBoard(s: { statesOn?: string[]; look?: unknown; nodes?: StudioNode[] }): Map<string, PlaceBox> {
   const on = s.statesOn ?? [];
+  const iso = isolatedOnBoard(s);
+  if (iso) return iso.places;
   const screensOn = on.some((k) => k.startsWith("screen:") || k.startsWith("top:")), stepsOn = on.some((k) => k.startsWith("step:"));
   if (!screensOn && !stepsOn) return NO_PLACES;
   const source = sourceOf(s);

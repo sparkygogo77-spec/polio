@@ -163,15 +163,22 @@ await ui.waitForTimeout(700);
 const pp = ui.locator("[data-panels-page]");
 check("it opens the Panels page on the box", (await pp.count()) === 1 && (await pp.locator(`[data-panels-item="${box.id}"]`).getAttribute("aria-pressed")) === "true" && (await ui.locator("[data-panels-tab]").getAttribute("aria-pressed")) === "true");
 const states = await pp.locator(`[data-panel-states="${box.id}"] [data-panel-state]`).evaluateAll((els) => els.map((e) => e.textContent.trim()));
-check("its states down a side list, in order: as it opens, idle, result", states.join(" | ") === "As the page opens | idle | result", states.join(" | "));
-const stage = pp.locator(`[data-panel-drawing="${box.id}"]`);
-check("drawn alone as it opens: loading, not idle or the result", /Tuning in/.test(await stage.textContent()) && !/Find a match|You won/.test(await stage.textContent()), (await stage.textContent()).slice(0, 120));
+check("its states down the rail, in order: as it opens, idle, result", states.join(" | ") === "As the page opens | idle | result", states.join(" | "));
+const seen = async (h) => ui.locator(`[data-node-id="${hook(h).id}"]`).first().isVisible();
+const isolated = async () => ((await board()).statesOn ?? []).some((k) => k.startsWith("isolate:"));
+check("isolated on the board as it opens: loading, not idle or the result", (await isolated()) && (await seen("chart-tv-loading-title")) && !(await seen("chart-tv-idle-title")) && !(await seen("chart-tv-result-headline")));
 await pp.locator('[data-panel-state]').nth(1).click();
 await ui.waitForTimeout(400);
-check("pressing idle draws idle alone", /Find a match/.test(await stage.textContent()) && !/Tuning in|You won/.test(await stage.textContent()), (await stage.textContent()).slice(0, 120));
+check("pressing idle isolates idle on the board", (await seen("chart-tv-idle-title")) && !(await seen("chart-tv-loading-title")) && (await pp.locator("[data-panel-state-at]").textContent()).includes("2/3"));
+await ui.keyboard.press("Escape");
+await ui.waitForTimeout(300);
 await ui.keyboard.press("Escape");
 await ui.waitForTimeout(400);
-check("Escape goes back to the page", (await pp.count()) === 0);
+check("letting go of the panel brings the board back", !(await isolated()));
+await pp.locator("[data-panels-back]").click();
+await ui.waitForTimeout(300);
+/* The box picked again, as section 4 starts from it. */
+{ const b = await el(box.id).boundingBox(); await ui.mouse.click(b.x + 6, b.y + 6); await ui.waitForTimeout(400); }
 
 /* ------------------------------------------------------------------ */
 /* 4. A sample pressed in the side panel shows it on the board          */

@@ -3,6 +3,7 @@ import { hiddenGroups, screenKey, type ScreenRead } from "../boardStates";
 import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../PanelsPage";
 import { pageScenes } from "../scenes";
 import type { SceneScreen } from "../stateRules";
+import { stepScene } from "../sceneStep";
 import { stateFrames, type FrameNode } from "../stateFrames";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -228,8 +229,7 @@ export function StatesChip({ pageId }: { pageId: string }) {
   const screens = (source?.screens ?? []).filter((x) => x.page === file);
   /* A site that follows the state rules lists its own scenes, in its order: nothing is grouped by guessing (`stateRules.ts`). */
   const declared = screens.filter((x) => (x as SceneScreen).declared) as SceneScreen[];
-  /* ← and → step through them on the board, when nothing is picked (the arrows move what is picked) and nothing is typed in. */
-  const stepRef = React.useRef<(by: number) => void>(() => {});
+  /* ← and → step through them on the board (`sceneStep.ts`), when nothing is picked (the arrows move what is picked) and nothing is typed in. */
   const stepping = declared.length > 0;
   React.useEffect(() => {
     if (!stepping) return;
@@ -238,9 +238,9 @@ export function StatesChip({ pageId }: { pageId: string }) {
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const st = useStudio.getState();
-      if (st.mode !== "design" || st.selection.length || document.querySelector("[data-panels-page], [role='dialog'], [data-radial]")) return;
+      if (st.mode !== "design" || st.selection.length || document.querySelector("[role='dialog'], [data-radial]")) return;
       e.preventDefault();
-      stepRef.current(e.key === "ArrowRight" ? 1 : -1);
+      stepScene(e.key === "ArrowRight" ? 1 : -1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -249,16 +249,6 @@ export function StatesChip({ pageId }: { pageId: string }) {
   const scenes = declared.length ? { scenes: [], onTop: [] } : pageScenes(screens, file);
   const here = [...screens.map((x) => screenKey(x.name)), ...scenes.onTop.map((v) => v.key), ...groups.map((g) => g.group)];
   const lit = here.filter((k) => on.includes(k)).length;
-  const stepScene = (by: number) => {
-    const st = useStudio.getState();
-    const now = st.statesOn ?? [];
-    const keys = declared.map((x) => screenKey(x.name));
-    const at = keys.findIndex((k) => now.includes(k));
-    const next = keys[at < 0 ? (by > 0 ? 0 : keys.length - 1) : (at + by + keys.length) % keys.length]!;
-    play("tap");
-    st.setStatesOn([...now.filter((k) => !keys.includes(k) && !k.startsWith("panel:")), next]);
-  };
-  stepRef.current = stepScene;
   const flip = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]); };
   /* One scene at a time: a scene is one capture of the whole page, so picking one puts the last away. */
   const pickScene = (key: string) => { play("tap"); const st = useStudio.getState(); const now = st.statesOn ?? []; const mine = new Set(screens.map((x) => screenKey(x.name))); st.setStatesOn(now.includes(key) ? now.filter((k) => k !== key) : [...now.filter((k) => !mine.has(k)), key]); };
