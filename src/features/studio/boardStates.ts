@@ -265,13 +265,13 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
     for (const n of here) {
       const h = hookOf(n);
       const b = h ? s.boxes![h] : undefined;
-      if (!b || !shows(n) || (adds && !adds.has(h!))) continue;
+      if (!b || !shows(n) || (adds && !adds.has(h!)) || turned(n)) continue;
       target.set(n.id, boxIn(b));
     }
     /* A part with no hook of its own goes with the hooked part round it (by where it was read, else the smallest holding it). */
     const hooked = here.filter((n) => target.has(n.id)).sort((a, b) => a.w * a.h - b.w * b.h);
     for (const n of here) {
-      if (target.has(n.id) || hookOf(n) || !shows(n)) continue;
+      if (target.has(n.id) || (hookOf(n) && !turned(n)) || !shows(n)) continue;
       /* A line of words whose words are hooked elements (PST's "Pot: - SOL ?", read as one line) goes where its first one is in this capture. */
       const rh = runHook(n);
       const rb = rh ? s.boxes![rh] : undefined;
@@ -303,6 +303,24 @@ export function screenPlaces(nodes: readonly PlaceNode[], on: readonly string[],
   }
   return out;
 }
+
+/**
+ * TURNED: A CAPTURE'S BOX FOR IT IS THE BOX ROUND ITS LEAN. A capture reads
+ * each hook's box as the browser reports it, and for PST's antenna rods that
+ * is the box round the lean (19x31 for a 4x34 rod at 28deg), which the board
+ * then turned again: the rods stood upright and apart from their balls in
+ * every scene with a capture (J, 2026-10-06). So a part that turns (its own
+ * turn, or one it carries from a turned box round it) moves with the part
+ * round it instead, at its own size.
+ */
+const turned = (n: PlaceNode): boolean => {
+  const t = (n as PlaceNode & { art?: { transform?: unknown } | null }).art?.transform;
+  if (typeof t !== "string" || !t.trim() || t === "none") return false;
+  const m = /^matrix\(([^)]*)\)$/.exec(t.trim());
+  if (!m) return true;
+  const [a, b, c, d] = m[1]!.split(",").map(Number);
+  return !(Math.abs(a! - 1) < 1e-3 && Math.abs(b!) < 1e-3 && Math.abs(c!) < 1e-3 && Math.abs(d! - 1) < 1e-3);
+};
 
 /** The hook of a line's first hooked word, when its words are runs. */
 const runHook = (n: PlaceNode): string | undefined => {
