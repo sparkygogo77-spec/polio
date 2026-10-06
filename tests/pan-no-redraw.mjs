@@ -101,15 +101,13 @@ check("the pan moved the board", moved > 60, `${moved}px`);
 check("the board rendered under the hand (so the count means something)", pan.commits >= 10, `${pan.commits} commits`);
 check("no part redrew while panning", pan.renders === 0, `${pan.renders} part renders over ${pan.commits} commits (was ${PARTS} a commit)`);
 
-/* And the hook does see a part that should redraw: zooming changes every part's `zoom`. */
-await page.evaluate(() => { window.__counting = true; window.__partRenders = 0; window.__commits = 0; });
-await page.keyboard.down("Control");
-await page.mouse.move(760, 520);
-await page.mouse.wheel(0, -200);
-await page.keyboard.up("Control");
+/* And the hook does see parts that should redraw: picking every part changes each one's `selected`. */
+await page.evaluate(() => { window.__partRenders = 0; window.__commits = 0; });
+await page.mouse.click(1420, 880);
+await page.keyboard.press("Control+a");
 await page.waitForTimeout(400);
-const zoomed = await page.evaluate(() => window.__partRenders);
-check("zooming still redraws the parts (the counter is live)", zoomed >= PARTS, `${zoomed} part renders`);
+const picked = await page.evaluate(() => window.__partRenders);
+check("picking every part redraws them (the counter is live)", picked >= PARTS, `${picked} part renders`);
 
 await browser.close();
 const failed = results.filter((r) => !r.ok);

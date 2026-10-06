@@ -1789,7 +1789,8 @@ export function DesktopCanvas() {
         (`textFit.ts#atFullSize`). `tests/board-crisp.mjs`.
       */}
       <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
-      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom }}>
+      {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at, set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
+      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom) } as React.CSSProperties}>
         {/*
           The page's box, which no longer clips to itself.
 
@@ -2013,7 +2014,9 @@ export function DesktopCanvas() {
             inHeldGroup={heldIds.has(n.id)}
             theme={theme}
             palette={palette}
-            zoom={zoom}
+            /* Only a picked part, or one wearing a question, draws anything sized by the zoom in script (its mark, handles, badge); every other
+               part's chips read `--chip-scale`, so a zoom redraws the few that need it and not all of them (`tests/zoom-few-redraw.mjs`). */
+            zoom={selection.includes(n.id) || ((decideAll || selection.includes(n.id)) && decide.has(n.id)) ? zoom : 1}
             light={look.light}
             page={pageBox}
             layers={look.texture}
