@@ -20,3 +20,7 @@ npm run test:nightly   # build, then the whole suite: the nightly run
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.
 Before changing anything a person sees in the Builder, read `docs/DESIGN.md`:
 the menu's design language, the rules it lives by, and how the owner works.
+
+Rule from the owner: never wait on J silently. Whenever a thread is blocked or
+waiting on J (a test, a key, a payment, an account setting, a decision), say so
+right away in one short line naming exactly what J must do.
