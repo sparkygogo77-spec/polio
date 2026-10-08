@@ -19,7 +19,7 @@
  *
  *   node tests/zip-assets.mjs
  */
-import { contentType, fileFor, hadScripts, sansScripts } from "../src/features/studio/zipImport.ts";
+import { contentType, fileFor, hadScripts, sansScripts } from "../src/features/studio/bring-in/zipImport.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

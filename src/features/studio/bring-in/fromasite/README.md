@@ -1,4 +1,4 @@
-# studio/fromasite
+# studio/bring-in/fromasite
 
 Bringing a site in (from a link, a zip or a repo), split by topic. `../FromASite.tsx` re-exports what it always exported.
 

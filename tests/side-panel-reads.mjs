@@ -27,7 +27,7 @@
 import { capturedFrom, idless, insideControl, isMachineLabel, partName } from "../src/features/studio/partNames.ts";
 import { CAPTURE_HIDES, isCaptured, readSiteFormat, siteSays } from "../src/features/studio/siteFormat.ts";
 import { closeShades, oklabDistance, tallyColours, tallyFonts, wordsContrast } from "../src/features/studio/look/siteColours.ts";
-import { facetSays, keptSays, keptShort } from "../src/features/studio/reimport.ts";
+import { facetSays, keptSays, keptShort } from "../src/features/studio/bring-in/reimport.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

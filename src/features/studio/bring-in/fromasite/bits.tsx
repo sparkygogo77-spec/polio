@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Loader2, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { VOID } from "@/core/ui/void";
-import { useStudio } from "../board/store";
+import { useStudio } from "../../board/store";
 
 /**
  * The repositories this site has connected, and the way to let one go.

@@ -33,8 +33,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
-import { PARTS } from "../src/features/studio/siteRead.ts";
-import { pagesToDoc } from "../src/features/studio/pageParts.ts";
+import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
+import { pagesToDoc } from "../src/features/studio/bring-in/pageParts.ts";
 import { launch, sinkRoot, siteDoc } from "./fixtures/look-sites.mjs";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";

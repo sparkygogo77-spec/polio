@@ -28,7 +28,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/state-frames.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/states/stateFrames.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/states/boardStates.ts, src/features/studio/pageParts.ts, src/features/studio/Canvas.tsx, src/features/studio/RadialMenu.tsx
+ * Covers: src/features/studio/states/stateFrames.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/states/boardStates.ts, src/features/studio/bring-in/pageParts.ts, src/features/studio/Canvas.tsx, src/features/studio/RadialMenu.tsx
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

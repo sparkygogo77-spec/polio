@@ -16,7 +16,7 @@
  *
  * Pure. `tests/style-layer.mjs` holds it.
  */
-import type { PageRead } from "./siteRead.ts";
+import type { PageRead } from "./bring-in/index.ts";
 
 export interface SourceHook {
   attr: "data-hook" | "id";

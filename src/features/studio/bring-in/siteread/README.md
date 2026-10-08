@@ -1,4 +1,4 @@
-# studio/siteread
+# studio/bring-in/siteread
 
 What runs inside a page being read, split by topic. `../siteRead.ts` re-exports everything. Each function is serialised into the page, so none may import anything at runtime (only `import type`), and imports keep their `.ts` extension so tests can load them in Node.
 

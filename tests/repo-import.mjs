@@ -54,8 +54,8 @@ const check = (name, ok, detail = "") => {
  * that pressing it makes the surface and hands the repository over.
  */
 import { readFileSync } from "node:fs";
-import { madeHere, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays } from "../src/features/studio/repoImport.ts";
-import { pageBlocks } from "../src/features/studio/zipImport.ts";
+import { madeHere, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays } from "../src/features/studio/bring-in/repoImport.ts";
+import { pageBlocks } from "../src/features/studio/bring-in/zipImport.ts";
 
 check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
 check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
@@ -72,7 +72,7 @@ const not = noPageSays(src, ["ts", "tsx", "json"], null);
 check("a repo of sources with a deployed address is read there, and the line names the address", /read at the address it is deployed at: https:\/\/polio\.example\.app/.test(at) && /him\/polio/.test(at), at);
 check("and names what the sources are", /ts, tsx, json/.test(at) && /ts, tsx, json/.test(not));
 check("with no address it says plainly what would give it one", /About on GitHub/.test(not) && /Read the page/.test(not), not);
-const door = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
+const door = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/bring-in/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("the panel takes that step itself rather than telling him to", /const mine = got\.no === "no-page" \? pageAddress\(deployedBy\(r\), made\)\.at/.test(door) && /askSite\(\{ url: at\.url \}\)/.test(door));
 check("and what lands from the address still goes into the repository's own category", /repo\?: Repo/.test(door) && /const from = repoOf\(source\)/.test(door));
 /* ------------------------------------------- a site made here has a page */
@@ -97,7 +97,7 @@ check("three or more blocks is not thin", thinSays(3, { url: "https://x.example"
 
 /* Driven by hand: a repository brought in, a space named after it, and
    twenty seconds of nothing on a panel that read "nothing in it yet". */
-const door3 = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
+const door3 = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/bring-in/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("the panel's stage lives outside the panel, keyed by space, so a re-mount cannot lose the line", /useSyncExternalStore\(subscribeStages, \(\) => stageOf\(space\.id\)/.test(door3) && /const STAGES = new Map<string, Stage>\(\)/.test(door3));
 check("every busy step is a toast from the board as well as a line, updated in place", /const busy = \(says: string\) => \{/.test(door3) && /ctx\.publish\(\{ key: `studio:repo:\$\{of\.name\}`, title: `\$\{repoName\(of\)\}: \$\{says\}`/.test(door3));
 check("a step that goes quiet is ended by name rather than left spinning", /STEP_PATIENCE_MS = 90_000/.test(door3) && /Nothing came back within/.test(door3));

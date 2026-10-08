@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT } from "../headless";
 import { allowed, MAX_ELEMENTS, READ_BUDGET_MS } from "@/features/studio/siteFetch";
-import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/bring-in";
 import { carryFaces, FONT_FILE_MAX, type FacesRead } from "@/features/studio/look";
 
 /**

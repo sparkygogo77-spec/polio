@@ -24,12 +24,12 @@
  *
  *   node tests/svg-icons.mjs
  *
- * Covers: src/features/studio/siteRead.ts, src/features/studio/pageParts.ts
+ * Covers: src/features/studio/bring-in/siteRead.ts, src/features/studio/bring-in/pageParts.ts
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { PARTS } from "../src/features/studio/siteRead.ts";
-import { pagesToDoc } from "../src/features/studio/pageParts.ts";
+import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
+import { pagesToDoc } from "../src/features/studio/bring-in/pageParts.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

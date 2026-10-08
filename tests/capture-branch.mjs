@@ -17,7 +17,7 @@
  */
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
-const { captureBranch, isMainBranch, startCapture, watchCapture, captureWant, WORKFLOW } = await import("../src/features/studio/captureSite.ts");
+const { captureBranch, isMainBranch, startCapture, watchCapture, captureWant, WORKFLOW } = await import("../src/features/studio/bring-in/captureSite.ts");
 const { readFileSync } = await import("node:fs");
 
 const TOKEN = "STANDIN_GITHUB_TOKEN";
@@ -72,7 +72,7 @@ const back = await watchCapture({ repo: { owner: "someone", name: "polio" }, tok
 check("a capture handed back as the run's artifact is brought in from the run", back.ok && back.ref === "run:5" && back.path === "sites/example", JSON.stringify(back));
 check("…which Bring in reads as the run", captureWant({ owner: "someone", name: "polio" }, "example", back.ref) === "someone/polio@run:5");
 
-const { handsBack, DEFAULT_CAPTURER } = await import("../src/features/studio/captureSite.ts");
+const { handsBack, DEFAULT_CAPTURER } = await import("../src/features/studio/bring-in/captureSite.ts");
 check("the capturer by default is polio's own workflow, which hands the capture back", DEFAULT_CAPTURER === "sparkygogo77-spec/polio" && handsBack(DEFAULT_CAPTURER) && !handsBack("sparkygogo77-spec/sink"));
 const dialog = readFileSync("src/features/studio/CaptureSiteDialog.tsx", "utf8");
 check("the dialog makes no branch for a capturer that hands back, and its own branch for one that commits", /setBranch\(back \? "" : captureBranch\(/.test(dialog) && /makeBranch: !back && !onMain/.test(dialog));

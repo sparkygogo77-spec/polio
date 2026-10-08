@@ -19,9 +19,10 @@
  * (what the board reads off states, for the states module). The look module
  * has three: `index.ts` (pure looks maths, site colours, kits, fonts),
  * `parts.ts` (part looks, no store hooks) and `ui.ts` (the Look panel,
- * pasting and Make all like).
+ * pasting and Make all like). Later modules (bring-in, ...) have `index.ts`
+ * (pure) and `ui.ts` (screens and store-bound code), plus any door their README names.
  *
- * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts
+ * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts, src/features/studio/bring-in/index.ts, src/features/studio/bring-in/ui.ts
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -33,6 +34,7 @@ const MODULES = [
   { dir: "src/features/studio/states", doors: ["index.ts", "ui.ts"] },
   { dir: "src/features/studio/board", doors: ["index.ts", "store.ts", "ui.ts", "reads.ts"] },
   { dir: "src/features/studio/look", doors: ["index.ts", "parts.ts", "ui.ts"] },
+  { dir: "src/features/studio/bring-in", doors: ["index.ts", "ui.ts"] },
 ];
 
 const results = [];

@@ -45,7 +45,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/tv-import.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/siteRead.ts, src/features/studio/pageParts.ts, src/features/studio/stills.ts, src/features/studio/builderManifest.ts, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx
+ * Covers: src/features/studio/bring-in/siteRead.ts, src/features/studio/bring-in/pageParts.ts, src/features/studio/stills.ts, src/features/studio/builderManifest.ts, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

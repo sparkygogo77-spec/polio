@@ -35,7 +35,7 @@
  *
  * Pure: no store, no React. `tests/reimport-keeps.mjs` holds it.
  */
-import { partName, type Named } from "./partNames.ts";
+import { partName, type Named } from "../partNames.ts";
 
 type Rec = Record<string, unknown>;
 export interface MergeNode { id: string; pageId?: string; from?: { selector?: string } | null; byHand?: boolean; work?: unknown; label?: unknown }

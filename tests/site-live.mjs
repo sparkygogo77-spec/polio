@@ -35,7 +35,7 @@
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { pageBlocks } from "../src/features/studio/zipImport.ts";
+import { pageBlocks } from "../src/features/studio/bring-in/zipImport.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

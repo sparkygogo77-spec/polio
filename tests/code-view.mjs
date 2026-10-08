@@ -23,7 +23,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/code-view.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/inspector/Panel.tsx, src/features/studio/inspector/codeView.tsx, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx, src/features/studio/Inspector.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/styleLayerRun.ts
+ * Covers: src/features/studio/inspector/Panel.tsx, src/features/studio/inspector/codeView.tsx, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/Inspector.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/styleLayerRun.ts
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

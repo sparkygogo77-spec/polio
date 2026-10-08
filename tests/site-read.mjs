@@ -16,7 +16,7 @@
  */
 import { createRequire } from "node:module";
 import { allowed, REFUSAL_SAYS } from "../src/features/studio/siteFetch.ts";
-import { CANDIDATES, MEASURE } from "../src/features/studio/siteRead.ts";
+import { CANDIDATES, MEASURE } from "../src/features/studio/bring-in/siteRead.ts";
 import { recreateFrom } from "../src/features/studio/recreate.ts";
 
 const req = createRequire(import.meta.url);

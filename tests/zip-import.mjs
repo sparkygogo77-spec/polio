@@ -24,7 +24,7 @@ import { mkdirSync } from "node:fs";
 import { crc32, deflateRawSync } from "node:zlib";
 import {
   checkZip, contentType, fileFor, fitToSurface, hadScripts, insideZip, MAX_FILES, mergeReadings, pageBlocks, pageEntry, saidOf, sansScripts, SURE, ZIP_REFUSAL_SAYS,
-} from "../src/features/studio/zipImport.ts";
+} from "../src/features/studio/bring-in/zipImport.ts";
 import { readZip } from "../src/features/studio/zipFile.ts";
 import { SURE_ENOUGH } from "../src/features/studio/recreate.ts";
 

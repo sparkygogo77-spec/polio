@@ -33,7 +33,7 @@ import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { bringRepoIn, type Bringing } from "./bringRepo";
 import { activeSource, useBuilds } from "@/features/builds/store";
 import { agoWords, daysLeft, keepRun, readRuns, type CaptureRun } from "./captureRuns";
-import { DEFAULT_CAPTURER, oneAddress, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./captureSite";
+import { DEFAULT_CAPTURER, oneAddress, captureBranch, captureName, capturePlace, captureWant, handsBack, isMainBranch, nameFrom, startCapture, watchCapture, type Ended, type Progress } from "./bring-in";
 
 /**
  * Where the capturer lives: remembered in this browser, polio itself by

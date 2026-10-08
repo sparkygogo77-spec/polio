@@ -106,7 +106,7 @@ check("the run's capture is found by its name, not its other artifacts", found?.
 /* ------------------------------------------------- the importer, whole */
 globalThis.atob ??= (s) => Buffer.from(s, "base64").toString("binary");
 const { readRepoSite, isCopy } = await jiti.import(join(ROOT, "src/features/studio/repoRun.ts"));
-const { readRepo } = await jiti.import(join(ROOT, "src/features/studio/repoImport.ts"));
+const { readRepo } = await jiti.import(join(ROOT, "src/features/studio/bring-in/repoImport.ts"));
 const { namedPictures } = await jiti.import(join(ROOT, "src/features/studio/siteHead.ts"));
 const repo = readRepo("STANDIN-owner/polio/sites/trumpmorty-fun@run:42");
 check("Bring reads owner/polio/sites/<name>@run:<id> as the run, in the site's folder", repo?.ref === "run:42" && repo?.dir === "sites/trumpmorty-fun", JSON.stringify(repo));
@@ -148,7 +148,7 @@ check("an expired artifact is a 410 from the route", gone.status === 410);
 const rec = await art.recordOf({ repo: { owner: "STANDIN-owner", name: "polio" }, token: TOKEN, runId: 42, name: "trumpmorty-fun" });
 const run = JSON.parse(readFileSync(join(SITE, "capture", "run.json"), "utf8"));
 check("Recapture reads the address and pages the capture recorded, out of the run", rec?.url === run.url && JSON.stringify(rec?.pages) === JSON.stringify(run.pages), JSON.stringify(rec));
-const { recapturePlan } = await jiti.import(join(ROOT, "src/features/studio/recapture.ts"));
+const { recapturePlan } = await jiti.import(join(ROOT, "src/features/studio/bring-in/recapture.ts"));
 const plan = recapturePlan({ owner: "STANDIN-owner", name: "polio", branch: "run:42", dir: "sites/trumpmorty-fun" }, rec);
 check("…and runs polio's workflow again on its default branch, to come back as a new run", plan?.ref === "" && plan?.handsBack === true && plan?.branchNote === null && plan?.name === "trumpmorty-fun", JSON.stringify(plan));
 
