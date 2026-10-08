@@ -43,6 +43,7 @@ import { scenesOnPage } from "./sceneStep";
 import { screenKey } from "./boardStates";
 import { spotlight } from "./panelSpotlight";
 import { MoreStates } from "./PanelsMore";
+import { StructureView } from "./StructureView";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null };
 const sourceOf = (look: unknown) => (look as { styleSource?: Source } | undefined)?.styleSource;
@@ -282,6 +283,8 @@ export function PanelsPage() {
           <X className="size-3.5" />
         </button>
       </div>
+      {/* The page's layout, edited once for every state (`StructureView.tsx`, J 2026-10-08). */}
+      <StructureView pageId={pageId} />
       {/* A site that does not follow the state rules keeps today's reading, and says why; one that does says what kit:check would find. */}
       {notes.length ? (
         <div data-state-rules-note={declared ? "problems" : "not-followed"} className="mb-1 rounded-md border border-border bg-bg px-2 py-1.5 text-small text-fg-muted">

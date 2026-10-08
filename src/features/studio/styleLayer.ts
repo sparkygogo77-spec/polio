@@ -29,6 +29,7 @@
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
 import type { SourceHook, SourceVar } from "./sourceHooks.ts";
+import { layoutDeclarations } from "./structure.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
 export interface CssLook {
@@ -211,6 +212,8 @@ export interface LayerNode {
   byHand?: boolean;
   /** What one state of a panel changes of its look, by `<panel>=<state>` (`stateEdits.ts`). */
   byState?: Record<string, Record<string, unknown>> | null;
+  /** Its place in its region, the same in every state (`structure.ts`). */
+  place?: { order?: number } | null;
 }
 
 /** A hover, press or focus rule, as a capture carries it (`parts/capturedMotion.ts#MotionState`). */
@@ -498,6 +501,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       /* A builder-ready repository keys rules by data-hook only, and keeps colours in custom properties (`kitDeclarations`). */
       if (opts.kit && decl.length && src.hook.attr !== "data-hook") { kitHeld.push(`${src.file}: #${src.hook.value} has only an id, and a builder-ready repository keys its rules by data-hook, so it keeps its own look.`); decl = []; }
       if (opts.kit) decl = kitDeclarations(src.hook.value, decl);
+      /* Its place in its region, set once in the Structure view (`structure.ts`): keyed by hook alone, so it holds in every state. */
+      if (!(opts.kit && src.hook.attr !== "data-hook")) decl = [...decl, ...layoutDeclarations(src.hook.value, n.place)];
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
