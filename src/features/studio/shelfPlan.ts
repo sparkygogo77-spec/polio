@@ -311,6 +311,19 @@ export function publishOf(key: string): Publish {
 /* The shelf, assembled                                                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * FINISHED OR SKETCH (the audit, item 10). A card is a sketch when the
+ * published page does not do its job: it needs a press, a timer, a player
+ * or a backend and no script ships for it, so it goes out still. Everything
+ * else is finished: it draws complete, its script ships, it is a setting the
+ * build reads (a whole-site switch), or it is a note meant for the builder.
+ * Sketches stay on the shelf, hidden until "Show sketches" is on, and are
+ * never deleted, because a saved page holds their ids.
+ */
+export function isFinished(key: string): boolean {
+  return publishOf(key).kind !== "still";
+}
+
 /** An item as a group lists it, with its versions. */
 export interface ShelfEntry {
   key: string;
