@@ -36,6 +36,9 @@ const carried = [...new Set([...lifted, ...frameRiders(nodes, lifted)])];
 check("the frame carries its faces", ["box", "load", "idle", "idle-t"].every((id) => carried.includes(id)), carried.join());
 check("and is not held back", JSON.stringify(clampMove(nodes, carried, o, 300, 200)) === JSON.stringify({ dx: 300, dy: 200 }));
 check("a smaller part of a face still moves on its own, inside the frame", liftToFrame(nodes, ["idle-t"]).join() === "idle-t");
+/* A face as wide as its box but shorter could only slide up and down. */
+const wide = nodes.map((n) => (n.id === "idle" ? { ...n, w: 400, h: 60 } : n));
+check("a face as wide as its frame lifts too", liftToFrame(wide, ["idle"]).join() === "box");
 check("a locked frame is not lifted to", liftToFrame(nodes.map((n) => (n.id === "box" ? { ...n, locked: true } : n)), ["idle"]).join() === "idle");
 
 const failed = results.filter((r) => !r).length;
