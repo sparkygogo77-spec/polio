@@ -20,7 +20,7 @@ import { getFeature } from "./catalog";
 import { resolvePalette } from "./parts/theme";
 import { placeNodes } from "./live/layout";
 import { held, put } from "./pictures";
-import { readableFixes } from "./siteColours";
+import { readableFixes } from "./look";
 import { checkBoard, KIND_ORDER, type Problem } from "./publishCheck";
 import { useStudio } from "./board/store";
 import { heldKeys } from "@/features/keys/store";

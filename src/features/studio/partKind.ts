@@ -9,7 +9,7 @@
  * (`isHeadingish`), and anything else by what it is in the catalogue and in
  * a word (`kindOf`). Pure.
  */
-import { roleOf, type KitNode } from "./styleKits";
+import { roleOf, type KitNode } from "./look";
 import { isHeadingish, kindOf } from "./partNames";
 
 type Part = KitNode & { pageId?: string; inert?: boolean };

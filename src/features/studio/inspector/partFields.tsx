@@ -8,7 +8,7 @@ import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
 import { wordsOf } from "../partNames";
-import { fontsInPageOrder, faceOf } from "../siteColours";
+import { fontsInPageOrder, faceOf } from "../look";
 import { parseColor, toHex } from "../look";
 import { movingParts } from "../motionInventory";
 import { MoveRowView } from "../MotionPanel";

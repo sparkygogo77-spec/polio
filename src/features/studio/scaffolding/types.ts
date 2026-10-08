@@ -1,4 +1,4 @@
-import { type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle } from "../look.ts";
+import { type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle } from "../look/index.ts";
 import { type StandIn } from "../standIn.ts";
 
 export interface ScaffoldFile {

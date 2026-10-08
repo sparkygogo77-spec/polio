@@ -15,7 +15,7 @@
  */
 import * as React from "react";
 import { reach, type Picture } from "./pictures";
-import type { PictureSampler, Rect } from "./siteColours";
+import type { PictureSampler, Rect } from "./look";
 
 interface Held { data: ImageData; w: number; h: number; natural: { w: number; h: number } }
 const MAX = 256;

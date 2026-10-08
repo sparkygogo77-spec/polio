@@ -17,7 +17,7 @@
  * rendered at all for a site that carries no faces.
  */
 import * as React from "react";
-import { fontFaceCss, fontLinks, type CarriedFont } from "../fonts";
+import { fontFaceCss, fontLinks, type CarriedFont } from "../look";
 
 export function CarriedFonts({ fonts, onFail }: { fonts?: readonly CarriedFont[] | null; onFail?: (font: CarriedFont) => void }) {
   const css = React.useMemo(() => fontFaceCss(fonts ?? []), [fonts]);

@@ -27,7 +27,7 @@ import { ImportFlow } from "../ImportFlow";
 import { PreviewWindow } from "../Preview";
 import { Palette, useShelfFolded, useShelfTall } from "../Palette";
 import { Inspector } from "../Inspector";
-import { LookPanel } from "../LookPanel";
+import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../MotionPanel";
 import { PicturesPanel } from "../PicturesPanel";
 import { FormatPanel } from "../FormatPanel";

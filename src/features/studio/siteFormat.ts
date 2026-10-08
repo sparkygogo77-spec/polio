@@ -30,8 +30,8 @@
  *
  * Pure: no store, no DOM.
  */
-import { parseColor } from "./look.ts";
-import { faceOf, type Worn } from "./siteColours.ts";
+import { parseColor } from "./look/index.ts";
+import { faceOf, type Worn } from "./look/index.ts";
 import { paintedPalette, type PaintedPart } from "./shelfTheme.ts";
 
 export interface Reading {

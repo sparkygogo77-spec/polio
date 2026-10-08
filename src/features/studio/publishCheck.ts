@@ -27,7 +27,7 @@
  * `tests/publish-check.mjs` reads it directly.
  */
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "./parts/offsite";
-import { HARD_TO_READ, wordsContrast } from "./siteColours";
+import { HARD_TO_READ, wordsContrast } from "./look";
 import { decisions } from "./library/badge";
 import { partName, type Named } from "./partNames";
 import type { Palette } from "./look";

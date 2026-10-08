@@ -40,7 +40,7 @@
  *
  * Pure: no store, no DOM, so the rule can be read and held on its own.
  */
-import { parseColor, ROLES, type Palette, type RoleId } from "./look.ts";
+import { parseColor, ROLES, type Palette, type RoleId } from "./look/index.ts";
 
 /** What a role on an imported site came from. */
 export interface RoleSource {

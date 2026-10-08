@@ -22,7 +22,7 @@
  * Pure: no React, no store, no browser.
  */
 import * as clipping from "polygon-clipping";
-import { contrastOf, mix, parseRgba, rgbCss, type BoardMotion, type KitBand, type KitShadow, type StyleKit } from "./styleKits.ts";
+import { contrastOf, mix, parseRgba, rgbCss, type BoardMotion, type KitBand, type KitShadow, type StyleKit } from "./look/index.ts";
 
 /* The library ships one default object in its browser build and named functions in its Node one; either is taken. */
 const pc = ((clipping as unknown as { default?: typeof clipping }).default ?? clipping) as typeof clipping;

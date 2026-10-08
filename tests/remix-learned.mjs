@@ -31,8 +31,8 @@ import { sinkRoot, siteDoc, launch, openSite, PAINT } from "./fixtures/look-site
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const ROOT = sinkRoot(process.argv[3]);
 const jiti = createJiti(import.meta.url);
-const { lookOf, lookPatch } = await jiti.import("../src/features/studio/partLook.ts");
-const { lookOfKit } = await jiti.import("../src/features/studio/kitLook.ts");
+const { lookOf, lookPatch } = await jiti.import("../src/features/studio/look/partLook.ts");
+const { lookOfKit } = await jiti.import("../src/features/studio/look/kitLook.ts");
 
 const results = [];
 const check = (name, ok, detail = "") => {

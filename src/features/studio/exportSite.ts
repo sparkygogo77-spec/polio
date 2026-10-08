@@ -67,7 +67,7 @@ import type { NodeLink } from "./parts/types";
 import { homeFor, type Home } from "./homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "./staticSite";
 import { TABLET_MAX } from "./live/small";
-import { fontFaceCss } from "./fonts";
+import { fontFaceCss } from "./look";
 import { ROLES, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { base64, bytesFor, type Picture } from "./pictures";

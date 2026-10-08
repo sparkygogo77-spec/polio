@@ -30,7 +30,7 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
 import { siteRoles, mainColours, colourName, inkOf, MERGE_SHADES, ROLE_CAP, FEW } from "../src/features/studio/siteRoles.ts";
-import { oklabDistance, tallyColours, colourKey, spotsOf } from "../src/features/studio/siteColours.ts";
+import { oklabDistance, tallyColours, colourKey, spotsOf } from "../src/features/studio/look/siteColours.ts";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");

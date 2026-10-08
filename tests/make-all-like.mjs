@@ -29,7 +29,7 @@ import { SITES, sinkRoot, launch, openSite, PAINT } from "./fixtures/look-sites.
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const ROOT = sinkRoot(process.argv[3]);
 const jiti = createJiti(import.meta.url);
-const { lookOf, lookHas, lookDiffers } = await jiti.import("../src/features/studio/partLook.ts");
+const { lookOf, lookHas, lookDiffers } = await jiti.import("../src/features/studio/look/partLook.ts");
 const { sameKind, kindKey } = await jiti.import("../src/features/studio/partKind.ts");
 
 const results = [];

@@ -15,7 +15,7 @@
  * network. What Claude is asked for afterwards is only what a document
  * cannot hold.
  */
-import { fontFaceCss } from "./fonts";
+import { fontFaceCss } from "./look";
 import * as React from "react";
 import { driftKeyframes, lands } from "./look";
 import { deriveBehaviours } from "./live/behaviours";

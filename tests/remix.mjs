@@ -31,8 +31,8 @@ import { sinkRoot, siteDoc, launch, openSite, PAINT } from "./fixtures/look-site
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const ROOT = sinkRoot(process.argv[3]);
 const jiti = createJiti(import.meta.url);
-const { lookOf, FACETS } = await jiti.import("../src/features/studio/partLook.ts");
-const { kitsFromDoc } = await jiti.import("../src/features/studio/styleKits.ts");
+const { lookOf, FACETS } = await jiti.import("../src/features/studio/look/partLook.ts");
+const { kitsFromDoc } = await jiti.import("../src/features/studio/look/styleKits.ts");
 const { componentOf, siteLookOf, remixParts } = await jiti.import("../src/features/studio/remix.ts");
 const { kindKey } = await jiti.import("../src/features/studio/partKind.ts");
 

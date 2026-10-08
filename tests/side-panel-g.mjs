@@ -62,7 +62,7 @@ const { decisions, decisionSays, answered } = await src("library/badge.ts");
 const reads = readSiteFormat(doc, doc.look?.palette?.bg);
 /* Read by `paintedPalette` (shelfTheme.ts), the function the shelf's previews use too, so the two agree. */
 const { paintedPalette } = await src("shelfTheme.ts");
-const { parseColor } = await src("look.ts");
+const { parseColor } = await src("look/index.ts");
 const behind = pageColourOf(doc.nodes, doc.look?.palette?.bg);
 const bgC = parseColor(behind?.colour ?? "");
 check("1 the page's colour is what covers the page (yellow), not the navy under it", !!bgC && bgC.l > 0.8 && bgC.h > 80 && bgC.h < 110, JSON.stringify(behind));

@@ -1,6 +1,6 @@
 "use client";
 import { formatDefaults } from "../../format";
-import { swapColour, swapFont } from "../../siteColours";
+import { swapColour, swapFont } from "../../look";
 import { newLayer, type TextureLayer } from "../../look";
 import { newMotion } from "../../motion";
 import { useStudio } from "./create";

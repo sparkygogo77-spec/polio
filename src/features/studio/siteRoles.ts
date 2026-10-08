@@ -30,8 +30,8 @@
  *
  * Pure: no store, no DOM. `tests/site-roles.mjs`.
  */
-import { parseColor, type Palette } from "./look.ts";
-import { colourKey, oklabDistance, spotsOf, type ColourSpot, type ColourUse, type Worn } from "./siteColours.ts";
+import { parseColor, type Palette } from "./look/index.ts";
+import { colourKey, oklabDistance, spotsOf, type ColourSpot, type ColourUse, type Worn } from "./look/index.ts";
 import { insideControl } from "./partNames.ts";
 
 /** Shades nearer than this in OKLab are one swatch: near-whites and creams, a yellow and its paler card. */

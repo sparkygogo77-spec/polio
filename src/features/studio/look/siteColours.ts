@@ -34,8 +34,8 @@
  *
  * Pure: no store, no DOM, so a test reads it against a real capture.
  */
-import { contrast, parseColor, ROLES, toHex, type Palette, type RoleId } from "./look.ts";
-import { partName, quoted, sectionOf, type Named } from "./partNames.ts";
+import { contrast, parseColor, ROLES, toHex, type Palette, type RoleId } from "./index.ts";
+import { partName, quoted, sectionOf, type Named } from "../partNames.ts";
 
 export type ColourUse = "text" | "fill" | "border" | "shadow" | "accent";
 export const COLOUR_USES: readonly ColourUse[] = ["text", "fill", "border", "shadow", "accent"];

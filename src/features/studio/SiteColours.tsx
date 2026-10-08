@@ -19,7 +19,7 @@ import { MoreHint } from "@/core/ui/more-hint";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ROLES, css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./siteColours";
+import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./look";
 import { partName } from "./partNames";
 import { usePictureSampler } from "./pictureSampler";
 import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";

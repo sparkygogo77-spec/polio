@@ -1,6 +1,6 @@
 import type { CarriedFont } from "../fonts";
-import type { CapturedKeyframes } from "../parts/capturedMotion";
-import type { Group, SiteTheme } from "../siteTheme";
+import type { CapturedKeyframes } from "../../parts/capturedMotion";
+import type { Group, SiteTheme } from "../../siteTheme";
 import type { TextureLayer } from "./texture.ts";
 import type { RoleId, Palette } from "./colour.ts";
 
@@ -62,7 +62,7 @@ export interface Look {
   /** Empty strings mean "derive it from the accent hue", as before. */
   palette: Partial<Palette>;
   /** A site brought in from a code repository: what its code is written against, for the style layer sent back to it (`styleLayer.ts`). */
-  styleSource?: import("../styleLayer").StyleSource | null;
+  styleSource?: import("../../styleLayer").StyleSource | null;
   texture: TextureLayer[];
   /** Where the texture is painted. */
   target: "page" | "surfaces" | "both";

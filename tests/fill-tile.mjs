@@ -30,6 +30,7 @@ registerHooks({
   resolve(spec, ctx, next) {
     if (spec.startsWith(".") && !/\.[a-z]+$/i.test(spec)) {
       try { return next(`${spec}.ts`, ctx); } catch { /* fall through */ }
+      try { return next(`${spec}/index.ts`, ctx); } catch { /* a module folder: its door */ }
     }
     return next(spec, ctx);
   },
@@ -106,7 +107,7 @@ check(
 /* 4. Nobody patches a size in behind the fill's back                  */
 /* ------------------------------------------------------------------ */
 
-const panel = readFileSync("src/features/studio/LookPanel.tsx", "utf8");
+const panel = readFileSync("src/features/studio/look/LookPanel.tsx", "utf8");
 check("the Look panel's swatch no longer hardcodes a grid tile", !/f\.id === "grid" \?/.test(panel));
 check("the Look panel's swatch reads the size off the layer", /layers\.map\(\(l\) => l\.size\)/.test(panel));
 

@@ -44,7 +44,7 @@ check("Font still sets size, weight, letter spacing and family", ["Size", "Weigh
 /* ------------------------------------------------------------ the pure half */
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
-const C = await jiti.import(join(here, "..", "src", "features", "studio", "siteColours.ts"));
+const C = await jiti.import(join(here, "..", "src", "features", "studio", "look", "siteColours.ts"));
 const E = await jiti.import(join(here, "..", "src", "features", "studio", "RingEditors.tsx"));
 const INK = "rgb(26, 15, 11)", RED = "rgb(210, 60, 52)";
 const mv = C.movedColours({ id: "a", colour: { text: INK }, edge: { width: 4, style: "solid", colour: INK } }, { id: "a", colour: { text: "#ffffff" }, edge: { width: 4, style: "solid", colour: INK } });

@@ -30,7 +30,7 @@ import { MOTION_OPTION_IDS, getFeature, type FeatureOption } from "./catalog.ts"
 import { VARIANTS, itemOf } from "./shelfPlan.ts";
 import { isWorkKey } from "./shelfGroups.ts";
 import { getWork, onUsesOf, withInput, type WorkUse } from "./library/works.ts";
-import { PLAIN_BAR } from "./styleKits.ts";
+import { PLAIN_BAR } from "./look/index.ts";
 import { PATH_WORDS, PATH_WORDS_SAMPLE, pathWordsSize, type Worn } from "./wornShape.ts";
 
 /** The side panel's sections for a part. */

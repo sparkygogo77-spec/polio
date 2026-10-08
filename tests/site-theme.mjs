@@ -33,7 +33,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { coherence, contrastRgb, GROUPS, kitDistance, ORIGINAL_DISTANCE, readPhilosophy, rollTheme, rollName, themeCounts, READABLE } from "../src/features/studio/siteTheme.ts";
 import { buildStarter } from "../src/features/studio/starterPage.ts";
-import { kitsFromDoc } from "../src/features/studio/styleKits.ts";
+import { kitsFromDoc } from "../src/features/studio/look/styleKits.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 let SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");

@@ -23,8 +23,8 @@
  * facets would change anything. The store's `patchNodes` applies the
  * patches for many parts as one undo step (`pasteLook`, partLookApply.ts).
  */
-import type { StudioNode } from "./board/store";
-import { getWork, usesOf, type WorkUse } from "./library/works";
+import type { StudioNode } from "../board/store";
+import { getWork, usesOf, type WorkUse } from "../library/works";
 
 export const FACETS = ["fill", "outline", "shadow", "light", "corners", "font", "hover", "motion"] as const;
 export type Facet = (typeof FACETS)[number];

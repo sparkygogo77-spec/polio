@@ -25,7 +25,7 @@ import { useSiteVersions } from "./ShelfCards";
 import { WorkFields } from "./WorkFields";
 import { CATEGORIES, getFeature } from "./catalog";
 import { partName } from "./partNames";
-import { siteShortName } from "./styleKits";
+import { siteShortName } from "./look";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";

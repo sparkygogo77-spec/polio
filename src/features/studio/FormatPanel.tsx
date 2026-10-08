@@ -26,7 +26,7 @@ import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "./format";
 import { useStudio } from "./board/store";
 import { FAMILY, resolvePalette } from "./parts/theme";
 import { isCaptured, readSiteFormat, type Reading } from "./siteFormat";
-import { fontsInPageOrder, type FaceTo } from "./siteColours";
+import { fontsInPageOrder, type FaceTo } from "./look";
 import { formatSwitchKeys, formatSwitches, formatSwitchOn } from "./shelfFacts";
 import { parseColor, toHex } from "./look";
 import { cn } from "@/core/lib/cn";

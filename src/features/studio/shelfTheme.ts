@@ -28,7 +28,7 @@
  * Pure: no store, no React. `tests/shelf-readable.mjs` renders every card
  * preview on captured sites and fails on any word under 4.5 to 1.
  */
-import { contrast, css, parseColor, rgbToOklch, type Oklch } from "./look.ts";
+import { contrast, css, parseColor, rgbToOklch, type Oklch } from "./look/index.ts";
 
 /** WCAG's floor for body text. */
 export const READABLE = 4.5;

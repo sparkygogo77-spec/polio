@@ -39,7 +39,7 @@ if (!doc) {
 }
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const C = await jiti.import(join(here, "..", "src", "features", "studio", "siteColours.ts"));
+const C = await jiti.import(join(here, "..", "src", "features", "studio", "look", "siteColours.ts"));
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1100 } });
