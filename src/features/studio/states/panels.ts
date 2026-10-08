@@ -21,8 +21,8 @@
  *
  * Pure: `tests/panels-page.mjs`.
  */
-import { stateFrames } from "./stateFrames";
-import { groupHook, inDetails, screenKey, stepLook, linedParts, type PlaceBox, type ScreenRead, type StepLook } from "./boardStates";
+import { stateFrames } from "./stateFrames.ts";
+import { groupHook, inDetails, screenKey, stepLook, linedParts, type PlaceBox, type ScreenRead, type StepLook } from "./boardStates.ts";
 
 export interface PanelNode {
   id: string;

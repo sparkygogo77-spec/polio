@@ -138,7 +138,7 @@ if (!URL_) {
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--enable-unsafe-swiftshader"] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); sessionStorage.setItem("seeded", "1"); } }, seeded);
+  await context.addInitScript((d) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem("builder.studio", d); localStorage.setItem("builder.shelf.folded", "0"); sessionStorage.setItem("seeded", "1"); } }, seeded);
   const page = await context.newPage();
   await page.route("**/api/studio/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
   await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });

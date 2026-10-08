@@ -14,7 +14,7 @@
  *
  *   node tests/panel-spotlight.mjs
  *
- * Covers: src/features/studio/panelSpotlight.ts, src/features/studio/PanelsPage.tsx
+ * Covers: src/features/studio/states/panelSpotlight.ts, src/features/studio/states/PanelsPage.tsx
  */
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -28,7 +28,7 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 let chromium = null;
 for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) { try { ({ chromium } = req(c)); break; } catch { /* next */ } }
 if (!chromium) { console.log("  --   no Playwright: not run"); process.exit(0); }
-const src = readFileSync(join(here, "..", "src", "features", "studio", "panelSpotlight.ts"), "utf8");
+const src = readFileSync(join(here, "..", "src", "features", "studio", "states", "panelSpotlight.ts"), "utf8");
 const js = ts.transpileModule(src, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None } }).outputText.replace(/^export /m, "").replace(/Object\.defineProperty\(exports[^;]*;\s*/, "").replace(/exports\.spotlight = spotlight;\s*/, "").replace(/exports\.spotlight = void 0;\s*/, "");
 const html = `<!doctype html><body style="margin:0"><div id="host" style="position:relative;width:800px;height:500px;overflow:hidden">
 <div data-studio-pane id="pane" style="position:absolute;inset:0;overflow:auto"><div style="position:relative;width:1400px;height:900px">

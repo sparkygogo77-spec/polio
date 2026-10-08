@@ -22,7 +22,7 @@ import { play } from "@/core/audio/engine";
  * only thing the wheel talks to.
  */
 export function CategorySection({
-  category, groups: all, site, widthOf, cardWidth, words, onRemove, gap, onClose,
+  category, groups: all, site, widthOf, cardWidth, words, onRemove, gap, onClose, sketches = 0, onShowSketches,
 }: {
   category: CategoryDef;
   /** The category's groups as the shelf shows them, each with the items the search left in it. */
@@ -34,6 +34,9 @@ export function CategorySection({
   onRemove: (id: string) => void;
   gap: number;
   onClose: () => void;
+  /** Cards here held back as sketches (`shelfPlan.ts#isFinished`), and the press that shows them. */
+  sketches?: number;
+  onShowSketches?: () => void;
 }) {
   const [sub, setSub] = React.useState<string | null>(null);
   /*
@@ -102,6 +105,12 @@ export function CategorySection({
         {category.id === "motion" ? <SeeMotionTab className="shrink-0 text-fine" /> : null}
       </div>
       <div className="px-3 py-2">
+        {sketches && onShowSketches ? (
+          <p data-sketches-here={sketches} className="mb-2 text-small text-fg-muted">
+            {sketches} {sketches === 1 ? "sketch" : "sketches"} hidden here: {sketches === 1 ? "a part" : "parts"} the published page cannot run yet.{" "}
+            <button type="button" onClick={onShowSketches} className="tactile rounded-sm px-1 text-accent hover:bg-hover">Show sketches</button>
+          </p>
+        ) : null}
         <SavedComponentsBand category={category.id} hue={category.hue} />
         <WorkShelf category={category} width={cardWidth} words={words} gap={gap} />
         {groups.map((g) => (

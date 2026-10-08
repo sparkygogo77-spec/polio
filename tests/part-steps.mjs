@@ -25,7 +25,7 @@
  *
  *   node tests/part-steps.mjs
  *
- * Covers: src/features/studio/boardStates.ts, src/features/studio/StatesTimeline.tsx, src/features/studio/Canvas.tsx, src/features/studio/StudioPage.tsx
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/Canvas.tsx, src/features/studio/StudioPage.tsx
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,8 +33,8 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const B = await jiti.import(join(here, "..", "src", "features", "studio", "boardStates.ts"));
-const F = await jiti.import(join(here, "..", "src", "features", "studio", "stateFrames.ts"));
+const B = await jiti.import(join(here, "..", "src", "features", "studio", "states", "boardStates.ts"));
+const F = await jiti.import(join(here, "..", "src", "features", "studio", "states", "stateFrames.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);
@@ -91,7 +91,7 @@ check("the part grows by as much, where it stands", J(add.places.get("panel")) =
 check("nothing outside the part is decided or moved", !add.decide.has("wallet") && !add.decide.has("wallet-t") && !add.places.has("wallet") && !add.places.has("wallet-t"));
 
 /* 4. The page's states (the panel imports the client store, so its source is read) */
-const tl = readFileSync(join(here, "..", "src", "features", "studio", "StatesTimeline.tsx"), "utf8");
+const tl = readFileSync(join(here, "..", "src", "features", "studio", "states", "StatesTimeline.tsx"), "utf8");
 check("the page's states: its screens, then a row per part, step 1 as it opens (source read)", /export function pageStates/.test(tl) && /\{ key: null, label: open\?\.label \?\? "as it opens"/.test(tl));
 check("a screen that is a step of the part round it is not listed again inside it (source read)", /!\(s\.screen && above\.has\(s\.screen\)\)/.test(tl));
 check("picking the whole page's state puts its parts back to follow it (source read)", /The page as a whole: its parts follow it/.test(tl));

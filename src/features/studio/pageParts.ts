@@ -28,7 +28,7 @@
 import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
 import type { Span } from "./parts/spans.ts";
 import { familyOf } from "./recreate.ts";
-import { seatStates, type FrameNode } from "./stateFrames.ts";
+import { seatStates, type FrameNode } from "./states/index.ts";
 import { lookOf, type LayerNode, type StyleSource } from "./styleLayer.ts";
 import type { PageSource } from "./sourceHooks.ts";
 import { codeIndex, type CodeIndex, type Wanted } from "./codeRefs.ts";

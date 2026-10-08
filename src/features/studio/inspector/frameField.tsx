@@ -11,6 +11,8 @@ import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "../store";
 import { ImageWell } from "../ImageIntake";
 import { MAX_SLICE, frameSides, isFrame, newFrame, type PictureFrame } from "../frame";
+import { useLearned } from "../library/useLearned";
+import { frameComponent, savedFrames } from "../library/fromSites";
 
 /** A picture's own size, once the browser has opened it. */
 function sizeOf(src: string): Promise<{ w: number; h: number }> {
@@ -76,6 +78,8 @@ export function FrameField({ node }: { node: StudioNode }) {
       set(frame ? { ...frame, src, size: { w, h } } : newFrame(src, w, h));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
+  const kept = useLearned((s) => s.lib.components);
+  const saved = React.useMemo(() => savedFrames(kept ?? []), [kept]);
   const heading = <span className="mb-1 block text-small font-medium uppercase tracking-wider text-fg-faint">Frame from a picture</span>;
   if (!frame) {
     return (
@@ -83,6 +87,14 @@ export function FrameField({ node }: { node: StudioNode }) {
         {heading}
         <ImageWell label="picture of a box" onImage={(src) => void take(src)} />
         <span className="mt-1 block text-small text-fg-muted">Its corners stay as drawn; its edges stretch to any size.</span>
+        {saved.length ? (
+          <div data-frame-saved="" className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="text-small text-fg-muted">From the shelf:</span>
+            {saved.map(({ id, name, frame: f }) => (
+              <Button key={id} size="xs" variant="outline" data-frame-use={id} onClick={() => { play("confirm"); set(f); }}>{name}</Button>
+            ))}
+          </div>
+        ) : null}
         {error ? <p className="text-small text-danger">{error}</p> : null}
       </div>
     );
@@ -109,6 +121,10 @@ export function FrameField({ node }: { node: StudioNode }) {
       <div className="flex items-center gap-1.5">
         <ImageWell compact className="w-16" src={frame.src} label="picture" onImage={(src) => void take(src)} />
         <Button size="xs" variant="outline" onClick={() => set(null)}>Remove frame</Button>
+        <Button size="xs" variant="outline" data-frame-keep="" onClick={() => {
+          useLearned.getState().saveComponent(frameComponent(node as unknown as Parameters<typeof frameComponent>[0], frame, `Frame ${saved.length + 1}`));
+          play("confirm");
+        }}>Save to shelf</Button>
       </div>
       {error ? <p className="text-small text-danger">{error}</p> : null}
     </div>

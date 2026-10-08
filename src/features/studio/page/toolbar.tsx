@@ -13,12 +13,12 @@ import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Popover } from "@/core/ui/popover";
 import { ToolOptions } from "../toolOptions";
-import { setDecideAll, useDecideAll, useDecideCount } from "../decideShown";
+import { setDecideAll, useDecideAll, useDecideCount } from "../states/ui";
 import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { TOOLS, useMedia, FOLDING } from "./sizes";
 import { SiteHead, PageChips } from "./head";
-import { ShowSwitch } from "../ShowSwitch";
+import { ShowSwitch } from "../states/ui";
 
 export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   // The More key exists only while the bar is folding controls away: on a

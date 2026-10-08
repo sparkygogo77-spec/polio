@@ -28,7 +28,7 @@
  * none of them is a scene of its own, after them, in the order the site
  * lists it. Pure: `tests/page-scenes.mjs`.
  */
-import { screenKey, topKey, type ScreenRead } from "./boardStates";
+import { screenKey, topKey, type ScreenRead } from "./boardStates.ts";
 
 export interface SceneVariant {
   /** The capture this variant is drawn from: positions and words together. */

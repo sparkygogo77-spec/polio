@@ -16,7 +16,7 @@ import { stateLooksIn } from "./show";
 import { checkIn, checkOut, type CheckedOut } from "./stateEdits";
 import { panelKey, type RuleNode } from "./stateRules";
 import { usePanelsPageOpen } from "./PanelsPage";
-import { useStudio } from "./store";
+import { useStudio } from "../store";
 
 /*
  * "This state only": the panels on show wear this preview's state, checked

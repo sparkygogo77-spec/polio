@@ -15,7 +15,7 @@
  *
  *   node tests/states-by-part.mjs
  *
- * Covers: src/features/studio/boardStates.ts, src/features/studio/pageParts.ts, src/features/studio/StatesTimeline.tsx, src/features/studio/StudioPage.tsx
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/pageParts.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/StudioPage.tsx
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const B = await jiti.import(join(here, "..", "src", "features", "studio", "boardStates.ts"));
+const B = await jiti.import(join(here, "..", "src", "features", "studio", "states", "boardStates.ts"));
 const P = await jiti.import(join(here, "..", "src", "features", "studio", "pageParts.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -63,7 +63,7 @@ check("about the rod's foot, said from the ball's corner", parts[1].art.origin =
 check("and stands still as the rod stands it", parts[1].art.transform === parts[0].art.transform);
 check("a part outside it is left alone", !parts[2].motion);
 
-const page = ["StudioPage.tsx", "PanelsPage.tsx", "PanelsMore.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
+const page = ["StudioPage.tsx", "states/PanelsPage.tsx", "states/PanelsMore.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");
 check("no States menu on the page strip; the Panels rail lists parts and keeps scenes and hidden parts at its foot (source read)", !/StatesChip|data-states-button/.test(page) && /data-panels-item/.test(page) && /<MoreStates /.test(page) && /data-states-more/.test(page) && /useSceneKeys\(/.test(page));
 
 const studio = readFileSync(join(here, "..", "src", "features", "studio", "page", "StudioPage.tsx"), "utf8");

@@ -21,7 +21,7 @@
  *
  *   node tests/show-switch.mjs
  *
- * Covers: src/features/studio/show.ts, src/features/studio/sceneStep.ts, src/features/studio/ShowSwitch.tsx, src/features/studio/stateEdits.ts
+ * Covers: src/features/studio/states/show.ts, src/features/studio/states/sceneStep.ts, src/features/studio/states/ShowSwitch.tsx, src/features/studio/states/stateEdits.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,9 +29,9 @@ import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
 const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
-const R = await studio("stateRules.ts");
-const SH = await studio("show.ts");
-const E = await studio("stateEdits.ts");
+const R = await studio("states/stateRules.ts");
+const SH = await studio("states/show.ts");
+const E = await studio("states/stateEdits.ts");
 const L = await studio("styleLayer.ts");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
