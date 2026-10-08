@@ -21,9 +21,9 @@ import { useStudio, activePage, type StudioNode } from "./board/store";
 import { LiveSite } from "./live/LiveSite";
 import { SMALL_WIDTH, type SmallDevice } from "./live/small";
 import { planFor } from "./live/smallRules";
-import { resolvePart } from "./parts";
+import { resolvePart } from "./shelf/ui";
 import { partName } from "./partNames";
-import { getFeature } from "./catalog";
+import { getFeature } from "./shelf";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 

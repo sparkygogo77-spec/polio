@@ -41,7 +41,7 @@ import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { takeDoc } from "../src/features/studio/docTake.ts";
-import { usesOf, getWork, inputsOf, pageFeatures } from "../src/features/studio/library/works.ts";
+import { usesOf, getWork, inputsOf, pageFeatures } from "../src/features/studio/shelf/library/works.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";

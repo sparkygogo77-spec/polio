@@ -10,7 +10,7 @@
  *   node --experimental-strip-types tests/reassemble.mjs
  */
 import { emptyWrappers, sentences, saysWhat, slimSays, slimWrappers, WORDY } from "../src/features/studio/reassemble.ts";
-import { plain } from "../src/features/studio/parts/spans.ts";
+import { plain } from "../src/features/studio/shelf/parts/spans.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

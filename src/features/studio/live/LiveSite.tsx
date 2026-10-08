@@ -7,11 +7,11 @@
 import * as React from "react";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
-import { isOverlay, themeFrom, type NodeLink, type PartEvent } from "../parts";
+import { isOverlay, themeFrom, type NodeLink, type PartEvent } from "../shelf/ui";
 import { LiveKeyframes, TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "./CarriedFonts";
-import { copyMotion, motionCss } from "../parts/capturedMotion";
-import { resolvePalette } from "../parts/theme";
+import { copyMotion, motionCss } from "../shelf";
+import { resolvePalette } from "../shelf/run";
 import { auraStyle, entranceCss, washCss, type Look } from "../look";
 import type { StudioNode, StudioPage, StudioShape } from "../board/store";
 import { unbuiltSections } from "../spec";
@@ -22,11 +22,11 @@ import { placeNodes, type Device } from "./layout";
 import { planFor, SMALL_RULES, treeFor } from "./smallRules";
 import { PHONE_MAX, SMALL_WIDTH, type SmallDevice } from "./small";
 import { breakersFor, cssIdent, smallSheet } from "./smallCss";
-import { resolvePart } from "../parts";
+import { resolvePart } from "../shelf/ui";
 import { homeOf } from "../homePage";
-import { getWork, pageFeatures, usesOf } from "../library/works";
+import { getWork, pageFeatures, usesOf } from "../shelf";
 import { runWorks } from "./runWorks";
-import { leadsOf, withLead } from "../parts/leadIn";
+import { leadsOf, withLead } from "../shelf";
 
 /** Parts that draw a real control and wear a brought-in page's hooks on it, not on their box. */
 const OWN_HOOKS = new Set(["field", "checkbox"]);

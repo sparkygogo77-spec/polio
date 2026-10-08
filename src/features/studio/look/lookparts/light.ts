@@ -1,5 +1,5 @@
 import type { CarriedFont } from "../fonts";
-import type { CapturedKeyframes } from "../../parts/capturedMotion";
+import type { CapturedKeyframes } from "../../shelf";
 import type { Group, SiteTheme } from "../../siteTheme";
 import type { TextureLayer } from "./texture.ts";
 import type { RoleId, Palette } from "./colour.ts";

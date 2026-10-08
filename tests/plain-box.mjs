@@ -19,7 +19,7 @@
  */
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { FEATURES, SUBGROUPS } from "../src/features/studio/catalog.ts";
+import { FEATURES, SUBGROUPS } from "../src/features/studio/shelf/catalog.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -40,7 +40,7 @@ const check = (name, ok, detail = "") => {
 const box = FEATURES.find((f) => f.id === "box");
 check("the library has a part called Box, under Layout", !!box && box.category === "structure" && box.name === "Box", box ? `${box.name} in ${box.category}` : "no such part");
 check("it is in a sub-group, so the drawer reaches it", Object.values(SUBGROUPS).flat().some((g) => g.ids.includes("box")));
-const defs = readFileSync("src/features/studio/parts/index.ts", "utf8");
+const defs = readFileSync("src/features/studio/shelf/parts/index.ts", "utf8");
 check("its registry line is its own, not the Note's", /ids: \["box"\]/.test(defs) && !/ids: \[[^\]]*"custom-idea"[^\]]*"box"/.test(defs));
 
 /* On the board. */

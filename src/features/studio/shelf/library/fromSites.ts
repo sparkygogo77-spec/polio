@@ -20,7 +20,7 @@
  * Pure: no store, no React. `tests/shelf-from-sites.mjs` holds it.
  */
 import { componentOf, membersOf, type SavedComponent } from "./components.ts";
-import type { PictureFrame } from "../frame.ts";
+import type { PictureFrame } from "../../frame.ts";
 
 type PictureFrameLike = PictureFrame;
 

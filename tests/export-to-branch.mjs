@@ -41,7 +41,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/export-to-branch.mjs http://127.0.0.1:3013 [a PonsStars checkout]
  *
- * Covers: src/features/studio/send-out/designBranch.ts, src/features/studio/exportForCode.ts, src/features/studio/kitExport.ts, src/features/studio/parts/PageControls.tsx
+ * Covers: src/features/studio/send-out/designBranch.ts, src/features/studio/exportForCode.ts, src/features/studio/kitExport.ts, src/features/studio/shelf/parts/PageControls.tsx
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";

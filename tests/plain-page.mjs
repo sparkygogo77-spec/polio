@@ -23,7 +23,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/plain-page.mjs http://127.0.0.1:3013
  *
- * Covers: src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/parts/PageControls.tsx, src/features/studio/live/LiveSite.tsx, src/features/studio/parts/Runs.tsx
+ * Covers: src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/shelf/parts/PageControls.tsx, src/features/studio/live/LiveSite.tsx, src/features/studio/shelf/parts/Runs.tsx
  */
 import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";

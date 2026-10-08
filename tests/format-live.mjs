@@ -37,7 +37,7 @@ const check = (name, ok, detail = "") => {
 /* 1. What the renderers read, off their own source. */
 const RENDERERS = [
   ...readdirSync("src/features/studio/live").filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => `src/features/studio/live/${f}`),
-  "src/features/studio/parts/theme.ts",
+  "src/features/studio/shelf/parts/theme.ts",
   "src/features/studio/blocks.tsx",
 ];
 const read = new Set();

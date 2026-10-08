@@ -11,10 +11,10 @@
  */
 import * as React from "react";
 import { BookOpen, Trash2 } from "lucide-react";
-import { useLearned } from "./library/useLearned";
-import type { LearnedSite } from "./library/learned";
-import { getWork } from "./library/works";
-import { CATEGORIES, getFeature } from "./catalog";
+import { useLearned } from "./shelf/ui";
+import type { LearnedSite } from "./shelf";
+import { getWork } from "./shelf";
+import { CATEGORIES, getFeature } from "./shelf";
 import { STATUS_LABEL } from "./shelfFacts";
 import { useStudio } from "./board/store";
 import { play } from "@/core/audio/engine";

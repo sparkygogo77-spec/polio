@@ -11,7 +11,7 @@ import { diffDocs, type Thread } from "../threads";
 import { pictureOf } from "../reshapeRun";
 import { useStudio } from "../board/store";
 import { Block, themeFrom } from "../blocks";
-import { resolvePalette } from "../parts/theme";
+import { resolvePalette } from "../shelf/run";
 import { GROW, isElement, headlineOf } from "./layout";
 import { Drawn } from "./pieces";
 

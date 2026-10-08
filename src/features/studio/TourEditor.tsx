@@ -19,8 +19,8 @@ import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
 import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "./board/store";
-import { getFeature } from "./catalog";
-import { getWork } from "./library/works";
+import { getFeature } from "./shelf";
+import { getWork } from "./shelf";
 import {
   ACTION_WORDS, MAX_STEPS, SITE_OPTIONS, WHEN_WORDS, blankStep, markUpdate, stepFor, tourChoices, tourOf, withSteps,
   type TourActionKind, type TourChoice, type TourStep, type TourWhen,

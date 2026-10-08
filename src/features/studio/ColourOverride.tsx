@@ -17,7 +17,7 @@ import { play } from "@/core/audio/engine";
 import { Tooltip } from "@/core/ui/tooltip";
 import { parseColor, toHex, ROLES, ROLE_LABEL, type Palette, type RoleId } from "./look";
 import { CHIP, inheritChip } from "./colourMenu";
-import type { NodeColour } from "./parts/theme";
+import type { NodeColour } from "./shelf/run";
 import { tryProps } from "./tryLook";
 
 export function effectiveColour(colour: NodeColour | null, palette: Palette, role: RoleId): string {

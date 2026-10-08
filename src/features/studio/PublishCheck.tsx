@@ -16,8 +16,8 @@ import { AlertTriangle, Check, Eye, GitPullRequest, Globe, Wrench } from "lucide
 import { Dialog } from "@/core/ui/dialog";
 import { Button } from "@/core/ui/button";
 import { play } from "@/core/audio/engine";
-import { getFeature } from "./catalog";
-import { resolvePalette } from "./parts/theme";
+import { getFeature } from "./shelf";
+import { resolvePalette } from "./shelf/run";
 import { placeNodes } from "./live/layout";
 import { held, put } from "./pictures";
 import { readableFixes } from "./look";

@@ -92,7 +92,7 @@ const grepFiles = (args) => { try { return execFileSync("git", ["grep", "-l", ..
 const left = grepFiles(["-E", "text-\\[(9|10|11|12)px\\]", "--", "src/**/*.tsx"]);
 check(
   "nothing in the Builder's own chrome still hardcodes one of the four",
-  left.every((f) => f.startsWith("src/features/studio/parts/")),
+  left.every((f) => f.startsWith("src/features/studio/shelf/parts/")),
   left.length ? left.join(", ") : "none left anywhere",
 );
 /*
@@ -106,7 +106,7 @@ check(
  * opposite, that parts must still carry a pixel size, which read a sweep
  * of the last two (Mesh's fallback line and its badge) as a mistake.
  */
-const named = grepFiles(["-E", "\\btext-(fine|small|plain|large)\\b", "--", "src/features/studio/parts/**/*.tsx", "src/features/studio/parts/*.tsx"]);
+const named = grepFiles(["-E", "\\btext-(fine|small|plain|large)\\b", "--", "src/features/studio/shelf/parts/**/*.tsx", "src/features/studio/shelf/parts/*.tsx"]);
 check(
   "and no part a site is built from uses the Builder's own size names, which the exported site does not have",
   named.length === 0,

@@ -3,8 +3,8 @@
  * capture, the same on every surface. Pure: no store, no React, so the
  * export and `tests/ca-bar-seams.mjs` run it as written.
  */
-import { insideIndex, movesItself, type MotionNode } from "./parts/capturedMotion";
-import { onUsesOf, type WorkUse } from "./library/works";
+import { insideIndex, movesItself, type MotionNode } from "./shelf";
+import { onUsesOf, type WorkUse } from "./shelf";
 
 /** A part, as far as these read it. */
 export interface CarryNode extends MotionNode { featureId?: string; data?: unknown; work?: WorkUse | null; motion?: MotionNode["motion"]; state?: { group?: string; option?: number } | null }

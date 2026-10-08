@@ -14,17 +14,17 @@ import { PublishCheckDialog } from "./PublishCheck";
 import { LaunchKitKey } from "./LaunchKit";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
-import { isLinkable } from "./parts";
-import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
+import { isLinkable } from "./shelf/ui";
+import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./shelf";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./board/store";
 import { createSpaceAt } from "./createSpace";
-import { addFeatureToCanvas, dropPoint } from "./Palette";
+import { addFeatureToCanvas, dropPoint } from "./shelf/ui";
 import { openBoard } from "./RadialMenu";
 import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
 import { ridersOf } from "./owner";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 import { play } from "@/core/audio/engine";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */

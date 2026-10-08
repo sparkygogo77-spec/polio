@@ -10,8 +10,8 @@
  *
  *   node --experimental-strip-types tests/press-shows.mjs
  */
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
-import { BEHAVIOURS } from "../src/features/studio/library/behaviours.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
+import { BEHAVIOURS } from "../src/features/studio/shelf/library/behaviours.ts";
 import * as fluidSite from "../src/features/studio/fluidSite.ts";
 
 const results = [];

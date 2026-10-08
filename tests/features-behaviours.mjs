@@ -28,10 +28,10 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import { chromium } from "playwright-core";
-import { LIBRARY, getWork, featureFiles, pageFeatureTags, pageFeatures, matchWorks, usesOf, withWork, withoutWork, withInput, withSwitch, describeWork } from "../src/features/studio/library/works.ts";
-import { readWords } from "../src/features/studio/library/read.ts";
-import { contractFiles } from "../src/features/studio/library/contract.ts";
-import { foundIn, offersFrom } from "../src/features/studio/library/roundTrip.ts";
+import { LIBRARY, getWork, featureFiles, pageFeatureTags, pageFeatures, matchWorks, usesOf, withWork, withoutWork, withInput, withSwitch, describeWork } from "../src/features/studio/shelf/library/works.ts";
+import { readWords } from "../src/features/studio/shelf/library/read.ts";
+import { contractFiles } from "../src/features/studio/shelf/library/contract.ts";
+import { foundIn, offersFrom } from "../src/features/studio/shelf/library/roundTrip.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

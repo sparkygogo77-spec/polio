@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const L = join(here, "..", "src", "features", "studio", "library");
+const L = join(here, "..", "src", "features", "studio", "shelf", "library");
 const { attachCaptured } = await jiti.import(join(L, "captured.ts"));
 const beh = await jiti.import(join(L, "behaviours.ts"));
 const { usesOf } = await jiti.import(join(L, "works.ts"));

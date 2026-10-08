@@ -62,7 +62,7 @@ import { QuadrantConsole, type ConsoleSpan } from "../RingEditors";
 import { movedColours, movedFont, type Worn } from "../look";
 import { DrawBoard } from "../DrawBoard";
 import { CONSOLE, HoverTray, type TrayItem } from "../RingConsole";
-import { overrideTheme, resolvePalette, themeFrom } from "../parts/theme";
+import { overrideTheme, resolvePalette, themeFrom } from "../shelf/run";
 import { auraColour, lands, textureCss } from "../look";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";

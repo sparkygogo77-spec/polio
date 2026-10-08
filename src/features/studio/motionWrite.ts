@@ -10,7 +10,7 @@
  * many parts it touches, a change is one undo step.
  */
 import { useStudio, type StudioNode } from "./board/store";
-import { withInput, withSwitch, usesOf } from "./library/works";
+import { withInput, withSwitch, usesOf } from "./shelf";
 import { seconds, workSpeedInput, type MoveRow } from "./motionInventory";
 
 const trim = (n: number) => String(Math.round(n * 1000) / 1000);

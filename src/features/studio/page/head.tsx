@@ -5,7 +5,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, FileText, Layers, Plus } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
-import { resolvePalette } from "../parts/theme";
+import { resolvePalette } from "../shelf/run";
 import { usePicture } from "../pictures";
 import { siteLogo } from "../siteMark";
 import { useHeldStudio, useStudio } from "../board/store";

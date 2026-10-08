@@ -15,7 +15,7 @@
  *
  * Pure: no store, no React.
  */
-import type { StyleKit, KitFill, KitShadow } from "../look/index.ts";
+import type { StyleKit, KitFill, KitShadow } from "../../look/index.ts";
 
 /** The kinds of part, as the part panel names them, grouped by what fits them. */
 export type EffectFamily = "picture" | "button" | "section" | "any";

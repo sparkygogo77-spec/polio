@@ -28,7 +28,7 @@
 import type { SettingDef } from "@/core/types";
 import { useStudio } from "./board/store";
 import { FORMAT_FIELDS } from "./format";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
 
 /**

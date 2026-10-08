@@ -14,9 +14,9 @@
  *
  *   node --experimental-strip-types tests/decide-repo-parts.mjs
  *
- * Covers: src/features/studio/library/badge.ts
+ * Covers: src/features/studio/shelf/library/badge.ts
  */
-import { decisions } from "../src/features/studio/library/badge.ts";
+import { decisions } from "../src/features/studio/shelf/library/badge.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

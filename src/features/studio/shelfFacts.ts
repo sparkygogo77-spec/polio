@@ -27,9 +27,9 @@
  * Pure: no store, no React, so `tests/shelf-cards.mjs` runs it as written.
  * General by construction: nothing here names a site.
  */
-import type { FeatureDef } from "./catalog.ts";
-import { publishOf } from "./shelfPlan.ts";
-import { isWorkKey } from "./shelfGroups.ts";
+import type { FeatureDef } from "./shelf/index.ts";
+import { publishOf } from "./shelf/index.ts";
+import { isWorkKey } from "./shelf/index.ts";
 import { BAND_LABEL, bandOf, shapeOf, type Shape } from "./showcase.ts";
 
 /* ------------------------------------------------------------------ */

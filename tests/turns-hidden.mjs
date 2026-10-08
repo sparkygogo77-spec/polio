@@ -16,7 +16,7 @@
  *
  *   node tests/turns-hidden.mjs
  *
- * Covers: src/features/studio/siteread/parts.ts, src/features/studio/states/boardStates.ts
+ * Covers: src/features/studio/bring-in/siteread/parts.ts, src/features/studio/states/boardStates.ts
  */
 import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
 import { screenPlaces } from "../src/features/studio/states/boardStates.ts";

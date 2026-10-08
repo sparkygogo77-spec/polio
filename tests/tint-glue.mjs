@@ -18,7 +18,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { tint } from "../src/features/studio/parts/tint.ts";
+import { tint } from "../src/features/studio/shelf/parts/tint.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -50,7 +50,7 @@ for (const f of files) {
   });
 }
 check("1. no source file glues hex digits onto a colour", found.length === 0, found.slice(0, 8).join(" | ") || `${files.length} files read`);
-const parts = readdirSync("src/features/studio/parts").filter((n) => n.endsWith(".tsx")).map((n) => readFileSync(join("src/features/studio/parts", n), "utf8"));
+const parts = readdirSync("src/features/studio/shelf/parts").filter((n) => n.endsWith(".tsx")).map((n) => readFileSync(join("src/features/studio/shelf/parts", n), "utf8"));
 const users = parts.filter((s) => /\btint\(/.test(s)).length;
 check("1. the parts make their tints with tint()", users >= 14, `${users} part files use it`);
 

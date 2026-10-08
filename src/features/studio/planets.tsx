@@ -8,7 +8,7 @@
  * single stroke weight, so fourteen different objects still look like one set.
  */
 import * as React from "react";
-import type { BuiltInCategory, CategoryId } from "./catalog";
+import type { BuiltInCategory, CategoryId } from "./shelf";
 
 export type IconProps = { className?: string; size?: number };
 

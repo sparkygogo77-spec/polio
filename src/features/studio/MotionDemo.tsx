@@ -19,7 +19,7 @@
  * `hasDemo` says which ids this can show; anything else keeps its part.
  */
 import * as React from "react";
-import type { Theme } from "./parts";
+import type { Theme } from "./shelf/ui";
 import type { SiteWords } from "./shelfFacts";
 
 /** Which demo each id plays: catalogue motions and the library's working behaviours alike. */

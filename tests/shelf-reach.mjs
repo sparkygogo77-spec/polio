@@ -12,8 +12,8 @@
  *   node tests/shelf-reach.mjs
  */
 import { readFileSync } from "node:fs";
-import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/catalog.ts";
-import { REMOVED, VARIANT_OF } from "../src/features/studio/shelfPlan.ts";
+import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/shelf/catalog.ts";
+import { REMOVED, VARIANT_OF } from "../src/features/studio/shelf/shelfPlan.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -48,7 +48,7 @@ check("every sub-group's category is a category", homeless.length === 0, homeles
 /* Where the size of the library is written down, it is the size of the library. */
 const n = FEATURES.length;
 const said = (file) => [...readFileSync(file, "utf8").matchAll(/\b(\d{3}) (?:common web features|parts|live previews)\b/g)].map((m) => Number(m[1]));
-for (const file of ["site.config.ts", "src/features/studio/catalog.ts", "src/features/studio/PartPreview.tsx"]) {
+for (const file of ["site.config.ts", "src/features/studio/shelf/catalog.ts", "src/features/studio/PartPreview.tsx"]) {
   const counts = said(file);
   check(`${file} counts the parts as ${n}`, counts.length > 0 && counts.every((c) => c === n), counts.join(", ") || "no count");
 }

@@ -24,7 +24,7 @@
  */
 import { tallyColours, tallyFonts } from "./look/index.ts";
 import { homeFor, type Routed } from "./homePage.ts";
-import { usesOf, type WorkUse } from "./library/works.ts";
+import { usesOf, type WorkUse } from "./shelf/index.ts";
 import { ROLES, toHex, parseColor, paletteFromHue, type Palette } from "./look/index.ts";
 
 export const POLIO_MD = "POLIO.md";

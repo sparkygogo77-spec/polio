@@ -37,7 +37,7 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const { wordsContrast, readableFixes, backdropOf, HARD_TO_READ, READS } = await jiti.import(join(here, "..", "src", "features", "studio", "look", "siteColours.ts"));
 const { sampleHeld } = await jiti.import(join(here, "..", "src", "features", "studio", "pictureSampler.ts"));
-const { resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "parts", "theme.ts"));
+const { resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "parts", "theme.ts"));
 
 const part = (id, x, y, w, h, extra = {}) => ({ id, pageId: "p0", featureId: "box", content: "", x, y, w, h, colour: null, font: null, ...extra });
 const LIGHT_PAGE = { bg: "rgb(245, 240, 220)", text: "rgb(20, 20, 20)" };

@@ -28,7 +28,7 @@
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 import { washCss } from "./look";
 import { frameHeight, type StudioNode, type StudioPage } from "./board/store";
 import type { FormatValues } from "./format";

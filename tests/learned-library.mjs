@@ -46,9 +46,9 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
-const { attachCaptured } = await src("library/captured.ts");
-const L = await src("library/learned.ts");
-const { getWork } = await src("library/works.ts");
+const { attachCaptured } = await src("shelf/library/captured.ts");
+const L = await src("shelf/library/learned.ts");
+const { getWork } = await src("shelf/library/works.ts");
 const { statusOf } = await src("shelfFacts.ts");
 
 const SITES = existsSync(join(SINK, "sites")) ? readdirSync(join(SINK, "sites")).filter((s) => existsSync(join(SINK, "sites", s, "site", "document.json"))).sort() : [];

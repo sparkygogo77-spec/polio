@@ -32,9 +32,9 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const S = (...p) => join(here, "..", "src", "features", "studio", ...p);
 const { Block } = await jiti.import(S("blocks.tsx"));
-const { themeFrom, resolvePalette } = await jiti.import(S("parts", "theme.ts"));
-const { BEHAVIOURS } = await jiti.import(S("library", "behaviours.ts"));
-const { RUNTIME_JS } = await jiti.import(S("library", "works.ts"));
+const { themeFrom, resolvePalette } = await jiti.import(S("shelf", "parts", "theme.ts"));
+const { BEHAVIOURS } = await jiti.import(S("shelf", "library", "behaviours.ts"));
+const { RUNTIME_JS } = await jiti.import(S("shelf", "library", "works.ts"));
 
 const results = [];
 const check = (name, ok, detail = "") => {

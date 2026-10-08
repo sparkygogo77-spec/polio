@@ -45,7 +45,7 @@ const J = (x) => JSON.stringify(x);
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const { statusOf } = await jiti.import(join(here, "..", "src", "features", "studio", "shelfFacts.ts"));
-const { getFeature } = await jiti.import(join(here, "..", "src", "features", "studio", "catalog.ts"));
+const { getFeature } = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "catalog.ts"));
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync("/opt/pw-browsers/chromium") ? { executablePath: "/opt/pw-browsers/chromium" } : {}) });
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });

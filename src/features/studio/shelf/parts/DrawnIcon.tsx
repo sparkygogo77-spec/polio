@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
-import { simplify, vectorMarkup, weigh } from "../vector";
+import { simplify, vectorMarkup, weigh } from "../../vector";
 import { num, opt, type PartProps } from "./types";
 
 export function DrawnIcon({ label, vector, options, theme: t, w, h }: PartProps) {

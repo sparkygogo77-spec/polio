@@ -11,10 +11,10 @@
  * site does not have) are left to the shelf. Seeded, so a roll picks again
  * what it picked before.
  */
-import { CATEGORIES, getFeature } from "./catalog";
+import { CATEGORIES, getFeature } from "./shelf";
 import { doesOf, statusOf, switchOf } from "./shelfFacts";
-import { shelfOf } from "./shelfPlan";
-import { isWorkKey } from "./shelfGroups";
+import { shelfOf } from "./shelf";
+import { isWorkKey } from "./shelf";
 import { rng } from "./siteTheme";
 import type { TryItem } from "./starterPage";
 

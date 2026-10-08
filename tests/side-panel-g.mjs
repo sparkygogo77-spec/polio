@@ -57,7 +57,7 @@ const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f))
 const { readSiteFormat, pageColourOf } = await src("siteFormat.ts");
 const { partTree, visibleRows, ancestors } = await src("partTree.ts");
 const { capturedFrom, kindOf } = await src("partNames.ts");
-const { decisions, decisionSays, answered } = await src("library/badge.ts");
+const { decisions, decisionSays, answered } = await src("shelf/library/badge.ts");
 
 const reads = readSiteFormat(doc, doc.look?.palette?.bg);
 /* Read by `paintedPalette` (shelfTheme.ts), the function the shelf's previews use too, so the two agree. */

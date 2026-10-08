@@ -26,10 +26,10 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const S = (...p) => join(here, "..", "src", "features", "studio", ...p);
 const { Block } = await jiti.import(S("blocks.tsx"));
-const { themeFrom, resolvePalette } = await jiti.import(S("parts", "theme.ts"));
-const { attachCaptured } = await jiti.import(S("library", "captured.ts"));
-const { BEHAVIOURS } = await jiti.import(S("library", "behaviours.ts"));
-const { RUNTIME_JS, usesOf } = await jiti.import(S("library", "works.ts"));
+const { themeFrom, resolvePalette } = await jiti.import(S("shelf", "parts", "theme.ts"));
+const { attachCaptured } = await jiti.import(S("shelf", "library", "captured.ts"));
+const { BEHAVIOURS } = await jiti.import(S("shelf", "library", "behaviours.ts"));
+const { RUNTIME_JS, usesOf } = await jiti.import(S("shelf", "library", "works.ts"));
 const { polioMd } = await jiti.import(S("polioMd.ts"));
 
 const results = [];
@@ -129,7 +129,7 @@ check("every control keeps its words and the page's own attributes, named for a 
 
 /* ---------------------------------------------------------------- the owner's allow-list for links off the site */
 {
-  const { linkAllowed, offsiteRules, DEFAULT_OFFSITE } = await jiti.import(S("parts", "offsite.ts"));
+  const { linkAllowed, offsiteRules, DEFAULT_OFFSITE } = await jiti.import(S("shelf", "parts", "offsite.ts"));
   const R = offsiteRules(DEFAULT_OFFSITE);
   const cases = [["https://pump.fun/coin/STANDIN_MINT_A", true], ["https://pump.fun/board", true], ["https://dexscreener.com/solana", true], ["https://dexscreener.com/", true],
     ["https://dexscreener.com/solana/STANDIN_MINT_A", false], ["https://x.com/STANDIN_dev", false], ["https://twitter.com/STANDIN_dev", false], ["https://x.com/intent/post?text=STANDIN", false],

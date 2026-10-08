@@ -36,7 +36,7 @@ const check = (name, ok, detail = "") => {
 
 /* 1. The turn, as a pure function. */
 let splitTurn = null;
-try { ({ splitTurn } = await import("../src/features/studio/parts/turn.ts")); } catch { /* not there yet */ }
+try { ({ splitTurn } = await import("../src/features/studio/shelf/parts/turn.ts")); } catch { /* not there yet */ }
 check("the turn is a pure module the hero and the call to action share", typeof splitTurn === "function");
 if (splitTurn) {
   const show = (r) => `"${r.head}" + "${r.tail}"`;
@@ -59,7 +59,7 @@ if (splitTurn) {
 }
 
 /* 2. The hero and the header, on the live page. */
-const HEADER = (readFileSync("src/features/studio/parts/index.ts", "utf8").match(/component: Header, ids: \["([\w-]+)"/) ?? [])[1] ?? "header";
+const HEADER = (readFileSync("src/features/studio/shelf/parts/index.ts", "utf8").match(/component: Header, ids: \["([\w-]+)"/) ?? [])[1] ?? "header";
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });

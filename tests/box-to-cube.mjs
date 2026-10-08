@@ -35,8 +35,8 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import { isBox, kindOfSketch } from "../src/features/studio/shapeKind.ts";
 import { pickCoded } from "../src/features/studio/coded.ts";
-import { REST } from "../src/features/studio/parts/cubeFaces.ts";
-import { facing, restFor, nearestRest, PITCH_LIMIT, REST_PITCHES } from "../src/features/studio/parts/cubePose.ts";
+import { REST } from "../src/features/studio/shelf/parts/cubeFaces.ts";
+import { facing, restFor, nearestRest, PITCH_LIMIT, REST_PITCHES } from "../src/features/studio/shelf/parts/cubePose.ts";
 import { makingOf, route } from "../src/features/studio/imageRoute.ts";
 import { SOLID_WORDS, solidModel } from "../src/features/studio/solidRoute.ts";
 

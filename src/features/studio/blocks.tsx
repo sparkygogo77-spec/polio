@@ -9,23 +9,23 @@
  * last resort for an id that was removed from the registry.
  */
 import * as React from "react";
-import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTour, type Theme } from "./parts";
-import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
+import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTour, type Theme } from "./shelf/ui";
+import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./shelf";
 import { livingLayered } from "./living";
-import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
+import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./shelf/run";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./board/store";
-import { usesOf } from "./library/works";
+import { usesOf } from "./shelf";
 import { usePicture, type Picture } from "./pictures";
 import { CrateOn } from "./crateLayer";
 import { WornShape } from "./WornShape";
-import { hasLetters, isSpans, plain, spansOf } from "./parts/spans";
-import type { NodeMedia } from "./parts/types";
-import type { NodeWorld } from "./parts/World";
+import { hasLetters, isSpans, plain, spansOf } from "./shelf";
+import type { NodeMedia } from "./shelf";
+import type { NodeWorld } from "./shelf/ui";
 
-export { items, themeFrom, type Theme } from "./parts/theme";
+export { items, themeFrom, type Theme } from "./shelf/run";
 
 export interface BlockProps {
   node: StudioNode;

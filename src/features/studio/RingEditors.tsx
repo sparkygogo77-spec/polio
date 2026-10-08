@@ -29,8 +29,8 @@ import {
   type AnimEase, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
 import { useStudio, type StudioNode } from "./board/store";
-import { FAMILY, type NodeFont } from "./parts/theme";
-import type { FeatureOption } from "./catalog";
+import { FAMILY, type NodeFont } from "./shelf/run";
+import type { FeatureOption } from "./shelf";
 import { joinFor, middleOf, onCircle, piece, slabFar, slabRadius, SLAB_PAD, type Rings, type Shape } from "./menuGeometry";
 import {
   ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, RUN_END, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,

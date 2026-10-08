@@ -26,7 +26,7 @@
  * Pure: no store, no browser. `tests/plain-page.mjs` holds it.
  */
 import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
-import type { Span } from "../parts/spans.ts";
+import type { Span } from "../shelf/index.ts";
 import { familyOf } from "../recreate.ts";
 import { seatStates, type FrameNode } from "../states/index.ts";
 import { lookOf, type LayerNode, type StyleSource } from "../send-out/index.ts";

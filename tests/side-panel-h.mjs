@@ -48,7 +48,7 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const { wordsContrast, readableFixes, tallyColours, HARD_TO_READ, READS } = await src("look/siteColours.ts");
-const { resolvePalette } = await src("parts/theme.ts");
+const { resolvePalette } = await src("shelf/parts/theme.ts");
 const palette = resolvePalette(doc.format, doc.look);
 /* Words over a picture are read against the picture (`pictureSampler.ts`): the capture's own, decoded by a browser. */
 const { sampleHeld } = await src("pictureSampler.ts");

@@ -1,14 +1,14 @@
 "use client";
 import { RemakeOnPart } from "../RemakePicture";
 import * as React from "react";
-import { getFeature,categoryOf } from "../catalog";
-import { isOverlay } from "../parts";
+import { getFeature,categoryOf } from "../shelf";
+import { isOverlay } from "../shelf/ui";
 import { pageClip } from "../pageClip";
-import { leadsOf } from "../parts/leadIn";
+import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
 import { LiveSite,PartCopy,resolvePageLink } from "../live/LiveSite";
 import { placeNodes } from "../live/layout";
-import { resolvePalette } from "../parts/theme";
+import { resolvePalette } from "../shelf/run";
 import { AlignCenter,AlignLeft,AlignRight,StretchHorizontal } from "lucide-react";
 import { CORNERS,handlePoints } from "../outlineHandles";
 import { auraFilter,auraStyle,markColour,type Light,type Palette,type TextureLayer } from "../look";
@@ -23,10 +23,10 @@ useStudio,type StudioNode
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { openRadial } from "../RadialMenu";
-import { type Decision } from "../library/badge";
-import { getWork,usesOf } from "../library/works";
+import { type Decision } from "../shelf";
+import { getWork,usesOf } from "../shelf";
 import { missingDrawnCopy,namesDrawnCopy } from "../promised";
-import { plain } from "../parts/spans";
+import { plain } from "../shelf";
 
 import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,HANDS_ON } from "./helpers";
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";

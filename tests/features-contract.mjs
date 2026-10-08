@@ -22,10 +22,10 @@
  *   node --experimental-strip-types tests/features-contract.mjs
  */
 import vm from "node:vm";
-import { LIBRARY, getWork, setAccepted, allWorks, featureFiles, matchWorks } from "../src/features/studio/library/works.ts";
-import { tasksFile, contractFiles, mergeBlock, BLOCK_START, BLOCK_END, agentsFile } from "../src/features/studio/library/contract.ts";
-import { foundIn, offersFrom, acceptedWork, lineDiff } from "../src/features/studio/library/roundTrip.ts";
-import { decisions } from "../src/features/studio/library/badge.ts";
+import { LIBRARY, getWork, setAccepted, allWorks, featureFiles, matchWorks } from "../src/features/studio/shelf/library/works.ts";
+import { tasksFile, contractFiles, mergeBlock, BLOCK_START, BLOCK_END, agentsFile } from "../src/features/studio/shelf/library/contract.ts";
+import { foundIn, offersFrom, acceptedWork, lineDiff } from "../src/features/studio/shelf/library/roundTrip.ts";
+import { decisions } from "../src/features/studio/shelf/library/badge.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

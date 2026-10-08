@@ -16,8 +16,8 @@
  */
 import * as React from "react";
 import { useStudio, type StudioNode } from "./board/store";
-import { plain, reword } from "./parts/spans";
-import { getFeature } from "./catalog";
+import { plain, reword } from "./shelf";
+import { getFeature } from "./shelf";
 import { partName } from "./partNames";
 import { play } from "@/core/audio/engine";
 

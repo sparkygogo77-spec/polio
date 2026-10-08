@@ -20,7 +20,7 @@
  *
  *   node tests/living-picture.mjs
  *
- * Covers: src/features/studio/living.ts, src/features/studio/livingCut.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/inspector/livingField.tsx, src/features/studio/parts/theme.ts
+ * Covers: src/features/studio/living.ts, src/features/studio/livingCut.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/inspector/livingField.tsx, src/features/studio/shelf/parts/theme.ts
  */
 import { createRequire, stripTypeScriptTypes } from "node:module";
 import { readFileSync } from "node:fs";

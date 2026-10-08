@@ -10,7 +10,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/board-top-strip.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/NewSiteOffer.tsx, src/features/studio/fromasite/bring.tsx
+ * Covers: src/features/studio/NewSiteOffer.tsx, src/features/studio/bring-in/fromasite/bring.tsx
  */
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";

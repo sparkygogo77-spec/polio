@@ -32,11 +32,11 @@
  */
 import { siteVersions, type SiteVersion } from "./siteVersions.ts";
 import { getWork } from "./works.ts";
-import { kitsFromDoc, motionsFromDoc, siteShortName, type BoardMotion, type KitDoc, type StyleKit } from "../look/index.ts";
+import { kitsFromDoc, motionsFromDoc, siteShortName, type BoardMotion, type KitDoc, type StyleKit } from "../../look/index.ts";
 import { SHELF_GROUPS } from "../shelfGroups.ts";
-import { statusOf, type Status } from "../shelfFacts.ts";
-import { readSiteFormat } from "../siteFormat.ts";
-import { paintedPalette, type PaintedPart } from "../shelfTheme.ts";
+import { statusOf, type Status } from "../../shelfFacts.ts";
+import { readSiteFormat } from "../../siteFormat.ts";
+import { paintedPalette, type PaintedPart } from "../../shelfTheme.ts";
 import type { SavedComponent } from "./components.ts";
 
 export const LEARNED_KIND = "polio-learned-library";

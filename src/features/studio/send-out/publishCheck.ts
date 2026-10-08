@@ -26,9 +26,9 @@
  * Pure: the store, the picture store and the layout are handed in, so
  * `tests/publish-check.mjs` reads it directly.
  */
-import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "../parts/offsite";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "../shelf";
 import { HARD_TO_READ, wordsContrast } from "../look";
-import { decisions } from "../library/badge";
+import { decisions } from "../shelf";
 import { partName, type Named } from "../partNames";
 import type { Palette } from "../look";
 

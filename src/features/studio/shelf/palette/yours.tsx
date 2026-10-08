@@ -12,8 +12,8 @@ import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useLearned } from "../library/useLearned";
 import { fromYourSites } from "../library/fromSites";
-import { putComponent } from "../SavedComponents";
-import { jumpTo } from "../ShelfCards";
+import { putComponent } from "../../SavedComponents";
+import { jumpTo } from "../../ShelfCards";
 import { Band } from "./cards";
 
 /** Its key in the shelf's open list, beside the categories'. */

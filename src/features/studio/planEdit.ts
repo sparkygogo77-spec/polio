@@ -27,7 +27,7 @@ import {
 } from "./imageRoute";
 import { planFor, type Plan, type Reading } from "./space";
 import { useStudio, type StudioNode } from "./board/store";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 /** What the plan understands about a node. A subset, so this stays free of the board. */
 export function planned(n: StudioNode) {

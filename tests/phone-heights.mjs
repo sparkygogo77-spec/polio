@@ -34,7 +34,7 @@ const check = (name, ok, detail = "") => {
 };
 
 /* The header's id, off the catalogue's own source. */
-const HEADER = (readFileSync("src/features/studio/parts/index.ts", "utf8").match(/component: Header, ids: \["([\w-]+)"/) ?? [])[1] ?? "header";
+const HEADER = (readFileSync("src/features/studio/shelf/parts/index.ts", "utf8").match(/component: Header, ids: \["([\w-]+)"/) ?? [])[1] ?? "header";
 const WORDS = "The quick brown fox jumps over the lazy dog and keeps going across the whole of the page, sentence after sentence, so that at a third of the width it needs three times the lines it needed on the desktop, and a part that kept its desktop height would cut it off after the first few.";
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });

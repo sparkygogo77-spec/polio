@@ -18,7 +18,7 @@ import type { StudioNode } from "./board/store";
 import { carriedBy, componentOf, componentsOf, GRABBED, type CompNode } from "./components";
 import { isControl } from "./control";
 import { under } from "./owns";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 type Boxed = Pick<StudioNode, "id" | "pageId" | "x" | "y" | "w" | "h" | "featureId" | "link" | "data" | "content"> & {
   from?: { selector?: string } | null;

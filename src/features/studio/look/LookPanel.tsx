@@ -20,7 +20,7 @@ import { flattenLayers } from "./texture";
 import { CropPicker } from "../CropPicker";
 import { Spectrum } from "../MenuConsole";
 import { CHIP, emptyFill } from "../colourMenu";
-import { fillLayers, resolvePalette } from "../parts/theme";
+import { fillLayers, resolvePalette } from "../shelf/run";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "../ImageIntake";
 import { useStudio } from "../board/store";
 import { ThemeSection } from "../ThemePanel";

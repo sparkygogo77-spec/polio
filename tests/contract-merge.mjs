@@ -16,7 +16,7 @@
  *   STUB_PORT=4332 node --experimental-strip-types tests/contract-merge.mjs http://127.0.0.1:3015
  */
 import http from "node:http";
-import { agentsFile, claudeFile, BLOCK_START, BLOCK_END } from "../src/features/studio/library/contract.ts";
+import { agentsFile, claudeFile, BLOCK_START, BLOCK_END } from "../src/features/studio/shelf/library/contract.ts";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3015";
 const PORT = Number(process.env.STUB_PORT ?? 4332);

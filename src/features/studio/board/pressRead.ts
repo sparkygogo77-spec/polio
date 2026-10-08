@@ -4,13 +4,13 @@
  * they are when the hand goes down.
  */
 import { frameRiders, liftToFrame, partUnder } from "../states";
-import { getFeature } from "../catalog";
+import { getFeature } from "../shelf";
 import { componentsOf, carriedBy, GRABBED } from "../components";
 import { isControl } from "../control";
 import { ownsOthers } from "../holds";
 import { ownerOf, ridersOf, wordsOf } from "../owner";
-import { isLinkable } from "../parts";
-import { resolvePalette } from "../parts/theme";
+import { isLinkable } from "../shelf/ui";
+import { resolvePalette } from "../shelf/run";
 import { groupBounds, type StudioNode } from "./store";
 import type { StudioState } from "./store/state";
 import { DOUBLE_MS, DOUBLE_SLOP, HANDS_ON, placedOnBoard, shownOnBoard, type Drag, type Handle } from "./helpers";

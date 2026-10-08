@@ -22,7 +22,7 @@ import { chromium } from "playwright-core";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 import { paintedPalette, readableTheme, READABLE } from "../src/features/studio/shelfTheme.ts";
 import { contrast, parseColor } from "../src/features/studio/look/index.ts";
-import { CATEGORIES } from "../src/features/studio/catalog.ts";
+import { CATEGORIES } from "../src/features/studio/shelf/catalog.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
 const SINK = process.argv[3] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");

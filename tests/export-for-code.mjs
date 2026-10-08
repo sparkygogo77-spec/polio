@@ -31,7 +31,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright-core";
-import { offsiteToKitLinks, DEFAULT_OFFSITE } from "../src/features/studio/parts/offsite.ts";
+import { offsiteToKitLinks, DEFAULT_OFFSITE } from "../src/features/studio/shelf/parts/offsite.ts";
 import { zipFiles } from "../src/features/studio/send-out/zipWrite.ts";
 import { readZip } from "../src/features/studio/zipFile.ts";
 

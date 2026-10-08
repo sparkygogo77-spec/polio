@@ -19,7 +19,7 @@ const check = (name, ok, detail = "") => {
 };
 const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-const parts = bare("src/features/studio/parts/index.ts");
+const parts = bare("src/features/studio/shelf/parts/index.ts");
 const tierB = [...parts.matchAll(/ids: \[([^\]]*)\], tier: "B"/g)].flatMap((m) => [...m[1].matchAll(/"([a-z0-9-]+)"/g)].map((x) => x[1]));
 check("the tier-B behaviours are listed", tierB.length >= 15, `${tierB.length} ids`);
 

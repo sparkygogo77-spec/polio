@@ -6,7 +6,7 @@
  * generically and the compiler writes every non-default value into the brief.
  * Adding an option here is a one-line change that shows up in both.
  */
-import { DEFAULT_OFFSITE } from "./parts/offsite.ts";
+import { DEFAULT_OFFSITE } from "./shelf/index.ts";
 import type { LucideIcon } from "lucide-react";
 import { Blend, Boxes, Compass, Layers, MousePointerClick, Sparkles, Type, Wrench } from "lucide-react";
 

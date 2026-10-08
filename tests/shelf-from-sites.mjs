@@ -29,11 +29,11 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
-const { sitePanels, withSitePanels, fromYourSites, frameComponent, savedFrames, FRAME_KIND } = await src("library/fromSites.ts");
-const { placeComponent } = await src("library/components.ts");
-const { withoutSite } = await src("library/learned.ts");
-const { isFinished, onShelf } = await src("shelfPlan.ts");
-const { SHELF_GROUPS } = await src("shelfGroups.ts");
+const { sitePanels, withSitePanels, fromYourSites, frameComponent, savedFrames, FRAME_KIND } = await src("shelf/library/fromSites.ts");
+const { placeComponent } = await src("shelf/library/components.ts");
+const { withoutSite } = await src("shelf/library/learned.ts");
+const { isFinished, onShelf } = await src("shelf/shelfPlan.ts");
+const { SHELF_GROUPS } = await src("shelf/shelfGroups.ts");
 const { newFrame } = await src("frame.ts");
 
 const HOST = "ponsstars.test";

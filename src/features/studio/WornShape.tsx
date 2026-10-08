@@ -29,8 +29,8 @@
  */
 import * as React from "react";
 import type { StudioNode } from "./board/store";
-import type { NodeLink, PartMode } from "./parts/types";
-import { plain } from "./parts/spans";
+import type { NodeLink, PartMode } from "./shelf";
+import { plain } from "./shelf";
 import { bandOffset, centreOf, fillOf, glossFrame, pathInk, pathWordsSize, wordsColour, wordsGuide, wornCss, wornPath, type Worn } from "./wornShape";
 import type { KitBand, KitFill } from "./look";
 

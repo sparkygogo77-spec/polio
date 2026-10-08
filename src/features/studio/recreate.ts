@@ -44,7 +44,7 @@
  * hands a reading here; the panel calls `recreateFrom` and applies the
  * patch. `tests/recreate.mjs` holds it.
  */
-import type { NodeColour, NodeFont } from "./parts/theme.ts";
+import type { NodeColour, NodeFont } from "./shelf/run.ts";
 import type { StudioNode } from "./board/store.ts";
 import { cut } from "../../core/lib/format.ts";
 

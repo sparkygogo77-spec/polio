@@ -20,9 +20,9 @@ import { partsInside, steppedParts, type ScreenRead } from "./boardStates";
 import { stateFrames, stepKey } from "./stateFrames";
 import { pageStates, showStep, type Card } from "./StatesTimeline";
 import { PartCopy } from "../live/LiveSite";
-import { leadsOf } from "../parts/leadIn";
+import { leadsOf } from "../shelf";
 import { themeFrom } from "../blocks";
-import { resolvePalette } from "../parts/theme";
+import { resolvePalette } from "../shelf/run";
 import type { Placed } from "../live/reflow";
 
 let focusFor: string | null = null;

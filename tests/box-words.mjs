@@ -10,7 +10,7 @@
  *
  *   node tests/box-words.mjs
  */
-import { saysCube } from "../src/features/studio/parts/cubeFaces.ts";
+import { saysCube } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 import { kindOfSketch } from "../src/features/studio/shapeKind.ts";
 
 const results = [];

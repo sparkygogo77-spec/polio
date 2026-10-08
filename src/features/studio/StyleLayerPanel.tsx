@@ -25,11 +25,11 @@ import { Button } from "@/core/ui/button";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./board/store";
-import { FAMILY } from "./parts/theme";
+import { FAMILY } from "./shelf/run";
 import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
-import { kitLinksToOffsite } from "./parts/offsite";
+import { kitLinksToOffsite } from "./shelf";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";

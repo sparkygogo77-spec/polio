@@ -18,7 +18,7 @@
  *
  * Pure: no store, no React.
  */
-import { partTree, type TreePart } from "../partTree.ts";
+import { partTree, type TreePart } from "../../partTree.ts";
 
 interface Frames { name: string; frames: { key: string; style: Record<string, string> }[] }
 type Node = Record<string, unknown> & { id: string; x: number; y: number; w: number; h: number; pageId?: string };

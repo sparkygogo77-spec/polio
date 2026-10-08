@@ -21,8 +21,8 @@
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";
-import type { Theme } from "./parts/theme";
-import type { FeatureDef } from "./catalog";
+import type { Theme } from "./shelf/run";
+import type { FeatureDef } from "./shelf";
 import { useStudio, type StudioNode } from "./board/store";
 import { previewContent } from "./showcase";
 

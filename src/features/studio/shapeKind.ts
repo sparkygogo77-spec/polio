@@ -16,7 +16,7 @@
  *
  * Pure, and tested by `tests/shapes.mjs`.
  */
-import { saysCube } from "./parts/cubeFaces.ts";
+import { saysCube } from "./shelf/index.ts";
 import { outlineShape, sketchBox, strokeClosed, type Sketch, type SketchPoint } from "./sketch.ts";
 
 export type DrawnKind = "cube" | "surface" | "connector" | "container" | "list" | "mark";

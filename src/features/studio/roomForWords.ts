@@ -20,7 +20,7 @@
  *
  * Pure: `tests/state-rules.mjs`, `tests/tour-panel.mjs`.
  */
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 export type RoomBox = { x: number; y: number; w: number; h: number };
 type RoomNode = { id: string; pageId: string; x: number; y: number; w: number; h: number; content?: unknown; from?: { selector?: string } | null };

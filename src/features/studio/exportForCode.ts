@@ -17,7 +17,7 @@ import { designRecord, type RecordNode } from "./designRecord";
 import type { StyleSource } from "./send-out";
 import { heldKeys } from "@/features/keys/store";
 import { defaultBranch, fileAt, kitMapOnServer } from "./kitRun";
-import { DEFAULT_OFFSITE } from "./parts/offsite";
+import { DEFAULT_OFFSITE } from "./shelf";
 import { zipFiles } from "./send-out";
 
 export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; problems: string[]; says: string; kit?: KitExport }> {

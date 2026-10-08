@@ -32,8 +32,8 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import { chromium } from "playwright-core";
-import { featureFiles, pageFeatureTags, getWork, usesOf } from "../src/features/studio/library/works.ts";
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
+import { featureFiles, pageFeatureTags, getWork, usesOf } from "../src/features/studio/shelf/library/works.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

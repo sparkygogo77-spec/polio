@@ -33,12 +33,12 @@
  *
  * Pure, and tested by `tests/coded.mjs`.
  */
-import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./parts/cubeFaces.ts";
+import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./shelf/index.ts";
 import { corners, isBox, kindOfSketch } from "./shapeKind.ts";
-import { CUBE_MIN, REST } from "./parts/cubeFaces.ts";
+import { CUBE_MIN, REST } from "./shelf/index.ts";
 import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
 import type { StudioNode } from "./board/store.ts";
-import { plain } from "./parts/spans.ts";
+import { plain } from "./shelf/index.ts";
 
 /** What a matcher is handed: the drawing, and everything already said about the part. */
 export interface CodedContext {

@@ -47,9 +47,9 @@ const check = (name, ok, detail = "") => {
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const fluid = await jiti.import(join(src, "fluidSite.ts"));
-const theme = await jiti.import(join(src, "parts", "theme.ts"));
-const lib = await jiti.import(join(src, "library", "behaviours.ts"));
-const motion = await jiti.import(join(src, "parts", "capturedMotion.ts"));
+const theme = await jiti.import(join(src, "shelf", "parts", "theme.ts"));
+const lib = await jiti.import(join(src, "shelf", "library", "behaviours.ts"));
+const motion = await jiti.import(join(src, "shelf", "parts", "capturedMotion.ts"));
 const carry = await jiti.import(join(src, "carry.ts"));
 
 /* ---------- the writers, on their own ---------- */

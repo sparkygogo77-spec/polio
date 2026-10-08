@@ -5,7 +5,7 @@
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { splitTurn } from "./Hero";
-import { simplify, vectorMarkup } from "../vector";
+import { simplify, vectorMarkup } from "../../vector";
 import { cardStyle, items, radiusFor, saidRole, titled, tint } from "./theme";
 import { opt, type PartProps } from "./types";
 

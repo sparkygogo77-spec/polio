@@ -63,8 +63,8 @@ check(
 /* ------------------------------------------------------------------ */
 
 const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
-const parts = readFileSync("src/features/studio/parts/index.ts", "utf8");
-const cat = readFileSync("src/features/studio/catalog.ts", "utf8");
+const parts = readFileSync("src/features/studio/shelf/parts/index.ts", "utf8");
+const cat = readFileSync("src/features/studio/shelf/catalog.ts", "utf8");
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
 
 check("surface draws a space, by the same door the space tool uses",

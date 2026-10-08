@@ -28,8 +28,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { polioMd, captureNotes, handoffFrom, sourceNote, scrub, unmade, POLIO_MD } from "../src/features/studio/polioMd.ts";
 import { takeDoc } from "../src/features/studio/docTake.ts";
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
-import { usesOf } from "../src/features/studio/library/works.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
+import { usesOf } from "../src/features/studio/shelf/library/works.ts";
 import { homeFor } from "../src/features/studio/homePage.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));

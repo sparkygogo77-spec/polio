@@ -29,7 +29,7 @@ import type { NodeWorld } from "./World";
 import type { Span } from "./spans";
 import type * as React from "react";
 import type { Theme } from "./theme";
-import type { Picture } from "../pictures";
+import type { Picture } from "../../pictures";
 
 export type PartMode = "board" | "live";
 

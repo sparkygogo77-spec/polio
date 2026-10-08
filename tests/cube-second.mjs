@@ -29,8 +29,8 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { pickCoded } from "../src/features/studio/coded.ts";
 import { isBox } from "../src/features/studio/shapeKind.ts";
-import { cubeDims } from "../src/features/studio/parts/cubePose.ts";
-import { REST, CUBE_MIN } from "../src/features/studio/parts/cubeFaces.ts";
+import { cubeDims } from "../src/features/studio/shelf/parts/cubePose.ts";
+import { REST, CUBE_MIN } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

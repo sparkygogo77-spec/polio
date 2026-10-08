@@ -20,7 +20,7 @@ import {
   FAMILIES, RECREATABLE, SURE_ENOUGH, bare, chroma, colourFrom, familyOf, fontFrom, headline, lines,
   picturesIn, recreateFrom,
 } from "../src/features/studio/recreate.ts";
-import { FEATURES } from "../src/features/studio/catalog.ts";
+import { FEATURES } from "../src/features/studio/shelf/catalog.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -62,7 +62,7 @@ check("…and an unknown stack is left for the site to decide", familyOf("Fraktu
    cannot import without dragging the whole render chain into a pure module.
    So the two lists are held together from outside, and a face added there
    and not here fails this rather than silently never being named. */
-const theme = readFileSync("src/features/studio/parts/theme.ts", "utf8");
+const theme = readFileSync("src/features/studio/shelf/parts/theme.ts", "utf8");
 const block = theme.slice(theme.indexOf("export const FAMILY"));
 const declared = [...block.slice(0, block.indexOf("\n};")).matchAll(/^\s*"?([a-z ]+)"?:/gm)].map((m) => m[1].trim());
 check("every face this can name is a face the app has", FAMILIES.every((f) => declared.includes(f)) && declared.every((f) => FAMILIES.includes(f)),

@@ -1,14 +1,14 @@
 "use client";
 import * as React from "react";
 import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
-import { written } from "../parts/cubeFaces";
+import { written } from "../shelf";
 import { screenshotPage } from "../agent";
 import { askCode } from "../askCode";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
-import { plain } from "../parts/spans";
+import { plain } from "../shelf";
 import { KIND_SAYS, linesAround, type CodeRef } from "../codeRefs";
 import { fileAt } from "../kitRun";
 import { PartSettings } from "../StyleLayerPanel";

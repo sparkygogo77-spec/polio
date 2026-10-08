@@ -22,8 +22,8 @@
  * started are cancelled. A marquee's track is left (the part is drawn again
  * when the Preview is).
  */
-import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../library/works";
-import { AMBIENT } from "../library/behaviours";
+import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../shelf";
+import { AMBIENT } from "../shelf";
 
 type Def = (el: HTMLElement, inputs: Record<string, string>, api: unknown) => unknown;
 interface Runtime { define: (id: string, fn: Def) => void; api: unknown }

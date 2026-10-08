@@ -23,7 +23,7 @@
  * Pure — no React, no store, no DOM — so `tests/reassemble.mjs` can hold the
  * rules without a browser or a build.
  */
-import { merged, type Span } from "./parts/spans.ts";
+import { merged, type Span } from "./shelf/index.ts";
 
 /**
  * WHICH VERSION OF THESE RULES A DOCUMENT HAS BEEN THROUGH.

@@ -7,10 +7,10 @@
  * explicit relationship. That is what makes "put it here, next to that" a
  * specification rather than decoration.
  */
-import { describeWork } from "./library/works";
+import { describeWork } from "./shelf";
 import type { Worn } from "./wornShape";
-import { getFeature, categoryOf } from "./catalog";
-import { isLinkable, resolvePart } from "./parts";
+import { getFeature, categoryOf } from "./shelf";
+import { isLinkable, resolvePart } from "./shelf/ui";
 import { FORMAT_FIELDS, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
 import { AURA_WORD, delayMs, describeLook, ENTRANCE_MS, ROLES, ROLE_LABEL, speedK, speedWord, type Look, type RoleId } from "./look";
 
@@ -27,14 +27,14 @@ function describeDelay(v: number | string | null | undefined): string {
 import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { partName as readableName } from "./partNames";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
-import { CUBE_SIDES } from "./parts/cubeFaces";
+import { CUBE_SIDES } from "./shelf";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
 import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./board/store";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 import { describeFrame, isFrame } from "./frame";
 import { describeLiving, isLiving } from "./living";
 
