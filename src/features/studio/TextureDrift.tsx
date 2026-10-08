@@ -15,9 +15,15 @@
  */
 import * as React from "react";
 import { driftKeyframes, type Palette, type TextureLayer } from "./look";
+import { LIVE_KEYFRAMES } from "./living";
 
 export function TextureDrift({ layers, palette }: { layers: TextureLayer[] | undefined; palette: Palette }) {
   const kf = React.useMemo(() => (layers?.length ? driftKeyframes(layers, palette) : null), [layers, palette]);
   if (!kf) return null;
   return <style>{kf.css}</style>;
+}
+
+/** The keyframes living pictures move on (`living.ts`): fixed, one copy for every part on the page. */
+export function LiveKeyframes() {
+  return <style data-live-keyframes="">{LIVE_KEYFRAMES}</style>;
 }

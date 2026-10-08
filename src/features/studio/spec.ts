@@ -36,6 +36,7 @@ import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
 import { plain } from "./parts/spans";
 import { describeFrame, isFrame } from "./frame";
+import { describeLiving, isLiving } from "./living";
 
 export interface CompileInput {
   pages: StudioPage[];
@@ -289,6 +290,7 @@ function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text" | "a
   }
   const frame = n.art?.frame;
   if (isFrame(frame)) bits.push(describeFrame(frame));
+  if (isLiving(n.art?.live)) bits.push(describeLiving(n.art.live));
   if (n.text?.align) bits.push(`text ${n.text.align}`);
   if (n.text?.transform && n.text.transform !== "none") bits.push(n.text.transform);
   /* What it wears that the builder cannot set yet, drawn as its page computed it: keep it, as its code does. */
