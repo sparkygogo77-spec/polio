@@ -26,7 +26,7 @@ import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, typedSince, type
 import { stillAsks, withAnswer } from "./oddness";
 import { runDrawJob } from "./reshapeRun";
 import { progressOf } from "./formation";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { PROCESS } from "./threads";
 import { cn } from "@/core/lib/cn";
 import { moltenKeyClass, moltenSeed } from "@/core/ui/molten";

@@ -16,7 +16,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Segmented } from "@/core/ui/segmented";
 import { Tooltip } from "@/core/ui/tooltip";
-import { livePath, useStudio, useStudioHydration } from "../store";
+import { livePath, useStudio, useStudioHydration } from "../board/store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 import { keepTurn } from "./LiveStage";

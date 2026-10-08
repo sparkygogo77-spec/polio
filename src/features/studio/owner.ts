@@ -14,7 +14,7 @@
  * page path the capture recorded (`owns.ts`), else the box (`holds.ts`).
  * Nothing here moves or writes anything; it only answers.
  */
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import { carriedBy, componentOf, componentsOf, GRABBED, type CompNode } from "./components";
 import { isControl } from "./control";
 import { under } from "./owns";

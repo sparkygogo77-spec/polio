@@ -22,7 +22,7 @@ import { Spectrum } from "./MenuConsole";
 import { CHIP, emptyFill } from "./colourMenu";
 import { fillLayers, resolvePalette } from "./parts/theme";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { ThemeSection } from "./ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "./SiteColours";

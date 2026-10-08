@@ -17,7 +17,7 @@ import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
 import { readPicture, refusal } from "./ImageIntake";
 import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLayer } from "./look";
-import { useStudio, type StudioPage } from "./store";
+import { useStudio, type StudioPage } from "./board/store";
 import { resolvePalette } from "./parts/theme";
 import {
   ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, SHRINK, type ArcItem, type Slab,

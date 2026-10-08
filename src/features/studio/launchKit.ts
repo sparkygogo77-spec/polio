@@ -29,7 +29,7 @@ import { resolvePalette, themeFrom } from "./parts/theme";
 import { faceOf, tallyFonts } from "./siteColours";
 import { fontFaceCss } from "./fonts";
 import { LARGE, type HeadIcon, type SiteHead } from "./siteHead";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 export const ICON_SIZES = [16, 32, 48, 180, 192, 512] as const;
 

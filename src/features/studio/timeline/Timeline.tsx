@@ -62,7 +62,7 @@ import { paintStrand, strandBounds, type Point, type StrandTone, type VineEnd } 
 import { REST, letGo, pickUp, still, step, type Rope } from "../tugSpring";
 import { chainOf, type Thread, type ThreadNode } from "../threads";
 import { FORM } from "../formation";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { BOX, GAP, seed, useForming, paintRim, scatter, isElement, sizeOf } from "./layout";
 import { Vine, syncLights, ends } from "./vines";
 import { Standing } from "./IterationBox";

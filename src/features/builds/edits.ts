@@ -7,7 +7,7 @@
  * the Builds page and the save line read. Written at most once a second: a
  * run of typing is many edits and one line in the site list.
  */
-import { onBoardEdit } from "@/features/studio/store";
+import { onBoardEdit } from "@/features/studio/board/store";
 import { useBuilds } from "./store";
 
 /** The latest edit, before it is written: `now()` answers it at once. */

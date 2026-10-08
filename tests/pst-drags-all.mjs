@@ -14,7 +14,7 @@
  *   node tests/pst-drags-all.mjs http://127.0.0.1:3013
  *
  * Runs alone: drags every part on every page, one after another
- * Covers: src/features/studio/board/press.ts, src/features/studio/board/pressRead.ts, src/features/studio/canvas/DesktopCanvas.tsx, src/features/studio/stateFrames.ts
+ * Covers: src/features/studio/board/press.ts, src/features/studio/board/pressRead.ts, src/features/studio/board/DesktopCanvas.tsx, src/features/studio/stateFrames.ts
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

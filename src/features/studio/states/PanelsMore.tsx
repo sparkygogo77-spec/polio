@@ -21,7 +21,7 @@ import { hiddenGroups, screenKey, type ScreenRead } from "./boardStates";
 import { pageScenes } from "./scenes";
 import type { SceneScreen } from "./stateRules";
 import { stepScene } from "./sceneStep";
-import { useHeldStudio, useStudio, useSteady } from "../store";
+import { useHeldStudio, useStudio, useSteady } from "../board/store";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[] };
 const sourceOf = (look: unknown) => (look as { styleSource?: Source } | undefined)?.styleSource;

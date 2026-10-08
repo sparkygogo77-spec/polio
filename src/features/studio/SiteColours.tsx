@@ -29,7 +29,7 @@ import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./catalog";
 import { Slider } from "@/core/ui/slider";
 import { FAMILY, resolvePalette } from "./parts/theme";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";

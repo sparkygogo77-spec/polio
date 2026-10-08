@@ -17,7 +17,7 @@
 import * as React from "react";
 import { treatImage, treatmentKey } from "./texture";
 import { shiftHue, type Palette, type TextureLayer } from "./look";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { resolvePalette } from "./parts/theme";
 
 function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {

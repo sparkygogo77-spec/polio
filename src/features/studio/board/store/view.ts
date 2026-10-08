@@ -1,8 +1,8 @@
 "use client";
-import { formatDefaults } from "../format";
-import { swapColour, swapFont } from "../siteColours";
-import { newLayer, type TextureLayer } from "../look";
-import { newMotion } from "../motion";
+import { formatDefaults } from "../../format";
+import { swapColour, swapFont } from "../../siteColours";
+import { newLayer, type TextureLayer } from "../../look";
+import { newMotion } from "../../motion";
 import { useStudio } from "./create";
 import { GetStudio, MOTION_RUNS, SetStudio, shelve } from "./history";
 import { FIT_MIN, ZOOM_MAX, ZOOM_MIN } from "./model";

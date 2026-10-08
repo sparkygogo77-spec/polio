@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useHeldStudio, useStudio, type StudioNode } from "../store";
+import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
 import { written } from "../parts/cubeFaces";
 import { screenshotPage } from "../agent";
 import { askCode } from "../askCode";

@@ -12,7 +12,7 @@
  * Builder's bars, through two custom properties the page sets. The device
  * widths stay as the other choices. `tests/preview-window.mjs`.
  */
-import type { StudioNode } from "../store";
+import type { StudioNode } from "../board/store";
 import { fluidPage } from "../exportSite";
 
 /** A window unit in an inline style, as a share of the Preview's size. */

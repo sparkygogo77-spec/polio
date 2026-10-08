@@ -3,7 +3,7 @@
 import * as React from "react";
 import { decisions } from "../library/badge";
 import { partLearned } from "../learn";
-import { pageNodes, useHeldStudio, useSteady } from "../store";
+import { pageNodes, useHeldStudio, useSteady } from "../board/store";
 import { useShallow } from "zustand/react/shallow";
 
 /**

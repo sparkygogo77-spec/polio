@@ -40,7 +40,7 @@ import { addFeatureToCanvas } from "./Palette";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { CONSOLE, keyForHue, SCREEN } from "./RingConsole";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 /** The hole the parts roll in: the disc less its dark edge. */
 const WELL_R = BOARD_R - 8;

@@ -54,7 +54,7 @@ import { baselineAsLanded, type LayerNode, type StyleSource } from "../styleLaye
 import { checkRepoFeatures } from "../library/repoFeatures";
 import { allowed } from "../siteFetch";
 import { boundaryBox, centroid, type Space } from "../space";
-import { takeImportMark, useStudio, type StudioNode } from "../store";
+import { takeImportMark, useStudio, type StudioNode } from "../board/store";
 import { idless } from "../partNames";
 import { fingerprint, isTaken, keepOwnerEdits, keptShort, keptSays } from "../reimport";
 import { sourceNote } from "../polioMd";

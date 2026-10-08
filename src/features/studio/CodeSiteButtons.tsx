@@ -29,7 +29,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
-import { useStudio, useSteady } from "./store";
+import { useStudio, useSteady } from "./board/store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, type LayerNode, type StyleSource } from "./styleLayer";
 import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./codePublish";

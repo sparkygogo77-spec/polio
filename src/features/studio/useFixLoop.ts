@@ -4,7 +4,7 @@
  * board's check finds now, as issues by hook, and the ticks kept on the board.
  */
 import * as React from "react";
-import { useStudio, useSteady } from "./store";
+import { useStudio, useSteady } from "./board/store";
 import { readBoard } from "./PublishCheck";
 import { NO_LOOP, type FixIssue, type FixLoop } from "./fixLoop";
 import { regionKey, regionMoves, type StructureNode } from "./states";

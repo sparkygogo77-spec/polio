@@ -15,7 +15,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/drag-panels-still.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/store/heldView.ts, src/features/studio/ground.ts, src/features/studio/canvas/DesktopCanvas.tsx
+ * Covers: src/features/studio/board/store/heldView.ts, src/features/studio/ground.ts, src/features/studio/board/DesktopCanvas.tsx
  */
 import { createRequire } from "node:module";
 

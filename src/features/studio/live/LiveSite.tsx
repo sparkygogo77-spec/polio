@@ -13,7 +13,7 @@ import { CarriedFonts } from "./CarriedFonts";
 import { copyMotion, motionCss } from "../parts/capturedMotion";
 import { resolvePalette } from "../parts/theme";
 import { auraStyle, entranceCss, washCss, type Look } from "../look";
-import type { StudioNode, StudioPage, StudioShape } from "../store";
+import type { StudioNode, StudioPage, StudioShape } from "../board/store";
 import { unbuiltSections } from "../spec";
 import type { Picture } from "../pictures";
 import { deriveBehaviours } from "./behaviours";

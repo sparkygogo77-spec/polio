@@ -14,7 +14,7 @@
 import * as React from "react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import { roleOf, type KitNode, type StyleKit } from "./styleKits";
 import { useBoardKits } from "./DrawKits";
 import { lookOfKit } from "./kitLook";

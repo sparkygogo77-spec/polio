@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { BOARD_R, GREEN_RINGS } from "../menuGeometry";
 import { TRAY_DROP, SlotId } from "./choices";
 

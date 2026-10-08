@@ -9,7 +9,7 @@
  * own motion (`node.motion`), a part's options, a crate's settings. However
  * many parts it touches, a change is one undo step.
  */
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { withInput, withSwitch, usesOf } from "./library/works";
 import { seconds, workSpeedInput, type MoveRow } from "./motionInventory";
 

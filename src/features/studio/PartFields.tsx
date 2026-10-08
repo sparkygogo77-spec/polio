@@ -10,7 +10,7 @@
  * `updateNode` patch, so the board, the preview and the export follow.
  */
 import * as React from "react";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { editablesOf, readField, writeField, type Field, type Section } from "./partOptions";
 import { play } from "@/core/audio/engine";
 

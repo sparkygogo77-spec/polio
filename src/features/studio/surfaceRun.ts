@@ -29,7 +29,7 @@ import { nameFrom, pictureOf } from "./reshapeRun";
 import { inkGroups } from "./inkGroups";
 import { QUEUED } from "./formation";
 import { jobsInSpace, nodeInSpace, spaceOfDrawing, type Placed, type Space } from "./space";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 export interface Generated {
   /** How many drawings went on the queue. */

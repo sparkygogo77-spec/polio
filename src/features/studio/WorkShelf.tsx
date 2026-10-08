@@ -24,7 +24,7 @@ import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
 import type { CategoryDef } from "./catalog";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { WorkShelfCard } from "./ShelfCards";
 import type { SiteWords } from "./shelfFacts";
 import { Block, themeFrom } from "./blocks";

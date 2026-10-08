@@ -136,7 +136,7 @@ check("and keeps the two halves apart", /toClaude/.test(body) && /toRenderer/.te
 const brief = readFileSync("src/features/studio/BriefDialog.tsx", "utf8");
 check("the generate path is priced too, vined or not", /noteSpend\(claudeSpend\(/.test(brief));
 
-const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the bill accumulates rather than replacing", /calls: \(had\?\.calls \?\? 0\) \+ spend\.calls/.test(store));
 check("it is kept to the tenth of a cent, so a small call is not rounded to free",
   /Math\.round\(\(a \+ b\) \* 10000\) \/ 10000/.test(store));

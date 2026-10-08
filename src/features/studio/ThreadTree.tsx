@@ -35,7 +35,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
 import { screenFace, SCREEN } from "@/core/ui/void";
 import { toRows } from "./spec";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { chainLines } from "./links";
 import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
 import { PromptTrail } from "./PromptTrail";

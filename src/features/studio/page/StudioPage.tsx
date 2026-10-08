@@ -34,7 +34,7 @@ import { FormatPanel } from "../FormatPanel";
 import { PagesPanel } from "../PagesPanel";
 import { BriefDialog } from "../BriefDialog";
 import { exportSite } from "../exportSite";
-import { activePage, useStudio, useStudioHydration } from "../store";
+import { activePage, useStudio, useStudioHydration } from "../board/store";
 import { LiveStage } from "../live/LiveStage";
 import { RadialMenu } from "../RadialMenu";
 import { DrawQueue } from "../DrawQueue";

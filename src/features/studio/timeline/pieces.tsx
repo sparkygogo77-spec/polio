@@ -8,7 +8,7 @@ import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { SitePreview, type PreviewDoc } from "../SitePreview";
 import { processDone, type Thread } from "../threads";
 import { formVars } from "../formation";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { BOX, PIECE, headlineOf } from "./layout";
 import { ownParts } from "./IterationBox";
 import { Card, Made } from "./cards";

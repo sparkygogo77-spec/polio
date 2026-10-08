@@ -10,8 +10,8 @@ import { play } from "@/core/audio/engine";
 import { screenKey } from "./boardStates";
 import { isPageState, type SceneScreen } from "./stateRules";
 import { showPreviews, type OnTop, type Preview } from "./show";
-import { useStudio, type StudioNode } from "../store";
-import { looksOnBoard, placedOnBoard, shownOnBoard } from "../canvas/helpers";
+import { useStudio, type StudioNode } from "../board/store";
+import { looksOnBoard, placedOnBoard, shownOnBoard } from "../board/reads";
 
 /** How the active page's parts are drawn now: which show, where, with what words. */
 function drawnNow(): Map<string, string> {

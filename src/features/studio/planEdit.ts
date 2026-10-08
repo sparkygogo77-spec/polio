@@ -26,7 +26,7 @@ import {
   type ImageModel, type ModelCard, type ModelField, type Step,
 } from "./imageRoute";
 import { planFor, type Plan, type Reading } from "./space";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { plain } from "./parts/spans";
 
 /** What the plan understands about a node. A subset, so this stays free of the board. */

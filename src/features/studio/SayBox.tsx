@@ -18,7 +18,7 @@ import { Ellipsis, Info, Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
 import { getFeature } from "./catalog";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { PlateQuad, RailButton, SCREEN, SCREEN_FIELD, Tick } from "./PlateEditors";
 import type { Slab } from "./RingConsole";
 import { plain, reword } from "./parts/spans";

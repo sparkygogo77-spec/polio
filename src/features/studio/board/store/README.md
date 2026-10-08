@@ -1,7 +1,7 @@
-# studio/store
+# studio/board/store
 
-The studio store, split by topic. `../store.ts` re-exports everything it always
-exported, so other files keep importing from `./store` (or `@/features/studio/store`).
+The studio store, split by topic. `../store.ts` (the board module's store door) re-exports everything it always
+exported; other files import it as `./board/store` (or `@/features/studio/board/store`).
 
 | File | Holds |
 | --- | --- |

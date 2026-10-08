@@ -46,7 +46,7 @@ import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, t
 import { isBox } from "./shapeKind";
 import { changesThePart } from "./drawTarget";
 import { pictureOf } from "./reshapeRun";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { plain } from "./parts/spans";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */

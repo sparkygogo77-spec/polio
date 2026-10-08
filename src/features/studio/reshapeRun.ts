@@ -25,7 +25,7 @@ import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
-import { useStudio, type NodeShape, type StudioNode } from "./store";
+import { useStudio, type NodeShape, type StudioNode } from "./board/store";
 import { changesThePart } from "./drawTarget";
 import { typedSince, type DrawJob } from "./queue";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";

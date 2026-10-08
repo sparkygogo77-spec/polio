@@ -16,7 +16,7 @@ import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, 
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import { usesOf } from "./library/works";
 import { usePicture, type Picture } from "./pictures";
 import { CrateOn } from "./crateLayer";

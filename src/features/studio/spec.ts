@@ -33,7 +33,7 @@ import { CUBE_SIDES } from "./parts/cubeFaces";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
 import { toRows } from "./live/reflow";
-import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
+import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./board/store";
 import { plain } from "./parts/spans";
 import { describeFrame, isFrame } from "./frame";
 import { describeLiving, isLiving } from "./living";

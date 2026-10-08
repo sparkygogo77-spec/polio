@@ -62,7 +62,7 @@ import { keyframesCss, motionCss, pathCodes } from "./parts/capturedMotion";
 import { shareRules } from "./cssMerge";
 import { carryOwned, pointing } from "./carry";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
-import { useStudio, type StudioNode, type StudioPage } from "./store";
+import { useStudio, type StudioNode, type StudioPage } from "./board/store";
 import type { NodeLink } from "./parts/types";
 import { homeFor, type Home } from "./homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "./staticSite";

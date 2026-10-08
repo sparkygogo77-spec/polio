@@ -16,7 +16,7 @@
  * menu already hands `addNode`.
  */
 import { roundBoundary } from "./space";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 /** A space made from the menu is this far across: a part's own size, near enough. */
 export const CREATE_R = 120;

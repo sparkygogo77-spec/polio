@@ -16,7 +16,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/pan-no-save.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/store/create.ts, src/features/studio/store/persist.ts, src/features/studio/docStore.ts
+ * Covers: src/features/studio/board/store/create.ts, src/features/studio/board/store/persist.ts, src/features/studio/docStore.ts
  */
 import { createRequire } from "node:module";
 

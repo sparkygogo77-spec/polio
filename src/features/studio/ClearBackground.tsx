@@ -22,7 +22,7 @@
  */
 import * as React from "react";
 import { Eraser, Loader2, X } from "lucide-react";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { bytesFor, put as putPicture } from "./pictures";
 import { KEEP_VERSIONS } from "./remake";
 import { clearShare, cornerSeeds, seeThrough } from "./seeThrough";

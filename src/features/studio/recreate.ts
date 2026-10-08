@@ -45,7 +45,7 @@
  * patch. `tests/recreate.mjs` holds it.
  */
 import type { NodeColour, NodeFont } from "./parts/theme.ts";
-import type { StudioNode } from "./store.ts";
+import type { StudioNode } from "./board/store.ts";
 import { cut } from "../../core/lib/format.ts";
 
 /**

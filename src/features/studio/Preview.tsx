@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { EyeOff, GripHorizontal, Maximize2, Minimize2, Smartphone, Tablet } from "lucide-react";
-import { activePage, useHeldStudio, useStudio } from "./store";
+import { activePage, useHeldStudio, useStudio } from "./board/store";
 import { DEVICE_WIDTH } from "./live/layout";
 import { LiveSite } from "./live/LiveSite";
 import { cn } from "@/core/lib/cn";

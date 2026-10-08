@@ -19,7 +19,7 @@
  *
  * Pure: no store, no DOM.
  */
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import type { CarriedFont } from "./fonts";
 import type { StyleKit, KitNode } from "./styleKits";
 import { roleOf } from "./styleKits";

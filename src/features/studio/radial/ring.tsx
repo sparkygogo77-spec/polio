@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Wand2 } from "lucide-react";
-import { useStudio, type StudioNode } from "../store";
+import { useStudio, type StudioNode } from "../board/store";
 import { PREVIEW } from "../colourMenu";
 import {
 EDGE, joinFor, ROUND, SWELL,

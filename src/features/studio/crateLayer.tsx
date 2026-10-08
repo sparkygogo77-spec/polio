@@ -11,7 +11,7 @@
  * stylesheet. A visitor who asked for less motion sees the first frame.
  */
 import * as React from "react";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { filled, type MotionAsset } from "./motion";
 import { cellFor, crateSheet, crateSheetNow, type CrateSheet } from "./crateDraw";
 

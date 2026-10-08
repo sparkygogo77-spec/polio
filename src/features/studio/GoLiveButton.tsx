@@ -30,7 +30,7 @@ import { stepWords } from "./publishWords";
 import { PublishLinks } from "./PublishLinks";
 import { Popover } from "@/core/ui/popover";
 import { openRepoPicker } from "./RepoPicker";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 export function GoLiveButton() {
   const said = useGoLive((s) => s.refused);

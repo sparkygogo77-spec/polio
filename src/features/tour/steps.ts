@@ -19,7 +19,7 @@
  * is not a failure mode, it is the point: some of these live somewhere the
  * tour is not standing, and saying so is the job.
  */
-import { BACKGROUND_ID, useStudio } from "@/features/studio/store";
+import { BACKGROUND_ID, useStudio } from "@/features/studio/board/store";
 import { closeRadial, openBoard, openRadial, radialAt } from "@/features/studio/RadialMenu";
 import { BLUE_RINGS } from "@/features/studio/menuGeometry";
 

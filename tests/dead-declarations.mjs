@@ -32,7 +32,7 @@ for (const f of ["src/core/lib/storage.ts", "src/core/audio/index.ts", "src/core
 }
 
 /* E5. Store actions with no caller, and the state only they wrote. */
-const store = read("src/features/studio/store.ts");
+const store = read("src/features/studio/board/store.ts");
 for (const n of ["moveNodes", "setPageScroll", "resetView", "noteCost", "clearTrail", "pageScroll"]) {
   const hits = (store.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).length;
   check(`the studio store no longer declares ${n}`, hits === 0, `${hits} mentions`);
@@ -59,7 +59,7 @@ const GONE = [
   ["src/features/studio/nebulaTile.ts", ["RIMS"]],
   ["src/features/studio/refineRun.ts", ["houseExample", "forgetExample"]],
   ["src/features/studio/sketch.ts", ["emptySketch"]],
-  ["src/features/studio/store.ts", ["FrameKind"]],
+  ["src/features/studio/board/store.ts", ["FrameKind"]],
   ["src/features/tour/store.ts", ["tourRunning"]],
 ];
 for (const [f, names] of GONE) {

@@ -1,4 +1,4 @@
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 
 /**
  * Does this part hold others: wholly contain at least one smaller part on

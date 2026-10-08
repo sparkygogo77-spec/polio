@@ -14,7 +14,7 @@
  * while it is tried, as the Motion tab plays one (`runWorks`, only).
  */
 import { create } from "zustand";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { runWorks } from "./live/runWorks";
 
 export interface Trying {

@@ -37,7 +37,7 @@ import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./parts/cub
 import { corners, isBox, kindOfSketch } from "./shapeKind.ts";
 import { CUBE_MIN, REST } from "./parts/cubeFaces.ts";
 import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
-import type { StudioNode } from "./store.ts";
+import type { StudioNode } from "./board/store.ts";
 import { plain } from "./parts/spans.ts";
 
 /** What a matcher is handed: the drawing, and everything already said about the part. */

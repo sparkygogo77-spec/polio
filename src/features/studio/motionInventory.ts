@@ -21,7 +21,7 @@
 import { getFeature } from "./catalog";
 import { getWork, usesOf } from "./library/works";
 import { filled, type MotionAsset } from "./motion";
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import { kindOf, partName as readableName, sectionOf, type Named } from "./partNames";
 
 export type MoveKind = "reveal" | "follow" | "tilt" | "hover" | "press" | "loop" | "ribbon" | "canvas" | "crate" | "page";

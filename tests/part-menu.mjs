@@ -33,7 +33,7 @@ const bare = (file) => readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "
 
 const index = bare("src/features/studio/index.ts");
 check("no right-click list is registered for a part", !/scope:\s*"studio-node"/.test(index), `${(index.match(/studio-node/g) ?? []).length} mentions`);
-check("and the part no longer wears the scope for one", !/ctxProps\("studio-node"/.test(["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => bare(`src/features/studio/${f}`)).join("\n")));
+check("and the part no longer wears the scope for one", !/ctxProps\("studio-node"/.test(["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => bare(`src/features/studio/${f}`)).join("\n")));
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });

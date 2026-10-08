@@ -30,7 +30,7 @@ import { lastEdit } from "@/features/builds/edits";
 import { timeWords } from "@/features/builds/publishState";
 import { onSave, saveStateOf, type SaveState } from "./docStore";
 import { downloadBackup, pickAndLoadBackup } from "./backup";
-import { onBoardEdit } from "./store";
+import { onBoardEdit } from "./board/store";
 
 const LIVE = "builder.studio";
 /** Edits to one site in one visit before the one reminder may show. */

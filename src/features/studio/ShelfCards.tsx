@@ -32,7 +32,7 @@ import { endTry, pickedPart, startTry, tryProps, type Trying } from "./tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
 import { getFeature, categoryOf, type FeatureDef } from "./catalog";
-import { useHeldStudio, useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { PartPreview } from "./PartPreview";
 import { MotionDemo, hasDemo } from "./MotionDemo";
 import { shapeOf } from "./showcase";

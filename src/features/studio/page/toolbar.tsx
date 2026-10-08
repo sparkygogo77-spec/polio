@@ -4,7 +4,7 @@ import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis
 import { HistoryControls } from "../HistoryControls";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
-import { FRAME_WIDTHS, livePath, useStudio, type Tool } from "../store";
+import { FRAME_WIDTHS, livePath, useStudio, type Tool } from "../board/store";
 import { useRadialOpen } from "../RadialMenu";
 import { ProcessCounter } from "../DrawQueue";
 import { cn } from "@/core/lib/cn";

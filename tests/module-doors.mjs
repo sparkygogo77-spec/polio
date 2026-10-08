@@ -14,7 +14,11 @@
  *
  *   node tests/module-doors.mjs
  *
- * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts
+ * The board module (item 11) has four: `index.ts` (the pure press rules),
+ * `store.ts` (the studio store), `ui.ts` (the board's screens) and `reads.ts`
+ * (what the board reads off states, for the states module).
+ *
+ * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -22,7 +26,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /* Each module: its folder and the files other modules may import. Add a row as each module moves (audit item 11). */
-const MODULES = [{ dir: "src/features/studio/states", doors: ["index.ts", "ui.ts"] }];
+const MODULES = [
+  { dir: "src/features/studio/states", doors: ["index.ts", "ui.ts"] },
+  { dir: "src/features/studio/board", doors: ["index.ts", "store.ts", "ui.ts", "reads.ts"] },
+];
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

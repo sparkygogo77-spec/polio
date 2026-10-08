@@ -15,7 +15,7 @@ import * as React from "react";
 import { X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useStudio, type StudioNode } from "../store";
+import { useStudio, type StudioNode } from "../board/store";
 import { partsInside, steppedParts, type ScreenRead } from "./boardStates";
 import { stateFrames, stepKey } from "./stateFrames";
 import { pageStates, showStep, type Card } from "./StatesTimeline";

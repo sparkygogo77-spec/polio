@@ -23,7 +23,7 @@
 import * as React from "react";
 import { ChevronRight, RotateCcw, Search, Undo2 } from "lucide-react";
 import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "./format";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { FAMILY, resolvePalette } from "./parts/theme";
 import { isCaptured, readSiteFormat, type Reading } from "./siteFormat";
 import { fontsInPageOrder, type FaceTo } from "./siteColours";

@@ -32,7 +32,7 @@ import { effortField, modelTable, type ModelCard } from "./imageRoute";
 import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
 import { GENERATION } from "./threads";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 
 /**

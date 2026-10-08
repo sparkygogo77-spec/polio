@@ -30,7 +30,7 @@
  * with it" is currently "it landed and was kept" — an explicit blessing
  * would be a better one, and is the obvious next thing.
  */
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { rendererHeader } from "./agent";
 import { sayPass, type Metered } from "./spend";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";

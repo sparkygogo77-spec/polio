@@ -26,7 +26,7 @@
  * of controls two rows apart was the thing making this hard to find.
  */
 import type { SettingDef } from "@/core/types";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { FORMAT_FIELDS } from "./format";
 import { resolvePalette } from "./parts/theme";
 import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";

@@ -14,12 +14,12 @@
  * Position is meaningful: the compiler reads x/y to infer reading order,
  * containment and adjacency, so where you put something is part of the spec.
  *
- * The store lives in `store/`, split by topic (see store/README.md). This file
+ * The board module's store door. The store lives in `store/`, split by topic (see store/README.md). This file
  * re-exports what it always exported, so no import elsewhere changes.
  */
 export { heldBackground, heldNodes } from "./store/board";
 export { useStudio } from "./store/create";
-export { holdSaves, useSteady } from "./store/hold";
+export { holdSaves, isHeld, useSteady } from "./store/hold";
 export { useHeldStudio } from "./store/heldView";
 export { frameHeight, frameTopReach, FRAME_WIDTHS, placeInFrame } from "./store/frame";
 export { EDIT_RUN_MS, HUES, snapshot, onBoardEdit } from "./store/history";
@@ -27,4 +27,4 @@ export { holdImportMark, takeImportMark, swapDoc, pageNodes, pageShapes, pageSpa
 export { BACKGROUND_ID, BASE_ZOOM, ZOOM_MIN, FIT_MIN, ZOOM_MAX, NODE_SHAPES } from "./store/model";
 export type { Tool, Priority, ShapeKind, BoardMode, ShapeRelation, NodeShape, StudioNode, StudioGroup, StudioShape, StudioPage, StudioBrief, BroughtRepo, BroughtPart, RevisionKind, Revision, TrailStage, TrailTargetKind, TrailTarget, TrailEntry } from "./store/model";
 export { takeCarriedRepo } from "./store/persist";
-export { DRAW_KINDS, type DrawKind } from "./drawKinds";
+export { DRAW_KINDS, type DrawKind } from "../drawKinds";

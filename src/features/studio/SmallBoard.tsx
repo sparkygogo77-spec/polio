@@ -17,7 +17,7 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Minus, MoveHorizontal, Plus, RotateCcw } from "lucide-react";
-import { useStudio, activePage, type StudioNode } from "./store";
+import { useStudio, activePage, type StudioNode } from "./board/store";
 import { LiveSite } from "./live/LiveSite";
 import { SMALL_WIDTH, type SmallDevice } from "./live/small";
 import { planFor } from "./live/smallRules";

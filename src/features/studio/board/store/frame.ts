@@ -1,5 +1,5 @@
 "use client";
-import type { Space } from "../space";
+import type { Space } from "../../space";
 import { StudioNode, StudioShape } from "./model";
 
 /**

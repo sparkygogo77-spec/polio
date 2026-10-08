@@ -114,7 +114,7 @@ check(
 /* ------------------------------------------------------------------ */
 
 const { readFileSync, readdirSync } = await import("node:fs");
-const src = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const src = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check(
   "the eraser reaches as far as a vine does, rather than a number of its own",
   /const ERASE_REACH = REACH_WIDTH \/ 2;/.test(src),

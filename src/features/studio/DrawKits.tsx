@@ -26,7 +26,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { docOfStored, useBuilds } from "@/features/builds/store";
-import { useStudio, useSteady, type StudioNode } from "./store";
+import { useStudio, useSteady, type StudioNode } from "./board/store";
 import { kitsFromDoc, motionsFromDoc, PLAIN_BAR, siteBar, type BoardMotion, type KitDoc, type StyleKit } from "./styleKits";
 import { WornShape } from "./WornShape";
 import { colourChoices, combine, piecesOf, toBox, wordsColour, type Worn } from "./wornShape";

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { linkReason } from "../links";
-import { type StudioNode,type StudioShape } from "../store";
+import { type StudioNode,type StudioShape } from "./store";
 import { ctxProps } from "@/core/context-menu/ctx";
 
 import { type Handle } from "./helpers";

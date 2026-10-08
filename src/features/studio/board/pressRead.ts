@@ -11,9 +11,9 @@ import { ownsOthers } from "../holds";
 import { ownerOf, ridersOf, wordsOf } from "../owner";
 import { isLinkable } from "../parts";
 import { resolvePalette } from "../parts/theme";
-import { groupBounds, type StudioNode } from "../store";
-import type { StudioState } from "../store/state";
-import { DOUBLE_MS, DOUBLE_SLOP, HANDS_ON, placedOnBoard, shownOnBoard, type Drag, type Handle } from "../canvas/helpers";
+import { groupBounds, type StudioNode } from "./store";
+import type { StudioState } from "./store/state";
+import { DOUBLE_MS, DOUBLE_SLOP, HANDS_ON, placedOnBoard, shownOnBoard, type Drag, type Handle } from "./helpers";
 import { picksAfter, type PartFacts, type PressFacts, type Tool } from "./press";
 
 type Point = { x: number; y: number };

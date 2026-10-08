@@ -191,7 +191,7 @@ check("nothing at all is no drawings", inkGroups([]).length === 0);
 /* 7. The board hangs the door on the drawing                          */
 /* ------------------------------------------------------------------ */
 
-const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the button is keyed to a group, not a stroke", /data-make-real=\{g\.id\}/.test(canvas));
 check("one button per drawing", /drawings\.map\(\(g\)/.test(canvas));
 check("every stroke in the drawing goes into the sketch", /group\.strokeIds\.includes/.test(canvas));
@@ -199,7 +199,7 @@ check("the whole drawing is taken off the board, not one stroke", /removeShapes\
 check("the grouping can be seen", /data-ink-group=/.test(canvas));
 check("and changed, both ways", /data-ink-join=/.test(canvas) && /data-ink-split=/.test(canvas));
 
-const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("a stroke is stamped with when it went down", /at: Date\.now\(\)/.test(store));
 check("joining and splitting are undoable like everything else",
   /joinInk: \(ids\) => \{[\s\S]{0,240}push\(\);/.test(store) && /splitInk: \(ids\) => \{[\s\S]{0,240}push\(\);/.test(store));

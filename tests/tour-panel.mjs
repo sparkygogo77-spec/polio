@@ -20,7 +20,7 @@
  *
  *   node tests/tour-panel.mjs
  *
- * Covers: src/features/studio/states/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/states/panels.ts
+ * Covers: src/features/studio/states/stateRules.ts, src/features/studio/board/helpers.ts, src/features/studio/states/panels.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +30,7 @@ const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "
 const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const R = await studio("states/stateRules.ts");
 const P = await studio("states/panelsOf.ts");
-const H = await studio("canvas/helpers.ts");
+const H = await studio("board/helpers.ts");
 const W = await studio("roomForWords.ts");
 const O = await studio("owner.ts");
 const results = [];

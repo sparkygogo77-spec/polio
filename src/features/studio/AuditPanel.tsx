@@ -35,7 +35,7 @@ import {
   choicesFor, clearOption, readingOf, routeFills, valueOf, writeOption, writePlan,
 } from "./planEdit";
 import { useShallow } from "zustand/react/shallow";
-import { pageNodes, useStudio, type StudioNode } from "./store";
+import { pageNodes, useStudio, type StudioNode } from "./board/store";
 import { capturedFrom } from "./partNames";
 
 /* ------------------------------------------------------------------ */

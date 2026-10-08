@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { uid } from "@/core/lib/ids";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { placeComponent, type SavedComponent } from "./library/components";
 import { useLearned } from "./library/useLearned";
 import { jumpTo } from "./ShelfCards";

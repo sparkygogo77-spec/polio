@@ -28,7 +28,7 @@ import {
   reiterate, TEXTURE_KINDS, ROLES, ROLE_LABEL,
   type AnimEase, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { joinFor, middleOf, onCircle, piece, slabFar, slabRadius, SLAB_PAD, type Rings, type Shape } from "./menuGeometry";
