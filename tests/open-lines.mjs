@@ -16,7 +16,7 @@
  *
  *   node tests/open-lines.mjs
  */
-import { CLIP_STROKE, outlinePath, sketchBox } from "../src/features/studio/sketch.ts";
+import { CLIP_STROKE, outlinePath, sketchBox } from "../src/features/studio/pictures/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

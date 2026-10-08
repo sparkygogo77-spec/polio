@@ -31,7 +31,7 @@ import { resolvePalette } from "./shelf/run";
 import { isCaptured, readSiteFormat, siteSays } from "./siteFormat";
 import { CUBE_SIDES } from "./shelf";
 import { KIND_MEANS } from "./shapeKind";
-import { describeSketch, isBlankSketch } from "./sketch";
+import { describeSketch, isBlankSketch } from "./pictures";
 import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./board/store";
 import { plain } from "./shelf";

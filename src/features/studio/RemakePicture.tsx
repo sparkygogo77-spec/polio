@@ -34,7 +34,7 @@ import * as React from "react";
 import { Loader2, RotateCcw, Sparkles, X } from "lucide-react";
 import { useStudio, type StudioNode } from "./board/store";
 import { bytesFor, put as putPicture, usePicture, type Picture } from "./pictures";
-import { coverCrop, DEFAULT_REMAKE_MODEL, KEEP_VERSIONS, modelLabel, REMAKE_MODEL_SETTING } from "./remake";
+import { coverCrop, DEFAULT_REMAKE_MODEL, KEEP_VERSIONS, modelLabel, REMAKE_MODEL_SETTING } from "./pictures";
 import { heldKeys } from "@/features/keys/store";
 import { getSetting } from "@/core/settings/store";
 import { play } from "@/core/audio/engine";

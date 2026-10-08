@@ -24,7 +24,7 @@
  * Runs alone: drags a solid and reads the turn written after it settles; under load the drawing's queue was read mid-run.
  */
 import { chromium } from "playwright-core";
-import { isSolid, makingOf } from "../src/features/studio/imageRoute.ts";
+import { isSolid, makingOf } from "../src/features/studio/pictures/imageRoute.ts";
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const results = [];

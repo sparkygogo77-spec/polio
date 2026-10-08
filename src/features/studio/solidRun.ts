@@ -31,7 +31,7 @@
  * reached from a test.
  */
 import { noRendererKeyMessage, rendererHeader, rendererReady } from "./loop/run";
-import { saysSolid } from "./imageRoute";
+import { saysSolid } from "./pictures";
 import { cubeDims } from "./shelf";
 import { CUBE_SIDES, REST, type CubeFace } from "./shelf";
 import { SOLID_WORDS, solidModel, VIEWS, type View } from "./solidRoute";

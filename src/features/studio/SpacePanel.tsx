@@ -25,7 +25,7 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
 import { getFeature } from "./shelf";
-import { STEPS, type Step } from "./imageRoute";
+import { STEPS, type Step } from "./pictures";
 import { KIND_MEANS } from "./shapeKind";
 import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Reading, type Space } from "./space";
 import { choicesFor, readingOf, writePlan } from "./planEdit";

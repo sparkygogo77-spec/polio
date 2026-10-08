@@ -37,7 +37,7 @@ import { isBox, kindOfSketch } from "../src/features/studio/shapeKind.ts";
 import { pickCoded } from "../src/features/studio/coded.ts";
 import { REST } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 import { facing, restFor, nearestRest, PITCH_LIMIT, REST_PITCHES } from "../src/features/studio/shelf/parts/cubePose.ts";
-import { makingOf, route } from "../src/features/studio/imageRoute.ts";
+import { makingOf, route } from "../src/features/studio/pictures/imageRoute.ts";
 import { SOLID_WORDS, solidModel } from "../src/features/studio/solidRoute.ts";
 
 const req = createRequire(import.meta.url);

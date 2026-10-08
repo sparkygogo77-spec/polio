@@ -32,7 +32,7 @@ import { Select } from "@/core/ui/select";
 import { Switch } from "@/core/ui/switch";
 import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
-import type { ModelField } from "./imageRoute";
+import type { ModelField } from "./pictures";
 import { type FieldSource } from "./planEdit";
 
 /** What the route filling a field is called, in a sentence, when it fills one. */

@@ -47,7 +47,7 @@
  */
 import { kindOfSketch, straightness } from "./shapeKind.ts";
 import { nearlyCoded } from "./coded.ts";
-import { strokeClosed, type Sketch } from "./sketch.ts";
+import { strokeClosed, type Sketch } from "./pictures/index.ts";
 
 export interface Question {
   /** One line, ending in a question mark. */

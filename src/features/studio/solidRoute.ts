@@ -5,7 +5,7 @@
  * the object cell of the two-axis table and the model that cell holds,
  * kept apart from the run so a test can read them without a browser.
  */
-import { route, type ImageModel } from "./imageRoute.ts";
+import { route, type ImageModel } from "./pictures/index.ts";
 
 /** The words that route a box to the object cell. `saysSolid` reads "3d" and "solid" off them. */
 export const SOLID_WORDS = "a 3d solid of this box, from its four sides";

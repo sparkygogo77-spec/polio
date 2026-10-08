@@ -28,7 +28,7 @@ import { RotateCcw } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Tooltip } from "@/core/ui/tooltip";
-import { MAKING_MEANS, model, type ModelCard } from "./imageRoute";
+import { MAKING_MEANS, model, type ModelCard } from "./pictures";
 import { STEP_MEANS, planFor, type Planned } from "./space";
 import { ModelOptions, type OptionRow } from "./ModelOptions";
 import {

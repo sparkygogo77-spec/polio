@@ -15,7 +15,7 @@
  * carries icons). The board passes a lookup; `tests/reshape-answer.mjs`
  * passes a small one of its own and holds this to its rules.
  */
-import { PART_MAX_H, type Sketch } from "./sketch.ts";
+import { PART_MAX_H, type Sketch } from "./pictures/index.ts";
 import { cut } from "../../core/lib/format.ts";
 
 /** What a part is cut to. The same four the store keeps. */

@@ -35,7 +35,7 @@
  * grown from its centroid and the hole is consuming.
  */
 import { centroid } from "./space.ts";
-import type { SketchPoint } from "./sketch.ts";
+import type { SketchPoint } from "./pictures/index.ts";
 
 export interface HoleOptions {
   /** The middle of the hole, in canvas pixels. */

@@ -66,7 +66,7 @@ check("writing on it is the other", /export function writeOnPart/.test(radial));
 check("the slot survives the open rather than being reset to the wheel",
   /setPicked\(open\?\.slot \?\? null\)/.test(radial));
 
-const board = readFileSync("src/features/studio/DrawBoard.tsx", "utf8");
+const board = readFileSync("src/features/studio/pictures/DrawBoard.tsx", "utf8");
 check("a drawing made on a part reshapes that part", /nodeId: node\?\.id \?\? null/.test(board));
 check("and says so rather than saying it is making one", /Reshaping \$\{label\}/.test(board));
 

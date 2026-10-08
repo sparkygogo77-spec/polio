@@ -10,7 +10,7 @@
  *   node tests/tap-not-traced.mjs
  */
 import { readFileSync } from "node:fs";
-import { isTap, TAP_SIZE, tidyStroke } from "../src/features/studio/sketch.ts";
+import { isTap, TAP_SIZE, tidyStroke } from "../src/features/studio/pictures/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -27,7 +27,7 @@ check("a tall thin line is not either", !isTap([[[0.5, 0.2], [0.5, 0.6]]]));
 check("nothing drawn at all is a tap", isTap([]));
 check("a tap beside a real stroke is a drawing", !isTap([tap, [[0.1, 0.1], [0.4, 0.4]]]));
 
-const run = readFileSync("src/features/studio/drawRun.ts", "utf8");
+const run = readFileSync("src/features/studio/pictures/drawRun.ts", "utf8");
 const before = run.indexOf("isTap(input.strokes)");
 const loop = run.indexOf("for (let n = 1; n <= MAX_TRACES");
 check("the tracer asks before it pays", before > 0 && loop > before, `isTap at ${before}, the paid loop at ${loop}`);

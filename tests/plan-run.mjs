@@ -14,7 +14,7 @@
  *   node tests/plan-run.mjs
  */
 import { readFileSync } from "node:fs";
-import { STEPS, MODELS, route } from "../src/features/studio/imageRoute.ts";
+import { STEPS, MODELS, route } from "../src/features/studio/pictures/imageRoute.ts";
 import { defaultSteps, tidySteps, planFor, STEP_MEANS } from "../src/features/studio/space.ts";
 import { progressOf } from "../src/features/studio/formation.ts";
 
@@ -77,7 +77,7 @@ check("…and the route sends it to something that renders with no ground", (() 
 /* ------------------------------------------------------------------ */
 
 check("the plan's model is preferred at every later pass", /prefer: plan\.model \?\? undefined,/.test(run) && /\.\.\.\(input\.prefer \? \{ model: input\.prefer \} : \{\}\),/.test(refine));
-check("…and the route honours it only when that model serves the cell", /prefer: body\.model/.test(api) && /const asked = need\.prefer \? model\(need\.prefer\) : null;/.test(readFileSync("src/features/studio/imageRoute.ts", "utf8")));
+check("…and the route honours it only when that model serves the cell", /prefer: body\.model/.test(api) && /const asked = need\.prefer \? model\(need\.prefer\) : null;/.test(readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8")));
 check("a plan naming a model that is not in the table falls back to the route's pick", (() => {
   const part = { label: "A gull", prompt: "a gull", featureId: "custom-idea", w: 200, h: 200, plan: { model: "nobody/nothing", steps: [] } };
   return planFor(part).model !== null && !planFor(part).chosen;

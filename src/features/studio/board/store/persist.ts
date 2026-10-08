@@ -3,7 +3,7 @@ import { unpackFrom } from "../../docStore";
 import { pictureLayersOff } from "../../docTake";
 import { defaultLight, delayMs, emptyLook, speedK } from "../../look";
 import { newMotion, SLEEVES } from "../../motion";
-import { normaliseSketch, type OutlineClip } from "../../sketch";
+import { normaliseSketch, type OutlineClip } from "../../pictures";
 import type { Worn } from "../../wornShape";
 import type { PartCode } from "../../snippet";
 import type { Picture } from "../../pictures";

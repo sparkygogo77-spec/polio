@@ -20,7 +20,7 @@
  * Runs the TypeScript straight from source: Node strips the types (22.18+).
  */
 import { checkAnswer, allowedOptions, PROPORTION_HOLD } from "../src/features/studio/reshape.ts";
-import { BOUNDARY_SHARE, describeBoundary, fitToSketch, readBoundary, readSketch, strokeClosed } from "../src/features/studio/sketch.ts";
+import { BOUNDARY_SHARE, describeBoundary, fitToSketch, readBoundary, readSketch, strokeClosed } from "../src/features/studio/pictures/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

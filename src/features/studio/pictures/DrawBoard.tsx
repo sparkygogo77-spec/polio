@@ -37,17 +37,17 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
 import { useSetting } from "@/core/settings/useSetting";
-import { BOARD_R } from "./menuGeometry";
-import { CONSOLE, HoverTray } from "./RingConsole";
-import { DRIFT_MS as GROUND_MS } from "./darkMatter";
-import { useGround } from "./ground";
-import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
+import { BOARD_R } from "../menuGeometry";
+import { CONSOLE, HoverTray } from "../RingConsole";
+import { DRIFT_MS as GROUND_MS } from "../darkMatter";
+import { useGround } from "../ground";
+import { HALO, paintBlackHole, paintHorizonShadow } from "../blackHole";
 import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
-import { isBox } from "./shapeKind";
-import { changesThePart } from "./drawTarget";
-import { pictureOf } from "./reshapeRun";
-import { useStudio, type StudioNode } from "./board/store";
-import { plain } from "./shelf";
+import { isBox } from "../shapeKind";
+import { changesThePart } from "../drawTarget";
+import { pictureOf } from "../reshapeRun";
+import { useStudio, type StudioNode } from "../board/store";
+import { plain } from "../shelf";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;

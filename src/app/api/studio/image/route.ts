@@ -25,7 +25,7 @@ import {
   route,
   wordsFor,
   optionsFor,
-} from "@/features/studio/imageRoute";
+} from "@/features/studio/pictures";
 import { fromMetrics } from "@/features/studio/spend";
 
 /**

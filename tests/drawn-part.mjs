@@ -18,7 +18,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { paintRoles, rolesFor, inksOf } from "../src/features/studio/bodyPaint.ts";
-import { discLanding, outlinePath } from "../src/features/studio/sketch.ts";
+import { discLanding, outlinePath } from "../src/features/studio/pictures/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -80,7 +80,7 @@ check("zoomed in, the same mark is the same page size: screen pixels over the zo
 check("reshaping a part that has a place keeps the place", discLanding(small, null, 360, 1).at === null);
 check("nothing drawn, nothing sized", discLanding([], { x: 1, y: 1 }, 360, 1).drawn === null);
 check("the disc queues the size and the place it worked out", (() => {
-  const src = readFileSync("src/features/studio/DrawBoard.tsx", "utf8");
+  const src = readFileSync("src/features/studio/pictures/DrawBoard.tsx", "utf8");
   return /const landing = discLanding\(drawn\.strokes, at, size, useStudio\.getState\(\)\.zoom \|\| 1\);/.test(src)
     && /at: landing\.at,/.test(src) && /\.\.\.\(landing\.drawn \? \{ drawn: landing\.drawn \} : \{\}\),/.test(src);
 })());

@@ -16,7 +16,7 @@
  *   node tests/ink-on-disc.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
-import { sketchToText } from "../src/features/studio/sketch.ts";
+import { sketchToText } from "../src/features/studio/pictures/sketch.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

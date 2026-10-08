@@ -33,7 +33,7 @@ import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
 import { CATEGORIES, featuresByCategory, getFeature, searchFeatures, SUBGROUPS, type CategoryId, type FeatureDef } from "./shelf";
 import { itemOf } from "./shelf";
-import { RimButton } from "./DrawBoard";
+import { RimButton } from "./pictures/ui";
 import { useGround } from "./ground";
 import { BOARD_R } from "./menuGeometry";
 import { addFeatureToCanvas } from "./shelf/screens";

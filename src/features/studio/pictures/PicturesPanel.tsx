@@ -15,10 +15,10 @@
  * part's "Make a picture": that is a setting of the part, not the tool.
  */
 import { useShallow } from "zustand/react/shallow";
-import { getFeature } from "./shelf";
-import { partName } from "./partNames";
-import { RenderPanel } from "./RenderPanel";
-import { useStudio } from "./board/store";
+import { getFeature } from "../shelf";
+import { partName } from "../partNames";
+import { RenderPanel } from "../RenderPanel";
+import { useStudio } from "../board/store";
 
 const featureName = (id: string) => getFeature(id)?.name;
 

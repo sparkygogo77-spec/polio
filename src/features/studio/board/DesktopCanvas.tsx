@@ -11,7 +11,7 @@ import { leadsOf,withLead } from "../shelf";
 import { themeFrom } from "../blocks";
 import { resolvePageLink } from "../live/LiveSite";
 import { pictureOf } from "../reshapeRun";
-import { describeSketch } from "../sketch";
+import { describeSketch } from "../pictures";
 import { resolvePalette } from "../shelf/run";
 import { Scissors,Sparkles,Ungroup } from "lucide-react";
 import { inkGroups,nearestTo,type InkGroup } from "../inkGroups";

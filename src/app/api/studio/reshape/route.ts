@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { answerCeiling } from "../budget";
-import { describeBoundary, describeSketch, isBlankSketch, normaliseSketch, readBoundary, sketchToText } from "@/features/studio/sketch";
+import { describeBoundary, describeSketch, isBlankSketch, normaliseSketch, readBoundary, sketchToText } from "@/features/studio/pictures";
 
 /**
  * Reads what was drawn on the Builder's drawing board and says what the part

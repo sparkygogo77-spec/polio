@@ -39,7 +39,7 @@ import {
   route,
   saysSolid,
   wordsFor,
-} from "../src/features/studio/imageRoute.ts";
+} from "../src/features/studio/pictures/imageRoute.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -101,7 +101,7 @@ for (const [slug, said] of Object.entries(MESH_SCHEMA)) {
 check("every model that hands back a solid says how it is asked, and no other does",
   MODELS.every((m) => (m.returns === "mesh") === (m.mesh !== null)));
 check("the comparison that chose it is written down rather than asserted", (() => {
-  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  const src = readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8");
   // Seven were compared on what they hand back; the losers are named with
   // the reason, so the next person can disagree with the reason.
   return ["firtoz/trellis", "fishwowater/trellis2", "tencent/hunyuan-3d-3.1", "prunaai/hunyuan3d-2", "hyper3d/rodin", "cjwbw/shap-e"]
@@ -157,7 +157,7 @@ check("nothing in the table computes with a price", (() => {
    * the notes and the comments come out and what is left must have no
    * money in it at all.
    */
-  const code = readFileSync("src/features/studio/imageRoute.ts", "utf8")
+  const code = readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/\/\/.*/g, "")
     .replace(/also:[\s\S]*?",\n/g, "");
@@ -306,13 +306,13 @@ check("as the table stands, a transparent render always wins and nothing is cut 
 }
 
 check("the file says why cutting it out afterwards is the last answer and not the first", (() => {
-  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  const src = readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8");
   return /The drawn line is the alpha/.test(src)
     && /alpha is a property of the render/.test(src)
     && /Only then, cut it out afterwards/.test(src);
 })());
 check("and it names the removers it was chosen over", (() => {
-  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  const src = readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8");
   return ["bria/remove-background", "men1scus/birefnet", "lucataco/remove-bg", "smoretalk/rembg-enhance"]
     .every((slug) => src.includes(slug));
 })());
@@ -455,7 +455,7 @@ check("the card is never told the pass simply did not happen, without a reason",
 
 const routeSrc = readFileSync("src/app/api/studio/image/route.ts", "utf8");
 const runSrc = readFileSync("src/features/studio/refineRun.ts", "utf8");
-const table = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+const table = readFileSync("src/features/studio/pictures/imageRoute.ts", "utf8");
 const slugs = MODELS.map((m) => m.slug);
 check("no model slug is written anywhere but the table",
   slugs.every((s) => !routeSrc.includes(s) && !runSrc.includes(s)));
