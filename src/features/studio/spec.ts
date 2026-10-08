@@ -35,6 +35,7 @@ import { describeSketch, isBlankSketch } from "./sketch";
 import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
 import { plain } from "./parts/spans";
+import { describeFrame, isFrame } from "./frame";
 
 export interface CompileInput {
   pages: StudioPage[];
@@ -270,7 +271,7 @@ function describeFont(font: StudioNode["font"] | undefined): string | null {
 }
 
 /** "a row that wraps, aligned center, 12px apart, padded 16px 24px 16px 24px, edged 1px solid #2d3748, text center, uppercase" — or nothing. */
-function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text">): string | null {
+function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text" | "art">): string | null {
   const bits: string[] = [];
   const l = n.layout;
   if (l?.display === "flex" || l?.display === "grid") {
@@ -286,6 +287,8 @@ function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text">): s
     const named = e.colour && (ROLES as readonly string[]).includes(e.colour);
     bits.push(`edged ${typeof e.width === "number" ? e.width : 1}px ${e.style ?? "solid"}${e.colour ? ` ${named ? `the site's ${ROLE_LABEL[e.colour as RoleId].toLowerCase()}` : e.colour}` : ""}`);
   }
+  const frame = n.art?.frame;
+  if (isFrame(frame)) bits.push(describeFrame(frame));
   if (n.text?.align) bits.push(`text ${n.text.align}`);
   if (n.text?.transform && n.text.transform !== "none") bits.push(n.text.transform);
   /* What it wears that the builder cannot set yet, drawn as its page computed it: keep it, as its code does. */
