@@ -19,7 +19,7 @@
  */
 
 /** What a part keeps the same in every state. */
-const NOT_LOOK = new Set(["id", "pageId", "featureId", "label", "prompt", "content", "x", "y", "w", "h", "groupId", "options", "priority", "custom", "glyph", "locked", "link", "data", "hooks", "source", "state", "from", "byState", "byHand", "handFrom", "parentId", "children"]);
+const NOT_LOOK = new Set(["id", "pageId", "featureId", "label", "prompt", "content", "x", "y", "w", "h", "groupId", "options", "priority", "custom", "glyph", "locked", "link", "data", "hooks", "source", "state", "from", "byState", "place", "byHand", "handFrom", "parentId", "children"]);
 const lookKeys = (n: Record<string, unknown>) => Object.keys(n).filter((k) => !NOT_LOOK.has(k));
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
