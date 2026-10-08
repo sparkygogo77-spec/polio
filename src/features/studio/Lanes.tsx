@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { GitBranch, Hand, RefreshCw } from "lucide-react";
+import { Check, GitBranch, Hand, RefreshCw } from "lucide-react";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -8,6 +8,8 @@ import { useStudio } from "./store";
 import { BAND_COLOUR, LANE_MODE, laneArm, laneRects, laneSpine, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { ITEMS } from "./lanesSample";
 import { BODY, EDGE } from "./boxGround";
+import { issueItem, toggleTick } from "./fixLoop";
+import { setFixLoop, useFixLoop, useIssues } from "./useFixLoop";
 import { bracketBounds, bracketEnvelope, LANE_STRAND_WIDTH, paintBracket, type VineEnd } from "./strand";
 
 /**
@@ -31,13 +33,19 @@ import { bracketBounds, bracketEnvelope, LANE_STRAND_WIDTH, paintBracket, type V
  * iteration in the normal run of boxes, with what the work actually
  * changed as its content, and the lanes move out past it.
  *
- * The content is the checked-in sample (`lanesSample.ts`) read through one
- * typed structure (`lanes.ts`); swapping the source is one import.
+ * The content is the board's real problems (`fixLoop.ts`, from the check
+ * before publish) whenever it has any: each card can be ticked, turns blue,
+ * and Publish queues the ticked ones in the site's polio/NEXT.md for the
+ * next code chat. With none, the checked-in sample (`lanesSample.ts`) stays,
+ * read through the same typed structure (`lanes.ts`).
  */
 /** The checked-in offers, laned by band. */
 const SAMPLE: LanesData = lanesOf(ITEMS);
 
-export function Lanes({ from, fromId, size, gap, lanes = SAMPLE, fromEnd = "iteration" }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData; fromEnd?: VineEnd }) {
+export function Lanes({ from, fromId, size, gap, lanes: given, fromEnd = "iteration" }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData; fromEnd?: VineEnd }) {
+  const issues = useIssues();
+  const real = React.useMemo(() => (issues.length ? lanesOf(issues.map(issueItem)) : null), [issues]);
+  const lanes = given ?? real ?? SAMPLE;
   /*
    * The box they hang off is as tall as what it holds, not its nominal
    * size, and the middle lane's centre must be that box's centre to the
@@ -162,8 +170,19 @@ function Vines({ from, to, lanes, gap, fromEnd }: { from: Rect; to: [Rect, Rect,
 }
 
 function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
-  const [item, setItem] = React.useState<Item | undefined>(lane.items[0]);
+  const [held, setItem] = React.useState<Item | undefined>(lane.items[0]);
+  /* The lane's items change as the board does: a card no longer in it gives way to the first that is. */
+  const item = held && lane.items.some((it) => it.id === held.id) ? lane.items.find((it) => it.id === held.id) : lane.items[0];
   const s = item ? shown(item) : null;
+  const loop = useFixLoop();
+  const issue = item?.issue ?? null;
+  const ticked = !!issue && loop.ticked.includes(issue.key);
+  const queued = !!issue && loop.sent.some((i) => i.key === issue.key);
+  const tick = () => {
+    if (!issue) return;
+    play(ticked ? "tap" : "confirm");
+    setFixLoop(toggleTick(loop, issue.key));
+  };
   const band = BAND_COLOUR[lane.band];
   const done = !!item?.did;
   const carryOut = () => {
@@ -192,7 +211,10 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
         data-lane-item={item?.id ?? ""}
         data-lane-kind={item?.kind ?? ""}
         data-lane-band={lane.band}
-        className={cn(moltenClass("azure"), "flex w-full flex-col rounded-lg p-2 text-left")}
+        data-lane-issue={issue ? issue.key : undefined}
+        data-lane-ticked={issue ? String(ticked) : undefined}
+        /* A real issue is a plain construct until it is ticked; ticked, it turns blue, the colour of a lane's work. */
+        className={cn(moltenClass(issue && !ticked ? "lantern" : "azure"), "flex w-full flex-col rounded-lg p-2 text-left")}
         style={{
           height: at.h,
           ...moltenSeed(`lane:${lane.id}`, index),
@@ -217,7 +239,7 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
         >
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em]">
-              <GitBranch className="size-3" /> {lane.label} · {item ? (item.kind === "fix" ? "an update" : "an improvement") : "nothing yet"}
+              <GitBranch className="size-3" /> {lane.label} · {issue ? `issue ${lane.items.indexOf(item!) + 1} of ${lane.items.length}${queued ? " · in NEXT.md" : ticked ? " · ticked" : ""}` : item ? (item.kind === "fix" ? "an update" : "an improvement") : "nothing yet"}
             </span>
             <span className="font-mono text-small tabular-nums">
               <span data-lane-cost="">{s?.costSaid ?? ""}</span> · <span data-lane-time="">{s?.timeSaid ?? ""}</span>
@@ -248,6 +270,20 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
               >
                 <RefreshCw className="size-2.5" /> Refresh
               </button>
+              {issue ? (
+              <button
+                type="button"
+                data-lane-tick=""
+                aria-pressed={ticked}
+                title={ticked ? "Ticked: Publish puts it in polio/NEXT.md for the next code chat. Press to untick" : "Tick it for the next code chat: Publish puts it in polio/NEXT.md"}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); tick(); }}
+                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-small"
+                style={{ borderColor: "oklch(0.58 0.14 210)", background: ticked ? "oklch(0.5 0.15 230)" : "oklch(0.26 0.07 210)", color: "oklch(0.95 0.04 210)" }}
+              >
+                <Check className="size-2.5" /> {ticked ? "Ticked" : "Fix next"}
+              </button>
+              ) : (
               <button
                 type="button"
                 data-lane-take=""
@@ -260,6 +296,7 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
               >
                 <Hand className="size-2.5" /> Take control
               </button>
+              )}
             </span>
           </div>
         </div>
