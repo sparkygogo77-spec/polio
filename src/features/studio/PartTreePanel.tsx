@@ -481,7 +481,7 @@ export function Crumbs({ node, nodes, pageName, onBack }: { node: StudioNode; no
 }
 
 const SECTIONS_KEY = "builder.partSections";
-const OPEN_SECTION = "studio:open-section";
+export const OPEN_SECTION = "studio:open-section";
 /** Open one section of the part's panel and bring it into view: "Draw one" opens Make a picture. */
 export function openSection(id: string) {
   window.dispatchEvent(new CustomEvent(OPEN_SECTION, { detail: id }));
@@ -496,22 +496,34 @@ function readFolds(): Record<string, boolean> {
  * this browser, so a person who closes Motion once has it closed on every
  * part after.
  */
-export function PanelSection({ id, title, icon, note, defaultOpen = true, children }: {
-  id: string; title: string; icon?: React.ReactNode; note?: string; defaultOpen?: boolean; children: React.ReactNode;
+export function PanelSection({ id, title, icon, note, defaultOpen = true, holds, inside, children }: {
+  id: string; title: string; icon?: React.ReactNode; note?: string; defaultOpen?: boolean;
+  /** The sections folded inside this one (More): asking for one of them opens this first, then it. */
+  holds?: string[];
+  /** A section inside another (More's rows): a quieter head, no line under the last one. */
+  inside?: boolean;
+  children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   React.useEffect(() => { const kept = readFolds()[id]; if (typeof kept === "boolean") setOpen(kept); }, [id]);
   const box = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     const on = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== id) return;
+      const want = (e as CustomEvent<string>).detail;
+      if (want !== id && !holds?.includes(want)) return;
+      if (want !== id) {
+        /* Its row mounts once this opens: ask again for it on the next tick. */
+        if (!open) window.setTimeout(() => openSection(want), 0);
+        setOpen(true);
+        return;
+      }
       setOpen(true);
       play("open");
       window.setTimeout(() => box.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
     };
     window.addEventListener(OPEN_SECTION, on);
     return () => window.removeEventListener(OPEN_SECTION, on);
-  }, [id]);
+  }, [id, holds, open]);
   const toggle = () => {
     const now = !open;
     play(now ? "open" : "close");
@@ -519,11 +531,11 @@ export function PanelSection({ id, title, icon, note, defaultOpen = true, childr
     try { localStorage.setItem(SECTIONS_KEY, JSON.stringify({ ...readFolds(), [id]: now })); } catch { /* kept for this visit */ }
   };
   return (
-    <section ref={box} data-part-section={id} data-open={open ? "" : undefined} className="border-b border-border">
+    <section ref={box} data-part-section={id} data-open={open ? "" : undefined} data-inside={inside ? "" : undefined} className={inside ? "-mx-3 border-t border-border first:border-t-0" : "border-b border-border"}>
       <button type="button" aria-expanded={open} data-section-head="" onClick={toggle}
-        className="tactile flex h-8 w-full items-center gap-2 px-3 text-left hover:bg-hover/50">
+        className={cn("tactile flex w-full items-center gap-2 px-3 text-left hover:bg-hover/50", inside ? "h-7" : "h-8")}>
         {icon ? <span className="flex size-4 shrink-0 items-center justify-center text-fg-muted [&_svg]:size-3.5">{icon}</span> : null}
-        <span className="min-w-0 flex-1 truncate text-small font-semibold uppercase tracking-[0.08em] text-fg">{title}</span>
+        <span className={cn("min-w-0 flex-1 truncate text-small text-fg", inside ? "font-medium" : "font-semibold uppercase tracking-[0.08em]")}>{title}</span>
         {note ? <span className="shrink-0 truncate text-fine text-fg-faint">{note}</span> : null}
         <ChevronRight className={cn("size-3.5 shrink-0 text-fg-faint transition-transform", open && "rotate-90")} />
       </button>
