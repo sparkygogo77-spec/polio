@@ -9,7 +9,14 @@
  * move shows in every state at once, and the board restacks the region so
  * every scene draws it moved.
  *
- * Pure: `tests/structure-view.mjs`.
+ * A site that declares its regions (kit rule 32: `data-region` on each
+ * block that holds parts) is read from that markup, not guessed from where
+ * panels sit. A part can then also move into another region: the board
+ * shows it there at once (`place.region`), and since that changes the
+ * markup, the move is queued in polio/NEXT.md for the next code chat
+ * (`regionMoves`).
+ *
+ * Pure: `tests/structure-view.mjs`, `tests/structure-regions.mjs`.
  */
 
 export interface StructureNode {
@@ -20,7 +27,7 @@ export interface StructureNode {
   from?: { selector?: string } | null;
   state?: { group: string } | null;
   label?: string;
-  place?: { order?: number } | null;
+  place?: { order?: number; region?: string } | null;
 }
 
 export interface StructureItem {
@@ -29,6 +36,8 @@ export interface StructureItem {
   label: string;
   /** A declared panel (`data-panel`): one place whatever state it is in. */
   panel: boolean;
+  /** Its `data-region` name when the site declares it a layout region (kit rule 32). */
+  region?: string;
   /** Its parts side by side (columns) or one under another. */
   axis: "down" | "across";
   /** What it holds, in order, when it holds a panel somewhere inside; else empty. */
@@ -83,24 +92,111 @@ function inOrder(kids: StructureNode[], axis: "down" | "across"): StructureNode[
 export function structureOf(nodes: readonly StructureNode[], pageId: string): StructureItem[] {
   const mine = nodes.filter((n) => n.pageId === pageId && hookOf(n) && !isTemplate(n));
   const up = parentsOf(mine);
+  /* A part moved into another region sits there, on the board and in the outline. */
+  const regionNode = regionsOf(mine);
+  const parentOf = (n: StructureNode) => (n.place?.region && regionNode.get(n.place.region)?.id !== n.id ? regionNode.get(n.place.region)?.id : undefined) ?? up.get(n.id) ?? null;
   const kidsOf = new Map<string | null, StructureNode[]>();
-  for (const n of mine) { const p = up.get(n.id) ?? null; kidsOf.set(p, [...(kidsOf.get(p) ?? []), n]); }
-  const holdsPanel = new Map<string, boolean>();
+  for (const n of mine) { const p = parentOf(n); kidsOf.set(p, [...(kidsOf.get(p) ?? []), n]); }
+  /* Declared regions (kit rule 32) decide what lists its parts; else a block that holds a panel does. */
+  const declared = regionNode.size > 0;
+  const key = (k: StructureNode) => (declared ? !!regionOf(k) : !!k.hooks?.["data-panel"]);
+  const holdsKey = new Map<string, boolean>();
   const holds = (n: StructureNode): boolean => {
-    if (holdsPanel.has(n.id)) return holdsPanel.get(n.id)!;
-    holdsPanel.set(n.id, false);
-    const v = (kidsOf.get(n.id) ?? []).some((k) => !!k.hooks?.["data-panel"] || holds(k));
-    holdsPanel.set(n.id, v);
+    if (holdsKey.has(n.id)) return holdsKey.get(n.id)!;
+    holdsKey.set(n.id, false);
+    const v = (kidsOf.get(n.id) ?? []).some((k) => key(k) || holds(k));
+    holdsKey.set(n.id, v);
     return v;
   };
+  const opens = (n: StructureNode) => (declared ? !!regionOf(n) || holds(n) : !n.hooks?.["data-panel"] && holds(n));
   const item = (n: StructureNode): StructureItem => {
     const panel = !!n.hooks?.["data-panel"];
-    const kids = !panel && holds(n) ? kidsOf.get(n.id) ?? [] : [];
+    const kids = opens(n) ? kidsOf.get(n.id) ?? [] : [];
     const axis = axisOf(kids);
-    return { id: n.id, hook: hookOf(n)!, label: n.hooks?.["data-label"] ?? hookOf(n)!, panel, axis, children: inOrder([...kids], axis).map(item) };
+    const region = regionOf(n);
+    return { id: n.id, hook: hookOf(n)!, label: n.hooks?.["data-label"] ?? hookOf(n)!, panel, ...(region ? { region } : {}), axis, children: inOrder([...kids], axis).map(item) };
   };
   const top = kidsOf.get(null) ?? [];
-  return inOrder(top.filter((n) => n.hooks?.["data-panel"] || holds(n)), axisOf(top)).map(item);
+  return inOrder(top.filter((n) => (declared ? key(n) || holds(n) : n.hooks?.["data-panel"] || holds(n))), axisOf(top)).map(item);
+}
+
+const regionOf = (n: StructureNode) => n.hooks?.["data-region"] || undefined;
+
+/** The page's declared regions by name (kit rule 32). */
+function regionsOf(nodes: readonly StructureNode[]): Map<string, StructureNode> {
+  const out = new Map<string, StructureNode>();
+  for (const n of nodes) { const r = regionOf(n); if (r && !out.has(r)) out.set(r, n); }
+  return out;
+}
+
+/** Every region in the outline, in order: where a part can be moved to. */
+export function regionList(items: readonly StructureItem[]): StructureItem[] {
+  return items.flatMap((it) => [...(it.region ? [it] : []), ...regionList(it.children)]);
+}
+
+/**
+ * One part moved into another region, at its end: the board moves the part
+ * (and everything inside it) to just after the region's last part, and the
+ * part keeps `place.region` so the outline shows it there. Returns the
+ * moves by id; nothing when it is already in that region.
+ */
+export function moveToRegion(nodes: readonly StructureNode[], pageId: string, id: string, region: string): Map<string, { x: number; y: number }> {
+  const items = structureOf(nodes, pageId);
+  const to = regionList(items).find((r) => r.region === region);
+  const got = findItem(items, id);
+  if (!to || !got || got.parent?.id === to.id || to.id === id) return new Map();
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const part = byId.get(id), box = byId.get(to.id);
+  if (!part || !box) return new Map();
+  const last = to.children.map((c) => byId.get(c.id)).filter((n): n is StructureNode => !!n);
+  const gap = 16;
+  const x = to.axis === "across" && last.length ? Math.max(...last.map((n) => n.x + n.w)) + gap : box.x;
+  const y = to.axis === "across" || !last.length ? box.y : Math.max(...last.map((n) => n.y + n.h)) + gap;
+  const dx = x - part.x, dy = y - part.y;
+  if (!dx && !dy) return new Map();
+  const up = parentsOf(nodes.filter((n) => n.pageId === pageId));
+  const inside = (n: StructureNode) => { for (let p: string | null = n.id; p; p = up.get(p) ?? null) if (p === id) return true; return false; };
+  const out = new Map<string, { x: number; y: number }>();
+  for (const n of nodes) if (n.pageId === pageId && inside(n)) out.set(n.id, { x: n.x + dx, y: n.y + dy });
+  return out;
+}
+
+/** The fix loop's key for one region move (`fixLoop.ts`): ticked when the move is made. */
+export const regionKey = (hook: string, region: string) => `region:${hook}:${region}`;
+
+/** A move into another region, as the code chat needs it: the part, where it goes, and what it follows there. */
+export interface RegionMove {
+  id: string;
+  hook: string;
+  region: string;
+  regionLabel: string;
+  /** The hook of the part it now follows in that region; null when it is first. */
+  after: string | null;
+}
+
+/**
+ * The parts moved into another region than the markup has them in: what
+ * Publish queues in polio/NEXT.md. A part read back inside the region it
+ * was moved to (the code chat moved it) is not listed.
+ */
+export function regionMoves(nodes: readonly StructureNode[], pageId: string): RegionMove[] {
+  const mine = nodes.filter((n) => n.pageId === pageId && hookOf(n) && !isTemplate(n));
+  const regions = regionsOf(mine);
+  const up = parentsOf(mine);
+  const byId = new Map(mine.map((n) => [n.id, n]));
+  const readIn = (n: StructureNode) => { for (let p = up.get(n.id) ?? null; p; p = up.get(p) ?? null) { const r = regionOf(byId.get(p)!); if (r) return r; } return null; };
+  const items = structureOf(nodes, pageId);
+  const out: RegionMove[] = [];
+  for (const n of mine) {
+    const to = n.place?.region;
+    if (!to || !regions.has(to) || readIn(n) === to) continue;
+    const got = findItem(items, n.id);
+    const sibs = got?.parent?.children ?? [];
+    const at = sibs.findIndex((x) => x.id === n.id);
+    const r = regions.get(to)!;
+    out.push({ id: n.id, hook: hookOf(n)!, region: to, regionLabel: r.hooks?.["data-label"] ?? to, after: at > 0 ? sibs[at - 1]!.hook : null });
+  }
+  return out;
 }
 
 /** The item with this id, and the region it sits in (null at the top). */
