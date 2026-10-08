@@ -35,7 +35,7 @@ import { chromium } from "playwright-core";
 import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
 import { pagesToDoc } from "../src/features/studio/bring-in/pageParts.ts";
 import { sourceOfPage, withLines } from "../src/features/studio/sourceHooks.ts";
-import { applyToPage, buildLayer, hookCounts, linkHref, lookOf } from "../src/features/studio/styleLayer.ts";
+import { applyToPage, buildLayer, hookCounts, linkHref, lookOf } from "../src/features/studio/send-out/styleLayer.ts";
 import { prepareLayer, publishLayer } from "../src/features/studio/styleLayerRun.ts";
 import { sansScripts } from "../src/features/studio/bring-in/zipImport.ts";
 

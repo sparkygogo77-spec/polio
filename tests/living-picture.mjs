@@ -20,12 +20,12 @@
  *
  *   node tests/living-picture.mjs
  *
- * Covers: src/features/studio/living.ts, src/features/studio/livingCut.ts, src/features/studio/styleLayer.ts, src/features/studio/inspector/livingField.tsx, src/features/studio/parts/theme.ts
+ * Covers: src/features/studio/living.ts, src/features/studio/livingCut.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/inspector/livingField.tsx, src/features/studio/parts/theme.ts
  */
 import { createRequire, stripTypeScriptTypes } from "node:module";
 import { readFileSync } from "node:fs";
 import { describeLiving, liveCss, liveLayers, liveName, liveStyle, LIVE_KEYFRAMES, newLiving, switchPreset } from "../src/features/studio/living.ts";
-import { artCss, buildLayer, changedDeclarations, lookOf } from "../src/features/studio/styleLayer.ts";
+import { artCss, buildLayer, changedDeclarations, lookOf } from "../src/features/studio/send-out/styleLayer.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

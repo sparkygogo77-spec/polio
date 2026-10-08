@@ -62,7 +62,7 @@ export interface Look {
   /** Empty strings mean "derive it from the accent hue", as before. */
   palette: Partial<Palette>;
   /** A site brought in from a code repository: what its code is written against, for the style layer sent back to it (`styleLayer.ts`). */
-  styleSource?: import("../../styleLayer").StyleSource | null;
+  styleSource?: import("../../send-out").StyleSource | null;
   texture: TextureLayer[];
   /** Where the texture is painted. */
   target: "page" | "surfaces" | "both";

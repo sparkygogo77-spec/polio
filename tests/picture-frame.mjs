@@ -19,11 +19,11 @@
  *
  *   node tests/picture-frame.mjs
  *
- * Covers: src/features/studio/frame.ts, src/features/studio/styleLayer.ts, src/features/studio/inspector/frameField.tsx, src/features/studio/parts/theme.ts
+ * Covers: src/features/studio/frame.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/inspector/frameField.tsx, src/features/studio/parts/theme.ts
  */
 import { createRequire } from "node:module";
 import { describeFrame, frameCss, frameSides, frameStyle, newFrame, NEW_FRAME_SIDE } from "../src/features/studio/frame.ts";
-import { artCss, buildLayer, changedDeclarations, lookOf, kitDeclarations } from "../src/features/studio/styleLayer.ts";
+import { artCss, buildLayer, changedDeclarations, lookOf, kitDeclarations } from "../src/features/studio/send-out/styleLayer.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

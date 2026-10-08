@@ -31,8 +31,8 @@ import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
 import { useStudio } from "./board/store";
-import { headOf } from "./codePublish";
-import { kitStatus, publishKit, type KitSent } from "./kitPublish";
+import { headOf } from "./send-out";
+import { kitStatus, publishKit, type KitSent } from "./send-out/run";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
 

@@ -390,7 +390,7 @@ export interface StudioNode {
    */
   hooks?: Record<string, string> | null;
   /** Where it is in the code repository it was brought in from, and how it looked then (`styleLayer.ts`): the part panel's code link, and what the style layer compares against. */
-  source?: import("../../styleLayer").NodeSource | null;
+  source?: import("../../send-out").NodeSource | null;
 }
 
 export interface StudioGroup {

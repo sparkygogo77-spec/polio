@@ -17,18 +17,18 @@ import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, sharedTargetSays, useBuilds } from "@/features/builds/store";
 import { flushEdits, lastEdit } from "@/features/builds/edits";
-import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "./agent";
-import { compileSpec, specToJson, specToMarkdown } from "./spec";
+import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../agent";
+import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
-import { sitePictures } from "./staticSite";
-import { useStudio } from "./board/store";
-import { contractFiles } from "./library/contract";
-import { polioMd, POLIO_MD } from "./polioMd";
-import { completeSite, fetchOwnFromBuilder, missingSays } from "./siteRefs";
-import { homeFor } from "./homePage";
-import { pageFile } from "./staticSite";
-import { askStillCopy, codeSourceOf } from "./stillCopy";
-import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "./publishWords";
+import { sitePictures } from "../staticSite";
+import { useStudio } from "../board/store";
+import { contractFiles } from "../library/contract";
+import { polioMd, POLIO_MD } from "../polioMd";
+import { completeSite, fetchOwnFromBuilder, missingSays } from "../siteRefs";
+import { homeFor } from "../homePage";
+import { pageFile } from "../staticSite";
+import { askStillCopy, codeSourceOf } from "../stillCopy";
+import { plainFailure, type Failed, type PlainFailure, type PublishStep } from "../publishWords";
 
 export interface LiveRun { state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string }
 export interface Pushed { url: string; files: number; deployed: boolean; hook: boolean; note?: string }

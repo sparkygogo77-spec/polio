@@ -21,7 +21,7 @@ const check = (name, ok, detail = "") => {
 
 const b = await import("../src/features/studio/slotKinds.ts");
 const site = await import("../kit/starter/parts/slots.js");
-const { partSlots } = await import("../src/features/studio/styleLayer.ts");
+const { partSlots } = await import("../src/features/studio/send-out/styleLayer.ts");
 const { KIT_RULES } = await import("../src/features/studio/kitFiles.ts");
 const kitJson = JSON.parse(readFileSync("kit/builder.json", "utf8"));
 

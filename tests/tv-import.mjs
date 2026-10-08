@@ -52,7 +52,7 @@ import { join } from "node:path";
 import { chromium } from "playwright-core";
 import { readManifest } from "../src/features/studio/builderManifest.ts";
 import { readStills, stillQuery, stillsAsk, readStillsAsk, stillFiles } from "../src/features/studio/stills.ts";
-import { artCss, buildLayer, changedDeclarations, lookOf as layerLook, statesCss } from "../src/features/studio/styleLayer.ts";
+import { artCss, buildLayer, changedDeclarations, lookOf as layerLook, statesCss } from "../src/features/studio/send-out/styleLayer.ts";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const results = [];

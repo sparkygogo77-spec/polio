@@ -37,7 +37,7 @@ import { auditCounts, auditSite, type PageAudit } from "./staticSite";
 import { useStudio, useSteady } from "./board/store";
 import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { useKeys } from "@/features/keys/store";
-import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./goLive";
+import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./send-out/run";
 import { useBuilds } from "@/features/builds/store";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";

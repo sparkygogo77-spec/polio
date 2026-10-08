@@ -17,8 +17,8 @@
  *
  * `fetch` is passed in, so `tests/style-layer.mjs` can stand a GitHub in.
  */
-import { deletedOnBoard, readHookMap, removedLine, withRefs, type RemovedHook } from "./designBranch.ts";
-import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./styleLayer.ts";
+import { deletedOnBoard, readHookMap, removedLine, withRefs, type RemovedHook } from "./send-out/index.ts";
+import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./send-out/index.ts";
 import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
 
 export interface LayerFiles {

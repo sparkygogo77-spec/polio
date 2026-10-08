@@ -20,7 +20,7 @@
  * from code, with the code site's own Refresh and Publish
  * (`CodeSiteButtons.tsx`), which send only the style layer.
  */
-import { gh, type Answer, type Fetch } from "./kitRun";
+import { gh, type Answer, type Fetch } from "../kitRun";
 import { headOf, mergePull, pushBranch } from "./codePublish";
 
 /** What the board keeps of its last kit publish: where, and the commit it was merged at. */
@@ -59,7 +59,7 @@ export async function publishKit(repo: string, token: string, o: { site: string;
   }
   say("Exporting the board as a builder-ready kit…");
   /* Loaded here, not at the top: the rules above are read without a board (`tests/builder-site-code.mjs`). */
-  const { exportForCode } = await import("./exportForCode");
+  const { exportForCode } = await import("../exportForCode");
   const kit = await exportForCode();
   if (!kit.files.length) return { ok: false, says: kit.says };
   if (kit.problems.length) return { ok: false, says: `Nothing was sent: the kit's check found ${kit.problems.length} problem${kit.problems.length === 1 ? "" : "s"}: ${kit.problems.slice(0, 3).join("; ")}.` };

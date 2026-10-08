@@ -7,6 +7,7 @@ The Builder. Big files are split into folders of topic files; each old file (`Ca
 | `board/` | Module: the board (pointer handling, parts, ink, wires, press rules) and the Builder's store. Doors: `index.ts`, `store.ts`, `ui.ts`, `reads.ts` | `Canvas.tsx` |
 | `bring-in/` | Module: reading a site, capturing it, bringing a repository or zip in, From a site. Doors: `index.ts`, `ui.ts` | — |
 | `look/` | Module: colour, texture, light and motion maths, site colours, style kits, fonts, part looks, the Look panel. Doors: `index.ts`, `parts.ts`, `ui.ts` | — |
+| `send-out/` | Module: the style layer, exporting a site, publishing the kit and to a code site, going live, the publish check, zips, the design branch. Doors: `index.ts`, `run.ts` | — |
 | `states/` | Module: a page's states, panels, Show switch, Structure view. Doors: `index.ts`, `ui.ts` | — |
 | `inspector/` | The side panel's fields | `Inspector.tsx` |
 | `page/` | The Builder page: top, toolbar, side panel frame | `StudioPage.tsx` |

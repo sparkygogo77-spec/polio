@@ -191,7 +191,7 @@ check("nothing secret, no bytes and no script in the file", leaks(md).length ===
 
 /* ------------------------------------------------------------ Go live carries it, in the one push */
 {
-  const src = readFileSync(join(here, "..", "src", "features", "studio", "goLive.ts"), "utf8");
+  const src = readFileSync(join(here, "..", "src", "features", "studio", "send-out", "goLive.ts"), "utf8");
   const body = src.slice(src.indexOf("export async function collectFiles"), src.indexOf("\n}\n", src.indexOf("export async function collectFiles")));
   check("Go live's file list carries POLIO.md, written from the board as pressed", /path: POLIO_MD/.test(body) && /polioMd\(\{/.test(body) && /\.\.\.\(described\.some\(\(d\) => d\.path === POLIO_MD\) \? \[\] : \[polio\]\)/.test(body));
 }

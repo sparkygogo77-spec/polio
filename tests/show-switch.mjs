@@ -32,7 +32,7 @@ const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", 
 const R = await studio("states/stateRules.ts");
 const SH = await studio("states/show.ts");
 const E = await studio("states/stateEdits.ts");
-const L = await studio("styleLayer.ts");
+const L = await studio("send-out/styleLayer.ts");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);

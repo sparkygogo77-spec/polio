@@ -28,12 +28,12 @@
  *
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
-import type { SourceHook, SourceVar } from "./sourceHooks.ts";
-import { FRAME_UNSET, frameCss, isFrame } from "./frame.ts";
-import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "./living.ts";
-import type { PictureFrame } from "./frame.ts";
-import type { LivingPicture } from "./living.ts";
-import { layoutDeclarations } from "./states/index.ts";
+import type { SourceHook, SourceVar } from "../sourceHooks.ts";
+import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
+import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../living.ts";
+import type { PictureFrame } from "../frame.ts";
+import type { LivingPicture } from "../living.ts";
+import { layoutDeclarations } from "../states/index.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
 export interface CssLook {
@@ -104,9 +104,9 @@ export function svgDeclarations(decl: string[]): string[] {
 export interface PartCode {
   markup: { file: string; line?: number } | null;
   css: { file: string; line: number; selector: string }[];
-  refs: import("./codeRefs.ts").CodeRef[];
+  refs: import("../codeRefs.ts").CodeRef[];
   /** Filled by code at run time: the first place that builds or writes it. */
-  built: import("./codeRefs.ts").CodeRef | null;
+  built: import("../codeRefs.ts").CodeRef | null;
   /** Where the references came from: the repository's hooks.json, or a reading of its scripts. */
   from: "hooks.json" | "scan" | "none";
   /** Made by a script from a template rather than written in the HTML (hooks.json `scriptBuilt`), and which template, and whether it repeats (a row per item). */
@@ -131,25 +131,25 @@ export interface StyleSource {
   /** The fingerprint of the layer last published into the code (`codePublish.ts#layerPrint`): a design not yet published is one that differs. */
   sent?: string | null;
   /** What the repository was when last read (`kitRun.ts`): the baseline each design round is compared with. */
-  seen?: import("./kitRun.ts").KitSeen;
+  seen?: import("../kitRun.ts").KitSeen;
   /** Its `builder.json`, when it is builder-ready: the design then goes back by the kit's contract. */
-  kit?: import("./kitRun.ts").KitManifest | null;
+  kit?: import("../kitRun.ts").KitManifest | null;
   /** Where the layer is written, when the repository says (builder.json); else `<dir>style-layer.css`. */
   layerFile?: string | null;
   /** The design-tokens file the repository names or keeps (`tokens.css`). */
   tokensFile?: string | null;
   /** What the repository's hooks.json says reads each variable. */
-  varsRead?: Record<string, import("./codeRefs.ts").CodeRef[]>;
+  varsRead?: Record<string, import("../codeRefs.ts").CodeRef[]>;
   /** The repository's builder.json, when it has one: what was read from it. */
   manifest?: { file: string; kit?: string | null; previews?: string[]; gallery?: string | null } | null;
   /** Every data-hook on the board as it was brought in (`designBranch.ts#hooksOnBoard`): what Export for code to a branch keeps, and says the changes against. */
   onBoard?: string[];
   /** Its preview screens, read at import as its code builds them: the States control shows one on the board (`boardStates.ts`). */
-  screens?: import("./states/index.ts").ScreenRead[];
+  screens?: import("../states/index.ts").ScreenRead[];
   /** A site that follows the state rules: its declared scenes and sample words (`stateRules.ts`). Its `screens` are then these scenes, and the live captures stay in `captured`, only as a check. */
-  scenes?: import("./states/index.ts").DeclaredScene[] | null;
-  samples?: import("./states/index.ts").Samples | null;
-  captured?: import("./states/index.ts").ScreenRead[];
+  scenes?: import("../states/index.ts").DeclaredScene[] | null;
+  samples?: import("../states/index.ts").Samples | null;
+  captured?: import("../states/index.ts").ScreenRead[];
 }
 
 /**

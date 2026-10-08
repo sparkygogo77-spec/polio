@@ -26,11 +26,11 @@
  * Pure: the store, the picture store and the layout are handed in, so
  * `tests/publish-check.mjs` reads it directly.
  */
-import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "./parts/offsite";
-import { HARD_TO_READ, wordsContrast } from "./look";
-import { decisions } from "./library/badge";
-import { partName, type Named } from "./partNames";
-import type { Palette } from "./look";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "../parts/offsite";
+import { HARD_TO_READ, wordsContrast } from "../look";
+import { decisions } from "../library/badge";
+import { partName, type Named } from "../partNames";
+import type { Palette } from "../look";
 
 export type ProblemKind = "link" | "share" | "picture" | "words" | "fit" | "nowhere";
 
