@@ -1,16 +1,16 @@
 "use client";
 import * as React from "react";
-import { useHeldStudio, useStudio, useSteady, type StudioNode } from "../board/store";
-import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "../vector";
+import { useHeldStudio, useStudio, useSteady, type StudioNode } from "../../board/store";
+import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "../../vector";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { wordsOf } from "../partNames";
-import { fontsInPageOrder, faceOf } from "../look";
-import { parseColor, toHex } from "../look";
-import { movingParts } from "../motionInventory";
+import { wordsOf } from "../../partNames";
+import { fontsInPageOrder, faceOf } from "../../look";
+import { parseColor, toHex } from "../../look";
+import { movingParts } from "../../motionInventory";
 import { MoveRowView } from "../MotionPanel";
 import { Field } from "./fields";
 

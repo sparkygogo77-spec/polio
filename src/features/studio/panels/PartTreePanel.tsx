@@ -18,23 +18,23 @@
  * The sections of a part's own panel (`PanelSection`) fold, and remember
  * being folded in this browser.
  */
-import { canRemake, openRemake } from "./RemakePicture";
+import { canRemake, openRemake } from "../RemakePicture";
 import * as React from "react";
 import {
   AppWindow, ChevronLeft, ChevronRight, CircleAlert, FileText, Film, Heading, Image as ImageIcon, Link2, List, Menu,
   MousePointerClick, PanelBottom, PanelTop, PenTool, Sparkle, Square, TextCursorInput, Type, LayoutPanelTop, Copy, Shapes,
 } from "lucide-react";
-import { getFeature } from "./shelf";
-import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
-import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "./partTree";
-import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "./components";
-import { resolvePalette } from "./shelf/run";
-import { filterRows, foldComponentRows, partList, type ComponentRow, type ListPart } from "./partList";
+import { getFeature } from "../shelf";
+import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
+import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "../partTree";
+import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "../components";
+import { resolvePalette } from "../shelf/run";
+import { filterRows, foldComponentRows, partList, type ComponentRow, type ListPart } from "../partList";
 import { Switch } from "@/core/ui/switch";
-import { kindOf, partName } from "./partNames";
-import { decisions, decisionSays, type Decision } from "./shelf";
-import { pointAt, PointMarks } from "./SiteColours";
-import { partLearned } from "./learn";
+import { kindOf, partName } from "../partNames";
+import { decisions, decisionSays, type Decision } from "../shelf";
+import { pointAt, PointMarks } from "../SiteColours";
+import { partLearned } from "../learn";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";

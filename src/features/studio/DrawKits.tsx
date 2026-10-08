@@ -32,7 +32,7 @@ import { WornShape } from "./WornShape";
 import { colourChoices, combine, piecesOf, toBox, wordsColour, type Worn } from "./wornShape";
 import { DEFAULT_OFFSITE, explainLink, offsiteRules } from "./shelf";
 import { editablesOf, WORN_WHATS, writeField } from "./partOptions";
-import { openSection } from "./PartTreePanel";
+import { openSection } from "./panels/ui";
 import { put } from "./pictures";
 import { PartFields } from "./PartFields";
 

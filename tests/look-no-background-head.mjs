@@ -26,7 +26,7 @@ const bare = (f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").rep
 /* Nothing else leans on the block: no other file renders it or reads its mark. */
 const look = bare("src/features/studio/look/LookPanel.tsx");
 check("the Look panel no longer renders the Background block", !/BackgroundInspector/.test(look));
-check("and nothing else exports or renders it", !/BackgroundInspector/.test(["Inspector.tsx", ...readdirSync("src/features/studio/inspector").filter((f) => f.endsWith(".tsx")).map((f) => `inspector/${f}`)].map((f) => bare(`src/features/studio/${f}`)).join("\n")));
+check("and nothing else exports or renders it", !/BackgroundInspector/.test(["Inspector.tsx", ...readdirSync("src/features/studio/panels/inspector").filter((f) => f.endsWith(".tsx")).map((f) => `inspector/${f}`)].map((f) => bare(`src/features/studio/panels/${f}`)).join("\n")));
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });

@@ -1,4 +1,4 @@
-# studio/inspector
+# studio/panels/inspector
 
 The part panel, split by topic. `../Inspector.tsx` re-exports what it always
 exported (`Inspector`, `GLYPHS`, `HuePicker`, `OptionRange`), so other files keep importing
