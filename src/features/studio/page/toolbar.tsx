@@ -18,7 +18,7 @@ import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { TOOLS, useMedia, FOLDING } from "./sizes";
 import { SiteHead, PageChips } from "./head";
-import { scenesOnPage, showScene, stepScene } from "../sceneStep";
+import { ShowSwitch } from "../ShowSwitch";
 
 export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   // The More key exists only while the bar is folding controls away: on a
@@ -496,7 +496,8 @@ export function SearchTools({ always = false }: { always?: boolean } = {}) {
   const ctx = useActions();
   return (
     <>
-    <SceneArrows />
+    {/* "Show:" — the page's previews (`ShowSwitch.tsx`, J 2026-10-08). */}
+    <ShowSwitch />
     <Tooltip content="Search every command and setting" shortcut="mod+k">
       <button
         type="button"
@@ -519,59 +520,6 @@ export function SearchTools({ always = false }: { always?: boolean } = {}) {
       </button>
     </Tooltip>
     </>
-  );
-}
-
-/**
- * ‹ SCENE › BY THE SEARCH BAR (J, 2026-10-06): a site that lists its scenes
- * (`stateRules.ts`) steps through its whole-page layouts here, the board
- * sliding one out and the next in (`sceneStep.ts`). Nothing for a site
- * without them.
- */
-export function SceneArrows() {
-  const activePageId = useStudio((s) => s.activePageId);
-  const look = useStudio((s) => s.look);
-  const statesOn = useStudio((s) => s.statesOn);
-  const { scenes, at } = React.useMemo(() => scenesOnPage({ activePageId, look, statesOn }), [activePageId, look, statesOn]);
-  const [open, setOpen] = React.useState(false);
-  if (!scenes.length) return null;
-  const now = at >= 0 ? scenes[at]! : null;
-  const pick = (i: number) => { setOpen(false); showScene(i, i >= at ? 1 : -1); };
-  /* J could not find it as bare arrows: it says what it is, and the middle opens the whole list. */
-  return (
-    /* A fixed width: a long name is cut short, so the arrows never move under a pointer clicking through. */
-    <div data-scene-arrows="" className="flex h-6 w-[20rem] shrink-0 items-center rounded-md border border-accent/60 bg-accent-soft/40">
-      <button type="button" data-scene-prev="" aria-label="Previous page state" title="Previous page state (←)" onClick={() => stepScene(-1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronLeft className="size-3.5" /></button>
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        align="start"
-        className="max-h-[70vh] w-auto min-w-[220px] max-w-[320px] overflow-y-auto p-1"
-        content={
-          <div data-scene-list="" className="flex flex-col gap-0.5">
-            <p className="px-2 py-1 text-fine text-fg-faint">The whole page in each of its states, as the site lists them. ← → step through them on the board.</p>
-            {[{ name: "", label: "As it opens" }, ...scenes].map((x, j) => {
-              const i = j - 1, lit = i === at;
-              return (
-                <button key={x.name || "-"} type="button" data-scene-pick={x.name} aria-pressed={lit} onClick={() => pick(i)}
-                  className={cn("tactile flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-plain", lit ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
-                  <span className="num w-6 shrink-0 text-fine text-fg-faint">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate">{x.label ?? x.name}</span>
-                  {lit ? <Check className="size-3 shrink-0 text-accent" /> : null}
-                </button>
-              );
-            })}
-          </div>
-        }
-      >
-        <button type="button" data-scene-now={now?.name ?? ""} title={`Page state: ${now?.label ?? "as it opens"}. Pick one, or step with ← →`} className="tactile flex h-6 min-w-0 flex-1 items-center gap-1 px-1 text-small text-fg">
-          <span className="shrink-0 font-medium">Page state</span>
-          <span className="num w-10 shrink-0 text-fg-faint">{at + 1}/{scenes.length}</span>
-          <span className="min-w-0 flex-1 truncate text-left text-fg-muted">{now?.label ?? "as it opens"}</span>
-        </button>
-      </Popover>
-      <button type="button" data-scene-next="" aria-label="Next page state" title="Next page state (→)" onClick={() => stepScene(1)} className="tactile flex size-6 items-center justify-center text-fg-muted hover:text-fg"><ChevronRight className="size-3.5" /></button>
-    </div>
   );
 }
 

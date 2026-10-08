@@ -64,7 +64,7 @@ const TRY = ["result", "match", "queue", "lobby", "sign-in", "connecting"];
 const OVER = /\b(tour|menu|pop[ -]?up|dialog|modal|overlay|toast|tooltip|banner)\b/;
 
 const plain = (s: string) => s.toLowerCase().replace(/[-_]+/g, " ");
-function momentOf(text: string): (typeof MOMENTS)[number] | null {
+export function momentOf(text: string): (typeof MOMENTS)[number] | null {
   const t = plain(text);
   for (const k of TRY) { const m = MOMENTS.find((x) => x.key === k)!; if (m.words.test(t)) return m; }
   return null;

@@ -9,6 +9,7 @@
 import { play } from "@/core/audio/engine";
 import { screenKey } from "./boardStates";
 import { isPageState, type SceneScreen } from "./stateRules";
+import { showPreviews, type OnTop, type Preview } from "./show";
 import { useStudio, type StudioNode } from "./store";
 import { looksOnBoard, placedOnBoard, shownOnBoard } from "./canvas/helpers";
 
@@ -58,14 +59,27 @@ export function scenesOnPage(s: { activePageId: string; look?: unknown; statesOn
   return { scenes, at: scenes.findIndex((x) => on.includes(screenKey(x.name))) };
 }
 
-/** The next (or previous) scene on show, the board sliding as it goes. */
+/** The active page's previews for the Show switch (`show.ts`), the one on show (-1: as it opens), and what can go on top. */
+export function previewsOnPage(s: { activePageId: string; look?: unknown; statesOn?: string[]; nodes?: readonly StudioNode[] }): { previews: Preview[]; onTop: OnTop[]; at: number; scene: SceneScreen | null } {
+  const source = (s.look as { styleSource?: Src } | undefined)?.styleSource;
+  const file = source?.files?.find((f) => f.pageId === s.activePageId)?.file ?? null;
+  const all = ((source?.screens ?? []) as SceneScreen[]).filter((x) => x.declared && x.page === file);
+  const { previews, onTop } = showPreviews(all, (s.nodes ?? []).filter((n) => n.pageId === s.activePageId));
+  const { scenes, at } = scenesOnPage(s);
+  const scene = at >= 0 ? scenes[at]! : null;
+  return { previews, onTop, at: scene ? previews.findIndex((p) => p.scenes.includes(scene)) : -1, scene };
+}
+
+/** The next (or previous) preview on show, the board sliding as it goes: each moment once, its first page state (the others are chips in the Show switch). */
 export function stepScene(by: number): void {
   const st = useStudio.getState();
-  const { scenes, at } = scenesOnPage(st);
-  if (!scenes.length) return;
+  const { previews, at } = previewsOnPage(st);
+  if (!previews.length) return;
   /* "As it opens" is a step too (-1): 0, 1 … N and round to 0 again. */
-  const n = scenes.length + 1;
-  showScene((((at + 1 + by) % n) + n) % n - 1, by);
+  const n = previews.length + 1;
+  const to = (((at + 1 + by) % n) + n) % n - 1;
+  const { scenes } = scenesOnPage(st);
+  showScene(to < 0 ? -1 : scenes.indexOf(previews[to]!.scenes[0]!), by);
 }
 
 /** One scene by its place in the list (-1: the page as it opens), sliding the way `by` says. */
@@ -77,7 +91,9 @@ export function showScene(to: number, by = 1): void {
   const before = drawnNow();
   const swap = () => {
     const s = useStudio.getState();
-    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), ...(next ? [next] : [])]);
+    /* What is on top (the tour) stays on over the next preview; any other panel switched by itself goes. */
+    const tops = new Set(previewsOnPage(s).onTop.map((t) => `panel:${t.panel}=`));
+    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !(k.startsWith("panel:") && ![...tops].some((t) => k.startsWith(t))) && !k.startsWith("isolate:")), ...(next ? [next] : [])]);
   };
   play("tap");
   const board = typeof document !== "undefined" ? (document.querySelector("[data-board-zoom]") as HTMLElement | null) : null;
