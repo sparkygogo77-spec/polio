@@ -30,6 +30,7 @@ registerHooks({
   resolve(spec, ctx, next) {
     if (spec.startsWith(".") && !/\.[a-z]+$/i.test(spec)) {
       try { return next(`${spec}.ts`, ctx); } catch { /* fall through */ }
+      try { return next(`${spec}/index.ts`, ctx); } catch { /* a module folder: its door */ }
     }
     return next(spec, ctx);
   },
