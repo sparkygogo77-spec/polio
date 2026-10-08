@@ -28,8 +28,8 @@
  *
  * Pure: `tests/state-rules.mjs`.
  */
-import type { Panel, PanelNode, PanelState } from "./panels";
-import type { ScreenRead } from "./boardStates";
+import type { Panel, PanelNode, PanelState } from "./panels.ts";
+import type { ScreenRead } from "./boardStates.ts";
 
 export interface DeclaredScene {
   name: string;

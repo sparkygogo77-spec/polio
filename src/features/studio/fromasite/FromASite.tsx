@@ -68,7 +68,7 @@ import { SWEEP } from "../reassemble";
 import { askSite, askZip, nameOf, repoOf, deployedBy, NOTHING, stageOf, latest, putStage, subscribeStages, STEP_PATIENCE_MS, isHeadless, readPicturesOf, readScreensOf, landAsBrought, boardNow } from "./bring";
 import type { Source, Picking, Stage, KeepFrom } from "./bring";
 import { Brought, Details, Waiting } from "./bits";
-import { followsStateRules, readSamples, readScenes, sceneScreens } from "../stateRules";
+import { followsStateRules, readSamples, readScenes, sceneScreens } from "../states";
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");

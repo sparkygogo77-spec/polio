@@ -44,7 +44,7 @@ import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { FrameField } from "./frameField";
 import { LivingField } from "./livingField";
 import { Faces, Solid, LinkField } from "./solid";
-import { PartSamples } from "../StatesTimeline";
+import { PartSamples } from "../states/ui";
 
 export function Inspector() {
   const selection = useHeldStudio((s) => s.selection);

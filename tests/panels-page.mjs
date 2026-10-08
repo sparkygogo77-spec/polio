@@ -20,14 +20,14 @@
  *
  *   node tests/panels-page.mjs
  *
- * Covers: src/features/studio/panels.ts, src/features/studio/PanelsPage.tsx
+ * Covers: src/features/studio/states/panels.ts, src/features/studio/states/PanelsPage.tsx
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
-const P = await jiti.import(join(here, "..", "src", "features", "studio", "panels.ts"));
+const P = await jiti.import(join(here, "..", "src", "features", "studio", "states", "panels.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);
@@ -107,7 +107,7 @@ check("4. a block whose script swaps faces has them as states with no screen", J
 const idle = drawn("tv", tv.states[1].samples[0].screen);
 check("4. its idle face draws idle alone", idle.includes("tv-idle-t") && !idle.includes("tv-load-t"), J(idle));
 
-const PP = await jiti.import(join(here, "..", "src", "features", "studio", "PanelsPage.tsx"));
+const PP = await jiti.import(join(here, "..", "src", "features", "studio", "states", "PanelsPage.tsx"));
 check("5. See states finds the panel round a part inside it", PP.panelOf(nodes, panels, "confirm-b")?.hook === "balance-panel" && PP.panelOf(nodes, panels, "res-h")?.hook === "result-panel" && PP.panelOf(nodes, panels, "rematch-y")?.hook === "rematch-panel" && PP.panelOf(nodes, panels, "nav-a") === null);
 
 const ok = results.filter(Boolean).length;

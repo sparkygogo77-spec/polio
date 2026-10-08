@@ -21,9 +21,9 @@
  *
  * Pure: `tests/show-switch.mjs`.
  */
-import { momentOf } from "./scenes";
-import { isPageState, readDeclared, stateIn, type RuleNode, type SceneScreen } from "./stateRules";
-import { stateEditKey } from "./stateEdits";
+import { momentOf } from "./scenes.ts";
+import { isPageState, readDeclared, stateIn, type RuleNode, type SceneScreen } from "./stateRules.ts";
+import { stateEditKey } from "./stateEdits.ts";
 
 export interface Preview {
   /** The moment's key ("lobby", "match"), or the scene's own name when it is none. */

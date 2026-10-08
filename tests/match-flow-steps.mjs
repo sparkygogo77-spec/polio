@@ -29,10 +29,10 @@
  *
  *   node tests/match-flow-steps.mjs
  *
- * Covers: src/features/studio/boardStates.ts, src/app/api/studio/zip/route.ts
+ * Covers: src/features/studio/states/boardStates.ts, src/app/api/studio/zip/route.ts
  */
-import { partSteps, screenPlaces, stepLook, steppedParts } from "../src/features/studio/boardStates.ts";
-import { stateFrames } from "../src/features/studio/stateFrames.ts";
+import { partSteps, screenPlaces, stepLook, steppedParts } from "../src/features/studio/states/boardStates.ts";
+import { stateFrames } from "../src/features/studio/states/stateFrames.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

@@ -1,6 +1,6 @@
 "use client";
-import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../PanelsPage";
-import { useSceneKeys } from "../PanelsMore";
+import { closePanelsPage, openPanelsPage, usePanelsPageOpen } from "../states/ui";
+import { useSceneKeys } from "../states/ui";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, FileText, Layers, Plus } from "lucide-react";

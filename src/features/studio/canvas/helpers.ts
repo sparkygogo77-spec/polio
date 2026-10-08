@@ -1,8 +1,8 @@
-import { boardShows,screenKey,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../boardStates";
-import { stateFrames } from "../stateFrames";
-import { panelDecides } from "../stateRules";
-import { panelsOfPage, readIsolateKey, type PanelSource } from "../panelsOf";
-import { panelDrawing, type PanelNode } from "../panels";
+import { boardShows,screenKey,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../states";
+import { stateFrames } from "../states";
+import { panelDecides } from "../states";
+import { panelsOfPage, readIsolateKey, type PanelSource } from "../states";
+import { panelDrawing, type PanelNode } from "../states";
 import { REACH_WIDTH } from "../strand";
 import { roomForWords } from "../roomForWords";
 import { type StudioNode } from "../store";

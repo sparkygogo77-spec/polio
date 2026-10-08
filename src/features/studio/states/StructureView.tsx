@@ -14,9 +14,9 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Layers, Square } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useHeldStudio, useStudio } from "./store";
+import { useHeldStudio, useStudio } from "../store";
 import { findItem, moveToRegion, regionKey, regionList, reorder, restack, structureOf, type StructureItem, type StructureNode } from "./structure";
-import { fixLoopOf, setFixLoop } from "./useFixLoop";
+import { fixLoopOf, setFixLoop } from "../useFixLoop";
 import { spotlight } from "./panelSpotlight";
 
 /** Move one part within its region: `order` for every part of the region, and the board restacked. */

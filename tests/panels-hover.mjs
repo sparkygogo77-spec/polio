@@ -16,14 +16,14 @@
  *
  *   node tests/panels-hover.mjs
  *
- * Covers: src/features/studio/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/PanelsPage.tsx, src/features/studio/sceneStep.ts
+ * Covers: src/features/studio/states/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/states/PanelsPage.tsx, src/features/studio/states/sceneStep.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
-const R = await jiti.import(join(here, "..", "src", "features", "studio", "stateRules.ts"));
+const R = await jiti.import(join(here, "..", "src", "features", "studio", "states", "stateRules.ts"));
 const H = await jiti.import(join(here, "..", "src", "features", "studio", "canvas", "helpers.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
@@ -55,7 +55,7 @@ const c = H.centreIsolated([{ x: 0, y: 0, w: 1920, h: 1300 }, ...nodes], { x: 15
 check("3. moved to the middle of the page", 1500 + c.dx === 810 && 300 + c.dy === 590, J(c));
 
 /* 4 */
-const PP = await jiti.import(join(here, "..", "src", "features", "studio", "PanelsPage.tsx"));
+const PP = await jiti.import(join(here, "..", "src", "features", "studio", "states", "PanelsPage.tsx"));
 const { useStudio } = await jiti.import(join(here, "..", "src", "features", "studio", "store.ts"));
 const sc = (name, shows) => ({ name, label: name, page: "index.html", shows, declared: true, panels: {} });
 useStudio.setState({ activePageId: "p", statesOn: ["screen:start"], look: { ...(useStudio.getState().look ?? {}), styleSource: { files: [{ file: "index.html", pageId: "p" }], screens: [sc("start", ["intro"]), sc("mid", ["intro", "score"])] } } });
@@ -63,7 +63,7 @@ const toScore = PP.snapToSceneShowing("score", false);
 check("4. a panel a page state draws snaps to it", toScore === true && J(useStudio.getState().statesOn) === J(["screen:mid"]), J(useStudio.getState().statesOn));
 const toSign = PP.snapToSceneShowing("sign-panel", false);
 check("4. a pop-up no page state draws says so, and the page state stays", toSign === false && J(useStudio.getState().statesOn) === J(["screen:mid"]), J(useStudio.getState().statesOn));
-const src = (await import("node:fs")).readFileSync(join(here, "..", "src", "features", "studio", "PanelsPage.tsx"), "utf8");
+const src = (await import("node:fs")).readFileSync(join(here, "..", "src", "features", "studio", "states", "PanelsPage.tsx"), "utf8");
 check("4. the rail pops such a panel up alone on hover, and lets it go after (source read)", /if \(!drawn && s0\)[\s\S]{0,200}isolateKey\(p\.id/.test(src) && /previewing\.current = false;[\s\S]{0,160}!k\.startsWith\(ISOLATE\)/.test(src) && /bringToView\(p\.id, !drawn\)/.test(src));
 
 const failed = results.filter((x) => !x).length;

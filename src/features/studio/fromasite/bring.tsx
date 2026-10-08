@@ -8,7 +8,7 @@ import { repoName, type Repo } from "../repoImport";
 import { type RepoCopy } from "../repoRun";
 import { put as putPicture } from "../pictures";
 import { useBuilds } from "@/features/builds/store";
-import type { ScreenRead } from "../boardStates";
+import type { ScreenRead } from "../states";
 import { type StyleSource } from "../styleLayer";
 import { READ_DEADLINE_MS } from "../siteFetch";
 import { type Space } from "../space";
@@ -17,7 +17,7 @@ import { useStudio, type StudioNode } from "../store";
 import { type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "../reimport";
 import { type Block } from "../zipImport";
 import { Details } from "./bits";
-import { followsStateRules, sceneScreens } from "../stateRules";
+import { followsStateRules, sceneScreens } from "../states";
 import { FromASite } from "./FromASite";
 
 export type Source =
