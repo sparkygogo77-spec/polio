@@ -1,6 +1,6 @@
 "use client";
 import { partUnder } from "../boardStates";
-import { clampMove,frameRiders,inside,keepInFrame,stateFrames } from "../stateFrames";
+import { clampMove,frameRiders,inside,keepInFrame,liftToFrame,stateFrames } from "../stateFrames";
 import * as React from "react";
 import { tryOn,useTryLook } from "../tryLook";
 import { useShallow } from "zustand/react/shallow";
@@ -1228,11 +1228,13 @@ export function DesktopCanvas() {
           return;
         }
         capture();
+        /* A face as big as its frame has no room in it: the drag moves the frame, faces and all (`stateFrames.ts#liftToFrame`). */
+        const lifted = liftToFrame(store.nodes, ids);
         /* A button moves with its words and its icon: what it holds rides along (`owner.ts`). */
-        const held = ridersOf(store.nodes, ids, pal);
+        const held = ridersOf(store.nodes, lifted, pal);
         /* A frame moves with its states, the hidden faces too (`stateFrames.ts`). */
-        const riders = [...held, ...frameRiders(store.nodes, [...ids, ...held])];
-        const carried = [...ids, ...riders];
+        const riders = [...held, ...frameRiders(store.nodes, [...lifted, ...held])];
+        const carried = [...new Set([...lifted, ...riders])];
         const origin: Drag["origin"] = {};
         for (const n of store.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
         setDrag({ kind: "node", startX: p.x, startY: p.y, ids: carried, origin, riders });
