@@ -36,7 +36,7 @@
  */
 import { KIT_FILES, KIT_RULES, KIT_VERSION } from "./kitFiles.ts";
 import { offsiteToKitLinks } from "./parts/offsite.ts";
-import { colourKey } from "./styleLayer.ts";
+import { colourKey } from "./send-out/index.ts";
 
 export interface KitFile { path: string; content: string; encoding?: "base64" }
 

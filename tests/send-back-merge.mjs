@@ -17,14 +17,14 @@
  *
  *   node tests/send-back-merge.mjs
  *
- * Covers: src/features/studio/styleLayer.ts, src/features/studio/styleLayerRun.ts, src/features/studio/kitRun.ts
+ * Covers: src/features/studio/send-out/styleLayer.ts, src/features/studio/styleLayerRun.ts, src/features/studio/kitRun.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const L = await jiti.import(join(here, "..", "src", "features", "studio", "styleLayer.ts"));
+const L = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "styleLayer.ts"));
 const R = await jiti.import(join(here, "..", "src", "features", "studio", "styleLayerRun.ts"));
 const K = await jiti.import(join(here, "..", "src", "features", "studio", "kitRun.ts"));
 const results = [];

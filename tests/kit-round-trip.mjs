@@ -27,7 +27,7 @@
  *
  *   node tests/kit-round-trip.mjs
  *
- * Covers: src/features/studio/kitRun.ts, src/features/studio/kitMap.ts, src/features/studio/styleLayerRun.ts, src/features/studio/styleLayer.ts, src/features/studio/parts/offsite.ts, kit/tools/kit-diff.mjs, kit/tools/code-notes.mjs
+ * Covers: src/features/studio/kitRun.ts, src/features/studio/kitMap.ts, src/features/studio/styleLayerRun.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/parts/offsite.ts, kit/tools/kit-diff.mjs, kit/tools/code-notes.mjs
  */
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -41,7 +41,7 @@ import { sourceOfPage, withLines } from "../src/features/studio/sourceHooks.ts";
 import { layerHooksOf, readKit, readRound } from "../src/features/studio/kitRun.ts";
 import { kitMap } from "../src/features/studio/kitMap.ts";
 import { prepareLayer, publishLayer } from "../src/features/studio/styleLayerRun.ts";
-import { buildLayer } from "../src/features/studio/styleLayer.ts";
+import { buildLayer } from "../src/features/studio/send-out/styleLayer.ts";
 import { explainLink, kitLinksToOffsite, linkAllowed, offsiteRules } from "../src/features/studio/parts/offsite.ts";
 
 const results = [];

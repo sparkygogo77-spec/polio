@@ -13,7 +13,7 @@
  * widths stay as the other choices. `tests/preview-window.mjs`.
  */
 import type { StudioNode } from "../board/store";
-import { fluidPage } from "../exportSite";
+import { fluidPage } from "../send-out/run";
 
 /** A window unit in an inline style, as a share of the Preview's size. */
 export function previewUnits(style: string): string {

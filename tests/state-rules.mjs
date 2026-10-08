@@ -27,7 +27,7 @@
  *
  *   node tests/state-rules.mjs
  *
- * Covers: src/features/studio/states/stateRules.ts, src/features/studio/states/stateEdits.ts, src/features/studio/styleLayer.ts, src/features/studio/kitFiles.ts, src/features/studio/kitExport.ts, src/features/studio/states/PanelsPage.tsx
+ * Covers: src/features/studio/states/stateRules.ts, src/features/studio/states/stateEdits.ts, src/features/studio/send-out/styleLayer.ts, src/features/studio/kitFiles.ts, src/features/studio/kitExport.ts, src/features/studio/states/PanelsPage.tsx
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +37,7 @@ const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "
 const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const R = await studio("states/stateRules.ts");
 const E = await studio("states/stateEdits.ts");
-const L = await studio("styleLayer.ts");
+const L = await studio("send-out/styleLayer.ts");
 const K = await studio("kitFiles.ts");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };

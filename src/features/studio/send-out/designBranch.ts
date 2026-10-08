@@ -19,8 +19,8 @@
  * `hookChanges` is pure; `sendDesign` takes `fetch`, so the tests stand a
  * GitHub in (tests/export-to-branch.mjs).
  */
-import { defaultBranch, gh, type Answer } from "./kitRun.ts";
-import type { KitExport, KitFile } from "./kitExport.ts";
+import { defaultBranch, gh, type Answer } from "../kitRun.ts";
+import type { KitExport, KitFile } from "../kitExport.ts";
 import type { NodeSource, StyleSource } from "./styleLayer.ts";
 
 type Fetch = typeof fetch;

@@ -11,7 +11,7 @@
  *
  *   node tests/code-site-publish.mjs
  *
- * Covers: src/features/studio/codePublish.ts, src/features/studio/publishCheck.ts, src/features/studio/CodeSiteButtons.tsx, src/features/studio/GoLiveButton.tsx, src/features/studio/PublishCheck.tsx, src/features/studio/bring-in/FromASite.tsx
+ * Covers: src/features/studio/send-out/codePublish.ts, src/features/studio/send-out/publishCheck.ts, src/features/studio/CodeSiteButtons.tsx, src/features/studio/GoLiveButton.tsx, src/features/studio/PublishCheck.tsx, src/features/studio/bring-in/FromASite.tsx
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,8 +19,8 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const C = await jiti.import(join(here, "..", "src", "features", "studio", "codePublish.ts"));
-const Q = await jiti.import(join(here, "..", "src", "features", "studio", "publishCheck.ts"));
+const C = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "codePublish.ts"));
+const Q = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "publishCheck.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);

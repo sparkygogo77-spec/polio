@@ -22,7 +22,7 @@
  */
 import { hooksIn } from "./sourceHooks.ts";
 import type { KitLinks } from "./parts/offsite.ts";
-import type { StyleSource } from "./styleLayer.ts";
+import type { StyleSource } from "./send-out/index.ts";
 
 const API = "https://api.github.com";
 export type Fetch = typeof fetch;

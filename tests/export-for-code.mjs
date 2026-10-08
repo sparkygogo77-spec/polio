@@ -23,7 +23,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/export-for-code.mjs http://127.0.0.1:3013 <the capture folder>
  *
- * Covers: src/features/studio/kitExport.ts, src/features/studio/exportForCode.ts, src/features/studio/zipWrite.ts, src/app/api/studio/kit-map/route.ts, src/features/studio/kitFiles.ts
+ * Covers: src/features/studio/kitExport.ts, src/features/studio/exportForCode.ts, src/features/studio/send-out/zipWrite.ts, src/app/api/studio/kit-map/route.ts, src/features/studio/kitFiles.ts
  */
 import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -32,7 +32,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright-core";
 import { offsiteToKitLinks, DEFAULT_OFFSITE } from "../src/features/studio/parts/offsite.ts";
-import { zipFiles } from "../src/features/studio/zipWrite.ts";
+import { zipFiles } from "../src/features/studio/send-out/zipWrite.ts";
 import { readZip } from "../src/features/studio/zipFile.ts";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";

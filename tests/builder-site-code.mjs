@@ -39,7 +39,7 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 /* ------------------------------------------------------------ the pure half */
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const K = await jiti.import(join(here, "..", "src", "features", "studio", "kitPublish.ts"));
+const K = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "kitPublish.ts"));
 check("the kit goes to a kit/ branch named for the site and the day", K.kitBranch("Site 10!", new Date("2026-10-05T12:00:00Z")) === "kit/site-10-2026-10-05");
 check("never published: Publish puts the kit in", K.kitStatus("him/site", null, "aaa").at === "none");
 check("at the commit the kit was merged at: up to date", K.kitStatus("him/site", { repo: "him/site", sha: "aaa", at: 0 }, "aaa").at === "current");

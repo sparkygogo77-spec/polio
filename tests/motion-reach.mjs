@@ -37,7 +37,7 @@ const check = (name, ok, detail = "") => {
 /* 1. Who plays a crate, off the source. */
 const blocks = readFileSync("src/features/studio/blocks.tsx", "utf8");
 check("every part is drawn with the crate it wears, on every surface (source read)", /<CrateOn\b/.test(blocks));
-check("the export writes each worn crate's strip as a file and its rule into the stylesheet (source read)", /assets\/crates\//.test(readFileSync("src/features/studio/exportSite.ts", "utf8")) && /CRATE_CSS/.test(readFileSync("src/features/studio/exportSite.ts", "utf8")));
+check("the export writes each worn crate's strip as a file and its rule into the stylesheet (source read)", /assets\/crates\//.test(readFileSync("src/features/studio/send-out/exportSite.ts", "utf8")) && /CRATE_CSS/.test(readFileSync("src/features/studio/send-out/exportSite.ts", "utf8")));
 const consumers = ["src/features/studio/spec.ts", "src/features/studio/BriefDialog.tsx"].filter((f) => /\bmotion\b/.test(readFileSync(f, "utf8")));
 check("the blueprint compiler and its dialog read it too (source read)", consumers.length === 2, consumers.join(", "));
 

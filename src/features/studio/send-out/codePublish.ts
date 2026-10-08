@@ -14,7 +14,7 @@
  *
  * Pure of the page: GitHub through `gh`, so the tests hand it a stand-in.
  */
-import { gh, type Answer, type Fetch } from "./kitRun.ts";
+import { gh, type Answer, type Fetch } from "../kitRun.ts";
 import type { StyleSource } from "./styleLayer.ts";
 
 const pathOf = (p: string) => p.split("/").map(encodeURIComponent).join("/");

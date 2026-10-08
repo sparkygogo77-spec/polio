@@ -21,7 +21,7 @@ import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useBuilds } from "@/features/builds/store";
 import { heldKeys, useKeys } from "@/features/keys/store";
-import type { StyleSource } from "./styleLayer";
+import type { StyleSource } from "./send-out";
 import { useStudio } from "./board/store";
 import { websiteOf } from "./liveSite";
 

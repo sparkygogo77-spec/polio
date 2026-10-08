@@ -13,7 +13,7 @@
  *
  *   node tests/landed-baseline.mjs
  *
- * Covers: src/features/studio/styleLayer.ts, src/features/studio/kitRun.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/StyleLayerPanel.tsx
+ * Covers: src/features/studio/send-out/styleLayer.ts, src/features/studio/kitRun.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/StyleLayerPanel.tsx
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const L = await jiti.import(join(here, "..", "src", "features", "studio", "styleLayer.ts"));
+const L = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "styleLayer.ts"));
 const K = await jiti.import(join(here, "..", "src", "features", "studio", "kitRun.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

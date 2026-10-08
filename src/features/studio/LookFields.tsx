@@ -19,7 +19,7 @@
 import * as React from "react";
 import { Input } from "@/core/ui/input";
 import { useStudio, type StudioNode } from "./board/store";
-import { artCss, statesCss } from "./styleLayer";
+import { artCss, statesCss } from "./send-out";
 import type { NodeArt } from "./parts/theme";
 import type { MotionAnimation, MotionState, MotionTransition } from "./parts/capturedMotion";
 

@@ -79,7 +79,7 @@ check("…and a picture budget of its own, not the 8 MB the whole repository is 
 const store = readFileSync(join(src, "board", "store.ts"), "utf8");
 
 /* The frame a sticky band scrolls in */
-const exp = readFileSync(join(src, "exportSite.ts"), "utf8");
+const exp = readFileSync(join(src, "send-out", "exportSite.ts"), "utf8");
 check("the published page frame clips without becoming the scroll container, so a sticky band sticks to the window", /isPage \? \(el\.getAttribute\("style"\) \?\? ""\)\.replace\(\/overflow:\\s\*hidden\/, "overflow: clip"\)/.test(exp));
 
 /* A site in a folder of the repository */

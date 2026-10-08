@@ -3,7 +3,7 @@
  * UPDATE LIVE SITE SHOWS ONE SHORT LIST OF WHAT IS WRONG FIRST, AND STILL PUBLISHES.
  *
  * Lane H, item D. Pressing Update live site reads the board first
- * (`studio/publishCheck.ts`, `PublishCheck.tsx`):
+ * (`studio/send-out/publishCheck.ts`, `PublishCheck.tsx`):
  *   1. The rules, read directly: pump.fun and DEX Screener's own pages
  *      allowed; one contract address on DEX Screener, an X profile and a
  *      site no rule names refused; a share link flagged for a choice; a
@@ -54,7 +54,7 @@ const nodes = [
 /* ------------------------------------------------ 1. the rules, read directly */
 {
   const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-  const M = await jiti.import(join(here, "..", "src", "features", "studio", "publishCheck.ts"));
+  const M = await jiti.import(join(here, "..", "src", "features", "studio", "send-out", "publishCheck.ts"));
   const wide = (pageId, device) => ({ width: device === "phone" ? 390 : 834, placed: [{ id: "n_faint", x: 420, w: 300 }] });
   const got = M.checkBoard({ nodes, pages: [{ id: "page_home", name: "Home" }], held: new Set(), palette: {}, layout: wide });
   const of = (id) => got.filter((p) => p.id === id).map((p) => p.kind);

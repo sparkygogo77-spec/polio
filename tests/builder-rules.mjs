@@ -23,7 +23,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const { KIT_FILES, KIT_RULES } = await import("../src/features/studio/kitFiles.ts");
-const { partSlots } = await import("../src/features/studio/styleLayer.ts");
+const { partSlots } = await import("../src/features/studio/send-out/styleLayer.ts");
 const doc = readFileSync("kit/BUILDER-RULES.md", "utf8");
 const kitJson = JSON.parse(readFileSync("kit/builder.json", "utf8"));
 
@@ -50,7 +50,7 @@ check("a slot whose token the code does not have is not shown", partSlots("list-
 check("a repository without rules has no slots", partSlots("list-item", { ...source, kit: { ...kitJson, rules: undefined } }).length === 0);
 
 /* A choice slot (PST's marker sides, picture cropping) is picked from its options, and what is picked goes back as a token change in the style layer. */
-const { buildLayer } = await import("../src/features/studio/styleLayer.ts");
+const { buildLayer } = await import("../src/features/studio/send-out/styleLayer.ts");
 const pst = {
   repo: "them/site", ref: "main", dir: "web/",
   files: [{ file: "web/tokens.css", pageId: "", hooks: [], vars: [{ name: "--pons-marker-buy-side", value: "below", file: "web/tokens.css", line: 170, token: true }, { name: "--pons-duel-fill-opacity", value: "0.4", file: "web/tokens.css", line: 168, token: true }] }],

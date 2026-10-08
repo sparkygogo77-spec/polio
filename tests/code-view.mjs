@@ -32,7 +32,7 @@ import { chromium } from "playwright-core";
 import { readManifest } from "../src/features/studio/builderManifest.ts";
 import { readHooksJson, codeIndex } from "../src/features/studio/codeRefs.ts";
 import { sourceOfPage } from "../src/features/studio/sourceHooks.ts";
-import { buildLayer, hookCounts } from "../src/features/studio/styleLayer.ts";
+import { buildLayer, hookCounts } from "../src/features/studio/send-out/styleLayer.ts";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const results = [];

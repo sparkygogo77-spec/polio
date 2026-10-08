@@ -9,7 +9,7 @@ import { type RepoCopy } from "../../repoRun";
 import { put as putPicture } from "../../pictures";
 import { useBuilds } from "@/features/builds/store";
 import type { ScreenRead } from "../../states";
-import { type StyleSource } from "../../styleLayer";
+import { type StyleSource } from "../../send-out";
 import { READ_DEADLINE_MS } from "../../siteFetch";
 import { type Space } from "../../space";
 import { landPalette } from "../../paletteFrom";

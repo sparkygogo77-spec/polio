@@ -18,7 +18,7 @@
  *
  *   node tests/structure-view.mjs
  *
- * Covers: src/features/studio/states/structure.ts, src/features/studio/states/StructureView.tsx, src/features/studio/styleLayer.ts
+ * Covers: src/features/studio/states/structure.ts, src/features/studio/states/StructureView.tsx, src/features/studio/send-out/styleLayer.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,7 +27,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
 const studio = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const S = await studio("states/structure.ts");
-const L = await studio("styleLayer.ts");
+const L = await studio("send-out/styleLayer.ts");
 const E = await studio("states/stateEdits.ts");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
