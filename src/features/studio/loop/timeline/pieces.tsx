@@ -2,13 +2,13 @@
 import * as React from "react";
 import { Brush, Pin } from "lucide-react";
 import { cn } from "@/core/lib/cn";
-import { BODY, EDGE } from "../boxGround";
+import { BODY, EDGE } from "../../boxGround";
 import { type Point } from "../strand";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
-import { SitePreview, type PreviewDoc } from "../SitePreview";
+import { SitePreview, type PreviewDoc } from "../../SitePreview";
 import { processDone, type Thread } from "../threads";
-import { formVars } from "../formation";
-import { useStudio } from "../board/store";
+import { formVars } from "../../formation";
+import { useStudio } from "../../board/store";
 import { BOX, PIECE, headlineOf } from "./layout";
 import { ownParts } from "./IterationBox";
 import { Card, Made } from "./cards";

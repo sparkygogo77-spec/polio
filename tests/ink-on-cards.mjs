@@ -36,7 +36,7 @@ const check = (name, ok, detail = "") => {
   results.push(ok);
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
-const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/loop/${f}`, "utf8")).join("\n");
 const detailSrc = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 const drawn = timeline.slice(timeline.indexOf("export function Drawn("), timeline.indexOf("function Card("));
 

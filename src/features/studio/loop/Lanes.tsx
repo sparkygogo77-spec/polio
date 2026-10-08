@@ -4,12 +4,12 @@ import { Check, GitBranch, Hand, RefreshCw } from "lucide-react";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import { useStudio } from "./board/store";
+import { useStudio } from "../board/store";
 import { BAND_COLOUR, LANE_MODE, laneArm, laneRects, laneSpine, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { ITEMS } from "./lanesSample";
-import { BODY, EDGE } from "./boxGround";
-import { issueItem, toggleTick } from "./fixLoop";
-import { setFixLoop, useFixLoop, useIssues } from "./useFixLoop";
+import { BODY, EDGE } from "../boxGround";
+import { issueItem, toggleTick } from "../fixLoop";
+import { setFixLoop, useFixLoop, useIssues } from "../useFixLoop";
 import { bracketBounds, bracketEnvelope, LANE_STRAND_WIDTH, paintBracket, type VineEnd } from "./strand";
 
 /**

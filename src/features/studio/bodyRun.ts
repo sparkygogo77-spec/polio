@@ -41,7 +41,7 @@
 import { CALL_DEADLINE_MS, heldEffort } from "./effort";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { money, RENDER_COST, type RenderKind } from "./renderer";
-import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
+import { keyHeader, noRendererKeyMessage, rendererHeader } from "./loop/run";
 import { CLIP_STROKE, type OutlineClip, type SketchPoint } from "./sketch";
 import type { DrawnVector } from "./vector";
 import { priceTokens, type TokenUse } from "./spend";

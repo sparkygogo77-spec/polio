@@ -18,7 +18,7 @@
  *
  *   node --experimental-strip-types tests/vine-seam.mjs
  */
-import { along, dusk, lch, VINE } from "../src/features/studio/strand.ts";
+import { along, dusk, lch, VINE } from "../src/features/studio/loop/strand.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

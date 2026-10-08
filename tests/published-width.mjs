@@ -29,7 +29,7 @@ check("a document with no width keeps the width there was", load({ pages, nodes:
 check("and a width that is not one is not taken", load({ pages, nodes: [], frameWidth: 0 }) === 834 && load({ pages, nodes: [], frameWidth: "wide" }) === 834, String(s.frameWidth));
 check("the store's loadDoc is this rule", /set\(\(s\) => takeDoc\(s, doc,/.test(["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n")));
 
-check("publish writes the width into the document", /frameWidth: s\.frameWidth/.test(readFileSync("src/features/studio/agent.ts", "utf8")));
+check("publish writes the width into the document", /frameWidth: s\.frameWidth/.test(readFileSync("src/features/studio/loop/agent.ts", "utf8")));
 check("and the published page loads it with loadDoc", /loadDoc\(/.test(readFileSync("src/features/studio/live/PublishedPage.tsx", "utf8")));
 
 const failed = results.filter((r) => !r).length;

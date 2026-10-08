@@ -42,7 +42,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { Progress } from "@/core/ui/progress";
 import { EmptyState } from "@/core/ui/empty-state";
 import { livePath, useStudio, useStudioHydration } from "@/features/studio/board/store";
-import { serverBrowser, studioDoc } from "@/features/studio/agent";
+import { serverBrowser, studioDoc } from "@/features/studio/loop/run";
 import { draftTitle, selectQueued, useTweets, useTweetsHydration, type TourIntent, type Draft, type DraftStatus, type LogEntry, type ReplySetting, type TweetMedia } from "./store";
 import { firstUrl, relativeTime, splitThread, tokenise, toLocalInput, weighedLength, intentUrl } from "./text";
 import { intake, kindOf, LIMITS } from "./media";

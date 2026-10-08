@@ -20,7 +20,7 @@
  *
  *   node --experimental-strip-types tests/vine-middle.mjs
  */
-import { section, VINE, lch } from "../src/features/studio/strand.ts";
+import { section, VINE, lch } from "../src/features/studio/loop/strand.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

@@ -21,7 +21,7 @@ import { cn } from "@/core/lib/cn";
 import { getFeature } from "./shelf";
 import { FORMAT_FIELDS } from "./format";
 import { stepNameKept, type NameHelp, type StepDoc } from "./historyNames";
-import { PROCESS } from "./threads";
+import { PROCESS } from "./loop";
 import { snapshot, useStudio } from "./board/store";
 
 /** How many steps the list shows, newest first. */

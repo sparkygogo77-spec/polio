@@ -25,7 +25,7 @@
  * works with any code chat. This file imports nothing at run time, so
  * `tests/fix-loop.mjs` reads it straight off the disk.
  */
-import type { Difficulty, Item } from "./lanes";
+import type { Difficulty, Item } from "./loop";
 
 /** Where the queue lives in a site's repository. The kit's CLAUDE.md names the same path. */
 export const NEXT_PATH = "polio/NEXT.md";

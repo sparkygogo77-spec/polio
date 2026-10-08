@@ -45,8 +45,8 @@
 import * as React from "react";
 import { moltenBarClass, moltenSeed } from "@/core/ui/molten";
 import { formOf, progressOf } from "./formation";
-import { doneJobs, pendingJobs } from "./queue";
-import { processDone } from "./threads";
+import { doneJobs, pendingJobs } from "./loop";
+import { processDone } from "./loop";
 import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 

@@ -6,12 +6,12 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { LANE_MODE } from "../lanes";
 import { strandBounds, strandReach, REACH_WIDTH, type Point, type VineEnd } from "../strand";
-import { sayWhere, saySpend } from "../spend";
+import { sayWhere, saySpend } from "../../spend";
 import { diffDocs, type Thread } from "../threads";
-import { pictureOf } from "../reshapeRun";
-import { useStudio } from "../board/store";
-import { Block, themeFrom } from "../blocks";
-import { resolvePalette } from "../shelf/run";
+import { pictureOf } from "../../reshapeRun";
+import { useStudio } from "../../board/store";
+import { Block, themeFrom } from "../../blocks";
+import { resolvePalette } from "../../shelf/run";
 import { GROW, isElement, headlineOf } from "./layout";
 import { Drawn } from "./pieces";
 

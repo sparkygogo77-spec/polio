@@ -30,7 +30,7 @@
  * that goes up and the part that lands are measured; the vendor is not
  * reached from a test.
  */
-import { noRendererKeyMessage, rendererHeader, rendererReady } from "./agent";
+import { noRendererKeyMessage, rendererHeader, rendererReady } from "./loop/run";
 import { saysSolid } from "./imageRoute";
 import { cubeDims } from "./shelf";
 import { CUBE_SIDES, REST, type CubeFace } from "./shelf";

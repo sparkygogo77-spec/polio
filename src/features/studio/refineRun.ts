@@ -31,7 +31,7 @@
  * would be a better one, and is the obvious next thing.
  */
 import { useStudio, type StudioNode } from "./board/store";
-import { rendererHeader } from "./agent";
+import { rendererHeader } from "./loop/run";
 import { sayPass, type Metered } from "./spend";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { judge, type Compare } from "./bodyRun";

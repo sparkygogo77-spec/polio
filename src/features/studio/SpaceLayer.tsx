@@ -36,7 +36,7 @@ import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
 import { formVars, progressOf, stageOf, within } from "./formation";
-import { PROCESS } from "./threads";
+import { PROCESS } from "./loop";
 import { HALO, paintHoleAlong, paintRingAlong } from "./blackHole";
 import { useGround } from "./ground";
 import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, openOf, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";

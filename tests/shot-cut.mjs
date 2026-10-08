@@ -44,7 +44,7 @@ check("a page past the cap is still photographed", tall.ct.startsWith("image/png
 check("and the answer says it was cut", tall.cut === "1", String(tall.cut));
 /* The site is drawn at 1440 and photographed at 1280, so the page is 1280/1440 of its own height: 7600 becomes about 6755. */
 check("and how tall the page really was, past the cap", Number(tall.height) > 6000 && Number(tall.height) >= Math.floor(7600 * 1280 / 1440) - 10, String(tall.height));
-check("the label the picture goes up with reads the cut", /x-shot-cut/.test(bare("src/features/studio/agent.ts")) && !/top to bottom:`,/.test(bare("src/features/studio/agent.ts")));
+check("the label the picture goes up with reads the cut", /x-shot-cut/.test(bare("src/features/studio/loop/agent.ts")) && !/top to bottom:`,/.test(bare("src/features/studio/loop/agent.ts")));
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);

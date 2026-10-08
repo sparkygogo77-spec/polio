@@ -24,7 +24,7 @@
  * that varies on its own. This file imports nothing, so the checks in
  * `tests/lanes.mjs` can read it straight off the disk.
  */
-import type { FixIssue } from "./fixLoop";
+import type { FixIssue } from "../fixLoop";
 
 /** A lane is one row of offers. It shows one item at a time. */
 export interface Lane {

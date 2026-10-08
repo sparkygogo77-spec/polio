@@ -4,7 +4,7 @@ import { persist, createJSONStorage, type PersistStorage, type StorageValue } fr
 import { readDoc, writeDoc } from "../../docStore";
 import { afterRelease, isHeld } from "./hold";
 import { uid } from "@/core/lib/ids";
-import { type ThreadDoc } from "../../threads";
+import { type ThreadDoc } from "../../loop";
 import { activeRepo } from "@/features/builds/store";
 import { boardActions } from "./board";
 import { FRAME_WIDTHS } from "./frame";

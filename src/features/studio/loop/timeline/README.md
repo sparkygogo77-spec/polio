@@ -1,4 +1,4 @@
-# studio/timeline
+# studio/loop/timeline
 
 The timeline (Finish), split by topic. `../Timeline.tsx` re-exports what it always exported
 (`Timeline`, `isElement`, `headlineOf`, `SHOT_RATIO`, `Drawn`, `Made`), so other files keep importing from `./Timeline`.

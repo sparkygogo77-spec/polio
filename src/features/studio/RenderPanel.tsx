@@ -29,9 +29,9 @@ import { Button } from "@/core/ui/button";
 import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
 import { effortField, modelTable, type ModelCard } from "./imageRoute";
-import { rendererHeader } from "./agent";
+import { rendererHeader } from "./loop/run";
 import { money, RENDER_COST } from "./renderer";
-import { GENERATION } from "./threads";
+import { GENERATION } from "./loop";
 import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 

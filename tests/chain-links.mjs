@@ -22,7 +22,7 @@
  */
 import { createRequire } from "node:module";
 import { chainLines, linkReason } from "../src/features/studio/links.ts";
-import { piecesFrom, pieceToText } from "../src/features/studio/threads.ts";
+import { piecesFrom, pieceToText } from "../src/features/studio/loop/threads.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

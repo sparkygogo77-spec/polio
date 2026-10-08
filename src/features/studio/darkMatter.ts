@@ -27,7 +27,7 @@
  * sure moved.
  */
 import { oklchToRgb, parseColor } from "./look";
-import { PROCESS } from "./threads";
+import { PROCESS } from "./loop";
 
 /* ------------------------------------------------------------------ */
 /* The sparks                                                          */

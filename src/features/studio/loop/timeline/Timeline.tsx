@@ -55,14 +55,14 @@
 import * as React from "react";
 import { MapPin } from "lucide-react";
 import { play } from "@/core/audio/engine";
-import { columnHolds, hold, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "../timelineView";
+import { columnHolds, hold, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "../../timelineView";
 import { Lanes } from "../Lanes";
 import { laneRects } from "../lanes";
 import { paintStrand, strandBounds, type Point, type StrandTone, type VineEnd } from "../strand";
-import { REST, letGo, pickUp, still, step, type Rope } from "../tugSpring";
+import { REST, letGo, pickUp, still, step, type Rope } from "../../tugSpring";
 import { chainOf, type Thread, type ThreadNode } from "../threads";
-import { FORM } from "../formation";
-import { useStudio } from "../board/store";
+import { FORM } from "../../formation";
+import { useStudio } from "../../board/store";
 import { BOX, GAP, seed, useForming, paintRim, scatter, isElement, sizeOf } from "./layout";
 import { Vine, syncLights, ends } from "./vines";
 import { Standing } from "./IterationBox";

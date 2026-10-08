@@ -21,7 +21,7 @@
  * Runs alone: photographs the vine parting at the middle frame by frame; under load that frame was missed.
  */
 import { createRequire } from "node:module";
-import { strandMiddle, strandPath } from "../src/features/studio/strand.ts";
+import { strandMiddle, strandPath } from "../src/features/studio/loop/strand.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

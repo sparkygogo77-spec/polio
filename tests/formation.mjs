@@ -98,7 +98,7 @@ check("…and the landing that follows fills that one in rather than making a se
 check("the box is complete when the job is, and a pass still running says so",
   /if \(!r\.pending && job\.threadId\) useStudio\.getState\(\)\.markThread\(job\.threadId, "done"\);/.test(queue)
   && /\.finally\(done\);/.test(readFileSync("src/features/studio/reshapeRun.ts", "utf8")));
-const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/loop/${f}`, "utf8")).join("\n");
 check("what is shown follows the truth at a capped rate rather than jumping", /const WHOLE_MS = 2600;/.test(timeline) && /Math\.max\(0, at\) \+ dt \/ WHOLE_MS/.test(timeline));
 /*
  * This used to pin the opposite: "nothing forms on a reload of something
@@ -123,7 +123,7 @@ check("and runs two laps, so a trace starting on the last leg is not cut off at 
 check("and hands over as the green closes in", /c\.globalAlpha = 1 - closing;/.test(timeline));
 check("in the green that means finished", /c\.strokeStyle = PROCESS\.done;/.test(timeline));
 check("a forming box says so and carries its two numbers", /data-forming=\{forming < 1 \? "" : undefined\}/.test(timeline) && /formVars\(forming\)/.test(timeline));
-const strand = readFileSync("src/features/studio/strand.ts", "utf8");
+const strand = readFileSync("src/features/studio/loop/strand.ts", "utf8");
 check("a vine can be drawn part-grown, and what has grown looks as it will", /grow\?: number/.test(strand) && /whole\.slice\(0, Math\.max\(2, Math\.ceil\(whole\.length \* grow\)\)\)/.test(strand));
 const css = readFileSync("src/core/ui/molten.css", "utf8");
 check("the surface grows from zero, from the edges in", /\.molten\[data-forming\]::before,\s*\n\.molten\[data-forming\]::after \{[\s\S]*?clip-path: inset\(calc\(\(1 - var\(--form-surface, 1\)\) \* 50%\)/.test(css));

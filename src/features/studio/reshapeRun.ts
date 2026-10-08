@@ -22,12 +22,12 @@
 import { CALL_DEADLINE_MS, heldEffort } from "./effort";
 import type { ToastInput } from "@/core/types";
 import { FEATURES, getFeature } from "./shelf";
-import { keyHeader, noKeyMessage } from "./agent";
+import { keyHeader, noKeyMessage } from "./loop/run";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./board/store";
 import { changesThePart } from "./drawTarget";
-import { typedSince, type DrawJob } from "./queue";
+import { typedSince, type DrawJob } from "./loop";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";
 import { refinePart } from "./refineRun";
 import type { PartCode } from "./snippet";

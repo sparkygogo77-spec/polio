@@ -147,7 +147,7 @@ check("recording what was sent does not wipe what it cost",
 /* 6. Where a person looks                                             */
 /* ------------------------------------------------------------------ */
 
-const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const timeline = ["Timeline.tsx", ...["layout.tsx", "Timeline.tsx", "vines.ts", "IterationBox.tsx", "pieces.tsx", "cards.tsx"].map((f) => `timeline/${f}`)].map((f) => readFileSync(`src/features/studio/loop/${f}`, "utf8")).join("\n");
 check("the iteration card carries the bill", /data-bill=\{thread\.id\}/.test(timeline));
 check("it says what it cost and who was paid", /saySpend\(/.test(timeline) && /sayWhere\(/.test(timeline));
 check("the model is still named, under it", /\{thread\.model\}/.test(timeline));

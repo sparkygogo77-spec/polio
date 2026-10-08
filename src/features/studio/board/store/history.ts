@@ -6,7 +6,7 @@ import { Boxes } from "lucide-react";
 import { formatDefaults } from "../../format";
 import { emptyLook } from "../../look";
 import type { DrawKind } from "../../drawKinds";
-import { type ThreadDoc } from "../../threads";
+import { type ThreadDoc } from "../../loop";
 import { inheritedFrom, spaceOf } from "../../space";
 import type { Space } from "../../space";
 import { type Reassembly, type Slimming } from "../../reassemble";

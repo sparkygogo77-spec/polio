@@ -10,7 +10,7 @@
  *
  *   node tests/threads.mjs
  */
-import { diffDocs, flatten, liveAfterPrune, pieceOwners, piecesFrom, piecesToSend, pieceToText, pruneThread, threadsToMarkdown, threadTitle, threadTree } from "../src/features/studio/threads.ts";
+import { diffDocs, flatten, liveAfterPrune, pieceOwners, piecesFrom, piecesToSend, pieceToText, pruneThread, threadsToMarkdown, threadTitle, threadTree } from "../src/features/studio/loop/threads.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

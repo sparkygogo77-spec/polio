@@ -10,7 +10,7 @@
  *
  *   node tests/fix-loop.mjs
  *
- * Covers: src/features/studio/fixLoop.ts, src/features/studio/useFixLoop.ts, src/features/studio/Lanes.tsx, src/features/studio/CodeSiteButtons.tsx, src/features/studio/codeSend.ts, kit/CLAUDE.md, kit/PIPELINE.md
+ * Covers: src/features/studio/fixLoop.ts, src/features/studio/useFixLoop.ts, src/features/studio/loop/Lanes.tsx, src/features/studio/CodeSiteButtons.tsx, src/features/studio/codeSend.ts, kit/CLAUDE.md, kit/PIPELINE.md
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,7 +19,7 @@ import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const F = await jiti.import(join(here, "..", "src", "features", "studio", "fixLoop.ts"));
-const L = await jiti.import(join(here, "..", "src", "features", "studio", "lanes.ts"));
+const L = await jiti.import(join(here, "..", "src", "features", "studio", "loop", "lanes.ts"));
 const read = (f) => readFileSync(join(here, "..", f), "utf8");
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -59,7 +59,7 @@ check("a deleted line is fixed", F.fixedIn([tv, words], md).map((i) => i.key).jo
 check("an unreadable file fixes nothing", F.fixedIn([tv, words], null).length === 0);
 
 /* Wiring (source read). */
-const lanesTsx = read("src/features/studio/Lanes.tsx");
+const lanesTsx = read("src/features/studio/loop/Lanes.tsx");
 const csb = read("src/features/studio/CodeSiteButtons.tsx");
 const send = read("src/features/studio/codeSend.ts");
 check("the lanes show real issues when there are any, the sample otherwise", /useIssues\(\)/.test(lanesTsx) && /given \?\? real \?\? SAMPLE/.test(lanesTsx));

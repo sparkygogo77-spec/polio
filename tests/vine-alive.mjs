@@ -32,7 +32,7 @@
  */
 import { createRequire } from "node:module";
 import { DROP, PICK, REST, letGo, pickUp, step, still } from "../src/features/studio/tugSpring.ts";
-import { REACH_WIDTH, SEAM_WIDTH, strandPath, strandReach, strandSeam } from "../src/features/studio/strand.ts";
+import { REACH_WIDTH, SEAM_WIDTH, strandPath, strandReach, strandSeam } from "../src/features/studio/loop/strand.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
