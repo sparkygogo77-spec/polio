@@ -69,6 +69,7 @@ A code chat builds the site from the starter; J designs it afterwards.
 | J deleted a part in the builder | a code chat, from the builder's `design/` branch | delete the element and every code reference to it; `npm run kit:diff -- --base <default branch>` passes because `design/HOOK-CHANGES.json` lists the hook as removed (any hook not listed there still fails) | CI green; the hook is gone |
 | Build from a design | a code chat, from a `design/` branch carrying `design/record.json` | build each part from the record (hooks kept, token values into tokens), then a look-only capture and `npm run kit:record-diff -- design/record.json <capture>` | record-diff lists no part; kit:check and kit:diff pass |
 | A new look | J, then the builder | in the repo menu, **Send the design back**, **Check the code again** re-reads `builder.json` and `hooks.json` from the default branch (new pages and hooks; **Take these in** adds them); J designs; **Open a pull request** | `kit:diff --style-only` green |
+| Fix what the builder found | J ticks issue cards on the builder's timeline, then a code chat | J's **Publish** writes the ticked ones to `polio/NEXT.md` (hook, what is wrong, done when); the next code chat reads it first, fixes each line, and ticks (`- [x]`) or deletes it in its pull request | the builder's **Refresh** shows the ticked lines as fixed (blue boxes) |
 | Both at once | both | nothing special: each side touches only its own files. Whoever merges second re-runs CI on the merged result | CI green after both merges |
 
 If a style rule names a hook that a code change removed, `kit:check` fails on whichever pull
@@ -101,6 +102,7 @@ Rules:
 - Every element gets a data-hook; never rename or drop one the design may style
   (kit:diff tells you); never edit style-layer.css; colours only in tokens.css.
 - Add every page state to builder.json preview.screens so the builder can show it.
+- If polio/NEXT.md exists, fix its open lines first and tick each one (- [x]) in your pull request.
 - Work on a branch, one pull request per job. Before you call it done, run
   npm run kit:hooks, npm run kit:check, npm test and npm run kit:diff -- --base origin/main,
   and paste their summary lines. Then leave a change note for the builder:

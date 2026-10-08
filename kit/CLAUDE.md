@@ -5,6 +5,13 @@ the site, so every change you make must keep it readable. Read `AGENTS.md` (how 
 `BUILDER-CONTRACT.md` (the rules), and `BUILDER-RULES.md` (the design and build rules every code chat
 follows) before touching any page, stylesheet or script.
 
+**First, read `polio/NEXT.md` if it exists.** It is the queue J fills from the builder: each line is a
+problem the builder found and J ticked to fix next, naming the part by its `data-hook`, what is wrong
+and what done looks like. Fix those lines before anything else you were asked, unless the ask says
+otherwise. In the same pull request tick each fixed line (`- [x]`) or delete it, and leave its
+`<!-- fix:... -->` comment as it is: the builder's Refresh reads the file back and shows ticked or
+deleted lines as fixed. Never add lines yourself; only the builder writes new ones.
+
 The short version:
 
 - Every element in `<body>` gets a unique, meaningful `data-hook`. Layout containers too.
@@ -18,6 +25,9 @@ The short version:
 - Anything a script shows later (a box that becomes a button, a message, a result) is a state inside
   a part the builder can see: a declared state of a panel (`data-panel`, `data-states`, parts with
   `data-show`); scripts only set the panel's `data-state`. Never append it outside a part.
+- Layout blocks that hold parts (a column, a side bar, the main area) carry `data-region="<name>"` and
+  `data-label`, and every panel sits in one (BUILDER-RULES.md rule 32): the builder's Structure view
+  reads them.
 - Every visible thing is a real tagged element: no `::before`/`::after` drawings.
 - Label parts for the builder (BUILDER-RULES.md rules 21-24): `data-label` (plain name; every panel and
   list), `data-kind` (what a filled-in value is), `data-list` (where template copies go), `data-group`
