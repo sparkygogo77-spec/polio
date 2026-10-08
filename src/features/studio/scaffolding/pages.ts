@@ -1,5 +1,5 @@
 import { paintRoles, roleVars } from "../bodyPaint.ts";
-import { auraStyle, entranceCss, type Palette } from "../look.ts";
+import { auraStyle, entranceCss, type Palette } from "../look/index.ts";
 import { standInHas } from "../standIn.ts";
 import { EXPORT_KEYFRAMES } from "./types.ts";
 import { LIVE_KEYFRAMES } from "../living.ts";

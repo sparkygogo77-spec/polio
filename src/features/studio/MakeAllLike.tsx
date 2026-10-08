@@ -17,10 +17,10 @@ import { Switch } from "@/core/ui/switch";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./board/store";
-import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./partLook";
+import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./look/parts";
 import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";
-import { makeAllLike, makeAllReach, useMakeAll } from "./partLookApply";
+import { makeAllLike, makeAllReach, useMakeAll } from "./look/parts";
 import { pointAt } from "./SiteColours";
 
 export function MakeAllLike({ node }: { node: StudioNode }) {

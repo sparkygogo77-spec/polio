@@ -19,7 +19,7 @@
  *   node tests/picked.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
-import { complementOf, markColour } from "../src/features/studio/look.ts";
+import { complementOf, markColour } from "../src/features/studio/look/index.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

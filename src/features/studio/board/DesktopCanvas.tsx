@@ -18,7 +18,7 @@ import { inkGroups,nearestTo,type InkGroup } from "../inkGroups";
 import { complementOf,washCss } from "../look";
 import { LiveKeyframes, TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "../live/CarriedFonts";
-import type { CarriedFont } from "../fonts";
+import type { CarriedFont } from "../look";
 import { SpaceForming,SpaceInk,SpaceMarks,SpaceRefused,SpaceSide } from "../SpaceLayer";
 import { BringHost } from "../FromASite";
 import { LearnBadge } from "../LearnPanel";

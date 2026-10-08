@@ -26,8 +26,8 @@
 import { bytesFor, put, type Picture } from "./pictures";
 import { siteLogo } from "./siteMark";
 import { resolvePalette, themeFrom } from "./parts/theme";
-import { faceOf, tallyFonts } from "./siteColours";
-import { fontFaceCss } from "./fonts";
+import { faceOf, tallyFonts } from "./look";
+import { fontFaceCss } from "./look";
 import { LARGE, type HeadIcon, type SiteHead } from "./siteHead";
 import { useStudio } from "./board/store";
 

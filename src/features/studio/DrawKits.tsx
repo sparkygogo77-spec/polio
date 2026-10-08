@@ -27,7 +27,7 @@ import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { docOfStored, useBuilds } from "@/features/builds/store";
 import { useStudio, useSteady, type StudioNode } from "./board/store";
-import { kitsFromDoc, motionsFromDoc, PLAIN_BAR, siteBar, type BoardMotion, type KitDoc, type StyleKit } from "./styleKits";
+import { kitsFromDoc, motionsFromDoc, PLAIN_BAR, siteBar, type BoardMotion, type KitDoc, type StyleKit } from "./look";
 import { WornShape } from "./WornShape";
 import { colourChoices, combine, piecesOf, toBox, wordsColour, type Worn } from "./wornShape";
 import { DEFAULT_OFFSITE, explainLink, offsiteRules } from "./parts/offsite";

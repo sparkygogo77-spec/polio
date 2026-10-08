@@ -20,12 +20,12 @@
  * Pure: no store, no DOM.
  */
 import type { StudioNode } from "./board/store";
-import type { CarriedFont } from "./fonts";
-import type { StyleKit, KitNode } from "./styleKits";
-import { roleOf } from "./styleKits";
+import type { CarriedFont } from "./look";
+import type { StyleKit, KitNode } from "./look";
+import { roleOf } from "./look";
 import { kindKey } from "./partKind";
-import { lookOfKit } from "./kitLook";
-import { FACETS, lookOf, lookPatch, type Facet, type PartLook } from "./partLook";
+import { lookOfKit } from "./look/parts";
+import { FACETS, lookOf, lookPatch, type Facet, type PartLook } from "./look/parts";
 import { membersOf } from "./library/components";
 
 /** Where a remixed part came from, the look it wore there, and whether it keeps it. */

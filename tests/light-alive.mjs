@@ -29,7 +29,7 @@
  *     node tests/light-alive.mjs http://127.0.0.1:3013
  */
 import { createRequire } from "node:module";
-import { castFrom } from "../src/features/studio/look.ts";
+import { castFrom } from "../src/features/studio/look/index.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

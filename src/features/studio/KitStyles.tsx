@@ -15,11 +15,11 @@ import * as React from "react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import type { StudioNode } from "./board/store";
-import { roleOf, type KitNode, type StyleKit } from "./styleKits";
+import { roleOf, type KitNode, type StyleKit } from "./look";
 import { useBoardKits } from "./DrawKits";
-import { lookOfKit } from "./kitLook";
-import { lookPatch, type Facet } from "./partLook";
-import { pasteLook } from "./partLookApply";
+import { lookOfKit } from "./look/parts";
+import { lookPatch, type Facet } from "./look/parts";
+import { pasteLook } from "./look/parts";
 import { tryProps } from "./tryLook";
 import { useLearned } from "./library/useLearned";
 

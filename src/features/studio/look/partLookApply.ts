@@ -9,9 +9,9 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { useStudio, type StudioNode } from "./board/store";
+import { useStudio, type StudioNode } from "../board/store";
 import { FACETS, lookOf, lookPatch, lookDiffers, type Facet, type PartLook, type PasteOpts } from "./partLook";
-import { sameKind } from "./partKind";
+import { sameKind } from "../partKind";
 
 interface LookClip {
   look: PartLook | null;

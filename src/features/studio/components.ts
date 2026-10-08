@@ -36,7 +36,7 @@
  *
  * Pure: no React, no store.
  */
-import { lookOf, luminanceOf, parseRgba, parseShadows, roleOf, type KitNode } from "./styleKits.ts";
+import { lookOf, luminanceOf, parseRgba, parseShadows, roleOf, type KitNode } from "./look/index.ts";
 
 export type ComponentKind = "button" | "tab" | "copy-bar" | "badge" | "card" | "panel" | "ticker";
 export const KIND_WORD: Record<ComponentKind, string> = { button: "Button", tab: "Tab", "copy-bar": "Copy-address bar", badge: "Badge", card: "Card", panel: "Panel", ticker: "Ticker" };

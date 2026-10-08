@@ -40,7 +40,7 @@
  *
  * Pure: no React, no store, no browser. Seeded, so a roll can be made again.
  */
-import type { StyleKit } from "./styleKits.ts";
+import type { StyleKit } from "./look/index.ts";
 
 /* ------------------------------------------------------------------ */
 /* The record                                                           */

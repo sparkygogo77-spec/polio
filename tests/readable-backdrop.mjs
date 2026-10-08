@@ -35,7 +35,7 @@ const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const { wordsContrast, readableFixes, backdropOf, HARD_TO_READ, READS } = await jiti.import(join(here, "..", "src", "features", "studio", "siteColours.ts"));
+const { wordsContrast, readableFixes, backdropOf, HARD_TO_READ, READS } = await jiti.import(join(here, "..", "src", "features", "studio", "look", "siteColours.ts"));
 const { sampleHeld } = await jiti.import(join(here, "..", "src", "features", "studio", "pictureSampler.ts"));
 const { resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "parts", "theme.ts"));
 

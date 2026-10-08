@@ -59,7 +59,7 @@ import {
 BLUE_RINGS, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, type Pt
 } from "../menuGeometry";
 import { QuadrantConsole, type ConsoleSpan } from "../RingEditors";
-import { movedColours, movedFont, type Worn } from "../siteColours";
+import { movedColours, movedFont, type Worn } from "../look";
 import { DrawBoard } from "../DrawBoard";
 import { CONSOLE, HoverTray, type TrayItem } from "../RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "../parts/theme";
@@ -67,8 +67,8 @@ import { auraColour, lands, textureCss } from "../look";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { makeSolid } from "../solidRun";
-import { lookOf } from "../partLook";
-import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../partLookApply";
+import { lookOf } from "../look/parts";
+import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../look/parts";
 import { openRemix } from "../RemixCard";
 import { hasStates } from "../states/ui";
 import { openPanelsPage, panelOf } from "../states/ui";

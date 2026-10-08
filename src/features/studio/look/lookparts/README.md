@@ -1,6 +1,6 @@
-# studio/lookparts
+# studio/look/lookparts
 
-The look maths, split by topic. `../look.ts` re-exports everything, so imports from `./look` keep working. Imports keep their `.ts` extension so tests can load these in Node.
+The look maths, split by topic. `../index.ts` (the look module's door) re-exports everything. Imports keep their `.ts` extension so tests can load these in Node.
 
 | File | Holds |
 | --- | --- |

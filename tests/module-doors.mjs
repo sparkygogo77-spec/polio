@@ -16,9 +16,11 @@
  *
  * The board module (item 11) has four: `index.ts` (the pure press rules),
  * `store.ts` (the studio store), `ui.ts` (the board's screens) and `reads.ts`
- * (what the board reads off states, for the states module).
+ * (what the board reads off states, for the states module). The look module
+ * has three: `index.ts` (pure looks maths, site colours, kits, fonts),
+ * `parts.ts` (part looks, store-bound) and `ui.ts` (the Look panel).
  *
- * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts
+ * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -29,6 +31,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MODULES = [
   { dir: "src/features/studio/states", doors: ["index.ts", "ui.ts"] },
   { dir: "src/features/studio/board", doors: ["index.ts", "store.ts", "ui.ts", "reads.ts"] },
+  { dir: "src/features/studio/look", doors: ["index.ts", "parts.ts", "ui.ts"] },
 ];
 
 const results = [];

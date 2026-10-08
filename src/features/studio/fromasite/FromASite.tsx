@@ -36,7 +36,7 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "../PlateEditors";
 import { recreateFrom, type ElementReading } from "../recreate";
-import { facesSays, genericsOf, genericSays, type FacesCarried } from "../fonts";
+import { facesSays, genericsOf, genericSays, type FacesCarried } from "../look";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "../repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "../repoRun";
 import { runOf } from "../captureArtifact";

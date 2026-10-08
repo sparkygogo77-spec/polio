@@ -4,7 +4,7 @@ import { readZipInfo } from "@/features/studio/zipFile";
 import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts, ZIP_BUDGET_MS, ZIP_REFUSAL_SAYS } from "@/features/studio/zipImport";
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
 import { CANDIDATES, FACES, MEASURE, PARTS, type Candidate, type PageRead } from "@/features/studio/siteRead";
-import { carryFaces, type FacesRead } from "@/features/studio/fonts";
+import { carryFaces, type FacesRead } from "@/features/studio/look";
 import { sourceOfPage, withLines } from "@/features/studio/sourceHooks";
 import { BUSY_NOW, ISOLATE, readStillsAsk, type StillTaken } from "@/features/studio/stills";
 

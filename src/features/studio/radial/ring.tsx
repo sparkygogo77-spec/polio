@@ -8,7 +8,7 @@ EDGE, joinFor, ROUND, SWELL,
 type Pt, type Shape
 } from "../menuGeometry";
 import { AnimQuads, AuraQuads, BehaviourQuads, EdgeQuads, FontQuads, HueQuads, TextureQuads } from "../RingEditors";
-import { tallyColours } from "../siteColours";
+import { tallyColours } from "../look";
 import { PlateEditor } from "../PlateEditors";
 import { SayPlate } from "../SayBox";
 import { type Slab } from "../RingConsole";

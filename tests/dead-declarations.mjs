@@ -55,7 +55,7 @@ const GONE = [
   ["src/features/studio/bodyRun.ts", ["targetMask"]],
   ["src/features/studio/catalog.ts", ["CATEGORY_EMOJI"]],
   ["src/features/studio/format.ts", ["FORMAT_BY_ID", "changedFormat"]],
-  ["src/features/studio/look.ts", ["affects"]],
+  ["src/features/studio/look/index.ts", ["affects"]],
   ["src/features/studio/nebulaTile.ts", ["RIMS"]],
   ["src/features/studio/refineRun.ts", ["houseExample", "forgetExample"]],
   ["src/features/studio/sketch.ts", ["emptySketch"]],

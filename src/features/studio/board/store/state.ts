@@ -2,9 +2,9 @@
 import { type LearnState } from "../../learn";
 import type { StandIn } from "../../standIn";
 import type { Taken } from "../../reimport";
-import { type ColourUse, type FaceTo } from "../../siteColours";
+import { type ColourUse, type FaceTo } from "../../look";
 import type { Palette } from "../../look";
-import type { CarriedFont } from "../../fonts";
+import type { CarriedFont } from "../../look";
 import { type ThemeRollSettings, type Light, type Look, type TextureLayer } from "../../look";
 import { type MotionAsset } from "../../motion";
 import type { Spend } from "../../spend";

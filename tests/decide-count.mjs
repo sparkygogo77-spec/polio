@@ -17,7 +17,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/decide-count.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/states/decideShown.ts, src/features/studio/Canvas.tsx, src/features/studio/StudioPage.tsx, src/core/ui/more-hint.tsx, src/core/ui/split-hint.ts, src/features/studio/LookPanel.tsx, src/features/studio/SiteColours.tsx
+ * Covers: src/features/studio/states/decideShown.ts, src/features/studio/Canvas.tsx, src/features/studio/StudioPage.tsx, src/core/ui/more-hint.tsx, src/core/ui/split-hint.ts, src/features/studio/look/LookPanel.tsx, src/features/studio/SiteColours.tsx
  */
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";

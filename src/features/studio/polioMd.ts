@@ -22,10 +22,10 @@
  * capture's `behaviours` (which it otherwise drops once attached), so the
  * record reaches this at Go live.
  */
-import { tallyColours, tallyFonts } from "./siteColours.ts";
+import { tallyColours, tallyFonts } from "./look/index.ts";
 import { homeFor, type Routed } from "./homePage.ts";
 import { usesOf, type WorkUse } from "./library/works.ts";
-import { ROLES, toHex, parseColor, paletteFromHue, type Palette } from "./look.ts";
+import { ROLES, toHex, parseColor, paletteFromHue, type Palette } from "./look/index.ts";
 
 export const POLIO_MD = "POLIO.md";
 

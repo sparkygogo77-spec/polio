@@ -18,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const S = join(here, "..", "src", "features", "studio");
-const C = await jiti.import(join(S, "siteColours.ts"));
+const C = await jiti.import(join(S, "look", "siteColours.ts"));
 const { landPalette } = await jiti.import(join(S, "paletteFrom.ts"));
 
 const results = [];

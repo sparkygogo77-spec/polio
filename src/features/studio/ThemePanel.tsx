@@ -22,7 +22,7 @@ import { useStudio } from "./board/store";
 import { useBoardKits } from "./DrawKits";
 import { GROUP_LABEL, GROUPS, kitDistance, minDistanceAt, pairingOf, readPhilosophy, type Group, type SiteTheme } from "./siteTheme";
 import { rollOnto } from "./newSite";
-import type { StyleKit } from "./styleKits";
+import type { StyleKit } from "./look";
 
 const LIGHT_WORD: Record<number, string> = { 0: "above", 45: "the top right", 90: "the right", 135: "the bottom right", 180: "below", 225: "the bottom left", 270: "the left", 315: "the top left" };
 

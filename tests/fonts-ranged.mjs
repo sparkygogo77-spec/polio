@@ -15,7 +15,7 @@
  *
  *   node --experimental-strip-types tests/fonts-ranged.mjs
  */
-import { carryFaces, fontFaceCss } from "../src/features/studio/fonts.ts";
+import { carryFaces, fontFaceCss } from "../src/features/studio/look/fonts.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

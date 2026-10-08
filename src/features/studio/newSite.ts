@@ -12,7 +12,7 @@ import { defaultRoll, type ThemeRollSettings } from "./look";
 import { useStudio } from "./board/store";
 import { readPhilosophy, rollTheme, type SiteTheme } from "./siteTheme";
 import { pickTryThese } from "./tryThese";
-import type { StyleKit } from "./styleKits";
+import type { StyleKit } from "./look";
 
 /** A seed for a roll: anything, as long as two rolls in a row differ. */
 export const newSeed = (): number => (Math.floor(Math.random() * 2 ** 31) ^ Date.now()) >>> 0;

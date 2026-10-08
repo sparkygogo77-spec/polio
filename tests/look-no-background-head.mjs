@@ -24,7 +24,7 @@ const check = (name, ok, detail = "") => {
 const bare = (f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
 
 /* Nothing else leans on the block: no other file renders it or reads its mark. */
-const look = bare("src/features/studio/LookPanel.tsx");
+const look = bare("src/features/studio/look/LookPanel.tsx");
 check("the Look panel no longer renders the Background block", !/BackgroundInspector/.test(look));
 check("and nothing else exports or renders it", !/BackgroundInspector/.test(["Inspector.tsx", ...readdirSync("src/features/studio/inspector").filter((f) => f.endsWith(".tsx")).map((f) => `inspector/${f}`)].map((f) => bare(`src/features/studio/${f}`)).join("\n")));
 

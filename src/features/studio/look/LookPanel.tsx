@@ -15,17 +15,17 @@ import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
   TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
-} from "./look";
+} from "./";
 import { flattenLayers } from "./texture";
-import { CropPicker } from "./CropPicker";
-import { Spectrum } from "./MenuConsole";
-import { CHIP, emptyFill } from "./colourMenu";
-import { fillLayers, resolvePalette } from "./parts/theme";
-import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
-import { useStudio } from "./board/store";
-import { ThemeSection } from "./ThemePanel";
+import { CropPicker } from "../CropPicker";
+import { Spectrum } from "../MenuConsole";
+import { CHIP, emptyFill } from "../colourMenu";
+import { fillLayers, resolvePalette } from "../parts/theme";
+import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "../ImageIntake";
+import { useStudio } from "../board/store";
+import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
-import { SiteColoursSection, SiteFontsSection } from "./SiteColours";
+import { SiteColoursSection, SiteFontsSection } from "../SiteColours";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";

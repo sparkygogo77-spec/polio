@@ -22,7 +22,7 @@
  * lookup.
  */
 import type * as React from "react";
-import { oklchToRgb, parseColor } from "./look";
+import { oklchToRgb, parseColor } from "./";
 
 /** How a picture is cooked. Every field here changes the baked tile. */
 export interface Treatment {
