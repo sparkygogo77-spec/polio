@@ -17,7 +17,7 @@
  * frame it was drawn against, the part it belongs to — because by the time
  * it runs the board is gone and the menu that opened it is gone with it.
  */
-import type { Sketch } from "../sketch";
+import type { Sketch } from "../pictures";
 import type { DrawKind } from "../board/store";
 
 export type JobStatus = "waiting" | "asking" | "running" | "done" | "failed";

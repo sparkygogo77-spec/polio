@@ -36,7 +36,7 @@
 import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./shelf/index.ts";
 import { corners, isBox, kindOfSketch } from "./shapeKind.ts";
 import { CUBE_MIN, REST } from "./shelf/index.ts";
-import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
+import { sketchBox, strokeClosed, type Sketch } from "./pictures/index.ts";
 import type { StudioNode } from "./board/store.ts";
 import { plain } from "./shelf/index.ts";
 

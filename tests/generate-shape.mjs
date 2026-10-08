@@ -31,7 +31,7 @@
 import http from "node:http";
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { MODELS } from "../src/features/studio/imageRoute.ts";
+import { MODELS } from "../src/features/studio/pictures/imageRoute.ts";
 import { openGenerate } from "./fixtures/openGenerate.mjs";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");

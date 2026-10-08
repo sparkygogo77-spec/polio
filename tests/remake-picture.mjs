@@ -26,7 +26,7 @@ import http from "node:http";
 import zlib from "node:zlib";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { askSize } from "../src/features/studio/remake.ts";
+import { askSize } from "../src/features/studio/pictures/remake.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

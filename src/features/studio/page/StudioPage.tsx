@@ -29,7 +29,7 @@ import { Palette, useShelfFolded, useShelfTall } from "../shelf/screens";
 import { Inspector } from "../Inspector";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../MotionPanel";
-import { PicturesPanel } from "../PicturesPanel";
+import { PicturesPanel } from "../pictures/ui";
 import { FormatPanel } from "../FormatPanel";
 import { PagesPanel } from "../PagesPanel";
 import { BriefDialog } from "../BriefDialog";

@@ -124,7 +124,7 @@ check("and noted on the iteration it belongs to", /noteSpend\(\s*readCost\s*(?:,
 check("the body's whole bill is noted, renderer and Claude both",
   /noteSpend\(\{\s*dollars: written\.cost/.test(run) && /renderer: written\.renderer/.test(run) && /claude: written\.claude/.test(run));
 
-const draw = readFileSync("src/features/studio/drawRun.ts", "utf8");
+const draw = readFileSync("src/features/studio/pictures/drawRun.ts", "utf8");
 check("the tracer times itself", /ms: Date\.now\(\) - from/.test(draw));
 check("and counts every go as a press", /calls: attempts\.length/.test(draw));
 

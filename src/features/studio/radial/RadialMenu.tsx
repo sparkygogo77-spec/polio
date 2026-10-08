@@ -60,7 +60,7 @@ BLUE_RINGS, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QU
 } from "../menuGeometry";
 import { QuadrantConsole, type ConsoleSpan } from "../RingEditors";
 import { movedColours, movedFont, type Worn } from "../look";
-import { DrawBoard } from "../DrawBoard";
+import { DrawBoard } from "../pictures/ui";
 import { CONSOLE, HoverTray, type TrayItem } from "../RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "../shelf/run";
 import { auraColour, lands, textureCss } from "../look";

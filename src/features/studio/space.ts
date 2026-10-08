@@ -38,8 +38,8 @@
  * canvas pixels, the page's own coordinates, because a space is a place on
  * the page rather than a picture in a box.
  */
-import { makingOf, needsAlpha, route, STEPS, type ImageModel, type Making, type NoModel, type Step } from "./imageRoute.ts";
-import { strokeClosed, type SketchPoint } from "./sketch.ts";
+import { makingOf, needsAlpha, route, STEPS, type ImageModel, type Making, type NoModel, type Step } from "./pictures/index.ts";
+import { strokeClosed, type SketchPoint } from "./pictures/index.ts";
 
 /* ------------------------------------------------------------------ */
 /* The record                                                           */

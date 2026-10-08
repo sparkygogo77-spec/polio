@@ -21,7 +21,7 @@
  *   node tests/audit-panel.mjs [url]
  */
 import { readFileSync } from "node:fs";
-import { MODELS, modelsFor, optionsFor, inputFor, model } from "../src/features/studio/imageRoute.ts";
+import { MODELS, modelsFor, optionsFor, inputFor, model } from "../src/features/studio/pictures/imageRoute.ts";
 import { planFor } from "../src/features/studio/space.ts";
 
 const results = [];

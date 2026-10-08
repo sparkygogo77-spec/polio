@@ -24,7 +24,7 @@
 import {
   inputFor, model, modelsFor, optionsFor,
   type ImageModel, type ModelCard, type ModelField, type Step,
-} from "./imageRoute";
+} from "./pictures";
 import { planFor, type Plan, type Reading } from "./space";
 import { useStudio, type StudioNode } from "./board/store";
 import { plain } from "./shelf";

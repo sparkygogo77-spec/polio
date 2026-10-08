@@ -24,7 +24,7 @@
  * Nothing here calls a model. What calls a model is the queue, one job at a
  * time, exactly as before; this only decides what goes on it.
  */
-import { describeSketch } from "./sketch";
+import { describeSketch } from "./pictures";
 import { nameFrom, pictureOf } from "./reshapeRun";
 import { inkGroups } from "./inkGroups";
 import { QUEUED } from "./formation";

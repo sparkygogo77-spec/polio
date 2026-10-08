@@ -8,7 +8,7 @@ import type { NodeLink } from "../../shelf";
 import type { WorkUse } from "../../shelf";
 import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "../../shelf/run";
 import type { NodeEmbed, NodeMotion } from "../../shelf";
-import { type OutlineClip, type Sketch } from "../../sketch";
+import { type OutlineClip, type Sketch } from "../../pictures";
 import type { LookPicture } from "../../partPicture";
 import type { Worn } from "../../wornShape";
 import type { Remixed } from "../../remix";

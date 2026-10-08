@@ -15,7 +15,7 @@ import {
   inheritedFrom, moveStep, nodeInSpace, planFor, pointInBoundary, roundBoundary, spaceOf, spaceOfDrawing,
   tidyBoundary, tidySteps, openOf, spaceAtLine, distanceToBoundary,
 } from "../src/features/studio/space.ts";
-import { STEPS } from "../src/features/studio/imageRoute.ts";
+import { STEPS } from "../src/features/studio/pictures/imageRoute.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

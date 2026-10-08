@@ -58,7 +58,7 @@ const GONE = [
   ["src/features/studio/look/index.ts", ["affects"]],
   ["src/features/studio/nebulaTile.ts", ["RIMS"]],
   ["src/features/studio/refineRun.ts", ["houseExample", "forgetExample"]],
-  ["src/features/studio/sketch.ts", ["emptySketch"]],
+  ["src/features/studio/pictures/sketch.ts", ["emptySketch"]],
   ["src/features/studio/board/store.ts", ["FrameKind"]],
   ["src/features/tour/store.ts", ["tourRunning"]],
 ];

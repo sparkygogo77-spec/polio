@@ -11,7 +11,7 @@
  *   node tests/tall-column.mjs
  */
 import { readFileSync } from "node:fs";
-import { PART_MAX_H, fitToSketch, readSketch } from "../src/features/studio/sketch.ts";
+import { PART_MAX_H, fitToSketch, readSketch } from "../src/features/studio/pictures/sketch.ts";
 import { checkAnswer } from "../src/features/studio/reshape.ts";
 
 const results = [];
@@ -24,7 +24,7 @@ const FRAME = 1440;
 const kind = (id) => (id === "custom-idea" ? { id, name: "Idea", w: 132, h: 76, options: [] } : null);
 
 /* 1. One ceiling, off the source. */
-const files = ["src/features/studio/sketch.ts", "src/features/studio/reshape.ts", "src/features/studio/reshapeRun.ts"];
+const files = ["src/features/studio/pictures/sketch.ts", "src/features/studio/reshape.ts", "src/features/studio/reshapeRun.ts"];
 const literal = files.map((f) => [f, (readFileSync(f, "utf8").match(/\b1600\b/g) ?? []).length]);
 check("the ceiling is written once, in sketch.ts, and the other two read it (source read)", literal.every(([f, n]) => n === (f.endsWith("sketch.ts") ? 1 : 0)), literal.map(([f, n]) => `${f.split("/").pop()} ${n}`).join(", "));
 check("and it is 1600", PART_MAX_H === 1600, String(PART_MAX_H));

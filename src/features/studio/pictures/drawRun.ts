@@ -33,12 +33,12 @@
  * that genuinely wants words, and is reached only when nothing was traced at
  * all.
  */
-import { GOOD_ENOUGH, judge, targetFor, type Attempt, type BodyResult } from "./bodyRun";
-import { pictureOf, type PictureOpts } from "./reshapeRun";
-import { money, RENDER_COST, RENDER_MODELS } from "./renderer";
-import { readVector } from "./vector";
-import { noRendererKeyMessage, rendererHeader } from "./loop/run";
-import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
+import { GOOD_ENOUGH, judge, targetFor, type Attempt, type BodyResult } from "../bodyRun";
+import { pictureOf, type PictureOpts } from "../reshapeRun";
+import { money, RENDER_COST, RENDER_MODELS } from "../renderer";
+import { readVector } from "../vector";
+import { noRendererKeyMessage, rendererHeader } from "../loop/run";
+import { cleanSnippet, RENDER_LIMIT, type PartCode } from "../snippet";
 import { isTap, TAP_SIZE, type OutlineClip, type SketchPoint } from "./sketch";
 
 /** How many goes at it. One per rung of the ladder. */

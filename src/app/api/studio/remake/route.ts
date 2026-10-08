@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { askSize, DEFAULT_REMAKE_MODEL, modelLabel, pickModel, REMAKE_MODELS } from "@/features/studio/remake";
+import { askSize, DEFAULT_REMAKE_MODEL, modelLabel, pickModel, REMAKE_MODELS } from "@/features/studio/pictures";
 
 /**
  * Remake a picture from one prompt: the picture goes to OpenAI's image edit

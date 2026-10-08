@@ -1,4 +1,4 @@
-import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./remake";
+import { DEFAULT_REMAKE_MODEL, REMAKE_MODEL_SETTING, REMAKE_MODELS } from "./pictures";
 import { Brush, CircleDashed, ClipboardPaste, Copy, Download, Eraser, Eye, EyeOff, Frame, GitBranch, Group, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, Rocket, RotateCcw, Send, Sparkles, Trash2, Undo2, Ungroup, Unlock, Upload, Wand2, ZoomIn } from "lucide-react";
 import { openLearned } from "./LearnedPanel";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
