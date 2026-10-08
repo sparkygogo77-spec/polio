@@ -253,4 +253,32 @@ export const FIXTURES = [
     replace: '<label data-hook="message-field" data-group="message-look">',
     expect: /style group "message-look" has one member/,
   },
+  {
+    name: 'regions: a panel outside every region',
+    file: 'starter/list.html',
+    find: '<main data-hook="page-main" data-region="main" data-label="Main area">',
+    replace: '<main data-hook="page-main"><div data-hook="list-top" data-region="top" data-label="Top"></div>',
+    expect: /panel "list-empty" sits in no layout region/,
+  },
+  {
+    name: 'regions: a region with no plain name',
+    file: 'starter/contact.html',
+    find: 'data-region="main" data-label="Main area"',
+    replace: 'data-region="main"',
+    expect: /region "main" needs its own data-hook and a plain name/,
+  },
+  {
+    name: 'regions: a region inside a panel',
+    file: 'starter/contact.html',
+    find: '<form data-hook="contact-form"',
+    replace: '<form data-region="form" data-hook="contact-form"',
+    expect: /region "form" is inside a panel or is one/,
+  },
+  {
+    name: 'regions: one name twice on a page',
+    file: 'starter/index.html',
+    find: '<section data-hook="home-hero">',
+    replace: '<section data-hook="home-hero" data-region="main" data-label="Hero">',
+    expect: /region "main" is declared twice/,
+  },
 ];
