@@ -16,7 +16,7 @@ import { resolvePalette } from "../parts/theme";
 import { Scissors,Sparkles,Ungroup } from "lucide-react";
 import { inkGroups,nearestTo,type InkGroup } from "../inkGroups";
 import { complementOf,washCss } from "../look";
-import { TextureDrift } from "../TextureDrift";
+import { LiveKeyframes, TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "../live/CarriedFonts";
 import type { CarriedFont } from "../fonts";
 import { SpaceForming,SpaceInk,SpaceMarks,SpaceRefused,SpaceSide } from "../SpaceLayer";
@@ -1884,6 +1884,7 @@ export function DesktopCanvas() {
           style={{ width: frameWidth, height: pageH }}
         >
         <TextureDrift layers={look.texture} palette={palette} />
+        <LiveKeyframes />
         {/* The faces the site carries, drawn in the real file; one that will not load is said once. */}
         <CarriedFonts fonts={look.fonts} onFail={fontFailed} />
         <SpaceMarks zoom={zoom} />

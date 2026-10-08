@@ -30,7 +30,9 @@
  */
 import type { SourceHook, SourceVar } from "./sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "./frame.ts";
+import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "./living.ts";
 import type { PictureFrame } from "./frame.ts";
+import type { LivingPicture } from "./living.ts";
 import { layoutDeclarations } from "./states/index.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
@@ -202,7 +204,7 @@ export interface LayerNode {
   radius?: number | null;
   opacity?: number | null;
   text?: { align?: string; transform?: string } | null;
-  art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string; frame?: PictureFrame } | null;
+  art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string; frame?: PictureFrame; live?: LivingPicture } | null;
   radii?: readonly number[] | null;
   radiiY?: readonly number[] | null;
   motion?: { animation?: { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[]; transition?: { property: string; duration?: string; timing?: string; delay?: string }[]; hover?: LayerState[]; active?: LayerState[]; focus?: LayerState[] } | null;
@@ -240,8 +242,16 @@ export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">
   if (isFrame(a.frame)) Object.assign(out, frameCss(a.frame));
   const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number");
   if (four(n.radii) && n.radii.some((r) => r > 0)) out["border-radius"] = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
-  const anim = n.motion?.animation ?? [];
-  if (anim.length) out.animation = anim.map((x) => [x.name, x.duration, x.timing, x.delay, x.iterations, x.direction, x.fill].filter(Boolean).join(" ")).join(", ");
+  const anim = (n.motion?.animation ?? []).map((x) => [x.name, x.duration, x.timing, x.delay, x.iterations, x.direction, x.fill].filter(Boolean).join(" "));
+  /* A living picture (`living.ts`): its tokens and slots, its animation played after any the page already had. */
+  if (isLiving(a.live)) {
+    const live = liveDeclarations(a.live);
+    const { animation, "animation-timeline": timeline, ...rest } = live;
+    Object.assign(out, rest);
+    if (timeline) out["animation-timeline"] = [...anim.map(() => "auto"), timeline].join(", ");
+    anim.push(animation!);
+  }
+  if (anim.length) out.animation = anim.join(", ");
   const tr = n.motion?.transition ?? [];
   if (tr.length) out.transition = tr.map((t) => [t.property, t.duration, t.timing, t.delay].filter(Boolean).join(" ")).join(", ");
   return out;
@@ -260,7 +270,7 @@ export function statesCss(n: Pick<LayerNode, "motion">): Record<string, string> 
 }
 
 /** What a property is when nothing sets it, for a slot emptied on the board. */
-const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none", ...FRAME_UNSET };
+const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none", ...FRAME_UNSET, ...LIVE_UNSET, "mask-size": "auto", "-webkit-mask-image": "none", "-webkit-mask-size": "auto" };
 
 const ROLES = ["bg", "surface", "text", "muted", "accent", "highlight"];
 
@@ -626,6 +636,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     /* `:root:root`: one step more particular than the source's own `:root`, so the layer's value wins wherever tokens.css sits among the page's stylesheets. */
     ...(vars.length ? ["", ":root:root {", ...vars.map((v) => `  ${v.name}: ${v.value}; /* ${v.token ? "token, " : ""}was ${v.was} */`), "}"] : []),
     ...rules.map((r) => ["", `${r.selector} {`, ...r.declarations.map((d) => `  ${d};`), "}"].join("\n")),
+    ...liveTail(rules),
     "",
   ].join("\n");
 
@@ -640,6 +651,16 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     opts.kit ? "Scripts, pages and every hook stay as they are: only the style layer changes." : "Scripts, behaviour and every hook stay as they are; each page gains one <link> line.",
   ].join("\n");
   return { css, rules, vars, tokens, check, text, says, held: kitHeld };
+}
+
+/**
+ * The keyframes a living picture names (`living.ts`), once, when any rule
+ * plays one; and those parts still for a visitor who asks for less motion.
+ */
+function liveTail(rules: Layer["rules"]): string[] {
+  const moving = [...new Set(rules.filter((r) => r.declarations.some((d) => /^animation:.*polio-live-/.test(d))).map((r) => r.selector))];
+  if (!moving.length) return [];
+  return ["", "/* Living pictures: fixed keyframes, tuned by each part's --live-* tokens. */", LIVE_KEYFRAMES, "", "@media (prefers-reduced-motion: reduce) {", `  ${moving.join(", ")} { animation: none !important; }`, "}"];
 }
 
 /** A font stack in one spelling: no quotes, no spaces after commas, lower case. */

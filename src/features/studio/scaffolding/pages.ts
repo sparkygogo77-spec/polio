@@ -2,6 +2,7 @@ import { paintRoles, roleVars } from "../bodyPaint.ts";
 import { auraStyle, entranceCss, type Palette } from "../look.ts";
 import { standInHas } from "../standIn.ts";
 import { EXPORT_KEYFRAMES } from "./types.ts";
+import { LIVE_KEYFRAMES } from "../living.ts";
 import type { ScaffoldPage, ScaffoldPart, ScaffoldInput } from "./types.ts";
 import { styleJsx, hrefOf, htmlToJsx, componentName, trim } from "./jsx.ts";
 import { meshTsx } from "./frameMesh.ts";
@@ -22,7 +23,7 @@ export function tokensCss(input: ScaffoldInput): string {
   const page = Object.entries(pageCss)
     .map(([k, v]) => `  ${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`)
     .join("\n");
-  const keyframes = [EXPORT_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? []), ...(input.fontCss ? [input.fontCss] : [])].join("\n");
+  const keyframes = [EXPORT_KEYFRAMES, LIVE_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? []), ...(input.fontCss ? [input.fontCss] : [])].join("\n");
   return `/*
  * The site's tokens, taken from the document — not described, copied.
  * Every colour here is the one the board is painted in; change one and

@@ -18,6 +18,7 @@ import { create } from "zustand";
 import { readDoc, writeDoc } from "../docStore";
 import { useStudio } from "../store";
 import type { SavedComponent } from "./components";
+import { sitePanels, withSitePanels } from "./fromSites";
 import { emptyLibrary, learnFromBoard, mergeLibraries, readLibrary, withComponent, withoutComponent, withSite, withoutSite, type LearnedLibrary, type LearnedSite } from "./learned";
 
 export const LEARNED_KEY = "builder.learned";
@@ -36,6 +37,8 @@ interface LearnedState {
   /** A component saved whole (`components.ts`), builder-wide, and one taken off the shelf. */
   saveComponent: (c: SavedComponent) => void;
   removeComponent: (id: string) => void;
+  /** A site's hooked panels, kept for the "From your sites" shelf (`fromSites.ts`), replacing the ones kept last time. */
+  keepPanels: (host: string, panels: SavedComponent[]) => void;
 }
 
 const save = (lib: LearnedLibrary) => { try { writeDoc(LEARNED_KEY, JSON.stringify(lib)); } catch { /* kept for this visit */ } };
@@ -49,6 +52,7 @@ export const useLearned = create<LearnedState>()((set, get) => ({
   take: (incoming) => { const lib = mergeLibraries(get().lib, incoming); save(lib); set({ lib }); },
   saveComponent: (c) => { const lib = withComponent(get().lib, c); save(lib); set({ lib }); },
   removeComponent: (id) => { const lib = withoutComponent(get().lib, id); save(lib); set({ lib }); },
+  keepPanels: (host, panels) => { const lib = withSitePanels(get().lib, host, panels); save(lib); set({ lib }); },
 }));
 
 /* ------------------------------------------------------------------ reading it back */
@@ -73,6 +77,7 @@ if (typeof window !== "undefined") {
       const s = useStudio.getState();
       const site = learnFromBoard({ nodes: s.nodes as unknown as Record<string, unknown>[], look: s.look as never, brief: s.brief, pages: s.pages }, behaviours);
       if (site) useLearned.getState().learn(site);
+      if (site) useLearned.getState().keepPanels(site.host, sitePanels({ nodes: s.nodes as unknown as Record<string, unknown>[], look: s.look as never }, site.host));
     }, 0);
   });
 }
