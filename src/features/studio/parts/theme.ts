@@ -7,6 +7,7 @@
 import { DEFAULT_OFFSITE } from "./offsite";
 import { hasMotion, type NodeEmbed, type NodeMotion } from "./capturedMotion";
 import type * as React from "react";
+import { frameStyle, isFrame, type PictureFrame } from "../frame";
 import type { FormatValues } from "../format";
 import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
 
@@ -270,6 +271,8 @@ export interface NodeArt {
   overflow?: string;
   /** Turned only because the part it sits in is turned (its `from.selector`), with its own transform apart from that: the export draws it inside that part where the part follows the window (the ribbon's words). */
   turnsWith?: { selector: string; own?: string; origin?: string };
+  /** A picture cut in nine and worn as its frame (`frame.ts`): corners as drawn, edges stretched to any size. */
+  frame?: PictureFrame;
 }
 /** The four, as a node carries them. */
 export interface NodeBox {
@@ -568,6 +571,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (a.textShadow) s.textShadow = a.textShadow;
     if (a.textStroke && a.textStroke.w > 0) s.WebkitTextStroke = `${a.textStroke.w}px ${a.textStroke.color}`;
     if (a.paintOrder) s.paintOrder = a.paintOrder;
+    /* A frame from a picture: its border-image replaces the edge, which a `border` shorthand would reset. */
+    if (isFrame(a.frame)) { delete s.border; Object.assign(s, frameStyle(a.frame)); }
   }
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;

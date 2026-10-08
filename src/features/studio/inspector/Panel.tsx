@@ -42,6 +42,7 @@ import { RemixKept } from "../RemixCard";
 import { VERSION_ONLY, GLYPHS, OptionRange, OptionSet, WordsField, PictureField, Field, HuePicker, featureName, TEXTY, LABEL_HIDES, isLookOption, insideLink, Fold } from "./fields";
 import { PageSummary, CodeLink, CodeView } from "./codeView";
 import { FontField, EdgeField, PartMotions, Role } from "./partFields";
+import { FrameField } from "./frameField";
 import { Faces, Solid, LinkField } from "./solid";
 import { PartSamples } from "../StatesTimeline";
 
@@ -568,6 +569,7 @@ export function Inspector() {
           </Field>
           <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} />
           <EdgeField node={node} />
+          <FrameField node={node} />
           <Field label="Shape" hint="What the part is cut to.">
             <Segmented size="xs" value={node.shape ?? "box"} onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
               options={NODE_SHAPES.map((v) => ({ value: v, label: v }))} />

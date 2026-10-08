@@ -29,6 +29,8 @@
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
 import type { SourceHook, SourceVar } from "./sourceHooks.ts";
+import { FRAME_UNSET, frameCss, isFrame } from "./frame.ts";
+import type { PictureFrame } from "./frame.ts";
 import { layoutDeclarations } from "./structure.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
@@ -200,7 +202,7 @@ export interface LayerNode {
   radius?: number | null;
   opacity?: number | null;
   text?: { align?: string; transform?: string } | null;
-  art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string } | null;
+  art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string; frame?: PictureFrame } | null;
   radii?: readonly number[] | null;
   radiiY?: readonly number[] | null;
   motion?: { animation?: { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[]; transition?: { property: string; duration?: string; timing?: string; delay?: string }[]; hover?: LayerState[]; active?: LayerState[]; focus?: LayerState[] } | null;
@@ -235,6 +237,7 @@ export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">
   if (a.textShadow) out["text-shadow"] = a.textShadow;
   if (a.textStroke && a.textStroke.w > 0) out["-webkit-text-stroke"] = `${a.textStroke.w}px ${a.textStroke.color}`;
   if (a.paintOrder) out["paint-order"] = a.paintOrder;
+  if (isFrame(a.frame)) Object.assign(out, frameCss(a.frame));
   const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number");
   if (four(n.radii) && n.radii.some((r) => r > 0)) out["border-radius"] = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
   const anim = n.motion?.animation ?? [];
@@ -257,7 +260,7 @@ export function statesCss(n: Pick<LayerNode, "motion">): Record<string, string> 
 }
 
 /** What a property is when nothing sets it, for a slot emptied on the board. */
-const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none" };
+const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none", ...FRAME_UNSET };
 
 const ROLES = ["bg", "surface", "text", "muted", "accent", "highlight"];
 
