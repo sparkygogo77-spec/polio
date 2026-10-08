@@ -15,8 +15,11 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
   captured motion, tint, types).
 - `run.ts`: a part's theme (`parts/theme.ts`) and a repository's features
   (`library/repoFeatures.ts`), which need the bundler's imports.
-- `ui.ts`: the part renderers (`parts/*.tsx`, `parts/index.ts`), the shelf
-  screens, and the library hooks (`useLibrary`, `useLearned`).
+- `ui.ts`: the part renderers (`parts/*.tsx`, `parts/index.ts`) and the
+  library hooks (`useLibrary`, `useLearned`).
+- `screens.ts`: the shelf under the board (`Palette.tsx`, `palette/`). Kept
+  apart from `ui.ts` so a part renderer loads without the Builder's chrome
+  (node tests load renderers through jiti).
 
 Doors are named re-exports, not `export *`. A name re-exported by two files in
 here (a shim) appears once in a door.

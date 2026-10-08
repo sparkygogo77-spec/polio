@@ -20,7 +20,7 @@ import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./board/store";
 import { createSpaceAt } from "./createSpace";
-import { addFeatureToCanvas, dropPoint } from "./shelf/ui";
+import { addFeatureToCanvas, dropPoint } from "./shelf/screens";
 import { openBoard } from "./RadialMenu";
 import { emptyWrappers, saysWhat, slimSays } from "./reassemble";
 import { ridersOf } from "./owner";

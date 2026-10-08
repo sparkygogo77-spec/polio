@@ -25,7 +25,7 @@ import { Workspace } from "../Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { ImportFlow } from "../ImportFlow";
 import { PreviewWindow } from "../Preview";
-import { Palette, useShelfFolded, useShelfTall } from "../shelf/ui";
+import { Palette, useShelfFolded, useShelfTall } from "../shelf/screens";
 import { Inspector } from "../Inspector";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../MotionPanel";

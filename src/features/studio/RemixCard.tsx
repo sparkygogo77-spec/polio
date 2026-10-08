@@ -36,7 +36,7 @@ import { lookOfKit } from "./look/parts";
 import { KIT_FACETS, KitSwatch } from "./KitStyles";
 import { putSiteVersion } from "./ShelfCards";
 import type { StyleKit } from "./look";
-import { visibleMiddle } from "./shelf/ui";
+import { visibleMiddle } from "./shelf/screens";
 import { wordsOf } from "./partNames";
 
 let open = false;

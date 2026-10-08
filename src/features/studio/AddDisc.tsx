@@ -36,7 +36,7 @@ import { itemOf } from "./shelf";
 import { RimButton } from "./DrawBoard";
 import { useGround } from "./ground";
 import { BOARD_R } from "./menuGeometry";
-import { addFeatureToCanvas } from "./shelf/ui";
+import { addFeatureToCanvas } from "./shelf/screens";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { CONSOLE, keyForHue, SCREEN } from "./RingConsole";
