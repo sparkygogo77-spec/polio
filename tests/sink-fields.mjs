@@ -29,7 +29,7 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const S = join(here, "..", "src", "features", "studio");
 const { Block } = await jiti.import(join(S, "blocks.tsx"));
-const { themeFrom, resolvePalette } = await jiti.import(join(S, "parts", "theme.ts"));
+const { themeFrom, resolvePalette } = await jiti.import(join(S, "shelf", "parts", "theme.ts"));
 const { LiveSite } = await jiti.import(join(S, "live", "LiveSite.tsx"));
 const fluid = await jiti.import(join(S, "fluidSite.ts"));
 

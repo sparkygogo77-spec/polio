@@ -23,16 +23,16 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
-import type { CategoryDef } from "./catalog";
+import type { CategoryDef } from "./shelf";
 import { useStudio, type StudioNode } from "./board/store";
 import { WorkShelfCard } from "./ShelfCards";
 import type { SiteWords } from "./shelfFacts";
 import { Block, themeFrom } from "./blocks";
-import { overrideTheme, resolvePalette, type NodeColour } from "./parts/theme";
-import { allWorks, type WorkPicture } from "./library/works";
-import { placedWorks } from "./shelfPlan";
-import { useLibrary } from "./library/useLibrary";
-import { checkRepoFeatures } from "./library/repoFeatures";
+import { overrideTheme, resolvePalette, type NodeColour } from "./shelf/run";
+import { allWorks, type WorkPicture } from "./shelf";
+import { placedWorks } from "./shelf";
+import { useLibrary } from "./shelf/ui";
+import { checkRepoFeatures } from "./shelf/run";
 
 /** A part as the shelf picture keeps it. */
 export function pictureOf(n: StudioNode): WorkPicture {

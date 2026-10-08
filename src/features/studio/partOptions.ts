@@ -26,10 +26,10 @@
  *
  * Pure: no store, no React. `tests/part-options.mjs` walks every shelf item.
  */
-import { MOTION_OPTION_IDS, getFeature, type FeatureOption } from "./catalog.ts";
-import { VARIANTS, itemOf } from "./shelfPlan.ts";
-import { isWorkKey } from "./shelfGroups.ts";
-import { getWork, onUsesOf, withInput, type WorkUse } from "./library/works.ts";
+import { MOTION_OPTION_IDS, getFeature, type FeatureOption } from "./shelf/index.ts";
+import { VARIANTS, itemOf } from "./shelf/index.ts";
+import { isWorkKey } from "./shelf/index.ts";
+import { getWork, onUsesOf, withInput, type WorkUse } from "./shelf/index.ts";
 import { PLAIN_BAR } from "./look/index.ts";
 import { PATH_WORDS, PATH_WORDS_SAMPLE, pathWordsSize, type Worn } from "./wornShape.ts";
 

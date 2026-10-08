@@ -2,10 +2,10 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature } from "../catalog";
-import { useStudio, type StudioNode } from "../board/store";
+import { useStudio, type StudioNode } from "../../board/store";
 import { plain } from "../parts/spans";
 import { play } from "@/core/audio/engine";
-import { partName } from "../partNames";
+import { partName } from "../../partNames";
 import { setShelfTall } from "./shelf";
 
 /**

@@ -30,7 +30,7 @@
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { decisions } from "../src/features/studio/library/badge.ts";
+import { decisions } from "../src/features/studio/shelf/library/badge.ts";
 
 const BASE = (process.argv[2] ?? "http://127.0.0.1:3013").replace(/\/$/, "");
 const SINK = process.argv[3] ?? "capture/versions/sink-0ee06fa";

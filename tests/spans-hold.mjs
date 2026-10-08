@@ -14,7 +14,7 @@
  * Pure, so it can be run red without a browser or a build:
  *   node tests/spans-hold.mjs
  */
-import { alike, isSpans, lines, merged, plain, spansOf } from "../src/features/studio/parts/spans.ts";
+import { alike, isSpans, lines, merged, plain, spansOf } from "../src/features/studio/shelf/parts/spans.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

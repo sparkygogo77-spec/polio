@@ -34,7 +34,7 @@ const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
 const { partList, filterRows } = await src("partList.ts");
-const { attachCaptured } = await src("library/captured.ts");
+const { attachCaptured } = await src("shelf/library/captured.ts");
 
 /** A site as an import brings it: its home page's parts with the capture's behaviours attached. */
 const load = (site) => {

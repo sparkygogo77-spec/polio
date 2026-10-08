@@ -22,12 +22,12 @@
  */
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { FEATURES } from "../src/features/studio/catalog.ts";
-import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelfGroups.ts";
-import { VARIANTS, publishOf } from "../src/features/studio/shelfPlan.ts";
+import { FEATURES } from "../src/features/studio/shelf/catalog.ts";
+import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelf/shelfGroups.ts";
+import { VARIANTS, publishOf } from "../src/features/studio/shelf/shelfPlan.ts";
 import { statusOf, isExample } from "../src/features/studio/shelfFacts.ts";
-import { LIBRARY, inputsOf } from "../src/features/studio/library/works.ts";
-import { PART_KINDS } from "../src/features/studio/library/siteMotion.ts";
+import { LIBRARY, inputsOf } from "../src/features/studio/shelf/library/works.ts";
+import { PART_KINDS } from "../src/features/studio/shelf/library/siteMotion.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
 const SHOTS = ".screenshots/lane-i";

@@ -23,7 +23,7 @@
  * Pure: the tests run it as written.
  */
 import { allWorks, getWork, inputsOf, usesOf, type Work, type WorkManifest, type WorkUse } from "./works.ts";
-import { homeFor, type Home } from "../homePage.ts";
+import { homeFor, type Home } from "../../homePage.ts";
 
 export const BLOCK_START = "<!-- builder:features:start -->";
 export const BLOCK_END = "<!-- builder:features:end -->";

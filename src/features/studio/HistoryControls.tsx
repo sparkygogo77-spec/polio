@@ -18,7 +18,7 @@ import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Popover } from "@/core/ui/popover";
 import { cn } from "@/core/lib/cn";
-import { getFeature } from "./catalog";
+import { getFeature } from "./shelf";
 import { FORMAT_FIELDS } from "./format";
 import { stepNameKept, type NameHelp, type StepDoc } from "./historyNames";
 import { PROCESS } from "./threads";

@@ -34,8 +34,8 @@
 import { flushDocs, readDoc, unpackDocText } from "./docStore";
 import { base64, bytesFor, keepAll, type Picture } from "./pictures";
 import { targetTakenBy, sourceOf, useBuilds, type Project } from "@/features/builds/store";
-import { readLibrary, type LearnedLibrary } from "./library/learned";
-import { learnedNow, useLearned } from "./library/useLearned";
+import { readLibrary, type LearnedLibrary } from "./shelf";
+import { learnedNow, useLearned } from "./shelf/ui";
 
 export const BACKUP_KIND = "polio-board-backup";
 export const BACKUP_VERSION = 1;

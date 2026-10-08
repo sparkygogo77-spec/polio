@@ -17,13 +17,13 @@
 import * as React from "react";
 import { Bookmark, Check } from "lucide-react";
 import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
-import { getWork, usesOf, withWork, withoutWork } from "./library/works";
-import { effectsFor, familyOf } from "./library/partEffects";
-import { componentOf } from "./library/components";
-import { useLearned } from "./library/useLearned";
+import { getWork, usesOf, withWork, withoutWork } from "./shelf";
+import { effectsFor, familyOf } from "./shelf";
+import { componentOf } from "./shelf";
+import { useLearned } from "./shelf/ui";
 import { useSiteVersions } from "./ShelfCards";
 import { WorkFields } from "./WorkFields";
-import { CATEGORIES, getFeature } from "./catalog";
+import { CATEGORIES, getFeature } from "./shelf";
 import { partName } from "./partNames";
 import { siteShortName } from "./look";
 import { Button } from "@/core/ui/button";

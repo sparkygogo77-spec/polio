@@ -26,14 +26,14 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync } from "node:fs";
-import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/catalog.ts";
+import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/shelf/catalog.ts";
 import { FORMAT_FIELDS } from "../src/features/studio/format.ts";
-import { LIBRARY } from "../src/features/studio/library/works.ts";
+import { LIBRARY } from "../src/features/studio/shelf/library/works.ts";
 import {
   PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, STATUS_LABEL, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
 } from "../src/features/studio/shelfFacts.ts";
-import { CARRIES, SHELF_GROUPS } from "../src/features/studio/shelfGroups.ts";
-import { itemOf } from "../src/features/studio/shelfPlan.ts";
+import { CARRIES, SHELF_GROUPS } from "../src/features/studio/shelf/shelfGroups.ts";
+import { itemOf } from "../src/features/studio/shelf/shelfPlan.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -69,7 +69,7 @@ check("no abbreviation a card shows is left unexplained", loose.length === 0, lo
 const noDoes = FEATURES.filter((f) => !/^.{8,}[.!?]$/.test(doesOf(f)));
 check("6. every part has a one-line what it does", noDoes.length === 0, noDoes.map((f) => f.id).join(", ") || `${FEATURES.length} parts`);
 
-const parts = readFileSync(new URL("../src/features/studio/parts/index.ts", import.meta.url), "utf8");
+const parts = readFileSync(new URL("../src/features/studio/shelf/parts/index.ts", import.meta.url), "utf8");
 const tierC = [...parts.matchAll(/ids: \[([^\]]*)\], tier: "C"/g)].flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]));
 const missC = tierC.filter((id) => !PICTURE_ONLY.has(id));
 const extraC = [...PICTURE_ONLY].filter((id) => !tierC.includes(id));

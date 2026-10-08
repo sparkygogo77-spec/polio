@@ -30,11 +30,11 @@
  */
 import { createRequire } from "node:module";
 import { corners, isBox, isCube, kindOfSketch } from "../src/features/studio/shapeKind.ts";
-import { REST } from "../src/features/studio/parts/cubeFaces.ts";
+import { REST } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 
 /** A pose the cube rests at: the three-quarter yaw a quarter turn at a time, and one of the three rest pitches. */
 const atRest = (x, y) => [REST.x - 54, REST.x, REST.x + 90].includes(x) && ((((y - REST.y) % 90) + 90) % 90) === 0;
-import { faceItems, faceOf, facesFrom, saysCube } from "../src/features/studio/parts/cubeFaces.ts";
+import { faceItems, faceOf, facesFrom, saysCube } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 import { scaffold } from "../src/features/studio/scaffold.ts";
 
 const req = createRequire(import.meta.url);

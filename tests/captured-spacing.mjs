@@ -28,7 +28,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") }, jsx: true });
 const { Block } = await jiti.import(join(here, "..", "src", "features", "studio", "blocks.tsx"));
-const { themeFrom, resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "parts", "theme.ts"));
+const { themeFrom, resolvePalette } = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "parts", "theme.ts"));
 
 const results = [];
 const check = (name, ok, detail = "") => {

@@ -35,7 +35,7 @@
  * Pure: strings in, strings out. `tests/export-for-code.mjs` holds it.
  */
 import { KIT_FILES, KIT_RULES, KIT_VERSION } from "./kitFiles.ts";
-import { offsiteToKitLinks } from "./parts/offsite.ts";
+import { offsiteToKitLinks } from "./shelf/index.ts";
 import { colourKey } from "./send-out/index.ts";
 
 export interface KitFile { path: string; content: string; encoding?: "base64" }

@@ -137,7 +137,7 @@ check("Familiar: rolls start from a captured kit and land closer to one than Ori
   const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
   const { pickTryThese, tryable } = await jiti.import(join(here, "..", "src", "features", "studio", "tryThese.ts"));
   const { statusOf, switchOf } = await jiti.import(join(here, "..", "src", "features", "studio", "shelfFacts.ts"));
-  const { getFeature } = await jiti.import(join(here, "..", "src", "features", "studio", "catalog.ts"));
+  const { getFeature } = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "catalog.ts"));
   const pool = [...tryable().values()].flat();
   let bad = [], cats = true, sizes = true;
   for (let s = 1; s <= 40; s++) {

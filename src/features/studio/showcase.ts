@@ -10,7 +10,7 @@
  * much of the width it takes. Both are derived, so a new `f(...)` line in the
  * catalog is placed sensibly without anyone writing a rule for it.
  */
-import type { CategoryId, FeatureDef } from "./catalog";
+import type { CategoryId, FeatureDef } from "./shelf";
 
 export type Band = "top" | "upper" | "middle" | "lower" | "bottom";
 

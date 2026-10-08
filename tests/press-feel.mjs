@@ -31,9 +31,9 @@
 import http from "node:http";
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
-import { motionCss } from "../src/features/studio/parts/capturedMotion.ts";
-import { featureFiles, pageFeatureTags, usesOf } from "../src/features/studio/library/works.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
+import { motionCss } from "../src/features/studio/shelf/parts/capturedMotion.ts";
+import { featureFiles, pageFeatureTags, usesOf } from "../src/features/studio/shelf/library/works.ts";
 import { createJiti } from "jiti";
 const jiti = createJiti(import.meta.url);
 const { carryOwned } = await jiti.import("../src/features/studio/carry.ts");

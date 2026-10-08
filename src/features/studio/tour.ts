@@ -15,7 +15,7 @@
  */
 import { partList, type ListPart } from "./partList";
 import { kindOf, wordsOf } from "./partNames";
-import { hoverHost, type MotionNode } from "./parts/capturedMotion";
+import { hoverHost, type MotionNode } from "./shelf";
 
 export const MAX_STEPS = 6;
 

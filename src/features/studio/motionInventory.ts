@@ -18,8 +18,8 @@
  * the kind has one. Writing back is `motionWrite.ts`'s: each row says which
  * of the four it came from, so the change lands where the renderer reads it.
  */
-import { getFeature } from "./catalog";
-import { getWork, usesOf } from "./library/works";
+import { getFeature } from "./shelf";
+import { getWork, usesOf } from "./shelf";
 import { filled, type MotionAsset } from "./motion";
 import type { StudioNode } from "./board/store";
 import { kindOf, partName as readableName, sectionOf, type Named } from "./partNames";

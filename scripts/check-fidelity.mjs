@@ -26,7 +26,7 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 /* The sources are TypeScript with extensionless imports: jiti (already here, under Tailwind) reads them as they are. */
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const theme = await jiti.import(join(src, "parts", "theme.ts"));
+const theme = await jiti.import(join(src, "shelf", "parts", "theme.ts"));
 const fluid = await jiti.import(join(src, "fluidSite.ts"));
 
 /* Radius */

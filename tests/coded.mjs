@@ -16,7 +16,7 @@
  *   node tests/coded.mjs [url]      # default http://localhost:3000
  */
 import { CODED, SURE_ENOUGH, codedLines, isCoded, pickCoded } from "../src/features/studio/coded.ts";
-import { FEATURES } from "../src/features/studio/catalog.ts";
+import { FEATURES } from "../src/features/studio/shelf/catalog.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

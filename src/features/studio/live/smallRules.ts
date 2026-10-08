@@ -6,7 +6,7 @@
 import type { StudioNode } from "../board/store";
 import { isControl } from "../control";
 import { holds } from "../owner";
-import { plain } from "../parts/spans";
+import { plain } from "../shelf";
 import { carryOwned, type CarryNode } from "../carry";
 import { smallPlan, smallTree, type SmallDevice, type SmallPlan, type SmallRules } from "./small";
 

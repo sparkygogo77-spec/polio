@@ -7,10 +7,10 @@
 import { DEFAULT_OFFSITE } from "./offsite";
 import { hasMotion, type NodeEmbed, type NodeMotion } from "./capturedMotion";
 import type * as React from "react";
-import { frameStyle, isFrame, type PictureFrame } from "../frame";
-import { isLiving, liveStyle, type LivingPicture } from "../living";
-import type { FormatValues } from "../format";
-import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
+import { frameStyle, isFrame, type PictureFrame } from "../../frame";
+import { isLiving, liveStyle, type LivingPicture } from "../../living";
+import type { FormatValues } from "../../format";
+import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../../look";
 
 // Re-exported so the primitives can tint a role without reaching outside
 // `parts/` — see `types.ts` for why that line matters.

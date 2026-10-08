@@ -17,14 +17,14 @@ import * as React from "react";
 import { Ellipsis, Info, Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
-import { getFeature } from "./catalog";
+import { getFeature } from "./shelf";
 import { useStudio, type StudioNode } from "./board/store";
 import { PlateQuad, RailButton, SCREEN, SCREEN_FIELD, Tick } from "./PlateEditors";
 import type { Slab } from "./RingConsole";
-import { plain, reword } from "./parts/spans";
+import { plain, reword } from "./shelf";
 import { growToWords } from "./growToWords";
-import { readWords, type Reading } from "./library/read";
-import { allWorks, describeWork, getWork, inputsOf, usesOf, withInput, withoutWork, withWork } from "./library/works";
+import { readWords, type Reading } from "./shelf";
+import { allWorks, describeWork, getWork, inputsOf, usesOf, withInput, withoutWork, withWork } from "./shelf";
 
 const field = `min-h-0 w-full text-small leading-snug ${SCREEN_FIELD}`;
 /** Parts that draw no words: plain text typed on one is an instruction, not copy. */

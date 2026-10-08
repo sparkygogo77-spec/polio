@@ -7,8 +7,8 @@
  * pinned story, a physics rig. Those are listed in `described` instead, so the
  * preview says what will happen rather than pretending.
  */
-import { resolvePart } from "../parts";
-import { getFeature } from "../catalog";
+import { resolvePart } from "../shelf/ui";
+import { getFeature } from "../shelf";
 import type { StudioNode } from "../board/store";
 
 export interface Behaviours {

@@ -12,7 +12,7 @@ import { tallyColours } from "../look";
 import { PlateEditor } from "../PlateEditors";
 import { SayPlate } from "../SayBox";
 import { type Slab } from "../RingConsole";
-import { overrideTheme, resolvePalette, themeFrom } from "../parts/theme";
+import { overrideTheme, resolvePalette, themeFrom } from "../shelf/run";
 import { auraStyle, lands, parseColor, textureCss, type Palette, type RoleId, type TextureLayer } from "../look";
 import { PULL_LOCK, Pull, GREEN, CRIMSON, ANIM_SLAB, motionOptions } from "./choices";
 

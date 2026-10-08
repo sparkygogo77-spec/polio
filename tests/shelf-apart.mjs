@@ -26,7 +26,7 @@
  *   node tests/shelf-apart.mjs
  */
 import { contrast, parseColor } from "../src/features/studio/look/index.ts";
-import { CATEGORIES } from "../src/features/studio/catalog.ts";
+import { CATEGORIES } from "../src/features/studio/shelf/catalog.ts";
 import { readFileSync } from "node:fs";
 
 const results = [];

@@ -11,8 +11,8 @@ import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "../board/store";
 import { ImageWell } from "../ImageIntake";
 import { MAX_SLICE, frameSides, isFrame, newFrame, type PictureFrame } from "../frame";
-import { useLearned } from "../library/useLearned";
-import { frameComponent, savedFrames } from "../library/fromSites";
+import { useLearned } from "../shelf/ui";
+import { frameComponent, savedFrames } from "../shelf";
 
 /** A picture's own size, once the browser has opened it. */
 function sizeOf(src: string): Promise<{ w: number; h: number }> {

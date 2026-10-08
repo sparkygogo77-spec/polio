@@ -25,7 +25,7 @@
  * Pure, and tested by `tests/draw-on-captured-part.mjs`.
  */
 import type { StudioNode } from "./board/store";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 type Target = Pick<StudioNode, "featureId" | "content" | "code" | "from">;
 

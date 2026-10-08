@@ -2,7 +2,7 @@
 import * as React from "react";
 import { RotateCcw } from "lucide-react";
 import { getFeature, type FeatureDef } from "../catalog";
-import { useStudio } from "../board/store";
+import { useStudio } from "../../board/store";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 

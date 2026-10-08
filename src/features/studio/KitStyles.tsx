@@ -21,7 +21,7 @@ import { lookOfKit } from "./look/parts";
 import { lookPatch, type Facet } from "./look/parts";
 import { pasteLook } from "./look/ui";
 import { tryProps } from "./tryLook";
-import { useLearned } from "./library/useLearned";
+import { useLearned } from "./shelf/ui";
 
 /** What a kit carries onto a part: all of its look but motion, which a kit does not hold. */
 export const KIT_FACETS: Facet[] = ["fill", "outline", "shadow", "light", "corners", "font", "hover"];

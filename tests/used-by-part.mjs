@@ -17,9 +17,9 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright-core";
-import { usedByPart } from "../src/features/studio/library/usedBy.ts";
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
-import { onShelf } from "../src/features/studio/shelfPlan.ts";
+import { usedByPart } from "../src/features/studio/shelf/library/usedBy.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
+import { onShelf } from "../src/features/studio/shelf/shelfPlan.ts";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");

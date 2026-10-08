@@ -1,4 +1,4 @@
-# studio/palette
+# studio/shelf/palette
 
 The shelf under the board, split by topic. `../Palette.tsx` re-exports what it always exported, so imports from `./Palette` keep working.
 

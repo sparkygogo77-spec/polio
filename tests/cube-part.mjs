@@ -22,7 +22,7 @@
  * Runs alone: reads the three-quarter pose a released cube settles into; under load it had not come to rest.
  */
 import { createRequire } from "node:module";
-import { REST, facesFrom } from "../src/features/studio/parts/cubeFaces.ts";
+import { REST, facesFrom } from "../src/features/studio/shelf/parts/cubeFaces.ts";
 
 /** A pose the cube rests at: the three-quarter yaw a quarter turn at a time, and one of the three rest pitches. */
 const atRest = (x, y) => [REST.x - 54, REST.x, REST.x + 90].includes(x) && ((((y - REST.y) % 90) + 90) % 90) === 0;

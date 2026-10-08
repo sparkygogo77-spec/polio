@@ -22,7 +22,7 @@ import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "../staticSite";
 import { useStudio } from "../board/store";
-import { contractFiles } from "../library/contract";
+import { contractFiles } from "../shelf";
 import { polioMd, POLIO_MD } from "../polioMd";
 import { completeSite, fetchOwnFromBuilder, missingSays } from "../siteRefs";
 import { homeFor } from "../homePage";

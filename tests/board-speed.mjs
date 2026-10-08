@@ -48,7 +48,7 @@ const check = (name, ok, detail = "") => {
 {
   // Read rather than called: `parts/theme.ts` reaches `look.ts` through an
   // extensionless import, which the bundler resolves and node does not.
-  const theme = readFileSync(new URL("../src/features/studio/parts/theme.ts", import.meta.url), "utf8");
+  const theme = readFileSync(new URL("../src/features/studio/shelf/parts/theme.ts", import.meta.url), "utf8");
   const line = theme.split("\n").find((l) => l.includes("shadow:") && l.includes("return {")) ?? "";
   // Pinned to the mechanism, not to the names of the locals. These three read
   // `${near}, ${far}` and `${lit}` until the two drifted copies of the light

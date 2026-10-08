@@ -25,28 +25,28 @@
  *   · Nothing said what was already in use. A card used on the open page
  *     says so, and the line jumps to those parts.
  */
-import { useLearned } from "./library/useLearned";
-import { learnedVersions } from "./library/learned";
+import { useLearned } from "./shelf/ui";
+import { learnedVersions } from "./shelf";
 import * as React from "react";
 import { endTry, pickedPart, startTry, tryProps, type Trying } from "./tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowUpRight, Check, ChevronDown, CornerDownRight, KeyRound, MousePointerClick, Plus, StickyNote, X } from "lucide-react";
-import { getFeature, categoryOf, type FeatureDef } from "./catalog";
+import { getFeature, categoryOf, type FeatureDef } from "./shelf";
 import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { PartPreview } from "./PartPreview";
 import { MotionDemo, hasDemo } from "./MotionDemo";
 import { shapeOf } from "./showcase";
 import { planetOf } from "./planets";
 import { themeFrom } from "./blocks";
-import { resolvePalette, type Theme } from "./parts/theme";
+import { resolvePalette, type Theme } from "./shelf/run";
 import { parseColor } from "./look";
 import { paintedPalette, readableTheme } from "./shelfTheme";
-import { getWork, inputsOf, usesOf, withWork, type Work } from "./library/works";
-import { siteVersions, type SiteVersion } from "./library/siteVersions";
-import { usedByPart, type Use } from "./library/usedBy";
+import { getWork, inputsOf, usesOf, withWork, type Work } from "./shelf";
+import { siteVersions, type SiteVersion } from "./shelf";
+import { usedByPart, type Use } from "./shelf";
 import { partName } from "./partNames";
-import { VARIANTS, itemOf, publishOf } from "./shelfPlan";
-import { isWorkKey, workIdOf } from "./shelfGroups";
+import { VARIANTS, itemOf, publishOf } from "./shelf";
+import { isWorkKey, workIdOf } from "./shelf";
 import {
   NEED_LABEL, NEED_MEANS, STATUS_LABEL, STATUS_MEANS, doesOf, exampleContent, footprintOf, formatSwitchOn,
   needsOf, siteWordsOf, statusOf, switchOf, switchStatus, whereOf, type Need, type SiteWords, type Status,

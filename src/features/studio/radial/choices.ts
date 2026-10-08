@@ -1,6 +1,6 @@
 import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Paintbrush, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, SlidersHorizontal, Sparkles, SquareDashed, Sun, Tag, Trash2, Type, Wand2, Wind } from "lucide-react";
 import { type StudioNode } from "../board/store";
-import { getFeature, MOTION_OPTION_IDS } from "../catalog";
+import { getFeature, MOTION_OPTION_IDS } from "../shelf";
 import {
 BLUE_RINGS, type Pt
 } from "../menuGeometry";

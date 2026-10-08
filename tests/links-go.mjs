@@ -35,9 +35,9 @@ const check = (name, ok, detail = "") => {
 };
 
 /* 1. Every linkable part reads its link, or is declared whole. */
-const defs = readFileSync("src/features/studio/parts/index.ts", "utf8");
+const defs = readFileSync("src/features/studio/shelf/parts/index.ts", "utf8");
 const files = Object.fromEntries(["Layout", "Text", "Media", "Data", "Social", "Ai", "Interact", "Motion", "Commerce", "Cta", "Header", "Hero", "Forms", "Tabs", "Accordion", "SearchBox", "Power", "Platform", "Ops", "Behaviour", "Cube", "Mesh", "DrawnIcon", "Orb"].map((f) => {
-  try { return [f, readFileSync(`src/features/studio/parts/${f}.tsx`, "utf8")]; } catch { return [f, ""]; }
+  try { return [f, readFileSync(`src/features/studio/shelf/parts/${f}.tsx`, "utf8")]; } catch { return [f, ""]; }
 }));
 const readsLink = (component) => {
   for (const src of Object.values(files)) {

@@ -26,9 +26,9 @@ import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type Sit
 import { componentsOf, type CompNode } from "./components";
 import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
-import { getFeature } from "./catalog";
+import { getFeature } from "./shelf";
 import { Slider } from "@/core/ui/slider";
-import { FAMILY, resolvePalette } from "./parts/theme";
+import { FAMILY, resolvePalette } from "./shelf/run";
 import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";

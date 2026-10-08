@@ -6,11 +6,11 @@
  *   node scripts/shelf-inventory.mjs
  */
 import { writeFileSync } from "node:fs";
-import { CATEGORIES, FEATURES } from "../src/features/studio/catalog.ts";
-import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelfGroups.ts";
-import { REMOVED, VARIANTS, publishOf } from "../src/features/studio/shelfPlan.ts";
+import { CATEGORIES, FEATURES } from "../src/features/studio/shelf/catalog.ts";
+import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelf/shelfGroups.ts";
+import { REMOVED, VARIANTS, publishOf } from "../src/features/studio/shelf/shelfPlan.ts";
 import { STATUS_LABEL, doesOf, needsOf, statusOf, switchOf, NEED_LABEL } from "../src/features/studio/shelfFacts.ts";
-import { LIBRARY } from "../src/features/studio/library/works.ts";
+import { LIBRARY } from "../src/features/studio/shelf/library/works.ts";
 
 const byId = new Map(FEATURES.map((f) => [f.id, f]));
 const work = (k) => LIBRARY.find((w) => w.manifest.id === workIdOf(k));

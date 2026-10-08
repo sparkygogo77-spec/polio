@@ -24,7 +24,7 @@ import { cn } from "@/core/lib/cn";
 import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
-import { getFeature } from "./catalog";
+import { getFeature } from "./shelf";
 import { STEPS, type Step } from "./imageRoute";
 import { KIND_MEANS } from "./shapeKind";
 import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Reading, type Space } from "./space";

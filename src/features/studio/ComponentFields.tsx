@@ -15,7 +15,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { useStudio, type StudioNode } from "./board/store";
 import { colourOf, KIND_WORD, LAYER_WORD, recolour, type Component, type CompNode, type Slot } from "./components";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 import { ROLES } from "./look";
 
 /* `says` names the swatches for a screen reader: never just "Words", which is the words box's own name. */

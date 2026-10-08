@@ -25,9 +25,9 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
-import { LIBRARY, RUNTIME_JS, getWork, matchWorks, pageFeatures, featureFiles, scriptFile } from "../src/features/studio/library/works.ts";
-import { readWords } from "../src/features/studio/library/read.ts";
-import { decisions } from "../src/features/studio/library/badge.ts";
+import { LIBRARY, RUNTIME_JS, getWork, matchWorks, pageFeatures, featureFiles, scriptFile } from "../src/features/studio/shelf/library/works.ts";
+import { readWords } from "../src/features/studio/shelf/library/read.ts";
+import { decisions } from "../src/features/studio/shelf/library/badge.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

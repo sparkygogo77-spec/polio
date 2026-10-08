@@ -18,7 +18,7 @@ import * as React from "react";
 import { treatImage, treatmentKey } from "./look/ui";
 import { shiftHue, type Palette, type TextureLayer } from "./look";
 import { useStudio } from "./board/store";
-import { resolvePalette } from "./parts/theme";
+import { resolvePalette } from "./shelf/run";
 
 function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
   const done = React.useRef<string | null>(null);

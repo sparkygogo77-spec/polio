@@ -22,7 +22,7 @@
  * pasting and Make all like). Later modules (bring-in, ...) have `index.ts`
  * (pure) and `ui.ts` (screens and store-bound code), plus any door their README names.
  *
- * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts, src/features/studio/bring-in/index.ts, src/features/studio/bring-in/ui.ts, src/features/studio/send-out/index.ts, src/features/studio/send-out/run.ts
+ * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts, src/features/studio/bring-in/index.ts, src/features/studio/bring-in/ui.ts, src/features/studio/send-out/index.ts, src/features/studio/send-out/run.ts, src/features/studio/shelf/index.ts, src/features/studio/shelf/run.ts, src/features/studio/shelf/ui.ts, src/features/studio/shelf/screens.ts
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -36,6 +36,7 @@ const MODULES = [
   { dir: "src/features/studio/look", doors: ["index.ts", "parts.ts", "ui.ts"] },
   { dir: "src/features/studio/bring-in", doors: ["index.ts", "ui.ts"] },
   { dir: "src/features/studio/send-out", doors: ["index.ts", "run.ts"] },
+  { dir: "src/features/studio/shelf", doors: ["index.ts", "run.ts", "ui.ts", "screens.ts"] },
 ];
 
 const results = [];

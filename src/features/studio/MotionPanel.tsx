@@ -44,7 +44,7 @@ import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed } from "./motionWrite";
 import { VirtualList } from "@/core/ui/virtual-list";
 import { fit, loadImage, tweenPixels, type Fitted } from "./crateDraw";
 import { runWorks } from "./live/runWorks";
-import { AMBIENT } from "./library/behaviours";
+import { AMBIENT } from "./shelf";
 import { ImageWell } from "./ImageIntake";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";

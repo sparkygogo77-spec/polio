@@ -1,8 +1,8 @@
 "use client";
 import { uid } from "@/core/lib/ids";
-import { getFeature } from "../../catalog";
-import { emptyCube } from "../../parts/cubeFaces";
-import { plain } from "../../parts/spans";
+import { getFeature } from "../../shelf";
+import { emptyCube } from "../../shelf";
+import { plain } from "../../shelf";
 import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Slimming } from "../../reassemble";
 import { paintSays, repaintActive } from "../../repaint";
 import { twins, twinSays } from "../../twins";

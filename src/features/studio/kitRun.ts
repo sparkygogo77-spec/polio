@@ -21,7 +21,7 @@
  * goes back into. `fetch` is passed in, so the tests can stand a GitHub in.
  */
 import { hooksIn } from "./sourceHooks.ts";
-import type { KitLinks } from "./parts/offsite.ts";
+import type { KitLinks } from "./shelf/index.ts";
 import type { StyleSource } from "./send-out/index.ts";
 
 const API = "https://api.github.com";

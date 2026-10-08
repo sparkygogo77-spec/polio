@@ -21,7 +21,7 @@
  */
 import { CALL_DEADLINE_MS, heldEffort } from "./effort";
 import type { ToastInput } from "@/core/types";
-import { FEATURES, getFeature } from "./catalog";
+import { FEATURES, getFeature } from "./shelf";
 import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
@@ -40,7 +40,7 @@ import { tidySteps } from "./space";
 import { oddness, stillAsks, withAnswer } from "./oddness";
 import type { Step } from "./imageRoute";
 import { play } from "@/core/audio/engine";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
 const bare = (dataUrl: string | null | undefined): string | null => {

@@ -46,13 +46,13 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
-const { attachCaptured } = await src("library/captured.ts");
-const { copyMotion } = await src("parts/capturedMotion.ts");
+const { attachCaptured } = await src("shelf/library/captured.ts");
+const { copyMotion } = await src("shelf/parts/capturedMotion.ts");
 const { tourChoices, markUpdate, newTour, siteFaces } = await src("tour.ts");
-const { getFeature } = await src("catalog.ts");
-const { getWork, LIBRARY } = await src("library/works.ts");
-const { PUBLISH } = await src("shelfPlan.ts");
-const { SHELF_GROUPS } = await src("shelfGroups.ts");
+const { getFeature } = await src("shelf/catalog.ts");
+const { getWork, LIBRARY } = await src("shelf/library/works.ts");
+const { PUBLISH } = await src("shelf/shelfPlan.ts");
+const { SHELF_GROUPS } = await src("shelf/shelfGroups.ts");
 
 /* ------------------------------------------------------------ the site, as an import brings it */
 const ADDRESS = "AezYBzTYAUw5gFN8vyzt6H9hL7gMvMv14n4VbYrqpump";

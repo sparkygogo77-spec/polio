@@ -17,7 +17,7 @@
  * is copied onto every shape drawn with it, so nothing depends on the board
  * it came from staying open.
  */
-import { useLearned } from "./library/useLearned";
+import { useLearned } from "./shelf/ui";
 import * as React from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -30,7 +30,7 @@ import { useStudio, useSteady, type StudioNode } from "./board/store";
 import { kitsFromDoc, motionsFromDoc, PLAIN_BAR, siteBar, type BoardMotion, type KitDoc, type StyleKit } from "./look";
 import { WornShape } from "./WornShape";
 import { colourChoices, combine, piecesOf, toBox, wordsColour, type Worn } from "./wornShape";
-import { DEFAULT_OFFSITE, explainLink, offsiteRules } from "./parts/offsite";
+import { DEFAULT_OFFSITE, explainLink, offsiteRules } from "./shelf";
 import { editablesOf, WORN_WHATS, writeField } from "./partOptions";
 import { openSection } from "./PartTreePanel";
 import { put } from "./pictures";

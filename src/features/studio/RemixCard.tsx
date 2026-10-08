@@ -29,14 +29,14 @@ import { lookOf, lookPatch } from "./look/parts";
 import { kitsFromDoc } from "./look";
 import { kitDocOf } from "./DrawKits";
 import { componentOf, fontsFor, remixParts, remixPatch, restyleFor, siteLookOf, type SiteLook } from "./remix";
-import { useLearned } from "./library/useLearned";
-import { learnedVersions, type LearnedVersion } from "./library/learned";
-import type { SavedComponent } from "./library/components";
+import { useLearned } from "./shelf/ui";
+import { learnedVersions, type LearnedVersion } from "./shelf";
+import type { SavedComponent } from "./shelf";
 import { lookOfKit } from "./look/parts";
 import { KIT_FACETS, KitSwatch } from "./KitStyles";
 import { putSiteVersion } from "./ShelfCards";
 import type { StyleKit } from "./look";
-import { visibleMiddle } from "./Palette";
+import { visibleMiddle } from "./shelf/screens";
 import { wordsOf } from "./partNames";
 
 let open = false;

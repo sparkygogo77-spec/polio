@@ -63,7 +63,7 @@ check("a site with nothing missing adds nothing and warns of nothing", clean.add
 
 /* The Builder's own sources that publish these paths: each one the copy has to cover. */
 const { readFileSync, existsSync } = await import("node:fs");
-for (const [file, re] of [["src/features/studio/parts/theme.ts", /"\/placeholder\/scene\.svg"/], ["src/features/studio/nebulaTile.ts", /"\/construct\/face-green\.png"/], ["src/core/ui/molten.css", /url\("\/construct\/rim-green\.png"\)/]]) {
+for (const [file, re] of [["src/features/studio/shelf/parts/theme.ts", /"\/placeholder\/scene\.svg"/], ["src/features/studio/nebulaTile.ts", /"\/construct\/face-green\.png"/], ["src/core/ui/molten.css", /url\("\/construct\/rim-green\.png"\)/]]) {
   const m = readFileSync(file, "utf8").match(re);
   const path = m ? m[0].replace(/^url\(|\)$|"/g, "").replace(/^\//, "") : null;
   check(`${file}'s ${path} is a file the Builder serves, so it can be copied in`, !!path && existsSync(`public/${path}`), path ?? "not found");

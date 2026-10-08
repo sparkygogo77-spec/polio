@@ -23,15 +23,15 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CATEGORIES, FEATURES } from "../src/features/studio/catalog.ts";
-import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelfGroups.ts";
-import { PUBLISH, REMOVED, VARIANTS, VARIANT_OF, itemOf, onShelf, placedWorks, publishOf } from "../src/features/studio/shelfPlan.ts";
+import { CATEGORIES, FEATURES } from "../src/features/studio/shelf/catalog.ts";
+import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelf/shelfGroups.ts";
+import { PUBLISH, REMOVED, VARIANTS, VARIANT_OF, itemOf, onShelf, placedWorks, publishOf } from "../src/features/studio/shelf/shelfPlan.ts";
 import { statusOf, switchOf, needsOf } from "../src/features/studio/shelfFacts.ts";
-import { LIBRARY } from "../src/features/studio/library/works.ts";
-import { PART_KINDS, PART_KEYFRAMES } from "../src/features/studio/library/siteMotion.ts";
+import { LIBRARY } from "../src/features/studio/shelf/library/works.ts";
+import { PART_KINDS, PART_KEYFRAMES } from "../src/features/studio/shelf/library/siteMotion.ts";
 import { editablesOf, readField, writeField } from "../src/features/studio/partOptions.ts";
-import { attachCaptured } from "../src/features/studio/library/captured.ts";
-import { siteVersions } from "../src/features/studio/library/siteVersions.ts";
+import { attachCaptured } from "../src/features/studio/shelf/library/captured.ts";
+import { siteVersions } from "../src/features/studio/shelf/library/siteVersions.ts";
 
 const SINK = process.argv[2] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
 const results = [];
@@ -95,7 +95,7 @@ const noScript = runners.filter((k) => {
   const p = publishOf(k);
   if (p.by === "parts") return !PART_KINDS[k];
   if (p.by === "work") return !LIBRARY.some((w) => w.manifest.id === workIdOf(k));
-  if (p.by === "keyframes") return !readFileSync("src/features/studio/parts/Text.tsx", "utf8").match(new RegExp(Object.keys(PART_KEYFRAMES).join("|")));
+  if (p.by === "keyframes") return !readFileSync("src/features/studio/shelf/parts/Text.tsx", "utf8").match(new RegExp(Object.keys(PART_KEYFRAMES).join("|")));
   if (p.by === "site-motion") return !["scroll-progress", "back-to-top", "reveal-on-scroll", "parallax", "smooth-scroll", "scroll-snap", "page-load", "cursor-effects", "hover-tilt"].includes(k);
   return false;
 });

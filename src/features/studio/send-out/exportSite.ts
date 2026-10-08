@@ -58,27 +58,27 @@
  * arrived.
  */
 import * as React from "react";
-import { keyframesCss, motionCss, pathCodes } from "../parts/capturedMotion";
+import { keyframesCss, motionCss, pathCodes } from "../shelf";
 import { shareRules } from "../cssMerge";
 import { carryOwned, pointing } from "../carry";
 import { LiveSite, resolvePageLink } from "../live/LiveSite";
 import { useStudio, type StudioNode, type StudioPage } from "../board/store";
-import type { NodeLink } from "../parts/types";
+import type { NodeLink } from "../shelf";
 import { homeFor, type Home } from "../homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "../staticSite";
 import { TABLET_MAX } from "../live/small";
 import { fontFaceCss } from "../look";
 import { ROLES, type RoleId } from "../look";
-import { resolvePalette } from "../parts/theme";
+import { resolvePalette } from "../shelf/run";
 import { base64, bytesFor, type Picture } from "../pictures";
 import { siteLogo } from "../siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "../siteHead";
 import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, pageUnits, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "../fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "../layerUnits";
-import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "../parts/offsite";
-import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "../library/works";
-import { PARTS_JS, SITE_MOTION_JS, pageTransitionCss, partKeyframesFor, partsTags, siteMotionTags } from "../library/siteMotion";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "../shelf";
+import { featureFiles, onUsesOf, pageFeatureTags, type WorkUse } from "../shelf";
+import { PARTS_JS, SITE_MOTION_JS, pageTransitionCss, partKeyframesFor, partsTags, siteMotionTags } from "../shelf";
 import { deriveBehaviours, isBehaviour as isBehaviourPart } from "../live/behaviours";
 import { CRATE_CSS, crateOn, setCrateHref } from "../crateLayer";
 import { cellFor, crateSheet, type CrateSheet } from "../crateDraw";

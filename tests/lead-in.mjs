@@ -27,7 +27,7 @@ const check = (name, ok, detail = "") => {
 };
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const L = await jiti.import(join(here, "..", "src", "features", "studio", "parts", "leadIn.ts"));
+const L = await jiti.import(join(here, "..", "src", "features", "studio", "shelf", "parts", "leadIn.ts"));
 
 /* The rule, on a made row */
 const row = { id: "row", x: 100, y: 100, w: 300, h: 50, content: "Words", from: { selector: "main > div" }, layout: { display: "flex", direction: "row", gap: 10 }, pad: { left: 14 } };

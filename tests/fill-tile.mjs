@@ -36,7 +36,7 @@ registerHooks({
   },
 });
 
-const { FILL_TILE, fillLayers, themeFrom } = await import("../src/features/studio/parts/theme.ts");
+const { FILL_TILE, fillLayers, themeFrom } = await import("../src/features/studio/shelf/parts/theme.ts");
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -114,7 +114,7 @@ check("the Look panel's swatch reads the size off the layer", /layers\.map\(\(l\
 const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the board's page frame no longer hardcodes a grid tile", !/backgroundSize: "24px 24px"/.test(canvas));
 
-const theme = readFileSync("src/features/studio/parts/theme.ts", "utf8");
+const theme = readFileSync("src/features/studio/shelf/parts/theme.ts", "utf8");
 check("the tile has one home", (theme.match(/FILL_TILE/g) ?? []).length >= 2);
 
 /* ------------------------------------------------------------------ */

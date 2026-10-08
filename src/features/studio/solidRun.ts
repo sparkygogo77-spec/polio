@@ -32,8 +32,8 @@
  */
 import { noRendererKeyMessage, rendererHeader, rendererReady } from "./agent";
 import { saysSolid } from "./imageRoute";
-import { cubeDims } from "./parts/cubePose";
-import { CUBE_SIDES, REST, type CubeFace } from "./parts/cubeFaces";
+import { cubeDims } from "./shelf";
+import { CUBE_SIDES, REST, type CubeFace } from "./shelf";
 import { SOLID_WORDS, solidModel, VIEWS, type View } from "./solidRoute";
 import { useStudio, type StudioNode } from "./board/store";
 

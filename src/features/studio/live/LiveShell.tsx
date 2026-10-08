@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import type { Behaviours } from "./behaviours";
-import { tint } from "../parts/theme";
+import { tint } from "../shelf/run";
 
 interface Props {
   behaviours: Behaviours;

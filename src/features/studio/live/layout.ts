@@ -9,8 +9,8 @@
  * knows what the arithmetic must not: which parts are behaviours and take no
  * room, and which keep their aspect when narrowed.
  */
-import { getFeature } from "../catalog";
-import { resolvePart } from "../parts";
+import { getFeature } from "../shelf";
+import { resolvePart } from "../shelf/ui";
 import { FULL_BLEED } from "../reshape";
 import type { StudioNode } from "../board/store";
 import { reflow, type Placed } from "./reflow";

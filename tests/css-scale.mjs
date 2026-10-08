@@ -35,7 +35,7 @@ const check = (name, ok, detail = "") => {
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const { mergeRules, shareRules } = await jiti.import(join(src, "cssMerge.ts"));
-const { motionCss, inside, insideIndex, pathCodes } = await jiti.import(join(src, "parts", "capturedMotion.ts"));
+const { motionCss, inside, insideIndex, pathCodes } = await jiti.import(join(src, "shelf", "parts", "capturedMotion.ts"));
 const { carryOwned } = await jiti.import(join(src, "carry.ts"));
 
 /* ---------- the merge ---------- */

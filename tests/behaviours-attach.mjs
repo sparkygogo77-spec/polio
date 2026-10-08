@@ -34,7 +34,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { takeDoc } from "../src/features/studio/docTake.ts";
-import { usesOf, pageFeatures, getWork, inputsOf, withWork } from "../src/features/studio/library/works.ts";
+import { usesOf, pageFeatures, getWork, inputsOf, withWork } from "../src/features/studio/shelf/library/works.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SINK = process.argv[2] ?? process.env.SINK ?? join(here, "..", "capture", "versions", "sink-0ee06fa");

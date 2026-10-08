@@ -24,7 +24,7 @@ import * as React from "react";
 import { ChevronRight, RotateCcw, Search, Undo2 } from "lucide-react";
 import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "./format";
 import { useStudio } from "./board/store";
-import { FAMILY, resolvePalette } from "./parts/theme";
+import { FAMILY, resolvePalette } from "./shelf/run";
 import { isCaptured, readSiteFormat, type Reading } from "./siteFormat";
 import { fontsInPageOrder, type FaceTo } from "./look";
 import { formatSwitchKeys, formatSwitches, formatSwitchOn } from "./shelfFacts";

@@ -41,7 +41,7 @@ import { homeFor, type Home } from "./homePage";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { unbuiltSections } from "./spec";
 import { missingCopy } from "./promised";
-import { NOT_WRITTEN } from "./parts/sample";
+import { NOT_WRITTEN } from "./shelf";
 import { namedPictures } from "./siteHead";
 
 export interface SiteFile {

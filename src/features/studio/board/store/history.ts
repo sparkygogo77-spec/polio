@@ -1,7 +1,7 @@
 "use client";
 import { boardShows, type ScreenRead } from "../../states";
 import { readStepKey, stateFrames, stepKey } from "../../states";
-import { setBrought } from "../../catalog";
+import { setBrought } from "../../shelf";
 import { Boxes } from "lucide-react";
 import { formatDefaults } from "../../format";
 import { emptyLook } from "../../look";

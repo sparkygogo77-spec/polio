@@ -12,7 +12,7 @@ import type { SiteTheme } from "../../siteTheme";
 import { type TryItem } from "../../starterPage";
 import type { DrawnKind, DrawnRole } from "../../shapeKind";
 import type { DrawKind } from "../../drawKinds";
-import { type CubeFace, type CubeSide } from "../../parts/cubeFaces";
+import { type CubeFace, type CubeSide } from "../../shelf";
 import type { Picture } from "../../pictures";
 import { type Thread } from "../../threads";
 import { type DrawJob } from "../../queue";

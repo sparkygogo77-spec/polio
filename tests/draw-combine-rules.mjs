@@ -22,7 +22,7 @@
  *   node --experimental-strip-types tests/draw-combine-rules.mjs
  */
 import { combine, guideLength, insideOutline, lineFromStroke, pathWordsSize, piecesOf, wornPath, wordsGuide } from "../src/features/studio/wornShape.ts";
-import { DEFAULT_OFFSITE, explainLink, linkAllowed, offsiteRules } from "../src/features/studio/parts/offsite.ts";
+import { DEFAULT_OFFSITE, explainLink, linkAllowed, offsiteRules } from "../src/features/studio/shelf/parts/offsite.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

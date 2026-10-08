@@ -47,7 +47,7 @@ import { isBox } from "./shapeKind";
 import { changesThePart } from "./drawTarget";
 import { pictureOf } from "./reshapeRun";
 import { useStudio, type StudioNode } from "./board/store";
-import { plain } from "./parts/spans";
+import { plain } from "./shelf";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;

@@ -26,7 +26,7 @@ import { roleOf } from "./look";
 import { kindKey } from "./partKind";
 import { lookOfKit } from "./look/parts";
 import { FACETS, lookOf, lookPatch, type Facet, type PartLook } from "./look/parts";
-import { membersOf } from "./library/components";
+import { membersOf } from "./shelf";
 
 /** Where a remixed part came from, the look it wore there, and whether it keeps it. */
 export interface Remixed {

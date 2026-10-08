@@ -19,7 +19,7 @@
  */
 import type { NodeLink } from "../parts/types.ts";
 import { describeWork, inputsOf, matchWorks, type WorkManifest, type WorkUse } from "./works.ts";
-import { homeOf } from "../homePage.ts";
+import { homeOf } from "../../homePage.ts";
 
 export interface ReadContext {
   pages: { id: string; name: string; path?: string }[];

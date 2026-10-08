@@ -17,7 +17,7 @@ import { Segmented } from "@/core/ui/segmented";
 import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useStudio, type StudioNode } from "./board/store";
-import { getWork, inputsOf, usesOf, withInput, withoutWork, withSwitch, type WorkInput } from "./library/works";
+import { getWork, inputsOf, usesOf, withInput, withoutWork, withSwitch, type WorkInput } from "./shelf";
 
 export function WorkFields({ node, pick, title = "Working" }: { node: StudioNode; pick?: (id: string) => boolean; title?: string }) {
   const uses = usesOf(node.work).filter((u) => getWork(u.id) && (!pick || pick(u.id)));

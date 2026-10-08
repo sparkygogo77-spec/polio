@@ -15,8 +15,8 @@
  * from a site teaches nothing and changes nothing.
  */
 import { create } from "zustand";
-import { readDoc, writeDoc } from "../docStore";
-import { useStudio } from "../board/store";
+import { readDoc, writeDoc } from "../../docStore";
+import { useStudio } from "../../board/store";
 import type { SavedComponent } from "./components";
 import { sitePanels, withSitePanels } from "./fromSites";
 import { emptyLibrary, learnFromBoard, mergeLibraries, readLibrary, withComponent, withoutComponent, withSite, withoutSite, type LearnedLibrary, type LearnedSite } from "./learned";

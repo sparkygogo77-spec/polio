@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
-import { MERGED_FILES, mergeBlock } from "@/features/studio/library/contract";
+import { MERGED_FILES, mergeBlock } from "@/features/studio/shelf";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "./capture";
 
 /**
