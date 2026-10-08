@@ -68,7 +68,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { makeSolid } from "../solidRun";
 import { lookOf } from "../look/parts";
-import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../look/parts";
+import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../look/ui";
 import { openRemix } from "../RemixCard";
 import { hasStates } from "../states/ui";
 import { openPanelsPage, panelOf } from "../states/ui";

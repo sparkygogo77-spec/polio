@@ -18,7 +18,8 @@
  * `store.ts` (the studio store), `ui.ts` (the board's screens) and `reads.ts`
  * (what the board reads off states, for the states module). The look module
  * has three: `index.ts` (pure looks maths, site colours, kits, fonts),
- * `parts.ts` (part looks, store-bound) and `ui.ts` (the Look panel).
+ * `parts.ts` (part looks, no store hooks) and `ui.ts` (the Look panel,
+ * pasting and Make all like).
  *
  * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts
  */

@@ -10,10 +10,11 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
 
 - `index.ts`: the pure looks. No React, no store, every import ends in `.ts`,
   so node tests (and plain `.ts` files like `styleLayer.ts`) load it directly.
-- `parts.ts`: part looks that need the store (`lookOf`, `lookPatch`,
-  `useMakeAll`, `pasteLook`, `lookOfKit`). Note `index.ts` has its own
+- `parts.ts`: one part's look (`lookOf`, `lookPatch`, `FACETS`) and a kit as a
+  part look (`lookOfKit`). No store hooks, so jiti tests load it. Note `index.ts` has its own
   `lookOf` from `styleKits.ts`: the kit look of a captured node.
-- `ui.ts`: the screens, the Look panel and picture-to-texture.
+- `ui.ts`: the screens (the Look panel, picture-to-texture) and the store
+  hooks for pasting a look and Make all like (`pasteLook`, `useMakeAll`).
 
 All are named re-exports, not `export *`, so a name is still there when an
 import cycle loads a door before the file behind it.

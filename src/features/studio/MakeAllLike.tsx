@@ -20,7 +20,7 @@ import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./board/st
 import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./look/parts";
 import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";
-import { makeAllLike, makeAllReach, useMakeAll } from "./look/parts";
+import { makeAllLike, makeAllReach, useMakeAll } from "./look/ui";
 import { pointAt } from "./SiteColours";
 
 export function MakeAllLike({ node }: { node: StudioNode }) {

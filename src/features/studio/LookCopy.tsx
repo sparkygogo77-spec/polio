@@ -17,7 +17,7 @@ import { play } from "@/core/audio/engine";
 import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { FACET_WORDS, lookDiffers, lookHas, lookOf, lookPatch } from "./look/parts";
 import { tryProps } from "./tryLook";
-import { pasteLook, useLookClip } from "./look/parts";
+import { pasteLook, useLookClip } from "./look/ui";
 
 export function LookCopy({ node, targets }: { node: StudioNode | null; targets: string[] }) {
   const look = useLookClip((s) => s.look);

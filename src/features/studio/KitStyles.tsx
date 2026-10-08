@@ -19,7 +19,7 @@ import { roleOf, type KitNode, type StyleKit } from "./look";
 import { useBoardKits } from "./DrawKits";
 import { lookOfKit } from "./look/parts";
 import { lookPatch, type Facet } from "./look/parts";
-import { pasteLook } from "./look/parts";
+import { pasteLook } from "./look/ui";
 import { tryProps } from "./tryLook";
 import { useLearned } from "./library/useLearned";
 
