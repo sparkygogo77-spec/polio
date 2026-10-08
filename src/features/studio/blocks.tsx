@@ -11,6 +11,7 @@
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTour, type Theme } from "./parts";
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./parts/capturedMotion";
+import { livingLayered } from "./living";
 import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
@@ -323,7 +324,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
         {drawn}
       </div>
       </StillCut>

@@ -43,6 +43,7 @@ import { VERSION_ONLY, GLYPHS, OptionRange, OptionSet, WordsField, PictureField,
 import { PageSummary, CodeLink, CodeView } from "./codeView";
 import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { FrameField } from "./frameField";
+import { LivingField } from "./livingField";
 import { Faces, Solid, LinkField } from "./solid";
 import { PartSamples } from "../StatesTimeline";
 
@@ -607,6 +608,7 @@ export function Inspector() {
         <PanelSection id="motion" title="Motion" icon={<Play />} note={node.worn?.motion?.name ?? (effectsOn ? `${effectsOn} ${effectsOn === 1 ? "effect" : "effects"} on` : undefined)}>
           {node.worn ? <WornMotion node={node} /> : <PartMotions node={node} />}
           <PartEffects node={node} kind={kind} nodes={nodes} />
+          {node.worn ? null : <LivingField node={node} />}
         </PanelSection>
 
         {/* CODE, one line until opened: what the page's scripts do with it, and asking the code chat. */}

@@ -8,6 +8,7 @@ import { DEFAULT_OFFSITE } from "./offsite";
 import { hasMotion, type NodeEmbed, type NodeMotion } from "./capturedMotion";
 import type * as React from "react";
 import { frameStyle, isFrame, type PictureFrame } from "../frame";
+import { isLiving, liveStyle, type LivingPicture } from "../living";
 import type { FormatValues } from "../format";
 import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
 
@@ -273,6 +274,8 @@ export interface NodeArt {
   turnsWith?: { selector: string; own?: string; origin?: string };
   /** A picture cut in nine and worn as its frame (`frame.ts`): corners as drawn, edges stretched to any size. */
   frame?: PictureFrame;
+  /** It moves with no prompt: drift, shimmer, draw on and the rest (`living.ts`). */
+  live?: LivingPicture;
 }
 /** The four, as a node carries them. */
 export interface NodeBox {
@@ -573,6 +576,13 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (a.paintOrder) s.paintOrder = a.paintOrder;
     /* A frame from a picture: its border-image replaces the edge, which a `border` shorthand would reset. */
     if (isFrame(a.frame)) { delete s.border; Object.assign(s, frameStyle(a.frame)); }
+    /* A living picture: it moves on the board as on the site (`living.ts`), after any animation the page gave it. */
+    if (isLiving(a.live)) {
+      const live = liveStyle(a.live);
+      const had = (s as Record<string, string>).animation;
+      if (had && had !== "none") { live.animation = `${had}, ${live.animation}`; if (live.animationTimeline) live.animationTimeline = `auto, ${live.animationTimeline}`; }
+      Object.assign(s, live);
+    }
   }
   const x = n.text;
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
