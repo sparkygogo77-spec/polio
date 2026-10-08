@@ -276,6 +276,29 @@ export function clampMove(nodes: readonly FrameNode[], ids: readonly string[], o
   return { dx: Math.min(Math.max(dx, lox), Math.max(lox, hix)), dy: Math.min(Math.max(dy, loy), Math.max(loy, hiy)) };
 }
 
+/**
+ * A face that fills its frame cannot move inside it, so a drag on it moves the frame.
+ *
+ * J (2026-10-08): "some items especially on PST are totally undraggable". A
+ * face shown on the board (the TV's idle face, a panel's state) is as big as
+ * the box round it, so `clampMove` left it no room and the drag went nowhere.
+ * Now a picked face with no room either way is swapped for its frame, which
+ * takes every face with it (`frameRiders`); a face with room still moves in it.
+ */
+export function liftToFrame(nodes: readonly FrameNode[], ids: readonly string[], slack = 2): string[] {
+  const r = stateFrames(nodes);
+  if (!r.frameOf.size) return [...ids];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const out: string[] = [];
+  for (const id of ids) {
+    const f = r.frameOf.get(id), n = byId.get(id), fr = f ? byId.get(f) : undefined;
+    const stuck = !!n && !!fr && !ids.includes(fr.id) && !fr.locked && n.w >= fr.w - slack && n.h >= fr.h - slack;
+    const to = stuck ? fr!.id : id;
+    if (!out.includes(to)) out.push(to);
+  }
+  return out;
+}
+
 /** States whose box has left its frame: what a check fails on. */
 export function spills(nodes: readonly FrameNode[], slack = 1): { part: string; frame: string }[] {
   const r = stateFrames(nodes);
