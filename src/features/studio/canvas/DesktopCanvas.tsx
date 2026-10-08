@@ -1,6 +1,6 @@
 "use client";
 import { partUnder } from "../boardStates";
-import { clampMove,frameRiders,inside,keepInFrame,liftToFrame,stateFrames } from "../stateFrames";
+import { clampMove,frameRiders,inside,keepInFrame,stateFrames } from "../stateFrames";
 import * as React from "react";
 import { tryOn,useTryLook } from "../tryLook";
 import { useShallow } from "zustand/react/shallow";
@@ -31,11 +31,10 @@ import { isBoundary,spaceAtLine } from "../space";
 import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN,holdSaves,useSteady } from "../store";
 import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
-import { ownsOthers } from "../holds";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
-import { ownerOf,parentOf,ridersOf,wordsIn,wordsOf } from "../owner";
-import { carriedBy,componentsOf,GRABBED,rereadComponents,resizedWith } from "../components";
+import { parentOf,ridersOf,wordsIn } from "../owner";
+import { rereadComponents,resizedWith } from "../components";
 import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
 activePage,frameHeight,frameTopReach,groupBounds,pageGroups,pageNodes,pageShapes,pageSpaces,shapeBounds,
@@ -47,17 +46,18 @@ import { haptic } from "@/core/feedback/haptics";
 import { openRadial,pageSpot } from "../RadialMenu";
 import { decisions } from "../library/badge";
 import { useSettleToWords } from "../textFit";
-import { isControl } from "../control";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../library/works";
 import { AMBIENT } from "../library/behaviours";
 import { runWorks } from "../live/runWorks";
 
-import { shownOnBoard,placedOnBoard,boxOf,HANDS_ON,DOUBLE_MS,DOUBLE_SLOP,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
+import { shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
 import { isChain,reasonOn,ShapeView,GROUP_HANDLES,HANDLE_CURSOR } from "./ShapeView";
 import { NodeView } from "./NodeView";
+import { afterWordsDeclined, pressRule } from "../board/press";
+import { groupDrag, moveDrag, readPress, resizeDrag } from "../board/pressRead";
 
 /**
  * The board: the desktop page with its boxes, or the page on a tablet or a
@@ -983,309 +983,123 @@ export function DesktopCanvas() {
   }, []);
 
   /* ------------------------------------------------------------- pointer */
+  /* What a press starts is decided by the rules table (`board/press.ts`); here it is carried out. */
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button === 2) return;
     const p = toCanvas(e.clientX, e.clientY);
-    const target = e.target as HTMLElement;
-    const nodeEl = target.closest?.("[data-node-id]") as HTMLElement | null;
-    const handleEl = target.closest?.("[data-resize]") as HTMLElement | null;
     const store = useStudio.getState();
     const capture = () => (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
-    /* The cursor pans, so there is no pan tool.
-     *
-     * Which drag you get is decided by what is under the hand, not by a mode
-     * chosen in the bar: the bare ground outside the page pushes the view,
-     * a part moves, and empty space *inside* the page still draws a marquee.
-     * The nebula is the ground you push; the page is the surface you select
-     * on. Alt-drag and the middle button still pan from anywhere, including
-     * over the page, for the times the rule is not what you wanted.
-     *
-     * A wire or a drawing is on the page too, even though it is a sibling of
-     * `[data-frame]` rather than a child of it — same reason parts are:
-     * `closest("[data-frame]")` alone would call a press on one "bare
-     * ground" and start a pan instead of ever reaching the shape it landed
-     * on. */
-    /* A locked group's own handle: the group is resized as one thing (`groupScale.ts`). */
-    const groupHandle = target.closest?.("[data-group-resize]") as HTMLElement | null;
-    if (groupHandle && tool === "select" && e.button === 0) {
-      const gid = groupHandle.dataset.groupId ?? "";
-      const b = groupBounds(store.nodes.filter((n) => n.pageId === store.activePageId), gid);
-      if (b) {
-        capture();
-        setCeiling(null);
-        setDrag({
-          kind: "group", startX: p.x, startY: p.y, groupId: gid, handle: groupHandle.dataset.groupResize as Handle,
-          box: { x: b.x, y: b.y, w: b.w, h: b.h },
-          held: b.members.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, size: typeof n.font?.size === "number" ? n.font.size : null })),
-          ids: b.members.map((n) => n.id),
-        });
-      }
-      return;
+    const read = readPress(e, p, tool, store, pressed.current);
+    const { hitId, id, node, ids } = read;
+    let rule = pressRule(read.facts);
+    if (rule === "open-words") {
+      pressed.current = null;
+      /* The press's own default would move the caret back off the words it just opened. */
+      if (openWords(hitId!)) { e.preventDefault(); play("select"); return; }
+      rule = pressRule(afterWordsDeclined(read.facts));
     }
-
-    const onBareGround = tool === "select" && !nodeEl && !target.closest?.("[data-frame]") && !target.closest?.("[data-shape-id]");
-    if (e.button === 1 || (tool === "select" && e.altKey) || onBareGround) {
-      // Pushing the ground used to be a marquee from nothing, which cleared
-      // the selection the moment it started. It is a pan now, but a press on
-      // bare ground still means "away from what I had," whether or not the
-      // hand goes on to move — so the clear stays, and only here: an
-      // alt-drag or a middle-button pan is a deliberate override starting
-      // from anywhere, including over a part you mean to keep selected.
-      if (onBareGround && !e.shiftKey) store.clearSelection();
-      capture();
-      setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan, startTop: paneTop() });
-      return;
-    }
-
-    // A resize handle only wins while you are actually pointing at things.
-    // With the pen in hand you are drawing, and a handle that happens to be
-    // under the first pixel of the stroke is not an instruction.
-    if (handleEl && nodeEl?.dataset.nodeId && tool === "select") {
-      const n = store.nodes.find((x) => x.id === nodeEl.dataset.nodeId);
-      if (n) {
-        capture();
-        /* A component is resized whole: every layer keeps its place and size on it (`components.ts#resizedWith`). */
-        const st = useStudio.getState();
-        const own = carriedBy(componentsOf(st.nodes, resolvePalette(st.format, st.look)), n.id).filter((id) => id !== n.id);
-        /* A frame's states keep their place and size on it, as a component's layers do (`stateFrames.ts`). */
-        const layers = [...own, ...frameRiders(st.nodes, [n.id, ...own])];
-        const origin: NonNullable<Drag["origin"]> = { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } };
-        for (const m of st.nodes) if (layers.includes(m.id) && !m.locked) origin[m.id] = { x: m.x, y: m.y, w: m.w, h: m.h };
-        setDrag({ kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle: handleEl.dataset.resize as Handle, origin, riders: layers });
-      }
-      return;
-    }
-
-    if (tool === "select") {
-      if (nodeEl?.dataset.nodeId) {
-        /* What the hand is on, and what a press on it picks (see below). */
-        const hitId = nodeEl.dataset.nodeId;
-        const hit = store.nodes.find((n) => n.id === hitId);
-        {
-          const prior = pressed.current;
-          const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
-          /*
-           * TWO PRESSES ON WORDS OPEN THE WORDS, ON THE CANVAS.
-           *
-           * The second press goes into the words that were pressed, even
-           * when the first press picked the button that owns them: typed
-           * where they are drawn (`WordsInPlace.tsx`), or in the panel's
-           * WORDS box where they are not drawn as one piece of text. A solid
-           * still opens for turning on its own second press, below.
-           */
-          /* A part that points somewhere goes there on two presses (below,
-             `tests/press-in-builder.mjs`): its words are Enter away. */
-          /* TWO PRESSES ON A PART THAT HOLDS OTHERS GO IN: the smallest part under the hand, inside it, even one it covers (`boardStates.ts#partUnder`). Escape climbs back out. */
-          if (twice && hit && !e.shiftKey && !HANDS_ON.has(hit.featureId) && !isControl(hit) && ownsOthers(store.nodes, hit)) {
-            const st = useStudio.getState();
-            const places = placedOnBoard(st);
-            const inner = partUnder(st.nodes, hit, p, shownOnBoard(st), (n) => places.get(n.id));
-            if (inner) {
-              pressed.current = null;
-              store.setSelection([inner.id]);
-              store.want({ panel: "inspector", id: inner.id });
-              play("select");
-              e.preventDefault();
-              return;
-            }
-          }
-          const goes = !!hit?.link && isLinkable(hit.featureId);
-          if (twice && hit && !goes && !e.shiftKey && !HANDS_ON.has(hit.featureId) && (wordsOf(hit) || (hit.id === store.selection[0] && store.selection.length === 1 && getFeature(hit.featureId)?.content))) {
-            pressed.current = null;
-            const opened = openWords(hitId);
-            /* The press's own default would move the caret back off the words it just opened. */
-            if (opened) { e.preventDefault(); play("select"); return; }
-          }
-        }
-        /*
-         * ONE PRESS PICKS THE CONTROL THAT OWNS WHAT WAS PRESSED.
-         *
-         * A button on a captured page is the button and its words, two parts,
-         * and the words are on top: a press on BUY picked the words and a
-         * drag slid them off their button. So a press on a part inside a
-         * button, a link or a card picks that button, link or card
-         * (`owner.ts`), and a drag moves it with everything it holds. The
-         * words are one more press away, or Enter; Escape climbs back out.
-         * Shift-clicking, and a press on something already picked, still
-         * take exactly what is under the hand.
-         */
-        const pal = resolvePalette(store.format, store.look);
-        const owner = hit && !e.shiftKey && !store.selection.includes(hitId) ? ownerOf(store.nodes, hit, pal) : null;
-        const id = owner?.id ?? hitId;
-        const node = owner ?? hit;
-        /*
-         * A PART THAT HOLDS OTHERS IS DRAWN ACROSS, NOT MOVED.
-         *
-         * His ruling. On a captured board every point is covered by some
-         * part — the banner, the panels, the page wrapper — so a marquee
-         * could never start: every press grabbed a part and dragged it,
-         * whole banners across the page. So a press on a part that owns
-         * others starts a marquee, and a press on a leaf grabs the leaf.
-         * A CONTROL IS ALWAYS GRABBED, whatever it holds (`control.ts`): all
-         * eight sidebar buttons on his home page hold their icon, and under
-         * the holding rule alone none of them could be dragged, while the
-         * same buttons on his docs page, holding nothing, could.
-         * Released without a drag, the part is picked as any part is (see
-         * the marquee's release).
-         *
-         * TURNED ROUND (J, 2026-10-06): "some panels are also undraggable",
-         * and on the card he chose "Always moves". So a plain drag moves a
-         * part that holds others, like any part, and the held modifier —
-         * Ctrl, or ⌘ on a Mac — is what draws the box across it now. A second press in quick succession falls
-         * through to the double-press below, so a linked container still
-         * goes where it points.
-         */
-        const prior = pressed.current;
-        const twice = !!prior && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
-        /* A button, badge, tab, copy bar or card is one thing: grabbed whole, like a control (`components.ts`). */
-        const whole = node ? componentsOf(store.nodes, pal).byId.get(node.id) : undefined;
-        if (node && !twice && !e.shiftKey && (e.ctrlKey || e.metaKey) && !isControl(node) && !(whole && GRABBED.has(whole.kind)) && ownsOthers(store.nodes, node)) {
-          pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
-          capture();
-          marqueeRef.current = null;
-          setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id });
-          return;
-        }
-        let ids = store.selection;
-        if (e.shiftKey) {
-          store.toggleSelection(id);
-          ids = useStudio.getState().selection;
-        } else if (!ids.includes(id)) {
-          ids = node?.groupId ? store.nodes.filter((n) => n.groupId === node.groupId).map((n) => n.id) : [id];
-          store.setSelection(ids);
-        }
-        play("select");
-        /* ONE PRESS ON A PART OPENS ITS PANEL: the Element panel, for the
-           part just chosen. Read off the press, not off the selection, so a
-           part selected as it lands (a picture just laid, whose layer the
-           Look panel is showing) does not take the panel away. */
-        if (node && ids.length === 1) store.want({ panel: "inspector", id });
-        /*
-         * The second press opens a solid for handling.
-         *
-         * A cube is a thing you turn, and turning it is a drag across it —
-         * the same gesture that moves every other part on the board. That
-         * collision is what he found: "once i selected something i have to
-         * click off and then clicck and hold to drag." So the two gestures
-         * are told apart by how many presses they start with. One press
-         * selects and moves, like everything else. Two says "I am turning
-         * this one", and from then until the ground is pressed the part has
-         * the pointer and the keys.
-         *
-         * It is read off the press itself rather than from a `dblclick`
-         * handler on the part: the board captures the pointer, so the
-         * click that follows is delivered to the board and never reaches
-         * the part at all.
-         */
-        const last = pressed.current;
-        const again = !!last && last.id === hitId && id === hitId && e.timeStamp - last.at < DOUBLE_MS && Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_SLOP;
-        pressed.current = { id: hitId, at: e.timeStamp, x: p.x, y: p.y };
-        if (again && node && !node.locked && HANDS_ON.has(node.featureId) && ids.length === 1) {
-          store.hold(id);
-          return;
-        }
-        /* TWO PRESSES ON A PART WITH WORDS OPEN ITS WORDS: handled at the
-           top of this branch, on the canvas where they are drawn, else in
-           the panel's WORDS box (`tests/words-on-press.mjs`,
-           `tests/select-owner.mjs`). */
-        /*
-         * A BUTTON IN THE BUILDER IS PRESSABLE IN THE BUILDER.
-         *
-         * His words: a button should be pressable here and take him to the
-         * page it links to. His captured sidebar carries nine pages he could
-         * only reach from the tab bar, which makes a correct import feel
-         * dead.
-         *
-         * The SAME gesture as opening a solid, deliberately — one press
-         * selects and moves, two say "I mean this one" — because he is one
-         * person learning one tool and a second way to press things would
-         * cost him more than it buys. A solid opens for handling; a part
-         * that points somewhere goes there. Nothing else on the board takes
-         * a press, so the board stays a layout surface.
-         *
-         * Only a part that reads its own link (`isLinkable`), and only when
-         * it has one: a double press on anything else still falls through to
-         * the drag below, exactly as it did.
-         */
-        if (again && node && !node.locked && ids.length === 1 && node.link && isLinkable(node.featureId)) {
-          const link = node.link;
-          if (link.kind === "url") {
-            play("confirm");
-            window.open(link.target, "_blank", "noopener");
-            return;
-          }
-          if (link.kind === "node") {
-            const to = store.nodes.find((n) => n.id === link.target);
-            if (to) { play("select"); store.setSelection([to.id]); }
-            return;
-          }
-          /* By id or by name, the way the live page resolves it, so the
-             board and the site cannot disagree about where a link goes. */
-          const to = resolvePageLink(store.pages, link.target);
-          if (to) { play("confirm"); store.setActivePage(to.id); }
-          else news.publish({ key: `studio:link:${id}`, title: "That link points at no page", body: `Nothing here is called “${link.target}” yet.`, level: "warn", source: "studio", toast: { durationMs: 6000 } });
-          return;
-        }
-        capture();
-        /* A face as big as its frame has no room in it: the drag moves the frame, faces and all (`stateFrames.ts#liftToFrame`). */
-        const lifted = liftToFrame(store.nodes, ids);
-        /* A button moves with its words and its icon: what it holds rides along (`owner.ts`). */
-        const held = ridersOf(store.nodes, lifted, pal);
-        /* A frame moves with its states, the hidden faces too (`stateFrames.ts`). */
-        const riders = [...held, ...frameRiders(store.nodes, [...lifted, ...held])];
-        const carried = [...new Set([...lifted, ...riders])];
-        const origin: Drag["origin"] = {};
-        for (const n of store.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
-        setDrag({ kind: "node", startX: p.x, startY: p.y, ids: carried, origin, riders });
+    switch (rule) {
+      case "ignore": return;
+      case "group-resize": {
+        const d = groupDrag(store, read.groupHandle!.dataset.groupId ?? "", read.groupHandle!.dataset.groupResize as Handle, p);
+        if (d) { capture(); setCeiling(null); setDrag(d); }
         return;
       }
-      // Drawings, regions and wires select on click too — not only by marquee.
-      const shapeEl = target.closest?.("[data-shape-id]") as SVGElement | HTMLElement | null;
-      const shapeId = shapeEl?.dataset?.shapeId;
-      if (shapeId && shapeId !== "live") {
-        if (e.shiftKey) store.toggleSelection(shapeId);
-        else store.setSelection([shapeId]);
+      case "pan":
+        /* A press on bare ground still means "away from what I had"; an alt-drag or middle-button pan keeps the selection. */
+        if (tool === "select" && !read.facts.onPart && !read.facts.onPage && !read.facts.onShape && !e.shiftKey) store.clearSelection();
+        capture();
+        setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan, startTop: paneTop() });
+        return;
+      case "resize":
+        if (read.hit) { capture(); setDrag(resizeDrag(store, read.hit, read.resizeHandle!.dataset.resize as Handle, p)); }
+        return;
+      case "go-in": {
+        const inner = partUnder(store.nodes, read.hit!, p, shownOnBoard(store), ((places) => (n: StudioNode) => places.get(n.id))(placedOnBoard(store)));
+        if (!inner) return;
+        pressed.current = null;
+        store.setSelection([inner.id]);
+        store.want({ panel: "inspector", id: inner.id });
         play("select");
+        e.preventDefault();
         return;
       }
-      // The page itself is a thing you can pick: a press on the bare frame
-      // selects the background, and a drag from there is still a marquee.
-      if (!e.shiftKey) {
-        if (target.closest?.("[data-frame]")) { store.setSelection([BACKGROUND_ID]); play("select"); }
-        else store.clearSelection();
+      case "marquee-across":
+        pressed.current = { id: hitId!, at: e.timeStamp, x: p.x, y: p.y };
+        capture();
+        marqueeRef.current = null;
+        setDrag({ kind: "marquee", startX: p.x, startY: p.y, from: id! });
+        return;
+      case "hold-solid":
+      case "follow-link":
+      case "move": {
+        if (e.shiftKey) store.toggleSelection(id!);
+        else if (!store.selection.includes(id!)) store.setSelection(ids);
+        play("select");
+        /* One press on a part opens its panel, read off the press so a part picked as it lands keeps the panel it has. */
+        if (node && ids.length === 1) store.want({ panel: "inspector", id: id! });
+        pressed.current = { id: hitId!, at: e.timeStamp, x: p.x, y: p.y };
+        if (rule === "hold-solid") { store.hold(id!); return; }
+        if (rule === "follow-link") { followLink(node!); return; }
+        capture();
+        setDrag(moveDrag(store, ids, p));
+        return;
       }
-      capture();
-      marqueeRef.current = null;
-      setDrag({ kind: "marquee", startX: p.x, startY: p.y });
+      case "pick-shape":
+        if (e.shiftKey) store.toggleSelection(read.shapeId!);
+        else store.setSelection([read.shapeId!]);
+        play("select");
+        return;
+      case "marquee":
+        if (!e.shiftKey) {
+          if (read.facts.onPage) { store.setSelection([BACKGROUND_ID]); play("select"); }
+          else store.clearSelection();
+        }
+        capture();
+        marqueeRef.current = null;
+        setDrag({ kind: "marquee", startX: p.x, startY: p.y });
+        return;
+      case "erase": {
+        // A press erases what is under it — a drawing first, else a part. Then
+        // the hold is a sweep: everything drawn that the pointer passes over
+        // goes too, and the whole sweep is one step back for undo.
+        const near = hitShape(shapes, p.x, p.y, 10 / zoom);
+        const space = spaceAtLine(pageSpaces(store), p.x, p.y, 10 / zoom);
+        let took = true;
+        if (read.shapeId) store.removeShapes([read.shapeId]);
+        else if (near) store.removeShapes([near.id]);
+        else if (hitId) store.removeNodes([hitId]);
+        else if (space) store.removeSpaces([space.id]);
+        else took = false;
+        if (took) play("deny");
+        capture();
+        // `moved` here means "a history step has been written": a press that
+        // took something wrote one, and the sweep joins it; a press on nothing
+        // leaves it to the sweep's first hit.
+        setDrag({ kind: "erase", startX: p.x, startY: p.y, moved: took });
+        return;
+      }
+      case "draw":
+        capture();
+        setRefused(null);
+        setInk([[p.x, p.y]]);
+        setDrag({ kind: "draw", startX: p.x, startY: p.y, points: [[p.x, p.y]] });
+        return;
+    }
+  };
+
+  /* Two presses on a part that points somewhere go there: a page by id or by name, the way the live page resolves it. */
+  const followLink = (node: StudioNode) => {
+    const store = useStudio.getState();
+    const link = node.link!;
+    if (link.kind === "url") { play("confirm"); window.open(link.target, "_blank", "noopener"); return; }
+    if (link.kind === "node") {
+      const to = store.nodes.find((n) => n.id === link.target);
+      if (to) { play("select"); store.setSelection([to.id]); }
       return;
     }
-
-    if (tool === "erase") {
-      // A press erases what is under it — a drawing first, else a part. Then
-      // the hold is a sweep: everything drawn that the pointer passes over
-      // goes too, and the whole sweep is one step back for undo.
-      const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
-      const near = hitShape(shapes, p.x, p.y, 10 / zoom);
-      let took = true;
-      if (shapeEl?.dataset.shapeId && shapeEl.dataset.shapeId !== "live") store.removeShapes([shapeEl.dataset.shapeId]);
-      else if (near) store.removeShapes([near.id]);
-      else if (nodeEl?.dataset.nodeId) store.removeNodes([nodeEl.dataset.nodeId]);
-      else if (spaceAtLine(pageSpaces(store), p.x, p.y, 10 / zoom)) store.removeSpaces([spaceAtLine(pageSpaces(store), p.x, p.y, 10 / zoom)!.id]);
-      else took = false;
-      if (took) play("deny");
-      capture();
-      // `moved` here means "a history step has been written": a press that
-      // took something wrote one, and the sweep joins it; a press on nothing
-      // leaves it to the sweep's first hit.
-      setDrag({ kind: "erase", startX: p.x, startY: p.y, moved: took });
-      return;
-    }
-
-    capture();
-    setRefused(null);
-    setInk([[p.x, p.y]]);
-    setDrag({ kind: "draw", startX: p.x, startY: p.y, points: [[p.x, p.y]] });
+    const to = resolvePageLink(store.pages, link.target);
+    if (to) { play("confirm"); store.setActivePage(to.id); }
+    else news.publish({ key: `studio:link:${node.id}`, title: "That link points at no page", body: `Nothing here is called “${link.target}” yet.`, level: "warn", source: "studio", toast: { durationMs: 6000 } });
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
