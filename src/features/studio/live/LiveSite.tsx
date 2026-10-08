@@ -8,7 +8,7 @@ import * as React from "react";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { isOverlay, themeFrom, type NodeLink, type PartEvent } from "../parts";
-import { TextureDrift } from "../TextureDrift";
+import { LiveKeyframes, TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "./CarriedFonts";
 import { copyMotion, motionCss } from "../parts/capturedMotion";
 import { resolvePalette } from "../parts/theme";
@@ -374,6 +374,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       style={{ width, height, overflow: "hidden", position: "relative", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
       <TextureDrift layers={look?.texture} palette={palette} />
+      <LiveKeyframes />
       <CarriedFonts fonts={look?.fonts} />
       {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}
       {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
