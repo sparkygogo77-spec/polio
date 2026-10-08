@@ -2,7 +2,7 @@
 import * as React from "react";
 import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
 import { written } from "../shelf";
-import { screenshotPage } from "../agent";
+import { screenshotPage } from "../loop/run";
 import { askCode } from "../askCode";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";

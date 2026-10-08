@@ -12,7 +12,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { oddness, stillAsks, withAnswer, ANSWER_WORDS } from "../src/features/studio/oddness.ts";
-import { pendingJobs, askingJob, nextJob, typedSince } from "../src/features/studio/queue.ts";
+import { pendingJobs, askingJob, nextJob, typedSince } from "../src/features/studio/loop/queue.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -158,7 +158,7 @@ check("the runner leaves an asking job alone", /if \(r\.asked\) return;/.test(dq
 check("the question is put where the counter is, with the drawing and the answers as keys", /data-queue-question=\{job\.id\}/.test(dq) && /data-queue-answer=\{c\}/.test(dq) && /make it anyway/.test(dq));
 check("an answer puts the job back on the queue with it", /answerJob: \(id, answer\) =>/.test(store) && /status: "waiting" as const, question: \{ \.\.\.j\.question, answer \}/.test(store));
 check("the job remembers which question it asked, so staleness can be judged",
-  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why, prompt: hit\?\.prompt \?\? "", lone \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
+  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why, prompt: hit\?\.prompt \?\? "", lone \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/loop/queue.ts", "utf8")));
 /* The part's words when the question was asked travel with it: only words
    typed after it can overrule the answer (`typedSince`). */
 check("the run folds in an answer only while its question stands, judged by words typed since it was asked",

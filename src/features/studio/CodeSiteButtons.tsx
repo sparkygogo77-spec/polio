@@ -37,7 +37,7 @@ import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
 import { fileAt } from "./kitRun";
-import { LANE_MODE } from "./lanes";
+import { LANE_MODE } from "./loop";
 import { NEXT_PATH, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
 import { fixLoopOf, issuesNow, setFixLoop } from "./useFixLoop";
 

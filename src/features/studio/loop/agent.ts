@@ -5,13 +5,13 @@
  * to GitHub. Each one asks first whether the server can, and says so in
  * words when it cannot, so nothing here is load-bearing.
  */
-import { unmade } from "./polioMd";
+import { unmade } from "../polioMd";
 import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
-import { useStudio, type Revision } from "./board/store";
-import { MERGED_FILES } from "./shelf";
-import { publishedHead, type SiteHead } from "./siteHead";
-import { standInOn } from "./standIn";
+import { useStudio, type Revision } from "../board/store";
+import { MERGED_FILES } from "../shelf";
+import { publishedHead, type SiteHead } from "../siteHead";
+import { standInOn } from "../standIn";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 export type Device = "desktop" | "tablet" | "phone";

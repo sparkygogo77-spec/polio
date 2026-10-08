@@ -23,7 +23,7 @@ import type { StyleSource } from "./send-out";
 import { useActions } from "@/core/actions";
 import { sharedTargetSays, useBuilds, useSharedTargetSays } from "@/features/builds/store";
 import { keysReady, useKeys } from "@/features/keys/store";
-import { deployStatus, publishStatus } from "./agent";
+import { deployStatus, publishStatus } from "./loop/run";
 import { goLive, useGoLive } from "./send-out/run";
 import { checkThenPublish } from "./PublishCheck";
 import { stepWords } from "./publishWords";

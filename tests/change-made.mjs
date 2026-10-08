@@ -24,7 +24,7 @@ const check = (name, ok, detail = "") => {
 /* 1. The thread remembers                                             */
 /* ------------------------------------------------------------------ */
 
-const threads = readFileSync("src/features/studio/threads.ts", "utf8");
+const threads = readFileSync("src/features/studio/loop/threads.ts", "utf8");
 check("a thread has somewhere to keep what it made", /madeId\?: string;/.test(threads));
 
 const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");

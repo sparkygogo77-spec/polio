@@ -118,7 +118,7 @@ check("a size of nothing is ignored rather than obeyed", (() => {
 const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the ink door sends the size it measured", /drawn: \{ w: b\.w, h: b\.h \}/.test(canvas));
 
-const queue = readFileSync("src/features/studio/queue.ts", "utf8");
+const queue = readFileSync("src/features/studio/loop/queue.ts", "utf8");
 check("the job has somewhere to carry it", /drawn\?: \{ w: number; h: number \} \| null;/.test(queue));
 
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");

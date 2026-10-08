@@ -34,7 +34,7 @@ import * as React from "react";
 import { Eraser, Send, SlidersHorizontal, Square } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
-import { askClaude } from "./agent";
+import { askClaude } from "./loop/run";
 import { EFFORT_KEY } from "./effort";
 import { useCompiledBrief } from "./BriefDialog";
 import { specToMarkdown } from "./spec";

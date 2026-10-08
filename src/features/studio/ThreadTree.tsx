@@ -37,7 +37,7 @@ import { screenFace, SCREEN } from "@/core/ui/void";
 import { toRows } from "./spec";
 import { useStudio } from "./board/store";
 import { chainLines } from "./links";
-import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
+import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./loop";
 import { PromptTrail } from "./PromptTrail";
 
 /** Landed: the green a thread and its spine are drawn in. */

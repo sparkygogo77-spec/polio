@@ -17,7 +17,7 @@ import { create } from "zustand";
 import type { ToastInput } from "@/core/types";
 import { activeProject, allSources, repoLabel, sharedTargetSays, useBuilds } from "@/features/builds/store";
 import { flushEdits, lastEdit } from "@/features/builds/edits";
-import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../agent";
+import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../loop/run";
 import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "../staticSite";

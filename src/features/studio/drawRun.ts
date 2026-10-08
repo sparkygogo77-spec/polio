@@ -37,7 +37,7 @@ import { GOOD_ENOUGH, judge, targetFor, type Attempt, type BodyResult } from "./
 import { pictureOf, type PictureOpts } from "./reshapeRun";
 import { money, RENDER_COST, RENDER_MODELS } from "./renderer";
 import { readVector } from "./vector";
-import { noRendererKeyMessage, rendererHeader } from "./agent";
+import { noRendererKeyMessage, rendererHeader } from "./loop/run";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { isTap, TAP_SIZE, type OutlineClip, type SketchPoint } from "./sketch";
 

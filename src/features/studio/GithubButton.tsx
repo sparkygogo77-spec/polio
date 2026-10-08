@@ -23,7 +23,7 @@ import site from "@site";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { cn } from "@/core/lib/cn";
-import { publishStatus, type PublishStatus } from "@/features/studio/agent";
+import { publishStatus, type PublishStatus } from "@/features/studio/loop/run";
 import { useBuilds } from "@/features/builds/store";
 import { useKeys } from "@/features/keys/store";
 import { openRepoPicker } from "@/features/studio/RepoPicker";

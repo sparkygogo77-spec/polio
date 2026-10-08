@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
 import { Brush, Image as ImageIcon, Flag, GitBranch, Layers, ListChecks, Sparkles } from "lucide-react";
-import { acrossFor, STAGGER_MS } from "../timelineView";
+import { acrossFor, STAGGER_MS } from "../../timelineView";
 import { LANE_MODE } from "../lanes";
 import { type Point } from "../strand";
 import { PROCESS, threadTitle, type Thread, type ThreadNode } from "../threads";
-import { formOf, within } from "../formation";
+import { formOf, within } from "../../formation";
 import { GENERATION } from "../threads";
 
 /*
