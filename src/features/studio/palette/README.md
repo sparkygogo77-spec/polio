@@ -8,3 +8,4 @@ The shelf under the board, split by topic. `../Palette.tsx` re-exports what it a
 | `Palette.tsx` | `Palette`, `ShelfStrip`, `OpenShelf`: the shelf itself. `OpenShelf` is one component |
 | `cards.tsx` | `CategorySection`, `EntryCard`, `Band` |
 | `onPage.tsx` | `ShelfGrip`, `onThisPage`, `goToPart`, `OnThisPage` |
+| `yours.tsx` | `YoursPlanet`, `FromYourSites`: the "From your sites" shelf of panels kept from imports and components saved by hand (`../library/fromSites.ts`) |

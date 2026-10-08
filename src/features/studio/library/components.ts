@@ -38,6 +38,8 @@ export interface SavedComponent {
   nodes: Node[];
   frames: Frames[];
   fonts: { family: string; id?: string }[];
+  /** Kept from an import (`fromSites.ts`): replaced when the site comes in again, gone when it is forgotten. */
+  auto?: boolean;
 }
 
 /** The part and everything it holds, in page order: the part tree's own reading, or a grouping handed in (Lane J). */

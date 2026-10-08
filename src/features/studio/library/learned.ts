@@ -260,7 +260,9 @@ export function withSite(lib: LearnedLibrary, site: LearnedSite): LearnedLibrary
 export function withoutSite(lib: LearnedLibrary, host: string): LearnedLibrary {
   const { [host]: _gone, ...rest } = lib.sites;
   void _gone;
-  return { ...lib, sites: rest };
+  /* The panels kept from it go with it (`fromSites.ts`); what the person saved by hand stays. */
+  const components = (lib.components ?? []).filter((c) => !(c.auto && c.site === host));
+  return { ...lib, sites: rest, ...(lib.components ? { components } : {}) };
 }
 
 /** A stored library read back, or an empty one: a newer format than this code knows is not half read. */

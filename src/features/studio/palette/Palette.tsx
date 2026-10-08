@@ -28,7 +28,8 @@ import { planetOf } from "../planets";
 import { shapeOf } from "../showcase";
 import { switchOf } from "../shelfFacts";
 import { PartDetail, UsedByPicked, useSiteVersions, useSiteWords } from "../ShelfCards";
-import { itemOf, shelfOf } from "../shelfPlan";
+import { isFinished, itemOf, shelfOf } from "../shelfPlan";
+import { FromYourSites, YOURS, YoursPlanet } from "./yours";
 import { isWorkKey } from "../shelfGroups";
 import { allWorks } from "../library/works";
 import { play } from "@/core/audio/engine";
@@ -38,6 +39,8 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { addFeatureToCanvas, RemovedCard, OPEN_AT_MOST, CARD_MIN, PLANET_DISC, PLANET_MARK, PLANET_CELL, shelfOpen, setShelfOpen, SHELF_MIN, shelfMax, shelfTall, setShelfTall, setShelfFolded, useShelfFolded } from "./shelf";
 import { CategorySection, EntryCard, Band } from "./cards";
 import { ShelfGrip, onThisPage, OnThisPage } from "./onPage";
+
+const SKETCHES_KEY = "builder.shelf.sketches";
 
 export function Palette() {
   const folded = useShelfFolded();
@@ -86,6 +89,9 @@ function OpenShelf() {
   React.useEffect(() => { setShelfOpen(open.length > 0); }, [open]);
   React.useEffect(() => () => setShelfOpen(false), []);
   const [showRemoved, setShowRemoved] = React.useState(false);
+  /* Sketches (`shelfPlan.ts#isFinished`) are hidden until asked for, and the choice is kept. */
+  const [showSketches, setShowSketchesState] = React.useState(() => { try { return localStorage.getItem(SKETCHES_KEY) === "1"; } catch { return false; } });
+  const setShowSketches = (v: boolean) => { setShowSketchesState(v); try { localStorage.setItem(SKETCHES_KEY, v ? "1" : "0"); } catch { /* kept for this visit */ } };
   /*
    * ESCAPE PUTS THE OPEN CATEGORY AWAY.
    *
@@ -158,18 +164,25 @@ function OpenShelf() {
    * versions hold Questions and answers), and one taken off the shelf is not
    * shown at all (`shelfPlan.ts`). A repository's parts are their own.
    */
-  const live = React.useMemo(() => {
+  const [live, heldIn] = React.useMemo(() => {
     const out = new Map<string, FeatureDef>();
+    const held = new Map<string, string>();
     for (const f of all) {
       if (hiddenSet.has(f.id)) continue;
       if (f.basedOn || String(f.category).startsWith("repo:")) { out.set(f.id, f); continue; }
       const item = itemOf(f.id);
       if (!item || isWorkKey(item) || hiddenSet.has(item)) continue;
+      /* A search finds sketches too, so nothing named is ever out of reach. */
       const it = getFeature(item);
-      if (it) out.set(item, it);
+      if (!it) continue;
+      if (!isFinished(item) && !showSketches && !searching) { held.set(item, String(it.category)); continue; }
+      out.set(item, it);
     }
-    return [...out.values()];
-  }, [all, hiddenSet]);
+    /* How many sketches each category holds back. */
+    const by = new Map<string, number>();
+    for (const c of held.values()) by.set(c, (by.get(c) ?? 0) + 1);
+    return [[...out.values()], by] as const;
+  }, [all, hiddenSet, showSketches, searching]);
   /* The library's working features the shelf places, matched the same way: by their name, what they do and the words that attach them. */
   const liveWorks = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -195,9 +208,11 @@ function OpenShelf() {
       keys: entries.map((e) => e.key).filter((k) => (isWorkKey(k) ? liveWorks.has(k) : live.some((f) => f.id === k)) || (!isWorkKey(k) && liveWorks.has(k))),
     })).filter((g) => g.keys.length);
   }, [live, liveWorks]);
+  const sketches = React.useMemo(() => [...heldIn.values()].reduce((a, b) => a + b, 0), [heldIn]);
+  /* A category whose every card is a sketch keeps its planet: opened, it says so and offers them. */
   const categories = React.useMemo(
-    () => shelf.filter((c) => itemsOf(c.id).length),
-    [itemsOf, shelf],
+    () => shelf.filter((c) => itemsOf(c.id).length || heldIn.get(c.id)),
+    [itemsOf, shelf, heldIn],
   );
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
 
@@ -443,8 +458,21 @@ function OpenShelf() {
       </div>
 
       {/* --------------------------------------- only what is not a category */}
-      <div className={cn("flex shrink-0 items-center gap-2 px-3", hidden.length ? "border-b border-border py-1.5" : "h-0 overflow-hidden")}>
+      <div className={cn("flex shrink-0 items-center gap-2 px-3", hidden.length || sketches || showSketches ? "border-b border-border py-1.5" : "h-0 overflow-hidden")}>
         <span className="ml-auto" />
+        {sketches || showSketches ? (
+          <Tooltip content="Sketches are parts whose job the published page does not do yet: a press, a timer or a backend with nothing behind it" side="top">
+            <button
+              type="button"
+              data-shelf-sketches={showSketches ? "shown" : "hidden"}
+              onClick={() => { play("select"); setShowSketches(!showSketches); }}
+              aria-pressed={showSketches}
+              className="tactile flex shrink-0 items-center gap-1 rounded-sm px-1 py-0.5 text-small text-fg-muted hover:bg-hover hover:text-fg"
+            >
+              {showSketches ? "Hide sketches" : `Show ${sketches} sketches`}
+            </button>
+          </Tooltip>
+        ) : null}
         {hidden.length ? (
           <button
             type="button"
@@ -521,6 +549,7 @@ function OpenShelf() {
                 anyOpen ? "gap-x-1.5 gap-y-1 py-1.5" : "gap-x-3 gap-y-2 py-3",
               )}
             >
+              <YoursPlanet open={open.includes(YOURS)} cell={cell} disc={disc} mark={mark} compact={anyOpen} onToggle={() => toggleCat(YOURS)} />
               {[...categories].map((c) => {
                 const isOpen = open.includes(c.id);
                 return (
@@ -612,11 +641,14 @@ function OpenShelf() {
             {/* The open ones, stacked, in the catalogue's order so that
                 opening a second never shuffles the first out from under the
                 pointer. */}
+            {open.includes(YOURS) ? <FromYourSites onClose={() => toggleCat(YOURS)} /> : null}
             {shelf.filter((c) => open.includes(c.id)).map((c) => (
               <CategorySection
                 key={c.id}
                 category={c}
                 groups={itemsOf(c.id)}
+                sketches={heldIn.get(c.id) ?? 0}
+                onShowSketches={() => { play("select"); setShowSketches(true); }}
                 site={siteVersions}
                 widthOf={widthOf}
                 cardWidth={layout.width}
