@@ -9,9 +9,9 @@
  *
  *   node tests/drag-face-fills-frame.mjs
  *
- * Covers: src/features/studio/stateFrames.ts, src/features/studio/canvas/DesktopCanvas.tsx
+ * Covers: src/features/studio/states/stateFrames.ts, src/features/studio/canvas/DesktopCanvas.tsx
  */
-import { clampMove, frameRiders, liftToFrame } from "../src/features/studio/stateFrames.ts";
+import { clampMove, frameRiders, liftToFrame } from "../src/features/studio/states/stateFrames.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {

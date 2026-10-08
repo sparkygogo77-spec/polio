@@ -31,7 +31,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/board-states.mjs http://127.0.0.1:3013 [a PonsStars checkout]
  *
- * Covers: src/features/studio/boardStates.ts, src/features/studio/StudioPage.tsx, src/app/api/studio/zip/route.ts, src/features/studio/styleLayerRun.ts
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/StudioPage.tsx, src/app/api/studio/zip/route.ts, src/features/studio/styleLayerRun.ts
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";

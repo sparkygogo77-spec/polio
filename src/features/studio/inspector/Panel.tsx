@@ -43,7 +43,7 @@ import { PageSummary, CodeLink, CodeLine } from "./codeView";
 import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { FrameField } from "./frameField";
 import { Faces, Solid, LinkField } from "./solid";
-import { PartSamples } from "../StatesTimeline";
+import { PartSamples } from "../states/ui";
 
 export function Inspector() {
   const selection = useHeldStudio((s) => s.selection);

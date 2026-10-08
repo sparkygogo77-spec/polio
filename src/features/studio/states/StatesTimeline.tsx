@@ -24,7 +24,7 @@ import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useHeldStudio, useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "../store";
 import { partSteps, screenKey, type ScreenRead } from "./boardStates";
 import { frameFor, readStepKey, stateFrames, stepData, stepKey } from "./stateFrames";
 import { openPartFocus } from "./PartFocus";

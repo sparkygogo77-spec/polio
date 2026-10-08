@@ -21,7 +21,7 @@
  *
  *   node tests/page-states-fold.mjs
  *
- * Covers: src/features/studio/stateRules.ts, src/features/studio/sceneStep.ts, kit/tools/kit-check.mjs, kit/BUILDER-RULES.md
+ * Covers: src/features/studio/states/stateRules.ts, src/features/studio/states/sceneStep.ts, kit/tools/kit-check.mjs, kit/BUILDER-RULES.md
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,7 +29,7 @@ import { readFileSync } from "node:fs";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
-const R = await jiti.import(join(here, "..", "src", "features", "studio", "stateRules.ts"));
+const R = await jiti.import(join(here, "..", "src", "features", "studio", "states", "stateRules.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);

@@ -6,9 +6,9 @@
  * has its panels and states declared (`stateRules.ts`); any other keeps the
  * captured reading (`panels.ts`), with notes on why.
  */
-import type { ScreenRead } from "./boardStates";
-import { pagePanels, type Panel, type PanelNode } from "./panels";
-import { declaredPagePanels, followsStateRules, stateRuleNotes, type DeclaredScene, type Samples, type SceneScreen } from "./stateRules";
+import type { ScreenRead } from "./boardStates.ts";
+import { pagePanels, type Panel, type PanelNode } from "./panels.ts";
+import { declaredPagePanels, followsStateRules, stateRuleNotes, type DeclaredScene, type Samples, type SceneScreen } from "./stateRules.ts";
 
 export type PanelSource = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null } | undefined;
 

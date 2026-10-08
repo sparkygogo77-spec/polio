@@ -16,10 +16,10 @@
  *
  *   node tests/turns-hidden.mjs
  *
- * Covers: src/features/studio/siteread/parts.ts, src/features/studio/boardStates.ts
+ * Covers: src/features/studio/siteread/parts.ts, src/features/studio/states/boardStates.ts
  */
 import { PARTS } from "../src/features/studio/siteRead.ts";
-import { screenPlaces } from "../src/features/studio/boardStates.ts";
+import { screenPlaces } from "../src/features/studio/states/boardStates.ts";
 import { launch } from "./fixtures/look-sites.mjs";
 
 const results = [];

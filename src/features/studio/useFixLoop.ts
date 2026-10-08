@@ -7,7 +7,7 @@ import * as React from "react";
 import { useStudio, useSteady } from "./store";
 import { readBoard } from "./PublishCheck";
 import { NO_LOOP, type FixIssue, type FixLoop } from "./fixLoop";
-import { regionKey, regionMoves, type StructureNode } from "./structure";
+import { regionKey, regionMoves, type StructureNode } from "./states";
 
 /** The board's problems now, each named by its part's data-hook and its page's name. */
 export async function issuesNow(): Promise<FixIssue[]> {

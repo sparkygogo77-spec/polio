@@ -13,7 +13,7 @@
  * The board has one width, so `breakpoints` holds that one and no part has
  * an `at`. Pure: `tests/design-record.mjs` holds it.
  */
-import { groupHook } from "./boardStates.ts";
+import { groupHook } from "./states/index.ts";
 
 export interface RecordNode {
   id?: string;

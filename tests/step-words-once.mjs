@@ -10,9 +10,9 @@
  *
  *   node tests/step-words-once.mjs
  *
- * Covers: src/features/studio/boardStates.ts
+ * Covers: src/features/studio/states/boardStates.ts
  */
-import { stepLook } from "../src/features/studio/boardStates.ts";
+import { stepLook } from "../src/features/studio/states/boardStates.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };

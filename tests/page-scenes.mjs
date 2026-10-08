@@ -23,15 +23,15 @@
  *
  *   node tests/page-scenes.mjs
  *
- * Covers: src/features/studio/scenes.ts, src/features/studio/boardStates.ts, src/features/studio/StatesTimeline.tsx
+ * Covers: src/features/studio/states/scenes.ts, src/features/studio/states/boardStates.ts, src/features/studio/states/StatesTimeline.tsx
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
-const S = await jiti.import(join(here, "..", "src", "features", "studio", "scenes.ts"));
-const B = await jiti.import(join(here, "..", "src", "features", "studio", "boardStates.ts"));
+const S = await jiti.import(join(here, "..", "src", "features", "studio", "states", "scenes.ts"));
+const B = await jiti.import(join(here, "..", "src", "features", "studio", "states", "boardStates.ts"));
 const results = [];
 const quiet = process.argv.includes("--quiet");
 const check = (name, ok, detail = "") => { results.push(ok === true); if (!quiet || ok !== true) console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
@@ -141,7 +141,7 @@ const sc = { name: "lobby", shows: ["deposit-amount"], boxes: {}, texts: { "depo
 check("its words are not drawn a second time", B.stepLook(lab[0], sc, lined) === null && B.stepLook(lab[0], sc) !== null, J(B.stepLook(lab[0], sc, lined)));
 
 /* 5. The grid's cell for the lobby scene is the chart row's "between matches", read off "TV: between matches". */
-const T = await jiti.import(join(here, "..", "src", "features", "studio", "StatesTimeline.tsx"));
+const T = await jiti.import(join(here, "..", "src", "features", "studio", "states", "StatesTimeline.tsx"));
 const flow = [scr("connecting", "connecting", "", []), scr("lobby", "between matches", "", []), scr("tv-idle", "between matches", "", []), scr("match-starting", "match starting", "", []), scr("mid-match", "match live", "", []), scr("tv-match", "match live", "", [])];
 const row = { steps: [{ key: null, label: "connecting" }, { key: "screen:tv-idle", label: "between matches", screen: "tv-idle" }, { key: "screen:match-starting", label: "match starting", screen: "match-starting" }, { key: "screen:tv-match", label: "match live", screen: "tv-match" }] };
 const cell = (name) => row.steps[T.followsPage(row, flow.find((s) => s.name === name), flow)].label;

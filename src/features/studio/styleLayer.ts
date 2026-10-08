@@ -31,7 +31,7 @@
 import type { SourceHook, SourceVar } from "./sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "./frame.ts";
 import type { PictureFrame } from "./frame.ts";
-import { layoutDeclarations } from "./structure.ts";
+import { layoutDeclarations } from "./states/index.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
 export interface CssLook {
@@ -143,11 +143,11 @@ export interface StyleSource {
   /** Every data-hook on the board as it was brought in (`designBranch.ts#hooksOnBoard`): what Export for code to a branch keeps, and says the changes against. */
   onBoard?: string[];
   /** Its preview screens, read at import as its code builds them: the States control shows one on the board (`boardStates.ts`). */
-  screens?: import("./boardStates.ts").ScreenRead[];
+  screens?: import("./states/index.ts").ScreenRead[];
   /** A site that follows the state rules: its declared scenes and sample words (`stateRules.ts`). Its `screens` are then these scenes, and the live captures stay in `captured`, only as a check. */
-  scenes?: import("./stateRules.ts").DeclaredScene[] | null;
-  samples?: import("./stateRules.ts").Samples | null;
-  captured?: import("./boardStates.ts").ScreenRead[];
+  scenes?: import("./states/index.ts").DeclaredScene[] | null;
+  samples?: import("./states/index.ts").Samples | null;
+  captured?: import("./states/index.ts").ScreenRead[];
 }
 
 /**

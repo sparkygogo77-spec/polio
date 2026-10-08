@@ -1,6 +1,6 @@
 "use client";
-import { partUnder } from "../boardStates";
-import { clampMove,frameRiders,inside,keepInFrame,liftToFrame,stateFrames } from "../stateFrames";
+import { partUnder } from "../states";
+import { clampMove,frameRiders,inside,keepInFrame,liftToFrame,stateFrames } from "../states";
 import * as React from "react";
 import { tryOn,useTryLook } from "../tryLook";
 import { useShallow } from "zustand/react/shallow";
@@ -23,7 +23,7 @@ import { SpaceForming,SpaceInk,SpaceMarks,SpaceRefused,SpaceSide } from "../Spac
 import { BringHost } from "../FromASite";
 import { LearnBadge } from "../LearnPanel";
 import { partLearned } from "../learn";
-import { useDecideAll } from "../decideShown";
+import { useDecideAll } from "../states/ui";
 import { useImportPreview } from "../ImportFlow";
 import { hasPicture,pictureFrom,readDrop } from "../pictureDrop";
 import { put as putPicture } from "../pictures";

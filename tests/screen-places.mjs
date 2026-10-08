@@ -14,14 +14,14 @@
  *
  *   node tests/screen-places.mjs
  *
- * Covers: src/features/studio/boardStates.ts, src/features/studio/Canvas.tsx, src/features/studio/Inspector.tsx, src/app/api/studio/zip/route.ts
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/Canvas.tsx, src/features/studio/Inspector.tsx, src/app/api/studio/zip/route.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const B = await jiti.import(join(here, "..", "src", "features", "studio", "boardStates.ts"));
+const B = await jiti.import(join(here, "..", "src", "features", "studio", "states", "boardStates.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);

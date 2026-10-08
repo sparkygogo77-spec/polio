@@ -74,6 +74,11 @@ Checklist before you say a feature is done:
 The Builder is the front door: **one workspace** where you lay out what a site
 should be *before* writing the prompt that says what it is.
 
+**Modules.** The Builder's code is moving into modules, one folder each under
+`src/features/studio/`, entered only by its doors (`index.ts`, and `ui.ts` for
+screens). `states/` is the first; its README says what is where. Import a
+module's doors, never a file behind them: `tests/module-doors.mjs` fails otherwise.
+
 | Panel | Where | What it does |
 |---|---|---|
 | **Look** | left, toggle with `l` | Colour and texture. Six roles every part reads, a mixer, harmony generators, contrast readouts; every colour and face the parts actually use, by use, with swap-all; under it a stack of texture layers that compile to plain CSS, the page's fill at its foot. |
