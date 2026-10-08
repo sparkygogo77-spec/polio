@@ -23,7 +23,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { carryFaces, facesSays, fontFaceCss, fontLinks, forbids, genericsOf, genericSays, isLatin, licenceOf, FONT_FILE_MAX } from "../src/features/studio/look/fonts.ts";
-import { FACES } from "../src/features/studio/siteRead.ts";
+import { FACES } from "../src/features/studio/bring-in/siteRead.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {

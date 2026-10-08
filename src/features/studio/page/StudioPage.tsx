@@ -18,7 +18,7 @@ import * as React from "react";
 import { Bakers } from "../Bakers";
 import { Canvas } from "../Canvas";
 import { rollOnto, startNewSite } from "../newSite";
-import { ImportStrip } from "../FromASite";
+import { ImportStrip } from "../bring-in/ui";
 import { NewSiteOffer } from "../NewSiteOffer";
 import { placeBring, takeKeptBring } from "../bringRepo";
 import { Workspace } from "../Workspace";

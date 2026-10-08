@@ -26,10 +26,10 @@ import { handoffFrom } from "./polioMd";
 import { ArtifactRefused, artifactFiles, artifactName, artifactSays, findArtifact, rangeReader, runOf, runRef } from "./captureArtifact";
 import { MOST_CHARS, MOST_READS } from "./standIn";
 import { stillFiles, stillsAsk, type StillsAsk } from "./stills";
-import { docPathIn, pathIn, withPath, heaviestFolders, inFolders, packedZipOf, referenced, siteFolders, MAX_REPO_BYTES, MAX_REPO_FILES, MAX_SEND_BYTES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { docPathIn, pathIn, withPath, heaviestFolders, inFolders, packedZipOf, referenced, siteFolders, MAX_REPO_BYTES, MAX_REPO_FILES, MAX_SEND_BYTES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./bring-in";
 import { namedPictures } from "./siteHead";
 import { manifestIn, readManifest, type BuilderManifest } from "./builderManifest";
-import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
+import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./bring-in";
 
 const API = "https://api.github.com";
 

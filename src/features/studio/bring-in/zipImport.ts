@@ -22,8 +22,8 @@
  * the server, because it wants `node:zlib`). `tests/zip-import.mjs` holds
  * it.
  */
-import type { Box } from "./space.ts";
-import { mimeOf } from "./renderAnswer.ts";
+import type { Box } from "../space.ts";
+import { mimeOf } from "../renderAnswer.ts";
 
 /* ------------------------------------------------------------------ */
 /* Bounds                                                               */

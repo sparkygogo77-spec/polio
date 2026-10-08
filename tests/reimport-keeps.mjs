@@ -26,7 +26,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { takeDoc } from "../src/features/studio/docTake.ts";
-import { fingerprint, keepOwnerEdits, keptSays, facets, print } from "../src/features/studio/reimport.ts";
+import { fingerprint, keepOwnerEdits, keptSays, facets, print } from "../src/features/studio/bring-in/reimport.ts";
 import { usesOf, withWork } from "../src/features/studio/library/works.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));

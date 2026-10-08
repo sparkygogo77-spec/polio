@@ -35,8 +35,8 @@
  *   node tests/said-twice.mjs
  */
 import { createRequire } from "node:module";
-import { CANDIDATES, MEASURE } from "../src/features/studio/siteRead.ts";
-import { offered } from "../src/features/studio/zipImport.ts";
+import { CANDIDATES, MEASURE } from "../src/features/studio/bring-in/siteRead.ts";
+import { offered } from "../src/features/studio/bring-in/zipImport.ts";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {

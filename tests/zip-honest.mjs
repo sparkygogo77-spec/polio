@@ -69,7 +69,7 @@ function zip(files) {
 const { readZip } = await import("../src/features/studio/zipFile.ts");
 let readZipInfo = null;
 try { ({ readZipInfo } = await import("../src/features/studio/zipFile.ts")); } catch { /* not there */ }
-const { checkZip, ZIP_REFUSAL_SAYS } = await import("../src/features/studio/zipImport.ts");
+const { checkZip, ZIP_REFUSAL_SAYS } = await import("../src/features/studio/bring-in/zipImport.ts");
 const PAGE = { name: "index.html", data: "<!doctype html><title>x</title><link rel=stylesheet href=caf%C3%A9.css>" };
 
 /* 1. Names, by the flag. */

@@ -24,7 +24,7 @@
  * Pure apart from the pipes it is handed, so a test drives it with a stand-in.
  */
 import { captureName, capturePlace, oneAddress, startCapture, watchCapture, workflowPermissionSays, type CaptureRepo, type Pipes, type Progress } from "./captureSite";
-import { recordOf, runOf } from "./captureArtifact";
+import { recordOf, runOf } from "../captureArtifact";
 
 export { workflowPermissionSays };
 

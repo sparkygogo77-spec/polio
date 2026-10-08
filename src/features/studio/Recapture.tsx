@@ -8,14 +8,14 @@
  * Replace prompt (`RepoPicker.tsx`) the next time it is open — at once, if
  * it is open already. `recapture.ts` holds the rules; this only shows them.
  */
-import { oneAddress } from "./captureSite";
+import { oneAddress } from "./bring-in";
 import * as React from "react";
 import { create } from "zustand";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { heldKeys } from "@/features/keys/store";
-import { readCaptureRecord, recapturePlan, runRecapture, type Plan, type Source } from "./recapture";
+import { readCaptureRecord, recapturePlan, runRecapture, type Plan, type Source } from "./bring-in/ui";
 
 type Stage =
   | { at: "idle" }

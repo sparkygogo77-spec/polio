@@ -40,7 +40,7 @@ check("his Solcano source is here to read", paths.includes("app/page.tsx"), `${p
 /* ------------------------------------------------------------------ */
 
 let reader = null;
-try { reader = await import("../src/features/studio/sourceSite.ts"); } catch (e) { check("the source reader exists", false, String(e.message).slice(0, 100)); }
+try { reader = await import("../src/features/studio/bring-in/sourceSite.ts"); } catch (e) { check("the source reader exists", false, String(e.message).slice(0, 100)); }
 if (reader) {
   const { findPage, readSource, neededBy, SOURCE_WANTED, twToStyle } = reader;
   check("the page a Next app opens at its root is found", findPage(paths) === "app/page.tsx", String(findPage(paths)));
@@ -89,7 +89,7 @@ if (reader) {
 
 /* Source pins: the order of reading, and the line the panel says. */
 const run = readFileSync("src/features/studio/repoRun.ts", "utf8");
-const from = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
+const from = ["FromASite.tsx", ...["bring.tsx", "FromASite.tsx", "bits.tsx"].map((f) => `fromasite/${f}`)].map((f) => `src/features/studio/bring-in/${f}`).map((f) => readFileSync(f, "utf8")).join("\n");
 check("the source is read after a document made here and before a page in the files or an address", run.indexOf("copyOf(repo, token, ref, blobs, say)") < run.indexOf("sourceOf(repo, token, ref, blobs, say)") && run.indexOf("sourceOf(repo, token, ref, blobs, say)") < run.indexOf("const page = pageIn(paths)"));
 check("a source that cannot be fetched falls through, saying why, rather than refusing", /Its source could not be read: \$\{no\.says\} Its page is looked for instead/.test(run));
 check("and the panel says a page came from source, which file, and what opened and what stayed closed", /From its source, \$\{got\.source\.page\}/.test(from) && /closed on a first view/.test(from));

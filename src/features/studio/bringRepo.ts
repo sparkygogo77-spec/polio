@@ -18,8 +18,8 @@
  * space, and the space is picked so its panel mounts and runs the import.
  */
 import { holdImportMark, useStudio } from "./board/store";
-import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
-import { HEADLESS, clearImportLine } from "./FromASite";
+import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./bring-in";
+import { HEADLESS, clearImportLine } from "./bring-in/ui";
 
 /** Where a request waits for the board: this tab only, and taken once. */
 const KEPT = "builder.bring";

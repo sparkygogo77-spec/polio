@@ -31,7 +31,7 @@ import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Reading, type 
 import { choicesFor, readingOf, writePlan } from "./planEdit";
 import { useStudio, type StudioNode } from "./board/store";
 import { SCREEN_FIELD } from "./PlateEditors";
-import { FromASite } from "./FromASite";
+import { FromASite } from "./bring-in/ui";
 import { ModelOptions, type OptionRow } from "./ModelOptions";
 import { clearOption, routeFills, valueOf, writeOption } from "./planEdit";
 import { generateSurface, lockNow, stillMaking } from "./surfaceRun";

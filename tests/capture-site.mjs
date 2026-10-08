@@ -15,7 +15,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const { captureName, nameFrom, capturePlace, startCapture, watchCapture, readRun, WORKFLOW } = await import("../src/features/studio/captureSite.ts");
+const { captureName, nameFrom, capturePlace, startCapture, watchCapture, readRun, WORKFLOW } = await import("../src/features/studio/bring-in/captureSite.ts");
 
 const TOKEN = "stand-in-for-his-token";
 const repo = { owner: "someone", name: "sink" };

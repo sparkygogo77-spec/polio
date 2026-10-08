@@ -23,7 +23,7 @@
  * Every function here takes `fetch` and `sleep` so the check can stand a
  * GitHub in; nothing here touches React or the store.
  */
-import { findArtifact, runRef } from "./captureArtifact.ts";
+import { findArtifact, runRef } from "../captureArtifact.ts";
 
 const API = "https://api.github.com";
 /** The workflow file, in polio as it was in sink: `.github/workflows/capture.yml`. */

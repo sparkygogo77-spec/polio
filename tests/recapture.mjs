@@ -42,7 +42,7 @@ const check = (name, ok, detail = "") => {
 
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
-const R = await jiti.import(join(here, "..", "src", "features", "studio", "recapture.ts"));
+const R = await jiti.import(join(here, "..", "src", "features", "studio", "bring-in", "recapture.ts"));
 const OWNER = "sparkygogo77-spec", NAME = "sink";
 const src = { owner: OWNER, name: NAME, branch: "claude/trumpmorty", dir: "sites/trumpmorty-fun" };
 

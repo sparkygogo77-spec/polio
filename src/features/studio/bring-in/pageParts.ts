@@ -26,12 +26,12 @@
  * Pure: no store, no browser. `tests/plain-page.mjs` holds it.
  */
 import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
-import type { Span } from "./parts/spans.ts";
-import { familyOf } from "./recreate.ts";
-import { seatStates, type FrameNode } from "./states/index.ts";
-import { lookOf, type LayerNode, type StyleSource } from "./styleLayer.ts";
-import type { PageSource } from "./sourceHooks.ts";
-import { codeIndex, type CodeIndex, type Wanted } from "./codeRefs.ts";
+import type { Span } from "../parts/spans.ts";
+import { familyOf } from "../recreate.ts";
+import { seatStates, type FrameNode } from "../states/index.ts";
+import { lookOf, type LayerNode, type StyleSource } from "../styleLayer.ts";
+import type { PageSource } from "../sourceHooks.ts";
+import { codeIndex, type CodeIndex, type Wanted } from "../codeRefs.ts";
 
 /** A page of the site, as the store keeps one. */
 export interface LandedPage { id: string; name: string; path: string; prompt: string; scroll: string }
@@ -160,7 +160,7 @@ function namesOf(p: PagePart): Wanted[] {
 }
 
 /** A part's ties to its code: markup, CSS rules, and every script reference, with what builds it if anything does. */
-function codeOf(p: PagePart, file: string, index: CodeIndex | null): import("./styleLayer.ts").PartCode {
+function codeOf(p: PagePart, file: string, index: CodeIndex | null): import("../styleLayer.ts").PartCode {
   const named = index ? namesOf(p).flatMap((w) => index.refs.get(`${w.attr}=${w.value}`) ?? []) : [];
   /* A hooks.json may list the stylesheets that style a hook among its references (PST's: base.css, the selector as the "function"): those are CSS rules, shown with the rest. */
   const sheetRefs = named.filter((r) => /\.css$/i.test(r.file));

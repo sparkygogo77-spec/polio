@@ -1,7 +1,7 @@
 "use client";
 import { type LearnState } from "../../learn";
 import type { StandIn } from "../../standIn";
-import type { Taken } from "../../reimport";
+import type { Taken } from "../../bring-in";
 import { type ColourUse, type FaceTo } from "../../look";
 import type { Palette } from "../../look";
 import type { CarriedFont } from "../../look";

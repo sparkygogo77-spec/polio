@@ -27,17 +27,17 @@
  *   npm run build && npx next start -p 3013
  *   node tests/style-layer.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/StyleLayerPanel.tsx, src/features/studio/Inspector.tsx, src/features/studio/RepoPicker.tsx, src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx
+ * Covers: src/features/studio/StyleLayerPanel.tsx, src/features/studio/Inspector.tsx, src/features/studio/RepoPicker.tsx, src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { chromium } from "playwright-core";
-import { PARTS } from "../src/features/studio/siteRead.ts";
-import { pagesToDoc } from "../src/features/studio/pageParts.ts";
+import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
+import { pagesToDoc } from "../src/features/studio/bring-in/pageParts.ts";
 import { sourceOfPage, withLines } from "../src/features/studio/sourceHooks.ts";
 import { applyToPage, buildLayer, hookCounts, linkHref, lookOf } from "../src/features/studio/styleLayer.ts";
 import { prepareLayer, publishLayer } from "../src/features/studio/styleLayerRun.ts";
-import { sansScripts } from "../src/features/studio/zipImport.ts";
+import { sansScripts } from "../src/features/studio/bring-in/zipImport.ts";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const results = [];

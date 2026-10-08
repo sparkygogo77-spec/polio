@@ -15,7 +15,7 @@
  *
  *   node tests/states-by-part.mjs
  *
- * Covers: src/features/studio/states/boardStates.ts, src/features/studio/pageParts.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/StudioPage.tsx
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/bring-in/pageParts.ts, src/features/studio/states/StatesTimeline.tsx, src/features/studio/StudioPage.tsx
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -24,7 +24,7 @@ import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const B = await jiti.import(join(here, "..", "src", "features", "studio", "states", "boardStates.ts"));
-const P = await jiti.import(join(here, "..", "src", "features", "studio", "pageParts.ts"));
+const P = await jiti.import(join(here, "..", "src", "features", "studio", "bring-in", "pageParts.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);

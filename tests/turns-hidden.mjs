@@ -18,7 +18,7 @@
  *
  * Covers: src/features/studio/siteread/parts.ts, src/features/studio/states/boardStates.ts
  */
-import { PARTS } from "../src/features/studio/siteRead.ts";
+import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
 import { screenPlaces } from "../src/features/studio/states/boardStates.ts";
 import { launch } from "./fixtures/look-sites.mjs";
 

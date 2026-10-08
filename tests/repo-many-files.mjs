@@ -26,11 +26,11 @@
  *   npm run build && npx next start -p 3013
  *   node tests/repo-many-files.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/repoImport.ts, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts
+ * Covers: src/features/studio/bring-in/repoImport.ts, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { heaviestFolders, inFolders, MAX_REPO_FILES, referenced, siteFolders } from "../src/features/studio/repoImport.ts";
+import { heaviestFolders, inFolders, MAX_REPO_FILES, referenced, siteFolders } from "../src/features/studio/bring-in/repoImport.ts";
 
 const URL_BASE = process.argv[2] ?? "http://127.0.0.1:3013";
 const results = [];

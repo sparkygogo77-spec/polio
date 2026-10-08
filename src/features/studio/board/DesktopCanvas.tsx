@@ -20,7 +20,7 @@ import { LiveKeyframes, TextureDrift } from "../TextureDrift";
 import { CarriedFonts } from "../live/CarriedFonts";
 import type { CarriedFont } from "../look";
 import { SpaceForming,SpaceInk,SpaceMarks,SpaceRefused,SpaceSide } from "../SpaceLayer";
-import { BringHost } from "../FromASite";
+import { BringHost } from "../bring-in/ui";
 import { LearnBadge } from "../LearnPanel";
 import { partLearned } from "../learn";
 import { useDecideAll } from "../states/ui";

@@ -1,5 +1,5 @@
 "use client";
-import type { Taken } from "../../reimport";
+import type { Taken } from "../../bring-in";
 import type { SiteHead } from "../../siteHead";
 import { type FormatValues } from "../../format";
 import { type AnimEase, type AuraStyle, type Look } from "../../look";

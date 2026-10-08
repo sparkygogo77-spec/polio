@@ -15,7 +15,7 @@
  *   node tests/reader-space.mjs
  */
 import { createRequire } from "node:module";
-import { MEASURE } from "../src/features/studio/siteRead.ts";
+import { MEASURE } from "../src/features/studio/bring-in/siteRead.ts";
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {

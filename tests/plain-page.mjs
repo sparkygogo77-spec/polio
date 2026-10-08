@@ -23,13 +23,13 @@
  *   npm run build && npx next start -p 3013
  *   node tests/plain-page.mjs http://127.0.0.1:3013
  *
- * Covers: src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx, src/features/studio/parts/PageControls.tsx, src/features/studio/live/LiveSite.tsx, src/features/studio/parts/Runs.tsx
+ * Covers: src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx, src/features/studio/parts/PageControls.tsx, src/features/studio/live/LiveSite.tsx, src/features/studio/parts/Runs.tsx
  */
 import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
-import { PARTS } from "../src/features/studio/siteRead.ts";
-import { pagesToDoc, reportSays, pageLink } from "../src/features/studio/pageParts.ts";
-import { sansScripts } from "../src/features/studio/zipImport.ts";
+import { PARTS } from "../src/features/studio/bring-in/siteRead.ts";
+import { pagesToDoc, reportSays, pageLink } from "../src/features/studio/bring-in/pageParts.ts";
+import { sansScripts } from "../src/features/studio/bring-in/zipImport.ts";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const results = [];

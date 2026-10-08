@@ -11,9 +11,9 @@
  *
  *   node tests/joined-address.mjs
  *
- * Covers: src/features/studio/captureSite.ts, src/features/studio/CaptureSiteDialog.tsx, src/features/studio/Recapture.tsx, src/features/studio/recapture.ts, src/features/studio/FromASite.tsx
+ * Covers: src/features/studio/bring-in/captureSite.ts, src/features/studio/CaptureSiteDialog.tsx, src/features/studio/Recapture.tsx, src/features/studio/bring-in/recapture.ts, src/features/studio/bring-in/FromASite.tsx
  */
-import { captureName, nameFrom, oneAddress, startCapture, withoutJoinedAddress } from "../src/features/studio/captureSite.ts";
+import { captureName, nameFrom, oneAddress, startCapture, withoutJoinedAddress } from "../src/features/studio/bring-in/captureSite.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
