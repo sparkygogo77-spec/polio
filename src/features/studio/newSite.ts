@@ -9,7 +9,7 @@
  * undo back to, since there was nothing before it.
  */
 import { defaultRoll, type ThemeRollSettings } from "./look";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { readPhilosophy, rollTheme, type SiteTheme } from "./siteTheme";
 import { pickTryThese } from "./tryThese";
 import type { StyleKit } from "./styleKits";

@@ -23,7 +23,7 @@ import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { Tooltip } from "@/core/ui/tooltip";
 import { toRows } from "./spec";
-import { useStudio, type RevisionKind, type StudioNode, type TrailEntry, type TrailTarget } from "./store";
+import { useStudio, type RevisionKind, type StudioNode, type TrailEntry, type TrailTarget } from "./board/store";
 
 interface Lane {
   target: TrailTarget;

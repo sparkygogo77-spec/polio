@@ -1,26 +1,26 @@
 "use client";
-import type { Taken } from "../reimport";
-import type { SiteHead } from "../siteHead";
-import { type FormatValues } from "../format";
-import { type AnimEase, type AuraStyle, type Look } from "../look";
-import { type MotionAsset } from "../motion";
-import type { NodeLink } from "../parts/types";
-import type { WorkUse } from "../library/works";
-import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "../parts/theme";
-import type { NodeEmbed, NodeMotion } from "../parts/capturedMotion";
-import { type OutlineClip, type Sketch } from "../sketch";
-import type { LookPicture } from "../partPicture";
-import type { Worn } from "../wornShape";
-import type { Remixed } from "../remix";
-import type { DrawnKind } from "../shapeKind";
-import type { DrawnVector, VectorRole } from "../vector";
-import { type CubeData } from "../parts/cubeFaces";
-import type { MeshData } from "../parts/types";
-import type { PartCode } from "../snippet";
-import type { Picture } from "../pictures";
-import { type Words } from "../parts/spans";
-import type { Plan, Space } from "../space";
-import { type Tour } from "../tour";
+import type { Taken } from "../../reimport";
+import type { SiteHead } from "../../siteHead";
+import { type FormatValues } from "../../format";
+import { type AnimEase, type AuraStyle, type Look } from "../../look";
+import { type MotionAsset } from "../../motion";
+import type { NodeLink } from "../../parts/types";
+import type { WorkUse } from "../../library/works";
+import type { NodeArt, NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "../../parts/theme";
+import type { NodeEmbed, NodeMotion } from "../../parts/capturedMotion";
+import { type OutlineClip, type Sketch } from "../../sketch";
+import type { LookPicture } from "../../partPicture";
+import type { Worn } from "../../wornShape";
+import type { Remixed } from "../../remix";
+import type { DrawnKind } from "../../shapeKind";
+import type { DrawnVector, VectorRole } from "../../vector";
+import { type CubeData } from "../../parts/cubeFaces";
+import type { MeshData } from "../../parts/types";
+import type { PartCode } from "../../snippet";
+import type { Picture } from "../../pictures";
+import { type Words } from "../../parts/spans";
+import type { Plan, Space } from "../../space";
+import { type Tour } from "../../tour";
 
 /**
  * The page's background is a thing you can pick: click the bare frame and
@@ -260,8 +260,8 @@ export interface StudioNode {
    * changes nothing at the other or on the desktop. `widths` is where the
    * site itself put the part at that width, when a capture recorded it.
    */
-  small?: Partial<Record<"tablet" | "phone", import("../live/small").DeviceRule>> | null;
-  widths?: Partial<Record<"tablet" | "phone", import("../live/small").SizedBox>> | null;
+  small?: Partial<Record<"tablet" | "phone", import("../../live/small").DeviceRule>> | null;
+  widths?: Partial<Record<"tablet" | "phone", import("../../live/small").SizedBox>> | null;
   /** `position`: the capture placed it out of the flow (absolute or fixed), so it sizes nothing that holds it. */
   from?: { url: string; host: string; selector: string; at: number; position?: "absolute" | "fixed" | "sticky"; inset?: { top?: number; right?: number; bottom?: number; left?: number } | null } | null;
   /**
@@ -390,7 +390,7 @@ export interface StudioNode {
    */
   hooks?: Record<string, string> | null;
   /** Where it is in the code repository it was brought in from, and how it looked then (`styleLayer.ts`): the part panel's code link, and what the style layer compares against. */
-  source?: import("../styleLayer").NodeSource | null;
+  source?: import("../../styleLayer").NodeSource | null;
 }
 
 export interface StudioGroup {

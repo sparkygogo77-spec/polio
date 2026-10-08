@@ -9,7 +9,7 @@ import { Button } from "@/core/ui/button";
 import { Segmented } from "@/core/ui/segmented";
 import { Slider } from "@/core/ui/slider";
 import { play } from "@/core/audio/engine";
-import { useStudio, type StudioNode } from "../store";
+import { useStudio, type StudioNode } from "../board/store";
 import { ImageWell } from "../ImageIntake";
 import { reach } from "../pictures";
 import { LIVE_PRESETS, MAX_SECONDS, MIN_SECONDS, isLiving, liveLayers, newLiving, switchPreset, type LivingPicture } from "../living";

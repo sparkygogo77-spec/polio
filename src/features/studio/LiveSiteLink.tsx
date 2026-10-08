@@ -22,7 +22,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useBuilds } from "@/features/builds/store";
 import { heldKeys, useKeys } from "@/features/keys/store";
 import type { StyleSource } from "./styleLayer";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { websiteOf } from "./liveSite";
 
 /** Each repository's website, asked once per page load (and again when the keys change). */

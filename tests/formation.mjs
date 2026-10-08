@@ -75,7 +75,7 @@ check("the face has no core while it forms; the centre comes last", /\.molten\[d
 /* 3. Wired: the store, the queue, the canvas, the stylesheet          */
 /* ------------------------------------------------------------------ */
 
-const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("progress only ever climbs", /const next = Math\.max\(had\.p, Math\.min\(1, p\)\);/.test(store));
 check("landing is one, whatever step it was on", /const form = state === "done" \? \{ \.\.\.\(t\.form \?\? \{ p: 0, gen: 0 \}\), p: 1 \}/.test(store));
 check("an update to a finished card forms it again", /function reformed\(/.test(store) && /return \{ p: 1, gen: had\.gen \+ 1 \};/.test(store));

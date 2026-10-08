@@ -15,7 +15,7 @@
  * box still takes them, as it did (`openWords`).
  */
 import * as React from "react";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { plain, reword } from "./parts/spans";
 import { getFeature } from "./catalog";
 import { partName } from "./partNames";

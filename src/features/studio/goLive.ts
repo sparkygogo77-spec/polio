@@ -21,7 +21,7 @@ import { deploy, productionAddress, publish, siteFiles, watchDeploy, type Deploy
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { sitePictures } from "./staticSite";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { contractFiles } from "./library/contract";
 import { polioMd, POLIO_MD } from "./polioMd";
 import { completeSite, fetchOwnFromBuilder, missingSays } from "./siteRefs";

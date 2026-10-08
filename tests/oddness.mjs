@@ -136,7 +136,7 @@ check("answered, it is no longer asking", askingJob([{ ...q[0], question: { ...q
 
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
 const dq = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
-const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the run asks after the catalogue, which is free, and before the read, which is not", (() => {
   const cat = run.indexOf(": pickCoded(ctx);");
   /* Asked of the drawing as the catalogue judged it: alone, or over a part (`tests/solid.mjs`). */

@@ -47,7 +47,7 @@ import { moltenBarClass, moltenSeed } from "@/core/ui/molten";
 import { formOf, progressOf } from "./formation";
 import { doneJobs, pendingJobs } from "./queue";
 import { processDone } from "./threads";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 
 /**

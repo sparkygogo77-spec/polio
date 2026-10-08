@@ -30,7 +30,7 @@ import { useSetting } from "@/core/settings/useSetting";
 import { Popover } from "@/core/ui/popover";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Link2, Link2Off, Lock } from "lucide-react";
-import { DRAW_KINDS, HUES, useStudio, type Tool } from "./store";
+import { DRAW_KINDS, HUES, useStudio, type Tool } from "./board/store";
 import { KitPicker } from "./DrawKits";
 
 type Entry = { id: string; tools: readonly Tool[]; order: number } & (

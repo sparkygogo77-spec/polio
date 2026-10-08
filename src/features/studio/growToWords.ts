@@ -16,7 +16,7 @@
  * Not a checkpoint of its own. The typing that caused it already pushed one,
  * so undoing the typing puts the width back with it.
  */
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { atFullSize } from "./textFit";
 
 export function growToWords(id: string): void {

@@ -10,7 +10,7 @@
 import { exportSite } from "./exportSite";
 import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { finishKit, pullPictures, toKit, type KitExport, type KitFile, type KitPart } from "./kitExport";
 import { hookChanges, readHookMap, sendDesign, type ChangeNode, type HookChanges, type HookMap } from "./designBranch";
 import { designRecord, type RecordNode } from "./designRecord";

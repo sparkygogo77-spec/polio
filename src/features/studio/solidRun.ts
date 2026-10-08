@@ -35,7 +35,7 @@ import { saysSolid } from "./imageRoute";
 import { cubeDims } from "./parts/cubePose";
 import { CUBE_SIDES, REST, type CubeFace } from "./parts/cubeFaces";
 import { SOLID_WORDS, solidModel, VIEWS, type View } from "./solidRoute";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 
 export { SOLID_WORDS, solidModel, VIEWS };
 export type { View };

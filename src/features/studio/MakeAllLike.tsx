@@ -16,7 +16,7 @@ import { Button } from "@/core/ui/button";
 import { Switch } from "@/core/ui/switch";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./board/store";
 import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./partLook";
 import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";

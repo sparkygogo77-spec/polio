@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { AlignCenter, AlignLeft, AlignRight, Bookmark, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, MoreHorizontal, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "../catalog";
 import { isLinkable } from "../parts";
-import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useHeldStudio, useStudio, type StudioNode } from "../store";
+import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useHeldStudio, useStudio, type StudioNode } from "../board/store";
 import { ColourOverride } from "../ColourOverride";
 import { AuditPanel, AuditReadout } from "../AuditPanel";
 import { written } from "../parts/cubeFaces";

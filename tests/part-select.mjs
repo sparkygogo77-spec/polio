@@ -49,7 +49,7 @@ check("every handle is somewhere on the shape", CORNERS.every((c) => {
 }));
 check("a path that says too little places nothing", handlePoints("M 0 0 L 1 1") === null);
 
-const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the mark is drawn along the same path the crop uses", /d=\{node\.outline\.cut\}/.test(canvas));
 check("the box outline stands down when the shape is marked", /selected && !hugs \?/.test(canvas));
 check("the handles go on the path's extremes", /data-on-outline=""/.test(canvas));

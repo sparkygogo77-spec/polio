@@ -21,7 +21,7 @@
  * as a pile at tablet and phone. With no layout field anywhere there are no
  * containers and the placement is exactly what it was.
  */
-import type { StudioNode } from "../store";
+import type { StudioNode } from "../board/store";
 
 /** The most a narrowed part grows in height: a part four times narrower is four times taller, and no more. */
 const GROW_MAX = 4;

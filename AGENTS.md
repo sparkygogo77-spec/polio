@@ -3691,7 +3691,7 @@ remove it from `src/features/index.ts` when you're sure.
 - Don't publish without a key from a loop or a stream.
 - Don't render more than ~100 DOM rows without `VirtualList`.
 - Don't add a global provider for feature state; a zustand store inside the
-  module folder is the pattern (see `studio/store.ts`).
+  module folder is the pattern (see `studio/board/store.ts`).
 - Don't put feature logic in `site.config.ts` or `src/core/`.
 - Don't hard-code shortcut labels in UI; pass `shortcut="mod+k"` and `Kbd`
   formats it per platform.

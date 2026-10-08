@@ -14,7 +14,7 @@ import { hasPicture, pictureFrom, readDrop, type Dropped } from "./pictureDrop";
 import { put as putPicture, usePicture } from "./pictures";
 import { hookOf, trimBox, type Box } from "./partPicture";
 import { SCREEN } from "./RingConsole";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 
 /** Where the picture's real edges are, read in this browser. Null when it cannot be read; the code then uses the whole picture. */
 async function edgesOf(blob: Blob): Promise<Box | null> {

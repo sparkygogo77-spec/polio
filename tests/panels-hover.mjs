@@ -16,7 +16,7 @@
  *
  *   node tests/panels-hover.mjs
  *
- * Covers: src/features/studio/states/stateRules.ts, src/features/studio/canvas/helpers.ts, src/features/studio/states/PanelsPage.tsx, src/features/studio/states/sceneStep.ts
+ * Covers: src/features/studio/states/stateRules.ts, src/features/studio/board/helpers.ts, src/features/studio/states/PanelsPage.tsx, src/features/studio/states/sceneStep.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,7 +24,7 @@ import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
 const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
 const R = await jiti.import(join(here, "..", "src", "features", "studio", "states", "stateRules.ts"));
-const H = await jiti.import(join(here, "..", "src", "features", "studio", "canvas", "helpers.ts"));
+const H = await jiti.import(join(here, "..", "src", "features", "studio", "board", "helpers.ts"));
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail && ok !== true ? ` — ${detail}` : ""}`); };
 const J = (x) => JSON.stringify(x);
@@ -56,7 +56,7 @@ check("3. moved to the middle of the page", 1500 + c.dx === 810 && 300 + c.dy ==
 
 /* 4 */
 const PP = await jiti.import(join(here, "..", "src", "features", "studio", "states", "PanelsPage.tsx"));
-const { useStudio } = await jiti.import(join(here, "..", "src", "features", "studio", "store.ts"));
+const { useStudio } = await jiti.import(join(here, "..", "src", "features", "studio", "board", "store.ts"));
 const sc = (name, shows) => ({ name, label: name, page: "index.html", shows, declared: true, panels: {} });
 useStudio.setState({ activePageId: "p", statesOn: ["screen:start"], look: { ...(useStudio.getState().look ?? {}), styleSource: { files: [{ file: "index.html", pageId: "p" }], screens: [sc("start", ["intro"]), sc("mid", ["intro", "score"])] } } });
 const toScore = PP.snapToSceneShowing("score", false);

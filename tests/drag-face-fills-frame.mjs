@@ -9,7 +9,7 @@
  *
  *   node tests/drag-face-fills-frame.mjs
  *
- * Covers: src/features/studio/states/stateFrames.ts, src/features/studio/canvas/DesktopCanvas.tsx
+ * Covers: src/features/studio/states/stateFrames.ts, src/features/studio/board/DesktopCanvas.tsx
  */
 import { clampMove, frameRiders, liftToFrame } from "../src/features/studio/states/stateFrames.ts";
 

@@ -18,7 +18,7 @@ import { Segmented } from "@/core/ui/segmented";
 import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
 import { play } from "@/core/audio/engine";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { getFeature } from "./catalog";
 import { getWork } from "./library/works";
 import {

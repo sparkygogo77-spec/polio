@@ -17,7 +17,7 @@
  * in the same order: a space is made for it, the request is handed to that
  * space, and the space is picked so its panel mounts and runs the import.
  */
-import { holdImportMark, useStudio } from "./store";
+import { holdImportMark, useStudio } from "./board/store";
 import { readRepo, repoName, sameSource, withPath, REPO_REFUSAL_SAYS } from "./repoImport";
 import { HEADLESS, clearImportLine } from "./FromASite";
 

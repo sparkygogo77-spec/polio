@@ -34,7 +34,7 @@ import {
   ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Eye, Film, Globe, Hand, Maximize2, MousePointer2, Pause, Play, Plus, Pointer,
   Power, Repeat, Rotate3d, Sparkles, Trash2, Waves, X,
 } from "lucide-react";
-import { BACKGROUND_ID, useStudio } from "./store";
+import { BACKGROUND_ID, useStudio } from "./board/store";
 import {
   filled, gapCount, gapLabel, LOOP_NAME, motionBrief, planFrames, playOrder, sleeveOf, SLEEVES, totalFrames,
   type MotionAsset, type MotionEase, type MotionLoop,

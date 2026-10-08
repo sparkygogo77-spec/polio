@@ -16,7 +16,7 @@
  */
 import * as React from "react";
 import { Bookmark, Check } from "lucide-react";
-import { useHeldStudio, useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { getWork, usesOf, withWork, withoutWork } from "./library/works";
 import { effectsFor, familyOf } from "./library/partEffects";
 import { componentOf } from "./library/components";

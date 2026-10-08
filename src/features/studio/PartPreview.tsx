@@ -23,7 +23,7 @@ import * as React from "react";
 import { Block, themeFrom } from "./blocks";
 import type { Theme } from "./parts/theme";
 import type { FeatureDef } from "./catalog";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { previewContent } from "./showcase";
 
 /** The size a part is drawn at before it is scaled down. Its own, within reason. */

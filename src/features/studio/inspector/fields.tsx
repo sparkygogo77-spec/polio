@@ -3,7 +3,7 @@ import { isKeptVersion, openRemake, PictureVersions } from "../RemakePicture";
 import * as React from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { getFeature, type FeatureOption } from "../catalog";
-import { HUES, useHeldStudio, useStudio, type StudioNode } from "../store";
+import { HUES, useHeldStudio, useStudio, type StudioNode } from "../board/store";
 import { drop as dropPicture, put as putPicture, usePicture } from "../pictures";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";

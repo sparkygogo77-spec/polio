@@ -30,7 +30,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { headOf } from "./codePublish";
 import { kitStatus, publishKit, type KitSent } from "./kitPublish";
 import { checkThenPublish } from "./PublishCheck";

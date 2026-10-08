@@ -29,7 +29,7 @@
  * The store is written once, when the hand lets go.
  */
 import { liftCss, type Light } from "./look";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 /** One part, as the rig needs it: where to write, and where it stands. */
 interface Surface {

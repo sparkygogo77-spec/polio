@@ -18,7 +18,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { useBuilds } from "@/features/builds/store";
 import { defaultRoll, type ThemeRollSettings } from "./look";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { useBoardKits } from "./DrawKits";
 import { GROUP_LABEL, GROUPS, kitDistance, minDistanceAt, pairingOf, readPhilosophy, type Group, type SiteTheme } from "./siteTheme";
 import { rollOnto } from "./newSite";

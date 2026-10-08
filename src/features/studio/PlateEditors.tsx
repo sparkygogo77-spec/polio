@@ -22,7 +22,7 @@ import { Textarea } from "@/core/ui/textarea";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import { CUBE_SIDES, emptyFace, type CubeFace } from "./parts/cubeFaces";
 import { isLinkable } from "./parts";
-import { NODE_SHAPES, useStudio, type StudioNode } from "./store";
+import { NODE_SHAPES, useStudio, type StudioNode } from "./board/store";
 import { spun } from "./menuGeometry";
 import { Caption, CONSOLE, Glued, PICKED, SCREEN, SectorButton, SHRINK, type Slab } from "./RingConsole";
 import { centreOf, wholeOf } from "./RingEditors";

@@ -29,7 +29,7 @@ import { STEPS, type Step } from "./imageRoute";
 import { KIND_MEANS } from "./shapeKind";
 import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Reading, type Space } from "./space";
 import { choicesFor, readingOf, writePlan } from "./planEdit";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { FromASite } from "./FromASite";
 import { ModelOptions, type OptionRow } from "./ModelOptions";
@@ -37,7 +37,7 @@ import { clearOption, routeFills, valueOf, writeOption } from "./planEdit";
 import { generateSurface, lockNow, stillMaking } from "./surfaceRun";
 import { isMade, jobsInSpace, nodeInSpace, spaceOfDrawing, surfaceBrief, type Placed } from "./space";
 import { inkGroups } from "./inkGroups";
-import { pageNodes, pageShapes, type StudioShape } from "./store";
+import { pageNodes, pageShapes, type StudioShape } from "./board/store";
 import { useShallow } from "zustand/react/shallow";
 import { Copy, Wand2 } from "lucide-react";
 

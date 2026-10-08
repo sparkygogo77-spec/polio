@@ -22,7 +22,7 @@ import { placeNodes } from "./live/layout";
 import { held, put } from "./pictures";
 import { readableFixes } from "./siteColours";
 import { checkBoard, KIND_ORDER, type Problem } from "./publishCheck";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { issueFiles, pushBranch } from "./codePublish";

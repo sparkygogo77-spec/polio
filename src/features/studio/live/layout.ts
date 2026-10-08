@@ -12,7 +12,7 @@
 import { getFeature } from "../catalog";
 import { resolvePart } from "../parts";
 import { FULL_BLEED } from "../reshape";
-import type { StudioNode } from "../store";
+import type { StudioNode } from "../board/store";
 import { reflow, type Placed } from "./reflow";
 
 export { frameHeightOf, type Placed } from "./reflow";

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { pageNodes, useHeldStudio, useStudio, type StudioNode } from "../store";
+import { pageNodes, useHeldStudio, useStudio, type StudioNode } from "../board/store";
 import { CUBE_SIDES, emptyFace, written } from "../parts/cubeFaces";
 import { makeSolid, showCube, showSolid, solidModel } from "../solidRun";
 import { rendererReady } from "../agent";

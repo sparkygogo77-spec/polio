@@ -9,7 +9,7 @@ import { strandBounds, strandReach, REACH_WIDTH, type Point, type VineEnd } from
 import { sayWhere, saySpend } from "../spend";
 import { diffDocs, type Thread } from "../threads";
 import { pictureOf } from "../reshapeRun";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { Block, themeFrom } from "../blocks";
 import { resolvePalette } from "../parts/theme";
 import { GROW, isElement, headlineOf } from "./layout";

@@ -13,7 +13,7 @@ import * as React from "react";
 import { SCREEN } from "@/core/ui/void";
 import { play } from "@/core/audio/engine";
 import { useBuilds } from "@/features/builds/store";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { afterSend, heldOn, isLearned, keyOf, LEARN_DEFAULT, learnable, learnRequest, leftToday, queued, WAITING } from "./learn";
 import { readCaptureRecord, recapturePlan, runRecapture } from "./recapture";
 import { heldKeys } from "@/features/keys/store";

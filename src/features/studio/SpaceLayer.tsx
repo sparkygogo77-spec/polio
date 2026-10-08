@@ -43,7 +43,7 @@ import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundar
 import type { SketchPoint as Pt } from "./sketch";
 import type { SketchPoint } from "./sketch";
 import { nodeInSpace } from "./space";
-import { pageNodes, pageShapes, pageSpaces, useStudio } from "./store";
+import { pageNodes, pageShapes, pageSpaces, useStudio } from "./board/store";
 import { inkGroups } from "./inkGroups";
 import { SpaceInkPanel, SpaceOwnPanel, SpacePanel } from "./SpacePanel";
 import { lockNow } from "./surfaceRun";

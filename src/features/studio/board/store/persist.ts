@@ -1,12 +1,12 @@
 "use client";
-import { unpackFrom } from "../docStore";
-import { pictureLayersOff } from "../docTake";
-import { defaultLight, delayMs, emptyLook, speedK } from "../look";
-import { newMotion, SLEEVES } from "../motion";
-import { normaliseSketch, type OutlineClip } from "../sketch";
-import type { Worn } from "../wornShape";
-import type { PartCode } from "../snippet";
-import type { Picture } from "../pictures";
+import { unpackFrom } from "../../docStore";
+import { pictureLayersOff } from "../../docTake";
+import { defaultLight, delayMs, emptyLook, speedK } from "../../look";
+import { newMotion, SLEEVES } from "../../motion";
+import { normaliseSketch, type OutlineClip } from "../../sketch";
+import type { Worn } from "../../wornShape";
+import type { PartCode } from "../../snippet";
+import type { Picture } from "../../pictures";
 import type { StudioState } from "./state";
 
 /* ------------------------------------------------------------------ */

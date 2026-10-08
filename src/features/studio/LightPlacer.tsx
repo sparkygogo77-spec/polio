@@ -21,7 +21,7 @@
 import * as React from "react";
 import { play } from "@/core/audio/engine";
 import { aimLight, endLightRig, startLightRig } from "./lightRig";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 interface Rect { x: number; y: number; w: number; h: number }
 

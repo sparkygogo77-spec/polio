@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useHeldStudio, useStudio, useSteady, type StudioNode } from "../store";
+import { useHeldStudio, useStudio, useSteady, type StudioNode } from "../board/store";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "../vector";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";

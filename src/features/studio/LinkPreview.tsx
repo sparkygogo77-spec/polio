@@ -14,7 +14,7 @@
  */
 import * as React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useStudio, type StudioPage } from "./store";
+import { useStudio, type StudioPage } from "./board/store";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Segmented } from "@/core/ui/segmented";

@@ -19,7 +19,7 @@ import { useBoxEntry } from "../boxEntry";
 import { seesThrough,usePicture } from "../pictures";
 import {
 useStudio,type StudioNode
-} from "../store";
+} from "./store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { openRadial } from "../RadialMenu";

@@ -13,7 +13,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/zoom-few-redraw.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/canvas/DesktopCanvas.tsx, src/features/studio/canvas/NodeView.tsx
+ * Covers: src/features/studio/board/DesktopCanvas.tsx, src/features/studio/board/NodeView.tsx
  */
 import { createRequire } from "node:module";
 

@@ -10,7 +10,7 @@
  *
  *   node tests/press-rules.mjs
  *
- * Covers: src/features/studio/board/press.ts, src/features/studio/board/pressRead.ts, src/features/studio/canvas/DesktopCanvas.tsx
+ * Covers: src/features/studio/board/press.ts, src/features/studio/board/pressRead.ts, src/features/studio/board/DesktopCanvas.tsx
  */
 import { PRESS_RULES, afterWordsDeclined, picksAfter, pressRule } from "../src/features/studio/board/press.ts";
 

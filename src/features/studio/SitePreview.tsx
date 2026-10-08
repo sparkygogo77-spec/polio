@@ -30,7 +30,7 @@ import * as React from "react";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { washCss } from "./look";
-import { frameHeight, type StudioNode, type StudioPage } from "./store";
+import { frameHeight, type StudioNode, type StudioPage } from "./board/store";
 import type { FormatValues } from "./format";
 import type { Look } from "./look";
 

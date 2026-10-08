@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import { ChevronDown, ChevronUp, FileText, Plus, Trash2 } from "lucide-react";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";

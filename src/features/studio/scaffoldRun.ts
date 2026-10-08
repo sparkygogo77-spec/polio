@@ -26,7 +26,7 @@ import { themeFrom } from "./parts";
 import { resolvePalette } from "./parts/theme";
 import { placeNodes } from "./live/layout";
 import { scaffold, type ScaffoldFile, type ScaffoldPart } from "./scaffold";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { standInOn } from "./standIn";
 
 export interface ScaffoldResult {

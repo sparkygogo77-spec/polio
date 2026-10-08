@@ -18,7 +18,7 @@
  *
  *   node tests/fill-tile.mjs
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 
 /*
@@ -110,7 +110,7 @@ const panel = readFileSync("src/features/studio/LookPanel.tsx", "utf8");
 check("the Look panel's swatch no longer hardcodes a grid tile", !/f\.id === "grid" \?/.test(panel));
 check("the Look panel's swatch reads the size off the layer", /layers\.map\(\(l\) => l\.size\)/.test(panel));
 
-const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/canvas").map((f) => `canvas/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the board's page frame no longer hardcodes a grid tile", !/backgroundSize: "24px 24px"/.test(canvas));
 
 const theme = readFileSync("src/features/studio/parts/theme.ts", "utf8");

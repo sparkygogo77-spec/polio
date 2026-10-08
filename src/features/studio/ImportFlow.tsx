@@ -36,7 +36,7 @@
  */
 import * as React from "react";
 import { Check, Image as ImageIcon, Scissors, X } from "lucide-react";
-import { useStudio, frameHeight, BASE_ZOOM } from "./store";
+import { useStudio, frameHeight, BASE_ZOOM } from "./board/store";
 import { newLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";

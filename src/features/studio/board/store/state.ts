@@ -1,26 +1,26 @@
 "use client";
-import { type LearnState } from "../learn";
-import type { StandIn } from "../standIn";
-import type { Taken } from "../reimport";
-import { type ColourUse, type FaceTo } from "../siteColours";
-import type { Palette } from "../look";
-import type { CarriedFont } from "../fonts";
-import { type ThemeRollSettings, type Light, type Look, type TextureLayer } from "../look";
-import { type MotionAsset } from "../motion";
-import type { Spend } from "../spend";
-import type { SiteTheme } from "../siteTheme";
-import { type TryItem } from "../starterPage";
-import type { DrawnKind, DrawnRole } from "../shapeKind";
-import type { DrawKind } from "../drawKinds";
-import { type CubeFace, type CubeSide } from "../parts/cubeFaces";
-import type { Picture } from "../pictures";
-import { type Thread } from "../threads";
-import { type DrawJob } from "../queue";
-import type { Locked, Placed, Plan, Space } from "../space";
-import { type Frag, type Reassembly, type Slimming } from "../reassemble";
-import { type Painted } from "../repaint";
-import { type Twin } from "../twins";
-import { type Grown } from "../owns";
+import { type LearnState } from "../../learn";
+import type { StandIn } from "../../standIn";
+import type { Taken } from "../../reimport";
+import { type ColourUse, type FaceTo } from "../../siteColours";
+import type { Palette } from "../../look";
+import type { CarriedFont } from "../../fonts";
+import { type ThemeRollSettings, type Light, type Look, type TextureLayer } from "../../look";
+import { type MotionAsset } from "../../motion";
+import type { Spend } from "../../spend";
+import type { SiteTheme } from "../../siteTheme";
+import { type TryItem } from "../../starterPage";
+import type { DrawnKind, DrawnRole } from "../../shapeKind";
+import type { DrawKind } from "../../drawKinds";
+import { type CubeFace, type CubeSide } from "../../parts/cubeFaces";
+import type { Picture } from "../../pictures";
+import { type Thread } from "../../threads";
+import { type DrawJob } from "../../queue";
+import type { Locked, Placed, Plan, Space } from "../../space";
+import { type Frag, type Reassembly, type Slimming } from "../../reassemble";
+import { type Painted } from "../../repaint";
+import { type Twin } from "../../twins";
+import { type Grown } from "../../owns";
 import { BoardMode, BroughtPart, BroughtRepo, Doc, Revision, ShapeRelation, StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, Tool, TrailEntry } from "./model";
 
 export interface StudioState extends Doc {
@@ -126,7 +126,7 @@ export interface StudioState extends Doc {
   view: "desktop" | "tablet" | "phone";
   setView: (v: "desktop" | "tablet" | "phone") => void;
   /** What a part does at one width, merged into its rule there; null takes the rule away. One step of undo. */
-  setSmallRule: (id: string, device: "tablet" | "phone", patch: Partial<import("../live/small").DeviceRule> | null) => void;
+  setSmallRule: (id: string, device: "tablet" | "phone", patch: Partial<import("../../live/small").DeviceRule> | null) => void;
   /**
    * Placing the page's lamp by hand: the board dims everywhere but the page,
    * the pointer becomes the light, and the next press puts it down.

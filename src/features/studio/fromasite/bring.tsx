@@ -13,7 +13,7 @@ import { type StyleSource } from "../styleLayer";
 import { READ_DEADLINE_MS } from "../siteFetch";
 import { type Space } from "../space";
 import { landPalette } from "../paletteFrom";
-import { useStudio, type StudioNode } from "../store";
+import { useStudio, type StudioNode } from "../board/store";
 import { type MergeDoc, type MergeNode as MergeNodeOf, type Taken } from "../reimport";
 import { type Block } from "../zipImport";
 import { Details } from "./bits";

@@ -18,7 +18,7 @@ import { isLinkable } from "./parts";
 import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
+import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./board/store";
 import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";

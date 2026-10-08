@@ -24,7 +24,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { FAMILY } from "./parts/theme";
 import { buildLayer, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./styleLayer";
 import { sendDesign } from "./codeSend";

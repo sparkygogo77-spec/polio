@@ -25,7 +25,7 @@ import {
   MousePointerClick, PanelBottom, PanelTop, PenTool, Sparkle, Square, TextCursorInput, Type, LayoutPanelTop, Copy, Shapes,
 } from "lucide-react";
 import { getFeature } from "./catalog";
-import { useHeldStudio, useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { ancestors, foldComponents, partTree, visibleRows, type PartTree } from "./partTree";
 import { componentsOf, KIND_WORD, LAYER_WORD, type CompNode, type Components } from "./components";
 import { resolvePalette } from "./parts/theme";

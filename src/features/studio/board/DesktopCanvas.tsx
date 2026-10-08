@@ -28,7 +28,7 @@ import { useImportPreview } from "../ImportFlow";
 import { hasPicture,pictureFrom,readDrop } from "../pictureDrop";
 import { put as putPicture } from "../pictures";
 import { isBoundary,spaceAtLine } from "../space";
-import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN,holdSaves,useSteady } from "../store";
+import { BASE_ZOOM,BACKGROUND_ID,FIT_MIN,holdSaves,useSteady } from "./store";
 import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
 import { SmallBoard } from "../SmallBoard";
@@ -39,7 +39,7 @@ import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
 activePage,frameHeight,frameTopReach,groupBounds,pageGroups,pageNodes,pageShapes,pageSpaces,shapeBounds,
 useStudio,type StudioNode
-} from "../store";
+} from "./store";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
@@ -56,8 +56,8 @@ import { shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
 import { isChain,reasonOn,ShapeView,GROUP_HANDLES,HANDLE_CURSOR } from "./ShapeView";
 import { NodeView } from "./NodeView";
-import { afterWordsDeclined, pressRule } from "../board/press";
-import { groupDrag, moveDrag, readPress, resizeDrag } from "../board/pressRead";
+import { afterWordsDeclined, pressRule } from "./press";
+import { groupDrag, moveDrag, readPress, resizeDrag } from "./pressRead";
 
 /**
  * The board: the desktop page with its boxes, or the page on a tablet or a

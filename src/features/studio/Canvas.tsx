@@ -13,5 +13,5 @@
  * The board lives in `canvas/`, split by topic (see canvas/README.md). This
  * file re-exports what it always exported, so no import elsewhere changes.
  */
-export { Canvas } from "./canvas/DesktopCanvas";
-export { isChain } from "./canvas/ShapeView";
+export { Canvas } from "./board/ui";
+export { isChain } from "./board/ui";

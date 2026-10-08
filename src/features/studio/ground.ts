@@ -52,7 +52,7 @@
  * opaque is painted on top of it — which is exactly what went wrong once.
  */
 import * as React from "react";
-import { isHeld } from "./store/hold";
+import { isHeld } from "./board/store";
 import {
   DRIFT_MS,
   fieldHeight,

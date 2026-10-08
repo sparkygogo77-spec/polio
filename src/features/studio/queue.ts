@@ -18,7 +18,7 @@
  * it runs the board is gone and the menu that opened it is gone with it.
  */
 import type { Sketch } from "./sketch";
-import type { DrawKind } from "./store";
+import type { DrawKind } from "./board/store";
 
 export type JobStatus = "waiting" | "asking" | "running" | "done" | "failed";
 

@@ -36,7 +36,7 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { LiveSite } from "./live/LiveSite";
-import { useStudio, type StudioPage } from "./store";
+import { useStudio, type StudioPage } from "./board/store";
 import { homeFor, type Home } from "./homePage";
 import { base64, bytesFor, type Picture } from "./pictures";
 import { unbuiltSections } from "./spec";

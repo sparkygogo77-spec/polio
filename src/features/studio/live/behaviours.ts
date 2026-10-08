@@ -9,7 +9,7 @@
  */
 import { resolvePart } from "../parts";
 import { getFeature } from "../catalog";
-import type { StudioNode } from "../store";
+import type { StudioNode } from "../board/store";
 
 export interface Behaviours {
   progress: boolean;

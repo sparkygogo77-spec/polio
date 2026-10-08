@@ -16,7 +16,7 @@ import type { LearnedSite } from "./library/learned";
 import { getWork } from "./library/works";
 import { CATEGORIES, getFeature } from "./catalog";
 import { STATUS_LABEL } from "./shelfFacts";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";

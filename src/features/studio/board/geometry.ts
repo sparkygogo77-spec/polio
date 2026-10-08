@@ -1,4 +1,4 @@
-import { type StudioNode,type StudioShape } from "../store";
+import { type StudioNode,type StudioShape } from "./store";
 
 
 

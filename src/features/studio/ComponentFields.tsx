@@ -13,7 +13,7 @@
 import * as React from "react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { colourOf, KIND_WORD, LAYER_WORD, recolour, type Component, type CompNode, type Slot } from "./components";
 import { resolvePalette } from "./parts/theme";
 import { ROLES } from "./look";

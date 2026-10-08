@@ -12,7 +12,7 @@
 import * as React from "react";
 import { GitBranch, Plus, X } from "lucide-react";
 import { useBuilds } from "@/features/builds/store";
-import { useHeldStudio } from "./store";
+import { useHeldStudio } from "./board/store";
 import { isStarter } from "./starterPage";
 import { VOID } from "@/core/ui/void";
 import { openRepoPicker } from "./RepoPicker";

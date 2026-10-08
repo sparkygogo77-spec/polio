@@ -14,7 +14,7 @@ import { ClipboardPaste, Pipette } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
-import { useHeldStudio, useStudio, type StudioNode } from "./store";
+import { useHeldStudio, useStudio, type StudioNode } from "./board/store";
 import { FACET_WORDS, lookDiffers, lookHas, lookOf, lookPatch } from "./partLook";
 import { tryProps } from "./tryLook";
 import { pasteLook, useLookClip } from "./partLookApply";

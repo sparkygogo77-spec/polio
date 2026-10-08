@@ -8,7 +8,7 @@
 import { unmade } from "./polioMd";
 import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
-import { useStudio, type Revision } from "./store";
+import { useStudio, type Revision } from "./board/store";
 import { MERGED_FILES } from "./library/contract";
 import { publishedHead, type SiteHead } from "./siteHead";
 import { standInOn } from "./standIn";

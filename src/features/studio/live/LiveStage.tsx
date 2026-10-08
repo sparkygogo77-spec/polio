@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { ctxProps } from "@/core/context-menu/ctx";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 

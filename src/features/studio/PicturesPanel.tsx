@@ -18,7 +18,7 @@ import { useShallow } from "zustand/react/shallow";
 import { getFeature } from "./catalog";
 import { partName } from "./partNames";
 import { RenderPanel } from "./RenderPanel";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 
 const featureName = (id: string) => getFeature(id)?.name;
 

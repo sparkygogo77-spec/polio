@@ -44,7 +44,7 @@ import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import type { BranchRow } from "@/app/api/studio/branches/route";
 import { bringRepoIn } from "./bringRepo";
 import { nameRefusal, repoNameFor } from "./repoName";
-import { useStudio } from "./store";
+import { useStudio } from "./board/store";
 import { RecapturePanel, openRecapture, useRecapture } from "./Recapture";
 import { StyleLayerSection } from "./StyleLayerPanel";
 

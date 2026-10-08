@@ -28,7 +28,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/board-top-edge.mjs http://127.0.0.1:3013 ../sink/sites/trumpmorty-fun
  *
- * Covers: src/features/studio/Canvas.tsx, src/features/studio/store.ts
+ * Covers: src/features/studio/Canvas.tsx, src/features/studio/board/store.ts
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";

@@ -8,7 +8,7 @@ import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "../parts/theme";
 import { usePicture } from "../pictures";
 import { siteLogo } from "../siteMark";
-import { useHeldStudio, useStudio } from "../store";
+import { useHeldStudio, useStudio } from "../board/store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";

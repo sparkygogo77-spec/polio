@@ -29,7 +29,7 @@ import { headlineOf, Drawn, Made } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { money, RENDER_COST } from "./renderer";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { Backend } from "./Backend";
 import { cn } from "@/core/lib/cn";

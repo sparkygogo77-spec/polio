@@ -10,7 +10,7 @@
 import * as React from "react";
 import type { RouteProps } from "@/core/types";
 import { hasPublished, PUBLISHED } from "../published";
-import { useStudio, useStudioHydration, type StudioPage } from "../store";
+import { useStudio, useStudioHydration, type StudioPage } from "../board/store";
 import { PreviewPage } from "./PreviewPage";
 import { installStandIn, standInFromDoc } from "../standIn";
 

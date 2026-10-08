@@ -22,7 +22,7 @@ import { getFeature } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { stepNameKept, type NameHelp, type StepDoc } from "./historyNames";
 import { PROCESS } from "./threads";
-import { snapshot, useStudio } from "./store";
+import { snapshot, useStudio } from "./board/store";
 
 /** How many steps the list shows, newest first. */
 export const HISTORY_SHOWN = 50;

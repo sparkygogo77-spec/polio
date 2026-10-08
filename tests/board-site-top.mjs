@@ -11,7 +11,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/board-site-top.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/canvas/DesktopCanvas.tsx
+ * Covers: src/features/studio/board/DesktopCanvas.tsx
  */
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";

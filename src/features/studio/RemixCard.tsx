@@ -22,7 +22,7 @@ import { Switch } from "@/core/ui/switch";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useBuilds, docOfStored } from "@/features/builds/store";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import type { CarriedFont } from "./fonts";
 import { kindKey, kindWord } from "./partKind";
 import { lookOf, lookPatch } from "./partLook";

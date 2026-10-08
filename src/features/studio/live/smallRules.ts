@@ -3,7 +3,7 @@
  * way the rest of the Builder answers it: a control is `control.ts`'s, what
  * holds what is `owner.ts`'s, words are the part's own.
  */
-import type { StudioNode } from "../store";
+import type { StudioNode } from "../board/store";
 import { isControl } from "../control";
 import { holds } from "../owner";
 import { plain } from "../parts/spans";

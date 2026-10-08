@@ -106,7 +106,7 @@ check("no clock is printed on a board or under one",
 /* 5. …and the store still records what was worked in                  */
 /* ------------------------------------------------------------------ */
 
-const store = ["store.ts", ...readdirSync("src/features/studio/store").filter((f) => f.endsWith(".ts")).map((f) => `store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
+const store = ["board/store.ts", ...readdirSync("src/features/studio/board/store").filter((f) => f.endsWith(".ts")).map((f) => `board/store/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("a new iteration falls back to the newest there is",
   /parentId: s\.currentThreadId \?\? s\.liveThreadId \?\? \(s\.threads\.length/.test(store));
 check("dropping the oldest re-hangs whoever hung off them",

@@ -15,7 +15,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/store";
+import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/board/store";
 import { isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 

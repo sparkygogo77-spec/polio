@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Eraser, Link, MousePointer2, Pencil, TriangleDashed } from "lucide-react";
-import { type Tool } from "../store";
+import { type Tool } from "../board/store";
 import type { Device } from "../live/layout";
 
 /**

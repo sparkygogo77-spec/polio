@@ -28,7 +28,7 @@
  * and the published page play it.
  */
 import * as React from "react";
-import type { StudioNode } from "./store";
+import type { StudioNode } from "./board/store";
 import type { NodeLink, PartMode } from "./parts/types";
 import { plain } from "./parts/spans";
 import { bandOffset, centreOf, fillOf, glossFrame, pathInk, pathWordsSize, wordsColour, wordsGuide, wornCss, wornPath, type Worn } from "./wornShape";

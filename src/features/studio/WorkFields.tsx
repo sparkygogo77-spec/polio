@@ -16,7 +16,7 @@ import { Input } from "@/core/ui/input";
 import { Segmented } from "@/core/ui/segmented";
 import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./board/store";
 import { getWork, inputsOf, usesOf, withInput, withoutWork, withSwitch, type WorkInput } from "./library/works";
 
 export function WorkFields({ node, pick, title = "Working" }: { node: StudioNode; pick?: (id: string) => boolean; title?: string }) {

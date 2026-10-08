@@ -23,7 +23,7 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, EyeOff, Plus, Search, Sparkles, X } from "lucide-react";
 import { allCategories, getFeature, searchFeatures, type CategoryId, type FeatureDef } from "../catalog";
-import { useStudio } from "../store";
+import { useStudio } from "../board/store";
 import { planetOf } from "../planets";
 import { shapeOf } from "../showcase";
 import { switchOf } from "../shelfFacts";

@@ -1,9 +1,9 @@
 "use client";
-import { LEARN_DEFAULT } from "../learn";
+import { LEARN_DEFAULT } from "../../learn";
 import { uid } from "@/core/lib/ids";
-import { lands } from "../look";
-import { QUEUED } from "../formation";
-import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../space";
+import { lands } from "../../look";
+import { QUEUED } from "../../formation";
+import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../../space";
 import { GetStudio, HUES, SetStudio, inherit, pickedStates } from "./history";
 import { BACKGROUND_ID, StudioNode } from "./model";
 import type { StudioState } from "./state";

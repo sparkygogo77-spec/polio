@@ -34,7 +34,7 @@ import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
 import { auditCounts, auditSite, type PageAudit } from "./staticSite";
-import { useStudio, useSteady } from "./store";
+import { useStudio, useSteady } from "./board/store";
 import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { useKeys } from "@/features/keys/store";
 import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./goLive";
