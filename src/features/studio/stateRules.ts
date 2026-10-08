@@ -78,7 +78,7 @@ export function readSamples(text: string | null | undefined): Samples | null {
   return out;
 }
 
-type RuleNode = Pick<PanelNode, "id" | "pageId" | "hooks" | "from" | "state">;
+export type RuleNode = Pick<PanelNode, "id" | "pageId" | "hooks" | "from" | "state">;
 
 /** One declared panel: its id (its root's hook), its states in order, the state its markup starts in, and its roots (one id in several places is one panel, rule 19). */
 export interface DeclaredPanel {

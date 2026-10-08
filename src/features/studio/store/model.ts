@@ -289,6 +289,8 @@ export interface StudioNode {
   byHand?: boolean;
   /** What one state of a panel changes of its look, by `<panel>=<state>` (`stateEdits.ts`); the style layer writes each keyed `[data-panel][data-state]`. */
   byState?: Record<string, Record<string, unknown>> | null;
+  /** Its place in its region, set in the Structure view and the same in every state (`structure.ts`); the style layer writes it as `order` by hook. `region`: the `data-region` it was moved into, queued in polio/NEXT.md for the code. */
+  place?: { order?: number; region?: string } | null;
   /**
    * Where the box was, as the board had it, the moment he first moved or
    * resized it by hand: what Export for code to a branch says his move is

@@ -24,6 +24,7 @@
  * that varies on its own. This file imports nothing, so the checks in
  * `tests/lanes.mjs` can read it straight off the disk.
  */
+import type { FixIssue } from "./fixLoop";
 
 /** A lane is one row of offers. It shows one item at a time. */
 export interface Lane {
@@ -57,6 +58,8 @@ export interface Item {
    * key says so rather than inventing one.
    */
   did?: string;
+  /** Set when the card is a real problem the board found (`fixLoop.ts`): it can be ticked for the next code chat. */
+  issue?: FixIssue;
 }
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;

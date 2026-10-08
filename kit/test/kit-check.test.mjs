@@ -30,6 +30,12 @@ test('kit:check passes on the starter', () => {
   assert.equal(map.hooks['list-item-name'].template, 'template-list-item');
 });
 
+test('rule 32: a page with panels and no layout region gets a note, not a problem', () => {
+  const { notes } = check(join(KIT, 'builder.json'));
+  assert.ok(notes.some((n) => /starter\/game\.html: has panels but no layout region/.test(n)), notes.join('\n'));
+  assert.ok(!notes.some((n) => /starter\/(index|contact|list)\.html: has panels but no layout region/.test(n)));
+});
+
 for (const f of FIXTURES) {
   test(`kit:check fails on a broken fixture: ${f.name}`, () => {
     const dir = copyOfStarter();

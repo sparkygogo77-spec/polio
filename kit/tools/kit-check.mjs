@@ -420,6 +420,28 @@ export function check(manifestPath, { write = false } = {}) {
       if (a.hidden !== undefined) problems.push(`${at_}: ${a['data-hook']} has both hidden and data-show (data-show alone decides)`);
     }
   }
+  // ---- layout regions (BUILDER-RULES.md, rule 32): once a page has one, every panel sits in one
+  const regionNotes = [];
+  for (const p of pages) {
+    const body = p.elements.filter((el) => el.inBody && el.template === null);
+    const regions = body.filter((el) => el.attrs['data-region'] !== undefined);
+    const names = new Map();
+    for (const el of regions) {
+      const a = el.attrs, at_ = `${p.file}:${el.line}`, name = a['data-region'];
+      if (!STATE_NAME.test(name)) problems.push(`${at_}: data-region="${name}" is not lower-case words joined by dashes`);
+      if (names.has(name)) problems.push(`${at_}: region "${name}" is declared twice on this page (also line ${names.get(name)})`);
+      else names.set(name, el.line);
+      if (!a['data-hook'] || a['data-label'] === undefined) problems.push(`${at_}: region "${name}" needs its own data-hook and a plain name (data-label="...")`);
+      if (a['data-panel'] !== undefined || panelOf(el)) problems.push(`${at_}: region "${name}" is inside a panel or is one; a region is layout, never part of a panel`);
+    }
+    const tops = body.filter((el) => el.attrs['data-panel'] !== undefined && !panelOf(el));
+    if (!regions.length) { if (tops.length) regionNotes.push(`${p.file}: has panels but no layout region (data-region, rule 32)`); continue; }
+    for (const el of tops) {
+      let inside = false;
+      for (let e = el.parent; e; e = e.parent) if (e.attrs['data-region'] !== undefined) { inside = true; break; }
+      if (!inside) problems.push(`${p.file}:${el.line}: panel "${el.attrs['data-panel']}" sits in no layout region (put it inside a data-region)`);
+    }
+  }
   // The one shared hide rule, in tokens.css between its markers: a panel's "off" state hides it, and
   // in each other state the parts that do not list that state are hidden. CSS cannot compare two
   // attributes, so the rule names each panel's states; kit:hooks writes it, kit:check keeps it fresh.
@@ -694,7 +716,7 @@ export function check(manifestPath, { write = false } = {}) {
   }
 
   // ---- shared state names (BUILDER-RULES.md, rule 29): a note, not a problem, when a state is a near twin of one
-  const notes = [];
+  const notes = [...regionNotes];
   const STATE_NAMES = manifest.rules?.stateNames?.names ?? [];
   const TWINS = manifest.rules?.stateNames?.twins ?? {};
   for (const [id, pnl] of panels) for (const st of pnl.states) {

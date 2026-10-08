@@ -385,3 +385,18 @@ that part, and its capture is the look of that state, ahead of any page state's.
 changes another part (the trade buttons appear), it stays a page state. `kit:check` fails on a
 `part` that names no panel on the scene's page, or a scene that changes more than that part.
 
+
+## 32. Pages declare their layout regions
+
+**(checked)** A page's layout is a few regions: the blocks that hold parts side by side or one under
+another (a column, a side bar, a row of panels, the main area). Each carries
+`data-region="<name>"` (lower-case words joined by dashes, one name once per page) and a plain
+`data-label`, beside its `data-hook`; the region's own parts are its children in the order they show.
+The builder's Structure view reads the regions from the markup, so it lists the page's regions and
+what each holds the same way on every site. Moving a part up or down its region is a style change
+(`order` by hook, in the style layer). Moving a part into another region changes the markup, so the
+builder queues it in `polio/NEXT.md` ("move `<hook>` into region `<name>`") for the next code chat,
+which moves the element and keeps its hook. A region is layout, never part of a panel: it does not
+sit inside a `data-panel`. Once a page declares a region, `kit:check` fails on a panel outside every
+region, a region inside a panel, a region with no `data-hook` or `data-label`, and a name used twice;
+a page with panels and no region gets a note (·).

@@ -14,7 +14,9 @@
  *             (`PublishCheck.tsx`), then what changes, said in words, and on
  *             his yes the style layer goes on a new style/ branch and is
  *             merged into the default branch. A merge GitHub refuses leaves
- *             the pull request open, linked, with why.
+ *             the pull request open, linked, with why. Issues ticked on the
+ *             timeline's lanes ride along in polio/NEXT.md (`fixLoop.ts`),
+ *             and Refresh reads that file back to mark the fixed ones.
  *
  * The repo menu keeps the rest: the list, another repository, a new one.
  */
@@ -34,6 +36,10 @@ import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./co
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
+import { fileAt } from "./kitRun";
+import { LANE_MODE } from "./lanes";
+import { NEXT_PATH, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
+import { fixLoopOf, issuesNow, setFixLoop } from "./useFixLoop";
 
 const family = (name: string) => FAMILY[name];
 
@@ -72,8 +78,23 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
 
   const say = (title: string, body: string, level: "info" | "success" | "warn" = "info") => ctx.publish({ key: "studio:code-site", title, body, level, source: "studio", toast: { durationMs: 9000 } });
 
+  /* The fix loop's last step: the lines the code chat ticked or deleted in polio/NEXT.md become blue boxes. */
+  const readFixed = async () => {
+    const loop = fixLoopOf(useStudio.getState().look);
+    if (!loop.sent.length) return;
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    const md = await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null);
+    const fixed = fixedIn(loop.sent, md);
+    if (!fixed.length) return;
+    for (const i of fixed) useStudio.getState().landThread({ mode: LANE_MODE, ask: i.says, answer: `Fixed by a code chat from polio/NEXT.md: ${i.hook ?? "a part"} on ${i.page}.`, changes: [`${i.hook ?? "A part"} on ${i.page} fixed`], state: "done" });
+    const gone = new Set(fixed.map((i) => i.key));
+    setFixLoop({ ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)) });
+    say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
+  };
+
   const refresh = () => {
     play("tap");
+    void readFixed();
     /* Up to date or not, it asks and brings the code in again (J, 2026-10-06): the board can drift from the code without the code moving. */
     void read();
     setAsk("refresh");
@@ -86,7 +107,9 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
 
   const publish = () => {
     play("tap");
-    if (empty || status?.pending === false) { say("Nothing to publish", `The code already has this design: nothing on the board differs from ${source.repo}.`); return; }
+    const l = fixLoopOf(useStudio.getState().look);
+    const queued = l.ticked.some((k) => !l.sent.some((i) => i.key === k));
+    if (!queued && (empty || status?.pending === false)) { say("Nothing to publish", `The code already has this design: nothing on the board differs from ${source.repo}.`); return; }
     /* The board's check list first; then what changes, and his yes. */
     void checkThenPublish(() => setAsk("publish"));
   };
@@ -97,7 +120,11 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     setBusy("Publishing…");
     try {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
-      const sent = await sendDesign(nodes as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t) });
+      /* Ticked issues not yet queued go in polio/NEXT.md, added to what the file already holds. */
+      const loop = fixLoopOf(useStudio.getState().look);
+      const adding: FixIssue[] = loop.ticked.length ? toSend(loop, await issuesNow()) : [];
+      const extra = adding.length ? [{ path: NEXT_PATH, content: nextMd(adding, { site, when: new Date().toISOString().slice(0, 10), prev: await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null) }) }] : [];
+      const sent = await sendDesign(nodes as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
       if (!sent.pull) { say("Sent, not merged", sent.says, "warn"); return; }
       setBusy("Merging…");
@@ -107,6 +134,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       const st = useStudio.getState();
       const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
       if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit: merged.sha } } as never);
+      if (adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...adding] }); }
       setHead(merged.sha);
       play("confirm");
       say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.`, "success");
@@ -165,6 +193,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
         }
       >
         <div data-code-publish-says="" className="space-y-2 text-plain text-fg-muted">
+          <FixNote />
           <p>{changes}. Only the look changes: the style layer{source.kit ? ", the hooks map made from it" : ""} and the design record. Its scripts, pages and every hook stay as they are.</p>
           <p>It goes on a new style/ branch and is merged into {source.ref || "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
           {layer.rules.length ? <p className="text-small text-fg-faint">{layer.rules.slice(0, 6).map((r) => r.selector).join(", ")}{layer.rules.length > 6 ? ", …" : ""}</p> : null}
@@ -172,4 +201,11 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       </Dialog>
     </span>
   );
+}
+
+/** In the Publish dialog: how many ticked issues go to polio/NEXT.md with it. */
+function FixNote() {
+  const loop = fixLoopOf(useStudio((s) => s.look));
+  const n = loop.ticked.filter((k) => !loop.sent.some((i) => i.key === k)).length;
+  return n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null;
 }
