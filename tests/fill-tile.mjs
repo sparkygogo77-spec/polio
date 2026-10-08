@@ -18,7 +18,7 @@
  *
  *   node tests/fill-tile.mjs
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 
 /*
