@@ -240,6 +240,7 @@ if (!up) {
     await page.waitForTimeout(800);
 
     /* The picture settings sit under a closed "Make a picture" on every part; opened to be read. */
+    { const more = page.locator('[data-part-section="more"]:not([data-open]) > [data-section-head]'); if (await more.count()) { await more.first().click(); await new Promise((r) => setTimeout(r, 300)); } } /* Name, prompt, saving and Make a picture sit under More. */
     const fold = page.locator('[data-side-panel] [data-part-section="make-picture"]');
     if ((await fold.count()) && (await fold.getAttribute("data-open")) === null) { await fold.locator("[data-section-head]").click(); await page.waitForTimeout(300); }
     const panel = page.locator("[data-audit-panel]");

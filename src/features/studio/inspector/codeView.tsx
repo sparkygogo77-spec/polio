@@ -13,7 +13,9 @@ import { KIND_SAYS, linesAround, type CodeRef } from "../codeRefs";
 import { fileAt } from "../kitRun";
 import { PartSettings } from "../StyleLayerPanel";
 import { heldKeys } from "@/features/keys/store";
-import { PartsBehind, useDecisions } from "../PartTreePanel";
+import { OPEN_SECTION, PartsBehind, useDecisions } from "../PartTreePanel";
+import { ChevronRight, Code2 } from "lucide-react";
+import { scriptCount } from "../partKind";
 
 /**
  * The page at a glance, for when nothing is picked: its parts, the site's
@@ -109,6 +111,35 @@ export function insideHooks(node: StudioNode): string[] {
   const { nodes } = useStudio.getState();
   const holds = (n: StudioNode) => n.id !== node.id && n.pageId === node.pageId && n.w * n.h < node.w * node.h && n.x + n.w / 2 >= node.x && n.x + n.w / 2 <= node.x + node.w && n.y + n.h / 2 >= node.y && n.y + n.h / 2 <= node.y + node.h;
   return [...new Set(nodes.filter((n) => holds(n) && n.source?.hook?.attr === "data-hook").map((n) => n.source!.hook!.value))];
+}
+
+/**
+ * THE CODE SETTINGS, ONE LINE: "Filled by code · 2 scripts", which opens on
+ * press to the whole of `CodeView` (its markup, CSS, scripts, settings and
+ * asking the code chat). It is not a section of its own: most owners never
+ * need it, so it takes one row, not a header. `openSection("code")` opens it.
+ */
+export function CodeLine({ node }: { node: StudioNode }) {
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    const on = (e: Event) => { if ((e as CustomEvent<string>).detail === "code") setOpen(true); };
+    window.addEventListener(OPEN_SECTION, on);
+    return () => window.removeEventListener(OPEN_SECTION, on);
+  }, []);
+  const code = node.source?.code;
+  if (!code) return null;
+  const n = scriptCount(code);
+  return (
+    <div data-code-line-row="" data-open={open ? "" : undefined} className="border-b border-border">
+      <button type="button" aria-expanded={open} data-code-line-head="" onClick={() => { play(open ? "close" : "open"); setOpen(!open); }}
+        className="tactile flex h-7 w-full items-center gap-2 px-3 text-left text-small text-fg-muted hover:bg-hover/50">
+        <Code2 className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">Filled by code · {n} {n === 1 ? "script" : "scripts"}</span>
+        <ChevronRight className={cn("size-3.5 shrink-0 text-fg-faint transition-transform", open && "rotate-90")} />
+      </button>
+      {open ? <div className="space-y-3 px-3 pb-3 pt-1"><CodeView node={node} /></div> : null}
+    </div>
+  );
 }
 
 export function CodeView({ node }: { node: StudioNode }) {

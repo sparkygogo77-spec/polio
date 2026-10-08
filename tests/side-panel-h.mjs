@@ -122,6 +122,7 @@ await side.locator(`[data-tree-row="${PIC}"] [data-element-row]`).click();
 await wait(900);
 const panel = side.locator(`[data-part-panel="${PIC}"]`);
 check("1 a picture part's panel opens", (await panel.count()) === 1, PIC);
+{ const more = panel.locator('[data-part-section="more"]:not([data-open]) > [data-section-head]'); if (await more.count()) { await more.first().click(); await new Promise((r) => setTimeout(r, 300)); } } /* Name, prompt, saving and Make a picture sit under More. */
 check("1 …with Make a picture closed", (await panel.locator('[data-part-section="make-picture"]').getAttribute("data-open")) === null);
 await panel.locator("[data-draw-one]").click();
 await wait(600);

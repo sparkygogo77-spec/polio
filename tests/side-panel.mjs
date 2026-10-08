@@ -136,6 +136,7 @@ const pickRow = async (text) => { await side.locator("[data-element-row]", { has
 check("the list of parts names them readably", !(await side.locator("[data-element-row]").allInnerTexts()).some((t) => /inside|n_box|::/.test(t)), (await side.locator("[data-element-row]").allInnerTexts()).join(" | "));
 await pickRow("Box “A weekly strip");
 check("picked from the list, the header names it readably", (await side.locator("[data-element-name]").innerText()) === "Box “A weekly strip about a crew of misfits.”", await side.locator("[data-element-name]").innerText().catch(() => "none"));
+{ const more = side.locator('[data-part-section="more"]:not([data-open]) > [data-section-head]'); if (await more.count()) { await more.first().click(); await new Promise((r) => setTimeout(r, 300)); } } /* Name, prompt, saving and Make a picture sit under More. */
 const fold = side.locator('[data-part-section="make-picture"]');
 check("the picture settings are under a closed \"Make a picture\"", (await fold.count()) === 1 && (await fold.getAttribute("data-open")) === null && !(await side.locator("[data-audit-panel]").isVisible()));
 /* The prompt is a folded section of the part's panel (tests/side-panel-g.mjs): opened to read it. */

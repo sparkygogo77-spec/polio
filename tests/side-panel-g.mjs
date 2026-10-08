@@ -18,9 +18,9 @@
  *      pressing it picks it, brings it into view and opens its panel; a part
  *      picked on the board is lit in the tree.
  *   3  A PART'S OWN PANEL: a breadcrumb with a way back, the name and kind,
- *      then Content, Position and size, one Look (the site's styles, Make
- *      all like this and every CSS slot folded inside it), one Motion (its
- *      effects with it), then the prompt folded; only sections that fit
+ *      then Content, Position and size, one Look (the site's styles and Make
+ *      all like this folded inside it), one Motion (its effects with it),
+ *      then More folded, holding Save as a component and the prompt; only sections that fit
  *      the part (no Make a picture or mark on a link). A link's words are its label's, editable
  *      there, and so is where it leads. Sections fold and remember it. The
  *      prompt line says the name once; no jargon line under it.
@@ -189,10 +189,10 @@ check("3 a link picked on the board opens its own panel", (await panel.count()) 
 const crumbs = (await panel.locator("[data-crumbs]").innerText()).replace(/\s+/g, " ");
 check("3 a breadcrumb from the page to the link", /^Home\b.*Section.*Link$/.test(crumbs), crumbs);
 check("3 the name and kind", (await panel.locator("[data-element-name]").innerText()) === "Link “BUY ON PUMP.FUN”" && (await panel.locator("[data-element-kind]").innerText()) === "Link");
-const secs = await panel.locator("[data-part-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part-section")));
-check("3 sections: Content, Position and size, one Look, one Motion, Save as a component, Prompt; no Make a picture on a link", secs.join(",") === "content,place,look,motion,save-component,prompt", secs.join(","));
+const secs = await panel.locator("[data-part-section]:not([data-inside])").evaluateAll((els) => els.map((e) => e.getAttribute("data-part-section")));
+check("3 sections: Content, Position and size, one Look, one Motion, then More folded", secs.join(",") === "content,place,look,motion,more", secs.join(","));
 check("3 …the prompt folded", (await panel.locator('[data-part-section="prompt"][data-open]').count()) === 0);
-check("3 Look holds the site's styles, Make all like this and every CSS slot, folded", (await panel.locator('[data-part-section="look"] [data-fold="look-styles"]').count()) === 1 && (await panel.locator('[data-part-section="look"] [data-fold="look-make-all"]').count()) === 1 && (await panel.locator('[data-part-section="look"] [data-fold="look-css"]').count()) === 1 && (await panel.locator('[data-part-section="look"] details[open]').count()) === 0);
+check("3 Look holds the site's styles and Make all like this, folded; every CSS slot is on the wheel, not here", (await panel.locator('[data-part-section="look"] [data-fold="look-styles"]').count()) === 1 && (await panel.locator('[data-part-section="look"] [data-fold="look-make-all"]').count()) === 1 && (await panel.locator('[data-fold="look-css"]').count()) === 0 && (await panel.locator('[data-part-section="look"] details[open]').count()) === 0);
 check("3 no mark picker on a link brought in from a site", !(await panel.innerText()).includes("Give a new idea its own mark"));
 const wordsBox = panel.getByLabel("Words");
 check("3 the link's words are there to edit, from the label inside it", (await wordsBox.inputValue()) === "BUY ON PUMP.FUN", await wordsBox.inputValue());
@@ -206,6 +206,10 @@ const num = async (l) => Number(await panel.getByLabel(l, { exact: true }).input
 check("3 position and size as numbers", (await num("X")) === 100 && (await num("Y")) === 559 && (await num("Width")) === 372 && (await num("Height")) === 85, `${await num("X")},${await num("Y")},${await num("Width")},${await num("Height")}`);
 check("3 Look has the part's colour, font, border and shadow", (await panel.locator('[data-part-section="look"] [data-part-font], [data-part-section="look"] [data-part-border], [data-part-section="look"] [data-part-shadow]').count()) >= 2);
 check("3 no jargon line", !(await panel.innerText()).includes("Row order comes"));
+await panel.locator('[data-part-section="more"] > [data-section-head]').click();
+await wait(200);
+const inMore = await panel.locator("[data-part-section][data-inside]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part-section")));
+check("3 More holds Save as a component and the prompt; no Make a picture on a link", inMore.join(",") === "save-component,prompt", inMore.join(","));
 await panel.locator('[data-part-section="prompt"] [data-section-head]').click();
 await wait(300);
 const from = await panel.locator("[data-captured-from]").innerText();

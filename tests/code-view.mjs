@@ -23,7 +23,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/code-view.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx, src/features/studio/Inspector.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/styleLayerRun.ts
+ * Covers: src/features/studio/inspector/Panel.tsx, src/features/studio/inspector/codeView.tsx, src/features/studio/repoRun.ts, src/app/api/studio/zip/route.ts, src/features/studio/FromASite.tsx, src/features/studio/Inspector.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/styleLayerRun.ts
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -176,6 +176,16 @@ const youId = st.nodes.find((n) => n.hooks?.["data-hook"] === "score-you")?.id;
 await ui.keyboard.press("Escape");
 await ui.locator(`[data-node-id="${youId}"]`).first().click({ force: true }).catch(() => {});
 await ui.waitForTimeout(800);
+/* The panel, trimmed: four sections open, the rest under one More, the code one line until pressed, no Every CSS slot. */
+const heads = await ui.evaluate(() => Array.from(document.querySelectorAll("[data-part-panel] [data-part-section]:not([data-inside])")).map((s) => `${s.getAttribute("data-part-section")}${s.hasAttribute("data-open") ? "+" : ""}`));
+check("a picked part shows 5 section heads: Content, Position, Look, Motion open, More folded", heads.join() === "content+,place+,look+,motion+,more", heads.join());
+check("…its code settings one line, closed, and no Every CSS slot", await ui.evaluate(() => !!document.querySelector("[data-part-panel] [data-code-line-row]:not([data-open])") && !document.querySelector("[data-part-panel] [data-code-view]") && !document.querySelector('[data-part-panel] [data-fold="look-css"]') && /Filled by code · \d+ scripts?/.test(document.querySelector("[data-code-line-head]")?.textContent ?? "")));
+await ui.locator('[data-part-panel] [data-part-section="more"] > [data-section-head]').click();
+await ui.waitForTimeout(300);
+const inMore = await ui.evaluate(() => Array.from(document.querySelectorAll('[data-part-section="more"] [data-part-section][data-inside]')).map((s) => s.getAttribute("data-part-section")));
+check("More holds Save as a component and the prompt (or name)", inMore.includes("save-component") && (inMore.includes("prompt") || inMore.includes("name")), inMore.join());
+await ui.locator("[data-code-line-head]").first().click();
+await ui.waitForTimeout(300);
 const view = await ui.evaluate(() => { const v = document.querySelector("[data-code-view]"); return v ? { text: v.textContent, links: Array.from(v.querySelectorAll("a")).map((a) => a.getAttribute("href")) } : null; });
 check("the part panel shows it: hooks.json as the source, the variables, each reference linked to its line", !!view && /from the repository's hooks\.json/.test(view.text) && /Uses the CSS variables --pons-gain, --pons-loss/.test(view.text) && view.links.some((h) => /github\.com\/him\/kit\/blob\/main\/web\/app\.js#L\d+/.test(h ?? "")), JSON.stringify(view).slice(0, 300));
 check("and it is read only", await ui.evaluate(() => !document.querySelector("[data-code-view] input, [data-code-view] textarea, [data-code-view] [contenteditable]")));

@@ -150,6 +150,7 @@ if (n > 0) {
   await page.waitForTimeout(600);
   check("pressing a row picks that part", (await page.locator("[data-page-picked]").count()) === 0);
   /* The prompt is folded by design in the part panel: open its section first. */
+  { const more = page.locator('[data-part-section="more"]:not([data-open]) > [data-section-head]'); if (await more.count()) { await more.first().click(); await new Promise((r) => setTimeout(r, 300)); } } /* Name, prompt, saving and Make a picture sit under More. */
   const promptHead = page.locator('[data-part-section="prompt"]:not([data-open]) [data-section-head]');
   if (await promptHead.count()) { await promptHead.first().click(); await page.waitForTimeout(300); }
   check("and the tab is now that part's own editor", (await page.locator('[aria-label="Element prompt"]').count()) >= 1);

@@ -1,8 +1,7 @@
 "use client";
 import * as React from "react";
-import { LookFields, lookCount } from "../LookFields";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Bookmark, Code2, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bookmark, Frame, Group, Image as ImageIconLucide, Lightbulb, Lock, Megaphone, MoreHorizontal, Palette as PaletteIcon, Pencil, Play, Sparkles, Trash2, Type, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "../catalog";
 import { isLinkable } from "../parts";
 import { BACKGROUND_ID, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useHeldStudio, useStudio, type StudioNode } from "../store";
@@ -40,7 +39,7 @@ import { codePlaced, panelFits, scriptCount } from "../partKind";
 import { KitStyles } from "../KitStyles";
 import { RemixKept } from "../RemixCard";
 import { VERSION_ONLY, GLYPHS, OptionRange, OptionSet, WordsField, PictureField, Field, HuePicker, featureName, TEXTY, LABEL_HIDES, isLookOption, insideLink, Fold } from "./fields";
-import { PageSummary, CodeLink, CodeView } from "./codeView";
+import { PageSummary, CodeLink, CodeLine } from "./codeView";
 import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { Faces, Solid, LinkField } from "./solid";
 import { PartSamples } from "../StatesTimeline";
@@ -444,6 +443,8 @@ export function Inspector() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* CODE, one line until pressed: what the page's scripts do with it, its settings, and asking the code chat. */}
+        <CodeLine node={node} />
         {decision ? (
           <div data-part-decision={decision.why} className="mx-3 mt-3 space-y-1.5 rounded-md border p-2" style={{ borderColor: "oklch(0.74 0.18 55 / 0.6)", background: "oklch(0.74 0.18 55 / 0.08)" }}>
             <p className="flex items-start gap-1.5 text-small leading-snug text-fg">
@@ -583,7 +584,7 @@ export function Inspector() {
             </div>
           </Field> : null}
           </>}
-          {/* The rest of the look, folded: the site's styles, making every part of its kind match, and every CSS slot it wears. */}
+          {/* The rest of the look, folded: the site's styles, and making every part of its kind match. Every CSS slot it wears is on its wheel's Page look plate (`LookFields.tsx`). */}
           <Fold id="look-styles" title="Styles from your sites">
             <p className="text-small leading-snug text-fg-muted">Point at one to see it on the part; click to put it on.</p>
             <KitStyles node={node} />
@@ -591,13 +592,6 @@ export function Inspector() {
           <Fold id="look-make-all" title="Make all like this">
             <p className="text-small leading-snug text-fg-muted">Every part of this kind on the site, restyled to match, in one step.</p>
             <MakeAllLike node={node} />
-          </Fold>
-          {/* Everything else it wears, as CSS, one slot each (`LookFields.tsx`). */}
-          <Fold id="look-css" title="Every CSS slot" note={`${lookCount(node)} set`}>
-            {node.source?.look?.length ? (
-              <p className="text-small text-fg-muted" data-look-from-capture="">Look from capture: {node.source.look.join(", ")}. Drawn as the page computed it.</p>
-            ) : null}
-            <LookFields node={node} />
           </Fold>
         </PanelSection>
 
@@ -607,78 +601,77 @@ export function Inspector() {
           <PartEffects node={node} kind={kind} nodes={nodes} />
         </PanelSection>
 
-        {/* CODE, one line until opened: what the page's scripts do with it, and asking the code chat. */}
-        {node.source?.code ? (
-          <PanelSection id="code" title="Filled by code" icon={<Code2 />} note={`${scriptCount(node.source.code)} ${scriptCount(node.source.code) === 1 ? "script" : "scripts"}`} defaultOpen={false}>
-            <CodeView node={node} />
-          </PanelSection>
-        ) : null}
+        {/* MORE, folded: what a part needs once in a while. Its name and prompt,
+            saving it as a component, and where a picture of it is sent. */}
+        <PanelSection id="more" title="More" icon={<MoreHorizontal />} defaultOpen={false} holds={["save-component", "prompt", "name", "make-picture"]}>
+          <div>
+            <PanelSection inside id="save-component" title="Save as a component" icon={<Bookmark />} defaultOpen={false}>
+              <SaveAsComponent node={node} kind={kind} />
+            </PanelSection>
 
-        <PanelSection id="save-component" title="Save as a component" icon={<Bookmark />} defaultOpen={false}>
-          <SaveAsComponent node={node} kind={kind} />
-        </PanelSection>
+            {fits.prompt ? <PanelSection inside id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>
+              <Field label="Prompt for this part" hint="Mention the parts beside it by name and the builder will keep them together.">
+                {/* Where a captured part came from, said the way a person would: the
+                    site and the section, never the element path the capture used to
+                    find it. The path stays in the prompt the document keeps. */}
+                {captured ? <span data-captured-from="" className="mb-1 block text-small text-fg-muted">{captured.says}</span> : null}
+                <Textarea
+                  autoGrow
+                  rows={4}
+                  aria-label="Element prompt"
+                  value={captured ? captured.rest : node.prompt}
+                  placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the part on its left and shares its colour.`}
+                  onChange={(e) => update({ prompt: captured ? `${captured.prefix}${e.target.value}` : e.target.value })}
+                />
+              </Field>
+              <Field label="Name">
+                {/* A capture's own name for its box ("div · 1 inside") is not shown
+                    as if it were a name: the field is empty with the readable name
+                    as its placeholder, and typing gives the part a real one. */}
+                <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
+              </Field>
+              <Field label="What it shows or does" hint="The values and actions the backend has to provide, in your words. Wires pointing at this part fill it in.">
+                <Textarea autoGrow rows={2} aria-label="Data" value={node.data} placeholder="e.g. live coin price, trader profit and loss, time left, or: join duel" onChange={(e) => update({ data: e.target.value })} />
+              </Field>
+              <Field label="Priority">
+                <Segmented size="xs" value={node.priority} onChange={(v) => update({ priority: v as "must" })}
+                  options={[{ value: "must", label: "Must have" }, { value: "nice", label: "Nice" }, { value: "idea", label: "Idea" }]} />
+              </Field>
+              {group ? (
+                <Field label={`In the group ${group.label}`}>
+                  <Textarea autoGrow rows={2} value={group.prompt} placeholder="Prompt for the whole group…" onChange={(e) => useStudio.getState().updateGroup(group.id, { prompt: e.target.value })} />
+                </Field>
+              ) : null}
+              {feature ? (
+                <p data-element-means="" className="text-small leading-relaxed text-fg-muted">
+                  <Lightbulb className="mr-1 inline size-3 text-fg-faint" />
+                  {isLabel ? `The words on ${insideLink(node) ? "a link" : "a button"}: its label, kept on one line and read as part of the control.` : feature.blurb}
+                  {cat ? <span className="text-fg-faint"> ({cat.label})</span> : null}
+                </p>
+              ) : null}
+            </PanelSection> : (
+              /* A button says what it does where its link is: only its name is asked here. */
+              <PanelSection inside id="name" title="Name" icon={<Pencil />} defaultOpen={false} note={isMachineLabel(node.label) ? undefined : node.label}>
+                <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
+              </PanelSection>
+            )}
 
-        {fits.prompt ? <PanelSection id="prompt" title="Prompt" icon={<Pencil />} defaultOpen={false} note={(captured ? captured.rest : node.prompt).trim() ? "written" : "empty"}>
-          <Field label="Prompt for this part" hint="Mention the parts beside it by name and the builder will keep them together.">
-            {/* Where a captured part came from, said the way a person would: the
-                site and the section, never the element path the capture used to
-                find it. The path stays in the prompt the document keeps. */}
-            {captured ? <span data-captured-from="" className="mb-1 block text-small text-fg-muted">{captured.says}</span> : null}
-            <Textarea
-              autoGrow
-              rows={4}
-              aria-label="Element prompt"
-              value={captured ? captured.rest : node.prompt}
-              placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the part on its left and shares its colour.`}
-              onChange={(e) => update({ prompt: captured ? `${captured.prefix}${e.target.value}` : e.target.value })}
-            />
-          </Field>
-          <Field label="Name">
-            {/* A capture's own name for its box ("div · 1 inside") is not shown
-                as if it were a name: the field is empty with the readable name
-                as its placeholder, and typing gives the part a real one. */}
-            <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
-          </Field>
-          <Field label="What it shows or does" hint="The values and actions the backend has to provide, in your words. Wires pointing at this part fill it in.">
-            <Textarea autoGrow rows={2} aria-label="Data" value={node.data} placeholder="e.g. live coin price, trader profit and loss, time left, or: join duel" onChange={(e) => update({ data: e.target.value })} />
-          </Field>
-          <Field label="Priority">
-            <Segmented size="xs" value={node.priority} onChange={(v) => update({ priority: v as "must" })}
-              options={[{ value: "must", label: "Must have" }, { value: "nice", label: "Nice" }, { value: "idea", label: "Idea" }]} />
-          </Field>
-          {group ? (
-            <Field label={`In the group ${group.label}`}>
-              <Textarea autoGrow rows={2} value={group.prompt} placeholder="Prompt for the whole group…" onChange={(e) => useStudio.getState().updateGroup(group.id, { prompt: e.target.value })} />
-            </Field>
-          ) : null}
-          {feature ? (
-            <p data-element-means="" className="text-small leading-relaxed text-fg-muted">
-              <Lightbulb className="mr-1 inline size-3 text-fg-faint" />
-              {isLabel ? `The words on ${insideLink(node) ? "a link" : "a button"}: its label, kept on one line and read as part of the control.` : feature.blurb}
-              {cat ? <span className="text-fg-faint"> ({cat.label})</span> : null}
-            </p>
-          ) : null}
-        </PanelSection> : (
-          /* A button says what it does where its link is: only its name is asked here. */
-          <PanelSection id="name" title="Name" icon={<Pencil />} defaultOpen={false} note={isMachineLabel(node.label) ? undefined : node.label}>
-            <Input value={isMachineLabel(node.label) ? "" : node.label} placeholder={shownName} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
-          </PanelSection>
-        )}
-
-        {/* MAKE A PICTURE, closed. Where a picture of this part is sent: the
-            model and its settings, for the one time in many a part is handed
-            to a picture model. The drawing tool itself is the Pictures tab
-            (PicturesPanel.tsx), which draws for this part while it is picked. */}
-        {fits.picture ? <PanelSection id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
-          <Button variant="outline" size="xs" data-open-pictures="" onClick={() => { play("open"); useStudio.getState().want({ panel: "pictures" }); }}>
-            <Sparkles className="size-3" /> Draw one in Pictures
-          </Button>
-          <div data-fold="make-picture">
-            <Field label="Where a picture of this part is sent" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
-              <AuditPanel node={node} />
-            </Field>
+            {/* MAKE A PICTURE, closed. Where a picture of this part is sent: the
+                model and its settings, for the one time in many a part is handed
+                to a picture model. The drawing tool itself is the Pictures tab
+                (PicturesPanel.tsx), which draws for this part while it is picked. */}
+            {fits.picture ? <PanelSection inside id="make-picture" title="Make a picture" icon={<ImageIconLucide />} defaultOpen={false} note={node.plan ? "set by you" : undefined}>
+              <Button variant="outline" size="xs" data-open-pictures="" onClick={() => { play("open"); useStudio.getState().want({ panel: "pictures" }); }}>
+                <Sparkles className="size-3" /> Draw one in Pictures
+              </Button>
+              <div data-fold="make-picture">
+                <Field label="Where a picture of this part is sent" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
+                  <AuditPanel node={node} />
+                </Field>
+              </div>
+            </PanelSection> : null}
           </div>
-        </PanelSection> : null}
+        </PanelSection>
       </div>
     </div>
   );
