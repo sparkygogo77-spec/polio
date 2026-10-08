@@ -27,25 +27,25 @@
  * (`motionBrief`) that tells a generator what the in-betweens ought to be, on
  * the identical timing, and it goes into the blueprint.
  */
-import { SeeOnShelf } from "./ShelfCards";
+import { SeeOnShelf } from "../ShelfCards";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Eye, Film, Globe, Hand, Maximize2, MousePointer2, Pause, Play, Plus, Pointer,
   Power, Repeat, Rotate3d, Sparkles, Trash2, Waves, X,
 } from "lucide-react";
-import { BACKGROUND_ID, useStudio } from "./board/store";
+import { BACKGROUND_ID, useStudio } from "../board/store";
 import {
   filled, gapCount, gapLabel, LOOP_NAME, motionBrief, planFrames, playOrder, sleeveOf, SLEEVES, totalFrames,
   type MotionAsset, type MotionEase, type MotionLoop,
-} from "./motion";
-import { bunches, byKind, movingParts, partName, summarise, type MoveBunch, type MoveRow } from "./motionInventory";
-import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed } from "./motionWrite";
+} from "../motion";
+import { bunches, byKind, movingParts, partName, summarise, type MoveBunch, type MoveRow } from "../motionInventory";
+import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed } from "../motionWrite";
 import { VirtualList } from "@/core/ui/virtual-list";
-import { fit, loadImage, tweenPixels, type Fitted } from "./crateDraw";
-import { runWorks } from "./live/runWorks";
-import { AMBIENT } from "./shelf";
-import { ImageWell } from "./ImageIntake";
+import { fit, loadImage, tweenPixels, type Fitted } from "../crateDraw";
+import { runWorks } from "../live/runWorks";
+import { AMBIENT } from "../shelf";
+import { ImageWell } from "../ImageIntake";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";

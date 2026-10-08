@@ -26,7 +26,7 @@ import { useStudio } from "./board/store";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { issueFiles, pushBranch } from "./send-out";
-import { goToPart } from "./PartTreePanel";
+import { goToPart } from "./panels/ui";
 import { stillCopyWords, useStillCopy } from "./stillCopy";
 import { openRepoPicker } from "./RepoPicker";
 

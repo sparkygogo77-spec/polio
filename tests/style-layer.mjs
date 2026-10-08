@@ -27,7 +27,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/style-layer.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/StyleLayerPanel.tsx, src/features/studio/Inspector.tsx, src/features/studio/RepoPicker.tsx, src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx
+ * Covers: src/features/studio/StyleLayerPanel.tsx, src/features/studio/panels/Inspector.tsx, src/features/studio/RepoPicker.tsx, src/app/api/studio/zip/route.ts, src/features/studio/bring-in/FromASite.tsx
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";

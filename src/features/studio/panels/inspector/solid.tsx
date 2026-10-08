@@ -1,10 +1,10 @@
 "use client";
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { pageNodes, useHeldStudio, useStudio, type StudioNode } from "../board/store";
-import { CUBE_SIDES, emptyFace, written } from "../shelf";
-import { makeSolid, showCube, showSolid, solidModel } from "../solidRun";
-import { rendererReady } from "../loop/run";
+import { pageNodes, useHeldStudio, useStudio, type StudioNode } from "../../board/store";
+import { CUBE_SIDES, emptyFace, written } from "../../shelf";
+import { makeSolid, showCube, showSolid, solidModel } from "../../solidRun";
+import { rendererReady } from "../../loop/run";
 import { useKeys } from "@/features/keys/store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -12,7 +12,7 @@ import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
 import { Select } from "@/core/ui/select";
-import { partName } from "../partNames";
+import { partName } from "../../partNames";
 import { kindWord } from "../PartTreePanel";
 import { Field, featureName } from "./fields";
 

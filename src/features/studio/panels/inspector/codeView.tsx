@@ -1,21 +1,21 @@
 "use client";
 import * as React from "react";
-import { useHeldStudio, useStudio, type StudioNode } from "../board/store";
-import { written } from "../shelf";
-import { screenshotPage } from "../loop/run";
-import { askCode } from "../askCode";
+import { useHeldStudio, useStudio, type StudioNode } from "../../board/store";
+import { written } from "../../shelf";
+import { screenshotPage } from "../../loop/run";
+import { askCode } from "../../askCode";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
-import { plain } from "../shelf";
-import { KIND_SAYS, linesAround, type CodeRef } from "../codeRefs";
-import { fileAt } from "../kitRun";
-import { PartSettings } from "../StyleLayerPanel";
+import { plain } from "../../shelf";
+import { KIND_SAYS, linesAround, type CodeRef } from "../../codeRefs";
+import { fileAt } from "../../kitRun";
+import { PartSettings } from "../../StyleLayerPanel";
 import { heldKeys } from "@/features/keys/store";
 import { OPEN_SECTION, PartsBehind, useDecisions } from "../PartTreePanel";
 import { ChevronRight, Code2 } from "lucide-react";
-import { scriptCount } from "../partKind";
+import { scriptCount } from "../../partKind";
 
 /**
  * The page at a glance, for when nothing is picked: its parts, the site's

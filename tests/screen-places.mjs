@@ -14,7 +14,7 @@
  *
  *   node tests/screen-places.mjs
  *
- * Covers: src/features/studio/states/boardStates.ts, src/features/studio/Canvas.tsx, src/features/studio/Inspector.tsx, src/app/api/studio/zip/route.ts
+ * Covers: src/features/studio/states/boardStates.ts, src/features/studio/Canvas.tsx, src/features/studio/panels/Inspector.tsx, src/app/api/studio/zip/route.ts
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

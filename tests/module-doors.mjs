@@ -20,9 +20,9 @@
  * has three: `index.ts` (pure looks maths, site colours, kits, fonts),
  * `parts.ts` (part looks, no store hooks) and `ui.ts` (the Look panel,
  * pasting and Make all like). Later modules (bring-in, ...) have `index.ts`
- * (pure) and `ui.ts` (screens and store-bound code), plus any door their README names.
+ * (pure) and `ui.ts` (screens and store-bound code), plus any door their README names; panels, all screens, has only `ui.ts`.
  *
- * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts, src/features/studio/bring-in/index.ts, src/features/studio/bring-in/ui.ts, src/features/studio/send-out/index.ts, src/features/studio/send-out/run.ts, src/features/studio/shelf/index.ts, src/features/studio/shelf/run.ts, src/features/studio/shelf/ui.ts, src/features/studio/shelf/screens.ts, src/features/studio/loop/index.ts, src/features/studio/loop/run.ts, src/features/studio/loop/ui.ts, src/features/studio/pictures/index.ts, src/features/studio/pictures/run.ts, src/features/studio/pictures/ui.ts
+ * Covers: src/features/studio/states/index.ts, src/features/studio/states/ui.ts, src/features/studio/board/index.ts, src/features/studio/board/store.ts, src/features/studio/board/ui.ts, src/features/studio/board/reads.ts, src/features/studio/look/index.ts, src/features/studio/look/parts.ts, src/features/studio/look/ui.ts, src/features/studio/bring-in/index.ts, src/features/studio/bring-in/ui.ts, src/features/studio/send-out/index.ts, src/features/studio/send-out/run.ts, src/features/studio/shelf/index.ts, src/features/studio/shelf/run.ts, src/features/studio/shelf/ui.ts, src/features/studio/shelf/screens.ts, src/features/studio/loop/index.ts, src/features/studio/loop/run.ts, src/features/studio/loop/ui.ts, src/features/studio/pictures/index.ts, src/features/studio/pictures/run.ts, src/features/studio/pictures/ui.ts, src/features/studio/panels/ui.ts
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -39,6 +39,7 @@ const MODULES = [
   { dir: "src/features/studio/shelf", doors: ["index.ts", "run.ts", "ui.ts", "screens.ts"] },
   { dir: "src/features/studio/loop", doors: ["index.ts", "run.ts", "ui.ts"] },
   { dir: "src/features/studio/pictures", doors: ["index.ts", "run.ts", "ui.ts"] },
+  { dir: "src/features/studio/panels", doors: ["ui.ts"] },
 ];
 
 const results = [];
@@ -81,8 +82,8 @@ check("the doors pass", trespasses(`${S}/x.ts`, `import { a } from "./states";\n
 check("files inside the module import each other freely", trespasses(`${S}/states/show.ts`, `import { a } from "./scenes.ts";`).length === 0);
 check("a sibling named like a module file is not caught", trespasses(`${S}/x.ts`, `import { a } from "./structureKit";`).length === 0);
 
-/* index.ts loads in plain node: no React, no store, nothing extensionless behind it. */
-for (const { dir } of MODULES) {
+/* index.ts loads in plain node: no React, no store, nothing extensionless behind it. A module of screens only (panels) has no index.ts. */
+for (const { dir } of MODULES.filter((m) => m.doors.includes("index.ts"))) {
   let err = "";
   try { await import(join(ROOT, dir, "index.ts")); } catch (e) { err = String(e?.message ?? e).split("\n")[0]; }
   check(`${dir}/index.ts loads in plain node`, err === "", err);

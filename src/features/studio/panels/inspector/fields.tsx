@@ -1,17 +1,17 @@
 "use client";
-import { isKeptVersion, openRemake, PictureVersions } from "../RemakePicture";
+import { isKeptVersion, openRemake, PictureVersions } from "../../RemakePicture";
 import * as React from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
-import { getFeature, type FeatureOption } from "../shelf";
-import { HUES, useHeldStudio, useStudio, type StudioNode } from "../board/store";
-import { drop as dropPicture, put as putPicture, usePicture } from "../pictures";
+import { getFeature, type FeatureOption } from "../../shelf";
+import { HUES, useHeldStudio, useStudio, type StudioNode } from "../../board/store";
+import { drop as dropPicture, put as putPicture, usePicture } from "../../pictures";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
 import { Slider } from "@/core/ui/slider";
-import { plain, reword } from "../shelf";
-import { growToWords } from "../growToWords";
+import { plain, reword } from "../../shelf";
+import { growToWords } from "../../growToWords";
 
 /** The Element panel draws only the Version row from the fields data; its other rows are its own. */
 export const VERSION_ONLY = ["version"] as const;
