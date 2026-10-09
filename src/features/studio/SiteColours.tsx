@@ -30,6 +30,8 @@ import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
+import { Slider } from "@/core/ui/slider";
+import { useSiteFormat } from "./panels/ui";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
@@ -394,6 +396,26 @@ function Paint({ hook, label, value, onTo }: { hook: string; label: string; valu
   );
 }
 
+/**
+ * A whole-site number read off the captured site (Format's old "This site":
+ * base size, corners), set from the page's editor. A drag is one undo step.
+ */
+function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout.radius"; label: string; min: number; max: number; hint: string }) {
+  const { readings, format } = useSiteFormat();
+  const read = Number.parseFloat(readings[id]?.shows ?? "");
+  const value = Number(format[id] ?? (Number.isFinite(read) ? read : id === "type.baseSize" ? 16 : 10));
+  const mark = React.useRef<number | null>(null);
+  return (
+    <label data-site-dial={id} className="block space-y-1 text-small text-fg">
+      <span>{label}</span>
+      <Slider value={[value]} min={min} max={max} step={1} readout={(n) => `${n}px`} silent aria-label={label}
+        onValueChange={(v) => { const st = useStudio.getState(); if (mark.current === null) mark.current = st.historyMark(); st.setFormat(id, v[0] ?? value); useStudio.getState().oneStepSince(mark.current); }}
+        onValueCommit={() => { mark.current = null; }} />
+      <span className="block text-fine leading-snug text-fg-faint">{hint}</span>
+    </label>
+  );
+}
+
 /** A stack the page wrote is used as written; a face's key goes through the site's own faces. */
 const faceCss = (f: string | null): React.CSSProperties => (f && (f.includes(",") || /^(monospace|serif|sans-serif|system-ui|cursive)$/.test(f)) ? { fontFamily: f } : faceStyle(f ?? SITE_TYPE));
 
@@ -482,13 +504,15 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
             <span className="truncate text-fg-muted" style={faceCss(faceKey)}>{faceKey || "The site's type"}</span>
           </button>
           {fontOpen ? (
-            <div className="border-t border-border p-2">
+            <div className="space-y-2 border-t border-border p-2">
               <Select className="w-full" aria-label="Font" value="" placeholder="Set the words in…" onChange={setFace}
                 options={targets.filter((t) => t.id !== `face:${faceKey}` && t.id !== `family:${faceKey}` && !(faceKey === SITE_TYPE && t.id === "site")).map((t) => ({ value: t.id, label: t.label }))} />
+              {k ? null : <SiteDial id="type.baseSize" label="Text size, the whole site" min={13} max={22} hint="Every word on the site is sized from this, so they all grow or shrink together." />}
             </div>
           ) : null}
         </div>
       ) : null}
+      {k ? null : <SiteDial id="layout.radius" label="Corners" min={0} max={32} hint="Boxes the site rounded keep their own corners; this sets the rest." />}
       {texture !== null ? (
         <div data-kind-texture="" className="space-y-1">
           <p className="text-fine text-fg-faint">Texture</p>

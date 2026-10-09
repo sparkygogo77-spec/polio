@@ -179,13 +179,10 @@ check("…and its Words box says it is a one-line label, not paragraphs", /one l
 await page.screenshot({ path: `${SHOTS}/side-panel-label.png` });
 
 /* ------------------------------------------------ Format */
-/* Format is This site, Whole-site features and a folded brief (tests/side-panel-g.mjs). */
+/* On a site brought in Format is Whole-site features and a folded brief: its fonts, size, corners and colours are edited in Look, from the preview (J, 2026-10-09). */
 await tab("Format");
-const reads = async (id) => (await side.locator(`[data-site-row="${id}"] [data-site-reads]`).innerText().catch(() => "")).trim();
-check("the page's colour is the site's: light yellow, not dark", (await reads("page-colour")) === "light yellow", await reads("page-colour"));
-check("the heading font is the site's face", (await reads("type.headingFamily")) === "Bangers", await reads("type.headingFamily"));
-check("the corner radius is the site's", (await reads("layout.radius")) === "24px", await reads("layout.radius"));
-check("the accent is the site's yellow, not violet", /yellow/.test(await reads("accent")), await reads("accent"));
+check("a site brought in has no This site block in Format", (await side.locator('[data-format-section="site"]').count()) === 0);
+check("…and no Page transition switch (it comes from the Motion shelf)", (await side.locator('[data-format-switch="pages.transition"]').count()) === 0);
 check("the stack is folded away with the brief, and the fold says it changes nothing here", (await side.locator('[data-format-field="build.stack"]').count()) === 0 && /changes the captured page/.test(await side.locator("[data-brief-fold]").innerText()));
 await side.locator("[data-brief-fold]").click();
 await page.waitForTimeout(300);
@@ -227,6 +224,14 @@ check("Colours has no role rows, ink lines, colours for new parts or fonts list"
 /* The "Words: N are hard to read" line is gone from Look (owner: it flagged harmless parts and fixed nothing). */
 check("Look has no hard-to-read words line", (await side.locator("[data-words-readable]").count()) === 0, `${await side.locator("[data-words-readable]").count()} lines`);
 
+/* The page's editor holds what Format's This site held: the background, its font with the whole site's text size, and the corners. */
+await side.locator('[data-theme-preview] [data-preview-part="heading"]').click();
+await page.waitForTimeout(300);
+await side.locator("[data-kind-editor] [data-kind-font] button").first().click();
+const dials = await side.locator("[data-kind-editor] [data-site-dial]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-dial")));
+check("pressing the page opens its background, text size and corners", (await side.locator('[data-kind-editor] [data-kind-colour="fill"]').count()) === 1 && dials.join(",") === "type.baseSize,layout.radius", dials.join(","));
+check("…the corners read off the site", /24px/.test(await side.locator('[data-site-dial="layout.radius"]').innerText()), await side.locator('[data-site-dial="layout.radius"]').innerText());
+await side.locator("[data-kind-editor]").getByRole("button", { name: "Close" }).click();
 /* Press a piece of the preview: its editor opens under it, its parts outlined on the board. */
 const piece = side.locator('[data-theme-preview] [data-preview-part="surface"]').first();
 await piece.scrollIntoViewIfNeeded();
