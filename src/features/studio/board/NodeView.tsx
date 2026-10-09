@@ -4,7 +4,7 @@ import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
 import { pageClip } from "../pageClip";
-import { holderIds } from "../owner";
+import { holderIds,isWrapper } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
 import { LiveSite,PartCopy,resolvePageLink } from "../live/LiveSite";
@@ -287,6 +287,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   const lifted = useStudio((s) => liftedOnBoard(s).has(node.id));
   /* A dimmed screen leaves the outline it holds bright: a hole in its fill over each one. */
   const shade = isScreenShade(node, page.w);
+  /* The site's own wrapper (the "app" box round all of PonsStars) is the code's: a press goes through it to the parts inside (`owner.ts#wrapperIds`). */
+  const wrapper = useStudio((s) => isWrapper(s.nodes, node));
   const holes = useStudio((s) => (shade ? screenHoles(s, node) : ""));
   /* Its words and picture as the step picked has them ("You lost.", FINAL, the match's chart): the board's drawing only, the part keeps its own. */
   const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
@@ -332,7 +334,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
       }}
       /* An inert part (sink: the page's grain over everything) lets a press through to what is under it (`tests/board-inert.mjs`). Hit-testing only. */
       /* A dimmed screen pinned over the whole window (PST's intro tour) is never grabbed off the board, picked or not: a press goes to what is on it, its card (J, 2026-10-06: dragging moved the dim). It is still picked from the Panels list or the layers. */
-      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected) || isScreenShade(node, page.w) ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      className={cn("group absolute cursor-grab active:cursor-grabbing", ((node as { inert?: boolean }).inert && !selected) || isScreenShade(node, page.w) || wrapper ? "pointer-events-none" : "pointer-events-auto", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: place?.x ?? node.x, top: place?.y ?? node.y, width: place?.w ?? node.w,
         /* A minimum, not a height: the part grows past it when its words

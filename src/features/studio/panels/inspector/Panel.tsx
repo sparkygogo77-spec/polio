@@ -23,7 +23,7 @@ import { linkReason } from "../../links";
 import { plain } from "../../shelf";
 import { WorkFields } from "../../WorkFields";
 import { capturedFrom, insideControl, isMachineLabel, partName, wordsOf } from "../../partNames";
-import { wordsIn } from "../../owner";
+import { isWrapper, wordsIn } from "../../owner";
 import { decisionSays } from "../../shelf";
 import { TourEditor } from "../../TourEditor";
 import { Crumbs, KindIcon, PanelSection, ElementList, kindWord, useDecisions } from "../PartTreePanel";
@@ -365,6 +365,22 @@ export function Inspector() {
   const cat = feature ? categoryOf(feature.category) : null;
   const group = groups.find((g) => g.id === node.groupId);
   const shownName = partName(node, nodes, featureName);
+  /*
+   * THE SITE'S OWN WRAPPER IS THE CODE'S (J, 2026-10-09). Reached some other
+   * way than the board (the layers, the Panels list), it says what it is and
+   * offers nothing to change: its place, size, words and look are the code's.
+   */
+  if (isWrapper(nodes, node)) {
+    return (
+      <div className="flex h-full min-h-0 flex-col" data-wrapper-note="">
+        <div className="border-b border-border px-3 py-2">
+          <div className="text-plain font-semibold text-fg">{shownName}</div>
+          <div className="text-small text-fg-muted">Holds the whole page. Made by the site&apos;s code, so it stays as the code has it.</div>
+        </div>
+        <div className="p-3 text-small text-fg-muted">Pick the parts inside it to change them. To move everything, use Select everything: this box goes with them.</div>
+      </div>
+    );
+  }
   const kind = kindWord(node);
   const effectIds = offeredIds(kind, node, nodes);
   const effectsOn = usesOf(node.work).filter((u) => effectIds.has(u.id)).length;
@@ -378,10 +394,11 @@ export function Inspector() {
   const comp = comps.byId.get(node.id) ?? null;
   const partOfId = comp ? null : comps.of.get(node.id);
   const partOf = partOfId ? comps.byId.get(partOfId) ?? null : null;
-  const wordsPart = wordsIn(nodes, node);
-  const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
   /* A drawn button's link is asked under "What is this?", so it is not asked twice. */
   const control = !node.worn && (kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId));
+  /* Only a control's words are its label: a box that merely holds words (a panel, a page) has none of its own to show here, not the biggest words inside it. */
+  const wordsPart = control ? wordsIn(nodes, node) : null;
+  const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
   const decision = openDecisions.find((d) => d.id === node.id) ?? null;
   const featureOptions = feature?.options?.filter((o) => !(isLabel && LABEL_HIDES.has(o.id))) ?? [];
   const contentOptions = featureOptions.filter((o) => !isLookOption(o));

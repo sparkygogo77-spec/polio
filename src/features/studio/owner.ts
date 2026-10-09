@@ -142,3 +142,51 @@ export function holderIds(nodes: readonly Boxed[]): Set<string> {
   HOLDERS.set(nodes, out);
   return out;
 }
+
+const WRAPPERS = new WeakMap<readonly Boxed[], Set<string>>();
+
+/**
+ * THE SITE'S OWN WRAPPERS ARE THE CODE'S, NOT THE BOARD'S (J, 2026-10-09:
+ * the "app" box that holds the whole of PonsStars "should be in the backend
+ * and not for me to mess with"). A part is one when it came from the site's
+ * code (brought in or captured, not made here), draws no words of its own,
+ * and holds most of its page: at least half of the page's other parts, over
+ * at least 60% of the area they cover, or every one of them (the page's
+ * body, however short the browser measured it). On the board a press goes through it
+ * to the parts inside, a marquee and Select everything leave it out, and it
+ * rides along when everything it holds is moved. Kept per list.
+ */
+export function wrapperIds(nodes: readonly Boxed[]): Set<string> {
+  const known = WRAPPERS.get(nodes);
+  if (known) return known;
+  const out = new Set<string>();
+  const byPage = new Map<string, Boxed[]>();
+  for (const n of nodes) { const k = n.pageId ?? ""; const l = byPage.get(k); if (l) l.push(n); else byPage.set(k, [n]); }
+  const spreadOf = (list: readonly Boxed[]) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const m of list) { x0 = Math.min(x0, m.x); y0 = Math.min(y0, m.y); x1 = Math.max(x1, m.x + m.w); y1 = Math.max(y1, m.y + m.h); }
+    return Math.max(1, (x1 - x0) * (y1 - y0));
+  };
+  for (const list of byPage.values()) {
+    if (list.length < 3) continue;
+    /* Only a part near the size of the whole page is weighed further: a board of a thousand parts asks this on every move. */
+    const page = spreadOf(list);
+    for (const n of list) {
+      const top = !!pathOf(n) && !pathOf(n).includes(">");
+      if (!top && area(n) < 0.6 * 0.6 * page) continue;
+      const made = n as Boxed & { source?: unknown };
+      if (!made.source && !pathOf(n)) continue;
+      if (wordsOf(n) || isOwner(n)) continue;
+      const rest = list.filter((m) => m.id !== n.id);
+      let held = 0;
+      for (const m of rest) if (holds(n, m)) held++;
+      if (held < Math.max(2, rest.length / 2)) continue;
+      if (held === rest.length || area(n) >= 0.6 * spreadOf(rest)) out.add(n.id);
+    }
+  }
+  WRAPPERS.set(nodes, out);
+  return out;
+}
+
+/** Is this part one of the site's own wrappers (`wrapperIds`)? */
+export const isWrapper = (nodes: readonly Boxed[], n: Pick<Boxed, "id">) => wrapperIds(nodes).has(n.id);

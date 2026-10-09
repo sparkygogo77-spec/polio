@@ -33,7 +33,7 @@ import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
-import { parentOf,ridersOf,wordsIn } from "../owner";
+import { isWrapper,parentOf,ridersOf,wordsIn } from "../owner";
 import { rereadComponents,resizedWith } from "../components";
 import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
@@ -960,7 +960,8 @@ export function DesktopCanvas() {
         if (!s.selection.length) return;
         const one = picked.length === 1 && s.selection.length === 1 ? picked[0]! : null;
         const up = one ? parentOf(s.nodes, one) : null;
-        if (up) s.setSelection([up.id]);
+        /* Climbing out stops below the site's own wrapper: it is the code's, not a part to pick. */
+        if (up && !isWrapper(s.nodes, up)) s.setSelection([up.id]);
         else s.clearSelection();
         play("tap");
         return;
@@ -1398,7 +1399,7 @@ export function DesktopCanvas() {
       const inside = (b: { x: number; y: number; w: number; h: number }) =>
         b.x >= marquee.x && b.y >= marquee.y && b.x + b.w <= marquee.x + marquee.w && b.y + b.h <= marquee.y + marquee.h;
       const hits = [
-        ...nodes.filter(inside).map((n) => n.id),
+        ...nodes.filter((n) => inside(n) && !isWrapper(nodes, n)).map((n) => n.id),
         ...shapes.filter((sh) => inside(shapeBounds(sh))).map((sh) => sh.id),
       ];
       if (hits.length) {
