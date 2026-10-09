@@ -1627,8 +1627,8 @@ export function DesktopCanvas() {
         (`textFit.ts#atFullSize`). `tests/board-crisp.mjs`.
       */}
       <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
-      {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at, set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
-      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom) } as React.CSSProperties}>
+      {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at (and `--point-z` the zoom a pointed part's glow is sized against, globals.css), set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
+      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
         {/*
           The page's box, which no longer clips to itself.
 

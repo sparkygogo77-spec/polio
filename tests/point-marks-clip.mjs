@@ -5,6 +5,8 @@
  * board, and the outlines of parts lower down drew over the shelf under the
  * board. They were clipped to the column round the board, which holds the
  * step bar and the shelf too; they are clipped to the board's pane now.
+ * Since 2026-10-09 the mark is a glow on the part itself (`board/pointed.ts`),
+ * so it is clipped wherever the part is: inside the pane.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/point-marks-clip.mjs http://127.0.0.1:3013
@@ -44,11 +46,16 @@ await page.waitForTimeout(600);
 const s = await page.evaluate(() => {
   const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { y: Math.round(b.top), b: Math.round(b.bottom) }; };
   const mark = document.querySelector("[data-point-mark]");
-  return { marks: document.querySelectorAll("[data-point-mark]").length, clip: r(mark?.parentElement), pane: r(document.querySelector("[data-studio-pane]")), band: r(document.querySelector("[data-studio-band]")) };
+  const pane = document.querySelector("[data-studio-pane]");
+  const band = document.querySelector("[data-studio-band]");
+  /* Just above the shelf's top, over the low part: what is drawn there is the shelf, not the part or its glow. */
+  const b = band?.getBoundingClientRect(), m = mark && [...document.querySelectorAll("[data-point-mark]")].at(-1).getBoundingClientRect();
+  const under = b && m ? document.elementFromPoint(m.left + 20, b.top + 4) : null;
+  return { marks: document.querySelectorAll("[data-point-mark]").length, inPane: !!mark && pane?.contains(mark) && getComputedStyle(pane).overflowY !== "visible", pane: r(pane), band: r(band), shelfOnTop: !!under && !under.closest("[data-point-mark]") };
 });
 check("the parts are outlined on the board", s.marks === 2, JSON.stringify(s));
-check("the outlines are clipped to the board's pane", !!s.clip && s.clip.y >= s.pane.y && s.clip.b <= s.pane.b, JSON.stringify(s));
-check("and stop above the shelf", !!s.band && s.clip.b <= s.band.y, JSON.stringify(s));
+check("the marks are clipped to the board's pane", s.inPane, JSON.stringify(s));
+check("and stop above the shelf", s.shelfOnTop, JSON.stringify(s));
 check("no page error", errors.length === 0, errors.join(" / "));
 await browser.close();
 const bad = results.filter((x) => !x).length;

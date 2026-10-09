@@ -17,8 +17,7 @@
 import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
-import { createPortal } from "react-dom";
-import { ROLES, colourKey, coloursIn, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
+import { ROLES, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { PieceTexture } from "./PieceTexture";
@@ -32,6 +31,7 @@ import { FAMILY, resolvePalette } from "./shelf/run";
 import { endGesture, gestureBase, pickedStates, startGesture, useHeldStudio, useStudio } from "./board/store";
 import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
+import { pointParts } from "./board/pointed";
 import { Slider, HandColour } from "./HandSlider";
 import { useSiteFormat } from "./panels/ui";
 import { FORMAT_FIELDS } from "./format";
@@ -65,15 +65,14 @@ function nameOf(n: Parameters<typeof partName>[0] | undefined, id: string, all: 
 /* ------------------------------------------------------------------ */
 
 /**
- * Hover a part in a list here and it is outlined on the board, so "which one
- * is that" is answered without picking it and losing what is picked. Nothing
- * in the document changes: the outline is drawn over the board from the
- * part's own box on screen, and goes when the hand leaves the row.
+ * Hover a part in a list here and it glows on the board, so "which one is
+ * that" is answered without picking it and losing what is picked. Nothing in
+ * the document changes: the part wears a neon silhouette while the hand is
+ * on the row (`board/pointed.ts`), and lets it go when the hand leaves.
  */
-const POINT = "studio:point-at";
 let follow = 0;
 export function pointAt(ids: string[] | null) {
-  window.dispatchEvent(new CustomEvent(POINT, { detail: ids }));
+  pointParts(ids);
   /*
    * And the board follows: a part below the fold is scrolled into view, so
    * hovering down a list keeps the board with it (J, 2026-10-09: "as it goes
@@ -104,52 +103,6 @@ export function scrollToParts(ids: readonly string[]) {
   if (els.some((el) => shows(el.getBoundingClientRect()))) return;
   const r = first.getBoundingClientRect();
   pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
-}
-
-export function PointMarks() {
-  const [ids, setIds] = React.useState<string[] | null>(null);
-  const [boxes, setBoxes] = React.useState<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
-  /* The board's own pane: the outline is clipped to it, never drawn over the shelf, the step bar or the panel. */
-  const [clip, setClip] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  React.useEffect(() => {
-    const on = (e: Event) => setIds((e as CustomEvent<string[] | null>).detail);
-    window.addEventListener(POINT, on);
-    return () => window.removeEventListener(POINT, on);
-  }, []);
-  React.useEffect(() => {
-    if (!ids?.length) { setBoxes([]); return; }
-    let raf = 0;
-    const measure = () => {
-      const out: typeof boxes = [];
-      for (const id of ids) {
-        const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(id)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
-        const r = el?.getBoundingClientRect();
-        if (r && r.width > 0 && r.height > 0) out.push({ id, x: r.left, y: r.top, w: r.width, h: r.height });
-      }
-      setBoxes((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
-      /* The pane the board scrolls in, not the column round it: the column holds the step bar and the shelf too, and the marks drew over them (J, 2026-10-06). */
-      const sc = (document.querySelector("[data-studio-pane]") ?? document.querySelector("[data-studio-scroll]"))?.getBoundingClientRect();
-      const c = sc ? { x: sc.left, y: sc.top, w: sc.width, h: sc.height } : null;
-      setClip((was) => (JSON.stringify(was) === JSON.stringify(c) ? was : c));
-      raf = requestAnimationFrame(measure);
-    };
-    measure();
-    return () => cancelAnimationFrame(raf);
-  }, [ids]);
-  if (!boxes.length) return null;
-  return createPortal(
-    <div aria-hidden className="pointer-events-none fixed z-[60] overflow-hidden" style={clip ? { left: clip.x, top: clip.y, width: clip.w, height: clip.h } : { inset: 0 }}>
-      {boxes.map((b) => (
-        <div
-          key={b.id}
-          data-point-mark={b.id}
-          className="absolute rounded-[3px]"
-          style={{ left: b.x - 3 - (clip?.x ?? 0), top: b.y - 3 - (clip?.y ?? 0), width: b.w + 6, height: b.h + 6, outline: "2px solid white", boxShadow: "0 0 0 4px rgb(0 0 0 / 0.55), 0 0 18px 4px rgb(255 255 255 / 0.35)" }}
-        />
-      ))}
-    </div>,
-    document.body,
-  );
 }
 
 /** Pick these on the board, on the page the first of them is on. */
@@ -736,7 +689,6 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
 
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
-      <PointMarks />
       <div>
         <div className="flex items-center justify-between">
           <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
