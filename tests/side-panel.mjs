@@ -243,6 +243,11 @@ await page.waitForTimeout(400);
 const editor = side.locator("[data-kind-editor]");
 check("pressing a piece opens its editor below the preview", (await editor.getAttribute("data-kind-editor")) === pieceName, String(await editor.getAttribute("data-kind-editor")));
 check("…with its parts outlined on the board", (await page.locator("[data-point-mark]").count()) > 0, `${await page.locator("[data-point-mark]").count()} outlined`);
+const outlined = await page.locator("[data-point-mark]").count();
+await side.locator('[data-theme-preview] [data-preview-part="heading"]').hover();
+await page.mouse.move(1500, 1050);
+await page.waitForTimeout(300);
+check("…and they stay outlined after the hand passes over another piece and leaves", (await page.locator("[data-point-mark]").count()) === outlined, `${await page.locator("[data-point-mark]").count()} of ${outlined}`);
 const nodesE = await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes));
 const depthE = await page.evaluate(() => window.__studioUndoDepth());
 await editor.locator('[data-kind-colour="fill"] input[type=color]').evaluate((el) => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; for (const v of ["#ff0000", "#00ff88", "#3355ff"]) { set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); } });
@@ -257,10 +262,12 @@ check("…which one undo takes back", (await page.evaluate(() => JSON.stringify(
 const cornersId = (await page.evaluate(() => window.__studioPublishDoc().nodes)).find((n) => n.colour?.bg && /241, 224, 126|242, 226, 129|240, 223, 123/.test(n.colour.bg))?.id;
 const corners = editor.locator("[data-kind-corners] [role=slider]");
 await corners.focus();
+await page.keyboard.press("Home");
 await page.keyboard.press("End");
 await page.waitForTimeout(300);
 const r = await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.radius, cornersId);
-check("its Corners set every part of the kind's own radius", r === 48, String(r));
+/* The kind's smallest copy is the 40px corner box: past 20px nothing rounds further, so the slider ends there. */
+check("its Corners set every part of the kind's own radius, up to half its smallest copy's side", r === 20 && (await corners.getAttribute("aria-valuemax")) === "20", `${r}, max ${await corners.getAttribute("aria-valuemax")}`);
 await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(300);

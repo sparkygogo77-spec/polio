@@ -28,7 +28,7 @@ import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
-import { endGesture, gestureBase, startGesture, useHeldStudio, useStudio } from "./board/store";
+import { endGesture, gestureBase, pickedStates, startGesture, useHeldStudio, useStudio } from "./board/store";
 import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { Slider, HandColour } from "./HandSlider";
@@ -330,7 +330,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); play("select"); onPick(p); },
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); play("select"); onPick(p); } },
     onMouseEnter: () => pointAt(onThisPage(ids)),
-    onMouseLeave: () => pointAt(null),
+    onMouseLeave: () => pointAt(resting ? onThisPage(resting) : null),
   });
   const button = (k: SurfaceKind) => (
     <span key={at(k)} data-preview-part="button" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
@@ -373,6 +373,42 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
       {loose.length ? <div className="flex flex-wrap gap-1.5">{loose.map(button)}</div> : null}
     </div>
   );
+}
+
+/** The picked piece's parts: what the board goes back to outlining when a hover leaves. */
+let resting: string[] | null = null;
+
+/** Drawn on the board now: on the page in view and in the state it shows. */
+function drawnNow(id: string): boolean {
+  const el = document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+  return !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
+}
+
+/**
+ * A pressed piece, seen on the board: its parts outlined where they are drawn.
+ * When none is drawn (the wallet buttons live in a hidden panel, or on
+ * another page), the board turns to the page and the state one of them lives
+ * in, the way picking a hidden part does, and brings it into view (J,
+ * 2026-10-09). The Show bar names the state, and its next step takes it off.
+ */
+function bringIntoView(ids: string[]) {
+  if (!ids.length) { pointAt(null); return; }
+  const s = useStudio.getState();
+  if (ids.some((id) => drawnNow(id))) { pointAt(onThisPage(ids)); return; }
+  const pageOf = new Map(s.nodes.map((n) => [n.id, n.pageId]));
+  const target = ids.find((id) => pageOf.get(id) === s.activePageId) ?? ids[0]!;
+  if (pageOf.get(target) && pageOf.get(target) !== s.activePageId) s.setActivePage(pageOf.get(target)!);
+  const on = pickedStates(useStudio.getState(), [target]).statesOn;
+  if (on) useStudio.getState().setStatesOn(on);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    pointAt(onThisPage(ids));
+    const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(target)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(target)}"]`);
+    const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
+    if (el instanceof HTMLElement && pane instanceof HTMLElement) {
+      const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+      if (r.bottom < p.top || r.top > p.bottom) pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
+    }
+  }));
 }
 
 /** Of these parts, the ones on the page in view: those are the ones that can be outlined. */
@@ -452,10 +488,17 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
 /** "Square": a radius the board reads as set (0 reads as "the site's default") and nobody can see. */
 const SQUARE = 0.5;
 function KindCorners({ k }: { k: SurfaceKind }) {
+  /* Past half its shortest side a corner cannot round any more: the cap is that, for the smallest copy (J, 2026-10-09). */
+  const nodes = useHeldStudio((s) => s.nodes);
+  const cap = React.useMemo(() => {
+    const ids = new Set(k.ids);
+    const sides = nodes.filter((n) => ids.has(n.id)).map((n) => Math.min(n.w ?? 0, n.h ?? 0)).filter((x) => x > 0);
+    return Math.max(1, Math.floor((sides.length ? Math.min(...sides) : 96) / 2));
+  }, [nodes, k.ids]);
   return (
     <label data-kind-corners="" className="block space-y-1 text-small text-fg">
       <span>Corners</span>
-      <Slider value={[Math.min(k.radius, 48)]} min={0} max={48} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
+      <Slider value={[Math.min(k.radius, cap)]} min={0} max={cap} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
         onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
     </label>
   );
@@ -489,7 +532,17 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const layers = useHeldStudio((s) => s.look.texture);
   const k = pick === "page" ? null : site.kinds[pick] ?? null;
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
-  React.useEffect(() => { pointAt(onThisPage(ids)); return () => pointAt(null); }, [ids]);
+  /* Picked, its parts stay outlined on the board for as long as its editor is open (J, 2026-10-09): through
+     a hover over another piece, an edit, a turn to another page or state. */
+  const active = useStudio((s) => s.activePageId);
+  const shown = useStudio((s) => (s.statesOn ?? []).join("|"));
+  const idsKey = ids.join("|");
+  React.useEffect(() => { bringIntoView(ids); }, [pick]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    resting = ids;
+    pointAt(onThisPage(ids));
+    return () => { resting = null; pointAt(null); };
+  }, [idsKey, active, shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const [fontOpen, setFontOpen] = React.useState(false);
   const { captured } = useSiteFormat();
   if (pick !== "page" && !k) return null;
