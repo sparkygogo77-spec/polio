@@ -136,7 +136,7 @@ function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigat
               data-run-to={to.target}
               role="link"
               tabIndex={0}
-              style={{ ...style, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              style={{ ...style, cursor: "pointer", ...(s.bare ? {} : { textDecoration: "underline", textUnderlineOffset: 2 }) }}
               onClick={(e) => { e.stopPropagation(); onNavigate(to); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onNavigate(to); } }}
             >

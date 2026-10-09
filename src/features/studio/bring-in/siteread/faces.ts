@@ -70,6 +70,8 @@ export interface PartRun {
   /** Room the page left beside it in the line, left and right px (PST's "OFF AIR", 8px after the channel). */
   space?: number[];
   href?: string;
+  /** A link the page drew without an underline (PST's nav pills): the board draws it so too. */
+  bare?: true;
   /** The id and data-* attributes of the element these words sit in, so code can still find it. */
   hooks?: Record<string, string>;
 }
@@ -179,6 +181,10 @@ export interface PagePart {
   /** "fixed" when it is pinned to the window rather than in the page's flow. */
   position?: "fixed";
   href?: string;
+  /** A link the page drew without an underline. */
+  bare?: true;
+  /** Words the page set on more than one line (an inline paragraph that wrapped): drawn wrapping, never held to one line. */
+  wraps?: true;
   src?: string;
   alt?: string;
   style: PartStyle;

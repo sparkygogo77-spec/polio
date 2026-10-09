@@ -136,7 +136,7 @@ function spansFrom(runs: PartRun[] | undefined, words: string, link: (href: stri
     if (r.bg) { s.bg = r.bg; if (r.pad) s.pad = r.pad; if (r.radius) s.radius = r.radius; }
     if (r.space) s.space = r.space;
     const to = r.href !== undefined ? link(r.href) : null;
-    if (to) s.link = to;
+    if (to) { s.link = to; if (r.bare) s.bare = true; }
     if (r.hooks && Object.keys(r.hooks).length) s.hooks = r.hooks;
     /* A place the page's code writes into, with nothing in it yet, still carries its hook: a zero-width run. */
     if (!s.text && s.hooks) s.text = "​";
@@ -223,15 +223,25 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const motion = played || Object.keys(answers).length ? { ...(played ?? {}), ...answers } : null;
     const look = lookFromCapture(p, edge?.shadow ?? null, art);
     const host = p.pseudo ? (p.pseudo.host["data-hook"] ? `data-hook “${p.pseudo.host["data-hook"]}”` : p.pseudo.host.id ? `#${p.pseudo.host.id}` : "its element") : "";
-    const align = /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;
+    /*
+     * A LINK DRAWN AS A PILL CENTRES ITS WORDS. The page shrinks such a link
+     * round its words with even padding each side (PST's nav: "Play",
+     * "Leaderboard"), so its words sit in the middle of its fill. The board
+     * keeps the box the page measured; set in another machine's glyphs the
+     * words were held to its left and ran out on the right, with the pills
+     * no longer looking centred (J, 2026-10-09). Centred, they stay in the
+     * middle whatever the font.
+     */
+    const pill = p.kind === "link" && (!!s.bg || !!s.border || !!s.image) && s.pad[1] > 0 && Math.abs(s.pad[1] - s.pad[3]) <= 1;
+    const align = pill ? { align: "center" } : /^(center|right|end|justify)$/.test(s.align) ? { align: s.align } : null;
     const transform = /^(uppercase|lowercase|capitalize)$/.test(s.transform) ? { transform: s.transform } : null;
     /* A button whose words the page set on more than one line keeps them on more than one. */
     const inside = p.box.h - s.pad[0] - s.pad[2] - (s.border ? 2 * s.border.w : 0);
-    const wraps = p.kind === "button" && !!p.words && s.leading > 0 && inside > 1.6 * s.leading ? { wrap: "wrap" } : null;
+    const wraps = (p.kind === "button" && !!p.words && s.leading > 0 && inside > 1.6 * s.leading) || p.wraps ? { wrap: "wrap" } : null;
     const text = align || transform || wraps ? { ...(align ?? {}), ...(transform ?? {}), ...(wraps ?? {}) } : null;
     const linkTo = p.kind === "link" && p.href !== undefined ? link(p.href) : null;
     const content = p.kind === "link"
-      ? (p.words ? [{ text: p.words, ...(linkTo ? { link: linkTo } : {}) }] : "")
+      ? (p.words ? [{ text: p.words, ...(linkTo ? { link: linkTo, ...(p.bare ? { bare: true } : {}) } : {}) }] : "")
       : p.kind === "section" || p.kind === "slot" || p.kind === "picture" || (p.kind === "shape" && !p.words) ? "" : spansFrom(p.runs, p.words, link);
     const what = p.pseudo ? `the ${p.pseudo.which} of ${host}, which draws${p.words ? ` “${p.words.slice(0, 60)}”` : " a shape"}` : p.kind === "section" ? `${p.tag} section` : p.kind === "slot" ? `empty ${p.tag} its code fills` : p.kind === "field" ? `${p.control?.type ?? "text"} field${p.label ? `, “${p.label}”` : ""}` : p.kind === "check" ? `${p.control?.type ?? "checkbox"}${p.words ? `, “${p.words}”` : ""}` : `${p.tag}${p.words ? `, “${p.words.slice(0, 60)}”` : ""}`;
     const hookSays = p.hooks["data-hook"] ? ` Its code finds it as data-hook “${p.hooks["data-hook"]}”.` : p.hooks.id ? ` Its code finds it as #${p.hooks.id}.` : "";

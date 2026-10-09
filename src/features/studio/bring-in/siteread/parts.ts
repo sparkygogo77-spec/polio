@@ -135,6 +135,8 @@ export const PARTS = (cap: number): PageRead => {
       } } : {}),
     };
   };
+  /* Does the page underline this link? Most sites' nav and buttons do not, and the board underlined every link it drew. */
+  const underlined = (a: Element) => /underline/.test(css(a).textDecorationLine);
   const paints = (e: Element) => { const s = styleOf(e); return !!s.bg || !!s.border || !!paintOf(css(e)).image; };
   /*
    * WHAT PAINTS IT BESIDES ONE COLOUR. PST's TV body is a linear gradient
@@ -533,7 +535,7 @@ export const PARTS = (cap: number): PageRead => {
       if (w !== rootWeight) run.weight = w;
       if (s.fontStyle === "italic" && rs.fontStyle !== "italic") run.italic = true;
       if (mono(s.fontFamily) && !mono(rs.fontFamily)) run.mono = true;
-      if (a && root.contains(a) && a !== root) run.href = a.getAttribute("href") ?? "";
+      if (a && root.contains(a) && a !== root) { run.href = a.getAttribute("href") ?? ""; if (!underlined(a)) run.bare = true; }
       if (s.color !== rs.color) run.colour = s.color;
       /* A chip: the nearest element inside the run that paints a fill of its own. */
       for (let up: Element | null = from; up && up !== root; up = up.parentElement) {
@@ -557,7 +559,7 @@ export const PARTS = (cap: number): PageRead => {
         if (hooked(up)) { run.hooks = hooksOf(up); break; }
       }
       const last = out[out.length - 1];
-      const same = last && last.weight === run.weight && last.italic === run.italic && last.mono === run.mono && last.href === run.href && last.colour === run.colour && last.bg === run.bg && String(last.space) === String(run.space) && JSON.stringify(last.hooks ?? null) === JSON.stringify(run.hooks ?? null);
+      const same = last && last.weight === run.weight && last.italic === run.italic && last.mono === run.mono && last.href === run.href && last.bare === run.bare && last.colour === run.colour && last.bg === run.bg && String(last.space) === String(run.space) && JSON.stringify(last.hooks ?? null) === JSON.stringify(run.hooks ?? null);
       if (same) last!.text += text; else out.push(run);
     };
     const visit = (n: Node, holder: Element) => {
@@ -591,7 +593,7 @@ export const PARTS = (cap: number): PageRead => {
     return out.filter((r) => r.text || r.hooks);
   };
   const wordsOf = (runs: PartRun[]) => runs.map((r) => r.text).join("");
-  const plainRuns = (runs: PartRun[]) => runs.every((r) => r.weight === undefined && !r.italic && !r.mono && !r.href && !r.hooks && !r.colour && !r.bg && !r.space);
+  const plainRuns = (runs: PartRun[]) => runs.every((r) => r.weight === undefined && !r.italic && !r.mono && !r.href && !r.bare && !r.hooks && !r.colour && !r.bg && !r.space);
 
   /* A link stands on its own when what is beside it is only separators: a bar of links, not a sentence with one in it. */
   const loneLinks = new Map<Element, boolean>();
@@ -806,7 +808,7 @@ export const PARTS = (cap: number): PageRead => {
 
   const link = (a: Element, parent: number, hidden: string | null) => {
     const said = (a.textContent ?? "").replace(/\s+/g, " ").trim() || a.getAttribute("aria-label") || a.getAttribute("title") || "";
-    push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) }, a);
+    push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", ...(underlined(a) ? {} : { bare: true as const }), hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) }, a);
   };
 
   /* A run of inline words between the parts of a mixed block: one line of its own. */
@@ -826,15 +828,39 @@ export const PARTS = (cap: number): PageRead => {
      */
     const range = document.createRange();
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const rows: { top: number; bottom: number }[] = [];
     for (const n of nodes) {
       if (n.nodeType === Node.TEXT_NODE && !(n.textContent ?? "").trim()) continue;
       range.selectNode(n);
       for (const q of Array.from(range.getClientRects())) {
         if (q.width <= 0 || q.height <= 0) continue;
         x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom);
+        if (!rows.some((w) => q.top < w.bottom - 2 && q.bottom > w.top + 2)) rows.push({ top: q.top, bottom: q.bottom });
       }
     }
     if (x0 === Infinity) { range.setStartBefore(nodes[0]!); range.setEndAfter(nodes[nodes.length - 1]!); const a = range.getBoundingClientRect(); x0 = a.left; y0 = a.top; x1 = a.right; y1 = a.bottom; }
+    /*
+     * WORDS THE PAGE WRAPPED ARE WRAPPED. An inline paragraph's boxes are its
+     * glyphs' height, not its lines': PST's Balance note ("One escrow balance
+     * for all your / matches.", a `display: inline` p before its "?") was two
+     * 21px rows, 42 in all, under two of its 22.4px lines, so it was drawn on
+     * one line and ran out of the panel (J, 2026-10-09). Two rows or more are
+     * said to wrap, and wrap where the page did: at the right of what holds
+     * them, not at the end of their longest row.
+     */
+    const wrapped = rows.length > 1;
+    if (wrapped) {
+      const hs = css(holder), hr = holder.getBoundingClientRect();
+      x1 = Math.max(x1, hr.right - (parseFloat(hs.paddingRight) || 0) - (parseFloat(hs.borderRightWidth) || 0));
+      /* Its lines' height, not its glyphs': half the leading above the first row and below the last, so the box is as tall as the room the page gave it and nothing under it moves. */
+      const first = nodes.find((n) => n.nodeType === Node.ELEMENT_NODE || (n.textContent ?? "").trim());
+      const at = first ? (first.nodeType === Node.ELEMENT_NODE ? (first as Element) : first.parentElement) : null;
+      const lh = at ? parseFloat(css(at).lineHeight) : NaN;
+      const lead = Number.isFinite(lh) ? (lh - (rows[0]!.bottom - rows[0]!.top)) / 2 : 0;
+      if (lead > 0 && lead < lh / 2) { y0 -= lead; y1 += lead; }
+    }
+    /* Whole pixels, rounded up: a row 300.4 wide stored as 300 would wrap its last word where the page did not (the same note at 390, on one row there). */
+    x1 = x0 + Math.ceil(x1 - x0 - 0.01);
     const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
     if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
@@ -846,7 +872,7 @@ export const PARTS = (cap: number): PageRead => {
      */
     const worn = styleOf(holder);
     delete worn.layout; delete worn.clips; delete worn.maxw;
-    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
   };
 
   /* Inline content, with the parts among it taken out as they come. */
