@@ -44,6 +44,8 @@ export interface SurfaceKind {
   face: string | null;
   outline: { colour: string; width: number } | null;
   shadow: string | null;
+  /** The background as the parts paint it, a gradient included (a button's light and body); the flat fill when they paint none. */
+  paint: string;
   radius: number;
   /** For a button kind, the index of the kind most of its parts stand in (-1: the page). */
   inside: number;
@@ -131,6 +133,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const ms = parts.filter((p) => g.members.has(p.id));
     const outlines = new Map<string, number>();
     const shadows = new Map<string, number>();
+    const paints = new Map<string, number>();
     const radii = new Map<number, number>();
     const inside = new Map<number, number>();
     let buttons = 0;
@@ -143,6 +146,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
         if (c) bump(outlines, `${c.key}|${e.width ?? 1}`);
       }
       if (e?.shadow) bump(shadows, e.shadow);
+      const bg = (p as { art?: { background?: string } | null }).art?.background;
+      if (bg && /gradient\(/.test(bg)) bump(paints, bg);
       bump(radii, Math.round(Number(p.radius ?? 0)));
       if (isButton(p)) buttons++;
       bump(inside, container(p));
@@ -159,6 +164,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       face: top(faces[i]!)?.[0] ?? null,
       /* Half the parts or more draw it, or it is not this kind's outline. */
       outline: o && o[1] >= ms.length / 2 ? { colour: o[0].split("|")[0]!, width: Number(o[0].split("|")[1]) } : null,
+      paint: (() => { const g = top(paints); return g && g[1] >= ms.length / 2 ? g[0] : leads[i]!.fill; })(),
       shadow: (() => { const s = top(shadows); return s && s[1] >= ms.length / 2 ? s[0] : null; })(),
       radius: top(radii)?.[0] ?? 0,
       /* Where a third of its parts or more stand inside a kind, it is shown there: the page is only the fallback. */

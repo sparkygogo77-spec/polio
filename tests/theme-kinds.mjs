@@ -41,6 +41,8 @@ check("…and no other kind carries lime words", r.kinds.filter((k) => k.words =
 check("2. the cream card has its outline, hard shadow and corners", card?.outline?.colour === INK && card.outline.width === 3 && /6px 6px 0px/.test(card.shadow ?? "") && card.radius === 18, JSON.stringify(card));
 check("…and its words are the ink, not lime", card?.words === INK);
 check("3. the yellow gradient buttons are a button kind", buttons?.fill === "rgb(243, 212, 64)" && buttons.name === "Yellow buttons", JSON.stringify(buttons));
+check("…painted with the site's gradient, not flat yellow", /radial-gradient\(.*rgb\(255, 243, 176\).*rgb\(243, 212, 64\)/.test(buttons?.paint ?? ""), buttons?.paint);
+check("…and a flat kind paints its fill", card?.paint === CREAM, card?.paint);
 check("…standing in the cream card", buttons && r.kinds[buttons.inside] === card);
 check("4. a white field and the cream card are two kinds", !!field && field !== card && field.name === "Near-white fields", field?.name);
 check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));

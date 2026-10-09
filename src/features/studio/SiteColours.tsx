@@ -437,7 +437,7 @@ function ThemePreview({ nodes, palette, background }: { nodes: readonly Worn[]; 
   const face = (f: string | null): React.CSSProperties => (f && (f.includes(",") || /^(monospace|serif|sans-serif|system-ui|cursive)$/.test(f)) ? { fontFamily: f } : faceStyle(f ?? SITE_TYPE));
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   const dress = (k: SurfaceKind): React.CSSProperties => ({
-    background: k.fill,
+    background: k.paint,
     color: ink(k),
     border: k.outline ? `${Math.min(k.outline.width, 3)}px solid ${k.outline.colour}` : undefined,
     boxShadow: k.shadow ? k.shadow.replace(/(-?\d+(?:\.\d+)?)px/g, (_, n: string) => `${Math.round(Number(n) / 2)}px`) : undefined,
