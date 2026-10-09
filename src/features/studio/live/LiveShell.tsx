@@ -100,28 +100,45 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     return () => { root.removeEventListener("pointermove", onMove); root.removeEventListener("pointerleave", onLeave, true); };
   }, [b.tilt]);
 
-  /* A cursor of the site's own. `display: contents` has no box, so the real
-     cursor is hidden on the page element itself. */
+  /*
+   * A cursor of the site's own. `display: contents` has no box, so it is
+   * measured on the page element it sits in. It was measured on itself: a
+   * box of no width, so the dot never moved, never showed, and the real
+   * pointer was hidden all the same (J: "no cursor at all in the preview").
+   * The dot is placed in the page's own pixels, so a scaled preview keeps it
+   * under the hand. A picture cursor is the real pointer, drawn as his
+   * picture with its tip at the top left, over everything on the page.
+   */
+  const dotRef = React.useRef<HTMLSpanElement>(null);
   React.useEffect(() => {
     const root = rootRef.current;
-    if (!root || !b.cursor) return;
-    const surface = root.parentElement;
-    const before = surface?.style.cursor ?? "";
-    if (surface) surface.style.cursor = "none";
+    const surface = root?.parentElement;
+    if (!root || !surface || !b.cursor) return;
+    if (b.cursor === "picture" && b.cursorPicture) {
+      surface.setAttribute("data-live-cursor", "");
+      const sheet = document.createElement("style");
+      sheet.textContent = `[data-live-cursor],[data-live-cursor] *{cursor:url("${b.cursorPicture}") 0 0,auto !important}`;
+      document.head.appendChild(sheet);
+      return () => { sheet.remove(); surface.removeAttribute("data-live-cursor"); };
+    }
+    const before = surface.style.cursor;
+    if (b.cursor !== "spotlight") surface.style.cursor = "none";
     const onMove = (e: PointerEvent) => {
-      const r = root.getBoundingClientRect();
-      if (!r.width) return;
-      setCursor({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+      const host = (dotRef.current?.offsetParent as HTMLElement | null) ?? surface;
+      const r = host.getBoundingClientRect();
+      const sx = host.offsetWidth ? r.width / host.offsetWidth : 1;
+      const sy = host.offsetHeight ? r.height / host.offsetHeight : 1;
+      setCursor({ x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sy });
     };
     const onOut = () => setCursor(null);
-    root.addEventListener("pointermove", onMove);
-    root.addEventListener("pointerleave", onOut);
+    surface.addEventListener("pointermove", onMove);
+    surface.addEventListener("pointerleave", onOut);
     return () => {
-      root.removeEventListener("pointermove", onMove);
-      root.removeEventListener("pointerleave", onOut);
-      if (surface) surface.style.cursor = before;
+      surface.removeEventListener("pointermove", onMove);
+      surface.removeEventListener("pointerleave", onOut);
+      surface.style.cursor = before;
     };
-  }, [b.cursor]);
+  }, [b.cursor, b.cursorPicture]);
 
   /* The opening sequence runs once, then gets out of the way. */
   React.useEffect(() => {
@@ -175,11 +192,13 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
         </button>
       ) : null}
 
-      {b.cursor && cursor ? (
+      {b.cursor && b.cursor !== "picture" ? (
         <span
+          ref={dotRef}
           aria-hidden
+          data-live-cursor-dot={b.cursor}
           style={{
-            position: "absolute", left: `${cursor.x}%`, top: `${cursor.y}%`, zIndex: 50, pointerEvents: "none",
+            position: "absolute", left: cursor?.x ?? 0, top: cursor?.y ?? 0, zIndex: 50, pointerEvents: "none", visibility: cursor ? "visible" : "hidden",
             width: b.cursor === "spotlight" ? 220 : 16, height: b.cursor === "spotlight" ? 220 : 16,
             marginLeft: b.cursor === "spotlight" ? -110 : -8, marginTop: b.cursor === "spotlight" ? -110 : -8,
             borderRadius: 999, mixBlendMode: b.cursor === "spotlight" ? "screen" : "difference",

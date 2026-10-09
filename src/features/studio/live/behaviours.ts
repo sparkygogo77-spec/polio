@@ -20,6 +20,8 @@ export interface Behaviours {
   snap: "vertical" | "horizontal" | null;
   intro: boolean;
   cursor: string | null;
+  /** The custom cursor's own picture (a small PNG, its tip top left), when it is "picture". */
+  cursorPicture: string | null;
   tilt: boolean;
   confetti: boolean;
   /** Named, not simulated — shown as a note in the corner of the preview. */
@@ -55,10 +57,13 @@ function pageScroll(b: Behaviours, scroll: string | undefined) {
   }
 }
 
+/** A cursor's own picture: a data address only, never a link out. */
+const pictureCursor = (o: Record<string, string>) => (o.style === "picture" && o.picture?.startsWith("data:image/") ? o.picture : null);
+
 export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviours {
   const b: Behaviours = {
     progress: false, backToTop: false, reveal: false, parallax: 0, smooth: false,
-    snap: null, intro: false, cursor: null, tilt: false, confetti: false, described: [], any: false,
+    snap: null, intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
   };
   for (const n of nodes) {
     if (!isBehaviour(n.featureId)) continue;
@@ -74,7 +79,7 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviou
       case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; break;
       case "scroll-snap": b.snap = o.axis === "horizontal" ? "horizontal" : "vertical"; break;
       case "page-load": b.intro = true; break;
-      case "cursor-effects": b.cursor = o.style ?? "dot"; break;
+      case "cursor-effects": b.cursor = o.style ?? "dot"; b.cursorPicture = pictureCursor(o); if (b.cursor === "picture" && !b.cursorPicture) b.cursor = "dot"; break;
       case "hover-tilt": b.tilt = true; break;
       case "confetti": b.confetti = true; break;
       default: break;

@@ -122,6 +122,10 @@ export function MotionDemo({ id, label, t, words, width, height, play, loop }: {
   const H = Math.max(170, Math.min(300, Math.round((W * height) / Math.max(1, width))));
   const scale = Math.min(width / W, height / H);
   const moving = play || loop;
+  /* Once a one-pass demo has played, it rests on its last frame: the opening
+     wipe snapped back to a green bar over the page when its pass ended. */
+  const [played, setPlayed] = React.useState(false);
+  React.useEffect(() => { if (play) setPlayed(true); }, [play]);
   const a = (name: string, extra: React.CSSProperties = {}): React.CSSProperties =>
     moving ? { animationName: name, ...extra } : {};
 
@@ -259,7 +263,7 @@ export function MotionDemo({ id, label, t, words, width, height, play, loop }: {
       body = (
         <>
           {bar}{blocks()}
-          <div className="md-a" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: t.accent, ...(moving ? a("md-wipe") : { clipPath: "inset(0 0 58% 0)" }) }}>
+          <div className="md-a" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: t.accent, ...(moving ? a("md-wipe") : { clipPath: played ? "inset(0 0 100% 0)" : "inset(0 0 58% 0)" }) }}>
             <span className="md-a" style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: 30, color: t.accentText, ...a("md-name") }}>{cut(words.name, 18)}</span>
           </div>
         </>

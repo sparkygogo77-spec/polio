@@ -293,7 +293,7 @@ const RAW: FeatureDef[] = [
   f("scroll-video", "Scroll-controlled animation", "motion", Film, "Playhead tied to scroll position.", {}),
   f("infinite-scroll", "Endless scrolling", "motion", RefreshCw, "Load more as you reach the bottom.", {}),
   f("smooth-scroll", "Smooth scrolling", "motion", Waves, "Eased, inertial scrolling.", { options: [{ id: "strength", label: "Strength", values: ["light", "off", "heavy"] }] }),
-  f("cursor-effects", "Custom cursor", "motion", MousePointer2, "Trail, magnet or spotlight cursor.", { options: [{ id: "style", label: "Style", values: ["dot", "trail", "spotlight", "magnetic"] }] }),
+  f("cursor-effects", "Custom cursor", "motion", MousePointer2, "Trail, magnet or spotlight cursor.", { options: [{ id: "style", label: "Style", values: ["dot", "trail", "spotlight", "picture"] }] }),
   f("hover-tilt", "Tilt on hover", "motion", Move, "Cards that tilt toward the pointer.", {}),
   f("page-load", "Opening animation", "motion", Hourglass, "Intro sequence on first paint.", {}),
   f("morph-transition", "Morphing transition", "motion", Spline, "An element that flies between views.", {}),

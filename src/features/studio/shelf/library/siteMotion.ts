@@ -38,6 +38,8 @@ export interface SiteMotionSettings {
   snap: "vertical" | "horizontal" | null;
   intro: boolean;
   cursor: string | null;
+  /** The cursor's picture, a small PNG as a data address, when the cursor is "picture". */
+  cursorPicture?: string | null;
   tilt: boolean;
   /** The parts on the page, by the id each is published under. */
   parts: string[];
@@ -121,7 +123,11 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
       p.addEventListener("pointerleave", function () { p.style.transform = ""; });
     });
   }
-  if (c.cursor && !still && window.matchMedia && matchMedia("(pointer: fine)").matches) {
+  if (c.cursor === "picture" && c.cursorPicture && /^data:image\//.test(c.cursorPicture)) {
+    var sheet = document.createElement("style");
+    sheet.textContent = "html,html *{cursor:url(\"" + c.cursorPicture + "\") 0 0,auto !important}";
+    document.head.appendChild(sheet);
+  } else if (c.cursor && !still && window.matchMedia && matchMedia("(pointer: fine)").matches) {
     var spot = c.cursor === "spotlight", size = spot ? 220 : 16;
     var dot = document.createElement("span");
     dot.setAttribute("aria-hidden", "true");

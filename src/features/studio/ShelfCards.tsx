@@ -52,6 +52,8 @@ import {
   needsOf, siteWordsOf, statusOf, switchOf, switchStatus, whereOf, type Need, type SiteWords, type Status,
 } from "./shelfFacts";
 import { play } from "@/core/audio/engine";
+import { armPutOn, liftCard, type CarryDrop } from "./cardCarry";
+import { askCursorDraw, cursorFrom } from "./cursorPicture";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 
@@ -245,6 +247,25 @@ export function setSwitch(featureId: string, on: boolean) {
     const w = Math.min(f?.w ?? 420, now.frameWidth);
     now.addNode(featureId, w >= now.frameWidth ? 0 : Math.round((now.frameWidth - w) / 2), onPage.length ? bottom + 24 : 0, { pageId: p.id, w, h: f?.h ?? 64 });
   }
+}
+
+/**
+ * A picture as the site's cursor (`cursorPicture.ts` made it): the Custom
+ * cursor switch on for every page, its style "picture", the picture on it.
+ */
+export function setCursorPicture(png: string) {
+  setSwitch("cursor-effects", true);
+  const st = useStudio.getState();
+  for (const n of st.nodes.filter((x) => x.featureId === "cursor-effects")) {
+    st.updateNode(n.id, { options: { ...n.options, style: "picture", picture: png, off: "" } });
+  }
+}
+
+/** The Custom cursor's look, on every page at once. */
+export function setCursorStyle(style: string) {
+  setSwitch("cursor-effects", true);
+  const st = useStudio.getState();
+  for (const n of st.nodes.filter((x) => x.featureId === "cursor-effects")) st.updateNode(n.id, { options: { ...n.options, style } });
 }
 
 /**
@@ -588,17 +609,12 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
       ref={shown}
       onPointerEnter={wake}
       onPointerLeave={rest}
+      onPointerDown={(e) => liftCard(e.nativeEvent, e.currentTarget, { what: feature.name, ontoPart: !!partWorkOf(feature.id), drop: (d) => dropFeature(feature.id, d) })}
     >
       <div
         role="button"
         tabIndex={0}
-        draggable
         aria-label={`${feature.name}: see what it does`}
-        onDragStart={(e) => {
-          e.dataTransfer.setData("application/x-studio-feature", feature.id);
-          e.dataTransfer.effectAllowed = "copy";
-          play("tap");
-        }}
         onClick={open}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
         /* Named, so a check can ask each tile what it is showing. */
@@ -666,8 +682,9 @@ export function WorkShelfCard({ work, width, words, picture, versions = 1, hosts
       onPointerEnter={() => { wake(); startTry(tryWork(m.id)); }}
       onPointerLeave={() => { rest(); endTry(); }}
       onClick={() => { endTry(); open(); }}
+      onPointerDown={(e) => liftCard(e.nativeEvent, e.currentTarget, { what: m.name, ontoPart: true, drop: (d) => { endTry(); if (!d.node) return false; giveWork(d.node, m.id, {}); return true; } })}
     >
-      <button type="button" aria-label={`${m.name}: see what it does`} className="block text-left">
+      <button type="button" data-carry-ok="" aria-label={`${m.name}: see what it does`} className="block text-left">
         {picture ? picture(inner, PREVIEW_H) : <WorkPreview work={work} t={t} words={words} width={inner} height={PREVIEW_H} playing={awake} />}
       </button>
       <div className="flex flex-1 flex-col gap-1 px-2 pb-2 pt-1.5">
@@ -693,6 +710,75 @@ function WorkPreview({ work, t, words, width, height, playing, loop }: {
 }) {
   /* Every working feature is shown doing its job to a piece of the open site; one this file has no scene for is shown on a card of the site, named. */
   return <MotionDemo id={work.manifest.id} label={work.manifest.name} t={t} words={words} width={width} height={height} play={playing} loop={loop} />;
+}
+
+/* ------------------------------------------------------------------ */
+/* The custom cursor's look                                            */
+/* ------------------------------------------------------------------ */
+
+const CURSOR_STYLES: { id: string; label: string }[] = [
+  { id: "dot", label: "Dot" }, { id: "trail", label: "Trail" }, { id: "spotlight", label: "Spotlight" }, { id: "picture", label: "Picture" },
+];
+
+/**
+ * How the cursor looks, said on its card: a dot, a trail, a spotlight, or a
+ * picture of his own (a file, or one drawn on the Pictures tab with "Make it
+ * a cursor"). It had no look to choose here, and nothing said a picture was
+ * possible.
+ */
+function CursorRow() {
+  const node = useStudio((s) => s.nodes.find((n) => n.featureId === "cursor-effects") ?? null);
+  const style = node?.options.style ?? "dot";
+  const picture = node?.options.picture?.startsWith("data:image/") ? node.options.picture : null;
+  const file = React.useRef<HTMLInputElement>(null);
+  const [said, setSaid] = React.useState<string | null>(null);
+  const take = async (f: File | undefined) => {
+    if (!f || !f.type.startsWith("image/")) return;
+    const url = URL.createObjectURL(f);
+    try { setCursorPicture(await cursorFrom(url)); setSaid(null); } catch { setSaid("That picture could not be read."); } finally { URL.revokeObjectURL(url); }
+  };
+  return (
+    <Row title="How it looks">
+      <div data-cursor-styles="" className="flex flex-wrap items-center gap-1.5">
+        {CURSOR_STYLES.map((c) => {
+          const on = !!node && style === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              data-cursor-style={c.id}
+              aria-pressed={on}
+              disabled={c.id === "picture" && !picture}
+              onClick={() => { play("select"); setCursorStyle(c.id); }}
+              className="tactile rounded-full px-2.5 py-1 text-small font-medium disabled:opacity-40"
+              style={{ background: on ? "oklch(0.78 0.14 150 / 0.22)" : "oklch(1 0 0 / 0.04)", boxShadow: `inset 0 0 0 1px ${on ? "oklch(0.78 0.14 150 / 0.6)" : "var(--border)"}` }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {picture ? (
+          // eslint-disable-next-line @next/next/no-img-element -- his cursor, a small PNG
+          <img data-cursor-picture="" src={picture} alt="Your cursor" width={32} height={32} className="rounded-sm" style={{ background: "repeating-conic-gradient(#555 0 25%, #333 0 50%) 0 0 / 8px 8px" }} />
+        ) : null}
+        <button type="button" data-cursor-upload="" onClick={() => file.current?.click()} className="tactile rounded-md border border-border px-2 py-1 text-small text-fg-muted hover:text-fg">
+          {picture ? "Use another picture" : "Use a picture"}
+        </button>
+        <button
+          type="button"
+          data-cursor-draw=""
+          onClick={() => { play("select"); openDetail(null); askCursorDraw(); window.dispatchEvent(new CustomEvent("studio:panel", { detail: "pictures" })); }}
+          className="tactile rounded-md border border-border px-2 py-1 text-small text-fg-muted hover:text-fg"
+        >
+          Generate a cursor
+        </button>
+        <input ref={file} type="file" accept="image/*" className="sr-only" onChange={(e) => { void take(e.target.files?.[0]); e.target.value = ""; }} />
+      </div>
+      <p className="text-fine text-fg-faint">{said ?? "A picture's plain background goes see-through and its top left is the tip, like a normal pointer. Only a mouse shows it; a phone has no pointer."}</p>
+    </Row>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -750,7 +836,7 @@ function Shell({ title, category, attr, children, preview }: { title: string; ca
         </button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:flex-row">
-        <div className="shrink-0 overflow-hidden rounded-md border border-border" style={{ width: 440, maxWidth: "100%" }}>{preview}</div>
+        <div data-detail-preview="" className="shrink-0 self-start overflow-hidden rounded-md border border-border" style={{ width: 440, maxWidth: "100%" }}>{preview}</div>
         <div className="flex min-w-0 flex-1 flex-col gap-3">{children}</div>
       </div>
     </div>
@@ -816,32 +902,56 @@ function tryWork(id: string, inputs: Record<string, string> = {}): Trying | null
   return picked && w ? { patches: {}, play: { part: picked.id, feature: id, inputs: inputsOf(w.manifest, inputs) }, what: w.manifest.name } : null;
 }
 
+/** Give a part a library feature. It has no look of its own: the part keeps its look. */
+export function giveWork(nodeId: string, id: string, inputs: Record<string, string>) {
+  const st = useStudio.getState();
+  const node = st.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  st.updateNode(nodeId, { work: withWork(node.work, { id, inputs }) });
+  play("confirm");
+  jumpTo([nodeId]);
+}
+
 /**
- * Put a library feature on the picked part, or on a new line of text when
- * nothing is picked. It has no look of its own: the part keeps its look.
+ * Put a library feature on the picked part. With nothing picked, the next
+ * part pressed on the board takes it (`armPutOn`). It made a new line of
+ * text before, and J pressed "Add to page" on Push on press and got a small
+ * text box nobody asked for.
  */
-function putWork(id: string, inputs: Record<string, string>, add: (featureId: string) => string) {
+function putWork(id: string, inputs: Record<string, string>) {
   const st = useStudio.getState();
   const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) ?? null : null;
-  if (picked) {
-    st.updateNode(picked.id, { work: withWork(picked.work, { id, inputs }) });
-    play("confirm");
-    openDetail(null);
-    jumpTo([picked.id]);
-    return;
-  }
-  const at = add("prose");
-  useStudio.getState().updateNode(at, { content: getWork(id)?.manifest.look.sample ?? "", work: { id, inputs }, w: 240, h: 40 });
   openDetail(null);
-  jumpTo([at]);
+  if (picked) { giveWork(picked.id, id, inputs); return; }
+  armPutOn(getWork(id)?.manifest.name ?? "it", (node) => giveWork(node, id, inputs));
+}
+
+/** Shelf features a single part can take, as the library feature that does it there. */
+const PART_WORK: Record<string, string> = { "hover-tilt": "tilt", "reveal-on-scroll": "reveal" };
+const partWorkOf = (featureId: string) => (getWork(PART_WORK[featureId]) ? PART_WORK[featureId]! : null);
+
+/**
+ * A shelf card let go somewhere (`cardCarry.ts`). On a part, an effect a part
+ * can take goes on that part; a whole-site switch dropped on the board turns
+ * on; any other part is placed where it was let go.
+ */
+function dropFeature(featureId: string, d: CarryDrop): boolean {
+  const work = partWorkOf(featureId);
+  if (d.node && work) { giveWork(d.node, work, {}); return true; }
+  if (!d.overBoard) return false;
+  if (switchOf(featureId)) { setSwitch(featureId, true); return true; }
+  window.dispatchEvent(new CustomEvent("studio:place-feature", { detail: { featureId, clientX: d.clientX, clientY: d.clientY } }));
+  return true;
 }
 
 /** Put a site's own version on the picked part, or on a new part when nothing is picked. */
 export function putSiteVersion(v: SiteVersion, add: (featureId: string) => string) {
   const take = v.take;
-  if (take.kind === "work") { putWork(take.id, take.inputs, add); return; }
+  if (take.kind === "work") { putWork(take.id, take.inputs); return; }
   const st = useStudio.getState();
   const picked = st.selection.length === 1 ? st.nodes.find((n) => n.id === st.selection[0]) ?? null : null;
+  /* A motion goes onto a part, never onto a new text box: with nothing picked, the next part pressed takes it. */
+  if (!picked && take.kind === "motion") { openDetail(null); armPutOn(v.host, (node) => { useStudio.getState().setSelection([node]); putSiteVersion(v, add); }); return; }
   const target = picked?.id ?? add(take.kind === "embed" ? "box" : "prose");
   const node = useStudio.getState().nodes.find((n) => n.id === target);
   if (take.kind === "motion") {
@@ -897,7 +1007,7 @@ function ItemBody({ start, add }: { start: string; add: (featureId: string) => s
   const addKey = isWork ? v.key : v.key;
   const onAdd = () => {
     if (v.site) { putSiteVersion(v.site, add); return; }
-    if (work) { putWork(work.manifest.id, {}, add); return; }
+    if (work) { putWork(work.manifest.id, {}); return; }
     addAndShow(v.key, add);
   };
   const preview = (w: number, h: number, on: boolean) => (work
@@ -946,11 +1056,12 @@ function ItemBody({ start, add }: { start: string; add: (featureId: string) => s
           {sw
             ? "A setting for the whole site: every page gets it, and nothing is placed on a page."
             : work || v.site
-              ? `It goes onto a part and that part keeps its look. ${picked ? `The picked part, “${picked.label}”, can take it.` : "Pick a part on the board first to put it there, or add it on a new part."}`
+              ? `It goes onto a part and that part keeps its look. ${picked ? `The picked part, “${picked.label}”, can take it.` : "Drag its card onto a part, or press below and then the part."}`
               : `Added at the foot of ${pageName}, ${footprintOf(feature!).toLowerCase()}. It usually sits: ${whereOf(feature!).toLowerCase()}. Drag its card onto the board to put it anywhere.`}
         </p>
         {category === "motion" ? <SeeMotionTab className="self-start" /> : null}
       </Row>
+      {v.key === "cursor-effects" ? <CursorRow /> : null}
       <Row title="When published">
         <div className="flex items-start gap-2 text-small text-fg-muted">
           <StatusBadge status={v.site ? "works" : status} />
@@ -967,7 +1078,7 @@ function ItemBody({ start, add }: { start: string; add: (featureId: string) => s
             {...tryProps(() => (picked ? (v.site?.take.kind === "work" ? tryWork(v.site.take.id, v.site.take.inputs) : work ? tryWork(work.manifest.id) : null) : null), onAdd)}
             className="tactile flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-small font-medium text-accent-fg"
           >
-            {(work || v.site) && picked ? <><Check className="size-3.5" /> Put on “{picked.label}”</> : <><Plus className="size-3.5" /> Add to page</>}
+            {(work || v.site) && picked ? <><Check className="size-3.5" /> Put on “{picked.label}”</> : work || v.site?.take.kind === "motion" ? <><MousePointerClick className="size-3.5" /> Pick a part to put it on</> : <><Plus className="size-3.5" /> Add to page</>}
           </button>
         )}
         <UsedLine ids={used} />
