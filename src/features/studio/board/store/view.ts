@@ -9,8 +9,10 @@ import { FIT_MIN, ZOOM_MAX, ZOOM_MIN } from "./model";
 import type { StudioState } from "./state";
 
 /** The view actions of the studio store; spread into `useStudio` by create.ts. */
+/** A layer's dragged settings: a run of writes to one is one undo. Any other change (where it lands, its kind, on or off) is a step each. */
+const TEXTURE_RUNS = new Set(["opacity", "scale", "angle", "drift", "contrast", "hue", "tolerance", "weave", "colour", "crop"]);
+
 export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "setTool" | "setInk" | "setDrawKind" | "setSiteBranch" | "setZoom" | "setFitZoom" | "setPan" | "setFrameWidth" | "setView" | "setSmallRule" | "requestFit" | "setPositions" | "setFormat" | "resetFormat" | "addMotion" | "updateMotion" | "removeMotion" | "setMotionFrame" | "moveMotionFrame" | "attachMotion" | "setLook" | "swapColourAll" | "patchNodes" | "swapFontAll" | "addTexture" | "updateTexture" | "mergeTexture" | "removeTexture" | "moveTexture" | "setShowAllFormat" | "setShowWires" | "setStatesOn" | "setMode" | "setMenuShape" | "setPlacingLight" | "setLightCarry" | "cancelPlacingLight" | "setMenuSpin" | "rememberColour" | "setCompanion" | "hideFeature" | "restoreFeature" | "restoreAllFeatures" | "bringIn" | "sendBack"> {
-  void pushEdit;
   return {
     setTool: (t) => set({ tool: t }),
     setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
@@ -147,8 +149,21 @@ export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pu
       push();
       set((s) => ({ look: { ...s.look, texture: [layer, ...s.look.texture] } }));
     },
-    updateTexture: (id, patch) =>
-      set((s) => ({ look: { ...s.look, texture: s.look.texture.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
+    /*
+     * A change to a layer is an undo step of its own: it used to be none, so
+     * Undo after picking where a layer lands, or after any slider, jumped
+     * back past every one of them to before the layer was added, and a
+     * second press past whatever came before that (owner: "undo didnt fix
+     * it"). A drag of one setting is one step (`pushEdit`). What the baker
+     * writes back (the cooked tile and its shape) is the machine's, not an
+     * edit, and takes none.
+     */
+    updateTexture: (id, patch) => {
+      const keys = Object.keys(patch).filter((k) => k !== "baked" && k !== "aspect");
+      if (keys.length && keys.every((k) => TEXTURE_RUNS.has(k))) pushEdit(`texture:${id}:${keys.sort().join(",")}`);
+      else if (keys.length) push();
+      set((s) => ({ look: { ...s.look, texture: s.look.texture.map((l) => (l.id === id ? { ...l, ...patch } : l)) } }));
+    },
     // A layer and the one under it become one baked picture, in that order.
     mergeTexture: (id, src) => {
       push();
