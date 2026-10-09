@@ -18,11 +18,11 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, css, parseColor, rollTheme, spotsOf, toHex, type Oklch, type Palette } from "./look";
-import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo, type Worn } from "./look";
+import { ROLES, TEXTURE_KINDS, contrast, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
+import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
-import { ROLE_LABEL, ROLE_USE, colourName, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
-import { siteKinds, type SurfaceKind } from "./themeKinds";
+import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
+import { siteKinds, type SiteKinds, type SurfaceKind } from "./themeKinds";
 import { componentsOf, type CompNode } from "./components";
 import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
@@ -34,7 +34,6 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { Tooltip } from "@/core/ui/tooltip";
 import { VirtualList } from "@/core/ui/virtual-list";
 
 function useSite() {
@@ -216,167 +215,6 @@ function usePictureColours(nodes: readonly { id: string; picture?: unknown }[]):
   return out;
 }
 
-/** Bring the first of these parts into view on the board, without picking anything. */
-function showOnBoard(ids: string[]) {
-  const s = useStudio.getState();
-  const first = s.nodes.find((n) => n.id === ids[0]);
-  if (!first) return;
-  if (first.pageId !== s.activePageId) s.setActivePage(first.pageId);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(first.id)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(first.id)}"]`);
-    const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
-    if (el instanceof HTMLElement && pane instanceof HTMLElement) {
-      const r = el.getBoundingClientRect();
-      const p = pane.getBoundingClientRect();
-      pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
-    }
-  }));
-}
-
-/**
- * One role's colour, opened: every part wearing it is outlined on the board
- * for as long as this is open, the first is brought into view, they are
- * listed by name, and Recolour all changes every shade of it on exactly
- * those parts, as one undo step.
- */
-function RoleDetail({ swatch, palette, onDone }: { swatch: RoleSwatch; palette: Palette; onDone: () => void }) {
-  const active = useStudio((s) => s.activePageId);
-  const pageOf = useStudio((s) => s.nodes);
-  const ids = React.useMemo(() => [...new Set(swatch.spots.map((x) => x.id))], [swatch]);
-  const here = React.useMemo(() => ids.filter((id) => pageOf.find((n) => n.id === id)?.pageId === active), [ids, pageOf, active]);
-  const elsewhere = ids.length - here.length;
-  const recolourable = swatch.spots.filter((x) => x.where !== "in its picture");
-  const [to, setTo] = React.useState<Oklch>(parseColor(swatch.value) ?? { l: 0.7, c: 0.15, h: 265 });
-  const [hex, setHex] = React.useState(toHex(to));
-  const [done, setDone] = React.useState<number | null>(null);
-  React.useEffect(() => { pointAt(here); return () => pointAt(null); }, [here]);
-  React.useEffect(() => { if (ids.length) showOnBoard(here.length ? here : ids); }, [swatch.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const only = [...new Set(recolourable.map((x) => x.id))];
-  const recolour = (into: string, shades: string[]) => {
-    const st = useStudio.getState();
-    const mark = st.historyMark();
-    const changed = new Set<string>();
-    for (const shade of shades) for (const id of st.swapColourAll(shade, into, palette, { use: ROLE_USE[swatch.role], only })) changed.add(id);
-    useStudio.getState().oneStepSince(mark);
-    play(changed.size ? "confirm" : "deny");
-    setDone(changed.size);
-  };
-  return (
-    <div data-role-detail={swatch.id} className="mt-2 space-y-2 rounded-md border border-border bg-elevated p-2">
-      <div className="flex items-center gap-2">
-        <span className="size-6 shrink-0 rounded border border-border" style={{ background: swatch.value }} />
-        <span className="min-w-0 flex-1 text-small text-fg">
-          <span data-role-says="">{swatch.says}</span>
-          <span className="block text-fg-muted">
-            {here.length ? `Outlined on the board: ${here.length} on this page` : "None on this page"}{elsewhere ? `, ${elsewhere} on other pages` : ""}.
-          </span>
-        </span>
-        <Button variant="ghost" size="xs" onClick={() => pickOnBoard(here.length ? here : ids)}>Pick them</Button>
-      </div>
-      {swatch.shades.length > 1 ? (
-        <div data-role-shades={swatch.shades.length} className="flex flex-wrap items-center gap-1 text-fine text-fg-muted">
-          {swatch.shades.length} shades:
-          {swatch.shades.map((k) => <Tooltip key={k} content={k}><span className="size-4 rounded-sm border border-border" style={{ background: k }} /></Tooltip>)}
-          <button type="button" data-role-one-shade="" onClick={() => recolour(swatch.value, swatch.shades.slice(1))} className="tactile ml-1 rounded-sm px-1 text-fg hover:underline">Make them one colour</button>
-        </div>
-      ) : null}
-      <PartsList spots={swatch.spots} rest={here} />
-      {swatch.fromPictures ? <MoreHint className="text-fine text-fg-faint" text="Colours inside a picture are the picture’s own. They are shown here, and recolouring leaves them as they are." /> : null}
-      {only.length ? (
-        <>
-          <div className="flex items-center gap-1">
-            <span className="size-6 shrink-0 rounded border border-border" style={{ background: css(to) }} aria-hidden />
-            <input type="color" aria-label="New colour" value={toHex(to).slice(0, 7)}
-              onChange={(e) => { const c = parseColor(e.target.value); if (c) { setTo(c); setHex(toHex(c)); } }}
-              className="h-6 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
-            <Input inputSize="sm" className="min-w-0 flex-1" value={hex} aria-label="New colour, as hex"
-              onChange={(e) => { setHex(e.target.value); const c = parseColor(e.target.value); if (c) setTo(c); }} />
-          </div>
-          <div className="flex items-center gap-1">
-            <Button data-role-recolour="" size="xs" variant="outline" className="flex-1" onClick={() => recolour(css(to), swatch.shades)}>
-              Recolour all {only.length} part{only.length === 1 ? "" : "s"}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={onDone}>Close</Button>
-          </div>
-        </>
-      ) : <Button size="xs" variant="ghost" onClick={onDone}>Close</Button>}
-      {done !== null ? (
-        <p data-role-recoloured="" className="flex items-center gap-2 text-small text-fg-muted">
-          {done ? `Recoloured ${done} part${done === 1 ? "" : "s"}, in one step.` : "Nothing wore it any more."}
-          {done ? (
-            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}>
-              <Undo2 className="size-3" /> Undo
-            </button>
-          ) : null}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/** One swatch of a role: the colour and its plain sentence, which says "(3 shades)" when it stands for several; pressed, the shades are listed. */
-function RoleChip({ s, on, onClick }: { s: RoleSwatch; on: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      data-role-swatch={s.id}
-      data-role={s.role}
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn("tactile flex w-full items-center gap-2 rounded-md border px-1.5 py-1 text-left", on ? "border-accent bg-hover" : "border-transparent hover:bg-hover")}
-    >
-      <span className="size-6 shrink-0 rounded-md border border-border" style={{ background: s.value }} />
-      <span className="min-w-0 flex-1 text-small leading-snug text-fg">{s.says}</span>
-    </button>
-  );
-}
-
-/**
- * The site's theme: one row per role, each colour worn by three parts or
- * more. A colour worn by one or two parts is not here (J, 2026-10-09: "the
- * singular or even double colours arent enough to be on the panel"); it is
- * changed on the part itself, on the board.
- */
-function RolePalette({ roles, palette, forNewParts = null }: { roles: SiteRoles; palette: Palette; forNewParts?: React.ReactNode }) {
-  const [open, setOpen] = React.useState<string | null>(null);
-  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.ink];
-  const opened = all.find((s) => s.id === open) ?? null;
-  const toggle = (id: string) => { play("select"); setOpen((o) => (o === id ? null : id)); };
-  const detail = (s: RoleSwatch) => (opened?.id === s.id ? <RoleDetail key={s.id} swatch={s} palette={palette} onDone={() => setOpen(null)} /> : null);
-  return (
-    <div data-role-palette="" className="space-y-2">
-      {roles.short.map((r) => (
-        <div key={r.role} data-role-row={r.role}>
-          <div className="mb-0.5 text-fine font-medium uppercase tracking-wider text-fg-faint">{ROLE_LABEL[r.role]}</div>
-          {r.swatches.map((s) => (
-            <React.Fragment key={s.id}>
-              <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
-              {detail(s)}
-            </React.Fragment>
-          ))}
-        </div>
-      ))}
-      {roles.ink.length ? (
-        <div data-ink-lines="" className="rounded-md border border-border/60 p-1 opacity-90">
-          <div className="mb-0.5 px-1 text-fine text-fg-faint">The site&rsquo;s plain ink, not one of its colours</div>
-          {roles.ink.map((s) => (
-            <React.Fragment key={s.id}>
-              <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
-              {detail(s)}
-            </React.Fragment>
-          ))}
-        </div>
-      ) : null}
-      {forNewParts ? (
-        <div data-for-new-parts="" className="space-y-1 border-t border-border pt-2">
-          <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Colours for new parts</p>
-          {forNewParts}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 /**
  * RANDOMIZE THEME on a site brought in (`rollTheme`): every theme swatch
  * gets a new colour from one hue family, the page and its background layers
@@ -425,26 +263,41 @@ function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs):
 }
 
 /**
- * THE THEME, SEEN (J, 2026-10-09): before the code hooks the panel had a small
- * example (`PaletteExample`, now inside a role's editor) showing where each
- * colour lands, so the palette did not have to be read off the site. This is
- * the site's own version: a frame drawn from the kinds of surface its parts
- * really are (`themeKinds.ts`): the page with its words, each kind of panel
- * with the words, face, outline, shadow and corners its parts wear, and each
- * kind of button standing in the kind it stands in on the site. Nothing is
- * made up: green words show only where the site puts green words. Hover a
- * piece for what it is and how many parts wear it. It is read off the parts,
- * so Randomize theme and every recolour move it at once.
+ * THE THEME, SEEN AND CHANGED IN ONE PLACE (J, 2026-10-09): a frame drawn
+ * from the kinds of surface the site's parts really are (`themeKinds.ts`):
+ * the page with its words, each kind of panel with the words, face, outline,
+ * shadow and corners its parts wear, and each kind of button, with its own
+ * words, standing in the kind it stands in on the site. Nothing is made up.
+ *
+ * "I should instead be able to click on the elements in the preview box and
+ * see it pop up the relevant menus below it": press a piece and its editor
+ * opens under the frame (`KindEditor`). Each piece is a kind, so one edit
+ * reaches every copy of it across the site, as one undo step. Pieces are
+ * named by what they are for, never their colour, with how many parts wear
+ * them as a bold number in the corner, in a colour the site itself wears.
  */
-function ThemePreview({ nodes, palette, background }: { nodes: readonly Worn[]; palette: Palette; background: ReadonlySet<string> }) {
-  const site = React.useMemo(() => siteKinds(nodes, palette, background), [nodes, palette, background]);
+type Pick = "page" | number;
+
+/** The site's own boldest colour, for the counts: the most colourful words or glow it wears, on its darkest colour. */
+function countTint(site: SiteKinds, palette: Palette): { ink: string; ground: string } {
+  const all = [site.page.fill, ...site.kinds.map((k) => k.fill), site.page.words, ...site.kinds.map((k) => k.words)].filter((x): x is string => !!x && !!parseColor(x));
+  const ground = all.reduce((a, b) => ((parseColor(b)?.l ?? 1) < (parseColor(a)?.l ?? 1) ? b : a), palette.text);
+  const g = parseColor(ground) ?? { l: 0.2, c: 0, h: 0 };
+  const bold = [site.page.glow, site.page.words, ...site.kinds.flatMap((k) => [k.glow, k.words]), palette.accent, palette.highlight]
+    .filter((x): x is string => !!x && !!parseColor(x))
+    .filter((x) => contrast(parseColor(x)!, g) >= 3)
+    .sort((a, b) => (parseColor(b)?.c ?? 0) - (parseColor(a)?.c ?? 0))[0];
+  return { ink: bold ? bold : g.l > 0.5 ? "#000" : "#fff", ground };
+}
+
+function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   const surfaces = site.kinds.filter((k) => !k.button).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
-  const buttons = site.kinds.filter((k) => k.button).slice(0, 3);
+  const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
-  /* A stack the page wrote is used as written; a face's key goes through the site's own faces. */
-  const face = (f: string | null): React.CSSProperties => (f && (f.includes(",") || /^(monospace|serif|sans-serif|system-ui|cursive)$/.test(f)) ? { fontFamily: f } : faceStyle(f ?? SITE_TYPE));
+  const tint = countTint(site, palette);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
+  const glow = (g: string | null): React.CSSProperties => (g ? { textShadow: `0 0 6px ${g}` } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
     background: k.paint,
     color: ink(k),
@@ -452,27 +305,203 @@ function ThemePreview({ nodes, palette, background }: { nodes: readonly Worn[]; 
     boxShadow: k.shadow ? k.shadow.replace(/(-?\d+(?:\.\d+)?)px/g, (_, n: string) => `${Math.round(Number(n) / 2)}px`) : undefined,
     borderRadius: Math.min(k.radius, 999) / 2,
   });
-  const says = (k: SurfaceKind) => `${k.name}, on ${k.parts} part${k.parts === 1 ? "" : "s"}${k.words ? `; ${colourName(k.words).toLowerCase()} words on it` : ""}`;
-  const button = (k: SurfaceKind, i: number) => (
-    <span key={i} data-preview-part="button" className="inline-block px-2 py-0.5 text-fine font-semibold" style={{ ...dress(k), ...face(k.face), borderRadius: Math.min(k.radius, 12) }} title={says(k)}>
-      {i ? "Button" : "Press me"}
+  const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
+  const count = (n: number, small = false) => (
+    <span data-preview-count={n} className={cn("num pointer-events-none absolute rounded-sm font-bold leading-none", small ? "-right-1.5 -top-1.5 px-0.5 text-[9px]" : "right-1 top-1 px-1 py-0.5 text-[11px]")} style={{ color: tint.ink, background: tint.ground }}>{n}</span>
+  );
+  const choose = (p: Pick, ids: string[]) => ({
+    role: "button",
+    tabIndex: 0,
+    "aria-pressed": picked === p,
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); play("select"); onPick(p); },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); play("select"); onPick(p); } },
+    onMouseEnter: () => pointAt(onThisPage(ids)),
+    onMouseLeave: () => pointAt(null),
+  });
+  const button = (k: SurfaceKind) => (
+    <span key={at(k)} data-preview-part="button" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
+      className={cn("relative inline-block cursor-pointer px-2 py-0.5 text-fine font-semibold", ring(picked === at(k)))}
+      style={{ ...dress(k), ...faceCss(k.face), ...glow(k.glow), borderRadius: Math.min(k.radius, 12) }}>
+      {k.sample ?? k.name}
+      {count(k.parts, true)}
     </span>
   );
   const standing = (where: number) => buttons.filter((b) => b.inside === where);
+  const loose = buttons.filter((b) => b.inside === -1 || !surfaces.some((k) => at(k) === b.inside));
   return (
-    <div data-theme-preview="" className="space-y-2 overflow-hidden rounded-md border border-border p-2" style={{ background: site.page.fill, color: site.page.words ?? palette.text }} title={`The page: ${colourName(site.page.fill).toLowerCase()}`}>
-      <span data-preview-part="heading" className="block text-[15px] font-bold leading-tight" style={face(site.page.face)}>The page&rsquo;s own words</span>
+    <div data-theme-preview="" data-preview-part="page" {...choose("page", [])}
+      className={cn("cursor-pointer space-y-2 overflow-hidden rounded-md border border-border p-2", picked === "page" && "outline outline-2 outline-offset-2 outline-accent")}
+      style={{ background: site.page.fill, color: site.page.words ?? palette.text }} title="The page">
+      <span data-preview-part="heading" className="block text-[15px] font-bold leading-tight" style={{ ...faceCss(site.page.face), ...glow(site.page.glow) }}>The page&rsquo;s own words</span>
       <div className="grid grid-cols-2 gap-2">
         {surfaces.map((k) => (
-          <div key={k.fill} data-preview-part="surface" data-preview-fill={k.fill} className={cn("min-w-0 space-y-1 p-1.5", standing(at(k)).length && "col-span-2")} style={dress(k)} title={says(k)}>
-            <span className="block truncate text-small font-semibold leading-tight" style={face(k.face)}>{k.name}</span>
-            <span className="block text-fine leading-snug" style={face(k.face)}>{k.parts} part{k.parts === 1 ? "" : "s"} like this</span>
-            {standing(at(k)).length ? <div className="flex flex-wrap gap-1">{standing(at(k)).map(button)}</div> : null}
+          <div key={at(k)} data-preview-part="surface" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
+            className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", ring(picked === at(k)))} style={dress(k)}>
+            <span data-preview-name="" className="block truncate text-small font-semibold leading-tight" style={faceCss(k.face)}>{k.name}</span>
+            <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span>
+            {count(k.parts)}
+            {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
           </div>
         ))}
       </div>
-      {standing(-1).length || buttons.some((b) => !surfaces.some((k) => at(k) === b.inside)) ? (
-        <div className="flex flex-wrap gap-1.5">{buttons.filter((b) => b.inside === -1 || !surfaces.some((k) => at(k) === b.inside)).map(button)}</div>
+      {loose.length ? <div className="flex flex-wrap gap-1.5">{loose.map(button)}</div> : null}
+    </div>
+  );
+}
+
+/** Of these parts, the ones on the page in view: those are the ones that can be outlined. */
+function onThisPage(ids: string[]): string[] {
+  const s = useStudio.getState();
+  const page = new Map(s.nodes.map((n) => [n.id, n.pageId]));
+  return ids.filter((id) => page.get(id) === s.activePageId);
+}
+
+/** A colour the picker gives (no see-through) keeping how see-through the old one was: a glow stays a glow. */
+function keepAlpha(was: string, to: string): string {
+  const m = /rgba\([^)]*,\s*([\d.]+)\s*\)$/.exec(was.replace(/\s+/g, " "));
+  const a = m ? Number(m[1]) : 1;
+  if (a >= 1) return to;
+  const c = parseColor(to);
+  return c ? `${css(c).replace(/\)$/, "")} / ${a})` : to;
+}
+
+/**
+ * One colour in the editor: the swatch is the picker. Dragging through the
+ * picker is one undo step, however many colours it passes through.
+ */
+function Paint({ hook, label, value, onTo }: { hook: string; label: string; value: string; onTo: (from: string, to: string) => void }) {
+  const mark = React.useRef<number | null>(null);
+  const [hex, setHex] = React.useState(toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }));
+  React.useEffect(() => { setHex(toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 })); }, [value]);
+  const go = (to: string) => {
+    const st = useStudio.getState();
+    if (mark.current === null) mark.current = st.historyMark();
+    onTo(value, keepAlpha(value, to));
+    useStudio.getState().oneStepSince(mark.current);
+  };
+  return (
+    <label data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
+      <input type="color" aria-label={label} value={toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}
+        onFocus={() => { mark.current = null; }} onBlur={() => { mark.current = null; }}
+        onChange={(e) => go(e.target.value)}
+        className="h-7 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
+      <span className="min-w-0 flex-1">{label}</span>
+      <Input inputSize="sm" className="w-24 shrink-0" value={hex} aria-label={`${label}, as hex`}
+        onChange={(e) => setHex(e.target.value)}
+        onBlur={() => { mark.current = null; const c = parseColor(hex); if (c && toHex(c) !== toHex(parseColor(value) ?? c)) go(toHex(c)); mark.current = null; }}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+    </label>
+  );
+}
+
+/** A stack the page wrote is used as written; a face's key goes through the site's own faces. */
+const faceCss = (f: string | null): React.CSSProperties => (f && (f.includes(",") || /^(monospace|serif|sans-serif|system-ui|cursive)$/.test(f)) ? { fontFamily: f } : faceStyle(f ?? SITE_TYPE));
+
+/**
+ * What a piece of the preview opens: its colour (each stop of its gradient),
+ * the words on it and their glow, its outline, its font (folded), and for a
+ * panel or field its texture. Every change reaches every part of the kind.
+ */
+function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; site: SiteKinds; palette: Palette; background: readonly string[]; onClose: () => void }) {
+  const nodes = useStudio((s) => s.nodes);
+  const pages = useStudio((s) => s.pages);
+  const carried = useStudio((s) => s.look.fonts);
+  const layers = useStudio((s) => s.look.texture);
+  const k = pick === "page" ? null : site.kinds[pick] ?? null;
+  const ids = React.useMemo(() => (k ? k.ids : []), [k]);
+  React.useEffect(() => { pointAt(onThisPage(ids)); return () => pointAt(null); }, [ids]);
+  const [fontOpen, setFontOpen] = React.useState(false);
+  if (pick !== "page" && !k) return null;
+  const pal = () => resolvePalette(useStudio.getState().format, useStudio.getState().look);
+  const swap = (from: string, to: string, use: ColourUse, only: string[]) => useStudio.getState().swapColourAll(from, to, pal(), { use, only });
+  const words = k ? k.words : site.page.words;
+  const wordsIds = k ? k.wordsIds : site.page.wordsIds;
+  const glowOn = k ? k.glow : site.page.glow;
+  const faceKey = k ? k.faceKey : site.page.faceKey;
+  const name = k ? k.name : "The page";
+  /* Every face on the site, the site's own type, and the families. */
+  const faces = [...new Set([...fontsInPageOrder(nodes, pages.map((p) => p.id)).map((f) => f.key).filter((x) => x && !FAMILY[x]), ...(carried ?? []).map((f) => f.family)])];
+  const targets: { id: string; label: string; to: FaceTo }[] = [
+    { id: "site", label: "The site's type", to: { site: true } },
+    ...faces.map((f) => ({ id: `face:${f}`, label: f, to: { face: f } as FaceTo })),
+    ...Object.keys(FAMILY).map((x) => ({ id: `family:${x}`, label: x, to: { family: x } as FaceTo })),
+  ];
+  const setFace = (id: string) => {
+    const t = targets.find((x) => x.id === id);
+    if (!t) return;
+    const st = useStudio.getState();
+    const mark = st.historyMark();
+    const byId = new Map(st.nodes.map((n) => [n.id, n]));
+    let n = 0;
+    for (const f of new Set(wordsIds.map((x) => faceOf(byId.get(x) ?? { id: x })))) n += useStudio.getState().swapFontAll(f, t.to, wordsIds).length;
+    useStudio.getState().oneStepSince(mark);
+    play(n ? "confirm" : "deny");
+  };
+  /* The page's colour, and the background layers as wide as the page with it. */
+  const pageTo = (from: string, to: string) => {
+    swap(from, to, "fill", [PAGE_ID]);
+    const now = useStudio.getState().nodes;
+    for (const id of background) {
+      const n = now.find((x) => x.id === id);
+      if (n) for (const f of spotsOf(n, pal()).filter((x) => x.spot.use === "fill")) swap(f.key, to, "fill", [id]);
+    }
+  };
+  const texture = k && !k.button ? (() => {
+    const worn = new Map<string, number>();
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    for (const id of k.ids) { const t = (byId.get(id) as { texture?: string | null } | undefined)?.texture ?? ""; worn.set(t, (worn.get(t) ?? 0) + 1); }
+    return [...worn.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  })() : null;
+  const setTexture = (to: string | null) => { useStudio.getState().patchNodes(k!.ids, () => ({ texture: to })); play("select"); };
+  return (
+    <div data-kind-editor={name} className="space-y-2 rounded-md border border-border bg-elevated p-2">
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 text-small font-semibold text-fg">{name}</span>
+        {k ? <span className="num text-small font-bold text-fg-muted">{k.parts}</span> : null}
+        <Button size="xs" variant="ghost" onClick={onClose}>Close</Button>
+      </div>
+      {k ? (
+        k.stops.length > 1 ? (
+          <div data-kind-gradient={k.stops.length} className="space-y-1">
+            <p className="text-fine text-fg-faint">Gradient</p>
+            {k.stops.map((c, i) => <Paint key={i} hook={`stop-${i}`} label={i ? `Colour ${i + 1}` : "Colour 1"} value={c} onTo={(f, t) => swap(f, t, "fill", k.ids)} />)}
+          </div>
+        ) : (
+          <Paint hook="fill" label="Fill" value={k.fill} onTo={(f, t) => { for (const sh of new Set([f, ...k.shades])) swap(sh, t, "fill", k.ids); }} />
+        )
+      ) : (
+        <Paint hook="fill" label="Background" value={site.page.fill} onTo={pageTo} />
+      )}
+      {words ? <Paint hook="words" label="Words" value={words} onTo={(f, t) => swap(f, t, "text", wordsIds)} /> : null}
+      {glowOn ? <Paint hook="glow" label="Glow on the words" value={glowOn} onTo={(f, t) => swap(f, t, "shadow", wordsIds)} /> : null}
+      {k?.outline ? <Paint hook="outline" label="Outline" value={k.outline.colour} onTo={(f, t) => swap(f, t, "border", k.ids)} /> : null}
+      {wordsIds.length ? (
+        <div data-kind-font="" className="rounded-md border border-border">
+          <button type="button" aria-expanded={fontOpen} onClick={() => { play("select"); setFontOpen((o) => !o); }} className="tactile flex w-full items-center gap-2 px-2 py-1 text-left text-small text-fg hover:bg-hover">
+            <span className="flex-1">Font</span>
+            <span className="truncate text-fg-muted" style={faceCss(faceKey)}>{faceKey || "The site's type"}</span>
+          </button>
+          {fontOpen ? (
+            <div className="border-t border-border p-2">
+              <Select className="w-full" aria-label="Font" value="" placeholder="Set the words in…" onChange={setFace}
+                options={targets.filter((t) => t.id !== `face:${faceKey}` && t.id !== `family:${faceKey}` && !(faceKey === SITE_TYPE && t.id === "site")).map((t) => ({ value: t.id, label: t.label }))} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {texture !== null ? (
+        <div data-kind-texture="" className="space-y-1">
+          <p className="text-fine text-fg-faint">Texture</p>
+          <div className="flex flex-wrap gap-1">
+            {[{ id: "", label: "The site's" }, { id: "none", label: "None" }, ...layers.map((l, i) => ({ id: l.id, label: `${TEXTURE_KINDS.find((x) => x.id === l.kind)?.label ?? "Texture"}${layers.length > 1 ? ` ${i + 1}` : ""}` }))].map((t) => (
+              <button key={t.id || "site"} type="button" aria-pressed={texture === t.id} onClick={() => setTexture(t.id || null)}
+                className={cn("tactile rounded-md border px-2 py-0.5 text-small", texture === t.id ? "border-accent bg-hover text-fg" : "border-border text-fg-muted hover:bg-hover")}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {!layers.length ? <p className="text-fine text-fg-faint">Add a texture under Texture below to put it on these.</p> : null}
+        </div>
       ) : null}
     </div>
   );
@@ -490,9 +519,11 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
   }, [nodes, palette]);
   const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours, undefined, counted), [nodes, palette, frameWidth, pictureKey, counted]); // eslint-disable-line react-hooks/exhaustive-deps
   const background = React.useMemo(() => new Set(roles.left.backgroundLayers), [roles]);
+  const site = React.useMemo(() => siteKinds(nodes, palette, background), [nodes, palette, background]);
+  const [picked, setPicked] = React.useState<Pick | null>(null);
   const [rolled, setRolled] = React.useState<number | null>(null);
+  const [rolesOpen, setRolesOpen] = React.useState(false);
   const roll = () => { const n = randomizeTheme(roles, palette, counted); play(n ? "confirm" : "deny"); setRolled(n); };
-  const left = roles.left.backgroundLayers.length;
 
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
@@ -515,12 +546,13 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
         <MoreHint
           className="text-small leading-snug text-fg-muted"
           text={captured
-            ? "The site's theme: the colours on top of the page worn by three parts or more, by what they are for. Close shades are one swatch. Press one to see its parts outlined on the board and change them all. A colour on one or two parts is changed on the part itself."
+            ? "The site's own kinds of surface, words and buttons, each with how many parts wear it. Press one to change it everywhere it is used. A colour on one or two parts is changed on the part itself."
             : "The site's colours. Press one to change it; every part that follows it changes with it."}
         />
       </div>
       {captured ? null : paletteRoles}
-      <ThemePreview nodes={nodes} palette={palette} background={background} />
+      <ThemePreview site={site} palette={palette} picked={picked} onPick={(p) => setPicked((was) => (was === p ? null : p))} />
+      {picked !== null ? <KindEditor key={String(picked)} pick={picked} site={site} palette={palette} background={roles.left.backgroundLayers} onClose={() => setPicked(null)} /> : null}
       {captured ? (
         <div data-randomize-theme="" className="space-y-1">
           <Button size="xs" variant="outline" className="w-full" onClick={roll}>
@@ -538,12 +570,15 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
           ) : null}
         </div>
       ) : null}
-      <RolePalette roles={roles} palette={palette} forNewParts={captured ? paletteRoles : null} />
-      <MoreHint
-        data-site-left-out=""
-        className="text-small leading-snug text-fg-faint"
-        text={`Left out: the page’s own colour${left ? `, and ${left} background layer${left === 1 ? "" : "s"} (as wide as the page, with parts on top)` : ""}${roles.left.backgroundPictures ? `, ${roles.left.backgroundPictures} of them pictures` : ""}${roles.left.pictureWords ? `; words drawn inside ${roles.left.pictureWords} picture${roles.left.pictureWords === 1 ? "" : "s"} are not counted as words` : ""}. A picture standing on the page adds its few main colours under Pictures on top.`}
-      />
+      {captured && paletteRoles ? (
+        /* The six roles parts added here are painted from: advanced, folded (J: the background and ink are edited from the preview now). */
+        <div data-six-roles="">
+          <button type="button" aria-expanded={rolesOpen} onClick={() => { play("select"); setRolesOpen((o) => !o); }} className="tactile text-small text-fg-muted hover:text-fg">
+            {rolesOpen ? "Hide" : "Advanced:"} colours for parts added here
+          </button>
+          {rolesOpen ? <div className="pt-2">{paletteRoles}</div> : null}
+        </div>
+      ) : null}
     </section>
   );
 }

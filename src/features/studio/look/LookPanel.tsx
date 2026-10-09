@@ -1219,7 +1219,7 @@ export function LookPanel() {
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
       {/* Saved by name and put back with one press (owner: "i also should be able to save color palletes"). */}
       <SavedPalettes />
-      <SiteFontsSection />
+      {captured ? null : <SiteFontsSection />}
       <LightSection />
       <TextureSection />
     </div>

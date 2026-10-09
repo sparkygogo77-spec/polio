@@ -60,7 +60,7 @@ const node = (id, f, content, x, y, w, h, extra = {}) => ({
 const HOST = "comic.example";
 const at = (sel) => ({ url: `https://${HOST}/`, host: HOST, selector: sel, at: 1 });
 const PATH = "body > main > section:nth-of-type(1) > div";
-const YELLOWS = ["rgb(243, 212, 64)", "rgb(242, 226, 129)", "rgb(240, 223, 123)", "rgb(241, 214, 70)", "rgb(244, 216, 72)"];
+const YELLOWS = ["rgb(243, 212, 64)", "rgb(242, 226, 129)", "rgb(240, 223, 123)", "rgb(241, 214, 70)", "rgb(241, 224, 126)"];
 
 const nodes = [
   node("n_box_1", "box", "", 0, 0, 1440, 900, { label: "section · 4 inside", colour: { bg: YELLOWS[0] }, radius: 24, from: at("body > main > section:nth-of-type(1)") }),
@@ -222,37 +222,39 @@ if (await page.locator('[data-setting="site.layout.radius"]').isVisible().catch(
 await tab("Look");
 const first = await side.locator("[data-look-panel] > section").first().getAttribute("data-site-colours");
 check("on a captured site, Look leads with \"On this site\"", first === "", String(first));
-/* Colours shows only the theme: no "More colours" fold, no unmerged list; the six for new parts stand open (J, 2026-10-09). */
-check("Colours has no More colours fold and no colour-by-use list", (await side.locator("[data-role-more], [data-site-group]").count()) === 0);
-check("…and the colours for new parts are shown", (await side.locator("[data-for-new-parts]").count()) === 1);
-check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
-check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
+/* Colours is the preview and what a press on it opens: no role rows, plain ink, colours for new parts or fonts list beside it (J, 2026-10-09). */
+check("Colours has no role rows, ink lines, colours for new parts or fonts list", (await side.locator("[data-role-more], [data-site-group], [data-role-palette], [data-ink-lines], [data-for-new-parts], [data-look-colour], [data-site-fonts]").count()) === 0);
 /* The "Words: N are hard to read" line is gone from Look (owner: it flagged harmless parts and fixed nothing). */
 check("Look has no hard-to-read words line", (await side.locator("[data-words-readable]").count()) === 0, `${await side.locator("[data-words-readable]").count()} lines`);
 
-await side.locator('[data-site-font="Pixel Mono"]').click();
-await page.waitForTimeout(300);
-const listed = await side.locator("[data-site-font-detail] [data-site-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-part")));
-check("pressing a face lists every part set in it, labels in links and repeated words among them", listed.length === 27 && new Set(listed).size === 27, `${listed.length} of 27`);
-await side.locator('[data-site-font="Pixel Mono"]').click();
-await page.waitForTimeout(200);
-
-const fills = side.locator("[data-role-palette]");
-await fills.locator("[data-role-swatch]").first().scrollIntoViewIfNeeded();
-await fills.locator("[data-role-swatch]").first().click();
+/* Press a piece of the preview: its editor opens under it, its parts outlined on the board. */
+const piece = side.locator('[data-theme-preview] [data-preview-part="surface"]').first();
+await piece.scrollIntoViewIfNeeded();
+const pieceName = await piece.locator("[data-preview-name]").innerText();
+check("pieces are named by what they are for, with no colour word", !/(red|blue|green|yellow|white|black|grey|brown|orange|pink|purple|lime|cream)/i.test(pieceName), pieceName);
+check("…and each wears its count as a number in the corner", /^\d+$/.test(await piece.locator("[data-preview-count]").innerText()));
+await piece.click();
 await page.waitForTimeout(400);
-const partRow = side.locator("[data-site-part]:not([data-site-part=\"@page\"])").first();
-check("a colour's part list names parts readably", !(await side.locator("[data-site-part]").allInnerTexts()).some((t) => /inside|n_box|::/.test(t)), (await side.locator("[data-site-part]").allInnerTexts()).join(" | "));
-await partRow.hover();
-await page.waitForTimeout(300);
-const mark = page.locator("[data-point-mark]");
-const partId = await partRow.getAttribute("data-site-part");
-check("hovering a part's name outlines it on the board", (await mark.count()) === 1 && (await mark.getAttribute("data-point-mark")) === partId);
-await page.screenshot({ path: `${SHOTS}/side-panel-look-hover.png` });
+const editor = side.locator("[data-kind-editor]");
+check("pressing a piece opens its editor below the preview", (await editor.getAttribute("data-kind-editor")) === pieceName, String(await editor.getAttribute("data-kind-editor")));
+check("…with its parts outlined on the board", (await page.locator("[data-point-mark]").count()) > 0, `${await page.locator("[data-point-mark]").count()} outlined`);
+const nodesE = await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes));
+const depthE = await page.evaluate(() => window.__studioUndoDepth());
+await editor.locator('[data-kind-colour="fill"] input[type=color]').evaluate((el) => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; for (const v of ["#ff0000", "#00ff88", "#3355ff"]) { set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); } });
+await page.waitForTimeout(400);
+check("dragging through its colour recolours every part of that kind", (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) !== nodesE);
+check("…as one undo step", (await page.evaluate(() => window.__studioUndoDepth())) - depthE === 1, `${(await page.evaluate(() => window.__studioUndoDepth())) - depthE} steps`);
+await page.evaluate(() => document.activeElement?.blur());
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(400);
+check("…which one undo takes back", (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) === nodesE);
+await editor.locator("[data-kind-font] button").first().click();
+check("its font is in the editor, folded", (await editor.locator('[data-kind-font] [aria-label="Font"]').count()) === 1);
+await page.screenshot({ path: `${SHOTS}/side-panel-look-editor.png` });
+await editor.getByRole("button", { name: "Close" }).click();
 await page.mouse.move(1500, 1050);
 await page.waitForTimeout(300);
-/* An open theme swatch keeps its own parts outlined (`RoleDetail`); the hover's single outline gives way to them. */
-check("…and the hover outline gives way when the hand leaves", (await mark.count()) !== 1, `${await mark.count()} outlined`);
+check("closing it lets the outlines go", (await page.locator("[data-point-mark]").count()) === 0);
 const selectedBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.selection ?? null);
 void selectedBefore;
 

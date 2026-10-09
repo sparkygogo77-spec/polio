@@ -64,9 +64,8 @@ const press = (sel) => page.locator(sel).first().evaluate((b) => b.click());
 const s0 = await state();
 const pal = { ...s0.look.palette };
 check("no More colours fold, no colour-by-use list", (await page.locator("[data-role-more], [data-site-group]").count()) === 0);
-const counts = await page.evaluate(() => [...document.querySelectorAll("[data-role-row] [data-role-swatch]")].map((e) => e.textContent));
-check("every theme swatch is worn by three parts or more", counts.length > 0 && counts.every((t) => !/\bon [12] parts?\b|: [12] buttons?\b/.test(t)), counts.slice(0, 4).join(" | "));
-check("pictures are said, not silently left out", /Left out:[\s\S]*picture/.test(await page.locator("[data-site-left-out]").innerText()));
+const counts = await page.evaluate(() => [...document.querySelectorAll("[data-theme-preview] [data-preview-count]")].map((e) => Number(e.textContent)));
+check("every kind in the preview is worn by three parts or more", counts.length > 0 && counts.every((n) => n >= 3), counts.join(" | "));
 await page.locator("[data-site-colours]").screenshot({ path: ".screenshots/look-theme-before.png" });
 /* Randomize theme: every theme swatch moves, words stay readable on the main fill, one undo takes it all back. */
 await press("[data-randomize-theme] button");
@@ -84,6 +83,8 @@ check("…and one Undo puts every one back", JSON.stringify((await state()).node
 /* 4. Words a person understands; counts that are current              */
 /* ------------------------------------------------------------------ */
 
+await press("[data-six-roles] > button");
+await page.waitForTimeout(300);
 const roleLabels = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-look-colour] [data-role-source]")].map((e) => [e.getAttribute("data-role-source"), e.textContent.trim()])));
 check("no role says a bare \"none\"", !Object.values(roleLabels).some((t) => /^none$/i.test(t)), JSON.stringify(roleLabels));
 check("a role the site gave nothing says \"not used\"", roleLabels.muted === "not used", roleLabels.muted);
@@ -115,24 +116,19 @@ check("…and its Undo puts the site's colours back", JSON.stringify((await stat
 /* 6. Fonts                                                            */
 /* ------------------------------------------------------------------ */
 
-const F = C.tallyFonts(s0.nodes);
-const rows = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-site-fonts] [data-site-font]")].map((e) => [e.getAttribute("data-site-font"), e.textContent.trim()])));
-const fontsWrong = F.filter((f) => !new RegExp(`${f.parts} parts?$`).test(rows[f.key || "site"] ?? ""));
-check("every face is listed with how many parts use it", fontsWrong.length === 0 && ["Luckiest Guy", "Fredoka", "VT323"].every((k) => rows[k]), JSON.stringify(rows));
-await press('[data-site-font="VT323"]');
+/* Each kind's font is in its editor, folded: press a piece, open Font, set its words in another face. */
+const vtKind = await page.evaluate(() => [...document.querySelectorAll("[data-theme-preview] [data-preview-kind]")].map((e) => e.getAttribute("data-preview-kind"))[0]);
+await press(`[data-theme-preview] [data-preview-kind="${vtKind}"]`);
 await page.waitForTimeout(300);
-const vt = F.find((f) => f.key === "VT323");
-check("pressing one lists its parts", (await page.locator("[data-site-font-detail] [data-site-part]").count()) === vt.parts, `${await page.locator("[data-site-font-detail] [data-site-part]").count()} of ${vt.parts}`);
-await page.locator('[data-site-font-detail] [aria-label="New face"]').click();
+await press("[data-kind-font] button");
+await page.waitForTimeout(200);
+check("a piece's editor holds its font, folded", (await page.locator('[data-kind-font] [aria-label="Font"]').count()) === 1);
+await page.locator('[data-kind-font] [aria-label="Font"]').click();
 await page.waitForTimeout(300);
 await page.getByRole("option", { name: "Fredoka", exact: true }).click();
-await page.waitForTimeout(200);
-await press("[data-site-font-swap]");
 await page.waitForTimeout(500);
-const s2 = await state();
-check("swap-all moves every VT323 part to Fredoka, and nothing else", C.tallyFonts(s2.nodes).every((f) => f.key !== "VT323")
-  && s2.nodes.filter((n, i) => JSON.stringify(n) !== JSON.stringify(s0.nodes[i])).length === vt.parts);
-await press("[data-site-font-swapped] button");
+check("setting it moves those words", JSON.stringify((await state()).nodes) !== JSON.stringify(s0.nodes));
+await page.keyboard.press("Control+z");
 await page.waitForTimeout(500);
 check("…and Undo puts them back", JSON.stringify((await state()).nodes) === JSON.stringify(s0.nodes));
 
