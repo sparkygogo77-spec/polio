@@ -193,7 +193,9 @@ if (await thumb.count()) {
   const u0 = await ui.evaluate(() => { window.__writes = 0; return window.__studioUndoDepth(); });
   await ui.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
   await ui.mouse.down();
-  for (let i = 1; i <= 25; i++) await ui.mouse.move(tb.x + tb.width / 2 + i * 4, tb.y + tb.height / 2);
+  /* Toward whichever end has room: a kind with a small copy has a short Corners slider. */
+  const dir = await thumb.evaluate((e) => (Number(e.getAttribute("aria-valuenow")) > Number(e.getAttribute("aria-valuemin")) ? -1 : 1));
+  for (let i = 1; i <= 25; i++) await ui.mouse.move(tb.x + tb.width / 2 + dir * i * 6, tb.y + tb.height / 2);
   await ui.waitForTimeout(200);
   const mid = await ui.evaluate(() => ({ writes: window.__writes, now: document.querySelector('[data-kind-corners] [role="slider"]').getAttribute("aria-valuenow") }));
   await ui.mouse.up();
