@@ -32,6 +32,10 @@ import { isButton, type Part } from "./siteRoles.ts";
 
 /** Closer than the palette merges: a cream card and a grey field are two kinds of surface even where they are one swatch. */
 export const KIND_SHADES = 0.025;
+/** Surfaces whose middle part is smaller than this both ways are decoration. */
+export const SPECK = 48;
+/** A strip this tall or less is a tab or label bar. */
+export const TAB_HEIGHT = 40;
 
 export interface SurfaceKind {
   /** The lead fill. */
@@ -54,6 +58,11 @@ export interface SurfaceKind {
   faceKey: string | null;
   /** A few of its own words, so a button in the preview says what the site's buttons say. */
   sample: string | null;
+  /** Its parts' middle width and height, in px. */
+  w: number;
+  h: number;
+  /** A short strip that is not a field or a button: a tab or a label bar, drawn over the panel's top edge as the site does (J, 2026-10-09). */
+  tab: boolean;
   button: boolean;
   /** Most-worn words colour on it, and how many parts' words that is; null when no words stand on it. */
   words: string | null;
@@ -183,14 +192,20 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       if (e?.shadow) bump(shadows, e.shadow);
       const bg = (p as { art?: { background?: string } | null }).art?.background;
       if (bg && /gradient\(/.test(bg)) bump(paints, bg);
-      bump(radii, Math.round(Number(p.radius ?? 0)));
+      bump(radii, Number(p.radius ?? 0) < 1 ? 0 : Math.round(Number(p.radius)));
       if (isButton(p)) buttons++;
       bump(inside, container(p));
     }
     const o = top(outlines);
     const w = top(words[i]!);
     const paint = (() => { const g = top(paints); return g && g[1] >= ms.length / 2 ? g[0] : leads[i]!.fill; })();
+    const mid = (f: (p: Node) => number) => ms.map(f).sort((a, b) => a - b)[ms.length >> 1] ?? 0;
+    const midW = mid((p) => p.w ?? 0), midH = mid((p) => p.h ?? 0);
+    const isButtons = buttons >= ms.length / 2;
     return {
+      w: midW,
+      h: midH,
+      tab: !isButtons && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
       fill: g.fill,
       name: buttons >= ms.length / 2 ? "Buttons" : top(what)?.[0] ?? "Parts",
       parts: ms.length,
@@ -214,8 +229,9 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       inside: (() => { const k = top(new Map([...inside].filter(([x]) => x >= 0))); return k && k[1] >= ms.length / 3 ? k[0] : -1; })(),
     };
   });
-  /* Keep the kinds worn by three parts or more, and re-point `inside` at the kept list. */
-  const kept = kinds.map((k, i) => ({ k, i })).filter(({ k }) => k.parts >= 3).slice(0, cap);
+  /* Keep the kinds worn by three parts or more, and re-point `inside` at the kept list. A surface whose parts are
+     all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. */
+  const kept = kinds.map((k, i) => ({ k, i })).filter(({ k }) => k.parts >= 3 && (k.button || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
   const at = new Map(kept.map(({ i }, j) => [i, j]));
   /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
   const seen = new Map<string, number>();
