@@ -57,6 +57,8 @@ export function Inspector() {
      always there under it — see the row below. */
   /* The back arrow on a part's panel shows the tree with the part still picked; picking another part opens its panel. */
   const [backTo, setBackTo] = React.useState<string | null>(null);
+  /* How many rows the Elements list shows, for its heading (`ElementList` says). */
+  const [rowCount, setRowCount] = React.useState<number | null>(null);
   const selKey = selection.join(",");
   React.useEffect(() => { setBackTo((b) => (b && selKey === b ? b : null)); }, [selKey]);
   /* Asked for again (its row pressed in the list, a double press on the board), the part's panel opens, even when it is the part the back arrow left. */
@@ -146,10 +148,10 @@ export function Inspector() {
           <PageSummary nodes={nodes} />
           <div className="flex items-center justify-between">
             <span className="text-small font-semibold uppercase tracking-[0.08em] text-fg">Elements, top to bottom</span>
-            <span className="num text-fine text-fg-faint">{nodes.length}</span>
+            <span data-element-count="" className="num text-fine text-fg-faint" title={`${nodes.length} parts`}>{rowCount ?? nodes.length}</span>
           </div>
         </div>
-        <ElementList nodes={nodes} picked={single?.id ?? null} className="mx-1.5 min-h-40 flex-1 rounded-md border border-border" />
+        <ElementList nodes={nodes} picked={single?.id ?? null} onRows={setRowCount} className="mx-1.5 min-h-40 flex-1 rounded-md border border-border" />
         <div className="shrink-0 p-3 pt-2">
           <Fold id="page-prompt" title="This page's prompt" note={page.prompt.trim() ? "written" : "empty"}>
           <Field label="This page should…" hint="Applies to everything on this page.">

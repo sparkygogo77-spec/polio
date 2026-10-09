@@ -77,6 +77,8 @@ export function computedAs(prompt: string | undefined): { role: string; name: st
 /** The last element of a capture path: "section:nth-of-type(1)" is "section", "::after" is "::after". */
 function lastTag(selector: string | undefined): string {
   const last = (selector ?? "").split(">").map((s) => s.trim()).filter(Boolean).pop() ?? "";
+  /* A line of words the capture read straight off its holder (`section ::line(5)`) is words, not the holder. */
+  if (/::line\(/.test(last)) return "";
   if (/::?(before|after)\b/.test(last)) return "::after";
   return (last.match(/^[a-z][a-z0-9-]*/i)?.[0] ?? "").toLowerCase();
 }
@@ -96,7 +98,9 @@ const ROLE_WORD: Record<string, string> = {
   h1: "Heading", h2: "Heading", h3: "Heading", h4: "Heading", heading: "Heading", p: "Words", span: "Words", li: "List item",
   ul: "List", ol: "List", list: "List", nav: "Menu", navigation: "Menu", header: "Header", footer: "Footer", section: "Section",
   main: "Page body", form: "Form", input: "Field", textbox: "Field", "::after": "Decoration", "::before": "Decoration",
-  iframe: "Embedded page", canvas: "Drawing",
+  iframe: "Embedded page", canvas: "Drawing", select: "Field", textarea: "Field",
+  /* A <details> toggle: pressed, it opens what its <details> holds. */
+  summary: "Toggle",
 };
 
 /** What kind of thing the part is, in a word. */
