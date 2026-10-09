@@ -33,6 +33,8 @@ export interface SiteMotionSettings {
   progress: boolean;
   backToTop: boolean;
   reveal: boolean;
+  /** fade-up, fade, scale, blur or stagger. */
+  revealStyle?: string;
   parallax: number;
   smooth: boolean;
   snap: "vertical" | "horizontal" | null;
@@ -95,13 +97,17 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
   }
   if (c.reveal && !still && "IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { e.target.style.opacity = ""; e.target.style.transform = ""; io.unobserve(e.target); } });
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.style.opacity = ""; e.target.style.transform = ""; e.target.style.filter = ""; io.unobserve(e.target); } });
     }, { threshold: 0.12 });
+    var rs = c.revealStyle || "fade-up", hidden = 0;
     parts.forEach(function (p) {
       var r = p.getBoundingClientRect();
       if (r.top < window.innerHeight && r.bottom > 0) return;
-      p.style.transition = "opacity 600ms ease, transform 600ms cubic-bezier(.2,.7,.3,1)";
-      p.style.opacity = "0"; p.style.transform = "translateY(18px)";
+      p.style.transition = "opacity 600ms ease, transform 600ms cubic-bezier(.2,.7,.3,1), filter 600ms ease";
+      if (rs === "stagger") p.style.transitionDelay = (hidden++ % 3) * 90 + "ms";
+      p.style.opacity = "0";
+      p.style.transform = rs === "fade" || rs === "blur" ? "" : rs === "scale" ? "scale(.94)" : "translateY(18px)";
+      if (rs === "blur") p.style.filter = "blur(8px)";
       io.observe(p);
     });
   }

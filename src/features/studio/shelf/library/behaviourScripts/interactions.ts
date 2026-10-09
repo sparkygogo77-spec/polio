@@ -215,7 +215,7 @@ export const WORLD_DIALOGS: Work = {
   script: `${STAGE_ENGINE}
 siteFeatures.define("world-dialogs", function (el) {
   var layer = el.querySelector("[data-part-world]");
-  if (!layer || layer.getAttribute("data-world-on")) return;
+  if (!layer || layer.hasAttribute("data-world-on")) return;
   layer.setAttribute("data-world-on", "");
   var hits = function () { return Array.prototype.slice.call(layer.querySelectorAll("[data-world-hit]")); };
   /* Both clocks from the same moment: the flipbook asked for again (an svg's animation starts when it loads), and the areas' walk from nought as it arrives. */

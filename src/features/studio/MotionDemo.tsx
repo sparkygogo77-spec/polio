@@ -263,7 +263,7 @@ export function MotionDemo({ id, label, t, words, width, height, play, loop }: {
       body = (
         <>
           {bar}{blocks()}
-          <div className="md-a" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: t.accent, ...(moving ? a("md-wipe") : { clipPath: played ? "inset(0 0 100% 0)" : "inset(0 0 58% 0)" }) }}>
+          <div className="md-a" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: t.accent, ...(moving ? a("md-wipe") : { clipPath: played ? "inset(0 0 100% 0)" : "inset(0 0 0 0)" }) }}>
             <span className="md-a" style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: 30, color: t.accentText, ...a("md-name") }}>{cut(words.name, 18)}</span>
           </div>
         </>

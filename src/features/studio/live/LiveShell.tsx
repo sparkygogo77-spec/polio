@@ -46,7 +46,8 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
       setProgress(max > 0 ? Math.min(1, top / max) : 0);
       setPast(top > 220);
       setView({ top, height });
-      if (b.parallax) root.style.backgroundPositionY = `${-top * b.parallax}px`;
+      /* On the page element: the shell is `display: contents` and has no background to move. */
+      if (b.parallax && root.parentElement) root.parentElement.style.backgroundPositionY = `${-top * b.parallax}px`;
     };
     read();
     const target: EventTarget = scroller ?? window;
@@ -166,6 +167,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
       ref={rootRef}
       data-live-shell=""
       data-reveal={b.reveal ? "on" : undefined}
+      data-reveal-style={b.reveal ? b.revealStyle : undefined}
       data-snap={b.snap ?? undefined}
       style={{ display: "contents" }}
     >
