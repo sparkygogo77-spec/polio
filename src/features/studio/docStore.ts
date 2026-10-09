@@ -49,11 +49,11 @@ function shelf(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 const ask = <T>(req: IDBRequest<T>): Promise<T> =>
   new Promise((done, no) => { req.onsuccess = () => done(req.result); req.onerror = () => no(req.error ?? new Error("Storage refused.")); });
 
-async function idbGet(key: string): Promise<string | null> {
+export async function idbGet(key: string): Promise<string | null> {
   if (!ok()) return null;
   try { const v = await ask((await shelf("readonly")).get(key)); return typeof v === "string" ? v : null; } catch { return null; }
 }
-async function idbSet(key: string, value: string | null): Promise<boolean> {
+export async function idbSet(key: string, value: string | null): Promise<boolean> {
   if (!ok()) return false;
   try {
     const s = await shelf("readwrite");

@@ -237,6 +237,15 @@ export const useStudio = create<StudioState>()(
             };
           }),
 
+        restoreDoc: (doc) => {
+          push();
+          set((s) => ({
+            ...doc,
+            selection: [],
+            activePageId: doc.pages.some((p) => p.id === s.activePageId) ? s.activePageId : doc.pages[0]!.id,
+          }));
+        },
+
         redo: () =>
           set((s) => {
             const next = s.future[0];

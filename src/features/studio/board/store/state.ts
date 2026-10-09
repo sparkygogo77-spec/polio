@@ -661,6 +661,8 @@ export interface StudioState extends Doc {
   loadDoc: (doc: Partial<Doc> & { frameWidth?: number }) => void;
   undo: () => void;
   redo: () => void;
+  /** Put a whole document back as one undo step: Refresh's "Reset to last bring-in" (`lastBring.ts`). */
+  restoreDoc: (doc: Doc) => void;
   /**
    * Go back (negative) or forward (positive) this many steps at once, as one
    * change of state: the history list's press. Fifty undos in a row would be

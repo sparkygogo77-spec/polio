@@ -56,6 +56,7 @@ import { checkRepoFeatures } from "../../shelf/run";
 import { allowed } from "../../siteFetch";
 import { boundaryBox, centroid, type Space } from "../../space";
 import { takeImportMark, useStudio, type StudioNode } from "../../board/store";
+import { keepLastBring } from "../../lastBring";
 import { idless } from "../../partNames";
 import { fingerprint, isTaken, keepOwnerEdits, keptShort, keptSays } from "../reimport";
 import { sourceNote } from "../../polioMd";
@@ -316,6 +317,8 @@ export function FromASite({ space }: { space: Space }) {
     }
     useStudio.setState({ taken: record });
     useStudio.getState().oneStepSince(mark);
+    /* The board as it landed, kept for Refresh's "Reset to last bring-in" (`lastBring.ts`). */
+    keepLastBring();
     const sweptSays = useStudio.getState().sweepNote ?? "";
     useStudio.setState({ sweepNote: null });
     /* The source whole: the repository, the branch it was read on, and the
@@ -473,6 +476,7 @@ export function FromASite({ space }: { space: Space }) {
     const came = cameAt ? { ...cameAt, dir: of.dir ?? null } : cameAt;
     if (here && came && !here.source) useBuilds.getState().setSource(here.id, came);
     useStudio.getState().oneStepSince(mark);
+    keepLastBring();
     /* Its preview screens, read in the background as its own code builds them: the States control lists them when they land (`boardStates.ts`). */
     if (m?.previewPage || m?.screenPages.length) void readScreensOf(got.screensFile ?? got.file, { page: m.previewPage, list: m.screenPages.map((x) => ({ name: x.name, src: `${x.page}${(m.previewQuery ?? "?still=1&screen=<name>").replace("<name>", encodeURIComponent(x.name))}` })) }, styleSource.repo, doc.frameWidth || st0.frameWidth || 1440);
     /* The pictures its scripts draw, read in the background with its scripts on, onto the stand-ins they fill. */
