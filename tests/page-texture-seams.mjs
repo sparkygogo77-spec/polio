@@ -12,7 +12,8 @@
  *      Stripes drift (along their own direction, a whole number of lines);
  *   2. on the saved PST board, the page's Stripes worn by the app are laid
  *      exactly where the page is, and the see-through bands draw none;
- *   3. each kind shows only the dials that change it;
+ *   3. each kind shows only the dials that change it, and Flat colour is
+ *      not a texture (the Background colour is);
  *   4. Drift on the page's stripes moves them, on keyframes that exist.
  *
  *   npm run build && npx next start -p 3013
@@ -84,10 +85,15 @@ check("…the see-through bands (nav, title, play layout) draw no second copy", 
 check("3. Stripes: line width, angle and drift", (await dials()) === "shape,angle,drift", await dials());
 await pick("dots");
 check("…Dots: dot size, angle and drift", (await dials()) === "shape,angle,drift", await dials());
-await pick("flat");
-check("…Flat colour: Fade only, until it fades", (await dials()) === "shape", await dials());
+check("…no Flat colour: the Background colour already is one", (await row.locator('[data-texture-sample="flat"]').count()) === 0);
 await pick("mesh");
 check("…Mesh: no Drift, since it is laid once across the page", (await dials()) === "shape,angle", await dials());
+const meshOff = await ui.evaluate(() => {
+  const f = document.querySelector("[data-frame]").getBoundingClientRect();
+  const i = [...document.querySelectorAll('[data-page-texture=""]')].find((s) => s.getBoundingClientRect().width > 0)?.firstElementChild?.getBoundingClientRect();
+  return i ? Math.max(Math.abs(i.x - f.x), Math.abs(i.y - f.y), Math.abs(i.width - f.width), Math.abs(i.height - f.height)) : Infinity;
+});
+check("…and the mesh under the bands is the page's own, laid where the page is", meshOff < 1.5, `off by ${meshOff}`);
 
 /* 4. */
 await pick("stripes");
