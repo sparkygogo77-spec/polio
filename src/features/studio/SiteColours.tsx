@@ -28,7 +28,7 @@ import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
-import { useStudio } from "./board/store";
+import { pickedStates, useStudio } from "./board/store";
 import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { Slider } from "@/core/ui/slider";
@@ -367,6 +367,39 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   );
 }
 
+/** Drawn on the board now: on the page in view and in the state it shows. */
+function drawnNow(id: string): boolean {
+  const el = document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+  return !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
+}
+
+/**
+ * A pressed piece, seen on the board: its parts outlined where they are drawn.
+ * When none is drawn (the wallet buttons live in a hidden panel, or on
+ * another page), the board turns to the page and the state one of them lives
+ * in, the way picking a hidden part does, and brings it into view (J,
+ * 2026-10-09). The Show bar names the state, and its next step takes it off.
+ */
+function bringIntoView(ids: string[]) {
+  if (!ids.length) { pointAt(null); return; }
+  const s = useStudio.getState();
+  if (ids.some((id) => drawnNow(id))) { pointAt(onThisPage(ids)); return; }
+  const pageOf = new Map(s.nodes.map((n) => [n.id, n.pageId]));
+  const target = ids.find((id) => pageOf.get(id) === s.activePageId) ?? ids[0]!;
+  if (pageOf.get(target) && pageOf.get(target) !== s.activePageId) s.setActivePage(pageOf.get(target)!);
+  const on = pickedStates(useStudio.getState(), [target]).statesOn;
+  if (on) useStudio.getState().setStatesOn(on);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    pointAt(onThisPage(ids).filter(drawnNow));
+    const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(target)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(target)}"]`);
+    const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
+    if (el instanceof HTMLElement && pane instanceof HTMLElement) {
+      const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+      if (r.bottom < p.top || r.top > p.bottom) pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
+    }
+  }));
+}
+
 /** Of these parts, the ones on the page in view: those are the ones that can be outlined. */
 function onThisPage(ids: string[]): string[] {
   const s = useStudio.getState();
@@ -479,7 +512,10 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const layers = useStudio((s) => s.look.texture);
   const k = pick === "page" ? null : site.kinds[pick] ?? null;
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
-  React.useEffect(() => { pointAt(onThisPage(ids)); return () => pointAt(null); }, [ids]);
+  React.useEffect(() => {
+    bringIntoView(ids);
+    return () => pointAt(null);
+  }, [ids]);
   const [fontOpen, setFontOpen] = React.useState(false);
   const { captured } = useSiteFormat();
   if (pick !== "page" && !k) return null;

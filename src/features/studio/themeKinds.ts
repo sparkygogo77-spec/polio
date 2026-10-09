@@ -171,7 +171,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     bump(i < 0 ? pageFaceKeys : faceKeys[i]!, faceOf(p));
     for (const g of spotsOf(p, palette).filter((s) => s.spot.use === "shadow" && /words|letter/.test(s.spot.where))) bump(i < 0 ? pageGlows : glows[i]!, g.key);
     const w = wordsOf(p);
-    if (i >= 0 && w && w.length <= 24 && /[A-Za-z]{2}/.test(w)) bump(samples[i]!, w);
+    /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
+    if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
   }
   const kinds: SurfaceKind[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
