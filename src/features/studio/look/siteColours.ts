@@ -153,6 +153,27 @@ export function spotsOf(n: Worn, palette: Partial<Palette> = {}): { raw: string;
   return out;
 }
 
+/**
+ * A text glow, resized or taken off: in a text-shadow list, every shadow
+ * wearing the colour `glow` gets blur `px`, or is dropped when `px` is null.
+ * Other shadows (a hard drop shadow under the glow) stay as they are. Returns
+ * undefined when no shadow is left.
+ */
+export function resizeGlow(shadow: string | undefined | null, glow: string, px: number | null): string | undefined {
+  if (!shadow?.trim() || shadow.trim() === "none") return shadow ?? undefined;
+  const key = colourKey(glow);
+  const out: string[] = [];
+  for (const one of shadow.split(/,(?![^(]*\))/).map((x) => x.trim()).filter(Boolean)) {
+    if (!coloursIn(one).some((c) => colourKey(c) === key)) { out.push(one); continue; }
+    if (px === null) continue;
+    /* Lengths in order: x, y, then blur; a shadow with only x and y gets one. */
+    let n = 0;
+    const sized = one.replace(/-?\d*\.?\d+px|(?<![\w.(,])0(?![\w.%])/g, (m) => (++n === 3 ? `${px}px` : m));
+    out.push(n >= 3 ? sized : `${sized} ${px}px`);
+  }
+  return out.length ? out.join(", ") : undefined;
+}
+
 /** The page's own colour is worn too, by the page. */
 export const PAGE_ID = "@page";
 
