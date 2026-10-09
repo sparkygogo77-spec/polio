@@ -27,6 +27,7 @@ import { homeOf } from "../homePage";
 import { getWork, pageFeatures, usesOf } from "../shelf";
 import { runWorks } from "./runWorks";
 import { leadsOf, withLead } from "../shelf";
+import { holderIds } from "../owner";
 
 /** Parts that draw a real control and wear a brought-in page's hooks on it, not on their box. */
 const OWN_HOOKS = new Set(["field", "checkbox"]);
@@ -126,6 +127,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const light = look?.light;
   const wash = React.useMemo(() => washCss(light), [light]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
+  const holders = holderIds(pageNodes);
   /*
    * ONE PAGE AT EVERY WIDTH. On a tablet or a phone the page is its plan
    * (`small.ts`), not the desktop's boxes narrowed; and it is the desktop's
@@ -300,7 +302,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         ...(isOverlay(p.node.featureId) ? { minHeight: 0, height: 0, pointerEvents: "none" as const, animation: undefined } : null),
       }}
     >
-      <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} partView={partView} />
+      <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} holder={holders.has(p.node.id)} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} partView={partView} />
     </div>
   );
   /*

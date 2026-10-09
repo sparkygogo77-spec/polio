@@ -30,6 +30,7 @@ import * as React from "react";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./shelf/run";
 import { washCss } from "./look";
+import { holderIds } from "./owner";
 import { frameHeight, type StudioNode, type StudioPage } from "./board/store";
 import type { FormatValues } from "./format";
 import type { Look } from "./look";
@@ -109,6 +110,7 @@ export function SitePreview({ doc, width, height, fold, whole }: SitePreviewProp
   // The whole width, always: a thumbnail that cropped the sides would be
   // showing you a column of one site and a column of another.
   const scale = width / view.frameW;
+  const holders = holderIds(view.nodes);
   const shown = fold && scale > 0 ? view.nodes.filter((n) => n.y < height / scale) : view.nodes;
 
   return (
@@ -132,6 +134,7 @@ export function SitePreview({ doc, width, height, fold, whole }: SitePreviewProp
               light={view.light}
               page={view.page}
               layers={view.layers}
+              holder={holders.has(n.id)}
               mode="board"
             />
           </div>

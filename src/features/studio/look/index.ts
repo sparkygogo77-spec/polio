@@ -4,11 +4,11 @@ export { HARMONIES, ROLES, ROLE_LABEL, contrast, css, fromHex, harmonise, oklchT
 export type { Harmony, Oklch, Palette, RoleId } from "./lookparts/colour.ts";
 export { reach, rollTheme } from "./lookparts/themeDice.ts";
 export type { DiceSwatch, ThemeRoll } from "./lookparts/themeDice.ts";
-export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, lands, newLayer, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
-export type { BlendMode, Crop, TextureKind, TextureLayer, TextureTarget } from "./lookparts/texture.ts";
+export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, lands, newLayer, spotsOfTarget, targetOfSpots, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
+export type { BlendMode, Crop, TextureKind, TextureLayer, TextureSpot, TextureTarget } from "./lookparts/texture.ts";
 export { driftKeyframes, layerCss, textureCss, withAlpha } from "./lookparts/textureCss.ts";
 export { castFrom, defaultLight, defaultRoll, emptyLook, liftCss, washCss } from "./lookparts/light.ts";
-export type { Light, Look, ThemeRollSettings } from "./lookparts/light.ts";
+export type { Light, Look, SavedPalette, ThemeRollSettings } from "./lookparts/light.ts";
 export { ANIM_DELAY, ANIM_EASE, ANIM_SPEED, AURA_STYLES, AURA_WORD, DELAY_MS, ENTRANCE_MS, SPEED_K, auraColour, auraFilter, auraShadow, auraStyle, complementOf, delayMs, describeLight, describeLook, entranceCss, markColour, sliderFromSpeed, speedFromSlider, speedK, speedWord } from "./lookparts/motion.ts";
 export type { AnimDelay, AnimEase, AnimSpeed, AuraStyle } from "./lookparts/motion.ts";
 export { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, chromatic, closeShades, colourKey, coloursIn, faceOf, firstSays, fontsInPageOrder, movedColours, movedFont, oklabDistance, roleFollowers, spotsOf, swapColour, swapFont, tallyColours, tallyFonts, whoWears } from "./siteColours.ts";

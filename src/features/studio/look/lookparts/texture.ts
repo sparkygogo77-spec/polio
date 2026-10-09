@@ -206,26 +206,61 @@ export function reiterate(l: TextureLayer): Partial<TextureLayer> {
 /**
  * Where a layer lands.
  *
- * "page" is the ground the site stands on: every part paints an opaque floor
- * over it, so the texture shows in the margins and the gaps and nowhere else.
- * "surfaces" is the cards, bars and panels themselves. "over" is the one that
- * ignores all of that and washes across the finished page, which is what you
- * want for a grain or a fog and nothing else.
+ * "page" is the ground the site stands on, the spaces between everything:
+ * every part paints an opaque floor over it, so the texture shows in the
+ * margins and the gaps and nowhere else. Panels are the parts other parts
+ * sit in (a section, a card holding words and buttons); fields are the boxes
+ * with nothing inside them (an input, a tile, a tour step). "surfaces" is
+ * both of those. "over" ignores all of that and washes across the finished
+ * page, which is what you want for a grain or a fog and nothing else.
  */
-export type TextureTarget = "page" | "surfaces" | "both" | "over";
+export type TextureTarget = "page" | "surfaces" | "both" | "over" | "panels" | "fields" | "page+panels" | "page+fields";
+
+/** The three places a person can point at, plus the wash over everything. */
+export type TextureSpot = "page" | "panels" | "fields" | "over";
+
+const SPOTS: Record<TextureTarget, readonly TextureSpot[]> = {
+  page: ["page"],
+  panels: ["panels"],
+  fields: ["fields"],
+  surfaces: ["panels", "fields"],
+  "page+panels": ["page", "panels"],
+  "page+fields": ["page", "fields"],
+  both: ["page", "panels", "fields"],
+  over: ["over"],
+};
+
+/** Which spots a target covers. */
+export const spotsOfTarget = (t: TextureTarget | undefined): readonly TextureSpot[] => SPOTS[t ?? "page"] ?? SPOTS.page;
+
+/** The target that covers exactly these spots ("over" stands alone); null for none. */
+export function targetOfSpots(spots: readonly TextureSpot[]): TextureTarget | null {
+  if (spots.includes("over")) return "over";
+  const has = (x: TextureSpot) => spots.includes(x);
+  const key = `${has("page") ? "p" : ""}${has("panels") ? "a" : ""}${has("fields") ? "f" : ""}`;
+  const by: Record<string, TextureTarget> = { p: "page", a: "panels", f: "fields", af: "surfaces", pa: "page+panels", pf: "page+fields", paf: "both" };
+  return by[key] ?? null;
+}
 
 export const TEXTURE_TARGETS: { value: TextureTarget; label: string }[] = [
-  { value: "page", label: "The background" },
-  { value: "surfaces", label: "On surfaces" },
-  { value: "both", label: "Background and surfaces" },
+  { value: "page", label: "Spaces" },
+  { value: "panels", label: "Panels" },
+  { value: "fields", label: "Fields" },
+  { value: "surfaces", label: "Panels and fields" },
+  { value: "page+panels", label: "Spaces and panels" },
+  { value: "page+fields", label: "Spaces and fields" },
+  { value: "both", label: "Spaces, panels and fields" },
   { value: "over", label: "Over everything" },
 ];
 
-/** Does this layer land on the given surface? */
-export function lands(layer: TextureLayer, on: "page" | "surfaces" | "over"): boolean {
-  const t = layer.target ?? "page";
-  if (on === "over") return t === "over";
-  return t === "both" || t === on;
+/**
+ * Does this layer land on the given spot? "surfaces" asks for either kind of
+ * part, for a swatch that only knows it is showing a part.
+ */
+export function lands(layer: TextureLayer, on: TextureSpot | "surfaces"): boolean {
+  const spots = spotsOfTarget(layer.target);
+  if (on === "surfaces") return spots.includes("panels") || spots.includes("fields");
+  return spots.includes(on);
 }
 
 /** Turn a colour's hue, leaving its lightness and chroma alone. */
