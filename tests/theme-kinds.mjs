@@ -15,6 +15,7 @@
  *   node tests/theme-kinds.mjs
  */
 import { siteKinds } from "../src/features/studio/themeKinds.ts";
+import { resizeGlow } from "../src/features/studio/look/siteColours.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -55,6 +56,11 @@ check("9. a surface of specks (a TV's antenna balls) is decoration, not a kind",
 check("10. a short strip is a tab, drawn over a panel's top; a card or a field is not", tabs?.tab === true && card?.tab === false && field?.tab === false && buttons?.tab === false);
 check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));
 check("…and words on nothing stand on the page", r.page.words === "rgb(17, 17, 17)", JSON.stringify(r.page));
+
+/* 11. The glow on a kind's words resizes, or comes off, leaving a hard drop shadow under it as it was (J: the WALLET tab's glow smudged its words). */
+const TV = "rgba(160, 255, 90, 0.9) 0px 0px 6px, rgb(0, 0, 0) 2px 2px 0px";
+check("11. a glow resizes, the drop shadow under it untouched", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", 2) === "rgba(160, 255, 90, 0.9) 0px 0px 2px, rgb(0, 0, 0) 2px 2px 0px", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", 2));
+check("…and comes off whole", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", null) === "rgb(0, 0, 0) 2px 2px 0px" && resizeGlow("rgba(160, 255, 90, 0.7) 0px 0px 5px", "rgba(160, 255, 90, 0.7)", null) === undefined);
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
