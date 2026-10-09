@@ -172,9 +172,7 @@ const same = (x, y) => { const sort = (v) => (Array.isArray(v) ? v.map(sort) : v
 check("one Undo puts every part back as it was before the drag", same(undone, before.nodes), same(undone, before.nodes) ? "" : `parts differ; undo depth ${await ui.evaluate(() => window.__studioUndoDepth())}`);
 
 /* ------------------------------------- a slider in the side panel: the same */
-await ui.locator('[data-theme-preview][data-preview-part="page"]').first().evaluate((e) => e.click());
-await ui.waitForTimeout(800);
-const thumb = ui.locator('[data-site-dial="layout.radius"] [role="slider"]').first();
+const thumb = ui.locator('[data-kind-corners] [role="slider"]').first();
 if (await thumb.count()) {
   await thumb.scrollIntoViewIfNeeded();
   const tb = await thumb.boundingBox();
@@ -183,13 +181,13 @@ if (await thumb.count()) {
   await ui.mouse.down();
   for (let i = 1; i <= 25; i++) await ui.mouse.move(tb.x + tb.width / 2 + i * 4, tb.y + tb.height / 2);
   await ui.waitForTimeout(200);
-  const mid = await ui.evaluate(() => ({ writes: window.__writes, now: document.querySelector('[data-site-dial="layout.radius"] [role="slider"]').getAttribute("aria-valuenow") }));
+  const mid = await ui.evaluate(() => ({ writes: window.__writes, now: document.querySelector('[data-kind-corners] [role="slider"]').getAttribute("aria-valuenow") }));
   await ui.mouse.up();
   await ui.waitForTimeout(1000);
   const end = await ui.evaluate(() => ({ writes: window.__writes, undo: window.__studioUndoDepth() }));
   check("a side-panel slider follows the hand with nothing saved until it is let go", mid.writes === 0 && end.writes >= 1, `${mid.writes} writes while held (thumb at ${mid.now}), ${end.writes} after`);
   check("…and the slide is one undo step", end.undo === u0 + 1, `${u0} -> ${end.undo}`);
-} else check("the page's editor shows the Corners slider", false);
+} else check("the surface's editor shows its Corners slider", false);
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
