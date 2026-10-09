@@ -23,7 +23,7 @@ export { holdSaves, isHeld, useSteady } from "./store/hold";
 export { useHeldStudio } from "./store/heldView";
 export { startGesture, gestureFrame, endGesture, gestureBase, inGesture } from "./store/gesture";
 export { frameHeight, frameTopReach, FRAME_WIDTHS, placeInFrame } from "./store/frame";
-export { EDIT_RUN_MS, HUES, snapshot, onBoardEdit } from "./store/history";
+export { EDIT_RUN_MS, HUES, snapshot, onBoardEdit, pickedStates } from "./store/history";
 export { holdImportMark, takeImportMark, swapDoc, pageNodes, pageShapes, pageSpaces, pageGroups, activePage, groupBounds, shapeBounds, useStudioHydration, livePath } from "./store/load";
 export { BACKGROUND_ID, BASE_ZOOM, ZOOM_MIN, FIT_MIN, ZOOM_MAX, NODE_SHAPES } from "./store/model";
 export type { Tool, Priority, ShapeKind, BoardMode, ShapeRelation, NodeShape, StudioNode, StudioGroup, StudioShape, StudioPage, StudioBrief, BroughtRepo, BroughtPart, RevisionKind, Revision, TrailStage, TrailTargetKind, TrailTarget, TrailEntry } from "./store/model";
