@@ -27,9 +27,13 @@ export function Slider({ value, onValueChange, onValueCommit, ...props }: Slider
         gestureFrame(() => onValueChange?.(v));
       }}
       onValueCommit={(v) => {
-        if (mine.current) endGesture();
-        mine.current = false;
-        setHeld(null);
+        /* A key press commits before it changes (Radix), so the change's gesture would outlive the press:
+           end it once this press is done, the change included, so each press is one undo step. */
+        queueMicrotask(() => {
+          if (mine.current) endGesture();
+          mine.current = false;
+          setHeld(null);
+        });
         onValueCommit?.(v);
       }}
     />

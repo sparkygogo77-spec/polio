@@ -174,6 +174,37 @@ export function resizeGlow(shadow: string | undefined | null, glow: string, px: 
   return out.length ? out.join(", ") : undefined;
 }
 
+/** The lengths in one shadow, in order (x, y, blur, spread), in px; a bare 0 counts. */
+const lengthsOf = (one: string): number[] => (one.replace(/[a-z-]+\([^)]*\)|#[0-9a-f]{3,8}\b/gi, " ").match(/-?\d*\.?\d+px|(?<![\w.(,])0(?![\w.%])/g) ?? []).map((m) => parseFloat(m));
+
+/**
+ * The glows in a text-shadow list: the shadows that blur (a glow spreads
+ * soft light behind the letters). A hard drop shadow, blur 0, is not one:
+ * taken for a glow, "No glow" on PonsStars' page left its TV caption's black
+ * 2px drop shadow showing as a black glow (J, 2026-10-09).
+ */
+export function glowsIn(shadow: string | undefined | null): { colour: string; blur: number }[] {
+  const out: { colour: string; blur: number }[] = [];
+  for (const one of String(shadow ?? "").split(/,(?![^(]*\))/).map((x) => x.trim()).filter(Boolean)) {
+    const blur = lengthsOf(one)[2] ?? 0;
+    const colour = coloursIn(one)[0];
+    if (blur > 0 && colour) out.push({ colour, blur });
+  }
+  return out;
+}
+
+/**
+ * The words wear one glow, `colour` at blur `px`, or none (`colour` null):
+ * every glow in the list goes and the new one leads; a hard drop shadow under
+ * it stays as it was. Undefined when no shadow is left, which the style layer
+ * sends back as `text-shadow: none`.
+ */
+export function setGlow(shadow: string | undefined | null, colour: string | null, px: number): string | undefined {
+  const hard = String(shadow ?? "").split(/,(?![^(]*\))/).map((x) => x.trim()).filter((one) => one && one !== "none" && !((lengthsOf(one)[2] ?? 0) > 0));
+  const out = colour ? [`${colour} 0px 0px ${Math.max(1, Math.round(px))}px`, ...hard] : hard;
+  return out.length ? out.join(", ") : undefined;
+}
+
 /** The page's own colour is worn too, by the page. */
 export const PAGE_ID = "@page";
 

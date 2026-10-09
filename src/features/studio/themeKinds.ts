@@ -27,7 +27,7 @@
  *
  * Pure: no store, no DOM. `tests/theme-kinds.mjs`.
  */
-import { colourKey, coloursIn, faceOf, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
+import { colourKey, coloursIn, faceOf, glowsIn, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
 import { isButton, type Part } from "./siteRoles.ts";
 
 /** Closer than the palette merges: a cream card and a grey field are two kinds of surface even where they are one swatch. */
@@ -54,8 +54,12 @@ export interface SurfaceKind {
   stops: string[];
   /** Parts whose words stand on it (itself included). */
   wordsIds: string[];
-  /** The glow on those words (a coloured shadow behind the letters), the most-worn one. */
+  /** The glow on those words (soft coloured light behind the letters, not a hard drop shadow), the most-worn one. */
   glow: string | null;
+  /** How far that glow spreads, in px. */
+  glowSize: number;
+  /** Half its words or more wear that glow: only then does the preview draw it, so it shows what the site shows. */
+  glowShown: boolean;
   /** The face key the words are counted under (`faceOf`), for swapping. */
   faceKey: string | null;
   /** A few of its own words, so a button in the preview says what the site's buttons say. */
@@ -83,7 +87,7 @@ export interface SurfaceKind {
 }
 
 export interface SiteKinds {
-  page: { fill: string; words: string | null; face: string | null; faceKey: string | null; wordsIds: string[]; glow: string | null };
+  page: { fill: string; words: string | null; face: string | null; faceKey: string | null; wordsIds: string[]; glow: string | null; glowSize: number; glowShown: boolean };
   kinds: SurfaceKind[];
 }
 
@@ -114,6 +118,21 @@ const holds = (o: Node, i: Node) => {
 const alpha = (v: string) => { const m = /rgba\([^)]*,\s*([\d.]+)\s*\)$/.exec(v.replace(/\s+/g, " ")); return m ? Number(m[1]) : 1; };
 const top = <T,>(m: Map<T, number>): [T, number] | null => [...m.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
 const bump = <T,>(m: Map<T, number>, k: T, by = 1) => m.set(k, (m.get(k) ?? 0) + by);
+
+/** A part's glows: on its words, and on its runs of words. */
+const glowsOf = (p: Node): { colour: string; blur: number }[] => {
+  const c = (p as { content?: unknown }).content;
+  const runs = Array.isArray(c) ? (c as { textShadow?: unknown }[]).map((r) => (r && typeof r.textShadow === "string" ? r.textShadow : null)) : [];
+  return [(p as { art?: { textShadow?: string } | null }).art?.textShadow, ...runs].flatMap((sh) => glowsIn(sh));
+};
+
+/** The most-worn glow among some words: its colour, its blur, and whether half the words wear it. */
+const glowOf = (m: Map<string, number>, worn: Map<string, { colour: string; blur: number }>, words: number) => {
+  const g = top(m);
+  const w = g ? worn.get(g[0]) : undefined;
+  /* As written, so its see-through survives a resize. */
+  return { glow: w?.colour ?? g?.[0] ?? null, glowSize: w ? Math.round(w.blur) : 6, glowShown: !!g && g[1] * 2 >= words };
+};
 
 /** At most `cap` kinds (and two painted pieces), the most-worn first, buttons and surfaces both. */
 export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, background: ReadonlySet<string> = new Set(), cap = 10): SiteKinds {
@@ -172,6 +191,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   const pageFaces = new Map<string, number>();
   const wordsIds = leads.map(() => [] as string[]);
   const glows = leads.map(() => new Map<string, number>());
+  const glowsWorn = new Map<string, { colour: string; blur: number }>();
   const faceKeys = leads.map(() => new Map<string, number>());
   const samples = leads.map(() => new Map<string, number>());
   const pageIds: string[] = [];
@@ -187,7 +207,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     bump(i < 0 ? pageFaces : faces[i]!, (p as { font?: { stack?: string } | null }).font?.stack || faceOf(p));
     (i < 0 ? pageIds : wordsIds[i]!).push(p.id);
     bump(i < 0 ? pageFaceKeys : faceKeys[i]!, faceOf(p));
-    for (const g of spotsOf(p, palette).filter((s) => s.spot.use === "shadow" && /words|letter/.test(s.spot.where))) bump(i < 0 ? pageGlows : glows[i]!, g.key);
+    for (const k of new Set(glowsOf(p).map((g) => { const k = colourKey(g.colour); if (!glowsWorn.has(k)) glowsWorn.set(k, g); return k; }))) bump(i < 0 ? pageGlows : glows[i]!, k);
     const w = wordsOf(p);
     /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
     if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
@@ -235,7 +255,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
       stops: /gradient\(/.test(paint) ? [...new Set(coloursIn(paint).map(colourKey))] : [],
       wordsIds: wordsIds[i]!,
-      glow: top(glows[i]!)?.[0] ?? null,
+      ...glowOf(glows[i]!, glowsWorn, wordsIds[i]!.length),
       faceKey: top(faceKeys[i]!)?.[0] ?? null,
       sample: top(samples[i]!)?.[0] ?? null,
       button: buttons >= ms.length / 2,
@@ -270,7 +290,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     return { ...kind, name: n > 1 ? `${base} ${n}` : base, inside: at.get(k.inside) ?? -1 };
   });
   return {
-    page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null, faceKey: top(pageFaceKeys)?.[0] ?? null, wordsIds: pageIds, glow: top(pageGlows)?.[0] ?? null },
+    page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null, faceKey: top(pageFaceKeys)?.[0] ?? null, wordsIds: pageIds, ...glowOf(pageGlows, glowsWorn, pageIds.length) },
     kinds: named,
   };
 }
