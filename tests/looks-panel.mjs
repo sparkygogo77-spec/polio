@@ -138,6 +138,18 @@ await page.waitForTimeout(400);
 /* 4. THE TEXTURES ARE SHOWN, NOT DESCRIBED                            */
 /* ------------------------------------------------------------------ */
 
+/* Texture is given from the Colours preview: press the page there, pick a kind, and the stack below lists it. */
+const pickTexture = async (pg, kind) => {
+  if (!(await pg.locator("[data-kind-texture]").count())) await pg.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+  await pg.waitForTimeout(300);
+  await pg.locator(`[data-kind-texture] [data-texture-sample="${kind}"]`).first().click({ force: true });
+  await pg.waitForTimeout(600);
+  const fold = pg.locator("[data-texture-layers-open]").first();
+  if ((await fold.count()) && (await fold.getAttribute("aria-expanded")) !== "true") await fold.click({ force: true });
+  await pg.waitForTimeout(300);
+};
+await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+await page.waitForTimeout(400);
 const shown = await page.evaluate(() => ({
   samples: document.querySelectorAll("[data-texture-sample]").length,
   words: [...document.querySelectorAll("[data-texture-section] p")].map((p) => p.textContent.trim().length).reduce((a, b) => a + b, 0),
@@ -233,13 +245,7 @@ await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().click({
 await page.waitForTimeout(700);
 const bare = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("choosing a fill paints it on the page", /radial-gradient/.test(bare), bare.slice(0, 70));
-const kinds = page.locator("[data-look-texture] [data-texture-sample]");
-const n = await kinds.count();
-for (let i = 0; i < n; i++) {
-  await kinds.nth(i).click({ force: true });
-  await page.waitForTimeout(800);
-  if (await page.locator('[data-look-texture] [aria-label="Remove layer"]').count()) break;
-}
+await pickTexture(page, "stripes");
 await page.waitForTimeout(700);
 const over = await page.evaluate(() => ({
   img: getComputedStyle(document.querySelector("[data-frame]")).backgroundImage,

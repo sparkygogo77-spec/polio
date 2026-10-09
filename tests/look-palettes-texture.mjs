@@ -9,8 +9,9 @@
  * On a page with a card holding a smaller card (a panel and a field):
  *   1. Saving the colours keeps them under a name; after the colours move,
  *      pressing the saved one puts all six back.
- *   2. A texture added to Panels only lands on the outer card and not on the
- *      inner one; switched to Fields, it is the other way round.
+ *   2. Pressing the page in the Colours preview offers its textures; Dots
+ *      puts one layer behind the page, and another kind
+ *      changes that layer.
  *   3. The light's five dials sit in three named groups.
  *
  *   node tests/look-palettes-texture.mjs [url]
@@ -83,38 +84,25 @@ const want = kept[0]?.colours ?? {};
 check("pressing it puts all six back", Object.keys(want).length === 6 && Object.keys(want).every((r) => back.palette?.[r] === want[r]),
   JSON.stringify(back.palette));
 
-/* 2. TEXTURE ON PANELS OR FIELDS */
-const tex = page.locator("[data-look-texture]");
-const add = tex.locator("[data-texture-add]");
-check("a new texture can be pointed at spaces, panels and fields",
-  (await add.locator("[data-texture-spot]").count()) === 4, `${await add.locator("[data-texture-spot]").count()} places`);
-await add.locator('[data-texture-spot="panels"]').click();
-await add.locator('[data-texture-spot="page"]').click(); // panels only
-await page.waitForTimeout(200);
+/* 2. TEXTURE FROM THE PREVIEW: the page, then a panel */
+const preview = page.locator("[data-theme-preview]").first();
+await preview.click({ position: { x: 4, y: 4 }, force: true });
+await page.waitForTimeout(400);
+const tex = page.locator("[data-kind-texture]").first();
 const heights = await tex.locator("[data-texture-sample] > span:first-child").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-check("the samples are big enough to see", heights.length >= 3 && heights.every((h) => h >= 56), heights.join(", "));
+check("pressing the page in the preview offers its textures, painted", heights.length === 7 && heights.every((h) => h >= 30), heights.join(", "));
+await tex.locator('[data-texture-sample="dots"]').click();
+await page.waitForTimeout(800);
+let lay = (await stored()).texture ?? [];
+const ground = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
+check("picking Dots puts one layer behind the page", lay.length === 1 && lay[0].target === "page" && lay[0].on === true && lay[0].kind === "dots" && /url\(|gradient/.test(ground), JSON.stringify(lay.map((l) => [l.kind, l.target, l.on])));
+check("with its colour, how solid, scale, angle and drift beside it",
+  (await tex.getByLabel("Texture colour").count()) === 1 && (await tex.locator("[data-texture-dials] [role=slider]").count()) === 4);
 await tex.locator('[data-texture-sample="stripes"]').click();
-await page.waitForTimeout(800);
-const lay = (await stored()).texture ?? [];
-check("the layer lands on panels only", lay[0]?.target === "panels", lay[0]?.target);
+await page.waitForTimeout(600);
+lay = (await stored()).texture ?? [];
+check("picking another kind changes that layer rather than stacking one", lay.length === 1 && lay[0].kind === "stripes");
 
-/** Does anything inside a part paint the stripes? */
-const striped = (id) => page.evaluate((id) => {
-  const n = document.querySelector(`[data-node-id="${id}"]`);
-  if (!n) return null;
-  const inner = document.querySelector(`[data-node-id="inner"]`);
-  return [n, ...n.querySelectorAll("*")].some((e) => (id !== "outer" || !inner?.contains(e)) && /gradient/.test(getComputedStyle(e).backgroundImage));
-}, id);
-check("on panels: the card holding the other wears it", (await striped("outer")) === true);
-check("and the card holding nothing does not", (await striped("inner")) === false);
-
-const spots = tex.locator('[data-texture-spots][aria-label="Where this layer lands"]').first();
-await spots.locator('[data-texture-spot="fields"]').click();
-await spots.locator('[data-texture-spot="panels"]').click();
-await page.waitForTimeout(800);
-check("switched to fields, the layer says so", ((await stored()).texture ?? [])[0]?.target === "fields");
-check("now the card holding nothing wears it", (await striped("inner")) === true);
-check("and the panel does not", (await striped("outer")) === false);
 
 /* 3. LIGHT & DEPTH IN THREE GROUPS */
 await page.locator("[data-light-open]").click();

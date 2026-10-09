@@ -13,8 +13,8 @@ import { MoreHint, MoreHintSpan } from "@/core/ui/more-hint";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2, Undo2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, spotsOfTarget, targetOfSpots, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
-  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureSpot, type TextureTarget,
+  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, lands, type BlendMode, type Harmony,
+  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./";
 import { flattenLayers } from "./texture";
 import { CropPicker } from "../CropPicker";
@@ -579,7 +579,10 @@ function TextureSection() {
   const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const [addTo, setAddTo] = React.useState<TextureTarget>("page");
+  /* Open from the start when a picture is in the stack: a picture's crop and cut-out are only set here. */
+  const [layersAsked, setLayersOpen] = React.useState<boolean | null>(null);
+  const hasPicture = useStudio((st) => st.look.texture.some((l) => l.kind === "image"));
+  const layersOpen = layersAsked ?? hasPicture;
   const s = () => useStudio.getState();
 
   /**
@@ -598,9 +601,10 @@ function TextureSection() {
       s().updateTexture(target, { src, baked: undefined, kind: "image" });
       return;
     }
-    const layer = { ...newLayer("image"), src, target: addTo };
+    const layer = { ...newLayer("image"), src };
     s().addTexture(layer);
     setOpenId(layer.id);
+    setLayersOpen(true);
   };
   const [dropping, setDropping] = React.useState(false);
   usePasteImage(true, (src, note) => takeImage(src, undefined, note), setRefused);
@@ -656,6 +660,26 @@ function TextureSection() {
 
       <FillRow palette={palette} />
 
+      {/*
+        TEXTURE IS GIVEN FROM THE PREVIEW. HIS WORDS: "this should all be
+        managed via the preview instead of the layers system below it". The
+        page, a panel or a field pressed in the Colours preview carries its
+        own texture (`PieceTexture.tsx`); the stack itself, where a picture
+        dropped here lands and two layers merge, is folded away.
+      */}
+      <MoreHint className="text-small leading-snug text-fg-muted" text="Press the page, a panel or a field in the Colours preview above to give it a texture." />
+      <button
+        type="button"
+        data-texture-layers-open=""
+        aria-expanded={layersOpen}
+        onClick={() => { play(layersOpen ? "close" : "open"); setLayersOpen(!layersOpen); }}
+        className="tactile flex w-full items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5 text-left text-small text-fg hover:bg-hover"
+      >
+        <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", layersOpen && "rotate-180")} />
+        <span className="flex-1">All texture layers</span>
+        <span className="num text-fg-faint">{look.texture.length}</span>
+      </button>
+      {layersOpen ? (<>
       <StackPreview layers={look.texture} palette={palette} />
 
       {look.texture.length === 0 ? (
@@ -726,13 +750,6 @@ function TextureSection() {
                     never learn where anything was. Every kind takes all of
                     them now, see `layerCss`.
                   */}
-                  <SpotChips
-                    value={layer.target ?? "page"}
-                    onChange={(target) => s().updateTexture(layer.id, { target })}
-                    palette={palette}
-                    layer={layer}
-                  />
-
                   <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
                   </Row>
@@ -876,136 +893,12 @@ function TextureSection() {
         })}
       </div>
 
-      {/*
-        WHAT IT CAN MAKE, MADE.
-
-        HIS WORDS: "the texture part too toward the bottom should be more
-        exemplary and display the types of textures it can create." They were
-        six word-chips reading "+ Noise", "+ Stripes" — the name of a thing
-        instead of the thing, which is the opposite of his own rule that a
-        setting should show what it does. Each one is now painted with the
-        texture it adds, in this site's own palette, by the same `textureCss`
-        that paints the page: the sample is not a picture of the result, it is
-        the result at 44 pixels.
-      */}
-      {/*
-        WHERE A NEW ONE GOES, chosen first, and the samples below painted on
-        that ground (the page's colour for spaces, a part's for panels and
-        fields), bigger, and with the name under the sample rather than over
-        it. HIS WORDS: "texture should exist for panels or fields or spaces
-        and i can hardly see them in this format". The samples are drawn
-        stronger than a new layer starts, so the pattern can be told apart
-        at this size; the layer itself still starts as it always did.
-      */}
-      <div data-texture-add="" className="space-y-1.5">
-        <span className="text-fine uppercase tracking-wider text-fg-muted">Add a texture to</span>
-        <SpotChips value={addTo} onChange={setAddTo} palette={palette} name="Where a new texture goes" />
-        <div className="grid grid-cols-2 gap-2">
-          {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => {
-            /* The sample IS the layer a press adds, at the strength it is
-               added at. It was drawn at 60% and added at 14%, so what came up
-               on the page was a ghost of what was pressed (owner: "the
-               textures also never came up how they were supposed to"). */
-            const ground = spotsOfTarget(addTo).includes("page") || addTo === "over" ? palette.bg : palette.surface;
-            const base = newLayer(k);
-            const sample = { ...base, role: base.role === "accent" ? seenOn(ground, palette) : base.role, opacity: Math.max(base.opacity, 0.45) };
-            return (
-              <button
-                key={k}
-                type="button"
-                data-texture-sample={k}
-                aria-label={`Add ${TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k}`}
-                title={TEXTURE_KINDS.find((x) => x.id === k)?.hint}
-                onClick={() => { play("confirm"); const l = { ...sample, id: newLayer(k).id, target: addTo }; s().addTexture(l); setOpenId(l.id); }}
-                className="tactile flex flex-col overflow-hidden rounded-md border-2 border-border text-left hover:border-accent"
-              >
-                <span aria-hidden className="block h-16 w-full" style={textureCss([sample], palette, ground)} />
-                <span className="block truncate bg-elevated px-1.5 py-1 text-small font-medium text-fg">
-                  {TEXTURE_KINDS.find((x) => x.id === k)?.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      </>) : null}
     </section>
   );
 }
 
 const WHERE_SHORT = (t: TextureTarget | undefined) => (TEXTURE_TARGETS.find((x) => x.value === (t ?? "page"))?.label ?? "Spaces").toLowerCase();
-
-const SPOT_HINT: Record<TextureSpot, string> = {
-  page: "The spaces: the background between everything. Panels and fields stay their own colour over it, so it shows in the margins and the gaps.",
-  panels: "The panels: the parts other parts sit in, a section or a card holding words and buttons.",
-  fields: "The fields: the boxes with nothing inside them, an input, a tile, a tour step.",
-  over: "Washed across the finished page, content included. Best kept faint, a grain, a fog, a scan line.",
-};
-
-const SPOTS: { id: TextureSpot; label: string }[] = [
-  { id: "page", label: "Spaces" },
-  { id: "panels", label: "Panels" },
-  { id: "fields", label: "Fields" },
-  { id: "over", label: "Over all" },
-];
-
-/**
- * Where a layer lands, as the three places he can point at.
- *
- * HIS WORDS: "texture should exist for panels or fields or spaces and i can
- * hardly see them in this format". It was one menu of four sentences, and
- * panels and fields were one word, "surfaces". Each chip is painted with the
- * layer on the ground it would land on, so the choice is seen, and any
- * mix of the three can be pressed; "Over all" stands alone.
- */
-function SpotChips({ value, onChange, palette, layer, name = "Where this layer lands" }: {
-  value: TextureTarget;
-  onChange: (t: TextureTarget) => void;
-  palette: Palette;
-  layer?: TextureLayer;
-  name?: string;
-}) {
-  const on = spotsOfTarget(value);
-  const press = (id: TextureSpot) => {
-    let next: TextureSpot[];
-    if (id === "over") next = ["over"];
-    else if (on.includes(id)) next = on.filter((x) => x !== id && x !== "over");
-    else next = [...on.filter((x) => x !== "over"), id];
-    const t = targetOfSpots(next);
-    if (!t) { play("deny"); return; }
-    play("select");
-    onChange(t);
-  };
-  return (
-    <div className="space-y-1">
-      <div role="group" aria-label={name} data-texture-spots="" className="grid grid-cols-4 gap-1">
-        {SPOTS.map((sp) => {
-          const ground = sp.id === "page" || sp.id === "over" ? palette.bg : palette.surface;
-          return (
-            <button
-              key={sp.id}
-              type="button"
-              data-texture-spot={sp.id}
-              aria-pressed={on.includes(sp.id)}
-              onClick={() => press(sp.id)}
-              className={cn(
-                "tactile flex flex-col overflow-hidden rounded-md border-2 text-left",
-                on.includes(sp.id) ? "border-accent" : "border-border hover:border-border-strong",
-              )}
-            >
-              <span
-                aria-hidden
-                className="block h-8 w-full"
-                style={layer ? textureCss([{ ...layer, on: true, opacity: Math.max(layer.opacity, 0.35) }], palette, ground) : { background: ground }}
-              />
-              <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{sp.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <MoreHint className="text-small leading-snug text-fg-faint" text={on.map((x) => SPOT_HINT[x]).join(" ")} />
-    </div>
-  );
-}
 
 function Toggle({ label, hint, checked, onChange, name }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; name?: string }) {
   return (
@@ -1039,20 +932,6 @@ function Row({ label, value, children }: { label: string; value: string; childre
 }
 
 /* ------------------------------------------------------------------ */
-
-/**
- * The palette colour a new texture is drawn in: the accent, unless it barely
- * shows on the ground it lands on. On PonsStars the accent is a pale lime on
- * a cream page, and stripes in it at the page's own zoom were not there at
- * all; the highlight, else the words' colour, is.
- */
-function seenOn(ground: string, palette: Palette): RoleId {
-  const g = parseColor(ground);
-  if (!g) return "accent";
-  const how = (r: RoleId) => { const c = parseColor(palette[r]); return c ? contrast(c, g) : 1; };
-  for (const r of ["accent", "highlight"] as RoleId[]) if (how(r) >= 2) return r;
-  return how("text") >= how("muted") ? "text" : "muted";
-}
 
 /** One of the light's three groups: a small name over its dials. */
 function LightGroup({ name, data, children }: { name: string; data: string; children: React.ReactNode }) {

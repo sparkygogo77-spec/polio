@@ -54,13 +54,17 @@ await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().evaluat
 await page.waitForTimeout(700);
 const img = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("choosing a fill still paints the page", /radial-gradient/.test(img), img.slice(0, 60));
-const layers = page.locator("[data-look-texture] button");
-const n = await layers.count();
-for (let i = 4; i < n; i++) {
-  await layers.nth(i).evaluate((b) => b.click());
-  await page.waitForTimeout(600);
-  if (await page.locator('[data-look-texture] [aria-label="Remove layer"]').count()) break;
-}
+/* Texture is given from the Colours preview: press the page there, pick a kind, and the stack below lists it. */
+const pickTexture = async (pg, kind) => {
+  if (!(await pg.locator("[data-kind-texture]").count())) await pg.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+  await pg.waitForTimeout(300);
+  await pg.locator(`[data-kind-texture] [data-texture-sample="${kind}"]`).first().click({ force: true });
+  await pg.waitForTimeout(600);
+  const fold = pg.locator("[data-texture-layers-open]").first();
+  if ((await fold.count()) && (await fold.getAttribute("aria-expanded")) !== "true") await fold.click({ force: true });
+  await pg.waitForTimeout(300);
+};
+await pickTexture(page, "stripes");
 check("a texture layer can still be added to the page", (await page.locator('[data-look-texture] [aria-label="Remove layer"]').count()) > 0);
 
 /* Cut and put back are still reachable: the page's wheel, and the keys. */

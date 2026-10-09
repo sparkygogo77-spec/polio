@@ -12,15 +12,17 @@
  * undo step of its own.
  *
  * On the saved PonsStars board (tests/lib/board.mjs), in the Look panel:
- *   1. Grid fill and a stripes layer on the spaces change no part's paint,
- *   2. and the stripes show on the page,
- *   3. each press on where that layer lands is one undo, and undoing on
- *      takes the layer and the fill away and puts the page back as it was.
+ *   1. Grid fill, then the page pressed in the Colours preview and Dots
+ *      picked (his case), change no part's paint,
+ *   2. and the dots show on the page,
+ *   3. each pick is one undo, and undoing on takes the texture and the fill
+ *      away and puts the page back as it was,
+ *   4. a panel pressed in the preview wears its texture over its own fill.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/texture-site-colours.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/shelf/parts/theme.ts, src/features/studio/look/LookPanel.tsx, src/features/studio/board/store/view.ts
+ * Covers: src/features/studio/shelf/parts/theme.ts, src/features/studio/PieceTexture.tsx, src/features/studio/blocks.tsx, src/features/studio/board/store/view.ts
  */
 import { existsSync } from "node:fs";
 import { openBoard } from "./lib/board.mjs";
@@ -50,7 +52,7 @@ await ui.waitForTimeout(1200);
 const paints = () => ui.evaluate(() => {
   const m = {};
   for (const n of document.querySelectorAll("[data-node-id]")) {
-    [n, ...n.querySelectorAll("*")].forEach((e, i) => { const c = getComputedStyle(e); m[`${n.dataset.nodeId}#${i}`] = `${c.backgroundColor} ${c.backgroundImage.slice(0, 80)} ${c.color}`; });
+    [n, ...n.querySelectorAll("*")].filter((e) => !e.closest("[data-part-texture]")).forEach((e, i) => { const c = getComputedStyle(e); m[`${n.dataset.nodeId}#${i}`] = `${c.backgroundColor} ${c.backgroundImage.slice(0, 80)} ${c.color}`; });
   }
   return m;
 });
@@ -79,38 +81,49 @@ const start = await frameShot();
 const still = await differ(start, await frameShot());
 const tex = ui.locator("[data-look-texture]");
 await tex.locator('[data-look-fill] button[aria-label="Grid"]').click();
-await tex.locator('[data-texture-spot="page"]').first().evaluate((b) => b.getAttribute("aria-pressed") === "true" || b.click());
-await tex.locator('[data-texture-sample="stripes"]').click();
+/* His case: the page pressed in the Colours preview, then Dots. */
+await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
+await ui.waitForTimeout(400);
+const kinds = ui.locator("[data-kind-texture]").first();
+await kinds.locator('[data-texture-sample="dots"]').click();
 await ui.waitForTimeout(900);
 const after = await paints();
 const changed = Object.keys(before).filter((k) => after[k] !== undefined && before[k] !== after[k]);
-check("a background texture changes no part's colours", Object.keys(before).length > 1000 && changed.length === 0,
+check("dots on the page change no part's colours", Object.keys(before).length > 1000 && changed.length === 0,
   `${changed.length} of ${Object.keys(before).length} elements repainted${changed.length ? `, e.g. ${changed[0]}: ${before[changed[0]]} -> ${after[changed[0]]}` : ""}`);
-const striped = await frameShot();
-const seen = await differ(start, striped);
-check("and the stripes show on the page", seen >= still + 2, `${seen}% of the page changed, ${still}% moves on its own`);
+const dotted = await differ(start, await frameShot());
+check("and the dots show on the page", dotted >= still + 5, `${dotted}% of the page changed, ${still}% moves on its own`);
 
-const layerSpots = tex.locator('[data-texture-spots][aria-label="Where this layer lands"]').first();
-await layerSpots.locator('[data-texture-spot="panels"]').click();
-await layerSpots.locator('[data-texture-spot="page"]').click();
-await ui.waitForTimeout(400);
-const pressed = async () => (await layerSpots.locator('[data-texture-spot][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.dataset.textureSpot))).join("+");
-const moved = await pressed();
-const undo = async () => { await ui.locator("[data-frame]").first().click({ position: { x: 3, y: 3 }, force: true }).catch(() => {}); await ui.keyboard.press("Escape"); await ui.keyboard.press("Control+z"); await ui.waitForTimeout(500); };
+await kinds.locator('[data-texture-sample="stripes"]').click();
+await ui.waitForTimeout(600);
+const on = async () => (await kinds.locator('[data-texture-sample][aria-pressed="true"]').getAttribute("data-texture-sample"));
+const swapped = await on();
+const undo = async () => { await ui.keyboard.press("Escape"); await ui.locator("[data-studio-pane]").first().focus().catch(() => {}); await ui.keyboard.press("Control+z"); await ui.waitForTimeout(600); };
 await undo();
-const once = await pressed();
-check("each press on where the layer lands is one undo", moved === "panels" && once === "page+panels", `${moved}, then ${once}`);
+const once = await on();
+check("each pick is one undo", swapped === "stripes" && once === "dots", `${swapped}, then ${once}`);
 await undo();
+const none = await ui.locator("[data-kind-texture]").count() ? await on() : "closed";
 await undo();
-await undo();
-const layers = await tex.locator('[aria-label="Remove layer"]').count();
 const ground = () => ui.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 const back = (await ground()) === startGround;
 const end = await paints();
 const still2 = Object.keys(before).filter((k) => end[k] !== undefined && before[k] !== end[k]).length;
+const worn = await ui.locator("[data-part-texture]").count();
 const fill = await tex.locator('[data-look-fill] button[aria-pressed="true"]').getAttribute("aria-label");
-check("and Undo takes the layer and the fill away and puts the page back", layers === 0 && fill === "Flat" && back && still2 === 0,
-  `${layers} layers, fill ${fill}, page ${back ? "as it was" : "still painted"}, ${still2} elements repainted`);
+check("and Undo takes the texture and the fill away and puts the page back", none === "none" && worn === 0 && fill === "Flat" && back && still2 === 0,
+  `texture ${none}, ${worn} parts still wearing one, fill ${fill}, page ${back ? "as it was" : "still painted"}, ${still2} elements repainted`);
+
+/* 4. A panel pressed in the preview: every part of its kind wears the texture, over its own fill. */
+const panel = ui.locator('[data-theme-preview] [data-preview-part="surface"]').first();
+await panel.click({ force: true });
+await ui.waitForTimeout(500);
+await ui.locator('[data-kind-texture] [data-texture-sample="grid"]').first().click();
+await ui.waitForTimeout(900);
+const wearing = await ui.locator("[data-part-texture]").count();
+const after2 = await paints();
+const changed2 = Object.keys(before).filter((k) => after2[k] !== undefined && before[k] !== after2[k]);
+check("a panel pressed in the preview: its parts wear the grid, their colours untouched", wearing > 0 && changed2.length === 0, `${wearing} parts wear it, ${changed2.length} elements repainted`);
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();

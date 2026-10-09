@@ -4,7 +4,7 @@ export { HARMONIES, ROLES, ROLE_LABEL, contrast, css, fromHex, harmonise, oklchT
 export type { Harmony, Oklch, Palette, RoleId } from "./lookparts/colour.ts";
 export { reach, rollTheme } from "./lookparts/themeDice.ts";
 export type { DiceSwatch, ThemeRoll } from "./lookparts/themeDice.ts";
-export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, lands, newLayer, spotsOfTarget, targetOfSpots, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
+export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, lands, newLayer, pickedLayer, seenOn, spotsOfTarget, targetOfSpots, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
 export type { BlendMode, Crop, TextureKind, TextureLayer, TextureSpot, TextureTarget } from "./lookparts/texture.ts";
 export { driftKeyframes, layerCss, textureCss, withAlpha } from "./lookparts/textureCss.ts";
 export { castFrom, defaultLight, defaultRoll, emptyLook, liftCss, washCss } from "./lookparts/light.ts";
