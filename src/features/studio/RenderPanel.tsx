@@ -34,6 +34,8 @@ import { money, RENDER_COST } from "./renderer";
 import { GENERATION } from "./loop";
 import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
+import { CURSOR_ASK, cursorFrom, takeCursorAsk } from "./cursorPicture";
+import { setCursorPicture } from "./ShelfCards";
 
 /**
  * The models that DRAW a picture, which is what this panel is for.
@@ -83,6 +85,22 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
   const [running, setRunning] = React.useState(0);
   const [said, setSaid] = React.useState<string | null>(null);
   const [format, setFormat] = React.useState("");
+  /*
+   * MAKE IT A CURSOR (J, 2026-10-09: "a dedicated generate cursor option in
+   * the generate section"). The ask gains a line saying to draw a pointer
+   * with its tip top left on a plain white ground, it is asked square, and
+   * what comes back is cut out and made the site's cursor (`cursorPicture.ts`).
+   */
+  const [asCursor, setAsCursor] = React.useState(() => takeCursorAsk());
+  const [cursorFor, setCursorFor] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const on = () => { takeCursorAsk(); setAsCursor(true); };
+    window.addEventListener("studio:cursor-draw", on);
+    return () => window.removeEventListener("studio:cursor-draw", on);
+  }, []);
+  const makeCursor = async (src: string, id?: string) => {
+    try { setCursorPicture(await cursorFrom(src)); if (id) setCursorFor(id); return true; } catch { return false; }
+  };
   /*
    * The pictures it works from, not the picture.
    *
@@ -205,9 +223,10 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
            the part's own panel always asked: a square for a wide banner is a
            picture cropped or stretched the moment it lands. */
         body: JSON.stringify({
-          kind: "raster", prompt: tweak.trim(), w: forPart ? Math.round(forPart.w) : 1024, h: forPart ? Math.round(forPart.h) : 1024,
-          ...(forPart ? { label: forPart.label } : {}), model: slug,
-          ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined,
+          kind: "raster", prompt: asCursor ? `${tweak.trim()}\n\n${CURSOR_ASK}` : tweak.trim(),
+          w: forPart && !asCursor ? Math.round(forPart.w) : 1024, h: forPart && !asCursor ? Math.round(forPart.h) : 1024,
+          ...(forPart && !asCursor ? { label: forPart.label } : {}), model: slug,
+          ratio: asCursor ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || undefined, quality: quality || undefined, effort: effort || undefined,
           format: format || undefined, references: references.length ? references : undefined,
         }),
       });
@@ -222,7 +241,9 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         })();
         addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, threadId });
         markThread(threadId, "done");
-        setSaid(typeof r.cost === "number" ? `Drawn. It cost ${money(r.cost)}.` : "Drawn. The renderer reported no price for it.");
+        const cost = typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "";
+        if (asCursor) setSaid((await makeCursor(r.image)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
+        else setSaid(cost ? `Drawn.${cost}` : "Drawn. The renderer reported no price for it.");
       } else {
         markThread(threadId, "cut");
         setSaid(r.message ?? "Nothing came back.");
@@ -370,10 +391,18 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         </Row>
       ) : null}
 
+      <label data-render-row="cursor" className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <span className="flex flex-col">
+          <span className="text-plain text-fg-muted">Make it a cursor</span>
+          <span className="text-fine text-fg-faint">Tip top left, background see-through, used as the site&apos;s pointer.</span>
+        </span>
+        <input data-render-cursor="" type="checkbox" checked={asCursor} onChange={(e) => setAsCursor(e.target.checked)} className="size-4 accent-[var(--accent)]" />
+      </label>
+
       <div className="flex items-center gap-2 px-3 pb-3 pt-2">
         <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim()} onClick={() => void run()}>
           {running ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-          Generate
+          {asCursor ? "Generate cursor" : "Generate"}
         </Button>
         {/* The price before the press, not after it. It is his key and his
             money, so what it will cost is said before anything is spent, and
@@ -483,6 +512,14 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                     {put === d.id ? "On this part" : "Put it on this part"}
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  data-render-cursor-from={d.id}
+                  onClick={() => void makeCursor(src, d.id)}
+                  className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
+                >
+                  {cursorFor === d.id ? "Your cursor" : "Use as cursor"}
+                </button>
                 <a data-render-download={d.id} href={src} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
                 <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
                 <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>

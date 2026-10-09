@@ -769,9 +769,12 @@ export function DesktopCanvas() {
       });
       return;
     }
-    const featureId = featureDrag;
-    if (!featureId) return;
-    const p = toCanvas(e.clientX, e.clientY);
+    if (featureDrag) placeFeature(featureDrag, e.clientX, e.clientY);
+  };
+
+  /* A new part where a shelf card was let go: the browser's drag, or a card carried by the hand (`cardCarry.ts`). */
+  const placeFeature = (featureId: string, clientX: number, clientY: number) => {
+    const p = toCanvas(clientX, clientY);
     const feature = getFeature(featureId);
     const w = feature?.w ?? 420;
     const h = feature?.h ?? 88;
@@ -781,6 +784,17 @@ export function DesktopCanvas() {
     play("confirm");
     haptic();
   };
+
+  const placeRef = React.useRef(placeFeature);
+  placeRef.current = placeFeature;
+  React.useEffect(() => {
+    const go = (e: Event) => {
+      const d = (e as CustomEvent<{ featureId: string; clientX: number; clientY: number }>).detail;
+      if (d?.featureId) placeRef.current(d.featureId, d.clientX, d.clientY);
+    };
+    window.addEventListener("studio:place-feature", go);
+    return () => window.removeEventListener("studio:place-feature", go);
+  }, []);
 
   /* ---------------------------------------------------------- snapping */
   const snapSelection = React.useCallback(

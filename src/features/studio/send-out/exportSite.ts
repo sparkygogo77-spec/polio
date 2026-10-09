@@ -1033,7 +1033,7 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
     const b = deriveBehaviours(onPage, page.scroll);
     const motionTags = siteMotionTags({
       progress: b.progress, backToTop: b.backToTop, reveal: b.reveal, parallax: b.parallax, smooth: b.smooth, snap: b.snap,
-      intro: b.intro, cursor: b.cursor, tilt: b.tilt, parts: onPage.filter((n) => !isBehaviourPart(n.featureId)).map((n) => n.id),
+      intro: b.intro, cursor: b.cursor, cursorPicture: b.cursorPicture, tilt: b.tilt, parts: onPage.filter((n) => !isBehaviourPart(n.featureId)).map((n) => n.id),
       accent: palette.accent, surface: palette.surface,
     }, up);
     if (motionTags) anyMotion = true;
