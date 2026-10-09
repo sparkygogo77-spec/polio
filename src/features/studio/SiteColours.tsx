@@ -18,9 +18,10 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
+import { ROLES, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
+import { PieceTexture } from "./PieceTexture";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { siteKinds, type SiteKinds, type SurfaceKind } from "./themeKinds";
 import { componentsOf, type CompNode } from "./components";
@@ -556,7 +557,6 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const nodes = useHeldStudio((s) => s.nodes);
   const pages = useHeldStudio((s) => s.pages);
   const carried = useHeldStudio((s) => s.look.fonts);
-  const layers = useHeldStudio((s) => s.look.texture);
   const k = pick === "page" ? null : site.kinds[pick] ?? null;
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
   /* Picked, its parts stay outlined on the board for as long as its editor is open (J, 2026-10-09): through
@@ -607,13 +607,6 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
       if (n) for (const f of spotsOf(n, pal()).filter((x) => x.spot.use === "fill")) swap(f.key, to, "fill", [id]);
     }
   };
-  const texture = k && !k.button ? (() => {
-    const worn = new Map<string, number>();
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    for (const id of k.ids) { const t = (byId.get(id) as { texture?: string | null } | undefined)?.texture ?? ""; worn.set(t, (worn.get(t) ?? 0) + 1); }
-    return [...worn.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-  })() : null;
-  const setTexture = (to: string | null) => { useStudio.getState().patchNodes(k!.ids, () => ({ texture: to })); play("select"); };
   return (
     <div data-kind-editor={name} className="space-y-2 rounded-md border border-border bg-elevated p-2">
       <div className="flex items-center gap-2">
@@ -658,20 +651,8 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
       ) : null}
       {k ? <KindCorners k={k} /> : null}
       {k || captured ? null : <SiteDial id="layout.radius" label="Corners" min={0} max={32} hint="Boxes the site rounded keep their own corners; this sets the rest." />}
-      {texture !== null ? (
-        <div data-kind-texture="" className="space-y-1">
-          <p className="text-fine text-fg-faint">Texture</p>
-          <div className="flex flex-wrap gap-1">
-            {[{ id: "", label: "The site's" }, { id: "none", label: "None" }, ...layers.map((l, i) => ({ id: l.id, label: `${TEXTURE_KINDS.find((x) => x.id === l.kind)?.label ?? "Texture"}${layers.length > 1 ? ` ${i + 1}` : ""}` }))].map((t) => (
-              <button key={t.id || "site"} type="button" aria-pressed={texture === t.id} onClick={() => setTexture(t.id || null)}
-                className={cn("tactile rounded-md border px-2 py-0.5 text-small", texture === t.id ? "border-accent bg-hover text-fg" : "border-border text-fg-muted hover:bg-hover")}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {!layers.length ? <p className="text-fine text-fg-faint">Add a texture under Texture below to put it on these.</p> : null}
-        </div>
-      ) : null}
+      {/* The page, a panel or a field: its texture, given here (`PieceTexture.tsx`). Not a button: a button is words on a fill. */}
+      {!k ? <PieceTexture ids={[...background]} page ground={site.page.fill} palette={palette} /> : !k.button ? <PieceTexture ids={k.ids} page={false} ground={k.fill} palette={palette} /> : null}
     </div>
   );
 }

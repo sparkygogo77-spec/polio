@@ -232,6 +232,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   /* A captured part with words of its own (a remote key, a stat tile's label): they may overflow the box the capture measured by a hair of face or rounding, never be cut by it (`tests/button-words-whole.mjs`). */
   const wordsOwn = !!node.from?.selector?.trim() && !node.picture && plain(node.content).trim() !== "";
   const inner = boxed ? { ...t, ownBackground: undefined, partGround: undefined } : t;
+  /* A layer worn by a boxed part brought in is painted by the box (below), not by the part. */
+  const boxWorn = boxed && !!worn && !!palette && !!node.from?.selector?.trim();
   /*
    * A FRAME OF ANOTHER PAGE (sink `node.embed`: trumpmorty.fun's DEX Screener
    * chart). Live, the frame itself, filling the box, in a sandbox; on the
@@ -326,7 +328,17 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn ? { position: "relative" as const, isolation: "isolate" as const } : null) }}>
+        {/*
+          A TEXTURE A BOXED PART WEARS, over the fill its box paints and under
+          everything the part draws. A part brought in paints its fill on the
+          box (its own colour, its gradient, its picture) and no part inside
+          it reads `surfacePaint`, so a texture given to one from the Colours
+          preview reached nothing (owner: "the textures also never came up").
+          One layer behind the content (z-index -1 in the box's own stacking
+          context) leaves the fill under it and the words over it.
+        */}
+        {boxWorn ? <span aria-hidden data-part-texture={worn!.id} style={{ position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", borderRadius: "inherit", ...textureCss([{ ...worn!, on: true }], palette!, "transparent") }} /> : null}
         {drawn}
       </div>
       </StillCut>

@@ -1,5 +1,5 @@
-import { oklchToRgb, css, parseColor, ROLES } from "./colour.ts";
-import type { RoleId } from "./colour.ts";
+import { oklchToRgb, css, parseColor, ROLES, contrast } from "./colour.ts";
+import type { Palette, RoleId } from "./colour.ts";
 
 export type TextureKind =
   | "flat" | "noise" | "grain" | "paper" | "scanlines" | "halftone" | "hatch"
@@ -308,4 +308,24 @@ export function channels(colour: string): [string, string, string] {
   const parsed = parseColor(colour);
   const rgb = parsed ? oklchToRgb(parsed) : ([1, 1, 1] as [number, number, number]);
   return rgb.map((v) => v.toFixed(4)) as [string, string, string];
+}
+
+/**
+ * The palette colour a new texture is drawn in: the accent, unless it barely
+ * shows on the ground it lands on. On PonsStars the accent is a pale lime on
+ * a cream page, and stripes in it at the page's own zoom were not there at
+ * all; the highlight, else the words' colour, is.
+ */
+export function seenOn(ground: string, palette: Palette): RoleId {
+  const g = parseColor(ground);
+  if (!g) return "accent";
+  const how = (r: RoleId) => { const c = parseColor(palette[r]); return c ? contrast(c, g) : 1; };
+  for (const r of ["accent", "highlight"] as RoleId[]) if (how(r) >= 2) return r;
+  return how("text") >= how("muted") ? "text" : "muted";
+}
+
+/** A new layer as a press adds it, and as its sample shows it: strong enough to see, in a colour that shows on its ground. */
+export function pickedLayer(kind: TextureKind, ground: string, palette: Palette): TextureLayer {
+  const base = newLayer(kind);
+  return { ...base, role: base.role === "accent" ? seenOn(ground, palette) : base.role, opacity: Math.max(base.opacity, 0.45) };
 }
