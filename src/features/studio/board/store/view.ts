@@ -160,7 +160,13 @@ export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pu
      */
     updateTexture: (id, patch) => {
       const keys = Object.keys(patch).filter((k) => k !== "baked" && k !== "aspect");
-      if (keys.length && keys.every((k) => TEXTURE_RUNS.has(k))) pushEdit(`texture:${id}:${keys.sort().join(",")}`);
+      /* A living picture's dials (speed, strength, way) dragged: one step per drag of one dial, as the other dials. */
+      const was = get().look.texture.find((l) => l.id === id)?.live;
+      const now = patch.live;
+      const dial = keys.length === 1 && keys[0] === "live" && was && now && was.preset === now.preset && was.layers === now.layers
+        ? (["seconds", "amount", "angle", "colour"] as const).filter((k) => was[k] !== now[k]) : null;
+      if (dial?.length === 1) pushEdit(`texture:${id}:live.${dial[0]}`);
+      else if (keys.length && keys.every((k) => TEXTURE_RUNS.has(k))) pushEdit(`texture:${id}:${keys.sort().join(",")}`);
       else if (keys.length) push();
       set((s) => ({ look: { ...s.look, texture: s.look.texture.map((l) => (l.id === id ? { ...l, ...patch } : l)) } }));
     },

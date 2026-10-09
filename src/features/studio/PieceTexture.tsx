@@ -24,11 +24,16 @@ import { useHeldStudio, useStudio } from "./board/store";
 import { HandColour, Slider } from "./HandSlider";
 import { ImageWell } from "./ImageIntake";
 import { CropPicker } from "./CropPicker";
+import { Segmented } from "@/core/ui/segmented";
+import { BACKGROUND_MOTIONS, LIVE_PRESETS, MAX_SECONDS, MIN_SECONDS, isLiving, liveLayers, newLiving, switchPreset, type LivePreset, type LivingPicture } from "./living";
+import { cutLayers } from "./livingCut";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 
 /* No Flat colour: the Background colour above it already is one (J, 2026-10-09). */
 const KINDS: TextureKind[] = ["noise", "stripes", "dots", "grid", "mesh"];
+/** How many layers a picture is cut into when it first comes alive. */
+const FIRST_CUT = 3;
 
 /** The layer the page wears: the first one on, behind the page. */
 export function pageLayer(layers: readonly TextureLayer[]): TextureLayer | null {
@@ -140,6 +145,60 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   };
   const colour = layer ? layer.colour ?? palette[layer.role] : "";
 
+  /*
+   * A LIVING PICTURE (J, 2026-10-09: "i uploaded still images and a code chat
+   * dissected the lines of it and animated it in different directions or
+   * motions which is what i want that option to be for"). The picture is cut
+   * into layers by brightness (`livingCut.ts`) and its layers move on the
+   * living picture's fixed keyframes (`living.ts`): on the board, in the
+   * preview, and on the site through Send the design back.
+   */
+  const live = own && isLiving(own.live) ? own.live : null;
+  const [cutting, setCutting] = React.useState(false);
+  const [cutError, setCutError] = React.useState<string | null>(null);
+  /* While its controls are open, the board lets it move (globals.css), so a motion picked is seen. */
+  const alive = !!live;
+  React.useEffect(() => {
+    if (!alive) return;
+    const root = document.documentElement;
+    root.setAttribute("data-live-texture-open", "");
+    return () => root.removeAttribute("data-live-texture-open");
+  }, [alive]);
+  /** Cut `src` into `count` layers; null when it could not be. */
+  const cutFrom = async (src: string, count: number): Promise<string[] | null> => {
+    setCutting(true);
+    try { const got = await cutLayers(src, count, { type: "image/webp" }); setCutError(null); return got; }
+    catch (e) { setCutError(e instanceof Error ? e.message : String(e)); return null; }
+    finally { setCutting(false); }
+  };
+  /** A picture dropped in: kept, and alive in the motion it had (drift, the first time), in one undo. */
+  const dropPicture = async (src: string) => {
+    if (!own) return;
+    const id = own.id, motion = live ?? (own.src ? null : { ...newLiving("drift"), angle: 0 });
+    const layers = motion ? await cutFrom(src, liveLayers(motion).length || FIRST_CUT) : null;
+    step(() => useStudio.getState().updateTexture(id, { src, baked: undefined, crop: undefined, ...(motion && layers ? { live: { ...motion, layers } } : {}) }));
+  };
+  /** A motion picked: Still takes the life away, the rest keep its cut and way. */
+  const pickMotion = async (to: LivePreset | "still") => {
+    if (!own) return;
+    play("select");
+    const id = own.id;
+    if (to === "still") { if (live) step(() => useStudio.getState().updateTexture(id, { live: undefined })); return; }
+    if (live) { if (live.preset !== to) step(() => useStudio.getState().updateTexture(id, { live: { ...switchPreset(live, to), angle: live.angle } })); return; }
+    if (!own.src) return;
+    const layers = await cutFrom(own.src, FIRST_CUT);
+    if (layers) step(() => useStudio.getState().updateTexture(id, { live: { ...newLiving(to), angle: 0, layers } }));
+  };
+  /** Cut again into another number of layers: one undo. */
+  const recut = async (count: number) => {
+    if (!own?.src || !live || count === liveLayers(live).length) return;
+    const id = own.id;
+    const layers = await cutFrom(own.src, count);
+    if (layers) step(() => useStudio.getState().updateTexture(id, { live: { ...(useStudio.getState().look.texture.find((l) => l.id === id)?.live ?? live), layers } }));
+  };
+  /** A dial on the motion: each drag of one dial is one undo (`updateTexture`). */
+  const setLive = (patch: Partial<LivingPicture>) => { if (own && live) useStudio.getState().updateTexture(own.id, { live: { ...live, ...patch } }); };
+
   return (
     <div data-kind-texture="" data-texture-site={siteOnly ? "" : undefined} className="space-y-1.5">
       <p className="text-fine text-fg-faint">Texture</p>
@@ -162,7 +221,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           );
         })}
         {/* A picture of his own, tiled: what the folded-away layer stack used to be the only place for (J, 2026-10-09: "that tech should be shoved into the texture ... field"). */}
-        <button type="button" data-texture-sample="image" aria-pressed={layer?.kind === "image"} aria-label="Picture" title="A picture you drop in, tiled and tinted" onClick={() => pick("image")}
+        <button type="button" data-texture-sample="image" aria-pressed={layer?.kind === "image"} aria-label="Picture" title="A picture you drop in: alive (cut into layers that move) or still" onClick={() => pick("image")}
           className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", layer?.kind === "image" ? "border-accent" : "border-border hover:border-border-strong")}>
           <span aria-hidden className="block h-9 w-full" style={layer?.kind === "image" && layer.src ? textureCss([{ ...layer, on: true }], palette, ground) : { background: ground }} />
           <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Picture</span>
@@ -170,13 +229,54 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       </div>
       {layer?.kind === "image" && own ? (
         <div data-texture-picture="" className="space-y-1.5">
-          <ImageWell src={own.src} onImage={(src) => set({ src, baked: undefined, crop: undefined })} onClear={own.src ? () => set({ src: undefined, baked: undefined, crop: undefined }) : undefined} label="picture" />
-          {own.src ? <CropPicker src={own.src} crop={own.crop} onChange={(crop) => set({ crop })} /> : null}
-          <Check label="Paint it in the texture colour" checked={!!own.pattern} onChange={(v) => set({ pattern: v })} />
-          <Check label="Cut out its background" checked={!!own.cutout} onChange={(v) => set({ cutout: v })} />
+          <ImageWell src={own.src} onImage={(src) => void dropPicture(src)} onClear={own.src ? () => step(() => useStudio.getState().updateTexture(own.id, { src: undefined, baked: undefined, crop: undefined, live: undefined })) : undefined} label="picture" />
+          {own.src ? (
+            <div data-texture-motions="" className="space-y-1">
+              <span className="block text-fine text-fg-faint">How it moves</span>
+              <div className="flex flex-wrap gap-1">
+                {(["still", ...BACKGROUND_MOTIONS] as const).map((m) => {
+                  const on = m === "still" ? !live : live?.preset === m;
+                  const about = m === "still" ? "A still picture, tiled" : LIVE_PRESETS.find((p) => p.id === m)?.about;
+                  const label = m === "still" ? "Still" : LIVE_PRESETS.find((p) => p.id === m)?.label ?? m;
+                  return (
+                    <button key={m} type="button" data-texture-motion={m} aria-pressed={on} title={about} disabled={cutting} onClick={() => void pickMotion(m)}
+                      className={cn("tactile rounded-md border-2 px-2 py-0.5 text-small font-medium text-fg", on ? "border-accent" : "border-border hover:border-border-strong")}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          {live ? (
+            <div data-texture-live={live.preset} className="space-y-1.5">
+              {live.preset !== "pulse" ? <Dial label="Direction" value={Math.round((((live.angle ?? 0) % 360) + 360) % 360)} min={0} max={359} unit="°" onTo={(v) => setLive({ angle: v })} /> : null}
+              {/* Faster to the right: the slider runs over seconds backwards. */}
+              <label className="block space-y-0.5 text-small text-fg">
+                <span className="flex justify-between"><span>Speed</span><span className="num text-fg-faint">{live.seconds}s a round</span></span>
+                <Slider value={[MAX_SECONDS + MIN_SECONDS - live.seconds]} min={MIN_SECONDS} max={MAX_SECONDS} step={0.5} silent aria-label="Speed"
+                  onValueChange={(v) => setLive({ seconds: Math.round((MAX_SECONDS + MIN_SECONDS - (v[0] ?? 8)) * 10) / 10 })} />
+              </label>
+              <Dial label="Strength" value={Math.round(live.amount * 100)} min={10} max={100} unit="%" onTo={(v) => setLive({ amount: v / 100 })} />
+              <div data-texture-layers={liveLayers(live).length} className="space-y-1">
+                <span className="block text-fine text-fg-faint">Layers: its bright parts lift off and move in front</span>
+                <Segmented size="xs" value={String(liveLayers(live).length)} onChange={(v) => void recut(Number(v))}
+                  options={["2", "3", "4"].map((v) => ({ value: v, label: v, disabled: cutting }))} />
+                <div className="flex gap-1">{liveLayers(live).map((src, i) => <img key={i} src={src} alt={`Layer ${i + 1}${i === 0 ? ", the front" : ""}`} className="size-9 rounded-sm border border-border bg-black/40 object-cover" />)}</div>
+              </div>
+            </div>
+          ) : own.src ? (
+            <>
+              <CropPicker src={own.src} crop={own.crop} onChange={(crop) => set({ crop })} />
+              <Check label="Paint it in the texture colour" checked={!!own.pattern} onChange={(v) => set({ pattern: v })} />
+              <Check label="Cut out its background" checked={!!own.cutout} onChange={(v) => set({ cutout: v })} />
+            </>
+          ) : null}
+          {cutting ? <p className="text-fine text-fg-faint">Cutting it into layers…</p> : null}
+          {cutError ? <p className="text-fine text-danger">{cutError}</p> : null}
         </div>
       ) : null}
-      {layer ? (
+      {layer && !live ? (
         <div data-texture-dials="" className="space-y-1.5">
           <div data-kind-colour="texture" className="flex items-center gap-2 text-small text-fg">
             <HandColour aria-label="Texture colour" value={toHex(parseColor(colour) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}

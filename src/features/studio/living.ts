@@ -25,7 +25,7 @@
  * Pure: no store, no browser. `tests/living-picture.mjs` holds it.
  */
 
-export type LivePreset = "drift" | "breathe" | "shimmer" | "glow" | "parallax" | "draw" | "trace" | "wobble";
+export type LivePreset = "drift" | "breathe" | "shimmer" | "glow" | "parallax" | "draw" | "trace" | "wobble" | "sway" | "pulse";
 
 export interface LivingPicture {
   preset: LivePreset;
@@ -37,9 +37,27 @@ export interface LivingPicture {
   colour: string;
   /** The picture cut into layers, as data URLs, FRONT FIRST (the order CSS stacks backgrounds in). Empty: the part moves as one. */
   layers?: string[];
+  /**
+   * Which way its layers travel, in degrees: 0 to the right, 90 down. Absent:
+   * each motion's own way (drift across and a little up, parallax up).
+   * Written as `--live-x` / `--live-y`, which the layered keyframes read.
+   */
+  angle?: number;
+  /**
+   * Laid against the window, not the part: a page's living background worn
+   * by several parts on the site (`styleLayer.ts#wearTextures`), so every
+   * copy lines up with the others and the page reads as one picture.
+   */
+  fixed?: boolean;
 }
 
-export const LIVE_PRESETS: { id: LivePreset; label: string; for: "picture" | "shape"; about: string }[] = [
+/**
+ * `background`: motions a living BACKGROUND plays (a texture given from the
+ * Look preview, `PieceTexture.tsx`). They move only the picture's layers
+ * (`background-position`, `background-size`), never the part, so the words
+ * and panels on top stay put.
+ */
+export const LIVE_PRESETS: { id: LivePreset; label: string; for: "picture" | "shape" | "background"; about: string }[] = [
   { id: "drift", label: "Drift", for: "picture", about: "floats slowly; cut into layers, each layer drifts at its own depth" },
   { id: "breathe", label: "Breathe", for: "picture", about: "swells and settles" },
   { id: "shimmer", label: "Shimmer", for: "picture", about: "a band of light sweeps across" },
@@ -48,12 +66,17 @@ export const LIVE_PRESETS: { id: LivePreset; label: string; for: "picture" | "sh
   { id: "draw", label: "Draw on", for: "shape", about: "draws itself in from one side" },
   { id: "trace", label: "Trace glow", for: "shape", about: "a glow travels round its edge" },
   { id: "wobble", label: "Wobble", for: "shape", about: "rocks gently" },
+  { id: "sway", label: "Sway", for: "background", about: "its layers swing past each other, each the other way" },
+  { id: "pulse", label: "Pulse", for: "background", about: "its bright layers swell and settle, like a twinkle" },
 ];
+
+/** The motions a living background offers, in the order the Texture row shows them. */
+export const BACKGROUND_MOTIONS: LivePreset[] = ["drift", "sway", "pulse", "parallax"];
 
 export const LIVE_WORD: Record<LivePreset, string> = Object.fromEntries(LIVE_PRESETS.map((p) => [p.id, p.about])) as Record<LivePreset, string>;
 
 /** How fast each motion goes round by default, in seconds. */
-const DEFAULT_SECONDS: Record<LivePreset, number> = { drift: 8, breathe: 4, shimmer: 3, glow: 2.4, parallax: 1, draw: 3, trace: 2.4, wobble: 2 };
+const DEFAULT_SECONDS: Record<LivePreset, number> = { drift: 8, breathe: 4, shimmer: 3, glow: 2.4, parallax: 1, draw: 3, trace: 2.4, wobble: 2, sway: 7, pulse: 3 };
 export const MIN_SECONDS = 0.5;
 export const MAX_SECONDS = 20;
 export const MAX_LAYERS = 4;
@@ -89,10 +112,15 @@ export function livingLayered(l: unknown): boolean {
   return isLiving(l) && liveLayers(l).length > 0;
 }
 
-/** The keyframe name a motion plays: drift and parallax have one per layer count. */
+/** Motions with one set of keyframes per layer count. */
+const LAYERED = new Set<LivePreset>(["drift", "parallax", "sway", "pulse"]);
+/** What a layered-only motion plays on a part that was never cut: the nearest motion of the whole part. */
+const UNCUT: Partial<Record<LivePreset, LivePreset>> = { sway: "wobble", pulse: "breathe" };
+
+/** The keyframe name a motion plays: the layered ones have one per layer count. */
 export function liveName(l: LivingPicture): string {
   const n = liveLayers(l).length;
-  return (l.preset === "drift" || l.preset === "parallax") && n ? `polio-live-${l.preset}-${n}` : `polio-live-${l.preset}`;
+  return LAYERED.has(l.preset) && n ? `polio-live-${l.preset}-${n}` : `polio-live-${UNCUT[l.preset] ?? l.preset}`;
 }
 
 const TIMING: Record<LivePreset, string> = {
@@ -104,6 +132,8 @@ const TIMING: Record<LivePreset, string> = {
   draw: "cubic-bezier(0.3, 0, 0.2, 1) infinite",
   trace: "linear infinite",
   wobble: "ease-in-out infinite alternate",
+  sway: "ease-in-out infinite alternate",
+  pulse: "ease-in-out infinite alternate",
 };
 
 /** The `animation` it plays, reading the tokens. */
@@ -123,6 +153,12 @@ export function liveCss(l: LivingPicture): Record<string, string> {
     "--live-amount": `${r2(clamp(l.amount, 0.1, 1))}`,
     "--live-colour": l.colour || "#77eeff",
   };
+  /* Its own way: the layered keyframes read these, each with its motion's usual way when they are not set. */
+  if (typeof l.angle === "number" && Number.isFinite(l.angle)) {
+    const a = (l.angle * Math.PI) / 180;
+    out["--live-x"] = `${r2(TRAVEL * Math.cos(a))}`;
+    out["--live-y"] = `${r2(TRAVEL * Math.sin(a))}`;
+  }
   if (layers.length) {
     out["--live-layers"] = layers.map((s) => `url("${s.replace(/"/g, "%22")}")`).join(", ");
     out["background-image"] = "var(--live-layers)";
@@ -130,6 +166,7 @@ export function liveCss(l: LivingPicture): Record<string, string> {
     out["background-size"] = layers.map(() => "120% 120%").join(", ");
     out["background-position"] = layers.map(() => "50% 50%").join(", ");
     out["background-repeat"] = "no-repeat";
+    if (l.fixed) out["background-attachment"] = layers.map(() => "fixed").join(", ");
   }
   out.animation = liveAnimation(l);
   if (l.preset === "parallax") out["animation-timeline"] = "view()";
@@ -144,24 +181,43 @@ export function liveStyle(l: LivingPicture): Record<string, string> {
 }
 
 /** What a motion's slots are when it is taken off again. */
-export const LIVE_UNSET: Record<string, string> = { "animation-timeline": "auto", "background-size": "auto", "background-position": "0% 0%", "background-repeat": "repeat" };
+export const LIVE_UNSET: Record<string, string> = { "animation-timeline": "auto", "background-attachment": "scroll", "background-size": "auto", "background-position": "0% 0%", "background-repeat": "repeat" };
 
 /* ------------------------------------------------------------------ */
 /* The keyframes                                                       */
 /* ------------------------------------------------------------------ */
 
 const A = "var(--live-amount)";
+/** How far a layer at the front travels each way, in percent of the room its 120% size leaves: inside it, so no edge ever shows. */
+const TRAVEL = 45;
 
-/** Each layer's place, front first, `t` from -1 to 1 along the motion. */
-function layerPositions(n: number, x: number, y: number): string {
-  return Array.from({ length: n }, (_, i) => `calc(50% + ${A} * ${r2(x * DEPTH[i]!)}%) calc(50% + ${A} * ${r2(y * DEPTH[i]!)}%)`).join(", ");
+/**
+ * Each layer's place, front first, at one end of the motion (`sign` -1 or 1,
+ * or one per layer). The way comes from `--live-x` / `--live-y` when a part
+ * sets them, else from the motion's own (`x`, `y`), so a part that never set
+ * a way moves exactly as it always did.
+ */
+function layerPositions(n: number, x: number, y: number, sign: number | ((i: number) => number)): string {
+  return Array.from({ length: n }, (_, i) => {
+    const s = (typeof sign === "number" ? sign : sign(i)) < 0 ? "-" : "+";
+    const d = r2(DEPTH[i]!);
+    return `calc(50% ${s} ${A} * var(--live-x, ${x}) * ${d}%) calc(50% ${s} ${A} * var(--live-y, ${y}) * ${d}%)`;
+  }).join(", ");
+}
+
+/** Each layer's size, front first: the front swells most. */
+function layerSizes(n: number, grow: boolean): string {
+  return Array.from({ length: n }, (_, i) => (grow ? `calc(120% + ${A} * ${r2(12 * DEPTH[i]!)}%) calc(120% + ${A} * ${r2(12 * DEPTH[i]!)}%)` : "120% 120%")).join(", ");
 }
 
 function layeredKeyframes(): string[] {
   const out: string[] = [];
+  const alternate = (i: number) => (i % 2 ? -1 : 1);
   for (let n = 2; n <= MAX_LAYERS; n++) {
-    out.push(`@keyframes polio-live-drift-${n} { from { background-position: ${layerPositions(n, -45, -12)}; } to { background-position: ${layerPositions(n, 45, 12)}; } }`);
-    out.push(`@keyframes polio-live-parallax-${n} { from { background-position: ${layerPositions(n, 0, -50)}; } to { background-position: ${layerPositions(n, 0, 50)}; } }`);
+    out.push(`@keyframes polio-live-drift-${n} { from { background-position: ${layerPositions(n, TRAVEL, 12, -1)}; } to { background-position: ${layerPositions(n, TRAVEL, 12, 1)}; } }`);
+    out.push(`@keyframes polio-live-parallax-${n} { from { background-position: ${layerPositions(n, 0, 50, -1)}; } to { background-position: ${layerPositions(n, 0, 50, 1)}; } }`);
+    out.push(`@keyframes polio-live-sway-${n} { from { background-position: ${layerPositions(n, TRAVEL, 0, (i) => -alternate(i))}; } to { background-position: ${layerPositions(n, TRAVEL, 0, alternate)}; } }`);
+    out.push(`@keyframes polio-live-pulse-${n} { from { background-size: ${layerSizes(n, false)}; } to { background-size: ${layerSizes(n, true)}; } }`);
   }
   return out;
 }
@@ -203,5 +259,6 @@ export function liveDeclarations(l: LivingPicture): Record<string, string> {
 /** In words, for the brief. */
 export function describeLiving(l: LivingPicture): string {
   const n = liveLayers(l).length;
-  return `moves with no script (CSS keyframes ${liveName(l)}): it ${LIVE_WORD[l.preset]}, one round every ${r2(clamp(l.seconds, MIN_SECONDS, MAX_SECONDS))}s at strength ${r2(clamp(l.amount, 0.1, 1))}${n ? `, its picture cut into ${n} layers` : ""}; still for visitors who ask for reduced motion`;
+  const way = typeof l.angle === "number" ? `, heading ${Math.round(((l.angle % 360) + 360) % 360)}°` : "";
+  return `moves with no script (CSS keyframes ${liveName(l)}): it ${LIVE_WORD[l.preset]}, one round every ${r2(clamp(l.seconds, MIN_SECONDS, MAX_SECONDS))}s at strength ${r2(clamp(l.amount, 0.1, 1))}${way}${n ? `, its picture cut into ${n} layers` : ""}; still for visitors who ask for reduced motion`;
 }

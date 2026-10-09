@@ -32,7 +32,7 @@ import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio, useSteady } from "./board/store";
 import { FAMILY } from "./shelf/run";
-import { buildLayer, type LayerNode, type StyleSource } from "./send-out";
+import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
 import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
@@ -55,7 +55,10 @@ function wantOf(source: StyleSource): string {
 export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const ctx = useActions();
   /* Held still under the hand: the whole style layer is rebuilt from it (`store/hold.ts`). */
-  const nodes = useSteady(useStudio((s) => s.nodes));
+  /* Parts wearing a living background carry it as their own living picture (`wearTextures`). */
+  const textures = useStudio((s) => s.look.texture);
+  const steady = useSteady(useStudio((s) => s.nodes));
+  const nodes = React.useMemo(() => wearTextures(steady, textures), [steady, textures]);
   const palette = useStudio((s) => s.look.palette as Record<string, string>);
   const layer = React.useMemo(() => buildLayer(nodes as unknown as LayerNode[], palette, source, { family, kit: !!source.kit }), [nodes, palette, source]);
   const empty = !layer.rules.length && !layer.vars.length;

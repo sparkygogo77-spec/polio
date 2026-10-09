@@ -39,12 +39,12 @@ function paints(box: Element): boolean {
   return (a.endsWith("%") ? Number(a.slice(0, -1)) / 100 : Number(a)) > 0.01;
 }
 
-/** Every texture drift on these elements, started on the document's clock, so two copies are at the same place at the same moment. */
+/** Every texture drift (and living picture, `living.ts`) on these elements, started on the document's clock, so two copies are at the same place at the same moment. */
 export function syncDrift(...els: (Element | null | undefined)[]) {
   for (const el of els) {
     for (const a of el?.getAnimations?.() ?? []) {
       const name = (a as Animation & { animationName?: string }).animationName;
-      if (name?.startsWith("tex-drift") && a.startTime !== 0) a.startTime = 0;
+      if ((name?.startsWith("tex-drift") || name?.startsWith("polio-live-")) && a.startTime !== 0) a.startTime = 0;
     }
   }
 }
