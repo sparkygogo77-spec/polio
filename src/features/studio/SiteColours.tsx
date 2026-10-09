@@ -18,7 +18,7 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, contrast, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
+import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
@@ -278,27 +278,15 @@ function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs):
  * opens under the frame (`KindEditor`). Each piece is a kind, so one edit
  * reaches every copy of it across the site, as one undo step. Pieces are
  * named by what they are for, never their colour, with how many parts wear
- * them as a bold number in the corner, in a colour the site itself wears.
+ * them as a bold neon-green number in the corner.
  */
 type Pick = "page" | number;
 
-/** The site's own boldest colour, for the counts: the most colourful words or glow it wears, on its darkest colour. */
-function countTint(site: SiteKinds, palette: Palette): { ink: string; ground: string } {
-  const all = [site.page.fill, ...site.kinds.map((k) => k.fill), site.page.words, ...site.kinds.map((k) => k.words)].filter((x): x is string => !!x && !!parseColor(x));
-  const ground = all.reduce((a, b) => ((parseColor(b)?.l ?? 1) < (parseColor(a)?.l ?? 1) ? b : a), palette.text);
-  const g = parseColor(ground) ?? { l: 0.2, c: 0, h: 0 };
-  const bold = [site.page.glow, site.page.words, ...site.kinds.flatMap((k) => [k.glow, k.words]), palette.accent, palette.highlight]
-    .filter((x): x is string => !!x && !!parseColor(x))
-    .filter((x) => contrast(parseColor(x)!, g) >= 3)
-    .sort((a, b) => (parseColor(b)?.c ?? 0) - (parseColor(a)?.c ?? 0))[0];
-  return { ink: bold ? bold : g.l > 0.5 ? "#000" : "#fff", ground };
-}
-
-/** A count's number: the site's bright colour (white when it has none), ringed by a thin dark outline. */
-function countStyle(ink: string): React.CSSProperties {
-  const bright = (parseColor(ink)?.l ?? 0) >= 0.6 ? ink : "#fff";
+/** A count's number: always neon green, bright and vibrant on any swatch (J, 2026-10-09), ringed by a thin dark outline. */
+const COUNT_INK = "#39ff14";
+function countStyle(): React.CSSProperties {
   const edge = "rgb(0 0 0 / 0.85)";
-  return { color: bright, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
+  return { color: COUNT_INK, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
 }
 
 function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
@@ -309,7 +297,6 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
-  const tint = countTint(site, palette);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   const glow = (g: string | null): React.CSSProperties => (g ? { textShadow: `0 0 6px ${g}` } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
@@ -322,7 +309,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
   /* Just the number on the corner, no box behind it (J, 2026-10-09): bright, with a thin dark outline so it reads on a light swatch and a dark one. */
   const count = (n: number, small = false) => (
-    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[9px]" : "right-1 top-1 text-[11px]")} style={countStyle(tint.ink)}>{n}</span>
+    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[11px]" : "right-1 top-1 text-[13px]")} style={countStyle()}>{n}</span>
   );
   const choose = (p: Pick, ids: string[]) => ({
     role: "button",
