@@ -17,6 +17,22 @@ npm run test:changed   # only the tests whose files the change reaches (imports,
 npm run test:nightly   # build, then the whole suite: the nightly run
 ```
 
+Checking something on PonsStars (or any brought-in site)? Don't bring it in.
+Open the saved board instead: it is PST already imported (parts, pictures,
+stills), and it opens in about three seconds. It drives the last `npm run build`
+(or pass `--url` to a Builder already running).
+
+```
+npm run board -- shot pst out.png      # a picture of the Builder with PST on it
+npm run board -- show pst              # which PST commit the saved board is
+npm run board -- refresh pst           # only when PST changed, or the importer did and your check must see it
+```
+
+In a test: `const st = await openBoard(page, URL_BASE, "pst")` from
+`tests/lib/board.mjs` (see `tests/saved-board.mjs`). Bring a site in for real
+only when the import itself is what you changed. Another site gets a board
+the same way: add it to `SITES` in `scripts/board.mjs`.
+
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.
 Before changing anything a person sees in the Builder, read `docs/DESIGN.md`:
 the menu's design language, the rules it lives by, and how the owner works.
