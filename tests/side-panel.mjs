@@ -258,9 +258,14 @@ void selectedBefore;
 
 /* Randomize theme: a new palette in one step, one undo takes it back. */
 const nodes0 = await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes));
+check("Colours leads with a preview frame: heading, two cards, two buttons, an accent tag", (await side.locator("[data-theme-preview] [data-preview-part]").count()) === 6);
+const look0 = await side.locator("[data-theme-preview]").evaluate((el) => [...el.querySelectorAll("*")].map((e) => getComputedStyle(e).backgroundColor + getComputedStyle(e).color).join("|") + getComputedStyle(el).backgroundColor);
 const depth0 = await page.evaluate(() => window.__studioUndoDepth());
 await side.locator("[data-randomize-theme] button").first().click();
 await page.waitForTimeout(600);
+const look1 = await side.locator("[data-theme-preview]").evaluate((el) => [...el.querySelectorAll("*")].map((e) => getComputedStyle(e).backgroundColor + getComputedStyle(e).color).join("|") + getComputedStyle(el).backgroundColor);
+check("…and Randomize theme repaints the preview", look1 !== look0);
+await side.locator("[data-theme-preview]").screenshot({ path: `${SHOTS}/theme-preview-rolled.png` });
 const depth1 = await page.evaluate(() => window.__studioUndoDepth());
 check("Randomize theme recolours the parts", /New theme on \d+ parts?/.test(await side.locator("[data-theme-rolled]").innerText()) && (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) !== nodes0, await side.locator("[data-theme-rolled]").innerText());
 check("…in one undo step", depth1 - depth0 === 1, `${depth1 - depth0} steps`);
