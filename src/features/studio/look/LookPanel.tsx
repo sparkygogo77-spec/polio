@@ -13,8 +13,8 @@ import { MoreHint, MoreHintSpan } from "@/core/ui/more-hint";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2, Undo2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
-  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
+  TEXTURE_KINDS, TEXTURE_TARGETS, spotsOfTarget, targetOfSpots, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
+  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureSpot, type TextureTarget,
 } from "./";
 import { flattenLayers } from "./texture";
 import { CropPicker } from "../CropPicker";
@@ -26,6 +26,7 @@ import { useStudio } from "../board/store";
 import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "../SiteColours";
+import { SavedPalettes } from "./SavedPalettes";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
@@ -529,7 +530,7 @@ function FillRow({ palette }: { palette: Palette }) {
   return (
     <div data-look-fill="" className="space-y-1">
       <div className="flex items-baseline justify-between">
-        <span className="text-fine uppercase tracking-wider text-fg-muted">Fill, under everything</span>
+        <span className="text-fine uppercase tracking-wider text-fg-muted">Spaces fill, under everything</span>
         <span className="text-fine text-fg-faint">{FILLS.find((f) => f.id === fill)?.label ?? fill}</span>
       </div>
       <div className="grid grid-cols-4 gap-1">
@@ -543,21 +544,28 @@ function FillRow({ palette }: { palette: Palette }) {
                 aria-pressed={fill === f.id}
                 onClick={() => { play("select"); useStudio.getState().setFormat("palette.background", f.id); }}
                 className={cn(
-                  "h-9 rounded-md border-2 transition-colors",
+                  "tactile flex flex-col overflow-hidden rounded-md border-2 text-left transition-colors",
                   fill === f.id ? "border-accent" : "border-border hover:border-border-strong",
                 )}
-                style={{
-                  backgroundColor: palette.bg,
-                  /* A 36px square is a miniature, so it asks the fill for a
-                     miniature's tile rather than shrinking the page's behind
-                     its back — which is how this swatch came to draw a grid
-                     the page itself never drew. The size still comes off the
-                     layer. */
-                  ...(layers.length
-                    ? { backgroundImage: layers.map((l) => l.image).join(", "), backgroundSize: layers.map((l) => l.size).join(", "), backgroundRepeat: "repeat" }
-                    : {}),
-                }}
-              />
+              >
+                <span
+                  aria-hidden
+                  className="block h-10 w-full"
+                  style={{
+                    backgroundColor: palette.bg,
+                    /* A small square is a miniature, so it asks the fill for a
+                       miniature's tile rather than shrinking the page's behind
+                       its back — which is how this swatch came to draw a grid
+                       the page itself never drew. The size still comes off the
+                       layer. */
+                    ...(layers.length
+                      ? { backgroundImage: layers.map((l) => l.image).join(", "), backgroundSize: layers.map((l) => l.size).join(", "), backgroundRepeat: "repeat" }
+                      : {}),
+                  }}
+                />
+                {/* The name under the sample, where it can be read. */}
+                <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{f.label}</span>
+              </button>
             </Tooltip>
           );
         })}
@@ -571,6 +579,7 @@ function TextureSection() {
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const [addTo, setAddTo] = React.useState<TextureTarget>("page");
   const s = () => useStudio.getState();
 
   /**
@@ -589,7 +598,7 @@ function TextureSection() {
       s().updateTexture(target, { src, baked: undefined, kind: "image" });
       return;
     }
-    const layer = { ...newLayer("image"), src };
+    const layer = { ...newLayer("image"), src, target: addTo };
     s().addTexture(layer);
     setOpenId(layer.id);
   };
@@ -677,7 +686,7 @@ function TextureSection() {
                 <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-plain text-fg">{kind?.label}</span>
                   <span className="block truncate text-fine text-fg-muted">
-                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {WHERE_SHORT[layer.target ?? "page"]} · {Math.round(layer.opacity * 100)}% solid
+                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {WHERE_SHORT(layer.target)} · {Math.round(layer.opacity * 100)}% solid
                   </span>
                 </button>
                 <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => s().moveTexture(layer.id, -1)}>
@@ -717,14 +726,12 @@ function TextureSection() {
                     never learn where anything was. Every kind takes all of
                     them now, see `layerCss`.
                   */}
-                  <Select
+                  <SpotChips
                     value={layer.target ?? "page"}
-                    onChange={(v) => s().updateTexture(layer.id, { target: v as TextureTarget })}
-                    options={TEXTURE_TARGETS}
-                    aria-label="Where this layer lands"
-                    className="w-full"
+                    onChange={(target) => s().updateTexture(layer.id, { target })}
+                    palette={palette}
+                    layer={layer}
                   />
-                  <MoreHint className="text-small leading-snug text-fg-faint" text={WHERE_HINT[layer.target ?? "page"]} />
 
                   <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
@@ -881,46 +888,119 @@ function TextureSection() {
         that paints the page: the sample is not a picture of the result, it is
         the result at 44 pixels.
       */}
-      <div className="grid grid-cols-3 gap-1.5">
-        {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            data-texture-sample={k}
-            aria-label={`Add ${TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k}`}
-            title={TEXTURE_KINDS.find((x) => x.id === k)?.hint}
-            onClick={() => { play("confirm"); const l = newLayer(k); s().addTexture(l); setOpenId(l.id); }}
-            className="tactile group relative h-11 overflow-hidden rounded-md border border-border hover:border-accent"
-            style={textureCss([newLayer(k)], palette, palette.bg)}
-          >
-            {/* The name, small and on a plate, so the sample is what is read
-                first and the word only settles which one it was. */}
-            <span
-              className="absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-fine font-medium text-fg"
-              style={{ background: withAlpha(palette.bg, 0.72) }}
-            >
-              {TEXTURE_KINDS.find((x) => x.id === k)?.label}
-            </span>
-          </button>
-        ))}
+      {/*
+        WHERE A NEW ONE GOES, chosen first, and the samples below painted on
+        that ground (the page's colour for spaces, a part's for panels and
+        fields), bigger, and with the name under the sample rather than over
+        it. HIS WORDS: "texture should exist for panels or fields or spaces
+        and i can hardly see them in this format". The samples are drawn
+        stronger than a new layer starts, so the pattern can be told apart
+        at this size; the layer itself still starts as it always did.
+      */}
+      <div data-texture-add="" className="space-y-1.5">
+        <span className="text-fine uppercase tracking-wider text-fg-muted">Add a texture to</span>
+        <SpotChips value={addTo} onChange={setAddTo} palette={palette} name="Where a new texture goes" />
+        <div className="grid grid-cols-2 gap-2">
+          {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => {
+            const sample = newLayer(k);
+            const ground = spotsOfTarget(addTo).includes("page") || addTo === "over" ? palette.bg : palette.surface;
+            return (
+              <button
+                key={k}
+                type="button"
+                data-texture-sample={k}
+                aria-label={`Add ${TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k}`}
+                title={TEXTURE_KINDS.find((x) => x.id === k)?.hint}
+                onClick={() => { play("confirm"); const l = { ...newLayer(k), target: addTo }; s().addTexture(l); setOpenId(l.id); }}
+                className="tactile flex flex-col overflow-hidden rounded-md border-2 border-border text-left hover:border-accent"
+              >
+                <span aria-hidden className="block h-16 w-full" style={textureCss([{ ...sample, opacity: Math.max(sample.opacity, 0.6) }], palette, ground)} />
+                <span className="block truncate bg-elevated px-1.5 py-1 text-small font-medium text-fg">
+                  {TEXTURE_KINDS.find((x) => x.id === k)?.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
 }
 
-const WHERE_SHORT: Record<TextureTarget, string> = {
-  page: "background",
-  surfaces: "surfaces",
-  both: "background + surfaces",
-  over: "over all",
-};
+const WHERE_SHORT = (t: TextureTarget | undefined) => (TEXTURE_TARGETS.find((x) => x.value === (t ?? "page"))?.label ?? "Spaces").toLowerCase();
 
-const WHERE_HINT: Record<TextureTarget, string> = {
-  page: "The background and nothing else. Every section, bar and card stays its own opaque colour over it, so it shows in the margins and the gaps.",
-  surfaces: "The cards, bars and panels themselves. The page keeps its flat colour.",
-  both: "The background and the surfaces, each painted separately, so the two read as different materials.",
+const SPOT_HINT: Record<TextureSpot, string> = {
+  page: "The spaces: the background between everything. Panels and fields stay their own colour over it, so it shows in the margins and the gaps.",
+  panels: "The panels: the parts other parts sit in, a section or a card holding words and buttons.",
+  fields: "The fields: the boxes with nothing inside them, an input, a tile, a tour step.",
   over: "Washed across the finished page, content included. Best kept faint, a grain, a fog, a scan line.",
 };
+
+const SPOTS: { id: TextureSpot; label: string }[] = [
+  { id: "page", label: "Spaces" },
+  { id: "panels", label: "Panels" },
+  { id: "fields", label: "Fields" },
+  { id: "over", label: "Over all" },
+];
+
+/**
+ * Where a layer lands, as the three places he can point at.
+ *
+ * HIS WORDS: "texture should exist for panels or fields or spaces and i can
+ * hardly see them in this format". It was one menu of four sentences, and
+ * panels and fields were one word, "surfaces". Each chip is painted with the
+ * layer on the ground it would land on, so the choice is seen, and any
+ * mix of the three can be pressed; "Over all" stands alone.
+ */
+function SpotChips({ value, onChange, palette, layer, name = "Where this layer lands" }: {
+  value: TextureTarget;
+  onChange: (t: TextureTarget) => void;
+  palette: Palette;
+  layer?: TextureLayer;
+  name?: string;
+}) {
+  const on = spotsOfTarget(value);
+  const press = (id: TextureSpot) => {
+    let next: TextureSpot[];
+    if (id === "over") next = ["over"];
+    else if (on.includes(id)) next = on.filter((x) => x !== id && x !== "over");
+    else next = [...on.filter((x) => x !== "over"), id];
+    const t = targetOfSpots(next);
+    if (!t) { play("deny"); return; }
+    play("select");
+    onChange(t);
+  };
+  return (
+    <div className="space-y-1">
+      <div role="group" aria-label={name} data-texture-spots="" className="grid grid-cols-4 gap-1">
+        {SPOTS.map((sp) => {
+          const ground = sp.id === "page" || sp.id === "over" ? palette.bg : palette.surface;
+          return (
+            <button
+              key={sp.id}
+              type="button"
+              data-texture-spot={sp.id}
+              aria-pressed={on.includes(sp.id)}
+              onClick={() => press(sp.id)}
+              className={cn(
+                "tactile flex flex-col overflow-hidden rounded-md border-2 text-left",
+                on.includes(sp.id) ? "border-accent" : "border-border hover:border-border-strong",
+              )}
+            >
+              <span
+                aria-hidden
+                className="block h-8 w-full"
+                style={layer ? textureCss([{ ...layer, on: true, opacity: Math.max(layer.opacity, 0.35) }], palette, ground) : { background: ground }}
+              />
+              <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{sp.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <MoreHint className="text-small leading-snug text-fg-faint" text={on.map((x) => SPOT_HINT[x]).join(" ")} />
+    </div>
+  );
+}
 
 function Toggle({ label, hint, checked, onChange, name }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; name?: string }) {
   return (
@@ -954,6 +1034,16 @@ function Row({ label, value, children }: { label: string; value: string; childre
 }
 
 /* ------------------------------------------------------------------ */
+
+/** One of the light's three groups: a small name over its dials. */
+function LightGroup({ name, data, children }: { name: string; data: string; children: React.ReactNode }) {
+  return (
+    <div data-light-group={data} className="space-y-1.5 rounded-md border border-border p-2">
+      <div className="text-fine font-medium uppercase tracking-wider text-fg-muted">{name}</div>
+      {children}
+    </div>
+  );
+}
 
 /**
  * The lamp.
@@ -1043,13 +1133,14 @@ function LightSection() {
       >
         <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
         <span className="min-w-0 flex-1">
-          <span className="block text-plain font-medium text-fg">How it falls</span>
+          <span className="block text-plain font-medium text-fg">Lamp, shadows and colour</span>
           <span className="block truncate text-small text-fg-faint">
-            {light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}
-            {" \u00b7 "}{light.lift}px off
-            {" \u00b7 "}{Math.round(light.strength * 100)}% shadow
-            {(light.wash ?? 0) > 0.005 ? ` \u00b7 ${Math.round((light.wash ?? 0) * 100)}% on the page` : ""}
+            {light.height > 0.75 ? "Overhead" : light.height > 0.4 ? "At an angle" : "Low, raking"}
+            {", "}{Math.round(light.strength * 100)}% shadow {light.lift}px off
           </span>
+          {(light.wash ?? 0) > 0.005 ? (
+            <span className="block truncate text-small text-fg-faint">{Math.round((light.wash ?? 0) * 100)}% light on the page</span>
+          ) : null}
         </span>
         {/* The warmth, shown as the colour it is rather than as a number. */}
         <span
@@ -1059,33 +1150,47 @@ function LightSection() {
         />
       </button>
 
+      {/*
+        THREE GROUPS, NOT FIVE SLIDERS IN A ROW. HIS WORDS: "light and depth
+        also need better sections". The five dials answer three questions,
+        where the lamp hangs, what the shadows do, and what colour the light
+        is, so they are laid out under those three names, in the order the
+        page reads them (and the order they always had).
+      */}
       {open ? (
-        <div data-light-dials="" className="mt-2">
-        <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
-          <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
-        </Row>
-        <Row label="How far things stand off" value={`${light.lift}px`}>
-          <Slider value={[light.lift]} min={0} max={40} step={1} onValueChange={(v) => set({ lift: v[0] ?? 10 })} />
-        </Row>
-        <Row label="Shadow strength" value={`${Math.round(light.strength * 100)}%`}>
-          <Slider value={[Math.round(light.strength * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ strength: (v[0] ?? 45) / 100 })} />
-        </Row>
-        <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
-          <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
-        </Row>
-        {/*
-          Kept apart from the rest on purpose. The lamp throws shadows whether or
-          not any of its light lands on the background, and wanting the first
-          almost never means wanting the second: a warm pool under a palette
-          someone chose is the quickest way to make that palette look wrong.
-        */}
-        <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
-          <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
-        </Row>
-        <MoreHint
-          className="text-small leading-snug text-fg-faint"
-          text="Every surface works out its own shadow from where it stands relative to the lamp. A card on the left throws left and one underneath throws almost nothing; the blueprint says where the light is, not what each shadow was."
-        />
+        <div data-light-dials="" className="mt-2 space-y-2">
+          <LightGroup name="The lamp" data="lamp">
+            <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
+              <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
+            </Row>
+          </LightGroup>
+          <LightGroup name="Shadows" data="shadows">
+            <Row label="How far things stand off" value={`${light.lift}px`}>
+              <Slider value={[light.lift]} min={0} max={40} step={1} onValueChange={(v) => set({ lift: v[0] ?? 10 })} />
+            </Row>
+            <Row label="Shadow strength" value={`${Math.round(light.strength * 100)}%`}>
+              <Slider value={[Math.round(light.strength * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ strength: (v[0] ?? 45) / 100 })} />
+            </Row>
+          </LightGroup>
+          {/*
+            The light on the page is kept apart from the shadows on purpose.
+            The lamp throws shadows whether or not any of its light lands on
+            the background, and wanting the first almost never means wanting
+            the second: a warm pool under a palette someone chose is the
+            quickest way to make that palette look wrong.
+          */}
+          <LightGroup name="Its colour" data="glow">
+            <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
+              <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
+            </Row>
+            <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
+              <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
+            </Row>
+          </LightGroup>
+          <MoreHint
+            className="text-small leading-snug text-fg-faint"
+            text="Every surface works out its own shadow from where it stands relative to the lamp. A card on the left throws left and one underneath throws almost nothing; the blueprint says where the light is, not what each shadow was."
+          />
         </div>
       ) : null}
     </section>
@@ -1112,6 +1217,8 @@ export function LookPanel() {
       {captured ? null : <ThemeSection />}
       {/* One colour section for every site, then the faces, then the rest (owner: "Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
+      {/* Saved by name and put back with one press (owner: "i also should be able to save color palletes"). */}
+      <SavedPalettes />
       {captured ? null : <SiteFontsSection />}
       <LightSection />
       <TextureSection />

@@ -170,7 +170,8 @@ if (!live) {
     check("and it is two crossed rules that are tiled", !!frame && (frame.image.match(/linear-gradient/g) ?? []).length === 2);
 
     const chip = await page.evaluate(() => {
-      const b = document.querySelector('[data-look-fill] button[aria-label="Grid"]');
+      /* The sample is the swatch's first child; the name sits under it. */
+      const b = document.querySelector('[data-look-fill] button[aria-label="Grid"] > span:first-child');
       return b ? getComputedStyle(b).backgroundSize : null;
     });
     check(

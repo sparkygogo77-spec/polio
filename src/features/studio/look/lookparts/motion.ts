@@ -232,7 +232,11 @@ export function describeLight(light: Light): string[] {
 
 const WHERE: Record<TextureTarget, string> = {
   page: "in the background only",
-  surfaces: "on surfaces (cards, bars, panels)",
+  panels: "on panels (the parts other parts sit in)",
+  fields: "on fields (the boxes with nothing inside them)",
+  surfaces: "on surfaces (panels and fields)",
+  "page+panels": "in the background and on panels",
+  "page+fields": "in the background and on fields",
   both: "in the background and on its surfaces",
   over: "washed over the finished page",
 };

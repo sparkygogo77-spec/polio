@@ -111,3 +111,34 @@ export function wordsIn<N extends Boxed>(nodes: readonly N[], n: N): N | null {
   for (const c of nodes) if (wordsOf(c) && holds(n, c) && (!best || area(c) > area(best))) best = c;
   return best;
 }
+
+const HOLDERS = new WeakMap<readonly Boxed[], Set<string>>();
+
+/**
+ * The parts other parts sit in: the panels, as against the fields. A texture
+ * can land on one kind and not the other (`texture.ts#lands`).
+ *
+ * By the recorded page path where there is one, which is every ancestor of
+ * every path, so a page of thousands of parts is one pass; else by the box,
+ * among the parts that have no path (a site made here: a few dozen). Kept
+ * per list, so every part of a page can ask without the page asking again.
+ */
+export function holderIds(nodes: readonly Boxed[]): Set<string> {
+  const known = HOLDERS.get(nodes);
+  if (known) return known;
+  const out = new Set<string>();
+  const above = new Set<string>();
+  for (const n of nodes) {
+    const parts = pathOf(n).split(" > ");
+    for (let i = 1; i < parts.length; i++) above.add(`${n.pageId ?? ""}\u0000${parts.slice(0, i).join(" > ")}`);
+  }
+  const loose: Boxed[] = [];
+  for (const n of nodes) {
+    const p = pathOf(n);
+    if (p) { if (above.has(`${n.pageId ?? ""}\u0000${p}`)) out.add(n.id); }
+    else loose.push(n);
+  }
+  for (const o of loose) if (loose.some((i) => holds(o, i))) out.add(o.id);
+  HOLDERS.set(nodes, out);
+  return out;
+}

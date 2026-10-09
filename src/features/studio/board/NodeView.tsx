@@ -4,6 +4,7 @@ import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
 import { pageClip } from "../pageClip";
+import { holderIds } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
 import { LiveSite,PartCopy,resolvePageLink } from "../live/LiveSite";
@@ -192,6 +193,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
   const mark = React.useMemo(() => markColour(node, palette), [node, palette]);
+  // A part other parts sit in is a panel, and wears the texture laid on panels.
+  const holder = useStudio((s) => holderIds(s.nodes).has(node.id));
   /*
    * A see-through picture not yet marked so (cleared before the mark
    * existed, or a logo that came see-through): looked at once, at its
@@ -452,6 +455,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           light={light}
           page={page}
           layers={layers}
+          holder={holder}
           /* A card over the page ("What's new") stays drawn open where it is edited: live, it is closed until its feature opens it. */
           mode={selected && !isOverlay(node.featureId) ? "live" : "board"}
           /*

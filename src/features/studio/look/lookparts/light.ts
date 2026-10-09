@@ -99,6 +99,19 @@ export interface Look {
    */
   theme?: SiteTheme | null;
   themeRoll?: ThemeRollSettings | null;
+  /**
+   * Colour palettes he saved by name (`SavedPalettes.tsx`), kept with the
+   * site: all six roles as they stood, put back with one press. Absent until
+   * the first is saved.
+   */
+  palettes?: SavedPalette[];
+}
+
+/** A palette saved by name: the six roles as they stood when it was saved. */
+export interface SavedPalette {
+  id: string;
+  name: string;
+  colours: Palette;
 }
 
 /** How the next roll is made, kept with the site. */
