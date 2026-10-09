@@ -18,7 +18,7 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
+import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
@@ -676,6 +676,23 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   );
 }
 
+/**
+ * Back to what the site gave, on a site brought in; the app's own otherwise.
+ * The roles AND every part the panel repainted (a theme roll, a kind's
+ * colour), each to its colours before its first change (`look.coloursWas`):
+ * putting only the roles back left the rolled colours on the parts. One undo.
+ */
+function resetColours(): void {
+  const st = useStudio.getState();
+  const mark = st.historyMark();
+  const from = st.look.paletteFrom;
+  const was = st.look.coloursWas ?? {};
+  st.setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {}, coloursWas: {} });
+  const ids = st.nodes.filter((n) => was[n.id]).map((n) => n.id);
+  if (ids.length) useStudio.getState().patchNodes(ids, (n) => withColours(n, was[n.id]!) as Partial<StudioNode>);
+  useStudio.getState().oneStepSince(mark);
+}
+
 export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
   const { nodes, palette, look } = useSite();
   const frameWidth = useHeldStudio((s) => s.frameWidth);
@@ -700,12 +717,11 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
       <div>
         <div className="flex items-center justify-between">
           <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
-          {look.palette && Object.keys(look.palette).length ? (
+          {(look.palette && Object.keys(look.palette).length) || Object.keys(look.coloursWas ?? {}).length ? (
             <button
               type="button"
               data-colours-reset=""
-              /* Back to what the site gave, on a site brought in; the app's own otherwise. */
-              onClick={() => { play("close"); const from = look.paletteFrom; useStudio.getState().setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {} }); }}
+              onClick={() => { play("close"); resetColours(); }}
               className="text-small text-fg-muted hover:text-fg"
             >
               Reset
