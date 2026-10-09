@@ -400,3 +400,16 @@ which moves the element and keeps its hook. A region is layout, never part of a 
 sit inside a `data-panel`. Once a page declares a region, `kit:check` fails on a panel outside every
 region, a region inside a panel, a region with no `data-hook` or `data-label`, and a name used twice;
 a page with panels and no region gets a note (·).
+
+
+## 33. A panel and what is inside it move as one
+
+A hover or press effect (lift, darken, grow, glow) goes on the outermost part that should react as one:
+the panel, card or button. The words, icons and buttons inside it ride along with it; they never carry
+the same effect again on their own, so nothing lifts twice or flickers as the pointer crosses from the
+panel onto its text. A part inside that needs its own different reaction (an icon that turns while
+its card lifts) keeps that one effect only. The builder's Motion tab groups effects by what they do and
+follows this rule when it adds a part to an effect: a part inside a panel that already has it is left
+alone, and a panel given it takes it from the parts inside. A code chat writes such effects as one
+rule keyed on the panel's hook (`[data-hook="x"]:hover`), children styled through it if they must
+change too (`[data-hook="x"]:hover [data-hook="x-label"]`), never as separate rules on each child.

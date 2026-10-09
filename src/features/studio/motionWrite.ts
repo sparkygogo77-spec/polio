@@ -10,7 +10,8 @@
  * many parts it touches, a change is one undo step.
  */
 import { useStudio, type StudioNode } from "./board/store";
-import { withInput, withSwitch, usesOf } from "./shelf";
+import { withInput, withSwitch, withWork, withoutWork, usesOf } from "./shelf";
+import type { Effect } from "./motionEffects";
 import { seconds, workSpeedInput, type MoveRow } from "./motionInventory";
 
 const trim = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -87,3 +88,42 @@ export function setRowsSpeed(rows: readonly MoveRow[], value: number | string): 
 
 export const setRowOn = (row: MoveRow, on: boolean) => setRowsOn([row], on);
 export const setRowSpeed = (row: MoveRow, value: number | string) => setRowsSpeed([row], value);
+
+/* ------------------------------------------------------------------ */
+/* Who has an effect                                                   */
+/* ------------------------------------------------------------------ */
+
+/** What giving a part an effect writes: the same library feature with the same settings, or the same rule on its own box. */
+function addPatch(node: StudioNode, e: Effect): Partial<StudioNode> {
+  if (e.workId) return { work: withWork(node.work, { id: e.workId, inputs: { ...(e.workInputs ?? {}) } }) };
+  const m = node.motion ?? {};
+  const list = e.kind === "press" ? "active" : "hover";
+  return {
+    motion: {
+      ...m,
+      [list]: [...(m[list] ?? []), { self: true, style: { ...e.style } }],
+      /* It eases in as the parts that already have it do, rather than jumping. */
+      transition: m.transition?.length ? m.transition : [{ property: "all", duration: "0.2s", timing: "ease" }],
+    },
+  };
+}
+
+/** What taking an effect off a part writes: the feature gone, or that kind of rule gone from its box. */
+function removePatch(node: StudioNode, e: Effect): Partial<StudioNode> {
+  if (e.workId) return { work: withoutWork(node.work, e.workId) };
+  if (!node.motion) return {};
+  const list = e.kind === "press" ? "active" : "hover";
+  const { [list]: _gone, ...rest } = node.motion;
+  void _gone;
+  return { motion: rest };
+}
+
+/** Gives the effect to some parts and takes it from others: one undo step. */
+export function changeEffect(e: Effect, add: readonly string[], remove: readonly string[]): void {
+  if (!add.length && !remove.length) return;
+  const s = useStudio.getState();
+  const mark = s.historyMark();
+  const adding = new Set(add);
+  s.patchNodes([...add, ...remove], (n) => (adding.has(n.id) ? addPatch(n, e) : removePatch(n, e)));
+  useStudio.getState().oneStepSince(mark);
+}
