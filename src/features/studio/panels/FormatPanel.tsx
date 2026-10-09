@@ -19,7 +19,7 @@
 import * as React from "react";
 import { ChevronRight, RotateCcw, Search } from "lucide-react";
 import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "../format";
-import { useStudio } from "../board/store";
+import { useHeldStudio, useStudio } from "../board/store";
 import { resolvePalette } from "../shelf/run";
 import { isCaptured, readSiteFormat } from "../siteFormat";
 import { formatSwitchKeys, formatSwitches, formatSwitchOn } from "../shelfFacts";
@@ -29,7 +29,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { Slider } from "@/core/ui/slider";
+import { Slider } from "../HandSlider";
 import { Switch } from "@/core/ui/switch";
 import { ctxProps } from "@/core/context-menu/ctx";
 
@@ -39,8 +39,8 @@ const SITE_ROWS = ["type.headingFamily", "type.bodyFamily", "type.baseSize", "la
 const SWITCH_KEYS = formatSwitchKeys();
 
 function Control({ field }: { field: FormatField }) {
-  const value = useStudio((s) => s.format[field.id] ?? field.default);
-  const setFormat = useStudio((s) => s.setFormat);
+  const value = useHeldStudio((s) => s.format[field.id] ?? field.default);
+  const setFormat = useHeldStudio((s) => s.setFormat);
   switch (field.type) {
     case "toggle":
       return <Switch size="sm" checked={Boolean(value)} onCheckedChange={(v) => setFormat(field.id, v)} silent aria-label={field.label} />;
@@ -61,9 +61,9 @@ function Control({ field }: { field: FormatField }) {
 
 /** The captured site's readings, for this panel and Settings > This site alike. */
 export function useSiteFormat() {
-  const nodes = useStudio((s) => s.nodes);
-  const look = useStudio((s) => s.look);
-  const format = useStudio((s) => s.format);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const look = useHeldStudio((s) => s.look);
+  const format = useHeldStudio((s) => s.format);
   const bg = React.useMemo(() => resolvePalette(format, look).bg, [format, look]);
   const captured = React.useMemo(() => isCaptured({ nodes, look }), [nodes, look]);
   const readings = React.useMemo(() => (captured ? readSiteFormat({ nodes, look, format }, bg) : {}), [captured, nodes, look, format, bg]);
@@ -92,8 +92,8 @@ function Head({ title, blurb }: { title: string; blurb?: string }) {
 }
 
 function WholeSite() {
-  const format = useStudio((s) => s.format);
-  const setFormat = useStudio((s) => s.setFormat);
+  const format = useHeldStudio((s) => s.format);
+  const setFormat = useHeldStudio((s) => s.setFormat);
   /* Page transitions are dropped onto the page from the Motion shelf, not switched here (J, 2026-10-09). */
   const fields = formatSwitches().filter((sw) => sw.key !== "pages.transition").map((sw) => ({ sw, f: FIELD.get(sw.key) })).filter((x): x is { sw: (typeof x)["sw"]; f: FormatField } => !!x.f);
   return (
@@ -120,8 +120,8 @@ function WholeSite() {
 
 /** Everything else, closed: the brief a generator reads when it builds a new site. */
 function BriefFold() {
-  const format = useStudio((s) => s.format);
-  const resetFormat = useStudio((s) => s.resetFormat);
+  const format = useHeldStudio((s) => s.format);
+  const resetFormat = useHeldStudio((s) => s.resetFormat);
   const { captured } = useSiteFormat();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");

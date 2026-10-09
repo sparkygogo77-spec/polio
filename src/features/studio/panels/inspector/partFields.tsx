@@ -13,6 +13,7 @@ import { parseColor, toHex } from "../../look";
 import { movingParts } from "../../motionInventory";
 import { MoveRowView } from "../MotionPanel";
 import { Field } from "./fields";
+import { HandColour } from "../../HandSlider";
 
 /** The face and size a part's words are set in, and a way to change both. */
 export function FontField({ node, base }: { node: StudioNode; base: number }) {
@@ -70,8 +71,8 @@ export function EdgeField({ node }: { node: StudioNode }) {
           <Select className="min-w-0 flex-1" aria-label="Border style" value={edge?.style && edge.style !== "none" ? edge.style : "solid"}
             onChange={(v) => set({ style: v as "solid", width: width || 1 })}
             options={["solid", "dashed", "dotted", "double"].map((v) => ({ value: v, label: v }))} />
-          <input type="color" aria-label="Border colour" className="h-7 w-8 shrink-0 cursor-pointer rounded-sm border border-border bg-transparent"
-            value={toHexish(edge?.colour)} onChange={(e) => set({ colour: e.target.value, width: width || 1, style: edge?.style && edge.style !== "none" ? edge.style : "solid" })} />
+          <HandColour aria-label="Border colour" className="h-7 w-8 shrink-0 cursor-pointer rounded-sm border border-border bg-transparent"
+            value={toHexish(edge?.colour)} onPick={(hex) => set({ colour: hex, width: width || 1, style: edge?.style && edge.style !== "none" ? edge.style : "solid" })} />
         </div>
       </Field>
       <Field label="Shadow">

@@ -28,10 +28,10 @@ import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
-import { useStudio } from "./board/store";
+import { endGesture, gestureBase, startGesture, useHeldStudio, useStudio } from "./board/store";
 import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
-import { Slider } from "@/core/ui/slider";
+import { Slider, HandColour } from "./HandSlider";
 import { useSiteFormat } from "./panels/ui";
 import { FORMAT_FIELDS } from "./format";
 import { play } from "@/core/audio/engine";
@@ -41,9 +41,9 @@ import { Select } from "@/core/ui/select";
 import { VirtualList } from "@/core/ui/virtual-list";
 
 function useSite() {
-  const nodes = useStudio((s) => s.nodes);
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   return { nodes, palette, look };
 }
@@ -141,7 +141,7 @@ function pickOnBoard(ids: string[]) {
 }
 
 function PartsList({ spots, rest = null }: { spots: { id: string; where: string }[]; rest?: string[] | null }) {
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useHeldStudio((s) => s.nodes);
   React.useEffect(() => () => pointAt(null), []);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const rows = React.useMemo(() => {
@@ -294,6 +294,13 @@ function countTint(site: SiteKinds, palette: Palette): { ink: string; ground: st
   return { ink: bold ? bold : g.l > 0.5 ? "#000" : "#fff", ground };
 }
 
+/** A count's number: the site's bright colour (white when it has none), ringed by a thin dark outline. */
+function countStyle(ink: string): React.CSSProperties {
+  const bright = (parseColor(ink)?.l ?? 0) >= 0.6 ? ink : "#fff";
+  const edge = "rgb(0 0 0 / 0.85)";
+  return { color: bright, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
+}
+
 function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
@@ -312,8 +319,9 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
     borderRadius: Math.min(k.radius, 16),
   });
   const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
+  /* Just the number on the corner, no box behind it (J, 2026-10-09): bright, with a thin dark outline so it reads on a light swatch and a dark one. */
   const count = (n: number, small = false) => (
-    <span data-preview-count={n} className={cn("num pointer-events-none absolute rounded-sm font-bold leading-none", small ? "-right-1.5 -top-1.5 px-0.5 text-[9px]" : "right-1 top-1 px-1 py-0.5 text-[11px]")} style={{ color: tint.ink, background: tint.ground }}>{n}</span>
+    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[9px]" : "right-1 top-1 text-[11px]")} style={countStyle(tint.ink)}>{n}</span>
   );
   const choose = (p: Pick, ids: string[]) => ({
     role: "button",
@@ -384,29 +392,33 @@ function keepAlpha(was: string, to: string): string {
 }
 
 /**
- * One colour in the editor: the swatch is the picker. Dragging through the
- * picker is one undo step, however many colours it passes through.
+ * One colour in the editor: the swatch is the picker. While the hand is in
+ * the picker the colour reaches the board once a frame, redone each time from
+ * the site as the hand found it, with nothing saved; letting go saves once and
+ * is one undo step (`board/store/gesture.ts`).
  */
 function Paint({ hook, label, value, onTo }: { hook: string; label: string; value: string; onTo: (from: string, to: string) => void }) {
-  const mark = React.useRef<number | null>(null);
   const [hex, setHex] = React.useState(toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }));
   React.useEffect(() => { setHex(toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 })); }, [value]);
-  const go = (to: string) => {
-    const st = useStudio.getState();
-    if (mark.current === null) mark.current = st.historyMark();
-    onTo(value, keepAlpha(value, to));
-    useStudio.getState().oneStepSince(mark.current);
+  /* The colour the hand went down on: every frame swaps from it, never from one passed on the way. */
+  const from = React.useRef<string | null>(null);
+  const preview = (to: string) => {
+    if (from.current === null) from.current = value;
+    const was = from.current;
+    const base = gestureBase();
+    if (base) useStudio.setState({ nodes: base.nodes, look: base.look });
+    onTo(was, keepAlpha(was, to));
   };
+  const typed = (to: string) => { startGesture(); preview(to); endGesture(); from.current = null; };
   return (
     <label data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
-      <input type="color" aria-label={label} value={toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}
-        onFocus={() => { mark.current = null; }} onBlur={() => { mark.current = null; }}
-        onChange={(e) => go(e.target.value)}
+      <HandColour aria-label={label} value={toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}
+        onPick={preview} onSettle={() => { from.current = null; }}
         className="h-7 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
       <span className="min-w-0 flex-1">{label}</span>
       <Input inputSize="sm" className="w-24 shrink-0" value={hex} aria-label={`${label}, as hex`}
         onChange={(e) => setHex(e.target.value)}
-        onBlur={() => { mark.current = null; const c = parseColor(hex); if (c && toHex(c) !== toHex(parseColor(value) ?? c)) go(toHex(c)); mark.current = null; }}
+        onBlur={() => { const c = parseColor(hex); if (c && toHex(c) !== toHex(parseColor(value) ?? c)) typed(toHex(c)); }}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
     </label>
   );
@@ -420,13 +432,11 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
   const { readings, format } = useSiteFormat();
   const read = Number.parseFloat(readings[id]?.shows ?? "");
   const value = Number(format[id] ?? (Number.isFinite(read) ? read : id === "type.baseSize" ? 16 : 10));
-  const mark = React.useRef<number | null>(null);
   return (
     <label data-site-dial={id} className="block space-y-1 text-small text-fg">
       <span>{label}</span>
       <Slider value={[value]} min={min} max={max} step={1} readout={(n) => `${n}px`} silent aria-label={label}
-        onValueChange={(v) => { const st = useStudio.getState(); if (mark.current === null) mark.current = st.historyMark(); st.setFormat(id, v[0] ?? value); useStudio.getState().oneStepSince(mark.current); }}
-        onValueCommit={() => { mark.current = null; }} />
+        onValueChange={(v) => useStudio.getState().setFormat(id, v[0] ?? value)} />
       <span className="block text-fine leading-snug text-fg-faint">{hint}</span>
     </label>
   );
@@ -440,13 +450,11 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
 /** "Square": a radius the board reads as set (0 reads as "the site's default") and nobody can see. */
 const SQUARE = 0.5;
 function KindCorners({ k }: { k: SurfaceKind }) {
-  const mark = React.useRef<number | null>(null);
   return (
     <label data-kind-corners="" className="block space-y-1 text-small text-fg">
       <span>Corners</span>
       <Slider value={[Math.min(k.radius, 48)]} min={0} max={48} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
-        onValueChange={(v) => { const st = useStudio.getState(); if (mark.current === null) mark.current = st.historyMark(); st.patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>)); useStudio.getState().oneStepSince(mark.current); }}
-        onValueCommit={() => { mark.current = null; }} />
+        onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
     </label>
   );
 }
@@ -454,7 +462,7 @@ function KindCorners({ k }: { k: SurfaceKind }) {
 /** The face a site made here sets its headings or words in. */
 function SiteFamily({ id, label }: { id: "type.headingFamily" | "type.bodyFamily"; label: string }) {
   const field = FORMAT_FIELDS.find((f) => f.id === id)!;
-  const value = String(useStudio((s) => s.format[id]) ?? field.default);
+  const value = String(useHeldStudio((s) => s.format[id]) ?? field.default);
   return (
     <label data-site-family={id} className="flex items-center gap-2 text-small text-fg">
       <span className="w-20 shrink-0">{label}</span>
@@ -473,10 +481,10 @@ const faceCss = (f: string | null): React.CSSProperties => (f && (f.includes(","
  * panel or field its texture. Every change reaches every part of the kind.
  */
 function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; site: SiteKinds; palette: Palette; background: readonly string[]; onClose: () => void }) {
-  const nodes = useStudio((s) => s.nodes);
-  const pages = useStudio((s) => s.pages);
-  const carried = useStudio((s) => s.look.fonts);
-  const layers = useStudio((s) => s.look.texture);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const pages = useHeldStudio((s) => s.pages);
+  const carried = useHeldStudio((s) => s.look.fonts);
+  const layers = useHeldStudio((s) => s.look.texture);
   const k = pick === "page" ? null : site.kinds[pick] ?? null;
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
   React.useEffect(() => { pointAt(onThisPage(ids)); return () => pointAt(null); }, [ids]);
@@ -587,7 +595,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
 
 export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
   const { nodes, palette, look } = useSite();
-  const frameWidth = useStudio((s) => s.frameWidth);
+  const frameWidth = useHeldStudio((s) => s.frameWidth);
   const pictureColours = usePictureColours(nodes);
   const pictureKey = [...pictureColours.entries()].map(([k, v]) => `${k}:${v.join("")}`).join("|");
   /* A button painted by stacked parts is one button in every count (`components.ts`). */
@@ -669,9 +677,9 @@ const faceStyle = (key: string): React.CSSProperties =>
   key === SITE_TYPE ? {} : FAMILY[key] ? { fontFamily: FAMILY[key] } : { fontFamily: `"${key}"` };
 
 export function SiteFontsSection() {
-  const nodes = useStudio((s) => s.nodes);
-  const carried = useStudio((s) => s.look.fonts);
-  const pages = useStudio((s) => s.pages);
+  const nodes = useHeldStudio((s) => s.nodes);
+  const carried = useHeldStudio((s) => s.look.fonts);
+  const pages = useHeldStudio((s) => s.pages);
   /* In page order: by where each face is first used, top of the site to the bottom (`fontsInPageOrder`). */
   const fonts = React.useMemo(() => fontsInPageOrder(nodes, pages.map((p) => p.id)), [nodes, pages]);
   const [open, setOpen] = React.useState<string | null>(null);

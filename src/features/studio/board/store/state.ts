@@ -547,6 +547,13 @@ export interface StudioState extends Doc {
   historyMark: () => number;
   oneStepSince: (mark: number) => void;
   /**
+   * A hand on a slider or a colour picker (`gesture.ts`): between these two,
+   * the first undo checkpoint is the only one, so the whole drag is one undo
+   * step however many values it passed through.
+   */
+  beginGesture: () => void;
+  endGesture: () => void;
+  /**
    * Swap-all (`siteColours.ts`): recolour exactly the spots that wear `from`
    * — for one use, or every use — and the page when it wore it. One undo.
    * `palette` is the resolved one, so a part naming a role is read as what
