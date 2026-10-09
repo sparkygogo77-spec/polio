@@ -30,6 +30,7 @@
 import * as React from "react";
 import { FileArchive, GitBranch, LayoutTemplate, Loader2, Search, Globe } from "lucide-react";
 import { play } from "@/core/audio/engine";
+import { dismissKey } from "@/core/toasts/store";
 import { useActions } from "@/core/actions";
 import { cn } from "@/core/lib/cn";
 import { SCREEN, VOID, screenFace } from "@/core/ui/void";
@@ -489,10 +490,12 @@ export function FromASite({ space }: { space: Space }) {
     const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; the States control on the page strip shows them on the board once they are read.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";
     const says = `${reportSays(report, { scripts: anyScripts, from: repoName(of) })}${fromManifest}${stillsSaid}${thinSays(showing, { url: null, why: "none", isMadeHere: false })}${left ? ` ${left} more page${left === 1 ? "" : "s"} in it ${left === 1 ? "was" : "were"} not read: this reads twelve.` : ""}${failed ? ` ${failed} page${failed === 1 ? "" : "s"} would not open and ${failed === 1 ? "is" : "are"} not here.` : ""} One undo takes it all back.`;
     const total = report.pages.reduce((n, p) => n + p.parts, 0);
-    ctx.publish({ key: `studio:repo:${of.name}`, title: `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: says, level: "success", source: "studio", toast: { durationMs: 9000 } });
+    /* Said once, on the strip across the board: the step card goes, rather than saying "landed" a second time beside it (design-flaws #1). */
+    dismissKey(`studio:repo:${of.name}`);
     /* The counts as chips, a short line beside them, and the whole account under "details" (J, 2026-10-06: too much text to read). */
-    const notes = [anyScripts ? "scripts not run" : "", report.truncated.length ? `${report.truncated.join(", ")} cut short` : "", left ? `${left} more page${left === 1 ? "" : "s"} not read` : "", failed ? `${failed} page${failed === 1 ? "" : "s"} would not open` : ""].filter(Boolean);
-    const short = `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed${notes.length ? ` (${notes.join(", ")})` : ""}. One undo takes it all back.`;
+    const notes = [ report.truncated.length ? `${report.truncated.join(", ")} cut short` : "", left ? `${left} more page${left === 1 ? "" : "s"} not read` : "", failed ? `${failed} page${failed === 1 ? "" : "s"} would not open` : ""].filter(Boolean);
+    /* Plain words, not "scripts not run" (design-flaws #4): what the board leaves out, and where to see it. */
+    const short = `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed${notes.length ? ` (${notes.join(", ")})` : ""}.${anyScripts ? " The board doesn't run the site's code; Preview does." : ""} One undo takes it all back.`;
     setStage({ at: "said", says: short, details: says, chips: reportChips(report) });
     play("confirm");
     return true;

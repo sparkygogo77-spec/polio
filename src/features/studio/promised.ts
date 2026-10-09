@@ -87,7 +87,8 @@ export function missingCopy(prompt: string, shown: string): string[] {
  * keeps `missingCopy` as it is.
  */
 export function missingDrawnCopy(prompt: string, shown: string): string[] {
-  return missingCopy(prompt.replace(/\b(?:named|placeholder)\s+["“][^"”\n]*["”]/g, ""), shown);
+  /* A part brought in from a site says how its code finds it, `data-hook “page-title-text”`: a name for code, never words drawn in the box (design-flaws #2). */
+  return missingCopy(prompt.replace(/\b(?:named|placeholder|data-hook)\s+["“][^"”\n]*["”]/g, ""), shown);
 }
 
 /** Whether a prompt names any copy at all, once the tree's names are out: nothing named, nothing measured. */

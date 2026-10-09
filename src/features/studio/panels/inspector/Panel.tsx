@@ -388,6 +388,17 @@ export function Inspector() {
   const lookOptions = featureOptions.filter(isLookOption);
   /* Only the sections that mean something on this kind of part (`partKind.ts#panelFits`). */
   const fits = panelFits({ kind, label: isLabel, brought: !!(node.source || node.from), glyph: node.glyph ?? null, picture: !!node.picture || feature?.id === "picture" || kind === "Picture" });
+  /*
+   * WHAT WAS PRESSED DECIDES WHAT IS OFFERED (J, 2026-10-09). A part brought
+   * in from a site is the site's own element: swapping it for a shelf
+   * version ("Big first letter", "Does it at once") or setting the shelf
+   * item's options (Measure, Size) would not reach the site, so neither is
+   * offered. Words (a heading, a line, a label) are dressed by their type
+   * first, and a picture frame, a cut-out shape or a living picture means
+   * nothing on them.
+   */
+  const brought = !!(node.source || node.from);
+  const wordsOnly = !node.picture && (isLabel || kind === "Words" || kind === "Heading" || kind === "Text");
   /* The page's code sets where it sits: typing a place here would be undone when the code runs. */
   const placedByCode = codePlaced(node.source?.code);
   const nowhere = decision?.why === "nowhere";
@@ -495,8 +506,8 @@ export function Inspector() {
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
           {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
           {/* The shelf item's versions, read off the item's data (`partOptions.ts`): switching one swaps the part that draws. */}
-          <PartFields node={node} only={VERSION_ONLY} />
-          {contentOptions.length ? (
+          {brought ? null : <PartFields node={node} only={VERSION_ONLY} />}
+          {contentOptions.length && !brought ? (
             <div className="space-y-2">
               <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Options</div>
               {contentOptions.map(optionField)}
@@ -566,16 +577,17 @@ export function Inspector() {
           {/* A shape drawn wearing a style kit: its colour, style, lighting bar and outline (`DrawKits.tsx`). */}
           {node.worn ? <WornLook node={node} /> : null}
           {node.worn ? null : <>
+          {wordsOnly ? <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} /> : null}
           <Field label="Colour">
             <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} tryFor={node.id} />
           </Field>
-          <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} />
+          {wordsOnly ? null : <FontField node={wordsHere ?? node} base={Number(format["type.baseSize"]) || 16} />}
           <EdgeField node={node} />
-          <FrameField node={node} />
-          <Field label="Shape" hint="What the part is cut to.">
+          {wordsOnly ? null : <FrameField node={node} />}
+          {wordsOnly ? null : <Field label="Shape" hint="What the part is cut to.">
             <Segmented size="xs" value={node.shape ?? "box"} onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
               options={NODE_SHAPES.map((v) => ({ value: v, label: v }))} />
-          </Field>
+          </Field>}
           {fits.mark ? <Field label="Mark" hint="Give a new idea its own mark so you can spot it on the board.">
             <div className="flex flex-wrap gap-1">
               <button type="button" onClick={() => update({ glyph: null })} className={cn("tactile size-6 rounded-sm border text-small", node.glyph === null ? "border-accent" : "border-border")}>
@@ -602,7 +614,7 @@ export function Inspector() {
         <PanelSection id="motion" title="Motion" icon={<Play />} note={node.worn?.motion?.name ?? (effectsOn ? `${effectsOn} ${effectsOn === 1 ? "effect" : "effects"} on` : undefined)}>
           {node.worn ? <WornMotion node={node} /> : <PartMotions node={node} />}
           <PartEffects node={node} kind={kind} nodes={nodes} />
-          {node.worn ? null : <LivingField node={node} />}
+          {node.worn || wordsOnly ? null : <LivingField node={node} />}
         </PanelSection>
 
         {/* MORE, folded: what a part needs once in a while. Its name and prompt,

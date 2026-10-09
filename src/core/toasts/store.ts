@@ -146,6 +146,11 @@ export const useToasts = create<ToastState>()((set, get) => ({
       };
       toasts = toasts.map((t) => (t.id === existing.id ? target : t));
     } else {
+      /* One key, one card. Past the coalesce window a keyed publish starts a
+         fresh card (its count and diff begin again), and the old card goes
+         with it: an import's 90-second step cards stacked up under its next
+         step and stayed after it had landed (design-flaws #1, 2026-10-09). */
+      if (existing) toasts = toasts.filter((t) => t.key !== key);
       target = {
         id: uid("toast"),
         key,
@@ -214,6 +219,12 @@ export const useToasts = create<ToastState>()((set, get) => ({
     if (toasts.length !== s.toasts.length) set({ toasts });
   },
 }));
+
+/** Take down the card a key is on, if one is up: the news it carried is said elsewhere now. */
+export function dismissKey(key: string) {
+  const s = useToasts.getState();
+  if (s.toasts.some((t) => t.key === key)) useToasts.setState({ toasts: s.toasts.filter((t) => t.key !== key) });
+}
 
 /** Publish outside React. */
 export function publish(input: ToastInput) {
