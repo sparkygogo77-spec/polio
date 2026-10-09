@@ -11,8 +11,7 @@
  * on cream at 14% and could not be seen, and a change to a layer took no
  * undo step of its own.
  *
- * PST's web/ (tests/fixtures/pst-tv, or PST_ROOT) is brought in through the
- * GitHub control against a stand-in GitHub, then in the Look panel:
+ * On the saved PonsStars board (tests/lib/board.mjs), in the Look panel:
  *   1. Grid fill and a stripes layer on the spaces change no part's paint,
  *   2. and the stripes show on the page,
  *   3. each press on where that layer lands is one undo, and undoing on
@@ -23,8 +22,8 @@
  *
  * Covers: src/features/studio/shelf/parts/theme.ts, src/features/studio/look/LookPanel.tsx, src/features/studio/board/store/view.ts
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { openBoard } from "./lib/board.mjs";
 import { chromium } from "playwright-core";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
@@ -34,64 +33,15 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const ROOT = process.env.PST_ROOT ?? "tests/fixtures/pst-tv";
-const FILES = {};
-const walk = (d, rel = "") => { for (const n of readdirSync(d)) { const p = join(d, n); const r = rel ? `${rel}/${n}` : n; if (statSync(p).isDirectory()) walk(p, r); else if (n !== "FROM.md") FILES[r] = readFileSync(p); } };
-walk(ROOT);
-const names = Object.keys(FILES);
-const tree = names.map((f, i) => ({ path: f, type: "blob", sha: `f${i}`, size: FILES[f].length }));
-
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const ui = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 ui.on("pageerror", (e) => errors.push(e.message));
-await ui.route("https://api.github.com/**", (r) => {
-  const u = new URL(r.request().url());
-  const j = (b, code = 200) => r.fulfill({ status: code, contentType: "application/json", body: JSON.stringify(b) });
-  const mm = u.pathname.match(/^\/repos\/him\/pst(\/.*)?$/);
-  if (!mm) return j({ message: "no" }, 404);
-  const rest = mm[1] ?? "";
-  if (!rest) return j({ default_branch: "main", homepage: "" });
-  if (rest.startsWith("/git/trees/")) return j({ tree });
-  const b = /\/git\/blobs\/f(\d+)$/.exec(rest);
-  if (b) return j({ encoding: "base64", content: FILES[names[Number(b[1])]].toString("base64") });
-  if (rest.startsWith("/contents/")) { const f = decodeURIComponent(rest.slice(10).split("?")[0]); return FILES[f] !== undefined ? j({ content: FILES[f].toString("base64"), encoding: "base64" }) : j({}, 404); }
-  if (rest.startsWith("/git/ref/heads/")) return j({ object: { sha: "c0" } });
-  if (rest.startsWith("/commits/")) return j({ sha: "c0" });
-  return j({ message: "no" }, 404);
-});
-await ui.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
-await ui.evaluate(() => {
-  const env = (state) => JSON.stringify({ state, version: 0 });
-  localStorage.setItem("builder.builds", env({ projects: [{ id: "s1", name: "PST", updatedAt: Date.now() }], activeId: "s1" }));
-  localStorage.setItem("builder.studio", env({ nodes: [] }));
-});
-await ui.reload({ waitUntil: "networkidle" });
-await ui.waitForTimeout(900);
-const keys = ui.locator("[data-keys-panel]");
-await ui.getByRole("button", { name: "Keys", exact: true }).click();
-await ui.waitForTimeout(500);
-const skip = keys.getByRole("button", { name: /Skip the PIN|Hold the key for this tab/ });
-if (await skip.count()) { await skip.first().click(); await ui.waitForTimeout(300); }
-await keys.locator('[data-service="github"] input[type="password"]').first().fill("not-a-token-placeholder-xxxx");
-await keys.getByRole("button", { name: /Save to this browser|Hold in this tab/ }).first().click();
-await ui.waitForTimeout(500);
-await keys.getByRole("button", { name: "Close keys" }).click();
-await ui.waitForTimeout(500);
-await ui.locator("[data-github-button]").first().click();
-await ui.waitForTimeout(700);
-await ui.locator("[data-repo-bring]").fill("him/pst");
-await ui.locator("[data-repo-pull]").click();
-const board = () => ui.evaluate(() => { try { return JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? { nodes: [] }; } catch { return { nodes: [] }; } });
-let st = await board();
-for (let i = 0; i < 150 && !st.nodes.length && !(await ui.locator("text=/parts from him\\/pst landed/").count()); i++) { await ui.waitForTimeout(1000); st = await board(); }
-await ui.waitForTimeout(2500);
-const landed = await ui.locator("text=/parts from him\\/pst landed/").count();
-check("PST came in", landed > 0 || st.nodes.length > 20);
-
-
-await ui.waitForTimeout(4000);
+await ui.route("https://api.github.com/**", (r) => r.abort());
+const st = await openBoard(ui, URL_BASE, "pst");
+check("PST is on the board", (st?.nodes?.length ?? 0) > 20, `${st?.nodes?.length ?? 0} parts`);
+await ui.waitForTimeout(1500);
 await ui.locator('[aria-label="Side panel"] button', { hasText: /^Look$/ }).first().click({ force: true });
 await ui.locator("[data-look-texture] [data-look-fill]").first().waitFor({ timeout: 60000 }).catch(() => {});
 await ui.waitForTimeout(1200);
