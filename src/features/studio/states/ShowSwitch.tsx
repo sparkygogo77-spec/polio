@@ -79,6 +79,9 @@ export function ShowSwitch() {
     st.setStatesOn(on.includes(k) ? on.filter((x) => x !== k) : [...on, k]);
   };
   const topsOn = onTop.filter((t) => (statesOn ?? []).includes(panelKey(t.panel, t.state)));
+  /* Hidden groups a pick switched on: said in the bar, as on-top panels are, and gone on the next step. */
+  const picked = (statesOn ?? []).filter((k) => k.startsWith("hidden:")).map((k) => k.slice(7).replace(/-/g, " "));
+  const extra = [...topsOn.map((t) => t.label), ...picked];
   return (
     /* A fixed width: a long name is cut short, so the arrows never move under a pointer clicking through. */
     <div data-scene-arrows="" data-show-switch="" className="flex h-6 w-[20rem] shrink-0 items-center rounded-md border border-accent/60 bg-accent-soft/40">
@@ -146,7 +149,7 @@ export function ShowSwitch() {
         <button type="button" data-scene-now={scene?.name ?? ""} title={`Show: ${now?.name ?? "as it opens"}. Pick one, or step with ← →`} className="tactile flex h-6 min-w-0 flex-1 items-center gap-1 px-1 text-small text-fg">
           <span className="shrink-0 font-medium">Show</span>
           <span className="num w-10 shrink-0 text-fg-faint">{at + 1}/{previews.length}</span>
-          <span className="min-w-0 flex-1 truncate text-left text-fg-muted">{now?.name ?? "as it opens"}{topsOn.length ? ` + ${topsOn.map((t) => t.label).join(", ")}` : ""}</span>
+          <span className="min-w-0 flex-1 truncate text-left text-fg-muted">{now?.name ?? "as it opens"}{extra.length ? ` + ${extra.join(", ")}` : ""}</span>
           {wearing ? <span data-show-only-on="" className="shrink-0 rounded-sm bg-accent px-1 text-fine text-accent-fg">this state</span> : null}
         </button>
       </Popover>

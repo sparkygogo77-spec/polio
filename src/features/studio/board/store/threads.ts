@@ -388,7 +388,8 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
     loadDoc: (doc) => {
       push();
       // What the document brings, the width included: see `docTake.ts`.
-      set((s) => takeDoc(s, doc, { format: formatDefaults, look: emptyLook }) as unknown as Partial<StudioState>);
+      /* A new document starts as it opens: states switched on for the last one (a hidden group a pick showed, a preview) would draw its parts over this one's every preview (J, 2026-10-09: the tour over Match after a reimport). */
+      set((s) => ({ ...(takeDoc(s, doc, { format: formatDefaults, look: emptyLook }) as unknown as Partial<StudioState>), statesOn: (doc as { statesOn?: string[] }).statesOn ?? [] }));
       /* Every import comes through here: the learned library reads what it brought (`library/useLearned.ts`). */
       if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("studio:doc-loaded", { detail: { behaviours: (doc as { behaviours?: unknown }).behaviours ?? null } }));
     },
