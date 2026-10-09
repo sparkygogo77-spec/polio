@@ -48,10 +48,12 @@ export async function dumpBoard(page) {
       for (const store of db.objectStoreNames) {
         const s = db.transaction(store, "readonly").objectStore(store);
         const [keys, values] = await Promise.all([ask(s.getAllKeys()), ask(s.getAll())]);
-        stores[store] = await Promise.all(keys.map(async (key, i) => {
+        /* Not the copy Refresh's "Reset to last bring-in" keeps (`lastBring.ts`): a second whole board, and a saved board opens as one never brought in here. */
+        stores[store] = (await Promise.all(keys.map(async (key, i) => {
+          if (String(key).startsWith("builder.lastBring")) return null;
           const v = values[i];
           return v instanceof Blob ? { key, blob: await b64(v), type: v.type } : { key, value: v };
-        }));
+        }))).filter(Boolean);
       }
       db.close();
       idb[name] = { version, stores };

@@ -19,8 +19,11 @@
  */
 import * as React from "react";
 import { TEXTURE_KINDS, parseColor, pickedLayer, spotsOfTarget, textureCss, toHex, type Palette, type TextureKind, type TextureLayer } from "./look";
+import { dropSiteDots, siteDotsOf, writeSiteDots, type Art, type SiteDots } from "./look/lookparts/siteDots";
 import { useHeldStudio, useStudio } from "./board/store";
 import { HandColour, Slider } from "./HandSlider";
+import { ImageWell } from "./ImageIntake";
+import { CropPicker } from "./CropPicker";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 
@@ -40,19 +43,71 @@ export function wornBy(ids: readonly string[], nodes: readonly { id: string; tex
   return (top && layers.find((l) => l.id === top)) || null;
 }
 
+/**
+ * The dots a site's own CSS draws on its page parts (`siteDots.ts`): the
+ * parts that carry them, and the pattern as the first of them has it.
+ */
+export function siteDotsOn(ids: readonly string[], nodes: readonly { id: string; art?: unknown }[]): { ids: string[]; dots: SiteDots } | null {
+  const want = new Set(ids);
+  let dots: SiteDots | null = null;
+  const on: string[] = [];
+  for (const n of nodes) {
+    if (!want.has(n.id)) continue;
+    const d = siteDotsOf(n.art as Art | null | undefined);
+    if (!d) continue;
+    dots ??= d;
+    on.push(n.id);
+  }
+  return dots ? { ids: on, dots } : null;
+}
+
+/** The site's dots as a layer the row can show and sample. Never stored: the gradient on the parts is the truth. */
+const SITE_DOTS_ID = "site-dots";
+function siteDotsLayer(d: SiteDots): TextureLayer {
+  /* The dot's radius against the tile, as `textureCss` draws dots: r = s × (0.05 + contrast × 0.1); the site's stop is a share of the corner distance (s/√2). */
+  const r = (d.stop / 100) * (d.scale / Math.SQRT2);
+  const contrast = Math.max(0, Math.min(1, (r / d.scale - 0.05) / 0.1));
+  return { id: SITE_DOTS_ID, kind: "dots", role: "text", colour: d.colour, scale: d.scale, angle: 0, opacity: d.opacity, contrast, blend: "normal", target: "page", on: true };
+}
+
 export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; page: boolean; ground: string; palette: Palette }) {
   const layers = useHeldStudio((s) => s.look.texture);
   const nodes = useHeldStudio((s) => s.nodes);
-  const layer = page ? pageLayer(layers) : wornBy(ids, nodes, layers);
+  /* The page's texture: a layer given here, else the dots the site's own code draws on it. */
+  const site = page ? siteDotsOn(ids, nodes) : null;
+  const own = page ? pageLayer(layers) : wornBy(ids, nodes, layers);
+  const siteOnly = !own && !!site;
+  const layer = own ?? (site ? siteDotsLayer(site.dots) : null);
 
   /** One undo for whatever a press does. */
   const step = (fn: () => void) => { const st = useStudio.getState(); const mark = st.historyMark(); fn(); useStudio.getState().oneStepSince(mark); };
+  /** Take the site's own dots off its parts (`none` is what goes back to the site). */
+  const dropSite = () => {
+    const now = page ? siteDotsOn(ids, useStudio.getState().nodes) : null;
+    if (now) useStudio.getState().patchNodes(now.ids, (n) => { const d = siteDotsOf(n.art as Art | null | undefined); return d ? { art: dropSiteDots(n.art as Art, d) } as never : {}; });
+  };
+  /* A dial dragged on the site's dots: one undo for the drag, as a layer's dials are (`updateTexture`'s runs). */
+  const run = React.useRef<{ key: string; at: number } | null>(null);
+  const setSite = (to: Partial<Pick<SiteDots, "colour" | "opacity" | "scale">>) => {
+    if (!site) return;
+    const key = Object.keys(to).sort().join(",");
+    const now = Date.now();
+    const quiet = run.current?.key === key && now - run.current.at < 700;
+    run.current = { key, at: now };
+    const want = new Set(site.ids);
+    const patch = (n: (typeof nodes)[number]) => { const d = siteDotsOf(n.art as Art | null | undefined); return d ? { ...n, art: writeSiteDots(n.art as Art, d, to) } as typeof n : n; };
+    if (quiet) useStudio.setState((s) => ({ nodes: s.nodes.map((n) => (want.has(n.id) ? patch(n) : n)) }));
+    else useStudio.getState().patchNodes(site.ids, (n) => patch(n));
+  };
   const pick = (kind: TextureKind) => {
     play("select");
+    if (siteOnly && kind === "dots") return;
     step(() => {
+      /* Another kind for the page: the site's dots give way to it, so there is one texture, not two. */
+      dropSite();
       const st = useStudio.getState();
-      if (layer) {
-        if (layer.kind !== kind) st.updateTexture(layer.id, { kind, baked: undefined });
+      if (own) {
+        if (own.kind !== kind) st.updateTexture(own.id, { kind, baked: undefined });
         return;
       }
       /* Off the site-wide stack unless it is the page's: a kind's layer is worn by its parts and lands nowhere else. */
@@ -65,6 +120,9 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     if (!layer) return;
     play("close");
     step(() => {
+      dropSite();
+      if (!own) return;
+      const layer = own;
       const st = useStudio.getState();
       const wearing = st.nodes.filter((n) => n.texture === layer.id).map((n) => n.id);
       const mine = new Set(ids);
@@ -74,11 +132,14 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       if (page || !still) useStudio.getState().removeTexture(layer.id);
     });
   };
-  const set = (patch: Partial<TextureLayer>) => { if (layer) useStudio.getState().updateTexture(layer.id, patch); };
+  const set = (patch: Partial<TextureLayer>) => {
+    if (siteOnly) { setSite({ ...(patch.colour ? { colour: patch.colour } : {}), ...(patch.opacity != null ? { opacity: patch.opacity } : {}), ...(patch.scale != null ? { scale: patch.scale } : {}) }); return; }
+    if (own) useStudio.getState().updateTexture(own.id, patch);
+  };
   const colour = layer ? layer.colour ?? palette[layer.role] : "";
 
   return (
-    <div data-kind-texture="" className="space-y-1.5">
+    <div data-kind-texture="" data-texture-site={siteOnly ? "" : undefined} className="space-y-1.5">
       <p className="text-fine text-fg-faint">Texture</p>
       <div className="grid grid-cols-4 gap-1">
         <button type="button" data-texture-sample="none" aria-pressed={!layer} onClick={none}
@@ -98,7 +159,21 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
             </button>
           );
         })}
+        {/* A picture of his own, tiled: what the folded-away layer stack used to be the only place for (J, 2026-10-09: "that tech should be shoved into the texture ... field"). */}
+        <button type="button" data-texture-sample="image" aria-pressed={layer?.kind === "image"} aria-label="Picture" title="A picture you drop in, tiled and tinted" onClick={() => pick("image")}
+          className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", layer?.kind === "image" ? "border-accent" : "border-border hover:border-border-strong")}>
+          <span aria-hidden className="block h-9 w-full" style={layer?.kind === "image" && layer.src ? textureCss([{ ...layer, on: true }], palette, ground) : { background: ground }} />
+          <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Picture</span>
+        </button>
       </div>
+      {layer?.kind === "image" && own ? (
+        <div data-texture-picture="" className="space-y-1.5">
+          <ImageWell src={own.src} onImage={(src) => set({ src, baked: undefined, crop: undefined })} onClear={own.src ? () => set({ src: undefined, baked: undefined, crop: undefined }) : undefined} label="picture" />
+          {own.src ? <CropPicker src={own.src} crop={own.crop} onChange={(crop) => set({ crop })} /> : null}
+          <Check label="Paint it in the texture colour" checked={!!own.pattern} onChange={(v) => set({ pattern: v })} />
+          <Check label="Cut out its background" checked={!!own.cutout} onChange={(v) => set({ cutout: v })} />
+        </div>
+      ) : null}
       {layer ? (
         <div data-texture-dials="" className="space-y-1.5">
           <div data-kind-colour="texture" className="flex items-center gap-2 text-small text-fg">
@@ -109,11 +184,25 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           </div>
           <Dial label="How solid" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onTo={(v) => set({ opacity: v / 100 })} />
           <Dial label="Scale" value={layer.scale} min={2} max={400} unit="px" onTo={(v) => set({ scale: v })} />
-          <Dial label="Angle" value={layer.angle} min={0} max={360} unit="°" onTo={(v) => set({ angle: v })} />
-          <Dial label="Drift" value={Math.round((layer.drift ?? 0) * 100)} min={0} max={100} unit="%" still onTo={(v) => set({ drift: v / 100 })} />
+          {/* The site's own dots are its CSS: a colour, how solid and a tile size are all it says. */}
+          {siteOnly ? <p className="text-fine text-fg-faint">The site&apos;s own dots, from its code.</p> : (
+            <>
+              <Dial label="Angle" value={layer.angle} min={0} max={360} unit="°" onTo={(v) => set({ angle: v })} />
+              <Dial label="Drift" value={Math.round((layer.drift ?? 0) * 100)} min={0} max={100} unit="%" still onTo={(v) => set({ drift: v / 100 })} />
+            </>
+          )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-small text-fg">
+      <input type="checkbox" checked={checked} onChange={(e) => { play("select"); onChange(e.target.checked); }} style={{ accentColor: "var(--accent)" }} />
+      <span>{label}</span>
+    </label>
   );
 }
 
