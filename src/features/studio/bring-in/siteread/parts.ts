@@ -813,6 +813,25 @@ export const PARTS = (cap: number): PageRead => {
 
   /* A run of inline words between the parts of a mixed block: one line of its own. */
   let lineNo = 0;
+  /* The last line read, and where its last row ends: a small part set right after its words follows them (`tieAfter`). */
+  let lastLine: { at: number; right: number; top: number; bottom: number } | null = null;
+  /*
+   * A PART SET IN THE LINE, RIGHT AFTER ITS WORDS, FOLLOWS THEM. PST's "?"
+   * sits after "matches.", the last word of a note the page wraps; drawn at
+   * the place the page measured, it stayed there when the words wrapped
+   * otherwise (another machine's font), above them or over them (J,
+   * 2026-10-09). Read here as following that line, by the room between them
+   * and its middle against the row's, and placed after the words wherever
+   * they end (`live/follow.ts`).
+   */
+  const tieAfter = (e: Element, at: number) => {
+    const line = lastLine;
+    if (!line || at < 0 || at === line.at || !/^inline/.test(css(e).display)) return;
+    const r = e.getBoundingClientRect();
+    const mid = (r.top + r.bottom) / 2, gap = r.left - line.right;
+    if (mid < line.top - 4 || mid > line.bottom + 4 || gap < -2 || gap > 48) return;
+    parts[at]!.after = { part: line.at, gap: Math.round(gap * 10) / 10, dy: Math.round((mid - (line.top + line.bottom) / 2) * 10) / 10 };
+  };
   const line = (nodes: Node[], holder: Element, parent: number, hidden: string | null) => {
     const runs = runsOf(nodes, holder, false, parent);
     const words = wordsOf(runs);
@@ -828,14 +847,15 @@ export const PARTS = (cap: number): PageRead => {
      */
     const range = document.createRange();
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    const rows: { top: number; bottom: number }[] = [];
+    const rows: { top: number; bottom: number; right: number }[] = [];
     for (const n of nodes) {
       if (n.nodeType === Node.TEXT_NODE && !(n.textContent ?? "").trim()) continue;
       range.selectNode(n);
       for (const q of Array.from(range.getClientRects())) {
         if (q.width <= 0 || q.height <= 0) continue;
         x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom);
-        if (!rows.some((w) => q.top < w.bottom - 2 && q.bottom > w.top + 2)) rows.push({ top: q.top, bottom: q.bottom });
+        const row = rows.find((w) => q.top < w.bottom - 2 && q.bottom > w.top + 2);
+        if (row) row.right = Math.max(row.right, q.right); else rows.push({ top: q.top, bottom: q.bottom, right: q.right });
       }
     }
     if (x0 === Infinity) { range.setStartBefore(nodes[0]!); range.setEndAfter(nodes[nodes.length - 1]!); const a = range.getBoundingClientRect(); x0 = a.left; y0 = a.top; x1 = a.right; y1 = a.bottom; }
@@ -872,7 +892,9 @@ export const PARTS = (cap: number): PageRead => {
      */
     const worn = styleOf(holder);
     delete worn.layout; delete worn.clips; delete worn.maxw;
-    push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    const last = rows.reduce<(typeof rows)[number] | null>((a, w) => (!a || w.top > a.top ? w : a), null);
+    lastLine = at >= 0 && last ? { at, right: last.right, top: last.top, bottom: last.bottom } : null;
   };
 
   /* Inline content, with the parts among it taken out as they come. */
@@ -893,7 +915,7 @@ export const PARTS = (cap: number): PageRead => {
       if (isControl(e)) { flush(); control(e, parent, hidden); continue; }
       if (e.tagName === "A" && e.hasAttribute("href") && lone) { flush(); link(e, parent, hidden); continue; }
       /* A <details>' own "?" that paints (PST's round yellow help button) is a part with its own look where the page draws it, not a stretch of the line's words. */
-      if (e.tagName === "SUMMARY" && paints(e)) { flush(); block(e, parent, hidden); continue; }
+      if (e.tagName === "SUMMARY" && paints(e)) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
         /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */

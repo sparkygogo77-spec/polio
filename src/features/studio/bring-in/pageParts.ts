@@ -293,6 +293,8 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(p.kind === "shape" && (p.tag === "circle" || p.tag === "ellipse") ? { shape: p.box.w === p.box.h ? "circle" : "ellipse" } : {}),
       ...(text ? { text: p.kind === "button" && !("align" in text) ? { align: "center", ...text } : text } : p.kind === "button" ? { text: { align: "center" } } : {}),
       ...(p.kind === "picture" && p.alt ? { data: `picture, “${p.alt}”` } : {}),
+      /* Set right after a line's words: it follows them wherever they end (`live/follow.ts`). */
+      ...(p.after && read.parts[p.after.part] ? { follows: { id: `n_${pageId.replace(/^page_/, "")}_${read.parts[p.after.part]!.kind}_${p.after.part + 1}`, gap: p.after.gap, dy: p.after.dy } } : {}),
     };
     /* Where it is in its source, and how it looked as it came in: the style layer writes only what changes from this. */
     const hook = p.hooks["data-hook"] ? { attr: "data-hook" as const, value: p.hooks["data-hook"] } : p.hooks.id ? { attr: "id" as const, value: p.hooks.id } : null;
