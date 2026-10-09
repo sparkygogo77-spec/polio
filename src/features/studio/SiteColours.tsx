@@ -486,10 +486,17 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
 /** "Square": a radius the board reads as set (0 reads as "the site's default") and nobody can see. */
 const SQUARE = 0.5;
 function KindCorners({ k }: { k: SurfaceKind }) {
+  /* Past half its shortest side a corner cannot round any more: the cap is that, for the smallest copy (J, 2026-10-09). */
+  const nodes = useHeldStudio((s) => s.nodes);
+  const cap = React.useMemo(() => {
+    const ids = new Set(k.ids);
+    const sides = nodes.filter((n) => ids.has(n.id)).map((n) => Math.min(n.w ?? 0, n.h ?? 0)).filter((x) => x > 0);
+    return Math.max(1, Math.floor((sides.length ? Math.min(...sides) : 96) / 2));
+  }, [nodes, k.ids]);
   return (
     <label data-kind-corners="" className="block space-y-1 text-small text-fg">
       <span>Corners</span>
-      <Slider value={[Math.min(k.radius, 48)]} min={0} max={48} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
+      <Slider value={[Math.min(k.radius, cap)]} min={0} max={cap} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
         onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
     </label>
   );
