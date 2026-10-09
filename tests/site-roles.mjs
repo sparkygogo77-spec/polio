@@ -32,6 +32,7 @@ import { chromium } from "playwright-core";
 import { siteRoles, mainColours, colourName, inkOf, MERGE_SHADES, ROLE_CAP, FEW } from "../src/features/studio/siteRoles.ts";
 import { oklabDistance, tallyColours, colourKey, spotsOf } from "../src/features/studio/look/siteColours.ts";
 import { landPalette } from "../src/features/studio/paletteFrom.ts";
+import { siteKinds } from "../src/features/studio/themeKinds.ts";
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
 const SINK = process.argv[3] ?? join(process.cwd(), "capture", "versions", "sink-0ee06fa");
@@ -157,50 +158,34 @@ if (tm) {
   await page.waitForTimeout(2500);
   await page.evaluate(() => window.__studioSetLeftPanel?.("look"));
   await page.waitForTimeout(1200);
-  const rows = await page.$$eval("[data-role-palette] > [data-role-row]", (els) => els.map((e) => ({ role: e.getAttribute("data-role-row"), swatches: e.querySelectorAll("[data-role-swatch]").length })));
-  check("5. the panel shows the short palette, within the cap", rows.length > 0 && rows.length <= ROLE_CAP && rows.every((r) => r.swatches <= 2), rows.map((r) => `${r.role} ${r.swatches}`).join(", "));
-  const byUseShown = await page.$$eval("[data-site-colours] [data-site-group]", (els) => els.length);
-  check("5. there is no unmerged list by use", byUseShown === 0, `${byUseShown} groups showing`);
+  /* The role rows are gone: Colours is the preview of the site's kinds, and a press on one opens its editor (J, 2026-10-09). */
+  const rows = await page.$$eval("[data-role-palette], [data-site-colours] [data-site-group]", (els) => els.length);
+  check("5. no role rows and no unmerged list by use", rows === 0, `${rows} showing`);
   await page.locator("[data-site-colours]").screenshot({ path: `${SHOTS}/site-colours-after.png` });
 
-  /* Trump & Morty's outlines are its default black now: the line that holds them is what a person presses to find them. */
-  const outline = page.locator('[data-ink-lines] [data-role-swatch="ink|black"]').first();
-  const outlineId = await outline.getAttribute("data-role-swatch");
-  await outline.click();
+  /* The first kind with an outline: pressing it outlines every one of its parts on the page in view. */
+  const kinds = siteKinds(tm.nodes, tm.look.palette, new Set(siteRoles(tm.nodes, tm.look.palette, 1440).left.backgroundLayers));
+  const ki = kinds.kinds.findIndex((k) => k.outline);
+  const kind = kinds.kinds[ki];
+  await page.locator(`[data-theme-preview] [data-preview-kind="${ki}"]`).first().click();
   await page.waitForTimeout(1500);
-  const r = siteRoles(tm.nodes, tm.look.palette, 1440);
-  const sw = [...r.short.flatMap((x) => x.swatches), ...r.more, ...r.ink].find((s) => s.id === outlineId);
-  const want = new Set(sw.spots.map((s) => s.id));
+  const active = await page.evaluate(() => window.__studioPublishDoc().activePageId);
+  const want = new Set(kind.ids);
+  const here = tm.nodes.filter((n) => want.has(n.id) && n.pageId === active).map((n) => n.id);
   const marked = new Set(await page.$$eval("[data-point-mark]", (els) => els.map((e) => e.getAttribute("data-point-mark"))));
-  /* Past a hundred rows the list draws only what is in view: scrolled through, every row is met. */
-  const listed = new Set(await page.evaluate(async (id) => {
-    const box = document.querySelector(`[data-role-detail="${id}"]`);
-    const seen = new Set();
-    const read = () => box.querySelectorAll("[data-site-part]").forEach((e) => seen.add(e.getAttribute("data-site-part")));
-    read();
-    const scroller = [...box.querySelectorAll("*")].find((e) => e.scrollHeight > e.clientHeight + 4 && getComputedStyle(e).overflowY !== "visible");
-    if (scroller) for (let top = 0; top <= scroller.scrollHeight; top += 60) { scroller.scrollTop = top; await new Promise((r) => setTimeout(r, 40)); read(); }
-    return [...seen];
-  }, outlineId));
-  check("5. pressing the default black line (its outlines among them) outlines every part wearing it on the board", want.size > 0 && [...want].every((id) => marked.has(id)), `${marked.size} outlined of ${want.size}`);
-  check("5. and lists every one of them by name", [...want].every((id) => listed.has(id)), `${listed.size} listed`);
-  const first = [...want][0];
-  const inView = await page.evaluate((id) => {
-    const el = document.querySelector(`[data-node-id="${id}"]`); const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
-    if (!el || !pane) return false; const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
-    return r.bottom > p.top && r.top < p.bottom;
-  }, sw.spots[0].id);
-  check("5. and brings the first of them into view", inView, first);
+  check("5. pressing a kind in the preview outlines every one of its parts on the board", here.length > 0 && here.every((id) => marked.has(id)), `${marked.size} outlined of ${here.length}`);
   await page.screenshot({ path: `${SHOTS}/site-colours-outline-pressed.png` });
 
-  /* Recolour all: the board and the export. */
-  await page.locator(`[data-role-detail="${outlineId}"] input[aria-label="New colour, as hex"]`).fill("#00cc88");
-  await page.locator(`[data-role-detail="${outlineId}"] [data-role-recolour]`).click();
+  /* Its outline, recoloured from the editor: the board and the export. */
+  const hex = page.locator('[data-kind-editor] [data-kind-colour="outline"] input[aria-label$="as hex"]');
+  await hex.fill("#00cc88");
+  await hex.press("Enter");
   await page.waitForTimeout(1200);
   const doc = await page.evaluate(() => window.__studioPublishDoc());
-  const edged = doc.nodes.filter((n) => want.has(n.id) && n.edge && (n.edge.width ?? 1) > 0 && n.edge.style !== "none");
+  const wore = new Set(tm.nodes.filter((n) => want.has(n.id) && n.edge && (n.edge.width ?? 1) > 0 && n.edge.style !== "none" && colourKey(n.edge.colour) === colourKey(kind.outline.colour)).map((n) => n.id));
+  const edged = doc.nodes.filter((n) => wore.has(n.id));
   const recoloured = edged.filter((n) => colourKey(n.edge.colour) === "rgb(0, 204, 136)");
-  check("5. Recolour all changes every outline it names", edged.length > 0 && recoloured.length === edged.length, `${recoloured.length} of ${edged.length} edges`);
+  check("5. its outline colour changes on every part of the kind", edged.length > 0 && recoloured.length === edged.length, `${recoloured.length} of ${edged.length} edges`);
   /* The new colour as the document writes it (an oklch() the panel makes), and as the browser paints it, compared as colours. */
   const written = edged[0]?.edge.colour ?? "";
   const borders = await page.evaluate((id) => {

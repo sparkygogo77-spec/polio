@@ -20,11 +20,15 @@
  *   · A kind says what it really carries: its most-worn words colour and
  *     face, its outline (colour and width), its shadow and its corners,
  *     whether it is a button, and which kind its buttons stand in.
+ *   · A kind carries every part's id, its shades and gradient stops, the
+ *     words standing on it and their glow, so one edit in the preview's
+ *     editor reaches every copy of it across the site (J, 2026-10-09).
+ *   · A kind is named by what it is for, never by its colour.
  *
  * Pure: no store, no DOM. `tests/theme-kinds.mjs`.
  */
-import { faceOf, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
-import { colourName, isButton, type Part } from "./siteRoles.ts";
+import { colourKey, coloursIn, faceOf, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
+import { isButton, type Part } from "./siteRoles.ts";
 
 /** Closer than the palette merges: a cream card and a grey field are two kinds of surface even where they are one swatch. */
 export const KIND_SHADES = 0.025;
@@ -32,10 +36,24 @@ export const KIND_SHADES = 0.025;
 export interface SurfaceKind {
   /** The lead fill. */
   fill: string;
-  /** "Dark brown labels": its colour and what most of its parts are. */
+  /** What it is for, never its colour (J, 2026-10-09): "Main fill" for the most-worn surface, then "Panels", "Fields", "Buttons" and so on. */
   name: string;
   /** Parts wearing it as their own fill. */
   parts: number;
+  /** Their ids: one edit recolours every one of them. */
+  ids: string[];
+  /** Every shade of the fill they wear (close shades are one kind). */
+  shades: string[];
+  /** The colours of its gradient, light first, when the kind is painted with one: one button, not one per stop. */
+  stops: string[];
+  /** Parts whose words stand on it (itself included). */
+  wordsIds: string[];
+  /** The glow on those words (a coloured shadow behind the letters), the most-worn one. */
+  glow: string | null;
+  /** The face key the words are counted under (`faceOf`), for swapping. */
+  faceKey: string | null;
+  /** A few of its own words, so a button in the preview says what the site's buttons say. */
+  sample: string | null;
   button: boolean;
   /** Most-worn words colour on it, and how many parts' words that is; null when no words stand on it. */
   words: string | null;
@@ -52,12 +70,17 @@ export interface SurfaceKind {
 }
 
 export interface SiteKinds {
-  page: { fill: string; words: string | null; face: string | null };
+  page: { fill: string; words: string | null; face: string | null; faceKey: string | null; wordsIds: string[]; glow: string | null };
   kinds: SurfaceKind[];
 }
 
 /** What a part is, in a word, by the shelf part it landed as. */
-const WHAT: Record<string, string> = { box: "panels", card: "cards", field: "fields", prose: "labels", heading: "headings", "cta-primary": "buttons", picture: "pictures" };
+const WHAT: Record<string, string> = { box: "Panels", card: "Cards", field: "Fields", prose: "Labels", heading: "Headings", "cta-primary": "Buttons", picture: "Pictures" };
+const wordsOf = (p: Node): string => {
+  const c = (p as { content?: unknown }).content;
+  const t = typeof c === "string" ? c : Array.isArray(c) ? c.map((r) => (r && typeof r === "object" && typeof (r as { text?: unknown }).text === "string" ? (r as { text: string }).text : "")).join("") : "";
+  return t.replace(/\s+/g, " ").trim();
+};
 
 type Node = Part & { radius?: number | null; state?: { group?: string } | null; edge?: { width?: number; colour?: string; style?: string; shadow?: string } | null };
 
@@ -120,6 +143,13 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   const faces = leads.map(() => new Map<string, number>());
   const pageWords = new Map<string, number>();
   const pageFaces = new Map<string, number>();
+  const wordsIds = leads.map(() => [] as string[]);
+  const glows = leads.map(() => new Map<string, number>());
+  const faceKeys = leads.map(() => new Map<string, number>());
+  const samples = leads.map(() => new Map<string, number>());
+  const pageIds: string[] = [];
+  const pageGlows = new Map<string, number>();
+  const pageFaceKeys = new Map<string, number>();
   for (const p of parts) {
     if (background.has(p.id)) continue;
     const t = spotsOf(p, palette).find((s) => s.spot.use === "text");
@@ -128,6 +158,11 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const i = u ? kindOfFill.get(fillOf.get(u.id)!)! : -1;
     bump(i < 0 ? pageWords : words[i]!, t.key);
     bump(i < 0 ? pageFaces : faces[i]!, (p as { font?: { stack?: string } | null }).font?.stack || faceOf(p));
+    (i < 0 ? pageIds : wordsIds[i]!).push(p.id);
+    bump(i < 0 ? pageFaceKeys : faceKeys[i]!, faceOf(p));
+    for (const g of spotsOf(p, palette).filter((s) => s.spot.use === "shadow" && /words|letter/.test(s.spot.where))) bump(i < 0 ? pageGlows : glows[i]!, g.key);
+    const w = wordsOf(p);
+    if (i >= 0 && w && w.length <= 24 && /[A-Za-z]{2}/.test(w)) bump(samples[i]!, w);
   }
   const kinds: SurfaceKind[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
@@ -154,17 +189,25 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     }
     const o = top(outlines);
     const w = top(words[i]!);
+    const paint = (() => { const g = top(paints); return g && g[1] >= ms.length / 2 ? g[0] : leads[i]!.fill; })();
     return {
       fill: g.fill,
-      name: `${colourName(g.fill)} ${buttons >= ms.length / 2 ? "buttons" : top(what)?.[0] ?? "parts"}`,
+      name: buttons >= ms.length / 2 ? "Buttons" : top(what)?.[0] ?? "Parts",
       parts: ms.length,
+      ids: ms.map((p) => p.id),
+      shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
+      stops: /gradient\(/.test(paint) ? [...new Set(coloursIn(paint).map(colourKey))] : [],
+      wordsIds: wordsIds[i]!,
+      glow: top(glows[i]!)?.[0] ?? null,
+      faceKey: top(faceKeys[i]!)?.[0] ?? null,
+      sample: top(samples[i]!)?.[0] ?? null,
       button: buttons >= ms.length / 2,
       words: w?.[0] ?? null,
       wordsParts: w?.[1] ?? 0,
       face: top(faces[i]!)?.[0] ?? null,
       /* Half the parts or more draw it, or it is not this kind's outline. */
       outline: o && o[1] >= ms.length / 2 ? { colour: o[0].split("|")[0]!, width: Number(o[0].split("|")[1]) } : null,
-      paint: (() => { const g = top(paints); return g && g[1] >= ms.length / 2 ? g[0] : leads[i]!.fill; })(),
+      paint,
       shadow: (() => { const s = top(shadows); return s && s[1] >= ms.length / 2 ? s[0] : null; })(),
       radius: top(radii)?.[0] ?? 0,
       /* Where a third of its parts or more stand inside a kind, it is shown there: the page is only the fallback. */
@@ -174,8 +217,16 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   /* Keep the kinds worn by three parts or more, and re-point `inside` at the kept list. */
   const kept = kinds.map((k, i) => ({ k, i })).filter(({ k }) => k.parts >= 3).slice(0, cap);
   const at = new Map(kept.map(({ i }, j) => [i, j]));
+  /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
+  const seen = new Map<string, number>();
+  const named = kept.map(({ k }, j) => {
+    const base = !k.button && j === kept.findIndex(({ k: x }) => !x.button) ? "Main fill" : k.name;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    return { ...k, name: n > 1 ? `${base} ${n}` : base, inside: at.get(k.inside) ?? -1 };
+  });
   return {
-    page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null },
-    kinds: kept.map(({ k }) => ({ ...k, inside: at.get(k.inside) ?? -1 })),
+    page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null, faceKey: top(pageFaceKeys)?.[0] ?? null, wordsIds: pageIds, glow: top(pageGlows)?.[0] ?? null },
+    kinds: named,
   };
 }

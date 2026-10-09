@@ -1112,7 +1112,7 @@ export function LookPanel() {
       {captured ? null : <ThemeSection />}
       {/* One colour section for every site, then the faces, then the rest (owner: "Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
-      <SiteFontsSection />
+      {captured ? null : <SiteFontsSection />}
       <LightSection />
       <TextureSection />
     </div>

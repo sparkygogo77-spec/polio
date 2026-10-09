@@ -8,7 +8,9 @@
  *   2. the cream card is a kind with its outline, hard shadow and corners;
  *   3. the yellow gradient buttons are a button kind, standing in the cream card;
  *   4. a white field and a cream card are two kinds, not one;
- *   5. a colour on one or two parts is not a kind; words on nothing stand on the page.
+ *   5. a colour on one or two parts is not a kind; words on nothing stand on the page;
+ *   6. kinds are named by what they are for (J: "Main fill", "Panels", "Fields"), never their colour;
+ *   7. a gradient button is one kind with its stops; 8. a kind carries its parts and the words on it.
  *
  *   node tests/theme-kinds.mjs
  */
@@ -40,11 +42,14 @@ check("1. the dark tabs are a kind with the lime words on them", tabs?.words ===
 check("…and no other kind carries lime words", r.kinds.filter((k) => k.words === LIME).length === 1);
 check("2. the cream card has its outline, hard shadow and corners", card?.outline?.colour === INK && card.outline.width === 3 && /6px 6px 0px/.test(card.shadow ?? "") && card.radius === 18, JSON.stringify(card));
 check("…and its words are the ink, not lime", card?.words === INK);
-check("3. the yellow gradient buttons are a button kind", buttons?.fill === "rgb(243, 212, 64)" && buttons.name === "Yellow buttons", JSON.stringify(buttons));
+check("3. the yellow gradient buttons are a button kind", buttons?.fill === "rgb(243, 212, 64)" && buttons.name === "Buttons", JSON.stringify(buttons));
 check("…painted with the site's gradient, not flat yellow", /radial-gradient\(.*rgb\(255, 243, 176\).*rgb\(243, 212, 64\)/.test(buttons?.paint ?? ""), buttons?.paint);
 check("…and a flat kind paints its fill", card?.paint === CREAM, card?.paint);
 check("…standing in the cream card", buttons && r.kinds[buttons.inside] === card);
-check("4. a white field and the cream card are two kinds", !!field && field !== card && field.name === "Near-white fields", field?.name);
+check("4. a white field and the cream card are two kinds", !!field && field !== card && field.name === "Fields", field?.name);
+check("6. names say what a kind is for, never its colour: the most-worn surface is the main fill", card?.name === "Main fill" && tabs?.name === "Labels", r.kinds.map((k) => k.name).join(", "));
+check("7. a gradient button is one kind, its stops light first", r.kinds.filter((k) => k.button).length === 1 && JSON.stringify(buttons?.stops) === JSON.stringify(["rgb(255, 243, 176)", "rgb(243, 212, 64)"]), JSON.stringify(buttons?.stops));
+check("8. a kind carries every part it is on, and the words on it, so one edit reaches them all", JSON.stringify(card?.ids) === JSON.stringify(["card0", "card1", "card2"]) && ["words0", "words1", "words2"].every((id) => card.wordsIds.includes(id)) && tabs.wordsIds.length === 3, JSON.stringify(card?.wordsIds));
 check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));
 check("…and words on nothing stand on the page", r.page.words === "rgb(17, 17, 17)", JSON.stringify(r.page));
 
