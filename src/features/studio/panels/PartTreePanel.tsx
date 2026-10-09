@@ -33,7 +33,7 @@ import { filterRows, foldComponentRows, partList, type ComponentRow, type ListPa
 import { Switch } from "@/core/ui/switch";
 import { kindOf, partName } from "../partNames";
 import { decisions, decisionSays, type Decision } from "../shelf";
-import { pointAt, PointMarks } from "../SiteColours";
+import { pointAt } from "../SiteColours";
 import { partLearned } from "../learn";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -126,7 +126,6 @@ export function PartsTree({ nodes, picked, className }: { nodes: StudioNode[]; p
   }
   return (
     <div ref={box} data-parts-tree="" className={cn("min-h-0", className)} onPointerLeave={() => pointAt(null)}>
-      <PointMarks />
       <VirtualList
         items={rows}
         getKey={(r) => r.id}
@@ -276,7 +275,6 @@ export function ElementList({ nodes, picked, className, onRows }: { nodes: Studi
         </p>
       ) : (
         <div ref={box} data-parts-list="" className="min-h-0 flex-1" onPointerLeave={() => pointAt(null)}>
-          <PointMarks />
           {shown.length ? (
             <VirtualList
               items={shown}
@@ -426,7 +424,6 @@ export function PartsBehind({ which, nodes, onClose }: { which: "decide" | "link
   React.useEffect(() => () => pointAt(null), []);
   return (
     <div data-parts-behind={which} className="space-y-1 rounded-md border border-border bg-elevated/40 p-1.5" onPointerLeave={() => pointAt(null)}>
-      <PointMarks />
       <div className="flex items-center justify-between px-0.5">
         <span className="text-small font-medium text-fg">{which === "decide" ? "Parts that need a decision" : "Links on this page"}</span>
         <Button size="xs" variant="ghost" onClick={onClose}>Close</Button>

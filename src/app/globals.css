@@ -363,6 +363,27 @@
 [data-node-id] > [data-mode] { box-shadow: var(--lift-shadow, none); }
 
 /*
+ * A part pointed at from off the board (the Elements list, the Colours
+ * preview) glows neon blue round what it paints: its own corners, its own
+ * outline, its letters when it is only words. It replaced a grey frame drawn
+ * over the board, which was a rectangle whatever the part's shape and
+ * overlapped its neighbours' frames (J, 2026-10-09). The part's inline filter
+ * reads the variable after its own aura (`NodeView.tsx`), so nothing else it
+ * wears is lost. Sizes are screen pixels at any zoom (`--point-z`). It fades
+ * in, and goes at once when the hand leaves, so a sweep down a list does not
+ * leave a trail.
+ */
+[data-point-mark] > [data-part-drawn] {
+  --point-glow:
+    drop-shadow(0 0 calc(1px / var(--point-z, 1)) rgb(185 245 255))
+    drop-shadow(0 0 calc(4px / var(--point-z, 1)) rgb(0 205 255 / 0.95))
+    drop-shadow(0 0 calc(11px / var(--point-z, 1)) rgb(0 140 255 / 0.6));
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-point-mark] > [data-part-drawn] { transition: filter 180ms ease-out; }
+}
+
+/*
  * A tour thread arriving.
  *
  * The board's own idiom for a line that has just been made: it draws itself

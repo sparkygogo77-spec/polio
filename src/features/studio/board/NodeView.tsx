@@ -31,6 +31,7 @@ import { plain } from "../shelf";
 
 import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,HANDS_ON } from "./helpers";
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";
+import { isPointed,subscribePointed } from "./pointed";
 
 /**
  * Fill: a tab under the selected part that opens, on hover, into the four
@@ -308,10 +309,15 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
     return () => run.cancel();
   }, [arrive]);
 
+  /* Pointed at from a list or the Colours preview: it glows (`pointed.ts`). One boolean, so only the parts it changes for draw again. */
+  const pointed = React.useSyncExternalStore(subscribePointed, () => isPointed(node.id), () => false);
+  const hugAura = hugs ? auraFilter(node.aura, palette, node.auraSize, node.auraStyle) : null;
+
   return (
     <div
       ref={body}
       data-node-id={node.id}
+      data-point-mark={pointed ? node.id : undefined}
       /* Picked, for a check to ask without reading the store. */
       data-picked={selected ? "" : undefined}
       onPointerDown={(e) => {
@@ -445,7 +451,9 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           // The aura, on the shape itself: `drop-shadow` follows what is
           // actually painted, and what is painted here is already cut to the
           // drawn line.
-          ...(hugs ? ((auraFilter(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties) : {}),
+          ...((hugAura ?? {}) as React.CSSProperties),
+          /* The glow of a part pointed at, on what it paints, after its own aura (globals.css `[data-point-mark]`): none until then. */
+          filter: `${hugAura?.filter ?? ""} var(--point-glow, )`.trim(),
           // Cut at the page's edge, as the site is (`pageClip.ts`).
           clipPath: pageClip(node, page.w),
         }}
