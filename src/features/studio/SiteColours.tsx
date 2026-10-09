@@ -71,8 +71,39 @@ function nameOf(n: Parameters<typeof partName>[0] | undefined, id: string, all: 
  * part's own box on screen, and goes when the hand leaves the row.
  */
 const POINT = "studio:point-at";
+let follow = 0;
 export function pointAt(ids: string[] | null) {
   window.dispatchEvent(new CustomEvent(POINT, { detail: ids }));
+  /*
+   * And the board follows: a part below the fold is scrolled into view, so
+   * hovering down a list keeps the board with it (J, 2026-10-09: "as it goes
+   * lower the page does not move to keep up"). A short wait first, so a hand
+   * sweeping across rows on its way somewhere does not drag the board about.
+   */
+  window.clearTimeout(follow);
+  if (ids?.length) follow = window.setTimeout(() => scrollToParts(ids), 140);
+}
+
+const nodeEl = (id: string) => document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(id)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
+
+/**
+ * Scroll the board's pane so these parts can be seen. One part: until all of
+ * it is in view (its top, when it is taller than the pane). Several (a
+ * colour's parts, all over the page): only when none of them is in view, then
+ * to the first. Nothing moves when they already show.
+ */
+export function scrollToParts(ids: readonly string[]) {
+  const els = ids.map(nodeEl).filter((el): el is HTMLElement => el instanceof HTMLElement && el.getClientRects().length > 0);
+  const first = els[0];
+  const pane = first?.closest("[data-studio-pane]") ?? first?.closest("[data-studio-scroll]");
+  if (!first || !(pane instanceof HTMLElement)) return;
+  const p = pane.getBoundingClientRect();
+  const shows = (r: DOMRect) => (els.length === 1
+    ? r.top >= p.top && (r.bottom <= p.bottom || r.height > p.height)
+    : r.bottom > p.top && r.top < p.bottom);
+  if (els.some((el) => shows(el.getBoundingClientRect()))) return;
+  const r = first.getBoundingClientRect();
+  pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
 }
 
 export function PointMarks() {
@@ -391,12 +422,7 @@ function bringIntoView(ids: string[]) {
   if (on) useStudio.getState().setStatesOn(on);
   requestAnimationFrame(() => requestAnimationFrame(() => {
     pointAt(onThisPage(ids));
-    const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(target)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(target)}"]`);
-    const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
-    if (el instanceof HTMLElement && pane instanceof HTMLElement) {
-      const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
-      if (r.bottom < p.top || r.top > p.bottom) pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
-    }
+    scrollToParts([target]);
   }));
 }
 
