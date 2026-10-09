@@ -17,6 +17,8 @@
  *   npm run build && npx next start -p 3013
  *   node tests/colour-drag-smooth.mjs http://127.0.0.1:3013
  *
+ * Also: only the swatch opens the picker, and the code box is as wide as its code.
+ *
  * Covers: src/features/studio/board/store/gesture.ts, src/features/studio/HandSlider.tsx, src/features/studio/SiteColours.tsx, src/features/studio/board/store/create.ts
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -60,7 +62,7 @@ await ui.route("https://api.github.com/**", (r) => {
 await ui.addInitScript(() => {
   window.__writes = 0;
   const set = Storage.prototype.setItem;
-  Storage.prototype.setItem = function (k, v) { if (this === window.localStorage && k === "builder.studio") window.__writes++; return set.call(this, k, v); };
+  Storage.prototype.setItem = function (k, v) { if (this === window.localStorage && k === "builder.studio") { window.__writes++; if (String(v).startsWith('{"state"')) window.__docs = (window.__docs ?? 0) + 1; } return set.call(this, k, v); };
 });
 await ui.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await ui.evaluate(() => {
@@ -108,11 +110,22 @@ await ui.locator(`[data-theme-preview] [data-preview-part="surface"][data-previe
 await ui.waitForTimeout(800);
 const picker = ui.locator('[data-kind-editor] [data-kind-colour="fill"] input[type="color"]').first();
 check("its editor opens with a Fill picker", (await picker.count()) === 1);
-await picker.evaluate((e) => { e.dataset.underHand = "1"; });
+await picker.evaluate((e) => { e.dataset.underHand = "1"; window.__pickerClicks = 0; e.addEventListener("click", () => window.__pickerClicks++); });
+
+/* Only the swatch opens the picker: a press on the name or beside it does not (J, 2026-10-09). */
+const row = ui.locator('[data-kind-editor] [data-kind-colour="fill"]').first();
+const rb = await row.boundingBox();
+await row.locator("span").first().click();
+await ui.mouse.click(rb.x + rb.width * 0.6, rb.y + rb.height - 2);
+check("pressing the colour's name or the space beside it does not open the picker", (await ui.evaluate(() => window.__pickerClicks)) === 0, `${await ui.evaluate(() => window.__pickerClicks)} opens`);
+await ui.keyboard.press("Escape");
+const hexBox = await row.locator('input[aria-label$="as hex"]').evaluate((e) => ({ box: e.parentElement.getBoundingClientRect().width, fits: e.scrollWidth <= e.clientWidth, text: e.value }));
+check("the colour code box is as wide as its code", hexBox.fits && hexBox.box < 96, `${Math.round(hexBox.box)}px for ${hexBox.text}`);
 
 const before = await ui.evaluate(() => ({ nodes: JSON.stringify(window.__studioNodes()), undo: window.__studioUndoDepth() }));
 await ui.evaluate(() => {
   window.__writes = 0;
+  window.__docs = 0;
   window.__outside = [];
   const pane = document.querySelector("[data-studio-pane]");
   window.__watch = new MutationObserver((list) => {
@@ -156,8 +169,9 @@ check("the side panel stands still while the hand is in the picker", during.outs
 /* Letting go: the picker closes. */
 await ui.evaluate(() => document.querySelector('[data-under-hand="1"]').dispatchEvent(new Event("change", { bubbles: true })));
 await ui.waitForTimeout(1200);
-const after = await ui.evaluate(() => ({ writes: window.__writes, outside: window.__outside.length, undo: window.__studioUndoDepth(), nodes: JSON.stringify(window.__studioNodes()) }));
-check("letting go saves once", after.writes >= 1 && after.writes <= 2, `${after.writes} writes`);
+const after = await ui.evaluate(() => ({ writes: window.__writes, docs: window.__docs, outside: window.__outside.length, undo: window.__studioUndoDepth(), nodes: JSON.stringify(window.__studioNodes()) }));
+/* One save is the document beside IndexedDB, then the pointer to it once it has landed there (docStore.ts). */
+check("letting go saves once", after.docs === 1, `${after.docs} saves of the document (${after.writes} writes)`);
 check("…and the side panel catches up", after.outside > 0, `${after.outside} changes`);
 check("the whole drag is exactly one undo step", after.undo === before.undo + 1, `${before.undo} -> ${after.undo}`);
 await ui.evaluate(() => window.__watch.disconnect());
@@ -179,7 +193,9 @@ if (await thumb.count()) {
   const u0 = await ui.evaluate(() => { window.__writes = 0; return window.__studioUndoDepth(); });
   await ui.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
   await ui.mouse.down();
-  for (let i = 1; i <= 25; i++) await ui.mouse.move(tb.x + tb.width / 2 + i * 4, tb.y + tb.height / 2);
+  /* Toward whichever end has room: a kind with a small copy has a short Corners slider. */
+  const dir = await thumb.evaluate((e) => (Number(e.getAttribute("aria-valuenow")) > Number(e.getAttribute("aria-valuemin")) ? -1 : 1));
+  for (let i = 1; i <= 25; i++) await ui.mouse.move(tb.x + tb.width / 2 + dir * i * 6, tb.y + tb.height / 2);
   await ui.waitForTimeout(200);
   const mid = await ui.evaluate(() => ({ writes: window.__writes, now: document.querySelector('[data-kind-corners] [role="slider"]').getAttribute("aria-valuenow") }));
   await ui.mouse.up();
