@@ -18,8 +18,8 @@
  *                             squeezed to a word per line. Settings > This
  *                             site says the same.
  *   Look                      "On this site" leads; hovering a part's name
- *                             outlines it on the board; close shades merge
- *                             in one undo step; no role-pair "text 1.2"
+ *                             outlines it on the board; Randomize theme is
+ *                             one undo step; no role-pair "text 1.2"
  *                             alarm; the role numbers are explained.
  *   Width                     the panel starts at 300px, its edge drags from
  *                             228px to about half the window, is kept in this
@@ -222,10 +222,9 @@ if (await page.locator('[data-setting="site.layout.radius"]').isVisible().catch(
 await tab("Look");
 const first = await side.locator("[data-look-panel] > section").first().getAttribute("data-site-colours");
 check("on a captured site, Look leads with \"On this site\"", first === "", String(first));
-/* The six colours parts can follow are "Colours for new parts", under More colours (Lane I). */
-/* Every fold in Look opened, not only the first: a colour group that lands under a fold is still reached by name (line 237 pressed a fill swatch a fold had hidden). */
-await side.locator("[data-role-more] > button[aria-expanded]").evaluateAll((bs) => bs.forEach((b) => { if (b.getAttribute("aria-expanded") !== "true") b.click(); }));
-await page.waitForTimeout(300);
+/* Colours shows only the theme: no "More colours" fold, no unmerged list; the six for new parts stand open (J, 2026-10-09). */
+check("Colours has no More colours fold and no colour-by-use list", (await side.locator("[data-role-more], [data-site-group]").count()) === 0);
+check("…and the colours for new parts are shown", (await side.locator("[data-for-new-parts]").count()) === 1);
 check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
 check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
 /* The "Words: N are hard to read" line is gone from Look (owner: it flagged harmless parts and fixed nothing). */
@@ -238,10 +237,9 @@ check("pressing a face lists every part set in it, labels in links and repeated 
 await side.locator('[data-site-font="Pixel Mono"]').click();
 await page.waitForTimeout(200);
 
-const fills = side.locator('[data-site-group="fill"]');
-const before = await fills.locator("[data-site-swatch]").count();
-await fills.locator("[data-site-swatch]").first().scrollIntoViewIfNeeded();
-await fills.locator("[data-site-swatch]").first().click();
+const fills = side.locator("[data-role-palette]");
+await fills.locator("[data-role-swatch]").first().scrollIntoViewIfNeeded();
+await fills.locator("[data-role-swatch]").first().click();
 await page.waitForTimeout(400);
 const partRow = side.locator("[data-site-part]:not([data-site-part=\"@page\"])").first();
 check("a colour's part list names parts readably", !(await side.locator("[data-site-part]").allInnerTexts()).some((t) => /inside|n_box|::/.test(t)), (await side.locator("[data-site-part]").allInnerTexts()).join(" | "));
@@ -253,25 +251,23 @@ check("hovering a part's name outlines it on the board", (await mark.count()) ==
 await page.screenshot({ path: `${SHOTS}/side-panel-look-hover.png` });
 await page.mouse.move(1500, 1050);
 await page.waitForTimeout(300);
-check("…and the outline goes when the hand leaves", (await mark.count()) === 0);
+/* An open theme swatch keeps its own parts outlined (`RoleDetail`); the hover's single outline gives way to them. */
+check("…and the hover outline gives way when the hand leaves", (await mark.count()) !== 1, `${await mark.count()} outlined`);
 const selectedBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.selection ?? null);
 void selectedBefore;
 
-await fills.locator("[data-merge-open]").click();
-await page.waitForTimeout(300);
-const groups = await fills.locator("[data-merge-group]").count();
-check("\"Merge close shades\" shows what would merge before anything moves", groups >= 1 && (await fills.locator("[data-site-swatch]").count()) === before, `${groups} group(s), ${before} fills`);
-await page.screenshot({ path: `${SHOTS}/side-panel-merge-preview.png` });
+/* Randomize theme: a new palette in one step, one undo takes it back. */
+const nodes0 = await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes));
 const depth0 = await page.evaluate(() => window.__studioUndoDepth());
-await fills.locator("[data-merge-apply]").click();
-await page.waitForTimeout(500);
-const after = await fills.locator("[data-site-swatch]").count();
+await side.locator("[data-randomize-theme] button").first().click();
+await page.waitForTimeout(600);
 const depth1 = await page.evaluate(() => window.__studioUndoDepth());
-check("merging leaves fewer fills", after < before, `${before} → ${after}`);
+check("Randomize theme recolours the parts", /New theme on \d+ parts?/.test(await side.locator("[data-theme-rolled]").innerText()) && (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) !== nodes0, await side.locator("[data-theme-rolled]").innerText());
 check("…in one undo step", depth1 - depth0 === 1, `${depth1 - depth0} steps`);
-await fills.locator("[data-merge-done] button").click();
+await page.screenshot({ path: `${SHOTS}/side-panel-randomized.png` });
+await side.locator("[data-theme-rolled] button").click();
 await page.waitForTimeout(400);
-check("…which one undo takes back whole", (await fills.locator("[data-site-swatch]").count()) === before, `${await fills.locator("[data-site-swatch]").count()} fills`);
+check("…which one undo takes back whole", (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) === nodes0);
 await page.screenshot({ path: `${SHOTS}/side-panel-look.png` });
 
 await browser.close();

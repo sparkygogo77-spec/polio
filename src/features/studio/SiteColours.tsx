@@ -16,17 +16,16 @@
  */
 import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
-import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
+import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, tallyColours, firstSays, fontsInPageOrder, type ColourUse, type FaceTo, type SiteColour } from "./look";
+import { ROLES, css, parseColor, rollTheme, spotsOf, toHex, type Oklch, type Palette } from "./look";
+import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { componentsOf, type CompNode } from "./components";
 import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
-import { Slider } from "@/core/ui/slider";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
@@ -36,17 +35,6 @@ import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
 import { Tooltip } from "@/core/ui/tooltip";
 import { VirtualList } from "@/core/ui/virtual-list";
-
-/** How many swatches a group shows before the rest go under "Also on this site". */
-const SHOWN = 8;
-
-const USE_SAYS: Record<ColourUse, string> = {
-  text: "on the words",
-  fill: "as a fill",
-  border: "as a border or outline",
-  shadow: "in a shadow or glow",
-  accent: "anywhere (it is one of the site's colours, not a grey)",
-};
 
 function useSite() {
   const nodes = useStudio((s) => s.nodes);
@@ -170,87 +158,6 @@ function PartsList({ spots, rest = null }: { spots: { id: string; where: string 
     <VirtualList items={rows} getKey={(r) => r.id} renderItem={row} estimateSize={26} className="h-40 rounded-md border border-border" />
   ) : (
     <div data-site-parts="" className={cn("rounded-md border border-border", rows.length > 6 && "max-h-40 overflow-y-auto")}>{rows.map((r) => <React.Fragment key={r.id}>{row(r)}</React.Fragment>)}</div>
-  );
-}
-
-/** One colour, opened: who wears it, and recolour exactly them. */
-function ColourDetail({ colour, use, palette, onDone }: { colour: SiteColour; use: ColourUse | null; palette: Palette; onDone: () => void }) {
-  const spots = use && use !== "accent" ? colour.spots.filter((s) => s.use === use) : colour.spots;
-  const parts = new Set(spots.map((s) => s.id));
-  const [to, setTo] = React.useState<Oklch>(parseColor(colour.value) ?? { l: 0.7, c: 0.15, h: 265 });
-  const [hex, setHex] = React.useState(toHex(to));
-  const [done, setDone] = React.useState<number | null>(null);
-  const swap = () => {
-    const changed = useStudio.getState().swapColourAll(colour.value, css(to), palette, { use: use ?? undefined });
-    play(changed.length ? "confirm" : "deny");
-    setDone(changed.length);
-  };
-  const scope = use && use !== "accent" ? USE_SAYS[use] : "wherever it is worn";
-  return (
-    <div data-site-colour-detail={colour.key} className="mt-2 space-y-2 rounded-md border border-border bg-elevated p-2">
-      <div className="flex items-center gap-2">
-        <span className="size-6 shrink-0 rounded border border-border" style={{ background: colour.value }} />
-        <span className="min-w-0 flex-1 text-small text-fg">
-          <span className="num">{colour.value}</span>
-          <span className="block text-fg-muted" data-site-colour-says="">
-            {parts.size} part{parts.size === 1 ? "" : "s"} wear it {scope}
-          </span>
-        </span>
-        <Button variant="ghost" size="xs" onClick={() => pickOnBoard([...parts])}>Pick them</Button>
-      </div>
-      <PartsList spots={spots} />
-      <div className="flex items-center gap-1">
-        <span className="size-6 shrink-0 rounded border border-border" style={{ background: css(to) }} aria-hidden />
-        <input
-          type="color"
-          aria-label="New colour"
-          value={toHex(to).slice(0, 7)}
-          onChange={(e) => { const c = parseColor(e.target.value); if (c) { setTo(c); setHex(toHex(c)); } }}
-          className="h-6 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent"
-        />
-        <Input
-          inputSize="sm"
-          className="min-w-0 flex-1"
-          value={hex}
-          aria-label="New colour, as hex"
-          onChange={(e) => { setHex(e.target.value); const c = parseColor(e.target.value); if (c) setTo(c); }}
-        />
-      </div>
-      <div className="flex items-center gap-1">
-        <Button data-site-swap="" size="xs" variant="outline" className="flex-1" onClick={swap}>
-          Recolour {parts.size === 1 ? "this part" : `these ${parts.size} parts`}
-        </Button>
-        <Button size="xs" variant="ghost" onClick={onDone}>Close</Button>
-      </div>
-      {done !== null ? (
-        <p data-site-swapped="" className="flex items-center gap-2 text-small text-fg-muted">
-          {done ? `Recoloured ${done} part${done === 1 ? "" : "s"}.` : "Nothing wore it any more."}
-          {done ? (
-            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}>
-              <Undo2 className="size-3" /> Undo
-            </button>
-          ) : null}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function Swatch({ c, count, on, onClick, label }: { c: SiteColour; count: number; on: boolean; onClick: () => void; label: string }) {
-  return (
-    <Tooltip content={`${c.value} · ${label}`}>
-      <button
-        type="button"
-        data-site-swatch={c.key}
-        aria-label={`${c.value}, ${label}`}
-        aria-pressed={on}
-        onClick={onClick}
-        className="flex flex-col items-stretch gap-0.5"
-      >
-        <span className={cn("h-7 rounded-md border-2 transition-colors", on ? "border-accent" : "border-border hover:border-border-strong")} style={{ background: c.value }} />
-        <span className="num text-center text-fine text-fg-faint">{count}</span>
-      </button>
-    </Tooltip>
   );
 }
 
@@ -414,11 +321,15 @@ function RoleChip({ s, on, onClick }: { s: RoleSwatch; on: boolean; onClick: () 
   );
 }
 
-/** The short palette and, folded, everything else. */
-function RolePalette({ roles, palette, children, forNewParts = null }: { roles: SiteRoles; palette: Palette; children: React.ReactNode; forNewParts?: React.ReactNode }) {
+/**
+ * The site's theme: one row per role, each colour worn by three parts or
+ * more. A colour worn by one or two parts is not here (J, 2026-10-09: "the
+ * singular or even double colours arent enough to be on the panel"); it is
+ * changed on the part itself, on the board.
+ */
+function RolePalette({ roles, palette, forNewParts = null }: { roles: SiteRoles; palette: Palette; forNewParts?: React.ReactNode }) {
   const [open, setOpen] = React.useState<string | null>(null);
-  const [more, setMore] = React.useState(false);
-  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.more, ...roles.ink];
+  const all = [...roles.short.flatMap((r) => r.swatches), ...roles.ink];
   const opened = all.find((s) => s.id === open) ?? null;
   const toggle = (id: string) => { play("select"); setOpen((o) => (o === id ? null : id)); };
   const detail = (s: RoleSwatch) => (opened?.id === s.id ? <RoleDetail key={s.id} swatch={s} palette={palette} onDone={() => setOpen(null)} /> : null);
@@ -446,40 +357,66 @@ function RolePalette({ roles, palette, children, forNewParts = null }: { roles: 
           ))}
         </div>
       ) : null}
-      <div data-role-more="">
-        <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
-          className="flex w-full items-center gap-1 text-small font-medium text-fg">
-          <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
-          More colours
-          <span className="ml-auto font-normal text-fg-faint">{roles.more.length ? `${roles.more.length} more colour${roles.more.length === 1 ? "" : "s"}` : "and the full list"}</span>
-        </button>
-        {more ? (
-          <div className="mt-1 space-y-2">
-            <MoreHint className="text-fine text-fg-faint" text="Every other colour on parts on top of the page, by role. A colour worn by one or two parts is here too." />
-            {roles.more.map((s) => (
-              <React.Fragment key={s.id}>
-                <RoleChip s={s} on={open === s.id} onClick={() => toggle(s.id)} />
-                {detail(s)}
-              </React.Fragment>
-            ))}
-            {forNewParts ? (
-              <div data-for-new-parts="" className="space-y-1 border-t border-border pt-2">
-                <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Colours for new parts</p>
-                {forNewParts}
-              </div>
-            ) : null}
-            {children}
-          </div>
-        ) : null}
-      </div>
+      {forNewParts ? (
+        <div data-for-new-parts="" className="space-y-1 border-t border-border pt-2">
+          <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Colours for new parts</p>
+          {forNewParts}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * RANDOMIZE THEME on a site brought in (`rollTheme`): every theme swatch
+ * gets a new colour from one hue family, the page and its background layers
+ * with it, words on a button get black or white to read on it, and the six
+ * roles follow so new parts match. One undo step.
+ */
+function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs): number {
+  const theme = roles.short.flatMap((r) => r.swatches).filter((s) => s.role !== "pictures");
+  const roll = rollTheme(theme.map((s) => ({ id: s.id, role: s.role, value: s.value })));
+  const st = useStudio.getState();
+  const mark = st.historyMark();
+  const changed = new Set<string>();
+  /* Which button each part's words stand on: the button itself, or a part stacked on it. */
+  const buttonOf = new Map<string, string>();
+  for (const b of theme.filter((s) => s.role === "buttons")) for (const x of b.spots) buttonOf.set(counted.countAs(x.id), b.id);
+  const onButton = (id: string) => buttonOf.get(counted.countAs(id));
+  const swap = (sw: RoleSwatch, into: string, ids: string[], use = ROLE_USE[sw.role]) => {
+    if (!ids.length) return;
+    const pal = resolvePalette(useStudio.getState().format, useStudio.getState().look);
+    for (const shade of sw.shades) for (const id of useStudio.getState().swapColourAll(shade, into, pal, { use, only: ids })) changed.add(id);
+  };
+  const free = (sw: RoleSwatch) => [...new Set(sw.spots.filter((x) => x.where !== "in its picture").map((x) => x.id))];
+  st.setLook({ palette: { ...st.look.palette, ...roll.palette } });
+  for (const sw of theme) {
+    const into = roll.to.get(sw.id);
+    if (!into) continue;
+    const ids = free(sw);
+    if (sw.role !== "words") { swap(sw, into, ids); continue; }
+    swap(sw, into, ids.filter((id) => !onButton(id)));
+    for (const [button, ink] of roll.onButtons) swap(sw, ink, ids.filter((id) => onButton(id) === button));
+  }
+  /* Plain ink on a button turns to whichever of black or white reads on it. */
+  for (const sw of roles.ink) for (const [button, ink] of roll.onButtons) {
+    const ids = [...new Set(sw.spots.filter((x) => x.use === "text" && onButton(x.id) === button).map((x) => x.id))];
+    swap(sw, ink, ids, "text");
+  }
+  /* The background layers take the page's new colour. */
+  const nodes = useStudio.getState().nodes;
+  for (const id of roles.left.backgroundLayers) {
+    const n = nodes.find((x) => x.id === id);
+    if (!n) continue;
+    for (const f of spotsOf(n, palette).filter((x) => x.spot.use === "fill")) for (const c of useStudio.getState().swapColourAll(f.key, roll.page, resolvePalette(useStudio.getState().format, useStudio.getState().look), { use: "fill", only: [id] })) changed.add(c);
+  }
+  useStudio.getState().oneStepSince(mark);
+  return changed.size;
 }
 
 export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
   const { nodes, palette, look } = useSite();
   const frameWidth = useStudio((s) => s.frameWidth);
-  const tally = React.useMemo(() => tallyColours(nodes, palette), [nodes, palette]);
   const pictureColours = usePictureColours(nodes);
   const pictureKey = [...pictureColours.entries()].map(([k, v]) => `${k}:${v.join("")}`).join("|");
   /* A button painted by stacked parts is one button in every count (`components.ts`). */
@@ -488,17 +425,8 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
     return { countAs: (id) => c.of.get(id) ?? id, kindOf: (id) => { const host = c.of.get(id); return host ? c.byId.get(host)?.kind ?? null : null; } };
   }, [nodes, palette]);
   const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours, undefined, counted), [nodes, palette, frameWidth, pictureKey, counted]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [open, setOpen] = React.useState<{ use: ColourUse | null; key: string } | null>(null);
-  const [more, setMore] = React.useState(false);
-
-  const shownKeys = new Set(COLOUR_USES.flatMap((u) => tally.byUse[u].slice(0, SHOWN).map((c) => c.key)));
-  const rest = tally.all.filter((c) => !shownKeys.has(c.key));
-  const detail = (use: ColourUse | null) => {
-    if (!open || open.use !== use) return null;
-    const c = tally.all.find((x) => x.key === open.key);
-    return c ? <ColourDetail key={`${use}:${c.key}`} colour={c} use={use} palette={palette} onDone={() => setOpen(null)} /> : null;
-  };
-  const toggle = (use: ColourUse | null, key: string) => { play("select"); setOpen((o) => (o && o.use === use && o.key === key ? null : { use, key })); };
+  const [rolled, setRolled] = React.useState<number | null>(null);
+  const roll = () => { const n = randomizeTheme(roles, palette, counted); play(n ? "confirm" : "deny"); setRolled(n); };
   const left = roles.left.backgroundLayers.length;
 
   return (
@@ -522,56 +450,29 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
         <MoreHint
           className="text-small leading-snug text-fg-muted"
           text={captured
-            ? "The colours of the parts on top of the page, by what they are for. Close shades are one swatch. Press one to see its parts outlined on the board, pick them, and change the colour."
+            ? "The site's theme: the colours on top of the page worn by three parts or more, by what they are for. Close shades are one swatch. Press one to see its parts outlined on the board and change them all. A colour on one or two parts is changed on the part itself."
             : "The site's colours. Press one to change it; every part that follows it changes with it."}
         />
       </div>
       {captured ? null : paletteRoles}
-      <RolePalette roles={roles} palette={palette} forNewParts={captured ? paletteRoles : null}>
-        <div data-site-by-use="" className="space-y-3 border-t border-border pt-2">
-          <p className="text-fine font-medium uppercase tracking-wider text-fg-faint">Every colour, by use, unmerged</p>
-          {COLOUR_USES.map((u) => {
-            const list = tally.byUse[u];
-            if (!list.length) return null;
-            return (
-              <div key={u} data-site-group={u}>
-                <div className="mb-1 flex items-baseline justify-between gap-2 text-small">
-                  <span className="font-medium text-fg">{USE_LABEL[u]}</span>
-                  <span className="text-fg-faint">{list.length} colour{list.length === 1 ? "" : "s"}</span>
-                </div>
-                <div className="grid grid-cols-8 gap-1">
-                  {list.slice(0, SHOWN).map((c) => (
-                    <Swatch key={c.key} c={c} count={c.by[u]} on={open?.use === u && open.key === c.key}
-                      label={`${c.by[u]} part${c.by[u] === 1 ? "" : "s"} ${USE_SAYS[u]}`} onClick={() => toggle(u, c.key)} />
-                  ))}
-                </div>
-                {detail(u)}
-                <MergeShades use={u} list={list} palette={palette} />
-              </div>
-            );
-          })}
-          {rest.length ? (
-            <div data-site-group="also">
-              <button type="button" aria-expanded={more} onClick={() => { play(more ? "close" : "open"); setMore((v) => !v); }}
-                className="flex w-full items-center gap-1 text-small font-medium text-fg">
-                <ChevronDown className={cn("size-3 transition-transform", more && "rotate-180")} />
-                Also on this site
-                <span className="ml-auto font-normal text-fg-faint">{rest.length} more</span>
-              </button>
-              {more ? (
-                <div className="mt-1 grid grid-cols-8 gap-1">
-                  {rest.map((c) => (
-                    <Swatch key={c.key} c={c} count={c.parts} on={open?.use === null && open.key === c.key}
-                      label={`${c.parts} part${c.parts === 1 ? "" : "s"}, ${COLOUR_USES.filter((u) => c.by[u] && u !== "accent").map((u) => USE_LABEL[u].toLowerCase()).join(", ")}`}
-                      onClick={() => toggle(null, c.key)} />
-                  ))}
-                </div>
+      {captured ? (
+        <div data-randomize-theme="" className="space-y-1">
+          <Button size="xs" variant="outline" className="w-full" onClick={roll}>
+            <Dices className="size-3" /> Randomize theme
+          </Button>
+          {rolled !== null ? (
+            <p data-theme-rolled="" className="flex items-center gap-2 text-small text-fg-muted">
+              {rolled ? `New theme on ${rolled} part${rolled === 1 ? "" : "s"}, in one step.` : "Nothing to recolour."}
+              {rolled ? (
+                <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setRolled(null); play("close"); }}>
+                  <Undo2 className="size-3" /> Undo
+                </button>
               ) : null}
-              {detail(null)}
-            </div>
+            </p>
           ) : null}
         </div>
-      </RolePalette>
+      ) : null}
+      <RolePalette roles={roles} palette={palette} forNewParts={captured ? paletteRoles : null} />
       <MoreHint
         data-site-left-out=""
         className="text-small leading-snug text-fg-faint"
@@ -677,102 +578,3 @@ export function SiteFontsSection() {
     </section>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Merge close shades                                                  */
-/* ------------------------------------------------------------------ */
-
-/**
- * MERGE CLOSE SHADES, per use. A captured site wears dozens of near-copies
- * of a colour (39 fills and 26 accents on trumpmorty.fun, three of them
- * 243,212,64 / 242,226,129 / 240,223,123), each on a part or two, so
- * changing "the yellow" meant changing a dozen swatches. This groups the
- * shades within a small distance round the one most parts wear, shows what
- * would become what before anything moves, and merges them in one undo step.
- */
-function MergeShades({ use, list, palette }: { use: ColourUse; list: SiteColour[]; palette: Palette }) {
-  const [open, setOpen] = React.useState(false);
-  const [within, setWithin] = React.useState(CLOSE_SHADES);
-  const [done, setDone] = React.useState<number | null>(null);
-  const groups = React.useMemo(() => closeShades(list, use, within), [list, use, within]);
-  const anyAtAll = React.useMemo(() => closeShades(list, use, 0.08).length > 0, [list, use]);
-  if (!anyAtAll && done === null) return null;
-  const shades = groups.reduce((n, g) => n + g.from.length, 0);
-  const apply = () => {
-    const st = useStudio.getState();
-    const mark = st.historyMark();
-    let changed = 0;
-    for (const g of groups) for (const c of g.from) changed += st.swapColourAll(c.value, g.to.value, palette, { use }).length;
-    useStudio.getState().oneStepSince(mark);
-    play(changed ? "confirm" : "deny");
-    setDone(changed);
-    setOpen(false);
-  };
-  return (
-    <div data-merge-shades={use} className="mt-1.5">
-      {!open ? (
-        <button
-          type="button"
-          data-merge-open=""
-          onClick={() => { play("open"); setDone(null); setOpen(true); }}
-          className="tactile inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-small text-fg-muted hover:text-fg"
-        >
-          <Merge className="size-3" /> Merge close shades
-        </button>
-      ) : (
-        <div data-merge-preview="" className="space-y-2 rounded-md border border-border bg-elevated p-2">
-          <div className="space-y-1">
-            <div className="flex items-baseline justify-between text-small">
-              <span className="text-fg">How close counts as the same</span>
-              <span className="text-fg-faint">{within <= 0.02 ? "nearly identical" : within <= 0.045 ? "close" : "loosely alike"}</span>
-            </div>
-            <Slider value={[Math.round(within * 1000)]} min={10} max={80} step={5} onValueChange={(v) => setWithin((v[0] ?? 35) / 1000)} aria-label="How close counts as the same" />
-          </div>
-          {groups.length ? (
-            <>
-              <p className="text-small text-fg-muted">
-                {shades} shade{shades === 1 ? "" : "s"} would become {groups.length} colour{groups.length === 1 ? "" : "s"}, on {groups.reduce((n, g) => n + g.parts, 0)} part{groups.reduce((n, g) => n + g.parts, 0) === 1 ? "" : "s"}. Each group takes the shade most parts already wear.
-              </p>
-              <ul className="max-h-48 space-y-1 overflow-y-auto">
-                {groups.map((g) => (
-                  <li key={g.to.key} data-merge-group={g.to.key} className="flex items-center gap-1">
-                    <span className="flex min-w-0 flex-1 flex-wrap gap-0.5">
-                      {g.from.map((c) => (
-                        <Tooltip key={c.key} content={c.value}>
-                          <span className="size-4 rounded-sm border border-border" style={{ background: c.value }} />
-                        </Tooltip>
-                      ))}
-                    </span>
-                    <ArrowRight className="size-3 shrink-0 text-fg-faint" />
-                    <Tooltip content={`${g.to.value}, worn by ${g.to.by[use]} part${g.to.by[use] === 1 ? "" : "s"}`}>
-                      <span className="size-5 shrink-0 rounded-sm border border-border" style={{ background: g.to.value }} />
-                    </Tooltip>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="text-small text-fg-muted">No two shades are that close. Loosen it to find more.</p>
-          )}
-          <div className="flex items-center gap-1">
-            <Button data-merge-apply="" size="xs" variant="outline" className="flex-1" disabled={!groups.length} onClick={apply}>
-              Merge {shades} into {groups.length}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => { play("close"); setOpen(false); }}>Close</Button>
-          </div>
-        </div>
-      )}
-      {done !== null ? (
-        <p data-merge-done="" className="mt-1 flex items-center gap-2 text-small text-fg-muted">
-          {done ? `Merged: ${done} part${done === 1 ? "" : "s"} changed, in one step.` : "Nothing wore those shades any more."}
-          {done ? (
-            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}>
-              <Undo2 className="size-3" /> Undo
-            </button>
-          ) : null}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
