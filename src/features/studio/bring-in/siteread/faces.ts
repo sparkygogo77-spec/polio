@@ -185,6 +185,8 @@ export interface PagePart {
   bare?: true;
   /** Words the page set on more than one line (an inline paragraph that wrapped): drawn wrapping, never held to one line. */
   wraps?: true;
+  /** Set in the line right after a line part's words (PST's "?" after its note): that part's index, the room between (px) and its middle against the row's. */
+  after?: { part: number; gap: number; dy: number };
   src?: string;
   alt?: string;
   style: PartStyle;

@@ -26,6 +26,7 @@ import { resolvePart } from "../shelf/ui";
 import { homeOf } from "../homePage";
 import { getWork, pageFeatures, usesOf } from "../shelf";
 import { runWorks } from "./runWorks";
+import { followsOf, placeFollowers } from "./follow";
 import { leadsOf, withLead } from "../shelf";
 import { holderIds } from "../owner";
 
@@ -265,6 +266,22 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     return runWorks(rootRef.current, pageNodes);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bound, pageId]);
+
+  /* Parts set right after a line's words follow them wherever they end (`follow.ts`): after every draw, a resize, and the fonts. */
+  const followers = React.useMemo(() => (depth > 0 ? [] : pageNodes.flatMap((n) => { const f = followsOf(n); return f ? [{ id: n.id, follows: f }] : []; })), [depth, pageNodes]);
+  React.useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !followers.length) return;
+    const find = (id: string) => `[data-live-node="${id.replace(/["\\]/g, "\\$&")}"]`;
+    let frame = 0;
+    const place = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => placeFollowers(root, followers, find)); };
+    placeFollowers(root, followers, find);
+    const seen = new ResizeObserver(place);
+    seen.observe(root);
+    for (const f of followers) { const to = root.querySelector(find(f.follows.id)); if (to) seen.observe(to); }
+    void document.fonts?.ready.then(place);
+    return () => { cancelAnimationFrame(frame); seen.disconnect(); };
+  });
 
   const motionSheet = React.useMemo(() => motionCss(nodes.filter((n) => n.pageId === pageId), look?.keyframes, (id) => `[data-live-node="${id}"]`), [nodes, pageId, look?.keyframes]);
   const transition = String(format["pages.transition"] ?? "fade");
