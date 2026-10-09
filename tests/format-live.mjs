@@ -69,14 +69,27 @@ await page.waitForTimeout(400);
  * for a new build" holding the rest (tests/side-panel-g.mjs). So what was a
  * tag per field is now where the field sits.
  */
-const siteRows = await page.locator("[data-format-section=site] [data-site-row]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-row")));
-const siteFields = siteRows.map((id) => (id === "accent" ? "palette.accentHue" : id)).filter((id) => ids.has(id));
-check("every field This site shows is one the preview draws", siteFields.length >= 4 && siteFields.every((id) => read.has(id)), siteFields.join(", "));
+/* This site moved to Look (J, 2026-10-09): Format has none, even on a site made here; pressing the page in Look's preview holds its fonts, size and corners. */
+check("Format has no This site block, even on a site made here", (await page.locator("[data-format-section=site]").count()) === 0);
 await page.locator("[data-brief-fold]").click();
 await page.waitForTimeout(300);
 check("no field carries a BRIEF tag, even with the brief open", (await page.locator("[data-brief-only]").count()) === 0 && (await page.locator("[data-format-field]").count()) > 20);
 const briefRow = page.locator("[data-format-field=\"type.dropCap\"]");
 check("a field the preview does not draw sits in the brief, which says what that means", (await briefRow.count()) === 1 && /builder is told/i.test(await page.locator("[data-brief-fold]").innerText()));
+
+const lookTab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Look" }).first();
+await lookTab.click();
+await page.waitForTimeout(500);
+await page.locator('[data-theme-preview] [data-preview-part="heading"]').click();
+await page.waitForTimeout(300);
+await page.locator("[data-kind-editor] [data-kind-font] button").first().click();
+await page.waitForTimeout(200);
+const inLook = await page.locator("[data-kind-editor] [data-site-family], [data-kind-editor] [data-site-dial]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-family") ?? e.getAttribute("data-site-dial")));
+check("Look's page editor holds the heading and body fonts, the text size and the corners", ["type.headingFamily", "type.bodyFamily", "type.baseSize", "layout.radius"].every((id) => inLook.includes(id)), inLook.join(", "));
+await page.locator('[data-site-family="type.headingFamily"] [aria-label="Headings font"]').click();
+await page.getByRole("option", { name: "serif", exact: true }).click();
+await page.waitForTimeout(300);
+check("…and choosing a heading font sets the site's", (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.format["type.headingFamily"])) === "serif");
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

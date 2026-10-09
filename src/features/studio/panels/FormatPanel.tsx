@@ -1,14 +1,9 @@
 "use client";
 /**
- * THE FORMAT TAB: A SHORT PAGE, IN THREE PARTS.
+ * THE FORMAT TAB: A SHORT PAGE, IN TWO PARTS.
  *
- *   This site             (sites made here only; a site brought in edits
- *                         these in Look, from its preview) the six things a person reads a site by: the
- *                         heading and body fonts, the base size, the
- *                         corners, the page's colour and the accent. On a
- *                         captured site each is read off its parts
- *                         (`siteFormat.ts`), shown once, with a Change that
- *                         changes it where the site has it.
+ *   (This site, the fonts, base size, corners, page colour and accent,
+ *    moved to Look: each is pressed in the site's preview, J 2026-10-09.)
  *   Whole-site features   the switches the shelf shows for the whole site
  *                         (dark and light versions, print, cookie consent,
  *                         error screens, offline, …), each with its state.
@@ -22,12 +17,11 @@
  * site's own values mixed in and some of them read wrong. `tests/side-panel-g.mjs`.
  */
 import * as React from "react";
-import { ChevronRight, RotateCcw, Search, Undo2 } from "lucide-react";
+import { ChevronRight, RotateCcw, Search } from "lucide-react";
 import { FORMAT_FIELDS, FORMAT_GROUPS, type FormatField } from "../format";
 import { useStudio } from "../board/store";
-import { FAMILY, resolvePalette } from "../shelf/run";
-import { isCaptured, readSiteFormat, type Reading } from "../siteFormat";
-import { fontsInPageOrder, type FaceTo } from "../look";
+import { resolvePalette } from "../shelf/run";
+import { isCaptured, readSiteFormat } from "../siteFormat";
 import { formatSwitchKeys, formatSwitches, formatSwitchOn } from "../shelfFacts";
 import { parseColor, toHex } from "../look";
 import { cn } from "@/core/lib/cn";
@@ -87,145 +81,6 @@ export function colourWords(v: string | null | undefined): string {
   return `${tone}${name}`;
 }
 const hexOf = (v: string | null | undefined) => { const c = parseColor(v ?? ""); return c ? toHex(c) : "#000000"; };
-
-/** One row of "This site": its name, the one value, and a Change that opens the control in place. */
-function SiteRow({ id, label, shows, from, swatch, face, children, open, onOpen }: {
-  id: string; label: string; shows: string; from?: string; swatch?: string; face?: string;
-  children: React.ReactNode; open: boolean; onOpen: () => void;
-}) {
-  return (
-    <li data-site-row={id} className="px-3 py-1.5">
-      <div className="flex items-center gap-2">
-        <span className="w-24 shrink-0 text-plain text-fg-muted">{label}</span>
-        <span data-site-reads="" className="flex min-w-0 flex-1 items-center gap-1.5 text-plain text-fg" title={from ? `From the site: ${from}` : undefined}>
-          {swatch ? <span className="size-3.5 shrink-0 rounded-sm border border-border" style={{ background: swatch }} /> : null}
-          <span className="truncate" style={face ? { fontFamily: FAMILY[face] ?? `"${face}"` } : undefined}>{shows}</span>
-        </span>
-        <Button size="xs" variant={open ? "outline" : "ghost"} aria-expanded={open} data-site-change="" onClick={() => { play(open ? "close" : "open"); onOpen(); }}>
-          {open ? "Done" : "Change"}
-        </Button>
-      </div>
-      {from && !open ? <div className="pl-[6.5rem] text-fine leading-snug text-fg-faint">{from}</div> : null}
-      {open ? <div className="mt-1.5 space-y-1.5 rounded-md border border-border bg-elevated/40 p-2">{children}</div> : null}
-    </li>
-  );
-}
-
-/** Every part set in one face, set in another: the Look panel's swap-all, from here. */
-function FaceSwap({ from }: { from: string }) {
-  const nodes = useStudio((s) => s.nodes);
-  const carried = useStudio((s) => s.look.fonts);
-  const [to, setTo] = React.useState("");
-  const [done, setDone] = React.useState<number | null>(null);
-  const pages = useStudio((s) => s.pages);
-  /* The site's faces in page order, then any it carries that no part uses (`fontsInPageOrder`). */
-  const fonts = React.useMemo(() => fontsInPageOrder(nodes, pages.map((p) => p.id)), [nodes, pages]);
-  const parts = fonts.find((f) => f.key === from)?.parts ?? 0;
-  const faces = [...new Set([...fonts.map((f) => f.key).filter((k) => k && !FAMILY[k]), ...(carried ?? []).map((f) => f.family)])].filter((f) => f !== from);
-  const targets: { id: string; label: string; to: FaceTo }[] = [
-    ...faces.map((f) => ({ id: `face:${f}`, label: f, to: { face: f } as FaceTo })),
-    ...Object.keys(FAMILY).filter((k) => k !== from).map((k) => ({ id: `family:${k}`, label: k, to: { family: k } as FaceTo })),
-  ];
-  return (
-    <>
-      <div className="flex items-center gap-1.5">
-        <Select className="min-w-0 flex-1" aria-label="New face" value={to} placeholder="choose a face…" onChange={setTo} options={targets.map((t) => ({ value: t.id, label: t.label }))} />
-        <Button size="xs" variant="primary" disabled={!to} onClick={() => {
-          const t = targets.find((x) => x.id === to);
-          if (!t) return;
-          const changed = useStudio.getState().swapFontAll(from, t.to);
-          play(changed.length ? "confirm" : "deny");
-          setDone(changed.length);
-          setTo("");
-        }}>Set {parts === 1 ? "it" : `all ${parts}`}</Button>
-      </div>
-      {done !== null ? (
-        <p className="flex items-center gap-2 text-small text-fg-muted">
-          {done} part{done === 1 ? "" : "s"} changed.
-          <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}><Undo2 className="size-3" /> Undo</button>
-        </p>
-      ) : <p className="text-fine leading-snug text-fg-faint">Every part set in {from} changes, in one step you can undo.</p>}
-    </>
-  );
-}
-
-/** Every part wearing one colour, wearing another. */
-function ColourSwap({ from }: { from: string }) {
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
-  const [to, setTo] = React.useState(hexOf(from));
-  const [done, setDone] = React.useState<number | null>(null);
-  return (
-    <>
-      <div className="flex items-center gap-1.5">
-        <input type="color" aria-label="New colour" value={to} onChange={(e) => setTo(e.target.value)} className="h-7 w-10 shrink-0 cursor-pointer rounded-sm border border-border bg-transparent" />
-        <span className="min-w-0 flex-1 truncate text-small text-fg-muted">{colourWords(to)}</span>
-        <Button size="xs" variant="primary" disabled={to.toLowerCase() === hexOf(from).toLowerCase()} onClick={() => {
-          const changed = useStudio.getState().swapColourAll(from, to, resolvePalette(format, look));
-          play(changed.length ? "confirm" : "deny");
-          setDone(changed.length);
-        }}>Use it</Button>
-      </div>
-      {done !== null ? (
-        <p className="flex items-center gap-2 text-small text-fg-muted">
-          {done} part{done === 1 ? "" : "s"} changed.
-          <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setDone(null); play("close"); }}><Undo2 className="size-3" /> Undo</button>
-        </p>
-      ) : <p className="text-fine leading-snug text-fg-faint">Every part wearing this colour changes, in one step you can undo.</p>}
-    </>
-  );
-}
-
-function ThisSite() {
-  const { captured, readings, format, bg } = useSiteFormat();
-  const [open, setOpen] = React.useState<string | null>(null);
-  const toggle = (id: string) => setOpen((o) => (o === id ? null : id));
-  const val = (id: string) => format[id] ?? FIELD.get(id)?.default;
-  const read = (id: string): Reading | undefined => (captured ? readings[id] : undefined);
-  const rows = SITE_ROWS.map((id) => {
-    if (id === "look.bg") {
-      const r = read("palette.mode");
-      const colour = r?.colour ?? bg;
-      return (
-        <SiteRow key={id} id="page-colour" label="Page colour" shows={colourWords(colour)} swatch={colour}
-          from={r ? `${r.from}, ${hexOf(colour)}` : hexOf(colour)} open={open === id} onOpen={() => toggle(id)}>
-          {captured ? <ColourSwap from={colour} /> : (
-            <Button size="xs" variant="outline" className="w-full" onClick={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "look" }))}>Open the Look tab to set it</Button>
-          )}
-        </SiteRow>
-      );
-    }
-    const field = FIELD.get(id)!;
-    const r = read(id);
-    if (id === "palette.accentHue") {
-      const colour = r?.colour ?? resolvePalette(format, useStudio.getState().look).accent;
-      return (
-        <SiteRow key={id} id="accent" label="Accent" shows={colourWords(colour)} swatch={colour} from={r ? `${r.from.replace(/ \(\d+ parts?\)$/, "")}, ${hexOf(colour)}` : hexOf(colour)} open={open === id} onOpen={() => toggle(id)}>
-          {captured && r?.colour ? <ColourSwap from={r.colour} /> : <Control field={field} />}
-        </SiteRow>
-      );
-    }
-    const isFace = id === "type.headingFamily" || id === "type.bodyFamily";
-    const shows = r ? r.shows : `${val(id)}${field.unit ?? ""}`;
-    return (
-      <SiteRow key={id} id={id} label={field.label} shows={shows} face={isFace && r ? r.shows : undefined} from={r?.from} open={open === id} onOpen={() => toggle(id)}>
-        {captured && isFace && r ? <FaceSwap from={r.shows} /> : (
-          <>
-            <Control field={field} />
-            {captured && id === "layout.radius" ? <p className="text-fine leading-snug text-fg-faint">Boxes the site rounded keep their own corners; this sets the rest.</p> : null}
-            {captured && id === "type.baseSize" ? <p className="text-fine leading-snug text-fg-faint">Every word on the site is sized from this, so they all grow or shrink together.</p> : null}
-          </>
-        )}
-      </SiteRow>
-    );
-  });
-  return (
-    <section data-format-section="site" className="border-b border-border pb-1.5">
-      <Head title="This site" blurb={captured ? "Read from the parts of the captured page." : "The type, corners and colours every part starts from."} />
-      <ul>{rows}</ul>
-    </section>
-  );
-}
 
 function Head({ title, blurb }: { title: string; blurb?: string }) {
   return (
@@ -328,11 +183,9 @@ function BriefFold() {
 }
 
 export function FormatPanel() {
-  const { captured } = useSiteFormat();
   return (
     <div data-format-panel="" className="flex h-full min-h-0 flex-col overflow-y-auto">
-      {/* On a site brought in, its fonts, size, corners and colours are edited in Look, by pressing them in the preview (J, 2026-10-09). */}
-      {captured ? null : <ThisSite />}
+      {/* The site's fonts, size, corners and colours are edited in Look, by pressing them in its preview (J, 2026-10-09). */}
       <WholeSite />
       <BriefFold />
     </div>

@@ -32,6 +32,7 @@ import { useStudio } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { Slider } from "@/core/ui/slider";
 import { useSiteFormat } from "./panels/ui";
+import { FORMAT_FIELDS } from "./format";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
@@ -416,6 +417,19 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
   );
 }
 
+/** The face a site made here sets its headings or words in. */
+function SiteFamily({ id, label }: { id: "type.headingFamily" | "type.bodyFamily"; label: string }) {
+  const field = FORMAT_FIELDS.find((f) => f.id === id)!;
+  const value = String(useStudio((s) => s.format[id]) ?? field.default);
+  return (
+    <label data-site-family={id} className="flex items-center gap-2 text-small text-fg">
+      <span className="w-20 shrink-0">{label}</span>
+      <Select className="min-w-0 flex-1" aria-label={`${label} font`} value={value} onChange={(v) => useStudio.getState().setFormat(id, v)}
+        options={(field.options ?? []).map((o) => ({ value: o, label: o }))} />
+    </label>
+  );
+}
+
 /** A stack the page wrote is used as written; a face's key goes through the site's own faces. */
 const faceCss = (f: string | null): React.CSSProperties => (f && (f.includes(",") || /^(monospace|serif|sans-serif|system-ui|cursive)$/.test(f)) ? { fontFamily: f } : faceStyle(f ?? SITE_TYPE));
 
@@ -433,6 +447,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
   React.useEffect(() => { pointAt(onThisPage(ids)); return () => pointAt(null); }, [ids]);
   const [fontOpen, setFontOpen] = React.useState(false);
+  const { captured } = useSiteFormat();
   if (pick !== "page" && !k) return null;
   const pal = () => resolvePalette(useStudio.getState().format, useStudio.getState().look);
   const swap = (from: string, to: string, use: ColourUse, only: string[]) => useStudio.getState().swapColourAll(from, to, pal(), { use, only });
@@ -497,7 +512,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
       {words ? <Paint hook="words" label="Words" value={words} onTo={(f, t) => swap(f, t, "text", wordsIds)} /> : null}
       {glowOn ? <Paint hook="glow" label="Glow on the words" value={glowOn} onTo={(f, t) => swap(f, t, "shadow", wordsIds)} /> : null}
       {k?.outline ? <Paint hook="outline" label="Outline" value={k.outline.colour} onTo={(f, t) => swap(f, t, "border", k.ids)} /> : null}
-      {wordsIds.length ? (
+      {wordsIds.length || !k ? (
         <div data-kind-font="" className="rounded-md border border-border">
           <button type="button" aria-expanded={fontOpen} onClick={() => { play("select"); setFontOpen((o) => !o); }} className="tactile flex w-full items-center gap-2 px-2 py-1 text-left text-small text-fg hover:bg-hover">
             <span className="flex-1">Font</span>
@@ -505,8 +520,12 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
           </button>
           {fontOpen ? (
             <div className="space-y-2 border-t border-border p-2">
-              <Select className="w-full" aria-label="Font" value="" placeholder="Set the words in…" onChange={setFace}
-                options={targets.filter((t) => t.id !== `face:${faceKey}` && t.id !== `family:${faceKey}` && !(faceKey === SITE_TYPE && t.id === "site")).map((t) => ({ value: t.id, label: t.label }))} />
+              {wordsIds.length ? (
+                <Select className="w-full" aria-label="Font" value="" placeholder="Set the words in…" onChange={setFace}
+                  options={targets.filter((t) => t.id !== `face:${faceKey}` && t.id !== `family:${faceKey}` && !(faceKey === SITE_TYPE && t.id === "site")).map((t) => ({ value: t.id, label: t.label }))} />
+              ) : null}
+              {/* A site made here: the faces new headings and words are set in (Format's old "This site"). */}
+              {k || captured ? null : <><SiteFamily id="type.headingFamily" label="Headings" /><SiteFamily id="type.bodyFamily" label="Words" /></>}
               {k ? null : <SiteDial id="type.baseSize" label="Text size, the whole site" min={13} max={22} hint="Every word on the site is sized from this, so they all grow or shrink together." />}
             </div>
           ) : null}
