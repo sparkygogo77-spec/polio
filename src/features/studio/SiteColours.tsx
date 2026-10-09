@@ -330,7 +330,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); play("select"); onPick(p); },
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); play("select"); onPick(p); } },
     onMouseEnter: () => pointAt(onThisPage(ids)),
-    onMouseLeave: () => pointAt(null),
+    onMouseLeave: () => pointAt(resting ? onThisPage(resting) : null),
   });
   const button = (k: SurfaceKind) => (
     <span key={at(k)} data-preview-part="button" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
@@ -375,6 +375,9 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   );
 }
 
+/** The picked piece's parts: what the board goes back to outlining when a hover leaves. */
+let resting: string[] | null = null;
+
 /** Drawn on the board now: on the page in view and in the state it shows. */
 function drawnNow(id: string): boolean {
   const el = document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
@@ -398,7 +401,7 @@ function bringIntoView(ids: string[]) {
   const on = pickedStates(useStudio.getState(), [target]).statesOn;
   if (on) useStudio.getState().setStatesOn(on);
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    pointAt(onThisPage(ids).filter(drawnNow));
+    pointAt(onThisPage(ids));
     const el = document.querySelector(`[data-studio-scroll] [data-node-id="${CSS.escape(target)}"]`) ?? document.querySelector(`[data-node-id="${CSS.escape(target)}"]`);
     const pane = el?.closest("[data-studio-pane]") ?? el?.closest("[data-studio-scroll]");
     if (el instanceof HTMLElement && pane instanceof HTMLElement) {
@@ -520,10 +523,17 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const layers = useHeldStudio((s) => s.look.texture);
   const k = pick === "page" ? null : site.kinds[pick] ?? null;
   const ids = React.useMemo(() => (k ? k.ids : []), [k]);
+  /* Picked, its parts stay outlined on the board for as long as its editor is open (J, 2026-10-09): through
+     a hover over another piece, an edit, a turn to another page or state. */
+  const active = useStudio((s) => s.activePageId);
+  const shown = useStudio((s) => (s.statesOn ?? []).join("|"));
+  const idsKey = ids.join("|");
+  React.useEffect(() => { bringIntoView(ids); }, [pick]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
-    bringIntoView(ids);
-    return () => pointAt(null);
-  }, [ids]);
+    resting = ids;
+    pointAt(onThisPage(ids));
+    return () => { resting = null; pointAt(null); };
+  }, [idsKey, active, shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const [fontOpen, setFontOpen] = React.useState(false);
   const { captured } = useSiteFormat();
   if (pick !== "page" && !k) return null;
