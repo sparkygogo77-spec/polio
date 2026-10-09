@@ -456,7 +456,14 @@ export function FromASite({ space }: { space: Space }) {
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);
     /* A site that follows the state rules: its scenes are the board's screens from the start, drawn from its markup (`stateRules.ts`). */
     if (styleSource.scenes?.length && followsStateRules(doc.nodes as unknown as StudioNode[])) styleSource.screens = sceneScreens(doc.nodes as unknown as StudioNode[], styleSource.files ?? [], styleSource.scenes);
-    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
+    /*
+     * TEXTURES START FROM THE CODE (J, 2026-10-09): the board's texture layers
+     * outlived every bring-in, so PST came in with two Dots layers over the
+     * dots its own CSS draws, and with no list of layers left to find them
+     * in. The parts they were worn by are replaced here anyway; the site's
+     * own pattern is its page texture (`siteDots.ts`).
+     */
+    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, texture: [], palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
     /* What the landing itself changed (the sweep's repaint, the palette's roles) is no design: the board as landed is what the style layer is measured from (`baselineAsLanded`). */
     {
       const now = useStudio.getState();

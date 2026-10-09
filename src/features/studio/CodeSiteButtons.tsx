@@ -26,6 +26,7 @@ import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Tooltip } from "@/core/ui/tooltip";
 import { play } from "@/core/audio/engine";
+import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
@@ -177,24 +178,25 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
         open={ask === "refresh"}
         onOpenChange={(v) => { if (!v) setAsk(null); }}
         title={`Bring ${source.repo} in again?`}
-        footer={
-          <div className="flex w-full items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setAsk(null)}>Back to the board</Button>
-            <span className="flex-1" />
-            <Tooltip content={last ? `The board as it came in, ${new Date(last.at).toLocaleString()}, without reading the code again.` : "Nothing kept yet: the next bring-in is kept, and this goes back to it."}>
-              <span>
-                <Button variant="outline" size="sm" data-code-refresh-reset="" disabled={!last} onClick={() => void resetBack()}><RotateCcw /> Reset to last bring-in</Button>
-              </span>
-            </Tooltip>
-            <Button variant="outline" size="sm" data-code-refresh-keep="" onClick={() => bringAgain(true)}>Keep my changes</Button>
-            <Button variant="primary" size="sm" data-code-refresh-go="" onClick={() => bringAgain(false)}><RefreshCw /> Clear and bring in</Button>
-          </div>
-        }
+        footer={<Button variant="ghost" size="sm" onClick={() => setAsk(null)}>Back to the board</Button>}
       >
+        {/*
+          THREE WAYS BACK, ONE ROW EACH (J, 2026-10-09: with Reset added the
+          footer's four buttons no longer fit and one was pushed out). Each
+          choice is a row as wide as the dialog with what it does under its
+          name, so the paragraph that used to explain all three is gone and
+          no width of dialog crowds them.
+        */}
         <p data-code-refresh-says="" className="text-plain text-fg-muted">
-          {status?.says ?? ""} The board is read again from the code as it is now. Keep my changes lays it over the board and keeps what you changed by hand; Clear and bring in starts from the code alone. Reset to last bring-in puts the board back as it last came in, at once, without reading anything.
-          {status?.pending ? " The design on the board is not published yet: Clear would lose it, so Publish it first or keep your changes." : " Everything already published is in the code, so it comes back with it."}
+          {status?.says ?? ""} {status?.pending ? "The design on the board is not published yet: Clear would lose it, so Publish it first or keep your changes." : "Everything already published is in the code, so it comes back with it."}
         </p>
+        <div data-code-refresh-choices="" className="mt-3 flex flex-col gap-2">
+          <Choice hook={{ "data-code-refresh-go": "" }} primary icon={<RefreshCw />} title="Clear and bring in" says="Reads the code as it is now and starts the board from it alone." onClick={() => bringAgain(false)} />
+          <Choice hook={{ "data-code-refresh-keep": "" }} title="Keep my changes" says="Reads the code as it is now and lays it over the board, keeping what you changed by hand." onClick={() => bringAgain(true)} />
+          <Choice hook={{ "data-code-refresh-reset": "" }} icon={<RotateCcw />} disabled={!last} title="Reset to last bring-in"
+            says={last ? `Puts the board back as it came in, ${new Date(last.at).toLocaleString()}, at once, without reading anything.` : "Nothing kept yet: the next bring-in is kept, and this goes back to it."}
+            onClick={() => void resetBack()} />
+        </div>
       </Dialog>
       <Dialog
         open={ask === "publish"}
@@ -224,4 +226,19 @@ function FixNote() {
   const loop = fixLoopOf(useStudio((s) => s.look));
   const n = loop.ticked.filter((k) => !loop.sent.some((i) => i.key === k)).length;
   return n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null;
+}
+
+/** One way to bring the site in again: its name, and what it does under it, as wide as the dialog. */
+function Choice({ hook, title, says, icon, primary, disabled, onClick }: { hook: Record<string, string>; title: string; says: string; icon?: React.ReactNode; primary?: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" {...hook} disabled={disabled} onClick={onClick}
+      className={cn("tactile flex w-full items-start gap-2.5 rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50",
+        primary ? "border-accent bg-accent-soft hover:bg-hover" : "border-border hover:border-border-strong hover:bg-hover")}>
+      <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-fg [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-small font-semibold text-fg">{title}</span>
+        <span className="block text-small text-fg-muted">{says}</span>
+      </span>
+    </button>
+  );
 }

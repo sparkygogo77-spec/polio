@@ -138,15 +138,12 @@ await page.waitForTimeout(400);
 /* 4. THE TEXTURES ARE SHOWN, NOT DESCRIBED                            */
 /* ------------------------------------------------------------------ */
 
-/* Texture is given from the Colours preview: press the page there, pick a kind, and the stack below lists it. */
+/* Texture is given from the Colours preview: press the page there and pick a kind; the kind shows pressed (there is no stack of layers any more). */
 const pickTexture = async (pg, kind) => {
   if (!(await pg.locator("[data-kind-texture]").count())) await pg.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
   await pg.waitForTimeout(300);
   await pg.locator(`[data-kind-texture] [data-texture-sample="${kind}"]`).first().click({ force: true });
   await pg.waitForTimeout(600);
-  const fold = pg.locator("[data-texture-layers-open]").first();
-  if ((await fold.count()) && (await fold.getAttribute("aria-expanded")) !== "true") await fold.click({ force: true });
-  await pg.waitForTimeout(300);
 };
 await page.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
 await page.waitForTimeout(400);
@@ -249,7 +246,7 @@ await pickTexture(page, "stripes");
 await page.waitForTimeout(700);
 const over = await page.evaluate(() => ({
   img: getComputedStyle(document.querySelector("[data-frame]")).backgroundImage,
-  layers: document.querySelectorAll('[data-look-texture] [aria-label="Remove layer"]').length,
+  layers: document.querySelectorAll('[data-kind-texture] [data-texture-sample="stripes"][aria-pressed="true"]').length,
 }));
 check("a texture on the page goes OVER the fill rather than deleting it",
   over.layers > 0 && /radial-gradient/.test(over.img),

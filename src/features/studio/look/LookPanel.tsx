@@ -4,24 +4,19 @@
  *
  * Six named roles every part reads, a mixer that works the way a colour picker
  * should (drag the field, spin the hue, type a hex, pull a colour off the
- * screen), and generators that build a whole palette from one seed. Under it, a
- * stack of texture layers — each a generator with a handful of numbers, all
- * compiling to plain CSS so it costs nothing and tiles for ever.
+ * screen), and generators that build a whole palette from one seed. Under it,
+ * the fill the spaces are painted with; textures are given from the Colours
+ * preview (`PieceTexture.tsx`).
  */
 import * as React from "react";
 import { MoreHint, MoreHintSpan } from "@/core/ui/more-hint";
-import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2, Undo2 } from "lucide-react";
+import { ChevronDown, Copy, Pipette, Shuffle, Undo2 } from "lucide-react";
 import {
-  contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, lands, type BlendMode, type Harmony,
-  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
+  contrast, css, HARMONIES, harmonise, parseColor, ROLES, ROLE_LABEL,
+  toHex, type Harmony, type Oklch, type Palette, type RoleId,
 } from "./";
-import { flattenLayers } from "./texture";
-import { CropPicker } from "../CropPicker";
 import { Spectrum } from "../MenuConsole";
-import { CHIP, emptyFill } from "../colourMenu";
 import { fillLayers, resolvePalette } from "../shelf/run";
-import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "../ImageIntake";
 import { useHeldStudio, useStudio } from "../board/store";
 import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
@@ -404,85 +399,6 @@ export function PaletteRoles({ captured }: { captured: boolean }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * A checkerboard, so a hole in a layer looks like a hole.
- *
- * Every swatch used to be painted over the page's background colour, which
- * meant a layer at 20% and a solid chip of tinted background looked the same
- * and you could not tell, from the panel, which of your layers was see-through
- * and which was a lid.
- */
-/*
- * This was the one place that had already found the answer, and it is the
- * one the console's five "nothing" chips were given. It moves the other way
- * now: the chequer comes from `colourMenu` so there is one of it, at the
- * same 10px pitch this chose. The two greys are fixed rather than theme
- * variables, because the same chequer has to read as transparent on the
- * near-black console as well as on this panel.
- */
-const CHECKS: React.CSSProperties = emptyFill();
-
-function Swatch({ layer, palette }: { layer: TextureLayer; palette: Palette }) {
-  // The real compositor, on one layer, over nothing — so the chip shows the
-  // layer itself rather than the layer plus a ground it may not have.
-  const style = textureCss([{ ...layer, on: true }], palette, "transparent");
-  return (
-    <div
-      className="shrink-0 overflow-hidden border border-border"
-      style={{ width: CHIP.far, height: CHIP.far, borderRadius: CHIP.radius.square, ...CHECKS }}
-    >
-      <div className="size-full" style={style} />
-    </div>
-  );
-}
-
-/**
- * The stack as the page will actually paint it.
- *
- * A column of chips tells you what each layer is and nothing about what they
- * do together, which is the only question worth asking once there is more than
- * one of them. This is the same compositor on the same layers, grouped the way
- * the page groups them — so a layer quietly covering the one beneath it shows
- * up here, in the panel, instead of as a mystery on the board.
- */
-function StackPreview({ layers, palette }: { layers: TextureLayer[]; palette: Palette }) {
-  const on = layers.filter((l) => l.on);
-  const groups = [
-    { key: "page" as const, label: "Background", base: palette.bg },
-    { key: "surfaces" as const, label: "Surfaces", base: palette.surface },
-    { key: "over" as const, label: "Over it all", base: "transparent" },
-  ];
-  const shown = groups
-    .map((g) => ({ ...g, list: on.filter((l) => lands(l, g.key)) }))
-    .filter((g) => g.list.length > 0);
-  if (!shown.length) return null;
-  return (
-    <div data-look-stack="" className="space-y-1">
-      {shown.map((g) => (
-        <div key={g.key} className="flex items-center gap-2">
-          <span className="w-[62px] shrink-0 truncate text-fine text-fg-muted">{g.label}</span>
-          <div className="h-6 min-w-0 flex-1 overflow-hidden rounded border border-border" style={CHECKS}>
-            <div className="size-full" style={textureCss(g.list, palette, g.base)} />
-          </div>
-          <span className="w-10 shrink-0 text-right text-fine tabular-nums text-fg-faint">
-            {g.list.length} up
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Blend modes, named for what they look like rather than for the maths. */
-const BLENDS: { value: BlendMode; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "multiply", label: "Darken" },
-  { value: "screen", label: "Lighten" },
-  { value: "overlay", label: "Punch" },
-  { value: "soft-light", label: "Soft" },
-  { value: "difference", label: "Invert" },
-];
-
-/**
  * THE FILL, WHICH IS THE BOTTOM OF THIS STACK.
  *
  * HIS WORDS: the Background Fill options "may be redundant against the
@@ -578,327 +494,24 @@ function TextureSection() {
   const format = useHeldStudio((s) => s.format);
   const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
-  const [openId, setOpenId] = React.useState<string | null>(null);
-  /* Open from the start when a picture is in the stack: a picture's crop and cut-out are only set here. */
-  const [layersAsked, setLayersOpen] = React.useState<boolean | null>(null);
-  const hasPicture = useStudio((st) => st.look.texture.some((l) => l.kind === "image"));
-  const layersOpen = layersAsked ?? hasPicture;
-  const s = () => useStudio.getState();
-
-  /**
-   * An image dropped or pasted anywhere on this section becomes a texture:
-   * it replaces the open image layer if there is one, and otherwise arrives
-   * as a new layer, so there is nothing to set up before dropping.
-   */
-  const [refused, setRefused] = React.useState<string | null>(null);
-  const [noted, setNoted] = React.useState<string | null>(null);
-  const takeImage = (src: string, id?: string, note?: string) => {
-    setRefused(null);
-    setNoted(note ?? null);
-    const layers = useStudio.getState().look.texture;
-    const target = id ?? (openId && layers.find((l) => l.id === openId && l.kind === "image") ? openId : null);
-    if (target) {
-      s().updateTexture(target, { src, baked: undefined, kind: "image" });
-      return;
-    }
-    const layer = { ...newLayer("image"), src };
-    s().addTexture(layer);
-    setOpenId(layer.id);
-    setLayersOpen(true);
-  };
-  const [dropping, setDropping] = React.useState(false);
-  usePasteImage(true, (src, note) => takeImage(src, undefined, note), setRefused);
-
-  /**
-   * Bake a layer and the one under it into one picture, in that order. It is
-   * painted exactly as the page paints it — same gradients, same blend — and
-   * comes back as a tile, so the pair stops being two things you have to keep
-   * in your head.
-   */
-  const [merging, setMerging] = React.useState<string | null>(null);
-  const merge = async (id: string) => {
-    const layers = useStudio.getState().look.texture;
-    const i = layers.findIndex((l) => l.id === id);
-    const top = layers[i];
-    const under = layers[i + 1];
-    if (!top || !under) return;
-    setMerging(id);
-    const css = textureCss([{ ...top, on: true }, { ...under, on: true }], palette, "transparent");
-    const src = await flattenLayers(css);
-    setMerging(null);
-    if (!src) return;
-    play("confirm");
-    s().mergeTexture(id, src);
-    setOpenId(null);
-  };
-
   return (
-    <section
-      data-look-texture=""
-      className={cn("space-y-2 p-3 transition-colors", dropping && "bg-accent/10")}
-      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes("text/uri-list")) { e.preventDefault(); setDropping(true); } }}
-      onDragLeave={() => setDropping(false)}
-      onDrop={(e) => {
-        const file = imageFrom(e.dataTransfer);
-        setDropping(false);
-        if (!file) {
-          const says = dropSays(e.dataTransfer);
-          if (says) { e.preventDefault(); play("deny"); setRefused(says); }
-          return;
-        }
-        e.preventDefault();
-        void readPicture(file).then((p) => takeImage(p.src, undefined, p.note)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
-      }}
-    >
+    <section data-look-texture="" className="space-y-2 p-3">
       <h3 data-look-heading className="text-plain font-semibold text-fg">Texture</h3>
-      {refused ? (
-        <p data-picture-refused="" className="text-small leading-snug text-danger">
-          {refused} Nothing has been changed.
-        </p>
-      ) : null}
-      {noted ? <p data-picture-note="" className="text-small leading-snug text-fg-muted">{noted}</p> : null}
-
       <FillRow palette={palette} />
-
       {/*
-        TEXTURE IS GIVEN FROM THE PREVIEW. HIS WORDS: "this should all be
-        managed via the preview instead of the layers system below it". The
-        page, a panel or a field pressed in the Colours preview carries its
-        own texture (`PieceTexture.tsx`); the stack itself, where a picture
-        dropped here lands and two layers merge, is folded away.
+        TEXTURE IS GIVEN FROM THE PREVIEW, AND ONLY THERE. HIS WORDS: "this
+        should all be managed via the preview instead of the layers system
+        below it", and then (2026-10-09) "there also is no need for the
+        layers, that tech should be shoved into the texture/preview
+        customization field". The page, a panel or a field pressed in the
+        Colours preview carries its own texture, a picture of his own
+        included (`PieceTexture.tsx`); the stack of layers is gone.
       */}
-      <MoreHint className="text-small leading-snug text-fg-muted" text="Press the page, a panel or a field in the Colours preview above to give it a texture." />
-      <button
-        type="button"
-        data-texture-layers-open=""
-        aria-expanded={layersOpen}
-        onClick={() => { play(layersOpen ? "close" : "open"); setLayersOpen(!layersOpen); }}
-        className="tactile flex w-full items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5 text-left text-small text-fg hover:bg-hover"
-      >
-        <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", layersOpen && "rotate-180")} />
-        <span className="flex-1">All texture layers</span>
-        <span className="num text-fg-faint">{look.texture.length}</span>
-      </button>
-      {layersOpen ? (<>
-      <StackPreview layers={look.texture} palette={palette} />
-
-      {look.texture.length === 0 ? (
-        <MoreHint
-          className="rounded-md border border-dashed border-border p-3 text-center text-small leading-snug text-fg-muted"
-          text="Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any palette colour, so the background colour always shows through it."
-        />
-      ) : null}
-
-      <div className="space-y-1">
-        {look.texture.map((layer, i) => {
-          const open = openId === layer.id;
-          const kind = TEXTURE_KINDS.find((k) => k.id === layer.kind);
-          const picture = layer.kind === "image";
-          // A picture only takes the palette colour once it is a pattern.
-          const tintable = !picture || !!layer.pattern;
-          return (
-            <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
-              <div className="flex items-center gap-1.5 p-1.5">
-                <input
-                  type="checkbox"
-                  checked={layer.on}
-                  aria-label={`${kind?.label} on`}
-                  onChange={(e) => s().updateTexture(layer.id, { on: e.target.checked })}
-                  style={{ accentColor: "var(--accent)" }}
-                />
-                <Swatch layer={layer} palette={palette} />
-                <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-plain text-fg">{kind?.label}</span>
-                  <span className="block truncate text-fine text-fg-muted">
-                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {WHERE_SHORT(layer.target)} · {Math.round(layer.opacity * 100)}% solid
-                  </span>
-                </button>
-                <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => s().moveTexture(layer.id, -1)}>
-                  <ChevronUp />
-                </Button>
-                <Button variant="ghost" size="iconXs" aria-label="Move down" disabled={i === look.texture.length - 1} onClick={() => s().moveTexture(layer.id, 1)}>
-                  <ChevronDown />
-                </Button>
-                <Button variant="ghost" size="iconXs" aria-label="Remove layer" onClick={() => s().removeTexture(layer.id)}>
-                  <Trash2 />
-                </Button>
-              </div>
-
-              {open ? (
-                <div className="space-y-2 border-t border-border p-2">
-                  <div className="grid grid-cols-2 gap-1">
-                    <Select
-                      value={layer.kind}
-                      onChange={(v) => s().updateTexture(layer.id, { kind: v as TextureKind, baked: undefined })}
-                      options={TEXTURE_KINDS.map((k) => ({ value: k.id, label: k.label }))}
-                      aria-label="Texture kind"
-                    />
-                    <Select
-                      value={layer.role}
-                      onChange={(v) => s().updateTexture(layer.id, { role: v as RoleId })}
-                      options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
-                      aria-label="Texture colour"
-                      disabled={!tintable}
-                    />
-                  </div>
-
-                  {/*
-                    The same seven controls, in the same order, on every layer,
-                    whatever kind it is. They used to come and go depending on
-                    what the kind could use, which meant the panel was a
-                    different shape every time you opened one and you could
-                    never learn where anything was. Every kind takes all of
-                    them now, see `layerCss`.
-                  */}
-                  <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
-                    <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
-                  </Row>
-                  {/*
-                    A colour of this layer's own, off the spectrum.
-
-                    Six palette roles is the right answer for a texture meant
-                    to follow the site, and the wrong answer for the thing
-                    people reach for first, a flat ground in a colour they
-                    already have in mind, which could not be said at all.
-                  */}
-                  {tintable ? (
-                    <div className="rounded-md border border-border p-2">
-                      <Spectrum
-                        value={layer.colour ?? palette[layer.role]}
-                        onChange={(colour) => s().updateTexture(layer.id, { colour })}
-                        label="This layer's colour"
-                      />
-                      {layer.colour ? (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          className="w-full"
-                          onClick={() => s().updateTexture(layer.id, { colour: undefined })}
-                        >
-                          Back to {ROLE_LABEL[layer.role].toLowerCase()}
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  <Row label={picture ? "Tile size" : "Scale"} value={`${layer.scale}px`}>
-                    <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} aria-label="Scale" />
-                  </Row>
-                  <Row label="Angle" value={`${layer.angle}°`}>
-                    <Slider value={[layer.angle]} min={0} max={360} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} aria-label="Angle" />
-                  </Row>
-                  {/*
-                    Drift: the same idea as the clouds behind the add disc,
-                    tiles of noise laid over each other and moved at different
-                    speeds. Every cycle carries a layer a whole number of its
-                    own tiles along its own angle, so there is no seam where
-                    the loop comes round. A stack at different speeds reads as
-                    weather rather than as one thing sliding.
-                  */}
-                  <Row label="Drift" value={(layer.drift ?? 0) < 0.02 ? "still" : `${Math.round((layer.drift ?? 0) * 100)}%`}>
-                    <Slider
-                      value={[Math.round((layer.drift ?? 0) * 100)]}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onValueChange={(v) => s().updateTexture(layer.id, { drift: (v[0] ?? 0) / 100 })}
-                    />
-                  </Row>
-                  <Row label={layer.kind === "flat" ? "Fade" : picture ? "How much survives" : "Contrast"} value={`${Math.round(layer.contrast * 100)}%`}>
-                    <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} aria-label="Contrast" />
-                  </Row>
-                  <Row label="Hue" value={(layer.hue ?? 0) === 0 ? `${ROLE_LABEL[layer.role]} as is` : `${(layer.hue ?? 0) > 0 ? "+" : ""}${Math.round(layer.hue ?? 0)}°`}>
-                    <Slider value={[layer.hue ?? 0]} min={-180} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { hue: v[0] ?? 0 })} aria-label="Layer hue" />
-                  </Row>
-                  <Select
-                    value={layer.blend}
-                    onChange={(v) => s().updateTexture(layer.id, { blend: v as BlendMode })}
-                    options={BLENDS}
-                    aria-label="Blend"
-                  />
-                  <MoreHint
-                    className="text-small leading-snug text-fg-faint"
-                    text={layer.kind === "flat"
-                      ? "A flat colour. Solid at 0% fade, that is the static background, and it fades away along the angle as you turn it up."
-                      : kind?.hint ?? ""}
-                  />
-
-                  {i < look.texture.length - 1 ? (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="w-full"
-                      disabled={merging === layer.id}
-                      onClick={() => void merge(layer.id)}
-                    >
-                      <Layers2 />
-                      {merging === layer.id ? "Merging…" : "Merge into the layer below"}
-                    </Button>
-                  ) : null}
-
-                  {picture ? (
-                    <div className="space-y-2 rounded-md border border-border p-2">
-                      <div className="text-small font-medium uppercase tracking-wider text-fg-faint">This picture</div>
-                      <ImageWell
-                        src={layer.src}
-                        onImage={(src) => takeImage(src, layer.id)}
-                        onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined, baked: undefined, crop: undefined }) : undefined}
-                      />
-                      {layer.src ? (
-                        <>
-                          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Where the texture is in it</div>
-                          <CropPicker
-                            src={layer.src}
-                            crop={layer.crop}
-                            onChange={(crop) => s().updateTexture(layer.id, { crop })}
-                          />
-                        </>
-                      ) : null}
-                      <Toggle
-                        label="Paint it in the palette"
-                        hint="Keeps the shape, drops the picture's own colours, so the background shows through."
-                        checked={!!layer.pattern}
-                        onChange={(v) => s().updateTexture(layer.id, { pattern: v })}
-                      />
-                      <Toggle
-                        label="Cut out the background"
-                        hint="Keys out whatever colour the edges are sitting on."
-                        checked={!!layer.cutout}
-                        onChange={(v) => s().updateTexture(layer.id, { cutout: v })}
-                      />
-                      <Row label="How much goes" value={`${Math.round((layer.tolerance ?? 0.35) * 100)}%`}>
-                        <Slider
-                          value={[Math.round((layer.tolerance ?? 0.35) * 100)]}
-                          min={0}
-                          max={100}
-                          step={1}
-                          onValueChange={(v) => s().updateTexture(layer.id, { tolerance: (v[0] ?? 35) / 100 })}
-                        />
-                      </Row>
-                      <Row label="Bleed" value={(layer.weave ?? 0) < 0.02 ? "hard edges" : (layer.weave ?? 0) > 0.98 ? "one picture" : `${Math.round((layer.weave ?? 0) * 100)}%`}>
-                        <Slider
-                          value={[Math.round((layer.weave ?? 0) * 100)]}
-                          min={0}
-                          max={100}
-                          step={1}
-                          onValueChange={(v) => s().updateTexture(layer.id, { weave: (v[0] ?? 0) / 100 })}
-                        />
-                      </Row>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-
-      </>) : null}
+      <MoreHint className="text-small leading-snug text-fg-muted" text="Press the page, a panel or a field in the Colours preview above to give it a texture, or a picture of your own." />
     </section>
   );
 }
 
-const WHERE_SHORT = (t: TextureTarget | undefined) => (TEXTURE_TARGETS.find((x) => x.value === (t ?? "page"))?.label ?? "Spaces").toLowerCase();
 
 function Toggle({ label, hint, checked, onChange, name }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; name?: string }) {
   return (

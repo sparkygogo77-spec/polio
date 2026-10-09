@@ -12,10 +12,10 @@
  * undo step of its own.
  *
  * On the saved PonsStars board (tests/lib/board.mjs), in the Look panel:
- *   1. Grid fill, then the page pressed in the Colours preview and Dots
+ *   1. Grid fill, then the page pressed in the Colours preview and Grid (its own dots already show as Dots)
  *      picked (his case), change no part's paint,
- *   2. and the dots show on the page,
- *   3. each pick is one undo, and undoing on takes the texture and the fill
+ *   2. and the grid shows on the page,
+ *   3. each pick is one undo, and undoing on puts the site's own dots back, takes the texture and the fill
  *      away and puts the page back as it was,
  *   4. a panel pressed in the preview wears its texture over its own fill.
  *
@@ -81,18 +81,20 @@ const start = await frameShot();
 const still = await differ(start, await frameShot());
 const tex = ui.locator("[data-look-texture]");
 await tex.locator('[data-look-fill] button[aria-label="Grid"]').click();
-/* His case: the page pressed in the Colours preview, then Dots. */
+/* His case: the page pressed in the Colours preview, then a texture. PST's page already shows its own dots as Dots (`tests/site-dots-texture.mjs`), so Grid. */
 await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
 await ui.waitForTimeout(400);
 const kinds = ui.locator("[data-kind-texture]").first();
-await kinds.locator('[data-texture-sample="dots"]').click();
+await kinds.locator('[data-texture-sample="grid"]').click();
 await ui.waitForTimeout(900);
 const after = await paints();
-const changed = Object.keys(before).filter((k) => after[k] !== undefined && before[k] !== after[k]);
-check("dots on the page change no part's colours", Object.keys(before).length > 1000 && changed.length === 0,
+/* The one change a page texture makes: the site's own dots give way to it (`siteDots.ts`), so there is one texture on the page, not two. */
+const undotted = (v) => String(v).replace(/radial-gradient\(rgba\([^)]*\) [\d.]+%, rgba\(0, 0, 0, 0\) [\d.]+%\), none/, "none");
+const changed = Object.keys(before).filter((k) => after[k] !== undefined && undotted(before[k]) !== after[k]);
+check("a grid on the page changes no part's colours", Object.keys(before).length > 1000 && changed.length === 0,
   `${changed.length} of ${Object.keys(before).length} elements repainted${changed.length ? `, e.g. ${changed[0]}: ${before[changed[0]]} -> ${after[changed[0]]}` : ""}`);
 const dotted = await differ(start, await frameShot());
-check("and the dots show on the page", dotted >= still + 5, `${dotted}% of the page changed, ${still}% moves on its own`);
+check("and the grid shows on the page", dotted >= still + 5, `${dotted}% of the page changed, ${still}% moves on its own`);
 
 await kinds.locator('[data-texture-sample="stripes"]').click();
 await ui.waitForTimeout(600);
@@ -101,7 +103,7 @@ const swapped = await on();
 const undo = async () => { await ui.keyboard.press("Escape"); await ui.locator("[data-studio-pane]").first().focus().catch(() => {}); await ui.keyboard.press("Control+z"); await ui.waitForTimeout(600); };
 await undo();
 const once = await on();
-check("each pick is one undo", swapped === "stripes" && once === "dots", `${swapped}, then ${once}`);
+check("each pick is one undo", swapped === "stripes" && once === "grid", `${swapped}, then ${once}`);
 await undo();
 const none = await ui.locator("[data-kind-texture]").count() ? await on() : "closed";
 await undo();
@@ -111,7 +113,7 @@ const end = await paints();
 const still2 = Object.keys(before).filter((k) => end[k] !== undefined && before[k] !== end[k]).length;
 const worn = await ui.locator("[data-part-texture]").count();
 const fill = await tex.locator('[data-look-fill] button[aria-pressed="true"]').getAttribute("aria-label");
-check("and Undo takes the texture and the fill away and puts the page back", none === "none" && worn === 0 && fill === "Flat" && back && still2 === 0,
+check("and Undo takes the texture and the fill away and puts the page back", none === "dots" && worn === 0 && fill === "Flat" && back && still2 === 0,
   `texture ${none}, ${worn} parts still wearing one, fill ${fill}, page ${back ? "as it was" : "still painted"}, ${still2} elements repainted`);
 
 /* 4. A panel pressed in the preview: every part of its kind wears the texture, over its own fill. */
