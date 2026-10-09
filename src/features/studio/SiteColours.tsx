@@ -18,7 +18,7 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, TEXTURE_KINDS, contrast, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
+import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
@@ -278,27 +278,15 @@ function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs):
  * opens under the frame (`KindEditor`). Each piece is a kind, so one edit
  * reaches every copy of it across the site, as one undo step. Pieces are
  * named by what they are for, never their colour, with how many parts wear
- * them as a bold number in the corner, in a colour the site itself wears.
+ * them as a bold neon-green number in the corner.
  */
 type Pick = "page" | number;
 
-/** The site's own boldest colour, for the counts: the most colourful words or glow it wears, on its darkest colour. */
-function countTint(site: SiteKinds, palette: Palette): { ink: string; ground: string } {
-  const all = [site.page.fill, ...site.kinds.map((k) => k.fill), site.page.words, ...site.kinds.map((k) => k.words)].filter((x): x is string => !!x && !!parseColor(x));
-  const ground = all.reduce((a, b) => ((parseColor(b)?.l ?? 1) < (parseColor(a)?.l ?? 1) ? b : a), palette.text);
-  const g = parseColor(ground) ?? { l: 0.2, c: 0, h: 0 };
-  const bold = [site.page.glow, site.page.words, ...site.kinds.flatMap((k) => [k.glow, k.words]), palette.accent, palette.highlight]
-    .filter((x): x is string => !!x && !!parseColor(x))
-    .filter((x) => contrast(parseColor(x)!, g) >= 3)
-    .sort((a, b) => (parseColor(b)?.c ?? 0) - (parseColor(a)?.c ?? 0))[0];
-  return { ink: bold ? bold : g.l > 0.5 ? "#000" : "#fff", ground };
-}
-
-/** A count's number: the site's bright colour (white when it has none), ringed by a thin dark outline. */
-function countStyle(ink: string): React.CSSProperties {
-  const bright = (parseColor(ink)?.l ?? 0) >= 0.6 ? ink : "#fff";
+/** A count's number: always neon green, bright and vibrant on any swatch (J, 2026-10-09), ringed by a thin dark outline. */
+const COUNT_INK = "#39ff14";
+function countStyle(): React.CSSProperties {
   const edge = "rgb(0 0 0 / 0.85)";
-  return { color: bright, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
+  return { color: COUNT_INK, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
 }
 
 function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
@@ -308,7 +296,6 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const surfaces = site.kinds.filter((k) => !k.button && !k.tab).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
-  const tint = countTint(site, palette);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   const glow = (g: string | null): React.CSSProperties => (g ? { textShadow: `0 0 6px ${g}` } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
@@ -321,7 +308,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
   /* Just the number on the corner, no box behind it (J, 2026-10-09): bright, with a thin dark outline so it reads on a light swatch and a dark one. */
   const count = (n: number, small = false) => (
-    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[9px]" : "right-1 top-1 text-[11px]")} style={countStyle(tint.ink)}>{n}</span>
+    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[11px]" : "right-1 top-1 text-[13px]")} style={countStyle()}>{n}</span>
   );
   const choose = (p: Pick, ids: string[]) => ({
     role: "button",
@@ -504,6 +491,45 @@ function KindCorners({ k }: { k: SurfaceKind }) {
   );
 }
 
+/**
+ * How far the glow on a kind's words spreads, or none. PonsStars' label tabs
+ * wear a 5px glow the nav tabs do not; recoloured darker than the words it
+ * smudges them, and a colour alone could not take it away (J, 2026-10-09).
+ */
+function KindGlow({ glow, ids }: { glow: string; ids: string[] }) {
+  const nodes = useHeldStudio((s) => s.nodes);
+  const blur = React.useMemo(() => {
+    const set = new Set(ids);
+    for (const n of nodes) {
+      if (!set.has(n.id)) continue;
+      const runs = Array.isArray(n.content) ? (n.content as { textShadow?: string }[]).map((r) => r?.textShadow) : [];
+      for (const sh of [(n.art as { textShadow?: string } | null | undefined)?.textShadow, ...runs]) {
+        const one = sh?.split(/,(?![^(]*\))/).find((x) => coloursIn(x).some((c) => colourKey(c) === colourKey(glow)));
+        const px = one?.match(/-?\d*\.?\d+px|(?<![\w.(,])0(?![\w.%])/g)?.[2];
+        if (px) return Math.round(parseFloat(px));
+      }
+    }
+    return 6;
+  }, [nodes, ids, glow]);
+  const set = (px: number | null) => useStudio.getState().patchNodes(ids, (n) => {
+    const art = n.art as { textShadow?: string } | null | undefined;
+    const patch: Record<string, unknown> = {};
+    if (art?.textShadow) patch.art = { ...art, textShadow: resizeGlow(art.textShadow, glow, px) };
+    if (Array.isArray(n.content)) patch.content = (n.content as unknown as Record<string, unknown>[]).map((r) => (r && typeof r.textShadow === "string" ? { ...r, textShadow: resizeGlow(r.textShadow, glow, px) } : r));
+    return patch as Partial<StudioNode>;
+  });
+  return (
+    <div data-kind-glow="" className="space-y-1 text-small text-fg">
+      <div className="flex items-center gap-2">
+        <span className="flex-1">Glow size</span>
+        <Button size="xs" variant="ghost" data-kind-glow-off="" onClick={() => { set(null); play("close"); }}>No glow</Button>
+      </div>
+      <Slider value={[Math.min(blur, 20)]} min={1} max={20} step={1} readout={(n) => `${n}px`} silent aria-label="Glow size"
+        onValueChange={(v) => set(v[0] ?? blur)} />
+    </div>
+  );
+}
+
 /** The face a site made here sets its headings or words in. */
 function SiteFamily({ id, label }: { id: "type.headingFamily" | "type.bodyFamily"; label: string }) {
   const field = FORMAT_FIELDS.find((f) => f.id === id)!;
@@ -608,6 +634,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
       )}
       {words ? <Paint hook="words" label="Words" value={words} onTo={(f, t) => swap(f, t, "text", wordsIds)} /> : null}
       {glowOn ? <Paint hook="glow" label="Glow on the words" value={glowOn} onTo={(f, t) => swap(f, t, "shadow", wordsIds)} /> : null}
+      {glowOn ? <KindGlow glow={glowOn} ids={wordsIds} /> : null}
       {k?.outline ? <Paint hook="outline" label="Outline" value={k.outline.colour} onTo={(f, t) => swap(f, t, "border", k.ids)} /> : null}
       {wordsIds.length || !k ? (
         <div data-kind-font="" className="rounded-md border border-border">
