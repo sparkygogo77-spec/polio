@@ -21,7 +21,7 @@
  * The repo menu keeps the rest: the list, another repository, a new one.
  */
 import * as React from "react";
-import { Check, GitMerge, Loader2, RefreshCw } from "lucide-react";
+import { Check, GitMerge, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -36,6 +36,7 @@ import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./se
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
+import { resetToLastBring, useLastBring } from "./lastBring";
 import { fileAt } from "./kitRun";
 import { LANE_MODE } from "./loop";
 import { NEXT_PATH, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
@@ -62,6 +63,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [ask, setAsk] = React.useState<"refresh" | "publish" | null>(null);
   const status: CodeStatus | null = head === undefined ? null : codeStatus(source, head, print, empty);
+  const last = useLastBring();
 
   const read = React.useCallback(async () => {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
@@ -103,6 +105,15 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     setAsk(null);
     placeBring(wantOf(source), keep);
     say("Bringing it in again", keep ? `Reading ${source.repo} as it is now, keeping what you changed on the board.` : `Reading ${source.repo} as it is now, from a clear board.`);
+  };
+
+  /* Back to the board as the last bring-in left it, from the copy kept then: nothing is read (`lastBring.ts`). */
+  const resetBack = async () => {
+    setAsk(null);
+    const copy = await resetToLastBring();
+    if (!copy) { say("Nothing kept to reset to", "This site has no bring-in kept yet: Clear and bring in once, and Reset goes back to that from then on.", "warn"); return; }
+    play("confirm");
+    say("Reset to the last bring-in", `The board is back as ${copy.repo ?? source.repo} came in, ${new Date(copy.at).toLocaleString()}. Nothing was read again. One undo brings your changes back.`, "success");
   };
 
   const publish = () => {
@@ -170,13 +181,18 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
           <div className="flex w-full items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setAsk(null)}>Back to the board</Button>
             <span className="flex-1" />
+            <Tooltip content={last ? `The board as it came in, ${new Date(last.at).toLocaleString()}, without reading the code again.` : "Nothing kept yet: the next bring-in is kept, and this goes back to it."}>
+              <span>
+                <Button variant="outline" size="sm" data-code-refresh-reset="" disabled={!last} onClick={() => void resetBack()}><RotateCcw /> Reset to last bring-in</Button>
+              </span>
+            </Tooltip>
             <Button variant="outline" size="sm" data-code-refresh-keep="" onClick={() => bringAgain(true)}>Keep my changes</Button>
             <Button variant="primary" size="sm" data-code-refresh-go="" onClick={() => bringAgain(false)}><RefreshCw /> Clear and bring in</Button>
           </div>
         }
       >
         <p data-code-refresh-says="" className="text-plain text-fg-muted">
-          {status?.says ?? ""} The board is read again from the code as it is now. Keep my changes lays it over the board and keeps what you changed by hand; Clear and bring in starts from the code alone.
+          {status?.says ?? ""} The board is read again from the code as it is now. Keep my changes lays it over the board and keeps what you changed by hand; Clear and bring in starts from the code alone. Reset to last bring-in puts the board back as it last came in, at once, without reading anything.
           {status?.pending ? " The design on the board is not published yet: Clear would lose it, so Publish it first or keep your changes." : " Everything already published is in the code, so it comes back with it."}
         </p>
       </Dialog>
