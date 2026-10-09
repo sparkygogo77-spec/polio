@@ -1110,7 +1110,7 @@ export function LookPanel() {
           captured site was never painted from, come after. */}
       {/* A site made here leads with the theme it was rolled from (`ThemePanel.tsx`). */}
       {captured ? null : <ThemeSection />}
-      {/* One colour section for every site, then the faces, then the rest (owner: "Readable words, Colours, Fonts, then anything else"). */}
+      {/* One colour section for every site, then the faces, then the rest (owner: "Colours, Fonts, then anything else"). */}
       <SiteColoursSection captured={captured} paletteRoles={<PaletteRoles captured={captured} />} />
       <SiteFontsSection />
       <LightSection />

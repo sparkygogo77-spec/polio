@@ -17,10 +17,8 @@ import { Dialog } from "@/core/ui/dialog";
 import { Button } from "@/core/ui/button";
 import { play } from "@/core/audio/engine";
 import { getFeature } from "./shelf";
-import { resolvePalette } from "./shelf/run";
 import { placeNodes } from "./live/layout";
 import { held, put } from "./pictures";
-import { readableFixes } from "./look";
 import { checkBoard, KIND_ORDER, type Problem } from "./send-out/run";
 import { useStudio } from "./board/store";
 import { heldKeys } from "@/features/keys/store";
@@ -35,12 +33,10 @@ export async function readBoard(): Promise<Problem[]> {
   const s = useStudio.getState();
   let have: Set<string> | null = null;
   try { have = await held(); } catch { have = null; }
-  const palette = resolvePalette(s.format, s.look);
   return checkBoard({
     nodes: s.nodes as never,
     pages: s.pages,
     format: s.format as Record<string, unknown>,
-    palette,
     held: have,
     featureName: (id) => getFeature(id)?.name,
     layout: (pageId, device) => {
@@ -99,12 +95,6 @@ async function fix(p: Problem, choice: "fix" | "keep" = "fix"): Promise<boolean>
     case "nowhere":
       s.updateNode(n.id, { nowhere: true } as never);
       return true;
-    case "words": {
-      const fixes = readableFixes(s.nodes.filter((x) => x.pageId === p.pageId) as never, resolvePalette(s.format, s.look)).filter((f) => f.id === p.id);
-      if (!fixes.length) return false;
-      s.patchNodes([p.id], (x) => ({ colour: { ...(x.colour ?? {}), text: fixes[0]!.to } }));
-      return true;
-    }
     case "picture": {
       const blob = await choosePicture();
       if (!blob) return false;
@@ -151,10 +141,7 @@ export function PublishCheckDialog() {
     try {
       const changed = await fix(p, choice);
       play(changed ? "confirm" : "deny");
-      if (!changed && p.kind === "words") setNote("None of the site's own colours reads better there: Show it and choose one.");
-      const next = await again();
-      /* Better, but still hard to read: the site's own colours go no further. Said, so the line staying is not a mystery. */
-      if (changed && p.kind === "words" && next.some((x) => x.key === p.key)) setNote("Made as readable as the site's own colours allow, and still hard to read: Show it and choose a lighter or darker colour.");
+      await again();
     } finally { setBusy(null); }
   };
   const groups = KIND_ORDER.map((k) => ({ ...k, rows: problems.filter((p) => p.kind === k.kind) })).filter((g) => g.rows.length);

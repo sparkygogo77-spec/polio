@@ -228,8 +228,8 @@ await side.locator("[data-role-more] > button[aria-expanded]").evaluateAll((bs) 
 await page.waitForTimeout(300);
 check("no role-pair \"text 1.2\" alarm on a captured site", !/\btext \d+\.\d\b/.test(await side.locator("[data-look-colour]").innerText()));
 check("the numbers under the roles are explained", (await side.locator("[data-role-legend]").count()) === 1 && (await side.locator('[data-role-source="muted"]').innerText()) === "not used");
-/* Readable words is one line, shown only when something needs fixing: here all three parts' words read on what they sit on, so it says nothing. */
-check("the words' contrast is measured on what they sit on, and all of it reads", (await side.locator("[data-words-readable]").count()) === 0, `${await side.locator("[data-words-readable]").count()} lines`);
+/* The "Words: N are hard to read" line is gone from Look (owner: it flagged harmless parts and fixed nothing). */
+check("Look has no hard-to-read words line", (await side.locator("[data-words-readable]").count()) === 0, `${await side.locator("[data-words-readable]").count()} lines`);
 
 await side.locator('[data-site-font="Pixel Mono"]').click();
 await page.waitForTimeout(300);

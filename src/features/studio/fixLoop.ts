@@ -33,7 +33,7 @@ export const NEXT_PATH = "polio/NEXT.md";
 /** One problem the board found, as the loop carries it. `key` is the check's own stable key. */
 export interface FixIssue {
   key: string;
-  /** The check's kind: link, share, picture, words, fit, nowhere; region for a Structure-view move into another region. */
+  /** The check's kind: link, share, picture, fit, nowhere; region for a Structure-view move into another region. */
   kind: string;
   hook: string | null;
   page: string;
@@ -53,14 +53,13 @@ export const DONE_WHEN: Record<string, string> = {
   link: "the link leads within the site, to pump.fun, or to DEX Screener without one token's address, or it is no longer a link",
   share: "the share link is kept on purpose or removed",
   picture: "the part shows its picture from a file in the repository",
-  words: "the words read clearly on what is behind them (the Builder's Readable words check passes)",
   fit: "the part stays inside the page at phone and tablet width",
   nowhere: "pressing it does something: it leads somewhere or runs its script",
   region: "the element sits inside that data-region in the markup, with its data-hook unchanged",
 };
 
 /** How hard each kind is to fix in code. Difficulty picks the model, the cost and so the lane (`lanes.ts`). */
-const HARD: Record<string, Difficulty> = { link: 1, share: 1, words: 1, nowhere: 2, picture: 2, region: 2, fit: 4 };
+const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, fit: 4 };
 const TOKENS: Record<Difficulty, { in: number; out: number }> = {
   1: { in: 15_000, out: 2_000 },
   2: { in: 30_000, out: 4_000 },

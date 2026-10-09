@@ -26,7 +26,7 @@
  */
 import { capturedFrom, idless, insideControl, isMachineLabel, partName } from "../src/features/studio/partNames.ts";
 import { CAPTURE_HIDES, isCaptured, readSiteFormat, siteSays } from "../src/features/studio/siteFormat.ts";
-import { closeShades, oklabDistance, tallyColours, tallyFonts, wordsContrast } from "../src/features/studio/look/siteColours.ts";
+import { closeShades, oklabDistance, tallyColours, tallyFonts } from "../src/features/studio/look/siteColours.ts";
 import { facetSays, keptSays, keptShort } from "../src/features/studio/bring-in/reimport.ts";
 
 const results = [];
@@ -110,10 +110,6 @@ check("the three shades from the walk are close in OKLab", oklabDistance("rgb(24
 check("…and yellow and near-black are not", oklabDistance("rgb(243, 212, 64)", "rgb(20, 20, 20)") > 0.5);
 const tight = closeShades(tally.byUse.fill, "fill", 0.01);
 check("a tighter distance merges less", tight.reduce((n, g) => n + g.from.length, 0) < fills.reduce((n, g) => n + g.from.length, 0), J(tight.map((g) => g.from.length)));
-
-/* ------------------------------------------------ contrast on what the words sit on */
-const cons = wordsContrast(nodes, { bg: "rgb(20, 20, 20)", text: "rgb(20, 20, 20)" });
-check("near-black words on a yellow card read clearly, whatever the roles say", cons.length >= 2 && cons.every((c) => c.ratio >= 4.5), J(cons));
 
 /* ------------------------------------------------ a face on many parts */
 /* The walk's VT323 case, made up: 27 parts in one face, labels inside links among them, the same words on several. Every one is counted, by id, never by name. */

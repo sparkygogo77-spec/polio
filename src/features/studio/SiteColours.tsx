@@ -19,9 +19,8 @@ import { MoreHint } from "@/core/ui/more-hint";
 import { ArrowRight, ChevronDown, Merge, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ROLES, css, parseColor, toHex, type Oklch, type Palette } from "./look";
-import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, HARD_TO_READ, readableFixes, tallyColours, firstSays, fontsInPageOrder, wordsContrast, type ColourUse, type FaceTo, type SiteColour } from "./look";
+import { CLOSE_SHADES, COLOUR_USES, PAGE_ID, SITE_TYPE, USE_LABEL, closeShades, tallyColours, firstSays, fontsInPageOrder, type ColourUse, type FaceTo, type SiteColour } from "./look";
 import { partName } from "./partNames";
-import { usePictureSampler } from "./pictureSampler";
 import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { componentsOf, type CompNode } from "./components";
 import type { CountedAs } from "./siteRoles";
@@ -505,7 +504,6 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
   return (
     <section data-site-colours="" className="space-y-3 border-b border-border p-3">
       <PointMarks />
-      <WordsReadable />
       <div>
         <div className="flex items-center justify-between">
           <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
@@ -778,61 +776,3 @@ function MergeShades({ use, list, palette }: { use: ColourUse; list: SiteColour[
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Words against their fill                                            */
-/* ------------------------------------------------------------------ */
-
-/**
- * Whether the words can be read, measured on what they sit on. The mixer's
- * badges compare two roles, and on a site brought in those two are often
- * never worn together: a "text 1.2" on a site whose words all read clearly
- * is an alarm about nothing. So a captured site gets this instead: how many
- * parts' words stand out from their own fill, and which do not, by name.
- */
-function WordsReadable() {
-  const { nodes, palette, look } = useSite();
-  /* Words over a picture are read against the picture itself, sampled under them (`pictureSampler.ts`). */
-  const sample = usePictureSampler(nodes);
-  const rows = React.useMemo(() => (look.paletteFrom || nodes.some((n) => n.from) ? wordsContrast(nodes, palette, sample) : []), [nodes, palette, look.paletteFrom, sample]);
-  const [open, setOpen] = React.useState(false);
-  const [fixed, setFixed] = React.useState<number | null>(null);
-  if (!rows.length && fixed === null) return null;
-  const hard = rows.filter((r) => r.ratio < HARD_TO_READ).sort((a, b) => a.ratio - b.ratio);
-  /* One press, one undo step: each hard part's words take the site's own colour that reads on its fill. */
-  const makeReadable = () => {
-    const fixes = readableFixes(nodes, palette, sample);
-    if (!fixes.length) { play("deny"); setFixed(0); return; }
-    const to = new Map(fixes.map((f) => [f.id, f.to]));
-    useStudio.getState().patchNodes([...to.keys()], (n) => ({ colour: { ...(n.colour ?? {}), text: to.get(n.id)! } }));
-    play("confirm");
-    setFixed(fixes.length);
-  };
-  /* One line, and only when something needs fixing (owner): a site whose words all read says nothing here. */
-  if (!hard.length && fixed === null) return null;
-  return (
-    <div data-words-readable="" className="rounded-md border border-border px-2 py-1.5 text-small">
-      {hard.length ? (
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fg-muted">
-          <span className="text-fg">Words: {hard.length} {hard.length === 1 ? "is" : "are"} hard to read against what is behind {hard.length === 1 ? "it" : "them"}.</span>
-          <button type="button" aria-expanded={open} onClick={() => { play(open ? "close" : "open"); setOpen((v) => !v); }} className="inline-flex items-center gap-1 text-fg hover:underline">
-            <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} /> Which ones
-          </button>
-          <Button data-make-readable="" size="xs" variant="primary" onClick={makeReadable}>
-            Make {hard.length === 1 ? "it" : "them"} readable
-          </Button>
-        </p>
-      ) : null}
-      {open && hard.length ? <div className="mt-1"><PartsList spots={hard.map((r) => ({ id: r.id, where: `${r.ratio} to 1` }))} /></div> : null}
-      {fixed !== null ? (
-        <p data-made-readable={fixed} className="flex items-center gap-2 text-fg-muted">
-          {fixed ? `${fixed} part${fixed === 1 ? "" : "s"} made readable, each in the site's own word colour that reads best there.` : "None of the site's own colours reads better there."}
-          {fixed ? (
-            <button type="button" className="inline-flex items-center gap-1 text-fg hover:underline" onClick={() => { useStudio.getState().undo(); setFixed(null); play("close"); }}>
-              <Undo2 className="size-3" /> Undo
-            </button>
-          ) : null}
-        </p>
-      ) : null}
-    </div>
-  );
-}

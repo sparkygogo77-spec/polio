@@ -3362,7 +3362,7 @@ carry why a thing arrived.
 - **Update live site shows one short list first** (`studio/publishCheck.ts`,
   `PublishCheck.tsx`): links that leave the site against Format's "Links off
   the site" rules (`parts/offsite.ts`), share links to choose about, pictures
-  this browser no longer has, words hard to read (`wordsContrast`), parts off
+  this browser no longer has, parts off
   the page at phone or tablet width (the preview's own `placeNodes` until
   Lane D's check lands; swap it in `readBoard`), and buttons that do nothing
   (`badge.ts` `decisions`). Each line has Fix (where there is one) and Show,
