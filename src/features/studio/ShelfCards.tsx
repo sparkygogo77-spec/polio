@@ -132,7 +132,7 @@ export function shelfThemeOf(
     }
   }
   /* A preview shows the thing on the site's page, not the site's textures over it: they are drawn in colours no pair was checked against. */
-  const r = readableTheme({ ...t, surfaceStyle: undefined, surfacePaint: undefined, overlayStyle: undefined, partGround: undefined }, colours);
+  const r = readableTheme({ ...t, surfaceStyle: undefined, surfacePaint: undefined, panelPaint: undefined, overlayStyle: undefined, partGround: undefined }, colours);
   return { ...r, backdrop: r.bg };
 }
 

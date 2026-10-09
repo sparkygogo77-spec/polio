@@ -68,6 +68,8 @@ export interface BlockProps {
   partView?: (nodeId: string, box: { w: number; h: number }) => React.ReactNode;
   /** The name its motion box wears, when it is not the part's own: a part drawn again in a preview (`copyMotion`). */
   motionId?: string;
+  /** Other parts sit in this one: it is a panel, and wears the texture laid on panels rather than on fields (`owner.ts#holderIds`). */
+  holder?: boolean;
 }
 
 /*
@@ -126,7 +128,7 @@ function StillCut({ node, children }: { node: StudioNode; children: React.ReactN
   return <div data-still-cut="" style={{ width: "100%", flex: "1 0 auto", display: "flex", flexDirection: "column", clipPath: cut }}>{children}</div>;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface, partView, motionId, holder }: BlockProps) {
   const def = resolvePart(node.featureId);
   /*
    * The picture, resolved once for the part. The hook runs for every part
@@ -155,11 +157,11 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {
-    if (!node.texture) return painted;
+    if (!node.texture) return holder && painted.panelPaint !== painted.surfacePaint ? { ...painted, surfacePaint: painted.panelPaint } : painted;
     if (node.texture === "none") return { ...painted, surfacePaint: undefined };
     if (!worn || !palette) return painted;
     return { ...painted, surfacePaint: textureCss([{ ...worn, on: true }], palette, painted.surface) };
-  }, [node.texture, worn, palette, painted]);
+  }, [node.texture, worn, palette, painted, holder]);
   /*
    * The keyframes the worn layer's drift names. The paint above names
    * `tex-drift-<hash of this one layer>`, and the only keyframes on the page

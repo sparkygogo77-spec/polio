@@ -29,3 +29,4 @@ import cycle loads a door before the file behind it.
 | `kitLook.ts` | A style kit as a part look |
 | `texture.ts` | Turning a picture into a texture (browser canvas) |
 | `LookPanel.tsx` | The Look panel |
+| `SavedPalettes.tsx` | Colour palettes saved by name and put back |

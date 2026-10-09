@@ -233,9 +233,9 @@ await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().click({
 await page.waitForTimeout(700);
 const bare = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("choosing a fill paints it on the page", /radial-gradient/.test(bare), bare.slice(0, 70));
-const kinds = page.locator("[data-look-texture] button");
+const kinds = page.locator("[data-look-texture] [data-texture-sample]");
 const n = await kinds.count();
-for (let i = 4; i < n; i++) {
+for (let i = 0; i < n; i++) {
   await kinds.nth(i).click({ force: true });
   await page.waitForTimeout(800);
   if (await page.locator('[data-look-texture] [aria-label="Remove layer"]').count()) break;

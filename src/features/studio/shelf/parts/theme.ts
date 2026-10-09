@@ -31,6 +31,13 @@ export interface Theme {
   /** When the texture is painted on surfaces, the properties every card wears. */
   surfacePaint?: React.CSSProperties;
   /**
+   * What a panel (a part other parts sit in) wears instead of `surfacePaint`:
+   * a layer can land on panels, on fields, or both. `blocks.tsx` swaps it in
+   * for a part that holds others. Equal to `surfacePaint` when no layer tells
+   * them apart.
+   */
+  panelPaint?: React.CSSProperties;
+  /**
    * The opaque floor every part paints under itself.
    *
    * A texture behind the page is behind the *page* — the site stands on it.
@@ -717,7 +724,9 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   // another dresses the cards.
   const layers = look?.texture?.filter((l) => l.on) ?? [];
   const onPage = layers.filter((l) => lands(l, "page"));
-  const onCards = layers.filter((l) => lands(l, "surfaces"));
+  const onFields = layers.filter((l) => lands(l, "fields"));
+  const onPanels = layers.filter((l) => lands(l, "panels"));
+  const apart = onFields.length !== onPanels.length || onFields.some((l, i) => l !== onPanels[i]);
   const onTop = layers.filter((l) => lands(l, "over"));
   /*
    * The fill goes UNDER the page's texture rather than being thrown away.
@@ -728,7 +737,8 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
    * are one stack, and the fill is the bottom of it.
    */
   const painted = onPage.length ? textureCss(onPage, roles, roles.bg, bed) : null;
-  const onSurfaces = onCards.length ? textureCss(onCards, roles, roles.surface) : null;
+  const onSurfaces = onFields.length ? textureCss(onFields, roles, roles.surface) : null;
+  const panelPaint = apart ? (onPanels.length ? textureCss(onPanels, roles, roles.surface) : null) : onSurfaces;
   const over = onTop.length ? textureCss(onTop, roles, "transparent") : null;
 
   return {
@@ -738,6 +748,7 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
     /** When a texture is set, this is the whole set of background properties. */
     surfaceStyle: painted ?? undefined,
     surfacePaint: onSurfaces ?? undefined,
+    panelPaint: panelPaint ?? undefined,
     overlayStyle: over ?? undefined,
     veil: look?.veil && look.veil > 0.005 ? `oklch(0 0 0 / ${Math.min(0.85, look.veil).toFixed(2)})` : undefined,
     // Only a texture behind the page needs to be covered up.
@@ -889,7 +900,7 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
       next.surfaceStyle = undefined;
       next.partGround = undefined;
     }
-    if (role === "surface") next.surfacePaint = undefined;
+    if (role === "surface") { next.surfacePaint = undefined; next.panelPaint = undefined; }
   }
   if (!touched) return t;
   // Which roles are HIS, so a part painting a role of its own — a button's
