@@ -153,6 +153,27 @@ export function spotsOf(n: Worn, palette: Partial<Palette> = {}): { raw: string;
   return out;
 }
 
+/**
+ * A text glow, resized or taken off: in a text-shadow list, every shadow
+ * wearing the colour `glow` gets blur `px`, or is dropped when `px` is null.
+ * Other shadows (a hard drop shadow under the glow) stay as they are. Returns
+ * undefined when no shadow is left.
+ */
+export function resizeGlow(shadow: string | undefined | null, glow: string, px: number | null): string | undefined {
+  if (!shadow?.trim() || shadow.trim() === "none") return shadow ?? undefined;
+  const key = colourKey(glow);
+  const out: string[] = [];
+  for (const one of shadow.split(/,(?![^(]*\))/).map((x) => x.trim()).filter(Boolean)) {
+    if (!coloursIn(one).some((c) => colourKey(c) === key)) { out.push(one); continue; }
+    if (px === null) continue;
+    /* Lengths in order: x, y, then blur; a shadow with only x and y gets one. */
+    let n = 0;
+    const sized = one.replace(/-?\d*\.?\d+px|(?<![\w.(,])0(?![\w.%])/g, (m) => (++n === 3 ? `${px}px` : m));
+    out.push(n >= 3 ? sized : `${sized} ${px}px`);
+  }
+  return out.length ? out.join(", ") : undefined;
+}
+
 /** The page's own colour is worn too, by the page. */
 export const PAGE_ID = "@page";
 
@@ -190,6 +211,55 @@ export function whoWears(nodes: readonly Worn[], palette: Partial<Palette>, colo
   const k = colourKey(colour);
   const found = tallyColours(nodes, palette).all.find((c) => c.key === k);
   return (found?.spots ?? []).filter((s) => !use || s.use === use);
+}
+
+/**
+ * WHAT RESET GOES BACK TO (J, 2026-10-09: Reset put the palette back but
+ * every part the theme roll or a kind's colour had repainted kept its new
+ * colour — black bars, highlighted words). A part's colours as they were
+ * before the Colours panel first changed it: its slots, its runs' colours,
+ * its edge, its art and its aura. Nothing else of the part, so words and
+ * sizes changed since stay as they are.
+ */
+export interface ColoursWas {
+  colour?: Partial<Record<string, string>> | null;
+  runs?: { colour?: string; textShadow?: string; textStroke?: { w: number; color: string } }[];
+  edge?: { colour?: string; shadow?: string };
+  art?: { background?: string; textShadow?: string; textStroke?: { w: number; color: string } };
+  aura?: string | null;
+}
+
+export function coloursOf(n: Worn): ColoursWas {
+  const runs = Array.isArray(n.content)
+    ? (n.content as Record<string, unknown>[]).map((s) => (s && typeof s === "object"
+      ? { colour: s.colour as string | undefined, textShadow: s.textShadow as string | undefined, textStroke: s.textStroke as { w: number; color: string } | undefined }
+      : {}))
+    : undefined;
+  return {
+    colour: n.colour ? { ...n.colour } : n.colour ?? null,
+    ...(runs ? { runs } : {}),
+    ...(n.edge ? { edge: { colour: n.edge.colour, shadow: n.edge.shadow } } : {}),
+    ...(n.art ? { art: { background: n.art.background, textShadow: n.art.textShadow, textStroke: n.art.textStroke } } : {}),
+    aura: n.aura ?? null,
+  };
+}
+
+/** `patch` laid on `on`, a key the patch leaves undefined taken off. */
+function laid<T extends object>(on: T, patch: Record<string, unknown>): T {
+  const out = { ...on } as Record<string, unknown>;
+  for (const [k, v] of Object.entries(patch)) if (v === undefined) delete out[k]; else out[k] = v;
+  return out as T;
+}
+
+/** The colour fields of `n` put back to `was`. Runs go back only while the words keep the same runs. */
+export function withColours<N extends Worn>(n: N, was: ColoursWas): Partial<N> {
+  const patch: Partial<Worn> = { colour: was.colour ? { ...was.colour } : was.colour ?? null, aura: was.aura ?? null };
+  if (was.runs && Array.isArray(n.content) && n.content.length === was.runs.length) {
+    patch.content = (n.content as Record<string, unknown>[]).map((s, i) => (s && typeof s === "object" ? laid(s, was.runs![i]!) : s));
+  }
+  if (n.edge && was.edge) patch.edge = laid(n.edge, was.edge);
+  if (n.art && was.art) patch.art = laid(n.art, was.art);
+  return patch as Partial<N>;
 }
 
 /** Replace, inside a CSS value, every colour that is `from` with `to`. */

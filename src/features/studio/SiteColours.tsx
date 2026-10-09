@@ -18,7 +18,7 @@ import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { ROLES, TEXTURE_KINDS, contrast, css, faceOf, parseColor, rollTheme, spotsOf, toHex, type ColourUse, type Palette } from "./look";
+import { ROLES, TEXTURE_KINDS, colourKey, coloursIn, resizeGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
@@ -278,37 +278,25 @@ function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs):
  * opens under the frame (`KindEditor`). Each piece is a kind, so one edit
  * reaches every copy of it across the site, as one undo step. Pieces are
  * named by what they are for, never their colour, with how many parts wear
- * them as a bold number in the corner, in a colour the site itself wears.
+ * them as a bold neon-green number in the corner.
  */
 type Pick = "page" | number;
 
-/** The site's own boldest colour, for the counts: the most colourful words or glow it wears, on its darkest colour. */
-function countTint(site: SiteKinds, palette: Palette): { ink: string; ground: string } {
-  const all = [site.page.fill, ...site.kinds.map((k) => k.fill), site.page.words, ...site.kinds.map((k) => k.words)].filter((x): x is string => !!x && !!parseColor(x));
-  const ground = all.reduce((a, b) => ((parseColor(b)?.l ?? 1) < (parseColor(a)?.l ?? 1) ? b : a), palette.text);
-  const g = parseColor(ground) ?? { l: 0.2, c: 0, h: 0 };
-  const bold = [site.page.glow, site.page.words, ...site.kinds.flatMap((k) => [k.glow, k.words]), palette.accent, palette.highlight]
-    .filter((x): x is string => !!x && !!parseColor(x))
-    .filter((x) => contrast(parseColor(x)!, g) >= 3)
-    .sort((a, b) => (parseColor(b)?.c ?? 0) - (parseColor(a)?.c ?? 0))[0];
-  return { ink: bold ? bold : g.l > 0.5 ? "#000" : "#fff", ground };
-}
-
-/** A count's number: the site's bright colour (white when it has none), ringed by a thin dark outline. */
-function countStyle(ink: string): React.CSSProperties {
-  const bright = (parseColor(ink)?.l ?? 0) >= 0.6 ? ink : "#fff";
+/** A count's number: always neon green, bright and vibrant on any swatch (J, 2026-10-09), ringed by a thin dark outline. */
+const COUNT_INK = "#39ff14";
+function countStyle(): React.CSSProperties {
   const edge = "rgb(0 0 0 / 0.85)";
-  return { color: bright, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
+  return { color: COUNT_INK, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
 }
 
 function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
-  const surfaces = site.kinds.filter((k) => !k.button && !k.tab).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
+  /* A big painted piece (the TV bodies) is always drawn, after the four most-worn surfaces. */
+  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
-  const tint = countTint(site, palette);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   const glow = (g: string | null): React.CSSProperties => (g ? { textShadow: `0 0 6px ${g}` } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
@@ -321,7 +309,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
   /* Just the number on the corner, no box behind it (J, 2026-10-09): bright, with a thin dark outline so it reads on a light swatch and a dark one. */
   const count = (n: number, small = false) => (
-    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[9px]" : "right-1 top-1 text-[11px]")} style={countStyle(tint.ink)}>{n}</span>
+    <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[11px]" : "right-1 top-1 text-[13px]")} style={countStyle()}>{n}</span>
   );
   const choose = (p: Pick, ids: string[]) => ({
     role: "button",
@@ -364,7 +352,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
           <div key={at(k)} data-preview-part="surface" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
             className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", tabs.length && at(k) === at(surfaces[0]!) && "pt-4", ring(picked === at(k)))} style={dress(k)}>
             <span data-preview-name="" className="block truncate text-small font-semibold leading-tight" style={faceCss(k.face)}>{k.name}</span>
-            <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span>
+            {k.wordsIds.length ? <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span> : null}
             {count(k.parts)}
             {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
           </div>
@@ -447,16 +435,18 @@ function Paint({ hook, label, value, onTo }: { hook: string; label: string; valu
   };
   const typed = (to: string) => { startGesture(); preview(to); endGesture(); from.current = null; };
   return (
-    <label data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
+    /* Not a <label>: a press on the name or the gap beside it opened the picker (J, 2026-10-09). Only the swatch does. */
+    <div data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
       <HandColour aria-label={label} value={toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}
         onPick={preview} onSettle={() => { from.current = null; }}
         className="h-7 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
       <span className="min-w-0 flex-1">{label}</span>
-      <Input inputSize="sm" className="w-24 shrink-0" value={hex} aria-label={`${label}, as hex`}
+      {/* As wide as the code it holds. */}
+      <Input inputSize="sm" mono size={Math.max(7, hex.length)} className="w-fit shrink-0" value={hex} aria-label={`${label}, as hex`}
         onChange={(e) => setHex(e.target.value)}
         onBlur={() => { const c = parseColor(hex); if (c && toHex(c) !== toHex(parseColor(value) ?? c)) typed(toHex(c)); }}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-    </label>
+    </div>
   );
 }
 
@@ -499,6 +489,45 @@ function KindCorners({ k }: { k: SurfaceKind }) {
       <Slider value={[Math.min(k.radius, cap)]} min={0} max={cap} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
         onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
     </label>
+  );
+}
+
+/**
+ * How far the glow on a kind's words spreads, or none. PonsStars' label tabs
+ * wear a 5px glow the nav tabs do not; recoloured darker than the words it
+ * smudges them, and a colour alone could not take it away (J, 2026-10-09).
+ */
+function KindGlow({ glow, ids }: { glow: string; ids: string[] }) {
+  const nodes = useHeldStudio((s) => s.nodes);
+  const blur = React.useMemo(() => {
+    const set = new Set(ids);
+    for (const n of nodes) {
+      if (!set.has(n.id)) continue;
+      const runs = Array.isArray(n.content) ? (n.content as { textShadow?: string }[]).map((r) => r?.textShadow) : [];
+      for (const sh of [(n.art as { textShadow?: string } | null | undefined)?.textShadow, ...runs]) {
+        const one = sh?.split(/,(?![^(]*\))/).find((x) => coloursIn(x).some((c) => colourKey(c) === colourKey(glow)));
+        const px = one?.match(/-?\d*\.?\d+px|(?<![\w.(,])0(?![\w.%])/g)?.[2];
+        if (px) return Math.round(parseFloat(px));
+      }
+    }
+    return 6;
+  }, [nodes, ids, glow]);
+  const set = (px: number | null) => useStudio.getState().patchNodes(ids, (n) => {
+    const art = n.art as { textShadow?: string } | null | undefined;
+    const patch: Record<string, unknown> = {};
+    if (art?.textShadow) patch.art = { ...art, textShadow: resizeGlow(art.textShadow, glow, px) };
+    if (Array.isArray(n.content)) patch.content = (n.content as unknown as Record<string, unknown>[]).map((r) => (r && typeof r.textShadow === "string" ? { ...r, textShadow: resizeGlow(r.textShadow, glow, px) } : r));
+    return patch as Partial<StudioNode>;
+  });
+  return (
+    <div data-kind-glow="" className="space-y-1 text-small text-fg">
+      <div className="flex items-center gap-2">
+        <span className="flex-1">Glow size</span>
+        <Button size="xs" variant="ghost" data-kind-glow-off="" onClick={() => { set(null); play("close"); }}>No glow</Button>
+      </div>
+      <Slider value={[Math.min(blur, 20)]} min={1} max={20} step={1} readout={(n) => `${n}px`} silent aria-label="Glow size"
+        onValueChange={(v) => set(v[0] ?? blur)} />
+    </div>
   );
 }
 
@@ -606,6 +635,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
       )}
       {words ? <Paint hook="words" label="Words" value={words} onTo={(f, t) => swap(f, t, "text", wordsIds)} /> : null}
       {glowOn ? <Paint hook="glow" label="Glow on the words" value={glowOn} onTo={(f, t) => swap(f, t, "shadow", wordsIds)} /> : null}
+      {glowOn ? <KindGlow glow={glowOn} ids={wordsIds} /> : null}
       {k?.outline ? <Paint hook="outline" label="Outline" value={k.outline.colour} onTo={(f, t) => swap(f, t, "border", k.ids)} /> : null}
       {wordsIds.length || !k ? (
         <div data-kind-font="" className="rounded-md border border-border">
@@ -646,6 +676,23 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   );
 }
 
+/**
+ * Back to what the site gave, on a site brought in; the app's own otherwise.
+ * The roles AND every part the panel repainted (a theme roll, a kind's
+ * colour), each to its colours before its first change (`look.coloursWas`):
+ * putting only the roles back left the rolled colours on the parts. One undo.
+ */
+function resetColours(): void {
+  const st = useStudio.getState();
+  const mark = st.historyMark();
+  const from = st.look.paletteFrom;
+  const was = st.look.coloursWas ?? {};
+  st.setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {}, coloursWas: {} });
+  const ids = st.nodes.filter((n) => was[n.id]).map((n) => n.id);
+  if (ids.length) useStudio.getState().patchNodes(ids, (n) => withColours(n, was[n.id]!) as Partial<StudioNode>);
+  useStudio.getState().oneStepSince(mark);
+}
+
 export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
   const { nodes, palette, look } = useSite();
   const frameWidth = useHeldStudio((s) => s.frameWidth);
@@ -670,12 +717,11 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
       <div>
         <div className="flex items-center justify-between">
           <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
-          {look.palette && Object.keys(look.palette).length ? (
+          {(look.palette && Object.keys(look.palette).length) || Object.keys(look.coloursWas ?? {}).length ? (
             <button
               type="button"
               data-colours-reset=""
-              /* Back to what the site gave, on a site brought in; the app's own otherwise. */
-              onClick={() => { play("close"); const from = look.paletteFrom; useStudio.getState().setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {} }); }}
+              onClick={() => { play("close"); resetColours(); }}
               className="text-small text-fg-muted hover:text-fg"
             >
               Reset

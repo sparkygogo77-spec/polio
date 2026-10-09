@@ -1,6 +1,6 @@
 "use client";
 import { formatDefaults } from "../../format";
-import { swapColour, swapFont } from "../../look";
+import { coloursOf, swapColour, swapFont } from "../../look";
 import { newLayer, type TextureLayer } from "../../look";
 import { newMotion } from "../../motion";
 import { useStudio } from "./create";
@@ -124,7 +124,11 @@ export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pu
       const r = swapColour(s.nodes, palette, from, to, { use: opts.use, only: opts.only ? new Set(opts.only) : undefined });
       if (!r.changed.length) return [];
       push();
-      set((st) => ({ nodes: r.nodes, ...(r.pageBg ? { look: { ...st.look, palette: { ...st.look.palette, bg: r.pageBg } } } : {}) }));
+      /* Each part's colours before its first change here: what Colours' Reset puts back. */
+      const was = { ...(s.look.coloursWas ?? {}) };
+      const touched = new Set(r.changed);
+      for (const n of s.nodes) if (touched.has(n.id) && !was[n.id]) was[n.id] = coloursOf(n);
+      set((st) => ({ nodes: r.nodes, look: { ...st.look, coloursWas: was, ...(r.pageBg ? { palette: { ...st.look.palette, bg: r.pageBg } } : {}) } }));
       return r.changed;
     },
     patchNodes: (ids, fn) => {

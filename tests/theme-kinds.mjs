@@ -10,11 +10,14 @@
  *   4. a white field and a cream card are two kinds, not one;
  *   5. a colour on one or two parts is not a kind; words on nothing stand on the page;
  *   6. kinds are named by what they are for (J: "Main fill", "Panels", "Fields"), never their colour;
- *   7. a gradient button is one kind with its stops; 8. a kind carries its parts and the words on it.
+ *   7. a gradient button is one kind with its stops; 8. a kind carries its parts and the words on it;
+ *  12. buttons and surfaces never share a kind (J: the grey "Menu" buttons' Fill showed only on the TV body);
+ *  13. a big gradient-painted piece is a kind of its own, named after itself, edited as one gradient.
  *
  *   node tests/theme-kinds.mjs
  */
 import { siteKinds } from "../src/features/studio/themeKinds.ts";
+import { resizeGlow } from "../src/features/studio/look/siteColours.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -55,6 +58,21 @@ check("9. a surface of specks (a TV's antenna balls) is decoration, not a kind",
 check("10. a short strip is a tab, drawn over a panel's top; a card or a field is not", tabs?.tab === true && card?.tab === false && field?.tab === false && buttons?.tab === false);
 check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));
 check("…and words on nothing stand on the page", r.page.words === "rgb(17, 17, 17)", JSON.stringify(r.page));
+
+/* 11. The glow on a kind's words resizes, or comes off, leaving a hard drop shadow under it as it was (J: the WALLET tab's glow smudged its words). */
+const TV = "rgba(160, 255, 90, 0.9) 0px 0px 6px, rgb(0, 0, 0) 2px 2px 0px";
+check("11. a glow resizes, the drop shadow under it untouched", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", 2) === "rgba(160, 255, 90, 0.9) 0px 0px 2px, rgb(0, 0, 0) 2px 2px 0px", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", 2));
+check("…and comes off whole", resizeGlow(TV, "rgba(160, 255, 90, 0.9)", null) === "rgb(0, 0, 0) 2px 2px 0px" && resizeGlow("rgba(160, 255, 90, 0.7) 0px 0px 5px", "rgba(160, 255, 90, 0.7)", null) === undefined);
+
+/* 12–13. PonsStars' plain grey buttons (hidden in menus and tours) and its TV body, repainted a grey-white gradient. */
+const GREY = "rgb(239, 239, 239)";
+const tv = [];
+for (let i = 0; i < 4; i++) tv.push({ id: `grey${i}`, pageId: "p", featureId: "cta-primary", x: i * 80, y: 0, w: 49, h: 21, state: { group: "hidden:menu" }, colour: { text: "rgb(0, 0, 0)", bg: GREY }, edge: { width: 2, style: "solid", colour: "rgb(118, 118, 118)" } });
+tv.push({ id: "body", label: "chart-tv-body", pageId: "p", featureId: "box", x: 0, y: 200, w: 844, h: 544, art: { background: `linear-gradient(160deg, rgb(255, 255, 255), ${GREY})` } });
+const t = siteKinds(tv, { bg: "rgb(20, 40, 20)" });
+const greys = t.kinds.find((k) => k.button), body = t.kinds.find((k) => k.ids.includes("body"));
+check("12. buttons and surfaces never share a kind, however close their fills", greys?.ids.length === 4 && !greys.ids.includes("body"), t.kinds.map((k) => `${k.name}:${k.ids}`).join(" "));
+check("13. a big gradient piece is a kind of its own, named after itself, as one gradient", body?.name === "Chart TV body" && body.piece === true && body.stops.length === 2 && !body.words && !body.outline, JSON.stringify(body));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

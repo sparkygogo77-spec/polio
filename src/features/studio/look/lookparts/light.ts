@@ -85,6 +85,12 @@ export interface Look {
    */
   paletteFrom?: Partial<Record<RoleId, { colour: string; parts: number; shows?: RoleId }>>;
   /**
+   * Each part's colours before the Colours panel first changed them
+   * (`siteColours.ts#ColoursWas`), by part id: what Reset puts back. Absent
+   * until a colour is changed there; Reset empties it.
+   */
+  coloursWas?: Record<string, import("../siteColours.ts").ColoursWas>;
+  /**
    * The page's own `@keyframes`, as a capture read them (sink `doc.keyframes`),
    * for the parts whose `node.motion` names them. Kept with the look so they
    * travel with the document; drawn under a prefixed name
