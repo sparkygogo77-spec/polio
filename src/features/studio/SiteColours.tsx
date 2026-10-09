@@ -305,7 +305,8 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
-  const surfaces = site.kinds.filter((k) => !k.button && !k.tab).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
+  /* A big painted piece (the TV bodies) is always drawn, after the four most-worn surfaces. */
+  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const tint = countTint(site, palette);
@@ -364,7 +365,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
           <div key={at(k)} data-preview-part="surface" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
             className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", tabs.length && at(k) === at(surfaces[0]!) && "pt-4", ring(picked === at(k)))} style={dress(k)}>
             <span data-preview-name="" className="block truncate text-small font-semibold leading-tight" style={faceCss(k.face)}>{k.name}</span>
-            <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span>
+            {k.wordsIds.length ? <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span> : null}
             {count(k.parts)}
             {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
           </div>

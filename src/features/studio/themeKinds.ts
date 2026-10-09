@@ -36,6 +36,8 @@ export const KIND_SHADES = 0.025;
 export const SPECK = 48;
 /** A strip this tall or less is a tab or label bar. */
 export const TAB_HEIGHT = 40;
+/** A gradient-painted piece this big or more (its longer side, px) is a kind of its own, however few parts wear it. */
+export const PIECE = 192;
 
 export interface SurfaceKind {
   /** The lead fill. */
@@ -74,6 +76,8 @@ export interface SurfaceKind {
   /** The background as the parts paint it, a gradient included (a button's light and body); the flat fill when they paint none. */
   paint: string;
   radius: number;
+  /** One big gradient-painted piece (a TV's body), named after itself rather than a role. */
+  piece: boolean;
   /** For a button kind, the index of the kind most of its parts stand in (-1: the page). */
   inside: number;
 }
@@ -91,6 +95,14 @@ const wordsOf = (p: Node): string => {
   return t.replace(/\s+/g, " ").trim();
 };
 
+/** A part's own name, readable: "chart-tv-body" is "Chart TV body". */
+const pieceName = (p: Node): string | null => {
+  const l = String((p as { label?: unknown }).label ?? "").trim();
+  if (!l || !/[a-z]/i.test(l)) return null;
+  const w = l.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().split(" ").map((x) => (x.length === 2 ? x.toUpperCase() : x.toLowerCase()));
+  return (w.join(" ").charAt(0).toUpperCase() + w.join(" ").slice(1)).slice(0, 28);
+};
+
 type Node = Part & { radius?: number | null; state?: { group?: string } | null; edge?: { width?: number; colour?: string; style?: string; shadow?: string } | null };
 
 const area = (p: Node) => Math.max(0, p.w ?? 0) * Math.max(0, p.h ?? 0);
@@ -103,8 +115,8 @@ const alpha = (v: string) => { const m = /rgba\([^)]*,\s*([\d.]+)\s*\)$/.exec(v.
 const top = <T,>(m: Map<T, number>): [T, number] | null => [...m.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
 const bump = <T,>(m: Map<T, number>, k: T, by = 1) => m.set(k, (m.get(k) ?? 0) + by);
 
-/** At most `cap` kinds, the most-worn first, buttons and surfaces both. */
-export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, background: ReadonlySet<string> = new Set(), cap = 8): SiteKinds {
+/** At most `cap` kinds (and two painted pieces), the most-worn first, buttons and surfaces both. */
+export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, background: ReadonlySet<string> = new Set(), cap = 10): SiteKinds {
   const parts = nodes as readonly Node[];
   const fillOf = new Map<string, string>();
   for (const p of parts) {
@@ -114,17 +126,23 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const f = spots.find((s) => s.spot.where === "fill" || s.spot.where === "surface") ?? spots.filter((s) => s.spot.where === "in a gradient").pop();
     if (f && parseColor(f.key)) fillOf.set(p.id, f.key);
   }
-  /* Kinds: fills clustered, the most-worn first. */
+  /* Kinds: fills clustered, the most-worn first. Buttons and surfaces never share a kind, however close their fills
+     (J, 2026-10-09): the site's plain grey buttons and a TV body painted near that grey were one "Menu" kind whose
+     Fill showed only on the TV and whose Words and Outline showed nowhere. */
+  const btn = new Set(parts.filter((p) => fillOf.has(p.id) && isButton(p)).map((p) => p.id));
+  const keyOf = (id: string) => `${btn.has(id) ? "b" : "s"}|${fillOf.get(id)!}`;
   const count = new Map<string, number>();
-  for (const k of fillOf.values()) bump(count, k);
-  const leads: { fill: string; members: Set<string> }[] = [];
-  const kindOfFill = new Map<string, number>();
-  for (const [k] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
-    let i = leads.findIndex((g) => oklabDistance(g.fill, k) < KIND_SHADES);
-    if (i < 0) { leads.push({ fill: k, members: new Set() }); i = leads.length - 1; }
-    kindOfFill.set(k, i);
+  for (const id of fillOf.keys()) bump(count, keyOf(id));
+  const leads: { fill: string; button: boolean; members: Set<string> }[] = [];
+  const kindOfKey = new Map<string, number>();
+  for (const [key] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
+    const button = key.startsWith("b|"), k = key.slice(2);
+    let i = leads.findIndex((g) => g.button === button && oklabDistance(g.fill, k) < KIND_SHADES);
+    if (i < 0) { leads.push({ fill: k, button, members: new Set() }); i = leads.length - 1; }
+    kindOfKey.set(key, i);
   }
-  for (const [id, k] of fillOf) leads[kindOfFill.get(k)!]!.members.add(id);
+  const kindAt = (id: string) => kindOfKey.get(keyOf(id))!;
+  for (const id of fillOf.keys()) leads[kindAt(id)]!.members.add(id);
   /* The surface each part stands on: itself if filled, else the smallest filled part holding it. */
   const filled = parts.filter((p) => fillOf.has(p.id));
   const under = (p: Node): Node | null => {
@@ -137,7 +155,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     return best;
   };
   /* What a part stands in: the smallest part holding it whose fill is another kind worn by three parts or more (a same-colour layer or a one-off wrapper is passed through). */
-  const kindOf = (q: Node) => kindOfFill.get(fillOf.get(q.id)!)!;
+  const kindOf = (q: Node) => kindAt(q.id);
   const container = (p: Node): number => {
     let best: Node | null = null;
     for (const q of filled) {
@@ -164,7 +182,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const t = spotsOf(p, palette).find((s) => s.spot.use === "text");
     if (!t) continue;
     const u = under(p);
-    const i = u ? kindOfFill.get(fillOf.get(u.id)!)! : -1;
+    const i = u ? kindAt(u.id) : -1;
     bump(i < 0 ? pageWords : words[i]!, t.key);
     bump(i < 0 ? pageFaces : faces[i]!, (p as { font?: { stack?: string } | null }).font?.stack || faceOf(p));
     (i < 0 ? pageIds : wordsIds[i]!).push(p.id);
@@ -174,7 +192,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
     if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
   }
-  const kinds: SurfaceKind[] = leads.map((g, i) => {
+  const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null })[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
     const outlines = new Map<string, number>();
     const shadows = new Map<string, number>();
@@ -203,7 +221,10 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const mid = (f: (p: Node) => number) => ms.map(f).sort((a, b) => a - b)[ms.length >> 1] ?? 0;
     const midW = mid((p) => p.w ?? 0), midH = mid((p) => p.h ?? 0);
     const isButtons = buttons >= ms.length / 2;
+    const biggest = ms.reduce<Node | null>((b, p) => (!b || area(p) > area(b) ? p : b), null);
     return {
+      big: biggest ? Math.max(biggest.w ?? 0, biggest.h ?? 0) : 0,
+      label: biggest ? pieceName(biggest) : null,
       w: midW,
       h: midH,
       tab: !isButtons && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
@@ -231,16 +252,22 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     };
   });
   /* Keep the kinds worn by three parts or more, and re-point `inside` at the kept list. A surface whose parts are
-     all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. */
-  const kept = kinds.map((k, i) => ({ k, i })).filter(({ k }) => k.parts >= 3 && (k.button || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
+     all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. A big piece
+     painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
+     and edited as one gradient (J, 2026-10-09). */
+  const isPiece = (k: (typeof kinds)[number]) => !k.button && k.stops.length > 1 && k.big >= PIECE && !!k.label;
+  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
+  const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label!, piece: true }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
+  const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false }, i })), ...pieces];
   const at = new Map(kept.map(({ i }, j) => [i, j]));
   /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
   const seen = new Map<string, number>();
   const named = kept.map(({ k }, j) => {
-    const base = !k.button && j === kept.findIndex(({ k: x }) => !x.button) ? "Main fill" : k.name;
+    const base = !k.button && !k.piece && j === kept.findIndex(({ k: x }) => !x.button && !x.piece) ? "Main fill" : k.name;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
-    return { ...k, name: n > 1 ? `${base} ${n}` : base, inside: at.get(k.inside) ?? -1 };
+    const { big: _b, label: _l, ...kind } = k;
+    return { ...kind, name: n > 1 ? `${base} ${n}` : base, inside: at.get(k.inside) ?? -1 };
   });
   return {
     page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null, faceKey: top(pageFaceKeys)?.[0] ?? null, wordsIds: pageIds, glow: top(pageGlows)?.[0] ?? null },
