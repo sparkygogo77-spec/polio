@@ -67,7 +67,7 @@ const usesOf = (n: ListPart) => (n.work ? [n.work, ...(n.work.also ?? [])].filte
 const uses = (n: ListPart, id: string) => usesOf(n).some((u) => u.id === id);
 const idList = (s: string | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
-const CONTROL_KINDS = new Set(["Button", "Link"]);
+const CONTROL_KINDS = new Set(["Button", "Link", "Toggle"]);
 const PLACE_KINDS = new Set(["Header", "Footer", "Menu"]);
 /** Kinds that are a thing to see even with no words or picture. */
 const SEEN_KINDS = new Set(["Field", "Video", "Embedded page", "Drawing", "Picture", "Heading", "Form"]);
@@ -87,9 +87,16 @@ const painted = (n: ListPart) => {
   return (typeof bg === "string" && bg.trim() !== "" && !/transparent|rgba\([^)]*,\s*0\)/.test(bg)) || !!n.texture;
 };
 
-/** The words a control is labelled with: its own, else the first words inside it, else the name the browser gave it. */
+/** The name a page gives a control for people who can't see it ("More about the balance" on a "?"). */
+const ariaOf = (n: ListPart) => {
+  const a = (n as { hooks?: Record<string, unknown> | null }).hooks?.["aria-label"];
+  return typeof a === "string" ? a.trim() : "";
+};
+
+/** The words a control is labelled with: its own (unless they are only a sign, like "?"), else the first words inside it, else the name the browser gave it. */
 function labelOf(n: ListPart, inside: readonly ListPart[]): string {
   const own = wordsOf(n);
+  if (own && !/[\p{L}\p{N}]/u.test(own) && ariaOf(n)) return ariaOf(n);
   if (own) return own;
   const kid = inside.map((k) => wordsOf(k)).find(Boolean);
   if (kid) return kid;
@@ -140,19 +147,49 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
       for (const id of idList(u.inputs?.shows)) if (!shownBy.has(id)) shownBy.set(id, c.id);
     }
   }
+  /* A <details> toggle opens what its <details> holds: by the page path the capture recorded. */
+  const toggleAt = new Map<string, string>();
+  for (const n of nodes) {
+    const sel = (n.from?.selector ?? "").replace(/\s*>\s*/g, " > ").trim();
+    if (!n.state && kind(n) === "Toggle" && / > summary(?::[\w-]+(?:\([^)]*\))?)*$/.test(sel)) toggleAt.set(sel.replace(/ > summary[^>]*$/, ""), n.id);
+  }
+  const toggleOf = (n: ListPart): string | null => {
+    const sel = (n.from?.selector ?? "").replace(/\s*>\s*/g, " > ").trim();
+    for (const [at, id] of toggleAt) if (sel.startsWith(`${at} > `) && !/ > summary\b/.test(sel.slice(at.length))) return id;
+    return null;
+  };
   /* A part whose holder a press shows is shown by that press too. */
   const controlOf = (n: ListPart): string | null => {
     if (shownBy.has(n.id)) return shownBy.get(n.id)!;
     for (const h of holders(n.id)) if (shownBy.has(h.id)) return shownBy.get(h.id)!;
-    return null;
+    return toggleOf(n);
+  };
+
+  /*
+   * A heading holding only its words and an icon (PST's "PonsStars test
+   * page" with its TV drawing) is one row, "Heading: PonsStars test page",
+   * as a badge is: its pieces are not rows of their own. Each keeps its own
+   * part on the board.
+   */
+  const TITLE_PIECES = new Set(["Words", "Drawing", "Picture", "Decoration", "Box"]);
+  const titleMemo = new Map<string, boolean>();
+  const isTitle = (n: ListPart): boolean => {
+    let t = titleMemo.get(n.id);
+    if (t === undefined) {
+      const inside = kind(n) === "Heading" ? descendants(n.id) : [];
+      t = inside.length > 0 && inside.some((m) => !!wordsOf(m)) && inside.every((m) => TITLE_PIECES.has(kind(m)) && !isControl(m, kind(m)));
+      titleMemo.set(n.id, t);
+    }
+    return t;
   };
 
   /** Is this part a row, and if so its kind and words. Null when it is a holder, or a control's own label. */
   const asRow = (n: ListPart): { kind: string; text: string } | null => {
     const k = kind(n);
-    /* Inside a control: the control's label, not a row. */
-    if (holders(n.id).some((h) => isControl(h, kind(h)))) return null;
+    /* Inside a control: the control's label, not a row. Inside a heading's one row: a piece of it. */
+    if (holders(n.id).some((h) => isControl(h, kind(h)) || isTitle(h))) return null;
     const inside = descendants(n.id);
+    if (isTitle(n)) return { kind: k, text: inside.map((m) => wordsOf(m)).filter(Boolean).join(" ") };
     /* A header, section or list holding parts is where they sit; one placed whole, drawing its own insides, is a thing a visitor sees. */
     if (PLACE_KINDS.has(k) || k === "Page body" || k === "Section" || k === "List") {
       if (inside.length) return null;
@@ -202,7 +239,9 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
     const r = asRow(n);
     if (!r) return null;
     const name = rowName(r.kind, r.text);
-    return { id: n.id, ids: [n.id], kind: r.kind, name, where: after ? null : whereOf(n, r.text), depth: after ? 1 : 0, after, control };
+    /* A heading's one row stands for its pieces too: hovering it outlines them all. */
+    const ids = isTitle(n) ? [n.id, ...descendants(n.id).map((m) => m.id)] : [n.id];
+    return { id: n.id, ids, kind: r.kind, name, where: after ? null : whereOf(n, r.text), depth: after ? 1 : 0, after, control };
   };
 
   const order = (a: ListPart, b: ListPart) => a.y - b.y || a.x - b.x;
@@ -263,7 +302,9 @@ export function partList(all: readonly ListPart[], opts: { siteName?: string; fe
   for (const r of out) {
     const prev = folded[folded.length - 1];
     const same = prev && prev.where === r.where && prev.depth === r.depth && prev.after === r.after && prev.control === r.control && !under.has(r.id);
-    if (same && prev.name === r.name && (r.after || r.name === "Shape" || r.name === "Picture")) {
+    /* Painted bars and unnamed pictures fold only with neighbours in the same holder: a TV's static and a knob's notch are two things. */
+    const sameHolder = !!prev && (tree.parent.get(prev.id) ?? null) === (tree.parent.get(r.id) ?? null);
+    if (same && prev.name === r.name && (r.after || ((r.name === "Shape" || r.name === "Picture") && sameHolder))) {
       prev.ids.push(...r.ids);
       continue;
     }
@@ -304,6 +345,8 @@ export interface ListComponent {
   name: string;
   /** The host and every layer. */
   parts: readonly string[];
+  /** The host's own name in the code, in plain words ("chart tv knob volume"), for a component with no words. */
+  hookName?: string;
 }
 
 export interface ComponentRow extends ListRow {
@@ -326,7 +369,7 @@ export function foldComponentRows(rows: readonly ListRow[], comps: readonly List
     }
     /* Its words as the list said them, else the ones the component was named by. */
     const said = r.name.includes(": ") ? r.name.slice(r.name.indexOf(": ") + 2) : "";
-    const named = /“(.+)”/.exec(c.name)?.[1] ?? "";
+    const named = /“(.+)”/.exec(c.name)?.[1] ?? c.hookName ?? "";
     const row: ComponentRow = { ...r, id: c.id, ids: [...new Set([c.id, ...c.parts, ...r.ids])], kind: c.kindWord, name: rowName(c.kindWord, said || named), component: c.id };
     made.set(c.id, row);
     out.push(row);

@@ -204,7 +204,13 @@ const NESTING_KEY = "builder.elementsNesting";
 const ROW_PX = 28;
 const LIST_ICON: Record<string, React.ComponentType<{ className?: string }>> = { "Copy bar": Copy, Shape: Shapes };
 
-export function ElementList({ nodes, picked, className }: { nodes: StudioNode[]; picked?: string | null; className?: string }) {
+/** A part's name in the code, in plain words: data-hook "chart-tv-knob-volume" is "chart tv knob volume". */
+const hookWords = (n: StudioNode | undefined) => {
+  const h = (n as { hooks?: Record<string, unknown> | null } | undefined)?.hooks?.["data-hook"];
+  return typeof h === "string" && h.trim() ? h.trim().replace(/[-_]+/g, " ") : undefined;
+};
+
+export function ElementList({ nodes, picked, className, onRows }: { nodes: StudioNode[]; picked?: string | null; className?: string; onRows?: (count: number) => void }) {
   const siteName = useHeldStudio((s) => s.brief.name);
   const [nesting, setNesting] = React.useState(() => {
     try { return typeof window !== "undefined" && window.localStorage.getItem(NESTING_KEY) === "1"; } catch { return false; }
@@ -213,9 +219,11 @@ export function ElementList({ nodes, picked, className }: { nodes: StudioNode[];
   const comps = usePageComponents(nodes);
   /* A component (a button and its stacked layers) is one row, as it is one group under Show nesting. */
   const rows = React.useMemo(
-    () => foldComponentRows(partList(nodes as unknown as ListPart[], { siteName, featureName }), comps.list.filter((c) => c.layers.length).map((c) => ({ id: c.id, kindWord: KIND_WORD[c.kind], name: c.name, parts: c.parts }))),
+    () => foldComponentRows(partList(nodes as unknown as ListPart[], { siteName, featureName }), comps.list.filter((c) => c.layers.length).map((c) => ({ id: c.id, kindWord: KIND_WORD[c.kind], name: c.name, parts: c.parts, hookName: hookWords(nodes.find((n) => n.id === c.id)) }))),
     [nodes, siteName, comps],
   );
+  /* The heading's count is the rows here, not the parts behind them (510 parts on PST's Play page are 211 rows). */
+  React.useEffect(() => { onRows?.(rows.length); }, [rows.length, onRows]);
   const shown = React.useMemo(() => filterRows(rows, query), [rows, query]);
   const byId = React.useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const box = React.useRef<HTMLDivElement>(null);
