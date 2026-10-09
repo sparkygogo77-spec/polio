@@ -20,7 +20,7 @@ import { Dices, Undo2 } from "lucide-react";
 import { ROLES, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
-import { PieceTexture } from "./PieceTexture";
+import { PieceTexture, kindGround, pageGround } from "./PieceTexture";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { siteKinds, type SiteKinds, type SurfaceKind } from "./themeKinds";
 import { componentsOf, type CompNode } from "./components";
@@ -274,7 +274,7 @@ function countStyle(): React.CSSProperties {
   return { color: COUNT_INK, textShadow: `1px 0 0 ${edge}, -1px 0 0 ${edge}, 0 1px 0 ${edge}, 0 -1px 0 ${edge}, 0 0 3px ${edge}` };
 }
 
-function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
+function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void; ground: React.CSSProperties; grounds: Map<number, React.CSSProperties> }) {
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
@@ -287,6 +287,8 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   const glow = (g: { glow: string | null; glowSize: number; glowShown: boolean }): React.CSSProperties => (g.glow && g.glowShown ? { textShadow: `0 0 ${g.glowSize}px ${g.glow}` } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
     background: k.paint,
+    /* The texture its parts wear, over its paint, as the board draws it. */
+    ...grounds.get(at(k)),
     color: ink(k),
     border: k.outline ? `${Math.min(k.outline.width, 3)}px solid ${k.outline.colour}` : undefined,
     boxShadow: k.shadow ? k.shadow.replace(/(-?\d+(?:\.\d+)?)px/g, (_, n: string) => `${Math.round(Number(n) / 2)}px`) : undefined,
@@ -319,7 +321,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
   return (
     <div data-theme-preview="" data-preview-part="page" {...choose("page", [])}
       className={cn("cursor-pointer space-y-2 overflow-hidden rounded-md border border-border p-2", picked === "page" && "outline outline-2 outline-offset-2 outline-accent")}
-      style={{ background: site.page.fill, color: site.page.words ?? palette.text }} title="The page">
+      style={{ ...ground, color: site.page.words ?? palette.text }} title="The page">
       <span data-preview-part="heading" className="block text-[15px] font-bold leading-tight" style={{ ...faceCss(site.page.face), ...glow(site.page) }}>The page&rsquo;s own words</span>
       {tabs.length ? (
         <div data-preview-tabs="" className="relative z-10 -mb-3 flex flex-wrap gap-1 pl-2">
@@ -682,6 +684,9 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
   const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours, undefined, counted), [nodes, palette, frameWidth, pictureKey, counted]); // eslint-disable-line react-hooks/exhaustive-deps
   const background = React.useMemo(() => new Set(roles.left.backgroundLayers), [roles]);
   const site = React.useMemo(() => siteKinds(nodes, palette, background), [nodes, palette, background]);
+  /* What the page and each kind wear, texture included: the preview draws what the board draws. */
+  const ground = React.useMemo(() => pageGround(roles.left.backgroundLayers, nodes, look.texture, palette, site.page.fill), [roles, nodes, look.texture, palette, site.page.fill]);
+  const grounds = React.useMemo(() => new Map(site.kinds.flatMap((k, i) => { const g = !k.button ? kindGround(k.ids, nodes, look.texture, palette, k.fill) : null; return g ? [[i, g] as const] : []; })), [site, nodes, look.texture, palette]);
   const [picked, setPicked] = React.useState<Pick | null>(null);
   const [rolled, setRolled] = React.useState<number | null>(null);
   const [rolesOpen, setRolesOpen] = React.useState(false);
@@ -711,7 +716,7 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
         />
       </div>
       {captured ? null : paletteRoles}
-      <ThemePreview site={site} palette={palette} picked={picked} onPick={(p) => setPicked((was) => (was === p ? null : p))} />
+      <ThemePreview site={site} palette={palette} picked={picked} onPick={(p) => setPicked((was) => (was === p ? null : p))} ground={ground} grounds={grounds} />
       {picked !== null ? <KindEditor key={String(picked)} pick={picked} site={site} palette={palette} background={roles.left.backgroundLayers} onClose={() => setPicked(null)} /> : null}
       {captured ? (
         <div data-randomize-theme="" className="space-y-1">

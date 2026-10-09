@@ -67,6 +67,43 @@ export function siteDotsOn(ids: readonly string[], nodes: readonly { id: string;
   return dots ? { ids: on, dots } : null;
 }
 
+/** A part's own background, as the site's code painted it when it was brought in (`source.was`): its "Original" texture. */
+type Painted = { id: string; art?: unknown; source?: unknown };
+export function originalOf(n: Painted): Art | null {
+  const was = (n.source as { was?: { art?: Record<string, string> } } | null | undefined)?.was?.art;
+  const img = was?.["background-image"]?.trim();
+  if (!img || img === "none") return null;
+  return { background: img, backgroundOptions: [was!["background-size"] ?? "auto", was!["background-position"] ?? "0% 0%", was!["background-repeat"] ?? "repeat"] };
+}
+
+/** The pattern a part paints itself now (its own gradient, a site's dots), as CSS over `ground`; null when it paints none. */
+export function paintedCss(art: Art | null | undefined, ground: string): React.CSSProperties | null {
+  const img = art?.background?.trim();
+  if (!img || img === "none") return null;
+  const o = art!.backgroundOptions ?? [];
+  return { backgroundColor: ground, backgroundImage: img, ...(o[0] ? { backgroundSize: o[0] } : {}), ...(o[1] ? { backgroundPosition: o[1] } : {}), ...(o[2] ? { backgroundRepeat: o[2] } : {}) };
+}
+
+/**
+ * THE PAGE AS THE PREVIEW DRAWS IT: the texture the page has, whichever it
+ * is (J, 2026-10-09: PST's own dots were on the board and the site, never in
+ * the preview, nor were the builder's Dots). A texture given here, else the
+ * pattern the page's own parts paint, else its plain colour.
+ */
+export function pageGround(ids: readonly string[], nodes: readonly Painted[], layers: readonly TextureLayer[], palette: Palette, fill: string): React.CSSProperties {
+  const own = pageLayer(layers);
+  if (own) return textureCss([own], palette, fill);
+  const want = new Set(ids);
+  for (const n of nodes) if (want.has(n.id)) { const css = paintedCss(n.art as Art | null | undefined, fill); if (css) return css; }
+  return { background: fill };
+}
+
+/** A kind of panel or field as the preview draws it: the texture its parts wear over its paint, or nothing to add. */
+export function kindGround(ids: readonly string[], nodes: readonly { id: string; texture?: string | null }[], layers: readonly TextureLayer[], palette: Palette, fill: string): React.CSSProperties | null {
+  const l = wornBy(ids, nodes, layers);
+  return l ? textureCss([{ ...l, on: true }], palette, fill) : null;
+}
+
 /** The site's dots as a layer the row can show and sample. Never stored: the gradient on the parts is the truth. */
 const SITE_DOTS_ID = "site-dots";
 function siteDotsLayer(d: SiteDots): TextureLayer {
@@ -84,6 +121,12 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   const own = page ? pageLayer(layers) : wornBy(ids, nodes, layers);
   const siteOnly = !own && !!site;
   const layer = own ?? (site ? siteDotsLayer(site.dots) : null);
+  /* "Original": the texture the site's own code painted (J, 2026-10-09: PST's dots are not the builder's Dots).
+     Shown first when the page was brought in with one; on while the page's parts still paint it. */
+  const originals = page ? nodes.filter((n) => ids.includes(n.id) && originalOf(n)) : [];
+  const painted = page ? nodes.find((n) => ids.includes(n.id) && paintedCss(n.art as Art | null | undefined, ground)) : undefined;
+  const originalOn = !own && !!painted;
+  const originalSample = (originals[0] && paintedCss(originalOf(originals[0]), ground)) || (painted && paintedCss(painted.art as Art, ground)) || null;
 
   /** One undo for whatever a press does. */
   const step = (fn: () => void) => { const st = useStudio.getState(); const mark = st.historyMark(); fn(); useStudio.getState().oneStepSince(mark); };
@@ -91,6 +134,11 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   const dropSite = () => {
     const now = page ? siteDotsOn(ids, useStudio.getState().nodes) : null;
     if (now) useStudio.getState().patchNodes(now.ids, (n) => { const d = siteDotsOf(n.art as Art | null | undefined); return d ? { art: dropSiteDots(n.art as Art, d) } as never : {}; });
+    /* Any other pattern the site's code painted on the page (not dots): off too, so there is one texture. "Original" brings it back. */
+    if (page) {
+      const rest = useStudio.getState().nodes.filter((n) => ids.includes(n.id) && originalOf(n) && !siteDotsOf(n.art as Art | null | undefined) && paintedCss(n.art as Art | null | undefined, "transparent"));
+      if (rest.length) useStudio.getState().patchNodes(rest.map((n) => n.id), (n) => ({ art: { ...(n.art as Art), background: "none", backgroundOptions: undefined } }) as never);
+    }
   };
   /* A dial dragged on the site's dots: one undo for the drag, as a layer's dials are (`updateTexture`'s runs). */
   const run = React.useRef<{ key: string; at: number } | null>(null);
@@ -107,7 +155,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   };
   const pick = (kind: TextureKind) => {
     play("select");
-    if (siteOnly && kind === "dots") return;
+    if (own?.kind === kind && kind !== "image") return;
     step(() => {
       /* Another kind for the page: the site's dots give way to it, so there is one texture, not two. */
       dropSite();
@@ -123,8 +171,23 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       if (ids.length) useStudio.getState().patchNodes(ids, () => ({ texture: l.id }));
     });
   };
+  /** The site's own texture back, as its code painted it: whatever was given here goes. One undo. */
+  const original = () => {
+    play("select");
+    if (originalOn && !own) return;
+    step(() => {
+      if (own) {
+        const st = useStudio.getState();
+        const wearing = st.nodes.filter((n) => n.texture === own.id).map((n) => n.id);
+        if (wearing.length) st.patchNodes(wearing, () => ({ texture: null }));
+        useStudio.getState().removeTexture(own.id);
+      }
+      const back = originals.map((n) => n.id);
+      if (back.length) useStudio.getState().patchNodes(back, (n) => { const o = originalOf(n); return o ? { art: { ...((n.art as Art | null) ?? {}), ...o } } as never : {}; });
+    });
+  };
   const none = () => {
-    if (!layer) return;
+    if (!layer && !originalOn) return;
     play("close");
     step(() => {
       dropSite();
@@ -204,12 +267,19 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       <p className="text-fine text-fg-faint">Texture</p>
       <div className="grid grid-cols-4 gap-1">
         <button type="button" data-texture-sample="none" aria-pressed={!layer} onClick={none}
-          className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", !layer ? "border-accent" : "border-border hover:border-border-strong")}>
+          className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", !layer && !originalOn ? "border-accent" : "border-border hover:border-border-strong")}>
           <span aria-hidden className="block h-9 w-full" style={{ background: ground }} />
           <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">None</span>
         </button>
+        {originalSample ? (
+          <button type="button" data-texture-sample="original" aria-pressed={originalOn} aria-label="Original" title="The site's own texture, as its code made it" onClick={original}
+            className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", originalOn ? "border-accent" : "border-border hover:border-border-strong")}>
+            <span aria-hidden className="block h-9 w-full" style={originalOn && painted ? paintedCss(painted.art as Art, ground)! : originalSample} />
+            <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Original</span>
+          </button>
+        ) : null}
         {KINDS.map((k) => {
-          const on = layer?.kind === k;
+          const on = !!own && own.kind === k;
           const sample = on && layer ? { ...layer, on: true } : pickedLayer(k, ground, palette);
           const label = TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k;
           return (
@@ -221,7 +291,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           );
         })}
         {/* A picture of his own, tiled: what the folded-away layer stack used to be the only place for (J, 2026-10-09: "that tech should be shoved into the texture ... field"). */}
-        <button type="button" data-texture-sample="image" aria-pressed={layer?.kind === "image"} aria-label="Picture" title="A picture you drop in: alive (cut into layers that move) or still" onClick={() => pick("image")}
+        <button type="button" data-texture-sample="image" aria-pressed={own?.kind === "image"} aria-label="Picture" title="A picture you drop in: alive (cut into layers that move) or still" onClick={() => pick("image")}
           className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", layer?.kind === "image" ? "border-accent" : "border-border hover:border-border-strong")}>
           <span aria-hidden className="block h-9 w-full" style={layer?.kind === "image" && layer.src ? textureCss([{ ...layer, on: true }], palette, ground) : { background: ground }} />
           <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Picture</span>
