@@ -2,6 +2,7 @@
 import { LEARN_DEFAULT } from "../../learn";
 import { uid } from "@/core/lib/ids";
 import { lands } from "../../look";
+import { isWrapper } from "../../owner";
 import { QUEUED } from "../../formation";
 import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../../space";
 import { GetStudio, HUES, SetStudio, inherit, pickedStates } from "./history";
@@ -230,7 +231,8 @@ export function boardActions(set: SetStudio, get: GetStudio, push: () => void, p
     selectAll: () =>
       set((s) => ({
         selection: [
-          ...s.nodes.filter((n) => n.pageId === s.activePageId).map((n) => n.id),
+          /* Not the site's own wrapper: moving everything moves the parts, and it rides along (`owner.ts#wrapperIds`). */
+          ...s.nodes.filter((n) => n.pageId === s.activePageId && !isWrapper(s.nodes, n)).map((n) => n.id),
           ...s.shapes.filter((sh) => sh.pageId === s.activePageId).map((sh) => sh.id),
         ],
       })),

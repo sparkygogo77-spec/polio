@@ -8,7 +8,7 @@ import { getFeature } from "../shelf";
 import { componentsOf, carriedBy, GRABBED } from "../components";
 import { isControl } from "../control";
 import { ownsOthers } from "../holds";
-import { ownerOf, ridersOf, wordsOf } from "../owner";
+import { holds, isWrapper, ownerOf, ridersOf, wordsOf } from "../owner";
 import { isLinkable } from "../shelf/ui";
 import { resolvePalette } from "../shelf/run";
 import { groupBounds, type StudioNode } from "./store";
@@ -45,7 +45,8 @@ export function readPress(e: PressEvent, p: Point, tool: Tool, st: StudioState, 
   const resizeHandle = target.closest?.("[data-resize]") as HTMLElement | null;
   const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
   const shapeId = shapeEl?.dataset?.shapeId && shapeEl.dataset.shapeId !== "live" ? shapeEl.dataset.shapeId : null;
-  const hitId = nodeEl?.dataset.nodeId || null;
+  /* The site's own wrapper is never under the hand: the press is on the page (`owner.ts#wrapperIds`). */
+  const hitId = nodeEl?.dataset.nodeId && !isWrapper(st.nodes, { id: nodeEl.dataset.nodeId }) ? nodeEl.dataset.nodeId : null;
   const hit = hitId ? st.nodes.find((n) => n.id === hitId) ?? null : null;
   const twice = !!prior && !!hitId && prior.id === hitId && e.timeStamp - prior.at < DOUBLE_MS && Math.hypot(p.x - prior.x, p.y - prior.y) < DOUBLE_SLOP;
 
@@ -122,6 +123,13 @@ export function moveDrag(st: StudioState, ids: readonly string[], p: Point): Dra
   const lifted = liftToFrame(st.nodes, ids);
   const held = ridersOf(st.nodes, lifted, resolvePalette(st.format, st.look));
   const riders = [...held, ...frameRiders(st.nodes, [...lifted, ...held])];
+  /* The site's own wrapper rides along once everything it holds is in hand (Select everything, then a drag). */
+  const inHand = new Set([...lifted, ...riders]);
+  for (const n of st.nodes) {
+    if (inHand.has(n.id) || !isWrapper(st.nodes, n)) continue;
+    const inside = st.nodes.filter((m) => holds(n, m) && !isWrapper(st.nodes, m));
+    if (inside.length && inside.every((m) => inHand.has(m.id))) riders.push(n.id);
+  }
   const carried = [...new Set([...lifted, ...riders])];
   const origin: NonNullable<Drag["origin"]> = {};
   for (const n of st.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
