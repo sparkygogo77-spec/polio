@@ -1713,6 +1713,7 @@ export function DesktopCanvas() {
           style={{ width: frameWidth, height: pageH }}
         >
         <TextureDrift layers={look.texture} palette={palette} />
+        {theme.surfaceDrift ? <style data-page-drift="">{theme.surfaceDrift}</style> : null}
         <LiveKeyframes />
         {/* The faces the site carries, drawn in the real file; one that will not load is said once. */}
         <CarriedFonts fonts={look.fonts} onFail={fontFailed} />

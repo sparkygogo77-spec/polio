@@ -18,7 +18,7 @@
  * taking one off are each one undo.
  */
 import * as React from "react";
-import { TEXTURE_KINDS, parseColor, pickedLayer, spotsOfTarget, textureCss, toHex, type Palette, type TextureKind, type TextureLayer } from "./look";
+import { TEXTURE_KINDS, dialsOf, parseColor, pickedLayer, spotsOfTarget, textureCss, toHex, type Palette, type TextureKind, type TextureLayer } from "./look";
 import { dropSiteDots, siteDotsOf, writeSiteDots, type Art, type SiteDots } from "./look/lookparts/siteDots";
 import { useHeldStudio, useStudio } from "./board/store";
 import { HandColour, Slider } from "./HandSlider";
@@ -107,7 +107,8 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       dropSite();
       const st = useStudio.getState();
       if (own) {
-        if (own.kind !== kind) st.updateTexture(own.id, { kind, baked: undefined });
+        /* The new kind's own shape and turn: a stripe's line width read as a flat colour's fade turned the page into a gradient. */
+        if (own.kind !== kind) { const fresh = pickedLayer(kind, ground, palette); st.updateTexture(own.id, { kind, baked: undefined, contrast: fresh.contrast, angle: fresh.angle, ...(dialsOf(kind).drift ? null : { drift: 0 }) }); }
         return;
       }
       /* Off the site-wide stack unless it is the page's: a kind's layer is worn by its parts and lands nowhere else. */
@@ -185,12 +186,18 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           <Dial label="How solid" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onTo={(v) => set({ opacity: v / 100 })} />
           <Dial label="Scale" value={layer.scale} min={2} max={400} unit="px" onTo={(v) => set({ scale: v })} />
           {/* The site's own dots are its CSS: a colour, how solid and a tile size are all it says. */}
-          {siteOnly ? <p className="text-fine text-fg-faint">The site&apos;s own dots, from its code.</p> : (
-            <>
-              <Dial label="Angle" value={layer.angle} min={0} max={360} unit="°" onTo={(v) => set({ angle: v })} />
-              <Dial label="Drift" value={Math.round((layer.drift ?? 0) * 100)} min={0} max={100} unit="%" still onTo={(v) => set({ drift: v / 100 })} />
-            </>
-          )}
+          {siteOnly ? <p className="text-fine text-fg-faint">The site&apos;s own dots, from its code.</p> : (() => {
+            /* Only the dials that change this kind (`dialsOf`): Angle where it turns it, Drift where it can travel, and the kind's own shape. */
+            const d = dialsOf(layer.kind);
+            const angle = d.angle === "whenShaped" ? layer.contrast >= 0.02 : d.angle;
+            return (
+              <>
+                {d.shape ? <Dial label={d.shape} hook="shape" value={Math.round(layer.contrast * 100)} min={0} max={100} unit="%" onTo={(v) => set({ contrast: v / 100 })} /> : null}
+                {angle ? <Dial label="Angle" hook="angle" value={layer.angle} min={0} max={360} unit="°" onTo={(v) => set({ angle: v })} /> : null}
+                {d.drift ? <Dial label="Drift" hook="drift" value={Math.round((layer.drift ?? 0) * 100)} min={0} max={100} unit="%" still onTo={(v) => set({ drift: v / 100 })} /> : null}
+              </>
+            );
+          })()}
         </div>
       ) : null}
     </div>
@@ -206,9 +213,9 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
   );
 }
 
-function Dial({ label, value, min, max, unit, still, onTo }: { label: string; value: number; min: number; max: number; unit: string; still?: boolean; onTo: (v: number) => void }) {
+function Dial({ label, hook, value, min, max, unit, still, onTo }: { label: string; hook?: string; value: number; min: number; max: number; unit: string; still?: boolean; onTo: (v: number) => void }) {
   return (
-    <label className="block space-y-0.5 text-small text-fg">
+    <label data-texture-dial={hook} className="block space-y-0.5 text-small text-fg">
       <span className="flex justify-between"><span>{label}</span><span className="num text-fg-faint">{still && value < 2 ? "still" : `${value}${unit}`}</span></span>
       <Slider value={[value]} min={min} max={max} step={1} silent aria-label={label} onValueChange={(v) => onTo(v[0] ?? value)} />
     </label>

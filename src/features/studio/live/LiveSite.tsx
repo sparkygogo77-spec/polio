@@ -393,6 +393,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       style={{ width, height, overflow: "hidden", position: "relative", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
       <TextureDrift layers={look?.texture} palette={palette} />
+      {t.surfaceDrift ? <style data-page-drift="">{t.surfaceDrift}</style> : null}
       <LiveKeyframes />
       <CarriedFonts fonts={look?.fonts} />
       {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}

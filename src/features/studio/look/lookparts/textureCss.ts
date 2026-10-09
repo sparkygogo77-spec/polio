@@ -92,20 +92,31 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
     }
     case "dots":
     case "halftone": {
+      /*
+       * Turned as a LATTICE, not as a tile. Rotating the drawing inside one
+       * square tile turned each dot about its own centre and changed nothing
+       * (J, 2026-10-09: "they remain in the same form and column rows"). The
+       * rows turn when the tile holds a turned grid that still repeats:
+       * `turnedLattice` picks the nearest angle whose grid closes on a square.
+       */
       const r = Math.max(0.6, s * (kind === "halftone" ? 0.08 + k * 0.22 : 0.05 + k * 0.1));
       const half = kind === "halftone";
+      const { tile, points } = turnedLattice(s, angle);
       const dot = (x: number, y: number, rr: number) =>
         `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${rr.toFixed(2)}" fill="${colour}"/>`;
-      // Nine of them, so the corners of the turned tile are still filled.
-      const points: string[] = [];
-      for (let gx = -1; gx <= 1; gx++) {
-        for (let gy = -1; gy <= 1; gy++) {
-          points.push(dot(s / 2 + gx * s, s / 2 + gy * s, r));
-          if (half) points.push(dot(gx * s, gy * s, r * 0.62));
+      const out: string[] = [];
+      /* Each point and its copies one tile over, so a dot cut by the edge is whole across it. */
+      for (const [px, py, small] of points.flatMap(([x, y, mx, my]) => [[x, y, false], ...(half ? [[mx, my, true]] : [])] as [number, number, boolean][])) {
+        const rr = small ? r * 0.62 : r;
+        for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+          const x = px + gx * tile, y = py + gy * tile;
+          if (x + rr < 0 || y + rr < 0 || x - rr > tile || y - rr > tile) continue;
+          out.push(dot(x, y, rr));
         }
       }
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><g transform="rotate(${angle} ${s / 2} ${s / 2})">${points.join("")}</g></svg>`;
-      return { image: svgUrl(svg), size: `${s}px ${s}px` };
+      const t = tile.toFixed(2);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${t}" height="${t}">${out.join("")}</svg>`;
+      return { image: svgUrl(svg), size: `${t}px ${t}px` };
     }
     case "blobs": {
       // Three fields on a circle: the angle turns the circle, contrast pulls
@@ -152,6 +163,43 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       return null;
   }
 }
+
+/**
+ * A square grid of points `s` apart, turned by `angle`, laid in a square tile
+ * that repeats it exactly.
+ *
+ * A grid turned by an angle whose tangent is b/a (whole numbers, no common
+ * factor) closes on a square tile of side s·√(a²+b²), holding a²+b² points.
+ * So the angle is taken to the nearest such turn with a²+b² ≤ 50: within a
+ * few degrees everywhere, and never more than 50 dots in a tile.
+ * Returns each point, and the middle of its cell (where halftone puts its
+ * small dot).
+ */
+export function turnedLattice(s: number, angle: number): { tile: number; points: [number, number, number, number][]; turned: number } {
+  const want = ((angle % 90) + 90) % 90;
+  let best = { a: 1, b: 0, off: want };
+  for (let a = 1; a <= 7; a++) for (let b = 0; b <= 7; b++) {
+    if (a * a + b * b > 50 || gcd(a, b) !== 1) continue;
+    const at = (Math.atan2(b, a) * 180) / Math.PI;
+    /* Turns a quarter apart draw the same grid, so the distance is taken round a quarter. */
+    const off = Math.min(Math.abs(at - want), 90 - Math.abs(at - want));
+    if (off < best.off - 1e-9) best = { a, b, off };
+  }
+  const { a, b } = best;
+  const n = a * a + b * b;
+  const tile = s * Math.sqrt(n);
+  const step = tile / n;
+  const mod = (v: number) => ((v % tile) + tile) % tile;
+  const points: [number, number, number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const x = mod(i * a * step), y = mod(i * b * step);
+    /* The middle of the cell: half of each of the grid's two steps, (a,b) and (−b,a). */
+    points.push([x, y, mod(x + ((a - b) * step) / 2), mod(y + ((a + b) * step) / 2)]);
+  }
+  return { tile, points, turned: (Math.atan2(b, a) * 180) / Math.PI };
+}
+
+const gcd = (x: number, y: number): number => (y ? gcd(y, x % y) : x);
 
 /**
  * The whole stack as one set of CSS properties, painted over `base`.
@@ -270,11 +318,41 @@ function compose(on: TextureLayer[], palette: Palette): Part[] {
 function travel(l: TextureLayer, size: string, repeat: string): { dx: number; dy: number } {
   const drift = Math.max(0, Math.min(1, l.drift ?? 0));
   if (!drift || repeat !== "repeat") return { dx: 0, dy: 0 };
+  /*
+   * Lines drawn across the whole box (stripes, scan lines, grid, hatch) have
+   * no tile, only a period across the lines, so Drift did nothing on them.
+   * Moved along the gradient's own direction by a whole number of periods,
+   * the lines are back where they started: no seam in the loop.
+   */
+  const period = linePeriod(l);
+  if (period && size === "auto") {
+    const d = driftTiles(drift) * period;
+    const a = ((l.angle ?? 0) * Math.PI) / 180;
+    return { dx: Number((Math.sin(a) * d).toFixed(3)), dy: Number((-Math.cos(a) * d).toFixed(3)) };
+  }
   const [w, h] = size.split(/\s+/).map((v) => (/^-?[\d.]+px$/.test(v) ? parseFloat(v) : NaN));
   if (!w || !h || !Number.isFinite(w) || !Number.isFinite(h)) return { dx: 0, dy: 0 };
-  const tiles = Math.max(1, Math.round(drift * 6));
+  const tiles = driftTiles(drift);
   const a = ((l.angle ?? 0) * Math.PI) / 180;
   return { dx: Math.round(Math.cos(a) * tiles) * w, dy: Math.round(Math.sin(a) * tiles) * h };
+}
+
+/**
+ * How many tiles a layer travels in one cycle. It was up to six in ninety
+ * seconds: a 24px dot moved under two pixels a second at full Drift, which
+ * reads as still. Up to forty is a slow walk at the bottom of the dial and a
+ * plain drift at the top.
+ */
+const driftTiles = (drift: number) => Math.max(1, Math.round(drift * 40));
+
+/** How far apart a line kind's lines are, px, as `layerCss` draws them; null for every other kind. */
+function linePeriod(l: TextureLayer): number | null {
+  const s = Math.max(2, l.scale);
+  const line = Math.max(0.5, s * (0.02 + l.contrast * 0.12));
+  if (l.kind === "stripes" || l.kind === "hatch") return s / 2;
+  if (l.kind === "grid") return s;
+  if (l.kind === "scanlines") return Math.max(line + 1, s / 4);
+  return null;
 }
 
 /** A name that changes when the movement does, so the keyframes are replaced with it. */
@@ -291,8 +369,9 @@ function driftName(parts: Part[]): string {
  * stack: every layer has its own distance and they all have to be listed in
  * the one `background-position` the browser animates.
  */
-export function driftKeyframes(layers: TextureLayer[], palette: Palette): { name: string; css: string } | null {
-  const parts = compose(layers.filter((l) => l.on), palette);
+export function driftKeyframes(layers: TextureLayer[], palette: Palette, under: { image: string; size: string }[] = []): { name: string; css: string } | null {
+  /* With the page's fill under it when `textureCss` was given one: the same layers in the same order, so the name and the count agree. */
+  const parts = [...compose(layers.filter((l) => l.on), palette), ...under.map(({ image, size }) => ({ image, size, repeat: "repeat", blend: "normal", dx: 0, dy: 0 }))];
   if (!parts.some((p) => p.dx || p.dy)) return null;
   const to = parts.map((p) => `calc(50% + ${p.dx}px) calc(50% + ${p.dy}px)`).join(", ");
   const name = driftName(parts);

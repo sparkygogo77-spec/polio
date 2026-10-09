@@ -13,7 +13,8 @@ import { resolvePart, type NodeLink, type PartEvent, type PartMode, type PartTou
 import { EMBED_SANDBOX, embedSrc, hasMotion, motionClass } from "./shelf";
 import { livingLayered } from "./living";
 import { applyBand, applyCaptured, applyEdge, applyFont, applyLayout, applyPad, applyText, boxPicture, boxStyle, hasBox, liftTheme, overrideTheme, type NodeText } from "./shelf/run";
-import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
+import { lands, textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
+import { WornTexture } from "./WornTexture";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./board/store";
@@ -338,7 +339,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
           One layer behind the content (z-index -1 in the box's own stacking
           context) leaves the fill under it and the words over it.
         */}
-        {boxWorn ? <span aria-hidden data-part-texture={worn!.id} style={{ position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", borderRadius: "inherit", ...textureCss([{ ...worn!, on: true }], palette!, "transparent") }} /> : null}
+        {/* The page's own texture worn by a part is the page's, seen through it: laid where the page is, so the bands never seam (`WornTexture.tsx`). */}
+        {boxWorn ? <WornTexture id={worn!.id} page={lands(worn!, "page")} paint={textureCss([{ ...worn!, on: true }], palette!, "transparent")} /> : null}
         {drawn}
       </div>
       </StillCut>
