@@ -494,9 +494,36 @@
   .ember-light > i, .ember-rim { animation: none; }
 }
 
+/*
+ * THE MOTION PARTS' OWN SCENES (shelf/parts/Motion.tsx) AND THE PREVIEW'S
+ * OPENING AND BURST (live/LiveShell.tsx). Every one was named and none was
+ * ever defined here, so the board's motion drawings stood still and the
+ * preview's opening cover sat flat for 900ms and popped off.
+ */
+@keyframes mo-wipe { 0%, 30% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 100% 0); } }
+@keyframes mo-burst { from { transform: translate(0, 0) rotate(0); opacity: 1; } to { transform: translate(var(--mo-x), var(--mo-y)) rotate(200deg); opacity: 0; } }
+@keyframes mo-snap { 0%, 22% { transform: translateY(0); } 33%, 55% { transform: translateY(-33.4%); } 66%, 100% { transform: translateY(-66.8%); } }
+@keyframes mo-slide-x { 0%, 15% { transform: translateX(0); } 85%, 100% { transform: translateX(-50%); } }
+@keyframes mo-drift { from { transform: translateY(0); } to { transform: translateY(-30%); } }
+@keyframes mo-rise { 0% { opacity: 0; transform: translateY(10px); } 35%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: none; } }
+@keyframes mo-fill { from { width: 0; } to { width: 100%; } }
+@keyframes mo-frames { 0% { transform: translateX(0); } 25% { transform: translateX(-25%); } 50% { transform: translateX(-50%); } 75% { transform: translateX(-75%); } }
+@keyframes mo-spin { to { transform: rotate(360deg); } }
+@keyframes mo-ease-down { 0%, 10% { transform: translateY(0); } 70%, 100% { transform: translateY(var(--mo-travel, 30px)); } }
+@keyframes mo-trail { 0% { transform: translate(14px, 14px); } 33% { transform: translate(70px, 22px); } 66% { transform: translate(40px, 52px); } 100% { transform: translate(14px, 14px); } }
+@keyframes mo-tilt { 0%, 100% { transform: perspective(300px) rotateX(0) rotateY(0); } 33% { transform: perspective(300px) rotateX(8deg) rotateY(-12deg); } 66% { transform: perspective(300px) rotateX(-6deg) rotateY(10deg); } }
+@keyframes mo-morph { 0%, 15% { transform: translateX(0); border-radius: 3px; } 70%, 100% { transform: translateX(var(--mo-travel, 40px)); border-radius: 999px; } }
+@keyframes mo-bounce { 0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1); } 50% { transform: translateY(var(--mo-travel, -30px)); animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1); } }
+@keyframes mo-press { 0%, 40%, 100% { transform: scale(1); } 55% { transform: scale(0.88); } }
 /* "Appear on scroll", applied by LiveShell to the whole live page. */
 [data-reveal="on"] [data-live-node] { opacity: 0; transform: translateY(14px); transition: opacity 520ms ease-out, transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-[data-reveal="on"] [data-live-node].is-in { opacity: 1; transform: none; }
+[data-reveal="on"] [data-live-node].is-in { opacity: 1; transform: none; filter: none; }
+/* The card's Style, which was read nowhere: every style faded up. */
+[data-reveal-style="fade"] [data-live-node] { transform: none; }
+[data-reveal-style="scale"] [data-live-node] { transform: scale(0.94); }
+[data-reveal-style="blur"] [data-live-node] { transform: none; filter: blur(8px); transition: opacity 520ms ease-out, filter 520ms ease-out; }
+[data-reveal-style="stagger"] [data-live-node]:nth-child(3n + 2) { transition-delay: 90ms; }
+[data-reveal-style="stagger"] [data-live-node]:nth-child(3n) { transition-delay: 180ms; }
 [data-snap] [data-live-node] { scroll-snap-align: start; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal="on"] [data-live-node] { opacity: 1; transform: none; transition: none; }

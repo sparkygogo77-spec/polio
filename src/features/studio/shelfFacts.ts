@@ -74,7 +74,8 @@ export const PICTURE_ONLY: ReadonlySet<string> = new Set([
 /**
  * Whole-page motions the live page runs (`deriveBehaviours` in
  * `live/behaviours.ts`) and the published page runs too
- * (`library/siteMotion.ts`).
+ * (`library/siteMotion.ts`), all but confetti: the published page has no
+ * burst yet, which is why its card says it needs a build.
  */
 export const RUN_MOTIONS: ReadonlySet<string> = new Set([
   "scroll-progress", "back-to-top", "reveal-on-scroll", "parallax", "smooth-scroll",

@@ -15,6 +15,8 @@ export interface Behaviours {
   progress: boolean;
   backToTop: boolean;
   reveal: boolean;
+  /** How things appear: fade-up, fade, scale, blur or stagger (the card's Style). */
+  revealStyle: string;
   parallax: number;
   smooth: boolean;
   snap: "vertical" | "horizontal" | null;
@@ -32,7 +34,7 @@ export interface Behaviours {
 const STRENGTH: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0.32, light: 0.08, heavy: 0.32, off: 0 };
 
 /** Motions the preview names rather than fakes. */
-const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll", "page-transitions"]);
+const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll"]);
 
 export function isBehaviour(featureId: string): boolean {
   return resolvePart(featureId)?.tier === "B";
@@ -62,7 +64,7 @@ const pictureCursor = (o: Record<string, string>) => (o.style === "picture" && o
 
 export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviours {
   const b: Behaviours = {
-    progress: false, backToTop: false, reveal: false, parallax: 0, smooth: false,
+    progress: false, backToTop: false, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false,
     snap: null, intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
   };
   for (const n of nodes) {
@@ -74,7 +76,7 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviou
     switch (n.featureId) {
       case "scroll-progress": b.progress = true; break;
       case "back-to-top": b.backToTop = true; break;
-      case "reveal-on-scroll": b.reveal = true; break;
+      case "reveal-on-scroll": b.reveal = true; b.revealStyle = o.style ?? "fade-up"; break;
       case "parallax": b.parallax = STRENGTH[o.strength ?? "medium"] ?? 0.18; break;
       case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; break;
       case "scroll-snap": b.snap = o.axis === "horizontal" ? "horizontal" : "vertical"; break;
