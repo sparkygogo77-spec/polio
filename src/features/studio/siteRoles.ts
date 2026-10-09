@@ -228,7 +228,7 @@ function sentence(role: RoleKey, value: string, parts: readonly Part[], spots: r
 const INK_USES: [ColourUse, string][] = [["text", "words"], ["fill", "fills"], ["border", "outlines"], ["shadow", "shadows"], ["accent", "accents"]];
 
 const BUTTON_PARTS = new Set(["cta-primary", "quick-action", "follow", "magnetic-buttons", "copy-button"]);
-const isButton = (p: Part) => BUTTON_PARTS.has(p.featureId ?? "") || !!p.link || insideControl({ from: p.from ?? null, prompt: p.prompt, link: p.link as never });
+export const isButton = (p: Part) => BUTTON_PARTS.has(p.featureId ?? "") || !!p.link || insideControl({ from: p.from ?? null, prompt: p.prompt, link: p.link as never });
 
 interface Entry { key: string; value: string; spots: ColourSpot[]; area: number }
 

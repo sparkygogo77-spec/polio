@@ -1,0 +1,51 @@
+/**
+ * THE PREVIEW IS THE SITE'S OWN SURFACES (J, 2026-10-09, on PonsStars): the
+ * first preview drew one made-up card twice, put the lime words on yellow,
+ * and showed yellow cards where only the buttons are yellow. `siteKinds`
+ * reads the kinds of surface off the parts. On a PonsStars-like fixture:
+ *
+ *   1. the dark tabs are a kind, and the lime words are on them, nowhere else;
+ *   2. the cream card is a kind with its outline, hard shadow and corners;
+ *   3. the yellow gradient buttons are a button kind, standing in the cream card;
+ *   4. a white field and a cream card are two kinds, not one;
+ *   5. a colour on one or two parts is not a kind; words on nothing stand on the page.
+ *
+ *   node tests/theme-kinds.mjs
+ */
+import { siteKinds } from "../src/features/studio/themeKinds.ts";
+
+const results = [];
+const check = (name, ok, detail = "") => {
+  results.push(ok === true);
+  console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
+};
+const INK = "rgb(26, 15, 11)", CREAM = "rgb(255, 248, 236)", LIME = "rgb(184, 255, 106)", WHITE = "rgb(255, 255, 255)";
+const nodes = [];
+const add = (n) => nodes.push({ pageId: "p", featureId: "box", ...n });
+for (let i = 0; i < 3; i++) {
+  const x = i * 400;
+  add({ id: `card${i}`, x, y: 0, w: 300, h: 400, radius: 18, colour: { text: INK, bg: CREAM }, edge: { width: 3, style: "solid", colour: INK, shadow: `${INK} 6px 6px 0px 0px` } });
+  add({ id: `tab${i}`, featureId: "prose", x: x + 10, y: -10, w: 80, h: 20, radius: 10, colour: { text: LIME, bg: INK } });
+  add({ id: `btn${i}`, featureId: "cta-primary", x: x + 20, y: 100, w: 200, h: 40, radius: 999, colour: { text: INK }, edge: { width: 3, style: "solid", colour: INK }, art: { background: "radial-gradient(circle at 30% 25%, rgb(255, 243, 176), rgb(243, 212, 64) 60%)" } });
+  add({ id: `field${i}`, featureId: "field", x: x + 20, y: 200, w: 200, h: 30, radius: 10, colour: { text: INK, bg: WHITE }, edge: { width: 2, style: "solid", colour: INK } });
+  add({ id: `words${i}`, featureId: "prose", x: x + 20, y: 300, w: 200, h: 30, colour: { text: INK } });
+}
+add({ id: "oneoff", x: 2000, y: 0, w: 100, h: 100, colour: { text: INK, bg: "rgb(30, 90, 200)" } });
+add({ id: "loose", featureId: "prose", x: 3000, y: 0, w: 100, h: 20, colour: { text: "rgb(17, 17, 17)" } });
+
+const r = siteKinds(nodes, { bg: "rgb(253, 240, 220)" });
+const by = (fill) => r.kinds.find((k) => k.fill === fill);
+const tabs = by(INK), card = by(CREAM), field = by(WHITE), buttons = r.kinds.find((k) => k.button);
+check("1. the dark tabs are a kind with the lime words on them", tabs?.words === LIME, JSON.stringify(tabs));
+check("…and no other kind carries lime words", r.kinds.filter((k) => k.words === LIME).length === 1);
+check("2. the cream card has its outline, hard shadow and corners", card?.outline?.colour === INK && card.outline.width === 3 && /6px 6px 0px/.test(card.shadow ?? "") && card.radius === 18, JSON.stringify(card));
+check("…and its words are the ink, not lime", card?.words === INK);
+check("3. the yellow gradient buttons are a button kind", buttons?.fill === "rgb(243, 212, 64)" && buttons.name === "Yellow buttons", JSON.stringify(buttons));
+check("…standing in the cream card", buttons && r.kinds[buttons.inside] === card);
+check("4. a white field and the cream card are two kinds", !!field && field !== card && field.name === "Near-white fields", field?.name);
+check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));
+check("…and words on nothing stand on the page", r.page.words === "rgb(17, 17, 17)", JSON.stringify(r.page));
+
+const failed = results.filter((x) => !x).length;
+console.log(`\n${results.length - failed}/${results.length} passed`);
+process.exit(failed ? 1 : 0);

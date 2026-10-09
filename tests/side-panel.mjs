@@ -258,7 +258,7 @@ void selectedBefore;
 
 /* Randomize theme: a new palette in one step, one undo takes it back. */
 const nodes0 = await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes));
-check("Colours leads with a preview frame: heading, two cards, two buttons, an accent tag", (await side.locator("[data-theme-preview] [data-preview-part]").count()) === 6);
+check("Colours leads with a preview frame of the site's own surfaces (tests/theme-kinds.mjs holds what is in it)", (await side.locator("[data-theme-preview] [data-preview-part=\"heading\"]").count()) === 1);
 const look0 = await side.locator("[data-theme-preview]").evaluate((el) => [...el.querySelectorAll("*")].map((e) => getComputedStyle(e).backgroundColor + getComputedStyle(e).color).join("|") + getComputedStyle(el).backgroundColor);
 const depth0 = await page.evaluate(() => window.__studioUndoDepth());
 await side.locator("[data-randomize-theme] button").first().click();
