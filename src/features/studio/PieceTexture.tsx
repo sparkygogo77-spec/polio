@@ -27,7 +27,8 @@ import { CropPicker } from "./CropPicker";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 
-const KINDS: TextureKind[] = ["flat", "noise", "stripes", "dots", "grid", "mesh"];
+/* No Flat colour: the Background colour above it already is one (J, 2026-10-09). */
+const KINDS: TextureKind[] = ["noise", "stripes", "dots", "grid", "mesh"];
 
 /** The layer the page wears: the first one on, behind the page. */
 export function pageLayer(layers: readonly TextureLayer[]): TextureLayer | null {
