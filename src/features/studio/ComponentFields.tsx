@@ -17,6 +17,7 @@ import { useStudio, type StudioNode } from "./board/store";
 import { colourOf, KIND_WORD, LAYER_WORD, recolour, type Component, type CompNode, type Slot } from "./components";
 import { resolvePalette } from "./shelf/run";
 import { ROLES, distinctShades } from "./look";
+import { HandColour } from "./HandSlider";
 
 /* `says` names the swatches for a screen reader: never just "Words", which is the words box's own name. */
 const SLOTS: { slot: Slot; label: string; says: string }[] = [
@@ -85,7 +86,7 @@ export function ComponentFields({ comp, nodes }: { comp: Component; nodes: Studi
               {choices.map((c) => (
                 <button key={c} type="button" data-component-colour={c} aria-label={`Set ${says} to ${c}`} onClick={() => set(slot, c)} className="tactile size-5 rounded-sm border border-border" style={{ background: c }} />
               ))}
-              <input type="color" aria-label={`Set ${says} to any colour`} className="h-5 w-6 cursor-pointer" onChange={(e) => set(slot, e.target.value)} />
+              <HandColour aria-label={`Set ${says} to any colour`} className="h-5 w-6 cursor-pointer" onPick={(hex) => set(slot, hex)} />
             </div>
           </div>
         );

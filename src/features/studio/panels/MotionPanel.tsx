@@ -34,7 +34,7 @@ import {
   ChevronLeft, ChevronRight, ClipboardCopy, Crosshair, Download, Eye, Film, Globe, Hand, Maximize2, MousePointer2, Pause, Play, Plus, Pointer,
   Power, Repeat, Rotate3d, Sparkles, Trash2, Waves, X,
 } from "lucide-react";
-import { BACKGROUND_ID, useStudio } from "../board/store";
+import { BACKGROUND_ID, useHeldStudio, useStudio } from "../board/store";
 import {
   filled, gapCount, gapLabel, LOOP_NAME, motionBrief, planFrames, playOrder, sleeveOf, SLEEVES, totalFrames,
   type MotionAsset, type MotionEase, type MotionLoop,
@@ -54,7 +54,7 @@ import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { Slider } from "@/core/ui/slider";
+import { Slider } from "../HandSlider";
 import { Segmented } from "@/core/ui/segmented";
 import { Tooltip } from "@/core/ui/tooltip";
 
@@ -70,7 +70,7 @@ let comeBack: string | null = null;
 let cratesKept = false;
 
 export function MotionPanel() {
-  const assets = useStudio(useShallow((s) => s.motion));
+  const assets = useHeldStudio(useShallow((s) => s.motion));
   const [editing, setEditing] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (!comeBack) return;
@@ -242,10 +242,10 @@ function playRow(row: MoveRow): string | null {
 }
 
 function MovingParts() {
-  const nodes = useStudio((s) => s.nodes);
-  const crates = useStudio((s) => s.motion);
-  const pageId = useStudio((s) => s.activePageId);
-  const selection = useStudio(useShallow((s) => s.selection));
+  const nodes = useHeldStudio((s) => s.nodes);
+  const crates = useHeldStudio((s) => s.motion);
+  const pageId = useHeldStudio((s) => s.activePageId);
+  const selection = useHeldStudio(useShallow((s) => s.selection));
   const rows = React.useMemo(() => movingParts(nodes, crates, pageId), [nodes, crates, pageId]);
   const groups = React.useMemo(() => byKind(rows), [rows]);
   const [note, setNote] = React.useState<{ key: string; says: string } | null>(null);
@@ -376,7 +376,7 @@ function KindBlock({ kind, name, rows, rowView }: { kind: string; name: string; 
   const showing = React.useSyncExternalStore(shower.subscribe, shower.showing, () => null);
   const [open, setOpen] = React.useState(() => !!showing?.startsWith(`${kind}:`));
   const groups = React.useMemo(() => (byEffect ? [] : bunches(rows)), [rows, byEffect]);
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useHeldStudio((s) => s.nodes);
   const effects = React.useMemo(() => (byEffect ? effectsOf(rows, nodes) : []), [rows, nodes, byEffect]);
   return (
     <div data-move-kind={kind} className="space-y-1">
@@ -462,7 +462,7 @@ function EffectBlock({ effect, showing }: { effect: Effect; showing: boolean }) 
 /** A part as it looks on the board, small, with a way to take the effect off it. */
 function PartThumb({ id, effect }: { id: string; effect: Effect }) {
   const host = React.useRef<HTMLDivElement>(null);
-  const name = useStudio((s) => {
+  const name = useHeldStudio((s) => {
     const n = s.nodes.find((x) => x.id === id);
     return n ? partName(n, s.nodes.filter((x) => x.pageId === n.pageId)) : id;
   });
@@ -610,8 +610,8 @@ export function MoveRowView({ row, selected, here, note, onNote }: { row: MoveRo
 /* ------------------------------------------------------------------ */
 
 function CrateCard({ asset, onOpen }: { asset: MotionAsset; onOpen: () => void }) {
-  const wearer = useStudio((s) => (asset.part ? s.nodes.find((n) => n.id === asset.part) : undefined));
-  const nodes = useStudio((s) => s.nodes);
+  const wearer = useHeldStudio((s) => (asset.part ? s.nodes.find((n) => n.id === asset.part) : undefined));
+  const nodes = useHeldStudio((s) => s.nodes);
   const first = filled(asset)[0]?.src ?? null;
   return (
     <div data-crate-card={asset.id} className="space-y-1.5 rounded-md border border-border p-1.5">
@@ -788,7 +788,7 @@ function CrateEditor({ asset, onPick }: { asset: MotionAsset; onPick: () => void
     setNote(`${(blob.size / 1024).toFixed(0)} KB of WebM.`);
   };
 
-  const wearer = useStudio((st) => (asset.part ? st.nodes.find((n) => n.id === asset.part) : undefined));
+  const wearer = useHeldStudio((st) => (asset.part ? st.nodes.find((n) => n.id === asset.part) : undefined));
   const copyBrief = async () => {
     const el = canvas.current;
     try {
@@ -992,8 +992,8 @@ function CrateEditor({ asset, onPick }: { asset: MotionAsset; onPick: () => void
 
 /** Which part wears the crate: picked on the board, or found by name. */
 function WornBy({ asset, onPick }: { asset: MotionAsset; onPick: () => void }) {
-  const pageId = useStudio((s) => s.activePageId);
-  const nodes = useStudio((s) => s.nodes);
+  const pageId = useHeldStudio((s) => s.activePageId);
+  const nodes = useHeldStudio((s) => s.nodes);
   const wearer = asset.part ? nodes.find((n) => n.id === asset.part) : undefined;
   const [find, setFind] = React.useState("");
   const onPage = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);

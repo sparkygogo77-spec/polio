@@ -22,7 +22,7 @@ import { Spectrum } from "../MenuConsole";
 import { CHIP, emptyFill } from "../colourMenu";
 import { fillLayers, resolvePalette } from "../shelf/run";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "../ImageIntake";
-import { useStudio } from "../board/store";
+import { useHeldStudio, useStudio } from "../board/store";
 import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "../SiteColours";
@@ -32,7 +32,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { Slider } from "@/core/ui/slider";
+import { Slider } from "../HandSlider";
 import { Tooltip } from "@/core/ui/tooltip";
 
 /* ------------------------------------------------------------------ */
@@ -212,8 +212,8 @@ const ROLE_HINT: Record<RoleId, string> = {
 };
 
 export function PaletteRoles({ captured }: { captured: boolean }) {
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const resolved = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const [role, setRole] = React.useState<RoleId>("accent");
   /* Which row's editor is open: none until one is pressed. */
@@ -229,7 +229,7 @@ export function PaletteRoles({ captured }: { captured: boolean }) {
   /* How many parts follow each role NOW, counted off the parts rather than
      read off the import: the import's count stood still while swaps,
      overrides and deletions moved the parts under it. */
-  const nodes = useStudio((s) => s.nodes);
+  const nodes = useHeldStudio((s) => s.nodes);
   const follow = React.useMemo(() => roleFollowers(nodes), [nodes]);
   const same = (a?: string, b?: string) => (a ?? "").replace(/\s+/g, "").toLowerCase() === (b ?? "").replace(/\s+/g, "").toLowerCase();
   /* A role the site gave nothing to said "none" under its swatch, which read
@@ -517,7 +517,7 @@ const BLENDS: { value: BlendMode; label: string }[] = [
 const SWATCH_TILE = 8;
 
 function FillRow({ palette }: { palette: Palette }) {
-  const format = useStudio((st) => st.format);
+  const format = useHeldStudio((st) => st.format);
   const fill = String(format["palette.background"] ?? "flat");
   const hue = Number(format["palette.accentHue"] ?? 265);
   const light = String(format["palette.mode"] ?? "dark") === "light";
@@ -575,8 +575,8 @@ function FillRow({ palette }: { palette: Palette }) {
 }
 
 function TextureSection() {
-  const format = useStudio((s) => s.format);
-  const look = useStudio((s) => s.look);
+  const format = useHeldStudio((s) => s.format);
+  const look = useHeldStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [addTo, setAddTo] = React.useState<TextureTarget>("page");
@@ -1055,7 +1055,7 @@ function LightGroup({ name, data, children }: { name: string; data: string; chil
  * other looks wrong in a way nobody can name.
  */
 function LightSection() {
-  const light = useStudio((st) => st.look.light);
+  const light = useHeldStudio((st) => st.look.light);
   const s = () => useStudio.getState();
   const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
   /*
@@ -1198,7 +1198,7 @@ function LightSection() {
 }
 
 export function LookPanel() {
-  const captured = useStudio((s) => !!s.look.paletteFrom || s.nodes.some((n) => !!n.from));
+  const captured = useHeldStudio((s) => !!s.look.paletteFrom || s.nodes.some((n) => !!n.from));
   return (
     <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
       {/*

@@ -21,6 +21,7 @@ import { Segmented } from "@/core/ui/segmented";
 import { put as putPicture, usePicture, type Picture } from "./pictures";
 import { cardFor, LARGE, withHead, type SiteHead } from "./siteHead";
 import { useBuilds } from "@/features/builds/store";
+import { HandColour } from "./HandSlider";
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <span className="text-small uppercase tracking-wider text-fg-faint">{children}</span>
@@ -109,7 +110,7 @@ export function SiteLinkPreview() {
       <div className="flex flex-col gap-1">
         <Label>Theme colour</Label>
         <div className="flex items-center gap-2">
-          <input type="color" aria-label="Pick the theme colour" value={hexish(head?.themeColor)} onChange={(e) => set({ themeColor: e.target.value })} className="size-7 cursor-pointer rounded-sm border border-border bg-transparent p-0" />
+          <HandColour aria-label="Pick the theme colour" value={hexish(head?.themeColor)} onPick={(hex) => set({ themeColor: hex })} className="size-7 cursor-pointer rounded-sm border border-border bg-transparent p-0" />
           <Input mono className="flex-1" value={head?.themeColor ?? ""} placeholder="None" aria-label="Theme colour" onChange={(e) => set({ themeColor: e.target.value })} />
         </div>
       </div>

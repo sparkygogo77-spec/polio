@@ -16,7 +16,7 @@ import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
 import { Segmented } from "@/core/ui/segmented";
 import { Select } from "@/core/ui/select";
-import { Slider } from "@/core/ui/slider";
+import { Slider } from "../../HandSlider";
 import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
 import { linkReason } from "../../links";

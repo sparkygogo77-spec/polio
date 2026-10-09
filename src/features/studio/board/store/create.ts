@@ -118,7 +118,10 @@ export const useStudio = create<StudioState>()(
         }));
       };
 
+      /* A hand on a slider or picker (`gesture.ts`): only its first checkpoint is taken. */
+      let gesture: { pushed: boolean } | null = null;
       const push = () => {
+        if (gesture) { if (gesture.pushed) return; gesture.pushed = true; }
         seed();
         run = null;
         pushes++;
@@ -214,6 +217,9 @@ export const useStudio = create<StudioState>()(
           pushes -= extra;
           set((s) => ({ past: s.past.slice(0, Math.max(0, s.past.length - extra)), future: [] }));
         },
+
+        beginGesture: () => { if (!gesture) gesture = { pushed: false }; },
+        endGesture: () => { gesture = null; run = null; },
 
         undo: () =>
           set((s) => {
