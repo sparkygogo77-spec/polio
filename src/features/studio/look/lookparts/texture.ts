@@ -1,5 +1,6 @@
 import { oklchToRgb, css, parseColor, ROLES, contrast } from "./colour.ts";
 import type { Palette, RoleId } from "./colour.ts";
+import type { LivingPicture } from "../../living.ts";
 
 export type TextureKind =
   | "flat" | "noise" | "grain" | "paper" | "scanlines" | "halftone" | "hatch"
@@ -104,6 +105,15 @@ export interface TextureLayer {
    * for the whole stack cannot say that.
    */
   target?: TextureTarget;
+  /**
+   * For "image": the picture alive (J, 2026-10-09: "i uploaded still images
+   * and a code chat dissected the lines of it and animated it in different
+   * directions or motions"). Cut into layers by `livingCut.ts`, moved by the
+   * same fixed keyframes a living picture part plays (`living.ts`), so it
+   * goes out through Send the design back with no script. Absent: a still
+   * picture, tiled as before.
+   */
+  live?: LivingPicture;
   on: boolean;
 }
 

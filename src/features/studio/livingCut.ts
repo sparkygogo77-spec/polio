@@ -25,10 +25,17 @@ function open(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export async function cutLayers(src: string, count: number): Promise<string[]> {
+/**
+ * `side`: the longest side kept (a page's background wants more than a
+ * panel's picture). `type`: the encoding; a background is cut as WebP, which
+ * keeps the see-through parts and is a fraction of a PNG's size in the
+ * document and the style layer (a browser that cannot write WebP gives PNG).
+ */
+export async function cutLayers(src: string, count: number, opts: { side?: number; type?: "image/png" | "image/webp" } = {}): Promise<string[]> {
   const n = Math.max(2, Math.min(MAX_LAYERS, Math.round(count)));
   const img = await open(src);
-  const k = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+  const k = Math.min(1, (opts.side ?? MAX_SIDE) / Math.max(img.naturalWidth, img.naturalHeight));
+  const enc = (canvas: HTMLCanvasElement) => (opts.type === "image/webp" ? canvas.toDataURL("image/webp", 0.86) : canvas.toDataURL("image/png"));
   const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
@@ -42,7 +49,7 @@ export async function cutLayers(src: string, count: number): Promise<string[]> {
   for (let i = 0; i < lum.length; i++) lum[i] = (0.2126 * px[i * 4]! + 0.7152 * px[i * 4 + 1]! + 0.0722 * px[i * 4 + 2]!) * (px[i * 4 + 3]! / 255);
   const sorted = Array.from(lum).sort((a, b) => a - b);
   const mid = sorted[Math.floor(sorted.length / 2)]!, top = sorted[Math.floor(sorted.length * 0.995)]!;
-  const out: string[] = [c.toDataURL("image/png")];
+  const out: string[] = [enc(c)];
   for (let layer = 1; layer < n; layer++) {
     const at = mid + ((top - mid) * layer) / n;
     const soft = Math.max(4, (top - mid) / (4 * n));
@@ -52,7 +59,7 @@ export async function cutLayers(src: string, count: number): Promise<string[]> {
       cut.data[i * 4 + 3] = Math.round(px[i * 4 + 3]! * t * t * (3 - 2 * t));
     }
     g.putImageData(cut, 0, 0);
-    out.push(c.toDataURL("image/png"));
+    out.push(enc(c));
   }
   return out.reverse();
 }

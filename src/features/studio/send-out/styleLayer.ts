@@ -220,6 +220,41 @@ export interface LayerNode {
   place?: { order?: number } | null;
 }
 
+/**
+ * The parts wearing a living background (a picture texture given motion in
+ * the Look preview, `PieceTexture.tsx`) as living pictures of their own, so
+ * the layer writes the motion for their hooks the way it writes any living
+ * picture (`artCss`): the cut layers, the tokens and the fixed keyframes, no
+ * script. A part's own living picture is kept.
+ */
+export function wearTextures<T extends { texture?: string | null; art?: LayerNode["art"] }>(nodes: readonly T[], layers: readonly { id: string; kind?: string; live?: unknown }[] | null | undefined): T[] {
+  const alive = new Map((layers ?? []).filter((l) => l.kind === "image" && isLiving(l.live) && (l.live as LivingPicture).layers?.length).map((l) => [l.id, l.live as LivingPicture]));
+  if (!alive.size) return [...nodes];
+  return nodes.map((n) => {
+    const live = n.texture ? alive.get(n.texture) : undefined;
+    return live && !isLiving(n.art?.live) ? { ...n, art: { ...(n.art ?? {}), live } } : n;
+  });
+}
+
+/**
+ * The pictures a living background is cut into are big, and every part
+ * wearing it would carry its own copy. Each set is written once, as a
+ * variable on the root, and the parts name it.
+ */
+function shareLiveLayers(rules: Layer["rules"]): string[] {
+  const named = new Map<string, string>();
+  for (const r of rules) {
+    r.declarations = r.declarations.map((d) => {
+      const m = /^--live-layers:\s*(.+)$/s.exec(d);
+      if (!m || m[1]!.startsWith("var(")) return d;
+      const v = m[1]!.trim();
+      if (!named.has(v)) named.set(v, `--polio-live-layers-${named.size + 1}`);
+      return `--live-layers: var(${named.get(v)})`;
+    });
+  }
+  return named.size ? ["", "/* Living pictures' layers, once each: the parts below name them. */", ":root {", ...[...named].map(([v, name]) => `  ${name}: ${v};`), "}"] : [];
+}
+
 /** A hover, press or focus rule, as a capture carries it (`parts/capturedMotion.ts#MotionState`). */
 export interface LayerState { selector?: string; self?: boolean; state?: string; style?: Record<string, string> }
 
@@ -635,6 +670,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     ` */`,
     /* `:root:root`: one step more particular than the source's own `:root`, so the layer's value wins wherever tokens.css sits among the page's stylesheets. */
     ...(vars.length ? ["", ":root:root {", ...vars.map((v) => `  ${v.name}: ${v.value}; /* ${v.token ? "token, " : ""}was ${v.was} */`), "}"] : []),
+    ...shareLiveLayers(rules),
     ...rules.map((r) => ["", `${r.selector} {`, ...r.declarations.map((d) => `  ${d};`), "}"].join("\n")),
     ...liveTail(rules),
     "",

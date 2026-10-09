@@ -2,6 +2,12 @@ import { DRIFT_CYCLE, shiftHue, GRAINY, svgUrl, channels } from "./texture.ts";
 import type { TextureLayer } from "./texture.ts";
 import { css, parseColor } from "./colour.ts";
 import type { Palette } from "./colour.ts";
+import { isLiving, liveLayers, liveStyle } from "../../living.ts";
+
+/** A picture layer that is alive: cut into layers and given a motion (`TextureLayer.live`). */
+export function liveTexture(l: TextureLayer): boolean {
+  return l.kind === "image" && isLiving(l.live) && liveLayers(l.live).length > 0;
+}
 
 /** One layer as a CSS background image, plus how it is laid out. */
 export function layerCss(layer: TextureLayer, colour: string): { image: string; size: string; repeat?: string } | null {
@@ -247,6 +253,14 @@ export function textureCss(
    */
   const bed = under.map(({ image, size }) => ({ image, size, repeat: "repeat", blend: "normal", dx: 0, dy: 0 }));
   if (!on.length) return bed.length ? flat(bed, base) : { background: base };
+  /*
+   * A LIVING PICTURE IS THE WHOLE GROUND. Its back layer is the whole picture,
+   * opaque, so nothing under it would show; and its keyframes move every
+   * background layer in the list, so nothing else may sit in it. The front
+   * layers and their motion are the living picture's own (`living.ts`).
+   */
+  const alive = on.find(liveTexture);
+  if (alive) return { ...(liveStyle(alive.live!) as React.CSSProperties), backgroundColor: base };
 
   const parts = [...compose(on, palette), ...bed];
   if (!parts.length) return { background: base };
@@ -286,6 +300,7 @@ interface Part { image: string; size: string; repeat: string; blend: string; dx:
 function compose(on: TextureLayer[], palette: Palette): Part[] {
   const parts: Part[] = [];
   for (const l of on) {
+    if (liveTexture(l)) continue;
     // A generated pattern carries its opacity in its own colour; a picture and
     // a grain carry theirs in the tile, because there is no single colour to
     // fade — see `texture.ts` and the grain case in `layerCss`.

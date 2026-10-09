@@ -318,6 +318,8 @@
 
 /* Board mode: parts render their initial state and hold still. */
 [data-mode="board"] * { animation-play-state: paused !important; }
+/* …except a living background while its controls are open in the Texture row (`PieceTexture.tsx`): picking a motion, a way or a speed shows it moving. */
+[data-live-texture-open] [data-mode="board"] [style*="polio-live-"] { animation-play-state: running !important; }
 
 /* Live-site parts: the board holds them still, the preview lets them run. */
 /* Per-element entrances, chosen on a part in the wheel's Animation shard. The
