@@ -2,6 +2,8 @@
  * Part looks that need the store are behind ./parts.ts, the Look panel and picture-to-texture hooks behind ./ui.ts. Named re-exports (not export *) so an import cycle still sees every name. See README.md. */
 export { HARMONIES, ROLES, ROLE_LABEL, contrast, css, fromHex, harmonise, oklchToRgb, paletteFromHue, parseColor, rgbToOklch, toHex } from "./lookparts/colour.ts";
 export type { Harmony, Oklch, Palette, RoleId } from "./lookparts/colour.ts";
+export { reach, rollTheme } from "./lookparts/themeDice.ts";
+export type { DiceSwatch, ThemeRoll } from "./lookparts/themeDice.ts";
 export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, lands, newLayer, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
 export type { BlendMode, Crop, TextureKind, TextureLayer, TextureTarget } from "./lookparts/texture.ts";
 export { driftKeyframes, layerCss, textureCss, withAlpha } from "./lookparts/textureCss.ts";

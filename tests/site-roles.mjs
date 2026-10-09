@@ -160,7 +160,7 @@ if (tm) {
   const rows = await page.$$eval("[data-role-palette] > [data-role-row]", (els) => els.map((e) => ({ role: e.getAttribute("data-role-row"), swatches: e.querySelectorAll("[data-role-swatch]").length })));
   check("5. the panel shows the short palette, within the cap", rows.length > 0 && rows.length <= ROLE_CAP && rows.every((r) => r.swatches <= 2), rows.map((r) => `${r.role} ${r.swatches}`).join(", "));
   const byUseShown = await page.$$eval("[data-site-colours] [data-site-group]", (els) => els.length);
-  check("5. the unmerged list by use is folded under More", byUseShown === 0, `${byUseShown} groups showing`);
+  check("5. there is no unmerged list by use", byUseShown === 0, `${byUseShown} groups showing`);
   await page.locator("[data-site-colours]").screenshot({ path: `${SHOTS}/site-colours-after.png` });
 
   /* Trump & Morty's outlines are its default black now: the line that holds them is what a person presses to find them. */

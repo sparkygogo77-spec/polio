@@ -198,7 +198,7 @@ function PaletteExample({ role, palette }: { role: RoleId; palette: Palette }) {
 /**
  * THE SIX COLOURS PARTS CAN FOLLOW, as rows: on a site made here they are
  * its colours; on a site brought in they are what a part added from the
- * shelf is painted with, folded under More colours. A row pressed opens its
+ * shelf is painted with, shown under the theme. A row pressed opens its
  * editor under it, and only its own.
  */
 const ROLE_HINT: Record<RoleId, string> = {

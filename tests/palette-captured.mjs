@@ -6,10 +6,8 @@
  * made it into the palette, and the six swatches said "1, 10, 135, none, 20,
  * 13" and nothing else. What is held here (docs/audit/palette-captured.md):
  *
- *   · the colours are grouped by what they are used for — text, fills,
- *     borders & outlines, shadows & glows, accents — each with its count;
- *   · every colour the parts wear is listed, the rest under "Also on this site";
- *   · a swatch says which parts use it, and recolours exactly those;
+ *   · only the theme is listed: colours worn by three parts or more, by role
+ *     (J, 2026-10-09; one-off colours are changed on the part itself);
  *   · Build palette on an imported site asks first, and can be undone;
  *   · no bare "none";
  *   · every face, with its count, and swap-all.
@@ -47,69 +45,38 @@ await page.route("**/api/studio/**", (r) => r.fulfill({ status: 200, contentType
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: "networkidle" });
-await page.waitForTimeout(1500);
+await page.waitForFunction(() => typeof window.__studioLoadDoc === "function" && typeof window.__studioPublishDoc === "function", null, { timeout: 60000 });
 await page.evaluate((d) => window.__studioLoadDoc(d), doc);
 await page.waitForTimeout(1500);
 await page.evaluate(() => window.__studioSetLeftPanel?.("look"));
 await page.waitForTimeout(800);
-const state = () => page.evaluate(() => window.__studioPublishDoc());
+const state = async () => { await page.waitForFunction(() => typeof window.__studioPublishDoc === "function", null, { timeout: 60000 }); return page.evaluate(() => window.__studioPublishDoc()); };
 const press = (sel) => page.locator(sel).first().evaluate((b) => b.click());
 
 /* ------------------------------------------------------------------ */
-/* 1. Grouped by use, each with its count                              */
+/* 1-3. Only the theme (J, 2026-10-09)                                 */
 /* ------------------------------------------------------------------ */
 
-/* Lane I: the short palette by role comes first; every colour by use, unmerged, is under More. */
-await press("[data-role-more] > button[aria-expanded]");
-await page.waitForTimeout(300);
-const groups = await page.evaluate(() => [...document.querySelectorAll("[data-site-colours] [data-site-group]")].map((g) => ({
-  use: g.getAttribute("data-site-group"),
-  swatches: [...g.querySelectorAll("[data-site-swatch]")].map((s) => ({ key: s.getAttribute("data-site-swatch"), n: Number(s.textContent.trim()) })),
-})));
-const uses = groups.map((g) => g.use);
-check("the site's colours are grouped: text, fills, borders & outlines, shadows & glows, accents",
-  ["text", "fill", "border", "shadow", "accent"].every((u) => uses.includes(u)), uses.join(", "));
+/* The unmerged list by use and the "More colours" fold are gone: a colour on
+   one or two parts is changed on the part itself. The theme (role rows,
+   three parts or more) is what the panel lists; tests/site-roles.mjs holds
+   pressing one and Recolour all. */
 const s0 = await state();
 const pal = { ...s0.look.palette };
-const T = C.tallyColours(s0.nodes, pal);
-const wrong = groups.filter((g) => g.use !== "also").flatMap((g) => g.swatches.filter((s) => T.byUse[g.use].find((c) => c.key === s.key)?.by[g.use] !== s.n).map((s) => `${g.use} ${s.key} shows ${s.n}`));
-check("each swatch's number is how many parts use it that way", wrong.length === 0 && groups.some((g) => g.swatches.length), wrong.slice(0, 4).join("; ") || `${groups.reduce((n, g) => n + g.swatches.length, 0)} swatches`);
-
-/* ------------------------------------------------------------------ */
-/* 2. Every colour listed                                              */
-/* ------------------------------------------------------------------ */
-
-await press('[data-site-group="also"] button[aria-expanded]');
-await page.waitForTimeout(400);
-const listed = new Set(await page.evaluate(() => [...document.querySelectorAll("[data-site-colours] [data-site-swatch]")].map((s) => s.getAttribute("data-site-swatch"))));
-const worn = T.all.filter((c) => c.spots.some((s) => s.id !== C.PAGE_ID));
-const unlisted = worn.filter((c) => !listed.has(c.key));
-check(`every colour the parts wear is listed (${worn.length})`, unlisted.length === 0, unlisted.slice(0, 5).map((c) => c.key).join("; ") || `${listed.size} swatches`);
-check("the ones past each group's first eight are under \"Also on this site\"", (await page.locator('[data-site-group="also"]').count()) === 1 && /Also on this site/.test(await page.locator('[data-site-group="also"]').innerText()));
+check("no More colours fold, no colour-by-use list", (await page.locator("[data-role-more], [data-site-group]").count()) === 0);
+const counts = await page.evaluate(() => [...document.querySelectorAll("[data-role-row] [data-role-swatch]")].map((e) => e.textContent));
+check("every theme swatch is worn by three parts or more", counts.length > 0 && counts.every((t) => !/\bon [12] parts?\b|: [12] buttons?\b/.test(t)), counts.slice(0, 4).join(" | "));
 check("pictures are said, not silently left out", /Left out:[\s\S]*picture/.test(await page.locator("[data-site-left-out]").innerText()));
-
-/* ------------------------------------------------------------------ */
-/* 3. A swatch: who wears it, and recolour exactly them                */
-/* ------------------------------------------------------------------ */
-
-const SUN = "rgb(243, 212, 64)";
-await press(`[data-site-group="text"] [data-site-swatch="${SUN}"]`);
-await page.waitForTimeout(400);
-const wearers = [...new Set(C.whoWears(s0.nodes, pal, SUN, "text").map((x) => x.id))];
-const shown = await page.evaluate(() => [...document.querySelectorAll("[data-site-colour-detail] [data-site-part]")].map((e) => e.getAttribute("data-site-part")));
-check("pressing the yellow Text swatch lists exactly the parts whose words are yellow", shown.length === wearers.length && wearers.every((id) => shown.includes(id)), `${shown.length} listed, ${wearers.length} wear it`);
-check("…and says how many", new RegExp(`^${wearers.length} parts? wear it on the words`).test((await page.locator("[data-site-colour-says]").innerText()).trim()), await page.locator("[data-site-colour-says]").innerText());
-await page.locator('[data-site-colour-detail] input[aria-label="New colour, as hex"]').fill("#00ffcc");
-await press("[data-site-swap]");
-await page.waitForTimeout(500);
-const s1 = await state();
-const moved = s1.nodes.filter((n, i) => JSON.stringify(n) !== JSON.stringify(s0.nodes[i])).map((n) => n.id);
-check("Recolour changes exactly those parts and no other", moved.length === wearers.length && moved.every((id) => wearers.includes(id)), `${moved.length} changed`);
-const stillSun = s1.nodes.filter((n) => wearers.includes(n.id)).filter((n) => C.spotsOf(n, pal).some((w) => w.spot.use === "text" && w.key === SUN));
-check("…and none of them has yellow words left", stillSun.length === 0);
-const otherUses = C.whoWears(s0.nodes, pal, SUN).filter((x) => x.use !== "text").length;
-check("…while the yellow's other uses (fills, shadows) are where they were", C.whoWears(s1.nodes, pal, SUN).filter((x) => x.use !== "text").length === otherUses, `${otherUses} other uses`);
-await press("[data-site-swapped] button");
+await page.locator("[data-site-colours]").screenshot({ path: ".screenshots/look-theme-before.png" });
+/* Randomize theme: every theme swatch moves, words stay readable on the main fill, one undo takes it all back. */
+await press("[data-randomize-theme] button");
+await page.waitForTimeout(800);
+const rolled = await state();
+const movedParts = rolled.nodes.filter((n, i) => JSON.stringify(n) !== JSON.stringify(s0.nodes[i])).length;
+check("Randomize theme repaints the site's parts", movedParts >= 20, `${movedParts} parts`);
+await page.locator("[data-site-colours]").screenshot({ path: ".screenshots/look-theme-rolled.png" });
+await page.screenshot({ path: ".screenshots/look-theme-rolled-board.png" });
+await press("[data-theme-rolled] button");
 await page.waitForTimeout(500);
 check("…and one Undo puts every one back", JSON.stringify((await state()).nodes) === JSON.stringify(s0.nodes));
 

@@ -142,9 +142,7 @@ const wear = worn(nodes0, pal0);
 
 await page.locator('[aria-label="Side panel"] button', { hasText: /Look/i }).first().click({ force: true });
 await page.waitForTimeout(700);
-/* On a site brought in, the six colours are "Colours for new parts", under More colours (Lane I). */
-await page.locator("[data-role-more] > button[aria-expanded]").first().evaluate((b) => { if (b.getAttribute("aria-expanded") !== "true") b.click(); });
-await page.waitForTimeout(400);
+/* On a site brought in, the six colours are "Colours for new parts", shown under the theme. */
 const swatches = await page.evaluate((names) => Object.fromEntries(Object.entries(names).map(([r, name]) => {
   const b = [...document.querySelectorAll("[data-look-colour] button")].find((e) => e.getAttribute("aria-label") === name);
   return [r, b ? getComputedStyle(b).backgroundColor : null];
