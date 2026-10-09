@@ -262,10 +262,12 @@ check("…which one undo takes back", (await page.evaluate(() => JSON.stringify(
 const cornersId = (await page.evaluate(() => window.__studioPublishDoc().nodes)).find((n) => n.colour?.bg && /241, 224, 126|242, 226, 129|240, 223, 123/.test(n.colour.bg))?.id;
 const corners = editor.locator("[data-kind-corners] [role=slider]");
 await corners.focus();
+await page.keyboard.press("Home");
 await page.keyboard.press("End");
 await page.waitForTimeout(300);
 const r = await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.radius, cornersId);
-check("its Corners set every part of the kind's own radius", r === 48, String(r));
+/* The kind's smallest copy is the 40px corner box: past 20px nothing rounds further, so the slider ends there. */
+check("its Corners set every part of the kind's own radius, up to half its smallest copy's side", r === 20 && (await corners.getAttribute("aria-valuemax")) === "20", `${r}, max ${await corners.getAttribute("aria-valuemax")}`);
 await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(300);
