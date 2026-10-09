@@ -22,7 +22,7 @@ import cycle loads a door before the file behind it.
 | File | Holds |
 | --- | --- |
 | `lookparts/` | Colour, texture, light and motion maths (see its README) |
-| `siteColours.ts` | The site's own colours, tallied from a capture; readable-backdrop fixes |
+| `siteColours.ts` | The site's own colours, tallied from a capture |
 | `styleKits.ts` | A site's own ways of dressing a button, a card, a field |
 | `fonts.ts` | Faces carried with a site, and their licences |
 | `partLook.ts`, `partLookApply.ts` | One part's look, copied to others (Make all like) |

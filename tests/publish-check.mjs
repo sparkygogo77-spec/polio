@@ -7,7 +7,7 @@
  *   1. The rules, read directly: pump.fun and DEX Screener's own pages
  *      allowed; one contract address on DEX Screener, an X profile and a
  *      site no rule names refused; a share link flagged for a choice; a
- *      picture this browser lacks, words hard to read, a part off the page at
+ *      picture this browser lacks, a part off the page at
  *      phone width and a button that does nothing each named.
  *   2. In the Builder: the list opens instead of the publish, grouped, each
  *      line with Fix or Show. Fix takes the line off (the link is gone from
@@ -65,7 +65,6 @@ const nodes = [
   check("a site no rule names is refused", of("n_else").includes("link"));
   check("a share link is flagged for a choice, with Keep it", of("n_share").includes("share") && got.find((p) => p.id === "n_share").keep === "Keep it");
   check("a picture this browser lacks is named", of("n_pic").includes("picture"));
-  check("words hard to read are named", of("n_faint").includes("words"));
   check("a part off the page at phone width is named, with how far", got.some((p) => p.kind === "fit" && /330 pixels off the page at phone width/.test(p.says)), J(got.filter((p) => p.kind === "fit").map((p) => p.says)));
   check("a button that does nothing is named", of("n_buy").includes("nowhere"));
   const kept = M.checkBoard({ nodes: nodes.map((n) => (n.id === "n_share" ? { ...n, shareChecked: n.link.target } : n)), pages: [{ id: "page_home" }], held: new Set(["pic_not_here"]), palette: {} });
@@ -126,7 +125,7 @@ const doc = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("build
   check("Update live site opens the list instead of publishing", (await list.count()) === 1 && calls.push === 0, `${calls.push} pushes`);
   const first = await lines(page);
   const kinds = [...new Set(first.map((l) => l.kind))];
-  check("the list is grouped: links, share, pictures, words, buttons", ["link", "share", "picture", "words", "nowhere"].every((k) => kinds.includes(k)), J(kinds));
+  check("the list is grouped: links, share, pictures, buttons", ["link", "share", "picture", "nowhere"].every((k) => kinds.includes(k)), J(kinds));
   check("every line has Show, and Fix where there is one", (await page.locator("[data-check-line]").count()) === (await page.locator("[data-check-show]").count()), "");
   await page.screenshot({ path: `${SHOTS}/publish-check.png` });
   /* Fix a link that leaves the site. */
@@ -139,10 +138,6 @@ const doc = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("build
   await page.waitForTimeout(800);
   const share = (await doc(page)).find((n) => n.id === "n_share");
   check("Keep it keeps the share link, and the line goes", share?.link?.target?.includes("intent/tweet") && !(await lines(page)).some((l) => l.id === "n_share"), J(share?.link));
-  /* Make words readable. */
-  await page.locator('[data-check-part="n_faint"] [data-check-fix]').click();
-  await page.waitForTimeout(800);
-  check("Make it readable fixes the words, or says it cannot", !(await lines(page)).some((l) => l.id === "n_faint") || /None of the site's own colours|as readable as the site's own colours allow/.test(await page.locator("[data-publish-check]").innerText()));
   /* Leave a button doing nothing. */
   await page.locator('[data-check-part="n_buy"] [data-check-fix]').click();
   await page.waitForTimeout(800);

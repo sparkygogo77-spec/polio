@@ -12,11 +12,6 @@
  *   2  PAGES SHOWS THE SHARED LINK. Under the site's name and description,
  *      the card a pasted link draws (picture, address, title, the line under
  *      it), from exactly what those boxes say, and a character guide on both.
- *   3  LOOK MAKES WORDS READABLE. The parts whose words are hard to read get
- *      one press that gives each the site's own word colour that reads on
- *      what it sits on, as one undo step. Outlined lettering is measured by
- *      its outline, so the site's white-edged-in-black headings are not
- *      "fixed" into plain dark ones.
  *   4  FONTS IN PAGE ORDER. "Fonts on this site" lists the faces as a person
  *      meets them scrolling the site: by where each is first used, the first
  *      page first, top to bottom; each keeps its count and says where it
@@ -47,32 +42,6 @@ const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwA
 const { createJiti } = await import("jiti");
 const jiti = createJiti(import.meta.url, { alias: { "@": join(here, "..", "src") } });
 const src = (f) => jiti.import(join(here, "..", "src", "features", "studio", f));
-const { wordsContrast, readableFixes, tallyColours, HARD_TO_READ, READS } = await src("look/siteColours.ts");
-const { resolvePalette } = await src("shelf/parts/theme.ts");
-const palette = resolvePalette(doc.format, doc.look);
-/* Words over a picture are read against the picture (`pictureSampler.ts`): the capture's own, decoded by a browser. */
-const { sampleHeld } = await src("pictureSampler.ts");
-const { pictureHeld } = await import("./fixtures/pictureHeld.mjs");
-const held = await pictureHeld(createRequire(import.meta.url)("playwright-core").chromium, SINK, doc.nodes, process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium");
-const nodeById = new Map(doc.nodes.map((n) => [n.id, n]));
-const sample = (id, under) => (held.has(id) ? sampleHeld(held.get(id), nodeById.get(id), under) : null);
-/*
- * On the capture as it stands nothing is hard to read: TRORTY REMOTE, once
- * flagged at 1.1 to 1, is yellow on the remote's navy panel
- * (tests/readable-backdrop.mjs). So for Make readable one part is made
- * truly unreadable in this test's copy: the same label, navy on that navy.
- */
-check("3 on the capture as it is, TRORTY REMOTE reads (on the remote's navy panel)", (wordsContrast(doc.nodes, palette, sample).find((r) => r.id === "n_prose_124")?.ratio ?? 0) >= READS);
-doc.nodes = doc.nodes.map((n) => (n.id === "n_prose_124" ? { ...n, colour: { ...n.colour, text: "rgb(41, 47, 68)" } } : n));
-const rows = wordsContrast(doc.nodes, palette, sample);
-const ratio = (id) => rows.find((r) => r.id === id)?.ratio ?? 0;
-check("3 outlined lettering reads by its outline: the white “HOW TO BUY” edged in near-black is readable", ratio("n_valueprop_43") >= READS, `${ratio("n_valueprop_43")} to 1`);
-const hard = rows.filter((r) => r.ratio < HARD_TO_READ);
-const fixes = readableFixes(doc.nodes, palette, sample);
-check("3 every hard-to-read part gets a fix", hard.length > 0 && fixes.length === hard.length, `${hard.length} hard, ${fixes.length} fixes`);
-const worn = new Set([...tallyColours(doc.nodes, palette).byUse.text, ...tallyColours(doc.nodes, palette).byUse.fill].map((c) => c.value));
-check("3 …each in a colour the site already wears", fixes.every((f) => worn.has(f.to)), fixes.map((f) => f.to).join(" "));
-check("3 …that reads at any size", fixes.every((f) => f.now >= READS && f.now > f.was), fixes.map((f) => `${f.was}→${f.now}`).join(" "));
 
 /* ------------------------------------------------------------ the browser half */
 const { chromium } = createRequire(import.meta.url)("playwright-core");
@@ -161,23 +130,6 @@ const nGuide = side.locator('[data-char-guide="name"]');
 check("2 a name past 60 characters is said to be cut, and by how much", (await nGuide.getAttribute("data-over")) === "" && /over/.test(await nGuide.innerText()), (await nGuide.innerText()).replace(/\s+/g, " "));
 await page.screenshot({ path: `${SHOTS}/after-pages-card.png` });
 await page.keyboard.press("Control+z");
-
-/* 3 Look */
-await tab("Look");
-const readable = side.locator("[data-words-readable]");
-check("3 Look says how many are hard to read", new RegExp(`${hard.length} (is|are) hard to read`).test(await readable.innerText()), (await readable.innerText()).replace(/\s+/g, " ").slice(0, 160));
-const d0 = await page.evaluate(() => window.__studioUndoDepth());
-await readable.locator("[data-make-readable]").click();
-await wait(500);
-const after = await stored();
-check("3 one press makes them readable, in the site's own colours", fixes.every((f) => after.nodes.find((n) => n.id === f.id)?.colour?.text === f.to));
-check("3 …as one undo step", (await page.evaluate(() => window.__studioUndoDepth())) === d0 + 1);
-check("3 …and none is hard to read now", !/hard to read/.test(await readable.innerText()), (await readable.innerText()).replace(/\s+/g, " ").slice(0, 160));
-await page.screenshot({ path: `${SHOTS}/after-make-readable.png` });
-await readable.locator("[data-made-readable] button").click();
-await wait(500);
-const back = await stored();
-check("3 Undo puts every one back", fixes.every((f) => back.nodes.find((n) => n.id === f.id)?.colour?.text === f.from));
 
 /* 4 Fonts on this site, in page order */
 /*

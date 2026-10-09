@@ -14,8 +14,6 @@
  *              for the person to choose.
  *   pictures   a picture the page shows whose file this browser no longer
  *              holds (`siteHead.namedPictures` against the picture store).
- *   words      words hard to read on what is behind them (`siteColours`
- *              `wordsContrast`, the Look panel's Readable words).
  *   fit        a part that runs off the page at phone or tablet width, read
  *              off the same layout the preview draws (`live/layout.ts`, passed
  *              in). Lane D is building the phone and tablet layouts; when its
@@ -27,12 +25,10 @@
  * `tests/publish-check.mjs` reads it directly.
  */
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "../shelf";
-import { HARD_TO_READ, wordsContrast } from "../look";
 import { decisions } from "../shelf";
 import { partName, type Named } from "../partNames";
-import type { Palette } from "../look";
 
-export type ProblemKind = "link" | "share" | "picture" | "words" | "fit" | "nowhere";
+export type ProblemKind = "link" | "share" | "picture" | "fit" | "nowhere";
 
 export interface Problem {
   /** Stable across runs, so a line the person dealt with is not shown again until it changes. */
@@ -54,7 +50,6 @@ export interface CheckInput {
   nodes: readonly (Named & { pageId: string; featureId?: string; link?: { kind: string; target: string } | null; picture?: { id: string } | null; media?: { file?: { id: string } } | null; [k: string]: unknown })[];
   pages: readonly { id: string; name?: string }[];
   format?: Record<string, unknown>;
-  palette?: Partial<Palette>;
   /** Picture ids this browser holds, or null when they could not be read (the check is then skipped, not guessed). */
   held: Set<string> | null;
   /** Where each part lands at a width, as the preview lays it out; absent skips the fit check. */
@@ -121,17 +116,6 @@ export function checkBoard(input: CheckInput): Problem[] {
     }
   }
 
-  /* Words hard to read, page by page (a part is read against what is under it on its own page). */
-  for (const page of input.pages) {
-    const here = input.nodes.filter((n) => n.pageId === page.id);
-    let rows: { id: string; ratio: number }[] = [];
-    try { rows = wordsContrast(here as never, input.palette ?? {}); } catch { rows = []; }
-    for (const r of rows.filter((x) => x.ratio < HARD_TO_READ)) {
-      const n = here.find((x) => x.id === r.id);
-      if (n) out.push({ key: `words:${n.id}`, kind: "words", id: n.id, pageId: n.pageId, says: `${name(n)}${onPage(n.pageId)} is hard to read: ${r.ratio} to 1 against what is behind it (4.5 to 1 reads at any size).`, fix: "Make it readable" });
-    }
-  }
-
   /* Parts that run off the page at phone or tablet width. */
   if (input.layout) {
     for (const page of input.pages) {
@@ -163,7 +147,6 @@ export const KIND_ORDER: { kind: ProblemKind; heading: string }[] = [
   { kind: "link", heading: "Links that leave the site" },
   { kind: "share", heading: "Share links to choose about" },
   { kind: "picture", heading: "Missing pictures" },
-  { kind: "words", heading: "Words that are hard to read" },
   { kind: "fit", heading: "Parts that run off the page on a phone or tablet" },
   { kind: "nowhere", heading: "Buttons that do nothing" },
 ];
