@@ -329,3 +329,43 @@ export function pickedLayer(kind: TextureKind, ground: string, palette: Palette)
   const base = newLayer(kind);
   return { ...base, role: base.role === "accent" ? seenOn(ground, palette) : base.role, opacity: Math.max(base.opacity, 0.45) };
 }
+
+/**
+ * The dials that change a kind, by name, and only those.
+ *
+ * Every kind used to get Angle and Drift whatever it was (J, 2026-10-09:
+ * "drift did neither for either of them ... ensure that each texture has the
+ * proper dedicated setting sliders"). A flat colour has no direction until it
+ * fades, a mesh is laid once across the page and cannot travel, and the
+ * one-number shape each kind does have (how thick a line, how big a dot)
+ * lives on `contrast` and had no dial at all.
+ */
+export interface KindDials {
+  /** What `contrast` is called on this kind; absent when it has no shape dial. */
+  shape?: string;
+  /** Angle turns it. `whenShaped`: only once the shape dial is above nothing (a flat colour's fade). */
+  angle: boolean | "whenShaped";
+  /** Drift moves it. */
+  drift: boolean;
+}
+
+const DIALS: Partial<Record<TextureKind, KindDials>> = {
+  flat: { shape: "Fade", angle: "whenShaped", drift: false },
+  noise: { shape: "Speckle", angle: true, drift: true },
+  grain: { shape: "Speckle", angle: true, drift: true },
+  paper: { shape: "Speckle", angle: true, drift: true },
+  stripes: { shape: "Line width", angle: true, drift: true },
+  scanlines: { shape: "Line width", angle: true, drift: true },
+  grid: { shape: "Line width", angle: true, drift: true },
+  hatch: { shape: "Line width", angle: true, drift: true },
+  dots: { shape: "Dot size", angle: true, drift: true },
+  halftone: { shape: "Dot size", angle: true, drift: true },
+  checks: { shape: "Square size", angle: true, drift: true },
+  blobs: { shape: "Edges", angle: true, drift: true },
+  mesh: { shape: "Edges", angle: true, drift: false },
+  image: { angle: true, drift: true },
+};
+
+export function dialsOf(kind: TextureKind): KindDials {
+  return DIALS[kind] ?? { angle: true, drift: true };
+}

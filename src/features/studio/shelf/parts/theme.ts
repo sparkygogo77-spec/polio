@@ -10,7 +10,7 @@ import type * as React from "react";
 import { frameStyle, isFrame, type PictureFrame } from "../../frame";
 import { isLiving, liveStyle, type LivingPicture } from "../../living";
 import type { FormatValues } from "../../format";
-import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../../look";
+import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, driftKeyframes, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../../look";
 
 // Re-exported so the primitives can tint a role without reaching outside
 // `parts/` — see `types.ts` for why that line matters.
@@ -28,6 +28,8 @@ export interface Theme {
   accentText: string;
   /** When a texture is set, the full background properties for the page. */
   surfaceStyle?: React.CSSProperties;
+  /** The keyframes `surfaceStyle`'s drift names, when the page's texture moves. */
+  surfaceDrift?: string;
   /** When the texture is painted on surfaces, the properties every card wears. */
   surfacePaint?: React.CSSProperties;
   /**
@@ -757,6 +759,8 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
     backdrop: painted ? "" : backdrop,
     /** When a texture is set, this is the whole set of background properties. */
     surfaceStyle: painted ?? undefined,
+    /* The page's own keyframes: the site stack's (`TextureDrift`) leave out the fill under it, and a name with nothing behind it does not move. */
+    surfaceDrift: painted ? driftKeyframes(onPage, roles, bed)?.css : undefined,
     surfacePaint: onSurfaces ?? undefined,
     panelPaint: panelPaint ?? undefined,
     overlayStyle: over ?? undefined,
