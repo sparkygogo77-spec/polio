@@ -447,16 +447,18 @@ function Paint({ hook, label, value, onTo }: { hook: string; label: string; valu
   };
   const typed = (to: string) => { startGesture(); preview(to); endGesture(); from.current = null; };
   return (
-    <label data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
+    /* Not a <label>: a press on the name or the gap beside it opened the picker (J, 2026-10-09). Only the swatch does. */
+    <div data-kind-colour={hook} className="flex items-center gap-2 text-small text-fg">
       <HandColour aria-label={label} value={toHex(parseColor(value) ?? { l: 0.5, c: 0, h: 0 }).slice(0, 7)}
         onPick={preview} onSettle={() => { from.current = null; }}
         className="h-7 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent" />
       <span className="min-w-0 flex-1">{label}</span>
-      <Input inputSize="sm" className="w-24 shrink-0" value={hex} aria-label={`${label}, as hex`}
+      {/* As wide as the code it holds. */}
+      <Input inputSize="sm" mono size={Math.max(7, hex.length)} className="w-fit shrink-0" value={hex} aria-label={`${label}, as hex`}
         onChange={(e) => setHex(e.target.value)}
         onBlur={() => { const c = parseColor(hex); if (c && toHex(c) !== toHex(parseColor(value) ?? c)) typed(toHex(c)); }}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-    </label>
+    </div>
   );
 }
 
