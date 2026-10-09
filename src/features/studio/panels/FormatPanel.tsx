@@ -2,7 +2,8 @@
 /**
  * THE FORMAT TAB: A SHORT PAGE, IN THREE PARTS.
  *
- *   This site             the six things a person reads a site by: the
+ *   This site             (sites made here only; a site brought in edits
+ *                         these in Look, from its preview) the six things a person reads a site by: the
  *                         heading and body fonts, the base size, the
  *                         corners, the page's colour and the accent. On a
  *                         captured site each is read off its parts
@@ -238,7 +239,8 @@ function Head({ title, blurb }: { title: string; blurb?: string }) {
 function WholeSite() {
   const format = useStudio((s) => s.format);
   const setFormat = useStudio((s) => s.setFormat);
-  const fields = formatSwitches().map((sw) => ({ sw, f: FIELD.get(sw.key) })).filter((x): x is { sw: (typeof x)["sw"]; f: FormatField } => !!x.f);
+  /* Page transitions are dropped onto the page from the Motion shelf, not switched here (J, 2026-10-09). */
+  const fields = formatSwitches().filter((sw) => sw.key !== "pages.transition").map((sw) => ({ sw, f: FIELD.get(sw.key) })).filter((x): x is { sw: (typeof x)["sw"]; f: FormatField } => !!x.f);
   return (
     <section data-format-section="whole-site" className="border-b border-border pb-1.5">
       <Head title="Whole-site features" blurb="Switched on for every page, and written into the brief." />
@@ -326,9 +328,11 @@ function BriefFold() {
 }
 
 export function FormatPanel() {
+  const { captured } = useSiteFormat();
   return (
     <div data-format-panel="" className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <ThisSite />
+      {/* On a site brought in, its fonts, size, corners and colours are edited in Look, by pressing them in the preview (J, 2026-10-09). */}
+      {captured ? null : <ThisSite />}
       <WholeSite />
       <BriefFold />
     </div>
