@@ -29,6 +29,7 @@ import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { endGesture, gestureBase, startGesture, useHeldStudio, useStudio } from "./board/store";
+import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { Slider, HandColour } from "./HandSlider";
 import { useSiteFormat } from "./panels/ui";
@@ -302,7 +303,9 @@ function countStyle(ink: string): React.CSSProperties {
 
 function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; palette: Palette; picked: Pick | null; onPick: (p: Pick) => void }) {
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
-  const surfaces = site.kinds.filter((k) => !k.button).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
+  /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
+  const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
+  const surfaces = site.kinds.filter((k) => !k.button && !k.tab).slice(0, 4).sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const tint = countTint(site, palette);
@@ -313,7 +316,7 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
     color: ink(k),
     border: k.outline ? `${Math.min(k.outline.width, 3)}px solid ${k.outline.colour}` : undefined,
     boxShadow: k.shadow ? k.shadow.replace(/(-?\d+(?:\.\d+)?)px/g, (_, n: string) => `${Math.round(Number(n) / 2)}px`) : undefined,
-    borderRadius: Math.min(k.radius, 999) / 2,
+    borderRadius: Math.min(k.radius, 16),
   });
   const ring = (on: boolean) => (on ? "outline outline-2 outline-offset-2 outline-accent" : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-fg-muted");
   /* Just the number on the corner, no box behind it (J, 2026-10-09): bright, with a thin dark outline so it reads on a light swatch and a dark one. */
@@ -344,10 +347,22 @@ function ThemePreview({ site, palette, picked, onPick }: { site: SiteKinds; pale
       className={cn("cursor-pointer space-y-2 overflow-hidden rounded-md border border-border p-2", picked === "page" && "outline outline-2 outline-offset-2 outline-accent")}
       style={{ background: site.page.fill, color: site.page.words ?? palette.text }} title="The page">
       <span data-preview-part="heading" className="block text-[15px] font-bold leading-tight" style={{ ...faceCss(site.page.face), ...glow(site.page.glow) }}>The page&rsquo;s own words</span>
+      {tabs.length ? (
+        <div data-preview-tabs="" className="relative z-10 -mb-3 flex flex-wrap gap-1 pl-2">
+          {tabs.map((k) => (
+            <span key={at(k)} data-preview-part="tab" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
+              className={cn("relative inline-block cursor-pointer px-2 py-0.5 pr-4 text-fine font-semibold", ring(picked === at(k)))}
+              style={{ ...dress(k), ...faceCss(k.face), ...glow(k.glow) }}>
+              <span data-preview-name="">{k.name}</span>
+              {count(k.parts, true)}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         {surfaces.map((k) => (
           <div key={at(k)} data-preview-part="surface" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
-            className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", ring(picked === at(k)))} style={dress(k)}>
+            className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", tabs.length && at(k) === at(surfaces[0]!) && "pt-4", ring(picked === at(k)))} style={dress(k)}>
             <span data-preview-name="" className="block truncate text-small font-semibold leading-tight" style={faceCss(k.face)}>{k.name}</span>
             <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k.glow) }}>{k.sample ?? "Its words"}</span>
             {count(k.parts)}
@@ -423,6 +438,23 @@ function SiteDial({ id, label, min, max, hint }: { id: "type.baseSize" | "layout
       <Slider value={[value]} min={min} max={max} step={1} readout={(n) => `${n}px`} silent aria-label={label}
         onValueChange={(v) => useStudio.getState().setFormat(id, v[0] ?? value)} />
       <span className="block text-fine leading-snug text-fg-faint">{hint}</span>
+    </label>
+  );
+}
+
+/**
+ * The corners of every part of a kind: its own radius, which the board and
+ * the export draw (a whole-site radius leaves a part the site rounded as it
+ * was, so on a site brought in it moved nothing; J, 2026-10-09). A drag is one undo step.
+ */
+/** "Square": a radius the board reads as set (0 reads as "the site's default") and nobody can see. */
+const SQUARE = 0.5;
+function KindCorners({ k }: { k: SurfaceKind }) {
+  return (
+    <label data-kind-corners="" className="block space-y-1 text-small text-fg">
+      <span>Corners</span>
+      <Slider value={[Math.min(k.radius, 48)]} min={0} max={48} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
+        onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
     </label>
   );
 }
@@ -541,7 +573,8 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
           ) : null}
         </div>
       ) : null}
-      {k ? null : <SiteDial id="layout.radius" label="Corners" min={0} max={32} hint="Boxes the site rounded keep their own corners; this sets the rest." />}
+      {k ? <KindCorners k={k} /> : null}
+      {k || captured ? null : <SiteDial id="layout.radius" label="Corners" min={0} max={32} hint="Boxes the site rounded keep their own corners; this sets the rest." />}
       {texture !== null ? (
         <div data-kind-texture="" className="space-y-1">
           <p className="text-fine text-fg-faint">Texture</p>

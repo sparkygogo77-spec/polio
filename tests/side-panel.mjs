@@ -229,8 +229,8 @@ await side.locator('[data-theme-preview] [data-preview-part="heading"]').click()
 await page.waitForTimeout(300);
 await side.locator("[data-kind-editor] [data-kind-font] button").first().click();
 const dials = await side.locator("[data-kind-editor] [data-site-dial]").evaluateAll((els) => els.map((e) => e.getAttribute("data-site-dial")));
-check("pressing the page opens its background, text size and corners", (await side.locator('[data-kind-editor] [data-kind-colour="fill"]').count()) === 1 && dials.join(",") === "type.baseSize,layout.radius", dials.join(","));
-check("…the corners read off the site", /24px/.test(await side.locator('[data-site-dial="layout.radius"]').innerText()), await side.locator('[data-site-dial="layout.radius"]').innerText());
+/* A site brought in rounded its own boxes, so a whole-site radius would move nothing: its corners are set per kind (below). */
+check("pressing the page opens its background and the text size", (await side.locator('[data-kind-editor] [data-kind-colour="fill"]').count()) === 1 && dials.join(",") === "type.baseSize", dials.join(","));
 await side.locator("[data-kind-editor]").getByRole("button", { name: "Close" }).click();
 /* Press a piece of the preview: its editor opens under it, its parts outlined on the board. */
 const piece = side.locator('[data-theme-preview] [data-preview-part="surface"]').first();
@@ -253,6 +253,17 @@ await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(400);
 check("…which one undo takes back", (await page.evaluate(() => JSON.stringify(window.__studioPublishDoc().nodes))) === nodesE);
+/* Its corners: the parts' own radius, which the board draws. */
+const cornersId = (await page.evaluate(() => window.__studioPublishDoc().nodes)).find((n) => n.colour?.bg && /241, 224, 126|242, 226, 129|240, 223, 123/.test(n.colour.bg))?.id;
+const corners = editor.locator("[data-kind-corners] [role=slider]");
+await corners.focus();
+await page.keyboard.press("End");
+await page.waitForTimeout(300);
+const r = await page.evaluate((id) => window.__studioPublishDoc().nodes.find((n) => n.id === id)?.radius, cornersId);
+check("its Corners set every part of the kind's own radius", r === 48, String(r));
+await page.evaluate(() => document.activeElement?.blur());
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(300);
 await editor.locator("[data-kind-font] button").first().click();
 check("its font is in the editor, folded", (await editor.locator('[data-kind-font] [aria-label="Font"]').count()) === 1);
 await page.screenshot({ path: `${SHOTS}/side-panel-look-editor.png` });
