@@ -19,7 +19,7 @@ import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ROLES, css, parseColor, rollTheme, spotsOf, toHex, type Oklch, type Palette } from "./look";
-import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
+import { PAGE_ID, SITE_TYPE, contrast, firstSays, fontsInPageOrder, tallyFonts, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { ROLE_LABEL, ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { componentsOf, type CompNode } from "./components";
@@ -414,6 +414,71 @@ function randomizeTheme(roles: SiteRoles, palette: Palette, counted: CountedAs):
   return changed.size;
 }
 
+/**
+ * THE THEME, SEEN (J, 2026-10-09): before the code hooks the panel had a small
+ * example (`PaletteExample`, now inside a role's editor) showing where each
+ * colour lands on a sample page, so the palette did not have to be read off
+ * the site. This is the bigger one, at the head of Colours: a sample frame
+ * painted with the site's own theme swatches and its two most-used faces:
+ * the page, a section in the main fill, two cards with the site's outline
+ * and shadow, a heading, words, quieter words, a link, a tag in the accent,
+ * and the buttons with words that read on them. Hover any part of it for
+ * the swatch it shows. It is painted from the same swatches the list below
+ * holds, so Randomize theme and every recolour move it at once. Where the
+ * site has no swatch for a role, the six colours for new parts fill in.
+ */
+function ThemePreview({ roles, palette, nodes }: { roles: SiteRoles; palette: Palette; nodes: Parameters<typeof tallyFonts>[0] }) {
+  const of = (r: string) => roles.short.find((x) => x.role === r)?.swatches ?? [];
+  const pick = (r: string, i: number, fallback: string) => { const s = of(r)[i] ?? of(r)[0]; return { value: s?.value ?? fallback, says: s?.says ?? `${fallback} (colour for new parts)` }; };
+  const ink = (which: "black" | "white") => roles.ink.find((x) => x.id === `ink|${which}`)?.value;
+  const page = palette.bg;
+  const main = pick("main", 0, palette.bg);
+  const groundL = parseColor(main.value)?.l ?? 0.2;
+  const plain = groundL > 0.6 ? ink("black") ?? palette.text : ink("white") ?? palette.text;
+  const words = of("words")[0] ? pick("words", 0, plain) : { value: plain, says: "The site's plain ink on the words" };
+  const quiet = of("words")[1] ? pick("words", 1, palette.muted) : { value: palette.muted, says: `${palette.muted} quieter words (colour for new parts)` };
+  const card1 = pick("panels", 0, palette.surface);
+  const card2 = pick("panels", 1, palette.surface);
+  const btn1 = pick("buttons", 0, palette.accent);
+  const btn2 = pick("buttons", 1, palette.highlight);
+  const accent = pick("accent", 0, palette.highlight);
+  const outline = of("outline")[0];
+  const shadow = of("shadow")[0];
+  const onIt = (bg: string) => { const b = parseColor(bg); const k = parseColor("#111111")!, w = parseColor("#ffffff")!; return b && contrast(k, b) >= contrast(w, b) ? "#111111" : "#ffffff"; };
+  const faces = React.useMemo(() => tallyFonts(nodes).map((f) => f.key), [nodes]);
+  const head = faceStyle(faces[0] ?? SITE_TYPE);
+  const body = faceStyle(faces[1] ?? faces[0] ?? SITE_TYPE);
+  const card = (bg: { value: string; says: string }): React.CSSProperties => ({
+    background: bg.value,
+    border: outline ? `2px solid ${outline.value}` : undefined,
+    boxShadow: shadow ? `3px 3px 0 ${shadow.value}` : undefined,
+  });
+  return (
+    <div data-theme-preview="" className="overflow-hidden rounded-md border border-border p-2" style={{ background: page }} title={`${page} the page`}>
+      <div className="space-y-2 rounded p-2" style={{ background: main.value }} title={main.says}>
+        <div className="flex items-baseline justify-between gap-2">
+          <span data-preview-part="heading" className="text-[15px] font-bold leading-tight" style={{ ...head, color: words.value }} title={words.says}>Big heading</span>
+          <span data-preview-part="accent" className="shrink-0 rounded-full px-1.5 text-fine font-semibold" style={{ ...body, background: accent.value, color: onIt(accent.value) }} title={accent.says}>NEW</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[card1, card2].map((c, i) => (
+            <div key={i} data-preview-part={`card-${i + 1}`} className="space-y-1 rounded-md p-2" style={card(c)} title={[c.says, outline?.says, shadow?.says].filter(Boolean).join(" · ")}>
+              <span className="block text-small font-semibold leading-tight" style={{ ...head, color: words.value }}>{i ? "Second card" : "A card"}</span>
+              <span className="block text-fine leading-snug" style={{ ...body, color: quiet.value }} title={quiet.says}>
+                Quieter words on it{i ? "" : <>, and a <span style={{ color: btn1.value, textDecoration: "underline" }}>link</span></>}.
+              </span>
+              <span data-preview-part={`button-${i + 1}`} className="inline-block rounded px-2 py-0.5 text-fine font-semibold" style={{ ...body, background: (i ? btn2 : btn1).value, color: onIt((i ? btn2 : btn1).value), border: outline ? `1.5px solid ${outline.value}` : undefined }} title={(i ? btn2 : btn1).says}>
+                {i ? "Button" : "Buy now"}
+              </span>
+            </div>
+          ))}
+        </div>
+        <span className="block text-fine leading-snug" style={{ ...body, color: words.value }}>Plain words on the main fill, in the site&rsquo;s own face.</span>
+      </div>
+    </div>
+  );
+}
+
 export function SiteColoursSection({ captured = true, paletteRoles = null }: { captured?: boolean; paletteRoles?: React.ReactNode } = {}) {
   const { nodes, palette, look } = useSite();
   const frameWidth = useStudio((s) => s.frameWidth);
@@ -455,6 +520,7 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
         />
       </div>
       {captured ? null : paletteRoles}
+      <ThemePreview roles={roles} palette={palette} nodes={nodes} />
       {captured ? (
         <div data-randomize-theme="" className="space-y-1">
           <Button size="xs" variant="outline" className="w-full" onClick={roll}>
