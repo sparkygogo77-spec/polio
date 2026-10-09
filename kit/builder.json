@@ -49,7 +49,7 @@
   "rules": {
     "about": "Design and build rules every code chat follows. The full text is in doc; the checks named enforce them. Missing a style or setting? Add a slot.",
     "doc": "BUILDER-RULES.md",
-    "version": 8,
+    "version": 9,
     "list": [
       {
         "id": "real-elements",
@@ -242,6 +242,12 @@
         "title": "Pages declare their layout regions",
         "checkedBy": "kit:check",
         "rule": "Each block that holds parts side by side or one under another (a column, a side bar, the main area) carries data-region=\"<name>\" and data-label, so the builder's Structure view reads the page's regions from the markup. Moving a part within its region is a style change; moving it into another region is queued in polio/NEXT.md for the next code chat. A region never sits inside a panel; once a page has a region, every panel sits in one."
+      },
+      {
+        "id": "panels-move-as-one",
+        "title": "A panel and what is inside it move as one",
+        "checkedBy": "",
+        "rule": "A hover or press effect goes on the outermost part that reacts as one (the panel, card or button), as one rule keyed on its hook; the words, icons and buttons inside ride along and never carry the same effect again. The builder's Motion tab follows this when it adds a part to an effect."
       }
     ],
     "requests": [],

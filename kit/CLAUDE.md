@@ -28,6 +28,8 @@ The short version:
 - Layout blocks that hold parts (a column, a side bar, the main area) carry `data-region="<name>"` and
   `data-label`, and every panel sits in one (BUILDER-RULES.md rule 32): the builder's Structure view
   reads them.
+- A hover or press effect goes once on the panel, card or button that reacts as one, never repeated on
+  the text and buttons inside it (BUILDER-RULES.md rule 33).
 - Every visible thing is a real tagged element: no `::before`/`::after` drawings.
 - Label parts for the builder (BUILDER-RULES.md rules 21-24): `data-label` (plain name; every panel and
   list), `data-kind` (what a filled-in value is), `data-list` (where template copies go), `data-group`

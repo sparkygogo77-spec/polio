@@ -40,7 +40,9 @@ import {
   type MotionAsset, type MotionEase, type MotionLoop,
 } from "../motion";
 import { bunches, byKind, movingParts, partName, summarise, type MoveBunch, type MoveRow } from "../motionInventory";
-import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed } from "../motionWrite";
+import { setRowOn, setRowSpeed, setRowsOn, setRowsSpeed, changeEffect } from "../motionWrite";
+import { effectsOf, type Effect } from "../motionEffects";
+import * as shower from "../motionShow";
 import { VirtualList } from "@/core/ui/virtual-list";
 import { fit, loadImage, tweenPixels, type Fitted } from "../crateDraw";
 import { runWorks } from "../live/runWorks";
@@ -197,6 +199,8 @@ export function MotionPanel() {
 
 /** Selects the part and brings it into view on the board. */
 function goTo(nodeId: string) {
+  /* A press on a part while an effect shows would give it the effect: going to a part ends the show first. */
+  if (shower.showing()) shower.stop();
   const s = useStudio.getState();
   if (s.mode !== "design") s.setMode("design");
   s.setSelection([nodeId]);
@@ -367,16 +371,131 @@ function FoldLine({ rows, title, open, onOpen, level, kind }: { rows: MoveRow[];
 
 /** One kind: folded to its line first; opened, its bunches of alike parts, and a part on its own as a row. */
 function KindBlock({ kind, name, rows, rowView }: { kind: string; name: string; rows: MoveRow[]; rowView: (r: MoveRow) => React.ReactNode }) {
-  const [open, setOpen] = React.useState(false);
-  const groups = React.useMemo(() => bunches(rows), [rows]);
+  const byEffect = kind === "hover" || kind === "press";
+  /* An effect showing on the board keeps its kind open, so the tab comes back to it after a press on the board. */
+  const showing = React.useSyncExternalStore(shower.subscribe, shower.showing, () => null);
+  const [open, setOpen] = React.useState(() => !!showing?.startsWith(`${kind}:`));
+  const groups = React.useMemo(() => (byEffect ? [] : bunches(rows)), [rows, byEffect]);
+  const nodes = useStudio((s) => s.nodes);
+  const effects = React.useMemo(() => (byEffect ? effectsOf(rows, nodes) : []), [rows, nodes, byEffect]);
   return (
     <div data-move-kind={kind} className="space-y-1">
       <FoldLine rows={rows} title={name} open={open} onOpen={() => setOpen((v) => !v)} level="kind" kind={kind} />
-      {open ? (
+      {open && byEffect ? (
+        <div className="space-y-1 border-l border-border pl-1.5" data-move-effects="">
+          {effects.map((e) => <EffectBlock key={e.key} effect={e} showing={showing === e.key} />)}
+        </div>
+      ) : open ? (
         <div className="space-y-1 border-l border-border pl-1.5" data-move-list="">
           <Rows items={groups} keyOf={(b) => b.key} view={(b) => (b.rows.length === 1 ? rowView(b.rows[0]!) : <BunchBlock bunch={b} rowView={rowView} />)} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * One thing that happens on hover or on press ("Lifts 2px", "Darkens"), and
+ * the parts that do it, drawn as themselves. The pointer over it rings them
+ * on the board; pressing it makes them all do it, over and over, glowing,
+ * until it is pressed again, and while it shows a press on the board gives a
+ * part the effect or takes it away (`motionShow.ts`).
+ */
+function EffectBlock({ effect, showing }: { effect: Effect; showing: boolean }) {
+  const ids = React.useMemo(() => [...new Set(effect.rows.map((r) => r.nodeId))], [effect]);
+  const [open, setOpen] = React.useState(showing);
+  const note = React.useSyncExternalStore(shower.subscribe, shower.lastNote, () => null);
+  React.useEffect(() => { if (showing) shower.refresh(effect); }, [effect, showing]);
+  React.useEffect(() => () => shower.hint(null), []);
+  const off = effect.rows.every((r) => r.off);
+  return (
+    <div
+      data-move-effect={effect.key}
+      data-move-showing={showing ? "" : undefined}
+      className={cn("space-y-1 rounded-md border p-1", showing ? "border-sky-300/80 bg-sky-300/10" : "border-border/70", off && "opacity-60")}
+      onMouseLeave={() => shower.hint(null)}
+    >
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          data-move-effect-show=""
+          aria-pressed={showing}
+          onMouseEnter={() => shower.hint(ids)}
+          onFocus={() => shower.hint(ids)}
+          onBlur={() => shower.hint(null)}
+          onClick={() => { play(showing ? "close" : "open"); if (!showing) setOpen(true); shower.show(effect); }}
+          title={showing ? "Stop showing it" : "Show every part doing it, on the board"}
+          className="tactile flex min-h-6 min-w-0 flex-1 items-center gap-1 rounded-sm px-0.5 text-left hover:bg-hover"
+        >
+          {showing ? <Pause className="size-3.5 shrink-0 text-sky-300" /> : <Play className="size-3.5 shrink-0 text-fg-muted" />}
+          <span data-move-title="" className="min-w-0 flex-1 truncate text-small text-fg">{effect.label}</span>
+          <span className="num shrink-0 text-fine text-fg-faint">{ids.length} part{ids.length === 1 ? "" : "s"}</span>
+        </button>
+        <Button size="iconXs" variant="ghost" aria-expanded={open} aria-label={open ? "Fold the parts" : "Unfold the parts"} onClick={() => { play("tap"); setOpen((v) => !v); }}>
+          <ChevronRight className={cn("transition-transform", open && "rotate-90")} />
+        </Button>
+        <Button
+          size="iconXs"
+          variant="ghost"
+          aria-pressed={!off}
+          aria-label={off ? `Turn on: ${effect.label}` : `Turn off: ${effect.label}`}
+          className={off ? "text-fg-faint" : "text-accent"}
+          onClick={() => { play("tap"); setRowsOn(effect.rows, off); }}
+        >
+          <Power />
+        </Button>
+      </div>
+      {showing ? (
+        <p data-move-effect-help="" className="px-1 text-fine leading-snug text-sky-200">
+          {note ?? "Press a part on the board to give it this, or press a glowing one to take it off. Press the line again to stop."}
+        </p>
+      ) : null}
+      {open ? (
+        <div data-move-effect-parts="" className="space-y-1">
+          {ids.map((id) => <PartThumb key={id} id={id} effect={effect} />)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A part as it looks on the board, small, with a way to take the effect off it. */
+function PartThumb({ id, effect }: { id: string; effect: Effect }) {
+  const host = React.useRef<HTMLDivElement>(null);
+  const name = useStudio((s) => {
+    const n = s.nodes.find((x) => x.id === id);
+    return n ? partName(n, s.nodes.filter((x) => x.pageId === n.pageId)) : id;
+  });
+  const [drawn, setDrawn] = React.useState(true);
+  const [h, setH] = React.useState(40);
+  React.useEffect(() => {
+    const el = document.querySelector<HTMLElement>(`[data-studio-scroll] [data-node-id="${CSS.escape(id)}"]`) ?? document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`);
+    const at = host.current;
+    if (!el || !at) { setDrawn(false); return; }
+    const r = el.getBoundingClientRect();
+    const w = el.offsetWidth || r.width, hh = el.offsetHeight || r.height;
+    if (!w || !hh) { setDrawn(false); return; }
+    /* A copy of what the board draws, so the part reads as itself: no ids, so nothing finds the copy instead of the part. */
+    const copy = el.cloneNode(true) as HTMLElement;
+    for (const x of [copy, ...copy.querySelectorAll<HTMLElement>("[data-node-id],[data-picked],[id]")]) { x.removeAttribute("data-node-id"); x.removeAttribute("data-picked"); x.removeAttribute("id"); }
+    const k = Math.min(1, (at.clientWidth || 180) / w, 44 / hh);
+    Object.assign(copy.style, { position: "absolute", left: "0", top: "0", margin: "0", transform: `scale(${k})`, transformOrigin: "0 0", pointerEvents: "none" });
+    at.replaceChildren(copy);
+    setH(Math.max(16, Math.ceil(hh * k)));
+    setDrawn(true);
+  }, [id]);
+  const shown = () => {
+    document.querySelector(`[data-node-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  };
+  return (
+    <div data-move-part={id} className="group/part relative flex items-start gap-1 rounded-sm border border-border/60 bg-elevated/30 p-1" onMouseEnter={() => shower.hint([id])} onMouseLeave={() => shower.hint(null)}>
+      <button type="button" data-move-part-go="" title={name} aria-label={`Show ${name} on the board`} onClick={() => { play("tap"); shown(); }} className="tactile min-w-0 flex-1 text-left">
+        <div ref={host} data-move-part-look="" className="relative w-full overflow-hidden" style={{ height: drawn ? h : undefined }} />
+        {!drawn ? <span className="block truncate text-small text-fg">{name}</span> : null}
+      </button>
+      <Button size="iconXs" variant="ghost" aria-label={`Take “${effect.label}” off ${name}`} onClick={() => { play("tap"); changeEffect(effect, [], [id]); }}>
+        <X />
+      </Button>
     </div>
   );
 }
