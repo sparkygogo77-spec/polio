@@ -500,7 +500,7 @@ export const CHIP_MEANS: Record<PagePart["kind"], [string, string]> = {
 };
 
 /** One count on the import's strip, drawn as an icon and its number: `k` is a part kind, or pages, hidden, hooks or placeholders. */
-export interface ReportChip { k: string; n: number; label: string }
+export interface ReportChip { k: string; n: number; label: string; /** The short word beside the number, so the row reads without hovering (design-flaws #4). */ word?: string }
 
 /**
  * THE COUNTS AS CHIPS (J, 2026-10-06: "make symbols of what can"). The
@@ -511,15 +511,15 @@ export function reportChips(report: PageReport): ReportChip[] {
   const word = (n: number, w: [string, string]) => w[n === 1 ? 0 : 1];
   const pages = report.pages.length;
   const out: ReportChip[] = [];
-  if (pages > 1) out.push({ k: "pages", n: pages, label: `Pages: ${pages} pages of the site were read (${report.pages.map((p) => `${p.name} ${p.parts}`).join(", ")})` });
+  if (pages > 1) out.push({ k: "pages", n: pages, word: "pages", label: `Pages: ${pages} pages of the site were read (${report.pages.map((p) => `${p.name} ${p.parts}`).join(", ")})` });
   for (const [k, n] of Object.entries(report.kinds).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])) {
     const kind = k as PagePart["kind"];
     const noun = KIND_WORDS[kind] ? word(n, KIND_WORDS[kind]) : k;
-    out.push({ k, n, label: CHIP_MEANS[kind] ? `${CHIP_MEANS[kind][0]}: ${n} ${noun}, ${CHIP_MEANS[kind][1]}` : `${n} ${noun}` });
+    out.push({ k, n, word: (CHIP_MEANS[kind]?.[0] ?? noun).toLowerCase(), label: CHIP_MEANS[kind] ? `${CHIP_MEANS[kind][0]}: ${n} ${noun}, ${CHIP_MEANS[kind][1]}` : `${n} ${noun}` });
   }
-  if (report.hidden) out.push({ k: "hidden", n: report.hidden, label: `Hidden: ${report.hidden} ${word(report.hidden, ["part is", "parts are"])} hidden as the page opens, kept as hidden parts that take no room` });
-  if (report.hooks) out.push({ k: "hooks", n: report.hooks, label: `Code names: ${report.hooks} ${word(report.hooks, ["part keeps", "parts keep"])} the id or data-hook the site's code finds ${report.hooks === 1 ? "it" : "them"} by` });
-  if (report.pictures) out.push({ k: "placeholders", n: report.pictures, label: `Stand-in pictures: ${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}, because picture files are not carried this way` });
+  if (report.hidden) out.push({ k: "hidden", n: report.hidden, word: "hidden", label: `Hidden: ${report.hidden} ${word(report.hidden, ["part is", "parts are"])} hidden as the page opens, kept as hidden parts that take no room` });
+  if (report.hooks) out.push({ k: "hooks", n: report.hooks, word: "code names", label: `Code names: ${report.hooks} ${word(report.hooks, ["part keeps", "parts keep"])} the id or data-hook the site's code finds ${report.hooks === 1 ? "it" : "them"} by` });
+  if (report.pictures) out.push({ k: "placeholders", n: report.pictures, word: "stand-in pictures", label: `Stand-in pictures: ${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}, because picture files are not carried this way` });
   return out;
 }
 

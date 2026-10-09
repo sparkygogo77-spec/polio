@@ -16,7 +16,7 @@ import { cn } from "@/core/lib/cn";
 import { useStudio, type StudioNode } from "./board/store";
 import { colourOf, KIND_WORD, LAYER_WORD, recolour, type Component, type CompNode, type Slot } from "./components";
 import { resolvePalette } from "./shelf/run";
-import { ROLES } from "./look";
+import { ROLES, distinctShades } from "./look";
 
 /* `says` names the swatches for a screen reader: never just "Words", which is the words box's own name. */
 const SLOTS: { slot: Slot; label: string; says: string }[] = [
@@ -47,7 +47,8 @@ export function ComponentFields({ comp, nodes }: { comp: Component; nodes: Studi
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
-  const choices = React.useMemo(() => [...new Set(ROLES.map((r) => palette[r]).filter(Boolean))], [palette]);
+  /* One swatch per shade the eye can tell apart: near-black inks are one choice, not three. */
+  const choices = React.useMemo(() => distinctShades([...new Set(ROLES.map((r) => palette[r]).filter(Boolean))], (c) => c), [palette]);
   const set = (slot: Slot, colour: string) => {
     const patches = recolour(nodes as unknown as CompNode[], comp, slot, colour);
     const ids = Object.keys(patches);

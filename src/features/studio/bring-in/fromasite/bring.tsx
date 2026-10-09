@@ -152,6 +152,7 @@ export function ReportChips({ chips }: { chips: ReportChip[] }) {
           <span data-import-chip={c.k} aria-label={c.label} tabIndex={0} className="inline-flex items-center gap-0.5 rounded-full border px-1.5 text-small tabular-nums" style={{ color: CHIP_GREEN, borderColor: "oklch(0.72 0.17 150 / 0.45)", background: "oklch(0.72 0.17 150 / 0.1)" }}>
             <Icon className="size-3" aria-hidden />
             {c.n}
+            {c.word ? <span data-import-chip-word="" className="opacity-80">{c.word}</span> : null}
           </span>
           </Tooltip>
         );

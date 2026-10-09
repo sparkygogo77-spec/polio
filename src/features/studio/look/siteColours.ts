@@ -462,6 +462,26 @@ export function oklabDistance(a: string, b: string): number {
 /** The default "how close": shades nearer than this read as one colour. */
 export const CLOSE_SHADES = 0.035;
 
+/**
+ * One swatch per shade a person can tell apart, first come first kept: a
+ * palette whose surface, words and muted roles are three near-black inks
+ * offered three swatches that all looked the same (J, 2026-10-09: "dark
+ * ink is a waste of a colour palette option"). `taken` are shades already
+ * shown beside these, which none of them should repeat. Pure.
+ */
+export const SAME_TO_THE_EYE = 0.06;
+export function distinctShades<T>(items: readonly T[], colourOf: (t: T) => string, taken: readonly string[] = [], near = SAME_TO_THE_EYE): T[] {
+  const seen = [...taken];
+  const out: T[] = [];
+  for (const it of items) {
+    const c = colourOf(it);
+    if (seen.some((s) => oklabDistance(s, c) < near)) continue;
+    seen.push(c);
+    out.push(it);
+  }
+  return out;
+}
+
 export interface ShadeGroup {
   /** The shade the others become: the one most parts wear. */
   to: SiteColour;

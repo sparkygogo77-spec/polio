@@ -15,8 +15,9 @@ import * as React from "react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Tooltip } from "@/core/ui/tooltip";
-import { parseColor, toHex, ROLES, ROLE_LABEL, type Palette, type RoleId } from "./look";
-import { CHIP, inheritChip } from "./colourMenu";
+import { RotateCcw } from "lucide-react";
+import { distinctShades, parseColor, toHex, ROLES, ROLE_LABEL, type Palette, type RoleId } from "./look";
+import { CHIP } from "./colourMenu";
 import type { NodeColour } from "./shelf/run";
 import { tryProps } from "./tryLook";
 
@@ -39,6 +40,10 @@ export function ColourOverride({
   const [role, setRole] = React.useState<RoleId>("bg");
   const current = colour?.[role] ?? "";
   const overridden = Object.entries(colour ?? {}).filter(([, v]) => v).length;
+  /* The other roles to borrow, one swatch per shade the eye can tell apart (three near-black inks were three swatches), and never a repeat of the site's own (`distinctShades`). The one it wears now always shows. */
+  const choices = distinctShades(ROLES.filter((r) => r !== role), (r) => palette[r], [palette[role]])
+    .concat((ROLES as readonly string[]).includes(current) && current !== role ? [current as RoleId] : [])
+    .filter((r, i, all) => all.indexOf(r) === i);
 
   const nextWith = (value: string | null): NodeColour | null => {
     const next: NodeColour = { ...(colour ?? {}) };
@@ -79,21 +84,24 @@ export function ColourOverride({
       {/* What to set it to: the site again, another role, or a colour. */}
       <div className="flex flex-wrap items-center gap-1">
         {/*
-          "Site" was a word among swatches, and the word said less than the
-          swatch would: it is the same "this follows the site" the console
-          says with an inherited chip, so it says it the same way here — the
-          colour it would take, under a folded corner.
+          FOLLOW THE SITE, said as "back to the site's colour": the site's
+          swatch with a dashed rim and a turn-back arrow. The folded corner
+          it wore read as a slash, and a slash reads as "no colour" (J,
+          2026-10-09), which on the words of a part makes no sense at all.
         */}
-        <Tooltip content={`Follow the site's ${ROLE_LABEL[role].toLowerCase()}`}>
+        <Tooltip content={`Back to the site's ${ROLE_LABEL[role].toLowerCase()}`}>
           <button
             type="button"
+            data-follow-site=""
             aria-label={`Follow the site's ${ROLE_LABEL[role]}`}
             {...trying(null)}
-            className={cn("tactile border-2", !current ? "border-fg" : "border-transparent")}
-            style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, ...inheritChip("", palette[role]).style }}
-          />
+            className={cn("tactile flex items-center justify-center border-2 border-dashed", !current ? "border-fg" : "border-border-strong")}
+            style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, background: palette[role], color: (parseColor(palette[role])?.l ?? 0) > 0.6 ? "#111" : "#fff" }}
+          >
+            <RotateCcw className="size-3" aria-hidden />
+          </button>
         </Tooltip>
-        {ROLES.filter((r) => r !== role).map((r) => (
+        {choices.map((r) => (
           <Tooltip key={r} content={`Use the site's ${ROLE_LABEL[r].toLowerCase()}`}>
             <button
               type="button"
