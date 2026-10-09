@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Button } from "@/core/ui/button";
 import { Segmented } from "@/core/ui/segmented";
-import { Slider } from "@/core/ui/slider";
+import { HandColour, Slider } from "../../HandSlider";
 import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "../../board/store";
 import { ImageWell } from "../../ImageIntake";
@@ -68,7 +68,7 @@ export function LivingField({ node }: { node: StudioNode }) {
         {LIGHT.has(live.preset) ? (
           <label className="flex items-center gap-2 text-small text-fg-muted">
             <span className="w-14 shrink-0">Light</span>
-            <input type="color" value={/^#[0-9a-f]{6}$/i.test(live.colour) ? live.colour : "#77eeff"} aria-label="Living picture light" onChange={(e) => set({ ...live, colour: e.target.value })} />
+            <HandColour value={/^#[0-9a-f]{6}$/i.test(live.colour) ? live.colour : "#77eeff"} aria-label="Living picture light" onPick={(hex) => set({ ...live, colour: hex })} />
           </label>
         ) : null}
         {live.preset === "drift" || live.preset === "parallax" ? (

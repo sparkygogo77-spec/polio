@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Button } from "@/core/ui/button";
 import { Segmented } from "@/core/ui/segmented";
-import { Slider } from "@/core/ui/slider";
+import { Slider } from "../../HandSlider";
 import { play } from "@/core/audio/engine";
 import { useStudio, type StudioNode } from "../../board/store";
 import { ImageWell } from "../../ImageIntake";

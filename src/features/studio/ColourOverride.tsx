@@ -20,6 +20,7 @@ import { distinctShades, parseColor, toHex, ROLES, ROLE_LABEL, type Palette, typ
 import { CHIP } from "./colourMenu";
 import type { NodeColour } from "./shelf/run";
 import { tryProps } from "./tryLook";
+import { HandColour } from "./HandSlider";
 
 export function effectiveColour(colour: NodeColour | null, palette: Palette, role: RoleId): string {
   const raw = colour?.[role];
@@ -112,11 +113,10 @@ export function ColourOverride({
             />
           </Tooltip>
         ))}
-        <input
-          type="color"
+        <HandColour
           aria-label={`${ROLE_LABEL[role]} colour`}
           value={toHexish(effectiveColour(colour, palette, role))}
-          onChange={(e) => set(e.target.value)}
+          onPick={set}
           className="cursor-pointer border border-border bg-transparent p-0"
           style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square }}
         />

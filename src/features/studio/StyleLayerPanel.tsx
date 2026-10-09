@@ -31,6 +31,7 @@ import { sendDesign } from "./codeSend";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./shelf";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
+import { HandColour } from "./HandSlider";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
 const warn = { borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" };
@@ -58,7 +59,7 @@ export function VarRow({ v, source, layer, setVar }: { v: { name: string; value:
           {[...new Set([v.value, ...v.options])].map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : colour ? (
-        <input type="color" aria-label={v.name} value={hexOf(set ?? followed?.value ?? v.value)} onChange={(e) => setVar(v.name, e.target.value)} className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
+        <HandColour aria-label={v.name} value={hexOf(set ?? followed?.value ?? v.value)} onPick={(hex) => setVar(v.name, hex)} className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0" />
       ) : (
         <input type="text" aria-label={v.name} value={typed} onChange={(e) => setTyped(e.target.value)} onBlur={() => setVar(v.name, typed.trim() && typed.trim() !== v.value ? typed.trim() : null)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} className="h-5 w-28 rounded border border-border bg-transparent px-1 font-mono text-fine" />
       )}
