@@ -475,7 +475,17 @@ export function applyCaptured(t: Theme, node: { from?: { selector?: string } | n
   // No reading measure: the box is the measure. Not `node.w` itself —
   // `Text` sets words 2px in and widens by as much, and a cap at the box's
   // width took those 2px back (tests/inset-room.mjs).
-  const next: Theme = { ...t, captured: true, measurePx: 100_000 };
+  /*
+   * NO FLOOR UNDER A CAPTURED PART. The floor (`partGround`) keeps a page
+   * texture behind a site made here, whose parts are see-through by default.
+   * A part brought in from a real page already paints what that page painted,
+   * and where it is see-through the page shows through it there too. Painted
+   * the page's colour under all of them, a background texture on today's
+   * PonsStars import turned 398 parts cream: the TV, the yellow buttons drawn
+   * by the shapes under their words, and every drawing worn as a background
+   * (owner: "it broke the colors of the rest of the site").
+   */
+  const next: Theme = { ...t, captured: true, measurePx: 100_000, partGround: undefined };
   const tag = (selector.split(">").pop() ?? "").trim().split(/[:.#[]/)[0]!.toLowerCase();
   /*
    * Its line as tall as its box, written as the page's stylesheet keeps it.

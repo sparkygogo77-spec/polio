@@ -902,8 +902,13 @@ function TextureSection() {
         <SpotChips value={addTo} onChange={setAddTo} palette={palette} name="Where a new texture goes" />
         <div className="grid grid-cols-2 gap-2">
           {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => {
-            const sample = newLayer(k);
+            /* The sample IS the layer a press adds, at the strength it is
+               added at. It was drawn at 60% and added at 14%, so what came up
+               on the page was a ghost of what was pressed (owner: "the
+               textures also never came up how they were supposed to"). */
             const ground = spotsOfTarget(addTo).includes("page") || addTo === "over" ? palette.bg : palette.surface;
+            const base = newLayer(k);
+            const sample = { ...base, role: base.role === "accent" ? seenOn(ground, palette) : base.role, opacity: Math.max(base.opacity, 0.45) };
             return (
               <button
                 key={k}
@@ -911,10 +916,10 @@ function TextureSection() {
                 data-texture-sample={k}
                 aria-label={`Add ${TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k}`}
                 title={TEXTURE_KINDS.find((x) => x.id === k)?.hint}
-                onClick={() => { play("confirm"); const l = { ...newLayer(k), target: addTo }; s().addTexture(l); setOpenId(l.id); }}
+                onClick={() => { play("confirm"); const l = { ...sample, id: newLayer(k).id, target: addTo }; s().addTexture(l); setOpenId(l.id); }}
                 className="tactile flex flex-col overflow-hidden rounded-md border-2 border-border text-left hover:border-accent"
               >
-                <span aria-hidden className="block h-16 w-full" style={textureCss([{ ...sample, opacity: Math.max(sample.opacity, 0.6) }], palette, ground)} />
+                <span aria-hidden className="block h-16 w-full" style={textureCss([sample], palette, ground)} />
                 <span className="block truncate bg-elevated px-1.5 py-1 text-small font-medium text-fg">
                   {TEXTURE_KINDS.find((x) => x.id === k)?.label}
                 </span>
@@ -1034,6 +1039,20 @@ function Row({ label, value, children }: { label: string; value: string; childre
 }
 
 /* ------------------------------------------------------------------ */
+
+/**
+ * The palette colour a new texture is drawn in: the accent, unless it barely
+ * shows on the ground it lands on. On PonsStars the accent is a pale lime on
+ * a cream page, and stripes in it at the page's own zoom were not there at
+ * all; the highlight, else the words' colour, is.
+ */
+function seenOn(ground: string, palette: Palette): RoleId {
+  const g = parseColor(ground);
+  if (!g) return "accent";
+  const how = (r: RoleId) => { const c = parseColor(palette[r]); return c ? contrast(c, g) : 1; };
+  for (const r of ["accent", "highlight"] as RoleId[]) if (how(r) >= 2) return r;
+  return how("text") >= how("muted") ? "text" : "muted";
+}
 
 /** One of the light's three groups: a small name over its dials. */
 function LightGroup({ name, data, children }: { name: string; data: string; children: React.ReactNode }) {
