@@ -117,7 +117,23 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
    */
   const padY = (typeof box.padding === "number" ? box.padding * 2 : 0) + (t.padY ?? 0);
   const mid = t.centred;
-  const oneLine = paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
+  /* Words the page itself wrapped (`said.wrap`, an inline paragraph read over two rows) are never held to one line. */
+  const oneLine = !t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
+  /*
+   * A CENTRED LINE OVERRUNS ON BOTH SIDES. A line held to one line is as wide
+   * as its words, and a browser sets words too wide for their box from the
+   * left whatever the alignment, so a centred pill ("My profile" in PST's
+   * nav) ran out on the right only. Centred by the box instead, its words
+   * stay in the middle of the fill when another machine's glyphs are wider.
+   */
+  const spill = oneLine && (!!mid?.x || t.textAlign === "center");
+  /*
+   * And words the page wrapped get a hair of room past their box before they
+   * wrap: the box is where the page set them, and the same words a pixel
+   * wider here (PST's Balance note on a phone: 315 in 314) would otherwise
+   * wrap their last word where the page did not.
+   */
+  const slack = !!t.said?.wrap && !spill && !mid?.x && t.textAlign !== "center" && t.textAlign !== "right";
   return (
     /*
      * A hair of room on the left: `Fill` clips what leaves its box, and text
@@ -151,7 +167,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
      * it.
      */
     /* Centred by its own box (a grid's `place-items: center`, `applyLayout`): the words sit in the middle, down and across, with no inset to move them off it. */
-    <Fill t={t} data-part={id} data-one-line={oneLine ? "" : undefined} style={{ ...box, overflow: oneLine ? "visible" : "auto", paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y ? { display: "flex", flexDirection: "column", justifyContent: "center" } : {}) }}>
+    <Fill t={t} data-part={id} data-one-line={oneLine ? "" : undefined} style={{ ...box, overflow: oneLine ? "visible" : "auto", ...(slack ? { overflowX: "hidden" as const } : {}), paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y || spill ? { display: "flex", flexDirection: "column", justifyContent: mid?.y ? "center" : undefined, alignItems: spill ? "center" : undefined } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
@@ -162,7 +178,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
       */}
-      <div style={{ maxWidth: mid?.x ? "100%" : t.measurePx, width: mid?.x ? "fit-content" : undefined, marginLeft: mid?.x || t.textAlign === "center" || t.textAlign === "right" ? "auto" : undefined, marginRight: mid?.x || t.textAlign === "center" ? "auto" : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -4 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>

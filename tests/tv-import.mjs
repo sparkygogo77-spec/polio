@@ -170,7 +170,15 @@ await ui.locator("[data-github-button]").first().click();
 await ui.waitForTimeout(700);
 await ui.locator("[data-repo-bring]").fill("him/pst");
 await ui.locator("[data-repo-pull]").click();
-const board = () => ui.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state);
+/* The document is in IndexedDB once it outgrows localStorage (board/store/create.ts), with only a pointer left there. */
+const board = () => ui.evaluate(() => new Promise((done) => {
+  const local = JSON.parse(localStorage.getItem("builder.studio") ?? "{}");
+  if (local.state?.nodes) return done(local.state);
+  const req = indexedDB.open("builder.docs", 1);
+  req.onerror = () => done({ nodes: [] });
+  req.onupgradeneeded = () => { req.result.createObjectStore("docs"); };
+  req.onsuccess = () => { try { const g = req.result.transaction("docs", "readonly").objectStore("docs").get("builder.studio"); g.onsuccess = () => done(typeof g.result === "string" ? JSON.parse(g.result).state : { nodes: [] }); g.onerror = () => done({ nodes: [] }); } catch { done({ nodes: [] }); } };
+}));
 let st = await board();
 for (let i = 0; i < 150 && !st.nodes.length; i++) { await ui.waitForTimeout(1000); st = await board(); }
 await ui.waitForTimeout(2000);
@@ -343,7 +351,7 @@ const slot = ui.locator('[data-look-slot="filter"] input').first();
 await slot.fill("blur(1px)", { timeout: 3000 }).catch(() => {});
 await slot.press("Enter").catch(() => {});
 await ui.waitForTimeout(400);
-const typed = await ui.evaluate((id) => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.id === id)?.art?.filter ?? null, speaker.id);
+const typed = (await board()).nodes.find((n) => n.id === speaker.id)?.art?.filter ?? null;
 const shown = await ui.locator('[data-look-slot="background-image"] input').first().inputValue({ timeout: 2000 }).catch(() => "");
 check("…in the panel: the speaker's stripes shown in their slot, a filter typed is on the part", /repeating-linear-gradient/.test(shown) && typed === "blur(1px)", `${shown.slice(0, 40)} · ${typed}`);
 /* Back as it came, for the score below. */
@@ -494,7 +502,16 @@ for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at lea
   };
   /* Half the width the page's own words take (the h1 itself is the page's width). */
   const wordsW = await live.evaluate(() => { const e = document.querySelector('[data-hook="page-title"]'); const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; });
-  await ui.evaluate(({ id, w }) => { const k = "builder.studio", env = JSON.parse(localStorage.getItem(k)); env.state.nodes = env.state.nodes.map((n) => (n.id === id ? { ...n, w } : n)); localStorage.setItem(k, JSON.stringify(env)); }, { id: title?.id, w: Math.round(wordsW / 2) });
+  /* Stored where the document lives: IndexedDB, and localStorage when it fits there. */
+  const doc = await board();
+  await ui.evaluate(({ doc, id, w }) => new Promise((done) => {
+    const env = JSON.stringify({ state: { ...doc, nodes: doc.nodes.map((n) => (n.id === id ? { ...n, w } : n)) }, version: 0 });
+    try { localStorage.setItem("builder.studio", env); } catch {}
+    const req = indexedDB.open("builder.docs", 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore("docs"); };
+    req.onerror = () => done(null);
+    req.onsuccess = () => { const tx = req.result.transaction("docs", "readwrite"); tx.objectStore("docs").put(env, "builder.studio"); tx.oncomplete = () => done(null); tx.onerror = () => done(null); };
+  }), { doc, id: title?.id, w: Math.round(wordsW / 2) });
     const onBoardCut = await cut("/builder", '[data-node-id="ID"]');
   const inPreview = await cut("/builder/preview", '[data-live-node="ID"]');
   for (const [where, r] of [["on the board", onBoardCut], ["in the Preview", inPreview]]) check(`7. the title stored at half its width runs past its box on one line ${where}, cut by nothing`, !!title && r.found && r.past > 10 && r.oneLine && r.cutBy.length === 0, JSON.stringify(r));
