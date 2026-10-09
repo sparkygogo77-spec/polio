@@ -124,7 +124,16 @@ function pickOnBoard(ids: string[]) {
   const first = s.nodes.find((n) => n.id === real[0]);
   if (!first) return;
   if (first.pageId !== s.activePageId) s.setActivePage(first.pageId);
-  s.setSelection(real.filter((id) => s.nodes.find((n) => n.id === id)?.pageId === first.pageId));
+  /* Only what the board draws now. A pick of a hidden part switches its panel
+     on so it can be drawn; picking a colour's hundreds of parts switched every
+     hidden panel on at once, over the page, and Undo (which steps edits, not
+     what is shown) could not take it back (J, 2026-10-09). */
+  const drawn = (id: string) => { const el = document.querySelector(`[data-node-id="${CSS.escape(id)}"]`); return !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none"; };
+  const ids_ = real.filter((id) => s.nodes.find((n) => n.id === id)?.pageId === first.pageId);
+  const on = s.statesOn ?? [];
+  s.setSelection(first.pageId === s.activePageId ? ids_.filter(drawn) : ids_);
+  /* And should a pick still reach a hidden panel, what is shown stays as it was. */
+  useStudio.getState().setStatesOn(on);
   play("select");
 }
 
