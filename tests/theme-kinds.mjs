@@ -32,6 +32,7 @@ for (let i = 0; i < 3; i++) {
   add({ id: `field${i}`, featureId: "field", x: x + 20, y: 200, w: 200, h: 30, radius: 10, colour: { text: INK, bg: WHITE }, edge: { width: 2, style: "solid", colour: INK } });
   add({ id: `words${i}`, featureId: "prose", x: x + 20, y: 300, w: 200, h: 30, colour: { text: INK } });
 }
+for (let i = 0; i < 3; i++) add({ id: `ball${i}`, x: 5000 + i * 100, y: 0, w: 22, h: 22, radius: 11, colour: { bg: "rgb(50, 32, 31)" } });
 add({ id: "oneoff", x: 2000, y: 0, w: 100, h: 100, colour: { text: INK, bg: "rgb(30, 90, 200)" } });
 add({ id: "loose", featureId: "prose", x: 3000, y: 0, w: 100, h: 20, colour: { text: "rgb(17, 17, 17)" } });
 
@@ -50,6 +51,8 @@ check("4. a white field and the cream card are two kinds", !!field && field !== 
 check("6. names say what a kind is for, never its colour: the most-worn surface is the main fill", card?.name === "Main fill" && tabs?.name === "Labels", r.kinds.map((k) => k.name).join(", "));
 check("7. a gradient button is one kind, its stops light first", r.kinds.filter((k) => k.button).length === 1 && JSON.stringify(buttons?.stops) === JSON.stringify(["rgb(255, 243, 176)", "rgb(243, 212, 64)"]), JSON.stringify(buttons?.stops));
 check("8. a kind carries every part it is on, and the words on it, so one edit reaches them all", JSON.stringify(card?.ids) === JSON.stringify(["card0", "card1", "card2"]) && ["words0", "words1", "words2"].every((id) => card.wordsIds.includes(id)) && tabs.wordsIds.length === 3, JSON.stringify(card?.wordsIds));
+check("9. a surface of specks (a TV's antenna balls) is decoration, not a kind", !r.kinds.some((k) => k.fill === "rgb(50, 32, 31)"), r.kinds.map((k) => k.name).join(", "));
+check("10. a short strip is a tab, drawn over a panel's top; a card or a field is not", tabs?.tab === true && card?.tab === false && field?.tab === false && buttons?.tab === false);
 check("5. a one-off colour is not a kind", !r.kinds.some((k) => k.fill === "rgb(30, 90, 200)"));
 check("…and words on nothing stand on the page", r.page.words === "rgb(17, 17, 17)", JSON.stringify(r.page));
 
