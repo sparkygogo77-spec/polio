@@ -43,6 +43,12 @@ export interface LivingPicture {
    * Written as `--live-x` / `--live-y`, which the layered keyframes read.
    */
   angle?: number;
+  /**
+   * Laid against the window, not the part: a page's living background worn
+   * by several parts on the site (`styleLayer.ts#wearTextures`), so every
+   * copy lines up with the others and the page reads as one picture.
+   */
+  fixed?: boolean;
 }
 
 /**
@@ -160,6 +166,7 @@ export function liveCss(l: LivingPicture): Record<string, string> {
     out["background-size"] = layers.map(() => "120% 120%").join(", ");
     out["background-position"] = layers.map(() => "50% 50%").join(", ");
     out["background-repeat"] = "no-repeat";
+    if (l.fixed) out["background-attachment"] = layers.map(() => "fixed").join(", ");
   }
   out.animation = liveAnimation(l);
   if (l.preset === "parallax") out["animation-timeline"] = "view()";
@@ -174,7 +181,7 @@ export function liveStyle(l: LivingPicture): Record<string, string> {
 }
 
 /** What a motion's slots are when it is taken off again. */
-export const LIVE_UNSET: Record<string, string> = { "animation-timeline": "auto", "background-size": "auto", "background-position": "0% 0%", "background-repeat": "repeat" };
+export const LIVE_UNSET: Record<string, string> = { "animation-timeline": "auto", "background-attachment": "scroll", "background-size": "auto", "background-position": "0% 0%", "background-repeat": "repeat" };
 
 /* ------------------------------------------------------------------ */
 /* The keyframes                                                       */

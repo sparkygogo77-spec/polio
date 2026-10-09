@@ -225,10 +225,14 @@ export interface LayerNode {
  * the Look preview, `PieceTexture.tsx`) as living pictures of their own, so
  * the layer writes the motion for their hooks the way it writes any living
  * picture (`artCss`): the cut layers, the tokens and the fixed keyframes, no
- * script. A part's own living picture is kept.
+ * script. A part's own living picture is kept. The page's is laid against
+ * the window (`background-attachment: fixed`), so the parts as wide as the
+ * page that wear it show one picture across their edges.
  */
-export function wearTextures<T extends { texture?: string | null; art?: LayerNode["art"] }>(nodes: readonly T[], layers: readonly { id: string; kind?: string; live?: unknown }[] | null | undefined): T[] {
-  const alive = new Map((layers ?? []).filter((l) => l.kind === "image" && isLiving(l.live) && (l.live as LivingPicture).layers?.length).map((l) => [l.id, l.live as LivingPicture]));
+export function wearTextures<T extends { texture?: string | null; art?: LayerNode["art"] }>(nodes: readonly T[], layers: readonly { id: string; kind?: string; live?: unknown; target?: unknown }[] | null | undefined): T[] {
+  /* The page's: laid against the window, so the parts wearing it show one picture, not one per part (`LivingPicture.fixed`). */
+  const page = (t: unknown) => t === "both" || (typeof t === "string" && t.split("+").includes("page"));
+  const alive = new Map((layers ?? []).filter((l) => l.kind === "image" && isLiving(l.live) && (l.live as LivingPicture).layers?.length).map((l) => [l.id, { ...(l.live as LivingPicture), ...(page(l.target) ? { fixed: true } : {}) }]));
   if (!alive.size) return [...nodes];
   return nodes.map((n) => {
     const live = n.texture ? alive.get(n.texture) : undefined;

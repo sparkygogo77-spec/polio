@@ -64,6 +64,7 @@ const source = { repo: "x/PST", ref: "main", dir: "web", files: [{ file: "play.h
 const out = buildLayer(nodes, palette, source, { kit: true });
 const rule = out.rules.find((r) => r.selector === '[data-hook="page-top"]');
 check("Send the design back writes the motion for each hook wearing it", out.rules.length === 2 && rule?.declarations.some((d) => d.startsWith("animation: polio-live-drift-3")) && rule?.declarations.includes("--live-x: 38.97"), rule?.declarations.join("; ").slice(0, 240));
+check("the page's is laid against the window, so the parts show one picture", rule?.declarations.includes("background-attachment: fixed, fixed, fixed"));
 check("its layers go out once, named by both parts", out.css.split("data:image/webp;base64,FRONT").length === 2 && out.rules.every((r) => r.declarations.includes("--live-layers: var(--polio-live-layers-1)")));
 check("with the keyframes and a still page for reduced motion", out.css.includes("@keyframes polio-live-drift-3 ") && /prefers-reduced-motion/.test(out.css));
 check("a part wearing no living texture is left alone", wearTextures([{ id: "c", texture: null }], [layer])[0].art === undefined);
@@ -106,7 +107,9 @@ check("a picture dropped in is cut into layers and drifts", layers === 3, `${lay
 
 /** What paints the page: the parts wearing it, else the frame. */
 const painted = () => ui.evaluate(() => {
-  const el = document.querySelector("[data-part-texture]") ?? document.querySelector("[data-frame]");
+  /* The page's texture worn by a part is a page-sized layer inside it (`WornTexture.tsx`); else the frame paints it. */
+  const all = [...document.querySelectorAll("[data-part-texture], [data-part-texture] *, [data-frame]")];
+  const el = all.find((e) => /polio-live-|^none$/.test(getComputedStyle(e).animationName) && getComputedStyle(e).backgroundImage.includes("url(")) ?? all[0];
   const c = getComputedStyle(el);
   return { n: document.querySelectorAll("[data-part-texture]").length, name: c.animationName, pos: c.backgroundPosition, x: c.getPropertyValue("--live-x").trim() };
 });
