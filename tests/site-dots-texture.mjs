@@ -11,7 +11,7 @@
  *   1. PST's dot gradient reads as dots (colour, how solid, tile), is
  *      rewritten in place and taken off cleanly (`siteDots.ts`);
  *   2. on the saved PST board, the page pressed in the Colours preview shows
- *      Dots, the site's own, and no layer list is left under Texture;
+ *      Original (the site's own dots), and no layer list is left under Texture;
  *   3. its dials rewrite the site's own gradient; None takes it off the page
  *      part, one undo puts it back;
  *   4. Refresh: three choices, one row each, every one inside the dialog.
@@ -59,7 +59,8 @@ await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 
 await ui.waitForTimeout(500);
 const row = ui.locator("[data-kind-texture]").first();
 const pressed = () => row.locator("[data-texture-sample][aria-pressed=\"true\"]").getAttribute("data-texture-sample").catch(() => null);
-check("2. the page shows Dots, the site's own", (await pressed()) === "dots" && (await row.getAttribute("data-texture-site")) === "", `${await pressed()}`);
+/* Its own dots are its "Original" texture, not the builder's Dots (J, 2026-10-09; tests/original-texture.mjs). */
+check("2. the page shows Original, the site's own dots", (await pressed()) === "original" && (await row.getAttribute("data-texture-site")) === "", `${await pressed()}`);
 check("…and no list of layers is left under Texture", (await ui.locator("[data-texture-layers-open], [data-look-stack]").count()) === 0);
 
 /* 3. */
