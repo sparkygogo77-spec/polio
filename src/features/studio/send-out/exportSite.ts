@@ -477,6 +477,8 @@ function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, 
       if (dialog || (world && (a.name.startsWith("data-world-") || a.name === "data-part-world")) || a.name === "data-offsite") continue;
       /* A "What's new" card is the site's too: its feature finds its steps, buttons and previews by these (`library/tour.ts`). */
       if (a.name.startsWith("data-tour") || a.name === "data-copy-of" || a.name === "data-copy-node") continue;
+      /* An orb's ball is the site's too: the planet feature finds it, its settings and its picture by these (`library/planetJs.ts`). */
+      if (a.name.startsWith("data-planet")) continue;
       /* For code (`exportForCode.ts`), the hooks a brought-in page's code finds its words by stay: `data-hook` on a run. */
       if (keepHooks && a.name === "data-hook") continue;
       /* A frame keeps its title: it is the frame's accessible name, not a part name the Builder kept. */

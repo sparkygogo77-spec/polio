@@ -10,16 +10,16 @@
  * size, tilt, colour, glow — and the same rings and tag, so the difference
  * between them is the drawing and nothing else.
  *
- *   orb-css     layered gradients in a round box. No canvas, no download,
- *               renders anywhere including in a screenshot with no GPU.
- *               The light is painted, so it cannot move round the sphere.
+ *   orb-css     a planet drawn by the page on a plain canvas, a pixel at a
+ *               time (`library/planetJs.ts`): no library, no GPU. It
+ *               turns on its own axis and every way in the hand.
  *   orb-webgl   a real sphere in three.js. It turns, and the key light
  *               follows the pointer, because the light is a light. Needs a
  *               GPU context and the library, and falls back to the drawn
  *               orb when either is missing.
- *   orb-image   a picture, with the rings, the glow and the tag drawn round
- *               it. Whatever a renderer can make, this can show; nothing
- *               about it responds to anything.
+ *   orb-image   the same planet with a picture wrapped round it, the way
+ *               a map wraps a globe ("Wrap it round" off: the picture laid
+ *               flat in the circle, as it was).
  *
  * Board mode is one still frame in all three — no timers, no animation loop
  * — which is the rule every part keeps.
@@ -28,6 +28,7 @@ import * as React from "react";
 import { Fill } from "./primitives";
 import { items, withAlpha, type Theme } from "./theme";
 import { num, opt, type PartMode, type PartProps } from "./types";
+import { planet } from "../library/planetJs";
 
 /* ------------------------------------------------------------------ */
 /* Shared                                                              */
@@ -203,59 +204,38 @@ function Stage({
 }
 
 /* ------------------------------------------------------------------ */
-/* (a) Drawn: layered gradients                                        */
+/* The planet: the drawn orb and the picture orb, turnable              */
 /* ------------------------------------------------------------------ */
 
 /**
- * The sphere, drawn: a dark body, two crescents hugging the rim, a bounce
- * off the underside, one specular, and the far edge falling into the dark.
- *
- * The crescents are the thing to get right, and a plain radial gradient
- * cannot make one: a circle of light on a sphere is a blob, and a blob reads
- * as a stain rather than as a lit edge. Each crescent here is a *conic*
- * gradient — light through one arc of the turn and nothing through the rest
- * — masked to the outer band of the disc, so what is left is a band of
- * colour following the rim through the arc it was given. That is what the
- * WebGL orb gets for free from a reflection, done by hand.
+ * A ball that turns every way (J, 2026-10-10: "rotate every degree and be
+ * draggable like a sphere to see all sides, like a planet"). Drawn by
+ * `library/planetJs.ts`, the same lines the published page and a
+ * builder-ready site run: its settings ride on `data-planet-*` and its
+ * picture on a hidden `<img>`, so the page exported from this one still has
+ * them once React is gone. On the board it is one still frame, out of
+ * anyone's hands, as every part is there.
  */
-const ARC = { ring: 48, blur: 8, span: 120, mid: 70 };
-
-function DrawnBall({ s, spin }: { s: OrbSet; spin: boolean }) {
-  const c = lights(s.hue);
-  // The lit arcs sit either side of the sphere, turning with the tilt.
-  const from = 30 + s.tilt * 0.5;
-  const mask = `radial-gradient(circle at 50% 50%, transparent ${ARC.ring}%, #000 ${ARC.ring + 12}%, #000 100%)`;
-  const crescent = (start: number, colour: (a?: number) => string): React.CSSProperties => ({
-    position: "absolute", inset: 0, borderRadius: "50%", mixBlendMode: "screen", filter: `blur(${ARC.blur}px)`,
-    background: `conic-gradient(from ${start}deg at 50% 50%, transparent 0deg, ${colour(0.15)} 18deg, ${colour(1)} ${ARC.mid}deg, ${colour(0.15)} ${ARC.span}deg, transparent ${ARC.span + 20}deg)`,
-    WebkitMaskImage: mask,
-    maskImage: mask,
-  });
+function PlanetBall({ s, src, onFail, recolour }: { s: OrbSet; src?: string | null; onFail?: () => void; recolour?: boolean }) {
+  const host = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const p = planet(el);
+    return () => p?.stop();
+  }, [s.hue, s.tilt, s.moving, s.hands, src]);
   return (
     <div
-      style={{
-        position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
-        background: `radial-gradient(circle at 34% 28%, ${c.body(13)} 0%, ${c.body(6)} 34%, #000 74%)`,
-        boxShadow: `inset 0 0 0 1px ${c.key(0.14)}, 0 28px 56px rgba(0,0,0,0.6)`,
-        animation: spin ? "orb-float 7s ease-in-out infinite" : undefined,
-      }}
+      ref={host}
+      data-planet=""
+      data-planet-hue={Math.round(s.hue)}
+      data-planet-tilt={Math.round(s.tilt)}
+      data-planet-spin={s.moving ? "yes" : "no"}
+      data-planet-hands={s.hands ? "yes" : "no"}
+      style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "0 28px 56px rgba(0,0,0,0.6)", filter: recolour ? `hue-rotate(${Math.round(s.hue - 96)}deg) saturate(1.15)` : undefined }}
     >
-      <span style={crescent(from, c.key)} />
-      <span style={crescent(from + 150, c.cool)} />
-      {/* the bounce: what the two lights leave on the underside */}
-      <span
-        style={{
-          position: "absolute", inset: 0, mixBlendMode: "screen", opacity: 0.55, filter: "blur(14px)",
-          background: `radial-gradient(circle at 62% 74%, ${c.key(0.5)} 0%, transparent 26%), radial-gradient(circle at 34% 70%, ${c.cool(0.45)} 0%, transparent 28%)`,
-        }}
-      />
-      {/* the specular: small, hard, high and left */}
-      <span style={{ position: "absolute", left: "17%", top: "11%", width: "30%", height: "19%", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.08) 42%, transparent 68%)", filter: "blur(3px)" }} />
-      {/* the terminator: the far side falls into the dark */}
-      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle at 34% 26%, transparent 34%, rgba(0,0,0,0.5) 100%)" }} />
-      {/* the rim: a hair of light right at the edge */}
-      <span style={{ position: "absolute", inset: 0, borderRadius: "50%", mixBlendMode: "screen", background: `radial-gradient(circle at 50% 50%, transparent 78%, ${c.keySoft(0.18)} 95%, transparent 100%)` }} />
-      {spin ? <style>{"@keyframes orb-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}"}</style> : null}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a part ships without next/image */}
+      {src ? <img data-planet-picture="" src={src} alt="" onError={onFail} style={{ display: "none" }} /> : null}
     </div>
   );
 }
@@ -380,6 +360,9 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
   React.useEffect(() => {
     const el = host.current;
     if (!el) return;
+    /* The Builder's three.js ball holds its host: the planet script (run on the published page, where this is gone) leaves it be. */
+    const claim = el as HTMLDivElement & { __planet?: unknown };
+    claim.__planet = { stop() {}, turn: () => [turn.current.x, turn.current.y] };
     let stop = false;
     let frame = 0;
     let dispose: (() => void) | null = null;
@@ -413,6 +396,8 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       renderer.domElement.style.display = "block";
+      /* Published, the planet script takes this blank canvas away and draws its own ball. */
+      renderer.domElement.setAttribute("data-planet-canvas", "");
       el.append(renderer.domElement);
 
       /* The room, painted: two wide lamps in the part's colours and a white slash. */
@@ -520,6 +505,7 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
     return () => {
       stop = true;
       dispose?.();
+      claim.__planet = null;
     };
   }, [s.hue, s.tilt, s.glow, s.moving, surface, onFail]);
 
@@ -533,6 +519,11 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
     <div
       ref={host}
       data-orb-ball=""
+      data-planet=""
+      data-planet-hue={Math.round(s.hue)}
+      data-planet-tilt={Math.round(s.tilt)}
+      data-planet-spin={s.moving ? "yes" : "no"}
+      data-planet-hands={s.hands ? "yes" : "no"}
       style={{
         position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
         cursor: s.hands ? "grab" : undefined, touchAction: s.hands ? "none" : undefined,
@@ -622,7 +613,7 @@ export function Orb({ id, content, options, theme: t, mode }: PartProps) {
     const { src, tag } = pictureOf(words);
     return (
       <Stage t={t} id={id} s={s} tag={tag || "The signal is live"}>
-        {src && !failed ? <PictureBall s={s} src={src} recolour={opt(options, "recolour", "no") === "yes"} onFail={fail} /> : <DrawnBall s={s} spin={s.moving} />}
+        {src && !failed && opt(options, "wrap", "yes") === "no" ? <PictureBall s={s} src={src} recolour={opt(options, "recolour", "no") === "yes"} onFail={fail} /> : <PlanetBall s={s} src={src && !failed ? src : null} onFail={fail} recolour={!!src && opt(options, "recolour", "no") === "yes"} />}
       </Stage>
     );
   }
@@ -630,14 +621,14 @@ export function Orb({ id, content, options, theme: t, mode }: PartProps) {
   if (id === "orb-webgl") {
     return (
       <Stage t={t} id={id} s={s} tag={failed ? "Drawn, no WebGL here" : words.join(", ")}>
-        {failed ? <DrawnBall s={s} spin={s.moving} /> : <GlBall s={s} surface={opt(options, "surface", "glass")} onFail={fail} />}
+        {failed ? <PlanetBall s={s} /> : <GlBall s={s} surface={opt(options, "surface", "glass")} onFail={fail} />}
       </Stage>
     );
   }
 
   return (
     <Stage t={t} id={id} s={s} tag={words.join(", ")}>
-      <DrawnBall s={s} spin={s.moving} />
+      <PlanetBall s={s} />
     </Stage>
   );
 }

@@ -466,10 +466,17 @@ interface Carrier { id: string; featureId?: string; work?: WorkUse | null }
  */
 export const OWN_FEATURE: Readonly<Record<string, string>> = { "whats-new": "whats-new" };
 
+/**
+ * Shelf parts drawn by a library feature on the published page, where React
+ * is gone: the orbs are a ball the "planet" feature turns (`planetJs.ts`).
+ * Unlike `OWN_FEATURE`, the shelf places them as parts, not as features.
+ */
+export const PART_SCRIPT: Readonly<Record<string, string>> = { "orb-css": "planet", "orb-webgl": "planet", "orb-image": "planet" };
+
 /** The features a part runs: those it was given, and its own. */
 function usesHere(n: Carrier): WorkUse[] {
   const uses = onUsesOf(n.work);
-  const own = n.featureId ? OWN_FEATURE[n.featureId] : undefined;
+  const own = n.featureId ? OWN_FEATURE[n.featureId] ?? PART_SCRIPT[n.featureId] : undefined;
   return own && !onUsesOf(n.work).some((u) => u.id === own) && !usesOf(n.work).some((u) => u.id === own && u.off) ? [...uses, { id: own, inputs: {} }] : uses;
 }
 

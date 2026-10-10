@@ -1,5 +1,6 @@
 import type { Work } from "../works.ts";
 import { CALM, SHEET_TRANSITION } from "./motion.ts";
+import { PLANET_JS } from "../planetJs.ts";
 
 export const EMBED: Work = {
   manifest: {
@@ -479,6 +480,51 @@ export const SCROLL_GROW: Work = {
   (box || window).addEventListener("scroll", soon, { passive: true });
   window.addEventListener("resize", soon);
   place();
+});
+`,
+};
+
+/**
+ * The planet: a ball that turns on its own and in the hand (`../planetJs.ts`).
+ * The shelf's orbs carry it (`works.ts#PART_SCRIPT`), so a published orb
+ * turns as the Preview's does; given to any other part, or named on a hook
+ * of a builder-ready site (`--builder-motion: "planet"`), it draws the ball
+ * in the part, as big as fits.
+ */
+export const PLANET: Work = {
+  manifest: {
+    id: "planet",
+    name: "Planet",
+    category: "media",
+    blurb: "A ball in the part that turns slowly on its own and can be dragged round any way to see every side. A picture wraps round it.",
+    inputs: [
+      { id: "picture", label: "Picture to wrap round it", kind: "text", default: "", placeholder: "/planet.png" },
+      { id: "hue", label: "Colour (0 to 360, round the wheel)", kind: "number", default: "96" },
+      { id: "spin", label: "Turns on its own", kind: "one", default: "yes", values: ["yes", "no"] },
+      { id: "speed", label: "Speed", kind: "number", default: "1", advanced: true },
+      { id: "tilt", label: "Lean (degrees)", kind: "number", default: "-22", advanced: true },
+    ],
+    needs: "none",
+    says: ["planet", "globe", "turnable sphere", "draggable sphere", "spinning globe", "rotating planet"],
+    look: { sample: "◐ planet", caption: "planet · turns in the hand" },
+    version: 1,
+  },
+  script: `siteFeatures.define("planet", function (el, inputs) {
+${PLANET_JS}
+  var hosts = el.hasAttribute("data-planet") ? [el] : Array.prototype.slice.call(el.querySelectorAll("[data-planet]"));
+  if (!hosts.length) {
+    /* Any other part: a ball as big as fits, in its middle. */
+    if (getComputedStyle(el).position === "static") el.style.position = "relative";
+    var h = document.createElement("div");
+    h.setAttribute("data-planet", ""); h.setAttribute("data-feature-layer", "planet");
+    h.style.cssText = "position:absolute;left:50%;top:50%;height:100%;max-width:100%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%";
+    /* A picture the part was given for it goes inside the ball. */
+    var pic = el.querySelector("img[data-planet-picture]");
+    if (pic) h.appendChild(pic);
+    el.appendChild(h);
+    hosts = [h];
+  }
+  hosts.forEach(function (h) { polioPlanet(h, inputs); });
 });
 `,
 };
