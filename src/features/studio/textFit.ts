@@ -59,6 +59,8 @@ export interface Fitted {
   id: string;
   h: number;
   y: number;
+  /** A line of words wider than its box in this machine's font: the width it drew at (`lineWidth`). */
+  w?: number;
 }
 
 /**
@@ -361,6 +363,35 @@ export function atFullSize<T>(read: () => T): T {
   try { return read(); } finally { board.style.zoom = was; }
 }
 
+/**
+ * THE WIDTH A LINE OF WORDS NEEDS, IN THE FONT THIS MACHINE DREW IT IN.
+ *
+ * The import reads a page in the builder's own headless browser, so every
+ * box is as wide as the words were in THAT machine's fonts. A page that
+ * names a system font (`ui-monospace`, `system-ui`) draws in another face on
+ * his machine: PST's title read 314 wide and drew 334 in Consolas, so its box
+ * ended well before "page" (J, 2026-10-10). A line the part holds on one row
+ * (`data-one-line`) that runs past its box gets the width it drew at, the
+ * way a box that drew taller gets its height. Left-set lines only: a centred
+ * line spills both ways and stays centred on its box. Undefined when it fits.
+ */
+export function lineWidth(el: HTMLElement, w: number): number | undefined {
+  const line = el.querySelector<HTMLElement>("[data-one-line]");
+  if (!line) return undefined;
+  const at = line.getBoundingClientRect();
+  let left = Infinity, right = -Infinity;
+  const range = document.createRange();
+  const walk = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+  for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+    if (!(t.textContent ?? "").replace(/\u200b/g, "").trim()) continue;
+    range.selectNodeContents(t);
+    for (const q of range.getClientRects()) if (q.width > 0) { left = Math.min(left, q.left); right = Math.max(right, q.right); }
+  }
+  if (!(right > left) || left < at.left - 0.5) return undefined;
+  const need = Math.ceil(right - el.getBoundingClientRect().left + (parseFloat(getComputedStyle(line).paddingRight) || 0));
+  return need > w + 1 ? need : undefined;
+}
+
 /** What a node's box drew at on the board, or null if it is not on screen. */
 export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }): Drawn | null {
   const el = document.querySelector(`[data-node-id="${node.id}"]`);
@@ -464,16 +495,25 @@ export function useSettleToWords(
     if (!ns.some((n) => !n.byHand)) return;
     const machines = new Set(ns.filter((n) => !n.byHand).map((n) => n.id));
     const boxes: Drawn[] = [];
+    const wide = new Map<string, number>();
     atFullSize(() => {
       for (const n of ns) {
         const d = drawnOnBoard(n);
         if (d) boxes.push(d);
+        const el = d && machines.has(n.id) ? document.querySelector(`[data-node-id="${n.id}"]`) : null;
+        const w = el instanceof HTMLElement ? lineWidth(el, n.w) : undefined;
+        if (w) wide.set(n.id, w);
       }
     });
     if (!boxes.length) return;
     const fitted = fitRows(boxes, (id) => machines.has(id), latest.current.frame);
+    /* A line of words wider than its box in this machine's font is as wide as it drew (`lineWidth`). */
+    for (const [id, w] of wide) {
+      const f = fitted.find((x) => x.id === id), n = ns.find((x) => x.id === id)!;
+      if (f) f.w = w; else fitted.push({ id, h: n.h, y: n.y, w });
+    }
     if (!fitted.length) { said.current = ""; return; }
-    const print = fitted.map((f) => `${f.id}:${f.h},${f.y}`).join("|");
+    const print = fitted.map((f) => `${f.id}:${f.h},${f.y},${f.w ?? ""}`).join("|");
     if (print === said.current) return;
     said.current = print;
     latest.current.apply(withPressed(fitted, latest.current.nodes));

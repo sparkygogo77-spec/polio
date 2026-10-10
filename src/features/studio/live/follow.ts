@@ -36,14 +36,18 @@ function wordsEnd(el: Element): { right: number; mid: number } | null {
   return q ? { right: q.right, mid: (q.top + q.bottom) / 2 } : null;
 }
 
-/** Place every follower on the page drawn under `root`. `find` names a part's element by its id. */
-export function placeFollowers(root: HTMLElement, followers: { id: string; follows: Follows }[], find: (id: string) => string): void {
+/**
+ * Place every follower on the page drawn under `root`. `find` names a part's element by its id;
+ * `words` the element holding its words, when that is not the part's own (the board's part
+ * carries chips with words of their own). `scale` is the page's zoom, when it is not a transform on `root`.
+ */
+export function placeFollowers(root: HTMLElement, followers: { id: string; follows: Follows }[], find: (id: string) => string, opts: { words?: (id: string) => string; scale?: number } = {}): void {
   /* The page may be drawn scaled (the Preview fits a wide page in its window): screen pixels over the page's own. */
-  const scale = root.offsetWidth > 0 ? root.getBoundingClientRect().width / root.offsetWidth : 1;
+  const scale = opts.scale ?? (root.offsetWidth > 0 ? root.getBoundingClientRect().width / root.offsetWidth : 1);
   if (!(scale > 0)) return;
   for (const f of followers) {
     const el = root.querySelector<HTMLElement>(find(f.id));
-    const to = root.querySelector(find(f.follows.id));
+    const to = root.querySelector((opts.words ?? find)(f.follows.id));
     if (!el || !to) continue;
     el.style.translate = "";
     const end = wordsEnd(to);

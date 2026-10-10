@@ -51,6 +51,7 @@ import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { AMBIENT } from "../shelf";
 import { runWorks } from "../live/runWorks";
+import { followsOf, placeFollowers } from "../live/follow";
 
 import { shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,LABEL_LINE,LABEL_GAP,SITE_TOP_MAX,SCREEN_H,snapGrid,ERASE_REACH,MIN_W,MIN_H,type Handle,type Drag,type Guides } from "./helpers";
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
@@ -163,6 +164,27 @@ export function DesktopCanvas() {
   const nominalZoom = useStudio((s) => s.zoom);
   const zoom = nominalZoom * BASE_ZOOM;
   const pan = useStudio((s) => s.pan);
+  /*
+   * A part set right after a line's words follows them wherever they end,
+   * on the board as in the Preview (`live/follow.ts`). PST's Balance note
+   * read as two rows in the builder's own fonts; in his it wrapped "your"
+   * down, and the "?" kept its read place over "matches." (J, 2026-10-10).
+   */
+  const zoomRef = React.useRef<HTMLDivElement>(null);
+  const followers = React.useMemo(() => nodes.flatMap((n) => { const f = followsOf(n); return f && !(n as { state?: unknown }).state ? [{ id: n.id, follows: f }] : []; }), [nodes]);
+  React.useLayoutEffect(() => {
+    const root = zoomRef.current;
+    if (!root || !followers.length) return;
+    const find = (id: string) => `[data-node-id="${id.replace(/["\\]/g, "\\$&")}"]`;
+    const opts = { words: (id: string) => `${find(id)} > [data-part-drawn]`, scale: zoom };
+    let frame = 0;
+    const place = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => placeFollowers(root, followers, find, opts)); };
+    placeFollowers(root, followers, find, opts);
+    const seen = new ResizeObserver(place);
+    for (const f of followers) { const to = root.querySelector(opts.words(f.follows.id)); if (to) seen.observe(to); }
+    void document.fonts?.ready.then(place);
+    return () => { cancelAnimationFrame(frame); seen.disconnect(); };
+  });
   /**
    * Is the hand making a boundary rather than laying down ink?
    *
@@ -1611,7 +1633,7 @@ export function DesktopCanvas() {
       */}
       <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
       {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at (and `--point-z` the zoom a pointed part's glow is sized against, globals.css), set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
-      <div data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
+      <div ref={zoomRef} data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
         {/*
           The page's box, which no longer clips to itself.
 

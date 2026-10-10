@@ -168,9 +168,9 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
         let moved = false;
         const nodes = s.nodes.map((n) => {
           const f = by.get(n.id);
-          if (!f || (f.h === n.h && f.y === n.y)) return n;
+          if (!f || (f.h === n.h && f.y === n.y && (f.w === undefined || f.w === n.w))) return n;
           moved = true;
-          return { ...n, h: f.h, y: f.y };
+          return { ...n, h: f.h, y: f.y, ...(f.w !== undefined ? { w: f.w } : {}) };
         });
         // Nothing to say is said by changing nothing: a new array here
         // would re-render the board and be measured again for ever.

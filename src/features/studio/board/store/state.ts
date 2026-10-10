@@ -249,7 +249,7 @@ export interface StudioState extends Doc {
    * checkpoint for each of those would fill the undo stack with steps that
    * undo nothing a person did, and one of them would put the overlap back.
    */
-  settleToWords: (fitted: { id: string; h: number; y: number }[]) => void;
+  settleToWords: (fitted: { id: string; h: number; y: number; w?: number }[]) => void;
   /**
    * Put the sentences a capture broke into parts back together.
    *
