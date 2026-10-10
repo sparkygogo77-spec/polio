@@ -36,6 +36,7 @@ import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 import { CURSOR_ASK, cursorFrom, takeCursorAsk } from "./cursorPicture";
 import { setCursorPicture } from "./ShelfCards";
+import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 
 /**
  * The models that DRAW a picture, which is what this panel is for.
@@ -98,6 +99,25 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     window.addEventListener("studio:cursor-draw", on);
     return () => window.removeEventListener("studio:cursor-draw", on);
   }, []);
+  /*
+   * MAKE IT 3D (J, 2026-10-10). On a sphere, cube or pyramid (code, nothing
+   * more spent), or a real 3D model from the one model that returns a solid
+   * (`pictures/threeD.ts`). A Sphere, Cube or Pyramid card from Media dropped
+   * on this panel picks the same.
+   */
+  const [threeD, setThreeD] = React.useState<ThreeD>("");
+  const [madeThreeD, setMadeThreeD] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const on = (e: Event) => { const v = (e as CustomEvent<ThreeD>).detail; if (THREE_D.some((c) => c.value === v)) { setThreeD(v); setAsCursor(false); } };
+    window.addEventListener(THREE_D_EVENT, on);
+    return () => window.removeEventListener(THREE_D_EVENT, on);
+  }, []);
+  const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string): Promise<string> => {
+    if (!how) return "";
+    const r = how === "solid" ? await asSolid(src, alt) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
+    if (r.ok && id) setMadeThreeD(id);
+    return r.message;
+  };
   const makeCursor = async (src: string, id?: string) => {
     try { setCursorPicture(await cursorFrom(src)); if (id) setCursorFor(id); return true; } catch { return false; }
   };
@@ -223,10 +243,10 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
            the part's own panel always asked: a square for a wide banner is a
            picture cropped or stretched the moment it lands. */
         body: JSON.stringify({
-          kind: "raster", prompt: asCursor ? `${tweak.trim()}\n\n${CURSOR_ASK}` : tweak.trim(),
+          kind: "raster", prompt: asCursor ? `${tweak.trim()}\n\n${CURSOR_ASK}` : threeD ? `${tweak.trim()}\n\n${THREE_D_ASK[threeD]}` : tweak.trim(),
           w: forPart && !asCursor ? Math.round(forPart.w) : 1024, h: forPart && !asCursor ? Math.round(forPart.h) : 1024,
           ...(forPart && !asCursor ? { label: forPart.label } : {}), model: slug,
-          ratio: asCursor ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || undefined, quality: quality || undefined, effort: effort || undefined,
+          ratio: asCursor ? (ratios.includes("1:1") ? "1:1" : undefined) : ratio || (threeD && ratios.includes(THREE_D_RATIO[threeD]) ? THREE_D_RATIO[threeD] : undefined), quality: quality || undefined, effort: effort || undefined,
           format: format || undefined, references: references.length ? references : undefined,
         }),
       });
@@ -243,6 +263,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         markThread(threadId, "done");
         const cost = typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "";
         if (asCursor) setSaid((await makeCursor(r.image)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
+        else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(r.image, asked, threeD)}`); }
         else setSaid(cost ? `Drawn.${cost}` : "Drawn. The renderer reported no price for it.");
       } else {
         markThread(threadId, "cut");
@@ -396,13 +417,23 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           <span className="text-plain text-fg-muted">Make it a cursor</span>
           <span className="text-fine text-fg-faint">Tip top left, background see-through, used as the site&apos;s pointer.</span>
         </span>
-        <input data-render-cursor="" type="checkbox" checked={asCursor} onChange={(e) => setAsCursor(e.target.checked)} className="size-4 accent-[var(--accent)]" />
+        <input data-render-cursor="" type="checkbox" checked={asCursor} onChange={(e) => { setAsCursor(e.target.checked); if (e.target.checked) setThreeD(""); }} className="size-4 accent-[var(--accent)]" />
       </label>
+
+      <div data-render-row="3d" className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <span className="flex flex-col">
+          <span className="text-plain text-fg-muted">Make it 3D</span>
+          <span className="text-fine text-fg-faint">Or drop a Sphere, Cube or Pyramid from Media here.</span>
+        </span>
+        <span data-render-3d={threeD} className="shrink-0">
+          <Select value={threeD} onChange={(v) => { setThreeD(String(v) as ThreeD); if (v) setAsCursor(false); }} options={THREE_D.map((c) => ({ value: c.value, label: c.label }))} />
+        </span>
+      </div>
 
       <div className="flex items-center gap-2 px-3 pb-3 pt-2">
         <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim()} onClick={() => void run()}>
           {running ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-          {asCursor ? "Generate cursor" : "Generate"}
+          {asCursor ? "Generate cursor" : threeD ? "Generate in 3D" : "Generate"}
         </Button>
         {/* The price before the press, not after it. It is his key and his
             money, so what it will cost is said before anything is spent, and
@@ -519,6 +550,15 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
                   className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
                 >
                   {cursorFor === d.id ? "Your cursor" : "Use as cursor"}
+                </button>
+                <button
+                  type="button"
+                  data-render-3d-from={d.id}
+                  title={threeD ? `Make this one 3D: ${THREE_D.find((c) => c.value === threeD)?.label.toLowerCase()}` : "Put this one on a sphere (pick another shape in Make it 3D)"}
+                  onClick={async () => setSaid(await makeThreeD(src, d.prompt, threeD || "sphere", d.id))}
+                  className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
+                >
+                  {madeThreeD === d.id ? "Made 3D" : "3D"}
                 </button>
                 <a data-render-download={d.id} href={src} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
                 <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>

@@ -10,6 +10,9 @@ import { route, type ImageModel } from "./pictures/index.ts";
 /** The words that route a box to the object cell. `saysSolid` reads "3d" and "solid" off them. */
 export const SOLID_WORDS = "a 3d solid of this box, from its four sides";
 
+/** The same, for one drawn picture made a solid from the drawing tool (`pictures/threeD.ts`). */
+export const SOLID_WORDS_PICTURE = "a 3d solid of the thing in this picture";
+
 /** The model the table routes a box to, from the same table the route reads. */
 export function solidModel(): ImageModel | null {
   return route({ making: "object", step: "first", fromImage: true }).model;
