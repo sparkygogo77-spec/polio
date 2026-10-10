@@ -91,10 +91,32 @@ export interface BlockProps {
  */
 const WORDS = new Set(["prose", "value-prop", "cta-primary"]);
 function wordsSet(node: StudioNode): NodeText | null | undefined {
-  if (node.text?.align || !WORDS.has(node.featureId)) return node.text;
+  const set = pageWrapped(node) ? { ...node.text, wrap: "wrap" } as NodeText : node.text;
+  if (set?.align || !WORDS.has(node.featureId)) return set;
   const l = node.layout;
   const centres = !!l && l.display === "flex" && ((l.direction ?? "row") === "row" ? l.justify === "center" : l.align === "center");
-  return centres ? { ...node.text, align: "center" } : node.text;
+  return centres ? { ...set, align: "center" } : set;
+}
+
+/*
+ * WORDS THE PAGE SET ON TWO ROWS WRAP ON THE BOARD TOO. A paragraph held
+ * to one line is chosen by its height against two of its own lines
+ * (`parts/Text.tsx`), and that is the board's type, not the page's: a
+ * bigger size or leading in the look, or a box's padding, put PST's
+ * "Escrow balance (available to stake or withdraw): - SOL", two rows on the
+ * page, under that mark, so it was set on one row and ran out of the
+ * Balance panel (J, 2026-10-10). The capture recorded what the page drew
+ * (`source.was`): a paragraph it set on two rows or more is never one line.
+ * `tests/line-owned.mjs`.
+ */
+function pageWrapped(node: StudioNode): boolean {
+  if (node.featureId !== "prose" || node.text?.wrap) return false;
+  const was = node.source?.was;
+  const lh = (was?.fontSize ?? 0) * (was?.lineHeight ?? 0);
+  if (!was?.box || !(lh > 0)) return false;
+  const pad = was.pad ? was.pad[0] + was.pad[2] : 0;
+  const edge = 2 * (was.borderWidth ?? 0);
+  return (was.box.h - pad - edge) / lh >= 1.9;
 }
 
 /**
