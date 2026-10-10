@@ -346,8 +346,8 @@ export function StudioPage() {
             </div>
           </aside>
         ) : null}
-        {design && libraryOpen ? (
-          <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
+        {!book && libraryOpen ? (
+          <aside data-side-panel={design ? "" : undefined} hidden={!design} data-side-sheet={narrow ? "" : undefined} className={SHEET} style={sideStyle}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             {narrow ? null : <SideEdge width={sideWidth} onWidth={setSideWidth} />}
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-1.5 py-1">
@@ -493,12 +493,30 @@ export function StudioPage() {
                person's, not the browser's. */
             className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
           >
-            {design ? (
-              <Canvas />
-            ) : book ? (
+            {design ? null : book ? (
               <Timeline />
             ) : (
               <LiveStage device={viewportDevice} pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
+            )}
+            {/*
+              LEAVING PREVIEW IS INSTANT (J, 2026-10-10: "stepping out of the
+              preview also isnt instantaneous as it should be"). The board was
+              unmounted for Preview and built again from nothing on the way
+              back, every part and picture, which took over three seconds on
+              PST. It stays mounted under Preview now, laid out at the pane's
+              width so nothing it measures goes wrong, but invisible, inert and
+              taking no height: coming back only shows it. After the site, so
+              the first of anything found in Preview is the site's.
+            */}
+            {book ? null : (
+              <div
+                data-board-kept={design ? undefined : ""}
+                aria-hidden={design ? undefined : true}
+                inert={!design}
+                className={design ? "relative w-full shrink-0" : "pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden"}
+              >
+                <Canvas />
+              </div>
             )}
             {/*
               The categories, in the same scroller as the site.

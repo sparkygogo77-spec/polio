@@ -57,7 +57,7 @@ check("with Preview here on its tray", (await item.count()) === 1 && (await item
 await item.click();
 await page.waitForTimeout(900);
 check("pressing it previews here: the address does not change", new URL(page.url()).pathname === "/builder", new URL(page.url()).pathname);
-check("and the board is in Preview", (await page.locator("[data-live-scroller]").count()) === 1 && (await page.locator("[data-frame]").count()) === 0);
+check("and the board is in Preview", (await page.locator("[data-live-scroller]").count()) === 1 && (await page.locator("[data-frame]:not([data-board-kept] *)").count()) === 0);
 await browser.close();
 
 const failed = results.filter((r) => !r).length;
