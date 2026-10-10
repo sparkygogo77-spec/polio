@@ -35,6 +35,8 @@ export interface SmallSheetOptions {
   scope: string;
   /** The page's width: the window's (`100%`) on the published page, the plan's on the board. */
   pageWidth: string;
+  /** The least the page is tall: the device's screen in the Preview, the window when published. A page shorter than that is still painted to its foot, as a browser paints its body's ground (PST's Profile on a phone: white to the bottom of the screen, not a 320px card). */
+  pageMinHeight?: string;
   /** The narrowest window this layout is shown in, for the press areas of a block kept whole. */
   narrowest: number;
 }
@@ -62,7 +64,7 @@ export function smallSheet<N extends SmallNode>(plan: SmallPlan<N>, o: SmallShee
 
   /* The page's own box is the scoped element itself on the board. */
   const pageSel = o.scope.trim() || ".sm-page";
-  out.push(`${pageSel}{width:${o.pageWidth}!important;height:auto!important;min-height:320px!important;min-width:0!important;overflow-x:clip!important;overflow-y:visible!important;zoom:1!important}`);
+  out.push(`${pageSel}{width:${o.pageWidth}!important;height:auto!important;min-height:${o.pageMinHeight ?? "320px"}!important;min-width:0!important;overflow-x:clip!important;overflow-y:visible!important;zoom:1!important}`);
   rule(".sm-root", `${unplace}inset:auto!important;width:100%!important;height:auto!important;box-sizing:border-box;container-type:inline-size;display:block!important;padding:0!important`);
   /* Not in the plan at this width: not drawn. A part a press shows is its script's to show. */
   rule([":where(.sm-p:not(.sm-state))", ":where(.sm-g)"], "display:none!important");

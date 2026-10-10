@@ -107,10 +107,21 @@ export const PARTS = (cap: number): PageRead => {
     normals.set(key, h);
     return h;
   };
-  const styleOf = (e: Element, which?: "::before" | "::after"): PartStyle => {
+  const styleOf = (e: Element, which?: "::before" | "::after", painted = false): PartStyle => {
     const s = which ? getComputedStyle(e, which) : css(e);
     const px = parseFloat(s.fontSize) || 16;
     const bw = parseFloat(s.borderTopWidth) || 0;
+    /*
+     * A CONTROL THE BROWSER PAINTS ITSELF. A button or field left as the browser makes it
+     * (appearance auto, the default 2px outset or inset edge) is not drawn by its computed
+     * style: Chrome paints it grey with a 1px grey edge round 3px corners, where the style
+     * says a 2px black outset edge and square corners. PST's Library and Chart lab buttons
+     * came in white with a thick black edge. Read as painted, the box kept the same size.
+     */
+    if (!which && !painted && s.appearance && s.appearance !== "none" && bw > 0 && /^(outset|inset)$/.test(s.borderTopStyle)) {
+      const out = styleOf(e, undefined, true);
+      return { ...out, border: { w: 1, style: "solid", colour: "rgb(118, 118, 118)" }, radius: Math.max(out.radius, e.tagName === "BUTTON" ? 3 : 2), pad: out.pad.map((v) => Math.round((v + bw - 1) * 100) / 100) as [number, number, number, number] };
+    }
     return {
       px: Math.round(px * 100) / 100,
       weight: Number(s.fontWeight) || 400,
@@ -386,6 +397,36 @@ export const PARTS = (cap: number): PageRead => {
       if (total && flat(total)) { b.x = Math.round(b.x + total.e); b.y = Math.round(b.y + total.f); }
       const turn = total && !flat(total) ? turnSaid(total, b) : null;
       push({ kind: "shape", tag: which, parent, box: b, words: text, hooks: {}, hidden, selector: `${path(el)}${which}`, style, pseudo: { which, host: hooksOf(el) }, ...(turn ? { turn } : {}) });
+    }
+    /*
+     * A LIST MARKER INSIDE ITS BOX. PST's "Details (message log...)" is a <summary>, drawn
+     * with the browser's closed-disclosure triangle before its words: no element, no
+     * ::before, so the words came in where the triangle was and the triangle not at all.
+     * A marker set inside the box (a summary's, or `list-style-position: inside`) is a part
+     * of its own, its glyph in the box's type, where the browser put it; the host's words
+     * keep their start past it.
+     */
+    const cs = css(el);
+    if (cs.display === "list-item" && cs.listStyleType !== "none" && cs.listStylePosition === "inside" && cs.listStyleImage === "none" && cs.visibility !== "hidden") {
+      const GLYPH: Record<string, string> = { "disclosure-closed": "\u25b6", "disclosure-open": "\u25bc", disc: "\u2022", circle: "\u25e6", square: "\u25aa" };
+      const glyph = GLYPH[cs.listStyleType];
+      let first: Text | null = null;
+      for (const t of Array.from(el.childNodes)) if (t.nodeType === 3 && t.textContent!.trim()) { first = t as Text; break; }
+      const range = document.createRange();
+      if (first) range.selectNodeContents(first);
+      const tr = first ? Array.from(range.getClientRects())[0] : undefined;
+      if (glyph && tr) {
+        const hr = el.getBoundingClientRect();
+        const left = hr.left + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0);
+        if (tr.left - left > 2) {
+          const b = { x: Math.round(left + scrollX), y: Math.round(tr.top + scrollY), w: Math.round(tr.left - left), h: Math.round(tr.height) };
+          const st = styleOf(el);
+          push({ kind: "shape", tag: "::marker", parent, box: b, words: glyph, hooks: {}, hidden, selector: `${path(el)}::marker`, style: { ...st, bg: null, border: null, shadow: undefined, pad: [0, 0, 0, 0], align: "left", radius: 0 } as typeof st, pseudo: { which: "::marker" as "::before", host: hooksOf(el) } });
+          const hostPart = host >= 0 ? parts[host] : undefined;
+          const start = Math.round((tr.left - hr.left - (parseFloat(cs.borderLeftWidth) || 0)) * 100) / 100;
+          if (hostPart?.style.pad && start > hostPart.style.pad[3]) hostPart.style.pad[3] = start;
+        }
+      }
     }
   };
   /* The page's own rules, once: a linked sheet by the address its link wrote, a style block by its place among the page's style blocks. */

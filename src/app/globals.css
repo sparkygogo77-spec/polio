@@ -653,3 +653,17 @@
   height: 0;
   display: none;
 }
+
+/*
+ * A brought-in page's file field draws its "Choose File" button as the browser does. The
+ * Builder's own reset (Tailwind's preflight) strips every file button to bare words, so
+ * PST's Library "Import a file" came in as plain text beside its label.
+ */
+input[data-page-file]::file-selector-button {
+  appearance: revert; border: revert; border-radius: revert; background-color: revert;
+  padding: revert; margin: revert; margin-inline-end: 4px; color: revert;
+}
+
+/* A site on the board or in the Preview sets type as its own page does: not in the Builder's number and letter forms (tnum, cv11, ss01), which made words a hair wider and wrapped PST's "Use test wallet" button on a phone. */
+/* And its controls in the browser's light colours, as a page that names no colour scheme gets them: under the Builder's dark scheme PST's file button came in dark grey. */
+[data-node-id], [data-live-root] { color-scheme: light; font-feature-settings: normal; font-variation-settings: normal; -webkit-font-smoothing: auto; -moz-osx-font-smoothing: auto; }

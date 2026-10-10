@@ -138,7 +138,11 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
    * And words the page wrapped get a hair of room past their box before they
    * wrap: the box is where the page set them, and the same words a pixel
    * wider here (PST's Balance note on a phone: 315 in 314) would otherwise
-   * wrap their last word where the page did not.
+   * wrap their last word where the page did not. One pixel, the rounding of
+   * the box the page measured: it was four while the Builder's own number
+   * forms (tnum, cv11) set the site's words wider, and four let PST's Balance
+   * note keep "your" on its first line where the page wraps it. The site's
+   * own forms are its own now (`[data-live-root]` in globals.css).
    */
   const slack = !!t.said?.wrap && !spill && !mid?.x && t.textAlign !== "center" && t.textAlign !== "right";
   return (
@@ -185,7 +189,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
       */}
-      <div ref={wordsRef} style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -4 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div ref={wordsRef} style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -1 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>

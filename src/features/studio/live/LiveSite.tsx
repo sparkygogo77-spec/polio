@@ -20,7 +20,8 @@ import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
 import { planFor, SMALL_RULES, treeFor } from "./smallRules";
-import { PHONE_MAX, SMALL_WIDTH, type SmallDevice } from "./small";
+import { pageGround } from "../pageGround";
+import { PHONE_MAX, SMALL_SCREEN, SMALL_WIDTH, type SmallDevice } from "./small";
 import { breakersFor, cssIdent, smallSheet } from "./smallCss";
 import { resolvePart } from "../shelf/ui";
 import { homeOf } from "../homePage";
@@ -130,6 +131,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const wash = React.useMemo(() => washCss(light), [light]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const holders = holderIds(pageNodes);
+  /* The page's own ground, where its body has one (`pageGround.ts`). */
+  const ground = React.useMemo(() => pageGround(pageNodes, palette.bg), [pageNodes, palette.bg]);
   /*
    * ONE PAGE AT EVERY WIDTH. On a tablet or a phone the page is its plan
    * (`small.ts`), not the desktop's boxes narrowed; and it is the desktop's
@@ -385,9 +388,9 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     const group = (id: string) => `.g-${cssIdent(id)}`;
     const control = (id: string) => { const n = pageNodes.find((x) => x.id === id); return !!n && SMALL_RULES.isControl(n); };
     if (small) {
-      return smallSheet(plans[0]!, { part: (id) => `[data-live-node="${id.replace(/["\\]/g, "\\$&")}"]`, group, holds, parentOf, stated, control, scope: `[data-live-page="${pageId}"][data-live-device="${small}"] `, pageWidth: `${SMALL_WIDTH[small]}px`, narrowest: small === "phone" ? 320 : PHONE_MAX + 1 });
+      return smallSheet(plans[0]!, { part: (id) => `[data-live-node="${id.replace(/["\\]/g, "\\$&")}"]`, group, holds, parentOf, stated, control, scope: `[data-live-page="${pageId}"][data-live-device="${small}"] `, pageWidth: `${SMALL_WIDTH[small]}px`, pageMinHeight: `${SMALL_SCREEN[small]}px`, narrowest: small === "phone" ? 320 : PHONE_MAX + 1 });
     }
-    const at = (d: SmallDevice) => smallSheet(plans.find((p) => p.device === d)!, { part: (id) => `#${cssIdent(id)}`, group, holds, parentOf, stated, control, scope: "", pageWidth: "100%", narrowest: d === "phone" ? 320 : PHONE_MAX + 1 });
+    const at = (d: SmallDevice) => smallSheet(plans.find((p) => p.device === d)!, { part: (id) => `#${cssIdent(id)}`, group, holds, parentOf, stated, control, scope: "", pageWidth: "100%", pageMinHeight: "100vh", narrowest: d === "phone" ? 320 : PHONE_MAX + 1 });
     const wideFrom = smallAt ?? 1024;
     return `@media (max-width: ${wideFrom - 0.02}px) and (min-width: ${PHONE_MAX + 1}px) {\n${at("tablet")}\n}\n@media (max-width: ${PHONE_MAX + 0.98}px) {\n${at("phone")}\n}`;
   }, [plans, tree, small, smallAt, pageId, pageNodes]);
@@ -412,7 +415,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       data-live-device={device}
       {...(small ? { "data-small-page": small } : null)}
       className={nested ? "sm-page" : undefined}
-      style={{ width, height, overflow: "hidden", position: "relative", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
+      style={{ width, height, overflow: "hidden", position: "relative", ...(ground ? { background: ground } : t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text, fontFeatureSettings: "normal", fontVariationSettings: "normal", WebkitFontSmoothing: "auto", MozOsxFontSmoothing: "auto" } as React.CSSProperties}
     >
       <TextureDrift layers={look?.texture} palette={palette} />
       {t.surfaceDrift ? <style data-page-drift="">{t.surfaceDrift}</style> : null}
