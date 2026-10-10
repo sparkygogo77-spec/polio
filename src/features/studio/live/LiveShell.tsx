@@ -10,6 +10,10 @@ import * as React from "react";
 import type { Behaviours } from "./behaviours";
 import { tint } from "../shelf/run";
 import { leanSet } from "./carry";
+import { RAISE_JS } from "../shelf/library/raiseJs";
+
+/** Lifts a leaning card over the parts around it; returns what puts it back (`raiseJs.ts`, the same lines the published page runs). */
+const raiseOver = new Function(`${RAISE_JS}; return raiseOver;`)() as (nodes: HTMLElement[]) => () => void;
 
 interface Props {
   behaviours: Behaviours;
@@ -91,8 +95,13 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     const root = rootRef.current;
     if (!root || !b.tilt) return;
     let boxes: { el: HTMLElement; r: DOMRect }[] | null = null;
-    let leaning: { card: HTMLElement; set: { el: HTMLElement; origin: string }[] } | null = null;
-    const rest = () => { for (const x of leaning?.set ?? []) { x.el.style.transform = ""; x.el.style.transformOrigin = ""; } leaning = null; };
+    let leaning: { card: HTMLElement; set: { el: HTMLElement; origin: string }[]; lower: () => void } | null = null;
+    const rest = () => {
+      for (const x of leaning?.set ?? []) { x.el.style.transform = ""; x.el.style.transformOrigin = ""; }
+      const lower = leaning?.lower;
+      if (lower) setTimeout(lower, 160);
+      leaning = null;
+    };
     const forget = () => { rest(); boxes = null; };
     const onMove = (e: PointerEvent) => {
       if (!boxes) { rest(); boxes = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).map((el) => ({ el, r: el.getBoundingClientRect() })).filter((x) => x.r.width && x.r.height); }
@@ -102,7 +111,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
         rest();
         const r = hit.card.r, cx = r.left + r.width / 2, cy = r.top + r.height / 2;
         const own = hit.set.filter((x) => !hit.set.some((o) => o !== x && o.el.contains(x.el)));
-        leaning = { card: hit.card.el, set: own.map((x) => {
+        leaning = { card: hit.card.el, lower: raiseOver(own.map((x) => x.el)), set: own.map((x) => {
           const kx = x.r.width ? x.el.offsetWidth / x.r.width : 1, ky = x.r.height ? x.el.offsetHeight / x.r.height : 1;
           return { el: x.el, origin: `${((cx - x.r.left) * kx).toFixed(2)}px ${((cy - x.r.top) * ky).toFixed(2)}px` };
         }) };

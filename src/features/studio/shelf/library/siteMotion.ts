@@ -27,6 +27,7 @@
  *
  * Pure: no store, no React, so `tests/shelf-publish.mjs` runs it as written.
  */
+import { RAISE_JS } from "./raiseJs.ts";
 
 /** The whole-site motions a page asks for: `live/behaviours.ts#Behaviours`, as the page needs them. */
 export interface SiteMotionSettings {
@@ -119,14 +120,21 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     setTimeout(function () { wipe.remove(); }, 1000);
   }
   if (c.tilt && !still) {
+    /* A tilted part comes up over the parts around it while it leans, and goes back once it has settled. */
+    ${RAISE_JS}
     parts.forEach(function (p) {
+      var lower = null, settle = 0;
       p.addEventListener("pointermove", function (e) {
         var r = p.getBoundingClientRect(); if (!r.width || !r.height) return;
+        clearTimeout(settle); if (!lower) lower = raiseOver([p]);
         var dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5;
         p.style.transition = "transform 120ms ease-out";
         p.style.transform = "perspective(900px) rotateX(" + (-dy * 7).toFixed(2) + "deg) rotateY(" + (dx * 9).toFixed(2) + "deg)";
       });
-      p.addEventListener("pointerleave", function () { p.style.transform = ""; });
+      p.addEventListener("pointerleave", function () {
+        p.style.transform = "";
+        clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, 160);
+      });
     });
   }
   if (c.cursor === "picture" && c.cursorPicture && /^data:image\\//.test(c.cursorPicture)) {
