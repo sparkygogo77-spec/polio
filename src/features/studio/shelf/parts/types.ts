@@ -231,6 +231,13 @@ export interface PartDef {
    * room and no press; what it opens is fixed over the window.
    */
   overlay?: boolean;
+  /**
+   * A whole-site behaviour that is also a thing on the screen (back to
+   * top): drawn on the board where it was put, so it can be dragged, and
+   * fixed on screen at that spot in the Preview and on the site, measured
+   * from the nearest corner (`live/behaviours.ts#cornerOf`).
+   */
+  placed?: boolean;
 }
 
 /** One step of a "What's new" card, as `tour.ts` keeps it. */

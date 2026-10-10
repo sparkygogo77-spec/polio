@@ -1030,9 +1030,9 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
      * "Works when published" is true of the published page.
      */
     const onPage = s.nodes.filter((n) => n.pageId === page.id);
-    const b = deriveBehaviours(onPage, page.scroll);
+    const b = deriveBehaviours(onPage, page.scroll, width);
     const motionTags = siteMotionTags({
-      progress: b.progress, backToTop: b.backToTop, reveal: b.reveal, revealStyle: b.revealStyle, parallax: b.parallax, smooth: b.smooth, smoothStrength: b.smoothStrength, snap: b.snap,
+      progress: b.progress, backToTop: b.backToTop, backAt: b.backToTopAt, reveal: b.reveal, revealStyle: b.revealStyle, parallax: b.parallax, smooth: b.smooth, smoothStrength: b.smoothStrength, snap: b.snap,
       intro: b.intro, cursor: b.cursor, cursorPicture: b.cursorPicture, tilt: b.tilt, parts: onPage.filter((n) => !isBehaviourPart(n.featureId)).map((n) => n.id),
       accent: palette.accent, surface: palette.surface,
     }, up);

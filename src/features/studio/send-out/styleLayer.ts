@@ -30,6 +30,7 @@
  */
 import { effectCss, siteCss, sitePress, stillTail } from "./motionCss.ts";
 import { motionValue, siteMotionDeclarations } from "./kitMotion.ts";
+import { PLACED, cornerOf, onScreenButton } from "../live/corner.ts";
 import type { SourceHook, SourceVar } from "../sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
 import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../living.ts";
@@ -37,6 +38,7 @@ import type { PictureFrame } from "../frame.ts";
 import type { LivingPicture } from "../living.ts";
 import { layoutDeclarations } from "../states/index.ts";
 import { under } from "../owns.ts";
+import { carriers, movesWhole } from "../live/carry.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
 export interface CssLook {
@@ -602,12 +604,39 @@ function ownerOf(n: LayerNode, all: LayerNode[]): LayerNode | null {
 }
 
 /**
+ * What rides with each moving part (`live/carry.ts`, kit rule 33): parts on
+ * its edge (a panel's badge, a TV's antennas) and parts drawn inside it, as
+ * the Preview draws them, keeping only those the site's own code does not
+ * already put inside it (those move with it by themselves). Part id → riders.
+ */
+function ridersOf(sourced: readonly LayerNode[]): Map<string, LayerNode[]> {
+  const out = new Map<string, LayerNode[]>();
+  for (const pageId of new Set(sourced.map((n) => n.pageId))) {
+    const page = sourced.filter((n) => n.pageId === pageId);
+    const movers = new Set(page.filter((n) => n.source?.hook && movesWhole(n.work)).map((n) => n.id));
+    if (!movers.size) continue;
+    const by = carriers(page.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, path: n.from?.selector, moves: movers.has(n.id), still: !!n.state })));
+    for (const r of page) {
+      if (!r.source?.hook || movers.has(r.id)) continue;
+      let at = by.get(r.id);
+      for (let k = 0; at && !movers.has(at) && k < 64; k++) at = by.get(at);
+      const m = at ? page.find((n) => n.id === at) : null;
+      if (!m || under(m.from?.selector ?? "", r.from?.selector ?? "")) continue;
+      out.set(m.id, [...(out.get(m.id) ?? []), r]);
+    }
+  }
+  /* One inside another in the code (an antenna's ball on its antenna) goes with that one, not twice. */
+  for (const [id, rs] of out) out.set(id, rs.filter((r) => !rs.some((q) => q !== r && under(q.from?.selector ?? "", r.from?.selector ?? ""))));
+  return out;
+}
+
+/**
  * The layer for a board, against the source it came from.
  *
  * `nodes` are the board's parts, every page; `palette` resolves role
  * colours; `source` is the inventory written at import.
  */
-export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string; kit?: boolean } = {}): Layer {
+export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string; kit?: boolean; frameWidth?: number } = {}): Layer {
   const sourced = nodes.filter((n) => n.source?.was);
   const rules: Layer["rules"] = [];
   const text: TextEdit[] = [];
@@ -632,6 +661,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   const press = sitePress(sourced.map((n) => n.source!.was.states));
   const frames = new Map<string, string>();
   const movingSel: string[] = [];
+  const riding = ridersOf(sourced);
   for (const n of sourced) {
     const src = n.source!;
     const now = lookOf(n, palette, opts);
@@ -652,8 +682,10 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
         for (const [k, v] of fx.frames) frames.set(k, v);
         movingSel.push(selectorFor(src.hook), ...fx.rules.map((r) => r.selector));
       }
+      /* What rides with it from outside it in the code (a TV's antennas beside its body): moved by its hover and press too, and carried by its tilt. */
+      const riders = (riding.get(n.id) ?? []).filter((r) => !(opts.kit && r.source!.hook!.attr !== "data-hook"));
       /* The motions the kit's file runs (`kitMotion.ts`): named on the part's hook, for a builder-ready site, which loads the file. */
-      const mv = opts.kit && src.hook.attr === "data-hook" && n.work ? motionValue(n.work as never) : null;
+      const mv = opts.kit && src.hook.attr === "data-hook" && n.work ? motionValue(n.work as never, riders.map((r) => r.source!.hook!.value)) : null;
       if (mv) decl = [...decl.filter((d) => !d.startsWith("--builder-motion:")), `--builder-motion: ${mv}`];
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
@@ -661,6 +693,17 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       }
       /* In a builder-ready repository a colour in them (a site's own pressed shadow) is a custom property, as every colour the layer writes. */
       for (const r of fx?.rules ?? []) if (r.declarations.length) rules.push({ selector: r.selector, declarations: opts.kit ? kitDeclarations(`${src.hook.value}-${r.selector.endsWith(":hover") ? "hover" : "pressed"}`, r.declarations) : r.declarations, nodeId: n.id, file: src.file });
+      for (const rd of fx?.done.length ? riders : []) {
+        const rs = selectorFor(rd.source!.hook!);
+        const t = fx!.own.find((d) => d.startsWith("transition:"));
+        if (t && !rd.work) rules.push({ selector: rs, declarations: [t], nodeId: rd.id, file: rd.source!.file });
+        for (const r of fx!.rules) {
+          const on = /:(hover|active)$/.exec(r.selector)?.[1];
+          if (!on || !r.declarations.length) continue;
+          rules.push({ selector: `:root:has(${r.selector}) ${rs}`, declarations: opts.kit ? kitDeclarations(`${src.hook.value}-${on === "hover" ? "hover" : "pressed"}`, r.declarations) : r.declarations, nodeId: rd.id, file: rd.source!.file });
+        }
+        movingSel.push(rs);
+      }
       /* What one state of a panel changes of it (`stateEdits.ts`): a rule keyed by that panel and state, so the code's own state switch shows it. */
       for (const [key, patch] of Object.entries(n.byState ?? {})) {
         const at = key.lastIndexOf("=");
@@ -769,7 +812,10 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   /* The whole-site motions switched on (a part of theirs on the pages), as CSS for the site where CSS can carry them. */
   const site = siteCss(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId, options: n.options })), { accent: palette?.accent });
   for (const r of site.rules) rules.push({ selector: r.selector, declarations: r.declarations, nodeId: "", file: "" });
-  const siteKit = opts.kit ? siteMotionDeclarations(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId!, options: n.options })), palette) : [];
+  /* Back to top stays where it was put on the board, from the nearest corner (`live/behaviours.ts#cornerOf`): a placed one wins over an old page-wide strip. */
+  const shelfMotion = nodes.filter((n) => !n.source && !n.from && !!n.featureId).sort((a, b) => Number(onScreenButton(b)) - Number(onScreenButton(a)));
+  const pageFoot = (pageId: string) => nodes.reduce((m, n) => (n.pageId !== pageId || PLACED.has(n.featureId) ? m : Math.max(m, n.y + n.h)), 0) || undefined;
+  const siteKit = opts.kit ? siteMotionDeclarations(shelfMotion.map((n) => ({ featureId: n.featureId!, options: n.options, at: n.featureId === "back-to-top" ? cornerOf(n, opts.frameWidth ?? 1440, pageFoot(n.pageId)) : null })), palette) : [];
   if (siteKit.length) rules.push({ selector: ":root", declarations: siteKit, nodeId: "", file: "" });
   const motionTail = frames.size || site.tail.length || site.rules.length
     ? ["", "/* Motion from the Builder's effects: plain CSS, still for a visitor who asks for less. */", ...frames.values(), ...site.tail, ...stillTail([...movingSel, ...site.rules.filter((r) => r.selector === "body").map(() => "body"), ...(site.done.includes("reveal-on-scroll") ? ["[data-panel]"] : []), ...(site.done.includes("scroll-progress") ? ["body::before"] : [])])]

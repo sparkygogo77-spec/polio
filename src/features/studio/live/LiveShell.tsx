@@ -61,6 +61,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     setPin(host);
     return () => { host.remove(); setPin(null); };
   }, [pinned, published]);
+  const at = b.backToTopAt;
   const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
   const [intro, setIntro] = React.useState(b.intro);
   const [bursts, setBursts] = React.useState<number[]>([]);
@@ -249,7 +250,9 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
                 if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
                 else window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              style={{ position: "absolute", right: 18, top: viewH - 56, pointerEvents: "auto", zIndex: 45, width: 38, height: 38, borderRadius: 999, border: "none", cursor: "pointer", background: accent, color: surface, fontSize: 16, boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up var(--motion-base) ease-out both" }}
+              data-live-back-to-top={`${at.v}-${at.h}`}
+              /* Where it was put on the board, from the nearest corner of the window (`live/corner.ts`). */
+              style={{ position: "absolute", [at.h]: at.x, top: at.v === "top" ? at.y : viewH - at.y - at.size, pointerEvents: "auto", zIndex: 45, width: at.size, height: at.size, borderRadius: 999, border: "none", cursor: "pointer", background: accent, color: surface, fontSize: Math.round(at.size * 0.4), boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up var(--motion-base) ease-out both" }}
             >
               ↑
             </button>

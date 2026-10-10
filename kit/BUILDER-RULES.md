@@ -414,6 +414,13 @@ alone, and a panel given it takes it from the parts inside. A code chat writes s
 rule keyed on the panel's hook (`[data-hook="x"]:hover`), children styled through it if they must
 change too (`[data-hook="x"]:hover [data-hook="x-label"]`), never as separate rules on each child.
 
+A small part on a panel's edge belongs to it too, even where it is not wholly inside: a title badge
+sitting on the panel's top edge, a TV's antennas or feet touching its body. An effect on the panel
+moves them with it; an effect on a part inside (a button) moves only that part, and a neighbour
+about as big (a bar above the TV) is never carried. Keep such a part inside the panel's element in
+the code where you can; where it sits beside it, the builder's Publish moves it by the panel's hover
+(`:root:has([data-hook="x"]:hover) [data-hook="x-antenna"]`) and names it in the panel's Tilt.
+
 
 ## 34. App areas: the box the code works in
 

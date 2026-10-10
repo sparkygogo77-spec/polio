@@ -25,6 +25,7 @@
 import { getWork, inputsOf, RUNTIME_JS, usesOf, type WorkUse } from "../shelf/library/works.ts";
 import { SITE_MOTION_JS } from "../shelf/library/siteMotion.ts";
 import { carriedEffect, carriedSite } from "./motionCss.ts";
+import type { Corner } from "../live/corner.ts";
 
 /** The shelf effects the kit's file runs: the ones that move or draw on their own part and need nothing but the page. */
 export const KIT_EFFECTS: readonly string[] = ["tilt", "follow-pointer", "marquee", "dust-canvas", "scroll-grow", "glide", "screen-filter", "scroll-header", "crt-loader", "copy-toast"];
@@ -48,22 +49,28 @@ const word = (id: string, inputs: Record<string, string>) => {
   return q ? `${id}?${q}` : id;
 };
 
-/** What a part's `--builder-motion` says: each effect the kit runs, with the inputs set away from their defaults. Null when none. */
-export function motionValue(work: WorkUse | null | undefined): string | null {
+/**
+ * What a part's `--builder-motion` says: each effect the kit runs, with the
+ * inputs set away from their defaults. Null when none. `riders`: the hooks of
+ * the parts that ride with it from outside it in the code (a TV's antennas,
+ * kit rule 33), which its Tilt leans with it.
+ */
+export function motionValue(work: WorkUse | null | undefined, riders: readonly string[] = []): string | null {
   const words: string[] = [];
   for (const u of usesOf(work)) {
     if (u.off || !kitEffect(u.id)) continue;
     const w = getWork(u.id);
     if (!w) continue;
     const all = inputsOf(w.manifest, u.inputs);
-    const set = Object.fromEntries(w.manifest.inputs.filter((i) => (all[i.id] ?? "") !== i.default).map((i) => [i.id, all[i.id]!]));
+    const set: Record<string, string> = Object.fromEntries(w.manifest.inputs.filter((i) => (all[i.id] ?? "") !== i.default).map((i) => [i.id, all[i.id]!]));
+    if (u.id === "tilt" && riders.length && !set.parts && set.mode !== "scroll") set.parts = riders.join(",");
     words.push(word(u.id, set));
   }
   return words.length ? `"${words.join(" ")}"` : null;
 }
 
 /** What `:root`'s `--builder-site-motion` says, for the whole-site motions switched on. Null when none. */
-export function siteMotionValue(on: readonly { featureId: string; options?: Record<string, string> | null }[]): string | null {
+export function siteMotionValue(on: readonly { featureId: string; options?: Record<string, string> | null; at?: Corner | null }[]): string | null {
   const words: string[] = [];
   const seen = new Set<string>();
   for (const s of on) {
@@ -72,6 +79,16 @@ export function siteMotionValue(on: readonly { featureId: string; options?: Reco
     const o = s.options ?? {};
     if (s.featureId === "parallax") words.push(word("parallax", { strength: String(PARALLAX[o.strength ?? "medium"] ?? 0.18) }));
     else if (s.featureId === "smooth-scroll") words.push(word("smooth-scroll", o.strength === "heavy" ? { strength: "heavy" } : {}));
+    else if (s.featureId === "back-to-top" && s.at) {
+      /* Where it was put on the board: the nearest corner and how far in. The file's own default is bottom right, 24px in. */
+      const a = s.at, set: Record<string, string> = {};
+      if (a.v === "top") set.v = "top";
+      if (a.h === "left") set.h = "left";
+      if (a.x !== 24) set.x = String(a.x);
+      if (a.y !== 24) set.y = String(a.y);
+      if (a.size !== 44) set.size = String(a.size);
+      words.push(word("back-to-top", set));
+    }
     else if (s.featureId === "cursor-effects") words.push(word("cursor-effects", { style: o.style && o.style !== "picture" ? o.style : "dot" }));
     else words.push(s.featureId);
   }
@@ -152,7 +169,7 @@ ${effects.map((w) => `  /* ${w.manifest.name}: ${w.manifest.blurb} */\n  (functi
     var c = { progress: false, backToTop: false, reveal: false, parallax: 0, smooth: false, snap: null, intro: false, cursor: null, tilt: false, parts: [],
       select: "[data-panel]", accent: css.getPropertyValue("--builder-motion-accent").trim() || "currentColor", surface: css.getPropertyValue("--builder-motion-surface").trim() || "Canvas" };
     on.forEach(function (m) {
-      if (m.id === "back-to-top") c.backToTop = true;
+      if (m.id === "back-to-top") { c.backToTop = true; c.backAt = m.inputs; }
       if (m.id === "hover-tilt") c.tilt = true;
       if (m.id === "parallax") c.parallax = Number(m.inputs.strength) || 0.18;
       if (m.id === "cursor-effects") c.cursor = m.inputs.style || "dot";

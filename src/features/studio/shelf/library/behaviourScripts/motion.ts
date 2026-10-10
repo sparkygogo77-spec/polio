@@ -182,8 +182,8 @@ export const TILT: Work = {
     /* The parts it carries turn with it, about its middle, so a thing drawn as several parts (a TV and its screen, knobs and words) turns whole. */
     var ids = String(inputs.parts || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
     var carried = [el];
-    /* One already inside it (the published page puts a part inside the box that carries it) turns with it as it is. */
-    ids.forEach(function (id) { var p = document.getElementById(id) || (el.ownerDocument || document).querySelector('[data-live-node="' + id + '"]'); if (p && p !== el && !el.contains(p)) carried.push(p); });
+    /* One already inside it (the published page puts a part inside the box that carries it) turns with it as it is. A published page names them by hook (a TV's antennas beside its body, kit rule 33). */
+    ids.forEach(function (id) { var d = el.ownerDocument || document, p = document.getElementById(id) || d.querySelector('[data-live-node="' + id + '"]') || d.querySelector('[data-hook="' + id.replace(/["\\\\]/g, "") + '"]'); if (p && p !== el && !el.contains(p)) carried.push(p); });
     var areaId = String(inputs.area || "").trim(), area = areaId ? (document.getElementById(areaId) || document.querySelector('[data-live-node="' + areaId + '"]')) : null;
     var bases = carried.map(function (p) { return { t: p.style.transform, o: p.style.transformOrigin, tr: p.style.transition }; });
     /*

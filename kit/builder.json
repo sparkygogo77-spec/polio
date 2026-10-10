@@ -247,7 +247,7 @@
         "id": "panels-move-as-one",
         "title": "A panel and what is inside it move as one",
         "checkedBy": "",
-        "rule": "A hover or press effect goes on the outermost part that reacts as one (the panel, card or button), as one rule keyed on its hook; the words, icons and buttons inside ride along and never carry the same effect again. The builder's Motion tab follows this when it adds a part to an effect."
+        "rule": "A hover or press effect goes on the outermost part that reacts as one (the panel, card or button), as one rule keyed on its hook; the words, icons and buttons inside ride along and never carry the same effect again. The builder's Motion tab follows this when it adds a part to an effect. A small part on the panel's edge (a title badge, a TV's antennas) belongs to it and moves with it; a part inside with its own effect moves alone."
       },
       {
         "id": "app-areas",

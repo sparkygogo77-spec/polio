@@ -35,6 +35,25 @@ export function Behaviour({ id, label, content, theme: t }: PartProps) {
   );
 }
 
+/**
+ * Back to top, as the button it is (J, 2026-10-10: it sat too close to the
+ * border, and he wants to put it where it goes). Dragged anywhere on the
+ * board; the Preview and the site keep it fixed on screen at that spot,
+ * from the nearest corner.
+ */
+export function BackToTop({ id, theme: t }: PartProps) {
+  return (
+    <Fill t={t} data-part={id} data-behaviour="" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span
+        aria-label="Back to top"
+        style={{ width: "100%", height: "100%", borderRadius: 999, background: t.accent, color: t.accentText, display: "flex", alignItems: "center", justifyContent: "center", fontSize: t.fontPx, boxShadow: "0 8px 22px oklch(0 0 0 / .35)" }}
+      >
+        ↑
+      </span>
+    </Fill>
+  );
+}
+
 /** Spam protection: a real checkbox that verifies, standing in for the service. */
 export function Captcha({ id, content, theme: t, emit }: PartProps) {
   const [state, setState] = React.useState<"idle" | "checking" | "done">("idle");

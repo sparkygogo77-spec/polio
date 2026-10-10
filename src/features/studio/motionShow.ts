@@ -20,6 +20,7 @@
 import { BACKGROUND_ID, useStudio } from "./board/store";
 import { holds, type Effect } from "./motionEffects";
 import { changeEffect } from "./motionWrite";
+import { carriers } from "./live/carry";
 
 /** The glow: light blue, so it reads against dark and light pages alike. */
 export const SHOW_GLOW = "125 211 252";
@@ -91,6 +92,20 @@ export function hint(ids: readonly string[] | null): void {
 
 const camel = (p: string) => p.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
+/**
+ * The parts that ride with these as the Preview and the site draw them
+ * (`live/carry.ts`): what is inside them, and what sits on their edge (a
+ * panel's badge, a TV's antennas).
+ */
+function riders(ids: readonly string[]): string[] {
+  const s = useStudio.getState();
+  const nodes = s.nodes.filter((n) => n.pageId === s.activePageId);
+  const on = new Set(ids);
+  const by = carriers(nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, path: n.from?.selector, moves: on.has(n.id), still: !!(n as { state?: unknown }).state })));
+  const rides = (id: string) => { for (let at = by.get(id), k = 0; at && k < 64; at = by.get(at), k++) if (on.has(at)) return true; return false; };
+  return nodes.filter((n) => !on.has(n.id) && rides(n.id)).map((n) => n.id);
+}
+
 function loopParts() {
   for (const a of runs) a.cancel();
   runs = [];
@@ -98,9 +113,10 @@ function loopParts() {
   const frame: Keyframe = {};
   for (const [p, v] of Object.entries(shown.effect.style)) frame[camel(p)] = v.replace(/\s*!important$/i, "");
   if (!Object.keys(frame).length) return;
-  for (const id of shown.ids) {
-    const el = boxEl(id);
-    if (!el?.animate) continue;
+  const els = [...shown.ids, ...riders(shown.ids)].map(boxEl);
+  for (const el of els) {
+    /* Drawn inside another that moves already: it goes with it, not twice. */
+    if (!el?.animate || els.some((o) => o && o !== el && o.contains(el))) continue;
     try {
       runs.push(el.animate([frame], { duration: SHOW_HALF_MS, direction: "alternate", iterations: Infinity, easing: "ease-in-out" }));
     } catch { /* a declaration the browser will not animate: the glow still says which part */ }
@@ -153,8 +169,8 @@ export function toggle(id: string): void {
     have.delete(id);
     note = "Taken off that part.";
   } else {
-    const outer = nodes.find((n) => have.has(n.id) && holds(n, part));
-    if (outer) { note = "That part sits in a panel that already does this, so it moves with it."; tell(); return; }
+    const outer = nodes.find((n) => have.has(n.id) && holds(n, part)) ?? (riders([...have]).includes(id) ? part : null);
+    if (outer) { note = "That part sits in or on a panel that already does this, so it moves with it."; tell(); return; }
     const inner = nodes.filter((n) => have.has(n.id) && holds(part, n)).map((n) => n.id);
     changeEffect(e, [id], inner);
     for (const i of inner) have.delete(i);

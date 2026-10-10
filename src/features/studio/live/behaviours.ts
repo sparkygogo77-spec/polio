@@ -8,12 +8,15 @@
  * preview says what will happen rather than pretending.
  */
 import { resolvePart } from "../shelf/ui";
+import { CORNER_DEFAULT, SCREEN, cornerOf, type Corner } from "./corner";
 import { getFeature } from "../shelf";
 import type { StudioNode } from "../board/store";
 
 export interface Behaviours {
   progress: boolean;
   backToTop: boolean;
+  /** Where the back-to-top button stays on screen: the nearest corner and how far in from it. */
+  backToTopAt: Corner;
   reveal: boolean;
   /** How things appear: fade-up, fade, scale, blur or stagger (the card's Style). */
   revealStyle: string;
@@ -42,6 +45,8 @@ export function isBehaviour(featureId: string): boolean {
   return resolvePart(featureId)?.tier === "B";
 }
 
+export { CORNER_DEFAULT, MIN_INSET, cornerOf, onScreenButton, type Corner } from "./corner";
+
 /**
  * What a page's own scroll setting does to the live page: the three the
  * preview can do, done; the two it cannot, named in the corner note beside
@@ -64,9 +69,10 @@ function pageScroll(b: Behaviours, scroll: string | undefined) {
 /** A cursor's own picture: a data address only, never a link out. */
 const pictureCursor = (o: Record<string, string>) => (o.style === "picture" && o.picture?.startsWith("data:image/") ? o.picture : null);
 
-export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviours {
+export function deriveBehaviours(nodes: StudioNode[], scroll?: string, frameWidth = 1440): Behaviours {
+  const pageH = nodes.reduce((m, n) => (isBehaviour(n.featureId) || n.state ? m : Math.max(m, n.y + n.h)), 0) || SCREEN;
   const b: Behaviours = {
-    progress: false, backToTop: false, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false, smoothStrength: "light",
+    progress: false, backToTop: false, backToTopAt: CORNER_DEFAULT, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false, smoothStrength: "light",
     snap: null, intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
   };
   for (const n of nodes) {
@@ -77,7 +83,7 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviou
     const o = n.options;
     switch (n.featureId) {
       case "scroll-progress": b.progress = true; break;
-      case "back-to-top": b.backToTop = true; break;
+      case "back-to-top": b.backToTop = true; b.backToTopAt = cornerOf(n, frameWidth, pageH); break;
       case "reveal-on-scroll": b.reveal = true; b.revealStyle = o.style ?? "fade-up"; break;
       case "parallax": b.parallax = STRENGTH[o.strength ?? "medium"] ?? 0.18; break;
       case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; b.smoothStrength = o.strength === "heavy" ? "heavy" : "light"; break;
