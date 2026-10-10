@@ -254,6 +254,12 @@
         "title": "App areas: the box the code works in",
         "checkedBy": "kit:check",
         "rule": "The element a script fills and measures (a game screen, a chart, a map) carries data-app-area=\"<plain name>\" beside its data-hook. Its script measures the box and fills it, so the area can be moved and resized anywhere and the app follows; what is inside fills the area. The builder moves and resizes the area as one, and never writes a size or place for the parts inside it."
+      },
+      {
+        "id": "builder-motion",
+        "title": "The builder's motion file",
+        "checkedBy": "kit:check",
+        "rule": "Every page loads vendor/builder-motion.js, a copy of the kit's starter/vendor/builder-motion.js holding the scripts the builder's Preview runs for its effects and whole-site motions. Publish names a motion on a hook in the style layer (--builder-motion, and --builder-site-motion on :root) and the file runs it, so any motion goes on any panel with no code chat. Never edit the file or write those properties by hand; kit:check --write copies it in and adds its script to a page that lacks it."
       }
     ],
     "requests": [],

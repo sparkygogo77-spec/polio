@@ -11,7 +11,8 @@
       "scripts": [
         "starter/js/about.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/contact.html": {
@@ -23,7 +24,8 @@
       "scripts": [
         "starter/js/contact.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/gallery.html": {
@@ -58,7 +60,8 @@
         "starter/parts/scoreboard.js",
         "starter/parts/screen.js",
         "starter/parts/slots.js",
-        "starter/parts/sound.js"
+        "starter/parts/sound.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/index.html": {
@@ -70,7 +73,8 @@
       "scripts": [
         "starter/js/home.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/list.html": {
@@ -82,7 +86,8 @@
       "scripts": [
         "starter/js/hooks.js",
         "starter/js/list.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/preview.html": {

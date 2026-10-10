@@ -9,7 +9,8 @@
 // hooks map: every data-hook with its pages, element, the hook around it, whether a script builds
 // it from a <template>, the tokens it uses and every code reference (file, line, function).
 // No dependencies: plain Node 18+.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve } from 'node:path';
 
 // ------------------------------------------------------------------ small helpers
@@ -326,6 +327,25 @@ export function check(manifestPath, { write = false } = {}) {
   const sitePages = new Set(manifest.pages.map((x) => x.file));
   const outsideOk = new Set((manifest.rules?.outsideParts ?? []).map((x) => resolve(at(typeof x === 'string' ? x : x.file))));
   const blockLinks = (manifest.links?.block ?? []).map((b) => ({ re: new RegExp(b.pattern, 'i'), why: b.why }));
+
+  // ---- the builder's motion (BUILDER-RULES.md rule 35): one file from the kit, loaded by every page, so any
+  // motion the style layer names on a hook (--builder-motion) runs with no code of the site's own.
+  const motionSource = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'starter', 'vendor', 'builder-motion.js');
+  if (existsSync(motionSource)) {
+    const motionFile = join(dirname(tokensFile), 'vendor', 'builder-motion.js');
+    const want = read(motionSource);
+    if (resolve(motionFile) !== motionSource && (!existsSync(motionFile) || read(motionFile) !== want)) {
+      if (write) { mkdirSync(dirname(motionFile), { recursive: true }); writeFileSync(motionFile, want); }
+      else problems.push(`${rel(motionFile)}: the builder's motion file is ${existsSync(motionFile) ? 'stale' : 'missing'} (run kit-check --write, or npm run kit:hooks)`);
+    }
+    for (const f of manifest.pages.map((x) => x.file)) {
+      const text = read(at(f));
+      const src = relative(dirname(at(f)), motionFile).split('\\').join('/');
+      if (parsePage(f, text).scripts.some((x) => x.src && resolve(dirname(at(f)), x.src) === resolve(motionFile))) continue;
+      if (write && /<\/body>/i.test(text)) writeFileSync(at(f), text.replace(/<\/body>/i, `<script src="${src}" defer></script>\n</body>`));
+      else problems.push(`${f}: does not load ${src} (run kit-check --write, or npm run kit:hooks)`);
+    }
+  }
 
   const pageFiles = [...manifest.pages.map((p) => p.file), manifest.preview.page, manifest.gallery];
   const pages = pageFiles.map((f) => ({ ...parsePage(f, read(at(f))), abs: at(f) }));

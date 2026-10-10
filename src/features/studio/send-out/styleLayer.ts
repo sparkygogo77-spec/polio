@@ -29,6 +29,7 @@
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
 import { effectCss, siteCss, sitePress, stillTail } from "./motionCss.ts";
+import { motionValue, siteMotionDeclarations } from "./kitMotion.ts";
 import type { SourceHook, SourceVar } from "../sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
 import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../living.ts";
@@ -651,6 +652,9 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
         for (const [k, v] of fx.frames) frames.set(k, v);
         movingSel.push(selectorFor(src.hook), ...fx.rules.map((r) => r.selector));
       }
+      /* The motions the kit's file runs (`kitMotion.ts`): named on the part's hook, for a builder-ready site, which loads the file. */
+      const mv = opts.kit && src.hook.attr === "data-hook" && n.work ? motionValue(n.work as never) : null;
+      if (mv) decl = [...decl.filter((d) => !d.startsWith("--builder-motion:")), `--builder-motion: ${mv}`];
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
@@ -765,6 +769,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   /* The whole-site motions switched on (a part of theirs on the pages), as CSS for the site where CSS can carry them. */
   const site = siteCss(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId, options: n.options })), { accent: palette?.accent });
   for (const r of site.rules) rules.push({ selector: r.selector, declarations: r.declarations, nodeId: "", file: "" });
+  const siteKit = opts.kit ? siteMotionDeclarations(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId!, options: n.options })), palette) : [];
+  if (siteKit.length) rules.push({ selector: ":root", declarations: siteKit, nodeId: "", file: "" });
   const motionTail = frames.size || site.tail.length || site.rules.length
     ? ["", "/* Motion from the Builder's effects: plain CSS, still for a visitor who asks for less. */", ...frames.values(), ...site.tail, ...stillTail([...movingSel, ...site.rules.filter((r) => r.selector === "body").map(() => "body"), ...(site.done.includes("reveal-on-scroll") ? ["[data-panel]"] : []), ...(site.done.includes("scroll-progress") ? ["body::before"] : [])])]
     : [];

@@ -56,12 +56,12 @@ export function wantsMotion(b: Omit<SiteMotionSettings, "parts" | "accent" | "su
 
 export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #site-motion on each page. */
 (function () {
-  var el = document.getElementById("site-motion");
-  if (!el) return;
-  var c; try { c = JSON.parse(el.textContent || "{}"); } catch (e) { return; }
+  /* A builder-ready code site hands its settings over directly (the kit's vendor/builder-motion.js), its parts by a selector. */
+  var c = window.siteMotionSettings;
+  if (!c) { var el = document.getElementById("site-motion"); if (!el) return; try { c = JSON.parse(el.textContent || "{}"); } catch (e) { return; } }
   var still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var root = document.documentElement;
-  var parts = (c.parts || []).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  var parts = c.select ? Array.prototype.slice.call(document.querySelectorAll(c.select)) : (c.parts || []).map(function (id) { return document.getElementById(id); }).filter(Boolean);
   var sheet = document.createElement("style");
   sheet.textContent = "@keyframes sm-wipe{from{transform:scaleY(1)}to{transform:scaleY(0)}}";
   document.head.appendChild(sheet);
@@ -129,9 +129,9 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
       p.addEventListener("pointerleave", function () { p.style.transform = ""; });
     });
   }
-  if (c.cursor === "picture" && c.cursorPicture && /^data:image\//.test(c.cursorPicture)) {
+  if (c.cursor === "picture" && c.cursorPicture && /^data:image\\//.test(c.cursorPicture)) {
     var sheet = document.createElement("style");
-    sheet.textContent = "html,html *{cursor:url(\"" + c.cursorPicture + "\") 0 0,auto !important}";
+    sheet.textContent = "html,html *{cursor:url(\\"" + c.cursorPicture + "\\") 0 0,auto !important}";
     document.head.appendChild(sheet);
   } else if (c.cursor && !still && window.matchMedia && matchMedia("(pointer: fine)").matches) {
     var spot = c.cursor === "spotlight", size = spot ? 220 : 16;

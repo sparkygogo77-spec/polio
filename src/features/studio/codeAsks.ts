@@ -27,13 +27,14 @@
 import type { FixIssue } from "./fixLoop.ts";
 /* Pure too: which effects and whole-site motions the style layer already writes as CSS, so they are not asked as well. */
 import { carriedEffect, carriedSite } from "./send-out/motionCss.ts";
+import { kitEffect, kitSite } from "./send-out/kitMotion.ts";
 
 export interface AskNode {
   id: string;
   pageId: string;
   label?: string | null;
   work?: { id: string; inputs?: Record<string, string>; off?: boolean; also?: { id: string; inputs?: Record<string, string>; off?: boolean }[] } | null;
-  source?: { hook?: { value: string } | null } | null;
+  source?: { hook?: { value: string; attr?: string } | null } | null;
   from?: { selector?: string } | null;
   featureId?: string;
   x?: number; y?: number; w?: number; h?: number;
@@ -67,6 +68,8 @@ export interface AskInput {
   lookCss?: (n: AskNode) => string[];
   /** Shelf ids that are a whole-site motion kept as a part on every page (`shelfFacts.ts#RUN_MOTIONS`): asked once, for the site. */
   siteMotions?: ReadonlySet<string>;
+  /** A builder-ready site (`styleSource.kit`): it loads the kit's motion file, so the motions it runs go in the style layer (`send-out/kitMotion.ts`). */
+  kit?: boolean;
 }
 
 /** A part made in the Builder on a page the code has: no element there yet. */
@@ -132,7 +135,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
   for (const n of a.nodes) {
     if (!isNewPart(n, a.coded)) continue;
     if (a.siteMotions?.has(n.featureId ?? "")) {
-      if (motions.has(n.featureId!) || carriedSite(n.featureId!, n.options)) continue;
+      if (motions.has(n.featureId!) || carriedSite(n.featureId!, n.options) || (a.kit && kitSite(n.featureId!, n.options))) continue;
       motions.add(n.featureId!);
       out.push({ key: `build-site-${n.featureId}`, kind: "build", hook: null, page: "every page", says: clean(`J turned on "${a.part?.(n.featureId!) ?? n.featureId}" for the whole site in the Builder. Build it in the code.`) });
       continue;
@@ -173,6 +176,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
     for (const u of uses) {
       /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`). */
       if (u.off || carriedEffect(u.id)) continue;
+      /* On a builder-ready site the kit's motion file runs the rest, named in the style layer on the part's hook. */
+      if (a.kit && n.source?.hook?.attr === "data-hook" && kitEffect(u.id)) continue;
       const set = Object.entries(u.inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
       const k = `${u.id}|${set}`;
       const g = effects.get(k) ?? { id: u.id, set, parts: [] };

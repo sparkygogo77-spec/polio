@@ -67,6 +67,7 @@ function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(s
     fresh,
     part: (id) => getFeature(id)?.name ?? null,
     siteMotions: RUN_MOTIONS,
+    kit: !!source.kit,
     lookCss: (n) => { const now = lookOf(n as unknown as LayerNode, palette); return changedDeclarations({ box: now.box, words: "" }, now, { dx: 0, dy: 0 }).filter((d) => !/^(width|min-height|max-width|box-sizing):/.test(d)); },
     nodes: st.nodes as never,
     pages: st.pages,
