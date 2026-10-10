@@ -8,7 +8,7 @@
  *
  * Covers: src/features/studio/pictures/estimate.ts
  */
-import { estimateLine, pictureEstimate, SOLID_GUIDE } from "../src/features/studio/pictures/estimate.ts";
+import { estimateLine, pictureEstimate, pictureSeconds, progressOf, SOLID_GUIDE } from "../src/features/studio/pictures/estimate.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => { results.push(ok === true); console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`); };
@@ -26,6 +26,11 @@ const past = [{ model: "openai/gpt-image-2", quality: "high", cost: 0.2 }, { mod
 const mine = pictureEstimate("openai/gpt-image-2", "high", past);
 check("his own past prices win, for the same model and quality", mine.from === "yours" && Math.abs(mine.dollars - 0.25) < 1e-9 && mine.count === 2, JSON.stringify(mine));
 check("and the line says they are his", /your last 2 from this model/.test(estimateLine("openai/gpt-image-2", "high", "", past)));
+
+check("the usual wait follows quality", pictureSeconds("openai/gpt-image-2", "low") < pictureSeconds("openai/gpt-image-2", "high"));
+check("and his own runs win", pictureSeconds("openai/gpt-image-2", "high", [{ model: "openai/gpt-image-2", quality: "high", ms: 30000 }]) === 30);
+const half = progressOf(30, 60), over = progressOf(120, 60);
+check("the bar is time against the usual, never full while running", Math.abs(half.fraction - 0.45) < 1e-9 && !half.late && over.late && over.fraction > 0.9 && over.fraction < 1, `${half.fraction}, ${over.fraction}`);
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);

@@ -36,7 +36,7 @@ export const SOLID_GUIDE = 0.1;
 /** A guide for a model the table has no row for. */
 const FALLBACK = 0.05;
 
-export interface PastDraw { model: string; quality?: string; cost?: number | null }
+export interface PastDraw { model: string; quality?: string; cost?: number | null; ms?: number }
 
 /** About what one picture from this model costs, and where the number came from. */
 export function pictureEstimate(model: string, quality: string, past: readonly PastDraw[] = []): { dollars: number; from: "yours" | "guide"; count: number } {
@@ -57,4 +57,36 @@ export function estimateLine(model: string, quality: string, threeD: string, pas
   const picSaid = pic.from === "yours" ? `About ${about(pic.dollars)} a picture (your last ${pic.count === 1 ? "one" : pic.count} from this model)` : `About ${about(pic.dollars)} a picture`;
   if (threeD === "solid") return `${picSaid}, plus about ${about(SOLID_GUIDE)} for the 3D model: about ${about(pic.dollars + SOLID_GUIDE)} in all, on your own Replicate key.`;
   return `${picSaid}, on your own Replicate key.`;
+}
+
+/**
+ * How long a picture from this model usually takes, in seconds: his own
+ * pictures from it first, else a rough guide. Replicate reports no progress
+ * for these models while they run, so the bar under Generate is time spent
+ * against this, and it says so when a run goes past it.
+ */
+const SECONDS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  "google/nano-banana-2": { "": 20 },
+  "bytedance/seedream-5-lite": { "": 20 },
+  "openai/gpt-image-2": { "": 60, auto: 60, low: 20, medium: 40, high: 90 },
+  "openai/gpt-image-1.5": { "": 50, auto: 50, low: 15, medium: 35, high: 80 },
+  "prunaai/p-image-ideogram": { "": 8 },
+};
+
+/** Hunyuan3D, from its Replicate page: "Predictions typically complete within 104 seconds." */
+export const SOLID_SECONDS = 104;
+
+export function pictureSeconds(model: string, quality: string, past: readonly PastDraw[] = []): number {
+  const same = past.filter((d) => d.model === model && (d.quality ?? "") === (quality ?? "") && typeof d.ms === "number" && d.ms > 0);
+  if (same.length) return Math.max(1, Math.round(same.reduce((a, d) => a + (d.ms as number), 0) / same.length / 1000));
+  const row = SECONDS[model];
+  return row?.[quality ?? ""] ?? row?.[""] ?? 30;
+}
+
+/** Where the bar stands: never full while still running, and whether the run has gone past the usual time. */
+export function progressOf(elapsedS: number, expectS: number): { fraction: number; late: boolean } {
+  const late = elapsedS > expectS;
+  /* Up to 90% on time; past it, the last tenth creeps so the bar still moves. */
+  const fraction = late ? 0.9 + 0.09 * (1 - Math.exp(-(elapsedS - expectS) / Math.max(10, expectS))) : 0.9 * (elapsedS / Math.max(1, expectS));
+  return { fraction: Math.min(0.99, Math.max(0, fraction)), late };
 }
