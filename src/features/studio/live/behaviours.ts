@@ -19,6 +19,8 @@ export interface Behaviours {
   revealStyle: string;
   parallax: number;
   smooth: boolean;
+  /** How long a wheel's glide takes: "light" or "heavy" (the card's Strength). */
+  smoothStrength: string;
   snap: "vertical" | "horizontal" | null;
   intro: boolean;
   cursor: string | null;
@@ -64,7 +66,7 @@ const pictureCursor = (o: Record<string, string>) => (o.style === "picture" && o
 
 export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviours {
   const b: Behaviours = {
-    progress: false, backToTop: false, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false,
+    progress: false, backToTop: false, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false, smoothStrength: "light",
     snap: null, intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
   };
   for (const n of nodes) {
@@ -78,7 +80,7 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviou
       case "back-to-top": b.backToTop = true; break;
       case "reveal-on-scroll": b.reveal = true; b.revealStyle = o.style ?? "fade-up"; break;
       case "parallax": b.parallax = STRENGTH[o.strength ?? "medium"] ?? 0.18; break;
-      case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; break;
+      case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; b.smoothStrength = o.strength === "heavy" ? "heavy" : "light"; break;
       case "scroll-snap": b.snap = o.axis === "horizontal" ? "horizontal" : "vertical"; break;
       case "page-load": b.intro = true; break;
       case "cursor-effects": b.cursor = o.style ?? "dot"; b.cursorPicture = pictureCursor(o); if (b.cursor === "picture" && !b.cursorPicture) b.cursor = "dot"; break;

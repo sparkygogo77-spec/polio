@@ -87,7 +87,8 @@ try {
     }
     return { found: true, max, out };
   });
-  check("2. The Preview draws the bar in a strip pinned to its window", seen.found === true && seen.max > 1000, JSON.stringify({ found: seen.found, max: seen.max }));
+  /* PST's Home scrolls about 500px since the page ends at its last panel (tests/smooth-scroll-site.mjs). */
+  check("2. The Preview draws the bar in a strip pinned to its window", seen.found === true && seen.max > 300, JSON.stringify({ found: seen.found, max: seen.max }));
   check("…after fast jumps down and up, one frame later it is at the top of the window", seen.out?.every((o) => o.off === 0), JSON.stringify(seen.out));
   check("…and its fill matches how far down the page is", seen.out?.every((o) => Math.abs(o.part - o.want) < 0.02), JSON.stringify(seen.out));
   check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));

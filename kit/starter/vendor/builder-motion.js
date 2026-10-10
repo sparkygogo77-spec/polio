@@ -708,6 +708,7 @@ siteFeatures.define("copy-toast", function (el, inputs) {
       if (m.id === "hover-tilt") c.tilt = true;
       if (m.id === "parallax") c.parallax = Number(m.inputs.strength) || 0.18;
       if (m.id === "cursor-effects") c.cursor = m.inputs.style || "dot";
+      if (m.id === "smooth-scroll") { c.smooth = true; c.smoothStrength = m.inputs.strength || "light"; }
     });
     window.siteMotionSettings = c;
     /* The whole site's motion: its settings are in #site-motion on each page. */
@@ -748,7 +749,52 @@ siteFeatures.define("copy-toast", function (el, inputs) {
         if (c.parallax && !still) document.body.style.backgroundPositionY = (-top * c.parallax) + "px";
       }
       if (c.progress || c.backToTop || c.parallax) { window.addEventListener("scroll", onScroll, { passive: true }); onScroll(); }
-      if (c.smooth && !still) root.style.scrollBehavior = "smooth";
+      if (c.smooth && !still) {
+        /* A link's jump eases; the wheel glides to a stop (`smoothWheelJs.ts`). */
+        root.style.scrollBehavior = "smooth";
+        function smoothWheel(box, strength) {
+      var win = !box, el = box || document.scrollingElement || document.documentElement;
+      /* How much of the way is covered each frame (at 60 a second). */
+      var ease = strength === "heavy" ? 0.055 : 0.11;
+      var target = null, cur = 0, raf = 0, last = 0, mine = -1;
+      function top() { return win ? (window.scrollY || el.scrollTop || 0) : el.scrollTop; }
+      function room() { return Math.max(0, el.scrollHeight - (win ? window.innerHeight : el.clientHeight)); }
+      function set(y) { mine = y; (win ? window : el).scrollTo({ top: y, behavior: "instant" }); }
+      function own(t, dy) {
+        for (var n = t; n && n.nodeType === 1 && n !== el && n !== document.body; n = n.parentElement) {
+          if (n.scrollHeight <= n.clientHeight + 1) continue;
+          if (!/(auto|scroll|overlay)/.test(getComputedStyle(n).overflowY)) continue;
+          if (dy > 0 ? n.scrollTop + n.clientHeight < n.scrollHeight - 1 : n.scrollTop > 0) return true;
+        }
+        return false;
+      }
+      function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; target = null; last = 0; }
+      function step(now) {
+        var dt = last ? Math.min(64, now - last) : 16.67;
+        last = now;
+        cur += (target - cur) * (1 - Math.pow(1 - ease, dt / 16.67));
+        if (Math.abs(target - cur) < 0.5) { set(target); stop(); return; }
+        set(cur);
+        raf = requestAnimationFrame(step);
+      }
+      function wheel(e) {
+        if (e.ctrlKey || e.defaultPrevented || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !e.deltaY) return;
+        if (own(e.target, e.deltaY)) return;
+        var dy = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? (win ? window.innerHeight : el.clientHeight) : 1);
+        e.preventDefault();
+        if (target === null) { cur = top(); target = cur; }
+        target = Math.max(0, Math.min(room(), target + dy));
+        if (!raf) { last = 0; raf = requestAnimationFrame(step); }
+      }
+      /* Something else moved the page (a scrollbar, a key, a link): the glide lets go. */
+      function scrolled() { if (raf && Math.abs(top() - mine) > 2) stop(); }
+      var on = win ? window : el;
+      on.addEventListener("wheel", wheel, { passive: false });
+      on.addEventListener("scroll", scrolled, { passive: true });
+      return function () { stop(); on.removeEventListener("wheel", wheel); on.removeEventListener("scroll", scrolled); };
+    }
+        smoothWheel(null, c.smoothStrength);
+      }
       if (c.snap) {
         root.style.scrollSnapType = (c.snap === "horizontal" ? "x" : "y") + " proximity";
         parts.forEach(function (p) { if (p.getBoundingClientRect().width >= window.innerWidth * 0.8) p.style.scrollSnapAlign = "start"; });

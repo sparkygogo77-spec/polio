@@ -242,10 +242,9 @@ export function setSwitch(featureId: string, on: boolean) {
   for (const p of st.pages) {
     const now = useStudio.getState();
     if (now.nodes.some((n) => n.pageId === p.id && n.featureId === featureId)) continue;
-    const onPage = now.nodes.filter((n) => n.pageId === p.id);
-    const bottom = onPage.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+    /* It takes no room on the page: the board shows it as a chip over the page (`board/SiteWideRow.tsx`), so where it stands is nowhere in particular. */
     const w = Math.min(f?.w ?? 420, now.frameWidth);
-    now.addNode(featureId, w >= now.frameWidth ? 0 : Math.round((now.frameWidth - w) / 2), onPage.length ? bottom + 24 : 0, { pageId: p.id, w, h: f?.h ?? 64 });
+    now.addNode(featureId, 0, 0, { pageId: p.id, w, h: f?.h ?? 64 });
   }
 }
 

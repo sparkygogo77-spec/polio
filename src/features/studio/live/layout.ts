@@ -13,6 +13,7 @@ import { getFeature } from "../shelf";
 import { resolvePart } from "../shelf/ui";
 import { FULL_BLEED } from "../reshape";
 import type { StudioNode } from "../board/store";
+import { frameHeight } from "../board/store/frame";
 import { reflow, type Placed } from "./reflow";
 
 export { frameHeightOf, type Placed } from "./reflow";
@@ -30,5 +31,15 @@ export function placeNodes(all: StudioNode[], device: Device, frameWidth: number
   // Behaviours apply to the whole page; they take no room in it.
   const nodes = all.filter((n) => resolvePart(n.featureId)?.tier !== "B");
   const target = device === "desktop" ? frameWidth : DEVICE_WIDTH[device];
-  return reflow(nodes, target, frameWidth, { fullBleed: FULL_BLEED, aspectBound });
+  const out = reflow(nodes, target, frameWidth, { fullBleed: FULL_BLEED, aspectBound });
+  /*
+   * AT THE BOARD'S WIDTH THE PAGE IS AS LONG AS THE BOARD'S (J, 2026-10-10:
+   * "it just extended the page for no reason ... the dots dont even extend
+   * with it"). The arithmetic counted a part a press shows, which the page
+   * opens without, and added 160px under the lowest: PST's Home ran 900px
+   * past its last panel, past where its own dotted background stops. The
+   * board's own measure (`frameHeight`) ends at the foot of what the page
+   * opens with; `LiveSite` grows the page when a press shows a part lower.
+   */
+  return out.reflowed ? out : { ...out, height: frameHeight(nodes) };
 }
