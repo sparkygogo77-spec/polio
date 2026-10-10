@@ -56,6 +56,7 @@ import { shownOnBoard,placedOnBoard,boxOf,WEARS_AN_ICON,FRAME_GUTTER,TOP_GUTTER,
 import { midOf,edgePoint,hitNode,hitShape,hitAlong } from "./geometry";
 import { isChain,reasonOn,ShapeView,GROUP_HANDLES,HANDLE_CURSOR } from "./ShapeView";
 import { NodeView } from "./NodeView";
+import { startEdgeScroll } from "./edgeScroll";
 import { afterWordsDeclined, pressRule } from "./press";
 import { groupDrag, moveDrag, readPress, resizeDrag } from "./pressRead";
 
@@ -504,10 +505,10 @@ export function DesktopCanvas() {
   /* The fit's one input, so the whole of what has to be remembered. It was
      a composite while the height bound too; a page that grows no longer
      changes the zoom, so a page that grows must not re-fit. */
-  /* The pane's height is an input now too (its first screen has to fit
-     down it); a page that grows still does not change the pane's height,
-     and neither does a category opening, so neither re-fits. */
-  const fitKey = (pane: Element) => `${pane.clientWidth}x${pane.clientHeight}`;
+  /* The width alone: the fit is across only (`fitZoom`). The height was in
+     the key, so the shelf lowering under a carried card (`cardCarry.ts`) or
+     its grip re-fitted the board and threw the page back to its top. */
+  const fitKey = (pane: Element) => `${pane.clientWidth}`;
 
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
@@ -884,42 +885,17 @@ export function DesktopCanvas() {
     carry(p.x - d.startX, p.y - d.startY);
   };
 
-  /*
-   * How near an edge counts, and how fast it goes there.
-   *
-   * A band rather than a line, so it starts gently as he approaches and is at
-   * full speed only when he is right up against it \u2014 an edge scroll that
-   * comes on like a switch throws the page past where he was aiming.
-   */
-  const EDGE_BAND = 64;
-  const EDGE_TOP_SPEED = 22;
-
+  /* Every drag but a pan (which scrolls the pane itself) scrolls at the edges, faster the further in (`edgeScroll.ts`). */
+  const moveRef = React.useRef<((e: { clientX: number; clientY: number }) => void) | null>(null);
   React.useEffect(() => {
-    const moving = drag?.kind === "node";
-    if (!moving) { handAt.current = null; return; }
-    let frame = 0;
-    const tick = () => {
-      const pane = ref.current?.closest("[data-studio-pane]");
-      const at = handAt.current;
-      if (pane instanceof HTMLElement && at) {
-        const box = pane.getBoundingClientRect();
-        const overTop = EDGE_BAND - (at.y - box.top);
-        const overFoot = EDGE_BAND - (box.bottom - at.y);
-        const push = overFoot > 0 ? overFoot : overTop > 0 ? -overTop : 0;
-        if (push) {
-          const step = Math.sign(push) * Math.min(EDGE_TOP_SPEED, (Math.abs(push) / EDGE_BAND) * EDGE_TOP_SPEED);
-          const was = pane.scrollTop;
-          pane.scrollTop = Math.max(0, Math.min(pane.scrollHeight - pane.clientHeight, was + step));
-          /* Only when the pane actually moved: at either end there is nothing
-             to follow, and re-applying the carry would jitter the part. */
-          if (pane.scrollTop !== was) carryRef.current?.(at.x, at.y);
-        }
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [drag?.kind]);
+    const kind = drag?.kind;
+    if (!kind || kind === "pan") { handAt.current = null; return; }
+    return startEdgeScroll(() => handAt.current, (at) => {
+      /* A move re-applied at the same point on screen: the part, the box or the line travels with the page. */
+      if (kind === "node") carryRef.current?.(at.x, at.y);
+      else moveRef.current?.({ clientX: at.x, clientY: at.y });
+    }, paneOf);
+  }, [drag?.kind, paneOf]);
 
   /* ------------------------------------------------------------- keys
    *
@@ -1002,7 +978,10 @@ export function DesktopCanvas() {
   const onPointerDown = (e: React.PointerEvent) => {
     const p = toCanvas(e.clientX, e.clientY);
     const store = useStudio.getState();
-    const capture = () => (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    /* A drag starts here. Words left selected anywhere in the Builder would be
+       dragged by the browser instead, and its own drag cancels this one
+       (the part let go after a few pixels), so the selection goes first. */
+    const capture = () => { window.getSelection()?.removeAllRanges(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); };
     const read = readPress(e, p, tool, store, pressed.current);
     const { hitId, id, node, ids } = read;
     let rule = pressRule(read.facts);
@@ -1117,7 +1096,7 @@ export function DesktopCanvas() {
     else news.publish({ key: `studio:link:${node.id}`, title: "That link points at no page", body: `Nothing here is called “${link.target}” yet.`, level: "warn", source: "studio", toast: { durationMs: 6000 } });
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: React.PointerEvent | { clientX: number; clientY: number }) => {
     if (!drag) return;
     /* Where the hand is, in window terms, for the edge scroll to read while
        it is standing still. */
@@ -1307,6 +1286,8 @@ export function DesktopCanvas() {
       toast: true,
     });
   }, [frameWidth, news]);
+
+  moveRef.current = onPointerMove;
 
   const onPointerUp = (e?: React.PointerEvent) => {
     if (!drag) return;

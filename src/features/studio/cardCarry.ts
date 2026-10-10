@@ -13,7 +13,33 @@
  *
  * The same lift serves "Put it on" with no part picked (`armPutOn`): the
  * next part pressed on the board takes it, rather than a new text box.
+ *
+ * J (2026-10-10): "when dragging something from the shelf off the shelf
+ * should drop back down and the site should scroll like when pressing down
+ * a scroll wheel and you reach the edges". Once the hand leaves the shelf,
+ * the shelf lowers to its strip (`useShelfLowered`), so the whole board is
+ * there to drop on, and the board scrolls at its edges (`edgeScroll.ts`).
+ * Let go, the shelf comes back up as it was, ready for the next card.
  */
+import * as React from "react";
+import { startEdgeScroll } from "./board/edgeScroll";
+
+/* The shelf lowered for the length of a carry. Not the fold he chooses (kept across reloads): this comes back up on let go. */
+let lowered = false;
+const loweredWatchers = new Set<() => void>();
+function setShelfLowered(v: boolean) {
+  if (lowered === v) return;
+  lowered = v;
+  loweredWatchers.forEach((w) => w());
+}
+/** True while a card carried off the shelf has it lowered out of the way. */
+export function useShelfLowered(): boolean {
+  return React.useSyncExternalStore(
+    (w) => { loweredWatchers.add(w); return () => { loweredWatchers.delete(w); }; },
+    () => lowered,
+    () => false,
+  );
+}
 
 /** Where a carried card was let go. */
 export interface CarryDrop {
@@ -80,6 +106,11 @@ export function liftCard(e: PointerEvent | { button: number; clientX: number; cl
   let carried: HTMLElement | null = null;
   let r: HTMLDivElement | null = null;
   let dx = 0, dy = 0;
+  /* The band the card was lifted from, and whether the hand has left it yet. */
+  const band = card.closest<HTMLElement>("[data-studio-band]");
+  let off = false;
+  let hand: { x: number; y: number } | null = null;
+  let stopScroll: (() => void) | null = null;
 
   const begin = () => {
     const box = card.getBoundingClientRect();
@@ -96,6 +127,9 @@ export function liftCard(e: PointerEvent | { button: number; clientX: number; cl
     document.body.appendChild(carried);
     card.style.opacity = "0.3";
     document.documentElement.style.cursor = "grabbing";
+    /* The hand sweeping over the Builder would select every word it passes, and a part pressed after that drags the words, not the part. */
+    window.getSelection()?.removeAllRanges();
+    document.documentElement.style.userSelect = "none";
     if (opts.ontoPart) r = ring();
   };
 
@@ -107,6 +141,15 @@ export function liftCard(e: PointerEvent | { button: number; clientX: number; cl
     ev.preventDefault();
     carried!.style.left = `${ev.clientX - dx}px`;
     carried!.style.top = `${ev.clientY - dy}px`;
+    if (!off) {
+      const b = band?.getBoundingClientRect();
+      off = !b || ev.clientY < b.top || ev.clientX < b.left || ev.clientX > b.right;
+      if (off) {
+        setShelfLowered(!!band);
+        stopScroll = startEdgeScroll(() => hand, (at) => { if (r) showRing(r, partAt(at.x, at.y).node, `Drop to give it ${opts.what}`); });
+      }
+    }
+    if (off) hand = { x: ev.clientX, y: ev.clientY };
     if (r) {
       const at = partAt(ev.clientX, ev.clientY);
       showRing(r, at.node, `Drop to give it ${opts.what}`);
@@ -117,6 +160,7 @@ export function liftCard(e: PointerEvent | { button: number; clientX: number; cl
     window.removeEventListener("pointermove", move, true);
     window.removeEventListener("pointerup", end, true);
     window.removeEventListener("pointercancel", end, true);
+    stopScroll?.();
     if (!carried) return;
     /* The press that ends a carry is not a press on the card. */
     const swallow = (c: Event) => { c.stopPropagation(); c.preventDefault(); };
@@ -127,18 +171,27 @@ export function liftCard(e: PointerEvent | { button: number; clientX: number; cl
     const c = carried;
     r?.remove();
     document.documentElement.style.cursor = "";
-    const back = card.getBoundingClientRect();
+    document.documentElement.style.userSelect = "";
+    const wasLowered = lowered;
+    setShelfLowered(false);
     if (landed) {
       c.style.transition = "transform 180ms ease-in, opacity 180ms ease-in";
       c.style.transform = "scale(.4)";
       c.style.opacity = "0";
-    } else {
+      window.setTimeout(() => { c.remove(); card.style.opacity = ""; }, 190);
+      return;
+    }
+    /* Back to its place on the shelf, read once the shelf is back up. */
+    const flyBack = () => {
+      const back = card.getBoundingClientRect();
       c.style.transition = "left 260ms cubic-bezier(.2,.8,.2,1), top 260ms cubic-bezier(.2,.8,.2,1), transform 260ms";
       c.style.left = `${back.left}px`;
       c.style.top = `${back.top}px`;
       c.style.transform = "none";
-    }
-    window.setTimeout(() => { c.remove(); card.style.opacity = ""; }, landed ? 190 : 270);
+      window.setTimeout(() => { c.remove(); card.style.opacity = ""; }, 270);
+    };
+    if (wasLowered) requestAnimationFrame(() => requestAnimationFrame(flyBack));
+    else flyBack();
   };
 
   window.addEventListener("pointermove", move, true);

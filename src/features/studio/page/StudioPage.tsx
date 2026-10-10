@@ -26,6 +26,7 @@ import { useBuilds } from "@/features/builds/store";
 import { ImportFlow } from "../ImportFlow";
 import { PreviewWindow } from "../Preview";
 import { Palette, useShelfFolded, useShelfTall } from "../shelf/screens";
+import { useShelfLowered } from "../cardCarry";
 import { Inspector } from "../panels/ui";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../panels/ui";
@@ -83,6 +84,8 @@ export function StudioPage() {
   const detailTab = useDetailTab();
   const shelfTall = useShelfTall();
   const shelfFolded = useShelfFolded();
+  /* A card carried off the shelf lowers it out of the way until let go (`cardCarry.ts`). */
+  const shelfLowered = useShelfLowered();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -590,11 +593,12 @@ export function StudioPage() {
                   data-band-reach={SHELF_OPEN_H}
                   data-band-set={shelfTall == null ? undefined : "1"}
                   data-band-folded={shelfFolded ? "" : undefined}
-                  className="relative z-10 w-full shrink-0 border-t border-border bg-bg"
+                  data-band-lowered={shelfLowered ? "" : undefined}
+                  className={cn("relative z-10 w-full shrink-0 border-t border-border bg-bg", shelfLowered && "overflow-hidden transition-[height] duration-150 ease-in")}
                   /* His height if he has set one with the wheel over the
                      categories, otherwise the two the band has always had. */
                   /* ONE HEIGHT, OPEN OR SHUT (J, after #19): the board stays its size and only scrolls; opening a category never takes room from it. The band keeps its shut height and the open category's cards scroll inside it. Only his own fold or grip changes it. */
-                  style={{ height: shelfFolded ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
+                  style={{ height: shelfFolded || shelfLowered ? SHELF_STRIP_H : shelfTall != null ? `${shelfTall}px` : BAND_H }}
                 >
                   {/* The Panels shelf went: panels and their states have their own page (`PanelsPage.tsx`, J 2026-10-06). */}
                   <Palette />
