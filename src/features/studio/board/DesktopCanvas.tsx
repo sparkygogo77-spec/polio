@@ -6,7 +6,7 @@ import { tryOn,useTryLook } from "../tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature } from "../shelf";
 import { isLinkable } from "../shelf/ui";
-import { isBehaviour } from "../live/behaviours";
+import { isBehaviour, onScreenButton, MIN_INSET } from "../live/behaviours";
 import { SiteWideRow } from "./SiteWideRow";
 import { useActions } from "@/core/actions";
 import { leadsOf,withLead } from "../shelf";
@@ -101,8 +101,9 @@ export function DesktopCanvas() {
    * the page longer. It is a chip in the row over the page now (`SiteWideRow`),
    * and nothing else on the board sees it: not the page's length, a snap or a marquee.
    */
-  const siteWide = React.useMemo(() => pageAll.filter((n) => isBehaviour(n.featureId)), [pageAll]);
-  const nodes = React.useMemo(() => (siteWide.length ? pageAll.filter((n) => !isBehaviour(n.featureId)) : pageAll), [pageAll, siteWide]);
+  /* Back to top is the exception: a button J puts where it goes, so it is drawn and dragged like a part (`onScreenButton`). */
+  const siteWide = React.useMemo(() => pageAll.filter((n) => isBehaviour(n.featureId) && !onScreenButton(n)), [pageAll]);
+  const nodes = React.useMemo(() => (siteWide.length ? pageAll.filter((n) => !siteWide.includes(n)) : pageAll), [pageAll, siteWide]);
   /* The parts as they were when the hand went down, while one is under it (`store/hold.ts`): what is worked out from the whole page and does not change because a part is being carried — its features, its names, which parts ask a question, where a row's words start — is worked out once for the drag, not on every move (J, 2026-10-06, "dragging elements around is still laggy"). */
   const steadyNodes = useSteady(nodes);
   /* What moves on its own (a spin, a float, the dust) plays on the board too, softly, on the drawn layer inside each part: the part's box stays put and editable (`live/runWorks.ts`, board). Again only when what they are told changes. */
@@ -818,8 +819,11 @@ export function DesktopCanvas() {
     const w = feature?.w ?? 420;
     const h = feature?.h ?? 88;
     // Full-width parts land flush; everything else lands centred on the cursor.
-    const x = w >= frameWidth ? 0 : snapGrid(p.x - w / 2);
-    useStudio.getState().addNode(featureId, x, snapGrid(p.y - h / 2), { w: Math.min(w, frameWidth), h });
+    let x = w >= frameWidth ? 0 : snapGrid(p.x - w / 2);
+    let y = snapGrid(p.y - h / 2);
+    /* A button that stays on screen (back to top) never lands against the edge: 24px in at least. */
+    if (onScreenButton({ featureId, w, h })) { const In = MIN_INSET + 8; x = Math.min(Math.max(In, x), frameWidth - w - In); y = Math.max(In, y); }
+    useStudio.getState().addNode(featureId, x, y, { w: Math.min(w, frameWidth), h });
     play("confirm");
     haptic();
   };

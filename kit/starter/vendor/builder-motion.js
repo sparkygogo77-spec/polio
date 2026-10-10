@@ -705,7 +705,7 @@ siteFeatures.define("copy-toast", function (el, inputs) {
     var c = { progress: false, backToTop: false, reveal: false, parallax: 0, smooth: false, snap: null, intro: false, cursor: null, tilt: false, parts: [],
       select: "[data-panel]", accent: css.getPropertyValue("--builder-motion-accent").trim() || "currentColor", surface: css.getPropertyValue("--builder-motion-surface").trim() || "Canvas" };
     on.forEach(function (m) {
-      if (m.id === "back-to-top") c.backToTop = true;
+      if (m.id === "back-to-top") { c.backToTop = true; c.backAt = m.inputs; }
       if (m.id === "hover-tilt") c.tilt = true;
       if (m.id === "parallax") c.parallax = Number(m.inputs.strength) || 0.18;
       if (m.id === "cursor-effects") c.cursor = m.inputs.style || "dot";
@@ -738,8 +738,10 @@ siteFeatures.define("copy-toast", function (el, inputs) {
       }
       if (c.backToTop) {
         back = document.createElement("button");
-        back.type = "button"; back.setAttribute("aria-label", "Back to top"); back.textContent = "\u2191";
-        back.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:2147483000;width:38px;height:38px;border-radius:999px;border:none;cursor:pointer;background:" + c.accent + ";color:" + c.surface + ";font-size:16px;box-shadow:0 8px 22px rgba(0,0,0,.35);display:none";
+        back.type = "button"; back.setAttribute("aria-label", "Back to top"); back.setAttribute("data-hook", "builder-back-to-top"); back.textContent = "\u2191";
+        /* Where it was put on the board, from the nearest corner; bottom right, 24px in, when it was not. */
+        var at = c.backAt || {}, n = function (v, d) { v = Number(v); return v >= 0 && v < 2000 ? v : d; }, size = n(at.size, 44);
+        back.style.cssText = "position:fixed;" + (at.h === "left" ? "left" : "right") + ":" + n(at.x, 24) + "px;" + (at.v === "top" ? "top" : "bottom") + ":" + n(at.y, 24) + "px;z-index:2147483000;width:" + size + "px;height:" + size + "px;border-radius:999px;border:none;cursor:pointer;background:" + c.accent + ";color:" + c.surface + ";font-size:" + Math.round(size * 0.4) + "px;box-shadow:0 8px 22px rgba(0,0,0,.35);display:none";
         back.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" }); });
         document.body.appendChild(back);
       }

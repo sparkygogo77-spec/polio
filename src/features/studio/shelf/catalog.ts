@@ -540,7 +540,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "blur-privacy": { w: 420, h: 88 },
   "wildcard": { w: 1440, h: 360 },
   "page-transitions": { w: 1440, h: 64 },
-  "back-to-top": { w: 1440, h: 64 },
+  "back-to-top": { w: 44, h: 44 },
   /*
    * The orbs. Three ways to draw the same object, so what each way can do is
    * a comparison rather than an argument: the same four sliders on all three

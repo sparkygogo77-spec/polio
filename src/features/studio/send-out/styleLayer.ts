@@ -30,6 +30,7 @@
  */
 import { effectCss, siteCss, sitePress, stillTail } from "./motionCss.ts";
 import { motionValue, siteMotionDeclarations } from "./kitMotion.ts";
+import { PLACED, cornerOf, onScreenButton } from "../live/corner.ts";
 import type { SourceHook, SourceVar } from "../sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
 import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../living.ts";
@@ -635,7 +636,7 @@ function ridersOf(sourced: readonly LayerNode[]): Map<string, LayerNode[]> {
  * `nodes` are the board's parts, every page; `palette` resolves role
  * colours; `source` is the inventory written at import.
  */
-export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string; kit?: boolean } = {}): Layer {
+export function buildLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, opts: { base?: number; family?: (name: string) => string | undefined; when?: string; kit?: boolean; frameWidth?: number } = {}): Layer {
   const sourced = nodes.filter((n) => n.source?.was);
   const rules: Layer["rules"] = [];
   const text: TextEdit[] = [];
@@ -811,7 +812,10 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   /* The whole-site motions switched on (a part of theirs on the pages), as CSS for the site where CSS can carry them. */
   const site = siteCss(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId, options: n.options })), { accent: palette?.accent });
   for (const r of site.rules) rules.push({ selector: r.selector, declarations: r.declarations, nodeId: "", file: "" });
-  const siteKit = opts.kit ? siteMotionDeclarations(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId!, options: n.options })), palette) : [];
+  /* Back to top stays where it was put on the board, from the nearest corner (`live/behaviours.ts#cornerOf`): a placed one wins over an old page-wide strip. */
+  const shelfMotion = nodes.filter((n) => !n.source && !n.from && !!n.featureId).sort((a, b) => Number(onScreenButton(b)) - Number(onScreenButton(a)));
+  const pageFoot = (pageId: string) => nodes.reduce((m, n) => (n.pageId !== pageId || PLACED.has(n.featureId) ? m : Math.max(m, n.y + n.h)), 0) || undefined;
+  const siteKit = opts.kit ? siteMotionDeclarations(shelfMotion.map((n) => ({ featureId: n.featureId!, options: n.options, at: n.featureId === "back-to-top" ? cornerOf(n, opts.frameWidth ?? 1440, pageFoot(n.pageId)) : null })), palette) : [];
   if (siteKit.length) rules.push({ selector: ":root", declarations: siteKit, nodeId: "", file: "" });
   const motionTail = frames.size || site.tail.length || site.rules.length
     ? ["", "/* Motion from the Builder's effects: plain CSS, still for a visitor who asks for less. */", ...frames.values(), ...site.tail, ...stillTail([...movingSel, ...site.rules.filter((r) => r.selector === "body").map(() => "body"), ...(site.done.includes("reveal-on-scroll") ? ["[data-panel]"] : []), ...(site.done.includes("scroll-progress") ? ["body::before"] : [])])]

@@ -167,7 +167,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   );
   const height = reflowed && sections.length ? laidOut + sections.length * (STRIP + 12) + 12 : laidOut;
   const pageScroll = pages.find((p) => p.id === pageId)?.scroll;
-  const behaviours = React.useMemo(() => deriveBehaviours(pageNodes, pageScroll), [pageNodes, pageScroll]);
+  const behaviours = React.useMemo(() => deriveBehaviours(pageNodes, pageScroll, frameWidth), [pageNodes, pageScroll, frameWidth]);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const seq = React.useRef(0);
 

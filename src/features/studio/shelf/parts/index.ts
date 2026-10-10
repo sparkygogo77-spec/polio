@@ -7,7 +7,7 @@
  * falls back to a labelled box in `blocks.tsx`, which should never happen.
  */
 import { Accordion } from "./Accordion";
-import { Behaviour, Captcha } from "./Behaviour";
+import { BackToTop, Behaviour, Captcha } from "./Behaviour";
 import { Cart, CoinEconomy, Checkout, Comparison, Countdown, Discount, Invoice, Pricing, ProductDetail, ProductGrid, Subscription, Testimonials } from "./Commerce";
 import { Chart, Dashboard, DataTable, DetailsTable, Heatmap, Kanban, Leaderboard, LiveFeed, NetworkGraph, Pie, StatTiles, Timeline } from "./Data";
 import { AiAction, AiChat, AiModeration, AiRecommend, AiVoice, PromptBox } from "./Ai";
@@ -211,7 +211,8 @@ export const DEFS: PartDef[] = [
   ], tier: "B" },
 
   /* ------------------------------------- behaviours and platform mocks */
-  { component: Behaviour, ids: ["page-transitions", "back-to-top"], tier: "B" },
+  { component: Behaviour, ids: ["page-transitions"], tier: "B" },
+  { component: BackToTop, ids: ["back-to-top"], tier: "B", placed: true },
   { component: Captcha, ids: ["captcha"], tier: "C" },
 ];
 
@@ -224,6 +225,11 @@ export function resolvePart(featureId: string): PartDef | null {
 /** A part standing over the page rather than in it (`PartDef.overlay`). */
 export function isOverlay(featureId: string): boolean {
   return resolvePart(featureId)?.overlay === true;
+}
+
+/** A whole-site behaviour placed on the screen (`PartDef.placed`). */
+export function isPlaced(featureId: string): boolean {
+  return resolvePart(featureId)?.placed === true;
 }
 
 export function isLinkable(featureId: string): boolean {
