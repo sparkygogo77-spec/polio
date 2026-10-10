@@ -29,7 +29,7 @@ import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
 import { FAMILY, resolvePalette } from "./shelf/run";
-import { endGesture, gestureBase, pickedStates, startGesture, useHeldStudio, useStudio } from "./board/store";
+import { endGesture, gestureBase, startGesture, useHeldStudio, useStudio } from "./board/store";
 import type { StudioNode } from "./board/store";
 import { cn } from "@/core/lib/cn";
 import { pointParts } from "./board/pointed";
@@ -362,24 +362,25 @@ function drawnNow(id: string): boolean {
 }
 
 /**
- * A pressed piece, seen on the board: its parts outlined where they are drawn.
- * When none is drawn (the wallet buttons live in a hidden panel, or on
- * another page), the board turns to the page and the state one of them lives
- * in, the way picking a hidden part does, and brings it into view (J,
- * 2026-10-09). The Show bar names the state, and its next step takes it off.
+ * A pressed piece, seen on the board: its parts glow where they are drawn,
+ * and nothing else changes. When none is drawn on the page in view, the board
+ * turns to the page one of them is on. It never switches a hidden state on:
+ * that drew the PonsStars "Menu" button (a hidden part of the nav) over the
+ * Play tab, kept it there after the editor closed, and Undo, which steps
+ * edits, could not take it off (J, 2026-10-10). A part in a hidden state is
+ * still edited with its kind; it shows when its state is picked in the Show bar.
  */
 function bringIntoView(ids: string[]) {
   if (!ids.length) { pointAt(null); return; }
   const s = useStudio.getState();
   if (ids.some((id) => drawnNow(id))) { pointAt(onThisPage(ids)); return; }
   const pageOf = new Map(s.nodes.map((n) => [n.id, n.pageId]));
-  const target = ids.find((id) => pageOf.get(id) === s.activePageId) ?? ids[0]!;
-  if (pageOf.get(target) && pageOf.get(target) !== s.activePageId) s.setActivePage(pageOf.get(target)!);
-  const on = pickedStates(useStudio.getState(), [target]).statesOn;
-  if (on) useStudio.getState().setStatesOn(on);
+  const target = ids.find((id) => pageOf.get(id) !== s.activePageId && pageOf.get(id));
+  if (ids.some((id) => pageOf.get(id) === s.activePageId) || !target) { pointAt(onThisPage(ids)); return; }
+  s.setActivePage(pageOf.get(target)!);
   requestAnimationFrame(() => requestAnimationFrame(() => {
     pointAt(onThisPage(ids));
-    scrollToParts([target]);
+    scrollToParts(ids.filter((id) => drawnNow(id)));
   }));
 }
 
