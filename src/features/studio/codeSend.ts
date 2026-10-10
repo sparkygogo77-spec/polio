@@ -18,7 +18,7 @@ export type Sent =
   | { ok: true; says: string; pull: string | null; compare: string; branch: string; kit: boolean; print: string; files: string[]; held: string[] }
   | { ok: false; says: string };
 
-export async function sendDesign(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, o: { site: string; family?: (name: string) => string | undefined; say?: (t: string) => void; extra?: { path: string; content: string }[] }): Promise<Sent> {
+export async function sendDesign(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, o: { site: string; family?: (name: string) => string | undefined; say?: (t: string) => void; extra?: { path: string; content: string }[]; fresh?: Record<string, string> }): Promise<Sent> {
   o.say?.(`Reading the pages from ${source.repo} on ${source.ref}…`);
   const prepared = await prepareLayer(nodes, palette, source, token, { family: o.family, when: new Date().toISOString().slice(0, 10) });
   if (!prepared.ok) return { ok: false, says: prepared.says };
@@ -27,7 +27,7 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
   if (prepared.files.length) {
     const mapPath = source.kit?.hooks ?? null;
     const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
-    prepared.files.push({ path: "design/record.json", content: boardRecord(map) });
+    prepared.files.push({ path: "design/record.json", content: boardRecord(map, undefined, o.fresh) });
   }
   /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook. */
   const pics = await pictureFiles(nodes as never, async (look) => { const b = await bytesFor(look.picture as never); return b ? base64(b) : null; });

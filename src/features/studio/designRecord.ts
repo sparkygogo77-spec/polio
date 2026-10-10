@@ -32,6 +32,11 @@ export interface RecordNode {
   /** What paints and turns it, as the page wrote it (`pageParts.ts`): `transform` turns the box about its middle. */
   art?: { transform?: string } | null;
   source?: { file?: string } | null;
+  /** Where it leads, the note J wrote for it, the effects it carries and a drawn outline: what a part made in the Builder needs the code to know. */
+  link?: { kind: string; target: string } | null;
+  prompt?: string | null;
+  work?: { id: string; off?: boolean; also?: { id: string; off?: boolean }[] } | null;
+  outline?: { cut?: string } | null;
 }
 
 export interface RecordPart {
@@ -54,6 +59,11 @@ export interface RecordPart {
   states?: Record<string, { hidden?: boolean; group?: string; style?: Record<string, string> }>;
   tokens?: Record<string, string>;
   assets?: { svg?: string; img?: string };
+  /** Where it leads (`page:`, `url:` or `node:` and the target), J's note for the code chat, its effects, and a drawn outline (0..1 of its box). */
+  link?: string;
+  prompt?: string;
+  effects?: string[];
+  clip?: string;
   kids?: RecordPart[];
 }
 
@@ -157,6 +167,11 @@ export function designRecord(
       if (p.ffs && byValue.has(p.ffs)) tk.ffs = byValue.get(p.ffs)!;
       if (Object.keys(tk).length) p.tokens = tk;
       if (n.vector?.svg) p.assets = { svg: n.vector.svg };
+      if (n.link?.target) p.link = `${n.link.kind}:${n.link.target}`;
+      if (n.prompt?.trim()) p.prompt = n.prompt.trim();
+      const fx = n.work ? [n.work, ...(n.work.also ?? [])].filter((u) => !u.off).map((u) => u.id) : [];
+      if (fx.length) p.effects = fx;
+      if (n.outline?.cut) p.clip = n.outline.cut;
       if (hook && !parts.has(hook)) parts.set(hook, p);
       list.push({ part: p, parent });
     }
