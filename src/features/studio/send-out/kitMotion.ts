@@ -48,15 +48,21 @@ const word = (id: string, inputs: Record<string, string>) => {
   return q ? `${id}?${q}` : id;
 };
 
-/** What a part's `--builder-motion` says: each effect the kit runs, with the inputs set away from their defaults. Null when none. */
-export function motionValue(work: WorkUse | null | undefined): string | null {
+/**
+ * What a part's `--builder-motion` says: each effect the kit runs, with the
+ * inputs set away from their defaults. Null when none. `riders`: the hooks of
+ * the parts that ride with it from outside it in the code (a TV's antennas,
+ * kit rule 33), which its Tilt leans with it.
+ */
+export function motionValue(work: WorkUse | null | undefined, riders: readonly string[] = []): string | null {
   const words: string[] = [];
   for (const u of usesOf(work)) {
     if (u.off || !kitEffect(u.id)) continue;
     const w = getWork(u.id);
     if (!w) continue;
     const all = inputsOf(w.manifest, u.inputs);
-    const set = Object.fromEntries(w.manifest.inputs.filter((i) => (all[i.id] ?? "") !== i.default).map((i) => [i.id, all[i.id]!]));
+    const set: Record<string, string> = Object.fromEntries(w.manifest.inputs.filter((i) => (all[i.id] ?? "") !== i.default).map((i) => [i.id, all[i.id]!]));
+    if (u.id === "tilt" && riders.length && !set.parts && set.mode !== "scroll") set.parts = riders.join(",");
     words.push(word(u.id, set));
   }
   return words.length ? `"${words.join(" ")}"` : null;
