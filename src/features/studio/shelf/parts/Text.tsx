@@ -10,6 +10,7 @@ import { boxStyles, cardStyle, FAMILY, items, titled, tint } from "./theme";
 import { num, opt, type PartProps } from "./types";
 import { Runs } from "./Runs";
 import { lines } from "./spans";
+import { useKeepLines } from "../../textFit";
 
 /**
  * IN THE MIDDLE OF ITS BAND, BY ITS DRAWN CAPITALS. A line told to sit in
@@ -45,7 +46,7 @@ function useCapsNudge(on: boolean, family: string, weight: number | undefined, s
 const capsOnly = (t: { band?: { middle: boolean } }, nudge: number): React.CSSProperties => (t.band?.middle ? { lineHeight: 1, position: "relative", top: `${nudge}em` } : {});
 
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
-export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: PartProps) {
+export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: PartProps) {
   // Paragraphs break on lines, and only on lines. A comma inside prose is
   // punctuation, not a separator: "for the builders, believers, and bold
   // thinkers" was being drawn as three paragraphs, one clause each, which is
@@ -67,6 +68,13 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
   useTicker(mode, 300, () => setWord((v) => (v + 1) % Math.max(1, firstWords.length)), kinetic);
 
   const nudge = useCapsNudge(!!t.band?.middle, t.bodyFamily, t.fontWeight, t.fontPx, content);
+
+  /* Words over several lines keep the box's number of lines in this machine's font (`textFit.ts#useKeepLines`); a line held to one line is `lineWidth`'s. */
+  const wordsRef = React.useRef<HTMLDivElement>(null);
+  const pad0 = boxStyles(t).padding;
+  const roomY = h - ((typeof pad0 === "number" ? pad0 * 2 : 0) + (t.padY ?? 0));
+  const heldToOne = !t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1;
+  useKeepLines(wordsRef, quote || heldToOne ? 0 : roomY, `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}`);
 
   if (quote) {
     return (
@@ -115,10 +123,9 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
    * "my pets" on two lines). The node's padding (`t.padY`) is taken off too.
    * `tests/padded-one-line.mjs`.
    */
-  const padY = (typeof box.padding === "number" ? box.padding * 2 : 0) + (t.padY ?? 0);
   const mid = t.centred;
-  /* Words the page itself wrapped (`said.wrap`, an inline paragraph read over two rows) are never held to one line. */
-  const oneLine = !t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && h - padY < 2 * t.fontPx * t.lineHeight - 1;
+  /* Words the page itself wrapped (`said.wrap`, an inline paragraph read over two rows) are never held to one line (`heldToOne`, above, on the room inside the padding). */
+  const oneLine = heldToOne;
   /*
    * A CENTRED LINE OVERRUNS ON BOTH SIDES. A line held to one line is as wide
    * as its words, and a browser sets words too wide for their box from the
@@ -178,7 +185,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, h }: Par
         wraps (and so how tall the words are) does not change.
         `tests/centred-text.mjs`.
       */}
-      <div style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -4 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
+      <div ref={wordsRef} style={{ maxWidth: spill ? "none" : mid?.x ? "100%" : t.measurePx, width: spill ? "max-content" : mid?.x ? "fit-content" : undefined, flexShrink: spill ? 0 : undefined, marginLeft: !spill && (mid?.x || t.textAlign === "center" || t.textAlign === "right") ? "auto" : undefined, marginRight: !spill && (mid?.x || t.textAlign === "center") ? "auto" : slack ? -4 : undefined, textAlign: t.textAlign, whiteSpace: oneLine ? "nowrap" : undefined, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
             <div style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.4, lineHeight: 1.1 }}>Heading one</div>
