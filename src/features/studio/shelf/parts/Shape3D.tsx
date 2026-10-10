@@ -21,13 +21,14 @@ export const SHAPE_OF: Readonly<Record<string, string>> = { "shape-sphere": "sph
 /** The words that are pictures: a path or an address ending in an image extension. */
 const isPicture = (w: string) => /^(https?:\/\/|\/)\S+\.(png|jpe?g|webp|avif|gif|svg)(\?\S*)?$/i.test(w);
 
-export function Shape3D({ id, content, options, theme: t, mode }: PartProps) {
+export function Shape3D({ id, content, options, theme: t, mode, picture }: PartProps) {
   const shape = SHAPE_OF[id] ?? "sphere";
   const size = num(options, "size", 80, 30, 100);
   const hue = num(options, "hue", shape === "sphere" ? 96 : shape === "cube" ? 200 : 38, 0, 360);
   const spin = mode === "live" && opt(options, "spin", "yes") === "yes";
   const hands = mode === "live";
-  const pictures = items(content, []).filter(isPicture);
+  /* The part's own picture first (put on from the drawing tool, `pictures/threeD.ts`), then any typed in. */
+  const pictures = [...(picture?.src ? [picture.src] : []), ...items(content, []).filter(isPicture)];
   const key = pictures.join(" ");
   const host = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {

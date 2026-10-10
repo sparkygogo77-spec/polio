@@ -56,6 +56,7 @@ import { publish as publishToast } from "@/core/toasts/store";
 import { armPutOn, liftCard, type CarryDrop } from "./cardCarry";
 import { offerSpeed } from "./speedBar";
 import { askCursorDraw, cursorFrom } from "./cursorPicture";
+import { overGenerator, threeDOf, THREE_D_EVENT } from "./pictures/threeD";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 
@@ -939,6 +940,9 @@ const partWorkOf = (featureId: string) => (getWork(PART_WORK[featureId]) ? PART_
  * on; any other part is placed where it was let go.
  */
 function dropFeature(featureId: string, d: CarryDrop): boolean {
+  /* A Sphere, Cube or Pyramid dropped on the drawing tool: its next picture is made for that shape (pictures/threeD.ts). */
+  const three = threeDOf(featureId);
+  if (three && overGenerator(d.clientX, d.clientY)) { window.dispatchEvent(new CustomEvent(THREE_D_EVENT, { detail: three })); return true; }
   const work = partWorkOf(featureId);
   if (d.node && work) { giveWork(d.node, work, {}); return true; }
   if (d.node && SCROLL_PART.has(featureId)) { scrollOnPart(featureId, d.node); return true; }

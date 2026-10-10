@@ -166,12 +166,13 @@ check(
    just a savable file". So the pictures section, its + box, the way to take a
    picture back out, and Copy are his too. Named one at a time, deliberately:
    the guard's whole job is that a control has to be asked for by name. */
-const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format", "render-inputs", "render-add", "render-input", "render-input-drop", "render-copy"];
+const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format", "render-inputs", "render-add", "render-input", "render-input-drop", "render-copy", "render-cursor", "render-3d"];
+/* …and "a dedicated generate cursor option" (2026-10-09), and generated images that "become 3d" (2026-10-10, tests/generate-3d.mjs). */
 const strays = await panel.evaluate((el, mine) => {
   const out = [];
   for (const node of el.querySelectorAll("input, select, textarea, button, [role='slider'], [role='switch'], [role='combobox']")) {
     const own = [...node.attributes].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
-      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go],[data-render-format],[data-render-inputs],[data-render-row='reference']")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
+      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go],[data-render-format],[data-render-inputs],[data-render-row='reference'],[data-render-3d]")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
       ?? ([...node.attributes].some((a) => a.name.startsWith("data-render-row")) ? "row" : undefined);
     if (!own) out.push(`${node.tagName.toLowerCase()}${node.getAttribute("aria-label") ? `[${node.getAttribute("aria-label")}]` : ""}`);
   }
