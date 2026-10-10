@@ -34,6 +34,45 @@ import { cn } from "@/core/lib/cn";
 
 /* No Flat colour: the Background colour above it already is one (J, 2026-10-09). */
 const KINDS: TextureKind[] = ["noise", "stripes", "dots", "grid", "mesh"];
+/*
+ * THE PAGE'S ROW CARRIES WHAT THE OLD "SPACES FILL" ROW DID (J, 2026-10-10:
+ * "since i can customize background which goes under everything this bottom
+ * portion of look should be removed"). Its Flat, Grid and Mesh were already
+ * None, Grid and Mesh here; its soft gradient is this tile: a flat colour
+ * fading across the page. Picking anything here sets that old fill back to
+ * flat, so one place paints under everything.
+ */
+const PAGE_KINDS: TextureKind[] = ["flat", ...KINDS];
+const kindLabel = (k: TextureKind) => (k === "flat" ? "Gradient" : TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k);
+const kindHint = (k: TextureKind) => (k === "flat" ? "A soft wash of colour fading across the page" : TEXTURE_KINDS.find((x) => x.id === k)?.hint);
+/** A new layer as a press adds it; a flat one is the soft gradient, not a solid lid over the page. */
+function freshLayer(kind: TextureKind, ground: string, palette: Palette): TextureLayer {
+  const l = pickedLayer(kind, ground, palette);
+  return kind === "flat" ? { ...l, role: pickedLayer("stripes", ground, palette).role, opacity: 0.35, contrast: 0.6, angle: 160 } : l;
+}
+
+/**
+ * Which of the page's parts wear a site texture given to the page.
+ *
+ * Every part as wide as the page is a page part, and each wearing its own
+ * copy laid from its own corner drew PST's "Lines 2" twice on the header bar
+ * and the title row, offset (J, 2026-10-10). A part with no background of its
+ * own lets the page's show through, so only the parts that paint one wear
+ * it; when none does, the biggest part of each page does.
+ */
+export function pageWearers(ids: readonly string[], nodes: readonly { id: string; pageId?: string; w?: number; h?: number; art?: unknown }[]): string[] {
+  const want = new Set(ids);
+  const mine = nodes.filter((n) => want.has(n.id));
+  const paints = (n: (typeof mine)[number]) => { const b = String((n.art as Art | null | undefined)?.background ?? "").trim(); return !!b && b !== "none"; };
+  const out: string[] = [];
+  for (const page of new Set(mine.map((n) => n.pageId ?? ""))) {
+    const on = mine.filter((n) => (n.pageId ?? "") === page);
+    const painting = on.filter(paints);
+    if (painting.length) out.push(...painting.map((n) => n.id));
+    else if (on.length) out.push(on.reduce((a, b) => ((b.w ?? 0) * (b.h ?? 0) > (a.w ?? 0) * (a.h ?? 0) ? b : a)).id);
+  }
+  return out;
+}
 /** How many layers a picture is cut into when it first comes alive. */
 const FIRST_CUT = 3;
 
@@ -160,7 +199,15 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   const originalSample = (originals[0] && paintedCss(originalOf(originals[0]), ground)) || (painted && paintedCss(painted.art as Art, ground)) || null;
 
   /** One undo for whatever a press does. */
-  const step = (fn: () => void) => { keepBefore(ids, { textures: true }); const st = useStudio.getState(); const mark = st.historyMark(); fn(); useStudio.getState().oneStepSince(mark); };
+  const step = (fn: () => void) => {
+    keepBefore(ids, { textures: true });
+    const st = useStudio.getState();
+    const mark = st.historyMark();
+    fn();
+    /* The page's texture is the one thing under everything: the old fill goes flat with any press here. */
+    if (page && String(useStudio.getState().format["palette.background"] ?? "flat") !== "flat") useStudio.getState().setFormat("palette.background", "flat");
+    useStudio.getState().oneStepSince(mark);
+  };
   /** Take the site's own dots off its parts (`none` is what goes back to the site). */
   const dropSite = () => {
     const now = page ? siteDotsOn(ids, useStudio.getState().nodes) : null;
@@ -193,7 +240,10 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     step(() => {
       dropOwn();
       dropSite();
-      if (ids.length) useStudio.getState().patchNodes(ids, (n) => ({ art: wearTexture(n.art as Art | null | undefined, t) }) as never);
+      /* On the page, only the parts that paint a background wear it, so it runs once under everything. */
+      if (page) dropWorn();
+      const on = page ? pageWearers(ids, useStudio.getState().nodes) : ids;
+      if (on.length) useStudio.getState().patchNodes(on, (n) => ({ art: wearTexture(n.art as Art | null | undefined, t) }) as never);
     });
   };
   /** The texture worn here now, as the shelf keeps it. */
@@ -224,11 +274,11 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       const st = useStudio.getState();
       if (own) {
         /* The new kind's own shape and turn: a stripe's line width read as a flat colour's fade turned the page into a gradient. */
-        if (own.kind !== kind) { const fresh = pickedLayer(kind, ground, palette); st.updateTexture(own.id, { kind, baked: undefined, contrast: fresh.contrast, angle: fresh.angle, ...(dialsOf(kind).drift ? null : { drift: 0 }) }); }
+        if (own.kind !== kind) { const fresh = freshLayer(kind, ground, palette); st.updateTexture(own.id, { kind, baked: undefined, contrast: fresh.contrast, angle: fresh.angle, ...(kind === "flat" ? { opacity: fresh.opacity } : null), ...(dialsOf(kind).drift ? null : { drift: 0 }) }); }
         return;
       }
       /* Off the site-wide stack unless it is the page's: a kind's layer is worn by its parts and lands nowhere else. */
-      const l: TextureLayer = { ...pickedLayer(kind, ground, palette), on: page, target: page ? "page" : "surfaces" };
+      const l: TextureLayer = { ...freshLayer(kind, ground, palette), on: page, target: page ? "page" : "surfaces" };
       st.addTexture(l);
       if (ids.length) useStudio.getState().patchNodes(ids, () => ({ texture: l.id }));
     });
@@ -238,6 +288,8 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     play("select");
     if (originalOn && !own) return;
     step(() => {
+      /* A site texture worn here goes too: Original put back only the parts the site painted, and PST's header bar and title row kept "Lines 2" (J, 2026-10-10). */
+      dropWorn();
       if (own) {
         const st = useStudio.getState();
         const wearing = st.nodes.filter((n) => n.texture === own.id).map((n) => n.id);
@@ -341,12 +393,12 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
             <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Original</span>
           </button>
         ) : null}
-        {KINDS.map((k) => {
+        {(page ? PAGE_KINDS : KINDS).map((k) => {
           const on = !!own && own.kind === k;
-          const sample = on && layer ? { ...layer, on: true } : pickedLayer(k, ground, palette);
-          const label = TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k;
+          const sample = on && layer ? { ...layer, on: true } : freshLayer(k, ground, palette);
+          const label = kindLabel(k);
           return (
-            <button key={k} type="button" data-texture-sample={k} aria-pressed={on} aria-label={label} title={TEXTURE_KINDS.find((x) => x.id === k)?.hint} onClick={() => pick(k)}
+            <button key={k} type="button" data-texture-sample={k} aria-pressed={on} aria-label={label} title={kindHint(k)} onClick={() => pick(k)}
               className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", on ? "border-accent" : "border-border hover:border-border-strong")}>
               <span aria-hidden className="block h-9 w-full" style={textureCss([sample], palette, ground)} />
               <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{label}</span>

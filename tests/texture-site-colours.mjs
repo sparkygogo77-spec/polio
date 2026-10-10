@@ -45,7 +45,7 @@ const st = await openBoard(ui, URL_BASE, "pst");
 check("PST is on the board", (st?.nodes?.length ?? 0) > 20, `${st?.nodes?.length ?? 0} parts`);
 await ui.waitForTimeout(1500);
 await ui.locator('[aria-label="Side panel"] button', { hasText: /^Look$/ }).first().click({ force: true });
-await ui.locator("[data-look-texture] [data-look-fill]").first().waitFor({ timeout: 60000 }).catch(() => {});
+await ui.locator("[data-theme-preview]").first().waitFor({ timeout: 60000 }).catch(() => {});
 await ui.waitForTimeout(1200);
 
 /** Every part's paint, element by element. */
@@ -80,7 +80,7 @@ const start = await frameShot();
 /* The TV's static moves on its own: what two shots of the untouched page differ by is the floor every comparison stands on. */
 const still = await differ(start, await frameShot());
 const tex = ui.locator("[data-look-texture]");
-await tex.locator('[data-look-fill] button[aria-label="Grid"]').click();
+await ui.evaluate(() => window.__studioSetFormat("palette.background", "grid"));
 /* His case: the page pressed in the Colours preview, then a texture. PST's page already shows its own dots as Dots (`tests/site-dots-texture.mjs`), so Grid. */
 await ui.locator("[data-theme-preview]").first().click({ position: { x: 4, y: 4 }, force: true });
 await ui.waitForTimeout(400);
@@ -112,8 +112,8 @@ const back = (await ground()) === startGround;
 const end = await paints();
 const still2 = Object.keys(before).filter((k) => end[k] !== undefined && before[k] !== end[k]).length;
 const worn = await ui.locator("[data-part-texture]").count();
-const fill = await tex.locator('[data-look-fill] button[aria-pressed="true"]').getAttribute("aria-label");
-check("and Undo takes the texture and the fill away and puts the page back", none === "dots" && worn === 0 && fill === "Flat" && back && still2 === 0,
+const fill = { flat: "Flat" }[await ui.evaluate(() => window.__studioPublishDoc().format?.["palette.background"] ?? "flat")] ?? "other";
+check("and Undo takes the texture and the fill away and puts the page back", (none === "dots" || none === "original") && worn === 0 && fill === "Flat" && back && still2 === 0,
   `texture ${none}, ${worn} parts still wearing one, fill ${fill}, page ${back ? "as it was" : "still painted"}, ${still2} elements repainted`);
 
 /* 4. A panel pressed in the preview: every part of its kind wears the texture, over its own fill. */
