@@ -39,6 +39,7 @@ const MODULES = [
   { dir: "src/features/studio/shelf", doors: ["index.ts", "run.ts", "ui.ts", "screens.ts"] },
   { dir: "src/features/studio/loop", doors: ["index.ts", "run.ts", "ui.ts"] },
   { dir: "src/features/studio/pictures", doors: ["index.ts", "run.ts", "ui.ts"] },
+  { dir: "src/features/studio/lab", doors: ["index.ts", "ui.ts"] },
   { dir: "src/features/studio/panels", doors: ["ui.ts"] },
 ];
 
