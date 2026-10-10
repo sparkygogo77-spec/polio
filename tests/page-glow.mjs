@@ -15,7 +15,8 @@
  *   5. on the PST board: the page's glow colour reaches every word on the page, one undo step;
  *   6. Glow size moves the board's glow and the preview's together;
  *   7. No glow takes the glow off, leaves the caption's drop shadow, and no black glow is offered after;
- *      the preview loses it too, even after a Glow size drag let go where it began.
+ *      the preview loses it too, even after a Glow size drag let go where it began;
+ *   8. a kind's glow (PonsStars' label badges) reaches its words and the preview, bright at 20px.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/page-glow.mjs http://127.0.0.1:3013
@@ -40,8 +41,9 @@ const check = (name, ok, detail = "") => {
 const TV = "rgba(160, 255, 90, 0.9) 0px 0px 6px, rgb(0, 0, 0) 2px 2px 0px";
 check("1. a glow is a shadow that blurs", JSON.stringify(glowsIn(TV)) === JSON.stringify([{ colour: "rgba(160, 255, 90, 0.9)", blur: 6 }]), JSON.stringify(glowsIn(TV)));
 check("…and a hard drop shadow is not one", glowsIn("rgb(0, 0, 0) 2px 2px 0px").length === 0 && glowsIn("rgb(0, 0, 0) 2px 2px").length === 0);
-check("2. wearing a glow replaces the old one and keeps the drop shadow", setGlow(TV, "rgb(107, 37, 193)", 9) === "rgb(107, 37, 193) 0px 0px 9px, rgb(0, 0, 0) 2px 2px 0px", setGlow(TV, "rgb(107, 37, 193)", 9));
-check("…words with no shadow get one", setGlow(undefined, "rgb(107, 37, 193)", 6) === "rgb(107, 37, 193) 0px 0px 6px");
+check("2. wearing a glow replaces the old one and keeps the drop shadow", setGlow(TV, "rgb(107, 37, 193)", 9) === "rgb(107, 37, 193) 0px 0px 2px, rgb(107, 37, 193) 0px 0px 5px, rgb(107, 37, 193) 0px 0px 9px, rgb(0, 0, 0) 2px 2px 0px", setGlow(TV, "rgb(107, 37, 193)", 9));
+check("…drawn as neon is, tight rings under the full spread, so a wide glow stays bright (J, 2026-10-10)", setGlow(undefined, "rgb(107, 37, 193)", 6) === "rgb(107, 37, 193) 0px 0px 2px, rgb(107, 37, 193) 0px 0px 3px, rgb(107, 37, 193) 0px 0px 6px", setGlow(undefined, "rgb(107, 37, 193)", 6));
+
 check("…no glow leaves only the drop shadow, or nothing", setGlow(TV, null, 6) === "rgb(0, 0, 0) 2px 2px 0px" && setGlow("red 0px 0px 4px", null, 6) === undefined);
 
 /* 3. */
@@ -53,6 +55,9 @@ const most = siteKinds(["a", "bb", "ccc"].map((id) => words(id, "rgb(107, 37, 19
 check("…worn by most of the words it is drawn, at their size", most.glowShown === true && most.glowSize === 11, JSON.stringify(most));
 const hard = siteKinds([words("a", "rgb(0, 0, 0) 2px 2px 0px")], { bg: "rgb(253, 240, 220)" }).page;
 check("…a drop shadow alone is no glow", hard.glow === null, JSON.stringify(hard));
+
+const ringed = siteKinds(["a", "bb"].map((id) => words(id, setGlow(undefined, "rgb(255, 0, 0)", 20))), { bg: "rgb(253, 240, 220)" }).page;
+check("…a ringed glow's size reads back as its full spread", ringed.glowSize === 20, JSON.stringify(ringed));
 
 /* 4. */
 const box = { w: 10, h: 10 };
@@ -137,6 +142,25 @@ await ui.keyboard.press("Control+z");
 await ui.waitForTimeout(800);
 const w4 = await shadowOn(WORDS);
 check("…one Undo brings the glow back", PURPLE.test(w4.saved ?? "") && /10px/.test(w4.saved ?? ""), `${u3} undo steps; ${JSON.stringify(w4)}`);
+
+/* 8. A kind's words: PonsStars' label badges (Main fill), red at 20px (J, 2026-10-10: "glow for main fill badges don't work"). */
+await ui.locator('[data-kind-editor] button', { hasText: /^Close$/ }).first().click();
+await ui.locator('[data-theme-preview] [data-preview-part="tab"]').first().evaluate((e) => e.click());
+await ui.waitForTimeout(600);
+const kindPick = ui.locator('[data-kind-editor="Main fill"] [data-kind-colour="glow"] input[type="color"]');
+check("8. the Main fill badges' editor offers their words' glow", (await kindPick.count()) === 1);
+await kindPick.evaluate((el) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "#ff0000"); el.dispatchEvent(new Event("input", { bubbles: true })); });
+await ui.waitForTimeout(200);
+await kindPick.evaluate((el) => el.dispatchEvent(new Event("change", { bubbles: true })));
+await ui.waitForTimeout(800);
+await ui.locator('[data-kind-editor="Main fill"] [data-kind-glow] [role="slider"]').first().focus();
+await ui.keyboard.press("End");
+await ui.waitForTimeout(1200);
+const RED = /oklch\(0\.62\d* 0\.25\d* 29/;
+const badge = await shadowOn("n_home_text_85");
+const tabGlow = await ui.evaluate(() => getComputedStyle(document.querySelector('[data-theme-preview] [data-preview-part="tab"]')).textShadow);
+check("…the WALLET badge's words wear it on the board, in bright rings out to 20px", RED.test(badge.drawn) && /0px 0px 5px/.test(badge.drawn) && /0px 0px 20px/.test(badge.drawn), JSON.stringify(badge));
+check("…and the preview's badge the same", RED.test(tabGlow) && /0px 0px 20px/.test(tabGlow), tabGlow);
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();

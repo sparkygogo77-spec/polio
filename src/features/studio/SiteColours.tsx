@@ -17,7 +17,7 @@
 import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
-import { ROLES, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
+import { ROLES, glowRings, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
 import { PieceTexture, kindGround, pageGround } from "./PieceTexture";
@@ -284,7 +284,7 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   /* Only a glow most of the words wear, at the size they wear it: the preview shows what the site shows. */
-  const glow = (g: { glow: string | null; glowSize: number; glowShown: boolean }): React.CSSProperties => (g.glow && g.glowShown ? { textShadow: `0 0 ${g.glowSize}px ${g.glow}` } : {});
+  const glow = (g: { glow: string | null; glowSize: number; glowShown: boolean }): React.CSSProperties => (g.glow && g.glowShown ? { textShadow: glowRings(g.glow, g.glowSize).join(", ") } : {});
   const dress = (k: SurfaceKind): React.CSSProperties => ({
     background: k.paint,
     /* The texture its parts wear, over its paint, as the board draws it. */

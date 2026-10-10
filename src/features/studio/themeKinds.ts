@@ -126,7 +126,7 @@ const glowsOf = (p: Node): { colour: string; blur: number }[] => {
   return [(p as { art?: { textShadow?: string } | null }).art?.textShadow, ...runs].flatMap((sh) => glowsIn(sh));
 };
 
-/** The most-worn glow among some words: its colour, its blur, and whether half the words wear it. */
+/** The most-worn glow among some words: its colour, its widest blur (a glow is drawn in rings), and whether half the words wear it. */
 const glowOf = (m: Map<string, number>, worn: Map<string, { colour: string; blur: number }>, words: number) => {
   const g = top(m);
   const w = g ? worn.get(g[0]) : undefined;
@@ -207,7 +207,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     bump(i < 0 ? pageFaces : faces[i]!, (p as { font?: { stack?: string } | null }).font?.stack || faceOf(p));
     (i < 0 ? pageIds : wordsIds[i]!).push(p.id);
     bump(i < 0 ? pageFaceKeys : faceKeys[i]!, faceOf(p));
-    for (const k of new Set(glowsOf(p).map((g) => { const k = colourKey(g.colour); if (!glowsWorn.has(k)) glowsWorn.set(k, g); return k; }))) bump(i < 0 ? pageGlows : glows[i]!, k);
+    for (const k of new Set(glowsOf(p).map((g) => { const k = colourKey(g.colour); if ((glowsWorn.get(k)?.blur ?? 0) < g.blur) glowsWorn.set(k, g); return k; }))) bump(i < 0 ? pageGlows : glows[i]!, k);
     const w = wordsOf(p);
     /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
     if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);

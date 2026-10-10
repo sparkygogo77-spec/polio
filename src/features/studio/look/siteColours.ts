@@ -194,14 +194,25 @@ export function glowsIn(shadow: string | undefined | null): { colour: string; bl
 }
 
 /**
- * The words wear one glow, `colour` at blur `px`, or none (`colour` null):
- * every glow in the list goes and the new one leads; a hard drop shadow under
+ * The words wear one glow, `colour` spreading `px` (`glowRings`), or none
+ * (`colour` null): every glow in the list goes and the new one leads; a hard drop shadow under
  * it stays as it was. Undefined when no shadow is left, which the style layer
  * sends back as `text-shadow: none`.
  */
+/**
+ * A glow as neon is drawn: a tight ring, a middle one and the full spread,
+ * one colour. A single wide shadow thins its colour out as it grows, so a
+ * 20px red glow on PonsStars' dark label badges was all but invisible (J,
+ * 2026-10-10); the tight rings keep it bright at any size.
+ */
+export function glowRings(colour: string, px: number): string[] {
+  const n = Math.max(1, Math.round(px));
+  return [...new Set([Math.max(1, Math.round(n / 4)), Math.max(1, Math.round(n / 2)), n])].map((b) => `${colour} 0px 0px ${b}px`);
+}
+
 export function setGlow(shadow: string | undefined | null, colour: string | null, px: number): string | undefined {
   const hard = String(shadow ?? "").split(/,(?![^(]*\))/).map((x) => x.trim()).filter((one) => one && one !== "none" && !((lengthsOf(one)[2] ?? 0) > 0));
-  const out = colour ? [`${colour} 0px 0px ${Math.max(1, Math.round(px))}px`, ...hard] : hard;
+  const out = colour ? [...glowRings(colour, px), ...hard] : hard;
   return out.length ? out.join(", ") : undefined;
 }
 
