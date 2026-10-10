@@ -14,6 +14,7 @@ import { AlignCenter,AlignLeft,AlignRight,StretchHorizontal } from "lucide-react
 import { CORNERS,handlePoints } from "../outlineHandles";
 import { auraFilter,auraStyle,markColour,type Light,type Palette,type TextureLayer } from "../look";
 import { liftVars } from "../lightRig";
+import { castRadius,castsShadow,type CastNode } from "../lightCast";
 import { heldSays } from "../learn";
 import { IMPORT_SETTLE_MS,useArrival } from "../ImportFlow";
 import { useBoxEntry } from "../boxEntry";
@@ -218,19 +219,19 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
    * Where this part stands under the page's lamp.
    *
    * A part cut to a drawn outline is left out: its silhouette is a path, and
-   * a rectangular shadow under it would be a shadow of the wrong thing.
+   * a rectangular shadow under it would be a shadow of the wrong thing. So is
+   * a part with no surface of its own: words, or an import's wrapper.
    */
+  const casts = castsShadow(node as CastNode);
   const lift = React.useMemo(
-    () => (light?.on && page && !node.outline
+    () => (light?.on && page && casts
       ? liftVars(light, (node.x + node.w / 2) / Math.max(1, page.w), (node.y + node.h / 2) / Math.max(1, page.h))
       : null),
-    [light, page, node.x, node.y, node.w, node.h, node.outline],
+    [light, page, node.x, node.y, node.w, node.h, casts],
   );
-  // The same corner the part is cut to (`blocks.tsx`), so the shadow hugs it.
-  const liftRadius = !lift ? undefined
-    : node.shape === "circle" || node.shape === "ellipse" ? "50%"
-      : node.shape === "rounded" ? Math.min(28, Math.min(node.w, node.h) / 6)
-        : undefined;
+  // The same corner the part is cut to (`blocks.tsx`), so the shadow hugs it:
+  // a pill's shadow is a pill, not the square box round it (`lightCast.ts`).
+  const liftRadius = !lift ? undefined : castRadius(node as CastNode);
   const feature = getFeature(node.featureId);
   /**
    * The parts that are worth touching on the board itself, once they have

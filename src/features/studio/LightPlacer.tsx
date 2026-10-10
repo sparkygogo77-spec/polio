@@ -35,6 +35,28 @@ const rectOf = (sel: string): Rect | null => {
 const inside = (r: Rect | null, p: { x: number; y: number }) =>
   !!r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
+/*
+ * THE PAGE YOU CAN SEE, NOT THE PAGE'S WHOLE BOX.
+ *
+ * The board and the shelf share one scrolling column, so a long page runs on
+ * down behind the shelf. Its rectangle reached under the shelf, and the ring
+ * that marks it was drawn there too: an orange edge and a glow straight
+ * through the categories the moment the light was picked (J, 2026-10-10). So
+ * the page stops where the board does: at the column's foot, or the shelf's
+ * top, whichever comes first.
+ */
+export function visiblePage(): Rect | null {
+  const page = rectOf("[data-frame]");
+  const board = rectOf("[data-studio-scroll]");
+  if (!page) return null;
+  let bottom = page.y + page.h;
+  if (board) bottom = Math.min(bottom, board.y + board.h);
+  const shelf = document.querySelector("[data-studio-scroll] [data-drawer]")?.getBoundingClientRect();
+  if (shelf && shelf.height > 0 && shelf.top > page.y) bottom = Math.min(bottom, shelf.top);
+  const top = board ? Math.max(page.y, board.y) : page.y;
+  return bottom > top ? { x: page.x, y: top, w: page.w, h: bottom - top } : null;
+}
+
 /**
  * Pick the light up.
  *
@@ -74,7 +96,7 @@ export function carryLight(e: React.PointerEvent) {
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
     const p = { x: m.clientX, y: m.clientY };
-    const landed = inside(rectOf("[data-frame]"), p);
+    const landed = inside(visiblePage(), p);
     // The one store write of the whole gesture: the variables come off the
     // parts and the lamp goes in, in the same beat, so nothing flickers
     // between the two.
@@ -83,6 +105,11 @@ export function carryLight(e: React.PointerEvent) {
     if (landed) {
       play("confirm");
       st().setPlacingLight(false);
+    } else if (Math.hypot(p.x - start.x, p.y - start.y) < 6) {
+      // Pressed and let go where it was picked up, off the page: that is a
+      // press of the button, not a drop. The light stays in the hand, and the
+      // next press on the page puts it there.
+      st().setLightCarry(p);
     } else {
       // Dropped off the page: the lamp goes back, and the light is put back on
       // its button rather than the whole moment ending — it was a miss, not a
@@ -92,7 +119,8 @@ export function carryLight(e: React.PointerEvent) {
       if (was) st().setLook({ light: was });
     }
   };
-  st().setLightCarry({ x: e.clientX, y: e.clientY });
+  const start = { x: e.clientX, y: e.clientY };
+  st().setLightCarry(start);
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
@@ -177,24 +205,25 @@ export function LightPlacer() {
       const over = el?.closest(
         '[data-radial], [data-console-slab], [data-look-panel], [data-side-panel], [data-timeline-panel], [role="dialog"], [role="menu"], [data-thread-menu]',
       );
-      if (over || !el?.closest("[data-frame]")) return;
-      const frame = rectOf("[data-frame]");
-      const st = useStudio.getState();
-      if (frame && inside(frame, { x: e.clientX, y: e.clientY })) {
-        e.preventDefault();
-        e.stopPropagation();
-        play("confirm");
-        st.setLook({
-          light: {
-            ...st.look.light,
-            on: true,
-            x: Math.max(0, Math.min(1, (e.clientX - frame.x) / Math.max(1, frame.w))),
-            y: Math.max(0, Math.min(1, (e.clientY - frame.y) / Math.max(1, frame.h))),
-          },
-        });
-        st.setPlacingLight(false);
-        return;
-      }
+      /*
+       * ON THE PAGE MEANS ON ANYTHING STANDING ON IT TOO.
+       *
+       * Parts are siblings of `[data-frame]`, not children, so asking
+       * `closest("[data-frame]")` turned down every press that landed on a
+       * part, which on an imported site is nearly all of it. J pressed four
+       * times and only the bare strip under the header took (2026-10-10).
+       * The page window holds the frame and every part on it.
+       */
+      if (over || !el?.closest("[data-page-window], [data-frame]")) return;
+      if (!inside(visiblePage(), { x: e.clientX, y: e.clientY })) return;
+      /*
+       * The press picks the light up where it landed: let go at once and it
+       * is placed there, or hold and drag and it follows the hand to wherever
+       * it is let go. One gesture either way, the same one the button and the
+       * wheel's sun start.
+       */
+      carryLight(e as unknown as React.PointerEvent);
+      return;
       /*
        * A PRESS OFF THE PAGE IS NOT AN ANSWER, AND MUST NOT BE TREATED AS ONE.
        *
@@ -228,12 +257,17 @@ export function LightPlacer() {
   React.useEffect(() => {
     if (!placing) return;
     const measure = () => {
-      setPage(rectOf("[data-frame]"));
+      setPage(visiblePage());
       setBoard(rectOf("[data-studio-scroll]"));
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // The column scrolls the page under the shelf: measured again as it goes.
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
   }, [placing, zoom, pan]);
 
   React.useEffect(() => {
