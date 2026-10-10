@@ -560,3 +560,46 @@ export function useSettleToWords(
 
   React.useEffect(() => { soon(); }, [where, soon]);
 }
+
+/**
+ * WORDS THE PAGE WRAPPED KEEP THE PAGE'S NUMBER OF LINES.
+ *
+ * The same trouble as `lineWidth`, on words set over several lines: the box
+ * is as wide and as tall as the page's words were in the import's fonts, and
+ * a viewer whose `system-ui` runs a few percent wider gets one word too many
+ * on a row, which wraps, which adds a line the site does not have (J,
+ * 2026-10-10: PST's paragraphs one line taller on the board than on the
+ * site). Widening the box would push it into its neighbours, and growing it
+ * moves everything under it; so the words are set a hair tighter instead,
+ * by letter spacing in steps of 0.01em up to 0.05em (a face 6% wider fits
+ * back in its box), and only while they draw taller than `room`, the height
+ * the box holds them in. Where the fonts match nothing is touched. The
+ * spacing is the drawing's alone: nothing is stored, and the next draw
+ * measures again (a resize, new words, a face that loads late).
+ */
+export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: number, key: string): void {
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !(room > 0) || typeof document === "undefined") return;
+    let gone = false;
+    const fit = () => {
+      if (gone) return;
+      el.style.letterSpacing = "";
+      atFullSize(() => {
+        const tall = () => el.getBoundingClientRect().height <= room + 1;
+        if (tall()) return;
+        const cs = getComputedStyle(el);
+        const px = parseFloat(cs.fontSize) || 16;
+        const was = parseFloat(cs.letterSpacing) || 0;
+        for (let s = 1; s <= 5; s++) {
+          el.style.letterSpacing = `${(was - s * 0.01 * px).toFixed(2)}px`;
+          if (tall()) return;
+        }
+        el.style.letterSpacing = "";
+      });
+    };
+    fit();
+    (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready?.then(fit);
+    return () => { gone = true; el.style.letterSpacing = ""; };
+  }, [ref, room, key]);
+}

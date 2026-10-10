@@ -79,11 +79,20 @@ export function Field({ id, content, options, theme: t, mode, hooks }: PartProps
   );
 }
 
-export function Checkbox({ id, content, options, theme: t, mode, hooks }: PartProps) {
+export function Checkbox({ id, content, options, theme: t, mode, hooks, h }: PartProps) {
   const kind = opt(options, "kind", "checkbox") === "radio" ? "radio" : "checkbox";
   const still = mode !== "live";
+  /*
+   * A box one line tall holds its words on one line. PST's "Approve
+   * automatically with the test wallet" is 339x22 on the page; the box and
+   * gap here run a few pixels past the page's, "wallet" wrapped, and the
+   * board grew it to 45 and pushed the queue panel down. On one line, and
+   * marked as one (`data-one-line`), the board widens the box to its words
+   * when this machine's font runs wider (`textFit.ts#lineWidth`).
+   */
+  const oneLine = !!content && h > 0 && h < 2 * t.fontPx * t.lineHeight - 1;
   return (
-    <Fill t={t} data-part={id} data-check={kind} style={{ display: "flex", alignItems: "center" }}>
+    <Fill t={t} data-part={id} data-check={kind} style={{ display: "flex", alignItems: "center", ...(oneLine ? { overflow: "visible" } : {}) }}>
       <label style={{ display: "inline-flex", alignItems: "center", gap: "0.25em", pointerEvents: still ? "none" : undefined, cursor: still ? undefined : "pointer" }}>
         <input
           {...hooksFor(hooks, mode)}
@@ -94,7 +103,7 @@ export function Checkbox({ id, content, options, theme: t, mode, hooks }: PartPr
           style={{ margin: "3px 3px 3px 4px", ...(saidRole(t, "accent") ? { accentColor: t.accent } : {}) }}
         />
         {/* No words of its own: the box alone, never filler (the shelf gives it the words it shows: catalog.ts). */}
-        {content ? <span>{content}</span> : null}
+        {content ? <span data-one-line={oneLine ? "" : undefined} style={oneLine ? { whiteSpace: "nowrap" } : undefined}>{content}</span> : null}
       </label>
     </Fill>
   );
