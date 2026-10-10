@@ -252,7 +252,7 @@ export const PUBLISH: Record<string, Publish> = {
   "custom-idea": brief, note, mood: note, constraint: note, wildcard: note,
   /* Media */
   picture: draws, gallery: draws, "photo-credit": draws, lightbox: still(PRESS), "image-blur-up": still("loading pictures in"),
-  carousel: still(PRESS), "before-after": still("dragging the handle"),
+  carousel: still(PRESS), "before-after": draws,
   "video-player": still(PLAYER), "audio-player": still(PLAYER), podcast: still(PLAYER),
   "map-embed": still("a map service"), "3d-viewer": still(THREE_D),
   "generative-art": draws, "avatar-stack": draws, "corner-glow": draws,
