@@ -26,10 +26,10 @@
  */
 import type { Work } from "../works.ts";
 import { REVEAL, COPY, TILT, FOLLOW, MARQUEE } from "./motion.ts";
-import { EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PLANET } from "./effects.ts";
+import { EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PLANET, TURN_3D } from "./effects.ts";
 import { PRESS_SHOWS, GLIDE, WORLD_DIALOGS } from "./interactions.ts";
 
-export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS, GLIDE, WORLD_DIALOGS, PLANET];
+export const BEHAVIOURS: Work[] = [REVEAL, COPY, TILT, FOLLOW, MARQUEE, EMBED, CRT, DUST, SCROLL_HEADER, BLINK, SPIN, FLOAT, HOVER_LIFT, SCROLL_GROW, PRESS_SHOWS, GLIDE, WORLD_DIALOGS, PLANET, TURN_3D];
 
 /** The ones that move on their own, with nobody touching anything: the only ones the board plays (live/runWorks.ts). */
 export const AMBIENT = ["spin", "float", "dust-canvas"] as const;

@@ -116,6 +116,7 @@ export const VARIANTS: Record<string, { self: string; more: VariantDef[] }> = {
   },
   "video-player": { self: "Video", more: [{ key: "audio-player", label: "Audio" }, { key: "podcast", label: "Episode list" }] },
   "map-embed": { self: "Map", more: [{ key: "3d-viewer", label: "A model to spin" }] },
+  "shape-sphere": { self: "A sphere on its own", more: [{ key: "work:planet", label: "On a part you already have" }] },
   "orb-css": { self: "Drawn by the page", more: [{ key: "orb-webgl", label: "Real light and depth" }, { key: "orb-image", label: "Wearing your picture" }] },
   /* Motion */
   "reveal-on-scroll": { self: "Every part, on every page", more: [{ key: "work:reveal", label: "One part" }] },
@@ -256,6 +257,8 @@ export const PUBLISH: Record<string, Publish> = {
   "map-embed": still("a map service"), "3d-viewer": still(THREE_D),
   "generative-art": draws, "avatar-stack": draws, "corner-glow": draws,
   "orb-css": draws, "orb-image": draws, "orb-webgl": still(THREE_D), "cube-3d": still(THREE_D), "mesh-3d": still(THREE_D),
+  /* Drawn by the part, and turned on the published page by the planet script it carries (`works.ts#PART_SCRIPT`), as the orbs are. */
+  "shape-sphere": draws, "shape-cube": draws, "shape-pyramid": draws,
   "drawn-icon": draws,
   /* Motion */
   "reveal-on-scroll": runs("site-motion"), "scroll-progress": runs("site-motion"), parallax: runs("site-motion"),

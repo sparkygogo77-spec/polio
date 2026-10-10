@@ -471,7 +471,7 @@ export const OWN_FEATURE: Readonly<Record<string, string>> = { "whats-new": "wha
  * is gone: the orbs are a ball the "planet" feature turns (`planetJs.ts`).
  * Unlike `OWN_FEATURE`, the shelf places them as parts, not as features.
  */
-export const PART_SCRIPT: Readonly<Record<string, string>> = { "orb-css": "planet", "orb-webgl": "planet", "orb-image": "planet" };
+export const PART_SCRIPT: Readonly<Record<string, string>> = { "orb-css": "planet", "orb-webgl": "planet", "orb-image": "planet", "shape-sphere": "planet", "shape-cube": "planet", "shape-pyramid": "planet" };
 
 /** The features a part runs: those it was given, and its own. */
 function usesHere(n: Carrier): WorkUse[] {

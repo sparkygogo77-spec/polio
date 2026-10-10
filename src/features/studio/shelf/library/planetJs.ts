@@ -35,16 +35,20 @@ export const PLANET_JS = `function polioPlanet(host, o) {
   var hue = n(pick(d.planetHue, o.hue), 96), tilt = n(pick(d.planetTilt, o.tilt), -22), speed = n(pick(d.planetSpeed, o.speed), 1);
   var spin = String(pick(d.planetSpin, o.spin) || "yes") !== "no", hands = String(pick(d.planetHands, o.hands) || "yes") !== "no";
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) spin = false;
-  var img = host.querySelector("img[data-planet-picture]");
-  var src = img ? img.currentSrc || img.getAttribute("src") || "" : String(pick(d.planetPicture, o.picture) || "");
-  if (img) img.style.display = "none";
+  var shape = String(pick(d.planetShape, o.shape) || "sphere"), ball = shape !== "cube" && shape !== "pyramid";
+  /* Pictures: one wraps the ball; a cube or a pyramid wears one per face, round again when there are fewer. */
+  var imgs = Array.prototype.slice.call(host.querySelectorAll("img[data-planet-picture]"));
+  var srcs = imgs.length ? imgs.map(function (i) { return i.currentSrc || i.getAttribute("src") || ""; }).filter(Boolean)
+    : String(pick(d.planetPicture, o.picture) || "").split(/\s+/).filter(Boolean);
+  var src = srcs[0] || "";
+  imgs.forEach(function (i) { i.style.display = "none"; });
   /* A page saved with the ball on it carries its old canvas, blank: this draws a new one. */
   Array.prototype.forEach.call(host.querySelectorAll("canvas[data-planet-canvas]"), function (c) { c.remove(); });
   if (getComputedStyle(host).position === "static") host.style.position = "relative";
   var cv = document.createElement("canvas");
   cv.setAttribute("data-planet-canvas", "");
   cv.setAttribute("aria-hidden", "true");
-  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:50%;" + (hands ? "cursor:grab;touch-action:none;" : "pointer-events:none;");
+  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;" + (ball ? "border-radius:50%;" : "") + (hands ? "cursor:grab;touch-action:none;" : "pointer-events:none;");
   host.appendChild(cv);
   var g = cv.getContext("2d");
   if (!g) { cv.remove(); return null; }
@@ -71,7 +75,7 @@ export const PLANET_JS = `function polioPlanet(host, o) {
     });
     return x.getImageData(0, 0, TW, TH).data;
   }
-  tex = own();
+  tex = ball ? own() : null;
   function wear(pic) {
     var c = document.createElement("canvas"); c.width = TW; c.height = TH;
     var x = c.getContext("2d");
@@ -79,7 +83,18 @@ export const PLANET_JS = `function polioPlanet(host, o) {
     try { tex = x.getImageData(0, 0, TW, TH).data; } catch (e) { return; }
     draw();
   }
-  if (src) {
+  /* The solids' pictures, loaded as they are: a face shows its colour until its picture is in. */
+  var faceSkins = [];
+  if (!ball) srcs.forEach(function (u, i) {
+    var im = new Image();
+    if (!/^(data|blob):/i.test(u)) im.crossOrigin = "anonymous";
+    im.onload = function () { faceSkins[i] = im; if (!stopped) draw(); };
+    im.onerror = function () {
+      /* Not readable with leave to draw it: the face keeps its colour. */
+    };
+    im.src = u;
+  });
+  if (src && ball) {
     var pic = new Image();
     if (!/^(data|blob):/i.test(src)) pic.crossOrigin = "anonymous";
     pic.onload = function () { if (!stopped) wear(pic); };
@@ -102,8 +117,11 @@ export const PLANET_JS = `function polioPlanet(host, o) {
   var S = 0, out = null, at = null, nx = null, ny = null, nz = null, shade = null, rimK = null, rimC = null, spec = null, edge = null;
   function size() {
     var r = host.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-    var side = Math.max(48, Math.min(340, Math.round(Math.min(r.width || 0, r.height || r.width || 0) * dpr) || 240));
+    var px0 = Math.round(Math.min(r.width || 0, r.height || r.width || 0) * dpr);
+    /* A solid is drawn face by face, so it can be sharp; the ball is worked a pixel at a time, so it stays small. */
+    var side = Math.max(48, Math.min(ball ? 340 : 900, px0 || 240));
     if (side === S) return false;
+    if (!ball) { S = side; cv.width = cv.height = S; return true; }
     S = side; cv.width = cv.height = S; out = g.createImageData(S, S);
     var list = [], half = S / 2;
     for (var py = 0; py < S; py++) for (var px = 0; px < S; px++) {
@@ -138,7 +156,7 @@ export const PLANET_JS = `function polioPlanet(host, o) {
   function ry(t) { var c = Math.cos(t), s = Math.sin(t); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
   function rz(t) { var c = Math.cos(t), s = Math.sin(t); return [c, -s, 0, s, c, 0, 0, 0, 1]; }
   /* Leaning on its axis, and a little toward the viewer, so a pole shows as it turns. */
-  var M = mul(rz((tilt * Math.PI) / 180 * 0.6), rx(0.32));
+  var M = ball ? mul(rz((tilt * Math.PI) / 180 * 0.6), rx(0.32)) : mul(rx(0.42), ry(0.62));
   function tidy() {
     /* Many small turns drift off true: put the three axes back at right angles. */
     var a = unit(M[0], M[3], M[6]), b = [M[1], M[4], M[7]], k = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -147,10 +165,88 @@ export const PLANET_JS = `function polioPlanet(host, o) {
     M = [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
   }
 
+  /* ---- the solids: corners, and faces as corners in order round the outside ---- */
+  var V, F;
+  if (shape === "cube") {
+    var a = 0.56;
+    V = [[-a, -a, a], [a, -a, a], [a, a, a], [-a, a, a], [-a, -a, -a], [a, -a, -a], [a, a, -a], [-a, a, -a]];
+    /* front, right, back, left, top, bottom: each starts at its lower left as you face it. */
+    F = [[0, 1, 2, 3], [1, 5, 6, 2], [5, 4, 7, 6], [4, 0, 3, 7], [3, 2, 6, 7], [4, 5, 1, 0]];
+  } else {
+    var b = 0.66, lo = -0.5, hi = 0.82;
+    V = [[-b, lo, b], [b, lo, b], [b, lo, -b], [-b, lo, -b], [0, hi, 0]];
+    /* four sides, each base corner to base corner up to the top, then the base. */
+    F = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4], [3, 2, 1, 0]];
+  }
+  var EYE = 4.2;
+  function drawSolid() {
+    var half = S / 2, k = half * 0.9;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, S, S);
+    var P = V.map(function (v) {
+      var x = M[0] * v[0] + M[1] * v[1] + M[2] * v[2], y = M[3] * v[0] + M[4] * v[1] + M[5] * v[2], z = M[6] * v[0] + M[7] * v[1] + M[8] * v[2];
+      var f = EYE / (EYE - z);
+      return { x: half + x * f * k, y: half - y * f * k, z: z, v: [x, y, z] };
+    });
+    var seen = [];
+    F.forEach(function (face, fi) {
+      var A = P[face[0]].v, B = P[face[1]].v, C = P[face[2]].v;
+      var n = unit((B[1] - A[1]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[1] - A[1]), (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]), (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]));
+      /* Facing the eye: the face's normal against the way from the face to the eye. */
+      if (n[0] * -A[0] + n[1] * -A[1] + n[2] * (EYE - A[2]) <= 0) return;
+      seen.push({ face: face, fi: fi, n: n, z: face.reduce(function (s2, i) { return s2 + P[i].z; }, 0) / face.length });
+    });
+    seen.sort(function (p, q) { return p.z - q.z; });
+    seen.forEach(function (s2) {
+      var pts = s2.face.map(function (i) { return P[i]; });
+      function path() { g.beginPath(); pts.forEach(function (q, i) { if (i) g.lineTo(q.x, q.y); else g.moveTo(q.x, q.y); }); g.closePath(); }
+      var skin = faceSkins.length ? faceSkins[s2.fi % srcs.length] : null;
+      path();
+      g.fillStyle = hsl(hue + (s2.fi % 3) * 14 - 14, 52, 34 + (s2.fi % 2) * 6);
+      g.fill();
+      if (skin) {
+        var w = skin.naturalWidth || skin.width, h = skin.naturalHeight || skin.height;
+        /* The picture's corners on the face's: a quad as two triangles, a pyramid's side as one, its top at the picture's middle. */
+        var src3 = pts.length === 4 ? [[[0, h], [w, h], [w, 0]], [[0, h], [w, 0], [0, 0]]] : [[[0, h], [w, h], [w / 2, 0]]];
+        var dst3 = pts.length === 4 ? [[pts[0], pts[1], pts[2]], [pts[0], pts[2], pts[3]]] : [[pts[0], pts[1], pts[2]]];
+        src3.forEach(function (sv, ti) {
+          var dv = dst3[ti];
+          var x0 = sv[0][0], y0 = sv[0][1], x1 = sv[1][0], y1 = sv[1][1], x2 = sv[2][0], y2 = sv[2][1];
+          var det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+          if (!det) return;
+          var u0 = dv[0].x, v0 = dv[0].y, u1 = dv[1].x, v1 = dv[1].y, u2 = dv[2].x, v2 = dv[2].y;
+          var ma = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det, mc = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+          var mb = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det, md = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+          var me = u0 - ma * x0 - mc * y0, mf = v0 - mb * x0 - md * y0;
+          g.save();
+          /* A hair past the triangle, so the two halves of a face meet with no seam. */
+          var cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3;
+          g.beginPath();
+          [[u0, v0], [u1, v1], [u2, v2]].forEach(function (q, i) { var ex = q[0] + (q[0] - cx) * 0.012, ey = q[1] + (q[1] - cy) * 0.012; if (i) g.lineTo(ex, ey); else g.moveTo(ex, ey); });
+          g.closePath();
+          g.clip();
+          g.setTransform(ma, mb, mc, md, me, mf);
+          g.drawImage(skin, 0, 0, w, h);
+          g.restore();
+        });
+      }
+      /* The light on it: darker turned away, a sheen turned toward it. */
+      var lit = s2.n[0] * L[0] + s2.n[1] * L[1] + s2.n[2] * L[2];
+      path();
+      if (lit < 0.55) { g.fillStyle = "rgba(0,0,0," + Math.min(0.62, (0.55 - lit) * 0.62).toFixed(3) + ")"; g.fill(); }
+      else { g.fillStyle = "rgba(255,255,255," + ((lit - 0.55) * 0.22).toFixed(3) + ")"; g.fill(); }
+      g.lineJoin = "round";
+      g.lineWidth = Math.max(1, S / 300);
+      g.strokeStyle = hsl(hue, 90, 70, 0.55);
+      g.stroke();
+    });
+  }
+
   var TAU = Math.PI * 2;
   function draw() {
     if (stopped) return;
     size();
+    if (!ball) { drawSolid(); return; }
     var px = out.data, m = at.length, m0 = M[0], m1 = M[1], m2 = M[2], m3 = M[3], m4 = M[4], m5 = M[5], m6 = M[6], m7 = M[7], m8 = M[8];
     for (var i = 0; i < m; i++) {
       var vx = nx[i], vy = ny[i], vz = nz[i];
@@ -236,7 +332,7 @@ export const PLANET_JS = `function polioPlanet(host, o) {
       if (ro) ro.disconnect();
       if (io) io.disconnect();
       cv.remove();
-      if (img) img.style.display = "";
+      imgs.forEach(function (i) { i.style.display = ""; });
       host.__planet = null;
     },
     /* Where the ball faces now, body to view: for a check, and for anyone who wants to know. */

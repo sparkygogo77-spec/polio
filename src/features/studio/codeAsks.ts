@@ -174,7 +174,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
         n.outline?.cut ? "Its outline is drawn, not a box: cut it with the clip-path below." : "",
         css.length ? `Its look: \`${css.join("; ")}\`.` : "",
         /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
-        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a ball that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}"\` in the CSS, with any picture inside it as \`<img data-planet-picture src="...">\`, and vendor/builder-motion.js draws and turns it.` : "",
+        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` in the CSS, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
         `Make it in the code with data-hook="${hook}"; its record (outline, link, note, effects) is in design/record.json under that hook.`,
       ].filter(Boolean).join(" ")),
     });

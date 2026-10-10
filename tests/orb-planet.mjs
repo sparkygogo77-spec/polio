@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * THE ORB IS A PLANET.
+ * THE ORB IS A PLANET, AND ANYTHING TURNS IN 3D.
  *
  * J (2026-10-10): "the orb in media should rotate every degree and be
  * draggable like a sphere to see all sides, like a plent". Three places, the
@@ -15,9 +15,15 @@
  *   · Publish: the exported page ships the planet feature, and served, the
  *     orb is drawn and turns in the hand.
  *
+ * And (J, same day: "a pyramid, cube, and sphere should be the first 3"):
+ * a cube and a pyramid wear a picture per face and show the hidden ones
+ * when turned, in the kit file, the Preview and the published page; and
+ * "Turn in 3D" turns any part in depth under a drag, a still press still
+ * pressing.
+ *
  *   node tests/orb-planet.mjs [url]      # default http://localhost:3000
  *
- * Covers: src/features/studio/shelf/library/planetJs.ts, src/features/studio/shelf/parts/Orb.tsx, src/features/studio/shelf/library/behaviourScripts/effects.ts, src/features/studio/shelf/library/works.ts, scripts/kit-motion.mjs
+ * Covers: src/features/studio/shelf/library/planetJs.ts, src/features/studio/shelf/parts/Orb.tsx, src/features/studio/shelf/parts/Shape3D.tsx, src/features/studio/shelf/library/behaviourScripts/effects.ts, src/features/studio/shelf/library/works.ts, scripts/kit-motion.mjs
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -47,6 +53,21 @@ const middle = (p, sel) => p.evaluate((sel) => {
   const d = cv.getContext("2d").getImageData((cv.width / 2) | 0, (cv.height / 2) | 0, 1, 1).data;
   const [r, g, b] = d;
   return r > 2 * b && g > 2 * b ? "y" : r >= g && r >= b ? "r" : g >= b ? "g" : "b";
+}, sel);
+/* Six faces, six colours: which of them a canvas shows, each over 1% of it (lit or shaded, the hue holds). */
+const FACES = ["#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff"];
+const NAMES = ["red", "yellow", "green", "cyan", "blue", "magenta"];
+const facePng = (p, colour) => p.evaluate((c) => { const k = document.createElement("canvas"); k.width = k.height = 16; const g = k.getContext("2d"); g.fillStyle = c; g.fillRect(0, 0, 16, 16); return k.toDataURL(); }, colour);
+const shown = (p, sel) => p.evaluate((sel) => {
+  const cv = document.querySelector(sel);
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, n = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], hi = Math.max(r, g, b), lo = Math.min(r, g, b);
+    if (d[i + 3] < 200 || hi - lo < 40) continue;
+    const h = hi === r ? ((g - b) / (hi - lo) + 6) % 6 : hi === g ? (b - r) / (hi - lo) + 2 : (r - g) / (hi - lo) + 4;
+    n[Math.round(h) % 6]++;
+  }
+  return ["red", "yellow", "green", "cyan", "blue", "magenta"].filter((_, i) => n[i] > (cv.width * cv.height) / 100);
 }, sel);
 const turnOf = (p, sel) => p.evaluate((sel) => document.querySelector(sel).__planet?.turn() ?? null, sel);
 const apart = (a, b) => (a && b ? Math.max(...a.map((v, i) => Math.abs(v - b[i]))) : 0);
@@ -111,6 +132,50 @@ try {
   await p.waitForTimeout(600);
   const i2 = await turnOf(p, '[data-hook="ball"] [data-planet]');
   check("Left alone it turns slowly on its own", apart(i1, i2) > 0.02 && apart(i1, i2) < 0.6, apart(i1, i2).toFixed(3));
+
+  const pngs = [];
+  for (const c of FACES) pngs.push(await facePng(p, c));
+  const solidPage = (shape) => `<!doctype html><html><head><style>
+    body { margin: 0; padding: 40px; background: #111; }
+    [data-hook="solid"] { width: 320px; height: 320px; --builder-motion: "planet?spin=no&shape=${shape}"; }
+  </style></head><body><div data-hook="solid">${pngs.slice(0, shape === "cube" ? 6 : 5).map((u) => `<img data-planet-picture alt="" src="${u}">`).join("")}</div><script>${file}</script></body></html>`;
+  await p.setContent(solidPage("cube"));
+  await p.waitForTimeout(400);
+  const SC = '[data-hook="solid"] canvas[data-planet-canvas]';
+  const c0 = await shown(p, SC);
+  check("A cube wears a picture on each face: three show at once", c0.length === 3, c0.join(","));
+  const sat0 = await centreOf(p, SC);
+  await drag(p, { x: sat0.x - sat0.w / 2 + 10, y: sat0.y }, sat0.w - 20, 0, 24, 200);
+  await p.waitForTimeout(150);
+  const c1 = await shown(p, SC);
+  check("Turned half way round, the cube shows faces it hid", c1.some((c) => !c0.includes(c)), `${c0.join(",")} then ${c1.join(",")}`);
+  await p.setContent(solidPage("pyramid"));
+  await p.waitForTimeout(400);
+  const p0 = await shown(p, SC);
+  check("A pyramid shows its sides, not its base, from above", p0.length >= 2 && !p0.includes("blue"), p0.join(","));
+  await drag(p, { x: sat0.x, y: sat0.y - sat0.w / 2 + 10 }, 0, sat0.w - 20, 24, 200);
+  await p.waitForTimeout(150);
+  const p1 = await shown(p, SC);
+  check("Turned over, the pyramid shows its base", p1.includes("blue"), p1.join(","));
+
+  /* Any part, turned in 3D: a hooked box with a button in it. */
+  await p.setContent(`<!doctype html><html><head><style>
+    body { margin: 0; padding: 80px; }
+    [data-hook="card"] { width: 260px; height: 180px; background: #ddd; --builder-motion: "turn-3d"; }
+  </style></head><body><div data-hook="card"><button data-hook="press" onclick="window.pressed = (window.pressed || 0) + 1">Press</button></div><script>${file}</script></body></html>`);
+  await p.waitForTimeout(200);
+  await p.click('[data-hook="press"]');
+  check("Turn in 3D: a press that does not move still presses", (await p.evaluate(() => window.pressed)) === 1);
+  const cb = await centreOf(p, '[data-hook="card"]');
+  await drag(p, { x: cb.x - 60, y: cb.y }, 120, 40, 16, 150);
+  const tf = await p.evaluate(() => document.querySelector('[data-hook="card"]').style.transform);
+  check("Turn in 3D: a drag turns the part in depth", /matrix3d/.test(tf), tf.slice(0, 60));
+  check("Turn in 3D: the drag is not also a press", (await p.evaluate(() => window.pressed)) === 1);
+  await p.waitForTimeout(800);
+  const t3a = await p.evaluate(() => document.querySelector('[data-hook="card"]').style.transform);
+  await p.waitForTimeout(300);
+  const t3b = await p.evaluate(() => document.querySelector('[data-hook="card"]').style.transform);
+  check("Turn in 3D: it stays where it is left", t3a === t3b && /matrix3d/.test(t3b));
   check("Nothing throws", errors.length === 0, errors.join("; "));
 
   /* ------------------------------------------------------------ the Builder */
@@ -123,6 +188,9 @@ try {
   const png = Buffer.from((await p.evaluate(STRIPES)).split(",")[1], "base64");
   const servePic = (r) => r.fulfill({ status: 200, contentType: "image/png", body: png });
   await b.route("**/planet-test.png", servePic);
+  const facePngs = pngs.map((u) => Buffer.from(u.split(",")[1], "base64"));
+  const serveFace = (r) => { const m = /\/face-(\d)\.png/.exec(r.request().url()); return m ? r.fulfill({ status: 200, contentType: "image/png", body: facePngs[Number(m[1])] }) : r.fallback(); };
+  await b.route("**/face-*.png", serveFace);
   await b.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
   const SAMPLE = JSON.parse(readFileSync(join(here, "..", "site", "document.json"), "utf8"));
   const pic = "/planet-test.png";
@@ -134,7 +202,9 @@ try {
   });
   const doc = {
     pages: [{ id: "p_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
-    nodes: [node("n_drawn", "orb-css", 40, "The signal is live", { spin: "no", rings: "none", size: "94" }), node("n_pic", "orb-image", 640, `${pic}, Wrapped`, { float: "no", rings: "none", size: "94" })],
+    nodes: [node("n_drawn", "orb-css", 40, "The signal is live", { spin: "no", rings: "none", size: "94" }), node("n_pic", "orb-image", 640, `${pic}, Wrapped`, { float: "no", rings: "none", size: "94" }),
+      { ...node("n_cube", "shape-cube", 40, FACES.map((_, i) => `/face-${i}.png`).join(", "), { spin: "no" }), y: 620 },
+      { ...node("n_pyr", "shape-pyramid", 640, "", { spin: "no" }), y: 620 }],
     groups: [], shapes: [], format: {}, brief: { ...SAMPLE.brief, name: "Planet" }, look: {}, frameWidth: 1440,
   };
   await b.evaluate(({ state }) => {
@@ -165,6 +235,17 @@ try {
   await b.waitForTimeout(300);
   const pf = (await b.locator(PIC).count()) ? await middle(b, PIC) : "none";
   check("In the Preview the picture orb wears the picture wrapped round it", pf === "b", pf);
+  const bc = '[data-live-node="n_cube"] canvas[data-planet-canvas]';
+  await b.locator(bc).scrollIntoViewIfNeeded();
+  await b.waitForTimeout(400);
+  const bc0 = (await b.locator(bc).count()) ? await shown(b, bc) : [];
+  check("In the Preview the cube wears its pictures, three faces showing", bc0.length === 3, bc0.join(","));
+  const bat = await centreOf(b, bc);
+  const bt0 = await turnOf(b, '[data-live-node="n_cube"] [data-planet]');
+  await drag(b, { x: bat.x - 60, y: bat.y }, 120, 60, 16, 150);
+  const bt1 = await turnOf(b, '[data-live-node="n_cube"] [data-planet]');
+  check("In the Preview a drag turns the cube", apart(bt0, bt1) > 0.3, apart(bt0, bt1).toFixed(2));
+  check("In the Preview the pyramid is drawn", (await b.locator('[data-live-node="n_pyr"] canvas[data-planet-canvas]').count()) === 1);
   check("Nothing throws in the Builder", berr.length === 0, berr.join("; "));
 
   /* ------------------------------------------------------------ Publish */
@@ -182,6 +263,7 @@ try {
   await site.route(/^https?:\/\/(?!published\.test)/, (r) => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
   /* Registered last, so it is asked first: the picture stays where the site keeps it. */
   await site.route("**/planet-test.png", servePic);
+  await site.route("**/face-*.png", serveFace);
   await site.goto("http://published.test/index.html", { waitUntil: "load" });
   await site.waitForTimeout(1200);
   const PUB = '#n_drawn canvas[data-planet-canvas]';
@@ -199,6 +281,18 @@ try {
     const ppsrc = await site.evaluate(() => document.querySelector("#n_pic img[data-planet-picture]")?.getAttribute("src") ?? "no picture");
     check("Published, the picture is wrapped round the picture orb", ppf === "b", `${ppf}, from ${ppsrc.slice(0, 60)}`);
   }
+  const pc = "#n_cube canvas[data-planet-canvas]";
+  if (await site.locator(pc).count()) {
+    await site.locator(pc).scrollIntoViewIfNeeded();
+    await site.waitForTimeout(400);
+    const pc0 = await shown(site, pc);
+    check("Published, the cube wears its pictures", pc0.length === 3, pc0.join(","));
+    const pat2 = await centreOf(site, pc);
+    const q0 = await turnOf(site, "#n_cube [data-planet]");
+    await drag(site, { x: pat2.x - 60, y: pat2.y }, 120, 0, 16, 150);
+    check("Published, a drag turns the cube", apart(q0, await turnOf(site, "#n_cube [data-planet]")) > 0.3);
+  } else check("Published, the cube is drawn", false, "no canvas");
+  check("Published, the pyramid is drawn", (await site.locator("#n_pyr canvas[data-planet-canvas]").count()) === 1);
   check("Nothing throws on the published page", serr.length === 0, serr.join("; "));
 } finally {
   await browser.close();
