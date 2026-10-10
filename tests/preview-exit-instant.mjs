@@ -6,7 +6,11 @@
  * should be". The board was unmounted for Preview and built again from
  * nothing on the way back: on the saved PST board that took 3.7 seconds.
  * It is kept under Preview now, hidden, and coming back only shows it.
+ * Going in stays quick too: the site's words were measured with the hidden
+ * board unzoomed and zoomed again for every line (`textFit.ts#atFullSize`),
+ * 3.6 seconds, until the hidden board was left alone.
  *
+ *   0. pressing Preview shows the site in well under two seconds;
  *   1. under Preview the board is still there, but nobody sees it, reaches
  *      it or scrolls through it, and the side panel is gone from the row;
  *   2. pressing Preview again shows the board in well under a second, the
@@ -16,7 +20,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/preview-exit-instant.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/page/StudioPage.tsx, src/features/studio/board/DesktopCanvas.tsx
+ * Covers: src/features/studio/page/StudioPage.tsx, src/features/studio/board/DesktopCanvas.tsx, src/features/studio/textFit.ts
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
@@ -44,8 +48,20 @@ const before = await ui.evaluate(() => {
   return { parts: document.querySelectorAll("[data-node-id]").length, width: board?.getBoundingClientRect().width ?? 0 };
 });
 
+/* 0. */
+const into = await ui.evaluate(() => new Promise((done) => {
+  const t0 = performance.now();
+  document.querySelector('[aria-label="Preview"]').click();
+  const tick = () => {
+    if (/PonsStars/.test(document.querySelector("[data-live-shell]")?.textContent ?? "")) requestAnimationFrame(() => done(performance.now() - t0));
+    else if (performance.now() - t0 > 20_000) done(-1);
+    else requestAnimationFrame(tick);
+  };
+  tick();
+}));
+check("0. going into Preview shows the site in well under two seconds", into > 0 && into < 1500, `${Math.round(into)}ms (3.6s while the hidden board was unzoomed for every line of words)`);
+
 /* 1. */
-await ui.locator('[aria-label="Preview"]').first().click();
 await ui.waitForTimeout(2000);
 const under = await ui.evaluate(() => {
   const kept = document.querySelector("[data-board-kept]");
