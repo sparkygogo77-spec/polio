@@ -13,6 +13,7 @@
  * to the site.
  */
 import * as React from "react";
+import { HandRange } from "./HandSlider";
 import { Dices, Lock, LockOpen } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
@@ -79,9 +80,9 @@ export function ThemeSection() {
 
       <label className="block space-y-1">
         <div className="flex justify-between text-small text-fg-muted"><span>Familiar</span><span data-theme-originality-word="" className="text-fg">{word}</span><span>Original</span></div>
-        <input
-          type="range" min={0} max={1} step={0.05} value={roll.originality} data-theme-originality="" aria-label="Familiar to Original"
-          onChange={(e) => setRoll({ originality: Number(e.target.value) })} className="w-full"
+        <HandRange
+          min={0} max={1} step={0.05} value={roll.originality} data-theme-originality="" aria-label="Familiar to Original"
+          onChange={(originality) => setRoll({ originality })} className="w-full"
         />
         <span className="block text-fine text-fg-faint">
           {roll.originality < 0.5 ? "Starts from styles already captured on your other sites and font pairings people know." : `Keeps at least ${minDistanceAt(roll.originality).toFixed(2)} away from every captured style${kits.length ? ` (${kits.length} on your other sites)` : " (none captured yet)"}.`}

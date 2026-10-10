@@ -34,7 +34,7 @@ import { fixLoopOf, setFixLoop } from "./useFixLoop";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./shelf";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
-import { HandColour } from "./HandSlider";
+import { HandColour, HandRange } from "./HandSlider";
 
 const head = "text-small font-medium uppercase tracking-[0.12em] text-fg-faint";
 const warn = { borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" };
@@ -93,7 +93,7 @@ export function SlotKindEditor({ kind, name, value, onChange }: { kind: ScriptSl
         </select>
         {s.kind === "beep" ? <input type="number" aria-label={`${name} pitch`} min={100} max={4000} step={20} value={s.hz} onChange={(e) => onChange(writeSound({ ...s, hz: Number(e.target.value) || 880 }))} className={`${box} w-16`} /> : null}
         {s.kind === "file" ? <input type="text" aria-label={`${name} file`} defaultValue={s.src} onBlur={(e) => onChange(writeSound({ ...s, src: e.target.value.trim() || s.src }))} className={`${box} w-28`} /> : null}
-        {s.kind !== "none" ? <input type="range" aria-label={`${name} volume`} min={0} max={1} step={0.05} value={vol} onChange={(e) => onChange(writeSound({ ...s, volume: Number(e.target.value) }))} className="w-16" /> : null}
+        {s.kind !== "none" ? <HandRange aria-label={`${name} volume`} min={0} max={1} step={0.05} value={vol} onChange={(volume) => onChange(writeSound({ ...s, volume }))} className="w-16" /> : null}
         {s.kind !== "none" ? <button type="button" data-slot-play="" className="text-fg-muted underline" onClick={() => playSound(value, typeof location !== "undefined" ? location.href : undefined)}>Play</button> : null}
       </span>
     );
