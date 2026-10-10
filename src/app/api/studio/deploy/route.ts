@@ -409,6 +409,24 @@ export async function POST(request: Request) {
     note = got.note;
   }
 
+  /*
+   * OPEN TO EVERYONE (J, 2026-10-10: "the published sites should not be
+   * locked"). Vercel makes a new project behind its own sign-in ("Vercel
+   * Authentication", on for every address but a custom domain), so the
+   * site's own vercel.app address showed a Vercel login page to anyone but
+   * J. A published site is for visitors: the lock is taken off the project,
+   * and a project that cannot be opened says so rather than failing the build.
+   */
+  const locked = (project as VercelProject & { ssoProtection?: unknown; passwordProtection?: { enabled?: boolean } | null });
+  if (locked.ssoProtection !== null || locked.passwordProtection?.enabled) {
+    try {
+      const open = await vercel(tok, `/v9/projects/${encodeURIComponent(project.id)}${query(team)}`, { method: "PATCH", body: JSON.stringify({ ssoProtection: null, passwordProtection: null }) });
+      if (!open.ok) note = [note, `The site is still behind Vercel's sign-in: Vercel would not open it (${open.data.error?.message ?? open.status}). In Vercel, open the project's Settings, then Deployment Protection, and turn Vercel Authentication off.`].filter(Boolean).join(" ");
+    } catch {
+      note = [note, "The site may still be behind Vercel's sign-in: Vercel could not be reached to open it."].filter(Boolean).join(" ");
+    }
+  }
+
   const [org, name] = repo.split("/");
   // repoId is what v13 wants when it has one; org and repo are accepted too,
   // and are the only thing to go on for a project linked before repoId was
