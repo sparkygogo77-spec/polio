@@ -1087,7 +1087,70 @@ siteFeatures.define("turn-3d", function (el, inputs) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"}};
+  /* Before / after: Two pictures in the same place; dragging the handle reveals the before over the after, without stretching either. */
+  (function (siteFeatures) {
+siteFeatures.define("compare", function (el, inputs) {
+  var box = el.hasAttribute("data-compare") ? el : el.querySelector("[data-compare]");
+  if (box && box.__compareOwned) return;
+  var host = box || el;
+  if (host.__compare) return;
+  host.__compare = true;
+  var before = box && box.querySelector("[data-compare-before]");
+  var line = box && box.querySelector("[data-compare-line]");
+  if (!before) {
+    /* Any other part: its before and after, stacked at full size. */
+    var kids = Array.prototype.filter.call(el.children, function (k) { return !k.hasAttribute("data-feature-layer"); });
+    before = el.querySelector("[data-compare-before]") || kids[0];
+    var after = el.querySelector("[data-compare-after]") || kids.filter(function (k) { return k !== before; })[0];
+    if (!before || !after) return;
+    box = el;
+    if (getComputedStyle(el).position === "static") el.style.position = "relative";
+    if (getComputedStyle(el).overflow === "visible") el.style.overflow = "hidden";
+    [after, before].forEach(function (p, i) {
+      p.style.position = "absolute"; p.style.left = "0"; p.style.top = "0"; p.style.width = "100%"; p.style.height = "100%"; p.style.margin = "0";
+      if (p.tagName === "IMG" || p.tagName === "VIDEO") p.style.objectFit = "cover";
+      p.style.zIndex = String(i + 1);
+    });
+    line = (el.ownerDocument || document).createElement("div");
+    line.setAttribute("data-feature-layer", "compare");
+    line.style.cssText = "position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;z-index:3;pointer-events:none;background:currentColor;box-shadow:0 0 0 1px rgba(0,0,0,.25)";
+    el.appendChild(line);
+  }
+  var pct = parseFloat(line && line.style.left);
+  if (!isFinite(pct)) pct = Number(inputs.start);
+  if (!isFinite(pct)) pct = 50;
+  function set(p) {
+    pct = Math.max(0, Math.min(100, p));
+    var cut = "inset(0 " + (100 - pct) + "% 0 0)";
+    before.style.clipPath = cut; before.style.webkitClipPath = cut;
+    if (line) line.style.left = pct + "%";
+    box.setAttribute("aria-valuenow", String(Math.round(pct)));
+  }
+  function at(x) { var r = box.getBoundingClientRect(); if (r.width) set(((x - r.left) / r.width) * 100); }
+  box.setAttribute("role", "slider");
+  box.setAttribute("aria-valuemin", "0"); box.setAttribute("aria-valuemax", "100");
+  if (!box.hasAttribute("aria-label")) box.setAttribute("aria-label", "Before and after");
+  if (!box.hasAttribute("tabindex")) box.tabIndex = 0;
+  box.style.cursor = "ew-resize"; box.style.touchAction = "pan-y"; box.style.userSelect = "none";
+  var down = false;
+  box.addEventListener("pointerdown", function (e) { down = true; try { box.setPointerCapture(e.pointerId); } catch (x) { /* a move still follows */ } at(e.clientX); e.preventDefault(); });
+  box.addEventListener("pointermove", function (e) { if (down) at(e.clientX); });
+  box.addEventListener("pointerup", function () { down = false; });
+  box.addEventListener("pointercancel", function () { down = false; });
+  box.addEventListener("keydown", function (e) {
+    var k = e.key, step = e.shiftKey ? 10 : 5;
+    if (k === "ArrowLeft" || k === "ArrowDown") set(pct - step);
+    else if (k === "ArrowRight" || k === "ArrowUp") set(pct + step);
+    else if (k === "Home") set(0);
+    else if (k === "End") set(100);
+    else return;
+    e.preventDefault();
+  });
+  set(pct);
+});
+
+  })(F);
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

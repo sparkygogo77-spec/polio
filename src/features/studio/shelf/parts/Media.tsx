@@ -199,30 +199,63 @@ export function Carousel({ id, content, options, theme: t, mode }: PartProps) {
   );
 }
 
-/** Drag the handle; the split follows the pointer at any scale. */
+/**
+ * Drag the handle; the split follows the pointer at any scale.
+ *
+ * Both pictures are the same scene at full size in the same place: the
+ * after underneath, the before (the same picture, washed out) on top. The
+ * handle only cuts the before off at its line (`clip-path`), so dragging
+ * reveals it and nothing stretches (J, 2026-10-10). Before, the top layer's
+ * width followed the handle and its `cover` picture was scaled to fit it.
+ * The published page has no React: the `compare` feature drives the same
+ * markup there (`data-compare-*`, `works.ts#PART_SCRIPT`); here the box is
+ * marked as driven by this part so that script leaves it be.
+ */
 export function BeforeAfter({ id, content, theme: t }: PartProps) {
   const labels = items(content, ["Before", "After"]);
   const [pct, setPct] = React.useState(50);
   const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = ref.current as (HTMLDivElement & { __compareOwned?: boolean }) | null;
+    if (el) el.__compareOwned = true;
+  }, []);
   const set = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
-    if (!r) return;
+    if (!r || !r.width) return;
     setPct(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
   };
+  const key = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 10 : 5;
+    const to = e.key === "ArrowLeft" || e.key === "ArrowDown" ? pct - step : e.key === "ArrowRight" || e.key === "ArrowUp" ? pct + step : e.key === "Home" ? 0 : e.key === "End" ? 100 : null;
+    if (to === null) return;
+    e.preventDefault();
+    setPct(Math.max(0, Math.min(100, to)));
+  };
+  const cut = `inset(0 ${100 - pct}% 0 0)`;
+  const scene = swatch(t, 1);
   return (
     <Fill t={t} data-part={id} style={{ position: "relative", borderRadius: t.radius, overflow: "hidden", border: `1px solid ${t.line}` }}>
       <div
         ref={ref}
-        onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); set(e.clientX); }}
+        data-compare=""
+        role="slider"
+        tabIndex={0}
+        aria-label="Before and after"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        onKeyDown={key}
+        onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); set(e.clientX); }}
         onPointerMove={(e) => e.buttons === 1 && set(e.clientX)}
-        style={{ position: "absolute", inset: 0, cursor: "ew-resize", background: swatch(t, 1) }}
+        style={{ position: "absolute", inset: 0, cursor: "ew-resize", touchAction: "pan-y", userSelect: "none" }}
       >
-        <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: swatch(t, 4), overflow: "hidden" }} />
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${pct}%`, width: 2, background: t.accent }}>
+        <div data-compare-after="" style={{ position: "absolute", inset: 0, background: scene }} />
+        <div data-compare-before="" style={{ position: "absolute", inset: 0, background: scene, filter: "grayscale(1) sepia(0.35) brightness(0.85)", clipPath: cut, WebkitClipPath: cut }} />
+        <div data-compare-line="" style={{ position: "absolute", top: 0, bottom: 0, left: `${pct}%`, width: 2, marginLeft: -1, background: t.accent, pointerEvents: "none" }}>
           <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: t.surface, border: `2px solid ${t.accent}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: t.text }}>⇔</span>
         </div>
-        <span style={{ position: "absolute", left: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999 }}>{labels[0]}</span>
-        <span style={{ position: "absolute", right: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999 }}>{labels[1]}</span>
+        <span style={{ position: "absolute", left: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999, pointerEvents: "none" }}>{labels[0]}</span>
+        <span style={{ position: "absolute", right: 10, bottom: 10, color: t.text, fontSize: t.fontPx * 0.8, background: `${tint(t.surface, 0.8)}`, padding: "2px 8px", borderRadius: 999, pointerEvents: "none" }}>{labels[1]}</span>
       </div>
     </Fill>
   );
