@@ -121,7 +121,7 @@ check("code view: a part no script names says so, and is not filled by code", h1
 const svgPart = byHook("duel-svg"), meC = byHook("duel-circle-me"), oppC = byHook("duel-circle-opponent");
 /* Painted by a copy of itself, as the page draws it (tests/svg-icons.mjs): not a picture with no file. */
 check("an inline svg is a part with its hook, painted by its own copy", svgPart?.w === 200 && svgPart.h === 200 && /^url\("data:image\/svg\+xml/.test(svgPart.art?.background ?? ""), JSON.stringify(svgPart && [svgPart.featureId, svgPart.w, svgPart.h]));
-check("…and each hooked shape in it is a part of its own, a circle drawn as a circle, with its fill and stroke", meC?.featureId === "box" && meC.shape === "circle" && meC.w === 100 && meC.colour?.bg === "rgb(37, 99, 235)" && meC.edge?.colour === "rgb(37, 99, 235)" && oppC?.colour?.bg === "rgb(234, 179, 8)", JSON.stringify(meC && { shape: meC.shape, w: meC.w, colour: meC.colour, edge: meC.edge }));
+check("…and each hooked shape in it is a part of its own, a circle drawn as a circle, with its fill and stroke", meC?.featureId === "box" && meC.shape === "circle" && meC.w === 100 && /* filled at 0.4, so the fill comes in faded the same (siteread/parts.ts) */ meC.colour?.bg === "rgba(37, 99, 235, 0.4)" && meC.edge?.colour === "rgb(37, 99, 235)" && oppC?.colour?.bg === "rgba(234, 179, 8, 0.4)", JSON.stringify(meC && { shape: meC.shape, w: meC.w, colour: meC.colour, edge: meC.edge }));
 check("…under the picture, by its path", meC?.from?.selector.startsWith(`${svgPart?.from?.selector} `));
 const fresh = buildLayer(nodes, null, source);
 check("the hook check finds the duel on the board: untouched, not missing", ["duel-svg", "duel-circle-me", "duel-circle-opponent"].every((h) => fresh.check.find((c) => c.value === h)?.fate === "untouched"), ["duel-svg", "duel-circle-me", "duel-circle-opponent"].map((h) => `${h} ${fresh.check.find((c) => c.value === h)?.fate}`).join(", "));
@@ -342,6 +342,9 @@ const youId = st.nodes.find((n) => n.hooks?.["data-hook"] === "score-you")?.id;
 await ui.keyboard.press("Escape");
 await ui.locator(`[data-node-id="${youId}"]`).first().click({ force: true }).catch(() => {});
 await ui.waitForTimeout(800);
+/* The code settings are one row, "Filled by code · N scripts", that opens on press (`codeView.tsx#CodeLine`). */
+await ui.locator("[data-code-line-row]:not([data-open]) [data-code-line-head]").first().click().catch(() => {});
+await ui.waitForTimeout(300);
 const view = await ui.evaluate(() => {
   const v = document.querySelector("[data-code-view]");
   if (!v) return null;

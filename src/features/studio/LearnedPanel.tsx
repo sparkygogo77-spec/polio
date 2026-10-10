@@ -14,7 +14,7 @@ import { BookOpen, Trash2 } from "lucide-react";
 import { useLearned } from "./shelf/ui";
 import type { LearnedSite } from "./shelf";
 import { getWork } from "./shelf";
-import { CATEGORIES, getFeature } from "./shelf";
+import { CATEGORIES, getFeature, shelfCategoryOf } from "./shelf";
 import { STATUS_LABEL } from "./shelfFacts";
 import { useStudio } from "./board/store";
 import { play } from "@/core/audio/engine";
@@ -26,7 +26,7 @@ const OPEN = "studio:learned";
 export const openLearned = () => window.dispatchEvent(new CustomEvent(OPEN));
 
 /** The shelf's own name for a category ("Motion"). */
-const catLabel = (id: string) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
+const catLabel = (id: string) => CATEGORIES.find((c) => c.id === shelfCategoryOf(id))?.label ?? id;
 const itemName = (item: string) => (item.startsWith("work:") ? getWork(item.slice(5))?.manifest.name ?? item.slice(5) : getFeature(item)?.name ?? item);
 
 function Site({ site }: { site: LearnedSite }) {
@@ -34,7 +34,7 @@ function Site({ site }: { site: LearnedSite }) {
   const [sure, setSure] = React.useState(false);
   const [said, setSaid] = React.useState<string | null>(null);
   const byCat = new Map<string, LearnedSite["versions"]>();
-  for (const v of site.versions) byCat.set(v.category, [...(byCat.get(v.category) ?? []), v]);
+  for (const v of site.versions) { const c = shelfCategoryOf(v.category); byCat.set(c, [...(byCat.get(c) ?? []), v]); }
   const usePalette = () => {
     if (!site.palette) return;
     const s = useStudio.getState();

@@ -94,7 +94,8 @@ check("nothing outside the part is decided or moved", !add.decide.has("wallet") 
 const tl = readFileSync(join(here, "..", "src", "features", "studio", "states", "StatesTimeline.tsx"), "utf8");
 check("the page's states: its screens, then a row per part, step 1 as it opens (source read)", /export function pageStates/.test(tl) && /\{ key: null, label: open\?\.label \?\? "as it opens"/.test(tl));
 check("a screen that is a step of the part round it is not listed again inside it (source read)", /!\(s\.screen && above\.has\(s\.screen\)\)/.test(tl));
-check("picking the whole page's state puts its parts back to follow it (source read)", /The page as a whole: its parts follow it/.test(tl));
+const scene = readFileSync(join(here, "..", "src", "features", "studio", "states", "sceneStep.ts"), "utf8");
+check("picking the whole page's state puts its parts back to follow it (source read)", /The page as a whole: its parts follow it/.test(scene) && /!k\.startsWith\("step:"\)/.test(scene));
 
 /* 5. On the board */
 const page = ["StudioPage.tsx", ...["sizes.ts", "head.tsx", "toolbar.tsx", "side.tsx", "StudioPage.tsx"].map((f) => `page/${f}`)].map((f) => `src/features/studio/${f}`).map((f) => readFileSync(join(here, "..", f), "utf8")).join("\n");

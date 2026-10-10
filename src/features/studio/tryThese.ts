@@ -18,7 +18,7 @@ import { isWorkKey } from "./shelf";
 import { rng } from "./siteTheme";
 import type { TryItem } from "./starterPage";
 
-const SKIP = new Set(["structure", "nav", "hero", "platform", "media"]);
+const SKIP = new Set(["structure", "platform"]);
 
 /** Every item the section may offer, by category. */
 export function tryable(): Map<string, TryItem[]> {

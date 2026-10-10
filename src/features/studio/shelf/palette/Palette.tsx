@@ -22,7 +22,7 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, EyeOff, Plus, Search, Sparkles, X } from "lucide-react";
-import { allCategories, getFeature, searchFeatures, type CategoryId, type FeatureDef } from "../catalog";
+import { allCategories, getFeature, searchFeatures, shelfCategoryOf, type CategoryId, type FeatureDef } from "../catalog";
 import { useStudio } from "../../board/store";
 import { planetOf } from "../../planets";
 import { shapeOf } from "../../showcase";
@@ -175,7 +175,7 @@ function OpenShelf() {
       /* A search finds sketches too, so nothing named is ever out of reach. */
       const it = getFeature(item);
       if (!it) continue;
-      if (!isFinished(item) && !showSketches && !searching) { held.set(item, String(it.category)); continue; }
+      if (!isFinished(item) && !showSketches && !searching) { held.set(item, shelfCategoryOf(it.category)); continue; }
       out.set(item, it);
     }
     /* How many sketches each category holds back. */

@@ -98,8 +98,8 @@ export function PartEffects({ node, kind, nodes }: { node: StudioNode; kind: str
 /* ------------------------------------------------------------------ save as a component */
 /** The shelf category a part of this kind is filed in, and the word for what it is. */
 export function componentPlace(kind: string, node: StudioNode, nodes: readonly StudioNode[]): { category: string; kind: string } {
-  if (kind === "Button" || kind === "Link") return { category: "interact", kind: "Buttons" };
-  if (kind === "Picture" || node.picture || holdsPicture(node, nodes)) return { category: "media", kind: "Pictures and screens" };
+  if (kind === "Button" || kind === "Link") return { category: "content", kind: "Buttons" };
+  if (kind === "Picture" || node.picture || holdsPicture(node, nodes)) return { category: "content", kind: "Pictures and screens" };
   if (kind === "Section" || kind === "Header" || kind === "Footer") return { category: "structure", kind: "Sections" };
   return { category: "structure", kind: "Cards and boxes" };
 }

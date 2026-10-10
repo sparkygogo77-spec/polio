@@ -120,16 +120,22 @@ export interface FeatureDef {
 }
 
 /**
- * Twelve places a visitor could point at. Shop lives inside Forms (both are
- * the visitor handing you something); the dense views and the terminal
- * live with Data, the keyboard-first parts with Interaction — "Dense &
- * keyboard" was a category nobody could see on a page.
+ * The twelve kinds of part. A kind says what a part IS (a picture, a first
+ * screen, something you press), and code reads it for that: a picture lays
+ * out as media, a press feature takes the press. Shop lives inside Forms
+ * (both are the visitor handing you something); the dense views and the
+ * terminal live with Data, the keyboard-first parts with Interaction.
  */
 export type BuiltInCategory =
   | "structure" | "nav" | "hero" | "content" | "media" | "motion" | "interact"
   | "forms" | "data" | "social" | "ai" | "platform";
 /**
- * The twelve, and the ones a connected repository brings with it.
+ * The shelf's six categories, and the ones a connected repository brings
+ * with it.
+ *
+ * SIX, BY PURPOSE. Twelve was too many to find anything in (builder audit,
+ * section 3), so the shelf shows six and every kind is filed in one of them
+ * (`SHELF_OF`). A part keeps its kind; only where the shelf shows it moved.
  *
  * A repository's elements land in a category of their own, named after the
  * repository — that was the ask, and a category is a string id from the
@@ -147,32 +153,29 @@ export interface CategoryDef {
   /**
    * The colour that says which kind of part this is.
    *
-   * Spaced 30 degrees apart, all the way round, and that is the whole rule.
-   * They used to be picked one at a time and had drifted together: measured
-   * across the twelve, five pairs sat 20 degrees or less apart and the
-   * closest two were 10 — Engine at 20 against First screen at 30 —
-   * which at this chroma is not a difference a person can see, so the row
-   * read as one thing. Nothing moved more than 20 degrees to fix it, so
-   * every category kept its neighbourhood: Motion is still cyan, Media is
-   * still magenta.
+   * Spaced 60 degrees apart, all the way round, and that is the whole rule:
+   * with six, no two can be mistaken for each other at this chroma. Every
+   * category kept its old neighbourhood: Layout is still blue, Motion
+   * still green-cyan, Words still yellow.
    */
   hue: number;
 }
 
 export const CATEGORIES: CategoryDef[] = [
-  { id: "structure", label: "Layout", icon: LayoutTemplate, blurb: "How the page is divided.", hue: 200 },
-  { id: "nav", label: "Navigation", icon: NavigationIcon, blurb: "How people move around.", hue: 230 },
-  { id: "hero", label: "First screen", icon: Sunrise, blurb: "The first screen.", hue: 50 },
-  { id: "content", label: "Text", icon: Type, blurb: "Words, and how they are set.", hue: 80 },
-  { id: "media", label: "Media", icon: Images, blurb: "Images, video, audio, 3D.", hue: 320 },
-  { id: "motion", label: "Motion", icon: Waves, blurb: "What happens as you scroll.", hue: 170 },
-  { id: "interact", label: "Interaction", icon: MousePointerClick, blurb: "Feedback, menus, shortcuts.", hue: 140 },
-  { id: "forms", label: "Forms & shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 110 },
+  { id: "structure", label: "Layout and menus", icon: LayoutTemplate, blurb: "How the page is divided, and how people move around it.", hue: 200 },
+  { id: "content", label: "Words and pictures", icon: Type, blurb: "The first screen, words, pictures, video and 3D.", hue: 80 },
+  { id: "motion", label: "Motion and interaction", icon: Waves, blurb: "What moves, and what answers a press, a hover or a key.", hue: 140 },
+  { id: "forms", label: "Forms and shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 20 },
   { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 260 },
-  { id: "social", label: "Social", icon: Users, blurb: "People and their traces.", hue: 350 },
-  { id: "ai", label: "Artificial intelligence (AI)", icon: Sparkles, blurb: "Things an artificial intelligence (AI) model writes, answers or picks for your visitors.", hue: 290 },
-  { id: "platform", label: "Engine", icon: Cpu, blurb: "The things that make it real.", hue: 20 },
+  { id: "platform", label: "People, AI and engine", icon: Cpu, blurb: "People and their traces, artificial intelligence (AI), and the things that make it real.", hue: 320 },
 ];
+
+/** The shelf category each kind is filed in. A kind not named here is a category of its own. */
+export const SHELF_OF: Readonly<Record<string, string>> = {
+  nav: "structure", hero: "content", media: "content", interact: "motion", social: "platform", ai: "platform",
+};
+/** The shelf category a kind (or a category) is shown in. */
+export const shelfCategoryOf = (kind: CategoryId): string => SHELF_OF[kind] ?? kind;
 
 const f = (
   id: string, name: string, category: CategoryId, icon: LucideIcon, blurb: string,
@@ -1047,7 +1050,7 @@ export function allFeatures(): FeatureDef[] {
   return brought.length ? [...FEATURES, ...brought] : FEATURES;
 }
 
-/** Every category on offer, the twelve first and the repositories after them. */
+/** Every category on offer, the six first and the repositories after them. */
 export function allCategories(): CategoryDef[] {
   return broughtCats.length ? [...CATEGORIES, ...broughtCats] : CATEGORIES;
 }
@@ -1056,8 +1059,10 @@ export function getFeature(id: string): FeatureDef | undefined {
   return FEATURES_BY_ID.get(id) ?? broughtById.get(id);
 }
 
+/** The parts a shelf category shows: every kind filed in it (`SHELF_OF`). A kind is read as the category it is filed in. */
 export function featuresByCategory(category: CategoryId): FeatureDef[] {
-  return allFeatures().filter((x) => x.category === category);
+  const shelf = shelfCategoryOf(category);
+  return allFeatures().filter((x) => shelfCategoryOf(x.category) === shelf);
 }
 
 export function searchFeatures(query: string): FeatureDef[] {
@@ -1069,8 +1074,10 @@ export function searchFeatures(query: string): FeatureDef[] {
   );
 }
 
+/** The shelf category a kind or category id is shown in: its label, its colour. */
 export function categoryOf(id: CategoryId): CategoryDef {
-  return allCategories().find((c) => c.id === id) ?? CATEGORIES[0]!;
+  const shelf = shelfCategoryOf(id);
+  return allCategories().find((c) => c.id === shelf) ?? CATEGORIES[0]!;
 }
 
 /**

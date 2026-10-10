@@ -1,0 +1,58 @@
+{
+  "about": "Ready-made game parts, first built for PonsStars and made general: each is a panel with its hooks, states (the shared state names), slots and tokens ready. Paths are relative to this file. Add one to a site with: npm run kit:part -- <part> <site folder> (it copies the files, the tokens and the slots, and prints the markup to paste). See BUILDER-RULES.md, rule 30.",
+  "page": "game.html",
+  "shared": { "js": ["parts/slots.js", "parts/sound.js"], "tokens": ["shared"] },
+  "parts": [
+    {
+      "name": "scoreboard",
+      "label": "Scoreboard",
+      "about": "One row per player or team, leader marked, scores written by a format slot and coloured by sign.",
+      "from": "PonsStars' you-and-them score panel",
+      "states": ["idle", "live", "done"],
+      "css": ["parts/scoreboard.css"],
+      "js": ["parts/scoreboard.js"],
+      "use": "drawScoreboard([{ name, score }]); scoreboardState('live')"
+    },
+    {
+      "name": "action-grid",
+      "label": "Buy and sell buttons",
+      "about": "Two rows of amount buttons (buy and sell, or any two opposite actions), each with a shortcut key slot and a click sound slot.",
+      "from": "PonsStars' buy and sell grid",
+      "states": ["idle", "live", "done"],
+      "css": ["parts/action-grid.css"],
+      "js": ["parts/action-grid.js"],
+      "use": "setUpActionGrid(({ action, amount }) => ...); actionGridState('live')"
+    },
+    {
+      "name": "countdown",
+      "label": "Countdown",
+      "about": "Minutes and seconds to zero; turns to its warning state in the last seconds (a number slot) and ticks (a sound slot).",
+      "from": "PonsStars' match timer",
+      "states": ["idle", "live", "warning", "done"],
+      "css": ["parts/countdown.css"],
+      "js": ["parts/countdown.js"],
+      "use": "startCountdown(seconds, onDone)"
+    },
+    {
+      "name": "screen",
+      "label": "TV screen",
+      "about": "A frame with a glow round anything that plays, static while it loads, a volume knob for the page's sounds and a channel knob.",
+      "from": "PonsStars' chart TV",
+      "states": ["idle", "loading", "live", "error"],
+      "css": ["parts/screen.css"],
+      "js": ["parts/screen.js"],
+      "use": "setUpScreen(onChannel); screenState('loading')"
+    },
+    {
+      "name": "markers",
+      "label": "Duel circles",
+      "about": "Two circles placed by position over a chart or field, and a level line (break-even or target) whose look is a line slot.",
+      "from": "PonsStars' duel circles and break-even line",
+      "states": ["idle", "live"],
+      "positions": ["--marker-a-x", "--marker-a-y", "--marker-b-x", "--marker-b-y", "--markers-level-y"],
+      "css": ["parts/markers.css"],
+      "js": ["parts/markers.js"],
+      "use": "placeMarkers({ x, y }, { x, y }, levelY)"
+    }
+  ]
+}

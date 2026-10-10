@@ -19,7 +19,7 @@
     <a data-hook="nav-contact" href="contact.html">Contact</a>
   </nav>
 </header>
-<main data-hook="page-main">
+<main data-hook="page-main" data-region="main" data-label="Main area">
   <section data-hook="home-hero">
     <h1 data-hook="page-title">A small site the builder can read</h1>
     <p data-hook="page-intro">Every part has a name, every colour is a token, and the design arrives as one style layer.</p>
@@ -39,7 +39,7 @@
       <p data-hook="feature-layer-text">The design loads last and wins.</p>
     </article>
   </section>
-  <dialog data-hook="signup-modal" aria-labelledby="signup-title">
+  <dialog data-hook="signup-modal" data-label="Sign-up box" data-panel="signup-modal" data-states="off on" data-state="off" aria-labelledby="signup-title">
     <h2 data-hook="modal-title" id="signup-title">Join the list</h2>
     <p data-hook="modal-text">One short note when something new ships.</p>
     <div data-hook="modal-actions">
@@ -49,7 +49,8 @@
   </dialog>
 </main>
 <footer data-hook="site-footer">
-  <p data-hook="footer-line">© <span data-hook="footer-year">2026</span> Starter. Built to the builder contract.</p>
+  <p data-hook="footer-line">© <span data-hook="footer-year" data-kind="date">2026</span> Starter. Built to the builder contract.</p>
 </footer>
+<script src="vendor/builder-motion.js" defer></script>
 </body>
 </html>

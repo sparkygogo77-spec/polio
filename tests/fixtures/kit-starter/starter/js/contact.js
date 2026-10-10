@@ -1,20 +1,20 @@
-import { hook, screens, still } from './hooks.js';
+import { hook, screens, setOn, still } from './hooks.js';
 import { fillFooter, markCurrentPage } from './site.js';
 
 /** Shows each field's problem under it; true when there are none. */
 function validate() {
   const nameOk = hook('name-input').value.trim() !== '';
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(hook('email-input').value.trim());
-  hook('name-error').hidden = nameOk;
-  hook('email-error').hidden = emailOk;
+  setOn('name-error', !nameOk);
+  setOn('email-error', !emailOk);
   return nameOk && emailOk;
 }
 
 function send(event) {
   event.preventDefault();
   if (!validate()) return;
-  hook('contact-form').hidden = true;
-  hook('form-sent').hidden = false;
+  setOn('contact-form', false);
+  setOn('form-sent', true);
 }
 
 markCurrentPage();

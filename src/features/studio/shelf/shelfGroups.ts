@@ -30,28 +30,22 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
     { id: "switchers", emoji: "🗂️", label: "Tabs and folding rows", items: ["tabs-panel", "accordion"] },
     { id: "overlays", emoji: "🪟", label: "Pop-ups and slide-ins", items: ["modal"] },
     { id: "footer", emoji: "🦶", label: "Footer", items: ["footer"] },
-  ],
-  nav: [
     { id: "top-bars", emoji: "🧭", label: "Menu bars", items: ["sticky-header"] },
     { id: "where-am-i", emoji: "🪜", label: "Show where you are", items: ["breadcrumbs", "toc"] },
     { id: "finding-things", emoji: "🔎", label: "Search", items: ["search-nav"] },
     { id: "between-pages", emoji: "📄", label: "Page numbers", items: ["pagination"] },
   ],
-  hero: [
+  content: [
     { id: "heroes", emoji: "🌅", label: "Opening banners", items: ["hero-split", "hero-scroll-cue"] },
     { id: "the-pitch", emoji: "💬", label: "One-line pitch", items: ["value-prop"] },
     { id: "the-button", emoji: "🚀", label: "Main buttons", items: ["cta-primary", "invite-panel"] },
     { id: "proof", emoji: "🏅", label: "Reasons to believe", items: ["social-proof-strip", "testimonials", "countdown"] },
-  ],
-  content: [
     { id: "body-text", emoji: "📖", label: "Paragraphs", items: ["prose"] },
     { id: "type-treatment", emoji: "🔠", label: "Headings and labels", items: ["eyebrow-rule"] },
     { id: "moving-words", emoji: "💫", label: "Moving words", items: ["marquee", "kinetic-type"] },
     { id: "lists-of-things", emoji: "📰", label: "Article lists", items: ["blog-index"] },
     { id: "boxes", emoji: "💡", label: "Notes and code", items: ["callout", "code-block"] },
     { id: "your-notes", emoji: "📝", label: "Notes for the builder", items: ["custom-idea", "note"] },
-  ],
-  media: [
     { id: "shapes-3d", emoji: "🧊", label: "3D shapes you can turn", items: ["shape-sphere", "shape-cube", "shape-pyramid"] },
     { id: "pictures", emoji: "🖼️", label: "Pictures", items: ["picture", "gallery"] },
     { id: "moving-through", emoji: "🎠", label: "Slideshows", items: ["carousel", "before-after"] },
@@ -67,8 +61,6 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
     { id: "on-pointer", emoji: "🖱️", label: "Under the pointer", items: ["hover-tilt", "work:turn-3d", "work:hover-lift", "work:press-push", "cursor-effects"] },
     { id: "on-its-own", emoji: "🪐", label: "Moves on its own", items: ["work:spin", "work:float", "work:blink"] },
     { id: "moments", emoji: "✨", label: "Openings and one-off effects", items: ["page-load", "work:switch-on", "page-transitions", "back-to-top", "confetti", "morph-transition", "physics"] },
-  ],
-  interact: [
     { id: "direct-handling", emoji: "✋", label: "Copy, drag and edit", items: ["copy-button", "drag-drop", "undo-redo", "inline-edit"] },
     { id: "on-hover", emoji: "👀", label: "On hover", items: ["tooltips", "hover-card", "magnetic-buttons"] },
     { id: "press-to-show", emoji: "👆", label: "Press to show", items: ["work:world-dialogs"] },
@@ -95,19 +87,15 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
     { id: "dense-views", emoji: "📊", label: "Very long lists", items: ["virtualised-list"] },
     { id: "terminal", emoji: "🖥️", label: "Command line", items: ["status-bar", "terminal-console", "split-panes"] },
   ],
-  social: [
+  platform: [
     { id: "reacting", emoji: "❤️", label: "Likes, shares, follows", items: ["share-sheet", "reactions", "follow"] },
     { id: "talking", emoji: "💬", label: "Comments and chat", items: ["comments", "chat", "forum", "mentions"] },
     { id: "people", emoji: "🧑", label: "Profiles and badges", items: ["profiles", "community-badges", "activity-feed"] },
     { id: "keeping-order", emoji: "🛠️", label: "Keeping it civil", items: ["moderation"] },
     { id: "together", emoji: "👥", label: "Together, live", items: ["collab-cursors"] },
-  ],
-  ai: [
     { id: "conversation", emoji: "🤖", label: "Talk to it", items: ["ai-chat", "ai-voice"] },
     { id: "writing", emoji: "✍️", label: "Writes for you", items: ["ai-prompt-box", "ai-summarize"] },
     { id: "suggesting", emoji: "🎯", label: "Finds and suggests", items: ["ai-search", "ai-recommend", "ai-autofill"] },
-  ],
-  platform: [
     { id: "appearance", emoji: "🎨", label: "Light, dark and print", items: ["dark-mode", "print"] },
     { id: "reach", emoji: "🌐", label: "Languages, search engines, access", items: ["seo", "a11y", "i18n"] },
     { id: "running-it", emoji: "📉", label: "Errors, speed, visitor stats, tests", items: ["error-handling", "perf", "analytics", "testing", "pwa"] },

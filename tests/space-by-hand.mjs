@@ -42,6 +42,8 @@ const note = (line) => console.log(`  note  ${line}`);
 
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks use its search, so it is open. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 if (SHOTS) mkdirSync("docs/shots", { recursive: true });

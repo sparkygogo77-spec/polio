@@ -6,7 +6,8 @@
     { "file": "starter/index.html", "title": "Home" },
     { "file": "starter/about.html", "title": "About" },
     { "file": "starter/list.html", "title": "List" },
-    { "file": "starter/contact.html", "title": "Contact" }
+    { "file": "starter/contact.html", "title": "Contact" },
+    { "file": "starter/game.html", "title": "Game parts" }
   ],
   "hooks": "starter/hooks.json",
   "tokens": "starter/tokens.css",
@@ -22,12 +23,20 @@
       { "name": "list-empty", "page": "starter/list.html" },
       { "name": "contact", "page": "starter/contact.html" },
       { "name": "contact-errors", "page": "starter/contact.html" },
-      { "name": "contact-sent", "page": "starter/contact.html" }
+      { "name": "contact-sent", "page": "starter/contact.html" },
+      { "name": "game", "page": "starter/game.html" },
+      { "name": "game-loading", "page": "starter/game.html" },
+      { "name": "game-live", "page": "starter/game.html" },
+      { "name": "game-warning", "page": "starter/game.html" },
+      { "name": "game-done", "page": "starter/game.html" }
     ]
   },
+  "scenes": "starter/scenes.json",
+  "samples": "starter/samples.json",
+  "parts": "starter/parts.json",
   "gallery": "starter/gallery.html",
   "scripts": {
-    "hookCalls": { "hook": 0, "hooks": 0, "fromTemplate": 0, "part": 1 },
+    "hookCalls": { "hook": 0, "hooks": 0, "fromTemplate": 0, "part": 1, "setState": 0, "setOn": 0 },
     "helperFiles": ["starter/js/hooks.js"]
   },
   "links": {
@@ -36,5 +45,322 @@
       { "pattern": "^https?://(www\\.)?(x|twitter)\\.com/", "why": "no X profile links" },
       { "pattern": "^https?://(www\\.)?dexscreener\\.com/[^/?#]+/[^/?#]+", "why": "DexScreener links never point at a specific contract address" }
     ]
+  },
+  "rules": {
+    "about": "Design and build rules every code chat follows. The full text is in doc; the checks named enforce them. Missing a style or setting? Add a slot.",
+    "doc": "BUILDER-RULES.md",
+    "version": 10,
+    "list": [
+      {
+        "id": "real-elements",
+        "title": "Everything a person sees is a real tagged element",
+        "checkedBy": "kit:check",
+        "rule": "Text, icons, dividers, badges, glows and frames are each a real element with its own data-hook. A <canvas> is one part whose drawing takes its colours and sizes from tokens and slots."
+      },
+      {
+        "id": "states-inside-parts",
+        "title": "What a script shows later is a state of a part the builder can see",
+        "checkedBy": "kit:check",
+        "rule": "Anything a script shows later (example: the 'Connecting to the game server' box later becomes the 'Find a match' button) is built inside a part the builder can see, as a declared state of a panel (rules 12 to 20), never as a separate element outside it, unless outsideParts lists the file."
+      },
+      {
+        "id": "states-in-frame",
+        "title": "States stay in their frame",
+        "checkedBy": "kit:states; kit:diff when design/record.json changes",
+        "rule": "A part's states belong to the frame around them: they move and resize with it, and each state's box stays inside the frame's box. A state that needs more room makes the frame bigger or becomes its own part."
+      },
+      {
+        "id": "add-a-slot",
+        "title": "Missing a style or setting? Add a slot",
+        "checkedBy": "kit:check",
+        "rule": "When code needs a look or setting the builder can't edit yet, make it a token used by the part and list it in rules.slots ({ token, hook, label, kind, why }); the builder shows it in that part's Settings. Never hard-code it, drop it, or draw it some way the builder can't see."
+      },
+      {
+        "id": "no-script-styles",
+        "title": "Styles live in stylesheets, and scripts never write them",
+        "checkedBy": "kit:check",
+        "rule": "Every style is a hook-keyed stylesheet rule. Scripts change looks through data attributes or hidden, never el.style, except the positions rule 9 allows."
+      },
+      {
+        "id": "values-are-tokens",
+        "title": "Values are tokens",
+        "checkedBy": "kit:check (colours)",
+        "rule": "Colours, sizes, spacing, radii, timings and any number or text a script uses for how something looks or reads are tokens in tokens.css (and tokens.js), never literals."
+      },
+      {
+        "id": "no-css-decorations",
+        "title": "Decorations are elements",
+        "checkedBy": "kit:check",
+        "rule": "A ::before, ::after or ::marker rule that draws something (content other than none) becomes a real child element with its own hook."
+      },
+      {
+        "id": "one-embed",
+        "title": "The one allowed embed: the DexScreener chart",
+        "checkedBy": "kit:check",
+        "rule": "The DexScreener chart embed is the only <iframe> a designed page may show (rules.embeds). The builder shows it as a fixed box it can move and resize, and it never names a specific contract address in the page."
+      },
+      {
+        "id": "script-positions",
+        "title": "Scripts may set positions, and only positions",
+        "checkedBy": "kit:check",
+        "rule": "A script may set a CSS variable only when rules.scriptPositions.values lists it (the tour box, the loading bar, the duel markers), and stylesheets use those variables only in rules.scriptPositions.properties."
+      },
+      {
+        "id": "hooks-stay-put",
+        "title": "Hooks stay put",
+        "checkedBy": "kit:diff",
+        "rule": "No hook the base branch has may disappear or change kind unless design/HOOK-CHANGES.json lists it as deleted in the builder."
+      },
+      {
+        "id": "build-from-record",
+        "title": "Build from the design record",
+        "checkedBy": "kit:record-diff",
+        "rule": "When design/record.json exists, build to it (hooks, parents, states, tokens) and compare a look-only capture with kit:record-diff."
+      },
+      {
+        "id": "panels-declare-states",
+        "title": "A panel that changes declares its states",
+        "checkedBy": "kit:check",
+        "rule": "A part whose look changes while the page runs is a panel: its root has data-panel=\"id\" (its own hook), data-states=\"a b c\" and a starting data-state. A panel that can be absent has an \"off\" state. data-state is only ever a panel's state."
+      },
+      {
+        "id": "scripts-set-state-only",
+        "title": "Scripts change only the panel's state",
+        "checkedBy": "kit:check",
+        "rule": "Scripts change only data-state on the panel's root (setState / setOn), never hidden, style.display or classes on the parts inside it."
+      },
+      {
+        "id": "parts-declare-show",
+        "title": "Parts say where they show; one shared rule hides the rest",
+        "checkedBy": "kit:check",
+        "rule": "Parts declare the states they show in with data-show=\"a b\". One shared rule in tokens.css (between the kit:panels markers, written by kit:hooks) hides the rest and the off state."
+      },
+      {
+        "id": "data-is-not-state",
+        "title": "Data is not a state",
+        "checkedBy": "kit:check",
+        "rule": "Text and numbers go through data-hook. Sample values go in the samples file (builder.json \"samples\"; kit/samples.json in PonsStars) and become sample chips."
+      },
+      {
+        "id": "panels-not-nested-in-states",
+        "title": "Panels never sit inside another panel's state",
+        "checkedBy": "kit:check",
+        "rule": "If a state brings up a panel, that panel is its own data-panel with an off state. Panels may share data, never structure."
+      },
+      {
+        "id": "scenes-list-panels",
+        "title": "The scene file lists each scene's panels",
+        "checkedBy": "kit:check",
+        "rule": "The scene file (builder.json \"scenes\"; kit/scenes.json in PonsStars) lists each scene in order with every panel present and its state. A panel appears only when the scene provides it; one without an off state is in every scene of its page."
+      },
+      {
+        "id": "one-id-one-panel",
+        "title": "One id is one panel",
+        "checkedBy": "kit:check",
+        "rule": "The same data-panel id in several places is one panel, edited once, with the same states everywhere."
+      },
+      {
+        "id": "transitions-on-states",
+        "title": "Transitions on states are fine",
+        "rule": "CSS transitions and animations keyed on [data-panel=id][data-state=s] are fine; the builder saves its edits as style-layer rules keyed the same way."
+      },
+      {
+        "id": "kit-check-enforces-states",
+        "title": "kit:check enforces the state rules",
+        "checkedBy": "kit:check",
+        "rule": "kit:check fails on inner parts hidden by script, states in data-show that aren't declared, a panel inside another panel's state, data-state outside a panel, unknown panels or states in setState/setOn and the scene file, and a stale shared rule."
+      },
+      {
+        "id": "plain-names",
+        "title": "Plain names",
+        "checkedBy": "kit:check",
+        "rule": "Every panel root and every list has data-label: the plain name the builder shows instead of the hook. Any other part may have one."
+      },
+      {
+        "id": "say-what-the-text-is",
+        "title": "Say what the text is",
+        "checkedBy": "kit:check",
+        "rule": "A part a script fills with a value may say its kind: data-kind is text, number, money, percent, time, date, address or hash."
+      },
+      {
+        "id": "lists-name-their-template",
+        "title": "Lists name their template",
+        "checkedBy": "kit:check",
+        "rule": "The part that copies of a template go into has data-list=\"template-...\"; every template on a designed page has its list."
+      },
+      {
+        "id": "style-groups",
+        "title": "Style groups",
+        "checkedBy": "kit:check",
+        "rule": "Parts that share one look carry the same data-group; the builder edits a group once. A group has at least two parts."
+      },
+      {
+        "id": "pictures-on-parts",
+        "title": "Pictures on parts",
+        "checkedBy": "",
+        "rule": "A picture dropped on a part's Contents arrives in design/pictures.json with its hook, crop box and note: the code makes it that part's look through a token, cut to its crop, keeping the same element, data-hook, words and behaviour."
+      },
+      {
+        "id": "leave-a-change-note",
+        "title": "Leave a change note",
+        "checkedBy": "",
+        "rule": "Every code pull request that changes parts, panel states, slots or tokens runs npm run kit:notes -- --base <default branch> --why \"...\" and commits design/CODE-CHANGES.json and .md; the builder shows them as New from code."
+      },
+      {
+        "id": "ask-the-builder-to-learn-what-it-cant-edit",
+        "title": "Ask the builder to learn what it can't edit",
+        "checkedBy": "kit:check",
+        "rule": "A look the builder can't edit in any slot kind yet goes in rules.requests ({ hook, need, kind, why }); kit:notes gives each one a prompt for a Polio chat. Once the builder learns it, move it into rules.slots."
+      }
+   ,
+      {
+        "id": "slots-scripts-read",
+        "title": "Sounds, keys, number formats and lines are slots too",
+        "checkedBy": "kit:check",
+        "rule": "A sound, a shortcut key, how a number is written and a line's width and dashes are slots of kind sound, key, format and line: a token the script reads when it runs (none | beep [hz] [volume] | \"file.mp3\" [volume]; none | \"q\"; \"+0,0.00%\"; none | 2px dashed). kit:check fails on a value the builder could not edit."
+      },
+      {
+        "id": "shared-state-names",
+        "title": "Shared state names",
+        "checkedBy": "kit:check (notes)",
+        "rule": "When a panel's state means one of idle, loading, live, warning, done or error (rules.stateNames), it uses that name, so the builder shows the same state tabs on every site. Other states keep their own names; off and on stay as they are."
+      },
+      {
+        "id": "game-parts",
+        "title": "Game parts on the shelf",
+        "checkedBy": "kit:check",
+        "rule": "The kit's ready-made parts (scoreboard, buy and sell grid, countdown, TV screen, duel circles) are listed in the parts file (builder.json \"parts\"). Start from one with npm run kit:part instead of building it again; it brings its hooks, states, tokens and slots."
+      },
+      {
+        "id": "page-states-change-several-parts",
+        "title": "A page state changes more than one part",
+        "checkedBy": "kit:check",
+        "rule": "A scene that changes only one part against a scene before it is that part's state (shown on the builder's Panels page from that scene's capture), not a page state; one that changes nothing is left out. A scene made to show one part says \"part\": \"<panel id>\" and stays a page state only if it changes another part too."
+      },
+      {
+        "id": "layout-regions",
+        "title": "Pages declare their layout regions",
+        "checkedBy": "kit:check",
+        "rule": "Each block that holds parts side by side or one under another (a column, a side bar, the main area) carries data-region=\"<name>\" and data-label, so the builder's Structure view reads the page's regions from the markup. Moving a part within its region is a style change; moving it into another region is queued in polio/NEXT.md for the next code chat. A region never sits inside a panel; once a page has a region, every panel sits in one."
+      },
+      {
+        "id": "panels-move-as-one",
+        "title": "A panel and what is inside it move as one",
+        "checkedBy": "",
+        "rule": "A hover or press effect goes on the outermost part that reacts as one (the panel, card or button), as one rule keyed on its hook; the words, icons and buttons inside ride along and never carry the same effect again. The builder's Motion tab follows this when it adds a part to an effect. A small part on the panel's edge (a title badge, a TV's antennas) belongs to it and moves with it; a part inside with its own effect moves alone."
+      },
+      {
+        "id": "app-areas",
+        "title": "App areas: the box the code works in",
+        "checkedBy": "kit:check",
+        "rule": "The element a script fills and measures (a game screen, a chart, a map) carries data-app-area=\"<plain name>\" beside its data-hook. Its script measures the box and fills it, so the area can be moved and resized anywhere and the app follows; what is inside fills the area. The builder moves and resizes the area as one, and never writes a size or place for the parts inside it."
+      },
+      {
+        "id": "builder-motion",
+        "title": "The builder's motion file",
+        "checkedBy": "kit:check",
+        "rule": "Every page loads vendor/builder-motion.js, a copy of the kit's starter/vendor/builder-motion.js holding the scripts the builder's Preview runs for its effects and whole-site motions. Publish names a motion on a hook in the style layer (--builder-motion, and --builder-site-motion on :root) and the file runs it, so any motion goes on any panel with no code chat. Never edit the file or write those properties by hand; kit:check --write copies it in and adds its script to a page that lacks it."
+      }
+    ],
+    "requests": [],
+    "slots": [
+      {
+        "token": "--shadow",
+        "hook": "list-item",
+        "label": "Card shadow",
+        "kind": "shadow",
+        "why": "The shadow under each list card"
+      }
+   ,
+      { "token": "--scoreboard-format", "hook": "scoreboard-score", "label": "Number format", "kind": "format", "why": "How scores are written: sign, decimals, thousands, text before or after" },
+      { "token": "--action-grid-sound", "hook": "action-grid", "label": "Click sound", "kind": "sound", "why": "The sound a button press makes" },
+      { "token": "--key-buy-10", "hook": "buy-10-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 10%" },
+      { "token": "--key-buy-25", "hook": "buy-25-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 25%" },
+      { "token": "--key-buy-50", "hook": "buy-50-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 50%" },
+      { "token": "--key-buy-100", "hook": "buy-100-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Buy 100%" },
+      { "token": "--key-sell-10", "hook": "sell-10-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 10%" },
+      { "token": "--key-sell-25", "hook": "sell-25-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 25%" },
+      { "token": "--key-sell-50", "hook": "sell-50-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 50%" },
+      { "token": "--key-sell-100", "hook": "sell-100-button", "label": "Shortcut key", "kind": "key", "why": "The key that presses Sell 100%" },
+      { "token": "--countdown-warn-at", "hook": "countdown", "label": "Warn in the last (seconds)", "kind": "number", "why": "When the countdown turns to its warning state" },
+      { "token": "--countdown-tick-sound", "hook": "countdown", "label": "Tick sound", "kind": "sound", "why": "The tick in the warning seconds" },
+      { "token": "--screen-glow", "hook": "screen", "label": "Glow", "kind": "length", "why": "How far the TV glows" },
+      { "token": "--markers-size", "hook": "marker-a", "label": "Circle size (both circles)", "kind": "length", "why": "How big the duel circles are" },
+      { "token": "--markers-level-line", "hook": "markers-level", "label": "Line style", "kind": "line", "why": "The level line's width and dashes" }
+    ],
+    "stateNames": {
+      "about": "The shared state names (BUILDER-RULES.md, rule 29), in the order the builder shows their tabs. twins: names that mean the same, which kit:check notes.",
+      "names": [
+        "idle",
+        "loading",
+        "live",
+        "warning",
+        "done",
+        "error"
+      ],
+      "twins": {
+        "idle": [
+          "waiting",
+          "empty"
+        ],
+        "loading": [
+          "connecting",
+          "busy",
+          "pending",
+          "fetching"
+        ],
+        "live": [
+          "running",
+          "playing",
+          "active"
+        ],
+        "warning": [
+          "low",
+          "ending",
+          "urgent"
+        ],
+        "done": [
+          "finished",
+          "complete",
+          "over",
+          "ended",
+          "result"
+        ],
+        "error": [
+          "failed",
+          "broken",
+          "offline"
+        ]
+      }
+    },
+    "outsideParts": [],
+    "embeds": [
+      {
+        "name": "DexScreener chart",
+        "hosts": [
+          "dexscreener.com"
+        ],
+        "hooks": [],
+        "why": "J allows the DexScreener chart embed; the builder shows it as a fixed box it can move and resize."
+      }
+    ],
+    "scriptPositions": {
+      "why": "J allows scripts to set positions (tour box, loading bar, duel markers); everything else about their look stays builder-editable.",
+      "properties": [
+        "left",
+        "top",
+        "right",
+        "bottom",
+        "inset",
+        "width",
+        "height",
+        "transform",
+        "translate",
+        "r",
+        "cx",
+        "cy"
+      ],
+      "values": ["--marker-a-x", "--marker-a-y", "--marker-b-x", "--marker-b-y", "--markers-level-y"]
+    }
   }
 }

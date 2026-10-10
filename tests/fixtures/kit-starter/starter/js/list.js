@@ -1,4 +1,4 @@
-import { fromTemplate, hook, part, screens, still } from './hooks.js';
+import { fromTemplate, hook, part, screens, setOn, still } from './hooks.js';
 import { fillFooter, markCurrentPage } from './site.js';
 
 const SAMPLE = [
@@ -16,7 +16,7 @@ function draw(items) {
     return copy;
   });
   hook('list-items').replaceChildren(...copies);
-  hook('list-empty').hidden = items.length > 0;
+  setOn('list-empty', items.length === 0);
 }
 
 markCurrentPage();

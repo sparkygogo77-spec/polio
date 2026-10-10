@@ -93,7 +93,8 @@ export function showScene(to: number, by = 1): void {
     const s = useStudio.getState();
     /* What is on top (the tour) stays on over the next preview, when it was switched on there; any other panel switched by itself goes, and so does a hidden group a pick showed (it showed for that pick, not for every preview after: J, 2026-10-09, the tour stuck over Match). */
     const tops = new Set(previewsOnPage(s).onTop.map((t) => `panel:${t.panel}=`));
-    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !(k.startsWith("panel:") && ![...tops].some((t) => k.startsWith(t))) && !k.startsWith("isolate:") && !k.startsWith("hidden:")), ...(next ? [next] : [])]);
+    /* The page as a whole: its parts follow it, so a step picked for one part goes too. */
+    s.setStatesOn([...(s.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("step:") && !(k.startsWith("panel:") && ![...tops].some((t) => k.startsWith(t))) && !k.startsWith("isolate:") && !k.startsWith("hidden:")), ...(next ? [next] : [])]);
   };
   play("tap");
   const board = typeof document !== "undefined" ? (document.querySelector("[data-board-zoom]") as HTMLElement | null) : null;

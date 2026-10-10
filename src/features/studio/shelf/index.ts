@@ -1,6 +1,6 @@
 /* The shelf module's pure door: the part catalog, the shelf's groups and plan, the part library (works, behaviours, learned looks, badges) and the parts' pure helpers. No React, no store, every import ends in .ts, so node tests load it.
  * The parts' theme and repository features (bundler imports) are behind ./run.ts; the part renderers, the shelf screens and the library hooks behind ./ui.ts. Named re-exports (not export *) so an import cycle still sees every name. See README.md. */
-export { CATEGORIES, FEATURES, FEATURES_BY_ID, MOTION_OPTION_IDS, SUBGROUPS, allCategories, allFeatures, categoryOf, featuresByCategory, getFeature, range, searchFeatures, setBrought } from "./catalog.ts";
+export { CATEGORIES, SHELF_OF, shelfCategoryOf, FEATURES, FEATURES_BY_ID, MOTION_OPTION_IDS, SUBGROUPS, allCategories, allFeatures, categoryOf, featuresByCategory, getFeature, range, searchFeatures, setBrought } from "./catalog.ts";
 export type { BuiltInCategory, CategoryDef, CategoryId, FeatureDef, FeatureOption, SubGroup } from "./catalog.ts";
 export { CARRIES, SHELF_GROUPS, isWorkKey, workIdOf } from "./shelfGroups.ts";
 export type { ShelfGroup } from "./shelfGroups.ts";

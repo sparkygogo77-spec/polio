@@ -1,0 +1,11 @@
+/* part: screen (the TV) */
+[data-hook="screen"] { position: relative; padding: var(--screen-bezel); border-radius: calc(var(--radius) * 2); background: var(--color-screen-frame); box-shadow: 0 0 var(--screen-glow) var(--color-screen-glow); }
+[data-hook="screen-view"] { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); background: var(--color-screen); overflow: hidden; display: grid; place-items: center; }
+[data-hook="screen-content"] { position: absolute; inset: 0; display: grid; place-items: center; color: var(--color-screen-text); }
+[data-hook="screen-static"] { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, var(--color-screen-static) 0 2px, transparent 2px 4px); animation: screen-roll 0.4s steps(4) infinite; }
+@keyframes screen-roll { to { background-position: 0 8px; } }
+[data-hook="screen-message"] { position: relative; color: var(--color-screen-text); font-size: var(--text-small); }
+[data-panel="screen"][data-state="error"] [data-hook="screen-message"] { color: var(--color-danger); }
+[data-hook="screen-knobs"] { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+[data-hook^="screen-knob-"] { width: var(--screen-knob-size); height: var(--screen-knob-size); border-radius: 50%; border: 2px solid var(--color-screen-text); background: var(--color-screen-frame); color: var(--color-screen-text); font-size: var(--text-small); cursor: pointer; padding: 0; }
+[data-hook="screen-knob-volume"][data-level="off"] { opacity: 0.5; }

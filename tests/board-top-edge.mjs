@@ -171,6 +171,8 @@ async function walk(name, doc) {
   const paneTop = () => page.evaluate(() => { let t = 0; for (let e = document.querySelector("[data-frame]"); e; e = e.parentElement) t += e.scrollTop; return t; });
   const before = await page.evaluate(READ);
   const top0 = await paneTop();
+  /* How far the board can scroll at all: with the shelf folded (J, 2026-10-05) a short page can fit whole at 51%, and then there is nothing to scroll. */
+  const room = await page.evaluate(() => { let r = 0; for (let e = document.querySelector("[data-frame]"); e; e = e.parentElement) { const o = getComputedStyle(e).overflowY; if (o === "auto" || o === "scroll") r += e.scrollHeight - e.clientHeight - e.scrollTop; } return r; });
   const over = { x: (before.frame.x + before.frame.r) / 2, y: Math.min(before.clip.b - 40, before.frame.y + 200) };
   await page.mouse.move(over.x, over.y);
   await page.mouse.wheel(0, 500);
@@ -179,7 +181,7 @@ async function walk(name, doc) {
   /* 500, or what is left of the page if it ends sooner: the board scrolls no further than its own foot. */
   const scrolled = (await paneTop()) - top0;
   const moved = after.frame.y - before.frame.y;
-  check(`${name} at 51%: scrolled down 500px, the page's edge went up the board by what the board scrolled`, scrolled > 0 && Math.abs(moved + scrolled) <= 1, `board scrolled ${scrolled}, page moved ${moved.toFixed(1)}`);
+  check(`${name} at 51%: scrolled down 500px, the page's edge went up the board by what the board scrolled`, (room > 0 ? scrolled > 0 : scrolled === 0) && Math.abs(moved + scrolled) <= 1, `board scrolled ${scrolled} of ${room} it could, page moved ${moved.toFixed(1)}`);
   const lag = before.top.map((id) => {
     const a = before.parts.find((p) => p.id === id), b = after.parts.find((p) => p.id === id);
     return { id, d: b ? b.y - a.y : NaN };
