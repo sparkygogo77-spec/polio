@@ -43,7 +43,8 @@ export interface AskNode {
   state?: unknown;
 }
 export interface AskPage { id: string; name: string; path?: string; scroll?: string }
-export interface AskSwitch { key: string; label: string; on: string | boolean; off: string | boolean }
+/** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J turned on (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
+export interface AskSwitch { key: string; label: string; on: string | boolean; off: string | boolean; def?: string | boolean | number }
 
 export interface AskInput {
   nodes: readonly AskNode[];
@@ -162,27 +163,41 @@ export function codeAsks(a: AskInput): FixIssue[] {
       ].filter(Boolean).join(" ")),
     });
   }
+  const effects = new Map<string, { id: string; set: string; parts: AskNode[] }>();
   for (const n of a.nodes) {
     if (!n.source && !n.from) continue;
     const uses = n.work ? [n.work, ...(n.work.also ?? [])] : [];
     for (const u of uses) {
       if (u.off) continue;
-      const e = a.effect(u.id);
-      const name = e?.name ?? u.id;
       const set = Object.entries(u.inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
-      out.push({
-        key: `build-effect-${n.id}-${u.id}`,
-        kind: "build",
-        hook: n.source?.hook?.value ?? null,
-        page: pageName.get(n.pageId) ?? "the page",
-        says: clean(`J gave this part the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${set ? `, set to ${set}` : ""}. The style layer cannot carry it; build it in the code on this element.`),
-      });
+      const k = `${u.id}|${set}`;
+      const g = effects.get(k) ?? { id: u.id, set, parts: [] };
+      g.parts.push(n);
+      effects.set(k, g);
     }
+  }
+  /*
+   * ONE LINE PER EFFECT, NOT PER PART. An effect given to a panel goes to
+   * every panel of its kind (14 on PST's Play page): one line names them all.
+   */
+  for (const g of effects.values()) {
+    const e = a.effect(g.id);
+    const name = e?.name ?? g.id;
+    const hooks = [...new Set(g.parts.map((n) => n.source?.hook?.value).filter(Boolean))] as string[];
+    const pages = [...new Set(g.parts.map((n) => pageName.get(n.pageId) ?? "the page"))];
+    const many = g.parts.length > 1;
+    out.push({
+      key: many ? `build-effect-${g.id}-${g.parts.map((n) => n.id).sort().join("+")}` : `build-effect-${g.parts[0]!.id}-${g.id}`,
+      kind: "build",
+      hook: hooks[0] ?? null,
+      page: pages.join(", "),
+      says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${hooks.map((h) => `\`${h}\``).join(", ")}` : "this element"}.`),
+    });
   }
   /* Whole-site features switched on in Format. */
   for (const s of a.switches) {
-    if (!on(s, a.format[s.key])) continue;
     const v = a.format[s.key];
+    if (!on(s, v) || (s.def !== undefined && v === s.def)) continue;
     out.push({
       key: `build-format-${s.key}`,
       kind: "build",

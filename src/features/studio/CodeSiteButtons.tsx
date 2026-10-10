@@ -61,6 +61,7 @@ function freshNow(source: StyleSource): Record<string, string> {
 function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(source)): FixIssue[] {
   const st = useStudio.getState();
   const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
+  const def = new Map(FORMAT_FIELDS.map((f) => [f.id, f.default]));
   const palette = st.look.palette as Record<string, string> | undefined;
   return codeAsks({
     fresh,
@@ -70,7 +71,7 @@ function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(s
     nodes: st.nodes as never,
     pages: st.pages,
     format: st.format,
-    switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key })),
+    switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key, def: def.get(s.key) })),
     coded: new Set(source.files.map((f) => f.pageId)),
     effect: (id) => { const m = getWork(id)?.manifest; return m ? { name: m.name, blurb: m.blurb } : null; },
   });
