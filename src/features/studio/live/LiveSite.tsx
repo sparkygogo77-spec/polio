@@ -302,15 +302,18 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
    */
   const carried = React.useMemo(() => {
     if (nested) return new Map<string, (typeof placed)[number][]>();
-    const by = carriers(placed.map((p) => ({ id: p.node.id, x: p.x, y: p.y, w: p.w, h: p.h, moves: movesWhole(p.node.work) && !(p.node as { inert?: boolean }).inert, still: !!(p.node as { state?: unknown }).state || isOverlay(p.node.featureId) })));
+    const by = carriers(placed.map((p) => ({ id: p.node.id, x: p.x, y: p.y, w: p.w, h: p.h, path: p.node.from?.selector, moves: movesWhole(p.node.work) && !(p.node as { inert?: boolean }).inert, still: !!(p.node as { state?: unknown }).state || isOverlay(p.node.featureId) })));
     const kids = new Map<string, (typeof placed)[number][]>();
     for (const p of placed) { const o = by.get(p.node.id); if (o) kids.set(o, [...(kids.get(o) ?? []), p]); }
     return kids;
   }, [nested, placed]);
   const carriedIds = React.useMemo(() => new Set([...carried.values()].flat().map((p) => p.node.id)), [carried]);
+  /* A part on a body's edge drawn before it (the TV's antennas, behind its body) stays behind it once carried: under the body's own drawing, inside its box. */
+  const order = React.useMemo(() => new Map(placed.map((p, i) => [p.node.id, i])), [placed]);
+  const behind = (kid: string, body: string) => (order.get(kid) ?? 0) < (order.get(body) ?? 0);
 
   /* One part, where the desktop draws it; inside the panel that carries it, against that panel's corner. */
-  const partOf = (p: (typeof placed)[number], from: { x: number; y: number } = { x: 0, y: 0 }): React.ReactNode => (
+  const partOf = (p: (typeof placed)[number], from: { x: number; y: number; id?: string } = { x: 0, y: 0 }): React.ReactNode => (
     <div
       key={p.node.id}
       /* A brought-in page's hooks, on the part's box, unless the part draws a control that wears them itself (`parts/PageControls.tsx`). */
@@ -333,10 +336,12 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         ...((p.node as { state?: unknown }).state ? { display: "none" as const } : null),
         // A card over the page ("What's new"): its box takes no room and no press; what it opens is fixed over the window.
         ...(isOverlay(p.node.featureId) ? { minHeight: 0, height: 0, pointerEvents: "none" as const, animation: undefined } : null),
+        ...(carried.get(p.node.id)?.some((k) => behind(k.node.id, p.node.id)) ? { isolation: "isolate" as const } : null),
+        ...(from.id && behind(p.node.id, from.id) ? { zIndex: -1 } : null),
       }}
     >
       <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} holder={holders.has(p.node.id)} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} partView={partView} />
-      {carried.get(p.node.id)?.map((k) => partOf(k, { x: p.x, y: p.y }))}
+      {carried.get(p.node.id)?.map((k) => partOf(k, { x: p.x, y: p.y, id: p.node.id }))}
     </div>
   );
   /*

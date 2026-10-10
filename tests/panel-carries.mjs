@@ -68,7 +68,9 @@ const carriedHtml = within(html, panel.id) ?? "";
 check("Drawn with a lift, the panel's box holds every part on it", onIt.every((n) => carriedHtml.includes(`data-live-node="${n.id}"`)));
 const drawnTimes = (h, id) => h.split(`data-live-node="${id}"`).length - h.split(`[data-live-node="${id}"]`).length;
 check("…each drawn once", onIt.every((n) => drawnTimes(html, n.id) === 1), onIt.map((n) => drawnTimes(html, n.id)).join());
-const first = onIt[0];
+/* The first part the panel carries itself (a part on its badge rides in the badge, kit rule 33). */
+const drawnBy = C.carriers(page.map(lifted).map((n) => ({ ...box(n, C.movesWhole(n.work)), path: n.from?.selector })));
+const first = onIt.find((n) => drawnBy.get(n.id) === panel.id);
 const m = new RegExp(`data-live-node="${first.id}"[^>]*style="[^"]*left:([-\\d.]+)px;top:([-\\d.]+)px`).exec(html);
 check("…placed against the panel's corner", !!m && Math.abs(Number(m[1]) - (first.x - panel.x)) < 2 && Math.abs(Number(m[2]) - (first.y - panel.y)) < 2, m ? `${m[1]},${m[2]}` : "no style");
 
