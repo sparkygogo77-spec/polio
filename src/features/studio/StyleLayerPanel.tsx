@@ -29,6 +29,8 @@ import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
 import { buildLayer, wearTextures, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./send-out";
 import { sendDesign } from "./codeSend";
+import { gatherAsks } from "./publishAsks";
+import { fixLoopOf, setFixLoop } from "./useFixLoop";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./shelf";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
@@ -238,8 +240,11 @@ export function StyleLayerSection() {
     setBusy(true);
     try {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
-      const done = await sendDesign(nodes as unknown as LayerNode[], palette, source, token, { site, family, say: (text) => setSaid({ text }) });
+      /* What the layer cannot carry rides along as it does on Publish: polio/NEXT.md lines, and a data-hook for each part made in the Builder (`publishAsks.ts`). */
+      const asks = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      const done = await sendDesign(asks.nodes, palette, source, token, { site, family, say: (text) => setSaid({ text }), extra: asks.extra, fresh: asks.fresh });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
+      if (asks.adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...asks.adding] }); }
       if (done.kit) { const held = done.held.length ? ` Held back: ${done.held.join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }
       const skipped = done.held.length ? ` ${done.held.length} word change${done.held.length === 1 ? " was" : "s were"} left out: ${done.held.join("; ")}.` : "";
       setSaid({ text: `${done.says}${skipped}`, link: done.pull ?? done.compare });
