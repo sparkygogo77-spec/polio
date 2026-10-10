@@ -388,7 +388,17 @@ export const RUNTIME_JS = `/* The site's features: which part takes which featur
     },
     set: function (el, text) {
       var at = leaf(el);
-      if (!at) { el.textContent = text; return; }
+      if (!at) {
+        /* A part with a drawing and no words (a panel): the number goes on it, in a layer of its own, and the drawing stays. */
+        var drawn = false;
+        for (var k = 0; k < (el.childNodes || []).length; k++) { var c = el.childNodes[k]; if (c.nodeType === 1 && !(c.hasAttribute && c.hasAttribute("data-feature-layer"))) drawn = true; }
+        if (!drawn) { el.textContent = text; return; }
+        var own = el.querySelector(":scope > [data-feature-layer=words]");
+        if (!own) { own = (el.ownerDocument || document).createElement("span"); own.setAttribute("data-feature-layer", "words"); own.style.position = "relative"; own.style.zIndex = "1"; el.appendChild(own); }
+        own.textContent = text;
+        if (el.removeAttribute) el.removeAttribute("data-stale");
+        return;
+      }
       var put = false;
       for (var i = 0; i < at.childNodes.length; i++) {
         var n = at.childNodes[i];
