@@ -62,7 +62,7 @@ import { fingerprint, isTaken, keepOwnerEdits, keptShort, keptSays } from "../re
 import { sourceNote } from "../../polioMd";
 import { holdIncoming } from "../../boxEntry";
 import { lockNow } from "../../surfaceRun";
-import { drawnOnBoard, tidyToWords } from "../../textFit";
+import { boardElements, drawnOnBoard, tidyToWords } from "../../textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "../zipImport";
 import { pagesToDoc, reportSays, reportChips, type FileRead } from "../pageParts";
 import type { BuilderManifest } from "../../builderManifest";
@@ -716,9 +716,17 @@ export function FromASite({ space }: { space: Space }) {
      * Not awaited: the import is finished, and the tidy lands a moment
      * later as one undo step of its own.
      */
+    /* The parts and their elements looked up once for the whole read, not searched for each part. */
+    let byId: Map<string, StudioNode> | null = null;
+    let onBoard: Map<string, Element> | null = null;
     void tidyToWords(
       ids,
-      (id) => { const n = useStudio.getState().nodes.find((x) => x.id === id); return n ? drawnOnBoard(n) : null; },
+      (id) => {
+        byId ??= new Map(useStudio.getState().nodes.map((x) => [x.id, x]));
+        onBoard ??= boardElements();
+        const n = byId.get(id);
+        return n ? drawnOnBoard(n, onBoard) : null;
+      },
       (f) => useStudio.getState().fitToWords(f),
     );
     /*

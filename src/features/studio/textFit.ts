@@ -393,9 +393,16 @@ export function lineWidth(el: HTMLElement, w: number): number | undefined {
   return need > w + 1 ? need : undefined;
 }
 
+/** The board's part elements by id, the first of each as `querySelector` would find it. */
+export function boardElements(): Map<string, Element> {
+  const m = new Map<string, Element>();
+  for (const el of document.querySelectorAll("[data-node-id]")) { const id = el.getAttribute("data-node-id")!; if (!m.has(id)) m.set(id, el); }
+  return m;
+}
+
 /** What a node's box drew at on the board, or null if it is not on screen. */
-export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }): Drawn | null {
-  const el = document.querySelector(`[data-node-id="${node.id}"]`);
+export function drawnOnBoard(node: { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string } | null; content?: unknown; layout?: { display?: string; direction?: string; align?: string } | null; pad?: { left?: number; right?: number } | null }, onBoard?: Map<string, Element>): Drawn | null {
+  const el = onBoard ? onBoard.get(node.id) : document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
   const path = (node.from?.selector ?? "").trim();
   const c = node.content;
@@ -476,8 +483,17 @@ export function useSettleToWords(
   const ids = nodes.map((n) => n.id).join(",");
   const where = nodes.map((n) => `${n.id}:${n.x},${n.y},${n.w},${n.h}`).join("|");
 
+  /*
+   * A settle asked for while a hand was down, owed when it lifts. Only then:
+   * a press that changed nothing (picking a part) measured the whole board
+   * again, over a second on a 2,000-part capture, at every click.
+   */
+  const owed = React.useRef(false);
+
   const settle = React.useCallback(() => {
-    if (held.current || typeof document === "undefined") return;
+    if (typeof document === "undefined") return;
+    if (held.current) { owed.current = true; return; }
+    owed.current = false;
     /* The page as it opens: a part a press shows is not drawn until then, and moves nothing (`StudioNode.state`). */
     const ns = latest.current.nodes.filter((n) => !(n as { state?: unknown }).state);
     /*
@@ -498,10 +514,12 @@ export function useSettleToWords(
     const boxes: Drawn[] = [];
     const wide = new Map<string, number>();
     atFullSize(() => {
+      /* Every part's element found once: a search of the board per part was most of a 2,000-part board's freeze. */
+      const onBoard = boardElements();
       for (const n of ns) {
-        const d = drawnOnBoard(n);
+        const d = drawnOnBoard(n, onBoard);
         if (d) boxes.push(d);
-        const el = d && machines.has(n.id) ? document.querySelector(`[data-node-id="${n.id}"]`) : null;
+        const el = d && machines.has(n.id) ? onBoard.get(n.id) : null;
         const w = el instanceof HTMLElement ? lineWidth(el, n.w) : undefined;
         if (w) wide.set(n.id, w);
       }
@@ -534,7 +552,7 @@ export function useSettleToWords(
 
   React.useEffect(() => {
     const down = () => { held.current = true; };
-    const up = () => { held.current = false; soon(); };
+    const up = () => { held.current = false; if (owed.current) soon(); };
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("pointerup", up, true);
     window.addEventListener("pointercancel", up, true);
@@ -548,8 +566,9 @@ export function useSettleToWords(
   React.useEffect(() => {
     if (typeof document === "undefined" || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(soon);
+    const onBoard = boardElements();
     for (const n of latest.current.nodes) {
-      const el = document.querySelector(`[data-node-id="${n.id}"]`);
+      const el = onBoard.get(n.id);
       if (el instanceof HTMLElement) ro.observe(el);
     }
     const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
@@ -583,24 +602,46 @@ export function useKeepLines(ref: React.RefObject<HTMLElement | null>, room: num
     const el = ref.current;
     if (!el || !(room > 0) || typeof document === "undefined") return;
     let gone = false;
-    const fit = () => {
-      if (gone) return;
-      el.style.letterSpacing = "";
-      atFullSize(() => {
-        const tall = () => el.getBoundingClientRect().height <= room + 1;
-        if (tall()) return;
-        const cs = getComputedStyle(el);
-        const px = parseFloat(cs.fontSize) || 16;
-        const was = parseFloat(cs.letterSpacing) || 0;
-        for (let s = 1; s <= 5; s++) {
-          el.style.letterSpacing = `${(was - s * 0.01 * px).toFixed(2)}px`;
-          if (tall()) return;
-        }
-        el.style.letterSpacing = "";
-      });
-    };
+    const fit = () => { if (!gone) keepLinesSoon(el, room); };
     fit();
     (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready?.then(fit);
-    return () => { gone = true; el.style.letterSpacing = ""; };
+    return () => { gone = true; keepLines.delete(el); el.style.letterSpacing = ""; };
   }, [ref, room, key]);
+}
+
+/*
+ * ALL THE BOARD'S WORDS MEASURED TOGETHER. Each block of words measured on
+ * its own set the board to 1:1, read, set a spacing, read again: two or
+ * more layouts of the whole board per block, so a capture with hundreds of
+ * them (sunkcoin.fun, 2,000 parts) froze the Builder. Now every block asked
+ * for in one go is measured in one pass, after the drawing that asked and
+ * before it is painted: all spacings cleared and all heights read (one
+ * layout), then only the blocks still too tall tightened a step at a time,
+ * all of them per step, five steps at most.
+ */
+const keepLines = new Map<HTMLElement, number>();
+let keepLinesQueued = false;
+function keepLinesSoon(el: HTMLElement, room: number): void {
+  keepLines.set(el, room);
+  if (keepLinesQueued) return;
+  keepLinesQueued = true;
+  queueMicrotask(() => {
+    keepLinesQueued = false;
+    const asked = [...keepLines].filter(([el]) => el.isConnected);
+    keepLines.clear();
+    if (asked.length) keepLinesNow(asked);
+  });
+}
+function keepLinesNow(asked: [HTMLElement, number][]): void {
+  atFullSize(() => {
+    for (const [el] of asked) el.style.letterSpacing = "";
+    let tall = asked.filter(([el, room]) => el.getBoundingClientRect().height > room + 1);
+    if (!tall.length) return;
+    const from = new Map(tall.map(([el]) => { const cs = getComputedStyle(el); return [el, { px: parseFloat(cs.fontSize) || 16, was: parseFloat(cs.letterSpacing) || 0 }]; }));
+    for (let s = 1; s <= 5 && tall.length; s++) {
+      for (const [el] of tall) { const f = from.get(el)!; el.style.letterSpacing = `${(f.was - s * 0.01 * f.px).toFixed(2)}px`; }
+      tall = tall.filter(([el, room]) => el.getBoundingClientRect().height > room + 1);
+    }
+    for (const [el] of tall) el.style.letterSpacing = "";
+  });
 }
