@@ -30,12 +30,13 @@ import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
 import { effortField, modelTable, type ModelCard } from "./pictures";
 import { rendererHeader } from "./loop/run";
-import { money, RENDER_COST } from "./renderer";
+import { money } from "./renderer";
 import { GENERATION } from "./loop";
 import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 import { CURSOR_ASK, cursorFrom, takeCursorAsk } from "./cursorPicture";
 import { setCursorPicture } from "./ShelfCards";
+import { estimateLine } from "./pictures/estimate";
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 
 /**
@@ -220,6 +221,9 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     if (quality && !qualities.includes(quality)) setQuality("");
     if (effort && !efforts.includes(effort)) setEffort("");
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* A new choice is a new price: what the last press said gives way to the estimate for this one. */
+  React.useEffect(() => { setSaid(null); }, [slug, quality, threeD, asCursor]);
 
   const run = async () => {
     const forPart = forNode ? useStudio.getState().nodes.find((n) => n.id === forNode) ?? null : null;
@@ -439,7 +443,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
             money, so what it will cost is said before anything is spent, and
             what it actually cost replaces this when the picture comes back. */}
         <span data-render-price="" className="text-small text-fg-faint">
-          {said ?? `About ${money(RENDER_COST.raster)} a picture, on your own Replicate key.`}
+          {said ?? estimateLine(slug, quality, asCursor ? "" : threeD, draws)}
         </span>
       </div>
 
