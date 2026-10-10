@@ -53,6 +53,7 @@ import {
 } from "./shelfFacts";
 import { play } from "@/core/audio/engine";
 import { armPutOn, liftCard, type CarryDrop } from "./cardCarry";
+import { offerSpeed } from "./speedBar";
 import { askCursorDraw, cursorFrom } from "./cursorPicture";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -909,6 +910,8 @@ export function giveWork(nodeId: string, id: string, inputs: Record<string, stri
   st.updateNode(nodeId, { work: withWork(node.work, { id, inputs }) });
   play("confirm");
   jumpTo([nodeId]);
+  /* A motion with a speed (Spin, Float): a bar under the part sets it, shown live (`speedBar.ts`). */
+  offerSpeed(nodeId, id);
 }
 
 /**
