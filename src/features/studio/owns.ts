@@ -36,8 +36,17 @@ export const pathOf = (f: Frag & Read): string => (f.from?.selector ?? "").trim(
  */
 export function under(parent: string, kid: string): boolean {
   if (!parent || !kid || kid === parent) return false;
-  /* A pseudo-element is its element's: `a::before` belongs to `a` (`tests/pseudo-owned.mjs`). */
-  return kid.startsWith(`${parent} > `) || /^::(before|after)$/.test(kid.slice(parent.length)) && kid.startsWith(parent);
+  /*
+   * A pseudo-element is its element's: `a::before` belongs to `a` (`tests/pseudo-owned.mjs`).
+   * And so is a line of words read straight off it: `section ::line(5)` is
+   * inside `section`. Read as nobody's, PST's Balance note was a part of the
+   * page standing under the whole Balance panel, so any words growing in the
+   * panel pushed the note down onto the lines below it, and those lines did
+   * not move (J, 2026-10-10). `tests/line-owned.mjs`.
+   */
+  if (!kid.startsWith(parent)) return false;
+  const rest = kid.slice(parent.length);
+  return rest.startsWith(" > ") || /^::(before|after)$/.test(rest) || /^ ::line\(\d+\)$/.test(rest);
 }
 
 /** The parts a wrapper owns by the recorded path, nearest descendants and all. */
