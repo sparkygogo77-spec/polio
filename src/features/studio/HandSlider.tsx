@@ -13,13 +13,30 @@ import * as React from "react";
 import { Slider as CoreSlider, type SliderProps } from "@/core/ui/slider";
 import { endGesture, gestureFrame, inGesture } from "./board/store";
 
-export function Slider({ value, onValueChange, onValueCommit, ...props }: SliderProps) {
+export function Slider({ value, onValueChange, onValueCommit, onPointerDown, ...props }: SliderProps) {
   const [held, setHeld] = React.useState<number[] | null>(null);
   const mine = React.useRef(false);
   React.useEffect(() => () => { if (mine.current && inGesture()) endGesture(); }, []);
+  /* The hand comes up anywhere. Radix commits only when the value ended away from where the drag began: a drag let
+     go where it began left its gesture open, the side panel standing still, and the Colours preview showing a glow
+     the board had lost (J, 2026-10-10). After any commit has run, end what is still open. */
+  const release = React.useCallback(() => {
+    setTimeout(() => {
+      if (!mine.current) return;
+      mine.current = false;
+      if (inGesture()) endGesture();
+      setHeld(null);
+    }, 0);
+  }, []);
   return (
     <CoreSlider
       {...props}
+      onPointerDown={(e) => {
+        onPointerDown?.(e);
+        const up = () => { window.removeEventListener("pointerup", up, true); window.removeEventListener("pointercancel", up, true); release(); };
+        window.addEventListener("pointerup", up, true);
+        window.addEventListener("pointercancel", up, true);
+      }}
       value={held ?? value}
       onValueChange={(v) => {
         setHeld(v);

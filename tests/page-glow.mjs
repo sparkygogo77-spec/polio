@@ -14,7 +14,8 @@
  *   4. the style layer sends a glow taken off back as `text-shadow: none`;
  *   5. on the PST board: the page's glow colour reaches every word on the page, one undo step;
  *   6. Glow size moves the board's glow and the preview's together;
- *   7. No glow takes the glow off, leaves the caption's drop shadow, and no black glow is offered after.
+ *   7. No glow takes the glow off, leaves the caption's drop shadow, and no black glow is offered after;
+ *      the preview loses it too, even after a Glow size drag let go where it began.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/page-glow.mjs http://127.0.0.1:3013
@@ -110,6 +111,16 @@ await ui.waitForTimeout(1200);
 const w2 = await shadowOn(WORDS), p2 = await previewShadow();
 check("6. Glow size spreads the board's glow, as see-through as it was", /10px/.test(w2.drawn) && PURPLE.test(w2.drawn) && /0\.9\)/.test(w2.saved ?? ""), JSON.stringify(w2));
 check("…and the preview's with it", /10px/.test(p2), p2);
+
+/* A drag that ends where it began (J, 2026-10-10: after No glow the preview kept its glow): the slider never
+   commits, and the gesture it opened kept the side panel standing still, so the preview showed the glow gone from the board. */
+const tb = await thumb.boundingBox();
+await ui.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+await ui.mouse.down();
+for (let i = 1; i <= 6; i++) await ui.mouse.move(tb.x + tb.width / 2 + i * 8, tb.y + tb.height / 2);
+for (let i = 5; i >= 0; i--) await ui.mouse.move(tb.x + tb.width / 2 + i * 8, tb.y + tb.height / 2);
+await ui.mouse.up();
+await ui.waitForTimeout(600);
 
 /* 7. */
 await ui.locator('[data-kind-editor="The page"] [data-kind-glow-off]').click();
