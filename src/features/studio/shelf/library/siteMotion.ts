@@ -28,6 +28,7 @@
  * Pure: no store, no React, so `tests/shelf-publish.mjs` runs it as written.
  */
 import { RAISE_JS } from "./raiseJs.ts";
+import { SMOOTH_WHEEL_JS } from "./smoothWheelJs.ts";
 
 /** The whole-site motions a page asks for: `live/behaviours.ts#Behaviours`, as the page needs them. */
 export interface SiteMotionSettings {
@@ -38,6 +39,8 @@ export interface SiteMotionSettings {
   revealStyle?: string;
   parallax: number;
   smooth: boolean;
+  /** How long a wheel's glide takes: "light" (the default) or "heavy". */
+  smoothStrength?: string;
   snap: "vertical" | "horizontal" | null;
   intro: boolean;
   cursor: string | null;
@@ -93,7 +96,12 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     if (c.parallax && !still) document.body.style.backgroundPositionY = (-top * c.parallax) + "px";
   }
   if (c.progress || c.backToTop || c.parallax) { window.addEventListener("scroll", onScroll, { passive: true }); onScroll(); }
-  if (c.smooth && !still) root.style.scrollBehavior = "smooth";
+  if (c.smooth && !still) {
+    /* A link's jump eases; the wheel glides to a stop (\`smoothWheelJs.ts\`). */
+    root.style.scrollBehavior = "smooth";
+    ${SMOOTH_WHEEL_JS}
+    smoothWheel(null, c.smoothStrength);
+  }
   if (c.snap) {
     root.style.scrollSnapType = (c.snap === "horizontal" ? "x" : "y") + " proximity";
     parts.forEach(function (p) { if (p.getBoundingClientRect().width >= window.innerWidth * 0.8) p.style.scrollSnapAlign = "start"; });

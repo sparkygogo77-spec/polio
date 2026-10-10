@@ -29,14 +29,17 @@ import { carriedEffect, carriedSite } from "./motionCss.ts";
 /** The shelf effects the kit's file runs: the ones that move or draw on their own part and need nothing but the page. */
 export const KIT_EFFECTS: readonly string[] = ["tilt", "follow-pointer", "marquee", "dust-canvas", "scroll-grow", "glide", "screen-filter", "scroll-header", "crt-loader", "copy-toast"];
 /** The whole-site motions it runs, where CSS does not (`SITE_MOTION_JS`). */
-export const KIT_SITE: readonly string[] = ["back-to-top", "parallax", "hover-tilt", "cursor-effects"];
+export const KIT_SITE: readonly string[] = ["back-to-top", "parallax", "hover-tilt", "cursor-effects", "smooth-scroll"];
 
 /** Parallax strength by name, as the Preview takes it (`live/behaviours.ts` STRENGTH). */
 const PARALLAX: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0.32, light: 0.08, heavy: 0.32, off: 0 };
 
 export const kitEffect = (id: string) => KIT_EFFECTS.includes(id) && !carriedEffect(id);
 export function kitSite(featureId: string, options?: Record<string, string> | null): boolean {
-  if (options?.off === "yes" || !KIT_SITE.includes(featureId) || carriedSite(featureId, options)) return false;
+  if (options?.off === "yes" || !KIT_SITE.includes(featureId)) return false;
+  /* CSS eases a link's jump; only the file makes the wheel glide (`smoothWheelJs.ts`), so smooth scrolling rides both. */
+  if (featureId === "smooth-scroll") return (options?.strength ?? "light") !== "off";
+  if (carriedSite(featureId, options)) return false;
   return featureId !== "parallax" || (PARALLAX[options?.strength ?? "medium"] ?? 0.18) > 0;
 }
 
@@ -68,6 +71,7 @@ export function siteMotionValue(on: readonly { featureId: string; options?: Reco
     seen.add(s.featureId);
     const o = s.options ?? {};
     if (s.featureId === "parallax") words.push(word("parallax", { strength: String(PARALLAX[o.strength ?? "medium"] ?? 0.18) }));
+    else if (s.featureId === "smooth-scroll") words.push(word("smooth-scroll", o.strength === "heavy" ? { strength: "heavy" } : {}));
     else if (s.featureId === "cursor-effects") words.push(word("cursor-effects", { style: o.style && o.style !== "picture" ? o.style : "dot" }));
     else words.push(s.featureId);
   }
@@ -152,6 +156,7 @@ ${effects.map((w) => `  /* ${w.manifest.name}: ${w.manifest.blurb} */\n  (functi
       if (m.id === "hover-tilt") c.tilt = true;
       if (m.id === "parallax") c.parallax = Number(m.inputs.strength) || 0.18;
       if (m.id === "cursor-effects") c.cursor = m.inputs.style || "dot";
+      if (m.id === "smooth-scroll") { c.smooth = true; c.smoothStrength = m.inputs.strength || "light"; }
     });
     window.siteMotionSettings = c;
     ${SITE_MOTION_JS.trim().replace(/\n/g, "\n    ")}

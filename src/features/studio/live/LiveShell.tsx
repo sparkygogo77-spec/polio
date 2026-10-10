@@ -12,9 +12,12 @@ import type { Behaviours } from "./behaviours";
 import { tint } from "../shelf/run";
 import { leanSet } from "./carry";
 import { RAISE_JS } from "../shelf/library/raiseJs";
+import { SMOOTH_WHEEL_JS } from "../shelf/library/smoothWheelJs";
 
 /** Lifts a leaning card over the parts around it; returns what puts it back (`raiseJs.ts`, the same lines the published page runs). */
 const raiseOver = new Function(`${RAISE_JS}; return raiseOver;`)() as (nodes: HTMLElement[]) => () => void;
+/** The wheel glides to a stop (`smoothWheelJs.ts`, the same lines the published page runs); returns what turns it off. */
+const smoothWheel = new Function(`${SMOOTH_WHEEL_JS}; return smoothWheel;`)() as (box: HTMLElement | null, strength: string) => () => void;
 
 interface Props {
   behaviours: Behaviours;
@@ -93,8 +96,11 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     const before = { behavior: scroller.style.scrollBehavior, snap: scroller.style.scrollSnapType };
     if (b.smooth) scroller.style.scrollBehavior = "smooth";
     if (b.snap) scroller.style.scrollSnapType = `${b.snap === "horizontal" ? "x" : "y"} proximity`;
-    return () => { scroller.style.scrollBehavior = before.behavior; scroller.style.scrollSnapType = before.snap; };
-  }, [b.smooth, b.snap]);
+    /* A link's jump eased and nothing else did: the wheel still stepped, so the Preview scrolled as if the switch were off. */
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const off = b.smooth && !still ? smoothWheel(scroller, b.smoothStrength) : null;
+    return () => { off?.(); scroller.style.scrollBehavior = before.behavior; scroller.style.scrollSnapType = before.snap; };
+  }, [b.smooth, b.smoothStrength, b.snap]);
 
   /* Each part comes in as it arrives. */
   React.useEffect(() => {

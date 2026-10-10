@@ -6,6 +6,8 @@ import { tryOn,useTryLook } from "../tryLook";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature } from "../shelf";
 import { isLinkable } from "../shelf/ui";
+import { isBehaviour } from "../live/behaviours";
+import { SiteWideRow } from "./SiteWideRow";
 import { useActions } from "@/core/actions";
 import { leadsOf,withLead } from "../shelf";
 import { themeFrom } from "../blocks";
@@ -89,7 +91,18 @@ export function DesktopCanvas() {
       toast: { durationMs: 9000 },
     });
   }, [news]);
-  const nodes = useStudio(useShallow(pageNodes));
+  const pageAll = useStudio(useShallow(pageNodes));
+  /*
+   * A WHOLE-SITE EFFECT IS NOT A BOX ON THE PAGE (J, 2026-10-10: Smooth
+   * scrolling "should attach to something"). Smooth scrolling, a progress
+   * bar, back to top, a cursor: each changes how the whole page moves and
+   * takes no room in it (the Preview and Publish never draw it, `live/layout.ts`).
+   * On the board it was a dark sketch box left over the panels, and it made
+   * the page longer. It is a chip in the row over the page now (`SiteWideRow`),
+   * and nothing else on the board sees it: not the page's length, a snap or a marquee.
+   */
+  const siteWide = React.useMemo(() => pageAll.filter((n) => isBehaviour(n.featureId)), [pageAll]);
+  const nodes = React.useMemo(() => (siteWide.length ? pageAll.filter((n) => !isBehaviour(n.featureId)) : pageAll), [pageAll, siteWide]);
   /* The parts as they were when the hand went down, while one is under it (`store/hold.ts`): what is worked out from the whole page and does not change because a part is being carried — its features, its names, which parts ask a question, where a row's words start — is worked out once for the drag, not on every move (J, 2026-10-06, "dragging elements around is still laggy"). */
   const steadyNodes = useSteady(nodes);
   /* What moves on its own (a spin, a float, the dust) plays on the board too, softly, on the drawn layer inside each part: the part's box stays put and editable (`live/runWorks.ts`, board). Again only when what they are told changes. */
@@ -1780,6 +1793,7 @@ export function DesktopCanvas() {
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>
           <span className="num">{frameWidth} × {Math.round(frameH - siteTop)}</span>
+          <SiteWideRow nodes={siteWide} selection={selection} />
         </div>
         {/*
           The fold is the window's own bottom edge now.

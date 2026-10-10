@@ -47,7 +47,15 @@ export const PRESS_SHOWS: Work = {
   /* A picture that plays (a screen's frames, as an svg) plays from the press: shown, it is asked for again under a new fragment, which starts its clock. */
   var isSvg = function (src) { return /[.]svg([#?]|$)/i.test(src) || src.indexOf("data:image/svg") === 0; };
   var replay = function (p) { try { Array.prototype.forEach.call(p.querySelectorAll("img"), function (im) { var src = im.getAttribute("src") || ""; if (isSvg(src)) im.setAttribute("src", src.split("#")[0] + "#p" + Date.now()); }); } catch (e) { /* a picture never stops the press */ } };
-  var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (!p) return; p.style.display = on ? "flex" : "none"; if (on) replay(p); }); };
+  /* The page ends at the foot of what it opens with (live/layout.ts): a part shown lower makes it longer, so it is never cut off. */
+  var grow = function (p) {
+    var page = p.closest && p.closest("[data-live-root]");
+    if (!page) return;
+    var r = p.getBoundingClientRect(), g = page.getBoundingClientRect(), k = page.offsetHeight / (g.height || 1);
+    var foot = Math.ceil((r.bottom - g.top) * k);
+    if (foot > page.offsetHeight) page.style.height = foot + "px";
+  };
+  var set = function (list, on) { list.forEach(function (id) { var p = find(id); if (!p) return; p.style.display = on ? "flex" : "none"; if (on) { replay(p); grow(p); } }); };
   function press() {
     group.forEach(function (o) { if (o !== me) { set(o.shows, o.opening); set(o.hides, true); } });
     set(me.hides, false);
