@@ -667,7 +667,7 @@ siteFeatures.define("copy-toast", function (el, inputs) {
 });
 
   })(F);
-  /* Planet: A ball in the part that turns slowly on its own and can be dragged round any way to see every side. A picture wraps round it. */
+  /* 3D shape: A sphere, cube or pyramid in the part that turns slowly on its own and can be dragged round any way to see every side. Pictures wrap round it, one per face. */
   (function (siteFeatures) {
 siteFeatures.define("planet", function (el, inputs) {
 function polioPlanet(host, o) {
@@ -680,16 +680,20 @@ function polioPlanet(host, o) {
   var hue = n(pick(d.planetHue, o.hue), 96), tilt = n(pick(d.planetTilt, o.tilt), -22), speed = n(pick(d.planetSpeed, o.speed), 1);
   var spin = String(pick(d.planetSpin, o.spin) || "yes") !== "no", hands = String(pick(d.planetHands, o.hands) || "yes") !== "no";
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) spin = false;
-  var img = host.querySelector("img[data-planet-picture]");
-  var src = img ? img.currentSrc || img.getAttribute("src") || "" : String(pick(d.planetPicture, o.picture) || "");
-  if (img) img.style.display = "none";
+  var shape = String(pick(d.planetShape, o.shape) || "sphere"), ball = shape !== "cube" && shape !== "pyramid";
+  /* Pictures: one wraps the ball; a cube or a pyramid wears one per face, round again when there are fewer. */
+  var imgs = Array.prototype.slice.call(host.querySelectorAll("img[data-planet-picture]"));
+  var srcs = imgs.length ? imgs.map(function (i) { return i.currentSrc || i.getAttribute("src") || ""; }).filter(Boolean)
+    : String(pick(d.planetPicture, o.picture) || "").split(/s+/).filter(Boolean);
+  var src = srcs[0] || "";
+  imgs.forEach(function (i) { i.style.display = "none"; });
   /* A page saved with the ball on it carries its old canvas, blank: this draws a new one. */
   Array.prototype.forEach.call(host.querySelectorAll("canvas[data-planet-canvas]"), function (c) { c.remove(); });
   if (getComputedStyle(host).position === "static") host.style.position = "relative";
   var cv = document.createElement("canvas");
   cv.setAttribute("data-planet-canvas", "");
   cv.setAttribute("aria-hidden", "true");
-  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:50%;" + (hands ? "cursor:grab;touch-action:none;" : "pointer-events:none;");
+  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;" + (ball ? "border-radius:50%;" : "") + (hands ? "cursor:grab;touch-action:none;" : "pointer-events:none;");
   host.appendChild(cv);
   var g = cv.getContext("2d");
   if (!g) { cv.remove(); return null; }
@@ -716,7 +720,7 @@ function polioPlanet(host, o) {
     });
     return x.getImageData(0, 0, TW, TH).data;
   }
-  tex = own();
+  tex = ball ? own() : null;
   function wear(pic) {
     var c = document.createElement("canvas"); c.width = TW; c.height = TH;
     var x = c.getContext("2d");
@@ -724,7 +728,18 @@ function polioPlanet(host, o) {
     try { tex = x.getImageData(0, 0, TW, TH).data; } catch (e) { return; }
     draw();
   }
-  if (src) {
+  /* The solids' pictures, loaded as they are: a face shows its colour until its picture is in. */
+  var faceSkins = [];
+  if (!ball) srcs.forEach(function (u, i) {
+    var im = new Image();
+    if (!/^(data|blob):/i.test(u)) im.crossOrigin = "anonymous";
+    im.onload = function () { faceSkins[i] = im; if (!stopped) draw(); };
+    im.onerror = function () {
+      /* Not readable with leave to draw it: the face keeps its colour. */
+    };
+    im.src = u;
+  });
+  if (src && ball) {
     var pic = new Image();
     if (!/^(data|blob):/i.test(src)) pic.crossOrigin = "anonymous";
     pic.onload = function () { if (!stopped) wear(pic); };
@@ -747,8 +762,11 @@ function polioPlanet(host, o) {
   var S = 0, out = null, at = null, nx = null, ny = null, nz = null, shade = null, rimK = null, rimC = null, spec = null, edge = null;
   function size() {
     var r = host.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-    var side = Math.max(48, Math.min(340, Math.round(Math.min(r.width || 0, r.height || r.width || 0) * dpr) || 240));
+    var px0 = Math.round(Math.min(r.width || 0, r.height || r.width || 0) * dpr);
+    /* A solid is drawn face by face, so it can be sharp; the ball is worked a pixel at a time, so it stays small. */
+    var side = Math.max(48, Math.min(ball ? 340 : 900, px0 || 240));
     if (side === S) return false;
+    if (!ball) { S = side; cv.width = cv.height = S; return true; }
     S = side; cv.width = cv.height = S; out = g.createImageData(S, S);
     var list = [], half = S / 2;
     for (var py = 0; py < S; py++) for (var px = 0; px < S; px++) {
@@ -783,7 +801,7 @@ function polioPlanet(host, o) {
   function ry(t) { var c = Math.cos(t), s = Math.sin(t); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
   function rz(t) { var c = Math.cos(t), s = Math.sin(t); return [c, -s, 0, s, c, 0, 0, 0, 1]; }
   /* Leaning on its axis, and a little toward the viewer, so a pole shows as it turns. */
-  var M = mul(rz((tilt * Math.PI) / 180 * 0.6), rx(0.32));
+  var M = ball ? mul(rz((tilt * Math.PI) / 180 * 0.6), rx(0.32)) : mul(rx(0.42), ry(0.62));
   function tidy() {
     /* Many small turns drift off true: put the three axes back at right angles. */
     var a = unit(M[0], M[3], M[6]), b = [M[1], M[4], M[7]], k = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -792,10 +810,88 @@ function polioPlanet(host, o) {
     M = [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
   }
 
+  /* ---- the solids: corners, and faces as corners in order round the outside ---- */
+  var V, F;
+  if (shape === "cube") {
+    var a = 0.56;
+    V = [[-a, -a, a], [a, -a, a], [a, a, a], [-a, a, a], [-a, -a, -a], [a, -a, -a], [a, a, -a], [-a, a, -a]];
+    /* front, right, back, left, top, bottom: each starts at its lower left as you face it. */
+    F = [[0, 1, 2, 3], [1, 5, 6, 2], [5, 4, 7, 6], [4, 0, 3, 7], [3, 2, 6, 7], [4, 5, 1, 0]];
+  } else {
+    var b = 0.66, lo = -0.5, hi = 0.82;
+    V = [[-b, lo, b], [b, lo, b], [b, lo, -b], [-b, lo, -b], [0, hi, 0]];
+    /* four sides, each base corner to base corner up to the top, then the base. */
+    F = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4], [3, 2, 1, 0]];
+  }
+  var EYE = 4.2;
+  function drawSolid() {
+    var half = S / 2, k = half * 0.9;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, S, S);
+    var P = V.map(function (v) {
+      var x = M[0] * v[0] + M[1] * v[1] + M[2] * v[2], y = M[3] * v[0] + M[4] * v[1] + M[5] * v[2], z = M[6] * v[0] + M[7] * v[1] + M[8] * v[2];
+      var f = EYE / (EYE - z);
+      return { x: half + x * f * k, y: half - y * f * k, z: z, v: [x, y, z] };
+    });
+    var seen = [];
+    F.forEach(function (face, fi) {
+      var A = P[face[0]].v, B = P[face[1]].v, C = P[face[2]].v;
+      var n = unit((B[1] - A[1]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[1] - A[1]), (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]), (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]));
+      /* Facing the eye: the face's normal against the way from the face to the eye. */
+      if (n[0] * -A[0] + n[1] * -A[1] + n[2] * (EYE - A[2]) <= 0) return;
+      seen.push({ face: face, fi: fi, n: n, z: face.reduce(function (s2, i) { return s2 + P[i].z; }, 0) / face.length });
+    });
+    seen.sort(function (p, q) { return p.z - q.z; });
+    seen.forEach(function (s2) {
+      var pts = s2.face.map(function (i) { return P[i]; });
+      function path() { g.beginPath(); pts.forEach(function (q, i) { if (i) g.lineTo(q.x, q.y); else g.moveTo(q.x, q.y); }); g.closePath(); }
+      var skin = faceSkins.length ? faceSkins[s2.fi % srcs.length] : null;
+      path();
+      g.fillStyle = hsl(hue + (s2.fi % 3) * 14 - 14, 52, 34 + (s2.fi % 2) * 6);
+      g.fill();
+      if (skin) {
+        var w = skin.naturalWidth || skin.width, h = skin.naturalHeight || skin.height;
+        /* The picture's corners on the face's: a quad as two triangles, a pyramid's side as one, its top at the picture's middle. */
+        var src3 = pts.length === 4 ? [[[0, h], [w, h], [w, 0]], [[0, h], [w, 0], [0, 0]]] : [[[0, h], [w, h], [w / 2, 0]]];
+        var dst3 = pts.length === 4 ? [[pts[0], pts[1], pts[2]], [pts[0], pts[2], pts[3]]] : [[pts[0], pts[1], pts[2]]];
+        src3.forEach(function (sv, ti) {
+          var dv = dst3[ti];
+          var x0 = sv[0][0], y0 = sv[0][1], x1 = sv[1][0], y1 = sv[1][1], x2 = sv[2][0], y2 = sv[2][1];
+          var det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+          if (!det) return;
+          var u0 = dv[0].x, v0 = dv[0].y, u1 = dv[1].x, v1 = dv[1].y, u2 = dv[2].x, v2 = dv[2].y;
+          var ma = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det, mc = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+          var mb = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det, md = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+          var me = u0 - ma * x0 - mc * y0, mf = v0 - mb * x0 - md * y0;
+          g.save();
+          /* A hair past the triangle, so the two halves of a face meet with no seam. */
+          var cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3;
+          g.beginPath();
+          [[u0, v0], [u1, v1], [u2, v2]].forEach(function (q, i) { var ex = q[0] + (q[0] - cx) * 0.012, ey = q[1] + (q[1] - cy) * 0.012; if (i) g.lineTo(ex, ey); else g.moveTo(ex, ey); });
+          g.closePath();
+          g.clip();
+          g.setTransform(ma, mb, mc, md, me, mf);
+          g.drawImage(skin, 0, 0, w, h);
+          g.restore();
+        });
+      }
+      /* The light on it: darker turned away, a sheen turned toward it. */
+      var lit = s2.n[0] * L[0] + s2.n[1] * L[1] + s2.n[2] * L[2];
+      path();
+      if (lit < 0.55) { g.fillStyle = "rgba(0,0,0," + Math.min(0.62, (0.55 - lit) * 0.62).toFixed(3) + ")"; g.fill(); }
+      else { g.fillStyle = "rgba(255,255,255," + ((lit - 0.55) * 0.22).toFixed(3) + ")"; g.fill(); }
+      g.lineJoin = "round";
+      g.lineWidth = Math.max(1, S / 300);
+      g.strokeStyle = hsl(hue, 90, 70, 0.55);
+      g.stroke();
+    });
+  }
+
   var TAU = Math.PI * 2;
   function draw() {
     if (stopped) return;
     size();
+    if (!ball) { drawSolid(); return; }
     var px = out.data, m = at.length, m0 = M[0], m1 = M[1], m2 = M[2], m3 = M[3], m4 = M[4], m5 = M[5], m6 = M[6], m7 = M[7], m8 = M[8];
     for (var i = 0; i < m; i++) {
       var vx = nx[i], vy = ny[i], vz = nz[i];
@@ -881,7 +977,7 @@ function polioPlanet(host, o) {
       if (ro) ro.disconnect();
       if (io) io.disconnect();
       cv.remove();
-      if (img) img.style.display = "";
+      imgs.forEach(function (i) { i.style.display = ""; });
       host.__planet = null;
     },
     /* Where the ball faces now, body to view: for a check, and for anyone who wants to know. */
@@ -898,8 +994,7 @@ function polioPlanet(host, o) {
     h.setAttribute("data-planet", ""); h.setAttribute("data-feature-layer", "planet");
     h.style.cssText = "position:absolute;left:50%;top:50%;height:100%;max-width:100%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%";
     /* A picture the part was given for it goes inside the ball. */
-    var pic = el.querySelector("img[data-planet-picture]");
-    if (pic) h.appendChild(pic);
+    Array.prototype.forEach.call(el.querySelectorAll("img[data-planet-picture]"), function (pic) { h.appendChild(pic); });
     el.appendChild(h);
     hosts = [h];
   }
@@ -907,7 +1002,92 @@ function polioPlanet(host, o) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"}};
+  /* Turn in 3D: Drag the part to turn it round in depth, any way, and see it from every side. It stays where it is left. */
+  (function (siteFeatures) {
+siteFeatures.define("turn-3d", function (el, inputs) {
+  if (el.__turn3d) return;
+  el.__turn3d = true;
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var spin = inputs.spin === "yes" && !calm, back = inputs.back === "yes", depth = Math.max(200, Number(inputs.depth) || 900);
+  var own = el.style.transform || "";
+  function mul(a, b) {
+    return [a[0] * b[0] + a[1] * b[3] + a[2] * b[6], a[0] * b[1] + a[1] * b[4] + a[2] * b[7], a[0] * b[2] + a[1] * b[5] + a[2] * b[8],
+      a[3] * b[0] + a[4] * b[3] + a[5] * b[6], a[3] * b[1] + a[4] * b[4] + a[5] * b[7], a[3] * b[2] + a[4] * b[5] + a[5] * b[8],
+      a[6] * b[0] + a[7] * b[3] + a[8] * b[6], a[6] * b[1] + a[7] * b[4] + a[8] * b[7], a[6] * b[2] + a[7] * b[5] + a[8] * b[8]];
+  }
+  function rx(t) { var c = Math.cos(t), s = Math.sin(t); return [1, 0, 0, 0, c, -s, 0, s, c]; }
+  function ry(t) { var c = Math.cos(t), s = Math.sin(t); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
+  function unit(v) { var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function tidy() {
+    var a = unit([M[0], M[3], M[6]]), b = [M[1], M[4], M[7]], k = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    b = unit([b[0] - k * a[0], b[1] - k * a[1], b[2] - k * a[2]]);
+    var c = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    M = [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
+  }
+  var M = [1, 0, 0, 0, 1, 0, 0, 0, 1], vel = [0, 0], held = false, from = null, dragged = false, last = 0, frame = 0;
+  function show() {
+    /* Turned in the page's own axes (y down): the same turn, read the way CSS reads it. */
+    var m = [M[0], -M[1], M[2], -M[3], M[4], -M[5], M[6], -M[7], M[8]];
+    var flat = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
+    el.style.transform = flat ? own : "perspective(" + depth + "px) matrix3d(" + [m[0], m[3], m[6], 0, m[1], m[4], m[7], 0, m[2], m[5], m[8], 0, 0, 0, 0, 1].join(",") + ")" + (own ? " " + own : "");
+  }
+  function turn(dx, dy) { M = mul(rx(dy), mul(ry(dx), M)); }
+  function step() {
+    frame = 0;
+    if (!el.isConnected) return;
+    if (!held) {
+      if (Math.abs(vel[0]) + Math.abs(vel[1]) > 0.00005) { turn(vel[0], vel[1]); vel[0] *= 0.93; vel[1] *= 0.93; }
+      else vel = [0, 0];
+      if (spin) M = mul(M, ry(0.004));
+      else if (back && !vel[0] && !vel[1]) { for (var i = 0; i < 9; i++) M[i] += ((i % 4 === 0 ? 1 : 0) - M[i]) * 0.12; }
+    }
+    tidy();
+    show();
+    var home = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
+    if (spin || held || vel[0] || vel[1] || (back && !home)) frame = requestAnimationFrame(step);
+  }
+  function wake() { if (!frame) frame = requestAnimationFrame(step); }
+  el.style.touchAction = "none";
+  if (!el.style.cursor) el.style.cursor = "grab";
+  el.addEventListener("pointerdown", function (e) {
+    if (e.button > 0) return;
+    from = [e.clientX, e.clientY]; dragged = false; vel = [0, 0];
+  });
+  el.addEventListener("pointermove", function (e) {
+    if (!from) return;
+    if (!dragged) {
+      /* A press that has not gone anywhere is still a press. */
+      if (Math.abs(e.clientX - from[0]) + Math.abs(e.clientY - from[1]) < 5) return;
+      dragged = true; held = true;
+      try { el.setPointerCapture(e.pointerId); } catch (x) { /* turns all the same */ }
+      el.style.cursor = "grabbing";
+      wake();
+    }
+    var r = el.getBoundingClientRect(), w = Math.max(80, Math.min(r.width, r.height) || r.width);
+    var dx = ((e.clientX - from[0]) / w) * Math.PI * 0.9, dy = ((e.clientY - from[1]) / w) * Math.PI * 0.9;
+    from = [e.clientX, e.clientY];
+    turn(dx, dy);
+    vel = [dx, dy];
+    last = Date.now();
+  });
+  function up() {
+    from = null;
+    if (!held) return;
+    held = false;
+    if (Date.now() - last > 90) vel = [0, 0];
+    el.style.cursor = "grab";
+    wake();
+  }
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+  /* A drag that turned the part is not also a click on what is in it. */
+  el.addEventListener("click", function (e) { if (dragged) { e.preventDefault(); e.stopPropagation(); dragged = false; } }, true);
+  el.__turn3dTurn = function () { return M.slice(); };
+  if (spin) wake();
+});
+
+  })(F);
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

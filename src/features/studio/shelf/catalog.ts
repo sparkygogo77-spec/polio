@@ -31,7 +31,7 @@ import {
   Scan, ScrollText, Search, Send, Server, Share2, Shapes, Shield, ShieldCheck, ShoppingCart,
   Signature, Signpost, SlidersHorizontal, Smartphone, Sparkles, Spline, Square, Sticker, Store,
   StretchHorizontal, Sun, Sunrise, Table2, Tag, Target, Telescope, Terminal, Timer, ToggleLeft,
-  TrendingUp, Trophy, Type, Undo2, Upload, User, Users, Verified, Video, Volume2, Wallet, Wand2,
+  TrendingUp, Triangle, Trophy, Type, Undo2, Upload, User, Users, Verified, Video, Volume2, Wallet, Wand2,
   Waves, Waypoints, Wifi, Workflow, WrapText, Zap,
 } from "lucide-react";
 
@@ -445,7 +445,10 @@ const RAW: FeatureDef[] = [
   f("orb-css", "Orb, drawn", "media", Circle, "A planet drawn by the page itself, no picture needed: it turns on its own and drags round any way, with orbit rings and a tag.", { tags: ["sphere", "ball", "planet", "gradient", "css"] }),
   f("orb-webgl", "Orb, turnable", "media", Globe, "A real sphere drawn by the graphics card that turns and relights under the pointer.", { tags: ["sphere", "three", "webgl", "3d", "planet"] }),
   f("orb-image", "Orb, from a picture", "media", Orbit, "A planet with your picture wrapped round it: it turns on its own and drags round any way, with orbit rings, a glow and a tag.", { tags: ["sphere", "photo", "render", "planet"] }),
-  f("cube-3d", "Cube", "media", Box, "Six faces in real depth: drag to turn it, arrow keys to step round, and words on every side.", { hint: "One line per face, in the order you want them: front, right, back, left, top, bottom.", tags: ["cube", "box", "3d", "isometric", "faces", "turn", "rotate"], w: 420, h: 420 }),
+  f("shape-sphere", "Sphere", "media", Globe, "A ball you can turn: drag it round any way to see every side. A picture wraps round it.", { hint: "A picture to wrap round it, as an address or a path.", tags: ["sphere", "ball", "globe", "planet", "3d", "turn", "rotate", "shape"], w: 420, h: 420 }),
+  f("shape-cube", "Cube", "media", Box, "A cube you can turn: drag it round any way to see every side, with a picture on each face.", { hint: "Pictures, one per face: front, right, back, left, top, bottom. Fewer go round again.", tags: ["cube", "box", "3d", "turn", "rotate", "shape", "dice"], w: 420, h: 420 }),
+  f("shape-pyramid", "Pyramid", "media", Triangle, "A pyramid you can turn: drag it round any way to see every side, with a picture on each face.", { hint: "Pictures, one per face: the four sides, then the base. Fewer go round again.", tags: ["pyramid", "triangle", "3d", "turn", "rotate", "shape"], w: 420, h: 420 }),
+  f("cube-3d", "Word cube", "media", Box, "Six faces in real depth: drag to turn it, arrow keys to step round, and words on every side.", { hint: "One line per face, in the order you want them: front, right, back, left, top, bottom.", tags: ["cube", "box", "3d", "isometric", "faces", "turn", "rotate"], w: 420, h: 420 }),
   f("mesh-3d", "Solid", "media", Boxes, "A drawing made into a thing you can turn: a real mesh, dragged round with the pointer or the arrow keys.", { tags: ["3d", "solid", "mesh", "model", "turn", "rotate", "object", "sculpt"], w: 420, h: 420 }),
   f("drawn-icon", "Your drawing, as an icon", "media", PenTool, "The lines you drew, small and crisp, in whatever colour they sit on. Drops onto a button.", { hint: "Draw it on the board and make it real; this shows the drawing itself.", tags: ["icon", "glyph", "mark", "logo", "drawn", "vector", "symbol"], w: 96, h: 96 }),
   f("corner-glow", "Corner glow", "media", Sun, "A wash of colour blurred into a corner, the way a light off-screen falls on a dark page.", { tags: ["vignette", "glow", "gradient", "atmosphere"] }),
@@ -585,6 +588,33 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
       range("size", "Size", 86, 30, 100, { unit: "%" }),
       { id: "turning", label: "Turning", values: ["when you turn it", "on its own"] },
     ],
+  },
+  "shape-sphere": {
+    w: 420, h: 420,
+    options: [
+      range("size", "Size", 80, 30, 100, { unit: "%" }),
+      range("hue", "Colour", 96, 0, 360, { unit: "\u00b0" }),
+      yesNo("spin", "Turning on its own", "yes"),
+    ],
+    content: { label: "A picture", placeholder: "/planet.png" },
+  },
+  "shape-cube": {
+    w: 420, h: 420,
+    options: [
+      range("size", "Size", 80, 30, 100, { unit: "%" }),
+      range("hue", "Colour", 200, 0, 360, { unit: "\u00b0" }),
+      yesNo("spin", "Turning on its own", "yes"),
+    ],
+    content: { label: "Pictures, one per face", placeholder: "/front.png, /right.png, /back.png" },
+  },
+  "shape-pyramid": {
+    w: 420, h: 420,
+    options: [
+      range("size", "Size", 80, 30, 100, { unit: "%" }),
+      range("hue", "Colour", 38, 0, 360, { unit: "\u00b0" }),
+      yesNo("spin", "Turning on its own", "yes"),
+    ],
+    content: { label: "Pictures, one per face", placeholder: "/side.png, /base.png" },
   },
   "cube-3d": {
     w: 420, h: 420,

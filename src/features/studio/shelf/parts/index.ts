@@ -28,6 +28,7 @@ import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./F
 import { Checkbox, Field } from "./PageControls";
 import { SearchBox } from "./SearchBox";
 import { Cube } from "./Cube";
+import { Shape3D } from "./Shape3D";
 import { Mesh } from "./Mesh";
 import { DrawnIcon } from "./DrawnIcon";
 import { Orb } from "./Orb";
@@ -81,6 +82,7 @@ export const DEFS: PartDef[] = [
   { component: Art, ids: ["generative-art"], tier: "A" },
   { component: Orb, ids: ["orb-css", "orb-webgl", "orb-image"], tier: "A" },
   { component: Cube, ids: ["cube-3d"], tier: "A" },
+  { component: Shape3D, ids: ["shape-sphere", "shape-cube", "shape-pyramid"], tier: "A" },
   { component: Mesh, ids: ["mesh-3d"], tier: "A" },
   { component: DrawnIcon, ids: ["drawn-icon"], tier: "A" },
   { component: CornerGlow, ids: ["corner-glow"], tier: "A" },

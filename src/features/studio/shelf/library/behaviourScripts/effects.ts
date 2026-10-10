@@ -494,19 +494,20 @@ export const SCROLL_GROW: Work = {
 export const PLANET: Work = {
   manifest: {
     id: "planet",
-    name: "Planet",
+    name: "3D shape",
     category: "media",
-    blurb: "A ball in the part that turns slowly on its own and can be dragged round any way to see every side. A picture wraps round it.",
+    blurb: "A sphere, cube or pyramid in the part that turns slowly on its own and can be dragged round any way to see every side. Pictures wrap round it, one per face.",
     inputs: [
-      { id: "picture", label: "Picture to wrap round it", kind: "text", default: "", placeholder: "/planet.png" },
+      { id: "shape", label: "Shape", kind: "one", default: "sphere", values: ["sphere", "cube", "pyramid"] },
+      { id: "picture", label: "Pictures to wrap round it (one per face, spaces between)", kind: "text", default: "", placeholder: "/front.png /side.png" },
       { id: "hue", label: "Colour (0 to 360, round the wheel)", kind: "number", default: "96" },
       { id: "spin", label: "Turns on its own", kind: "one", default: "yes", values: ["yes", "no"] },
       { id: "speed", label: "Speed", kind: "number", default: "1", advanced: true },
       { id: "tilt", label: "Lean (degrees)", kind: "number", default: "-22", advanced: true },
     ],
     needs: "none",
-    says: ["planet", "globe", "turnable sphere", "draggable sphere", "spinning globe", "rotating planet"],
-    look: { sample: "◐ planet", caption: "planet · turns in the hand" },
+    says: ["planet", "globe", "turnable sphere", "draggable sphere", "spinning globe", "rotating planet", "3d cube", "3d pyramid", "3d shape"],
+    look: { sample: "◐ ▣ △", caption: "3d shape · turns in the hand" },
     version: 1,
   },
   script: `siteFeatures.define("planet", function (el, inputs) {
@@ -519,12 +520,119 @@ ${PLANET_JS}
     h.setAttribute("data-planet", ""); h.setAttribute("data-feature-layer", "planet");
     h.style.cssText = "position:absolute;left:50%;top:50%;height:100%;max-width:100%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%";
     /* A picture the part was given for it goes inside the ball. */
-    var pic = el.querySelector("img[data-planet-picture]");
-    if (pic) h.appendChild(pic);
+    Array.prototype.forEach.call(el.querySelectorAll("img[data-planet-picture]"), function (pic) { h.appendChild(pic); });
     el.appendChild(h);
     hosts = [h];
   }
   hosts.forEach(function (h) { polioPlanet(h, inputs); });
+});
+`,
+};
+
+/**
+ * Any part, turned in 3D by the hand (J, 2026-10-10: "for any object I want
+ * really to be placed in a 3d space"). A drag turns the part itself about
+ * its middle, whichever way the hand goes, in depth; a throw carries on, and
+ * it stays where it is left (or, with "Comes back", turns back to face
+ * front). A press that does not move is still a press: links and buttons in
+ * it work as before. The part's own transform is kept after the turn.
+ */
+export const TURN_3D: Work = {
+  manifest: {
+    id: "turn-3d",
+    name: "Turn in 3D",
+    category: "motion",
+    blurb: "Drag the part to turn it round in depth, any way, and see it from every side. It stays where it is left.",
+    inputs: [
+      { id: "spin", label: "Turns on its own", kind: "one", default: "no", values: ["no", "yes"] },
+      { id: "back", label: "Comes back to face front", kind: "one", default: "no", values: ["no", "yes"] },
+      { id: "depth", label: "Depth (px, smaller is deeper)", kind: "number", default: "900", advanced: true },
+    ],
+    needs: "none",
+    says: ["turn in 3d", "3d drag", "drag to rotate", "rotate in 3d", "turnable", "spin it round", "3d space"],
+    look: { sample: "⟲ 3D", caption: "turn in 3d · drag" },
+    version: 1,
+  },
+  script: `siteFeatures.define("turn-3d", function (el, inputs) {
+  if (el.__turn3d) return;
+  el.__turn3d = true;
+  var calm = ${CALM};
+  var spin = inputs.spin === "yes" && !calm, back = inputs.back === "yes", depth = Math.max(200, Number(inputs.depth) || 900);
+  var own = el.style.transform || "";
+  function mul(a, b) {
+    return [a[0] * b[0] + a[1] * b[3] + a[2] * b[6], a[0] * b[1] + a[1] * b[4] + a[2] * b[7], a[0] * b[2] + a[1] * b[5] + a[2] * b[8],
+      a[3] * b[0] + a[4] * b[3] + a[5] * b[6], a[3] * b[1] + a[4] * b[4] + a[5] * b[7], a[3] * b[2] + a[4] * b[5] + a[5] * b[8],
+      a[6] * b[0] + a[7] * b[3] + a[8] * b[6], a[6] * b[1] + a[7] * b[4] + a[8] * b[7], a[6] * b[2] + a[7] * b[5] + a[8] * b[8]];
+  }
+  function rx(t) { var c = Math.cos(t), s = Math.sin(t); return [1, 0, 0, 0, c, -s, 0, s, c]; }
+  function ry(t) { var c = Math.cos(t), s = Math.sin(t); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
+  function unit(v) { var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function tidy() {
+    var a = unit([M[0], M[3], M[6]]), b = [M[1], M[4], M[7]], k = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    b = unit([b[0] - k * a[0], b[1] - k * a[1], b[2] - k * a[2]]);
+    var c = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    M = [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
+  }
+  var M = [1, 0, 0, 0, 1, 0, 0, 0, 1], vel = [0, 0], held = false, from = null, dragged = false, last = 0, frame = 0;
+  function show() {
+    /* Turned in the page's own axes (y down): the same turn, read the way CSS reads it. */
+    var m = [M[0], -M[1], M[2], -M[3], M[4], -M[5], M[6], -M[7], M[8]];
+    var flat = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
+    el.style.transform = flat ? own : "perspective(" + depth + "px) matrix3d(" + [m[0], m[3], m[6], 0, m[1], m[4], m[7], 0, m[2], m[5], m[8], 0, 0, 0, 0, 1].join(",") + ")" + (own ? " " + own : "");
+  }
+  function turn(dx, dy) { M = mul(rx(dy), mul(ry(dx), M)); }
+  function step() {
+    frame = 0;
+    if (!el.isConnected) return;
+    if (!held) {
+      if (Math.abs(vel[0]) + Math.abs(vel[1]) > 0.00005) { turn(vel[0], vel[1]); vel[0] *= 0.93; vel[1] *= 0.93; }
+      else vel = [0, 0];
+      if (spin) M = mul(M, ry(0.004));
+      else if (back && !vel[0] && !vel[1]) { for (var i = 0; i < 9; i++) M[i] += ((i % 4 === 0 ? 1 : 0) - M[i]) * 0.12; }
+    }
+    tidy();
+    show();
+    var home = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
+    if (spin || held || vel[0] || vel[1] || (back && !home)) frame = requestAnimationFrame(step);
+  }
+  function wake() { if (!frame) frame = requestAnimationFrame(step); }
+  el.style.touchAction = "none";
+  if (!el.style.cursor) el.style.cursor = "grab";
+  el.addEventListener("pointerdown", function (e) {
+    if (e.button > 0) return;
+    from = [e.clientX, e.clientY]; dragged = false; vel = [0, 0];
+  });
+  el.addEventListener("pointermove", function (e) {
+    if (!from) return;
+    if (!dragged) {
+      /* A press that has not gone anywhere is still a press. */
+      if (Math.abs(e.clientX - from[0]) + Math.abs(e.clientY - from[1]) < 5) return;
+      dragged = true; held = true;
+      try { el.setPointerCapture(e.pointerId); } catch (x) { /* turns all the same */ }
+      el.style.cursor = "grabbing";
+      wake();
+    }
+    var r = el.getBoundingClientRect(), w = Math.max(80, Math.min(r.width, r.height) || r.width);
+    var dx = ((e.clientX - from[0]) / w) * Math.PI * 0.9, dy = ((e.clientY - from[1]) / w) * Math.PI * 0.9;
+    from = [e.clientX, e.clientY];
+    turn(dx, dy);
+    vel = [dx, dy];
+    last = Date.now();
+  });
+  function up() {
+    from = null;
+    if (!held) return;
+    held = false;
+    if (Date.now() - last > 90) vel = [0, 0];
+    el.style.cursor = "grab";
+    wake();
+  }
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+  /* A drag that turned the part is not also a click on what is in it. */
+  el.addEventListener("click", function (e) { if (dragged) { e.preventDefault(); e.stopPropagation(); dragged = false; } }, true);
+  el.__turn3dTurn = function () { return M.slice(); };
+  if (spin) wake();
 });
 `,
 };
