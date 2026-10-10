@@ -12,7 +12,8 @@
  * cannot go, the card flies back to its place on the shelf.
  *
  * The same lift serves "Put it on" with no part picked (`armPutOn`): the
- * next part pressed on the board takes it, rather than a new text box.
+ * next part pressed on the board takes it, rather than a new text box. The
+ * shelf lowers for that pick too, and the ring stays out of the shelf.
  *
  * J (2026-10-10): "when dragging something from the shelf off the shelf
  * should drop back down and the site should scroll like when pressing down
@@ -86,11 +87,44 @@ function ring(): HTMLDivElement {
   return r;
 }
 
+/**
+ * The part of the screen where the board shows: its scrolling pane, cut off
+ * above the shelf. J (2026-10-10): a tall part ran on under the shelf and
+ * its ring "bleeds through" the shelf cards, so the ring is cut to this.
+ */
+function boardView(node: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+  const v = { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth };
+  for (let el = node.closest<HTMLElement>("[data-board-tool]")?.parentElement ?? null; el; el = el.parentElement) {
+    const o = getComputedStyle(el).overflowY;
+    if (o !== "auto" && o !== "scroll" && o !== "hidden") continue;
+    const p = el.getBoundingClientRect();
+    Object.assign(v, { top: Math.max(v.top, p.top), bottom: Math.min(v.bottom, p.bottom), left: Math.max(v.left, p.left), right: Math.min(v.right, p.right) });
+    break;
+  }
+  for (const band of document.querySelectorAll<HTMLElement>("[data-studio-band]")) {
+    const b = band.getBoundingClientRect();
+    if (b.height > 0 && b.top > v.top) v.bottom = Math.min(v.bottom, b.top);
+  }
+  return v;
+}
+
 function showRing(r: HTMLDivElement, node: HTMLElement | null, text: string) {
   if (!node) { r.style.display = "none"; return; }
   const b = node.getBoundingClientRect();
-  Object.assign(r.style, { display: "block", left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
-  (r.firstChild as HTMLElement).textContent = text;
+  const v = boardView(node);
+  if (b.bottom <= v.top || b.top >= v.bottom || b.right <= v.left || b.left >= v.right) { r.style.display = "none"; return; }
+  /* Cut where the part runs out of view; elsewhere leave room for the glow and the label. */
+  const cut = (over: number, room: number) => (over > 0 ? `${over}px` : `-${room}px`);
+  const inTop = v.top - b.top;
+  Object.assign(r.style, {
+    display: "block", left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`,
+    clipPath: `inset(${cut(inTop, 30)} ${cut(b.right - v.right, 24)} ${cut(b.bottom - v.bottom, 24)} ${cut(v.left - b.left, 24)})`,
+  });
+  const say = r.firstChild as HTMLElement;
+  say.textContent = text;
+  /* The label sits above the ring, or just inside its top when that is out of view. */
+  say.style.top = inTop > -24 ? `${Math.max(inTop, 0) + 4}px` : "-24px";
+  say.style.left = inTop > -24 ? "4px" : "0";
 }
 
 /**
@@ -207,6 +241,8 @@ let armed: (() => void) | null = null;
  */
 export function armPutOn(what: string, apply: (nodeId: string) => void): () => void {
   armed?.();
+  /* The shelf lowers so the board is there to pick from (J, 2026-10-10: "the shelf does not drop"), and comes back up after. */
+  setShelfLowered(true);
   const chip = document.createElement("div");
   chip.setAttribute("data-put-on-armed", what);
   chip.style.cssText = "position:fixed;z-index:2147483602;pointer-events:none;left:0;top:0;transform:translate(14px,14px);white-space:nowrap;" +
@@ -237,6 +273,7 @@ export function armPutOn(what: string, apply: (nodeId: string) => void): () => v
     window.removeEventListener("keydown", key, true);
     chip.remove();
     r.remove();
+    setShelfLowered(false);
     if (armed === stop) armed = null;
   };
   window.addEventListener("pointermove", move, true);
