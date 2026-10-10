@@ -1,4 +1,5 @@
 import type { Work } from "../works.ts";
+import { RAISE_JS } from "../raiseJs.ts";
 
 /** Every script starts by asking this. */
 export const CALM = `window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches`;
@@ -196,15 +197,21 @@ export const TILT: Work = {
       var ry = axis === "y" ? 0 : x * across, rx = axis === "x" ? 0 : -y * down;
       return "perspective(" + persp + "px) rotateY(" + ry.toFixed(2) + "deg) rotateX(" + rx.toFixed(2) + "deg)" + (lift ? " translateY(" + (-lift) + "px)" : "") + (depth ? " translateZ(" + depth + "px)" : "");
     }
+    /* While it tilts it comes up over the parts around it, and goes back under once it has settled. */
+    ${RAISE_JS}
+    var lower = null, settle = 0;
+    function raise() { clearTimeout(settle); if (!lower) lower = raiseOver(carried); }
+    function drop() { clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, pace + 40); }
     if (carried.length === 1 && !area) {
       var box = null;
       el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
       el.addEventListener("pointermove", function (e) {
         paced();
+        raise();
         var r = box || (box = el.getBoundingClientRect());
         s.transform = pose((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5) + (bases[0].t ? " " + bases[0].t : "");
       });
-      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; });
+      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; drop(); });
       return;
     }
     /* Carried parts sit over it and take the pointer: it is watched from the window, over the box it had standing still. */
@@ -214,13 +221,13 @@ export const TILT: Work = {
       var cx = m.left + m.width / 2, cy = m.top + m.height / 2;
       geo = { r: r, sx: window.scrollX, sy: window.scrollY, origins: carried.map(function (p) { var b = p.getBoundingClientRect(), kx = b.width ? p.offsetWidth / b.width : 1, ky = b.height ? p.offsetHeight / b.height : 1; return ((cx - b.left) * kx).toFixed(2) + "px " + ((cy - b.top) * ky).toFixed(2) + "px"; }) };
     }
-    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); }
+    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); drop(); }
     window.addEventListener("pointermove", function (e) {
       if (!on) measure();
       var r = geo.r, dx = window.scrollX - geo.sx, dy = window.scrollY - geo.sy;
       var x = (e.clientX + dx - r.left) / r.width - 0.5, y = (e.clientY + dy - r.top) / r.height - 0.5;
       if (x < -0.5 || x > 0.5 || y < -0.5 || y > 0.5) { if (on) rest(); return; }
-      if (!on) paced();
+      if (!on) { paced(); raise(); }
       on = true;
       var t = pose(x, y);
       carried.forEach(function (p, i) { p.style.transformOrigin = geo.origins[i]; p.style.transform = t + (bases[i].t ? " " + bases[i].t : ""); });
