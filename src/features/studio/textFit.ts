@@ -358,7 +358,8 @@ export async function tidyToWords(ids: readonly string[], read: (id: string) => 
 export function atFullSize<T>(read: () => T): T {
   const board = typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-board-zoom]");
   const was = board?.style.zoom ?? "";
-  if (!board || !was || was === "1") return read();
+  /* Under Preview the board is kept, hidden (`StudioPage`), and what is read is the site's: unzooming the hidden board only laid all of it out again, once per line of words (3.6s going into Preview on PST). */
+  if (!board || !was || was === "1" || board.closest("[data-board-kept]")) return read();
   board.style.zoom = "1";
   try { return read(); } finally { board.style.zoom = was; }
 }
