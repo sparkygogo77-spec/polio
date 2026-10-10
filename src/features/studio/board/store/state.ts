@@ -426,6 +426,8 @@ export interface StudioState extends Doc {
     quality?: string;
     effort?: string;
     format?: string;
+    /** How long it took, in ms, so the next one's wait can be guessed from his own (`pictures/estimate.ts`). */
+    ms?: number;
     /** The picture it was drawn from, when there was one. */
     reference?: string;
     /**

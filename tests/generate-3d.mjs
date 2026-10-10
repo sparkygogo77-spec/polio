@@ -43,11 +43,13 @@ const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAw
 const GLB = "data:model/gltf-binary;base64,Z2xURgIAAAA=";
 const sent = [];
 await page.route("**/api/keys/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ set: { REPLICATE_API_TOKEN: true }, repo: null, branch: "main" }) }));
-await page.route("**/api/studio/**", (route) => {
+await page.route("**/api/studio/**", async (route) => {
   const what = route.request().url().split("/").pop().split("?")[0];
   if (what === "image") {
     const body = JSON.parse(route.request().postData() ?? "{}");
     sent.push(body);
+    /* Long enough to watch the progress row tick. */
+    await new Promise((r) => setTimeout(r, 2200));
     if (Number(body.stage) === 2) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, stage: 2, solid: true, model: "tencent/hunyuan3d-2mv", name: "Hunyuan3D 2 (multi-view)", mesh: { glb: GLB, bytes: 8, from: "tencent/hunyuan3d-2mv" }, cost: 0.2 }) });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, kind: "raster", image: PIXEL, cost: 0.04 }) });
   }
@@ -73,7 +75,14 @@ await pickThreeD("On a sphere");
 check("choosing a sphere says so", (await panel.locator("[data-render-3d]").getAttribute("data-render-3d")) === "sphere");
 await panel.locator("[data-render-tweak]").fill("a mossy planet");
 await panel.locator("[data-render-go]").click({ force: true });
+await page.waitForTimeout(1600);
+const row = panel.locator("[data-render-job]").first();
+const rowText = (await row.count()) ? (await row.innerText()).replace(/\s+/g, " ") : "";
+const bar = Number((await panel.locator("[data-render-bar]").first().getAttribute("data-render-bar").catch(() => null)) ?? -1);
+check("while it runs, a row says what it is doing and the seconds so far", /Drawing with .+… \d+s of about \d+s/.test(rowText), rowText);
+check("with a bar that has moved", bar > 0 && bar < 100, `${bar}%`);
 await page.waitForTimeout(2500);
+check("and the row goes when the picture is back", (await panel.locator("[data-render-job]").count()) === 0);
 const ask = sent[0] ?? {};
 check("the model is told the picture wraps a ball", /^a mossy planet\n\n.*wraps round a ball/s.test(ask.prompt ?? ""), JSON.stringify(ask.prompt));
 let ns = await nodes();
@@ -117,6 +126,9 @@ const priceLine = (await panel.locator("[data-render-price]").innerText()).trim(
 check("the price before the press adds the 3D model", /for the 3D model/.test(priceLine) && /in all/.test(priceLine), priceLine);
 const before = sent.length;
 await panel.locator("[data-render-3d-from]").first().click({ force: true });
+await page.waitForTimeout(1200);
+const solidRow = (await panel.locator("[data-render-job]").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+check("making the 3D model shows its own row, against its usual time", /Making the 3D model with .+ of about 104s/.test(solidRow), solidRow);
 await page.waitForTimeout(2500);
 const solidCall = sent.slice(before).find((b) => Number(b.stage) === 2);
 check("the picture goes to the solid model", !!solidCall && solidCall.model === "tencent/hunyuan3d-2mv" && /3d/i.test(solidCall.said ?? "") && typeof solidCall.first === "string" && solidCall.first.length > 20, solidCall ? `${solidCall.model}, said ${JSON.stringify(solidCall.said)}` : "no call");

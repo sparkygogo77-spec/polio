@@ -36,7 +36,7 @@ import { useStudio } from "./board/store";
 import { drop as dropPicture, put as putPicture, usePicture, type Picture } from "./pictures";
 import { CURSOR_ASK, cursorFrom, takeCursorAsk } from "./cursorPicture";
 import { setCursorPicture } from "./ShelfCards";
-import { estimateLine } from "./pictures/estimate";
+import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictures/estimate";
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
 
 /**
@@ -113,9 +113,29 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     window.addEventListener(THREE_D_EVENT, on);
     return () => window.removeEventListener(THREE_D_EVENT, on);
   }, []);
-  const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string): Promise<string> => {
+  /*
+   * WHAT IS RUNNING, AND FOR HOW LONG (J, 2026-10-10: "detailed information
+   * about the progress of it like i can see on replicate a loading bar or
+   * time elapsed"). One row per job: what it is doing, the seconds so far,
+   * and a bar against how long this model usually takes (his own runs
+   * first, `pictures/estimate.ts`). Replicate reports no percentage for
+   * these models, so the bar is time, and it says so when a run goes long.
+   */
+  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const startJob = (label: string, expect: number) => {
+    const id = `job_${Math.random().toString(36).slice(2, 8)}`;
+    setJobs((was) => [...was, { id, label, expect, at: Date.now() }]);
+    return {
+      phase: (label2: string, expect2: number) => setJobs((was) => was.map((j) => (j.id === id ? { ...j, label: label2, expect: expect2, at: Date.now(), before: Date.now() - j.at + (j.before ?? 0) } : j))),
+      end: () => setJobs((was) => was.filter((j) => j.id !== id)),
+    };
+  };
+  const solidName = React.useMemo(() => modelTable().models.find((m) => m.returns === "mesh")?.name ?? "the 3D modeller", []);
+  const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string, job?: ReturnType<typeof startJob>): Promise<string> => {
     if (!how) return "";
-    const r = how === "solid" ? await asSolid(src, alt) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
+    let own: ReturnType<typeof startJob> | null = null;
+    if (how === "solid") { if (job) job.phase(`Making the 3D model with ${solidName}`, SOLID_SECONDS); else own = startJob(`Making the 3D model with ${solidName}`, SOLID_SECONDS); }
+    const r = how === "solid" ? await asSolid(src, alt).finally(() => own?.end()) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
     if (r.ok && id) setMadeThreeD(id);
     return r.message;
   };
@@ -234,6 +254,8 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     const threadId = landThread({ mode: GENERATION, model: slug, ask: asked, answer: "", state: "running" });
     setRunning((n) => n + 1);
     setSaid(null);
+    const job = startJob(`Drawing with ${card?.name ?? "the model"}`, pictureSeconds(slug, quality, draws));
+    const began = Date.now();
     try {
       /* It has been sent and is out with the model. There is nothing finer to
          report — Replicate gives no progress — so the bar says "gone, waiting"
@@ -263,11 +285,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
         const kept = await (async () => {
           try { return await putPicture(await (await fetch(r.image!)).blob(), { alt: asked.slice(0, 120), from: "drawn" }); } catch { return null; }
         })();
-        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, threadId });
+        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], ...(kept ? { picture: kept } : { image: r.image }), cost: r.cost ?? null, ms: typeof (r as { ms?: number }).ms === "number" ? (r as { ms?: number }).ms : Date.now() - began, threadId });
         markThread(threadId, "done");
         const cost = typeof r.cost === "number" ? ` It cost ${money(r.cost)}.` : "";
         if (asCursor) setSaid((await makeCursor(r.image)) ? `Drawn and made your cursor: point at the preview to see it.${cost}` : `Drawn, but it could not be made a cursor.${cost}`);
-        else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(r.image, asked, threeD)}`); }
+        else if (threeD) { setSaid(`Drawn.${cost} Making it 3D…`); setSaid(`Drawn.${cost} ${await makeThreeD(r.image, asked, threeD, undefined, job)}`); }
         else setSaid(cost ? `Drawn.${cost}` : "Drawn. The renderer reported no price for it.");
       } else {
         markThread(threadId, "cut");
@@ -277,6 +299,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
       markThread(threadId, "cut");
       setSaid(`Could not reach the renderer: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
+      job.end();
       setRunning((n) => Math.max(0, n - 1));
     }
   };
@@ -446,6 +469,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           {said ?? estimateLine(slug, quality, asCursor ? "" : threeD, draws)}
         </span>
       </div>
+      {jobs.length ? (
+        <div data-render-progress={jobs.length} className="flex flex-col gap-2 px-3 pb-3">
+          {jobs.map((j) => <JobRow key={j.id} job={j} />)}
+        </div>
+      ) : null}
 
       {/*
         EVERYTHING HE HAS MADE, newest first, under the slot for the next one.
@@ -573,6 +601,30 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+interface Job { id: string; label: string; expect: number; at: number; before?: number }
+
+/** One running job: what it is doing, seconds so far, and a bar against its usual time. Ticks on its own. */
+function JobRow({ job }: { job: Job }) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 250); return () => window.clearInterval(t); }, []);
+  const s = Math.max(0, (now - job.at) / 1000);
+  const total = s + (job.before ?? 0) / 1000;
+  const { fraction, late } = progressOf(s, job.expect);
+  return (
+    <div data-render-job="" className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2 text-small">
+        <span className="min-w-0 truncate text-fg-muted">{job.label}…</span>
+        <span data-render-elapsed={Math.floor(total)} className="num shrink-0 text-fg-faint">
+          {Math.floor(total)}s{late ? `, longer than the usual ${job.expect}s` : ` of about ${job.expect}s`}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-panel">
+        <div data-render-bar={Math.round(fraction * 100)} className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${Math.round(fraction * 1000) / 10}%` }} />
+      </div>
     </div>
   );
 }
