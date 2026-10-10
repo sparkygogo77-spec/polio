@@ -108,6 +108,14 @@ const vc = http.createServer(async (req, res) => {
     if (!dep) return send(404, { error: { code: "not_found", message: "Deployment not found" } });
     return send(200, { readyState: "READY", url: `${dep.id}.vercel.app`, alias: [`${projects.find((p) => p.id === dep.project)?.name}.vercel.app`] });
   }
+  /* Opening a project to visitors: Vercel Authentication and any password taken off. */
+  const pm = path.match(/^\/v9\/projects\/([^/]+)$/);
+  if (pm && req.method === "PATCH") {
+    const p = projects.find((x) => x.id === decodeURIComponent(pm[1]));
+    if (!p) return send(404, { error: { code: "not_found", message: "Project not found" } });
+    p.ssoProtection = parsed?.ssoProtection;
+    return send(200, { id: p.id, name: p.name, ssoProtection: p.ssoProtection ?? null });
+  }
   if (path === "/v13/deployments/probe") return send(404, { error: { code: "not_found", message: "Deployment not found" } });
   return send(404, { error: { code: "not_found", message: "Not found" } });
 });
@@ -161,6 +169,8 @@ console.log("3. A project with its own framework that has deployed before");
   const dep = deployments.at(-1);
   check("its deployment starts, carrying no settings over its own", r.ok === true && dep?.project === "prj_framed" && dep?.settings === null, JSON.stringify({ ok: r.ok, settings: dep?.settings, message: r.message }));
 }
+check("every site that went live is open to visitors: Vercel's sign-in taken off its project", projects.filter((p) => p.deployments > 0).every((p) => p.ssoProtection === null),
+  projects.map((p) => `${p.id}:${p.deployments > 0 ? (p.ssoProtection === null ? "open" : "locked") : "not live"}`).join(", "));
 check("one project made in all, never a second for the same repository", projects.length === 3 && projects.filter((p) => p.link).length === 1, projects.map((p) => `${p.id}:${p.link?.repo ?? "not connected"}`).join(", "));
 
 stop();
