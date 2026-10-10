@@ -30,7 +30,7 @@ import type { Corner } from "../live/corner.ts";
 /** The shelf effects the kit's file runs: the ones that move or draw on their own part and need nothing but the page. */
 export const KIT_EFFECTS: readonly string[] = ["tilt", "follow-pointer", "marquee", "dust-canvas", "scroll-grow", "glide", "screen-filter", "scroll-header", "crt-loader", "copy-toast"];
 /** The whole-site motions it runs, where CSS does not (`SITE_MOTION_JS`). */
-export const KIT_SITE: readonly string[] = ["back-to-top", "parallax", "hover-tilt", "cursor-effects", "smooth-scroll"];
+export const KIT_SITE: readonly string[] = ["back-to-top", "parallax", "hover-tilt", "cursor-effects", "smooth-scroll", "scroll-snap"];
 
 /** Parallax strength by name, as the Preview takes it (`live/behaviours.ts` STRENGTH). */
 const PARALLAX: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0.32, light: 0.08, heavy: 0.32, off: 0 };
@@ -38,8 +38,10 @@ const PARALLAX: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0
 export const kitEffect = (id: string) => KIT_EFFECTS.includes(id) && !carriedEffect(id);
 export function kitSite(featureId: string, options?: Record<string, string> | null): boolean {
   if (options?.off === "yes" || !KIT_SITE.includes(featureId)) return false;
-  /* CSS eases a link's jump; only the file makes the wheel glide (`smoothWheelJs.ts`), so smooth scrolling rides both. */
+  /* CSS eases a link's jump; only the file makes the wheel glide to its stops (`scrollMotionJs.ts`), so smooth scrolling rides both. */
   if (featureId === "smooth-scroll") return (options?.strength ?? "light") !== "off";
+  /* CSS snapping alone did nothing anyone could see (`scrollMotionJs.ts`): the file goes section to section; CSS stays for a page without it. Sideways is CSS's. */
+  if (featureId === "scroll-snap") return options?.axis !== "horizontal";
   if (carriedSite(featureId, options)) return false;
   return featureId !== "parallax" || (PARALLAX[options?.strength ?? "medium"] ?? 0.18) > 0;
 }
@@ -69,6 +71,23 @@ export function motionValue(work: WorkUse | null | undefined, riders: readonly s
   return words.length ? `"${words.join(" ")}"` : null;
 }
 
+/** The scroll roles a part was given by a scroll effect dropped on it: Smooth's stop, Snap's section, Depth's background layer. */
+export const SCROLL_ROLE: Record<string, string> = { "smooth-scroll": "stop", "scroll-snap": "section", parallax: "depth" };
+
+/**
+ * What a part's `--builder-scroll` says: the roles it was given, for the
+ * switches still on (`roles` from each switch's `options.parts`). Null when none.
+ */
+export function scrollRoleValue(on: readonly { featureId: string; options?: Record<string, string> | null }[], nodeId: string): string | null {
+  const words = new Set<string>();
+  for (const s of on) {
+    const role = SCROLL_ROLE[s.featureId];
+    if (!role || !kitSite(s.featureId, s.options)) continue;
+    if ((s.options?.parts ?? "").split(",").map((x) => x.trim()).includes(nodeId)) words.add(role);
+  }
+  return words.size ? `"${[...words].join(" ")}"` : null;
+}
+
 /** What `:root`'s `--builder-site-motion` says, for the whole-site motions switched on. Null when none. */
 export function siteMotionValue(on: readonly { featureId: string; options?: Record<string, string> | null; at?: Corner | null }[]): string | null {
   const words: string[] = [];
@@ -78,6 +97,7 @@ export function siteMotionValue(on: readonly { featureId: string; options?: Reco
     seen.add(s.featureId);
     const o = s.options ?? {};
     if (s.featureId === "parallax") words.push(word("parallax", { strength: String(PARALLAX[o.strength ?? "medium"] ?? 0.18) }));
+    else if (s.featureId === "scroll-snap") words.push("scroll-snap");
     else if (s.featureId === "smooth-scroll") words.push(word("smooth-scroll", o.strength === "heavy" ? { strength: "heavy" } : {}));
     else if (s.featureId === "back-to-top" && s.at) {
       /* Where it was put on the board: the nearest corner and how far in. The file's own default is bottom right, 24px in. */
@@ -119,6 +139,7 @@ export function kitMotionJs(): string {
  * The style layer says which part wears which motion, as custom properties:
  *   [data-hook="x"] { --builder-motion: "tilt?strength=12 marquee"; }
  *   :root { --builder-site-motion: "back-to-top hover-tilt"; --builder-motion-accent: #fff; }
+ *   [data-hook="y"] { --builder-scroll: "stop"; }   (a stop, section or depth layer)
  * This file reads them off every hooked element when the page loads, and off
  * parts a script adds later. With none set, it does nothing.
  */
@@ -142,12 +163,13 @@ ${effects.map((w) => `  /* ${w.manifest.name}: ${w.manifest.blurb} */\n  (functi
       return { id: id, inputs: inputs };
     }) : [];
   }
-  function own(el) {
-    var v = getComputedStyle(el).getPropertyValue("--builder-motion").trim();
+  function own(el, prop) {
+    prop = prop || "--builder-motion";
+    var v = getComputedStyle(el).getPropertyValue(prop).trim();
     if (!v) return "";
     /* A custom property is inherited: what a part's panel wears is the panel's, not the part's. */
     var up = el.parentElement;
-    return up && getComputedStyle(up).getPropertyValue("--builder-motion").trim() === v ? "" : v;
+    return up && getComputedStyle(up).getPropertyValue(prop).trim() === v ? "" : v;
   }
   function bind(el) {
     if (!el.getAttribute || !el.hasAttribute("data-hook")) return;
@@ -174,7 +196,20 @@ ${effects.map((w) => `  /* ${w.manifest.name}: ${w.manifest.blurb} */\n  (functi
       if (m.id === "parallax") c.parallax = Number(m.inputs.strength) || 0.18;
       if (m.id === "cursor-effects") c.cursor = m.inputs.style || "dot";
       if (m.id === "smooth-scroll") { c.smooth = true; c.smoothStrength = m.inputs.strength || "light"; }
+      if (m.id === "scroll-snap") c.snap = "vertical";
     });
+    /* The parts a scroll effect was dropped on: Smooth's stops, Snap's sections, Depth's background layers. */
+    c.stopEls = []; c.snapEls = []; c.depthEls = [];
+    if (c.smooth || c.snap || c.parallax) {
+      var hooked = document.querySelectorAll("[data-hook]");
+      for (var i = 0; i < hooked.length; i++) {
+        var r = (" " + own(hooked[i], "--builder-scroll").replace(/["']/g, " ") + " ").replace(/[ ]+/g, " ");
+        if (r === " ") continue;
+        if (r.indexOf(" stop ") >= 0) c.stopEls.push(hooked[i]);
+        if (r.indexOf(" section ") >= 0) c.snapEls.push(hooked[i]);
+        if (r.indexOf(" depth ") >= 0) c.depthEls.push(hooked[i]);
+      }
+    }
     window.siteMotionSettings = c;
     ${SITE_MOTION_JS.trim().replace(/\n/g, "\n    ")}
   }

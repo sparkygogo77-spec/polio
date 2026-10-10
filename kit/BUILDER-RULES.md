@@ -450,8 +450,10 @@ screen filter, header on scroll, the loader, copy, back to top, parallax, cards 
 cursor). The builder's Publish then only names a motion on a hook in the style layer
 (`[data-hook="x"] { --builder-motion: "tilt?strength=12"; }`, and `:root { --builder-site-motion: ... }`
 for the whole site), and the file runs it on that part, on parts a script adds later too. So any
-motion goes on any panel with no code chat. What CSS can do (lift, press, float, spin, blink,
-reveal, switch on, smooth and snap scrolling, the progress bar, the opening) is written as CSS.
+motion goes on any panel with no code chat. Smooth, snap and depth scrolling dropped on a part give
+that part a role (`[data-hook="x"] { --builder-scroll: "stop section depth"; }`): a wheel notch glides
+to a stop, the page snaps to a section, a depth layer moves slower than the content. What CSS can do
+(lift, press, float, spin, blink, reveal, switch on, the progress bar, the opening) is written as CSS.
 
 Never edit the file or write `--builder-motion` by hand: `polio npm run kit:motion` writes the kit's
 copy, `kit:check --write` (`npm run kit:hooks`) copies it into the site and adds the `<script>` to a

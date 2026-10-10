@@ -29,7 +29,7 @@
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
 import { effectCss, siteCss, sitePress, stillTail } from "./motionCss.ts";
-import { motionValue, siteMotionDeclarations } from "./kitMotion.ts";
+import { SCROLL_ROLE, motionValue, scrollRoleValue, siteMotionDeclarations } from "./kitMotion.ts";
 import { PLACED, cornerOf, onScreenButton } from "../live/corner.ts";
 import type { SourceHook, SourceVar } from "../sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
@@ -662,6 +662,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   const frames = new Map<string, string>();
   const movingSel: string[] = [];
   const riding = ridersOf(sourced);
+  /* The scroll effects dropped on parts (Smooth's stops, Snap's sections, Depth's layers): each part they were dropped on says so on its hook. */
+  const scrollOn = nodes.filter((n) => !n.source && !n.from && !!n.featureId && !!SCROLL_ROLE[n.featureId]).map((n) => ({ featureId: n.featureId!, options: n.options }));
   for (const n of sourced) {
     const src = n.source!;
     const now = lookOf(n, palette, opts);
@@ -687,6 +689,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       /* The motions the kit's file runs (`kitMotion.ts`): named on the part's hook, for a builder-ready site, which loads the file. */
       const mv = opts.kit && src.hook.attr === "data-hook" && n.work ? motionValue(n.work as never, riders.map((r) => r.source!.hook!.value)) : null;
       if (mv) decl = [...decl.filter((d) => !d.startsWith("--builder-motion:")), `--builder-motion: ${mv}`];
+      const sr = opts.kit && src.hook.attr === "data-hook" && scrollOn.length ? scrollRoleValue(scrollOn, n.id) : null;
+      if (sr) decl = [...decl.filter((d) => !d.startsWith("--builder-scroll:")), `--builder-scroll: ${sr}`];
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
