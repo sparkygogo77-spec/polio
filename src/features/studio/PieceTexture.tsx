@@ -21,6 +21,7 @@ import { keepBefore } from "./previewWas";
 import * as React from "react";
 import { TEXTURE_KINDS, dialsOf, parseColor, pickedLayer, spotsOfTarget, textureCss, toHex, type Palette, type TextureKind, type TextureLayer } from "./look";
 import { dropSiteDots, siteDotsOf, writeSiteDots, type Art, type SiteDots } from "./look/lookparts/siteDots";
+import { originalTexture, readSaved, siteTexturesOf, wearTexture, withSaved, wornTexture, writeSaved, type SavedTexture, type SiteTexture } from "./look/lookparts/siteTextures";
 import { useHeldStudio, useStudio } from "./board/store";
 import { HandColour, Slider } from "./HandSlider";
 import { ImageWell } from "./ImageIntake";
@@ -99,10 +100,25 @@ export function pageGround(ids: readonly string[], nodes: readonly Painted[], la
   return { background: fill };
 }
 
-/** A kind of panel or field as the preview draws it: the texture its parts wear over its paint, or nothing to add. */
-export function kindGround(ids: readonly string[], nodes: readonly { id: string; texture?: string | null }[], layers: readonly TextureLayer[], palette: Palette, fill: string): React.CSSProperties | null {
+/** A kind of panel or field as the preview draws it: the texture its parts wear over its paint (a builder layer, else a site's own texture on their backgrounds), or nothing to add. */
+export function kindGround(ids: readonly string[], nodes: readonly { id: string; texture?: string | null; art?: unknown }[], layers: readonly TextureLayer[], palette: Palette, fill: string): React.CSSProperties | null {
   const l = wornBy(ids, nodes, layers);
-  return l ? textureCss([{ ...l, on: true }], palette, fill) : null;
+  if (l) return textureCss([{ ...l, on: true }], palette, fill);
+  const want = new Set(ids);
+  for (const n of nodes) { if (!want.has(n.id)) continue; const t = wornTexture(n.art as Art | null | undefined); if (t) return textureTileCss(t, fill); }
+  return null;
+}
+
+/** A site's texture (or a saved one) drawn over `ground`: its tile, the preview's kind, the board's part all draw the same CSS. */
+export function textureTileCss(t: Pick<SiteTexture, "image" | "size" | "position" | "repeat">, ground: string): React.CSSProperties {
+  return { backgroundColor: ground, backgroundImage: t.image, backgroundSize: t.size, backgroundPosition: t.position, backgroundRepeat: t.repeat };
+}
+
+/** The saved shelf, kept in this browser (`siteTextures.ts`). Read after mount: the server has no storage. */
+function useSaved(): [SavedTexture[], (to: SavedTexture[]) => void] {
+  const [saved, setSaved] = React.useState<SavedTexture[]>([]);
+  React.useEffect(() => { setSaved(readSaved(typeof localStorage === "undefined" ? null : localStorage)); }, []);
+  return [saved, (to) => { setSaved(to); writeSaved(typeof localStorage === "undefined" ? null : localStorage, to); }];
 }
 
 /** The site's dots as a layer the row can show and sample. Never stored: the gradient on the parts is the truth. */
@@ -126,7 +142,21 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
      Shown first when the page was brought in with one; on while the page's parts still paint it. */
   const originals = page ? nodes.filter((n) => ids.includes(n.id) && originalOf(n)) : [];
   const painted = page ? nodes.find((n) => ids.includes(n.id) && paintedCss(n.art as Art | null | undefined, ground)) : undefined;
-  const originalOn = !own && !!painted;
+  /*
+   * THE SITE'S OWN TEXTURES (J, 2026-10-10: the TV's grainy static "should be
+   * considered an original texture"). Every texture the site's code painted,
+   * on any part, read from what the bring-in kept (`siteTextures.ts`): offered
+   * on the page and on every kind, marked as the site's. The page's own
+   * pattern is already its Original, so it is not listed twice.
+   */
+  const siteTextures = React.useMemo(() => siteTexturesOf(nodes), [nodes]);
+  const pageOriginals = new Set(originals.map((n) => originalTexture(n)?.key).filter(Boolean));
+  const fromSite = siteTextures.filter((t) => !pageOriginals.has(t.key));
+  const [saved, setSaved] = useSaved();
+  /* The texture these parts paint on their own backgrounds now, whichever it came from. */
+  const worn = (() => { for (const n of nodes) if (ids.includes(n.id)) { const t = wornTexture(n.art as Art | null | undefined); if (t) return t; } return null; })();
+  const wornKey = !own && worn && !pageOriginals.has(worn.key) ? worn.key : null;
+  const originalOn = !own && !!painted && !wornKey;
   const originalSample = (originals[0] && paintedCss(originalOf(originals[0]), ground)) || (painted && paintedCss(painted.art as Art, ground)) || null;
 
   /** One undo for whatever a press does. */
@@ -141,6 +171,35 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
       if (rest.length) useStudio.getState().patchNodes(rest.map((n) => n.id), (n) => ({ art: { ...(n.art as Art), background: "none", backgroundOptions: undefined } }) as never);
     }
   };
+  /** Take a site's (or saved) texture off these parts' backgrounds; their own shading stays. */
+  const dropWorn = () => {
+    const on = useStudio.getState().nodes.filter((n) => ids.includes(n.id) && wornTexture(n.art as Art | null | undefined)).map((n) => n.id);
+    if (on.length) useStudio.getState().patchNodes(on, (n) => ({ art: wearTexture(n.art as Art | null | undefined, null) }) as never);
+  };
+  /** Take the builder's layer off these parts (and off the page's stack). */
+  const dropOwn = () => {
+    if (!own) return;
+    const st = useStudio.getState();
+    const mine = new Set(ids);
+    const wearing = st.nodes.filter((n) => n.texture === own.id && (page || mine.has(n.id))).map((n) => n.id);
+    if (wearing.length) st.patchNodes(wearing, () => ({ texture: null }));
+    const still = useStudio.getState().nodes.some((n) => n.texture === own.id);
+    if (page || !still) useStudio.getState().removeTexture(own.id);
+  };
+  /** A site's texture (or a saved one) worn by every part here, over its own shading: one undo. */
+  const wearSite = (t: SiteTexture) => {
+    play("select");
+    if (wornKey === t.key) return;
+    step(() => {
+      dropOwn();
+      dropSite();
+      if (ids.length) useStudio.getState().patchNodes(ids, (n) => ({ art: wearTexture(n.art as Art | null | undefined, t) }) as never);
+    });
+  };
+  /** The texture worn here now, as the shelf keeps it. */
+  const current: SiteTexture | null = worn ? siteTextures.find((t) => t.key === worn.key) ?? saved.find((t) => t.key === worn.key) ?? { ...worn, name: worn.kind, from: "this site" } : null;
+  const save = () => { if (!current) return; play("select"); setSaved(withSaved(saved, current)); };
+  const unsave = (key: string) => { play("close"); setSaved(saved.filter((t) => t.key !== key)); };
   /* A dial dragged on the site's dots: one undo for the drag, as a layer's dials are (`updateTexture`'s runs). */
   const run = React.useRef<{ key: string; at: number } | null>(null);
   const setSite = (to: Partial<Pick<SiteDots, "colour" | "opacity" | "scale">>) => {
@@ -161,6 +220,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     step(() => {
       /* Another kind for the page: the site's dots give way to it, so there is one texture, not two. */
       dropSite();
+      dropWorn();
       const st = useStudio.getState();
       if (own) {
         /* The new kind's own shape and turn: a stripe's line width read as a flat colour's fade turned the page into a gradient. */
@@ -189,10 +249,11 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     });
   };
   const none = () => {
-    if (!layer && !originalOn) return;
+    if (!layer && !originalOn && !wornKey) return;
     play("close");
     step(() => {
       dropSite();
+      dropWorn();
       if (!own) return;
       const layer = own;
       const st = useStudio.getState();
@@ -268,8 +329,8 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     <div data-kind-texture="" data-texture-site={siteOnly ? "" : undefined} className="space-y-1.5">
       <p className="text-fine text-fg-faint">Texture</p>
       <div className="grid grid-cols-4 gap-1">
-        <button type="button" data-texture-sample="none" aria-pressed={!layer} onClick={none}
-          className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", !layer && !originalOn ? "border-accent" : "border-border hover:border-border-strong")}>
+        <button type="button" data-texture-sample="none" aria-pressed={!layer && !originalOn && !wornKey} onClick={none}
+          className={cn("tactile flex flex-col overflow-hidden rounded-md border-2 text-left", !layer && !originalOn && !wornKey ? "border-accent" : "border-border hover:border-border-strong")}>
           <span aria-hidden className="block h-9 w-full" style={{ background: ground }} />
           <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">None</span>
         </button>
@@ -299,6 +360,14 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">Picture</span>
         </button>
       </div>
+      {fromSite.length ? <Shelf hook="site" title="From the site" note="Textures the site's own code made" items={fromSite} on={wornKey} ground={ground} onWear={wearSite} badge="site" /> : null}
+      {saved.length ? <Shelf hook="saved" title="Saved in this browser" items={saved} on={wornKey} ground={ground} onWear={wearSite} badge="saved" onRemove={unsave} /> : null}
+      {current && !saved.some((t) => t.key === current.key) ? (
+        <button type="button" data-texture-save="" onClick={save} title="Keep this texture to use on any site built in this browser"
+          className="tactile w-full rounded-md border border-border px-2 py-1 text-left text-small text-fg hover:border-border-strong">
+          Save this texture
+        </button>
+      ) : null}
       {layer?.kind === "image" && own ? (
         <div data-texture-picture="" className="space-y-1.5">
           <ImageWell src={own.src} onImage={(src) => void dropPicture(src)} onClear={own.src ? () => step(() => useStudio.getState().updateTexture(own.id, { src: undefined, baked: undefined, crop: undefined, live: undefined })) : undefined} label="picture" />
@@ -373,6 +442,32 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
           })()}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** A row of textures that are not the builder's own kinds: the site's, or the saved shelf. */
+function Shelf({ hook, title, note, items, on, ground, onWear, badge, onRemove }: { hook: string; title: string; note?: string; items: SiteTexture[]; on: string | null; ground: string; onWear: (t: SiteTexture) => void; badge: string; onRemove?: (key: string) => void }) {
+  return (
+    <div data-texture-shelf={hook} className="space-y-1">
+      <p className="text-fine text-fg-faint" title={note}>{title}</p>
+      <div className="grid grid-cols-4 gap-1">
+        {items.map((t) => (
+          <div key={t.key} className="relative">
+            <button type="button" data-texture-sample={`${hook}:${t.name}`} data-texture-from={badge} aria-pressed={on === t.key} aria-label={`${t.name}, ${badge === "site" ? "from the site" : "saved"}`} title={`${t.name}: from ${t.from}`} onClick={() => onWear(t)}
+              className={cn("tactile flex w-full flex-col overflow-hidden rounded-md border-2 text-left", on === t.key ? "border-accent" : "border-border hover:border-border-strong")}>
+              <span aria-hidden className="relative block h-9 w-full" style={textureTileCss(t, ground)}>
+                <span className="absolute left-0.5 top-0.5 rounded-sm bg-elevated/90 px-1 text-[9px] font-semibold uppercase leading-tight text-fg">{badge}</span>
+              </span>
+              <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{t.name}</span>
+            </button>
+            {onRemove ? (
+              <button type="button" data-texture-unsave={t.name} aria-label={`Remove ${t.name} from saved`} title="Remove from saved" onClick={() => onRemove(t.key)}
+                className="tactile absolute right-0.5 top-0.5 rounded-sm bg-elevated/90 px-1 text-[10px] leading-tight text-fg-muted hover:text-fg">×</button>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
