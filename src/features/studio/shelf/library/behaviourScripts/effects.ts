@@ -358,8 +358,9 @@ export const SPIN: Work = {
   if (${CALM} || !el.animate) return;
   var t = Number(inputs.period); if (!isFinite(t) || t <= 0) t = 20;
   var turn = inputs.direction === "ccw" ? "-360deg" : "360deg";
-  /* On the rotate property, added to any turn the part has of its own. */
-  el.animate([{ rotate: "0deg" }, { rotate: turn }], { duration: t * 1000, iterations: Infinity, easing: "linear", composite: "add" });
+  /* On the rotate property, added to any turn the part has of its own. With none, it replaces, so the browser's compositor turns it smoothly off the main thread. */
+  var own = getComputedStyle(el).rotate, mine = own && own !== "none" && parseFloat(own) !== 0;
+  el.animate([{ rotate: "0deg" }, { rotate: turn }], { duration: t * 1000, iterations: Infinity, easing: "linear", composite: mine ? "add" : "replace" });
 });
 `,
 };
@@ -389,8 +390,15 @@ export const FLOAT: Work = {
   var sign = inputs.toward === "+" ? 1 : -1, far = (sign * d).toFixed(2) + "px";
   var ease = /^[\\w\\s.,()-]+$/.test(inputs.ease || "") ? inputs.ease : "ease-in-out";
   var out = inputs.axis === "x" ? far + " 0px" : "0px " + far;
-  /* On the translate property, added to wherever else the part is moved (a layer following the pointer). */
-  el.animate([{ translate: "0px 0px", easing: ease }, { translate: out, easing: ease, offset: 0.5 }, { translate: "0px 0px" }], { duration: t * 1000, iterations: Infinity, composite: "add" });
+  /*
+   * On the translate property, added to wherever else the part is moved (a
+   * layer following the pointer). With no move of its own it replaces: an
+   * added animation runs on the main thread, where a few pixels of travel
+   * land on whole pixels and step (J, 2026-10-10: "slightly framey"); a
+   * replaced one runs on the compositor and glides between pixels.
+   */
+  var own = getComputedStyle(el).translate, mine = own && own !== "none" && !/^0(px)?( 0(px)?)*$/.test(own);
+  el.animate([{ translate: "0px 0px", easing: ease }, { translate: out, easing: ease, offset: 0.5 }, { translate: "0px 0px" }], { duration: t * 1000, iterations: Infinity, composite: mine ? "add" : "replace" });
 });
 `,
 };

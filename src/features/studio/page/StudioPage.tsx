@@ -52,7 +52,7 @@ import "../shelf/ui";
 import { LearnedDialog } from "../LearnedPanel";
 import { useLearned } from "../shelf/ui";
 import { learnedVersions } from "../shelf";
-import { putSiteVersion } from "../ShelfCards";
+import { giveWork, putSiteVersion } from "../ShelfCards";
 import { BAND_H, SHELF_OPEN_H, SHELF_STRIP_H, WORK_H, useNarrow, useViewportDevice } from "./sizes";
 import { Toolbar } from "./toolbar";
 import { SIDE_TABS, SHEET, useSideWidth, SideEdge, SheetHandle } from "./side";
@@ -223,6 +223,9 @@ export function StudioPage() {
     (w as unknown as { __studioRecord?: () => Promise<unknown> }).__studioRecord = () => import("../exportForCode").then((m) => JSON.parse(m.boardRecord()));
     (w as unknown as { __studioLearned?: () => unknown }).__studioLearned = () => useLearned.getState().lib;
     (w as unknown as { __studioNodes?: () => unknown }).__studioNodes = () => useStudio.getState().nodes;
+    /* A shelf effect put on a part, as a drop or "Put it on" puts it: for the checks (tests/speed-bar.mjs). */
+    (w as unknown as { __studioGiveWork?: (id: string, work: string) => void }).__studioGiveWork = (id, work) => giveWork(id, work, {});
+    (w as unknown as { __studioSelection?: () => string[] }).__studioSelection = () => useStudio.getState().selection;
     /* A saved component placed on the open board as the shelf's Add places it: for the checks (tests/universal-effects.mjs). */
     (w as unknown as { __studioPutComponent?: (id: string, at?: { x: number; y: number }) => string[] | null }).__studioPutComponent = (id, at) => {
       const c = (useLearned.getState().lib.components ?? []).find((x) => x.id === id || x.name === id);

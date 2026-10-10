@@ -24,6 +24,7 @@
  */
 import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../shelf";
 import { AMBIENT } from "../shelf";
+import { carriers } from "./carry";
 
 type Def = (el: HTMLElement, inputs: Record<string, string>, api: unknown) => unknown;
 interface Runtime { define: (id: string, fn: Def) => void; api: unknown }
@@ -60,7 +61,23 @@ function softly(feature: string, inputs: Record<string, string>): Record<string,
 }
 
 /** Runs every feature switched on for the page's parts; returns what undoes it. `board`: the board's own, softly (above). */
-export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?: unknown }[], opts: { board?: boolean; only?: { part: string; feature: string } } = {}): () => void {
+type Placed = { id: string; work?: unknown; x?: number; y?: number; w?: number; h?: number };
+
+/**
+ * ON THE BOARD, A MOVING PART CARRIES WHAT IS ON IT, as the Preview and the
+ * published page do (`carry.ts`): the parts drawn over it play the same
+ * motion, turned about its middle, so an icon's shapes, a panel's words go
+ * round and bob with it rather than standing still on top of it.
+ */
+function boardRiders(nodes: readonly Placed[], moving: ReadonlySet<string>): Map<string, Placed[]> {
+  const boxed = nodes.filter((n) => [n.x, n.y, n.w, n.h].every((v) => typeof v === "number"));
+  const by = carriers(boxed.map((n) => ({ id: n.id, x: n.x!, y: n.y!, w: n.w!, h: n.h!, moves: moving.has(n.id) })));
+  const out = new Map<string, Placed[]>();
+  for (const n of boxed) { const o = by.get(n.id); if (o) out.set(o, [...(out.get(o) ?? []), n]); }
+  return out;
+}
+
+export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { board?: boolean; only?: { part: string; feature: string } } = {}): () => void {
   const all = pageFeatures(nodes as { id: string; work?: null }[]);
   const board = !!opts.board;
   /*
@@ -88,6 +105,7 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
     try { new Function("siteFeatures", w.script)(rt.F); } catch { /* a feature that will not load is left out, as published */ }
   }
   const touched: { el: HTMLElement; style: string | null }[] = [];
+  const riders = board ? boardRiders(nodes, new Set(bindings.map((b) => b.part))) : null;
   const timers: number[] = [];
   for (const b of bindings) {
     const el = board
@@ -102,6 +120,15 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
       const r = fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);
       if (typeof r === "number") timers.push(r);
     } catch { /* as the runtime does: the part keeps what it was drawn as */ }
+    const host = riders ? nodes.find((n) => n.id === b.part) : null;
+    for (const k of (host && riders?.get(b.part)) || []) {
+      const kel = root.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(k.id)}"] > [data-part-drawn]`);
+      if (!kel) continue;
+      if (!touched.some((t) => t.el === kel)) touched.push({ el: kel, style: kel.getAttribute("style") });
+      kel.style.transformOrigin = `${host!.x! + host!.w! / 2 - k.x!}px ${host!.y! + host!.h! / 2 - k.y!}px`;
+      kel.setAttribute("data-board-moves-of", b.part);
+      try { fn(kel, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api); } catch { /* the rider stays as drawn */ }
+    }
     /* The part drawn again in a "What's new" card works as the part does, as published (`RUNTIME_JS`). */
     if (board || NOT_ON_COPIES.includes(b.feature)) continue;
     for (const copy of Array.from(root.querySelectorAll<HTMLElement>(`[data-copy-of="${CSS.escape(b.part)}"]`))) {
@@ -118,6 +145,7 @@ export function runWorks(root: HTMLElement, nodes: readonly { id: string; work?:
       /* A layer a feature drew into the part (the dust's canvas): taken out, and its loop stops with it. */
       el.querySelectorAll(":scope > [data-feature-layer]").forEach((x) => x.remove());
       el.removeAttribute("data-board-moves");
+      el.removeAttribute("data-board-moves-of");
       if (style === null) el.removeAttribute("style"); else el.setAttribute("style", style);
     }
   };

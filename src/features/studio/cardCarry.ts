@@ -24,6 +24,8 @@
  */
 import * as React from "react";
 import { startEdgeScroll } from "./board/edgeScroll";
+import { useStudio } from "./board/store";
+import { iconOf } from "./owner";
 
 /* The shelf lowered for the length of a carry. Not the fold he chooses (kept across reloads): this comes back up on let go. */
 let lowered = false;
@@ -63,6 +65,16 @@ export interface CarryOptions {
 
 const MOVE_PX = 6;
 
+/** A shape inside an icon (`svg > path`) draws nothing of its own: an effect dropped on it goes on the icon (`owner.ts#iconOf`). */
+function iconAbove(el: HTMLElement | null): HTMLElement | null {
+  const id = el?.getAttribute("data-node-id");
+  if (!el || !id) return el;
+  const nodes = useStudio.getState().nodes;
+  const n = nodes.find((x) => x.id === id);
+  const icon = n ? iconOf(nodes, n) : null;
+  return (icon && document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(icon.id)}"]`)) || el;
+}
+
 /** The board part under a point, skipping anything carried or ringed. */
 export function partAt(x: number, y: number): { node: HTMLElement | null; overBoard: boolean } {
   const els = document.elementsFromPoint(x, y) as HTMLElement[];
@@ -70,7 +82,7 @@ export function partAt(x: number, y: number): { node: HTMLElement | null; overBo
     if (el.closest("[data-card-carried],[data-carry-ring]")) continue;
     const board = el.closest("[data-board-tool]");
     if (!board) return { node: null, overBoard: false };
-    return { node: el.closest<HTMLElement>("[data-node-id]"), overBoard: true };
+    return { node: iconAbove(el.closest<HTMLElement>("[data-node-id]")), overBoard: true };
   }
   return { node: null, overBoard: false };
 }

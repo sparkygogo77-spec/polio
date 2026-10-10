@@ -85,6 +85,27 @@ export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?
   if (isOwner(n)) return null;
   let best: N | null = null;
   for (const c of nodes) if (isOwner(c) && holds(c, n) && (!best || area(c) < area(best))) best = c;
+  /* A shape inside an icon nothing else owns is the icon's (`iconOf`); inside a button, the button still wins. */
+  return best ?? iconOf(nodes, n);
+}
+
+/**
+ * AN ICON IS ONE THING. A captured `<svg>` is drawn whole by its own picture,
+ * and the shapes inside it (`svg > path`, a circle, a group) come in as parts
+ * of their own: boxes that draw nothing, laid over the icon. A press landed
+ * on the shape, so the icon could not be picked, and a Spin or Float given to
+ * it turned an empty box (J, 2026-10-10: the TV icon by PonsStars' heading).
+ * The outermost `svg` that holds the shape is what a press picks.
+ */
+const SVG_INNER = /^(path|circle|ellipse|rect|line|polyline|polygon|g|use|text|tspan)\b/i;
+const isSvgShape = (n: Boxed) => {
+  const steps = pathOf(n).split(">").map((x) => x.trim());
+  return steps.length > 1 && SVG_INNER.test(steps[steps.length - 1]!) && steps.slice(0, -1).some((x) => /^svg\b/i.test(x));
+};
+export function iconOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | null {
+  if (!isSvgShape(n)) return null;
+  let best: N | null = null;
+  for (const c of nodes) if (/^svg\b/i.test(pathOf(c).split(">").pop()?.trim() ?? "") && holds(c, n) && (!best || area(c) > area(best))) best = c;
   return best;
 }
 
