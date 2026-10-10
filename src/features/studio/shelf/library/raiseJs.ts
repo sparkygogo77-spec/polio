@@ -13,6 +13,15 @@
  * the published page (`siteMotion.ts`) and the kit's `vendor/builder-motion.js`
  * run the same lines. It defines `raiseOver(nodes)`, which raises them and
  * returns the function that puts them back.
+ *
+ * JAGGED EDGES (J, 2026-10-10: "the tilt on hover is now producing jagged
+ * edges"). A part leaning in 3D is drawn on a layer of its own, and the
+ * browser does not smooth the outer edge of that layer: where the part's
+ * border or hard shadow reaches the edge, a slight lean shows as steps.
+ * While it tilts, each tilting part gets a clear outline a little wider than
+ * its shadow, so the layer has a see-through rim and its drawn edges sit
+ * inside it, smoothed like the rest. Nothing shows; a part that already has
+ * an outline (a focus ring) keeps it.
  */
 export const RAISE_JS = `function raiseOver(nodes) {
   /* Each box keeps what it had and how many tilts hold it up, so one settling late never leaves another down, or up. */
@@ -20,6 +29,16 @@ export const RAISE_JS = `function raiseOver(nodes) {
   var R = window.__builderRaise || (window.__builderRaise = { on: 0, top: 0 }), top = ++R.top;
   R.on++;
   var kept = [], seen = [];
+  /* A clear rim past the widest shadow, so the layer's own (unsmoothed) edge never falls on a drawn one. */
+  function rim(c) {
+    var w = 0;
+    String(c.boxShadow || "").split(/,(?![^()]*\\))/).forEach(function (one) {
+      if (/inset/.test(one)) return;
+      var v = (one.match(/-?\\d*\\.?\\d+px/g) || []).map(function (x) { return Math.abs(parseFloat(x)); });
+      w = Math.max(w, Math.max(v[0] || 0, v[1] || 0) + (v[2] || 0) + (v[3] || 0));
+    });
+    return Math.min(64, Math.ceil(w) + 2);
+  }
   function layer(c) { return c.zIndex !== "auto" || c.transform !== "none" || Number(c.opacity) < 1 || c.filter !== "none" || c.isolation === "isolate" || /transform|opacity|filter/.test(c.willChange || ""); }
   nodes.forEach(function (p) {
     for (var n = p; n && n.nodeType === 1 && n !== n.ownerDocument.body && n !== n.ownerDocument.documentElement; n = n.parentElement) {
@@ -31,6 +50,7 @@ export const RAISE_JS = `function raiseOver(nodes) {
       if (n !== p && !layer(c)) continue;
       n.__raised = { n: 1, z: n.style.zIndex, pos: n.style.position, base: 1000 + (parseInt(c.zIndex, 10) || 0) };
       kept.push(n);
+      if (n === p && c.outlineStyle === "none") { n.__raised.ol = [n.style.outline, n.style.outlineOffset]; n.style.outline = rim(c) + "px solid transparent"; n.style.outlineOffset = "0px"; }
       var up = n.parentElement ? getComputedStyle(n.parentElement).display : "";
       if (c.position === "static" && !/flex|grid/.test(up)) n.style.position = "relative";
       n.style.zIndex = String(n.__raised.base + top);
@@ -40,7 +60,7 @@ export const RAISE_JS = `function raiseOver(nodes) {
   return function () {
     if (done) return;
     done = true;
-    kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; n.__raised = null; } });
+    kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; if (h.ol) { n.style.outline = h.ol[0]; n.style.outlineOffset = h.ol[1]; } n.__raised = null; } });
     if (--R.on <= 0) { R.on = 0; R.top = 0; }
     kept = [];
   };

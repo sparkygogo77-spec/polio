@@ -123,6 +123,16 @@ siteFeatures.define("tilt", function (el, inputs) {
   var R = window.__builderRaise || (window.__builderRaise = { on: 0, top: 0 }), top = ++R.top;
   R.on++;
   var kept = [], seen = [];
+  /* A clear rim past the widest shadow, so the layer's own (unsmoothed) edge never falls on a drawn one. */
+  function rim(c) {
+    var w = 0;
+    String(c.boxShadow || "").split(/,(?![^()]*\))/).forEach(function (one) {
+      if (/inset/.test(one)) return;
+      var v = (one.match(/-?\d*\.?\d+px/g) || []).map(function (x) { return Math.abs(parseFloat(x)); });
+      w = Math.max(w, Math.max(v[0] || 0, v[1] || 0) + (v[2] || 0) + (v[3] || 0));
+    });
+    return Math.min(64, Math.ceil(w) + 2);
+  }
   function layer(c) { return c.zIndex !== "auto" || c.transform !== "none" || Number(c.opacity) < 1 || c.filter !== "none" || c.isolation === "isolate" || /transform|opacity|filter/.test(c.willChange || ""); }
   nodes.forEach(function (p) {
     for (var n = p; n && n.nodeType === 1 && n !== n.ownerDocument.body && n !== n.ownerDocument.documentElement; n = n.parentElement) {
@@ -134,6 +144,7 @@ siteFeatures.define("tilt", function (el, inputs) {
       if (n !== p && !layer(c)) continue;
       n.__raised = { n: 1, z: n.style.zIndex, pos: n.style.position, base: 1000 + (parseInt(c.zIndex, 10) || 0) };
       kept.push(n);
+      if (n === p && c.outlineStyle === "none") { n.__raised.ol = [n.style.outline, n.style.outlineOffset]; n.style.outline = rim(c) + "px solid transparent"; n.style.outlineOffset = "0px"; }
       var up = n.parentElement ? getComputedStyle(n.parentElement).display : "";
       if (c.position === "static" && !/flex|grid/.test(up)) n.style.position = "relative";
       n.style.zIndex = String(n.__raised.base + top);
@@ -143,7 +154,7 @@ siteFeatures.define("tilt", function (el, inputs) {
   return function () {
     if (done) return;
     done = true;
-    kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; n.__raised = null; } });
+    kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; if (h.ol) { n.style.outline = h.ol[0]; n.style.outlineOffset = h.ol[1]; } n.__raised = null; } });
     if (--R.on <= 0) { R.on = 0; R.top = 0; }
     kept = [];
   };
@@ -771,6 +782,16 @@ siteFeatures.define("copy-toast", function (el, inputs) {
       var R = window.__builderRaise || (window.__builderRaise = { on: 0, top: 0 }), top = ++R.top;
       R.on++;
       var kept = [], seen = [];
+      /* A clear rim past the widest shadow, so the layer's own (unsmoothed) edge never falls on a drawn one. */
+      function rim(c) {
+        var w = 0;
+        String(c.boxShadow || "").split(/,(?![^()]*\))/).forEach(function (one) {
+          if (/inset/.test(one)) return;
+          var v = (one.match(/-?\d*\.?\d+px/g) || []).map(function (x) { return Math.abs(parseFloat(x)); });
+          w = Math.max(w, Math.max(v[0] || 0, v[1] || 0) + (v[2] || 0) + (v[3] || 0));
+        });
+        return Math.min(64, Math.ceil(w) + 2);
+      }
       function layer(c) { return c.zIndex !== "auto" || c.transform !== "none" || Number(c.opacity) < 1 || c.filter !== "none" || c.isolation === "isolate" || /transform|opacity|filter/.test(c.willChange || ""); }
       nodes.forEach(function (p) {
         for (var n = p; n && n.nodeType === 1 && n !== n.ownerDocument.body && n !== n.ownerDocument.documentElement; n = n.parentElement) {
@@ -782,6 +803,7 @@ siteFeatures.define("copy-toast", function (el, inputs) {
           if (n !== p && !layer(c)) continue;
           n.__raised = { n: 1, z: n.style.zIndex, pos: n.style.position, base: 1000 + (parseInt(c.zIndex, 10) || 0) };
           kept.push(n);
+          if (n === p && c.outlineStyle === "none") { n.__raised.ol = [n.style.outline, n.style.outlineOffset]; n.style.outline = rim(c) + "px solid transparent"; n.style.outlineOffset = "0px"; }
           var up = n.parentElement ? getComputedStyle(n.parentElement).display : "";
           if (c.position === "static" && !/flex|grid/.test(up)) n.style.position = "relative";
           n.style.zIndex = String(n.__raised.base + top);
@@ -791,7 +813,7 @@ siteFeatures.define("copy-toast", function (el, inputs) {
       return function () {
         if (done) return;
         done = true;
-        kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; n.__raised = null; } });
+        kept.forEach(function (n) { var h = n.__raised; if (h && --h.n <= 0) { n.style.zIndex = h.z; n.style.position = h.pos; if (h.ol) { n.style.outline = h.ol[0]; n.style.outlineOffset = h.ol[1]; } n.__raised = null; } });
         if (--R.on <= 0) { R.on = 0; R.top = 0; }
         kept = [];
       };
