@@ -7,7 +7,7 @@
  * preview which the scroll affect does nothing ... it just extended the page
  * for no reason as you can see the dots dont even extend with it".
  *
- *   1. The site's own motion script (library/siteMotion.ts, also in the kit's
+ *   1. The site's own motion script (library/siteMotion.ts and scrollMotionJs.ts, also in the kit's
  *      vendor/builder-motion.js): a wheel notch glides. A frame after it the
  *      page has moved part of the way, and it comes to rest where the notch
  *      said. The kit's file is told about it, heavy included.
@@ -19,7 +19,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/smooth-scroll-site.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/shelf/library/smoothWheelJs.ts, src/features/studio/live/LiveShell.tsx, src/features/studio/live/layout.ts, src/features/studio/board/SiteWideRow.tsx, src/features/studio/board/DesktopCanvas.tsx, src/features/studio/send-out/kitMotion.ts, kit/starter/vendor/builder-motion.js
+ * Covers: src/features/studio/shelf/library/scrollMotionJs.ts, src/features/studio/live/LiveShell.tsx, src/features/studio/live/layout.ts, src/features/studio/board/SiteWideRow.tsx, src/features/studio/board/DesktopCanvas.tsx, src/features/studio/send-out/kitMotion.ts, kit/starter/vendor/builder-motion.js
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -60,7 +60,7 @@ try {
   check("1. The site's script: a wheel notch glides (part way a frame later) and rests where it said", site.soon > 0 && site.soon < 380 && Math.abs(site.moved - 400) <= 2, JSON.stringify(site));
   const kit = readFileSync(join(here, "..", "kit", "starter", "vendor", "builder-motion.js"), "utf8");
   const said = siteMotionValue([{ featureId: "smooth-scroll", options: { strength: "heavy" } }]);
-  check("…the kit's file runs it, told by the style layer, heavy included", kit.includes("function smoothWheel(") && kit.includes('m.id === "smooth-scroll"') && said === '"smooth-scroll?strength=heavy"', said);
+  check("…the kit's file runs it, told by the style layer, heavy included", kit.includes("function scrollMotion(") && kit.includes('m.id === "smooth-scroll"') && said === '"smooth-scroll?strength=heavy"', said);
 
   /* 2. */
   const board = structuredClone(readBoard("pst"));

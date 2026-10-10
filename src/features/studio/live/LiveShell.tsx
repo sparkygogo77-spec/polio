@@ -12,12 +12,13 @@ import type { Behaviours } from "./behaviours";
 import { tint } from "../shelf/run";
 import { leanSet } from "./carry";
 import { RAISE_JS } from "../shelf/library/raiseJs";
-import { SMOOTH_WHEEL_JS } from "../shelf/library/smoothWheelJs";
+import { SCROLL_MOTION_JS } from "../shelf/library/scrollMotionJs";
 
 /** Lifts a leaning card over the parts around it; returns what puts it back (`raiseJs.ts`, the same lines the published page runs). */
 const raiseOver = new Function(`${RAISE_JS}; return raiseOver;`)() as (nodes: HTMLElement[]) => () => void;
-/** The wheel glides to a stop (`smoothWheelJs.ts`, the same lines the published page runs); returns what turns it off. */
-const smoothWheel = new Function(`${SMOOTH_WHEEL_JS}; return smoothWheel;`)() as (box: HTMLElement | null, strength: string) => () => void;
+/** Smooth, Snap and Depth scrolling (`scrollMotionJs.ts`, the same lines the published page runs); returns what turns it off. */
+type ScrollMotion = (box: HTMLElement | null, o: { smooth: boolean; strength: string; stops: () => Element[]; snap: boolean; sections: () => Element[]; depth: number; layers: () => Element[][] }) => () => void;
+const { scrollMotion, sectionsOf } = new Function(`${SCROLL_MOTION_JS}; return { scrollMotion, sectionsOf };`)() as { scrollMotion: ScrollMotion; sectionsOf: (els: Element[], box: HTMLElement | null) => Element[] };
 
 interface Props {
   behaviours: Behaviours;
@@ -91,17 +92,44 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
   }, [b.progress, b.backToTop, b.parallax, b.described.length, pin]);
 
   /* Scrolling style belongs to the scroller, not to us. */
+  const stopsKey = `${b.smoothStops.join(",")}|${b.snapParts.join(",")}|${b.depthParts.join(",")}`;
   React.useEffect(() => {
-    const scroller = rootRef.current?.closest("[data-live-scroller]") as HTMLElement | null;
-    if (!scroller) return;
+    const root = rootRef.current;
+    const scroller = root?.closest("[data-live-scroller]") as HTMLElement | null;
+    if (!root || !scroller) return;
     const before = { behavior: scroller.style.scrollBehavior, snap: scroller.style.scrollSnapType };
     if (b.smooth) scroller.style.scrollBehavior = "smooth";
-    if (b.snap) scroller.style.scrollSnapType = `${b.snap === "horizontal" ? "x" : "y"} proximity`;
-    /* A link's jump eased and nothing else did: the wheel still stepped, so the Preview scrolled as if the switch were off. */
+    /* Sideways snapping stays the browser's; up and down is the script's, section by section. */
+    if (b.snap === "horizontal") scroller.style.scrollSnapType = "x proximity";
+    /*
+     * A wheel notch eased its own distance and the browser already eases one,
+     * so the Preview scrolled as if the switch were off. Now the parts given
+     * an effect are what it acts on: stops, sections, background layers.
+     */
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const off = b.smooth && !still ? smoothWheel(scroller, b.smoothStrength) : null;
+    const page = root.parentElement ?? scroller;
+    const all = () => Array.from(page.querySelectorAll<HTMLElement>("[data-live-node]"));
+    const byId = (ids: string[]) => ids.map((id) => page.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`)).filter((n): n is HTMLElement => !!n && n.getBoundingClientRect().height > 0);
+    /* The Preview draws parts flat, side by side in one layer: a layer moves with every part drawn inside it. */
+    const inside = (outer: Element) => {
+      const r = outer.getBoundingClientRect();
+      return all().filter((n) => { if (n === outer) return false; const q = n.getBoundingClientRect(); return q.height > 0 && q.top >= r.top - 1 && q.bottom <= r.bottom + 1 && q.left >= r.left - 1 && q.right <= r.right + 1; });
+    };
+    const vertical = b.snap === "vertical";
+    const off = (b.smooth || vertical || b.depthParts.length) && !still
+      ? scrollMotion(scroller, {
+          smooth: b.smooth,
+          strength: b.smoothStrength,
+          stops: () => byId(b.smoothStops),
+          snap: vertical,
+          sections: () => (b.snapParts.length ? byId(b.snapParts) : sectionsOf(all(), scroller)),
+          depth: b.depthParts.length ? b.parallax || 0.18 : 0,
+          layers: () => byId(b.depthParts).map((n) => [n, ...inside(n)]),
+        })
+      : null;
     return () => { off?.(); scroller.style.scrollBehavior = before.behavior; scroller.style.scrollSnapType = before.snap; };
-  }, [b.smooth, b.smoothStrength, b.snap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [b.smooth, b.smoothStrength, b.snap, b.parallax, stopsKey]);
 
   /* Each part comes in as it arrives. */
   React.useEffect(() => {

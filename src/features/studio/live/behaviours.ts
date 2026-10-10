@@ -25,6 +25,14 @@ export interface Behaviours {
   /** How long a wheel's glide takes: "light" or "heavy" (the card's Strength). */
   smoothStrength: string;
   snap: "vertical" | "horizontal" | null;
+  /**
+   * The parts each scroll effect was dropped on, by node id (the switch's
+   * `options.parts`): Smooth's stops a wheel notch glides to, Snap's
+   * sections, Depth's background layers (`scrollMotionJs.ts`).
+   */
+  smoothStops: string[];
+  snapParts: string[];
+  depthParts: string[];
   intro: boolean;
   cursor: string | null;
   /** The custom cursor's own picture (a small PNG, its tip top left), when it is "picture". */
@@ -67,13 +75,16 @@ function pageScroll(b: Behaviours, scroll: string | undefined) {
 }
 
 /** A cursor's own picture: a data address only, never a link out. */
+/** The parts a scroll effect was dropped on (`ShelfCards.tsx#dropFeature`), as a comma list in its options. */
+export const partsOf = (o: Record<string, string> | undefined): string[] => (o?.parts ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+
 const pictureCursor = (o: Record<string, string>) => (o.style === "picture" && o.picture?.startsWith("data:image/") ? o.picture : null);
 
 export function deriveBehaviours(nodes: StudioNode[], scroll?: string, frameWidth = 1440): Behaviours {
   const pageH = nodes.reduce((m, n) => (isBehaviour(n.featureId) || n.state ? m : Math.max(m, n.y + n.h)), 0) || SCREEN;
   const b: Behaviours = {
     progress: false, backToTop: false, backToTopAt: CORNER_DEFAULT, reveal: false, revealStyle: "fade-up", parallax: 0, smooth: false, smoothStrength: "light",
-    snap: null, intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
+    snap: null, smoothStops: [], snapParts: [], depthParts: [], intro: false, cursor: null, cursorPicture: null, tilt: false, confetti: false, described: [], any: false,
   };
   for (const n of nodes) {
     if (!isBehaviour(n.featureId)) continue;
@@ -85,9 +96,9 @@ export function deriveBehaviours(nodes: StudioNode[], scroll?: string, frameWidt
       case "scroll-progress": b.progress = true; break;
       case "back-to-top": b.backToTop = true; b.backToTopAt = cornerOf(n, frameWidth, pageH); break;
       case "reveal-on-scroll": b.reveal = true; b.revealStyle = o.style ?? "fade-up"; break;
-      case "parallax": b.parallax = STRENGTH[o.strength ?? "medium"] ?? 0.18; break;
-      case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; b.smoothStrength = o.strength === "heavy" ? "heavy" : "light"; break;
-      case "scroll-snap": b.snap = o.axis === "horizontal" ? "horizontal" : "vertical"; break;
+      case "parallax": b.parallax = STRENGTH[o.strength ?? "medium"] ?? 0.18; b.depthParts.push(...partsOf(o)); break;
+      case "smooth-scroll": b.smooth = (o.strength ?? "light") !== "off"; b.smoothStrength = o.strength === "heavy" ? "heavy" : "light"; if (b.smooth) b.smoothStops.push(...partsOf(o)); break;
+      case "scroll-snap": b.snap = o.axis === "horizontal" ? "horizontal" : "vertical"; b.snapParts.push(...partsOf(o)); break;
       case "page-load": b.intro = true; break;
       case "cursor-effects": b.cursor = o.style ?? "dot"; b.cursorPicture = pictureCursor(o); if (b.cursor === "picture" && !b.cursorPicture) b.cursor = "dot"; break;
       case "hover-tilt": b.tilt = true; break;

@@ -52,6 +52,7 @@ import {
   needsOf, siteWordsOf, statusOf, switchOf, switchStatus, whereOf, type Need, type SiteWords, type Status,
 } from "./shelfFacts";
 import { play } from "@/core/audio/engine";
+import { publish as publishToast } from "@/core/toasts/store";
 import { armPutOn, liftCard, type CarryDrop } from "./cardCarry";
 import { offerSpeed } from "./speedBar";
 import { askCursorDraw, cursorFrom } from "./cursorPicture";
@@ -609,7 +610,7 @@ export const ShelfCard = React.memo(function ShelfCard({ feature, width, words, 
       ref={shown}
       onPointerEnter={wake}
       onPointerLeave={rest}
-      onPointerDown={(e) => liftCard(e.nativeEvent, e.currentTarget, { what: feature.name, ontoPart: !!partWorkOf(feature.id), drop: (d) => dropFeature(feature.id, d) })}
+      onPointerDown={(e) => liftCard(e.nativeEvent, e.currentTarget, { what: feature.name, ontoPart: !!partWorkOf(feature.id) || SCROLL_PART.has(feature.id), drop: (d) => dropFeature(feature.id, d) })}
     >
       <div
         role="button"
@@ -940,10 +941,37 @@ const partWorkOf = (featureId: string) => (getWork(PART_WORK[featureId]) ? PART_
 function dropFeature(featureId: string, d: CarryDrop): boolean {
   const work = partWorkOf(featureId);
   if (d.node && work) { giveWork(d.node, work, {}); return true; }
+  if (d.node && SCROLL_PART.has(featureId)) { scrollOnPart(featureId, d.node); return true; }
   if (!d.overBoard) return false;
   if (switchOf(featureId)) { setSwitch(featureId, true); return true; }
   window.dispatchEvent(new CustomEvent("studio:place-feature", { detail: { featureId, clientX: d.clientX, clientY: d.clientY } }));
   return true;
+}
+
+/**
+ * A SCROLL EFFECT DROPPED ON A PART GIVES THAT PART A ROLE (J, 2026-10-10:
+ * "i expected where i set my part (smooth scrolling) to act as a stop for a
+ * single scroll wheel to glide to"). The drop used to turn the switch on
+ * and forget the part. Now the switch goes on for the site and the part is
+ * kept in its `options.parts`: Smooth's stop, Snap's section, Depth's
+ * background layer (`library/scrollMotionJs.ts` does what each means).
+ */
+const SCROLL_PART = new Set(["smooth-scroll", "scroll-snap", "parallax"]);
+const ROLE_WORDS: Record<string, string> = { "smooth-scroll": "a stop: one wheel notch glides the page to it", "scroll-snap": "a section the page snaps to", parallax: "a background layer: it moves slower than the page" };
+function scrollOnPart(featureId: string, nodeId: string) {
+  const target = useStudio.getState().nodes.find((n) => n.id === nodeId);
+  if (!target) return;
+  setSwitch(featureId, true);
+  const st = useStudio.getState();
+  const sw = st.nodes.find((n) => n.featureId === featureId && n.pageId === target.pageId);
+  if (!sw) return;
+  const had = (sw.options?.parts ?? "").split(",").filter(Boolean);
+  const o: Record<string, string> = { ...sw.options, off: "", parts: [...new Set([...had, nodeId])].join(",") };
+  /* A Smooth scrolling left at "off" would make no stop. */
+  if (featureId === "smooth-scroll" && o.strength === "off") o.strength = "light";
+  st.updateNode(sw.id, { options: o });
+  play("confirm");
+  publishToast({ key: `studio:scroll-role:${featureId}`, title: `“${target.label || "This part"}” is ${ROLE_WORDS[featureId]}`, body: "Try it in Preview.", level: "success", source: "studio" });
 }
 
 /** Put a site's own version on the picked part, or on a new part when nothing is picked. */

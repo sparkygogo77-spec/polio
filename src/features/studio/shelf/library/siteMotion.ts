@@ -28,7 +28,7 @@
  * Pure: no store, no React, so `tests/shelf-publish.mjs` runs it as written.
  */
 import { RAISE_JS } from "./raiseJs.ts";
-import { SMOOTH_WHEEL_JS } from "./smoothWheelJs.ts";
+import { SCROLL_MOTION_JS } from "./scrollMotionJs.ts";
 
 /** The whole-site motions a page asks for: `live/behaviours.ts#Behaviours`, as the page needs them. */
 export interface SiteMotionSettings {
@@ -44,6 +44,10 @@ export interface SiteMotionSettings {
   /** How long a wheel's glide takes: "light" (the default) or "heavy". */
   smoothStrength?: string;
   snap: "vertical" | "horizontal" | null;
+  /** The parts given Smooth (stops), Snap (sections) and Depth (background layers), by published id (`scrollMotionJs.ts`). */
+  stops?: string[];
+  snapParts?: string[];
+  depthParts?: string[];
   intro: boolean;
   cursor: string | null;
   /** The cursor's picture, a small PNG as a data address, when the cursor is "picture". */
@@ -100,15 +104,26 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     if (c.parallax && !still) document.body.style.backgroundPositionY = (-top * c.parallax) + "px";
   }
   if (c.progress || c.backToTop || c.parallax) { window.addEventListener("scroll", onScroll, { passive: true }); onScroll(); }
-  if (c.smooth && !still) {
-    /* A link's jump eases; the wheel glides to a stop (\`smoothWheelJs.ts\`). */
-    root.style.scrollBehavior = "smooth";
-    ${SMOOTH_WHEEL_JS}
-    smoothWheel(null, c.smoothStrength);
-  }
-  if (c.snap) {
-    root.style.scrollSnapType = (c.snap === "horizontal" ? "x" : "y") + " proximity";
+  /* Smooth, Snap and Depth (\`scrollMotionJs.ts\`): the parts given each, by id, or handed over as elements by the kit's file. */
+  function els(ids, given) { return given || (ids || []).map(function (id) { return document.getElementById(id); }).filter(Boolean); }
+  var stops = els(c.stops, c.stopEls), snaps = els(c.snapParts, c.snapEls), deep = els(c.depthParts, c.depthEls);
+  if (c.smooth && !still) root.style.scrollBehavior = "smooth";
+  if (c.snap === "horizontal") {
+    root.style.scrollSnapType = "x proximity";
     parts.forEach(function (p) { if (p.getBoundingClientRect().width >= window.innerWidth * 0.8) p.style.scrollSnapAlign = "start"; });
+  }
+  if (!still && (c.smooth || c.snap === "vertical" || (c.parallax && deep.length))) {
+    ${SCROLL_MOTION_JS}
+    /* The script snaps; a style sheet's own snapping would fight each frame of its glide. */
+    if (c.snap === "vertical") root.style.scrollSnapType = "none";
+    scrollMotion(null, {
+      smooth: c.smooth, strength: c.smoothStrength,
+      stops: function () { return stops.filter(function (n) { return n.isConnected && n.getBoundingClientRect().height > 0; }); },
+      snap: c.snap === "vertical",
+      sections: function () { return snaps.length ? snaps : sectionsOf(parts, null); },
+      depth: deep.length ? c.parallax || 0.18 : 0,
+      layers: function () { return deep.map(function (n) { return [n]; }); }
+    });
   }
   if (c.reveal && !still && "IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (es) {
