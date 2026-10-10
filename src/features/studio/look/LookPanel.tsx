@@ -18,6 +18,7 @@ import {
 import { Spectrum } from "../MenuConsole";
 import { fillLayers, resolvePalette } from "../shelf/run";
 import { useHeldStudio, useStudio } from "../board/store";
+import { carryLight } from "../LightPlacer";
 import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
 import { SiteColoursSection, SiteFontsSection } from "../SiteColours";
@@ -608,7 +609,10 @@ function LightSection() {
       <button
         type="button"
         data-place-light=""
-        onClick={() => { play("confirm"); useStudio.getState().setPlacingLight(true); }}
+        /* Press and drag it out onto the page, or press and let go and then
+           press the page: both place it (`carryLight`, `LightPlacer.tsx`). */
+        onPointerDown={carryLight}
+        onClick={() => useStudio.getState().setPlacingLight(true)}
         className="tactile mb-2 flex w-full items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5 text-left hover:bg-hover"
       >
         <span

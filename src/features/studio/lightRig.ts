@@ -30,6 +30,7 @@
  */
 import { liftCss, type Light } from "./look";
 import { useStudio } from "./board/store";
+import { castsShadow, type CastNode } from "./lightCast";
 
 /** One part, as the rig needs it: where to write, and where it stands. */
 interface Surface {
@@ -97,6 +98,8 @@ export function startLightRig(): boolean {
   const h = page.h / Math.max(0.0001, scale);
   const surfaces: Surface[] = [];
   for (const n of st.nodes) {
+    // Only what stands up under the lamp at rest is lit while it moves.
+    if (!castsShadow(n as CastNode)) continue;
     const el = document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(n.id)}"]`);
     if (!el) continue;
     surfaces.push({
