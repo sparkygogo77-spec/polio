@@ -9,6 +9,7 @@
 import * as React from "react";
 import type { Behaviours } from "./behaviours";
 import { tint } from "../shelf/run";
+import { leanSet } from "./carry";
 
 interface Props {
   behaviours: Behaviours;
@@ -78,27 +79,45 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     return () => io.disconnect();
   }, [b.reveal, children]);
 
-  /* Cards lean toward the pointer, using ratios so scale does not matter. */
+  /*
+   * Cards lean toward the pointer, using ratios so scale does not matter.
+   * A CARD LEANS WHOLE. The parts are drawn on their own, so the part under
+   * the pointer was a word or a button and only it leaned. The card is the
+   * smallest part under the pointer that holds others (narrower than the
+   * page, so a full-width band does not tip), and it leans with everything
+   * drawn over it, all about the card's middle (`leanSet`).
+   */
   React.useEffect(() => {
     const root = rootRef.current;
     if (!root || !b.tilt) return;
+    let boxes: { el: HTMLElement; r: DOMRect }[] | null = null;
+    let leaning: { card: HTMLElement; set: { el: HTMLElement; origin: string }[] } | null = null;
+    const rest = () => { for (const x of leaning?.set ?? []) { x.el.style.transform = ""; x.el.style.transformOrigin = ""; } leaning = null; };
+    const forget = () => { rest(); boxes = null; };
     const onMove = (e: PointerEvent) => {
-      const node = (e.target as HTMLElement | null)?.closest("[data-live-node]") as HTMLElement | null;
-      if (!node) return;
-      const r = node.getBoundingClientRect();
-      if (!r.width || !r.height) return;
+      if (!boxes) { rest(); boxes = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).map((el) => ({ el, r: el.getBoundingClientRect() })).filter((x) => x.r.width && x.r.height); }
+      const hit = leanSet(boxes, e.clientX, e.clientY, root.getBoundingClientRect().width * 0.9);
+      if (!hit) { rest(); return; }
+      if (leaning?.card !== hit.card.el) {
+        rest();
+        const r = hit.card.r, cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const own = hit.set.filter((x) => !hit.set.some((o) => o !== x && o.el.contains(x.el)));
+        leaning = { card: hit.card.el, set: own.map((x) => {
+          const kx = x.r.width ? x.el.offsetWidth / x.r.width : 1, ky = x.r.height ? x.el.offsetHeight / x.r.height : 1;
+          return { el: x.el, origin: `${((cx - x.r.left) * kx).toFixed(2)}px ${((cy - x.r.top) * ky).toFixed(2)}px` };
+        }) };
+      }
+      const r = hit.card.r;
       const dx = (e.clientX - r.left) / r.width - 0.5;
       const dy = (e.clientY - r.top) / r.height - 0.5;
-      node.style.transform = `perspective(900px) rotateX(${(-dy * 7).toFixed(2)}deg) rotateY(${(dx * 9).toFixed(2)}deg)`;
-      node.style.transition = "transform 120ms ease-out";
-    };
-    const onLeave = (e: PointerEvent) => {
-      const node = (e.target as HTMLElement | null)?.closest("[data-live-node]") as HTMLElement | null;
-      if (node) node.style.transform = "";
+      const t = `perspective(900px) rotateX(${(-dy * 7).toFixed(2)}deg) rotateY(${(dx * 9).toFixed(2)}deg)`;
+      for (const x of leaning!.set) { x.el.style.transformOrigin = x.origin; x.el.style.transform = t; x.el.style.transition = "transform 120ms ease-out"; }
     };
     root.addEventListener("pointermove", onMove);
-    root.addEventListener("pointerleave", onLeave, true);
-    return () => { root.removeEventListener("pointermove", onMove); root.removeEventListener("pointerleave", onLeave, true); };
+    root.addEventListener("pointerleave", forget);
+    window.addEventListener("scroll", forget, { passive: true, capture: true });
+    window.addEventListener("resize", forget);
+    return () => { forget(); root.removeEventListener("pointermove", onMove); root.removeEventListener("pointerleave", forget); window.removeEventListener("scroll", forget, { capture: true }); window.removeEventListener("resize", forget); };
   }, [b.tilt]);
 
   /*
@@ -242,3 +261,4 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     </div>
   );
 }
+

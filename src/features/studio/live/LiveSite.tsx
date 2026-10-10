@@ -26,6 +26,7 @@ import { resolvePart } from "../shelf/ui";
 import { homeOf } from "../homePage";
 import { getWork, pageFeatures, usesOf } from "../shelf";
 import { runWorks } from "./runWorks";
+import { carriers, movesWhole } from "./carry";
 import { followsOf, placeFollowers } from "./follow";
 import { leadsOf, withLead } from "../shelf";
 import { holderIds } from "../owner";
@@ -293,8 +294,23 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         ? "slide-in-right var(--motion-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both"
         : "fade-in var(--motion-base) ease-out both";
 
-  /* One part, where the desktop draws it. */
-  const partOf = (p: (typeof placed)[number]) => (
+  /*
+   * A PANEL WITH AN EFFECT CARRIES WHAT IS ON IT (`carry.ts`): drawn inside
+   * its box, as the published page draws it, so its words and buttons lift,
+   * float and tilt with it. Only on the desktop's flat page: at a small width
+   * the parts are already nested by what holds what.
+   */
+  const carried = React.useMemo(() => {
+    if (nested) return new Map<string, (typeof placed)[number][]>();
+    const by = carriers(placed.map((p) => ({ id: p.node.id, x: p.x, y: p.y, w: p.w, h: p.h, moves: movesWhole(p.node.work) && !(p.node as { inert?: boolean }).inert, still: !!(p.node as { state?: unknown }).state || isOverlay(p.node.featureId) })));
+    const kids = new Map<string, (typeof placed)[number][]>();
+    for (const p of placed) { const o = by.get(p.node.id); if (o) kids.set(o, [...(kids.get(o) ?? []), p]); }
+    return kids;
+  }, [nested, placed]);
+  const carriedIds = React.useMemo(() => new Set([...carried.values()].flat().map((p) => p.node.id)), [carried]);
+
+  /* One part, where the desktop draws it; inside the panel that carries it, against that panel's corner. */
+  const partOf = (p: (typeof placed)[number], from: { x: number; y: number } = { x: 0, y: 0 }): React.ReactNode => (
     <div
       key={p.node.id}
       /* A brought-in page's hooks, on the part's box, unless the part draws a control that wears them itself (`parts/PageControls.tsx`). */
@@ -303,7 +319,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       {...nodeProps?.(p.node)}
       className={nested ? ((p.node as { state?: unknown }).state ? "sm-p sm-state" : "sm-p") : undefined}
       style={{
-        position: "absolute", left: p.x, top: p.y, width: p.w,
+        position: "absolute", left: p.x - from.x, top: p.y - from.y, width: p.w,
         // A part the page never let take a press (the grain over everything, a decoration): presses pass through it.
         ...((p.node as { inert?: boolean }).inert ? { pointerEvents: "none" as const } : null),
         // The same floor the board gives a box: its words are never
@@ -320,6 +336,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       }}
     >
       <Block node={withLead(p.node, leads)} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} holder={holders.has(p.node.id)} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} partView={partView} />
+      {carried.get(p.node.id)?.map((k) => partOf(k, { x: p.x, y: p.y }))}
     </div>
   );
   /*
@@ -413,7 +430,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               {(tree?.roots ?? []).filter((n) => byId.has(n.id)).sort((x, y) => keyOf(x.id) - keyOf(y.id)).map((n) => unit(n.id))}
               {breakers("")}
             </>
-          ) : placed.map((p) => partOf(p))}
+          ) : placed.filter((p) => !carriedIds.has(p.node.id)).map((p) => partOf(p))}
           {sections.map((sec) => (
             <div
               key={sec.id}
