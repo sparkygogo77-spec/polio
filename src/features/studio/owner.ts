@@ -23,6 +23,7 @@ import { plain } from "./shelf";
 type Boxed = Pick<StudioNode, "id" | "pageId" | "x" | "y" | "w" | "h" | "featureId" | "link" | "data" | "content"> & {
   from?: { selector?: string } | null;
   locked?: boolean;
+  hooks?: Record<string, string> | null;
 };
 
 const pathOf = (n: Boxed) => (n.from?.selector ?? "").trim();
@@ -68,6 +69,9 @@ export function parentOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | nu
  * stays on the button: a control or a card is never passed up.
  */
 export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?: Record<string, string | undefined> | null): N | null {
+  /* A part inside an app area (kit rule 34) is the app's: a press picks the area. */
+  const app = appAreaOf(nodes, n);
+  if (app) return app;
   /*
    * A layer of a component (its words, its light, its shadow layer) picks the
    * component: they are one thing (`components.ts`). Only the kinds a press
@@ -82,6 +86,58 @@ export function ownerOf<N extends Boxed>(nodes: readonly N[], n: Boxed, palette?
   let best: N | null = null;
   for (const c of nodes) if (isOwner(c) && holds(c, n) && (!best || area(c) < area(best))) best = c;
   return best;
+}
+
+/**
+ * AN APP AREA IS THE CODE'S WORKING BOX (kit rule 34). J (2026-10-10): the
+ * TV screen PonsStars' game draws in "is an element I can move that the game
+ * server would follow", and he wants such boxes kept and placeable on every
+ * site. A site marks the box with `data-app-area="<name>"`; its script fills
+ * and measures what is inside. On the board the box moves and resizes, and
+ * everything inside rides with it: a press inside picks the box, a drag on
+ * anything inside moves the box, and the parts inside have no handles of
+ * their own. The style layer never writes their size or place.
+ */
+export const appAreaName = (n: Pick<Boxed, "hooks">): string | null => {
+  const v = n.hooks?.["data-app-area"];
+  return v === undefined ? null : v.trim() || "App";
+};
+
+/** What the board says on an app area. */
+export const appAreaLabel = (name: string) => `${name} area: what is inside moves with it`;
+
+/** The outermost app area that holds this part (never the part itself), or null. */
+export function appAreaOf<N extends Boxed>(nodes: readonly N[], n: Boxed): N | null {
+  let best: N | null = null;
+  for (const c of nodes) if (appAreaName(c) !== null && holds(c, n) && (!best || area(c) > area(best))) best = c;
+  return best;
+}
+
+/** Every part inside any app area: the parts that have no handles of their own. */
+export function inAppAreaIds(nodes: readonly Boxed[]): Set<string> {
+  const areas = nodes.filter((n) => appAreaName(n) !== null);
+  const out = new Set<string>();
+  if (!areas.length) return out;
+  for (const n of nodes) if (areas.some((a) => holds(a, n))) out.add(n.id);
+  return out;
+}
+
+/** A press or a drag on a part inside an app area is on the area: ids swapped for their area, each once. */
+export function liftToAppArea<N extends Boxed>(nodes: readonly N[], ids: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const id of ids) {
+    const n = nodes.find((x) => x.id === id);
+    const to = (n && appAreaOf(nodes, n)?.id) || id;
+    if (!out.includes(to)) out.push(to);
+  }
+  return out;
+}
+
+/** What an app area takes when it is resized: everything inside, scaled with it. */
+export function appAreaRiders(nodes: readonly Boxed[], id: string): string[] {
+  const a = nodes.find((n) => n.id === id);
+  if (!a || appAreaName(a) === null) return [];
+  return nodes.filter((n) => holds(a, n)).map((n) => n.id);
 }
 
 /**

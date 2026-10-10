@@ -413,3 +413,22 @@ follows this rule when it adds a part to an effect: a part inside a panel that a
 alone, and a panel given it takes it from the parts inside. A code chat writes such effects as one
 rule keyed on the panel's hook (`[data-hook="x"]:hover`), children styled through it if they must
 change too (`[data-hook="x"]:hover [data-hook="x-label"]`), never as separate rules on each child.
+
+
+## 34. App areas: the box the code works in
+
+**(checked)** Some parts of a site are not a look but a working app: a game's screen, a chart, a
+map, a canvas a script draws on. The element the code fills and measures (PonsStars' TV screen,
+`chart-tv-screen`, which the chart is redrawn to fit whenever it changes size) carries
+`data-app-area="<plain name>"` (`Game`, `Chart`, `Map`) beside its `data-hook`. Its script never
+assumes a fixed size or place for it: it measures the box (a `ResizeObserver`) and fills it, so the
+area can be moved and resized anywhere, on this page or in the next redesign, and the app follows.
+What is inside it (the canvas, the overlays, the messages the app shows) is set to fill the area
+or sit inside it, never sized on its own.
+
+In the builder the area moves and resizes as one, with everything inside scaled to it; a press or a
+drag anywhere inside picks or moves the area, and the parts inside have no handles of their own.
+They can still be recoloured. The style layer never writes a size or a place for a part inside an
+app area. A code chat building a new site, or rebuilding one, keeps every app area and its hook; it
+may put the area anywhere the design asks. `kit:check` fails on an app area with no `data-hook` or
+an empty name, an app area inside another, and an app area that is a panel's state.

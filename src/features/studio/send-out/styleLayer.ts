@@ -34,6 +34,7 @@ import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../livin
 import type { PictureFrame } from "../frame.ts";
 import type { LivingPicture } from "../living.ts";
 import { layoutDeclarations } from "../states/index.ts";
+import { under } from "../owns.ts";
 
 /** A part's look in the terms CSS writes it in. Every field optional: absent is "the page's own". */
 export interface CssLook {
@@ -616,6 +617,9 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     }
     return m;
   };
+  /* Inside an app area (kit rule 34, `data-app-area`) the code fills the box: their size and place ride with the area and are never written. */
+  const areaPaths = sourced.filter((n) => n.hooks?.["data-app-area"] !== undefined).map((n) => (n.from?.selector ?? "").trim()).filter(Boolean);
+  const inApp = (n: LayerNode) => { const me = (n.from?.selector ?? "").trim(); return !!me && areaPaths.some((a) => under(a, me)); };
   const styled = new Set<string>();
   const kitHeld: string[] = [];
   for (const n of sourced) {
@@ -623,7 +627,8 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     const now = lookOf(n, palette, opts);
     if (src.hook) {
       /* Size and place are written only where he set them: the board grows and shifts boxes to fit its own type, and that is not a design. */
-      const boxed = changedDeclarations(src.was, n.byHand ? now : { ...now, box: src.was.box }, n.byHand ? own(n) : { dx: 0, dy: 0 });
+      const mine = n.byHand && !inApp(n);
+      const boxed = changedDeclarations(src.was, mine ? now : { ...now, box: src.was.box }, mine ? own(n) : { dx: 0, dy: 0 });
       /* A shape in a drawing is recoloured by its fill and stroke. */
       let decl = src.svg ? svgDeclarations(boxed) : boxed;
       /* A builder-ready repository keys rules by data-hook only, and keeps colours in custom properties (`kitDeclarations`). */
