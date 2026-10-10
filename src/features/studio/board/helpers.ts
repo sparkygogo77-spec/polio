@@ -6,6 +6,7 @@ import { panelDrawing, type PanelNode } from "../states";
 import { REACH_WIDTH } from "../loop";
 import { roomForWords } from "../roomForWords";
 import { type StudioNode } from "./store";
+import { parseShadows } from "../look/styleKits";
 import { type Box as HeldBox,type Held } from "../groupScale";
 
 
@@ -335,4 +336,25 @@ export interface Drag {
 export interface Guides {
   x: number[];
   y: number[];
+}
+
+/**
+ * How far a part's own shadow reaches past its box, in px: the furthest an
+ * outer box-shadow is thrown (offset, blur and spread), 0 when it has none.
+ *
+ * The board draws each part in a box that cuts off what spills out of it, so
+ * words do not run over their neighbours. A shadow is drawn outside the box,
+ * so it was cut off too: only the wedge between a rounded corner and the
+ * square box was left, a dark notch at each corner and a ragged rim along a
+ * pill button, where the site shows a clean offset shadow (J, 2026-10-10).
+ * The box keeps cutting, but this much further out (`overflow-clip-margin`),
+ * so the shadow is drawn whole. `tests/board-shadows.mjs`.
+ */
+export function shadowReach(css: string | null | undefined): number {
+  let reach = 0;
+  for (const s of parseShadows(css)) {
+    if (s.inset || s.colour.a <= 0) continue;
+    reach = Math.max(reach, Math.max(Math.abs(s.dx), Math.abs(s.dy)) + s.blur + Math.max(0, s.spread));
+  }
+  return Math.ceil(reach);
 }

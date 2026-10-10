@@ -29,7 +29,7 @@ import { getWork,usesOf } from "../shelf";
 import { missingDrawnCopy,namesDrawnCopy } from "../promised";
 import { plain } from "../shelf";
 
-import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,HANDS_ON } from "./helpers";
+import { looksOnBoard,liftedOnBoard,shownOnBoard,placedOnBoard,screenHoles,shadowReach,HANDS_ON } from "./helpers";
 import { HANDLE_CURSOR,HANDLES } from "./ShapeView";
 import { isPointed,subscribePointed } from "./pointed";
 
@@ -295,6 +295,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
   const stepLook = useStudio((s) => looksOnBoard(s).get(node.id));
   /* …in the box the state draws it in, so words that wrap there wrap here (the tour's text: four lines, not one). */
   const drawn = React.useMemo(() => (stepLook || place ? ({ ...node, ...stepLook, ...(place ? { w: place.w, h: place.h } : {}) } as StudioNode) : node), [node, stepLook, place]);
+  /* Its own shadow, drawn whole past the box that cuts its words (`shadowReach`). */
+  const shadowRoom = shadowReach(drawn.edge?.shadow);
   // What his prompt named and this part is not drawing: read only while it is picked. See `useUnshown`.
   const unshown = useUnshown(node, body, selected);
   const arrive = useArrival(node.id);
@@ -416,7 +418,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
            (PST's title, "PonsStars test pag": 334px of words in 314).
            Drawn whole, as the page and the Preview draw it
            (`tests/tv-import.mjs`, 7). */
-        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : "overflow-hidden has-[[data-one-line]]:overflow-visible")}
+        /* Cut with room for its own shadow: `overflow: clip` takes a margin, `hidden` does not (`shadowReach`). */
+        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : cn(shadowRoom ? "overflow-clip" : "overflow-hidden", "has-[[data-one-line]]:overflow-visible"))}
         data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
@@ -456,6 +459,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
           filter: `${hugAura?.filter ?? ""} var(--point-glow, )`.trim(),
           // Cut at the page's edge, as the site is (`pageClip.ts`).
           clipPath: pageClip(node, page.w),
+          ...(shadowRoom ? { overflowClipMargin: `${shadowRoom}px` } : null),
         }}
       >
         <Block
