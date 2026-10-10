@@ -623,7 +623,8 @@ export function DesktopCanvas() {
      * "the one notifier did not fire" is answered by not having one
      * notifier.
      */
-    const again = () => { if (fitKey(pane) !== fittedFor.current) apply(); };
+    /* Under Preview the board is kept, hidden (`StudioPage`), and the pane is wider without the side panel: no fit for a width it is not shown at, so coming back needs none either. */
+    const again = () => { if (useStudio.getState().mode === "design" && fitKey(pane) !== fittedFor.current) apply(); };
     const ro = new ResizeObserver(again);
     ro.observe(pane);
     window.addEventListener("resize", again);
@@ -699,7 +700,7 @@ export function DesktopCanvas() {
   React.useLayoutEffect(() => {
     const pane = ref.current?.closest("[data-studio-pane]");
     if (!(pane instanceof HTMLElement)) return;
-    if (!pane.clientWidth || fitKey(pane) === fittedFor.current) return;
+    if (!pane.clientWidth || fitKey(pane) === fittedFor.current || useStudio.getState().mode !== "design") return;
     fitTo(pane);
   });
 
