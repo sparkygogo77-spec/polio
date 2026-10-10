@@ -61,19 +61,24 @@ function softly(feature: string, inputs: Record<string, string>): Record<string,
 }
 
 /** Runs every feature switched on for the page's parts; returns what undoes it. `board`: the board's own, softly (above). */
-type Placed = { id: string; work?: unknown; x?: number; y?: number; w?: number; h?: number };
+type Placed = { id: string; work?: unknown; x?: number; y?: number; w?: number; h?: number; from?: { selector?: string } | null };
 
 /**
  * ON THE BOARD, A MOVING PART CARRIES WHAT IS ON IT, as the Preview and the
- * published page do (`carry.ts`): the parts drawn over it play the same
- * motion, turned about its middle, so an icon's shapes, a panel's words go
- * round and bob with it rather than standing still on top of it.
+ * published page do (`carry.ts`): the parts drawn over it or attached to its
+ * edge play the same motion, turned about its middle, so an icon's shapes, a
+ * panel's words, the TV's antennas go round and bob with it rather than
+ * standing still. Each rider goes with the moving part at the top of its chain.
  */
 function boardRiders(nodes: readonly Placed[], moving: ReadonlySet<string>): Map<string, Placed[]> {
   const boxed = nodes.filter((n) => [n.x, n.y, n.w, n.h].every((v) => typeof v === "number"));
-  const by = carriers(boxed.map((n) => ({ id: n.id, x: n.x!, y: n.y!, w: n.w!, h: n.h!, moves: moving.has(n.id) })));
+  const by = carriers(boxed.map((n) => ({ id: n.id, x: n.x!, y: n.y!, w: n.w!, h: n.h!, moves: moving.has(n.id), path: n.from?.selector })));
   const out = new Map<string, Placed[]>();
-  for (const n of boxed) { const o = by.get(n.id); if (o) out.set(o, [...(out.get(o) ?? []), n]); }
+  for (const n of boxed) {
+    let o = by.get(n.id);
+    for (let i = 0; o && !moving.has(o) && i < 8; i++) o = by.get(o);
+    if (o && moving.has(o)) out.set(o, [...(out.get(o) ?? []), n]);
+  }
   return out;
 }
 
