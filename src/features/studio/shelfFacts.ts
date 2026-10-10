@@ -178,7 +178,8 @@ const MIRROR: Record<string, { key: string; on: string | boolean; off: string | 
 };
 
 const SWITCHES: Record<string, SiteSwitch> = {
-  ...Object.fromEntries([...RUN_MOTIONS].map((id) => [id, { kind: "parts", ...(MIRROR[id] ? { mirror: MIRROR[id] } : {}) } as SiteSwitch])),
+  /* Back to top is not a switch: dropped, it is a button put where it was let go (`PartDef.placed`). */
+  ...Object.fromEntries([...RUN_MOTIONS].filter((id) => id !== "back-to-top").map((id) => [id, { kind: "parts", ...(MIRROR[id] ? { mirror: MIRROR[id] } : {}) } as SiteSwitch])),
   "page-transitions": { kind: "format", key: "pages.transition", on: "fade", off: "none" },
   "dark-mode": { kind: "format", key: "build.darkLight", on: true, off: false },
   print: { kind: "format", key: "build.print", on: true, off: false },

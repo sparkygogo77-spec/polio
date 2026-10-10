@@ -29,7 +29,7 @@ export { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./part
 export { WhatsNew, lightness } from "./parts/WhatsNew";
 export { WorldLayer, cleanDialog, dialogMarkup, isWorld, onSite, worldCss } from "./parts/World";
 export type { NodeWorld, StageScene, WorldChar, WorldStage } from "./parts/World";
-export { DEFS, PARTS, isLinkable, isOverlay, items, opt, resolvePart, themeFrom, titled } from "./parts/index";
+export { DEFS, PARTS, isLinkable, isOverlay, isPlaced, items, opt, resolvePart, themeFrom, titled } from "./parts/index";
 export type { NodeLink, Part, PartDef, PartEvent, PartMode, PartProps, PartTour, PartTourStep, Theme } from "./parts/index";
 export { Btn, Fill, PictureSlot, Placeholder, focusRing, useTicker } from "./parts/primitives";
 export { DOC_LOADED, LEARNED_KEY, learnedNow, useLearned } from "./library/useLearned";

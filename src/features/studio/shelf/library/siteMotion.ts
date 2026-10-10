@@ -34,6 +34,8 @@ import { SMOOTH_WHEEL_JS } from "./smoothWheelJs.ts";
 export interface SiteMotionSettings {
   progress: boolean;
   backToTop: boolean;
+  /** Where the button stays on screen: the nearest corner and how far in (`live/behaviours.ts#cornerOf`). Bottom right, 24px in, when not set. */
+  backAt?: { v: "top" | "bottom"; h: "left" | "right"; x: number; y: number; size?: number } | null;
   reveal: boolean;
   /** fade-up, fade, scale, blur or stagger. */
   revealStyle?: string;
@@ -54,7 +56,7 @@ export interface SiteMotionSettings {
 }
 
 /** Whether a page asks for any of them. */
-export function wantsMotion(b: Omit<SiteMotionSettings, "parts" | "accent" | "surface">): boolean {
+export function wantsMotion(b: Omit<SiteMotionSettings, "parts" | "accent" | "surface" | "backAt">): boolean {
   return b.progress || b.backToTop || b.reveal || b.parallax > 0 || b.smooth || !!b.snap || b.intro || !!b.cursor || b.tilt;
 }
 
@@ -84,8 +86,10 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
   }
   if (c.backToTop) {
     back = document.createElement("button");
-    back.type = "button"; back.setAttribute("aria-label", "Back to top"); back.textContent = "\\u2191";
-    back.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:2147483000;width:38px;height:38px;border-radius:999px;border:none;cursor:pointer;background:" + c.accent + ";color:" + c.surface + ";font-size:16px;box-shadow:0 8px 22px rgba(0,0,0,.35);display:none";
+    back.type = "button"; back.setAttribute("aria-label", "Back to top"); back.setAttribute("data-hook", "builder-back-to-top"); back.textContent = "\\u2191";
+    /* Where it was put on the board, from the nearest corner; bottom right, 24px in, when it was not. */
+    var at = c.backAt || {}, n = function (v, d) { v = Number(v); return v >= 0 && v < 2000 ? v : d; }, size = n(at.size, 44);
+    back.style.cssText = "position:fixed;" + (at.h === "left" ? "left" : "right") + ":" + n(at.x, 24) + "px;" + (at.v === "top" ? "top" : "bottom") + ":" + n(at.y, 24) + "px;z-index:2147483000;width:" + size + "px;height:" + size + "px;border-radius:999px;border:none;cursor:pointer;background:" + c.accent + ";color:" + c.surface + ";font-size:" + Math.round(size * 0.4) + "px;box-shadow:0 8px 22px rgba(0,0,0,.35);display:none";
     back.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" }); });
     document.body.appendChild(back);
   }
