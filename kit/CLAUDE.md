@@ -33,6 +33,8 @@ The short version:
 - The box a script fills and measures (a game screen, a chart, a map) carries `data-app-area="<plain name>"`
   beside its `data-hook`; the script measures it and fills it, so the area can go anywhere and the app
   follows. Keep every app area in a redesign or a new site (BUILDER-RULES.md rule 34).
+- Every page loads `vendor/builder-motion.js`, the builder's motion file (BUILDER-RULES.md rule 35): never edit
+  it or write `--builder-motion` yourself; Publish names motions on hooks in the style layer and it runs them.
 - Every visible thing is a real tagged element: no `::before`/`::after` drawings.
 - Label parts for the builder (BUILDER-RULES.md rules 21-24): `data-label` (plain name; every panel and
   list), `data-kind` (what a filled-in value is), `data-list` (where template copies go), `data-group`

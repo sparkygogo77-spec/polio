@@ -432,3 +432,20 @@ They can still be recoloured. The style layer never writes a size or a place for
 app area. A code chat building a new site, or rebuilding one, keeps every app area and its hook; it
 may put the area anywhere the design asks. `kit:check` fails on an app area with no `data-hook` or
 an empty name, an app area inside another, and an app area that is a panel's state.
+
+
+## 35. The builder's motion file
+
+**(checked)** Every page loads `vendor/builder-motion.js` (beside `tokens.css`), a copy of the kit's
+`starter/vendor/builder-motion.js`. It holds the scripts the builder's Preview runs for the shelf's
+effects and whole-site motions (tilt, follow the pointer, marquee, dust, grow on scroll, glide,
+screen filter, header on scroll, the loader, copy, back to top, parallax, cards that lean, a
+cursor). The builder's Publish then only names a motion on a hook in the style layer
+(`[data-hook="x"] { --builder-motion: "tilt?strength=12"; }`, and `:root { --builder-site-motion: ... }`
+for the whole site), and the file runs it on that part, on parts a script adds later too. So any
+motion goes on any panel with no code chat. What CSS can do (lift, press, float, spin, blink,
+reveal, switch on, smooth and snap scrolling, the progress bar, the opening) is written as CSS.
+
+Never edit the file or write `--builder-motion` by hand: `polio npm run kit:motion` writes the kit's
+copy, `kit:check --write` (`npm run kit:hooks`) copies it into the site and adds the `<script>` to a
+page that lacks it. `kit:check` fails when a page does not load it or the copy is stale.
