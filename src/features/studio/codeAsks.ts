@@ -48,6 +48,8 @@ export interface AskNode {
   outline?: { cut?: string } | null;
   state?: unknown;
   options?: Record<string, string> | null;
+  /** A frame of another page the import found (`node.embed`); `was` is set once J changed its address in the embed box. */
+  embed?: { src?: string; was?: string } | null;
 }
 export interface AskPage { id: string; name: string; path?: string; scroll?: string }
 /** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J turned on (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
@@ -119,6 +121,7 @@ export function clipPx(cut: string, w: number, h: number): string {
   return `clip-path: path('${d}')`;
 }
 
+const settingsOf = (inputs: Record<string, string> | undefined) => Object.entries(inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
 const on = (s: AskSwitch, v: unknown) => (typeof s.on === "boolean" ? v === true : v !== undefined && v !== null && v !== s.off);
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 
@@ -153,7 +156,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
     const above = peers.sort((p, q) => (boxOf(q).y + boxOf(q).h) - (boxOf(p).y + boxOf(p).h))[0];
     const where = [inside ? `inside \`${inside.source!.hook!.value}\`` : "on the page itself", above ? `under \`${above.source!.hook!.value}\`` : "", inside ? `${n0(boxOf(n).x - boxOf(inside).x)}px from its left and ${n0(boxOf(n).y - boxOf(inside).y)}px from its top` : `at ${n0(n.x)}px across, ${n0(n.y)}px down`].filter(Boolean).join(", ");
     const words = wordsOf(n.content).replace(/\s+/g, " ").trim();
-    const fx = n.work ? [n.work, ...(n.work.also ?? [])].filter((u) => !u.off).map((u) => a.effect(u.id)?.name ?? u.id) : [];
+    /* An effect's settings ride with it: an Embed without its address is no embed (J, 2026-10-10). */
+    const fx = n.work ? [n.work, ...(n.work.also ?? [])].filter((u) => !u.off).map((u) => { const set = settingsOf(u.inputs); return `${a.effect(u.id)?.name ?? u.id}${set ? ` (${set})` : ""}`; }) : [];
     const css = [...(a.lookCss?.(n) ?? []), ...(n.outline?.cut ? [clipPx(n.outline.cut, n.w ?? 0, n.h ?? 0)] : [])];
     out.push({
       key: `build-part-${n.id}`,
@@ -181,7 +185,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
       if (u.off || carriedEffect(u.id)) continue;
       /* On a builder-ready site the kit's motion file runs the rest, named in the style layer on the part's hook. */
       if (a.kit && n.source?.hook?.attr === "data-hook" && kitEffect(u.id)) continue;
-      const set = Object.entries(u.inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
+      const set = settingsOf(u.inputs);
       const k = `${u.id}|${set}`;
       const g = effects.get(k) ?? { id: u.id, set, parts: [] };
       g.parts.push(n);
@@ -205,6 +209,17 @@ export function codeAsks(a: AskInput): FixIssue[] {
       page: pages.join(", "),
       says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${hooks.map((h) => `\`${h}\``).join(", ")}` : "this element"}.`),
     });
+  }
+  /*
+   * A FRAME WHOSE ADDRESS J CHANGED (the embed box, `EmbedBox.tsx`). The
+   * import found it showing one page; he set another. The code sets a
+   * frame's src, so the code is asked.
+   */
+  for (const n of a.nodes) {
+    const hook = n.source?.hook?.value;
+    const src = n.embed?.src?.trim();
+    if (!hook || !src || !n.embed?.was || n.embed.was === src) continue;
+    out.push({ key: `build-embed-${n.id}-${src}`, kind: "build", hook, page: pageName.get(n.pageId) ?? "the page", says: clean(`J changed what the embedded frame \`${hook}\` shows in the Builder, from ${n.embed.was} to ${src}. Point that frame at the new address, keeping data-hook="${hook}" and the site's embed rules.`) });
   }
   /*
    * PUSH ON PRESS MAKES IT PRESSABLE (J, 2026-10-10: "I would also expect

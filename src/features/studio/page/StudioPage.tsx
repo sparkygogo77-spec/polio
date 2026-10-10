@@ -44,6 +44,7 @@ import { Timeline } from "../loop/ui";
 import { TimelineDetail, TimelinePanel, useDetailTab } from "../TimelineDetail";
 import { mountNebula } from "../nebulaTile";
 import { LightPlacer } from "../LightPlacer";
+import { EmbedBox } from "../EmbedBox";
 import { cn } from "@/core/lib/cn";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
@@ -637,6 +638,7 @@ export function StudioPage() {
       {/* What came back from the site's repository, to review (`WorkShelf.tsx`). */}
       <FeatureOffers />
       <LightPlacer />
+      <EmbedBox />
       <BriefDialog open={briefOpen && !book} onOpenChange={setBriefOpen} />
     </div>
   );

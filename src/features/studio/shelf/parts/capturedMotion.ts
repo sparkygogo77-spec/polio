@@ -53,7 +53,7 @@ export interface NodeMotion {
   off?: boolean;
 }
 /** A frame of another page (sink `node.embed`). */
-export interface NodeEmbed { src: string; allow?: string; sandbox?: string; title?: string; loading?: string; size?: { w: number; h: number } }
+export interface NodeEmbed { src: string; allow?: string; sandbox?: string; title?: string; loading?: string; size?: { w: number; h: number }; /** The address the capture found, kept once J changes it in the embed box (`EmbedBox.tsx`): Publish asks the code for the new one. */ was?: string }
 /** A `@keyframes` rule as the capture read it. */
 export interface CapturedKeyframes { name: string; frames: { key: string; style: Record<string, string> }[]; sheet?: string }
 

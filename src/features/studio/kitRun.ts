@@ -41,7 +41,7 @@ export interface KitManifest {
   gallery?: string;
   links?: KitLinks;
   /** BUILDER-RULES.md, machine-readable: the slots are settings the code asks the builder to learn. */
-  rules?: { doc?: string; slots?: KitSlot[]; requests?: BuilderRequest[] };
+  rules?: { doc?: string; slots?: KitSlot[]; requests?: BuilderRequest[]; embeds?: import("./embedLink.ts").EmbedRule[] };
   /** The scene file and the samples file (BUILDER-RULES.md rules 15 and 17), read with it (`stateRules.ts`). */
   scenes?: string;
   samples?: string;
