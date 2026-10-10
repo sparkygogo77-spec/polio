@@ -20,7 +20,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/generate-3d.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/pictures/threeD.ts, src/features/studio/RenderPanel.tsx, src/features/studio/ShelfCards.tsx, src/features/studio/shelf/parts/Shape3D.tsx
+ * Covers: src/features/studio/pictures/threeD.ts, src/features/studio/pictures/estimate.ts, src/features/studio/RenderPanel.tsx, src/features/studio/ShelfCards.tsx, src/features/studio/shelf/parts/Shape3D.tsx
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
@@ -113,6 +113,8 @@ check("and no Cube part is added to the board", afterDrop.filter((n) => n.featur
 
 /* 3. A real 3D model, from a picture already made */
 await pickThreeD("A real 3D model");
+const priceLine = (await panel.locator("[data-render-price]").innerText()).trim();
+check("the price before the press adds the 3D model", /for the 3D model/.test(priceLine) && /in all/.test(priceLine), priceLine);
 const before = sent.length;
 await panel.locator("[data-render-3d-from]").first().click({ force: true });
 await page.waitForTimeout(2500);
