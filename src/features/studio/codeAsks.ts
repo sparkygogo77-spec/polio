@@ -26,7 +26,8 @@
  */
 import type { FixIssue } from "./fixLoop.ts";
 /* Pure too: which effects and whole-site motions the style layer already writes as CSS, so they are not asked as well. */
-import { carriedEffect, carriedSite } from "./send-out/motionCss.ts";
+import { carriedEffect, carriedSite, pushedOnPress } from "./send-out/motionCss.ts";
+import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "./shelf/parts/offsite.ts";
 import { kitEffect, kitSite } from "./send-out/kitMotion.ts";
 
 export interface AskNode {
@@ -42,6 +43,8 @@ export interface AskNode {
   content?: unknown;
   prompt?: string | null;
   link?: { kind: string; target: string } | null;
+  /** What the capture read it as: "button, named …", "link, …" (`control.ts`). */
+  data?: string | null;
   outline?: { cut?: string } | null;
   state?: unknown;
   options?: Record<string, string> | null;
@@ -201,6 +204,33 @@ export function codeAsks(a: AskInput): FixIssue[] {
       hook: hooks[0] ?? null,
       page: pages.join(", "),
       says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${hooks.map((h) => `\`${h}\``).join(", ")}` : "this element"}.`),
+    });
+  }
+  /*
+   * PUSH ON PRESS MAKES IT PRESSABLE (J, 2026-10-10: "I would also expect
+   * that motion to make it a button maybe or linkable"). The style layer
+   * gives it the pointing hand and the press; only the code can make an
+   * element a real link or button. A part the code already has as one is
+   * left alone; a link the site's rules turn down is the publish check's.
+   */
+  const rules = offsiteRules(String(a.format["links.offsite"] ?? DEFAULT_OFFSITE));
+  for (const n of a.nodes) {
+    const hook = n.source?.hook?.value;
+    if (!hook || !pushedOnPress(n.work) || /^\s*(button|link)\b/i.test(n.data ?? "")) continue;
+    const l = n.link?.target ? n.link : null;
+    if (l?.kind === "url" && isOffsite(l.target) && !linkAllowed(l.target, rules)) continue;
+    out.push(l ? {
+      key: `build-press-link-${n.id}-${l.target}`,
+      kind: "build",
+      hook,
+      page: pageName.get(n.pageId) ?? "the page",
+      says: clean(`J gave \`${hook}\` Push on press in the Builder and set it to go to ${linkSays(l)} when pressed. Make it a real link there (an \`<a href>\`, or a \`<button>\` that goes there), reachable with Tab and pressed with Enter, keeping data-hook="${hook}" and its look.`),
+    } : {
+      key: `build-press-button-${n.id}`,
+      kind: "build",
+      hook,
+      page: pageName.get(n.pageId) ?? "the page",
+      says: clean(`J gave \`${hook}\` Push on press in the Builder but has not picked where a press goes. Make this a button: a \`<button type="button">\` (or role="button" with tabindex="0", pressed with Enter and Space), keeping data-hook="${hook}" and its look. Until J picks a place (When pressed, go to) it does nothing else.`),
     });
   }
   /* Whole-site features switched on in Format. */

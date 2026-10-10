@@ -51,6 +51,17 @@ export const CSS_EFFECTS: ReadonlySet<string> = new Set(["hover-lift", "press-pu
 export const CSS_SITE: ReadonlySet<string> = new Set(["smooth-scroll", "scroll-snap", "reveal-on-scroll", "scroll-progress", "page-load", "cursor-effects"]);
 
 export const carriedEffect = (id: string) => CSS_EFFECTS.has(id);
+
+/**
+ * A PART YOU PRESS LOOKS PRESSABLE (J, 2026-10-10: "push on press works well
+ * but it doesnt make the cursor the click hand"). Push on press is the
+ * shelf's press effect with nothing else to do: the others already act on a
+ * press (Show on press, Copy, Glide) and set their own cursor. A part wearing
+ * it takes the pointing hand everywhere it runs, and is offered "When
+ * pressed, go to" so the press can lead somewhere.
+ */
+type WorkLike = { id: string; off?: boolean; also?: { id: string; off?: boolean }[] } | null | undefined;
+export const pushedOnPress = (work: WorkLike): boolean => !!work && [work, ...(work.also ?? [])].some((u) => u.id === "press-push" && !u.off);
 export function carriedSite(featureId: string, options?: Record<string, string> | null): boolean {
   if (featureId === "cursor-effects") return options?.style === "picture" && /^data:image\//.test(options?.picture ?? "");
   if (featureId === "smooth-scroll") return (options?.strength ?? "light") !== "off";
@@ -90,6 +101,7 @@ export function effectCss(sel: string, uses: readonly EffectUse[], o: { press?: 
       trans.push(`translate ${ms}ms ease`, `rotate ${ms}ms ease`, `scale ${ms}ms ease`);
       out.rules.push({ selector: `${sel}:hover`, declarations: [`translate: ${px(x)} ${px(-lift)}`, ...(turn ? [`rotate: ${turn}deg`] : []), ...(k !== 1 ? [`scale: ${k}`] : [])] });
     } else if (u.id === "press-push") {
+      out.own.push("cursor: pointer");
       const set = Object.values(i).some((v) => v !== "" && v !== undefined);
       const ms = Math.max(0, num(i.pace, 80));
       if (!set && o.press?.length) {
