@@ -30,7 +30,7 @@ const saved = JSON.parse(gunzipSync(readFileSync(join(here, "fixtures", "boards"
 const doc = JSON.parse(saved.idb["builder.docs"].stores.docs.find((r) => r.key === "builder.studio").value).state;
 const def = new Map(FORMAT_FIELDS.map((f) => [f.id, f.default]));
 const switches = F.formatSwitches().map((s) => ({ ...s, label: s.key, def: def.get(s.key) }));
-const base = { nodes: doc.nodes, pages: doc.pages, format: doc.format, switches, coded: new Set(doc.look.styleSource.files.map((f) => f.pageId)), effect: (id) => ({ name: id === "spin" ? "Spin" : id }) };
+const base = { nodes: doc.nodes, pages: doc.pages, format: doc.format, switches, coded: new Set(doc.look.styleSource.files.map((f) => f.pageId)), effect: (id) => ({ name: id === "screen-filter" ? "Screen filter" : id }) };
 
 const none = A.codeAsks(base);
 check("The saved PST board, untouched, with Format's real switches, asks for nothing", none.length === 0, none.map((i) => i.says).join(" | "));
@@ -38,12 +38,12 @@ const changed = A.codeAsks({ ...base, format: { ...doc.format, "pages.transition
 check("A switch J changed is still asked (dark and light on, transition set to slide)", changed.length === 2 && changed.some((i) => /slide/.test(i.says)) && changed.some((i) => /darkLight/.test(i.says)), changed.map((i) => i.key).join(", "));
 
 const panels = doc.nodes.filter((n) => n.pageId === doc.pages[0].id && /^(queue|wallet|balance|sign)-panel$/.test(n.source?.hook?.value ?? ""));
-const spun = doc.nodes.map((n) => (panels.includes(n) ? { ...n, work: { id: "spin", inputs: {} } } : n));
+const spun = doc.nodes.map((n) => (panels.includes(n) ? { ...n, work: { id: "screen-filter", inputs: {} } } : n));
 const asks = A.codeAsks({ ...base, nodes: spun });
 check(`One effect on ${panels.length} panels is one line`, asks.length === 1 && panels.every((p) => asks[0].says.includes(`\`${p.source.hook.value}\``)), asks.map((i) => i.says).join(" | "));
-const one = A.codeAsks({ ...base, nodes: doc.nodes.map((n) => (n === panels[0] ? { ...n, work: { id: "spin", inputs: {} } } : n)) });
+const one = A.codeAsks({ ...base, nodes: doc.nodes.map((n) => (n === panels[0] ? { ...n, work: { id: "screen-filter", inputs: {} } } : n)) });
 check("…and one part alone keeps its own line, by its hook", one.length === 1 && one[0].hook === panels[0].source.hook.value && /this part/.test(one[0].says));
-const two = A.codeAsks({ ...base, nodes: spun.map((n) => (n.id === panels[0].id ? { ...n, work: { id: "spin", inputs: { speed: "2" } } } : n)) });
+const two = A.codeAsks({ ...base, nodes: spun.map((n) => (n.id === panels[0].id ? { ...n, work: { id: "screen-filter", inputs: { speed: "2" } } } : n)) });
 check("Set differently on one of them, it is a line of its own", two.length === 2);
 
 const failed = results.filter((r) => !r).length;

@@ -13,7 +13,7 @@
  *
  * Only what he changed is asked: an effect on a part brought in, a switch
  * he turned on, a page with no file in the code. Pure: no store, no React,
- * nothing imported at run time; `tests/code-asks.mjs` holds it.
+ * nothing imported at run time but the pure `motionCss.ts`; `tests/code-asks.mjs` holds it.
  *
  * A PART MADE IN THE BUILDER (J, 2026-10-10: a star drawn as a PST button,
  * linked, with a note and a tilt, sent nothing on Publish; every shelf part
@@ -25,6 +25,8 @@
  * same hook carries its record in design/record.json.
  */
 import type { FixIssue } from "./fixLoop.ts";
+/* Pure too: which effects and whole-site motions the style layer already writes as CSS, so they are not asked as well. */
+import { carriedEffect, carriedSite } from "./send-out/motionCss.ts";
 
 export interface AskNode {
   id: string;
@@ -41,6 +43,7 @@ export interface AskNode {
   link?: { kind: string; target: string } | null;
   outline?: { cut?: string } | null;
   state?: unknown;
+  options?: Record<string, string> | null;
 }
 export interface AskPage { id: string; name: string; path?: string; scroll?: string }
 /** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J turned on (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
@@ -129,7 +132,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
   for (const n of a.nodes) {
     if (!isNewPart(n, a.coded)) continue;
     if (a.siteMotions?.has(n.featureId ?? "")) {
-      if (motions.has(n.featureId!)) continue;
+      if (motions.has(n.featureId!) || carriedSite(n.featureId!, n.options)) continue;
       motions.add(n.featureId!);
       out.push({ key: `build-site-${n.featureId}`, kind: "build", hook: null, page: "every page", says: clean(`J turned on "${a.part?.(n.featureId!) ?? n.featureId}" for the whole site in the Builder. Build it in the code.`) });
       continue;
@@ -168,7 +171,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
     if (!n.source && !n.from) continue;
     const uses = n.work ? [n.work, ...(n.work.also ?? [])] : [];
     for (const u of uses) {
-      if (u.off) continue;
+      /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`). */
+      if (u.off || carriedEffect(u.id)) continue;
       const set = Object.entries(u.inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
       const k = `${u.id}|${set}`;
       const g = effects.get(k) ?? { id: u.id, set, parts: [] };

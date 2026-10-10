@@ -28,6 +28,7 @@
  *
  * Pure: no store, no browser, no React. `tests/style-layer.mjs` holds it.
  */
+import { effectCss, siteCss, sitePress, stillTail } from "./motionCss.ts";
 import type { SourceHook, SourceVar } from "../sourceHooks.ts";
 import { FRAME_UNSET, frameCss, isFrame } from "../frame.ts";
 import { LIVE_KEYFRAMES, LIVE_UNSET, isLiving, liveDeclarations } from "../living.ts";
@@ -226,6 +227,10 @@ export interface LayerNode {
   byState?: Record<string, Record<string, unknown>> | null;
   /** Its place in its region, the same in every state (`structure.ts`). */
   place?: { order?: number } | null;
+  /** The effects it carries from the shelf (`works.ts`): those CSS can do are written (`motionCss.ts`). */
+  work?: { id: string; inputs?: Record<string, string>; off?: boolean; also?: { id: string; inputs?: Record<string, string>; off?: boolean }[] } | null;
+  /** A shelf part's options: a whole-site motion's (`cursor-effects` style and picture). */
+  options?: Record<string, string> | null;
 }
 
 /** A texture as CSS for one part: its pictures stacked over what the part already paints, and the rest (`wornPaint` in `look`). */
@@ -622,6 +627,10 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
   const inApp = (n: LayerNode) => { const me = (n.from?.selector ?? "").trim(); return !!me && areaPaths.some((a) => under(a, me)); };
   const styled = new Set<string>();
   const kitHeld: string[] = [];
+  /* Effects from the shelf as CSS (`motionCss.ts`); Push on press left at its defaults presses as the site's own parts do. */
+  const press = sitePress(sourced.map((n) => n.source!.was.states));
+  const frames = new Map<string, string>();
+  const movingSel: string[] = [];
   for (const n of sourced) {
     const src = n.source!;
     const now = lookOf(n, palette, opts);
@@ -636,10 +645,18 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       if (opts.kit) decl = kitDeclarations(src.hook.value, decl);
       /* Its place in its region, set once in the Structure view (`structure.ts`): keyed by hook alone, so it holds in every state. */
       if (!(opts.kit && src.hook.attr !== "data-hook")) decl = [...decl, ...layoutDeclarations(src.hook.value, n.place)];
+      const fx = !(opts.kit && src.hook.attr !== "data-hook") && n.work ? effectCss(selectorFor(src.hook), [n.work, ...(n.work.also ?? [])], { press }) : null;
+      if (fx?.done.length) {
+        decl = [...decl.filter((d) => !(fx.own.some((o) => o.startsWith("animation")) && /^animation(-timeline|-range)?:/.test(d)) && !(fx.own.some((o) => o.startsWith("transition:")) && d.startsWith("transition:"))), ...fx.own];
+        for (const [k, v] of fx.frames) frames.set(k, v);
+        movingSel.push(selectorFor(src.hook), ...fx.rules.map((r) => r.selector));
+      }
       if (decl.length) {
         rules.push({ selector: selectorFor(src.hook), declarations: decl, nodeId: n.id, file: src.file });
         styled.add(`${src.file}|${src.hook.attr}=${src.hook.value}`);
       }
+      /* In a builder-ready repository a colour in them (a site's own pressed shadow) is a custom property, as every colour the layer writes. */
+      for (const r of fx?.rules ?? []) if (r.declarations.length) rules.push({ selector: r.selector, declarations: opts.kit ? kitDeclarations(`${src.hook.value}-${r.selector.endsWith(":hover") ? "hover" : "pressed"}`, r.declarations) : r.declarations, nodeId: n.id, file: src.file });
       /* What one state of a panel changes of it (`stateEdits.ts`): a rule keyed by that panel and state, so the code's own state switch shows it. */
       for (const [key, patch] of Object.entries(n.byState ?? {})) {
         const at = key.lastIndexOf("=");
@@ -745,6 +762,13 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     }
   }
 
+  /* The whole-site motions switched on (a part of theirs on the pages), as CSS for the site where CSS can carry them. */
+  const site = siteCss(nodes.filter((n) => !n.source && !n.from && !!n.featureId).map((n) => ({ featureId: n.featureId, options: n.options })), { accent: palette?.accent });
+  for (const r of site.rules) rules.push({ selector: r.selector, declarations: r.declarations, nodeId: "", file: "" });
+  const motionTail = frames.size || site.tail.length || site.rules.length
+    ? ["", "/* Motion from the Builder's effects: plain CSS, still for a visitor who asks for less. */", ...frames.values(), ...site.tail, ...stillTail([...movingSel, ...site.rules.filter((r) => r.selector === "body").map(() => "body"), ...(site.done.includes("reveal-on-scroll") ? ["[data-panel]"] : []), ...(site.done.includes("scroll-progress") ? ["body::before"] : [])])]
+    : [];
+
   const when = opts.when ?? "";
   const css = [
     `/*`,
@@ -759,6 +783,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     ...rules.map((r) => ["", `${r.selector} {`, ...r.declarations.map((d) => `  ${d};`), "}"].join("\n")),
     ...liveTail(rules),
     ...driftTail(rules, sourced),
+    ...motionTail,
     "",
   ].join("\n");
 
