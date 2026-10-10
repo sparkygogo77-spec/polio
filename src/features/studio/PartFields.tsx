@@ -13,6 +13,8 @@ import * as React from "react";
 import { useStudio, type StudioNode } from "./board/store";
 import { editablesOf, readField, writeField, type Field, type Section } from "./partOptions";
 import { play } from "@/core/audio/engine";
+import { HandRange } from "./HandSlider";
+import { inGesture } from "./board/store";
 
 export function PartFields({ node, section, only, linkable, ids, except }: {
   node: StudioNode;
@@ -32,7 +34,8 @@ export function PartFields({ node, section, only, linkable, ids, except }: {
   const set = (f: Field, v: string) => {
     const patch = writeField(node, f, v);
     if (!patch) return;
-    play("select");
+    /* A slider under the hand ticks many times a drag: the sound is for a pick, not every frame. */
+    if (!inGesture()) play("select");
     useStudio.getState().updateNode(node.id, patch as Partial<StudioNode>);
   };
   return (
@@ -76,7 +79,7 @@ function FieldRow({ field: f, value, onChange }: { field: Field; value: string; 
     return (
       <label data-field={f.id} className="flex items-center justify-between gap-2 text-small text-fg-muted">
         <span>{f.label}</span>
-        <input type="range" min={f.range.min} max={f.range.max} step={f.range.step} value={Number(value) || f.range.min} onChange={(e) => onChange(e.target.value)} className="w-32" />
+        <HandRange min={f.range.min} max={f.range.max} step={f.range.step} value={Number(value) || f.range.min} onChange={(v) => onChange(String(v))} className="w-32" />
         <span className="num w-12 text-right text-fg">{value}{f.range.unit ?? ""}</span>
       </label>
     );
