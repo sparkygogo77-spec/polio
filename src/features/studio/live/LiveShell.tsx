@@ -7,6 +7,7 @@
  * theirs, and it falls back to the window when neither is there.
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import type { Behaviours } from "./behaviours";
 import { tint } from "../shelf/run";
 import { leanSet } from "./carry";
@@ -31,10 +32,32 @@ interface Props {
 
 export function LiveShell({ behaviours: b, accent, surface, children, published = false }: Props) {
   const rootRef = React.useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = React.useState(0);
   const [past, setPast] = React.useState(false);
-  /* Where the visible window sits inside the page, so pinned chrome can follow it. */
-  const [view, setView] = React.useState({ top: 0, height: 0 });
+  /* How tall the visible window is, so the button and the note sit at its foot. */
+  const [viewH, setViewH] = React.useState(0);
+  const barRef = React.useRef<HTMLDivElement>(null);
+  /*
+   * PINNED CHROME RIDES THE SCROLLER, NOT THE PAGE (J, 2026-10-10: the progress
+   * bar "doesn't stay at the top ... lags behind heavily" on a fast scroll).
+   * It sat in the page at `top: scrollTop`, set from a scroll event, so it
+   * trailed the compositor's scroll by a frame or more and, in a scaled
+   * desktop frame, drifted by the scale. Now it lives in a sticky strip that
+   * is the scroller's own first child: the browser keeps it at the top.
+   */
+  const [pin, setPin] = React.useState<HTMLElement | null>(null);
+  const pinned = b.progress || b.backToTop || b.described.length > 0;
+  React.useLayoutEffect(() => {
+    const scroller = rootRef.current?.closest("[data-live-scroller]") as HTMLElement | null;
+    if (!pinned || published) return;
+    const host = document.createElement("div");
+    host.setAttribute("data-live-pinned", "");
+    host.style.cssText = scroller
+      ? "position:sticky;top:0;left:0;height:0;z-index:40;pointer-events:none"
+      : "position:fixed;top:0;left:0;right:0;height:100vh;z-index:40;pointer-events:none";
+    if (scroller) scroller.insertBefore(host, scroller.firstChild); else document.body.appendChild(host);
+    setPin(host);
+    return () => { host.remove(); setPin(null); };
+  }, [pinned, published]);
   const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
   const [intro, setIntro] = React.useState(b.intro);
   const [bursts, setBursts] = React.useState<number[]>([]);
@@ -48,9 +71,12 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
       const top = scroller ? scroller.scrollTop : window.scrollY;
       const height = scroller ? scroller.clientHeight : window.innerHeight;
       const max = scroller ? scroller.scrollHeight - scroller.clientHeight : document.body.scrollHeight - window.innerHeight;
-      setProgress(max > 0 ? Math.min(1, top / max) : 0);
+      const p = max > 0 ? Math.min(1, top / max) : 0;
+      /* Written straight onto the bar: no render, no easing, so it never trails the page. */
+      const bar = barRef.current;
+      if (bar) { (bar.firstChild as HTMLElement).style.transform = `scaleX(${p})`; bar.setAttribute("aria-valuenow", String(Math.round(p * 100))); }
       setPast(top > 220);
-      setView({ top, height });
+      setViewH(height);
       /* On the page element: the shell is `display: contents` and has no background to move. */
       if (b.parallax && root.parentElement) root.parentElement.style.backgroundPositionY = `${-top * b.parallax}px`;
     };
@@ -58,7 +84,7 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     const target: EventTarget = scroller ?? window;
     target.addEventListener("scroll", read, { passive: true });
     return () => target.removeEventListener("scroll", read);
-  }, [b.progress, b.backToTop, b.parallax, b.described.length]);
+  }, [b.progress, b.backToTop, b.parallax, b.described.length, pin]);
 
   /* Scrolling style belongs to the scroller, not to us. */
   React.useEffect(() => {
@@ -201,26 +227,37 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
     >
       {children}
 
-      {b.progress ? (
-        <div role="progressbar" aria-label="Reading progress" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} style={{ position: "absolute", top: view.top, left: 0, right: 0, height: 3, zIndex: 40, pointerEvents: "none" }}>
-          <div style={{ width: `${progress * 100}%`, height: "100%", background: accent, transition: "width 90ms linear" }} />
-        </div>
+      {pin ? createPortal(
+        <>
+          {b.progress ? (
+            <div ref={barRef} role="progressbar" aria-label="Reading progress" aria-valuenow={0} aria-valuemin={0} aria-valuemax={100} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3 }}>
+              <div style={{ width: "100%", height: "100%", background: accent, transform: "scaleX(0)", transformOrigin: "0 50%", willChange: "transform" }} />
+            </div>
+          ) : null}
+          {b.backToTop && past ? (
+            <button
+              type="button"
+              aria-label="Back to top"
+              onClick={() => {
+                const scroller = rootRef.current?.closest("[data-live-scroller]") as HTMLElement | null;
+                if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+                else window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              style={{ position: "absolute", right: 18, top: viewH - 56, pointerEvents: "auto", zIndex: 45, width: 38, height: 38, borderRadius: 999, border: "none", cursor: "pointer", background: accent, color: surface, fontSize: 16, boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up var(--motion-base) ease-out both" }}
+            >
+              ↑
+            </button>
+          ) : null}
+          {b.described.length ? (
+            <span data-live-described="" style={{ position: "absolute", left: 12, top: viewH - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${tint(accent, 0.267)}`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
+              Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
+            </span>
+          ) : null}
+        </>,
+        pin,
       ) : null}
 
-      {b.backToTop && past ? (
-        <button
-          type="button"
-          aria-label="Back to top"
-          onClick={() => {
-            const scroller = rootRef.current?.closest("[data-live-scroller]") as HTMLElement | null;
-            if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
-            else window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          style={{ position: "absolute", right: 18, top: view.top + view.height - 56, zIndex: 45, width: 38, height: 38, borderRadius: 999, border: "none", cursor: "pointer", background: accent, color: surface, fontSize: 16, boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up var(--motion-base) ease-out both" }}
-        >
-          ↑
-        </button>
-      ) : null}
+
 
       {b.cursor && b.cursor !== "picture" ? (
         <span
@@ -262,11 +299,6 @@ export function LiveShell({ behaviours: b, accent, surface, children, published 
         </span>
       ))}
 
-      {b.described.length ? (
-        <span data-live-described="" style={{ position: "absolute", left: 12, top: view.top + view.height - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${tint(accent, 0.267)}`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
-          Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
-        </span>
-      ) : null}
     </div>
   );
 }
