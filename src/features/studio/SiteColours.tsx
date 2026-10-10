@@ -14,6 +14,7 @@
  * Nothing moves until that button is pressed, and it is one undo. The same
  * for faces. The wheel's "every part like it" is the same call.
  */
+import { hasKept, keepBefore } from "./previewWas";
 import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
 import { Dices, Undo2 } from "lucide-react";
@@ -470,7 +471,7 @@ function KindCorners({ k }: { k: SurfaceKind }) {
     <label data-kind-corners="" className="block space-y-1 text-small text-fg">
       <span>Corners</span>
       <Slider value={[Math.min(k.radius, cap)]} min={0} max={cap} step={1} readout={(n) => `${n}px`} silent aria-label="Corners"
-        onValueChange={(v) => useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>))} />
+        onValueChange={(v) => { keepBefore(k.ids); useStudio.getState().patchNodes(k.ids, () => ({ radius: Math.max(v[0] ?? 0, SQUARE), radii: undefined, radiiY: undefined } as Partial<StudioNode>)); }} />
     </label>
   );
 }
@@ -482,6 +483,7 @@ function KindCorners({ k }: { k: SurfaceKind }) {
  * it stay. One store change, so one undo step (a drag: one gesture).
  */
 function wearGlow(ids: string[], colour: string | null, px: number): void {
+  keepBefore(ids);
   useStudio.getState().patchNodes(ids, (n) => {
     const art = n.art as { textShadow?: string } | null | undefined;
     const patch: Record<string, unknown> = {};
@@ -581,6 +583,7 @@ function KindEditor({ pick, site, palette, background, onClose }: { pick: Pick; 
   const setFace = (id: string) => {
     const t = targets.find((x) => x.id === id);
     if (!t) return;
+    keepBefore(wordsIds);
     const st = useStudio.getState();
     const mark = st.historyMark();
     const byId = new Map(st.nodes.map((n) => [n.id, n]));
@@ -665,7 +668,12 @@ function resetColours(): void {
   const mark = st.historyMark();
   const from = st.look.paletteFrom;
   const was = st.look.coloursWas ?? {};
-  st.setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {}, coloursWas: {} });
+  const lookWas = st.look.lookWas ?? {};
+  const textureWas = st.look.textureWas;
+  st.setLook({ palette: from ? Object.fromEntries(ROLES.flatMap((r) => (from[r] ? [[r, from[r]!.colour]] : []))) : {}, coloursWas: {}, lookWas: {}, textureWas: undefined, ...(textureWas ? { texture: textureWas } : {}) });
+  /* Corners, glow, font and texture first, as they were before the preview's editors (`previewWas.ts`); then the colours, which are kept from before any change. */
+  const shaped = st.nodes.filter((n) => lookWas[n.id]).map((n) => n.id);
+  if (shaped.length) useStudio.getState().patchNodes(shaped, (n) => lookWas[n.id] as Partial<StudioNode>);
   const ids = st.nodes.filter((n) => was[n.id]).map((n) => n.id);
   if (ids.length) useStudio.getState().patchNodes(ids, (n) => withColours(n, was[n.id]!) as Partial<StudioNode>);
   useStudio.getState().oneStepSince(mark);
@@ -697,7 +705,7 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
       <div>
         <div className="flex items-center justify-between">
           <h3 data-look-heading className="text-plain font-semibold text-fg">Colours</h3>
-          {(look.palette && Object.keys(look.palette).length) || Object.keys(look.coloursWas ?? {}).length ? (
+          {(look.palette && Object.keys(look.palette).length) || Object.keys(look.coloursWas ?? {}).length || hasKept(look) ? (
             <button
               type="button"
               data-colours-reset=""
@@ -823,6 +831,7 @@ export function SiteFontsSection() {
             onClick={() => {
               const t = targets.find((x) => x.id === to);
               if (!t) return;
+              keepBefore(useStudio.getState().nodes.filter((n) => faceOf(n) === openFont.key).map((n) => n.id));
               const changed = useStudio.getState().swapFontAll(openFont.key, t.to);
               play(changed.length ? "confirm" : "deny");
               setDone(changed.length);

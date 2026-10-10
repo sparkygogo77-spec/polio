@@ -17,6 +17,7 @@
  * (`node.texture`), so all of them change together. Picking, changing and
  * taking one off are each one undo.
  */
+import { keepBefore } from "./previewWas";
 import * as React from "react";
 import { TEXTURE_KINDS, dialsOf, parseColor, pickedLayer, spotsOfTarget, textureCss, toHex, type Palette, type TextureKind, type TextureLayer } from "./look";
 import { dropSiteDots, siteDotsOf, writeSiteDots, type Art, type SiteDots } from "./look/lookparts/siteDots";
@@ -129,7 +130,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   const originalSample = (originals[0] && paintedCss(originalOf(originals[0]), ground)) || (painted && paintedCss(painted.art as Art, ground)) || null;
 
   /** One undo for whatever a press does. */
-  const step = (fn: () => void) => { const st = useStudio.getState(); const mark = st.historyMark(); fn(); useStudio.getState().oneStepSince(mark); };
+  const step = (fn: () => void) => { keepBefore(ids, { textures: true }); const st = useStudio.getState(); const mark = st.historyMark(); fn(); useStudio.getState().oneStepSince(mark); };
   /** Take the site's own dots off its parts (`none` is what goes back to the site). */
   const dropSite = () => {
     const now = page ? siteDotsOn(ids, useStudio.getState().nodes) : null;
@@ -144,6 +145,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   const run = React.useRef<{ key: string; at: number } | null>(null);
   const setSite = (to: Partial<Pick<SiteDots, "colour" | "opacity" | "scale">>) => {
     if (!site) return;
+    keepBefore(site.ids);
     const key = Object.keys(to).sort().join(",");
     const now = Date.now();
     const quiet = run.current?.key === key && now - run.current.at < 700;
@@ -204,7 +206,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
   };
   const set = (patch: Partial<TextureLayer>) => {
     if (siteOnly) { setSite({ ...(patch.colour ? { colour: patch.colour } : {}), ...(patch.opacity != null ? { opacity: patch.opacity } : {}), ...(patch.scale != null ? { scale: patch.scale } : {}) }); return; }
-    if (own) useStudio.getState().updateTexture(own.id, patch);
+    if (own) { keepBefore(ids, { textures: true }); useStudio.getState().updateTexture(own.id, patch); }
   };
   const colour = layer ? layer.colour ?? palette[layer.role] : "";
 
@@ -260,7 +262,7 @@ export function PieceTexture({ ids, page, ground, palette }: { ids: string[]; pa
     if (layers) step(() => useStudio.getState().updateTexture(id, { live: { ...(useStudio.getState().look.texture.find((l) => l.id === id)?.live ?? live), layers } }));
   };
   /** A dial on the motion: each drag of one dial is one undo (`updateTexture`). */
-  const setLive = (patch: Partial<LivingPicture>) => { if (own && live) useStudio.getState().updateTexture(own.id, { live: { ...live, ...patch } }); };
+  const setLive = (patch: Partial<LivingPicture>) => { if (own && live) keepBefore(ids, { textures: true }); if (own && live) useStudio.getState().updateTexture(own.id, { live: { ...live, ...patch } }); };
 
   return (
     <div data-kind-texture="" data-texture-site={siteOnly ? "" : undefined} className="space-y-1.5">

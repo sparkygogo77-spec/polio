@@ -90,6 +90,10 @@ export interface Look {
    * until a colour is changed there; Reset empties it.
    */
   coloursWas?: Record<string, import("../siteColours.ts").ColoursWas>;
+  /** Each part's look before the Colours preview's editors first changed it (corners, glow, font, texture): what Reset puts back with the colours (`previewWas.ts`). */
+  lookWas?: Record<string, Record<string, unknown>>;
+  /** The texture stack before the Colours preview first changed it; absent until then. */
+  textureWas?: TextureLayer[];
   /**
    * The page's own `@keyframes`, as a capture read them (sink `doc.keyframes`),
    * for the parts whose `node.motion` names them. Kept with the look so they
