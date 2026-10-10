@@ -265,7 +265,7 @@ export function Solid({ node, palette }: { node: StudioNode; palette: Record<str
   );
 }
 
-export function LinkField({ node }: { node: StudioNode }) {
+export function LinkField({ node, pressed = false }: { node: StudioNode; pressed?: boolean }) {
   const pages = useHeldStudio((s) => s.pages);
   // A link drawn as an arrow points at another part; it is named here by
   // that part's name, where before no UI showed it at all.
@@ -277,7 +277,7 @@ export function LinkField({ node }: { node: StudioNode }) {
   const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : toSection ? `node:${link.target}` : "node";
   const set = (l: StudioNode["link"]) => useStudio.getState().updateNode(node.id, { link: l });
   return (
-    <Field label="Links to" hint="Where this sends people in the live preview and the finished site.">
+    <Field label={pressed ? "When pressed, go to" : "Links to"} hint={pressed ? "It has Push on press: pick where a press takes people and Publish makes it a real link. Left at nothing, Publish asks the code to make it a button." : "Where this sends people in the live preview and the finished site."}>
       <div data-link-field="">
       <Select
         value={value}
@@ -300,7 +300,7 @@ export function LinkField({ node }: { node: StudioNode }) {
       {link?.kind === "url" ? (
         <Input className="mt-1.5" value={link.target} placeholder="https://" aria-label="Web address" onChange={(e) => set({ kind: "url", target: e.target.value })} />
       ) : null}
-      {!link ? <WorkField node={node} /> : null}
+      {!link && !pressed ? <WorkField node={node} /> : null}
     </Field>
   );
 }

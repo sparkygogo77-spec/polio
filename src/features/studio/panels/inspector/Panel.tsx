@@ -44,6 +44,7 @@ import { FontField, EdgeField, PartMotions, Role } from "./partFields";
 import { FrameField } from "./frameField";
 import { LivingField } from "./livingField";
 import { Faces, Solid, LinkField } from "./solid";
+import { pushedOnPress } from "../../send-out/motionCss";
 import { PartSamples } from "../../states/ui";
 
 export function Inspector() {
@@ -397,7 +398,9 @@ export function Inspector() {
   const partOfId = comp ? null : comps.of.get(node.id);
   const partOf = partOfId ? comps.byId.get(partOfId) ?? null : null;
   /* A drawn button's link is asked under "What is this?", so it is not asked twice. */
-  const control = !node.worn && (kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId));
+  const control = !node.worn && (kind === "Link" || kind === "Button" || !!node.link || isLinkable(node.featureId) || pushedOnPress(node.work));
+  /* A part that is only pressable because of Push on press is asked where a press goes, in those words (J, 2026-10-10). */
+  const pressOnly = control && !(kind === "Link" || kind === "Button" || isLinkable(node.featureId)) && pushedOnPress(node.work);
   /* Only a control's words are its label: a box that merely holds words (a panel, a page) has none of its own to show here, not the biggest words inside it. */
   const wordsPart = control ? wordsIn(nodes, node) : null;
   const wordsHere = wordsPart && wordsPart.id !== node.id ? wordsPart : null;
@@ -517,7 +520,7 @@ export function Inspector() {
             <WordsField node={node} content={feature.content} label={isLabel ? (insideLink(node) ? "link" : "button") : undefined} />
           ) : null}
           {/* While it goes nowhere, the box at the top holds where it leads, so it is not asked twice. */}
-          {control && !nowhere ? <LinkField node={node} /> : null}
+          {control && !nowhere ? <LinkField node={node} pressed={pressOnly} /> : null}
           {node.worn ? <WornWords node={node} /> : null}
           {!node.worn && (node.picture || feature?.id === "picture" || !wordsOf(wordsHere ?? node)) ? <PictureField node={node} /> : null}
           <WorkFields node={node} pick={(id) => !effectIds.has(id)} />

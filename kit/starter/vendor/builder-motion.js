@@ -420,6 +420,7 @@ siteFeatures.define("glide", function (el, inputs) {
   var root = el.ownerDocument || document;
   if (inputs.how === "css") { root.documentElement.style.scrollBehavior = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"; return; }
   var to = String(inputs.to || "").trim();
+  if (to) { var cur = getComputedStyle(el).cursor; if (cur === "auto" || cur === "default") el.style.cursor = "pointer"; }
   var num = function (v, d) { var n = Number(v); return v === "" || v == null || !isFinite(n) ? d : n; };
   var E = {
     "linear": function (p) { return p; },

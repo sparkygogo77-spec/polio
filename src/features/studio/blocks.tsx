@@ -19,6 +19,7 @@ import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./board/store";
 import { usesOf } from "./shelf";
+import { pushedOnPress } from "./send-out/motionCss";
 import { usePicture, type Picture } from "./pictures";
 import { CrateOn } from "./crateLayer";
 import { WornShape } from "./WornShape";
@@ -381,7 +382,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * before the card sees it, and goes there. Live only: the board is a
    * layout surface.
    */
-  const whole = mode === "live" && def.linkWhole && node.link && onNavigate ? node.link : null;
+  /* A part given Push on press and a place to go is the link, whole, like a grid (J, 2026-10-10). */
+  const whole = mode === "live" && (def.linkWhole || (!def.linkable && pushedOnPress(node.work))) && node.link && onNavigate ? node.link : null;
   const linked = whole ? (
     <div
       data-link-whole={whole.kind}

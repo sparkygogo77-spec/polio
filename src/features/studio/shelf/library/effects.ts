@@ -139,6 +139,8 @@ export const PRESS_PUSH: Work = {
   var down = num(inputs.down, 2), x = num(inputs.x, 0), k = num(inputs.scale, 1), ms = Math.max(0, num(inputs.pace, 80)), sh = String(inputs.shadow || "").trim();
   var s = el.style, was = { translate: s.translate, scale: s.scale, boxShadow: s.boxShadow, transition: s.transition };
   s.transition = (was.transition ? was.transition + ", " : "") + "translate " + ms + "ms ease, scale " + ms + "ms ease, box-shadow " + ms + "ms ease";
+  var cur = getComputedStyle(el).cursor;
+  if (cur === "auto" || cur === "default") s.cursor = "pointer";
   var on = function () { s.translate = x + "px " + down + "px"; if (k !== 1) s.scale = String(k); if (sh) s.boxShadow = sh; el.setAttribute("data-pressed", ""); };
   var off = function () { s.translate = was.translate; s.scale = was.scale; s.boxShadow = was.boxShadow; el.removeAttribute("data-pressed"); };
   el.addEventListener("pointerdown", on);
