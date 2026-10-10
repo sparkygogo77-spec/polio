@@ -48,9 +48,9 @@ check("no \"Painted flat … one stack, at the foot of this panel\"", !/Painted 
 check("no [data-background-inspector] anywhere", (await page.locator("[data-background-inspector]").count()) === 0);
 
 /* The fill and the layers still work, at the foot of the panel. */
-check("the fill swatches are still in the stack", (await page.locator("[data-look-fill] button").count()) === 4);
+check("the old fill row is gone too (the page's Texture row carries it)", (await page.locator("[data-look-fill] button").count()) === 0);
 /* Pressed from the page itself: the stack is at the foot of a scrolling panel, below the fold at this size. */
-await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().evaluate((b) => b.click());
+await page.evaluate(() => window.__studioSetFormat("palette.background", "mesh gradient"));
 await page.waitForTimeout(700);
 const img = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("choosing a fill still paints the page", /radial-gradient/.test(img), img.slice(0, 60));
@@ -72,6 +72,9 @@ const wheel = await page.evaluate(() => [...document.querySelectorAll("button, [
 check("the page's wheel still offers Strip and Put the background back", wheel.some((w) => /Strip/.test(w)) && wheel.some((w) => /Put the background back/.test(w)),
   wheel.filter((w) => /Strip|background/i.test(w)).join(" | ") || "neither");
 await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+/* A page texture picked sets the fill flat (one thing under everything), so the fill ⌘X strips is set again here. */
+await page.evaluate(() => window.__studioSetFormat("palette.background", "mesh gradient"));
 await page.waitForTimeout(300);
 const fillOf = () => page.evaluate(() => window.__studioPublishDoc?.().format?.["palette.background"] ?? null);
 const had = await fillOf();

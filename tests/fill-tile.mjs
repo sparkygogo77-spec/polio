@@ -109,7 +109,6 @@ check(
 
 const panel = readFileSync("src/features/studio/look/LookPanel.tsx", "utf8");
 check("the Look panel's swatch no longer hardcodes a grid tile", !/f\.id === "grid" \?/.test(panel));
-check("the Look panel's swatch reads the size off the layer", /layers\.map\(\(l\) => l\.size\)/.test(panel));
 
 const canvas = ["Canvas.tsx", ...readdirSync("src/features/studio/board").filter((f) => /\.tsx?$/.test(f)).map((f) => `board/${f}`)].map((f) => readFileSync(`src/features/studio/${f}`, "utf8")).join("\n");
 check("the board's page frame no longer hardcodes a grid tile", !/backgroundSize: "24px 24px"/.test(canvas));
@@ -151,9 +150,9 @@ if (!live) {
     await page.locator('[aria-label="Side panel"] button', { hasText: /^Look$/ }).first().click({ force: true });
     await page.waitForTimeout(700);
 
-    const swatch = page.locator('[data-look-fill] button[aria-label="Grid"]').first();
-    check("the Look panel offers a Grid fill", (await swatch.count()) === 1);
-    await swatch.click({ force: true });
+    /* The fill's own row left the Look panel (J, 2026-10-10): the page's Texture row carries it. The fill itself still paints, set as a control sets it. */
+    check("the Look panel has no second fill row", (await page.locator("[data-look-fill]").count()) === 0);
+    await page.evaluate(() => window.__studioSetFormat("palette.background", "grid"));
     await page.waitForTimeout(600);
 
     const frame = await page.evaluate(() => {
@@ -169,16 +168,6 @@ if (!live) {
     );
     check("and it is two crossed rules that are tiled", !!frame && (frame.image.match(/linear-gradient/g) ?? []).length === 2);
 
-    const chip = await page.evaluate(() => {
-      /* The sample is the swatch's first child; the name sits under it. */
-      const b = document.querySelector('[data-look-fill] button[aria-label="Grid"] > span:first-child');
-      return b ? getComputedStyle(b).backgroundSize : null;
-    });
-    check(
-      "the swatch draws a miniature of it rather than a copy of the page",
-      !!chip && chip.split(",").every((p) => p.trim() === "8px 8px"),
-      chip ?? "none",
-    );
 
     await browser.close();
   }

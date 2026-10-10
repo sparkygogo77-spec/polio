@@ -227,7 +227,7 @@ const places = await page.evaluate(() => ({
   oldFill: document.querySelectorAll('[aria-label="Background fill"]').length,
   oldSwitches: document.querySelectorAll('[data-background-inspector] [aria-label^="Texture "]').length,
 }));
-check("the fill sits in the stack it belongs to, as painted swatches", places.fill === 4, `${places.fill} swatches`);
+check("the old Spaces fill row is gone: the page's Texture row is the one place", places.fill === 0, `${places.fill} swatches`);
 check("and the second place that painted the page is gone", places.oldFill === 0 && places.oldSwitches === 0,
   `${places.oldFill} old fill control, ${places.oldSwitches} duplicate layer switches`);
 
@@ -238,7 +238,7 @@ check("and the second place that painted the page is gone", places.oldFill === 0
  * silence. MEASURED before the fix, the page's own background-image with a
  * mesh set and one layer on: the layer alone, no radial-gradient anywhere.
  */
-await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().click({ force: true });
+await page.evaluate(() => window.__studioSetFormat("palette.background", "mesh gradient"));
 await page.waitForTimeout(700);
 const bare = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
 check("choosing a fill paints it on the page", /radial-gradient/.test(bare), bare.slice(0, 70));
@@ -248,9 +248,11 @@ const over = await page.evaluate(() => ({
   img: getComputedStyle(document.querySelector("[data-frame]")).backgroundImage,
   layers: document.querySelectorAll('[data-kind-texture] [data-texture-sample="stripes"][aria-pressed="true"]').length,
 }));
-check("a texture on the page goes OVER the fill rather than deleting it",
-  over.layers > 0 && /radial-gradient/.test(over.img),
-  over.layers ? `${over.layers} layer up, page paints: ${over.img.slice(0, 90)}` : "no layer was added, so this measured nothing");
+/* The fill's row left the Look panel (J, 2026-10-10), so a texture picked for the page takes the old fill with it: one thing paints under everything, and it is never dropped in silence (it was the press). */
+const fillNow = await page.evaluate(() => window.__studioPublishDoc().format?.["palette.background"]);
+check("a texture on the page is the one thing under everything: the old fill goes flat with the press",
+  over.layers > 0 && fillNow === "flat",
+  over.layers ? `${over.layers} layer up, fill ${fillNow}` : "no layer was added, so this measured nothing");
 
 /* ------------------------------------------------------------------ */
 /* 7. THE SECTIONS STACK, RATHER THAN SHARING A BAND                   */

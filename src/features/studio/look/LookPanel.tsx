@@ -16,7 +16,7 @@ import {
   toHex, type Harmony, type Oklch, type Palette, type RoleId,
 } from "./";
 import { Spectrum } from "../MenuConsole";
-import { fillLayers, resolvePalette } from "../shelf/run";
+import { resolvePalette } from "../shelf/run";
 import { useHeldStudio, useStudio } from "../board/store";
 import { ThemeSection } from "../ThemePanel";
 import { roleFollowers } from "./siteColours";
@@ -398,120 +398,15 @@ export function PaletteRoles({ captured }: { captured: boolean }) {
 /* The texture stack                                                   */
 /* ------------------------------------------------------------------ */
 
-/**
- * THE FILL, WHICH IS THE BOTTOM OF THIS STACK.
- *
- * HIS WORDS: the Background Fill options "may be redundant against the
- * Texture section at the bottom; merge them in some way rather than leaving
- * two places that paint the page."
- *
- * They were worse than redundant. The fill and the stack both painted the
- * page, and the stack did not sit on the fill, it REPLACED it: switch on any
- * layer that lands on the page and the fill was dropped, so a mesh gradient
- * with a grain over it was a grain and no mesh, with nothing said anywhere.
- * Two controls for one surface, one of them silently beating the other.
- *
- * So there is one place now, in the order the page is actually painted: the
- * fill at the bottom, the layers over it, and `themeFrom` composes them the
- * same way rather than choosing between them.
- *
- * AND IT SHOWS WHAT IT DOES RATHER THAN NAMING IT, which is his standard.
- * The four choices were the words flat, gradient, grid and mesh; they are
- * painted now, each swatch drawn from `fillLayers` over the page's own
- * background colour — the same function the site is painted from, so a
- * swatch cannot drift from what pressing it does.
+/*
+ * THE FILL ROW IS GONE (J, 2026-10-10: "since i can customize background
+ * which goes under everything this bottom portion of look should be
+ * removed"). Its Flat, Gradient, Grid and Mesh live in the page's own
+ * Texture row in the Colours preview (`PieceTexture.tsx`: None, Gradient,
+ * Grid, Mesh), and picking there sets the old fill back to flat, so one
+ * place paints under everything. The heading and hint went with it: the
+ * Colours preview at the top says where texture is given.
  */
-
-/**
- * The tile these swatches draw a tiling fill at.
- *
- * A swatch is 36px of a 1440px page, so the page's own tile shows one corner
- * of one cell and reads as blank. Smaller, and stated — the drift this row's
- * comment promises there would be none of started as a size hardcoded here
- * against one the page was never given.
- */
-const SWATCH_TILE = 8;
-
-function FillRow({ palette }: { palette: Palette }) {
-  const format = useHeldStudio((st) => st.format);
-  const fill = String(format["palette.background"] ?? "flat");
-  const hue = Number(format["palette.accentHue"] ?? 265);
-  const light = String(format["palette.mode"] ?? "dark") === "light";
-  const FILLS = [
-    { id: "flat", label: "Flat" },
-    { id: "subtle gradient", label: "Gradient" },
-    { id: "grid", label: "Grid" },
-    { id: "mesh gradient", label: "Mesh" },
-  ];
-  return (
-    <div data-look-fill="" className="space-y-1">
-      <div className="flex items-baseline justify-between">
-        <span className="text-fine uppercase tracking-wider text-fg-muted">Spaces fill, under everything</span>
-        <span className="text-fine text-fg-faint">{FILLS.find((f) => f.id === fill)?.label ?? fill}</span>
-      </div>
-      <div className="grid grid-cols-4 gap-1">
-        {FILLS.map((f) => {
-          const layers = fillLayers(f.id, hue, light, SWATCH_TILE);
-          return (
-            <Tooltip key={f.id} content={f.label}>
-              <button
-                type="button"
-                aria-label={f.label}
-                aria-pressed={fill === f.id}
-                onClick={() => { play("select"); useStudio.getState().setFormat("palette.background", f.id); }}
-                className={cn(
-                  "tactile flex flex-col overflow-hidden rounded-md border-2 text-left transition-colors",
-                  fill === f.id ? "border-accent" : "border-border hover:border-border-strong",
-                )}
-              >
-                <span
-                  aria-hidden
-                  className="block h-10 w-full"
-                  style={{
-                    backgroundColor: palette.bg,
-                    /* A small square is a miniature, so it asks the fill for a
-                       miniature's tile rather than shrinking the page's behind
-                       its back — which is how this swatch came to draw a grid
-                       the page itself never drew. The size still comes off the
-                       layer. */
-                    ...(layers.length
-                      ? { backgroundImage: layers.map((l) => l.image).join(", "), backgroundSize: layers.map((l) => l.size).join(", "), backgroundRepeat: "repeat" }
-                      : {}),
-                  }}
-                />
-                {/* The name under the sample, where it can be read. */}
-                <span className="block truncate bg-elevated px-1 py-0.5 text-fine font-medium text-fg">{f.label}</span>
-              </button>
-            </Tooltip>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TextureSection() {
-  const format = useHeldStudio((s) => s.format);
-  const look = useHeldStudio((s) => s.look);
-  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
-  return (
-    <section data-look-texture="" className="space-y-2 p-3">
-      <h3 data-look-heading className="text-plain font-semibold text-fg">Texture</h3>
-      <FillRow palette={palette} />
-      {/*
-        TEXTURE IS GIVEN FROM THE PREVIEW, AND ONLY THERE. HIS WORDS: "this
-        should all be managed via the preview instead of the layers system
-        below it", and then (2026-10-09) "there also is no need for the
-        layers, that tech should be shoved into the texture/preview
-        customization field". The page, a panel or a field pressed in the
-        Colours preview carries its own texture, a picture of his own
-        included (`PieceTexture.tsx`); the stack of layers is gone.
-      */}
-      <MoreHint className="text-small leading-snug text-fg-muted" text="Press the page, a panel or a field in the Colours preview above to give it a texture, or a picture of your own." />
-    </section>
-  );
-}
-
 
 function Toggle({ label, hint, checked, onChange, name }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; name?: string }) {
   return (
@@ -732,7 +627,6 @@ export function LookPanel() {
       <SavedPalettes />
       {captured ? null : <SiteFontsSection />}
       <LightSection />
-      <TextureSection />
     </div>
   );
 }

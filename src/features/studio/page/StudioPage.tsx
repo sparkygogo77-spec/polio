@@ -195,6 +195,7 @@ export function StudioPage() {
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
       __studioUndoDepth?: () => number;
+      __studioSetFormat?: (key: string, value: string) => void;
       __studioPublishDoc?: () => Record<string, unknown>;
       __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null; nodeId: string | null; madeId: string | null; note: string | null; label: string }[];
       __studioFacePair?: (pair: "dark" | "bright") => void;
@@ -254,6 +255,8 @@ export function StudioPage() {
     // read it out of storage read an empty list and could not see a scrub
     // writing a hundred entries. This is the only honest way to ask.
     w.__studioUndoDepth = () => useStudio.getState().past.length;
+    // One format value, as a control sets it: the page's fill has no row in the Look panel any more, and checks of how it paints set it here.
+    w.__studioSetFormat = (key, value) => useStudio.getState().setFormat(key, value);
     // The document exactly as Publish sends it, for checks that say "what publish sends" and used to read storage instead.
     w.__studioPublishDoc = () => studioDoc();
     // The push itself, with files a check hands it, the way Go live sends them (tests/publish-big-picture.mjs: a picture bigger than one request).
@@ -295,6 +298,7 @@ export function StudioPage() {
     return () => {
       delete w.__studioOpenBrief;
       delete w.__studioUndoDepth;
+      delete w.__studioSetFormat;
       delete w.__studioPublishDoc;
       delete w.__studioToggleLibrary;
       delete w.__studioSetBrief;
