@@ -68,12 +68,12 @@ try {
     <body data-hook="page" style="margin:0"><div data-hook="spacer" style="height:3000px"></div><script>${kit.replace(/<\/script/g, "<\\/script")}</script></body></html>`);
   await p.evaluate(() => window.scrollTo(0, 800));
   await p.waitForTimeout(100);
-  const got = await p.evaluate(() => { const b = document.querySelector('[data-hook="builder-back-to-top"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, pos: getComputedStyle(b).position, shown: getComputedStyle(b).display }; });
-  check("…the kit's file puts the button there, fixed, with its own hook", !!got && got.left === 40 && got.top === 60 && got.pos === "fixed" && got.shown === "block", JSON.stringify(got));
+  const got = await p.evaluate(() => { const b = document.querySelector('[data-builder-motion="back-to-top"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, pos: getComputedStyle(b).position, shown: getComputedStyle(b).display }; });
+  check("…the kit's file puts the button there, fixed, marked data-builder-motion (a script never sets a hook, kit rule)", !!got && got.left === 40 && got.top === 60 && got.pos === "fixed" && got.shown === "block", JSON.stringify(got));
   await p.setContent(`<!doctype html><html><head><style>:root { --builder-site-motion: "back-to-top"; }</style></head><body style="margin:0"><div style="height:3000px"></div><script>${kit.replace(/<\/script/g, "<\\/script")}</script></body></html>`);
   await p.evaluate(() => window.scrollTo(0, 800));
   await p.waitForTimeout(100);
-  const plain = await p.evaluate(() => { const r = document.querySelector('[data-hook="builder-back-to-top"]').getBoundingClientRect(); return { right: innerWidth - r.right, bottom: innerHeight - r.bottom }; });
+  const plain = await p.evaluate(() => { const r = document.querySelector('[data-builder-motion="back-to-top"]').getBoundingClientRect(); return { right: innerWidth - r.right, bottom: innerHeight - r.bottom }; });
   check("…with no corner named: bottom right, 24px in", plain.right === 24 && plain.bottom === 24, JSON.stringify(plain));
 
   /* 3. */
