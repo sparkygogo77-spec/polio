@@ -31,7 +31,8 @@ import { useActions } from "@/core/actions";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio, useSteady } from "./board/store";
-import { FAMILY } from "./shelf/run";
+import { FAMILY, resolvePalette } from "./shelf/run";
+import { wornPaint } from "./look";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
 import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
@@ -40,10 +41,28 @@ import { placeBring } from "./bringRepo";
 import { resetToLastBring, useLastBring } from "./lastBring";
 import { fileAt } from "./kitRun";
 import { LANE_MODE } from "./loop";
-import { NEXT_PATH, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
+import { NEXT_PATH, asksToSend, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
+import { codeAsks } from "./codeAsks";
+import { formatSwitches } from "./shelfFacts";
+import { FORMAT_FIELDS } from "./format";
+import { getWork } from "./shelf";
 import { fixLoopOf, issuesNow, setFixLoop } from "./useFixLoop";
 
 const family = (name: string) => FAMILY[name];
+
+/** What the board holds that the style layer cannot write (effects, Format switches, pages), as NEXT.md lines (`codeAsks.ts`). */
+function asksNow(source: StyleSource): FixIssue[] {
+  const st = useStudio.getState();
+  const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
+  return codeAsks({
+    nodes: st.nodes as never,
+    pages: st.pages,
+    format: st.format,
+    switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key })),
+    coded: new Set(source.files.map((f) => f.pageId)),
+    effect: (id) => { const m = getWork(id)?.manifest; return m ? { name: m.name, blurb: m.blurb } : null; },
+  });
+}
 
 /** The repository, its folder and branch, as "Bring it in" takes them. */
 function wantOf(source: StyleSource): string {
@@ -55,10 +74,14 @@ function wantOf(source: StyleSource): string {
 export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const ctx = useActions();
   /* Held still under the hand: the whole style layer is rebuilt from it (`store/hold.ts`). */
-  /* Parts wearing a living background carry it as their own living picture (`wearTextures`). */
+  /* Parts wearing a texture carry it: a living background as their own living picture, any other as their own background pictures (`wearTextures`). */
   const textures = useStudio((s) => s.look.texture);
   const steady = useSteady(useStudio((s) => s.nodes));
-  const nodes = React.useMemo(() => wearTextures(steady, textures), [steady, textures]);
+  /* Every other texture a part wears is painted as the board paints it, over its own fill (`wornPaint`). */
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const full = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const nodes = React.useMemo(() => wearTextures(steady, textures, (l, o) => wornPaint(l, full, o)), [steady, textures, full]);
   const palette = useStudio((s) => s.look.palette as Record<string, string>);
   const layer = React.useMemo(() => buildLayer(nodes as unknown as LayerNode[], palette, source, { family, kit: !!source.kit }), [nodes, palette, source]);
   const empty = !layer.rules.length && !layer.vars.length;
@@ -94,7 +117,9 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     if (!fixed.length) return;
     for (const i of fixed) useStudio.getState().landThread({ mode: LANE_MODE, ask: i.says, answer: `Fixed by a code chat from polio/NEXT.md: ${i.hook ?? "a part"} on ${i.page}.`, changes: [`${i.hook ?? "A part"} on ${i.page} fixed`], state: "done" });
     const gone = new Set(fixed.map((i) => i.key));
-    setFixLoop({ ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)) });
+    /* A board change the code built is done: the board still holds it, so it is never asked for again. */
+    const built = fixed.filter((i) => i.kind === "build").map((i) => i.key);
+    setFixLoop({ ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
     say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
   };
 
@@ -123,7 +148,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const publish = () => {
     play("tap");
     const l = fixLoopOf(useStudio.getState().look);
-    const queued = l.ticked.some((k) => !l.sent.some((i) => i.key === k));
+    const queued = l.ticked.some((k) => !l.sent.some((i) => i.key === k)) || asksToSend(l, asksNow(source)).length > 0;
     if (!queued && (empty || status?.pending === false)) { say("Nothing to publish", `The code already has this design: nothing on the board differs from ${source.repo}.`); return; }
     /* The board's check list first; then what changes, and his yes. */
     void checkThenPublish(() => setAsk("publish"));
@@ -137,7 +162,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
       /* Ticked issues not yet queued go in polio/NEXT.md, added to what the file already holds. */
       const loop = fixLoopOf(useStudio.getState().look);
-      const adding: FixIssue[] = loop.ticked.length ? toSend(loop, await issuesNow()) : [];
+      /* And what he set that CSS cannot carry (an effect, a whole-site switch, a page): a line each, for the code chat to build. */
+      const adding: FixIssue[] = [...(loop.ticked.length ? toSend(loop, await issuesNow()) : []), ...asksToSend(loop, asksNow(source))];
       const extra = adding.length ? [{ path: NEXT_PATH, content: nextMd(adding, { site, when: new Date().toISOString().slice(0, 10), prev: await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null) }) }] : [];
       const sent = await sendDesign(nodes as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
@@ -214,7 +240,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
         }
       >
         <div data-code-publish-says="" className="space-y-2 text-plain text-fg-muted">
-          <FixNote />
+          <FixNote source={source} />
           <p>{changes}. Only the look changes: the style layer{source.kit ? ", the hooks map made from it" : ""} and the design record. Its scripts, pages and every hook stay as they are.</p>
           <p>It goes on a new style/ branch and is merged into {source.ref || "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
           {layer.rules.length ? <p className="text-small text-fg-faint">{layer.rules.slice(0, 6).map((r) => r.selector).join(", ")}{layer.rules.length > 6 ? ", …" : ""}</p> : null}
@@ -224,11 +250,21 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   );
 }
 
-/** In the Publish dialog: how many ticked issues go to polio/NEXT.md with it. */
-function FixNote() {
+/** In the Publish dialog: how many ticked issues, and how many board changes CSS cannot carry, go to polio/NEXT.md with it. */
+function FixNote({ source }: { source: StyleSource }) {
   const loop = fixLoopOf(useStudio((s) => s.look));
+  /* Read again when what the asks come from changes. */
+  const nodes = useStudio((s) => s.nodes);
+  const pages = useStudio((s) => s.pages);
+  const format = useStudio((s) => s.format);
   const n = loop.ticked.filter((k) => !loop.sent.some((i) => i.key === k)).length;
-  return n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null;
+  const asks = React.useMemo(() => asksToSend(loop, asksNow(source)), [loop, source, nodes, pages, format]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <>
+      {n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null}
+      {asks.length ? <p data-code-publish-asks="">{asks.length} change{asks.length === 1 ? "" : "s"} CSS cannot carry ({asks.slice(0, 3).map((i) => (/"([^"]+)"/.exec(i.says)?.[1] ?? i.kind)).join(", ")}{asks.length > 3 ? ", …" : ""}) go{asks.length === 1 ? "es" : ""} into polio/NEXT.md, for the code chat to build.</p> : null}
+    </>
+  );
 }
 
 /** One way to bring the site in again: its name, and what it does under it, as wide as the dialog. */
