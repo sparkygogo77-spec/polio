@@ -140,7 +140,7 @@ export function Shell({ behaviours: b, children }: { behaviours: Behaviours; chi
       {children}
       {b.progress ? (
         <div role="progressbar" aria-label="Reading progress" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 40, pointerEvents: "none" }}>
-          <div style={{ width: \`\${progress * 100}%\`, height: "100%", background: "var(--accent)", transition: "width 90ms linear" }} />
+          <div style={{ width: "100%", height: "100%", background: "var(--accent)", transform: \`scaleX(\${progress})\`, transformOrigin: "0 50%" }} />
         </div>
       ) : null}
       {b.backToTop && past ? (

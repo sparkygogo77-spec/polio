@@ -74,7 +74,9 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
     bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100");
     bar.style.cssText = "position:fixed;top:0;left:0;right:0;height:3px;z-index:2147483000;pointer-events:none";
     fill = document.createElement("div");
-    fill.style.cssText = "height:100%;width:0;background:" + c.accent + ";transition:width 90ms linear";
+    /* No easing on the fill: it eased toward each scroll event and trailed a fast scroll. Where the browser can, it follows the scroll itself. */
+    fill.style.cssText = "height:100%;width:100%;background:" + c.accent + ";transform:scaleX(0);transform-origin:0 50%;will-change:transform";
+    if (window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()")) { sheet.textContent += "@keyframes sm-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}"; fill.style.animation = "sm-progress linear both"; fill.style.animationTimeline = "scroll(root)"; }
     bar.appendChild(fill); document.body.appendChild(bar);
   }
   if (c.backToTop) {
@@ -86,7 +88,7 @@ export const SITE_MOTION_JS = `/* The whole site's motion: its settings are in #
   }
   function onScroll() {
     var top = scrolled(), max = root.scrollHeight - window.innerHeight;
-    if (fill) { var p = max > 0 ? Math.min(1, top / max) : 0; fill.style.width = (p * 100) + "%"; bar.setAttribute("aria-valuenow", String(Math.round(p * 100))); }
+    if (fill) { var p = max > 0 ? Math.min(1, top / max) : 0; fill.style.transform = "scaleX(" + p + ")"; bar.setAttribute("aria-valuenow", String(Math.round(p * 100))); }
     if (back) back.style.display = top > 220 ? "block" : "none";
     if (c.parallax && !still) document.body.style.backgroundPositionY = (-top * c.parallax) + "px";
   }
