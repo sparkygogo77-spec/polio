@@ -121,25 +121,63 @@ const contains = (a: Named, b: Named) =>
   (a.x ?? 0) <= (b.x ?? 0) + 1 && (a.y ?? 0) <= (b.y ?? 0) + 1 &&
   (a.x ?? 0) + (a.w ?? 0) >= (b.x ?? 0) + (b.w ?? 0) - 1 && (a.y ?? 0) + (a.h ?? 0) >= (b.y ?? 0) + (b.h ?? 0) - 1;
 
+/* Read once per part object: parts are never changed in place (the store makes a new one), so the answer holds. */
+const headingish = new WeakMap<Named, boolean>();
 export const isHeadingish = (n: Named) => {
-  const words = wordsOf(n);
-  if (!words || words.length > 60) return false;
-  const tag = lastTag(n.from?.selector);
-  if (/^h[1-4]$/.test(tag) || computedAs(n.prompt)?.role === "heading" || n.featureId === "heading") return true;
-  return (n.font?.size ?? 0) >= 24;
+  let v = headingish.get(n);
+  if (v === undefined) {
+    const words = wordsOf(n);
+    const tag = !words || words.length > 60 ? "" : lastTag(n.from?.selector);
+    v = !!words && words.length <= 60 && (/^h[1-4]$/.test(tag) || computedAs(n.prompt)?.role === "heading" || n.featureId === "heading" || (n.font?.size ?? 0) >= 24);
+    headingish.set(n, v);
+  }
+  return v;
 };
+
+/*
+ * ONE LIST, READ ONCE. Naming every part of a board asks, for each part,
+ * what every other part holds: on a 2,000-part capture (sunkcoin.fun) that
+ * was billions of comparisons and froze the Builder for twenty seconds. What
+ * a list says (each page's parts, what each box holds, its first heading) is
+ * kept beside the list itself, and a new list (any edit) starts afresh.
+ */
+interface ListMemo { pages: Map<string, readonly Named[]>; within: Map<Named, Named[]>; heading: Map<Named, string | null>; headed: Map<string, boolean> }
+const memos = new WeakMap<readonly Named[], ListMemo>();
+const memoOf = (all: readonly Named[]): ListMemo => {
+  let m = memos.get(all);
+  if (!m) { m = { pages: new Map(), within: new Map(), heading: new Map(), headed: new Map() }; memos.set(all, m); }
+  return m;
+};
+/** The list's parts on a page (every part when the page is not said). */
+function onPageOf(pageId: string | undefined, all: readonly Named[]): readonly Named[] {
+  if (!pageId) return all;
+  const m = memoOf(all);
+  let p = m.pages.get(pageId);
+  if (!p) { p = all.filter((x) => x.pageId === pageId); m.pages.set(pageId, p); }
+  return p;
+}
 
 /** The parts drawn inside `box` on its page, top to bottom, then left to right. */
 function within(box: Named, all: readonly Named[]): Named[] {
-  return all
-    .filter((m) => m.id !== box.id && (!box.pageId || m.pageId === box.pageId) && contains(box, m) && (m.w ?? 0) * (m.h ?? 0) < (box.w ?? 0) * (box.h ?? 0))
-    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+  const m = memoOf(all);
+  let got = m.within.get(box);
+  if (!got) {
+    got = onPageOf(box.pageId, all)
+      .filter((x) => x.id !== box.id && contains(box, x) && (x.w ?? 0) * (x.h ?? 0) < (box.w ?? 0) * (box.h ?? 0))
+      .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+    m.within.set(box, got);
+  }
+  return got;
 }
 
 /** The first heading inside a part: a section is named by its own heading, never the page's. */
 function firstHeading(box: Named, all: readonly Named[]): string | null {
+  const m = memoOf(all);
+  if (m.heading.has(box)) return m.heading.get(box)!;
   const h = within(box, all).find(isHeadingish);
-  return h ? clip(wordsOf(h)) : null;
+  const v = h ? clip(wordsOf(h)) : null;
+  m.heading.set(box, v);
+  return v;
 }
 
 /** A part's own title when it holds others: its first heading, else its first words. */
@@ -159,8 +197,13 @@ const LANDMARKS = new Set(["Section", "Header", "Footer", "Menu", "Page body", "
  * it on its page. Null when the page has none.
  */
 export function sectionOf(n: Named, all: readonly Named[]): string | null {
-  const page = all.filter((m) => m.id !== n.id && (!n.pageId || m.pageId === n.pageId));
-  if (!page.some(isHeadingish)) return null;
+  const memo = memoOf(all);
+  const key = n.pageId ?? "";
+  let headed = memo.headed.get(key);
+  if (headed === undefined) { headed = onPageOf(n.pageId, all).some(isHeadingish); memo.headed.set(key, headed); }
+  /* The page's only heading may be the part itself, which never names its own section. */
+  if (!headed || (isHeadingish(n) && !onPageOf(n.pageId, all).some((m) => m.id !== n.id && isHeadingish(m)))) return null;
+  const page = onPageOf(n.pageId, all).filter((m) => m.id !== n.id);
   const holders = page.filter((m) => contains(m, n) && (m.w ?? 0) * (m.h ?? 0) > (n.w ?? 0) * (n.h ?? 0)).sort((a, b) => (a.w! * a.h!) - (b.w! * b.h!));
   for (const box of holders) {
     const h = firstHeading(box, all);
