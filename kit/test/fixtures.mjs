@@ -281,4 +281,18 @@ export const FIXTURES = [
     replace: '<section data-hook="home-hero" data-region="main" data-label="Hero">',
     expect: /region "main" is declared twice/,
   },
+  {
+    name: 'app areas: an app area with no name',
+    file: 'starter/game.html',
+    find: 'data-app-area="Screen"',
+    replace: 'data-app-area=""',
+    expect: /data-app-area needs a plain name/,
+  },
+  {
+    name: 'app areas: an app area inside another',
+    file: 'starter/game.html',
+    find: '<div data-hook="screen-content" data-show="live">',
+    replace: '<div data-hook="screen-content" data-show="live" data-app-area="Feed">',
+    expect: /app area "Feed" sits inside app area "Screen"/,
+  },
 ];

@@ -8,7 +8,7 @@ import { getFeature } from "../shelf";
 import { componentsOf, carriedBy, GRABBED } from "../components";
 import { isControl } from "../control";
 import { ownsOthers } from "../holds";
-import { holds, isWrapper, ownerOf, ridersOf, wordsOf } from "../owner";
+import { appAreaRiders, holds, isWrapper, liftToAppArea, ownerOf, ridersOf, wordsOf } from "../owner";
 import { isLinkable } from "../shelf/ui";
 import { resolvePalette } from "../shelf/run";
 import { groupBounds, type StudioNode } from "./store";
@@ -108,7 +108,8 @@ export function groupDrag(st: StudioState, groupId: string, handle: Handle, p: P
 /** A part's resize: a component's layers and a frame's states keep their place and size on it (`components.ts#resizedWith`, `stateFrames.ts`). */
 export function resizeDrag(st: StudioState, n: StudioNode, handle: Handle, p: Point): Drag {
   const own = carriedBy(componentsOf(st.nodes, resolvePalette(st.format, st.look)), n.id).filter((id) => id !== n.id);
-  const layers = [...own, ...frameRiders(st.nodes, [n.id, ...own])];
+  /* An app area (kit rule 34) scales everything inside with it: the code fills it to the box. */
+  const layers = [...new Set([...own, ...frameRiders(st.nodes, [n.id, ...own]), ...appAreaRiders(st.nodes, n.id)])];
   const origin: NonNullable<Drag["origin"]> = { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } };
   for (const m of st.nodes) if (layers.includes(m.id) && !m.locked) origin[m.id] = { x: m.x, y: m.y, w: m.w, h: m.h };
   return { kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle, origin, riders: layers };
@@ -117,10 +118,12 @@ export function resizeDrag(st: StudioState, n: StudioNode, handle: Handle, p: Po
 /**
  * A move: a face as big as its frame lifts to the frame (`liftToFrame`), a
  * button carries its words and icon (`owner.ts#ridersOf`), and a frame
- * carries its states, the hidden faces too (`stateFrames.ts#frameRiders`).
+ * carries its states, the hidden faces too (`stateFrames.ts#frameRiders`),
+ * and anything inside an app area moves the area (`owner.ts#liftToAppArea`).
  */
 export function moveDrag(st: StudioState, ids: readonly string[], p: Point): Drag {
-  const lifted = liftToFrame(st.nodes, ids);
+  /* A drag on anything inside an app area moves the area (kit rule 34). */
+  const lifted = liftToFrame(st.nodes, liftToAppArea(st.nodes, ids));
   const held = ridersOf(st.nodes, lifted, resolvePalette(st.format, st.look));
   const riders = [...held, ...frameRiders(st.nodes, [...lifted, ...held])];
   /* The site's own wrapper rides along once everything it holds is in hand (Select everything, then a drag). */

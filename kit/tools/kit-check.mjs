@@ -442,6 +442,19 @@ export function check(manifestPath, { write = false } = {}) {
       if (!inside) problems.push(`${p.file}:${el.line}: panel "${el.attrs['data-panel']}" sits in no layout region (put it inside a data-region)`);
     }
   }
+  // ---- app areas (BUILDER-RULES.md, rule 34): the box a script fills and measures, moved as one
+  for (const p of pages) {
+    for (const el of p.elements.filter((e) => e.inBody && e.attrs['data-app-area'] !== undefined)) {
+      const a = el.attrs, at_ = `${p.file}:${el.line}`, name = a['data-app-area'].trim();
+      if (!name) problems.push(`${at_}: data-app-area needs a plain name (data-app-area="Game")`);
+      if (!a['data-hook']) problems.push(`${at_}: app area "${name}" needs its own data-hook`);
+      for (let e = el.parent; e; e = e.parent) {
+        if (e.attrs['data-app-area'] !== undefined) { problems.push(`${at_}: app area "${name}" sits inside app area "${e.attrs['data-app-area']}" (one area holds the app; mark only the outer box)`); break; }
+        if (e.attrs['data-show'] !== undefined) { problems.push(`${at_}: app area "${name}" is inside a state (${e.attrs['data-hook']} shows only in "${e.attrs['data-show']}"); the area is always there, its states sit inside it`); break; }
+      }
+      if (a['data-show'] !== undefined) problems.push(`${at_}: app area "${name}" is a state (data-show); the area is always there, its states sit inside it`);
+    }
+  }
   // The one shared hide rule, in tokens.css between its markers: a panel's "off" state hides it, and
   // in each other state the parts that do not list that state are hidden. CSS cannot compare two
   // attributes, so the rule names each panel's states; kit:hooks writes it, kit:check keeps it fresh.

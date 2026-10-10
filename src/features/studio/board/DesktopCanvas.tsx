@@ -33,7 +33,7 @@ import { useDrawKit } from "../DrawKits";
 import { insideOutline,lineFromStroke,nearlyClosed,PATH_WORDS,PATH_WORDS_SAMPLE,shapeFromLine,toBox,wornFor,type Worn } from "../wornShape";
 import { SmallBoard } from "../SmallBoard";
 import { partName } from "../partNames";
-import { isWrapper,parentOf,ridersOf,wordsIn } from "../owner";
+import { inAppAreaIds,isWrapper,liftToAppArea,parentOf,ridersOf,wordsIn } from "../owner";
 import { rereadComponents,resizedWith } from "../components";
 import { editingWords,openWords,WordsInPlace } from "../WordsInPlace";
 import {
@@ -148,6 +148,8 @@ export function DesktopCanvas() {
     return b && b.members.every((m) => selection.includes(m.id)) ? [{ g, b }] : [];
   }), [groups, nodes, selection]);
   const heldIds = React.useMemo(() => new Set(held.flatMap(({ b }) => b.members.map((m) => m.id))), [held]);
+  /* The parts inside an app area (kit rule 34) are sized by the area, not by handles of their own. */
+  const appHeld = React.useMemo(() => inAppAreaIds(nodes), [nodes]);
   /*
    * `zoom` here is the *applied* scale, not the number in the bar.
    *
@@ -954,7 +956,7 @@ export function DesktopCanvas() {
       const step = e.shiftKey ? 10 : 1;
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-      const ids = picked.map((n) => n.id);
+      const ids = liftToAppArea(s.nodes, picked.map((n) => n.id));
       const held = [...ids, ...ridersOf(s.nodes, ids, resolvePalette(s.format, s.look))];
       /* A frame takes its states; a state stops at its frame's edge (`stateFrames.ts`). */
       const all = [...held, ...frameRiders(s.nodes, held)];
@@ -1832,7 +1834,7 @@ export function DesktopCanvas() {
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
             node={tryOn(ledOf(n), trying)}
             selected={selection.includes(n.id)}
-            inHeldGroup={heldIds.has(n.id)}
+            inHeldGroup={heldIds.has(n.id) || appHeld.has(n.id)}
             theme={theme}
             palette={palette}
             /* Only a picked part, or one wearing a question, draws anything sized by the zoom in script (its mark, handles, badge); every other

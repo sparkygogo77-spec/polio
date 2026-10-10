@@ -4,7 +4,7 @@ import * as React from "react";
 import { getFeature,categoryOf } from "../shelf";
 import { isOverlay } from "../shelf/ui";
 import { pageClip } from "../pageClip";
-import { holderIds,isWrapper } from "../owner";
+import { appAreaLabel,appAreaName,holderIds,isWrapper } from "../owner";
 import { leadsOf } from "../shelf";
 import { Block,themeFrom } from "../blocks";
 import { LiveSite,PartCopy,resolvePageLink } from "../live/LiveSite";
@@ -576,6 +576,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         ) : null}
         {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-fine uppercase text-fg-faint">{node.priority}</span> : null}
         {node.locked ? <span className="text-fine text-fg-faint">locked</span> : null}
+        {appAreaName(node) !== null ? <span data-app-area-chip="" className="rounded-xs border border-border px-1 text-fine text-fg-muted">{appAreaLabel(appAreaName(node)!)}</span> : null}
       </div>
 
       {/* A member of a held group is sized by the group's frame, not by handles of its own. */}
