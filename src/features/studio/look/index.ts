@@ -6,7 +6,7 @@ export { reach, rollTheme } from "./lookparts/themeDice.ts";
 export type { DiceSwatch, ThemeRoll } from "./lookparts/themeDice.ts";
 export { DRIFT_CYCLE, GRAINY, TEXTURE_KINDS, TEXTURE_TARGETS, channels, dialsOf, lands, newLayer, pickedLayer, seenOn, spotsOfTarget, targetOfSpots, reiterate, rollPatch, shiftHue, svgUrl } from "./lookparts/texture.ts";
 export type { BlendMode, Crop, TextureKind, TextureLayer, TextureSpot, TextureTarget } from "./lookparts/texture.ts";
-export { driftKeyframes, layerCss, textureCss, withAlpha } from "./lookparts/textureCss.ts";
+export { driftKeyframes, layerCss, textureCss, withAlpha, wornPaint } from "./lookparts/textureCss.ts";
 export { castFrom, defaultLight, defaultRoll, emptyLook, liftCss, washCss } from "./lookparts/light.ts";
 export type { Light, Look, SavedPalette, ThemeRollSettings } from "./lookparts/light.ts";
 export { ANIM_DELAY, ANIM_EASE, ANIM_SPEED, AURA_STYLES, AURA_WORD, DELAY_MS, ENTRANCE_MS, SPEED_K, auraColour, auraFilter, auraShadow, auraStyle, complementOf, delayMs, describeLight, describeLook, entranceCss, markColour, sliderFromSpeed, speedFromSlider, speedK, speedWord } from "./lookparts/motion.ts";

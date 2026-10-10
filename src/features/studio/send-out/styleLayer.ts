@@ -207,7 +207,14 @@ export interface LayerNode {
   art?: { background?: string; backgroundOptions?: string[]; backgroundClip?: string; mask?: string; maskOptions?: string[]; transform?: string; origin?: string; filter?: string; backdrop?: string; blend?: string; clipPath?: string; textShadow?: string; textStroke?: { w: number; color: string }; paintOrder?: string; frame?: PictureFrame; live?: LivingPicture } | null;
   radii?: readonly number[] | null;
   radiiY?: readonly number[] | null;
-  motion?: { animation?: { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[]; transition?: { property: string; duration?: string; timing?: string; delay?: string }[]; hover?: LayerState[]; active?: LayerState[]; focus?: LayerState[] } | null;
+  /** `off`: switched off in the Motion tab, so its own animations stop. */
+  motion?: { animation?: { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }[]; transition?: { property: string; duration?: string; timing?: string; delay?: string }[]; hover?: LayerState[]; active?: LayerState[]; focus?: LayerState[]; off?: boolean } | null;
+  /** The shape it is cut to on the board (Element > Look > Shape): box, rounded, circle or ellipse. */
+  shape?: string | null;
+  /** The texture layer it wears (`look.texture`), by id; "none" for none. */
+  texture?: string | null;
+  /** What a worn texture adds besides its pictures (`wearTextures`): how they blend, whether they hold still against the window, their drift and its keyframes. */
+  wornTexture?: WornTextureCss | null;
   hooks?: Record<string, string> | null;
   state?: unknown;
   from?: { selector?: string } | null;
@@ -220,24 +227,84 @@ export interface LayerNode {
   place?: { order?: number } | null;
 }
 
+/** A texture as CSS for one part: its pictures stacked over what the part already paints, and the rest (`wornPaint` in `look`). */
+export interface WornTextureCss {
+  /** The `background-image` list, the texture's first and the part's own after; with their sizes, places and repeats. */
+  image?: string;
+  size?: string;
+  position?: string;
+  repeat?: string;
+  blend?: string;
+  attachment?: string;
+  /** Its drift, and the keyframes it names. */
+  animation?: string;
+  keyframes?: string;
+}
+
+/** A part paints a fill of its own: a colour that is not clear, or a picture. A see-through band shows the page's texture already. */
+function paintsOwn(n: { colour?: Record<string, string | undefined> | null; art?: { background?: string } | null }): boolean {
+  const bg = n.colour?.bg;
+  return (typeof bg === "string" && bg.trim() !== "" && !/transparent|rgba\([^)]*,\s*0\)/.test(bg)) || !!n.art?.background;
+}
+
 /**
- * The parts wearing a living background (a picture texture given motion in
- * the Look preview, `PieceTexture.tsx`) as living pictures of their own, so
- * the layer writes the motion for their hooks the way it writes any living
- * picture (`artCss`): the cut layers, the tokens and the fixed keyframes, no
- * script. A part's own living picture is kept. The page's is laid against
- * the window (`background-attachment: fixed`), so the parts as wide as the
- * page that wear it show one picture across their edges.
+ * The parts wearing a texture (`node.texture`, given in the Look preview,
+ * `PieceTexture.tsx`), so the layer writes it for their hooks.
+ *
+ * A living background becomes a living picture of the part's own, the way
+ * the layer writes any living picture (`artCss`): the cut layers, the tokens
+ * and the fixed keyframes, no script. A part's own living picture is kept.
+ *
+ * Any other kind (Dots, Stripes, Grid, Noise, Mesh, a still Picture) is
+ * painted by `paint` (the board's own `textureCss`, handed in so this stays
+ * pure) over what the part already paints, as the board draws it: over its
+ * fill and its own background picture, under its words.
+ *
+ * The page's texture is laid against the window (`background-attachment:
+ * fixed`), so the parts as wide as the page that wear it show one texture
+ * across their edges; a see-through one wears none, as on the board, where
+ * the page under it already shows it.
  */
-export function wearTextures<T extends { texture?: string | null; art?: LayerNode["art"] }>(nodes: readonly T[], layers: readonly { id: string; kind?: string; live?: unknown; target?: unknown }[] | null | undefined): T[] {
-  /* The page's: laid against the window, so the parts wearing it show one picture, not one per part (`LivingPicture.fixed`). */
+export function wearTextures<T extends { texture?: string | null; art?: LayerNode["art"]; colour?: LayerNode["colour"]; wornTexture?: WornTextureCss | null }>(
+  nodes: readonly T[],
+  layers: readonly { id: string; kind?: string; live?: unknown; target?: unknown; on?: boolean }[] | null | undefined,
+  paint?: (layer: never, own: { background?: string; options?: readonly string[] }) => WornTextureCss | null,
+): T[] {
   const page = (t: unknown) => t === "both" || (typeof t === "string" && t.split("+").includes("page"));
-  const alive = new Map((layers ?? []).filter((l) => l.kind === "image" && isLiving(l.live) && (l.live as LivingPicture).layers?.length).map((l) => [l.id, { ...(l.live as LivingPicture), ...(page(l.target) ? { fixed: true } : {}) }]));
-  if (!alive.size) return [...nodes];
+  const byId = new Map((layers ?? []).map((l) => [l.id, l]));
+  if (!byId.size) return [...nodes];
   return nodes.map((n) => {
-    const live = n.texture ? alive.get(n.texture) : undefined;
-    return live && !isLiving(n.art?.live) ? { ...n, art: { ...(n.art ?? {}), live } } : n;
+    const l = n.texture && n.texture !== "none" ? byId.get(n.texture) : undefined;
+    if (!l) return n;
+    /* A living background: the part's own living picture, laid against the window when it is the page's. */
+    if (l.kind === "image" && isLiving(l.live) && (l.live as LivingPicture).layers?.length) {
+      const live = { ...(l.live as LivingPicture), ...(page(l.target) ? { fixed: true } : {}) };
+      return isLiving(n.art?.live) ? n : { ...n, art: { ...(n.art ?? {}), live } };
+    }
+    if (!paint) return n;
+    if (page(l.target) && !paintsOwn(n)) return n;
+    const css = paint(l as never, { background: n.art?.background, options: n.art?.backgroundOptions });
+    if (!css?.image) return n;
+    /* Only the texture's own pictures hold still against the window; the part's own move with it, as they did. */
+    const count = splitList(css.image).length;
+    const mine = count - (n.art?.background ? splitList(n.art.background).length : 0);
+    const worn: WornTextureCss = { ...css, ...(page(l.target) ? { attachment: Array.from({ length: count }, (_, i) => (i < mine ? "fixed" : "scroll")).join(", ") } : {}) };
+    return { ...n, art: { ...(n.art ?? {}), background: css.image, backgroundOptions: [css.size ?? "auto", css.position ?? "0% 0%", css.repeat ?? "repeat"] }, wornTexture: worn };
   });
+}
+
+/** A CSS list split on its top-level commas: `linear-gradient(a, b), url(c)` is two. */
+function splitList(v: string): string[] {
+  const out: string[] = [];
+  let depth = 0, at = 0;
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i];
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === "," && depth === 0) { out.push(v.slice(at, i).trim()); at = i + 1; }
+  }
+  if (v.slice(at).trim()) out.push(v.slice(at).trim());
+  return out;
 }
 
 /**
@@ -263,7 +330,7 @@ function shareLiveLayers(rules: Layer["rules"]): string[] {
 export interface LayerState { selector?: string; self?: boolean; state?: string; style?: Record<string, string> }
 
 /** What a part wears besides the fields `lookOf` names, by CSS property, as written: the slots of the part's Page look. */
-export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">): Record<string, string> {
+export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion"> & Partial<Pick<LayerNode, "shape" | "w" | "h" | "wornTexture">>): Record<string, string> {
   const a = n.art ?? {};
   const out: Record<string, string> = {};
   const opts = (prefix: string, o: readonly string[] | undefined) => { if (o?.[0]) out[`${prefix}-size`] = o[0]; if (o?.[1]) out[`${prefix}-position`] = o[1]; if (o?.[2]) out[`${prefix}-repeat`] = o[2]; };
@@ -281,7 +348,15 @@ export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">
   if (isFrame(a.frame)) Object.assign(out, frameCss(a.frame));
   const four = (r: unknown): r is number[] => Array.isArray(r) && r.length === 4 && r.every((v) => typeof v === "number");
   if (four(n.radii) && n.radii.some((r) => r > 0)) out["border-radius"] = n.radii.map((r) => `${r}px`).join(" ") + (four(n.radiiY) ? ` / ${n.radiiY.map((r) => `${r}px`).join(" ")}` : "");
-  const anim = (n.motion?.animation ?? []).map((x) => [x.name, x.duration, x.timing, x.delay, x.iterations, x.direction, x.fill].filter(Boolean).join(" "));
+  /* The shape picked on the board, cut as the board cuts it (`blocks.tsx`): a rounded box's corners grow with its short side, up to 28px. */
+  if (n.shape === "circle" || n.shape === "ellipse") out["border-radius"] = "50%";
+  else if (n.shape === "rounded" && n.w && n.h) out["border-radius"] = `${n2(Math.min(28, Math.min(n.w, n.h) / 6))}px`;
+  /* A texture worn (`wearTextures`): how its pictures blend and whether they hold still against the window. */
+  const wt = n.wornTexture;
+  if (wt?.blend && wt.blend.split(",").some((b) => b.trim() !== "normal")) out["background-blend-mode"] = wt.blend;
+  if (wt?.attachment) out["background-attachment"] = wt.attachment;
+  /* Switched off in the Motion tab: its own animations stop. */
+  const anim = (n.motion?.off ? [] : n.motion?.animation ?? []).map((x) => [x.name, x.duration, x.timing, x.delay, x.iterations, x.direction, x.fill].filter(Boolean).join(" "));
   /* A living picture (`living.ts`): its tokens and slots, its animation played after any the page already had. */
   if (isLiving(a.live)) {
     const live = liveDeclarations(a.live);
@@ -290,6 +365,7 @@ export function artCss(n: Pick<LayerNode, "art" | "radii" | "radiiY" | "motion">
     if (timeline) out["animation-timeline"] = [...anim.map(() => "auto"), timeline].join(", ");
     anim.push(animation!);
   }
+  if (wt?.animation) anim.push(wt.animation);
   if (anim.length) out.animation = anim.join(", ");
   const tr = n.motion?.transition ?? [];
   if (tr.length) out.transition = tr.map((t) => [t.property, t.duration, t.timing, t.delay].filter(Boolean).join(" ")).join(", ");
@@ -309,7 +385,7 @@ export function statesCss(n: Pick<LayerNode, "motion">): Record<string, string> 
 }
 
 /** What a property is when nothing sets it, for a slot emptied on the board. */
-const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none", ...FRAME_UNSET, ...LIVE_UNSET, "mask-size": "auto", "-webkit-mask-image": "none", "-webkit-mask-size": "auto" };
+const UNSET: Record<string, string> = { "background-image": "none", "mask-image": "none", transform: "none", filter: "none", "backdrop-filter": "none", "mix-blend-mode": "normal", "clip-path": "none", "text-shadow": "none", "-webkit-text-stroke": "0", "paint-order": "normal", "border-radius": "0", animation: "none", transition: "none", ...FRAME_UNSET, ...LIVE_UNSET, "mask-size": "auto", "-webkit-mask-image": "none", "-webkit-mask-size": "auto", "background-size": "auto", "background-position": "0% 0%", "background-repeat": "repeat", "background-blend-mode": "normal", "background-attachment": "scroll" };
 
 const ROLES = ["bg", "surface", "text", "muted", "accent", "highlight"];
 
@@ -677,6 +753,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
     ...shareLiveLayers(rules),
     ...rules.map((r) => ["", `${r.selector} {`, ...r.declarations.map((d) => `  ${d};`), "}"].join("\n")),
     ...liveTail(rules),
+    ...driftTail(rules, sourced),
     "",
   ].join("\n");
 
@@ -701,6 +778,22 @@ function liveTail(rules: Layer["rules"]): string[] {
   const moving = [...new Set(rules.filter((r) => r.declarations.some((d) => /^animation:.*polio-live-/.test(d))).map((r) => r.selector))];
   if (!moving.length) return [];
   return ["", "/* Living pictures: fixed keyframes, tuned by each part's --live-* tokens. */", LIVE_KEYFRAMES, "", "@media (prefers-reduced-motion: reduce) {", `  ${moving.join(", ")} { animation: none !important; }`, "}"];
+}
+
+/** The keyframes a worn texture's drift names, once each, for the parts whose rule plays it; still for a visitor who asks for less motion. */
+function driftTail(rules: Layer["rules"], nodes: readonly LayerNode[]): string[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const frames = new Map<string, string>();
+  const moving = new Set<string>();
+  for (const r of rules) {
+    const wt = r.nodeId ? byId.get(r.nodeId)?.wornTexture : undefined;
+    const name = wt?.animation?.split(/\s+/)[0];
+    if (!wt?.keyframes || !name || !r.declarations.some((d) => d.startsWith("animation:") && d.includes(name))) continue;
+    frames.set(name, wt.keyframes);
+    moving.add(r.selector);
+  }
+  if (!frames.size) return [];
+  return ["", "/* Textures' drift: the keyframes each one names. */", ...frames.values(), "", "@media (prefers-reduced-motion: reduce) {", `  ${[...moving].join(", ")} { animation: none !important; }`, "}"];
 }
 
 /** A font stack in one spelling: no quotes, no spaces after commas, lower case. */

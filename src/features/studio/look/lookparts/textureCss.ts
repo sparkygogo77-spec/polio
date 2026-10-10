@@ -428,3 +428,26 @@ export function withAlpha(colour: string, alpha: number): string {
 /* ------------------------------------------------------------------ */
 /* The whole look                                                      */
 /* ------------------------------------------------------------------ */
+
+/**
+ * A texture layer as CSS for one part the style layer writes (`send-out/
+ * styleLayer.ts#wearTextures`): the layer's pictures over the part's own
+ * background picture, if it has one, which keeps its size, place and repeat.
+ * Its drift moves the whole list, so its keyframes name every layer in it.
+ */
+export function wornPaint(layer: TextureLayer, palette: Palette, own: { background?: string; options?: readonly string[] } = {}): { image?: string; size?: string; position?: string; repeat?: string; blend?: string; animation?: string; keyframes?: string } | null {
+  const images = own.background ? splitLayers(own.background).map((s) => s.trim()).filter(Boolean) : [];
+  const pick = (i: number, list: string | undefined, fallback: string) => (list ? splitLayers(list)[i]?.trim() || splitLayers(list)[0]?.trim() : undefined) || fallback;
+  const under = images.map((image, i) => ({ image, size: pick(i, own.options?.[0], "auto") }));
+  const one = [{ ...layer, on: true }];
+  const st = textureCss(one, palette, "transparent", under) as Record<string, string | undefined>;
+  if (!st.backgroundImage) return null;
+  /* The part's own pictures keep where they sat and whether they repeat; the texture's are its own. */
+  const count = splitLayers(st.backgroundImage).length;
+  const mine = count - images.length;
+  const list = (v: string | undefined, i: number, ownList: string | undefined, fallback: string) => (i < mine ? (v ? splitLayers(v)[i]?.trim() : undefined) ?? fallback : pick(i - mine, ownList, fallback));
+  const position = Array.from({ length: count }, (_, i) => list(st.backgroundPosition, i, own.options?.[1], "0% 0%")).join(", ");
+  const repeat = Array.from({ length: count }, (_, i) => list(st.backgroundRepeat, i, own.options?.[2], "repeat")).join(", ");
+  const drift = driftKeyframes(one, palette, under);
+  return { image: st.backgroundImage, size: st.backgroundSize, position, repeat, blend: st.backgroundBlendMode, ...(st.animation && drift ? { animation: st.animation, keyframes: drift.css } : {}) };
+}

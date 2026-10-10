@@ -25,7 +25,8 @@ import { Button } from "@/core/ui/button";
 import { heldKeys } from "@/features/keys/store";
 import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./board/store";
-import { FAMILY } from "./shelf/run";
+import { FAMILY, resolvePalette } from "./shelf/run";
+import { wornPaint } from "./look";
 import { buildLayer, wearTextures, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
@@ -179,10 +180,14 @@ export function PartSettings({ code, hook, inside = [] }: { code: Parameters<typ
 
 export function StyleLayerSection() {
   const source = useStudio((s) => (s.look as { styleSource?: StyleSource | null }).styleSource ?? null);
-  /* Parts wearing a living background carry it as their own living picture (`wearTextures`). */
+  /* Parts wearing a texture carry it: a living background as their own living picture, any other as their own background pictures (`wearTextures`). */
   const textures = useStudio((s) => s.look.texture);
   const own = useStudio((s) => s.nodes);
-  const nodes = React.useMemo(() => wearTextures(own, textures), [own, textures]);
+  /* Every other texture a part wears is painted as the board paints it, over its own fill (`wornPaint`). */
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const full = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const nodes = React.useMemo(() => wearTextures(own, textures, (l, o) => wornPaint(l, full, o)), [own, textures, full]);
   const palette = useStudio((s) => s.look.palette as Record<string, string>);
   const [busy, setBusy] = React.useState(false);
   const [said, setSaid] = React.useState<{ text: string; link?: string; bad?: boolean } | null>(null);

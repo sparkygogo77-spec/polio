@@ -44,6 +44,8 @@ export interface FixIssue {
 export interface FixLoop {
   ticked: string[];
   sent: FixIssue[];
+  /** Board changes the code chat has built (`codeAsks.ts`): never asked again while the board still holds them. */
+  done?: string[];
 }
 
 export const NO_LOOP: FixLoop = { ticked: [], sent: [] };
@@ -56,10 +58,11 @@ export const DONE_WHEN: Record<string, string> = {
   fit: "the part stays inside the page at phone and tablet width",
   nowhere: "pressing it does something: it leads somewhere or runs its script",
   region: "the element sits inside that data-region in the markup, with its data-hook unchanged",
+  build: "the site does what the Builder shows for it",
 };
 
 /** How hard each kind is to fix in code. Difficulty picks the model, the cost and so the lane (`lanes.ts`). */
-const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, fit: 4 };
+const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, build: 3, fit: 4 };
 const TOKENS: Record<Difficulty, { in: number; out: number }> = {
   1: { in: 15_000, out: 2_000 },
   2: { in: 30_000, out: 4_000 },
@@ -90,6 +93,12 @@ export const doneWhen = (kind: string): string => DONE_WHEN[kind] ?? "the Builde
 export function toggleTick(loop: FixLoop, key: string): FixLoop {
   const on = loop.ticked.includes(key);
   return { ...loop, ticked: on ? loop.ticked.filter((k) => k !== key) : [...loop.ticked, key] };
+}
+
+/** The board's own asks (`codeAsks.ts`) not yet in NEXT.md and not built yet: Publish sends them without a tick, since J made them. */
+export function asksToSend(loop: FixLoop, asks: readonly FixIssue[]): FixIssue[] {
+  const sent = new Set([...loop.sent.map((i) => i.key), ...(loop.done ?? [])]);
+  return asks.filter((i) => !sent.has(i.key));
 }
 
 /** The ticked issues not yet in NEXT.md: what Publish sends. */
