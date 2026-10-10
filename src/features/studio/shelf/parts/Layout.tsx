@@ -448,9 +448,16 @@ export function Breadcrumbs({ id, content, theme: t, onNavigate }: PartProps) {
 }
 
 /** Table of contents and section trackers: the current entry is marked. */
-export function Outline({ id, content, theme: t }: PartProps) {
+export function Outline({ id, content, theme: t, mode }: PartProps) {
   const entries = items(content, ["Introduction", "How it works", "Details", "Summary"]);
   const [active, setActive] = React.useState(0);
+  /* Live, an entry goes to the heading on the page with its words (`outlineTarget`), as the published one does. */
+  const go = (e: React.MouseEvent, entry: string, i: number) => {
+    setActive(i);
+    if (mode !== "live") return;
+    const page = (e.currentTarget as HTMLElement).closest("[data-live-root]") ?? document;
+    outlineTarget(page, entry, e.currentTarget as HTMLElement)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: "column", gap: 2, overflow: "auto", paddingLeft: t.fontPx * 0.5, borderLeft: `1px solid ${t.line}` }}>
       {entries.map((e, i) => (
@@ -458,7 +465,7 @@ export function Outline({ id, content, theme: t }: PartProps) {
           key={e + i}
           type="button"
           aria-current={i === active ? "true" : undefined}
-          onClick={() => setActive(i)}
+          onClick={(ev) => go(ev, e, i)}
           style={{
             background: "transparent", borderWidth: "0 0 0 2px", borderStyle: "solid", borderColor: i === active ? t.accent : "transparent",
             marginLeft: -t.fontPx * 0.5 - 1, paddingLeft: t.fontPx * 0.5, cursor: "pointer", textAlign: "left",
@@ -470,6 +477,15 @@ export function Outline({ id, content, theme: t }: PartProps) {
       ))}
     </Fill>
   );
+}
+
+/** The heading on the page an outline entry names: its words, any case, a heading first, never the outline itself. */
+export function outlineTarget(page: ParentNode, entry: string, self?: Element): HTMLElement | null {
+  const want = entry.trim().toLowerCase();
+  if (!want) return null;
+  const same = (el: Element) => (el.textContent ?? "").trim().replace(/\s+/g, " ").toLowerCase() === want && !(self && (self.contains(el) || el.contains(self)));
+  const pick = (sel: string) => Array.from(page.querySelectorAll<HTMLElement>(sel)).find(same) ?? null;
+  return pick("h1, h2, h3, h4, h5, h6") ?? pick("[data-live-node]");
 }
 
 /** Page numbers that actually move. */
