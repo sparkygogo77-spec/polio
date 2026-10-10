@@ -85,8 +85,34 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
  * after the rest, so it wins. A round that changes nothing leaves the file
  * as it was.
  */
+/**
+ * The stylesheet's top-level blocks, each whole: a rule, or an at-rule with
+ * the rules inside it (`@keyframes`, `@media`, `@supports`), keyed by what
+ * comes before its brace. Comments are skipped. A flat match took only the
+ * innermost braces, so a merged layer lost the `@keyframes name {` round its
+ * frames (the motion `motionCss.ts` writes, a texture's drift).
+ */
+export function topBlocks(css: string): { selector: string; body: string; text: string }[] {
+  const out: { selector: string; body: string; text: string }[] = [];
+  let i = 0;
+  while (i < css.length) {
+    if (css.startsWith("/*", i)) { const e = css.indexOf("*/", i + 2); i = e < 0 ? css.length : e + 2; continue; }
+    if (/\s/.test(css[i]!)) { i++; continue; }
+    const open = css.indexOf("{", i);
+    if (open < 0) break;
+    /* A statement with no block of its own (`@import …;`) before it is not part of its name. */
+    const semi = css.lastIndexOf(";", open);
+    const start = semi >= i ? semi + 1 : i;
+    let depth = 0, j = open;
+    for (; j < css.length; j++) { if (css[j] === "{") depth++; else if (css[j] === "}" && --depth === 0) break; }
+    out.push({ selector: css.slice(start, open).trim(), body: css.slice(open + 1, j).trim().replace(/\s+/g, " "), text: css.slice(start, j + 1).trim() });
+    i = j + 1;
+  }
+  return out;
+}
+
 export function mergeLayer(had: string, rules: string, when?: string): string {
-  const blocks = (css: string) => [...css.matchAll(/(^|\n)([^{}\n/*][^{}\n]*?)\s*\{([^{}]*)\}/g)].map((m) => ({ selector: m[2]!.trim(), body: m[3]!.trim().replace(/\s+/g, " "), text: m[0].replace(/^\n/, "") }));
+  const blocks = topBlocks;
   const fresh = blocks(rules);
   if (!fresh.length) return had;
   const old = blocks(had);
