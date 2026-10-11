@@ -325,7 +325,7 @@ export function migrateKey(from: string, to: string) {
  * holding nothing but its defaults and must not write them out — see the
  * note on `storage` below.
  */
-export const pen = { read: false, swapping: false, visitor: false };
+export const pen = { read: false, swapping: false, visitor: false, lookingOnly: false };
 
 /*
  * Whether a swap between sites is in flight.
@@ -345,6 +345,14 @@ export const pen = { read: false, swapping: false, visitor: false };
  * document and never writes it, so a visitor's browser keeps no copy to
  * show instead of the next deploy, and an author's board kept on the same
  * origin is not overwritten by what was published.
+ *
+ * Whether this tab only looks at the document (`pen.lookingOnly`).
+ *
+ * A Preview opened in a tab of its own read the document once, when it
+ * opened, and the Builder tab goes on editing after that. Turning a cube in
+ * that tab wrote its older copy of the whole document back over his newer
+ * one, so a restyle made since was gone on the next reload. A tab that
+ * opened on the Preview never writes; see `useLookingOnly` in `load.ts`.
  */
 
 /**

@@ -41,7 +41,7 @@ import { viewActions } from "./view";
 function keptOnly<S>(inner: PersistStorage<S>): PersistStorage<S> {
   let last: { key: string; version: number | undefined; state: Record<string, unknown> } | null = null;
   let pending: { key: string; value: StorageValue<S> } | null = null;
-  const flush = () => { const p = pending; pending = null; if (p && pen.read && !pen.swapping && !pen.visitor) void write(p.key, p.value); };
+  const flush = () => { const p = pending; pending = null; if (p && pen.read && !pen.swapping && !pen.visitor && !pen.lookingOnly) void write(p.key, p.value); };
   const write = (key: string, value: StorageValue<S>) => {
     const state = value.state as Record<string, unknown>;
     if (last && last.key === key && last.version === value.version && sameSlices(last.state, state)) return;
@@ -51,7 +51,7 @@ function keptOnly<S>(inner: PersistStorage<S>): PersistStorage<S> {
   return {
     getItem: inner.getItem,
     setItem: (key, value) => {
-      if (!pen.read || pen.swapping || pen.visitor) return;
+      if (!pen.read || pen.swapping || pen.visitor || pen.lookingOnly) return;
       if (isHeld()) { pending = { key, value }; afterRelease(flush); return; }
       return write(key, value);
     },
