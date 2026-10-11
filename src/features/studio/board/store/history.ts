@@ -289,7 +289,7 @@ export function migrateKey(from: string, to: string) {
  * holding nothing but its defaults and must not write them out — see the
  * note on `storage` below.
  */
-export const pen = { read: false, swapping: false };
+export const pen = { read: false, swapping: false, visitor: false };
 
 /*
  * Whether a swap between sites is in flight.
@@ -303,6 +303,13 @@ export const pen = { read: false, swapping: false };
  * writes the live key itself, once, with the document it means.
  */
 /* `pen.swapping`, on the same object. */
+
+/*
+ * `pen.visitor`: the published page (/site). It shows the published
+ * document and never writes it, so a visitor's browser keeps no copy to
+ * show instead of the next deploy, and an author's board kept on the same
+ * origin is not overwritten by what was published.
+ */
 
 /**
  * Hand the catalogue what the connected repositories brought.
