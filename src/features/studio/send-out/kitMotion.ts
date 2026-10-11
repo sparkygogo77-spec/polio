@@ -147,6 +147,14 @@ ${RUNTIME_JS}
 (function () {
   var F = window.siteFeatures;
   if (!F) return;
+  /* A part's motion is its own: registered not to inherit, a part inside one with the same motion runs it too. */
+  var reg = false;
+  try {
+    if (window.CSS && CSS.registerProperty) {
+      ["--builder-motion", "--builder-scroll"].forEach(function (n) { try { CSS.registerProperty({ name: n, syntax: "*", inherits: false }); } catch (e) { /* already registered by another copy */ } });
+      reg = true;
+    }
+  } catch (e) { /* older browsers fall back to the parent check below */ }
   var defs = {};
   var define = F.define;
   F.define = function (id, fn) { defs[id] = fn; define(id, fn); };
@@ -166,8 +174,8 @@ ${effects.map((w) => `  /* ${w.manifest.name}: ${w.manifest.blurb} */\n  (functi
   function own(el, prop) {
     prop = prop || "--builder-motion";
     var v = getComputedStyle(el).getPropertyValue(prop).trim();
-    if (!v) return "";
-    /* A custom property is inherited: what a part's panel wears is the panel's, not the part's. */
+    if (!v || reg) return v;
+    /* Without registration a custom property is inherited: what a part's panel wears is the panel's, not the part's. */
     var up = el.parentElement;
     return up && getComputedStyle(up).getPropertyValue(prop).trim() === v ? "" : v;
   }
