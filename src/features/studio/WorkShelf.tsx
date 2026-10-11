@@ -30,7 +30,7 @@ import type { SiteWords } from "./shelfFacts";
 import { Block, themeFrom } from "./blocks";
 import { overrideTheme, resolvePalette, type NodeColour } from "./shelf/run";
 import { allWorks, type WorkPicture } from "./shelf";
-import { placedWorks } from "./shelf";
+import { placedWorks, shelfCategoryOf } from "./shelf";
 import { useLibrary } from "./shelf/ui";
 import { checkRepoFeatures } from "./shelf/run";
 
@@ -87,7 +87,7 @@ export function WorkShelf({ category, width = 232, words, gap = 10 }: { category
    */
   const works = React.useMemo(() => {
     const placed = new Set(placedWorks());
-    return allWorks().filter((w) => w.manifest.category === category.id && !placed.has(w.manifest.id));
+    return allWorks().filter((w) => shelfCategoryOf(w.manifest.category) === category.id && !placed.has(w.manifest.id));
   }, [accepted, category.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const isData = category.id === "data";
   if (!works.length && !(isData && repo)) return null;

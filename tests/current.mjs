@@ -47,6 +47,8 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
  * who had laid out a whole board opened the timeline and found it empty,
  * which reads as broken rather than as "nothing has happened yet".
  */
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks use its search, so it is open. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });

@@ -26,4 +26,69 @@
   --radius: 10px;
   --page-width: 60rem;
   --shadow: 0 1px 3px var(--color-shade);
+
+  /* Game parts (starter/parts, see parts.json). Each block goes with its part (npm run kit:part). */
+  /* part: shared */
+  --color-up: #1e8449;
+  --color-down: #c0392b;
+  --color-warning: #d68910;
+  /* part end */
+  /* part: scoreboard */
+  --scoreboard-format: "+0.00";
+  --scoreboard-lead-fill: #eaf2ff;
+  /* part end */
+  /* part: action-grid */
+  --action-grid-sound: beep 660 0.4;
+  --key-buy-10: "1";
+  --key-buy-25: "2";
+  --key-buy-50: "3";
+  --key-buy-100: "4";
+  --key-sell-10: "q";
+  --key-sell-25: "w";
+  --key-sell-50: "e";
+  --key-sell-100: "r";
+  /* part end */
+  /* part: countdown */
+  --countdown-size: 1.75rem;
+  --countdown-warn-at: 10;
+  --countdown-tick-sound: beep 880 0.3;
+  /* part end */
+  /* part: screen */
+  --color-screen-frame: #2b2b2e;
+  --color-screen: #101014;
+  --color-screen-text: #e8e8ea;
+  --color-screen-static: rgba(255, 255, 255, 0.18);
+  --color-screen-glow: rgba(47, 111, 222, 0.45);
+  --screen-bezel: 0.75rem;
+  --screen-glow: 18px;
+  --screen-knob-size: 1.75rem;
+  /* part end */
+  /* part: markers */
+  --color-marker-a: #2f6fde;
+  --color-marker-b: #e0b100;
+  --markers-height: 12rem;
+  --markers-size: 18px;
+  --markers-level-line: 2px dashed;
+  /* part end */
 }
+
+/* kit:panels: the shared state rule (BUILDER-RULES.md, rule 14). Made by kit:check from the pages' data-panel,
+   data-states and data-show (npm run kit:hooks). Do not edit by hand. */
+[data-panel][data-state="off"],
+[data-panel="action-grid"][data-state="idle"] [data-show]:not([data-show~="idle"]):not([data-panel="action-grid"] [data-panel] [data-show]),
+[data-panel="action-grid"][data-state="live"] [data-show]:not([data-show~="live"]):not([data-panel="action-grid"] [data-panel] [data-show]),
+[data-panel="action-grid"][data-state="done"] [data-show]:not([data-show~="done"]):not([data-panel="action-grid"] [data-panel] [data-show]),
+[data-panel="countdown"][data-state="idle"] [data-show]:not([data-show~="idle"]):not([data-panel="countdown"] [data-panel] [data-show]),
+[data-panel="countdown"][data-state="live"] [data-show]:not([data-show~="live"]):not([data-panel="countdown"] [data-panel] [data-show]),
+[data-panel="countdown"][data-state="warning"] [data-show]:not([data-show~="warning"]):not([data-panel="countdown"] [data-panel] [data-show]),
+[data-panel="countdown"][data-state="done"] [data-show]:not([data-show~="done"]):not([data-panel="countdown"] [data-panel] [data-show]),
+[data-panel="markers"][data-state="idle"] [data-show]:not([data-show~="idle"]):not([data-panel="markers"] [data-panel] [data-show]),
+[data-panel="markers"][data-state="live"] [data-show]:not([data-show~="live"]):not([data-panel="markers"] [data-panel] [data-show]),
+[data-panel="scoreboard"][data-state="idle"] [data-show]:not([data-show~="idle"]):not([data-panel="scoreboard"] [data-panel] [data-show]),
+[data-panel="scoreboard"][data-state="live"] [data-show]:not([data-show~="live"]):not([data-panel="scoreboard"] [data-panel] [data-show]),
+[data-panel="scoreboard"][data-state="done"] [data-show]:not([data-show~="done"]):not([data-panel="scoreboard"] [data-panel] [data-show]),
+[data-panel="screen"][data-state="idle"] [data-show]:not([data-show~="idle"]):not([data-panel="screen"] [data-panel] [data-show]),
+[data-panel="screen"][data-state="loading"] [data-show]:not([data-show~="loading"]):not([data-panel="screen"] [data-panel] [data-show]),
+[data-panel="screen"][data-state="live"] [data-show]:not([data-show~="live"]):not([data-panel="screen"] [data-panel] [data-show]),
+[data-panel="screen"][data-state="error"] [data-show]:not([data-show~="error"]):not([data-panel="screen"] [data-panel] [data-show]) { display: none !important; }
+/* kit:panels end */

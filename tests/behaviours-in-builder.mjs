@@ -30,6 +30,8 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("**/api/tweets/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false }) }));
 await page.route("**/api/studio/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ github: { configured: false, missing: [] }, vercel: { hook: false }, configured: false, source: null }) }));
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks read the open shelf. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 
 const doc = JSON.parse(readFileSync(`${SINK}/site/document.json`, "utf8"));
@@ -53,7 +55,7 @@ await part.scrollIntoViewIfNeeded();
 await part.click();
 await wait(500);
 /* Each is on the shelf as a card of its own, or as a version of the card that does the same (Lane I, `shelfPlan.ts`). */
-const WHERE = { reveal: ["motion", "reveal-on-scroll"], tilt: ["motion", "hover-tilt"], marquee: ["content", "marquee"], "dust-canvas": ["media", null], "copy-toast": ["interact", "copy-button"], "follow-pointer": ["motion", "parallax"], embed: ["media", null], "crt-loader": ["motion", "page-load"] };
+const WHERE = { reveal: ["motion", "reveal-on-scroll"], tilt: ["motion", "hover-tilt"], marquee: ["content", "marquee"], "dust-canvas": ["content", null], "copy-toast": ["motion", "copy-button"], "follow-pointer": ["motion", "parallax"], embed: ["content", null], "crt-loader": ["motion", "page-load"] };
 /** Open a feature's detail: its own card, or its item's card and then its version. */
 const openFeature = async (id) => {
   const [cat, item] = WHERE[id];

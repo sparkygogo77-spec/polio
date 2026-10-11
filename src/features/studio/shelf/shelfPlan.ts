@@ -31,6 +31,7 @@
  * site is named anywhere in it.
  */
 import { CARRIES, SHELF_GROUPS, isWorkKey, workIdOf, type ShelfGroup } from "./shelfGroups.ts";
+import { PART_SCRIPT } from "./library/works.ts";
 
 /* ------------------------------------------------------------------ */
 /* Variations                                                          */
@@ -363,5 +364,7 @@ export function placedWorks(): string[] {
   const versions = [...VARIANT_OF.keys()].filter(isWorkKey);
   /* A part on the shelf that carries its own feature places that feature too. */
   const carried = [...items, ...VARIANT_OF.keys()].filter((k) => CARRIES[k]);
-  return [...new Set([...own, ...versions, ...carried])].map(workIdOf);
+  /* So does a part its feature draws on the published page (the before and after slider runs "compare"). */
+  const drawn = [...items, ...VARIANT_OF.keys()].flatMap((k) => (PART_SCRIPT[k] ? [`work:${PART_SCRIPT[k]}`] : []));
+  return [...new Set([...own, ...versions, ...carried].map(workIdOf).concat(drawn.map(workIdOf)))];
 }

@@ -11,7 +11,8 @@
       "scripts": [
         "starter/js/about.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/contact.html": {
@@ -23,7 +24,8 @@
       "scripts": [
         "starter/js/contact.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/gallery.html": {
@@ -37,6 +39,31 @@
         "starter/js/hooks.js"
       ]
     },
+    "starter/game.html": {
+      "stylesheets": [
+        "starter/tokens.css",
+        "starter/base.css",
+        "starter/parts/scoreboard.css",
+        "starter/parts/action-grid.css",
+        "starter/parts/countdown.css",
+        "starter/parts/screen.css",
+        "starter/parts/markers.css",
+        "starter/style-layer.css"
+      ],
+      "scripts": [
+        "starter/js/game.js",
+        "starter/js/hooks.js",
+        "starter/js/site.js",
+        "starter/parts/action-grid.js",
+        "starter/parts/countdown.js",
+        "starter/parts/markers.js",
+        "starter/parts/scoreboard.js",
+        "starter/parts/screen.js",
+        "starter/parts/slots.js",
+        "starter/parts/sound.js",
+        "starter/vendor/builder-motion.js"
+      ]
+    },
     "starter/index.html": {
       "stylesheets": [
         "starter/tokens.css",
@@ -46,7 +73,8 @@
       "scripts": [
         "starter/js/home.js",
         "starter/js/hooks.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/list.html": {
@@ -58,7 +86,8 @@
       "scripts": [
         "starter/js/hooks.js",
         "starter/js/list.js",
-        "starter/js/site.js"
+        "starter/js/site.js",
+        "starter/vendor/builder-motion.js"
       ]
     },
     "starter/preview.html": {
@@ -74,9 +103,17 @@
     }
   },
   "tokens": {
+    "--action-grid-sound": {
+      "default": "beep 660 0.4",
+      "usedBy": []
+    },
     "--color-accent": {
       "default": "#2f6fde",
       "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
         "gallery-primary-button",
         "gallery-secondary-button",
         "hero-button",
@@ -86,17 +123,29 @@
         "nav-contact",
         "nav-home",
         "nav-list",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
         "send-button"
       ]
     },
     "--color-accent-text": {
       "default": "#ffffff",
       "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
         "gallery-primary-button",
         "gallery-secondary-button",
         "hero-button",
         "modal-close-button",
         "modal-confirm-button",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
         "send-button"
       ]
     },
@@ -116,26 +165,101 @@
       "usedBy": [
         "email-error",
         "gallery-sample-error",
-        "name-error"
+        "name-error",
+        "screen-message"
+      ]
+    },
+    "--color-down": {
+      "default": "#c0392b",
+      "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "hero-button",
+        "modal-close-button",
+        "modal-confirm-button",
+        "scoreboard-score",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
+        "send-button"
+      ]
+    },
+    "--color-marker-a": {
+      "default": "#2f6fde",
+      "usedBy": [
+        "marker-a",
+        "markers-level"
+      ]
+    },
+    "--color-marker-b": {
+      "default": "#e0b100",
+      "usedBy": [
+        "marker-b"
       ]
     },
     "--color-muted": {
       "default": "#5f6368",
       "usedBy": [
+        "action-grid-note",
+        "countdown-done",
+        "countdown-label",
         "list-empty",
         "list-item-meta",
+        "markers-empty",
         "nav-about",
         "nav-contact",
         "nav-home",
         "nav-list",
         "page-intro",
         "preview-caption",
+        "scoreboard-final",
+        "scoreboard-waiting",
         "site-footer"
       ]
     },
     "--color-page": {
       "default": "#f7f5f0",
       "usedBy": []
+    },
+    "--color-screen": {
+      "default": "#101014",
+      "usedBy": [
+        "screen-view"
+      ]
+    },
+    "--color-screen-frame": {
+      "default": "#2b2b2e",
+      "usedBy": [
+        "screen",
+        "screen-knob-channel",
+        "screen-knob-volume"
+      ]
+    },
+    "--color-screen-glow": {
+      "default": "rgba(47, 111, 222, 0.45)",
+      "usedBy": [
+        "screen"
+      ]
+    },
+    "--color-screen-static": {
+      "default": "rgba(255, 255, 255, 0.18)",
+      "usedBy": [
+        "screen-static"
+      ]
+    },
+    "--color-screen-text": {
+      "default": "#e8e8ea",
+      "usedBy": [
+        "screen-content",
+        "screen-knob-channel",
+        "screen-knob-volume",
+        "screen-message"
+      ]
     },
     "--color-shade": {
       "default": "rgba(0, 0, 0, 0.45)",
@@ -152,6 +276,7 @@
     "--color-surface": {
       "default": "#ffffff",
       "usedBy": [
+        "countdown",
         "email-input",
         "feature-hooks",
         "feature-hooks-text",
@@ -165,10 +290,14 @@
         "gallery-secondary-button",
         "gallery-text-input",
         "list-item",
+        "marker-a",
+        "marker-b",
+        "markers",
         "message-input",
         "modal-close-button",
         "name-input",
         "preview-frame",
+        "scoreboard",
         "site-header"
       ]
     },
@@ -182,15 +311,117 @@
         "site-logo"
       ]
     },
+    "--color-up": {
+      "default": "#1e8449",
+      "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
+        "gallery-primary-button",
+        "gallery-secondary-button",
+        "hero-button",
+        "modal-close-button",
+        "modal-confirm-button",
+        "scoreboard-score",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
+        "send-button"
+      ]
+    },
+    "--color-warning": {
+      "default": "#d68910",
+      "usedBy": [
+        "countdown-time"
+      ]
+    },
+    "--countdown-size": {
+      "default": "1.75rem",
+      "usedBy": [
+        "countdown-time"
+      ]
+    },
+    "--countdown-tick-sound": {
+      "default": "beep 880 0.3",
+      "usedBy": []
+    },
+    "--countdown-warn-at": {
+      "default": "10",
+      "usedBy": []
+    },
     "--font-body": {
       "default": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
-      "usedBy": []
+      "usedBy": [
+        "buy-10-key",
+        "buy-100-key",
+        "buy-25-key",
+        "buy-50-key",
+        "countdown-time",
+        "sell-10-key",
+        "sell-100-key",
+        "sell-25-key",
+        "sell-50-key"
+      ]
     },
     "--font-heading": {
       "default": "Georgia, \"Times New Roman\", serif",
       "usedBy": [
         "page-title",
+        "scoreboard-title",
         "site-logo"
+      ]
+    },
+    "--key-buy-10": {
+      "default": "\"1\"",
+      "usedBy": []
+    },
+    "--key-buy-100": {
+      "default": "\"4\"",
+      "usedBy": []
+    },
+    "--key-buy-25": {
+      "default": "\"2\"",
+      "usedBy": []
+    },
+    "--key-buy-50": {
+      "default": "\"3\"",
+      "usedBy": []
+    },
+    "--key-sell-10": {
+      "default": "\"q\"",
+      "usedBy": []
+    },
+    "--key-sell-100": {
+      "default": "\"r\"",
+      "usedBy": []
+    },
+    "--key-sell-25": {
+      "default": "\"w\"",
+      "usedBy": []
+    },
+    "--key-sell-50": {
+      "default": "\"e\"",
+      "usedBy": []
+    },
+    "--markers-height": {
+      "default": "12rem",
+      "usedBy": [
+        "markers"
+      ]
+    },
+    "--markers-level-line": {
+      "default": "2px dashed",
+      "usedBy": [
+        "markers-level"
+      ]
+    },
+    "--markers-size": {
+      "default": "18px",
+      "usedBy": [
+        "marker-a",
+        "marker-b"
       ]
     },
     "--page-width": {
@@ -202,6 +433,11 @@
     "--radius": {
       "default": "10px",
       "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
+        "countdown",
         "email-input",
         "feature-hooks",
         "feature-hooks-text",
@@ -217,18 +453,57 @@
         "gallery-text-input",
         "hero-button",
         "list-item",
+        "markers",
         "message-input",
         "modal-close-button",
         "modal-confirm-button",
         "name-input",
         "preview-frame",
+        "scoreboard",
+        "scoreboard-row",
+        "screen",
+        "screen-view",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
         "send-button",
         "signup-modal"
+      ]
+    },
+    "--scoreboard-format": {
+      "default": "\"+0.00\"",
+      "usedBy": []
+    },
+    "--scoreboard-lead-fill": {
+      "default": "#eaf2ff",
+      "usedBy": [
+        "scoreboard-row"
+      ]
+    },
+    "--screen-bezel": {
+      "default": "0.75rem",
+      "usedBy": [
+        "screen"
+      ]
+    },
+    "--screen-glow": {
+      "default": "18px",
+      "usedBy": [
+        "screen"
+      ]
+    },
+    "--screen-knob-size": {
+      "default": "1.75rem",
+      "usedBy": [
+        "screen-knob-channel",
+        "screen-knob-volume"
       ]
     },
     "--shadow": {
       "default": "0 1px 3px var(--color-shade)",
       "usedBy": [
+        "countdown",
         "feature-hooks",
         "feature-hooks-text",
         "feature-hooks-title",
@@ -239,21 +514,47 @@
         "feature-tokens-text",
         "feature-tokens-title",
         "list-item",
+        "markers",
+        "scoreboard",
         "signup-modal"
       ]
     },
     "--space-1": {
       "default": "0.25rem",
       "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
         "email-field",
+        "gallery-primary-button",
+        "gallery-secondary-button",
         "gallery-text-field",
+        "hero-button",
         "message-field",
-        "name-field"
+        "modal-close-button",
+        "modal-confirm-button",
+        "name-field",
+        "scoreboard-row",
+        "scoreboard-rows",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
+        "send-button"
       ]
     },
     "--space-2": {
       "default": "0.5rem",
       "usedBy": [
+        "action-grid",
+        "action-grid-buy",
+        "action-grid-sell",
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
+        "countdown",
         "email-input",
         "gallery-primary-button",
         "gallery-secondary-button",
@@ -265,13 +566,27 @@
         "modal-close-button",
         "modal-confirm-button",
         "name-input",
+        "scoreboard-final",
+        "scoreboard-row",
+        "scoreboard-title",
+        "scoreboard-waiting",
+        "screen-knobs",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
         "send-button"
       ]
     },
     "--space-3": {
       "default": "1rem",
       "usedBy": [
+        "buy-10-button",
+        "buy-100-button",
+        "buy-25-button",
+        "buy-50-button",
         "contact-form",
+        "countdown",
         "feature-hooks",
         "feature-hooks-text",
         "feature-hooks-title",
@@ -283,6 +598,7 @@
         "feature-tokens-title",
         "gallery-primary-button",
         "gallery-secondary-button",
+        "game-layout",
         "hero-button",
         "home-features",
         "list-item",
@@ -292,6 +608,12 @@
         "page-main",
         "page-title",
         "preview-screens",
+        "scoreboard",
+        "scoreboard-row",
+        "sell-10-button",
+        "sell-100-button",
+        "sell-25-button",
+        "sell-50-button",
         "send-button",
         "site-header",
         "site-nav"
@@ -315,15 +637,34 @@
     },
     "--text-body": {
       "default": "1rem",
-      "usedBy": []
+      "usedBy": [
+        "scoreboard-title"
+      ]
     },
     "--text-small": {
       "default": "0.875rem",
       "usedBy": [
+        "action-grid-note",
+        "buy-10-key",
+        "buy-100-key",
+        "buy-25-key",
+        "buy-50-key",
+        "countdown-done",
+        "countdown-label",
         "email-error",
         "gallery-sample-error",
+        "markers-empty",
         "name-error",
         "preview-caption",
+        "scoreboard-final",
+        "scoreboard-waiting",
+        "screen-knob-channel",
+        "screen-knob-volume",
+        "screen-message",
+        "sell-10-key",
+        "sell-100-key",
+        "sell-25-key",
+        "sell-50-key",
         "site-footer"
       ]
     },
@@ -368,6 +709,306 @@
       "tokens": [],
       "references": []
     },
+    "action-grid": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "section",
+      "parent": "game-layout",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 38,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "action-grid-buy": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "action-grid",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2"
+      ],
+      "references": []
+    },
+    "action-grid-note": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "p",
+      "parent": "action-grid",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "action-grid-sell": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "action-grid",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2"
+      ],
+      "references": []
+    },
+    "buy-10-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-buy",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-10-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "buy-10-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-100-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-buy",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-100-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "buy-100-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-25-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-buy",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-25-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "buy-25-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-50-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-buy",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "buy-50-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "buy-50-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
     "contact-form": {
       "pages": [
         "starter/contact.html"
@@ -384,7 +1025,7 @@
           "file": "starter/js/contact.js",
           "line": 16,
           "function": "send",
-          "uses": "writes"
+          "uses": "reads"
         },
         {
           "file": "starter/js/contact.js",
@@ -397,6 +1038,80 @@
           "line": 31,
           "function": "anonymous",
           "uses": "reads"
+        }
+      ]
+    },
+    "countdown": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "game-layout",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/countdown.js",
+          "line": 13,
+          "function": "showCountdown",
+          "uses": "reads"
+        }
+      ]
+    },
+    "countdown-done": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "countdown",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "countdown-label": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "countdown",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "countdown-time": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "countdown",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-warning",
+        "--countdown-size",
+        "--font-body"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/countdown.js",
+          "line": 12,
+          "function": "showCountdown",
+          "uses": "writes"
         }
       ]
     },
@@ -417,7 +1132,7 @@
           "file": "starter/js/contact.js",
           "line": 9,
           "function": "validate",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -626,6 +1341,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -640,6 +1356,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -673,7 +1390,7 @@
           "file": "starter/js/contact.js",
           "line": 17,
           "function": "send",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -750,7 +1467,10 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
@@ -781,8 +1501,11 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
         "--color-surface",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
@@ -881,6 +1604,19 @@
       "tokens": [],
       "references": []
     },
+    "game-layout": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "page-main",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-3"
+      ],
+      "references": []
+    },
     "hero-button": {
       "pages": [
         "starter/index.html"
@@ -892,14 +1628,17 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 11,
+          "line": 17,
           "function": "setUp",
           "uses": "listens"
         }
@@ -948,7 +1687,7 @@
           "file": "starter/js/list.js",
           "line": 19,
           "function": "draw",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -1041,6 +1780,134 @@
         }
       ]
     },
+    "marker-a": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "markers",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-marker-a",
+        "--color-surface",
+        "--marker-a-x",
+        "--marker-a-y",
+        "--markers-size"
+      ],
+      "references": []
+    },
+    "marker-b": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "markers",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-marker-b",
+        "--color-surface",
+        "--marker-b-x",
+        "--marker-b-y",
+        "--markers-size"
+      ],
+      "references": []
+    },
+    "markers": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "section",
+      "parent": "game-layout",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--markers-height",
+        "--radius",
+        "--shadow"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/markers.js",
+          "line": 12,
+          "function": "placeMarkers",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 13,
+          "function": "placeMarkers",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 14,
+          "function": "placeMarkers",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 15,
+          "function": "placeMarkers",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 16,
+          "function": "placeMarkers",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 17,
+          "function": "placeMarkers",
+          "uses": "writes"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 18,
+          "function": "placeMarkers",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/markers.js",
+          "line": 21,
+          "function": "(top level)",
+          "uses": "reads"
+        }
+      ]
+    },
+    "markers-empty": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "p",
+      "parent": "markers",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "markers-level": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "markers",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-marker-a",
+        "--markers-level-line",
+        "--markers-level-y"
+      ],
+      "references": []
+    },
     "message-field": {
       "pages": [
         "starter/contact.html"
@@ -1114,15 +1981,18 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
         "--color-surface",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 12,
+          "line": 18,
           "function": "setUp",
           "uses": "listens"
         }
@@ -1139,14 +2009,17 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 13,
+          "line": 20,
           "function": "setUp",
           "uses": "listens"
         }
@@ -1164,7 +2037,7 @@
       "references": [
         {
           "file": "starter/js/home.js",
-          "line": 14,
+          "line": 21,
           "function": "click listener in setUp",
           "uses": "writes"
         }
@@ -1198,7 +2071,7 @@
           "file": "starter/js/contact.js",
           "line": 8,
           "function": "validate",
-          "uses": "writes"
+          "uses": "reads"
         }
       ]
     },
@@ -1260,6 +2133,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1284,6 +2158,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1308,6 +2183,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1332,6 +2208,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1385,6 +2262,17 @@
       "tokens": [],
       "references": []
     },
+    "page-game": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "body",
+      "parent": null,
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": []
+    },
     "page-home": {
       "pages": [
         "starter/index.html"
@@ -1401,6 +2289,7 @@
         "starter/about.html",
         "starter/contact.html",
         "starter/gallery.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html",
         "starter/preview.html"
@@ -1431,6 +2320,7 @@
         "starter/about.html",
         "starter/contact.html",
         "starter/gallery.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html",
         "starter/preview.html"
@@ -1462,6 +2352,7 @@
         "starter/about.html",
         "starter/contact.html",
         "starter/gallery.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html",
         "starter/preview.html"
@@ -1551,6 +2442,547 @@
         }
       ]
     },
+    "scoreboard": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "section",
+      "parent": "game-layout",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-surface",
+        "--radius",
+        "--shadow",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 25,
+          "function": "(top level)",
+          "uses": "reads"
+        }
+      ]
+    },
+    "scoreboard-final": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "p",
+      "parent": "scoreboard",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--space-2",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "scoreboard-name": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "scoreboard-row",
+      "scriptBuilt": true,
+      "template": "template-scoreboard-row",
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 13,
+          "function": "map callback in drawScoreboard",
+          "uses": "writes"
+        }
+      ]
+    },
+    "scoreboard-row": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "li",
+      "parent": "template-scoreboard-row",
+      "scriptBuilt": true,
+      "template": "template-scoreboard-row",
+      "tokens": [
+        "--radius",
+        "--scoreboard-lead-fill",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": []
+    },
+    "scoreboard-rows": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "ol",
+      "parent": "scoreboard",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-1"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 21,
+          "function": "drawScoreboard",
+          "uses": "writes"
+        }
+      ]
+    },
+    "scoreboard-score": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "span",
+      "parent": "scoreboard-row",
+      "scriptBuilt": true,
+      "template": "template-scoreboard-row",
+      "tokens": [
+        "--color-down",
+        "--color-up"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 15,
+          "function": "map callback in drawScoreboard",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 16,
+          "function": "map callback in drawScoreboard",
+          "uses": "writes"
+        }
+      ]
+    },
+    "scoreboard-title": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "h2",
+      "parent": "scoreboard",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-heading",
+        "--space-2",
+        "--text-body"
+      ],
+      "references": []
+    },
+    "scoreboard-waiting": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "p",
+      "parent": "scoreboard",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-muted",
+        "--space-2",
+        "--text-small"
+      ],
+      "references": []
+    },
+    "screen": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "section",
+      "parent": "game-layout",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen-frame",
+        "--color-screen-glow",
+        "--radius",
+        "--screen-bezel",
+        "--screen-glow"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/screen.js",
+          "line": 19,
+          "function": "screenState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "screen-content": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "screen-view",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen-text"
+      ],
+      "references": []
+    },
+    "screen-knob-channel": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "screen-knobs",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen-frame",
+        "--color-screen-text",
+        "--screen-knob-size",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/screen.js",
+          "line": 12,
+          "function": "(top level)",
+          "uses": "listens"
+        }
+      ]
+    },
+    "screen-knob-volume": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "screen-knobs",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen-frame",
+        "--color-screen-text",
+        "--screen-knob-size",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/screen.js",
+          "line": 9,
+          "function": "(top level)",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/screen.js",
+          "line": 11,
+          "function": "(top level)",
+          "uses": "listens"
+        }
+      ]
+    },
+    "screen-knobs": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "screen",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--space-2"
+      ],
+      "references": []
+    },
+    "screen-message": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "p",
+      "parent": "screen-view",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-danger",
+        "--color-screen-text",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/screen.js",
+          "line": 18,
+          "function": "screenState",
+          "uses": "writes"
+        }
+      ]
+    },
+    "screen-static": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "screen-view",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen-static"
+      ],
+      "references": []
+    },
+    "screen-view": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "div",
+      "parent": "screen",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-screen",
+        "--radius"
+      ],
+      "references": []
+    },
+    "sell-10-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-sell",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-10-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "sell-10-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-100-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-sell",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-100-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "sell-100-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-25-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-sell",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-25-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "sell-25-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-50-button": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "button",
+      "parent": "action-grid-sell",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--color-accent",
+        "--color-accent-text",
+        "--color-down",
+        "--color-up",
+        "--radius",
+        "--space-1",
+        "--space-2",
+        "--space-3"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 18,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 22,
+          "function": "setUpActionGrid",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 39,
+          "function": "actionGridState",
+          "uses": "reads"
+        }
+      ]
+    },
+    "sell-50-key": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "kbd",
+      "parent": "sell-50-button",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [
+        "--font-body",
+        "--text-small"
+      ],
+      "references": [
+        {
+          "file": "starter/parts/action-grid.js",
+          "line": 20,
+          "function": "setUpActionGrid",
+          "uses": "reads"
+        }
+      ]
+    },
     "send-button": {
       "pages": [
         "starter/contact.html"
@@ -1562,7 +2994,10 @@
       "tokens": [
         "--color-accent",
         "--color-accent-text",
+        "--color-down",
+        "--color-up",
         "--radius",
+        "--space-1",
         "--space-2",
         "--space-3"
       ],
@@ -1587,13 +3022,37 @@
           "file": "starter/js/home.js",
           "line": 5,
           "function": "openSignup",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 6,
+          "function": "openSignup",
           "uses": "writes"
         },
         {
           "file": "starter/js/home.js",
-          "line": 12,
-          "function": "setUp",
+          "line": 10,
+          "function": "closeSignup",
           "uses": "writes"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 11,
+          "function": "closeSignup",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 19,
+          "function": "setUp",
+          "uses": "listens"
+        },
+        {
+          "file": "starter/js/home.js",
+          "line": 19,
+          "function": "setUp",
+          "uses": "reads"
         }
       ]
     },
@@ -1601,6 +3060,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1619,6 +3079,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1638,6 +3099,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1655,6 +3117,7 @@
       "pages": [
         "starter/about.html",
         "starter/contact.html",
+        "starter/game.html",
         "starter/index.html",
         "starter/list.html"
       ],
@@ -1707,6 +3170,30 @@
           "line": 8,
           "function": "map callback in draw",
           "uses": "reads"
+        }
+      ]
+    },
+    "template-scoreboard-row": {
+      "pages": [
+        "starter/game.html"
+      ],
+      "element": "template",
+      "parent": "scoreboard",
+      "scriptBuilt": false,
+      "template": null,
+      "tokens": [],
+      "references": [
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 12,
+          "function": "map callback in drawScoreboard",
+          "uses": "reads"
+        },
+        {
+          "file": "starter/parts/scoreboard.js",
+          "line": 18,
+          "function": "map callback in drawScoreboard",
+          "uses": "writes"
         }
       ]
     }

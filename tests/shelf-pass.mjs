@@ -40,6 +40,8 @@ const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIG
 
 async function look(w, h, tag) {
   const page = await browser.newPage({ viewport: { width: w, height: h } });
+  /* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); this is about the open shelf. */
+  await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
   await page.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("[data-category]", { timeout: 20000 });
   await page.waitForTimeout(1500);
@@ -62,14 +64,14 @@ async function look(w, h, tag) {
   const shut = await state();
   const ways = shut.ways.length;
 
-  await press("hero");
+  await press("structure");
   const one = await state();
   check(
     `${tag}: the way in does not vanish when a category opens`,
     one.ways.length === ways && one.ways.length > 5,
     `${ways} planets before, ${one.ways.length} after`,
   );
-  check(`${tag}: pressing a planet opens that category`, one.open.length === 1 && one.open[0].id === "hero", JSON.stringify(one.open.map((o) => o.id)));
+  check(`${tag}: pressing a planet opens that category`, one.open.length === 1 && one.open[0].id === "structure", JSON.stringify(one.open.map((o) => o.id)));
   /* You have to be able to see what you just opened. The planets fill the
      band on their own, so a section that opens under them opens off the
      bottom of it unless something brings it up. */
@@ -85,10 +87,10 @@ async function look(w, h, tag) {
   await press("content");
   const two = await state();
   check(`${tag}: a second category replaces the first rather than opening beside it`,
-    two.open.length === OPEN_AT_MOST && two.open.some((o) => o.id === "content") && !two.open.some((o) => o.id === "hero"),
+    two.open.length === OPEN_AT_MOST && two.open.some((o) => o.id === "content") && !two.open.some((o) => o.id === "structure"),
     JSON.stringify(two.open.map((o) => o.id)));
 
-  await press("media");
+  await press("motion");
   const three = await state();
   check(
     `${tag}: a third never makes three`,
@@ -97,12 +99,12 @@ async function look(w, h, tag) {
   );
   check(
     `${tag}: and the one standing open is the one just pressed`,
-    three.open.length === OPEN_AT_MOST && three.open.every((o) => o.id === "media"),
+    three.open.length === OPEN_AT_MOST && three.open.every((o) => o.id === "motion"),
     JSON.stringify(three.open.map((o) => o.id)),
   );
 
   // Pressing an open one shuts it again.
-  await press("media");
+  await press("motion");
   const back = await state();
   check(`${tag}: pressing an open category shuts it`, back.open.length === 0, JSON.stringify(back.open.map((o) => o.id)));
 
@@ -118,7 +120,7 @@ async function look(w, h, tag) {
      what they are: a part rendered inside a card can overflow its own clip
      box, but the whole preview is `pointer-events: none`, so no wheel ever
      reaches it. */
-  await press("hero");
+  await press("structure");
   const wheels = await page.evaluate(() => {
     const drawer = document.querySelector("[data-drawer]");
     return [drawer, ...drawer.querySelectorAll("*")]
@@ -141,7 +143,7 @@ async function look(w, h, tag) {
 
   const moved = await page.evaluate(async () => {
     const shelf = document.querySelector("[data-shelf]") ?? document.querySelector("[data-drawer] .overflow-y-auto");
-    const planet = document.querySelector('[data-category="hero"]');
+    const planet = document.querySelector('[data-category="structure"]');
     if (!shelf) return { why: "no scroller in the shelf at all" };
     if (!planet) return { why: "the planets are not on the shelf once a category is open" };
     shelf.scrollTop = 0;
@@ -196,6 +198,8 @@ await look(1282, 917, "pane");
  */
 {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  /* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); this is about the open shelf. */
+  await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
   await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-category]", { timeout: 20000 });
   await page.waitForTimeout(2000);
@@ -215,7 +219,7 @@ await look(1282, 917, "pane");
     `${was} before, ${afterIdea.length} after, last is ${afterIdea[afterIdea.length - 1]?.featureId ?? "none"}`);
 
   /* Then a tile, which needs a category open. */
-  await page.getByText("Layout", { exact: true }).first().click({ force: true });
+  await page.locator(`[data-category="structure"]`).first().click({ force: true });
   await page.waitForTimeout(1000);
   const tile = page.locator("[data-tile]").first();
   const id = await tile.getAttribute("data-tile");

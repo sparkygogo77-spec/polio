@@ -17,7 +17,7 @@
  * colour before the part is drawn.
  *
  * Off-screen tiles skip their layout and paint entirely (`content-visibility`),
- * so a library of 233 live previews costs about what a list of icons did.
+ * so a library of 236 live previews costs about what a list of icons did.
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";
@@ -25,6 +25,10 @@ import type { Theme } from "./shelf/run";
 import type { FeatureDef } from "./shelf";
 import { useStudio, type StudioNode } from "./board/store";
 import { previewContent } from "./showcase";
+import { isOverlay } from "./shelf/parts";
+
+/** Parts whose picture is what a hover opens: live, behind an inert preview, they would show only the word you hover. */
+const SHOWN_OPEN: ReadonlySet<string> = new Set(["hover-card"]);
 
 /** The size a part is drawn at before it is scaled down. Its own, within reason. */
 export function previewSize(feature: FeatureDef): { w: number; h: number } {
@@ -48,7 +52,7 @@ export function previewHeight(feature: FeatureDef, width: number): number {
  * once and forget it when i stop hovering."
  *
  * The shelf draws every part in `board` mode, which by the parts contract
- * means the initial state and no timers — the right default for 233 tiles on
+ * means the initial state and no timers — the right default for 236 tiles on
  * one screen, and the reason nothing on the shelf ever moves. `play` puts
  * this one tile into `live` mode, where a part is itself: whatever entrance
  * it has runs, and whatever it does under a pointer it does.
@@ -133,6 +137,7 @@ export function PartPreview({ feature, width, height, round, play, ground = "sur
     [feature, feature.id, feature.name, pw, ph, content],
   );
 
+  const live = !!play && !isOverlay(node.featureId) && !SHOWN_OPEN.has(node.featureId);
   return (
     <div
       aria-hidden
@@ -143,7 +148,8 @@ export function PartPreview({ feature, width, height, round, play, ground = "sur
       <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2), marginTop: ground === "page" ? Math.max(0, (height - ph * scale) / 2) : 0 }}>
         {/* Remounted when `play` turns over, so the pass starts at zero
             rather than resuming wherever the last one stopped. */}
-        <Block key={play ? "live" : "rest"} node={node} t={theme} mode={play ? "live" : "board"} />
+        {/* A part that stands over the page (What's new) is a closed layer when live: the picture is its card, as the board draws it. */}
+        <Block key={live ? "live" : "rest"} node={node} t={theme} mode={live ? "live" : "board"} />
       </div>
     </div>
   );

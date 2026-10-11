@@ -1,0 +1,10 @@
+/* part: scoreboard. Values come from the scoreboard block in tokens.css. */
+[data-hook="scoreboard"] { background: var(--color-surface); border-radius: var(--radius); padding: var(--space-3); box-shadow: var(--shadow); }
+[data-hook="scoreboard-title"] { font: bold var(--text-body) var(--font-heading); margin: 0 0 var(--space-2); }
+[data-hook="scoreboard-rows"] { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+[data-hook="scoreboard-row"] { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-1) var(--space-2); border-radius: var(--radius); }
+[data-hook="scoreboard-row"][data-lead] { background: var(--scoreboard-lead-fill); }
+[data-hook="scoreboard-score"] { font-variant-numeric: tabular-nums; }
+[data-hook="scoreboard-score"][data-sign="up"] { color: var(--color-up); }
+[data-hook="scoreboard-score"][data-sign="down"] { color: var(--color-down); }
+[data-hook="scoreboard-waiting"], [data-hook="scoreboard-final"] { color: var(--color-muted); font-size: var(--text-small); margin: var(--space-2) 0 0; }

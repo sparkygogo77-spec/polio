@@ -238,10 +238,13 @@ export function CopyButton({ id, content, theme: t, mode, emit }: PartProps) {
 /** A richer look at what a link points to, without leaving the page. */
 export function HoverCard({ id, content, theme: t, mode }: PartProps) {
   const [name, ...rest] = items(content, ["Ada Okafor", "Builds things that stay built."]);
-  const [open, setOpen] = React.useState(false);
+  /* On the board (and its shelf card) the card is drawn open under the name, inside the part's box: the name alone said nothing about what it does. */
+  const board = mode === "board";
+  const [hovered, setOpen] = React.useState(false);
+  const open = board || hovered;
   return (
     <Fill t={t} data-part={id} overflow="visible" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: t.fontPx * 0.4 }}>
-      <span style={{ position: "relative" }}>
+      <span style={{ position: "relative", display: board ? "flex" : undefined, flexDirection: "column", alignItems: "center", gap: 8 }}>
         <button
           type="button"
           aria-describedby={open ? `${id}-card` : undefined}
@@ -254,7 +257,7 @@ export function HoverCard({ id, content, theme: t, mode }: PartProps) {
           {name}
         </button>
         {open ? (
-          <span id={`${id}-card`} role="tooltip" style={{ position: "absolute", left: "50%", top: "calc(100% + 8px)", transform: "translateX(-50%)", width: 200, ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", gap: 8, boxShadow: `0 12px 30px ${t.light ? "oklch(0 0 0 / .14)" : "oklch(0 0 0 / .45)"}`, zIndex: 3, textAlign: "left" }}>
+          <span id={`${id}-card`} role="tooltip" style={{ ...(board ? { position: "relative" } : { position: "absolute", left: "50%", top: "calc(100% + 8px)", transform: "translateX(-50%)" }), width: 200, ...cardStyle(t), padding: t.fontPx * 0.6, display: "flex", gap: 8, boxShadow: `0 12px 30px ${t.light ? "oklch(0 0 0 / .14)" : "oklch(0 0 0 / .45)"}`, zIndex: 3, textAlign: "left" }}>
             <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: 999, background: `${tint(t.accent, 0.267)}`, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>
               <strong style={{ display: "block", fontSize: t.fontPx * 0.85 }}>{name}</strong>

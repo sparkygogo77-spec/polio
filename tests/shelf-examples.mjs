@@ -37,11 +37,15 @@ await page.route("**/api/studio/**", (route) => {
   const what = route.request().url().split("/").pop().split("?")[0];
   return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(what === "publish" ? STATUS : {}) });
 });
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); every card is looked at here, so it is open. */
+/* Sketches (parts the published page cannot run yet) are hidden until asked for; every card is looked at here, sketches too. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); localStorage.setItem("builder.shelf.sketches", "1"); } catch { /* private window */ } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 
 const cats = await page.locator("[data-category]").evaluateAll((els) => els.map((e) => e.getAttribute("data-category")).filter((c) => c && c !== "custom-idea"));
-check("the shelf offers its categories", cats.length >= 10, `${cats.length}: ${cats.join(", ")}`);
+/* Six, by purpose (builder audit, section 3). */
+check("the shelf offers its categories", cats.length === 6, `${cats.length}: ${cats.join(", ")}`);
 
 /**
  * How much of a tile's picture is not the panel behind it.

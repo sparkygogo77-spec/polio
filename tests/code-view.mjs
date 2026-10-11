@@ -57,14 +57,14 @@ check("builder.json: the paths to hooks.json, tokens, style layer and gallery, a
 /* The real manifests: the kit's own (kit/builder.json, every path from kit/) and PST's (its root). */
 const KIT = "tests/fixtures/kit-starter";
 const kitM = readManifest(readFileSync(`${KIT}/builder.json`, "utf8"), "kit/builder.json");
-check("the kit's real builder.json: its pages and titles, every path from the folder it is in", kitM?.kit === "1.0.0" && kitM.name === "Starter" && kitM.pages.map((p) => `${p.file}=${p.name}`).join() === "kit/starter/index.html=Home,kit/starter/about.html=About,kit/starter/list.html=List,kit/starter/contact.html=Contact" && kitM.hooks === "kit/starter/hooks.json" && kitM.tokens === "kit/starter/tokens.css" && kitM.styleLayer === "kit/starter/style-layer.css" && kitM.gallery === "kit/starter/gallery.html", JSON.stringify(kitM).slice(0, 300));
-check("…its eight preview screens and their query, its hook helpers and link rules", kitM?.screens.length === 8 && kitM.screens[1] === "home-modal" && kitM.previewPage === "kit/starter/preview.html" && kitM.previewQuery === "?still=1&screen=<name>" && kitM.hookCalls.part === 1 && kitM.helperFiles.join() === "kit/starter/js/hooks.js" && kitM.links?.allowHosts.includes("pump.fun") && kitM.links.block.length === 2);
+check("the kit's real builder.json: its pages and titles, every path from the folder it is in", kitM?.kit === "1.0.0" && kitM.name === "Starter" && kitM.pages.map((p) => `${p.file}=${p.name}`).join() === "kit/starter/index.html=Home,kit/starter/about.html=About,kit/starter/list.html=List,kit/starter/contact.html=Contact,kit/starter/game.html=Game parts" && kitM.hooks === "kit/starter/hooks.json" && kitM.tokens === "kit/starter/tokens.css" && kitM.styleLayer === "kit/starter/style-layer.css" && kitM.gallery === "kit/starter/gallery.html", JSON.stringify(kitM).slice(0, 300));
+check("…its thirteen preview screens and their query, its hook helpers and link rules", kitM?.screens.length === 13 && kitM.screens[1] === "home-modal" && kitM.previewPage === "kit/starter/preview.html" && kitM.previewQuery === "?still=1&screen=<name>" && kitM.hookCalls.part === 1 && kitM.helperFiles.join() === "kit/starter/js/hooks.js" && kitM.links?.allowHosts.includes("pump.fun") && kitM.links.block.length === 2);
 const pstM = readManifest(readFileSync("tests/fixtures/pst-builder.json", "utf8"), "builder.json");
 check("PST's real root builder.json: five pages, its builder-hooks.json, tokens, style layer and tokens module", pstM?.name === "PonsStars" && pstM.pages.length === 5 && pstM.pages[0].name === "Play" && pstM.hooks === "web/builder-hooks.json" && pstM.tokens === "web/tokens.css" && pstM.styleLayer === "web/style-layer.css" && pstM.tokensModule === "web/tokens.js" && pstM.screens.length === 0 && pstM.hookCalls.setText === 0 && pstM.hookCalls.drop === 1, JSON.stringify(pstM).slice(0, 300));
 /* The kit's hooks.json, read from the folder its builder.json is in. */
 const kitHooks = readHooksJson(readFileSync(`${KIT}/starter/hooks.json`, "utf8"), "kit/starter/", { manifestDir: "kit/" });
 const form = kitHooks?.refs.get("data-hook=contact-form") ?? [];
-check("the kit's real hooks.json: each reference's file from builder.json's folder, what it does from `uses`, a nameless handler named by nothing", form.length >= 2 && form.every((r) => r.file === "kit/starter/js/contact.js") && form.some((r) => r.kind === "listens" && r.fn === null) && form.some((r) => r.kind === "writes" && r.fn === "send"), JSON.stringify(form).slice(0, 300));
+check("the kit's real hooks.json: each reference's file from builder.json's folder, what it does from `uses`, a nameless handler named by nothing", form.length >= 2 && form.every((r) => r.file === "kit/starter/js/contact.js") && form.some((r) => r.kind === "listens" && r.fn === null) && form.some((r) => r.kind === "reads" && r.fn === "send"), JSON.stringify(form).slice(0, 300));
 check("…each hook's tokens, and the tokens' map with the hooks that use them", kitHooks?.meta.get("data-hook=contact-form")?.cssVariables?.includes("--space-3") && kitHooks.vars.get("--color-accent")?.default === "#2f6fde" && kitHooks.vars.get("--color-accent").usedBy.includes("send-button"));
 const built = [...(kitHooks?.meta ?? [])].filter(([, v]) => v.scriptBuilt);
 check("…the parts its scripts build from templates", built.length > 0 && built.every(([, v]) => typeof v.template === "string" && v.template.startsWith("template-")), built.slice(0, 3).map(([k, v]) => `${k} ${v.template}`).join(", "));
@@ -343,7 +343,7 @@ let kst = await kboard();
 for (let i = 0; i < 90 && !kst.nodes.length; i++) { await kui.waitForTimeout(1000); kst = await kboard(); }
 await kui.waitForTimeout(1500);
 kst = await kboard();
-check("the real starter comes in by its builder.json: Home, About, List, Contact", kst.pages.map((p) => p.name).join() === "Home,About,List,Contact", kst.pages.map((p) => p.name).join());
+check("the real starter comes in by its builder.json: Home, About, List, Contact, Game parts", kst.pages.map((p) => p.name).join() === "Home,About,List,Contact,Game parts", kst.pages.map((p) => p.name).join());
 const kcode = (h) => kst.nodes.find((n) => n.hooks?.["data-hook"] === h)?.source?.code;
 check("…every part named by its hook, its code view from its hooks.json, linked to files that exist", kst.nodes.filter((n) => n.hooks?.["data-hook"]).every((n) => n.label === n.hooks["data-hook"]) && kcode("send-button")?.from === "hooks.json" && kst.nodes.flatMap((n) => n.source?.code?.refs ?? []).every((r) => KF[r.file] !== undefined), [...new Set(kst.nodes.flatMap((n) => n.source?.code?.refs ?? []).map((r) => r.file).filter((f) => KF[f] === undefined))].join(", "));
 check("…its tokens are tokens, read from starter/tokens.css", (kst.look?.styleSource?.files ?? []).flatMap((f) => f.vars).some((v) => v.token && v.name === "--color-accent" && v.file === "starter/tokens.css") && kst.look.styleSource.layerFile === "starter/style-layer.css");
@@ -359,7 +359,7 @@ await ksec.locator("[data-style-layer-send]").click();
 let ksaid = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(ksaid); i++) { await kui.waitForTimeout(500); ksaid = await ksec.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const klayer = kwrote.find((w) => w.path === "starter/style-layer.css")?.content ?? "";
-check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else (the design record beside it)", /--color-accent: #00aa88/.test(klayer) && kwrote.filter((w) => w.path !== "design/record.json").length === 1 && kwrote.some((w) => w.path === "design/record.json"), `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 120)}`);
+check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else (the design record beside it)", /--color-accent: #00aa88/.test(klayer) && kwrote.filter((w) => w.path !== "design/record.json").length === 1 && kwrote.some((w) => w.path === "design/record.json"), `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 1200)}`);
 check("no errors in the Builder with the starter", kerr.length === 0, kerr.slice(0, 3).join(" | "));
 await kui.close();
 const kserved = { ...KF, "starter/style-layer.css": klayer };
@@ -378,11 +378,12 @@ await kp.goto(`http://127.0.0.1:${kserver.address().port}/starter/contact.html`,
 await kp.waitForTimeout(300);
 const kmissing = await kp.evaluate((list) => list.filter((v) => !document.querySelector(`[data-hook="${v}"]`)), [...hookCounts(KF["starter/contact.html"]).keys()].filter((k) => k.startsWith("data-hook=")).map((k) => k.slice(10)));
 await kp.click('[data-hook="send-button"]');
-const errorsShown = await kp.evaluate(() => !document.querySelector('[data-hook="name-error"]').hidden && !document.querySelector('[data-hook="email-error"]').hidden);
+/* The starter switches parts by data-state (kit rule: set data-state on its panel), so what shows is read as drawn. */
+const errorsShown = await kp.evaluate(() => document.querySelector('[data-hook="name-error"]').checkVisibility() && document.querySelector('[data-hook="email-error"]').checkVisibility());
 await kp.fill('[data-hook="name-input"]', "Sample Person");
 await kp.fill('[data-hook="email-input"]', "sample@example.com");
 await kp.click('[data-hook="send-button"]');
-const sent = await kp.evaluate(() => ({ sent: !document.querySelector('[data-hook="form-sent"]').hidden, form: document.querySelector('[data-hook="contact-form"]').hidden, accent: getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim() }));
+const sent = await kp.evaluate(() => ({ sent: document.querySelector('[data-hook="form-sent"]').checkVisibility(), form: !document.querySelector('[data-hook="contact-form"]').checkVisibility(), accent: getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim() }));
 check("the starter with the layer: every hook on its contact page kept", kmissing.length === 0, kmissing.join(", "));
 check("…its script still checks the form and sends it", errorsShown && sent.sent && sent.form, JSON.stringify(sent));
 check("…and its accent token is the owner's", sent.accent === "#00aa88");

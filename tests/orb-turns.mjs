@@ -49,6 +49,8 @@ await page.route("**/api/studio/**", (route) => {
   return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(what === "publish" ? STATUS : {}) });
 });
 
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks use its search, so it is open. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1000);
 

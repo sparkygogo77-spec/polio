@@ -9,7 +9,7 @@ import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { uid } from "@/core/lib/ids";
 import { useStudio, type StudioNode } from "./board/store";
-import { placeComponent, type SavedComponent } from "./shelf";
+import { placeComponent, shelfCategoryOf, type SavedComponent } from "./shelf";
 import { useLearned } from "./shelf/ui";
 import { jumpTo } from "./ShelfCards";
 import { Button } from "@/core/ui/button";
@@ -40,7 +40,7 @@ export function putComponent(c: SavedComponent, at?: { x: number; y: number }): 
 /** The components saved to this shelf category, as a band of cards. */
 export function SavedComponentsBand({ category, hue }: { category: string; hue: number }) {
   const all = useLearned((s) => s.lib.components);
-  const list = React.useMemo(() => (all ?? []).filter((c) => c.category === category).sort((a, b) => b.at - a.at), [all, category]);
+  const list = React.useMemo(() => (all ?? []).filter((c) => shelfCategoryOf(c.category) === category).sort((a, b) => b.at - a.at), [all, category]);
   if (!list.length) return null;
   return (
     <section data-saved-components={category} className="mb-4">

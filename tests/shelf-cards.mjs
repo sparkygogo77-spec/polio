@@ -26,9 +26,9 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync } from "node:fs";
-import { CATEGORIES, FEATURES, SUBGROUPS } from "../src/features/studio/shelf/catalog.ts";
+import { CATEGORIES, FEATURES, SUBGROUPS, categoryOf } from "../src/features/studio/shelf/catalog.ts";
 import { FORMAT_FIELDS } from "../src/features/studio/format.ts";
-import { LIBRARY } from "../src/features/studio/shelf/library/works.ts";
+import { LIBRARY, PART_SCRIPT } from "../src/features/studio/shelf/library/works.ts";
 import {
   PICTURE_ONLY, RUN_MOTIONS, NAMED_MOTIONS, STATUS_LABEL, doesOf, exampleContent, needsOf, siteWordsOf, statusOf, switchOf, switchStatus,
 } from "../src/features/studio/shelfFacts.ts";
@@ -54,7 +54,8 @@ check("2. and no sub-group name is used in two categories", twice.length === 0, 
 const ABBR = /\b(?:[A-Z]{2,}|\d+D)\b/g;
 const loose = [];
 for (const f of FEATURES) {
-  const cat = CATEGORIES.find((c) => c.id === f.category)?.label ?? "";
+  /* The category the shelf shows it in: six, each holding several kinds (`catalog.ts#SHELF_OF`). */
+  const cat = categoryOf(f.category).label;
   for (const text of [f.name, f.blurb, f.explain ?? ""]) {
     for (const a of text.match(ABBR) ?? []) {
       if (!new RegExp(`\\(${a}\\)`).test(`${cat} ${text}`)) loose.push(`${f.id}: ${a}`);
@@ -158,7 +159,7 @@ if (!URL_) {
     const r = n?.getBoundingClientRect();
     return { id: e.getAttribute("data-category"), text: n?.textContent?.trim() ?? "", seen: !!r && r.width > 10 && r.height > 6 };
   }));
-  check("1. with a category open, every category still shows its name", rail.length >= 12 && rail.every((c) => c.seen && c.text.length > 1), rail.filter((c) => !c.seen).map((c) => c.id).join(", ") || `${rail.length} names`);
+  check("1. with a category open, every category still shows its name", rail.length === CATEGORIES.length && rail.every((c) => c.seen && c.text.length > 1), rail.filter((c) => !c.seen).map((c) => c.id).join(", ") || `${rail.length} names`);
 
   /* 3 */
   const groups = await page.$$eval("[data-category-open] [data-shelf-group]", (els) => els.map((e) => e.getAttribute("data-shelf-group")));
@@ -293,7 +294,8 @@ if (!URL_) {
   check("11. every working feature with a card of its own shows its effect on a piece of the site, never a symbol and a word",
     ours.length === OWN.length && bare.length === 0, `${ours.length} of ${OWN.length} cards${bare.length ? `; bare: ${bare.map((c) => `${c.id}=${c.demo}`)}` : `: ${ours.map((c) => `${c.id}→${c.demo}`).join(", ")}`}`);
   /* A feature a shelf part carries as its own (the "What's new" card's) is placed by that part's card. */
-  const carried = Object.entries(CARRIES).filter(([part]) => itemOf(part)).map(([, id]) => id);
+  /* So is one a shelf part is drawn by on the published page (the before and after slider's "compare"). */
+  const carried = [...Object.entries(CARRIES), ...Object.entries(PART_SCRIPT)].filter(([part]) => itemOf(part)).map(([, id]) => id);
   const versioned = LIBRARY.map((w) => w.manifest.id).filter((id) => !OWN.some((o) => o.id === id) && !carried.includes(id));
   check("11. and every other one is a version of the card that does the same, or the feature a shelf part carries", versioned.every((id) => itemOf(`work:${id}`) && itemOf(`work:${id}`) !== `work:${id}`), `${versioned.map((id) => `${id} → ${itemOf(`work:${id}`)}`).join(", ")}${carried.length ? `; carried by their part: ${carried.join(", ")}` : ""}`);
   const SITE = /BLACKORB|Power in the dark|Built for the next block|\$BORB|Chain 4663/;
@@ -321,7 +323,7 @@ if (!URL_) {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
   /* A feature that is a version: its card's detail offers it, and picking it shows its effect. */
-  for (const [item, cat, version] of [["copy-button", "interact", "work:copy-toast"], ["tabs-panel", "structure", "work:press-shows"]]) {
+  for (const [item, cat, version] of [["copy-button", "motion", "work:copy-toast"], ["tabs-panel", "structure", "work:press-shows"]]) {
     await open(cat);
     await page.locator(`[data-tile="${item}"]`).click();
     await page.waitForTimeout(600);

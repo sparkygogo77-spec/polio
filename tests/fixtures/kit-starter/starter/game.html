@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game parts · Starter</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="parts/scoreboard.css">
+<link rel="stylesheet" href="parts/action-grid.css">
+<link rel="stylesheet" href="parts/countdown.css">
+<link rel="stylesheet" href="parts/screen.css">
+<link rel="stylesheet" href="parts/markers.css">
+<link rel="stylesheet" href="style-layer.css">
+<script type="module" src="js/game.js"></script>
+</head>
+<body data-hook="page-game">
+<header data-hook="site-header">
+  <a data-hook="site-logo" href="index.html">Starter</a>
+  <nav data-hook="site-nav" aria-label="Main">
+    <a data-hook="nav-home" href="index.html">Home</a>
+    <a data-hook="nav-about" href="about.html">About</a>
+    <a data-hook="nav-list" href="list.html">List</a>
+    <a data-hook="nav-contact" href="contact.html">Contact</a>
+  </nav>
+</header>
+<main data-hook="page-main">
+  <h1 data-hook="page-title">Game parts</h1>
+  <p data-hook="page-intro">Ready-made parts for a game or a live page, from PonsStars. Add one to a site with npm run kit:part (see starter/parts.json).</p>
+  <div data-hook="game-layout">
+
+<!-- part: screen -->
+<section data-hook="screen" data-panel="screen" data-states="idle loading live error" data-state="idle" data-label="TV screen">
+  <div data-hook="screen-view" data-app-area="Screen">
+    <div data-hook="screen-content" data-show="live">Your chart, video or feed goes here.</div>
+    <div data-hook="screen-static" data-show="loading"></div>
+    <p data-hook="screen-message" data-show="idle loading error" data-kind="text">Nothing on yet.</p>
+  </div>
+  <div data-hook="screen-knobs">
+    <button type="button" data-hook="screen-knob-volume" data-group="screen-knob" aria-label="Volume">V</button>
+    <button type="button" data-hook="screen-knob-channel" data-group="screen-knob" aria-label="Channel">C</button>
+  </div>
+</section>
+<!-- part end -->
+
+<!-- part: markers -->
+<section data-hook="markers" data-panel="markers" data-states="idle live" data-state="idle" data-label="Duel circles">
+  <span data-hook="marker-a" data-show="live" data-label="Your circle"></span>
+  <span data-hook="marker-b" data-show="live" data-label="Their circle"></span>
+  <span data-hook="markers-level" data-show="live" data-label="Level line"></span>
+  <p data-hook="markers-empty" data-show="idle">The circles show once both players are in.</p>
+</section>
+<!-- part end -->
+
+<!-- part: countdown -->
+<div data-hook="countdown" data-panel="countdown" data-states="idle live warning done" data-state="idle" data-label="Countdown">
+  <span data-hook="countdown-label">Time left</span>
+  <span data-hook="countdown-time" data-kind="time">1:00</span>
+  <span data-hook="countdown-done" data-show="done">Time's up</span>
+</div>
+<!-- part end -->
+
+<!-- part: scoreboard -->
+<section data-hook="scoreboard" data-panel="scoreboard" data-states="idle live done" data-state="idle" data-label="Scoreboard">
+  <h2 data-hook="scoreboard-title">Scores</h2>
+  <ol data-hook="scoreboard-rows" data-list="template-scoreboard-row" data-label="Score rows"></ol>
+  <p data-hook="scoreboard-waiting" data-show="idle">Waiting for players.</p>
+  <p data-hook="scoreboard-final" data-show="done">Final scores.</p>
+  <template data-hook="template-scoreboard-row">
+    <li data-hook="scoreboard-row">
+      <span data-hook="scoreboard-name" data-kind="text">Player</span>
+      <span data-hook="scoreboard-score" data-kind="number">0.00</span>
+    </li>
+  </template>
+</section>
+<!-- part end -->
+
+<!-- part: action-grid -->
+<section data-hook="action-grid" data-panel="action-grid" data-states="idle live done" data-state="idle" data-label="Buy and sell buttons">
+  <div data-hook="action-grid-buy" data-group="action-row" data-label="Buy row">
+    <button type="button" data-hook="buy-10-button" data-group="action-button" data-action="buy" data-amount="10" disabled>Buy 10% <kbd data-hook="buy-10-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="buy-25-button" data-group="action-button" data-action="buy" data-amount="25" disabled>Buy 25% <kbd data-hook="buy-25-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="buy-50-button" data-group="action-button" data-action="buy" data-amount="50" disabled>Buy 50% <kbd data-hook="buy-50-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="buy-100-button" data-group="action-button" data-action="buy" data-amount="100" disabled>Buy 100% <kbd data-hook="buy-100-key" data-group="action-key"></kbd></button>
+  </div>
+  <div data-hook="action-grid-sell" data-group="action-row" data-label="Sell row">
+    <button type="button" data-hook="sell-10-button" data-group="action-button" data-action="sell" data-amount="10" disabled>Sell 10% <kbd data-hook="sell-10-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="sell-25-button" data-group="action-button" data-action="sell" data-amount="25" disabled>Sell 25% <kbd data-hook="sell-25-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="sell-50-button" data-group="action-button" data-action="sell" data-amount="50" disabled>Sell 50% <kbd data-hook="sell-50-key" data-group="action-key"></kbd></button>
+    <button type="button" data-hook="sell-100-button" data-group="action-button" data-action="sell" data-amount="100" disabled>Sell 100% <kbd data-hook="sell-100-key" data-group="action-key"></kbd></button>
+  </div>
+  <p data-hook="action-grid-note" data-kind="text" data-show="idle done">The buttons wake up when the round starts.</p>
+</section>
+<!-- part end -->
+
+  </div>
+</main>
+<footer data-hook="site-footer">
+  <p data-hook="footer-line">© <span data-hook="footer-year" data-kind="date">2026</span> Starter. Built to the builder contract.</p>
+</footer>
+<script src="vendor/builder-motion.js" defer></script>
+</body>
+</html>

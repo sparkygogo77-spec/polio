@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 const here = dirname(fileURLToPath(import.meta.url));
-const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src") } });
+const jiti = createJiti(import.meta.url, { jsx: true, alias: { "@": join(here, "..", "src"), "@site": join(here, "..", "site.config.ts") } });
 const R = await jiti.import(join(here, "..", "src", "features", "studio", "states", "stateRules.ts"));
 const H = await jiti.import(join(here, "..", "src", "features", "studio", "board", "helpers.ts"));
 const results = [];

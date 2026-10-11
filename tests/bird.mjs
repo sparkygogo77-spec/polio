@@ -99,6 +99,8 @@ const BIRD = (() => {
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 const lab = await browser.newPage({ viewport: { width: 64, height: 64 } });
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks use its search, so it is open. */
+await lab.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await lab.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
 
 /* The tracer stands in locally and says so: a real run-length trace of the
