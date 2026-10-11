@@ -69,7 +69,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { makeSolid } from "../solidRun";
 import { lookOf } from "../look/parts";
-import { makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../look/ui";
+import { makeAllFacets, makeAllLike, pasteLook, pasteTargets, useLookClip, useMakeAll } from "../look/ui";
 import { openRemix } from "../RemixCard";
 import { hasStates } from "../states/ui";
 import { openPanelsPage, panelOf } from "../states/ui";
@@ -563,6 +563,8 @@ export function RadialMenu() {
     opened.current = n ? { id: n.id, colour: n.colour, edge: n.edge ?? null, art: n.art ?? null, content: n.content, font: n.font, aura: n.aura, at: seq } : null;
     setCarried((k) => k + 1);
   };
+  /* What the tray's All like this would carry from this part (partLookApply.ts); nothing, and it is off. */
+  const makeAllCarry = node ? makeAllFacets(node, useMakeAll.getState().chosen) : [];
   const tray: TrayItem[] = bg
     ? [
         // "Here" means here: the board's own Preview, the same as `p`, not the full address the part's tray goes to.
@@ -604,9 +606,9 @@ export function RadialMenu() {
         },
         /* On a captured page there may be no bare page left to right-click: every part's tray can bring one too, landing where the person is looking. */
         { id: "remix", label: "Bring from another site…", icon: <Shuffle className="size-3" />, onClick: () => { closeRadial(); openRemix(); } },
-        /* Make all like this: every part of this kind on the site wears its look, with the facets and the keep-colour choice the panel holds (MakeAllLike.tsx). */
+        /* Make all like this: every part of this kind on the site wears its look, with the facets and the keep-colour choice the panel holds (MakeAllLike.tsx); only the facets this part has, so a plain part wipes nobody's look. */
         {
-          id: "make-all", label: "All like this", icon: <CopyPlus className="size-3" />,
+          id: "make-all", label: makeAllCarry.length ? "All like this" : "All like this: nothing of its own to carry", icon: <CopyPlus className="size-3" />, disabled: !makeAllCarry.length,
           onClick: () => { const p = useMakeAll.getState(); const n = makeAllLike(node!, p.chosen, { keepColour: p.keepColour }); play(n ? "confirm" : "deny"); ctx.publish({ key: `studio:make-all:${node!.id}`, title: n ? `Restyled ${n} more part${n === 1 ? "" : "s"} like this` : "Every part of this kind already looks like this", level: "info", source: "studio", toast: true }); },
         },
         {

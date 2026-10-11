@@ -20,7 +20,7 @@ import { useHeldStudio, useStudio, useSteady, type StudioNode } from "./board/st
 import { FACET_WORDS, lookHas, lookOf, lookPatch } from "./look/parts";
 import { tryProps } from "./tryLook";
 import { kindKey, kindWord, kindWords } from "./partKind";
-import { makeAllLike, makeAllReach, useMakeAll } from "./look/ui";
+import { makeAllFacets, makeAllLike, makeAllReach, useMakeAll } from "./look/ui";
 import { pointAt } from "./SiteColours";
 
 export function MakeAllLike({ node }: { node: StudioNode }) {
@@ -34,7 +34,7 @@ export function MakeAllLike({ node }: { node: StudioNode }) {
   const key = kindKey(node as never);
   const words = kindWords(key);
   const has = React.useMemo(() => lookHas(lookOf(node as never)), [node]);
-  const on = has.filter((f) => chosen.includes(f));
+  const on = makeAllFacets(node, chosen);
   const reach = React.useMemo(() => makeAllReach(node, on, { keepColour }, nodes), [node, nodes, on.join(","), keepColour]);
 
   return (
