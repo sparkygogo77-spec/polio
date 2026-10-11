@@ -30,7 +30,10 @@ import { BUSY_NOW, ISOLATE, readStillsAsk, type StillTaken } from "@/features/st
  *     page in the zip beside it, each its own reading, in one go
  *     (`pageParts.ts` makes them pages of parts); with `only`, that page
  *     alone, and the names of the others (`siblings`) for the Builder to
- *     ask for one request at a time, `dir` naming the site's folder.
+ *     ask for one request at a time, `dir` naming the site's folder;
+ *     with `widths=0`, without its tablet and phone readings, which
+ *     `boxes` (the desktop parts' kind, selector and type size) asks for
+ *     in a request of their own.
  *
  * The zip is sent each time rather than kept on the server: the route
  * holds nothing between calls, like every other route here. Every failure
@@ -78,6 +81,19 @@ export async function POST(request: Request) {
    * any size is read a page at a time, each inside its own deadline.
    */
   const onlyEntry = byParts && form.get("only") === "1";
+  /*
+   * AND ONE WIDTH A REQUEST. The same branch's front page, read alone,
+   * still took a minute on the host: the reading at the desktop, then
+   * again at 834 and at 390 for its tablet and phone, three readings of
+   * 750 parts in one request. `widths=0` leaves the tablet and phone out
+   * of the parts reading; `boxes` (the desktop parts' kind, selector and
+   * type size, as the Builder got them) asks for those two readings on
+   * their own, boxes only, in a request of their own.
+   */
+  const withWidths = form.get("widths") !== "0";
+  const boxesAsk = (() => {
+    try { const v = JSON.parse(String(form.get("boxes") ?? "null")) as unknown; return Array.isArray(v) && byParts ? v.filter((x): x is [string, string, number | undefined] => Array.isArray(x) && typeof x[0] === "string" && typeof x[1] === "string").slice(0, 4000) : null; } catch { return null; }
+  })();
   /* The site's folder, when the Builder names it: a sibling page read on its own is served from the site's folder, as it was when every page was read behind the entry. */
   const siteDir = typeof form.get("dir") === "string" && files.some((f) => f.name.startsWith(String(form.get("dir")))) ? String(form.get("dir")) : null;
   const gate0 = askedEntry && askedEntry !== checked.entry && /\.html?$/i.test(askedEntry) && files.some((f) => f.name === askedEntry)
@@ -288,7 +304,8 @@ export async function POST(request: Request) {
           try {
             await page.setViewportSize({ width: w, height: 900 });
             await page.waitForTimeout(150);
-            const small = (await page.evaluate(PARTS, MAX_PARTS)) as PageRead;
+            /* Boxes and type sizes are all that is kept of these readings, so the page's rules and states are not read for each part. */
+            const small = (await page.evaluate(PARTS, { cap: MAX_PARTS, lean: true })) as PageRead;
             const seen = new Map<string, number>();
             const key = (p: PageRead["parts"][number]) => { const k = `${p.kind}|${p.selector}`; const i = seen.get(k) ?? 0; seen.set(k, i + 1); return `${k}#${i}`; };
             const boxes = new Map<string, PageRead["parts"][number]>();
@@ -304,7 +321,15 @@ export async function POST(request: Request) {
         await page.waitForTimeout(100);
         return Object.keys(out).length ? { ...r, widths: out } : r;
       };
-      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures(await atWidths((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
+      if (boxesAsk) {
+        /* The tablet and phone boxes of a page read already: aligned to the desktop parts the Builder holds, by kind and selector, as `atWidths` aligns them. */
+        const stand = { parts: boxesAsk.map(([kind, selector, px]) => ({ kind, selector, style: { px } })) } as unknown as PageRead;
+        const got = await atWidths(stand);
+        await context.close();
+        return NextResponse.json({ ok: true, name, entry: gate.entry, widths: got.widths ?? {}, took: took() });
+      }
+      const desk = async (r: PageRead) => (withWidths ? atWidths(r) : r);
+      read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures(await desk((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
       if (onlyEntry) {
         await context.close();
         return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, pages: read, siblings: others.slice(0, MOST_PAGES - 1), left: Math.max(0, others.length - (MOST_PAGES - 1)), failed: 0, took: took() });
@@ -314,7 +339,7 @@ export async function POST(request: Request) {
           await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
           await page.waitForTimeout(150);
           const html = htmlOf.get(file) ?? textOf(file);
-          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, ownPictures(await atWidths((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
+          read.push({ file, scripts: hadScripts(html), ...sourced(file, html, ownPictures(await desk((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
         } catch {
           /* A page that will not open is left out, and the count says so. */
         }

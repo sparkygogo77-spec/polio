@@ -11,7 +11,10 @@
  * of its own with its own deadline, the strip counting them.
  *
  * Here, through the real door, with GitHub a stand-in in the browser: a
- * three-page site on a branch named with `@`, without a builder.json.
+ * three-page site on a branch named with `@`, without a builder.json. Each
+ * page is two requests: its parts at the desktop, then its tablet and phone
+ * boxes (three readings of a big page in one request was still a minute on
+ * the host).
  *
  *   1. the zip route is asked once per page: three requests, each for one
  *      page, in the site's order (the first naming the other two);
@@ -78,7 +81,7 @@ page.on("request", (req) => {
   if (!req.url().includes("/api/studio/zip") || req.method() !== "POST") return;
   const body = req.postData() ?? "";
   const field = (k) => { const m = new RegExp(`name="${k}"\\r?\\n\\r?\\n([^\\r\\n]*)`).exec(body); return m ? m[1] : null; };
-  if (field("parts") === "1") zipAsks.push({ entry: field("entry"), only: field("only"), pages: field("pages"), dir: field("dir") });
+  if (field("parts") === "1") zipAsks.push({ entry: field("entry"), only: field("only"), pages: field("pages"), dir: field("dir"), widths: field("widths"), boxes: field("boxes") !== null });
 });
 const strips = new Set();
 const env = (s) => J({ state: s, version: 0 });
@@ -109,13 +112,17 @@ check("the three pages land, part by part", landed, J({ hooks: (await state()).n
 await page.waitForTimeout(1500);
 const s = await state();
 
-check("1. the zip route was asked once per page, each for that page alone", zipAsks.length === 3 && zipAsks.every((a) => a.only === "1"), J(zipAsks));
-check("…in the site's order, the first naming no page list and the others one page each from the site's folder", zipAsks[0]?.pages === null && zipAsks[1]?.entry === "web/about.html" && zipAsks[1]?.pages === "[]" && zipAsks[1]?.dir === "web/" && zipAsks[2]?.entry === "web/work.html", J(zipAsks));
+const partsAsks = zipAsks.filter((a) => !a.boxes), boxAsks = zipAsks.filter((a) => a.boxes);
+check("1. the zip route was asked once per page for its parts, each for that page alone, without its tablet and phone", partsAsks.length === 3 && partsAsks.every((a) => a.only === "1" && a.widths === "0"), J(partsAsks));
+check("…in the site's order, the first naming no page list and the others one page each from the site's folder", partsAsks[0]?.pages === null && partsAsks[1]?.entry === "web/about.html" && partsAsks[1]?.pages === "[]" && partsAsks[1]?.dir === "web/" && partsAsks[2]?.entry === "web/work.html", J(partsAsks));
+check("…and once per page for its tablet and phone boxes, each after that page's parts", boxAsks.length === 3 && boxAsks.map((a) => a.entry).join() === "web/index.html,web/about.html,web/work.html" && zipAsks[1]?.boxes === true && zipAsks[2]?.boxes === false, J(zipAsks.map((a) => `${a.entry}${a.boxes ? " boxes" : ""}`)));
 const pages = s.pages ?? [];
 check("2. three pages are on the board", pages.length === 3, J(pages.map((p) => p.name ?? p.id)));
 const onPage = (h) => pages.findIndex((p) => p.id === byHook(s, h)?.pageId);
 check("…each page's parts are on their own page, in the site's order", onPage("title-index") === 0 && onPage("title-about") === 1 && onPage("title-work") === 2 && onPage("words-work") === 2, J({ index: onPage("title-index"), about: onPage("title-about"), work: onPage("title-work") }));
 check("…with the page's words", /Two people and a dog/.test(J(byHook(s, "words-about")?.content)) && /Sites, mostly/.test(J(byHook(s, "words-work")?.content)), J({ about: byHook(s, "words-about")?.content, work: byHook(s, "words-work")?.content }));
+const tab = byHook(s, "title-about")?.widths?.tablet, ph = byHook(s, "words-work")?.widths?.phone;
+check("…and each part has its tablet and phone box from the site's own layout", !!tab && tab.w > 0 && tab.w <= 834 && !!ph && ph.w > 0 && ph.w <= 390, J({ tab, ph }));
 check("3. the strip counted the pages as it read them", [...strips].some((t) => /Reading page 2 of 3 in branchy: web\/about\.html/.test(t)) && [...strips].some((t) => /Reading page 3 of 3/.test(t)), J([...strips].filter((t) => /Reading page/.test(t)).slice(0, 4)));
 const said = await strip();
 check("…and the line says what landed, with nothing left out", /parts from him\/branchy@claude\/elaborate-redesign landed/.test(said) && !/would not open|not read/.test(said), said.slice(0, 300));
