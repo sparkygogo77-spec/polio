@@ -23,6 +23,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { Block } from "./blocks";
 import { themeFrom } from "./shelf/ui";
+import { NOT_WRITTEN } from "./shelf";
 import { resolvePalette } from "./shelf/run";
 import { placeNodes } from "./live/layout";
 import { scaffold, type ScaffoldFile, type ScaffoldPart } from "./scaffold";
@@ -31,7 +32,9 @@ import { standInOn } from "./standIn";
 
 export interface ScaffoldResult {
   files: ScaffoldFile[];
-  stats: { pages: number; parts: number; empty: number; bodies: number; clipped: number; bytes: number; ms: number };
+  stats: { pages: number; parts: number; empty: number; unwritten: number; bodies: number; clipped: number; bytes: number; ms: number };
+  /** The parts whose words nobody wrote, by name, for the ask. */
+  unwritten: string[];
 }
 
 /** Render one part offscreen and read the markup it made. */
@@ -56,6 +59,14 @@ export function buildScaffold(): ScaffoldResult {
   const began = typeof performance !== "undefined" ? performance.now() : Date.now();
   const s = useStudio.getState();
   const theme = themeFrom(s.format, s.look, s.brief.name);
+  /*
+   * A visitor reads what Build writes, so each part is rendered the way the
+   * published page renders it (`staticSite`, through LiveSite): live, and
+   * published. On the board, words nobody wrote are sample prose, and a
+   * board render baked that prose into the component as if it were his
+   * copy. Published, they are left out instead.
+   */
+  const shipped = { ...theme, published: true };
   const palette = resolvePalette(s.format, s.look);
   const parts: ScaffoldPart[] = [];
 
@@ -63,16 +74,20 @@ export function buildScaffold(): ScaffoldResult {
     const { placed } = placeNodes(s.nodes.filter((n) => n.pageId === page.id), "desktop", s.frameWidth);
     for (const p of placed) {
       const n = p.node;
-      const html = n.code
-        ? ""
-        : markupOf(
-            React.createElement(Block, {
-              node: n, t: theme, mode: "board", size: { w: p.w, h: p.h },
-              palette, light: s.look?.light, page: { w: s.frameWidth, h: 900 }, layers: s.look?.texture,
-            }),
-            p.w,
-            p.h,
-          );
+      const render = (t: typeof theme) =>
+        markupOf(
+          React.createElement(Block, {
+            node: n, t, mode: "live", size: { w: p.w, h: p.h },
+            palette, light: s.look?.light, page: { w: s.frameWidth, h: 900 }, layers: s.look?.texture,
+          }),
+          p.w,
+          p.h,
+        );
+      const html = n.code ? "" : render(shipped);
+      // The same part unpublished says where its words are missing, as the
+      // publish audit reads it (`auditSite`): that is a gap for Claude, not
+      // a part that rendered everything.
+      const unwritten = !n.code && render(theme).includes(NOT_WRITTEN);
       parts.push({
         id: n.id, pageId: page.id, featureId: n.featureId, label: n.label, prompt: n.prompt,
         x: p.x, y: p.y, w: p.w, h: p.h, html,
@@ -87,6 +102,7 @@ export function buildScaffold(): ScaffoldResult {
         // An Idea part with nothing written for it is the one thing the
         // document does not hold: that is what the model is for.
         empty: n.featureId === "custom-idea" && !n.code,
+        unwritten,
         data: n.data,
         // What the live page puts round it, so the export shows it as Preview does.
         anim: n.anim, animSpeed: n.animSpeed, animDelay: n.animDelay, animEase: n.animEase,
@@ -146,6 +162,7 @@ export function buildScaffold(): ScaffoldResult {
       pages: s.pages.length,
       parts: parts.length,
       empty: parts.filter((p) => p.empty).length,
+      unwritten: parts.filter((p) => p.unwritten).length,
       bodies: parts.filter((p) => p.code).length,
       clipped: parts.filter((p) => p.outline).length,
       bytes: files.reduce((n, f) => n + f.content.length, 0),
@@ -153,6 +170,7 @@ export function buildScaffold(): ScaffoldResult {
       // a claim, and the note under the button is where it is kept honest.
       ms: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - began),
     },
+    unwritten: parts.filter((p) => p.unwritten).map((p) => p.label || p.featureId),
   };
 }
 
@@ -160,6 +178,7 @@ export function buildScaffold(): ScaffoldResult {
 export function gapsOf(result: ScaffoldResult): string[] {
   const out: string[] = [];
   if (result.stats.empty) out.push(`${result.stats.empty} Idea part${result.stats.empty === 1 ? "" : "s"} with no body written yet`);
+  if (result.unwritten.length) out.push(`${result.unwritten.length} part${result.unwritten.length === 1 ? "" : "s"} whose words were never written: ${result.unwritten.join(", ")}`);
   out.push("where the data each part reads comes from");
   out.push("what happens after an interaction, sending, filtering, adding to a cart, signing in");
   return out;

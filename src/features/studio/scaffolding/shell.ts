@@ -173,6 +173,7 @@ export function Shell({ behaviours: b, children }: { behaviours: Behaviours; chi
 /** What was written from the document, and what is left to write. */
 export function buildMd(input: ScaffoldInput): string {
   const empties = input.parts.filter((p) => p.empty);
+  const unwritten = input.parts.filter((p) => p.unwritten && !p.empty);
   const data = input.parts.filter((p) => p.data?.trim());
   return `# ${input.name || "The site"}, what this build is
 
@@ -207,7 +208,10 @@ same document.
 A document holds what a site *is*, not everything it *does*. These are the
 things it cannot hold, and the only things a model is asked for:
 
-${empties.length ? empties.map((p) => `- **${p.label}**, an Idea part with no body written yet. The prompt says: ${p.prompt?.split("\n")[0] ?? "(nothing yet)"}`).join("\n") : "- No empty parts: every part on the board rendered something."}
+${empties.length || unwritten.length ? [
+  ...empties.map((p) => `- **${p.label}**, an Idea part with no body written yet. The prompt says: ${p.prompt?.split("\n")[0] ?? "(nothing yet)"}`),
+  ...unwritten.map((p) => `- **${p.label}**, words never written: its component leaves them out. Write them from the brief.${p.prompt?.trim() ? ` The prompt says: ${p.prompt.split("\n")[0]}` : ""}`),
+].join("\n") : "- No empty parts: every part on the board rendered something."}
 ${data.length ? `\n${data.map((p) => `- **${p.label}**, reads: ${p.data!.split("\n")[0]}. Where that comes from is a decision this document does not make.`).join("\n")}` : ""}
 
 Behaviour beyond the state the board can show, what happens after a form
