@@ -11,9 +11,9 @@
  * original did (`fluidSite.ts`, from what the capture holds and says where
  * it infers); a hand-built one is scaled to the window (`frameCss`).
  *
- * WHAT IT BUILDS ON, AND WHY NOT A SECOND RENDERER. `staticSite.ts` already
- * renders each page with the preview's own `LiveSite` and reads the markup
- * back, and measured against the preview it draws the home page at 0 px of
+ * WHAT IT BUILDS ON, AND WHY NOT A SECOND RENDERER. `markupOf` (in
+ * `staticSite.ts`) renders each page with the preview's own `LiveSite` and
+ * reads the markup back, and measured against the preview it draws the home page at 0 px of
  * difference (tests/export-page.mjs, EXPORTER=publish). A renderer written
  * again from the document would be a second opinion about how a part looks,
  * and would drift from the first. So the markup is the same; what changes is
@@ -52,7 +52,7 @@
  * which feature. The feature writes into the part's own element, so it keeps
  * the part's style. A page that uses none carries none of it.
  *
- * Otherwise still, as `staticSite` is: any other React handler is gone, so a
+ * Otherwise still: any other React handler is gone, so a
  * part that only does something when pressed does nothing, and an entrance animation
  * names keyframes the app's stylesheet held, so the page arrives already
  * arrived.
