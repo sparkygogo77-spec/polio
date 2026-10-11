@@ -11,9 +11,15 @@
  * owner approves it and brings the site in again. Never the default branch;
  * never merged here.
  *
+ * Code chats read polio/NEXT.md first, not request branches, so the ask is
+ * also kept on the board (`askIssue`, in `look.fixLoop.asked`): the next
+ * Publish writes it into NEXT.md pointing at the branch, and Refresh lands it
+ * like any other line (`fixLoop.ts`).
+ *
  * Pure apart from the GitHub calls, which take `fetch`: `tests/ask-code.mjs`.
  */
 import { defaultBranch, gh, type Answer, type Fetch } from "./kitRun.ts";
+import type { FixIssue } from "./fixLoop.ts";
 
 export interface AskRef { file: string; line: number; fn: string | null; kind?: string; code?: string }
 
@@ -36,7 +42,7 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace
 export const requestBranch = (hook: string, date: Date) => `request/${slug(hook)}-${date.toISOString().slice(0, 10)}`;
 
 /** The request file, in words a code chat reads first. */
-export function requestMarkdown(ask: CodeAsk, opts: { repo: string; base: string; picture: string | null; when: string }): string {
+export function requestMarkdown(ask: CodeAsk, opts: { repo: string; base: string; picture: string | null; when: string; pictureUrl?: string }): string {
   const refs = ask.refs.length
     ? ask.refs.map((r) => `- \`${r.file}\` line ${r.line}${r.fn ? `, in \`${r.fn}\`` : ""}${r.kind ? ` (${r.kind})` : ""}${r.code ? `: \`${r.code.replace(/`/g, "'")}\`` : ""}`).join("\n")
     : "- No script names it (hooks.json lists nothing for it).";
@@ -53,10 +59,10 @@ export function requestMarkdown(ask: CodeAsk, opts: { repo: string; base: string
     "",
     refs,
     "",
-    ...(opts.picture ? ["## The part as it looks", "", `![${ask.hook}](${opts.picture.split("/").pop()})`, ""] : []),
+    ...(opts.picture ? ["## The part as it looks", "", `![${ask.hook}](${opts.pictureUrl ?? opts.picture.split("/").pop()})`, ""] : []),
     "## For the code chat",
     "",
-    `Make the change on this branch (or one from it), keep every \`data-hook\`, put any number, colour or words a script uses in the tokens, run \`kit:check\` and \`kit:diff\` against \`${opts.base}\`, and mark the pull request ready. The owner approves it and brings the site into the Builder again.`,
+    `Make the change on this branch (or one from it), keep every \`data-hook\`, put any number, colour or words a script uses in the tokens, and run the checks the repository's CLAUDE.md names before work is done (on a kit site: \`npm run hooks\` where a package.json has it, so hooks.json and HOOKS.md match the pages, then \`kit:check\` on the root builder.json and \`kit:diff -- --base ${opts.base}\`). Tick its line in polio/NEXT.md in the same pull request (bring the file over from \`${opts.base}\` when this branch is older than the line), and mark the pull request ready. The owner approves it and brings the site into the Builder again.`,
     "",
   ].join("\n");
 }
@@ -99,7 +105,9 @@ export async function askCode(ask: CodeAsk, repo: string, token: string, opts: {
     const put = await gh(f, token, `/repos/${repo}/git/refs`, { method: "POST", body: { ref: `refs/heads/${branch}`, sha } });
     if (put.status === 201 || put.status === 200) {
       const title = `Code request: ${ask.hook}: ${ask.text.trim().split("\n")[0]!.slice(0, 80)}`;
-      const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title, head: branch, base, body: `${md}\nMade by the Builder's “Ask the code chat”. A draft: the Builder never merges.`, draft: true } });
+      /* A pull request's body is not read from the branch: a relative picture would not show, so it links the committed file. */
+      const body = picture ? requestMarkdown(ask, { repo, base, picture, when: date.toISOString().slice(0, 10), pictureUrl: `https://github.com/${repo}/blob/${sha}/${picture}?raw=true` }) : md;
+      const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title, head: branch, base, body: `${body}\nMade by the Builder's “Ask the code chat”. A draft: the Builder never merges.`, draft: true } });
       const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
       const says = pull
         ? `Asked: the request is on ${branch} in ${repo}, with a draft pull request for a code chat: ${pull}. Nothing on ${base} has changed.`
@@ -109,4 +117,21 @@ export async function askCode(ask: CodeAsk, repo: string, token: string, opts: {
     if (put.status !== 422) return { ok: false, says: `GitHub would not make the branch ${branch} (it answered ${put.status}).` };
   }
   return { ok: false, says: `Every request branch name for today is taken in ${repo}.` };
+}
+
+/**
+ * The ask as a polio/NEXT.md line (`fixLoop.ts`), so the next code chat finds
+ * the branch: code chats read NEXT.md first and are told nothing about
+ * request branches. Its key is the request file's own name.
+ */
+export function askIssue(ask: Pick<CodeAsk, "text" | "hook" | "picture">, got: { branch: string; pull: string | null; file: string }, o: { repo: string; page: string }): FixIssue {
+  const text = ask.text.trim().replace(/\s+/g, " ").replace(/<!--|-->/g, "");
+  const where = got.pull ? `its draft pull request ${got.pull}` : `https://github.com/${o.repo}/tree/${got.branch}`;
+  return {
+    key: `ask-${got.file.split("/").pop()!.replace(/\.md$/, "")}`,
+    kind: "ask",
+    hook: ask.hook,
+    page: o.page,
+    says: `J asked in the Builder: "${text}". ${ask.picture ? "The request and a picture of the part are" : "The request is"} in \`${got.file}\` on branch \`${got.branch}\` (${where}): make the change on that branch, tick this line in the same pull request, and mark it ready.`,
+  };
 }

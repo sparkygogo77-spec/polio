@@ -55,6 +55,8 @@ export interface FixLoop {
    * are; Refresh makes them `sent` once their line shows there (`promotePending`).
    */
   pending?: FixIssue[];
+  /** What J asked a part's code for in "Ask the code chat" (`askCode.ts#askIssue`): the next Publish puts each in NEXT.md like a board ask. */
+  asked?: FixIssue[];
 }
 
 export const NO_LOOP: FixLoop = { ticked: [], sent: [] };
@@ -68,10 +70,11 @@ export const DONE_WHEN: Record<string, string> = {
   nowhere: "pressing it does something: it leads somewhere or runs its script",
   region: "the element sits inside that data-region in the markup, with its data-hook unchanged",
   build: "the site does what the Builder shows for it",
+  ask: "the code does what J asked, on the request's branch, and its pull request is marked ready",
 };
 
 /** How hard each kind is to fix in code. Difficulty picks the model, the cost and so the lane (`lanes.ts`). */
-const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, build: 3, fit: 4 };
+const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, build: 3, ask: 3, fit: 4 };
 const TOKENS: Record<Difficulty, { in: number; out: number }> = {
   1: { in: 15_000, out: 2_000 },
   2: { in: 30_000, out: 4_000 },
