@@ -271,6 +271,21 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const turns = new Map<Element, DOMMatrix>();
   const lifted: { el: HTMLElement; had: string | null }[] = [];
   /*
+   * A block hidden as the page opens has no animation then: revealed for
+   * its read, its entrance starts over at frame 0. PST's redesign shows
+   * its sign, match, result and player panels by state, each fading up
+   * from nothing 24 px low, and every part in them came in see-through
+   * and low: 254 on Play alone (J, 2026-10-11). So each entrance is run
+   * to its end, as at the page's open; one that never ends runs on.
+   */
+  const endEntrances = (el: Element | Document) => {
+    try {
+      for (const a of el.getAnimations?.() ?? []) {
+        try { const t = a.effect?.getTiming?.(); if (t && Number.isFinite(t.iterations) && a.playState !== "finished") a.finish(); } catch { /* it runs on */ }
+      }
+    } catch { /* no Web Animations API: read as it is */ }
+  };
+  /*
    * Run on the page as it opens, and again on each hidden block once it is
    * revealed for its read (and each template's copy): a box hidden as the
    * page opens has no layout then, so its turn was never lifted. PST's
@@ -278,6 +293,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    * came in as the box round each lean, upright, 19x31 (J, 2026-10-06).
    */
   const liftTurns = (root: Element) => {
+    /* Whatever the reveal set going (the block, its copy, what above it was hidden too), at its end before anything is read. */
+    endEntrances(document);
     const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
     for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]) {
       if (!(el instanceof HTMLElement) || (root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
@@ -290,7 +307,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (animated) el.style.setProperty("animation", "none", "important");
       const r = css(el);
       const rest = { tf: r.transform, translate: r.getPropertyValue("translate"), rotate: r.getPropertyValue("rotate"), scale: r.getPropertyValue("scale"), origin: r.transformOrigin, position: r.position };
-      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); }
+      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); endEntrances(el); }
       const m = ownMatrix(rest, el.offsetWidth, el.offsetHeight);
       if (flat(m)) continue;
       lifted.push({ el, had: before });
@@ -1182,7 +1199,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   };
   if (named.size) for (const sh of Array.from(document.styleSheets)) { try { frameRules(sh.cssRules); } catch { /* another origin's sheet */ } }
   /* Every turn put back as it was. */
-  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
+  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); endEntrances(el); }
   return {
     title: document.title.trim(),
     width: innerWidth,
