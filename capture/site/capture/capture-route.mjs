@@ -347,12 +347,18 @@ net?.phase("open");
  * IntersectionObserver has fired, and come back to the top.
  */
 const settleFor = Number(opt("--settle", 12)) * 1000;
-/* A fetch through a proxy is sometimes cut mid-transfer; each address is asked for up to three times, a moment apart, before it is given up. */
+/*
+ * A fetch through a proxy is sometimes cut mid-transfer; each address is asked
+ * for up to three times, a moment apart, before it is given up. An answer that
+ * is definite (a 404, a 410, a 401: the file is not there to be had) is given
+ * up at once; the proxy's own passing codes (403, 407, 429) are asked again.
+ */
 const fetchBytes = async (address) => {
   for (let i = 0; i < 3; i++) {
     const res = await context.request.get(address, { timeout: 30000 }).catch(() => null);
     if (res && res.ok()) { try { return await res.body(); } catch { /* cut mid-transfer */ } }
-    await page.waitForTimeout(500 * (i + 1));
+    if (res && res.status() >= 400 && res.status() < 500 && ![403, 407, 429].includes(res.status())) return null;
+    await new Promise((r) => setTimeout(r, 500 * (i + 1)));
   }
   return null;
 };
@@ -603,6 +609,8 @@ await page.waitForTimeout(200);
  */
 const STATES = new Set(["pressed", "expanded", "disabled", "checked", "selected", "current", "required", "invalid", "readonly", "modal", "hidden"]);
 const markRoles = async () => {
+/* Marks from an earlier read on the same page (a press undone in place) would stay on an element whose state is gone: swept first. */
+await page.evaluate(() => { for (const el of document.querySelectorAll("[data-ax-role],[data-ax-name],[data-ax-state]")) { delete el.dataset.axRole; delete el.dataset.axName; delete el.dataset.axState; } }).catch(() => {});
 const cdp = await context.newCDPSession(page);
 await cdp.send("DOM.enable");
 await cdp.send("Accessibility.enable");
@@ -899,7 +907,7 @@ if (withStates) {
   let dirty = true;
   /* The page is as a load leaves it: loading it again would not bring a control into reach that is out of it now. */
   let asLoaded = false;
-  const background = new Set(net ? net.seen.filter((q) => q.phase === "load" || q.phase === "open").map((q) => keyOfRequest(q.method, q.url, q.body, home)) : []);
+  const background = new Set(net ? net.seen.filter((q) => q.phase === "load" || q.phase === "open").flatMap((q) => [keyOfRequest(q.method, q.url, q.body, home), ...(q.sentShapes ?? [])]) : []);
   const heldPresses = [];
   net?.phase("press");
   /* What the page kept as it opened: a press that is remembered (a theme switched off, a sound on) must not open the next press in its state. */
@@ -956,11 +964,11 @@ if (withStates) {
     }).catch(() => null);
     if (!at) return;
     const quiet = [];
-    guard.on(quiet);
+    await guard.on(quiet);
     await page.mouse.click(at.x, at.y).catch(() => {});
     await page.mouse.move(-5, -5).catch(() => {});
     await page.waitForTimeout(300);
-    guard.off();
+    await guard.off();
     if (page.url() !== home) { await page.goto(url, { waitUntil: "load" }).catch(() => {}); await waitReady(page, { most: readyFor }); }
   };
   /*
@@ -1127,12 +1135,12 @@ if (withStates) {
         }, d.filter(chosen).map((x) => x.now.p)).catch(() => false);
         if (!hit) break;
         const stopped = [];
-        guard.on(stopped);
+        await guard.on(stopped);
         await page.locator("[data-sink-undo]").first().click({ timeout: 2000 }).catch(() => {});
         await page.evaluate(() => { for (const el of document.querySelectorAll("[data-sink-undo]")) el.removeAttribute("data-sink-undo"); }).catch(() => {});
         /* A device lets its screen change play out (gotchi.gg's wipe) before it takes the next press. */
         await page.waitForTimeout(1000);
-        guard.off();
+        await guard.off();
         d = diff(pre, (await page.evaluate(MARKS).catch(() => [])) ?? []);
       }
       /* What the press expanded, opened or turned on with no partner to turn off: pressed again; a <details> set as it was. */
@@ -1178,12 +1186,12 @@ if (withStates) {
       if (left && !touched.again) {
         if (!pressedTrigger) {
           const stopped = [];
-          guard.on(stopped);
+          await guard.on(stopped);
           const hit = await page.evaluate((p) => { const el = window.__sinkAt?.(p); if (!el) return false; el.setAttribute("data-sink-undo", ""); return true; }, opt.trigger).catch(() => false);
           if (hit) await page.locator("[data-sink-undo]").first().click({ timeout: 2000 }).catch(() => {});
           await page.evaluate(() => { for (const el of document.querySelectorAll("[data-sink-undo]")) el.removeAttribute("data-sink-undo"); }).catch(() => {});
           await page.mouse.move(-5, -5).catch(() => {});
-          guard.off();
+          await guard.off();
         }
         await page.waitForTimeout(700);
         return undoPress(opt, found, group, null, { ...touched, again: true });
@@ -1197,13 +1205,13 @@ if (withStates) {
     /* The page's own look switched (a theme, lights off): the press made once more switches it back, writes stopped. */
     if (whyNot(await fingerprint(), baseFp, at) === "body" && !touched?.again) {
       const stopped = [];
-      guard.on(stopped);
+      await guard.on(stopped);
       const hit = await page.evaluate((p) => { const el = window.__sinkAt?.(p); if (!el) return false; el.setAttribute("data-sink-undo", ""); return true; }, opt.trigger).catch(() => false);
       if (hit) { await page.locator("[data-sink-undo]").first().click({ timeout: 2000 }).catch(() => {}); pressedTrigger = true; }
       await page.evaluate(() => { for (const el of document.querySelectorAll("[data-sink-undo]")) el.removeAttribute("data-sink-undo"); }).catch(() => {});
       await page.mouse.move(-5, -5).catch(() => {});
       await page.waitForTimeout(400);
-      guard.off();
+      await guard.off();
     }
     if (!whyNot(await fingerprint(), baseFp, at)) return true;
     await page.waitForTimeout(700);
@@ -1313,7 +1321,7 @@ if (withStates) {
       triggers.set(`${opt.g}:${opt.o}`, trigger);
       const near = await target.evaluate((el) => { const r = el.getBoundingClientRect(); return { y: r.top + scrollY, h: r.height }; }).catch(() => null);
       const stopped = [];
-      guard.on(stopped);
+      await guard.on(stopped);
       const popups = [];
       const onPopup = (w) => { popups.push(w.url()); w.close().catch(() => {}); };
       page.on("popup", onPopup);
@@ -1323,9 +1331,9 @@ if (withStates) {
       /* Pressed, then let go and the pointer taken away: what the press changed, not the hover it leaves behind. */
       await page.mouse.move(-5, -5).catch(() => {});
       /* What its canvases showed after it, in order, from the moment it was made: the device's screen answering the press ("still an egg." for a second). The read below waits as long, for what moves into place. */
-      await page.waitForTimeout(frameSecs > 0 ? 100 : 800);
-      /* A panel that arrives late: the page let settle once it moved, or given a while when it did not (presses.mjs). */
-      if (!(frameSecs > 0 && !opt.single)) await afterPress(page);
+      await page.waitForTimeout(hasCanvas ? 100 : 800);
+      /* A panel that arrives late: the page let settle once it moved, or given a while when it did not (presses.mjs). Only a canvas watch stands in for that wait. */
+      if (!(hasCanvas && !opt.single)) await afterPress(page);
       page.off("popup", onPopup);
       const did = (await page.evaluate(() => window.__sinkPress?.end()).catch(() => null)) ?? { count: 0 };
       movedBy = did.pushedBy ?? null;
@@ -1346,7 +1354,7 @@ if (withStates) {
       const went = stopped.find((q) => q.nav)?.nav ?? (moved(page.url()) ? page.url() : null) ?? (moved(did.pushed) ? did.pushed : null) ?? popups[0] ?? did.opened ?? null;
       if (went) {
         await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {});
-        guard.off();
+        await guard.off();
         if (page.url() !== home) { dirty = true; undo = false; }
         pressedOut.push({ trigger, does: "link", href: went, name: opt.name, ...(popups.length || did.opened ? { target: "_blank" } : {}) });
         console.error(`state ${opt.g}:${opt.o} (${opt.name}) goes to ${went}: kept as its link`);
@@ -1356,17 +1364,19 @@ if (withStates) {
       if (did.copied != null) {
         pressedOut.push({ trigger, does: "copy", copy: did.copied, name: opt.name });
         console.error(`state ${opt.g}:${opt.o} (${opt.name}) copies "${String(did.copied).slice(0, 40)}"`);
-        if (!did.count) { await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {}); guard.off(); undo = false; continue; }
+        if (!did.count) { await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {}); await guard.off(); undo = false; continue; }
       }
       /* Nothing moved and no canvas to watch: nothing to read again, and the page is still as it opened. */
-      if (opt.single && !did.count && !hasCanvas && !stopped.length) { await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {}); guard.off(); undo = false; continue; }
+      if (opt.single && !did.count && !hasCanvas && !stopped.length) { await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {}); await guard.off(); undo = false; continue; }
       if (frameSecs > 0) await sampleFrames(Math.min(frameSecs, 2.5), near);
-      guard.off();
+      await guard.off();
       const wrote = stopped.filter((q) => !background.has(q.key));
       if (wrote.length) {
         const live = await page.evaluate((sel) => { const el = document.querySelector(sel); if (!el) return null; const out = []; for (let n = el; n && n !== document.body; n = n.parentElement) { let i = 1; for (let s = n.previousElementSibling; s; s = s.previousElementSibling) if (s.localName === n.localName) i++; out.unshift(`${n.localName}:nth-of-type(${i})`); } return `body > ${out.join(" > ")}`; }, sel).catch(() => null);
         heldPresses.push({ trigger, held: "server-call", hook: [...new Set(wrote.map((q) => `${q.method} ${q.url.replace(/^\w+:\/\//, "")}`))].join("; "), label: opt.name, control: opt.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `press-${opt.g}-${opt.o}`, selector: live });
         console.error(`state ${opt.g}:${opt.o} (${opt.name}) would write (${wrote.map((q) => q.key).join(", ")}): stopped, and held`);
+        /* Timers the press armed would otherwise fire under the next press and be read as its own. */
+        await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {});
         continue;
       }
       await page.evaluate(() => scrollTo(0, 0));
@@ -1738,14 +1748,18 @@ if (assets) {
   /* The head's share picture and icons (check-head.mjs); a manifest is kept as its address. */
   for (const [k, v] of Object.entries(cap.head?.meta ?? {})) if (/^(og:image(:url|:secure_url)?|twitter:image(:src)?)$/i.test(k) && /^https?:/.test(v)) srcs.add(v);
   for (const l of cap.head?.links ?? []) if (l.rel !== "manifest" && /^https?:/.test(l.href)) srcs.add(l.href);
-  for (const src of srcs) {
-    /* One address, one file (asset-name.mjs): by file name alone, every `/_next/image?url=…` was one picture. */
-    const file = join(assets, assetName(src));
-    if (existsSync(file)) continue;
-    const bytes = await fetchBytes(src);
-    if (!bytes) { console.error(`could not fetch ${src}`); continue; }
-    writeFileSync(file, bytes);
-  }
+  /* Six at a time (a font-heavy page names dozens), each written as it lands; one address, one file (asset-name.mjs): by file name alone, every `/_next/image?url=…` was one picture. */
+  const queue = [...srcs].filter((src) => !existsSync(join(assets, assetName(src))));
+  await Promise.all(Array.from({ length: Math.min(6, queue.length) }, async () => {
+    while (queue.length) {
+      const src = queue.shift();
+      const file = join(assets, assetName(src));
+      if (existsSync(file)) continue;
+      const bytes = await fetchBytes(src);
+      if (!bytes) { console.error(`could not fetch ${src}`); continue; }
+      writeFileSync(file, bytes);
+    }
+  }));
 }
 
 await browser.close();

@@ -37,6 +37,8 @@ export type SmallDevice = "tablet" | "phone";
 
 /** The widths the plan is made for. The renderer is fluid around them. */
 export const SMALL_WIDTH: Record<SmallDevice, number> = { tablet: 834, phone: 390 };
+/** The screen a small device shows, for the least a page is tall on it in the Preview (an iPhone 390x844, an iPad 834x1194). */
+export const SMALL_SCREEN: Record<SmallDevice, number> = { tablet: 1194, phone: 844 };
 /** Below this a window is a phone, below the next a tablet (the export's media queries). */
 export const PHONE_MAX = 599;
 export const TABLET_MAX = 1023;

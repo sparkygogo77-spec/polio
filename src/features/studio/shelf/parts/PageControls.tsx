@@ -62,7 +62,7 @@ export function Field({ id, content, options, theme: t, mode, hooks }: PartProps
   } else if (kind === "textarea") {
     el = <textarea {...own} aria-label={name} disabled={disabled} readOnly={still} tabIndex={still ? -1 : undefined} rows={Number(options.rows) || undefined} placeholder={options.placeholder} defaultValue={options.value ?? ""} style={{ ...look, resize: still ? "none" : undefined }} />;
   } else {
-    el = <input {...own} type={kind} aria-label={name} disabled={disabled} readOnly={still && kind !== "file"} tabIndex={still ? -1 : undefined} placeholder={options.placeholder} {...(kind === "file" ? {} : { defaultValue: options.value ?? "" })} style={look} />;
+    el = <input {...own} type={kind} {...(kind === "file" ? { "data-page-file": "" } : {})} aria-label={name} disabled={disabled} readOnly={still && kind !== "file"} tabIndex={still ? -1 : undefined} placeholder={options.placeholder} {...(kind === "file" ? {} : { defaultValue: options.value ?? "" })} style={look} />;
   }
   if (shelf) {
     return (

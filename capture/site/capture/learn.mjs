@@ -120,7 +120,7 @@ export function planLearn(parsed, doc, routes) {
 export const WALLET_TRAP = `(() => {
   const asked = (what) => { window.__sinkWalletAsked = window.__sinkWalletAsked || what; };
   const no = (what) => async () => { asked(what); const e = new Error("User rejected the request."); e.code = 4001; throw e; };
-  const sol = { isPhantom: true, isConnected: false, publicKey: null, connect: no("connect"), disconnect: async () => {}, signTransaction: no("sign"), signAllTransactions: no("sign"), signMessage: no("sign"), signAndSendTransaction: no("sign"), request: no("request"), on() {}, off() {}, removeListener() {} };
+  const sol = { isPhantom: true, isConnected: false, publicKey: null, connect: async (o) => { if (o && o.onlyIfTrusted) { const e = new Error("User rejected the request."); e.code = 4001; throw e; } return no("connect")(); }, disconnect: async () => {}, signTransaction: no("sign"), signAllTransactions: no("sign"), signMessage: no("sign"), signAndSendTransaction: no("sign"), request: no("request"), on() {}, off() {}, removeListener() {} };
   const eth = { isMetaMask: true, request: async (a) => { if (a && /^(eth_chainId|net_version)$/.test(a.method)) return "0x1"; if (a && a.method === "eth_accounts") return []; return no(a && a.method || "request")(); }, on() {}, removeListener() {} };
   try { Object.defineProperty(window, "phantom", { value: { solana: sol }, configurable: true }); window.solana = sol; window.ethereum = eth; } catch (e) { /* the page's own */ }
 })();`;

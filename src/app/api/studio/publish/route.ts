@@ -313,7 +313,7 @@ async function createRepo(token: string, wanted: string): Promise<{ repo: string
 const nothingThere = (err: unknown) => err instanceof GitHubError && (err.status === 404 || err.status === 409);
 
 /** The branch's tip, or the default branch's, or nothing at all: an empty repository. */
-async function tipOf(token: string, repo: string, branch: string): Promise<string | null> {
+async function tipOf(token: string, repo: string, branch: string, make = true): Promise<string | null> {
   try {
     const ref = await gh<{ object: { sha: string } }>(token, "GET", `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
     return ref.object.sha;
@@ -324,8 +324,9 @@ async function tipOf(token: string, repo: string, branch: string): Promise<strin
     const info = await gh<{ default_branch: string }>(token, "GET", `/repos/${repo}`);
     const def = await gh<{ object: { sha: string } }>(token, "GET", `/repos/${repo}/git/ref/heads/${encodeURIComponent(info.default_branch)}`);
     // The branch asked for does not exist yet, but the repository has
-    // history: start it where the default branch stands.
-    await gh(token, "POST", `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: def.object.sha });
+    // history: start it where the default branch stands. A read-only
+    // listing only asks where that is; it makes no branch.
+    if (make) await gh(token, "POST", `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: def.object.sha });
     return def.object.sha;
   } catch (err) {
     if (!nothingThere(err)) throw err;
@@ -799,7 +800,7 @@ async function treeListing(request: Request, q: URLSearchParams) {
   if (!token) return NextResponse.json({ ok: false, reason: "no-token", tree: [] });
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return NextResponse.json({ ok: false, reason: "bad-request", tree: [] }, { status: 400 });
   try {
-    const base = await tipOf(token, repo, branch);
+    const base = await tipOf(token, repo, branch, false);
     if (!base) return NextResponse.json({ ok: true, tree: [] });
     const commit = await gh<{ tree: { sha: string } }>(token, "GET", `/repos/${repo}/git/commits/${base}`);
     const listing = await gh<{ tree?: { path?: string; sha?: string; type?: string }[]; truncated?: boolean }>(token, "GET", `/repos/${repo}/git/trees/${commit.tree.sha}?recursive=1`);

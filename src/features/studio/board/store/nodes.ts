@@ -164,7 +164,7 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
       const by = new Map(fitted.map((f) => [f.id, f]));
       set((s) => {
         /* A scene, an overlay or a part's state draws another moment's words and boxes: what the board measures then is that moment, never the page's own geometry. */
-        if ((s.statesOn ?? []).some((k) => /^(screen|top|step):/.test(k))) return {};
+        if ((s.statesOn ?? []).some((k) => /^(screen|top|step|isolate|panel):/.test(k))) return {};
         let moved = false;
         const nodes = s.nodes.map((n) => {
           const f = by.get(n.id);

@@ -197,11 +197,11 @@ for (const def of routes.pages) {
       if (btn) {
         const stopped = [];
         const guard = await guardWrites(page, { nav: true });
-        guard.on(stopped);
+        await guard.on(stopped);
         const trigger = await page.evaluate(() => { const el = document.querySelector("[data-sink-menu]"); if (!el) return null; const out = []; for (let n = el; n && n !== document.body; n = n.parentElement) { let i = 1; for (let q = n.previousElementSibling; q; q = q.previousElementSibling) if (q.localName === n.localName) i++; out.unshift(`${n.localName}:${i}`); } const r = el.getBoundingClientRect(); return { p: `body>${out.join(">")}`, box: [Math.round(r.left), Math.round(r.top + scrollY), Math.round(r.width), Math.round(r.height)] }; }).catch(() => null);
         await page.locator("[data-sink-menu]").first().click({ timeout: 3000 }).catch(() => {});
         await page.waitForTimeout(900);
-        guard.off();
+        await guard.off();
         await guard.dispose();
         const after = await page.evaluate(READ, { paths }).catch(() => null);
         /* An icon button counts as the menu only when its press showed the site's links (two or more). */
