@@ -19,12 +19,14 @@
  *     window it was read in (the badge fixed at 640–680 says how tall), as
  *     far over the view's foot as it was over that window's;
  *   · the fixed badge stays where it was in the view;
- *   · the main column scrolls.
+ *   · the main column scrolls;
+ *   · the page's own background layers (`page.ground.layers`) are drawn,
+ *     the one it fixed to the window staying in the view.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/preview-pins.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/live/LiveStage.tsx, src/features/studio/send-out/exportSite.ts, src/features/studio/fluidSite.ts
+ * Covers: src/features/studio/live/LiveStage.tsx, src/features/studio/live/LiveSite.tsx, src/features/studio/send-out/exportSite.ts, src/features/studio/fluidSite.ts
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
@@ -43,6 +45,19 @@ const parts = [
   part("n_badge", 1300, 640, 120, 40, { featureId: "prose", content: "Live", ...captured("body > aside", "fixed"), colour: { bg: "rgb(200, 40, 40)", text: "rgb(255, 255, 255)" } }),
 ];
 
+/* The page's own layers (`page.ground.layers`): a sunburst under the parts, and a grain the page fixed over everything. */
+const LAYERS = [
+  { which: "body", background: "repeating-conic-gradient(from -90deg at 50% -160px, rgba(216, 178, 60, 0.16) 0deg 6deg, rgba(0, 0, 0, 0) 6deg 12deg)" },
+  { which: "body::after", background: "radial-gradient(rgba(0, 0, 0, 0.2) 1px, rgba(0, 0, 0, 0) 1px)", size: "4px 4px", fixed: true, z: 1, box: { x: 0, y: 0, w: 1440, h: 900 } },
+];
+function withLayers(board) {
+  const put = (raw) => { const v = JSON.parse(raw); v.state.pages = v.state.pages.map((p) => (p.id === "page_home" ? { ...p, ground: { layers: LAYERS } } : p)); return JSON.stringify(v); };
+  if (board.local["builder.studio"] && JSON.parse(board.local["builder.studio"]).state?.pages) board.local["builder.studio"] = put(board.local["builder.studio"]);
+  const row = board.idb["builder.docs"]?.stores?.docs?.find((r) => r.key === "builder.studio");
+  if (row) row.value = put(row.value);
+  return board;
+}
+
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 try {
@@ -50,7 +65,7 @@ try {
   const errors = [];
   ui.on("pageerror", (e) => errors.push(e.message));
   await ui.route("https://api.github.com/**", (r) => r.abort());
-  await openBoard(ui, URL_BASE, boardWith(parts));
+  await openBoard(ui, URL_BASE, withLayers(boardWith(parts)));
   await ui.click("[data-preview-toggle]");
   for (let i = 0; i < 40; i++) {
     if (await ui.evaluate(() => !!document.querySelector('[data-studio-pane] [data-live-scroller] [data-live-node="n_rail"]'))) break;
@@ -72,6 +87,9 @@ try {
         const r = at(id).getBoundingClientRect();
         row[id] = { top: Math.round(r.top - s.top), left: Math.round(r.left - s.left), h: Math.round(r.height) };
       }
+      const under = scroller.querySelector('[data-live-ground-layers="under"] [data-ground-layer="body"]');
+      const over = scroller.querySelector('[data-live-ground-layers="over"] [data-ground-layer="body::after"]');
+      row.layers = { under: under ? { top: Math.round(under.getBoundingClientRect().top - s.top), bg: /conic/.test(getComputedStyle(under).backgroundImage) } : null, over: over ? { top: Math.round(over.getBoundingClientRect().top - s.top), bg: /radial/.test(getComputedStyle(over).backgroundImage) } : null };
       out.push(row);
     }
     return { found: true, view: scroller.dataset.liveView ?? null, out };
@@ -84,6 +102,8 @@ try {
   check("…and the link and clock stand 24px into the rail, as the page has them", a?.n_link.left === 24 && b?.n_link.left === 24 && b?.n_clock.left === 24, JSON.stringify({ a: a?.n_link, b: b?.n_link, clock: b?.n_clock }));
   check("…and the badge fixed to the window is where it was in the view", b?.n_badge.top === a.n_badge.top && b.n_badge.left === a.n_badge.left, JSON.stringify({ a: a?.n_badge, b: b?.n_badge }));
   check("back at the top, the same as it opened", c?.n_rail.top === 0 && c.n_clock.top === c.view - 80 && c.n_badge.top === a?.n_badge.top && c.n_main.top === a?.n_main.top, JSON.stringify(c));
+  check("the page's own background layers are drawn, the sunburst under the parts and the grain over them", a?.layers.under?.bg === true && a.layers.over?.bg === true, JSON.stringify(a?.layers));
+  check("scrolled 1500px, the sunburst went up with the page and the grain the page fixed stayed in the view", b?.layers.under?.top === a?.layers.under?.top - b?.at && b?.layers.over?.top === 0 && a?.layers.over?.top === 0, JSON.stringify({ a: a?.layers, b: b?.layers }));
   check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 } finally {
   await browser.close();
