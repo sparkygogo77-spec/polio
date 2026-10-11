@@ -7,6 +7,7 @@
  *   npm run board -- refresh pst --from ../PST   # from a checkout on disk instead of a fresh clone
  *   npm run board -- shot pst out.png         # the Builder with the saved board on it, as a picture
  *   npm run board -- show pst                 # which commit the saved board is, and its size
+ *   npm run board -- refresh redesign --from ../pst-redesign   # the PST redesign J is styling (claude/elaborate-redesign)
  *
  *   --url http://127.0.0.1:3013   a Builder already running (otherwise `next start` on the
  *                                  last build is started on --port, default 3019, and stopped after)
@@ -28,6 +29,7 @@ import { BOARDS, dumpBoard, openBoard, readBoard } from "../tests/lib/board.mjs"
 /** The sites boards are kept for: where each comes from, and which of its files the import is given. */
 const SITES = {
   pst: { repo: "sparkygogo77-spec/PST", ref: "claude/wizardly-davinci-92ah39", take: ["web/", "builder.json"] },
+  redesign: { repo: "sparkygogo77-spec/PST", ref: "claude/elaborate-redesign", take: ["web/", "builder.json"] },
 };
 
 const argv = process.argv.slice(2);

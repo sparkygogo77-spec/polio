@@ -5,16 +5,16 @@
  * as "Bars". A kind is an accent by how much of the site it covers, not by
  * how many parts wear it:
  *
- *   1. 47 small orange dots, bars and stripes are an accent, though worn by more parts than the panels;
+ *   1. 47 small orange dots, bars and stripes are drawn small (a dot or a bar), though worn by more parts than the panels;
  *   2. the table's rows and the cards, covering real area, are not;
  *   3. a legend's dots are "Dots", a stripe standing up is a bar;
  *   4. an accent is never the main fill; buttons and tabs are never accents;
- *   5. two kinds of one name are told apart by what is on them ("Bars: Latest payday"), not "Bars 4";
+ *   5. short bars with words on them are label bars, not accents, and are not named after their words;
  *   6. a painted piece is never named after the capture's "div · 8 inside".
  *
  *   node tests/theme-accents.mjs
  */
-import { siteKinds, shapeOf } from "../src/features/studio/themeKinds.ts";
+import { previewPlan, siteKinds, shapeOf } from "../src/features/studio/themeKinds.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -42,17 +42,21 @@ const r = siteKinds(nodes, { bg: PAGE });
 const list = r.kinds.map((k) => `${k.name}:${k.parts}${k.accent ? "·accent" : ""}`).join(", ");
 const by = (fill, button = false) => r.kinds.find((k) => k.fill === fill && k.button === button);
 const orange = by(ORANGE), blue = by(BLUE), rows = by(NAVY), cards = by(BROWN), buy = by(ORANGE, true), pay = by(YELLOW);
-check("1. the orange dots, bars and stripes are an accent", orange?.accent === true && orange.parts > cards.parts, list);
-check("…and so are the blue ones", blue?.accent === true);
-check("…they cover a speck of the site", orange.cover < 0.015 * 1440 * 4000, String(orange?.cover));
+/* Drawn small, as a dot or a bar, never a box as big as a panel: by what each part is, the dots one kind and the bars and stripes another (J, 2026-10-11). */
+const plan = previewPlan(r);
+const small = (fill) => r.kinds.filter((k) => k.fill === fill && !k.button);
+check("1. the orange dots, bars and stripes are drawn small, never a box", small(ORANGE).length > 0 && small(ORANGE).every((k) => (k.accent || k.strip) && !plan.surfaces.includes(k)), list);
+check("…and so are the blue ones", small(BLUE).length > 0 && small(BLUE).every((k) => (k.accent || k.strip) && !plan.surfaces.includes(k)), list);
+check("…they cover a speck of the site", small(ORANGE).reduce((a, k) => a + k.cover, 0) < 0.015 * 1440 * 4000, list);
 check("2. the table's rows are no accent", rows?.accent === false);
 check("…nor the cards", cards?.accent === false);
 check("3. a legend's dots are Dots", shapeOf(nodes.filter((n) => n.id.startsWith("dot"))) === "dots");
 check("…a stripe standing up is a bar", shapeOf(nodes.filter((n) => n.id.startsWith("stripe"))) === "bars");
 check("4. an accent is never the main fill", !r.kinds.some((k) => k.accent && k.name === "Main fill"));
 check("…buttons are never accents", buy?.button === true && buy.accent === false, buy?.name);
-check("5. a second kind of bars says what is on it, not a number", pay?.name === "Bars: Latest payday", list);
-check("…and one with no words of its own keeps its number, its dot telling it apart", /^Bars \d$/.test(blue?.name ?? "") || /^Bars \d$/.test(orange?.name ?? ""), list);
+/* Short bars with words on them are label bars, drawn as a strip with their words, never a dot, and never named after their words ("Bars: Latest payday" read as one bar's name; J, 2026-10-11). */
+check("5. short bars with words on them are a label bar, not an accent", pay?.tab === true && pay.accent === false && pay.name === "Label bars", list);
+check("…and two accents that look alike keep a number, their dots telling them apart", /^Bars \d$/.test(blue?.name ?? "") || /^Bars \d$/.test(orange?.name ?? ""), list);
 const tv = r.kinds.find((k) => k.piece);
 check("6. a painted piece is not named after div · 8 inside", !!tv && tv.name === "Painted panel", tv?.name);
 
