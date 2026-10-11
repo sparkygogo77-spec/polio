@@ -273,6 +273,21 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const turns = new Map<Element, DOMMatrix>();
   const lifted: { el: HTMLElement; had: string | null }[] = [];
   /*
+   * A block hidden as the page opens has no animation then: revealed for
+   * its read, its entrance starts over at frame 0. PST's redesign shows
+   * its sign, match, result and player panels by state, each fading up
+   * from nothing 24 px low, and every part in them came in see-through
+   * and low: 254 on Play alone (J, 2026-10-11). So each entrance is run
+   * to its end, as at the page's open; one that never ends runs on.
+   */
+  const endEntrances = (el: Element | Document) => {
+    try {
+      for (const a of el.getAnimations?.() ?? []) {
+        try { const t = a.effect?.getTiming?.(); if (t && Number.isFinite(t.iterations) && a.playState !== "finished") a.finish(); } catch { /* it runs on */ }
+      }
+    } catch { /* no Web Animations API: read as it is */ }
+  };
+  /*
    * Run on the page as it opens, and again on each hidden block once it is
    * revealed for its read (and each template's copy): a box hidden as the
    * page opens has no layout then, so its turn was never lifted. PST's
@@ -280,6 +295,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    * came in as the box round each lean, upright, 19x31 (J, 2026-10-06).
    */
   const liftTurns = (root: Element) => {
+    /* Whatever the reveal set going (the block, its copy, what above it was hidden too), at its end before anything is read. */
+    endEntrances(document);
     const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
     for (const one of [root, ...Array.from(root.querySelectorAll("*"))]) {
       /* An outer <svg> turned by the page (a podium drawn as svg, rotate: -3deg) turns as a box does. */
@@ -295,7 +312,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (animated) el.style.setProperty("animation", "none", "important");
       const r = css(el);
       const rest = { tf: r.transform, translate: r.getPropertyValue("translate"), rotate: r.getPropertyValue("rotate"), scale: r.getPropertyValue("scale"), origin: r.transformOrigin, position: r.position };
-      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); }
+      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); endEntrances(el); }
       /* An outer <svg> has no offset box: its layout box is its client box. */
       const m = el instanceof HTMLElement ? ownMatrix(rest, el.offsetWidth, el.offsetHeight) : ownMatrix(rest, (one as Element).clientWidth, (one as Element).clientHeight);
       if (flat(m)) continue;
@@ -694,6 +711,35 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     return at;
   };
 
+  /* The display a hidden block's own rules give it once whatever hides it is off (J, 2026-10-11): PST's
+     scoreboard is a grid and its stamps inline-grid, and shown as block for the read its cells stacked in a
+     column and the stamps ran the full line. The last rule in sheet order that says something other than
+     none wins, an !important one over the rest; PST names each part by hook, so that is the one it wears. */
+  let displayRules: { sel: string; v: string; important: boolean }[] | null = null;
+  const ownDisplay = (e: Element): string | null => {
+    if (!displayRules) {
+      const all: { sel: string; v: string; important: boolean }[] = [];
+      const walk = (list: CSSRuleList) => {
+        for (const r of Array.from(list)) {
+          if (r instanceof CSSStyleRule) {
+            const v = r.style.getPropertyValue("display").trim();
+            if (v && !/^(none|contents|inherit|initial|unset|revert(-layer)?)$/.test(v)) all.push({ sel: r.selectorText, v, important: r.style.getPropertyPriority("display") === "important" });
+          } else if (r instanceof CSSMediaRule) { if (matchMedia(r.conditionText).matches) walk(r.cssRules); }
+          else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) { try { walk(sh.cssRules); } catch { /* another origin's sheet */ } }
+      displayRules = all;
+    }
+    let found: string | null = null, sure = false;
+    for (const r of displayRules) {
+      if (sure && !r.important) continue;
+      try { if (!e.matches(r.sel)) continue; } catch { continue; }
+      found = r.v; sure = r.important;
+    }
+    return found;
+  };
+
   /* Hidden blocks wait until the page as it opens has been read. */
   const later: { el: Element; parent: number; template?: boolean }[] = [];
   const queue = (el: Element, parent: number) => { later.push({ el, parent, ...(el.tagName === "TEMPLATE" ? { template: true } : {}) }); };
@@ -1023,8 +1069,19 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", ...(underlined(a) ? {} : { bare: true as const }), hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) }, a);
   };
 
-  /* A run of inline words between the parts of a mixed block: one line of its own. */
-  let lineNo = 0;
+  /*
+   * A run of inline words between the parts of a mixed block: one line of its
+   * own, numbered within the box that holds it. Numbered across the page, one
+   * line a media query adds or drops anywhere above moved every later line's
+   * number, so tablet and phone, matched to desktop by selector, took another
+   * line's box or came back hidden: redesign Play at 390 matched 0 of its 17
+   * lines to 1440's (J, 2026-10-11). Within its box, 16 of 17.
+   * Counted by the holder's path, not the element: a template's clone is read
+   * in a stand-in box that has the path of a real one beside it, and two
+   * holders on one path would both say ::line(1).
+   */
+  const lineNos = new Map<string, number>();
+  const lineSel = (holder: Element) => { const at = path(holder); const n = (lineNos.get(at) ?? 0) + 1; lineNos.set(at, n); return `${at} ::line(${n})`; };
   /* The last line read, and where its last row ends: a small part set right after its words follows them (`tieAfter`). */
   let lastLine: { at: number; right: number; top: number; bottom: number } | null = null;
   /*
@@ -1095,7 +1152,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     x1 = x0 + Math.ceil(x1 - x0 - 0.01);
     const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
-    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
+    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: lineSel(holder), style: styleOf(holder) }, undefined, holder); return; }
     /*
      * The line wears its holder's words, never its box: the holder is a part
      * of its own when it paints, and drew its fill, outline and padding there.
@@ -1104,7 +1161,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      */
     const worn = styleOf(holder);
     delete worn.layout; delete worn.clips; delete worn.maxw;
-    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: lineSel(holder), style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
     const last = rows.reduce<(typeof rows)[number] | null>((a, w) => (!a || w.top > a.top ? w : a), null);
     lastLine = at >= 0 && last ? { at, right: last.right, top: last.top, bottom: last.bottom } : null;
   };
@@ -1209,7 +1266,12 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       const hadHidden = h.hasAttribute("hidden");
       const hadStyle = h.getAttribute("style");
       if (hadHidden) h.removeAttribute("hidden");
-      if (!shown(h)) h.style.setProperty("display", h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block", "important");
+      if (!shown(h)) {
+        const plain = h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block";
+        h.style.setProperty("display", ownDisplay(h) ?? plain, "important");
+        /* A display its rules give through a token that comes out as none: shown plainly instead. */
+        if (!shown(h)) h.style.setProperty("display", plain, "important");
+      }
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
@@ -1333,7 +1395,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   live.keyframes = liveNames.size;
   kept.keyframes = [...liveNames].filter((n) => keptNames.has(n)).length;
   /* Every turn put back as it was. */
-  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
+  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); endEntrances(el); }
   return {
     title: document.title.trim(),
     width: innerWidth,
