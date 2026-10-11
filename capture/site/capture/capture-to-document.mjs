@@ -1269,7 +1269,6 @@ function convert(pageDef, cap) {
     const words = kind === "button" ? buttonWords(el) : folded ? el.letters.text : (el.text ?? "").trim();
     /* A button's type is read off the element that held its words: the child span, when the words were in one. A folded title's, off the letter most of its letters are set like. */
     const wordsEl = kind === "button" && !(el.text ?? "").trim() ? all.find((k) => k.parent === el && k.kind === "folded") ?? el : folded ? folded.base : el;
-    const drawsOwnBox = false;
 
     /* Words. */
     let content = "";
@@ -1905,7 +1904,8 @@ function convert(pageDef, cap) {
   const holds = (o, i) => o.x <= i.x && o.y <= i.y && o.x + o.w >= i.x + i.w && o.y + o.h >= i.y + i.h;
   const isAncestor = (a, b) => { for (let n = b.parent; n; n = n.parent) if (n === a) return true; return false; };
   const overlaps = [];
-  for (let i = 0; i < made.length; i++) {
+  /* Not for a pressed state (`muted`): its overlaps are never read, and the pass is every part against every other. */
+  for (let i = 0; !muted && i < made.length; i++) {
     for (let j = i + 1; j < made.length; j++) {
       const a = made[i].el, b = made[j].el;
       const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
@@ -1918,7 +1918,7 @@ function convert(pageDef, cap) {
 
   const byKind = {};
   for (const el of all) byKind[el.kind] = (byKind[el.kind] ?? 0) + 1;
-  const lists = all.filter((e) => e.rows?.trimmed).map((e) => ({ el: e, selector: selectorOf(e) }));
+  const lists = all.filter((e) => e.rows?.trimmed).map((e) => ({ el: e, selector: e.sel }));
   return { made, bands, overlaps, byKind, elements: all.length, page, anchors, all, lists };
 }
 
@@ -1967,14 +1967,21 @@ function narrowRoot(st, tree) {
   }
   return { ...st, changes };
 }
+/** A copy of a capture's plain data (objects, arrays, strings, numbers), without the parse of its text again: `convert` writes onto every element it reads. */
+function cloneData(v) {
+  if (Array.isArray(v)) { const a = new Array(v.length); for (let i = 0; i < v.length; i++) a[i] = cloneData(v[i]); return a; }
+  if (v && typeof v === "object") { const o = {}; for (const k in v) o[k] = cloneData(v[k]); return o; }
+  return v;
+}
 function pressedStates(pageDef, raw, base) {
+  /* The capture read once, untouched: each state converts its own copy of the page (not the text parsed again per state, which took longer than the conversion). */
   const cap0 = JSON.parse(raw);
+  const { states, ...rest } = cap0;
   const out = [];
-  for (const st0 of cap0.states ?? []) {
+  for (const st0 of states ?? []) {
     const st = narrowRoot(st0, cap0.tree);
     if (!st.changes.length) continue;
-    const cap = JSON.parse(raw);
-    delete cap.states;
+    const cap = cloneData(rest);
     const byPath = new Map();
     (function go(e, up) { byPath.set(e.p, { e, up }); (e.kids ?? []).forEach((k) => go(k, e)); })(cap.tree, null);
     const mark = (e) => { e.__st = true; (e.kids ?? []).forEach(mark); };

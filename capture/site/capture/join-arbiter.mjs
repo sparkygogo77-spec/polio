@@ -101,12 +101,24 @@ function room(n, base) {
   return { inner: n.w - padX, oneLine: n.h - padY < 1.5 * line };
 }
 
+/** Every part by the page and its parent's selector, read once for all the verdicts. */
+function siblingsByParent(nodes) {
+  const under = new Map();
+  for (const m of nodes) {
+    const parent = m.from?.selector?.split(" > ").slice(0, -1).join(" > ");
+    if (!parent) continue;
+    const key = `${m.pageId}|${parent}`;
+    const had = under.get(key);
+    if (had) had.push(m); else under.set(key, [m]);
+  }
+  return under;
+}
+
 /** The text parts beside this one in the same parent, in reading order along its line. */
-function neighbours(n, nodes) {
+function neighbours(n, nodes, under = siblingsByParent(nodes)) {
   const parent = n.from?.selector?.split(" > ").slice(0, -1).join(" > ");
   if (!parent) return { before: null, after: null };
-  const row = nodes.filter((m) => m.pageId === n.pageId && m.id !== n.id && TEXT_KINDS.has(m.featureId)
-    && m.from?.selector?.split(" > ").slice(0, -1).join(" > ") === parent && Math.abs(m.y - n.y) <= Math.max(2, n.h / 2));
+  const row = (under.get(`${n.pageId}|${parent}`) ?? []).filter((m) => m.id !== n.id && TEXT_KINDS.has(m.featureId) && Math.abs(m.y - n.y) <= Math.max(2, n.h / 2));
   const touches = (a, b) => Math.abs(a.x + a.w - b.x) <= 1;
   return { before: row.find((m) => touches(m, n)) ?? null, after: row.find((m) => touches(n, m)) ?? null };
 }
@@ -119,6 +131,7 @@ function neighbours(n, nodes) {
  */
 export function verdicts(nodes, measured, base, skip = new Set()) {
   const out = [];
+  let under = null;
   for (const n of nodes) {
     /* A tag (a span with a role of image: a badge, a chip) holds an icon beside its words, so its box never says anything about a space. */
     if (skip.has(n.id)) continue;
@@ -134,7 +147,7 @@ export function verdicts(nodes, measured, base, skip = new Set()) {
       continue;
     }
     if (Math.abs(-over - 1) <= BAND.underTol) {
-      const { before, after } = neighbours(n, nodes);
+      const { before, after } = neighbours(n, nodes, (under ??= siblingsByParent(nodes)));
       if (before && !after) out.push({ ...says, verdict: "lead", to: ` ${n.content}` });
       else if (after && !before) out.push({ ...says, verdict: "trail", to: `${n.content} ` });
       else out.push({ ...says, verdict: "unclear", why: before ? "a run touches it on both sides, so the box cannot say which side lost the space" : "no run touches it, so it is not a piece of a joined line" });
