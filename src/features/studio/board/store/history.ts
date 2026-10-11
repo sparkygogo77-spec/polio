@@ -15,7 +15,7 @@ import { type Twin } from "../../twins";
 import { type Grown } from "../../owns";
 import type { StateCreator } from "zustand";
 import { BroughtPart, BroughtRepo, Doc, StudioNode, StudioPage, TrailTarget } from "./model";
-import type { StudioState } from "./state";
+import type { AsideKey, Step, StudioState } from "./state";
 
 export type SetStudio = Parameters<StateCreator<StudioState>>[0];
 export type GetStudio = Parameters<StateCreator<StudioState>>[1];
@@ -152,40 +152,51 @@ export function snapshot(s: StudioState): Doc {
   };
 }
 
+/** A checkpoint (`create.ts#push`), told what its step changes beside the document. */
+export type Push = (aside?: readonly AsideKey[]) => void;
+/** What loading a document sets beside it (`loadDoc`): a bring-in's frame width, learned record, stand-in, sweep mark and states. */
+export const LOADED: readonly AsideKey[] = ["frameWidth", "learn", "standIn", "swept", "statesOn"];
+/** What bringing a site's parts onto the shelf, or sending them back, sets (`bringIn`, `sendBack`). */
+export const SHELVED: readonly AsideKey[] = ["brought", "broughtParts"];
 /**
- * WHAT A CHECKPOINT CAN HOLD BEYOND THE DOCUMENT.
+ * What Clear everything takes beside the document (`resetAll`): the shelf, the
+ * import record, the edit branch and the timeline. Undoing it used to bring
+ * back a brought-in board with no shelf, no import record and no updates.
+ */
+export const CLEARED: readonly AsideKey[] = ["brought", "broughtParts", "statesOn", "learn", "standIn", "swept", "siteBranch", "trail", "threads", "liveThreadId", "pinnedThreads", "threadSpots", "draftPieces", "sentPieces"];
+
+/** These fields of the board as they are now: what a step keeps beside the document. */
+export function asideOf(s: StudioState, keys: readonly AsideKey[]): NonNullable<Step["aside"]> {
+  return Object.fromEntries(keys.map((k) => [k, s[k]])) as NonNullable<Step["aside"]>;
+}
+
+/**
+ * ONE STEP THROUGH THE HISTORY, BACK OR FORWARD (dissect #20).
  *
- * Clear everything takes the shelf, the import record and the timeline with
- * the parts, and none of those are in `snapshot`. Its checkpoint carries them
- * (`carry`), so one undo puts back everything the clear took, not only the
- * parts: undoing it used to bring back a brought-in board with no shelf, no
- * import record and no updates.
+ * Undoing a bring-in put the old parts back and left the frame at the
+ * imported site's width, its parts on the shelf and its learned record: the
+ * step held the document and nothing else. A step that changed those keeps
+ * them beside it (`Step.aside`), and they come back with it; the step left on
+ * the other side holds the board as it is now with the same fields beside
+ * it, so going the other way puts them back too. Never in `snapshot`, which
+ * threads keep: a thread is the document.
+ *
+ * `now` is the document being left, checked in (`snapshot`). A jump over
+ * several steps passes the step it stands on for every step after the first:
+ * that one is checked in already, and checking it in again against a state
+ * worn on the board would write its own look into the state's.
  */
-const CARRIED = ["brought", "broughtParts", "statesOn", "learn", "standIn", "swept", "siteBranch", "trail", "threads", "liveThreadId", "pinnedThreads", "threadSpots", "draftPieces", "sentPieces"] as const;
-type Carried = Pick<StudioState, (typeof CARRIED)[number]>;
-
-/** The fields beyond the document that `s` holds now, for a checkpoint to carry. */
-export function carry(s: Carried): Carried {
-  return Object.fromEntries(CARRIED.map((k) => [k, s[k]])) as Carried;
+export function stepTo(s: StudioState, to: Step, now: Doc = snapshot(s)): { patch: Doc & Partial<StudioState>; back: Step } {
+  const { aside, ...doc } = to;
+  if (!aside) return { patch: doc, back: now };
+  return { patch: { ...doc, ...aside }, back: { ...now, aside: asideOf(s, Object.keys(aside) as AsideKey[]) } };
 }
-
-const carries = (d: Doc): d is Doc & Carried => "brought" in d;
-
-/**
- * The step history goes to, put together from the checkpoints passed over
- * on the way: the document of the last one and the carried fields of the
- * last one that carries any. Its shelf goes back on the catalogue too.
- */
-export function landing(over: Doc[]): Doc & Partial<Carried> {
-  const to = over[over.length - 1]!;
-  const held = [...over].reverse().find(carries);
-  if (held) shelve(held.brought, held.broughtParts ?? []);
-  return held ? { ...to, ...carry(held) } : to;
-}
-
-/** The step being left, as the other stack keeps it: carrying what `like` carries, so undo and redo trade the same things. */
-export function leaving(s: StudioState, like: Doc[]): Doc {
-  return like.some(carries) ? { ...snapshot(s), ...carry(s) } : snapshot(s);
+/** A step's change of state, with the shelf drawn again when it put back what was brought in (`shelve`). */
+export function shelved<T extends Partial<StudioState>>(s: StudioState, next: T): T {
+  const repos = next.brought ?? s.brought;
+  const parts = next.broughtParts ?? s.broughtParts;
+  if (repos !== s.brought || parts !== s.broughtParts) shelve(repos, parts);
+  return next;
 }
 
 /**

@@ -8,12 +8,12 @@ import { type ThreadDoc } from "../../loop";
 import { activeRepo } from "@/features/builds/store";
 import { boardActions } from "./board";
 import { FRAME_WIDTHS } from "./frame";
-import { EDIT_RUN_MS, HISTORY_LIMIT, edited, landing, leaving, pen, shelve, snapshot, starterDoc } from "./history";
+import { EDIT_RUN_MS, HISTORY_LIMIT, asideOf, edited, pen, shelve, shelved, snapshot, starterDoc, stepTo, type Push } from "./history";
 import { ZOOM_MIN } from "./model";
 import { nodesActions } from "./nodes";
 import { docOnly, mergeDoc } from "./persist";
 import { wearAgain } from "../../states";
-import type { StudioState } from "./state";
+import type { Step, StudioState } from "./state";
 import { threadsActions } from "./threads";
 import { viewActions } from "./view";
 
@@ -179,14 +179,15 @@ export const useStudio = create<StudioState>()(
 
       /* A hand on a slider or picker (`gesture.ts`): only its first checkpoint is taken. */
       let gesture: { pushed: boolean } | null = null;
-      const push = () => {
+      const push: Push = (aside) => {
         if (gesture) { if (gesture.pushed) return; gesture.pushed = true; }
         seed();
         run = null;
         pushes++;
         edited();
         set((s) => ({
-          past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
+          /* What the step changes beside the document, as it was, when it says (`history.ts#stepTo`). */
+          past: [...s.past, aside ? { ...snapshot(s), aside: asideOf(s, aside) } : snapshot(s)].slice(-HISTORY_LIMIT),
           future: [],
           /* THE BRANCH OPENS THE MOMENT HE STARTS EDITING. An undo checkpoint
              is an edit by definition, so this is where a site with a
@@ -274,7 +275,14 @@ export const useStudio = create<StudioState>()(
           const extra = pushes - mark - 1;
           if (extra <= 0) return;
           pushes -= extra;
-          set((s) => ({ past: s.past.slice(0, Math.max(0, s.past.length - extra)), future: [] }));
+          set((s) => {
+            const past = s.past.slice(0, Math.max(0, s.past.length - extra));
+            /* And what they kept beside the document goes onto it, each field as it was before the first of them. */
+            const aside = s.past.slice(past.length).reduceRight<NonNullable<Step["aside"]>>((a, step) => ({ ...a, ...step.aside }), {});
+            const first = past[past.length - 1];
+            if (first && Object.keys(aside).length) past[past.length - 1] = { ...first, aside: { ...aside, ...first.aside } };
+            return { past, future: [] };
+          });
         },
 
         beginGesture: () => { if (!gesture) gesture = { pushed: false }; },
@@ -293,16 +301,15 @@ export const useStudio = create<StudioState>()(
             edited();
             // Whatever was being typed is over: the next letter is a new edit.
             run = null;
-            const now = leaving(s, [prev]);
-            const at = landing([prev]);
-            return {
-              ...at,
-              nodes: wearAgain(at.nodes),
+            const { patch, back } = stepTo(s, prev);
+            return shelved(s, {
+              ...patch,
+              nodes: wearAgain(patch.nodes),
               past: s.past.slice(0, -1),
-              future: [now, ...s.future].slice(0, HISTORY_LIMIT),
+              future: [back, ...s.future].slice(0, HISTORY_LIMIT),
               selection: [],
               activePageId: prev.pages.some((p) => p.id === s.activePageId) ? s.activePageId : prev.pages[0]!.id,
-            };
+            });
           }),
 
         restoreDoc: (doc) => {
@@ -321,16 +328,15 @@ export const useStudio = create<StudioState>()(
             if (!next) return {};
             edited();
             run = null;
-            const now = leaving(s, [next]);
-            const at = landing([next]);
-            return {
-              ...at,
-              nodes: wearAgain(at.nodes),
-              past: [...s.past, now].slice(-HISTORY_LIMIT),
+            const { patch, back } = stepTo(s, next);
+            return shelved(s, {
+              ...patch,
+              nodes: wearAgain(patch.nodes),
+              past: [...s.past, back].slice(-HISTORY_LIMIT),
               future: s.future.slice(1),
               selection: [],
               activePageId: next.pages.some((p) => p.id === s.activePageId) ? s.activePageId : next.pages[0]!.id,
-            };
+            });
           }),
 
         travel: (steps) =>
@@ -338,37 +344,31 @@ export const useStudio = create<StudioState>()(
             if (!steps || (steps < 0 ? !s.past.length : !s.future.length)) return {};
             run = null;
             edited();
-            if (steps < 0) {
-              const n = Math.min(-steps, s.past.length);
-              if (!n) return {};
-              const to = s.past[s.past.length - n]!;
-              const back = s.past.slice(s.past.length - n);
-              /* The documents stepped over go onto redo in order: nearest first. */
-              const over = [...s.past.slice(s.past.length - n + 1), leaving(s, back)];
-              const at = landing([...back].reverse());
-              return {
-                ...at,
-                nodes: wearAgain(at.nodes),
-                past: s.past.slice(0, s.past.length - n),
-                future: [...over, ...s.future].slice(0, HISTORY_LIMIT),
-                selection: [],
-                activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,
-              };
+            /* A step at a time, as undo and redo take them, so each puts back what it kept beside the document; the
+               steps gone over land on the other side in order, nearest first. The board is set once, and wears its
+               states again once, on where it lands: only the board as it is was ever checked in (`stepTo`'s `now`). */
+            let at = s;
+            let here = snapshot(s);
+            let patch: Partial<StudioState> = {};
+            for (let i = Math.abs(steps); i > 0; i--) {
+              const to = steps < 0 ? at.past[at.past.length - 1] : at.future[0];
+              if (!to) break;
+              const step = stepTo(at, to, here);
+              patch = { ...patch, ...step.patch };
+              const { aside: _kept, ...doc } = to;
+              here = doc;
+              at = steps < 0
+                ? { ...at, ...step.patch, past: at.past.slice(0, -1), future: [step.back, ...at.future] }
+                : { ...at, ...step.patch, past: [...at.past, step.back], future: at.future.slice(1) };
             }
-            const n = Math.min(steps, s.future.length);
-            if (!n) return {};
-            const to = s.future[n - 1]!;
-            const ahead = s.future.slice(0, n);
-            const left = leaving(s, ahead);
-            const at = landing(ahead);
-            return {
-              ...at,
-              nodes: wearAgain(at.nodes),
-              past: [...s.past, left, ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
-              future: s.future.slice(n),
+            return shelved(s, {
+              ...patch,
+              ...(patch.nodes ? { nodes: wearAgain(patch.nodes) } : {}),
+              past: at.past.slice(-HISTORY_LIMIT),
+              future: at.future.slice(0, HISTORY_LIMIT),
               selection: [],
-              activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,
-            };
+              activePageId: at.pages.some((p) => p.id === s.activePageId) ? s.activePageId : at.pages[0]!.id,
+            });
           }),
 
         /** Checkpoint the current document — used at the end of a drag. */

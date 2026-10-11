@@ -3780,6 +3780,10 @@ remove it from `src/features/index.ts` when you're sure.
   beside the keys shows the last fifty, newest first; a press goes there in
   one change of state (`travel`), not fifty undos. A new kind of edit that
   reads as "an edit" wants a line in `stepName`. `tests/undo-history.mjs`.
+  A step that changes more than the document keeps those fields beside it
+  (`Step.aside`, `history.ts#stepTo`): a bring-in's frame width, learned
+  record, stand-in, sweep mark, states and shelf come back with its undo,
+  and no other step touches them (`tests/undo-bring-in.mjs`).
 - **The save line** (`SaveLine.tsx`, a `status` item in the top bar, only in
   the Builder) says "Saved in this browser, 12:04" off `docStore.ts`'s
   `onSave`, never "Saving…" on every edit, and red when the browser would

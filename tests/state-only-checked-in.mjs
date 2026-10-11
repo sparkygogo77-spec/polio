@@ -16,10 +16,10 @@
  *      rule has it, and the board still wears it;
  *   2. the save and every step of the undo history hold the parts checked
  *      in, and asking twice gives the same parts (nothing new to save);
- *   3. undo, undo past the switch going on, redo, steps in the history, a
- *      thread stood on, Reset and another site opened each come back wearing
- *      the state; switched off after, the live state keeps its edits and
- *      nothing undone is back;
+ *   3. undo, undo past the switch going on, redo, steps in the history (a
+ *      step jumped over kept as it was), a thread stood on, Reset and
+ *      another site opened each come back wearing the state; switched off
+ *      after, the live state keeps its edits and nothing undone is back;
  *   4. switched off, an undo of an edit made while it was on takes back the
  *      state's edit, not the part's own look; with nothing worn, the parts
  *      go out as they are;
@@ -87,6 +87,9 @@ st().redo();
 st().travel(1);
 check("3c. redo and a step forward in the history: worn, with the edit", TV().opacity === 0.2 && TV().radius === 4, look(TV()));
 st().travel(-2);
+st().travel(1);
+check("3c. …two steps back, then one forward: the step gone over still holds the live state's look of then", look(TV()) === J({ opacity: 0.5, radius: 4, byState: { [KEY]: { opacity: 0.5 } } }), look(TV()));
+st().travel(-1);
 off();
 check("3d. back to the start and switched off: the live state keeps its edit, the undone corners stay undone", look(TV()) === atStart, look(TV()));
 for (const [n, door, put] of [["3e", "a thread stood on", () => st().standOn(st().threads.at(-1).id)], ["3f", "Reset", () => st().restoreDoc(st().past[0])]]) {
