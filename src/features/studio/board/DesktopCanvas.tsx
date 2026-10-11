@@ -54,6 +54,7 @@ import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
 import { motionCss } from "../shelf/parts/capturedMotion";
+import { svgUnder } from "../live/svgUnder";
 import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
@@ -1585,6 +1586,15 @@ export function DesktopCanvas() {
   const motionSheet = React.useMemo(() => motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`), [pageAll, look.keyframes]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
   const stacks = React.useMemo(() => stacksOf(nodes, pageH), [nodes, pageH]);
+  /* A drawing's own hooked shapes the page painted under it (a dial's face, a clock's rim) are drawn before it, so its ticks and hands stay over them, as the Preview draws them (`live/svgUnder.ts`). */
+  const under = React.useMemo(() => svgUnder(nodes as unknown as Parameters<typeof svgUnder>[0]), [nodes]);
+  const drawOrder = React.useMemo(() => {
+    if (!under.size) return nodes;
+    const ids = new Set(nodes.map((n) => n.id));
+    const before = new Map<string, typeof nodes>();
+    for (const n of nodes) { const svg = under.get(n.id); if (svg && ids.has(svg)) before.set(svg, [...(before.get(svg) ?? []), n]); }
+    return nodes.flatMap((n) => (under.has(n.id) && ids.has(under.get(n.id)!) ? [] : [...(before.get(n.id) ?? []), n]));
+  }, [nodes, under]);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
   useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
@@ -1896,7 +1906,7 @@ export function DesktopCanvas() {
           );
         })}
 
-        {nodes.map((n) => (
+        {drawOrder.map((n) => (
           <NodeView
             key={n.id}
             /* The words of a captured row start after what stands before them (`parts/leadIn.ts`). */
