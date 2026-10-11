@@ -214,6 +214,8 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
   const hidden = React.useRef<HTMLElement | null>(null);
   const done = React.useRef(false);
   const committed = React.useRef(false);
+  /* The words as they were when the box opened, for Escape to put back once the bar has already written a look. */
+  const before = React.useRef<StudioNode["content"] | undefined>(undefined);
   /* The stretch the bar works on: the box's last selection, kept because the box loses it to the bar's own controls. */
   const held = React.useRef<[number, number] | null>(null);
 
@@ -221,6 +223,7 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
   React.useLayoutEffect(() => {
     done.current = false;
     committed.current = false;
+    before.current = node?.content;
     held.current = null;
     setRange(null);
     if (!id || !node) { setSpot(null); return; }
@@ -296,6 +299,9 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
       if (!committed.current) s.commit();   // one step of undo for the whole edit
       s.updateNodeQuiet(id, { content: reword(n.content, typed) });
       play("confirm");
+    } else if (!keep && committed.current && n) {
+      /* The bar (or Ctrl+B/I) wrote as it went: Escape takes all of it back, the typing too. */
+      s.updateNodeQuiet(id, { content: before.current ?? n.content });
     }
     setEditing(null);
   }, [id]);
