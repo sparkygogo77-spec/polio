@@ -250,7 +250,8 @@ const stand = async (url, init = {}) => {
   const j = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
   const p = u.pathname.replace("/repos/him/pontoon", "");
   if (p === "") return j({ default_branch: "main" });
-  if (p.startsWith("/contents/")) { const f = decodeURIComponent(p.slice(10)); return FILES[f] && u.searchParams.get("ref") === "main" ? j({ content: Buffer.from(FILES[f]).toString("base64") }) : j({}, 404); }
+  /* The pages are on the board's own branch, work (J, 2026-10-11: a board publishes into the branch it was brought in from). */
+  if (p.startsWith("/contents/")) { const f = decodeURIComponent(p.slice(10)); return FILES[f] && u.searchParams.get("ref") === "work" ? j({ content: Buffer.from(FILES[f]).toString("base64") }) : j({}, 404); }
   if (p.startsWith("/git/ref/heads/")) { const r = refs[`heads/${decodeURIComponent(p.slice(15))}`]; return r ? j({ object: { sha: r } }) : j({}, 404); }
   if (p.startsWith("/git/commits/") && method === "GET") return j({ tree: { sha: "t0" } });
   if (p === "/git/blobs") { blobs.push(body.content); return j({ sha: `b${blobs.length}` }, 201); }
@@ -262,12 +263,12 @@ const stand = async (url, init = {}) => {
 };
 refs["heads/style/pontoon-2026-10-02"] = "older";
 const prepared = await prepareLayer(nodes, null, source, "tok", { fetch: stand, when: "2026-10-02" });
-check("prepared from the pages as they are on the default branch, the code the design goes back into", prepared.ok && prepared.base === "main" && !prepared.kit && calls.some((c) => c === "GET /repos/him/pontoon/contents/web/index.html?ref=main"), prepared.says ?? "");
+check("prepared from the pages as they are on the board's own branch, the code the design goes back into", prepared.ok && prepared.base === "work" && !prepared.kit && calls.some((c) => c === "GET /repos/him/pontoon/contents/web/index.html?ref=work"), prepared.says ?? "");
 check("the files are the stylesheet and the changed pages, nothing else", prepared.ok && prepared.files.map((f) => f.path).sort().join() === ["web/index.html", "web/profile.html", "web/style-layer.css"].join() && !prepared.files.some((f) => f.path.endsWith(".js")));
 const sent = await publishLayer(prepared, source, "tok", { site: "Pontoon", date: new Date("2026-10-02T10:00:00Z"), fetch: stand });
 check("it goes to a new style/ branch, the next free name, never over one there", sent.ok && sent.branch === "style/pontoon-2026-10-02-2" && refs["heads/style/pontoon-2026-10-02"] === "older", JSON.stringify(sent));
 check("the default branch and the branch it was read from are untouched", refs["heads/main"] === "m0" && refs["heads/work"] === "c0" && !calls.some((c) => /PATCH|DELETE|PUT|\/merge/.test(c)));
-check("a pull request from it into the default branch is opened, and handed back for him to merge", sent.ok && pulls.length === 1 && pulls[0].base === "main" && pulls[0].head === "style/pontoon-2026-10-02-2" && sent.pull === "https://github.com/him/pontoon/pull/7" && sent.compare === "https://github.com/him/pontoon/compare/main...style/pontoon-2026-10-02-2" && /merge it once its checks are green/.test(sent.says));
+check("a pull request from it into the board's own branch is opened, and handed back for him to merge", sent.ok && pulls.length === 1 && pulls[0].base === "work" && pulls[0].head === "style/pontoon-2026-10-02-2" && sent.pull === "https://github.com/him/pontoon/pull/7" && sent.compare === "https://github.com/him/pontoon/compare/work...style/pontoon-2026-10-02-2" && /merge it once its checks are green/.test(sent.says), JSON.stringify({ base: pulls[0]?.base, compare: sent.compare }));
 const refused = await publishLayer(prepared, { ...source, ref: "" }, "tok", { site: "", date: new Date("2026-10-02T10:00:00Z"), fetch: async (u, i) => (new URL(u).pathname === "/repos/him/pontoon" ? new Response(JSON.stringify({ default_branch: "style/site-2026-10-02" }), { status: 200 }) : stand(u, i)) });
 check("a branch name that is the default branch is refused before anything is written", !refused.ok && /never to/.test(refused.says));
 
@@ -374,7 +375,7 @@ for (let i = 0; i < 20 && !(await section.locator("[data-style-layer-said]").cou
 let said = "";
 for (let i = 0; i < 30 && !/pull request|compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const compare = await section.locator("[data-style-layer-compare]").getAttribute("href").catch(() => null);
-check("one press puts it on a new style/ branch, opens a pull request into the default branch, and hands back its link", compare === "https://github.com/him/pontoon/pull/9" && uiPulls.length === 1 && uiPulls[0].base === "main" && /^style\/pontoon-\d{4}-\d\d-\d\d$/.test(uiPulls[0].head) && Object.keys(uiRefs).some((k) => k.startsWith("heads/style/pontoon-")), `${compare} ${said.slice(0, 160)}`);
+check("one press puts it on a new style/ branch, opens a pull request into the board's own branch, and hands back its link", compare === "https://github.com/him/pontoon/pull/9" && uiPulls.length === 1 && uiPulls[0].base === "work" && /^style\/pontoon-\d{4}-\d\d-\d\d$/.test(uiPulls[0].head) && Object.keys(uiRefs).some((k) => k.startsWith("heads/style/pontoon-")), `${compare} ${said.slice(0, 160)}`);
 check("no errors in the Builder", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();
