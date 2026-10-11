@@ -25,7 +25,7 @@
  *
  * Pure: no store, no browser. `tests/plain-page.mjs` holds it.
  */
-import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
+import type { CensusKey, PagePart, PageRead, PartRun } from "./siteRead.ts";
 import type { Span } from "../shelf/index.ts";
 import { familyOf } from "../recreate.ts";
 import { seatStates, type FrameNode } from "../states/index.ts";
@@ -42,7 +42,7 @@ export interface LandedDoc {
   nodes: Record<string, unknown>[];
   frameWidth: number;
   /** The entry page's own ground and ink, as the browser drew its body: what the palette's page colour and text are taken from. */
-  ground: { bg: string; text: string };
+  ground: { bg: string; text: string; /** The entry page's own background layers no part carries (`PageRead.layers`): drawn behind the frame, fixed ones pinned to it. */ layers?: NonNullable<PageRead["layers"]> };
   /** What the pages' code is written against, for the style layer (`styleLayer.ts`); the repository is filled in by whoever knows it. */
   styleSource: Omit<StyleSource, "repo" | "ref" | "dir">;
   /** The @keyframes the parts' animations name, from every page: they go into the look, as a capture's do. */
@@ -62,6 +62,62 @@ export interface PageReport {
   /** Pages none of whose parts any style of its own reaches. */
   bare: string[];
   truncated: string[];
+  /** The fidelity check: every hooked part's live computed look against what the board was handed (`fidelityOf`). */
+  fidelity?: Fidelity;
+}
+
+/** What the board was handed against what the live page computed, per hooked part. */
+export interface Fidelity {
+  /** Per page, over every element: how many the live page has of each, and how many the board was handed (`PageRead.census`). */
+  pages?: { page: string; live: Record<CensusKey, number>; kept: Record<CensusKey, number> }[];
+  checked: number;
+  mismatches: { page: string; hook: string; what: "font" | "colour" | "background" | "shadow" | "filter" | "transform" | "animation" | "position"; live: string; board: string }[];
+}
+
+/**
+ * THE FIDELITY CHECK. For every part with a data-hook, the look the live
+ * page computed (`PagePart.live`: font, colours, background layers,
+ * shadow, filter, turn, animations, fixed or sticky) against what the
+ * board was handed for it. A difference here is the import losing
+ * something, named part by part in the report, rather than found by eye.
+ */
+/** The kept-against-live count's names, as the report says them. */
+export const CENSUS_WORDS: Record<CensusKey, string> = { animated: "animated", keyframes: "keyframes", turned: "turned (rotate/translate/scale)", svg: "inline svgs", svgShapes: "svg shapes", layered: "layered backgrounds", pseudo: "::before/::after", dropShadow: "drop shadows", blend: "blend modes", clipPath: "clip paths", mask: "masks", fixed: "fixed", sticky: "sticky", canvas: "canvases" };
+
+/** Kept against live, one line per page (J's pass bar): "Play: animated 78/78, keyframes 13/13, …". */
+export function censusLines(fid: Fidelity | undefined): string[] {
+  return (fid?.pages ?? []).map((pg) => `${pg.page}: ${(Object.keys(pg.live) as CensusKey[]).filter((k) => pg.live[k] > 0).map((k) => `${CENSUS_WORDS[k]} ${pg.kept[k]}/${pg.live[k]}`).join(", ")}`);
+}
+
+export function fidelityOf(page: string, parts: PagePart[], nodes: Record<string, unknown>[], keyframes: { name: string }[], out: Fidelity): void {
+  parts.forEach((p, i) => {
+    const live = p.live, hook = p.hooks["data-hook"];
+    const n = nodes[i] as { font?: { stack?: string; px?: number; weight?: string } | null; colour?: { text?: string; bg?: string }; art?: { background?: string; filter?: string; transform?: string }; edge?: { shadow?: string } | null; motion?: { animation?: { name: string }[] } | null; from?: { position?: string } } | undefined;
+    if (!live || !hook || !n || p.pseudo) return;
+    out.checked++;
+    const miss = (what: Fidelity["mismatches"][number]["what"], l: string, b: string) => { if (out.mismatches.length < 400) out.mismatches.push({ page, hook, what, live: l.slice(0, 160), board: b.slice(0, 160) }); };
+    /* A tick box is read in its label's type, not the box's own. */
+    const words = (!!p.words || !!p.runs?.length) && p.kind !== "check";
+    if (words && n.font && /\d/.test(live.font)) { const b = `${n.font.weight} ${n.font.px}px ${n.font.stack}`; const lf = /^(\S+) ([\d.]+)px (.*)$/.exec(live.font.replace(/\s+/g, " ")); if (!lf || lf[1] !== String(n.font.weight) || Math.abs(Number(lf[2]) - Number(n.font.px)) > 0.05 || lf[3] !== n.font.stack) miss("font", live.font, b); }
+    if (words && n.colour?.text && n.colour.text !== live.colour) miss("colour", live.colour, n.colour.text);
+    const bgLive = /rgba\([^)]*,\s*0\)|transparent/.test(live.bg) ? "" : live.bg;
+    if (bgLive && p.tag !== "svg" && !(n.colour?.bg)) miss("background", bgLive, "none");
+    if (live.image && live.image !== "none") {
+      const kinds = (v: string) => (v.match(/(?:repeating-)?(?:linear|radial|conic)-gradient|url\(/g) ?? []).join(",");
+      const b = n.art?.background ?? "";
+      if (kinds(b) !== kinds(live.image)) miss("background", live.image, b || "none");
+    }
+    if (live.shadow && live.shadow !== "none" && !n.edge?.shadow) miss("shadow", live.shadow, "none");
+    if (live.filter && live.filter !== "none" && n.art?.filter !== live.filter) miss("filter", live.filter, n.art?.filter ?? "none");
+    /* A turn its animation holds at the end (a stamp slammed down at -8deg, fill forwards) is carried by the animation. */
+    if (live.turned && !n.art?.transform && !(n.motion?.animation ?? []).some((a) => /forwards|both/.test((a as { fill?: string }).fill ?? ""))) miss("transform", "turned", "upright");
+    const names = new Set((n.motion?.animation ?? []).map((a) => a.name));
+    for (const a of live.animations) {
+      if (!names.has(a)) miss("animation", a, "not carried");
+      else if (!keyframes.some((k) => k.name === a)) miss("animation", `@keyframes ${a}`, "keyframes not carried");
+    }
+    if ((live.position === "fixed" || live.position === "sticky") && n.from?.position !== live.position) miss("position", live.position, n.from?.position ?? "in the flow");
+  });
 }
 
 /** One HTML file, read. */
@@ -215,6 +271,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       ...(s.textShadow ? { textShadow: s.textShadow } : {}),
       ...(s.textStroke ? { textStroke: s.textStroke } : {}),
       ...(s.paintOrder ? { paintOrder: s.paintOrder } : {}),
+      ...(typeof s.z === "number" ? { z: s.z } : {}),
     };
     /* Its animations, as the capture carries them (`parts/capturedMotion.ts`): their keyframes travel in the look. */
     const played = s.animation?.length ? { animation: s.animation.map((a) => ({ name: a.name, ...(a.duration ? { duration: a.duration } : {}), ...(a.timing ? { timing: a.timing } : {}), ...(a.delay ? { delay: a.delay } : {}), ...(a.iterations ? { iterations: a.iterations } : {}), ...(a.direction ? { direction: a.direction } : {}), ...(a.fill ? { fill: a.fill } : {}) })) } : null;
@@ -275,7 +332,9 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
       anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
       shape: null, outline: null, kind: null, vector: null, role: null, cube: null, mesh: null, code: null,
       aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
-      from: { url, host: fr.file, selector: p.selector, at, ...(p.position ? { position: p.position } : {}) },
+      from: { url, host: fr.file, selector: p.selector, at, ...(p.position ? { position: p.position } : {}), ...(p.inset ? { inset: p.inset } : {}) },
+      /* An inline svg drawn as real svg, strokes, dashes, words and motion as the page drew them (the art's data: picture stays for older boards). */
+      ...(p.svg ? { svg: { markup: p.svg } } : {}),
       ...(Object.keys(p.hooks).length ? { hooks: p.hooks } : {}),
       ...(p.hidden ? { state: { group: `hidden:${p.hidden}`, option: 1 } } : {}),
       ...(padded ? { pad } : {}),
@@ -435,6 +494,7 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
   /* The repository's scripts (and hooks.json), read once for every name any part may be found by (`codeRefs.ts`). */
   const index = opts.code?.length ? codeIndex(opts.code, files.flatMap((f) => f.read.parts.flatMap(namesOf)), { hooksFile: opts.hooksFile, manifestDir: opts.manifestDir }) : null;
   const report: PageReport = { pages: [], kinds: {}, hidden: 0, hooks: 0, pictures: 0, unstyled: 0, bare: [], truncated: [] };
+  const starts: number[] = [];
   files.forEach((f, i) => {
     const fileDir = f.file.includes("/") ? f.file.slice(0, f.file.lastIndexOf("/") + 1) : "";
     const link = (href: string) => pageLink(href, byFile, fileDir);
@@ -451,6 +511,7 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
       if (was?.box) was.box.y = to.y;
     }
     rideAnimations(landed);
+    starts.push(nodes.length);
     nodes.push(...landed);
     const hidden = f.read.parts.filter((p) => p.hidden).length;
     report.pages.push({ name: pages[i]!.name, file: f.file, parts: landed.length, hidden });
@@ -481,7 +542,13 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
   };
   const keyframes: LandedDoc["keyframes"] = [];
   for (const f of files) for (const k of f.read.keyframes ?? []) if (!keyframes.some((h) => h.name === k.name)) keyframes.push(k);
-  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour }, styleSource, keyframes }, report };
+  /* Checked once every page's keyframes are in. */
+  const fidelity: Fidelity = { checked: 0, mismatches: [] };
+  files.forEach((f, i) => fidelityOf(pages[i]!.name, f.read.parts, nodes.slice(starts[i]!, starts[i]! + f.read.parts.length), keyframes, fidelity));
+  const counted = files.flatMap((f, i) => (f.read.census ? [{ page: pages[i]!.name, ...f.read.census }] : []));
+  if (counted.length) fidelity.pages = counted;
+  if (fidelity.checked || counted.length) report.fidelity = fidelity;
+  return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour, ...(entry.read.layers?.length ? { layers: entry.read.layers } : {}) }, styleSource, keyframes }, report };
 }
 
 /** The kinds counted in words, biggest first: "12 headings, 40 lines of words, 3 fields". */
@@ -533,6 +600,17 @@ export function reportChips(report: PageReport): ReportChip[] {
   if (report.hidden) out.push({ k: "hidden", n: report.hidden, word: "hidden", label: `Hidden: ${report.hidden} ${word(report.hidden, ["part is", "parts are"])} hidden as the page opens, kept as hidden parts that take no room` });
   if (report.hooks) out.push({ k: "hooks", n: report.hooks, word: "code names", label: `Code names: ${report.hooks} ${word(report.hooks, ["part keeps", "parts keep"])} the id or data-hook the site's code finds ${report.hooks === 1 ? "it" : "them"} by` });
   if (report.pictures) out.push({ k: "placeholders", n: report.pictures, word: "stand-in pictures", label: `Stand-in pictures: ${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}, because picture files are not carried this way` });
+  const fid = report.fidelity;
+  for (const pg of fid?.pages ?? []) {
+    const short = (Object.keys(pg.live) as CensusKey[]).filter((k) => pg.live[k] > 0);
+    const behind = short.filter((k) => pg.kept[k] < pg.live[k]);
+    out.push({ k: `kept:${pg.page}`, n: behind.length, word: behind.length ? `${pg.page}: short of live` : `${pg.page}: all kept`, label: `Kept against live, ${pg.page}: ${short.map((k) => `${CENSUS_WORDS[k]} ${pg.kept[k]}/${pg.live[k]}`).join(", ")}` });
+  }
+  if (fid?.checked) {
+    const n = fid.mismatches.length;
+    const list = fid.mismatches.slice(0, 12).map((m) => `${m.hook} ${m.what} (live ${m.live}; board ${m.board})`).join("; ");
+    out.push({ k: "fidelity", n, word: n ? "look mismatches" : "match the live look", label: n ? `Fidelity: ${n} ${word(n, ["difference", "differences"])} between the live page's look and what the board was handed, over ${fid.checked} hooked parts: ${list}${n > 12 ? "; …" : ""}` : `Fidelity: all ${fid.checked} hooked parts carry the live page's fonts, colours, backgrounds, shadows, filters, turns, animations and pinning` });
+  }
   return out;
 }
 
@@ -557,5 +635,10 @@ export function reportSays(report: PageReport, opts: { scripts: boolean; from: s
   const scripts = opts.scripts ? " The page brought scripts, which were not run: whatever they would have drawn or filled in is not here, and the empty places they write into are kept for them." : "";
   const pics = report.pictures ? ` ${report.pictures} picture${report.pictures === 1 ? " is a placeholder" : "s are placeholders"}: the files are not carried this way.` : "";
   const cut = report.truncated.length ? ` ${report.truncated.join(", ")} had more than this reads, and the rest of it is not here.` : "";
-  return `${head}${hidden}${hooks}${bare}${scripts}${pics}${cut}`;
+  const fid = report.fidelity;
+  const kinds = fid ? [...new Set(fid.mismatches.map((m) => m.what))] : [];
+  const fidSaid = !fid?.checked ? "" : fid.mismatches.length ? ` Checked against the live page, ${fid.mismatches.length} look ${fid.mismatches.length === 1 ? "difference" : "differences"} over ${fid.checked} hooked parts (${kinds.join(", ")}): ${fid.mismatches.slice(0, 6).map((m) => `${m.hook} ${m.what}`).join(", ")}${fid.mismatches.length > 6 ? ", …" : ""}.` : ` Checked against the live page, all ${fid.checked} hooked parts carry its look.`;
+  const census = censusLines(fid);
+  const censusSaid = census.length ? ` Kept against live (every element): ${census.join("; ")}.` : "";
+  return `${head}${hidden}${hooks}${bare}${scripts}${pics}${cut}${fidSaid}${censusSaid}`;
 }

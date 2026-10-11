@@ -150,6 +150,8 @@ export interface PartStyle {
   transition?: { property: string; duration?: string; timing?: string; delay?: string }[];
   /** A turned part that also animates (PST's swaying rods): its own turn at rest and the point it turns about, px from its box's top left, so its keyframes turn it where the page did. */
   ownTurn?: { transform: string; origin: string };
+  /** Its z-index, when the page set one on a positioned box. */
+  z?: number;
   /** Its running animations, every longhand as computed; their @keyframes are the read's `keyframes`. */
   animation?: { name: string; duration: string; timing: string; delay: string; iterations: string; direction: string; fill: string }[];
 }
@@ -184,8 +186,14 @@ export interface PagePart {
   /** Null when it shows as the page opens; else what hides it (the hidden block's hook, id or path), and it took no room. */
   hidden: string | null;
   selector: string;
-  /** "fixed" when it is pinned to the window rather than in the page's flow. */
-  position?: "fixed";
+  /** "fixed" when it is pinned to the window rather than in the page's flow; "sticky" when it sticks as the page scrolls past. */
+  position?: "fixed" | "sticky";
+  /** Where a fixed or sticky part pins: the sides the page set, px as computed. */
+  inset?: { top?: number; right?: number; bottom?: number; left?: number };
+  /** What the live page computed for a hooked part, kept to check the board was handed all of it. */
+  live?: { font: string; colour: string; bg: string; image: string; shadow: string; filter: string; turned: boolean; animations: string[]; position: string };
+  /** An inline <svg> as markup: every shape's computed paint written on, its keyframes in a <style>, nothing that runs. Drawn as real svg. */
+  svg?: string;
   href?: string;
   /** A link the page drew without an underline. */
   bare?: true;
@@ -217,6 +225,9 @@ export interface PagePart {
   pseudo?: { which: "::before" | "::after"; host: Record<string, string> };
 }
 
+/** What the fidelity count counts. */
+export type CensusKey = "animated" | "keyframes" | "turned" | "svg" | "svgShapes" | "layered" | "pseudo" | "dropShadow" | "blend" | "clipPath" | "mask" | "fixed" | "sticky" | "canvas";
+
 /** A page read element by element. */
 export interface PageRead {
   title: string;
@@ -239,4 +250,8 @@ export interface PageRead {
   widths?: Partial<Record<"tablet" | "phone", ({ x: number; y: number; w: number; h: number; px?: number } | null)[]>>;
   /** The page's @keyframes that a part's animation names, as the capture records them. */
   keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[];
+  /** Kept against live, over every element of the page: what animates (and the keyframes named), turns, inline svgs and their shapes, layered backgrounds, ::before/::after with content, drop shadows, blends, clip paths, masks, fixed, sticky, canvases. */
+  census?: { live: Record<CensusKey, number>; kept: Record<CensusKey, number> };
+  /** The page's own background layers that no part carries: <html>'s, an unhooked <body>'s, and their ::before/::after, in paint order. */
+  layers?: { from: "html" | "body" | "html::before" | "html::after" | "body::before" | "body::after"; position: "absolute" | "fixed"; box: { x: number; y: number; w: number; h: number }; z: number | null; art: { colour?: string; background?: string; backgroundOptions?: string[]; backgroundBlend?: string; filter?: string; mask?: string; maskOptions?: string[]; blend?: string; opacity?: number } }[];
 }
