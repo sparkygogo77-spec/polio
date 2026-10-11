@@ -109,7 +109,8 @@ try {
       await new Promise((r) => setTimeout(r, 120));
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const r = img.getBoundingClientRect(), s = scroller.getBoundingClientRect();
-      out.push({ to, band: el.getAttribute("data-depth"), slid: Math.round(s.top - r.top), tall: Math.round(r.height / 3), pos: getComputedStyle(el).position });
+      const l = el.getBoundingClientRect();
+      out.push({ to, band: el.getAttribute("data-depth"), slid: Math.round(s.top - r.top), tall: Math.round(r.height / 3), pos: getComputedStyle(el).position, layer: [Math.round(l.left), Math.round(l.top), Math.round(l.width), Math.round(l.height)], img: [Math.round(r.width), img.naturalWidth, img.naturalHeight], css: { top: el.style.top, bottom: el.style.bottom, height: el.style.height, minHeight: el.style.minHeight, cTop: getComputedStyle(el).top, cBottom: getComputedStyle(el).bottom, cHeight: getComputedStyle(el).height, strip: img.style.translate, fill: el.firstElementChild ? getComputedStyle(el.firstElementChild).height : null, inner: el.querySelector("[data-picture-depths]") ? getComputedStyle(el.querySelector("[data-picture-depths]")).height : null } });
     }
     return { found: true, max, out };
   });

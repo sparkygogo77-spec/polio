@@ -64,9 +64,9 @@ try {
     return { found: true, out };
   });
   check("the Preview draws the sticky header", seen.found === true, JSON.stringify(seen));
-  check("as the page opens, the header is at the top with its logo 21px down and 64px in, and its button at the right", seen.out?.[0]?.bandTop === 0 && seen.out[0].parts.n_logo.top === 21 && seen.out[0].parts.n_logo.left === 64 && seen.out[0].parts.n_button.left === 1260, JSON.stringify(seen.out?.[0]));
+  check("as the page opens, the header is at the top with its logo 21px down and 64px in, and its button at the right", seen.out?.[0]?.bandTop === 0 && seen.out[0].parts.n_logo.top === 21 && seen.out[0].parts.n_logo.left === 64 && seen.out[0].parts.n_button.left === 1260 && seen.out[0].parts.n_button.top === 14, JSON.stringify(seen.out?.[0]));
   check("scrolled 1500px down, the header is still at the top of the view", seen.out?.[1]?.at >= 1400 && seen.out[1].bandTop === 0, JSON.stringify(seen.out?.[1]));
-  check("…and its logo and button are still inside it, where they were, in front", seen.out?.[1] && Object.values(seen.out[1].parts).every((p) => p.inside && p.seen) && seen.out[1].parts.n_logo.top === 21 && seen.out[1].parts.n_logo.left === 64, JSON.stringify(seen.out?.[1]));
+  check("…and its logo and button are still inside it, where they were, in front", seen.out?.[1] && Object.values(seen.out[1].parts).every((p) => p.inside && p.seen) && seen.out[1].parts.n_logo.top === 21 && seen.out[1].parts.n_logo.left === 64 && seen.out[1].parts.n_button.top === 14, JSON.stringify(seen.out?.[1]));
   check("back at the top, the same", seen.out?.[2]?.bandTop === 0 && seen.out[2].parts.n_logo.top === 21 && seen.out[2].parts.n_button.inside, JSON.stringify(seen.out?.[2]));
   check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 } finally {

@@ -181,7 +181,8 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const speed = perFrame !== null ? perFrame * 60 : num(l.speed) ?? 60;
     /* Stepped by the page every frame (sink `clock: "frame"`, told apart by sampling at two frame rates): so much a frame here too, so a 144 Hz screen runs it as fast as the original did there. */
     const step: Record<string, string> = l.clock === "frame" && perFrame ? { step: str(perFrame) } : {};
-    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: "0" } });
+    /* A stylesheet marquee (capture-to-document.mjs `cssMarquee`): the gap its row set between its words is the gap between loops too. */
+    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: String(Math.max(0, num(l.gap) ?? 0)) } });
   }
 
   /* Layers that follow the pointer and the scroll. */

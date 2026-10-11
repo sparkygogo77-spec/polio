@@ -46,7 +46,8 @@ const parts = [
 const fluid = fluidParts(parts.map((p) => ({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h, selector: p.from.selector, position: p.from.position })), 1440);
 const k = fluid.get("n_sea");
 check("1. A fixed layer touching the top and the foot of the window is anchored at both, with no height trim", k?.fixed === "both" && !k.height, JSON.stringify(k));
-const bar = fluidParts([{ id: "n_bar", x: 0, y: 0, w: 1440, h: 80, selector: "body > header", position: "fixed" }, { id: "n_main", x: 0, y: 70, w: 1440, h: 2000, selector: "body > main" }], 1440).get("n_bar");
+/* The window's height is read off the lowest fixed band: a footer at its foot says 900. */
+const bar = fluidParts([{ id: "n_bar", x: 0, y: 0, w: 1440, h: 80, selector: "body > header", position: "fixed" }, { id: "n_main", x: 0, y: 70, w: 1440, h: 2000, selector: "body > main" }, { id: "n_foot", x: 0, y: 860, w: 1440, h: 40, selector: "body > footer", position: "fixed" }], 1440).get("n_bar");
 check("…a band at the top alone keeps its one edge and the trim to the page below it (70)", bar?.fixed === "top" && bar.height === 70, JSON.stringify(bar));
 
 /* 2. */

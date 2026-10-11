@@ -716,6 +716,39 @@ function transformOf(el, untransformed) {
   if (a === 1 && b === 0 && c === 0 && d === 1 && Math.abs(tx) < 0.5 && Math.abs(ty) < 0.5) return null;
   return `matrix(${a}, ${b}, ${c}, ${d}, ${tx}, ${ty})`;
 }
+/*
+ * WHAT AN ANIMATION REPLACES, AND WHAT IT MUST KEEP (J, 2026-10-11, sunkcoin
+ * .fun's "scroll to dive" arrow). The arrow is `rotate(45deg)` inside a cue
+ * placed `left: 50%; transform: translateX(-50%)`, nudged by a keyframe that
+ * writes `transform: rotate(45deg) translate(4px, 4px)` at 50%. The part's
+ * transform is everything that moves it, the cue's shift included; the
+ * keyframe replaces the whole of it, so at 50% the arrow jumped 62px to the
+ * right and back every 1.2s. A keyframe replaces the element's own
+ * transform and nothing of its ancestors': so an animated element whose
+ * ancestors move it carries that part, `base`, on each of its animations
+ * (about the same point as art.transform), and polio composes every
+ * transform frame on it (capturedMotion.ts). `check-animation-base.mjs`.
+ */
+function animationBaseOf(el) {
+  if (!el.ptf || !el.anim) return null;
+  const ownM = /^matrix\(([^)]+)\)$/.exec(el.tf ?? "");
+  const o = ownM ? ownM[1].split(",").map(Number) : [1, 0, 0, 1, 0, 0];
+  if (o.length !== 6 || o.some((n) => !Number.isFinite(n))) return null;
+  const [a, b, c, d, e, f] = el.ptf;
+  const cx = el.x + (el.pivot ? el.pivot[0] : el.w / 2), cy = el.y + (el.pivot ? el.pivot[1] : el.h / 2);
+  /* Its own transform as the page applied it: about its transform-origin (`pivot`, the animation's point), in page space. */
+  const origin = /^(-?[\d.]+)px (-?[\d.]+)px/.exec(el.tfo ?? "");
+  const ox = el.x + (origin ? Number(origin[1]) : el.w / 2), oy = el.y + (origin ? Number(origin[2]) : el.h / 2);
+  const own = [o[0], o[1], o[2], o[3], ox - o[0] * ox - o[2] * oy + o[4], oy - o[1] * ox - o[3] * oy + o[5]];
+  const k = own[0] * own[3] - own[1] * own[2] || 1;
+  const inv = [own[3] / k, -own[1] / k, -own[2] / k, own[0] / k, (own[2] * own[5] - own[3] * own[4]) / k, (own[1] * own[4] - own[0] * own[5]) / k];
+  /* ptf × own⁻¹: the ancestors' part alone. */
+  const [A, B, C, D, E, F] = [a * inv[0] + c * inv[1], b * inv[0] + d * inv[1], a * inv[2] + c * inv[3], b * inv[2] + d * inv[3], a * inv[4] + c * inv[5] + e, b * inv[4] + d * inv[5] + f];
+  const tx = round2(A * cx + C * cy + E - cx), ty = round2(B * cx + D * cy + F - cy);
+  const r4 = (n) => Math.round(n * 10000) / 10000;
+  if (Math.abs(A - 1) < 1e-4 && Math.abs(B) < 1e-4 && Math.abs(C) < 1e-4 && Math.abs(D - 1) < 1e-4 && Math.abs(tx) < 0.5 && Math.abs(ty) < 0.5) return null;
+  return `matrix(${r4(A)}, ${r4(B)}, ${r4(C)}, ${r4(D)}, ${tx}, ${ty})`;
+}
 function artOf(el, picture, untransformed = false) {
   const tf = transformOf(el, untransformed);
   const art = { ...(el.blend ? { blend: el.blend } : {}), ...(el.filter ? { filter: el.filter } : {}), ...(el.bfilter ? { backdrop: el.bfilter } : {}), ...(el.clip ? { clipPath: el.clip } : el.clipIn ? { clipPath: el.clipIn } : {}), ...(tf ? { transform: tf } : {}), ...(el.turnsWith && untransformed ? { turnsWith: el.turnsWith } : {}), ...(el.pivot && untransformed ? { origin: `${round2(el.pivot[0])}px ${round2(el.pivot[1])}px` } : {}), ...(el.anim ? { animation: el.anim } : {}), ...(el.mask ? { mask: el.mask[0], maskOptions: el.mask.slice(1) } : {}), ...(el.ov && el.kind === "box" ? { overflow: el.ov.x === el.ov.y ? el.ov.x : `${el.ov.x} ${el.ov.y}` } : {}), ...(el.tsh ? { textShadow: el.tsh } : {}), ...(el.tstroke ? { textStroke: el.tstroke } : {}), ...(el.porder ? { paintOrder: el.porder } : {}), ...(el.bgi && !picture ? { background: el.bgi, ...(el.bgo ? { backgroundOptions: el.bgo } : {}), ...(el.bgclip ? { backgroundClip: el.bgclip } : {}) } : {}), ...(el.letterTf ? { letterTransform: el.letterTf } : {}) };
@@ -870,6 +903,81 @@ function convert(pageDef, cap) {
   for (const el of all) el.kind = classify(el);
 
   /*
+   * A CSS MARQUEE IS THE BUILDER'S OWN MARQUEE (J, 2026-10-11, sunkcoin.fun's
+   * ticker strip: "they also have their banner where ours doesnt"). The strip's
+   * `.run` is a flex row of spans, `padding-left: 100%`, carried left by a
+   * stylesheet animation, `translateX(-100%)` over 60s, forever, inside a box
+   * that clips. Measured at rest its words all stood past the page's right
+   * edge, wholly outside the box that clips them, so none became a part and
+   * the strip came out an empty bar; and the row's own animation, run on each
+   * part, would slide each by its own width. So an element run forever by a
+   * keyframe that slides it across by its own width (`cap.keyframes`) is read
+   * as a marquee: its words, one copy of them (the page repeats them to fill
+   * the loop), are folded into it as runs with the gaps the row set, its
+   * animation is taken off it, and `behaviours.loops` names it a marquee at
+   * the page's own pace, so polio gives it the Marquee feature
+   * (captured.ts). `check-marquee-css.mjs`.
+   */
+  const keyframesByName = new Map((cap.keyframes ?? []).map((k) => [k.name, k]));
+  const slideOf = (name) => {
+    const rule = keyframesByName.get(name);
+    let best = null;
+    for (const f of rule?.frames ?? []) {
+      const m = /translate(?:X|3d)?\(\s*(-?[\d.]+)(%|px)/.exec(f.style?.transform ?? "");
+      if (m && (!best || Math.abs(Number(m[1])) > Math.abs(best.n))) best = { n: Number(m[1]), unit: m[2] };
+    }
+    return best;
+  };
+  const msOf = (v) => { const m = /^(-?[\d.]+)(ms|s)$/.exec(String(v ?? "").trim()); return m ? Number(m[1]) * (m[2] === "s" ? 1000 : 1) : 0; };
+  const wordsIn = (e) => [...(e.ot ?? []).map((r) => ({ x: r[1], text: r[0] })), ...(e.kids ?? []).filter((k) => !k.pseudo).map((k) => ({ x: k.x, kid: k }))].sort((a, b) => a.x - b.x).map((i) => (i.kid ? wordsIn(i.kid) : i.text)).join("") || (e.text ?? "");
+  const runsOf = (e, colour) => {
+    const items = [...(e.ot ?? []).map((r) => ({ x: r[1], text: r[0] })), ...(e.kids ?? []).filter((k) => !k.pseudo).map((k) => ({ x: k.x, kid: k }))].sort((a, b) => a.x - b.x);
+    if (!items.length) return (e.text ?? "").trim() ? [{ text: e.text.trim(), ...(e.color && e.color !== colour ? { colour: e.color } : {}) }] : [];
+    return items.flatMap((i) => (i.kid ? runsOf(i.kid, colour) : (i.text ? [{ text: i.text, ...(e.color && e.color !== colour ? { colour: e.color } : {}) }] : [])));
+  };
+  for (const el of all) {
+    const a = (el.motion?.animation ?? []).find((x) => x.iterations === "infinite" && slideOf(x.name));
+    if (!a || el.kind === "page" || !el.kids?.length || el.w <= 0) continue;
+    const slide = slideOf(a.name);
+    const distance = slide.unit === "%" ? (slide.n / 100) * el.w : slide.n;
+    const ms = msOf(a.duration);
+    if (Math.abs(distance) < Math.max(200, el.w / 4) || ms <= 0) continue;
+    const kids = el.kids.filter((k) => !k.pseudo && wordsIn(k).trim());
+    if (!kids.length || kids.length !== el.kids.filter((k) => !k.pseudo).length) continue;
+    const texts = kids.map((k) => wordsIn(k).trim());
+    let copies = 1;
+    for (let k = 8; k >= 2; k--) { const n = texts.length / k; if (Number.isInteger(n) && n > 0 && texts.every((t, i) => t === texts[i % n])) { copies = k; break; } }
+    const one = kids.slice(0, texts.length / copies);
+    const first = one[0];
+    const gap = parseFloat(el.gap) || 0;
+    const fs = first.fs || 0;
+    const runs = [];
+    one.forEach((k, i) => {
+      if (i && gap > 0) runs.push({ text: " ", pad: [0, Math.max(0, Math.round(gap / 2 - fs * 0.3)), 0, Math.max(0, Math.round(gap / 2 - fs * 0.3))] });
+      runs.push(...runsOf(k, first.color));
+    });
+    if (!runs.length) continue;
+    /* The row wears its words' type: the spans carried it, the row itself none. */
+    for (const prop of ["fs", "fw", "ff", "ffs", "lh", "ls", "ta", "tt", "color", "fst", "tsh"]) if (first[prop] !== undefined && el[prop] === undefined) el[prop] = first[prop];
+    el.text = runs.map((r) => r.text).join("");
+    el.kind = "words";
+    /* Its entry from off the page (`padding-left: 100%`) is the loop's own; the part starts at its box. */
+    if (Array.isArray(el.pad)) el.pad = [el.pad[0], el.pad[1], el.pad[2], 0];
+    /* Only what the page shows of it: the box that clips it, else the page's width. */
+    let clipper = el.parent;
+    while (clipper && clipper.kind !== "page" && !(clipper.ov && clipper.ov.x !== "visible")) clipper = clipper.parent;
+    const right = clipper && clipper.kind !== "page" ? clipper.ov.box[0] + clipper.ov.box[2] : page.w;
+    if (el.x + el.w > right) el.w = Math.max(1, right - el.x);
+    el.cssMarquee = { runs, speed: Math.round((Math.abs(distance) / ms) * 1000 * 10) / 10, direction: distance < 0 ? "left" : "right", copies, gap: Math.round(gap), name: a.name, width: Math.round(el.w), loopWidth: Math.round(el.w / copies) };
+    el.motion = { ...el.motion, animation: el.motion.animation.filter((x) => x !== a) };
+    if (!el.motion.animation.length) delete el.motion.animation;
+    if (!Object.keys(el.motion).length) delete el.motion;
+    if (el.anim === a.name) delete el.anim;
+    (function mark(e) { for (const k of e.kids ?? []) { k.inMarquee = el; mark(k); } })(el);
+    note(el.sel, "(marquee)", "field", `a stylesheet marquee (${a.name}, ${slide.n}${slide.unit} over ${ms}ms, forever): its ${kids.length} words folded in as ${runs.length} runs (${copies} cop${copies === 1 ? "y" : "ies"} of ${one.length}), its animation taken off, behaviours.loops names it a marquee at ${el.cssMarquee.speed}px/s ${el.cssMarquee.direction}`);
+  }
+
+  /*
    * WHAT ANIMATES TURNS ABOUT ITS OWN POINT, AND WHAT IT HOLDS TURNS WITH IT.
    * An element that runs an animation is written about its
    * `transform-origin` (`pivot`, transformOf). An element inside one, with no
@@ -884,6 +992,7 @@ function convert(pageDef, cap) {
     if (el.anim || el.tf || el.kind === "letter" || el.kind === "page") continue;
     let a = el.parent;
     while (a && a.kind !== "page" && !a.anim) a = a.parent;
+    if (el.inMarquee) continue;
     const o = a?.anim ? originOf(a) : null;
     if (!o || !a.motion?.animation) continue;
     el.anim = a.anim;
@@ -1092,6 +1201,7 @@ function convert(pageDef, cap) {
   const made = [];
   for (const el of all) {
     const { sel, kind } = el;
+    if (el.inMarquee) { note(sel, "(marquee)", "folded", `a run of the marquee it is in (${el.inMarquee.sel})`); continue; }
     if (kind === "letter") {
       const into = el.foldedInto.sel;
       for (const p of Object.keys(el).filter((p) => !["t", "kids", "parent", "depth", "sel", "order", "kind", "foldedInto", "letterAt"].includes(p))) note(sel, p, "folded", `the title's letters (${into}): ${p === "text" ? "its words" : "the part's, or this letter's run where it differs"}`);
@@ -1162,6 +1272,7 @@ function convert(pageDef, cap) {
     /* Words. */
     let content = "";
     if (words) { content = words; note(sel, "text", "field", kind === "button" && wordsEl !== el ? "content, from the child that held the words" : "content"); }
+    if (el.cssMarquee) { content = el.cssMarquee.runs; note(sel, "(marquee)", "field", `content: ${el.cssMarquee.runs.length} runs, one copy of the words the row carries`); }
     if (folded) {
       if (!folded.plain) content = folded.runs;
       note(sel, "letters", "field", `${el.letters.letters.length} per-letter elements folded back into one ${featureId} reading ${JSON.stringify(words)}${folded.plain ? "" : `, as ${folded.runs.length} runs keeping ${[...new Set(folded.runs.flatMap((r) => Object.keys(r).filter((k) => k !== "text")))].join(", ")} where a letter differs`}${folded.agree.transform ? "; every letter's transform in art.letterTransform" : ""}${folded.agree.motion ? "; every letter's motion in motion.letter" : ""}`);
@@ -1565,7 +1676,9 @@ function convert(pageDef, cap) {
     const embed = kind === "embed" ? { src: el.embed?.src ?? "", ...(el.embed?.allow ? { allow: el.embed.allow } : {}), ...(el.embed?.sandbox !== undefined ? { sandbox: el.embed.sandbox } : {}), ...(el.embed?.title ? { title: el.embed.title } : {}), ...(el.embed?.loading ? { loading: el.embed.loading } : {}), size: { w: el.w, h: el.h } } : null;
     if (embed) note(sel, "embed", "stored", `node.embed {src, allow, sandbox, size ${el.w}×${el.h}}: a frame of ${embedHost(embed.src)}; polio draws no embed yet, so the part is a box of that size`);
     /* Its own motion: the animation with every longhand, the transitions, and the :hover / :focus rules that move it. polio replays none of it yet. */
-    const motion = el.motion || folded?.agree.motion ? { ...(el.motion ?? {}), ...(folded?.agree.motion ? { letter: folded.agree.motion } : {}) } : null;
+    let motion = el.motion || folded?.agree.motion ? { ...(el.motion ?? {}), ...(folded?.agree.motion ? { letter: folded.agree.motion } : {}) } : null;
+    const base = cap.untransformed && motion?.animation?.length ? animationBaseOf(el) : null;
+    if (base) { motion = { ...motion, animation: motion.animation.map((x) => ({ ...x, base })) }; note(sel, "(base)", "field", `motion.animation[].base ${base}: what its ancestors' transforms add, kept through every frame of its animation`); }
     if (el.motion) for (const [k, v] of Object.entries(el.motion)) note(sel, `motion.${k}`, "stored", `node.motion.${k}: ${v.map((x) => x.name ?? x.property ?? x.selector).join(", ")}`);
 
     /* Its name on the board: what it is, then what it says or holds. */
@@ -2519,6 +2632,12 @@ const behavioursSection = (() => {
     for (const r of b.reveal ?? []) out.reveal.push({ ...place(r.el, "reveal"), class: r.class, rest: r.rest, shown: r.shown, transition: r.transition, delayMs: r.delayMs, atScroll: r.atScroll, top: r.top, enterAt: r.enterAt });
     for (const s of b.scrolled ?? []) out.scrollClass.push({ ...place(s.el, "scrollClass"), class: s.class, at: s.at, toggles: s.toggles, before: s.before, after: s.after, transition: s.transition, ...(s.rules?.length ? { rules: s.rules } : {}) });
     for (const p of b.pointer ?? []) out.pointer.push({ ...place(p.el, "pointer"), kind: p.kind, at: p.at, ...(p.kind === "move" ? { perX: p.perX, perY: p.perY, ...(p.perScroll !== undefined ? { perScroll: p.perScroll } : {}) } : {}), ...(p.depth !== null && p.depth !== undefined ? { depth: num(p.depth) } : {}) });
+    for (const e of c.all) {
+      const q = e.cssMarquee, part = partOfEl.get(e);
+      if (!q || !part || !alive.has(part)) continue;
+      out.loops.push({ part, selector: e.sel, kind: "marquee", css: true, name: q.name, speed: q.speed, direction: q.direction, copies: q.copies, width: q.width, loopWidth: q.loopWidth, gap: q.gap });
+      note(e.sel, "(marquee)", "field", `behaviours.loops: part ${part}, a stylesheet marquee at ${q.speed}px/s ${q.direction}, gap ${q.gap}px`);
+    }
     for (const l of b.loops ?? []) out.loops.push({ ...place(l.el, "loops"), kind: l.kind, speed: l.speed, ...(l.perFrame !== undefined ? { perFrame: l.perFrame, fps: l.fps } : {}), ...(l.clock ? { clock: l.clock } : {}), ...(l.slowed ? { slowed: l.slowed } : {}), direction: l.direction, copies: l.copies, width: l.width, loopWidth: l.loopWidth });
     for (const f of b.forever ?? []) out.idle.push({ ...place(f.el, "idle"), ...(f.pseudo ? { pseudo: f.pseudo } : {}), name: f.name, css: f.css, duration: num(f.duration), easing: f.easing, delay: num(f.delay), direction: f.direction });
     /* Motion sampled as drawn (motion-drive.mjs): spins, floats, hovers, the scroll's own, canvases repainted. */

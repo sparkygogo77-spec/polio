@@ -678,7 +678,9 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     const st = el.style;
     st.position = "sticky";
     st.top = `${(band.inset?.top ?? 0) + (p.y - band.y)}px`;
-    st.marginBottom = `-${p.h}px`;
+    /* At rest where it was measured: its offset in the band, as a sticky band's own margin places it (fluidStyle). */
+    st.marginTop = `${p.y - band.y}px`;
+    st.marginBottom = `-${p.y - band.y + p.h}px`;
     st.marginLeft = st.left || `${p.x}px`;
     st.left = "auto";
     st.zIndex = "2";
@@ -1096,7 +1098,7 @@ ${inPlaceScript(page, inPlace.get(page.id), home)}${motionTags ? `\n${motionTags
   }
 
   const vars = ROLES.map((r) => `  --${r}: ${palette[r]};`).join("\n");
-  const frames = keyframesCss(s.look.keyframes);
+  const frames = keyframesCss(s.look.keyframes, s.nodes);
   /* Keyframes the parts' own style names, which only the app's stylesheet held; and the browser's fade between pages when the site has more than one. */
   const partFrames = partKeyframesFor(drawn);
   const between = s.pages.length > 1 ? pageTransitionCss(s.format?.["pages.transition"]) : "";
