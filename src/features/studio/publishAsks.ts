@@ -11,7 +11,7 @@
  */
 import { useStudio } from "./board/store";
 import { changedDeclarations, lookOf, type LayerNode, type StyleSource } from "./send-out";
-import { defaultBranch, fileOrGone } from "./kitRun";
+import { fileOrGone, publishBranch } from "./kitRun";
 import { NEXT_PATH, asksToSend, nextMd, toSend, type FixIssue } from "./fixLoop";
 import { codeAsks, freshHooks } from "./codeAsks";
 import { RUN_MOTIONS, formatSwitches } from "./shelfFacts";
@@ -74,11 +74,12 @@ export async function gatherAsks(nodes: readonly LayerNode[], source: StyleSourc
   const loop = fixLoopOf(useStudio.getState().look);
   const adding: FixIssue[] = [...(loop.ticked.length ? toSend(loop, await issuesNow()) : []), ...asksToSend(loop, [...asksNow(source, fresh), ...(loop.asked ?? [])])];
   /*
-   * Added to NEXT.md as it is on the default branch, where Publish merges it, whatever branch the board came from.
+   * Added to NEXT.md as it is on the branch Publish merges into: the board's own branch (`kitRun.ts#publishBranch`).
    * Only a 404 means there is no NEXT.md yet; any other failed read stops the send, so the open lines are not lost (and then read back as fixed).
    */
-  const main = adding.length ? await defaultBranch(fetch, token, source.repo) : null;
-  const prev = adding.length ? await fileOrGone(fetch, token, source.repo, main?.ok ? main.branch : "HEAD", NEXT_PATH) : { ok: true as const, text: null };
+  const into = adding.length ? await publishBranch(fetch, token, source) : null;
+  if (into && !into.ok) return { fresh, adding: [], extra: [], nodes: [...nodes], says: into.says };
+  const prev = adding.length ? await fileOrGone(fetch, token, source.repo, into?.ok ? into.branch : "HEAD", NEXT_PATH) : { ok: true as const, text: null };
   if (!prev.ok) return { fresh, adding: [], extra: [], nodes: [...nodes], says: prev.says };
   const extra = adding.length ? [{ path: NEXT_PATH, content: nextMd(adding, { site, when: new Date().toISOString().slice(0, 10), prev: prev.text }) }] : [];
   const withHooks = nodes.map((n) => (fresh[n.id] && (n as { hooks?: Record<string, string> | null }).hooks?.["data-hook"] !== fresh[n.id] ? { ...n, hooks: { ...((n as { hooks?: Record<string, string> | null }).hooks ?? {}), "data-hook": fresh[n.id]! } } : n)) as LayerNode[];

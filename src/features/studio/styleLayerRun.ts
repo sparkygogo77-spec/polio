@@ -20,7 +20,7 @@
 import { deletedOnBoard, readHookMap, removedLine, withRefs, type RemovedHook } from "./send-out/index.ts";
 import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./send-out/index.ts";
 import { removedPictures } from "./partPicture.ts";
-import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
+import { fileAt, gh, kitFiles, publishBranch, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
 
 export interface LayerFiles {
   layer: Layer;
@@ -46,10 +46,10 @@ type Fetch = typeof fetch;
 
 const pathOf = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 
-/** The layer and the files it makes, against the code as it is on the repository's default branch now. */
+/** The layer and the files it makes, against the code as it is now on the branch Publish merges into (`kitRun.ts#publishBranch`): the board's own branch. */
 export async function prepareLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, opts: { fetch?: Fetch; when?: string; family?: (name: string) => string | undefined; kitMap?: KitMapCall } = {}): Promise<Answer<LayerFiles>> {
   const f = opts.fetch ?? fetch;
-  const main = await defaultBranch(f, token, source.repo);
+  const main = await publishBranch(f, token, source);
   if (!main.ok) return main;
   const base = main.branch;
   const kit = await readKit(source.repo, base, token, { fetch: f });
@@ -155,18 +155,19 @@ async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, strin
 }
 
 /**
- * One commit on a new branch made from the default branch, and a pull
- * request from it into the default branch. Never merged here: he, or the
+ * One commit on a new branch made from the branch Publish merges into (the
+ * board's own branch, `kitRun.ts#publishBranch`), and a pull request from it
+ * into that branch. Never merged here: he, or the
  * chat that merges designs, merges it once its checks are green.
  */
 export async function publishLayer(prepared: LayerFiles, source: StyleSource, token: string, opts: { site: string; date?: Date; fetch?: Fetch }): Promise<Answer<{ branch: string; sha: string; compare: string; says: string; pull: string | null }>> {
   const f = opts.fetch ?? fetch;
   const repo = source.repo;
-  const main = await defaultBranch(f, token, repo);
+  const main = await publishBranch(f, token, source);
   if (!main.ok) return main;
   const base = prepared.base || main.branch;
   let branch = layerBranch(opts.site, opts.date ?? new Date());
-  if (!branch.startsWith("style/") || branch === main.branch || branch === base || branch === source.ref) return { ok: false, says: `Refused: the layer only ever goes to a new style/ branch, never to ${main.branch}.` };
+  if (!branch.startsWith("style/") || branch === main.main || branch === base || branch === source.ref) return { ok: false, says: `Refused: the layer only ever goes to a new style/ branch, never to ${base}.` };
   if (!prepared.files.length) return { ok: false, says: "There is nothing to send: the design changes nothing in the code." };
   const ref = await gh(f, token, `/repos/${repo}/git/ref/heads/${pathOf(base)}`);
   const head = (ref.json?.object as { sha?: string } | undefined)?.sha;
@@ -214,7 +215,7 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
       ].join("\n");
       const pr = await gh(f, token, `/repos/${repo}/pulls`, { method: "POST", body: { title: `Design from the Builder: ${opts.site || repo}`, head: branch, base, body } });
       const pull = pr.status === 201 && typeof pr.json?.html_url === "string" ? pr.json.html_url : null;
-      /* A layer someone wrote by hand is said before it is replaced: it stays on the default branch until the pull request is merged. */
+      /* A layer someone wrote by hand is said before it is replaced: it stays on the base branch until the pull request is merged. */
       const replaced = prepared.replaces ? ` It replaces the ${prepared.replaces.lines} lines already in ${prepared.replaces.path}, which stay on ${base}.` : "";
       const gone = prepared.removed?.length ? ` It lists ${prepared.removed.length} hook${prepared.removed.length === 1 ? "" : "s"} deleted on the board (${prepared.removed.slice(0, 4).map((r) => r.hook).join(", ")}${prepared.removed.length > 4 ? ", …" : ""}) for the code to remove.` : "";
       const says = pull

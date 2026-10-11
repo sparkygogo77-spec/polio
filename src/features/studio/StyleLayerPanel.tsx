@@ -12,12 +12,12 @@
  * its colour, to set by hand. `styleLayer.ts` holds the rules.
  *
  * Before each design round it reads the repository again (`kitRun.ts
- * readRound`): the default branch's builder.json and hooks map, or its
+ * readRound`): on the branch Publish merges into, its builder.json and hooks map, or its
  * pages' hooks, against what the site was brought in from, and says what
  * changed (pages and hooks added or gone, and the design's rules for hooks
  * no page has now). "Take these in" makes now the baseline, and for a
  * builder-ready repository takes its link rules again. The send opens a
- * pull request into the default branch; nothing here merges.
+ * pull request into that branch (the board's own); nothing here merges.
  */
 import * as React from "react";
 import { Loader2 } from "lucide-react";
@@ -246,7 +246,7 @@ export function StyleLayerSection() {
       if (asks.says) { setSaid({ text: asks.says, bad: true }); return; }
       const done = await sendDesign(asks.nodes, palette, source, token, { site, family, say: (text) => setSaid({ text }), extra: asks.extra, fresh: asks.fresh });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
-      /* A pull request he merges himself: its lines are pending until Refresh finds them on the default branch (`fixLoop.ts#promotePending`). */
+      /* A pull request he merges himself: its lines are pending until Refresh finds them on the branch it goes into (`fixLoop.ts#promotePending`). */
       if (asks.adding.length) setFixLoop(sentUnmerged(fixLoopOf(useStudio.getState().look), asks.adding));
       if (done.kit) { const held = done.held.length ? ` Held back: ${done.held.join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }
       const skipped = done.held.length ? ` ${done.held.length} word change${done.held.length === 1 ? " was" : "s were"} left out: ${done.held.join("; ")}.` : "";

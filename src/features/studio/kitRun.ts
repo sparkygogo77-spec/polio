@@ -118,14 +118,35 @@ export async function defaultBranch(f: Fetch, token: string, repo: string): Prom
 }
 
 /**
- * A file as it is where Publish merges (`styleLayerRun.ts#publishLayer`): the
- * repository's default branch, whatever branch the board came from, so
- * polio/NEXT.md is added to and read back where the code chat ticks it.
- * HEAD (GitHub's own default) when the repository will not say its name.
+ * The branch Publish merges into (J, 2026-10-11): the branch the board was
+ * brought in from (owner/name@branch), so a redesign brought in from a side
+ * branch lands on that branch and the default branch is left alone; the
+ * default branch when the board came from it or names none. polio/NEXT.md is
+ * added to and read back on this same branch (`publishAsks.ts`,
+ * `CodeSiteButtons.tsx`), and the layer is cut from it (`styleLayerRun.ts`).
+ * A branch the repository no longer has is refused in words, never swapped
+ * for the default branch.
  */
-export async function fileOnDefault(f: Fetch, token: string, repo: string, path: string): Promise<string | null> {
-  const main = await defaultBranch(f, token, repo);
-  return fileAt(f, token, repo, main.ok ? main.branch : "HEAD", path);
+export async function publishBranch(f: Fetch, token: string, source: { repo: string; ref?: string | null }): Promise<Answer<{ branch: string; main: string }>> {
+  const main = await defaultBranch(f, token, source.repo);
+  if (!main.ok) return main;
+  const ref = (source.ref ?? "").trim();
+  if (!ref || ref === "HEAD" || ref === main.branch) return { ok: true, branch: main.branch, main: main.branch };
+  const got = await gh(f, token, `/repos/${source.repo}/git/ref/heads/${pathOf(ref)}`);
+  const exact = got.status === 200 && (got.json?.ref === undefined || got.json?.ref === `refs/heads/${ref}`);
+  if (exact) return { ok: true, branch: ref, main: main.branch };
+  if (got.status === 200 || got.status === 404) return { ok: false, says: `This board was brought in from ${ref}, and ${source.repo} has no branch of that name now. Publish goes into the branch the board came from, so bring the board in again from a branch that is there. Nothing was sent.` };
+  return { ok: false, says: `GitHub would not say whether ${source.repo} still has the branch ${ref} (it answered ${got.status || "nothing"}). Nothing was sent; try again.` };
+}
+
+/**
+ * A file as it is where Publish merges (`publishBranch`): polio/NEXT.md read
+ * back where the code chat ticks it. The board's own branch (else HEAD,
+ * GitHub's default) when the repository will not say.
+ */
+export async function fileWherePublished(f: Fetch, token: string, source: { repo: string; ref?: string | null }, path: string): Promise<string | null> {
+  const into = await publishBranch(f, token, source);
+  return fileAt(f, token, source.repo, into.ok ? into.branch : (source.ref || "HEAD"), path);
 }
 
 /** The snapshot of a builder-ready repository, from its manifest and map. */
@@ -355,13 +376,14 @@ export function layerHooksOf(rules: { selector: string }[]): string[] {
 }
 
 /**
- * Before a design round: the repository as it is now on its default branch,
+ * Before a design round: the repository as it is now on the branch Publish
+ * merges into (`publishBranch`),
  * against what the site was brought in from (`source.seen`, else the pages'
  * hooks read at import).
  */
 export async function readRound(source: StyleSource, token: string, opts: { fetch?: Fetch; layerHooks?: string[]; when?: string } = {}): Promise<Answer<{ changes: RoundChanges; seen: KitSeen; manifest: KitManifest | null; branch: string; notes: CodeNotes | null }>> {
   const f = opts.fetch ?? fetch;
-  const main = await defaultBranch(f, token, source.repo);
+  const main = await publishBranch(f, token, source);
   if (!main.ok) return main;
   const when = opts.when ?? new Date().toISOString();
   const kit = await readKit(source.repo, main.branch, token, { fetch: f, when });
