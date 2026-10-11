@@ -30,6 +30,7 @@ import { docPathIn, pathIn, withPath, heaviestFolders, inFolders, packedZipOf, r
 import { namedPictures } from "./siteHead";
 import { manifestIn, readManifest, type BuilderManifest } from "./builderManifest";
 import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./bring-in";
+import { idbGet, idbSet } from "./docStore";
 
 const API = "https://api.github.com";
 
@@ -92,8 +93,58 @@ const isNo = (r: unknown): r is RepoNo => !!r && typeof r === "object" && "no" i
 export { isNo as refused };
 export const isCopy = (r: unknown): r is RepoCopy => !!r && typeof r === "object" && "document" in (r as RepoCopy);
 
-/** One GitHub call, with his token, answering with the shape or a reason. */
+/*
+ * A FILE GITHUB HAS HANDED OVER ONCE IS KEPT, BY ITS HASH (J, 2026-10-11:
+ * reading the same code again with a builder fix should not be the whole
+ * bring-in again). A git blob's sha is its content, so the bytes under it
+ * never change and need no key on the builder's version: what a new build
+ * changes is how the files are read, and that is done fresh every time. Kept
+ * in this browser beside the document (`docStore.ts`), oldest dropped past
+ * `BLOBS_MAX`, so reading the same commit again asks GitHub only for its tree.
+ */
+const BLOB_AT = /^\/repos\/([^/]+\/[^/]+)\/git\/blobs\/([0-9a-f]{40})$/i;
+const BLOBS_INDEX = "builder.blobs";
+const BLOBS_MAX = 80 * 1024 * 1024;
+const BLOB_ONE_MAX = 4 * 1024 * 1024;
+const blobsHere = new Map<string, unknown>();
+let blobsQueue: Promise<unknown> = Promise.resolve();
+function keepBlob(key: string, text: string): void {
+  /* One at a time: six files land at once and each rewrites the list. */
+  blobsQueue = blobsQueue.then(async () => {
+    if (!(await idbSet(key, text))) return;
+    let list: [string, number][] = [];
+    try { list = JSON.parse((await idbGet(BLOBS_INDEX)) ?? "[]") as [string, number][]; } catch { list = []; }
+    list = [...list.filter(([k]) => k !== key), [key, text.length]];
+    let total = list.reduce((n, [, b]) => n + b, 0);
+    while (total > BLOBS_MAX && list.length > 1) {
+      const [old, b] = list.shift()!;
+      total -= b;
+      await idbSet(old, null);
+    }
+    await idbSet(BLOBS_INDEX, JSON.stringify(list));
+  }).catch(() => undefined);
+}
+
+/** One GitHub call, with his token, answering with the shape or a reason. A file by its hash comes from what is kept when it can. */
 async function gh(path: string, token: string): Promise<unknown | RepoNo> {
+  const blob = BLOB_AT.exec(path);
+  if (!blob) return ghAsk(path, token);
+  const key = `builder.blob:${blob[1]!.toLowerCase()}:${blob[2]!.toLowerCase()}`;
+  if (blobsHere.has(key)) return blobsHere.get(key);
+  const held = await idbGet(key);
+  if (held) { try { const it = JSON.parse(held) as unknown; blobsHere.set(key, it); return it; } catch { /* read again below */ } }
+  const got = await ghAsk(path, token);
+  if (isNo(got)) return got;
+  const it = got as { content?: unknown; encoding?: unknown };
+  if (it.encoding === "base64" && typeof it.content === "string") {
+    const kept = { encoding: "base64", content: it.content };
+    blobsHere.set(key, kept);
+    if (it.content.length <= BLOB_ONE_MAX) keepBlob(key, JSON.stringify(kept));
+  }
+  return got;
+}
+
+async function ghAsk(path: string, token: string): Promise<unknown | RepoNo> {
   let res: Response;
   try {
     res = await fetch(`${API}${path}`, {

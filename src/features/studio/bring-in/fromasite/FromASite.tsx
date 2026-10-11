@@ -117,10 +117,11 @@ export function FromASite({ space }: { space: Space }) {
      */
     const r = readRepo(handed.repo);
     const keep = !!handed.keep;
+    const at = handed.at ?? null;
     useStudio.getState().setBringRepo(null);
     setRepoText(handed.repo);
     /* An exception anywhere in the read is an ending too, said by name. */
-    void readRepository(r, keep).catch((err: unknown) => refuse(`stopped before it could finish: ${err instanceof Error ? err.message : String(err)}`, r));
+    void readRepository(r, keep, at).catch((err: unknown) => refuse(`stopped before it could finish: ${err instanceof Error ? err.message : String(err)}`, r));
   }, [handed, space.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
@@ -175,7 +176,13 @@ export function FromASite({ space }: { space: Space }) {
    * panel mounted, 0 requests, nothing said. A function that reads its
    * input from state it has just set is a function that runs once too early.
    */
-  const readRepository = async (given?: Repo | null, keep = false) => {
+  /*
+   * `pinned`, a commit: the files are read there while the site stays on its
+   * branch ("Read again with the latest builder", `CodeSiteButtons.tsx`).
+   * What is recorded is the branch, so Refresh still follows it, and the
+   * commit the files really came from.
+   */
+  const readRepository = async (given?: Repo | null, keep = false, pinned: string | null = null) => {
     const r = given ?? repo;
     if (!r) return;
     bringing.current = r;
@@ -186,7 +193,8 @@ export function FromASite({ space }: { space: Space }) {
     /* Reading one of the owner's repositories is when the features a code chat built there are offered back (`library/repoFeatures.ts`). */
     /* Not for a capture run's artifact (`@run:<id>`): a run is no branch to read features/ on. */
     if (runOf(r.ref) === null) void checkRepoFeatures({ owner: r.owner, name: r.name, ref: r.ref ?? null }, token);
-    const got = await readRepoSite(r, token, (says) => busy(says));
+    const fetched = await readRepoSite(pinned && runOf(r.ref) === null ? { ...r, ref: pinned } : r, token, (says) => busy(says));
+    const got = pinned && !refused(fetched) && r.ref ? { ...fetched, ref: r.ref } : fetched;
     if (isCopy(got) && keep) {
       /*
        * KEEPING WHAT HE CHANGED (`reimport.ts`). The board's own record of
@@ -246,7 +254,7 @@ export function FromASite({ space }: { space: Space }) {
       busy(`From its source, ${got.source.page}: ${n.bands.length} bands${opened.length ? `, opened ${opened.join(", ")}` : ""}${n.closed.length ? `; ${[...new Set(n.closed)].join(", ")} closed on a first view` : ""}.`);
     } else busy(`Reading the page in ${r.name}…`);
     /* Element by element first (`pageParts.ts`): each heading, line, button, field and checkbox a part of its own, every page of it a page. */
-    if (await landParts(r, got, keep)) return;
+    if (await landParts(r, got, keep, pinned)) return;
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
@@ -391,7 +399,7 @@ export function FromASite({ space }: { space: Space }) {
    * brought in, so the next keep has a record; a board brought in before
    * records were kept gets the careful merge, and the line says so.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File; stills?: { file: File; ask: StillsAsk } }, keep = false): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File; stills?: { file: File; ask: StillsAsk } }, keep = false, at: string | null = null): Promise<boolean> => {
     const st0 = useStudio.getState();
     /* Kept first: the board as it stands and its record of itself as brought in, before anything lands over it. */
     const board = keep ? boardNow() : null;
@@ -497,7 +505,8 @@ export function FromASite({ space }: { space: Space }) {
       if (kit.manifest.links) format = { ...format, "links.offsite": kitLinksToOffsite(kit.manifest.links) };
     } else styleSource.seen = seenOfSource(styleSource, new Date().toISOString());
     /* The commit it was read at: Refresh is green while its branch is still there (`codePublish.ts`). */
-    styleSource.commit = await headOf(styleSource.repo, styleSource.ref || "HEAD", heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "").catch(() => null);
+    /* Read at a named commit, it is that commit: Refresh then says so if the branch has moved on since. */
+    styleSource.commit = at ?? await headOf(styleSource.repo, styleSource.ref || "HEAD", heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "").catch(() => null);
     styleSource.sent = null;
     /* The hooks it came in with on the board: a design sent back to a branch keeps every one, and says what changed against them. */
     styleSource.onBoard = hooksOnBoard(doc.nodes as unknown as StudioNode[]);

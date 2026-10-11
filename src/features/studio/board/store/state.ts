@@ -445,13 +445,13 @@ export interface StudioState extends Doc {
   addDraw: (d: Omit<StudioState["draws"][number], "id" | "at">) => void;
   removeDraw: (id: string) => void;
   /** `keep`: bring it in over the board keeping what the owner changed (`reimport.ts`). */
-  bringRepo: { space: string; repo: string; pageId?: string; keep?: boolean } | null;
+  bringRepo: { space: string; repo: string; pageId?: string; keep?: boolean; at?: string } | null;
   /** Learn on click: the presses a capture held back and the ones asked for (`learn.ts`). Kept with the board, never published. */
   learn: LearnState;
   setLearn: (next: LearnState | ((was: LearnState) => LearnState)) => void;
   /** The reads a capture recorded, with their samples (`standIn.ts`): answered by a built or published site only with the Build option Stand-in server on. */
   standIn: StandIn | null;
-  setBringRepo: (v: { space: string; repo: string; pageId?: string; keep?: boolean } | null) => void;
+  setBringRepo: (v: { space: string; repo: string; pageId?: string; keep?: boolean; at?: string } | null) => void;
   /**
    * Make the surface: lock every element in it where it was drawn, and set
    * it forming. The layout is the specification, so this is where it stops

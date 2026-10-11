@@ -39,7 +39,12 @@ export function boardIsHere(): boolean {
  * out of sight now (`BringHost` in `FromASite.tsx`), so nothing is drawn,
  * nothing is picked, and what lands on the page is what landed before.
  */
-export function placeBring(want: string, keep = false): string | null {
+/*
+ * `at`: a commit to read the files at while the site stays on its branch,
+ * so "Read again with the latest builder" reads the very code the board came
+ * in from with this build's reader, not whatever the branch holds now.
+ */
+export function placeBring(want: string, keep = false, at?: string | null): string | null {
   const repo = readRepo(want);
   if (!repo) return null;
   /* Every press starts from a clear strip: the last press's ending is not this one's. */
@@ -47,7 +52,7 @@ export function placeBring(want: string, keep = false): string | null {
   const st = useStudio.getState();
   holdImportMark(st.historyMark());
   const id = `${HEADLESS}${Date.now().toString(36)}`;
-  st.setBringRepo({ space: id, repo: want, pageId: st.activePageId, ...(keep ? { keep: true } : {}) });
+  st.setBringRepo({ space: id, repo: want, pageId: st.activePageId, ...(keep ? { keep: true } : {}), ...(at ? { at } : {}) });
   return id;
 }
 

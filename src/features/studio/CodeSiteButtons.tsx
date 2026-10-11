@@ -21,7 +21,7 @@
  * The repo menu keeps the rest: the list, another repository, a new one.
  */
 import * as React from "react";
-import { Check, GitMerge, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { Check, GitMerge, Loader2, RefreshCw, RotateCcw, ScanSearch } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -38,7 +38,7 @@ import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./se
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
-import { resetToLastBring, useLastBring } from "./lastBring";
+import { olderBuilder, readLastBring, resetToLastBring, useLastBring } from "./lastBring";
 import { fileAt } from "./kitRun";
 import { LANE_MODE } from "./loop";
 import { NEXT_PATH, asksToSend, fixedIn } from "./fixLoop";
@@ -119,9 +119,26 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     say("Bringing it in again", keep ? `Reading ${source.repo} as it is now, keeping what you changed on the board.` : `Reading ${source.repo} as it is now, from a clear board.`);
   };
 
+  /*
+   * THE SAME CODE, READ AGAIN BY THIS BUILDER (J, 2026-10-11: a builder fix
+   * with no new code should not need the whole Clear and bring in). The
+   * files are read at the commit the board came in from, so nothing new
+   * comes from the code, and this build's reader makes the parts again;
+   * keeping, his changes are laid back over them as "Keep my changes" does.
+   */
+  const readAgain = (keep: boolean) => {
+    setAsk(null);
+    placeBring(wantOf(source), keep, source.commit ?? null);
+    const at = source.commit ? `at ${source.commit.slice(0, 7)}, the commit it came in from` : "as it is now";
+    say("Reading it again with this builder", `Reading the same code of ${source.repo} ${at}, with the latest builder${keep ? ", keeping what you changed on the board" : ", from a clear board"}.`);
+  };
+
   /* Back to the board as the last bring-in left it, from the copy kept then: nothing is read (`lastBring.ts`). */
   const resetBack = async () => {
     setAsk(null);
+    /* A copy another build read is that build's reading: the same code is read again with this one instead (`olderBuilder`). */
+    const kept = await readLastBring();
+    if (kept && olderBuilder(kept)) { readAgain(false); return; }
     const copy = await resetToLastBring();
     if (!copy) { say("Nothing kept to reset to", "This site has no bring-in kept yet: Clear and bring in once, and Reset goes back to that from then on.", "warn"); return; }
     play("confirm");
@@ -202,8 +219,13 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
         <div data-code-refresh-choices="" className="mt-3 flex flex-col gap-2">
           <Choice hook={{ "data-code-refresh-go": "" }} primary icon={<RefreshCw />} title="Clear and bring in" says="Reads the code as it is now and starts the board from it alone." onClick={() => bringAgain(false)} />
           <Choice hook={{ "data-code-refresh-keep": "" }} title="Keep my changes" says="Reads the code as it is now and lays it over the board, keeping what you changed by hand." onClick={() => bringAgain(true)} />
+          <Choice hook={{ "data-code-refresh-reread": "" }} icon={<ScanSearch />} title="Read again with the latest builder"
+            says={`Reads the same code again${source.commit ? `, at the commit it came in from (${source.commit.slice(0, 7)})` : ""}, with the builder's newest fixes, keeping what you changed by hand. Nothing new comes from the code.`}
+            onClick={() => readAgain(true)} />
           <Choice hook={{ "data-code-refresh-reset": "" }} icon={<RotateCcw />} disabled={!last} title="Reset to last bring-in"
-            says={last ? `Puts the board back as it came in, ${new Date(last.at).toLocaleString()}, at once, without reading anything.` : "Nothing kept yet: the next bring-in is kept, and this goes back to it."}
+            says={!last ? "Nothing kept yet: the next bring-in is kept, and this goes back to it."
+              : olderBuilder(last) ? `The builder has changed since it came in, ${new Date(last.at).toLocaleString()}: reads the same code again with it, on a clear board. Nothing new comes from the code.`
+              : `Puts the board back as it came in, ${new Date(last.at).toLocaleString()}, at once, without reading anything.`}
             onClick={() => void resetBack()} />
         </div>
       </Dialog>
