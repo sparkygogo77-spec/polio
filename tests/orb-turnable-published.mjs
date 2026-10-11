@@ -216,7 +216,8 @@ const coded = new Set(["p_home"]);
 const name = (id) => ({ "orb-webgl": "Orb, turnable", "orb-css": "Orb, drawn" })[id] ?? null;
 const fresh = A.freshHooks(made, coded, ["hero"], { part: name, pages });
 const asks = A.codeAsks({ nodes: made, pages, format: {}, switches: [], coded, fresh, part: name, kit: true, effect: () => null, lookCss: () => [] });
-const lineOf = (id) => asks.find((i) => i.key === `build-part-${id}`)?.says ?? "";
+/* A part's line is keyed by what it asks now (`build-part-<id>~<print>`, `codeAsks.ts`). */
+const lineOf = (id) => asks.find((i) => i.key.split("~")[0] === `build-part-${id}`)?.says ?? "";
 check("5. the NEXT.md line for a glass orb gives planet?surface=glass, in the page's own stylesheet",
   lineOf("n_glass").includes('`--builder-motion: "planet?surface=glass"`') && lineOf("n_glass").includes(A.OWN_CSS), lineOf("n_glass").slice(0, 160));
 check("5. …a metal one, planet?surface=metal", lineOf("n_metal").includes('`--builder-motion: "planet?surface=metal"`'));

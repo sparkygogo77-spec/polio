@@ -13,7 +13,18 @@
  *
  * Only what he changed is asked: an effect on a part brought in, a switch
  * he moved on or off, a page with no file in the code. Pure: no store, no React,
- * nothing imported at run time but the pure `motionCss.ts`; `tests/code-asks.mjs` holds it.
+ * nothing imported at run time but pure modules (`motionCss.ts`, `fixLoop.ts`); `tests/code-asks.mjs` holds it.
+ *
+ * ASKED AGAIN WHEN HE CHANGES IT (audit 2026-10-11). A line's key was only
+ * what it was about, so once it went out nothing about that thing was asked
+ * again: another page transition, a part moved, an effect set differently, a
+ * switch turned back off. Now each key is `what~value` (`fixLoop.ts#baseOf`):
+ * asked differently, it is a new line, and the older one is replaced. What a
+ * line asked for (`asked`) and J then turns off asks to come out: a Format
+ * switch, an effect, Push on press, a frame or page put back as the code had
+ * it. A part, page or whole-site motion deleted, or a page's scroll set back
+ * to the site's, asks nothing: a Clear and bring in leaves the board the
+ * same way, while the code keeps what it built.
  *
  * A PART MADE IN THE BUILDER (J, 2026-10-10: a star drawn as a PST button,
  * linked, with a note and a tilt, sent nothing on Publish; every shelf part
@@ -24,7 +35,7 @@
  * leads, J's note, its effects, a drawn outline and its look as CSS. The
  * same hook carries its record in design/record.json.
  */
-import type { FixIssue } from "./fixLoop.ts";
+import { baseOf, type FixIssue } from "./fixLoop.ts";
 /* Pure too: which effects and whole-site motions the style layer already writes as CSS, so they are not asked as well. */
 import { carriedEffect, carriedSite, pushedOnPress } from "./send-out/motionCss.ts";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules } from "./shelf/parts/offsite.ts";
@@ -79,6 +90,8 @@ export interface AskInput {
   kit?: boolean;
   /** The site's name and description as typed in the Pages tab (`brief`): its head, which no style can carry. */
   site?: { name?: string; description?: string } | null;
+  /** The keys of the lines already out for this site, sent, pending or built (`fixLoop.ts`): what they were about is asked again when it changes, and turned off, asked to come out. */
+  asked?: Iterable<string>;
 }
 
 /** A part made in the Builder on a page the code has: no element there yet. */
@@ -128,6 +141,12 @@ export function clipPx(cut: string, w: number, h: number): string {
 const settingsOf = (inputs: Record<string, string> | undefined) => Object.entries(inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
 const on = (s: AskSwitch, v: unknown) => (typeof s.on === "boolean" ? v === true : v !== undefined && v !== null && v !== s.off);
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+/* What a line asks, printed short for its key (FNV-1a): asked differently, it is another key, so another line. */
+const print = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(36); };
+/* A value as a key reads it: "curtain wipe" is curtain-wipe. */
+const tag = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || print(s);
+/* A part the code has, as a line names it: by its data-hook, else its id, else its words. */
+const named = (n: AskNode) => (n.source?.hook ? (n.source.hook.attr === "id" ? `the element with id="${n.source.hook.value}"` : `\`${n.source.hook.value}\``) : `the part "${clean(String(n.label ?? wordsOf(n.content))).slice(0, 60)}"`);
 /* Where a shelf part's own motion goes (an orb, a 3D shape, a before / after slider): rule 35 lets the code chat write
    `--builder-motion` itself only here, because Publish names no motion for these parts. */
 export const OWN_CSS = "in the page's own stylesheet on that hook (never in the style layer: BUILDER-RULES.md rule 35 allows this for a part a NEXT.md line asks for)";
@@ -150,6 +169,8 @@ export function partMotion(featureId: string, options?: Record<string, string> |
 /** Every board change the style layer cannot carry, as a line for NEXT.md (`kind: "build"`). */
 export function codeAsks(a: AskInput): FixIssue[] {
   const pageName = new Map(a.pages.map((p) => [p.id, p.name]));
+  /* What the lines already out were about: each is asked again when it changes, or when J turns it off. */
+  const before = new Set([...(a.asked ?? [])].map(baseOf));
   const out: FixIssue[] = [];
   /* Effects put on parts brought in from the code: each one on, by the part's hook. */
   /* Parts made in the Builder: a line each, and the whole-site motions once. */
@@ -181,25 +202,30 @@ export function codeAsks(a: AskInput): FixIssue[] {
     /* An effect's settings ride with it: an Embed without its address is no embed (J, 2026-10-10). */
     const fx = n.work ? [n.work, ...(n.work.also ?? [])].filter((u) => !u.off).map((u) => { const set = settingsOf(u.inputs); return `${a.effect(u.id)?.name ?? u.id}${set ? ` (${set})` : ""}`; }) : [];
     const css = [...(a.lookCss?.(n) ?? []), ...(n.outline?.cut ? [clipPx(n.outline.cut, n.w ?? 0, n.h ?? 0)] : [])];
+    /* What it is now, however the line puts it: its key prints this, so a part changed after it was asked is asked again. */
+    const about = clean([
+      `a ${name}${n.label && n.label !== name ? ` called "${n.label}"` : ""}, ${where}, ${n0(n.w)} by ${n0(n.h)}px.`,
+      words ? `Its words: "${words.slice(0, 200)}".` : "",
+      n.link?.target ? `Pressing it leads to ${linkSays(n.link)}.` : "",
+      n.prompt?.trim() ? `J's note for it: "${n.prompt.trim().slice(0, 400)}".` : "",
+      fx.length ? `Its effects: ${fx.join(", ")}.` : "",
+      n.outline?.cut ? "Its outline is drawn, not a box: cut it with the clip-path below." : "",
+      css.length ? `Its look: \`${css.join("; ")}\`.` : "",
+      /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
+      /* A before / after slider is split by the same file: two pictures stacked at full size, the before revealed by the handle (`compare`). */
+      a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` ${OWN_CSS}, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
+      a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${partMotion(n.featureId!, n.options)}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
+    ].filter(Boolean).join(" "));
+    const base = `build-part-${n.id}`, record = "its record (outline, link, note, effects) is in design/record.json under that hook.";
     out.push({
-      key: `build-part-${n.id}`,
+      key: `${base}~${print(`${hook} ${about}`)}`,
       kind: "build",
       hook,
       page: pageName.get(n.pageId) ?? "the page",
-      says: clean([
-        `J made a new part in the Builder: a ${name}${n.label && n.label !== name ? ` called "${n.label}"` : ""}, ${where}, ${n0(n.w)} by ${n0(n.h)}px.`,
-        words ? `Its words: "${words.slice(0, 200)}".` : "",
-        n.link?.target ? `Pressing it leads to ${linkSays(n.link)}.` : "",
-        n.prompt?.trim() ? `J's note for it: "${n.prompt.trim().slice(0, 400)}".` : "",
-        fx.length ? `Its effects: ${fx.join(", ")}.` : "",
-        n.outline?.cut ? "Its outline is drawn, not a box: cut it with the clip-path below." : "",
-        css.length ? `Its look: \`${css.join("; ")}\`.` : "",
-        /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
-        /* A before / after slider is split by the same file: two pictures stacked at full size, the before revealed by the handle (`compare`). */
-        a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` ${OWN_CSS}, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
-        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${partMotion(n.featureId!, n.options)}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
-        `Make it in the code with data-hook="${hook}"; its record (outline, link, note, effects) is in design/record.json under that hook.`,
-      ].filter(Boolean).join(" ")),
+      /* Asked before, the code has it: it is changed to match, never made twice. */
+      says: before.has(base)
+        ? `J changed the part he made in the Builder with data-hook="${hook}". It is now ${about} Change it in the code to match, keeping data-hook="${hook}"; ${record}`
+        : `J made a new part in the Builder: ${about} Make it in the code with data-hook="${hook}"; ${record}`,
     });
   }
   const effects = new Map<string, { id: string; set: string; parts: AskNode[] }>();
@@ -228,11 +254,13 @@ export function codeAsks(a: AskInput): FixIssue[] {
     const name = e?.name ?? g.id;
     const hooks = [...new Set(g.parts.map((n) => n.source?.hook?.value).filter(Boolean))] as string[];
     /* A part with no data-hook is named by its id, or else by its words, so the line still says which one. */
-    const names = [...new Set(g.parts.map((n) => (n.source?.hook ? (n.source.hook.attr === "id" ? `the element with id="${n.source.hook.value}"` : `\`${n.source.hook.value}\``) : `the part "${clean(String(n.label ?? wordsOf(n.content))).slice(0, 60)}"`)))];
+    const names = [...new Set(g.parts.map(named))];
     const pages = [...new Set(g.parts.map((n) => pageName.get(n.pageId) ?? "the page"))];
     const many = g.parts.length > 1;
+    /* Its settings are what it asks: set differently, it is asked again. */
+    const base = many ? `build-effect-${g.id}-${g.parts.map((n) => n.id).sort().join("+")}` : `build-effect-${g.parts[0]!.id}-${g.id}`;
     out.push({
-      key: many ? `build-effect-${g.id}-${g.parts.map((n) => n.id).sort().join("+")}` : `build-effect-${g.parts[0]!.id}-${g.id}`,
+      key: g.set ? `${base}~${print(g.set)}` : base,
       kind: "build",
       hook: hooks[0] ?? null,
       page: pages.join(", "),
@@ -240,37 +268,91 @@ export function codeAsks(a: AskInput): FixIssue[] {
     });
   }
   /*
+   * AN EFFECT J TURNED OFF (its switch in the Motion panel) on parts a line
+   * asked it for: one line asks the code to take it out of them. Only turned
+   * off: an effect gone with its part, or in a Clear and bring in, asks
+   * nothing (see the top of this file).
+   */
+  const ids = new Set(a.nodes.map((n) => n.id));
+  const offs = new Map<string, { id: string; of: number; parts: AskNode[] }>();
+  for (const n of a.nodes) {
+    if (!n.source && !n.from) continue;
+    const uses = n.work ? [n.work, ...(n.work.also ?? [])] : [];
+    for (const u of uses) {
+      if (!u.off || uses.some((x) => x.id === u.id && !x.off)) continue;
+      /* The lines that asked it of this part: its own, or one naming every part of a group (`build-effect-<effect>-<part>+<part>`). */
+      for (const b of before) {
+        const of = b === `build-effect-${n.id}-${u.id}` ? [n.id] : b.startsWith(`build-effect-${u.id}-`) ? b.slice(`build-effect-${u.id}-`.length).split("+") : [];
+        if (!of.includes(n.id) || !of.every((id) => ids.has(id))) continue;
+        const g = offs.get(b) ?? { id: u.id, of: of.length, parts: [] };
+        if (!g.parts.includes(n)) g.parts.push(n);
+        offs.set(b, g);
+      }
+    }
+  }
+  for (const [b, g] of offs) {
+    const many = g.parts.length > 1;
+    const names = g.parts.map(named);
+    out.push({
+      /* Off on some of a group's parts is another line than off on all of them. */
+      key: `${b}~off${g.parts.length < g.of ? `-${print(g.parts.map((n) => n.id).sort().join("+"))}` : ""}`,
+      kind: "build",
+      hook: g.parts.map((n) => n.source?.hook?.value).find(Boolean) ?? null,
+      page: [...new Set(g.parts.map((n) => pageName.get(n.pageId) ?? "the page"))].join(", "),
+      says: clean(`J turned off the "${a.effect(g.id)?.name ?? g.id}" effect on ${many ? `these ${g.parts.length} parts` : "this part"} in the Builder. Take it out of the code on ${many ? `each of: ${names.join(", ")}` : g.parts[0]!.source?.hook?.attr === "data-hook" ? "this element" : names[0]}.`),
+    });
+  }
+  /*
    * A FRAME WHOSE ADDRESS J CHANGED (the embed box, `EmbedBox.tsx`). The
    * import found it showing one page; he set another. The code sets a
-   * frame's src, so the code is asked.
+   * frame's src, so the code is asked; set back after a line asked for
+   * another, it is asked to go back.
    */
   for (const n of a.nodes) {
     const hook = n.source?.hook?.value;
     const src = n.embed?.src?.trim();
-    if (!hook || !src || !n.embed?.was || n.embed.was === src) continue;
-    out.push({ key: `build-embed-${n.id}-${src}`, kind: "build", hook, page: pageName.get(n.pageId) ?? "the page", says: clean(`J changed what the embedded frame \`${hook}\` shows in the Builder, from ${n.embed.was} to ${src}. Point that frame at the new address, keeping data-hook="${hook}" and the site's embed rules.`) });
+    const base = `build-embed-${n.id}`;
+    if (!hook || !src || !n.embed?.was || (n.embed.was === src && !before.has(base))) continue;
+    out.push({
+      key: `${base}~${print(src)}`,
+      kind: "build",
+      hook,
+      page: pageName.get(n.pageId) ?? "the page",
+      says: clean(n.embed.was === src
+        ? `J set the embedded frame \`${hook}\` back to ${src} in the Builder, the address the code gave it. Point that frame at it again, keeping data-hook="${hook}" and the site's embed rules.`
+        : `J changed what the embedded frame \`${hook}\` shows in the Builder, from ${n.embed.was} to ${src}. Point that frame at the new address, keeping data-hook="${hook}" and the site's embed rules.`),
+    });
   }
   /*
    * PUSH ON PRESS MAKES IT PRESSABLE (J, 2026-10-10: "I would also expect
    * that motion to make it a button maybe or linkable"). The style layer
    * gives it the pointing hand and the press; only the code can make an
    * element a real link or button. A part the code already has as one is
-   * left alone; a link the site's rules turn down is the publish check's.
+   * left alone, unless a line made it one; a link the site's rules turn
+   * down is the publish check's. Turned off where a line made it pressable,
+   * and going nowhere, it is asked to be plain again.
    */
   const rules = offsiteRules(String(a.format["links.offsite"] ?? DEFAULT_OFFSITE));
   for (const n of a.nodes) {
     const hook = n.source?.hook?.value;
-    if (!hook || !pushedOnPress(n.work) || /^\s*(button|link)\b/i.test(n.data ?? "")) continue;
+    if (!hook) continue;
+    const base = `build-press-${n.id}`;
+    if (!pushedOnPress(n.work)) {
+      const off = !!n.work && [n.work, ...(n.work.also ?? [])].some((u) => u.id === "press-push" && u.off);
+      if (off && before.has(base) && !n.link?.target) out.push({ key: `${base}~off`, kind: "build", hook, page: pageName.get(n.pageId) ?? "the page", says: clean(`J turned off Push on press on \`${hook}\` in the Builder, and pressing it goes nowhere. Make it a plain element again, not a link or a button, keeping data-hook="${hook}" and its look.`) });
+      continue;
+    }
+    if (/^\s*(button|link)\b/i.test(n.data ?? "") && !before.has(base)) continue;
     const l = n.link?.target ? n.link : null;
     if (l?.kind === "url" && isOffsite(l.target) && !linkAllowed(l.target, rules)) continue;
     out.push(l ? {
-      key: `build-press-link-${n.id}-${l.target}`,
+      key: `${base}~${print(`${l.kind} ${l.target}`)}`,
       kind: "build",
       hook,
       page: pageName.get(n.pageId) ?? "the page",
       says: clean(`J gave \`${hook}\` Push on press in the Builder and set it to go to ${linkSays(l)} when pressed. Make it a real link there (an \`<a href>\`, or a \`<button>\` that goes there), reachable with Tab and pressed with Enter, keeping data-hook="${hook}" and its look.`),
     } : {
-      key: `build-press-button-${n.id}`,
+      key: `${base}~button`,
       kind: "build",
       hook,
       page: pageName.get(n.pageId) ?? "the page",
@@ -283,15 +365,17 @@ export function codeAsks(a: AskInput): FixIssue[] {
    * that only counted when on could never ask: switched on it was still at
    * its start, and switched off it was off. Now whichever way it moved from
    * where the site came in is asked. Page transitions are dropped from the
-   * Motion shelf, not switched in Format, so the line names no tab.
+   * Motion shelf, not switched in Format, so the line names no tab. Back
+   * where it came in after a line asked otherwise, it is asked back.
    */
   for (const s of a.switches) {
-    const v = a.format[s.key];
+    const v = a.format[s.key] ?? s.def;
     const lit = on(s, v);
-    if (s.def !== undefined ? v === undefined || v === s.def : !lit) continue;
+    const base = `build-format-${s.key}`;
+    if ((s.def !== undefined ? v === s.def : !lit) && !before.has(base)) continue;
     const said = typeof v === "string" ? ` (${v})` : "";
     out.push({
-      key: `build-format-${s.key}`,
+      key: `${base}~${!lit ? "off" : typeof v === "string" ? tag(v) : "on"}`,
       kind: "build",
       hook: null,
       page: "every page",
@@ -301,24 +385,29 @@ export function codeAsks(a: AskInput): FixIssue[] {
   /* Pages: one added in the Builder, a page's own scroll behaviour, and a page the code has renamed or moved. */
   for (const p of a.pages) {
     if (!a.coded.has(p.id)) {
-      out.push({ key: `build-page-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J added the page "${p.name}"${p.path ? ` at ${p.path}` : ""} in the Builder. Make it in the code, with a data-hook on every part, as the board lays it out.`) });
+      const base = `build-page-${p.id}`, at = p.path ? ` at ${p.path}` : "";
+      /* Asked before, the code has it: renamed or moved, it is changed to match, never made twice. */
+      out.push({ key: `${base}~${print(`${p.name} ${p.path ?? ""}`)}`, kind: "build", hook: null, page: p.name, says: clean(before.has(base) ? `J changed the page he added in the Builder: it is now "${p.name}"${at}. Change it in the code to match, keeping every data-hook.` : `J added the page "${p.name}"${at} in the Builder. Make it in the code, with a data-hook on every part, as the board lays it out.`) });
     }
     if (p.scroll && p.scroll !== "inherit") {
-      out.push({ key: `build-scroll-${p.id}-${p.scroll.replace(/[^a-z]+/gi, "-")}`, kind: "build", hook: null, page: p.name, says: clean(`J set this page's scroll to "${p.scroll}" in the Builder. Build that scroll behaviour in the code.`) });
+      out.push({ key: `build-scroll-${p.id}~${tag(p.scroll)}`, kind: "build", hook: null, page: p.name, says: clean(`J set this page's scroll to "${p.scroll}" in the Builder. Build that scroll behaviour in the code.`) });
     }
     /*
      * A PAGE THE CODE HAS, RENAMED OR MOVED IN THE PAGES TAB (audit
      * 2026-10-11): its name is its title and its route is where the code
      * serves it, so Publish said "Published" and the live site kept both.
-     * Asked against what it was before he first changed it (`came`).
+     * Asked against what it was before he first changed it (`came`), and
+     * asked back when he puts it back after a line asked otherwise.
      */
     if (!a.coded.has(p.id) || !p.came) continue;
-    if (p.name.trim() && p.name !== p.came.name) out.push({ key: `build-rename-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J renamed the page "${p.came.name}" to "${p.name}" in the Builder. Use the new name wherever the code names that page: its \`<title>\`, its link preview, the site's own navigation, and builder.json's pages if there is one.`) });
-    if (p.path?.trim() && p.path !== p.came.path) out.push({ key: `build-move-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J moved the page "${p.name}" from ${p.came.path} to ${p.path} in the Builder. Serve it at ${p.path} and update every link to it, keeping every data-hook.`) });
+    const rename = `build-rename-${p.id}`, move = `build-move-${p.id}`;
+    const wherever = `wherever the code names that page: its \`<title>\`, its link preview, the site's own navigation, and builder.json's pages if there is one.`;
+    if (p.name.trim() && (p.name !== p.came.name || before.has(rename))) out.push({ key: `${rename}~${print(p.name)}`, kind: "build", hook: null, page: p.name, says: clean(p.name !== p.came.name ? `J renamed the page "${p.came.name}" to "${p.name}" in the Builder. Use the new name ${wherever}` : `J renamed the page back to "${p.name}" in the Builder, the name the code gave it. Use it again ${wherever}`) });
+    if (p.path?.trim() && (p.path !== p.came.path || before.has(move))) out.push({ key: `${move}~${print(p.path)}`, kind: "build", hook: null, page: p.name, says: clean(p.path !== p.came.path ? `J moved the page "${p.name}" from ${p.came.path} to ${p.path} in the Builder. Serve it at ${p.path} and update every link to it, keeping every data-hook.` : `J moved the page "${p.name}" back to ${p.path} in the Builder, where the code had it. Serve it there again and update every link to it, keeping every data-hook.`) });
   }
-  /* The site's own name and description from the Pages tab: the code's head stands until he types one. */
+  /* The site's own name and description from the Pages tab: the code's head stands until he types one, and keeps what it has when he empties it. */
   const name = clean(a.site?.name ?? ""), description = clean(a.site?.description ?? "");
-  if (name) out.push({ key: "build-head-name", kind: "build", hook: null, page: "every page", says: `J named the site "${name}" in the Builder. Use it as the site's name wherever the code names the site: each page's \`<title>\` and its link preview's og:site_name.` });
-  if (description) out.push({ key: "build-head-description", kind: "build", hook: null, page: "every page", says: `J gave the site the description "${description}" in the Builder (the line under its name in a link preview). Use it as each page's \`<meta name="description">\` and its link preview's og:description and twitter:description, where a page has none of its own.` });
+  if (name) out.push({ key: `build-head-name~${print(name)}`, kind: "build", hook: null, page: "every page", says: `J named the site "${name}" in the Builder. Use it as the site's name wherever the code names the site: each page's \`<title>\` and its link preview's og:site_name.` });
+  if (description) out.push({ key: `build-head-description~${print(description)}`, kind: "build", hook: null, page: "every page", says: `J gave the site the description "${description}" in the Builder (the line under its name in a link preview). Use it as each page's \`<meta name="description">\` and its link preview's og:description and twitter:description, where a page has none of its own.` });
   return out;
 }

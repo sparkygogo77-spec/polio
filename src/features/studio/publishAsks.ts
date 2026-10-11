@@ -33,7 +33,10 @@ export function asksNow(source: StyleSource, fresh: Record<string, string> = fre
   const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
   const def = new Map(FORMAT_FIELDS.map((f) => [f.id, f.default]));
   const palette = st.look.palette as Record<string, string> | undefined;
+  /* The lines already out, so what they asked is asked again when he changes it, and asked out when he turns it off. */
+  const loop = fixLoopOf(st.look);
   return codeAsks({
+    asked: [...loop.sent, ...(loop.pending ?? [])].map((i) => i.key).concat(loop.done ?? []),
     fresh,
     part: (id) => getFeature(id)?.name ?? null,
     siteMotions: RUN_MOTIONS,

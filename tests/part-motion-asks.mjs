@@ -41,11 +41,11 @@ const part = (id) => names[id] ?? null;
 const fresh = A.freshHooks(nodes, coded, taken, { part, pages: doc.pages });
 const asks = A.codeAsks({ nodes, pages: doc.pages, format: {}, switches: [], coded, fresh, part, kit: true, effect: () => null, lookCss: () => [] });
 
-const ba = asks.find((i) => i.key === "build-part-n_ba")?.says ?? "";
+const ba = asks.find((i) => i.key.startsWith("build-part-n_ba~"))?.says ?? "";
 check("The slider's line gives the exact motion value", ba.includes('`--builder-motion: "compare"`'), ba);
 check("…and says it goes in the page's own stylesheet, never the style layer", ba.includes(`"compare"\` ${A.OWN_CSS}`) && /page's own stylesheet on that hook/.test(ba) && !/(?<!never )in the style layer/.test(ba));
 check("…with the two pictures the motion file splits", /data-compare-after/.test(ba) && /data-compare-before/.test(ba));
-const cu = asks.find((i) => i.key === "build-part-n_cube")?.says ?? "";
+const cu = asks.find((i) => i.key.startsWith("build-part-n_cube~"))?.says ?? "";
 check("The cube's line gives planet?shape=cube, in the page's own stylesheet", cu.includes('`--builder-motion: "planet?shape=cube"`') && cu.includes(A.OWN_CSS), cu);
 
 /* The rules a code chat reads must allow exactly what the line asks, next to the "never by hand". */

@@ -47,7 +47,7 @@ check("Four of Format's switches start on: search listing, the accessibility and
 /* 1. Each one switched off, as the Format tab and the shelf switch it (to its off value). */
 for (const s of startsOn) {
   const got = asksWith({ [s.key]: s.off });
-  check(`${s.label} switched off asks the code to take it out`, got.length === 1 && got[0].key === `build-format-${s.key}` && got[0].page === "every page" && got[0].says.includes(`J switched off "${s.label}"`) && /Take it out of the code\./.test(got[0].says), says(got));
+  check(`${s.label} switched off asks the code to take it out`, got.length === 1 && got[0].key === `build-format-${s.key}~off` && got[0].page === "every page" && got[0].says.includes(`J switched off "${s.label}"`) && /Take it out of the code\./.test(got[0].says), says(got));
 }
 
 /* 2. A choice moved to another of its on values is asked with the value. */

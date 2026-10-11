@@ -53,12 +53,12 @@ check("…and once kept on the part, the next Publish names it the same", again.
 
 const asks = A.codeAsks({ nodes, pages: doc.pages, format: {}, switches: [], coded, fresh, part, siteMotions: new Set(["back-to-top"]),
   effect: (id) => (id === "tilt" ? { name: "Tilt" } : null), lookCss: (n) => (n.colour?.bg ? [`background-color: ${n.colour.bg}`, `color: ${n.colour.text}`] : []) });
-const s = asks.find((i) => i.key === "build-part-n_star");
+const s = asks.find((i) => i.key.startsWith("build-part-n_star~"));
 check("The star asks the code to make it, by its hook", s?.hook === fresh.n_star && s.says.includes(`data-hook="${fresh.n_star}"`), s?.says);
 check("…saying where it sits (inside the queue panel)", /inside `queue-panel`/.test(s?.says ?? ""));
 check("…its words, where it leads, J's note and its tilt", /"Play now"/.test(s?.says) && new RegExp(`${leaderboard.name} page`).test(s?.says) && /J's note for it: "Make this a button/.test(s?.says) && /effects: Tilt/.test(s?.says));
 check("…its drawn outline as a clip in its own pixels, and its PST yellow", /clip-path: path\('M60 0L74\.4 45\.6/.test(s?.says) && /background-color: #e8ff6a/.test(s?.says));
-const sl = asks.find((i) => i.key === "build-part-n_slides");
+const sl = asks.find((i) => i.key.startsWith("build-part-n_slides~"));
 check("A slideshow from the shelf asks for itself too", sl?.hook === fresh.n_slides && /a Slideshow/.test(sl.says), sl?.says);
 const site = asks.filter((i) => i.key === "build-site-back-to-top");
 check("A whole-site motion on every page is asked once, for the site", site.length === 1 && site[0].page === "every page", site.map((x) => x.says).join(" | "));

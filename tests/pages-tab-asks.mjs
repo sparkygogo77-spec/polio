@@ -41,19 +41,19 @@ const withPage = (patch) => doc.pages.map((p) => (p.id === profile.id ? { ...p, 
 /* 1. What codeAsks makes of them. */
 check("The saved PST board, untouched (no name typed, no page changed), asks for nothing", A.codeAsks(base).length === 0, says(A.codeAsks(base)));
 const head = A.codeAsks({ ...base, site: { name: "PonsStars", description: "One-on-one trading duels on Solana coins." } });
-const nm = head.find((i) => i.key === "build-head-name"), ds = head.find((i) => i.key === "build-head-description");
+const nm = head.find((i) => i.key.startsWith("build-head-name~")), ds = head.find((i) => i.key.startsWith("build-head-description~"));
 check("A Site name asks the code to use it in every page's <title> and og:site_name", head.length === 2 && nm?.hook === null && nm.page === "every page" && /J named the site "PonsStars"/.test(nm.says) && /`<title>`/.test(nm.says) && /og:site_name/.test(nm.says), says(head));
 check("A Description asks for the meta description and the link preview's", ds?.page === "every page" && /"One-on-one trading duels on Solana coins\."/.test(ds.says) && /`<meta name="description">`/.test(ds.says) && /og:description/.test(ds.says), ds?.says);
 check("…a name of spaces asks nothing", A.codeAsks({ ...base, site: { name: "   ", description: "" } }).length === 0);
 
 const renamed = A.codeAsks({ ...base, pages: withPage({ name: "My profile", came: { name: "Profile", path: "/profile" } }) });
-check("A page the code has, renamed, asks for its new name with the old one", renamed.length === 1 && renamed[0].key === `build-rename-${profile.id}` && /renamed the page "Profile" to "My profile"/.test(renamed[0].says) && renamed[0].page === "My profile", says(renamed));
+check("A page the code has, renamed, asks for its new name with the old one", renamed.length === 1 && renamed[0].key.startsWith(`build-rename-${profile.id}~`) && /renamed the page "Profile" to "My profile"/.test(renamed[0].says) && renamed[0].page === "My profile", says(renamed));
 const moved = A.codeAsks({ ...base, pages: withPage({ path: "/me", came: { name: "Profile", path: "/profile" } }) });
-check("…moved, asks to serve it at the new route and update every link to it", moved.length === 1 && moved[0].key === `build-move-${profile.id}` && /from \/profile to \/me/.test(moved[0].says) && /update every link to it/.test(moved[0].says), says(moved));
+check("…moved, asks to serve it at the new route and update every link to it", moved.length === 1 && moved[0].key.startsWith(`build-move-${profile.id}~`) && /from \/profile to \/me/.test(moved[0].says) && /update every link to it/.test(moved[0].says), says(moved));
 check("…both, asks both", A.codeAsks({ ...base, pages: withPage({ name: "Me", path: "/me", came: { name: "Profile", path: "/profile" } }) }).length === 2);
 check("…renamed back to what it was, asks nothing", A.codeAsks({ ...base, pages: withPage({ name: "Profile", path: "/profile", came: { name: "Profile", path: "/profile" } }) }).length === 0);
 const added = A.codeAsks({ ...base, pages: [...doc.pages, { id: "page_new", name: "Hall", path: "/hall", scroll: "inherit", came: { name: "Page 7", path: "/page-7" } }] });
-check("A page added in the Builder is still asked as a new page, not as a rename", added.length === 1 && added[0].key === "build-page-page_new" && /"Hall" at \/hall/.test(added[0].says), says(added));
+check("A page added in the Builder is still asked as a new page, not as a rename", added.length === 1 && added[0].key.startsWith("build-page-page_new~") && /"Hall" at \/hall/.test(added[0].says), says(added));
 
 /* 2. The store keeps what a page was before its first rename or move. */
 const { useStudio } = await jiti.import(join(here, "..", "src", "features", "studio", "board", "store.ts"));
@@ -72,7 +72,7 @@ check("…and later changes keep that first record", page().came?.name === "Prof
 const P = await jiti.import(join(here, "..", "src", "features", "studio", "publishAsks.ts"));
 useStudio.getState().setBrief({ name: "PonsStars" });
 const now = P.asksNow(source);
-check("Publish asks for the site's name and the page's new name and route", ["build-head-name", `build-rename-${profile.id}`, `build-move-${profile.id}`].every((k) => now.some((i) => i.key === k)) && now.length === 3, says(now));
+check("Publish asks for the site's name and the page's new name and route", ["build-head-name", `build-rename-${profile.id}`, `build-move-${profile.id}`].every((k) => now.some((i) => i.key.startsWith(`${k}~`))) && now.length === 3, says(now));
 
 /* 4. Wiring (source read). */
 const panel = read("src/features/studio/PagesPanel.tsx");
