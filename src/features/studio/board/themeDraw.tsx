@@ -199,44 +199,101 @@ export function PageGroundLayers({ layers, width, height, over = false }: { laye
 
 /* ------------------------------------------------------- pinned parts */
 
-interface Pinnable { id: string; x: number; y: number; w: number; h: number; from?: { selector?: string; position?: string; inset?: { top?: string | number; bottom?: string | number } | null } | null }
+interface Pinnable { id: string; x: number; y: number; w: number; h: number; art?: object | null; from?: { selector?: string; position?: string; inset?: { top?: string | number; bottom?: string | number } | null } | null }
+
+/** The selector of the element that holds this one: its host for a ::before / ::after, else the path one step up. */
+export function holderSelector(sel: string): string | null {
+  const pseudo = /::?(before|after|marker)$/.exec(sel);
+  if (pseudo) return sel.slice(0, pseudo.index) || null;
+  const at = sel.lastIndexOf(" > ");
+  return at > 0 ? sel.slice(0, at) : null;
+}
+
+/** How a part stands over the parts round it: the ride a pinned part takes down the page, and its stacking level. */
+export interface Stack { translate?: string; z: number }
 
 /**
- * How each fixed or sticky part rides down the page as the board scrolls,
- * as a `translate` that reads `--view-top`.
+ * HOW EACH PART STANDS: pinned parts ride, raised parts stand over the rest,
+ * and WHAT THEY HOLD GOES WITH THEM.
  *
  * Fixed: its box was read at the top of the page, so it moves down by as
  * much as the window has, never past the page's foot. Sticky: it stays where
  * it is until the window's top (plus its own `top`) reaches it, then rides
  * down until it meets the foot of the part that holds it (by selector), or
- * the page's.
+ * the page's. Both are raised over the page's flow (3), and so is a part the
+ * page gave a positive z-index (2).
+ *
+ * On the page a raised or pinned element carries everything inside it; on
+ * the board those are parts of their own, siblings of it. Raised alone, the
+ * holder covered them: PST's sticky nav rail (z-index 20) drew its wood over
+ * its nameplate, dial, tabs and clock, and only the strip showed (J,
+ * 2026-10-11). So every part inside takes the holder's ride and level, and
+ * stays over it in the page's own order.
  */
-export function pinsOf(nodes: readonly Pinnable[], pageH: number): Map<string, string> {
-  const out = new Map<string, string>();
+export function stacksOf(nodes: readonly Pinnable[], pageH: number): Map<string, Stack> {
+  const pinned = (n: Pinnable) => n.from?.position === "fixed" || n.from?.position === "sticky";
+  /* The part in the page's flow at each element (a pinned twin at the same element does not hold anything). */
+  const flowAt = new Map<string, Pinnable>();
+  for (const n of nodes) { const sel = n.from?.selector?.trim(); if (sel && !pinned(n) && !flowAt.has(sel)) flowAt.set(sel, n); }
+  const own = new Map<string, Stack>();
   for (const n of nodes) {
     const pos = n.from?.position;
-    if (pos !== "fixed" && pos !== "sticky") continue;
     if (pos === "fixed") {
       const max = Math.max(0, Math.round(pageH - n.y - n.h));
-      if (max > 0) out.set(n.id, `0 clamp(0px, var(--view-top, 0px), ${max}px)`);
+      own.set(n.id, { ...(max > 0 ? { translate: `0 clamp(0px, var(--view-top, 0px), ${max}px)` } : {}), z: 3 });
       continue;
     }
-    const top = px(n.from?.inset?.top ?? undefined) ?? 0;
-    const sel = n.from?.selector?.trim();
-    let foot = pageH;
-    if (sel) {
-      let best: Pinnable | null = null;
-      for (const h of nodes) {
-        const hs = h.from?.selector?.trim();
-        /* Held by what scrolls, not by another pinned part. */
-        if (h === n || !hs || !sel.startsWith(`${hs} > `) || h.from?.position === "fixed" || h.from?.position === "sticky") continue;
-        if (!best || hs.length > (best.from?.selector?.trim().length ?? 0)) best = h;
+    if (pos === "sticky") {
+      const top = px(n.from?.inset?.top ?? undefined) ?? 0;
+      /* Held by what scrolls, not by another pinned part. */
+      let foot = pageH;
+      for (let h = holderSelector(n.from?.selector?.trim() ?? ""); h; h = holderSelector(h)) {
+        const holder = flowAt.get(h);
+        if (holder) { foot = holder.y + holder.h; break; }
       }
-      if (best) foot = best.y + best.h;
+      const max = Math.max(0, Math.round(foot - n.y - n.h));
+      own.set(n.id, { ...(max > 0 ? { translate: `0 clamp(0px, calc(var(--view-top, 0px) + ${Math.round(top - n.y)}px), ${max}px)` } : {}), z: 3 });
+      continue;
     }
-    const max = Math.max(0, Math.round(foot - n.y - n.h));
-    if (max > 0) out.set(n.id, `0 clamp(0px, calc(var(--view-top, 0px) + ${Math.round(top - n.y)}px), ${max}px)`);
+    const z = (n.art as { z?: unknown } | null | undefined)?.z;
+    if (typeof z === "number" && z > 0) own.set(n.id, { z: 2 });
   }
+  if (!own.size) return own;
+  /* Each element's own stand, from whichever of its parts has one. */
+  const ownAt = new Map<string, Stack>();
+  for (const n of nodes) {
+    const sel = n.from?.selector?.trim(), st = own.get(n.id);
+    if (!sel || !st) continue;
+    const had = ownAt.get(sel);
+    ownAt.set(sel, had ? { translate: had.translate ?? st.translate, z: Math.max(had.z, st.z) } : st);
+  }
+  /* What each part inside a raised or pinned one takes from it: the nearest pinned holder's ride, the highest level above it. */
+  const out = new Map<string, Stack>();
+  const memo = new Map<string, Stack | null>();
+  const inherited = (sel: string | null): Stack | null => {
+    if (!sel) return null;
+    if (memo.has(sel)) return memo.get(sel)!;
+    const mine = ownAt.get(sel) ?? null;
+    const up = inherited(holderSelector(sel));
+    const got = mine && up ? { translate: mine.translate ?? up.translate, z: Math.max(mine.z, up.z) } : mine ?? up;
+    const v = got ? { ...(got.translate ? { translate: got.translate } : {}), z: got.z } : null;
+    memo.set(sel, v);
+    return v;
+  };
+  for (const n of nodes) {
+    const sel = n.from?.selector?.trim();
+    const mine = own.get(n.id) ?? null;
+    const up = sel ? inherited(holderSelector(sel)) : null;
+    const got = mine && up ? { translate: mine.translate ?? up.translate, z: Math.max(mine.z, up.z) } : mine ?? up;
+    if (got) out.set(n.id, { ...(got.translate ? { translate: got.translate } : {}), z: got.z });
+  }
+  return out;
+}
+
+/** The ride alone, for each pinned part and what it holds. */
+export function pinsOf(nodes: readonly Pinnable[], pageH: number): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [id, st] of stacksOf(nodes, pageH)) if (st.translate) out.set(id, st.translate);
   return out;
 }
 
@@ -295,5 +352,18 @@ export function useBoardMotion(): "play" | "still" {
   return React.useSyncExternalStore((f) => { listeners.add(f); return () => { listeners.delete(f); }; }, boardMotion, () => "play");
 }
 
-/** Held at rest: no animation and no transition anywhere on the page's parts or layers. */
-export const STILL_CSS = `[data-board-motion="still"] .mo, [data-board-motion="still"] .mo *, [data-board-motion="still"] .mo::before, [data-board-motion="still"] .mo::after, [data-board-motion="still"] [data-svg-art] *, [data-board-motion="still"] [data-ground-layer] { animation: none !important; transition: none !important; }`;
+/**
+ * THE SITE'S MOTION ON THE BOARD. The board holds its own parts still
+ * (`globals.css`: `[data-mode="board"] *` paused), and that held the page's
+ * entrances at their first frame: PST's panels deal in from `opacity: 0`, so
+ * on the board they stood invisible, words over the wall with no paper
+ * under them (J, 2026-10-11). Played, the page's own motion runs (and an
+ * entrance ends where the page ends it); held still, it is taken off, so
+ * every part stands as the page does at rest.
+ */
+const PLAY = '[data-board-motion="play"]';
+const STILL = '[data-board-motion="still"]';
+const MOVERS = (on: string) => [`${on} .mo`, `${on} .mo *`, `${on} .mo::before`, `${on} .mo::after`, `${on} [data-svg-art] *`, `${on} [data-ground-layer]`].join(", ");
+export const BOARD_MOTION_CSS = `${MOVERS(PLAY)} { animation-play-state: running !important; }
+${MOVERS(STILL)} { animation: none !important; transition: none !important; }`;
+

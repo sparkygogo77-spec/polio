@@ -99,9 +99,32 @@ check("a fixed part rides down with the view, to the page's foot", pins.get("rai
 check("a sticky part rides from its top offset to its holder's foot", pins.get("bar") === "0 clamp(0px, calc(var(--view-top, 0px) + -350px), 910px)", pins.get("bar"));
 check("…to the page's foot when nothing holds it", pins.get("head") === "0 clamp(0px, calc(var(--view-top, 0px) + -390px), 2540px)", pins.get("head"));
 check("control: a part the page did not pin stays", !pins.has("plain") && !pins.has("main"));
+/* What a pinned or raised part holds goes with it, over it (PST's nav rail drew its wood over its dial, tabs and clock). */
+const held = [
+  { id: "rail2", x: 0, y: 0, w: 120, h: 3000, from: { selector: "body > nav", position: "sticky", inset: { top: 0 } }, art: { z: 20 } },
+  { id: "dial", x: 10, y: 40, w: 100, h: 100, from: { selector: "body > nav > div" } },
+  { id: "hand", x: 50, y: 50, w: 4, h: 40, from: { selector: "body > nav > div > svg > line" } },
+  { id: "plate", x: 10, y: 0, w: 100, h: 20, from: { selector: "body > nav::before" } },
+  { id: "fixed", x: 0, y: 0, w: 120, h: 80, from: { selector: "body > header", position: "fixed" } },
+  { id: "logo", x: 4, y: 4, w: 40, h: 40, from: { selector: "body > header > a" } },
+  { id: "seal", x: 600, y: 600, w: 80, h: 80, from: { selector: "body > main > div" }, art: { z: 1 } },
+  { id: "sealWords", x: 610, y: 620, w: 60, h: 20, from: { selector: "body > main > div > span" } },
+  { id: "main", x: 0, y: 0, w: 1440, h: 3000, from: { selector: "body > main" } },
+];
+const stacks = draw.stacksOf(held, 3000);
+check("a pinned part is raised over the flow", stacks.get("rail2")?.z === 3, JSON.stringify(stacks.get("rail2")));
+check("…and every part inside it, deep or a ::before, is raised with it", ["dial", "hand", "plate"].every((id) => stacks.get(id)?.z === 3), JSON.stringify(["dial", "hand", "plate"].map((id) => stacks.get(id))));
+check("…and rides with it", stacks.get("logo")?.translate === stacks.get("fixed")?.translate && !!stacks.get("logo")?.translate, JSON.stringify(stacks.get("logo")));
+check("a part the page raised (z-index) lifts what it holds with it", stacks.get("seal")?.z === 2 && stacks.get("sealWords")?.z === 2);
+check("control: the page's flow stays at its level", !stacks.has("main"));
 
 /* 5. One switch for motion. */
-check("still holds every animation and transition", /\[data-board-motion="still"\] \.mo\b/.test(draw.STILL_CSS) && /animation: none !important/.test(draw.STILL_CSS) && /transition: none !important/.test(draw.STILL_CSS));
+check("still holds every animation and transition", /\[data-board-motion="still"\] \.mo\b/.test(draw.BOARD_MOTION_CSS) && /animation: none !important/.test(draw.BOARD_MOTION_CSS) && /transition: none !important/.test(draw.BOARD_MOTION_CSS));
+/* A part's own background layers survive on the board, with its motion on its box. */
+const panel = node({ id: "panel", featureId: "box", colour: { text: "rgb(0, 0, 0)", bg: "rgb(247, 236, 211)" }, art: { background: "linear-gradient(90deg, transparent 34px, rgb(196, 71, 59) 34px, rgb(196, 71, 59) 35px, transparent 35px), repeating-linear-gradient(transparent 0 23px, rgb(180, 200, 220) 23px 24px)", backgroundOptions: ["auto, auto", "0% 0%, 0% 0%", "repeat, repeat"] }, edge: { width: 1, style: "solid", colour: "rgb(40, 30, 20)", shadow: "3px 3px 0 0 rgb(110, 90, 69)" }, motion: { animation: [{ name: "pons-deal-in", duration: "0.42s", fill: "backwards" }] } });
+const panelHtml = renderToStaticMarkup(React.createElement(Block, { node: panel, t, palette, mode: "live", size: { w: 190, h: 330 } }));
+check("a part's background-image layers survive on the board, every one", panelHtml.includes("linear-gradient(90deg") && panelHtml.includes("repeating-linear-gradient") && panelHtml.includes("box-shadow:3px 3px 0 0"), panelHtml.slice(0, 500));
+check("…on the box its motion plays on", /data-part-box="" class="mo mo-panel"/.test(panelHtml), panelHtml.slice(0, 200));
 globalThis.window = {};
 globalThis.matchMedia = (q) => ({ matches: q.includes("reduce") });
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
@@ -122,6 +145,17 @@ if (chromium) {
     check("the svg keeps its dashed stroke and its words", out.includes('stroke-dasharray="2 6"') && out.includes(">12</text>"), out.slice(0, 200));
     check("…and loses its script and handlers", !/script|onclick/i.test(out), out);
     check("…and fills its box", /width="100%"/.test(out) && /height="100%"/.test(out));
+    /* The board holds its parts still (globals.css); the page's own entrances still end where the page ends them. */
+    const sheet = draw.BOARD_MOTION_CSS;
+    const seen = async (mode) => {
+      await page.setContent(`<style>@keyframes deal { from { opacity: 0 } to { opacity: 1 } } [data-mode="board"] * { animation-play-state: paused !important; } ${sheet}</style><div data-board-motion="${mode}"><div data-mode="board"><div class="mo mo-x" id="p" style="animation: 0.2s ease 0s 1 normal backwards deal; background: linear-gradient(red, blue), repeating-linear-gradient(transparent 0 3px, black 3px 4px)">paper</div></div></div>`);
+      await page.waitForTimeout(450);
+      return page.evaluate(() => ({ op: getComputedStyle(document.getElementById("p")).opacity, img: getComputedStyle(document.getElementById("p")).backgroundImage }));
+    };
+    const played = await seen("play"), still = await seen("still");
+    check("playing, a panel's entrance runs to its end on the board instead of holding at opacity 0", played.op === "1", JSON.stringify(played));
+    check("…held still, it stands at rest, fully drawn", still.op === "1", JSON.stringify(still));
+    check("…with both background layers", /linear-gradient.*repeating-linear-gradient/.test(played.img), played.img);
     await browser.close();
   } else console.log("  --   no browser here: svg cleaning not checked");
 }
