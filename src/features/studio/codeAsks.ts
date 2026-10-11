@@ -125,6 +125,9 @@ export function clipPx(cut: string, w: number, h: number): string {
 const settingsOf = (inputs: Record<string, string> | undefined) => Object.entries(inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
 const on = (s: AskSwitch, v: unknown) => (typeof s.on === "boolean" ? v === true : v !== undefined && v !== null && v !== s.off);
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+/* Where a shelf part's own motion goes (an orb, a 3D shape, a before / after slider): rule 35 lets the code chat write
+   `--builder-motion` itself only here, because Publish names no motion for these parts. */
+export const OWN_CSS = "in the page's own stylesheet on that hook (never in the style layer: BUILDER-RULES.md rule 35 allows this for a part a NEXT.md line asks for)";
 
 /** Every board change the style layer cannot carry, as a line for NEXT.md (`kind: "build"`). */
 export function codeAsks(a: AskInput): FixIssue[] {
@@ -175,8 +178,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
         css.length ? `Its look: \`${css.join("; ")}\`.` : "",
         /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
         /* A before / after slider is split by the same file: two pictures stacked at full size, the before revealed by the handle (`compare`). */
-        a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` in the CSS, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
-        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` in the CSS, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
+        a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` ${OWN_CSS}, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
+        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
         `Make it in the code with data-hook="${hook}"; its record (outline, link, note, effects) is in design/record.json under that hook.`,
       ].filter(Boolean).join(" ")),
     });
