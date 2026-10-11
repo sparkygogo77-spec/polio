@@ -94,6 +94,12 @@ export interface LiveSiteProps {
    */
   published?: boolean;
   /**
+   * The page as a visitor sees it, run inside the app (the `/site` route):
+   * drops the notes and placeholders as `published` does, but keeps the
+   * features and the shell's scroll chrome, which nothing else runs there.
+   */
+  visitor?: boolean;
+  /**
    * Run the features the page's parts carry (`node.work`), as the published
    * page runs them: the Preview's switch and the full preview route. Left
    * out everywhere else (the companion beside the board, a page on a cube,
@@ -124,8 +130,10 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, features = false, smallAt }: LiveSiteProps) {
-  const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published }), [format, look, siteName, published]);
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, visitor = false, features = false, smallAt }: LiveSiteProps) {
+  /* What a stranger reads: no notes about how the work is made, no stand-ins for what is not written. */
+  const forVisitor = published || visitor;
+  const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published: forVisitor }), [format, look, siteName, forVisitor]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
   const wash = React.useMemo(() => washCss(light), [light]);
@@ -159,8 +167,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
    * stands where it was drawn, which is where the brief says it goes.
    */
   const missing = React.useMemo(
-    () => (published ? [] : unbuiltSections(shapes ?? [], nodes, pageId)),
-    [published, shapes, nodes, pageId],
+    () => (forVisitor ? [] : unbuiltSections(shapes ?? [], nodes, pageId)),
+    [forVisitor, shapes, nodes, pageId],
   );
   const STRIP = 84;
   const sections = missing.map((sec, i) =>
@@ -247,12 +255,13 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               pictureAt={pictureAt}
               depth={depth + 1}
               published={published}
+              visitor={visitor}
             />
           </div>
         </div>
       );
     },
-    [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, t.muted, t.bodyFamily],
+    [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, published, visitor, t.muted, t.bodyFamily],
   );
 
   /* Another part of this page, live, in a box: a "What's new" step's preview. Not inside a page drawn on a surface. */

@@ -166,6 +166,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
           <div key={stretch ? "window" : "frame"} style={stretch ? { width: "100%" } : drawn === "desktop" ? { width, transform: `scale(${scale})`, transformOrigin: "0 0" } : { width, zoom: scale }}>
             <LiveSite
               features
+              visitor={published}
               pages={pages}
               nodes={nodes}
               pageId={page.id}
