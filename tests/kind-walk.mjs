@@ -8,7 +8,8 @@
  * On the saved PST board, Colours open:
  *   1. the wheel over a piece moves the board to its kind's parts, and the panel does not scroll;
  *   2. leaving the preview puts the board back where it was;
- *   3. a piece's Next button moves the board, and leaving after it, the board stays.
+ *   3. a piece's Next button moves the board, and leaving after it, the board stays;
+ *   4. small accents carry no count on the preview: it shows once one is picked (J, 2026-10-11).
  *
  *   npm run build && npx next start -p 3013
  *   node tests/kind-walk.mjs http://127.0.0.1:3013
@@ -65,6 +66,8 @@ await ui.waitForTimeout(1200);
 const stayed = await state();
 check("…which moves the board", stepped.top !== back.top, `${back.top} -> ${stepped.top}`);
 check("…and after a press the board stays where it was taken", Math.abs(stayed.top - stepped.top) <= 2, `${stepped.top} -> ${stayed.top}`);
+const accentCounts = await ui.evaluate(() => ({ accents: document.querySelectorAll('[data-theme-preview] [data-preview-part="accent"]').length, counts: document.querySelectorAll('[data-theme-preview] [data-preview-part="accent"] [data-preview-count]').length }));
+check("4. small accents carry no count on the preview", accentCounts.accents > 0 && accentCounts.counts === 0, JSON.stringify(accentCounts));
 check("no page errors", errors.length === 0, errors.join(" | "));
 
 await browser.close();

@@ -38,6 +38,8 @@ import { repeatsAcrossPages, thingsIn } from "./repeats.ts";
 export const KIND_SHADES = 0.025;
 /** Surfaces whose middle part is smaller than this both ways are decoration. */
 export const SPECK = 48;
+/** Specks worn by this many parts or more (a board's screw heads) are a kind of accent, not decoration to leave out. */
+export const MANY_SPECKS = 12;
 /** A strip this tall or less is a tab or label bar. */
 export const TAB_HEIGHT = 40;
 /**
@@ -465,9 +467,10 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. A big piece
      painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
      and edited as one gradient (J, 2026-10-09). */
-  const isPiece = (k: (typeof kinds)[number]) => !k.button && !k.trim && k.stops.length > 1 && k.big >= PIECE;
+  /* Its middle part big too: a hundred brass screw heads are not a piece because one ruler painted the same brass is (J, 2026-10-11). */
+  const isPiece = (k: (typeof kinds)[number]) => !k.button && !k.trim && k.stops.length > 1 && k.big >= PIECE && Math.max(k.w, k.h) >= PIECE / 2;
   /* Past the cap, a big real surface (the wood the forms and the TV stand on) is still kept: the cap drops the small things first. */
-  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK))
+  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK || k.parts >= MANY_SPECKS))
     .filter(({ k }, j) => j < cap || (!k.button && !k.accent && !k.trim && k.cover >= BIG_SURFACE * siteArea));
   const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
   /* A tab is drawn as a strip already: only a surface drawn as a box can be an accent. */

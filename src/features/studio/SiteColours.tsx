@@ -416,11 +416,19 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   /* The surfaces, the one the buttons stand in first, as wide as the frame. */
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
-  /* A big painted piece (the TV bodies) is always drawn, after the four most-worn surfaces. */
-  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece && !k.accent).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
+  /* A big painted piece (the TV bodies) is always drawn, after the six surfaces covering most of the site: the wood and paper a site is built on before a strip of one colour (J, 2026-10-11). */
+  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece && !k.accent).sort((a, b) => b.cover - a.cover).slice(0, 6), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   /* Small accent colours (a legend's dots, thin bars, edge stripes: `ACCENT_SHARE`) are a dot each, not a box as big as a panel (J, 2026-10-11). */
   const accents = site.kinds.filter((k) => k.accent && !k.progress).slice(0, 8);
+  /* An accent standing in a surface drawn here is drawn on it, one small piece for all of them (J, 2026-10-11: "a single screw on top of the red panel"). */
+  /* What it stands in, or what that stands in, until a surface drawn here: screws on brass plates on the wood go on the wood. */
+  const home = (k: SurfaceKind): number => {
+    for (let i = k.inside, n = 0; i >= 0 && n < 8; i = site.kinds[i]?.inside ?? -1, n++) if (surfaces.some((s) => at(s) === i)) return i;
+    return -1;
+  };
+  const onSurface = (k: SurfaceKind) => home(k) >= 0;
+  const atop = (where: number) => accents.filter((k) => home(k) === where);
   /* Every loading bar is one element, whatever its colours (J, 2026-10-11): one chip, a dot for its track and each colour of its level. */
   const bars = [...site.kinds.filter((k) => k.progress === "track"), ...site.kinds.filter((k) => k.progress === "level")].slice(0, 6);
   const barIds = bars.flatMap((k) => k.ids);
@@ -525,10 +533,18 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
             {count(k.parts)}
             {next(k)}
             {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
+            {atop(at(k)).length ? (
+              <div data-preview-atop="" className="absolute bottom-1.5 left-1.5 flex gap-1">
+                {atop(at(k)).map((a) => (
+                  <span key={at(a)} data-preview-part="accent" data-preview-kind={at(a)} data-preview-fill={a.fill} {...choose(at(a), a.ids)} title={`${a.name}: ${a.parts} on the site`}
+                    className={cn("block size-2.5 cursor-pointer rounded-full", ring(picked === at(a)))} style={{ background: a.paint, boxShadow: "0 0 0 1px rgb(0 0 0 / 0.35)" }} />
+                ))}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
-      {accents.length || bars.length ? (
+      {accents.some((k) => !onSurface(k)) || bars.length ? (
         <div data-preview-accents="" className="flex flex-wrap gap-x-2.5 gap-y-1">
           {bars.length ? (
             <span data-preview-part="loading-bars" title={`Loading bars: ${site.kinds.filter((k) => k.progress === "track").reduce((a, k) => a + k.parts, 0) || bars[0]!.parts} on the site. Press a dot for that colour.`}
@@ -541,12 +557,12 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
               <span data-preview-name="" className="truncate">Loading bars</span>
             </span>
           ) : null}
-          {accents.map((k) => (
+          {accents.filter((k) => !onSurface(k)).map((k) => (
             <span key={at(k)} data-preview-part="accent" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site, a small accent`}
               className={cn("group relative inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2.5 text-fine", ring(picked === at(k)))}>
               <span data-preview-dot="" className="size-3 shrink-0 rounded-full" style={{ background: k.paint, boxShadow: "0 0 0 1px rgb(0 0 0 / 0.35)" }} />
               <span data-preview-name="" className="max-w-[9rem] truncate">{k.name}</span>
-              {count(k.parts, true)}
+              {/* Small things carry no number here: it shows once one is picked (J, 2026-10-11). */}
               {next(k, true)}
             </span>
           ))}
