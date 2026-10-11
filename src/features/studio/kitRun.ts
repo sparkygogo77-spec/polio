@@ -45,6 +45,8 @@ export interface KitManifest {
   /** The scene file and the samples file (BUILDER-RULES.md rules 15 and 17), read with it (`stateRules.ts`). */
   scenes?: string;
   samples?: string;
+  /** The kit's ready-made parts (BUILDER-RULES.md "Game parts on the shelf"): their css and js are named from this file's folder. */
+  parts?: string;
 }
 
 /** A style or setting the builder learns (BUILDER-RULES.md rule 4): a token one part uses, shown by its label in the part's Settings. */
@@ -196,8 +198,10 @@ const TEXT = /\.(html?|css|m?js|json|md|ya?ml)$/i;
 const MOST_FILES = 400;
 
 /**
- * Every text file the kit's check reads: `builder.json` and each folder
- * holding a page, a stylesheet or the map, as on `ref`.
+ * Every text file the kit's check reads: `builder.json`, each folder
+ * holding a page, a stylesheet or the map, the parts file's folder, and the
+ * files it names by path wherever they sit (PonsStars keeps its scenes and
+ * samples in kit/, beside no page), as on `ref`.
  */
 export async function kitFiles(repo: string, ref: string, token: string, manifest: KitManifest, opts: { fetch?: Fetch } = {}): Promise<Answer<{ files: Record<string, string> }>> {
   const f = opts.fetch ?? fetch;
@@ -206,7 +210,9 @@ export async function kitFiles(repo: string, ref: string, token: string, manifes
   if (!list) return { ok: false, says: `GitHub would not list ${repo} on ${ref}.` };
   const top = (p: string) => (p.includes("/") ? `${p.split("/")[0]}/` : "");
   const dirs = new Set([manifest.hooks, manifest.tokens, manifest.styleLayer, manifest.preview?.page ?? "", manifest.gallery ?? "", ...manifest.pages.map((p) => p.file)].filter(Boolean).map(top));
-  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (e.path === "builder.json" || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
+  if (manifest.parts) dirs.add(manifest.parts.slice(0, manifest.parts.lastIndexOf("/") + 1));
+  const exact = new Set(["builder.json", manifest.scenes, manifest.samples, manifest.tokensModule].filter(Boolean));
+  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (exact.has(e.path) || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
   if (want.length > MOST_FILES) return { ok: false, says: `${repo} has ${want.length} files beside its pages, more than the Builder checks at once (${MOST_FILES}).` };
   const files: Record<string, string> = {};
   for (const e of want) {
