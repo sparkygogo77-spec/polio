@@ -691,7 +691,7 @@ export function RadialMenu() {
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "edge", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,

@@ -603,6 +603,8 @@ await page.waitForTimeout(200);
  */
 const STATES = new Set(["pressed", "expanded", "disabled", "checked", "selected", "current", "required", "invalid", "readonly", "modal", "hidden"]);
 const markRoles = async () => {
+/* Marks from an earlier read on the same page (a press undone in place) would stay on an element whose state is gone: swept first. */
+await page.evaluate(() => { for (const el of document.querySelectorAll("[data-ax-role],[data-ax-name],[data-ax-state]")) { delete el.dataset.axRole; delete el.dataset.axName; delete el.dataset.axState; } }).catch(() => {});
 const cdp = await context.newCDPSession(page);
 await cdp.send("DOM.enable");
 await cdp.send("Accessibility.enable");
@@ -1323,9 +1325,9 @@ if (withStates) {
       /* Pressed, then let go and the pointer taken away: what the press changed, not the hover it leaves behind. */
       await page.mouse.move(-5, -5).catch(() => {});
       /* What its canvases showed after it, in order, from the moment it was made: the device's screen answering the press ("still an egg." for a second). The read below waits as long, for what moves into place. */
-      await page.waitForTimeout(frameSecs > 0 ? 100 : 800);
-      /* A panel that arrives late: the page let settle once it moved, or given a while when it did not (presses.mjs). */
-      if (!(frameSecs > 0 && !opt.single)) await afterPress(page);
+      await page.waitForTimeout(hasCanvas ? 100 : 800);
+      /* A panel that arrives late: the page let settle once it moved, or given a while when it did not (presses.mjs). Only a canvas watch stands in for that wait. */
+      if (!(hasCanvas && !opt.single)) await afterPress(page);
       page.off("popup", onPopup);
       const did = (await page.evaluate(() => window.__sinkPress?.end()).catch(() => null)) ?? { count: 0 };
       movedBy = did.pushedBy ?? null;
@@ -1367,6 +1369,8 @@ if (withStates) {
         const live = await page.evaluate((sel) => { const el = document.querySelector(sel); if (!el) return null; const out = []; for (let n = el; n && n !== document.body; n = n.parentElement) { let i = 1; for (let s = n.previousElementSibling; s; s = s.previousElementSibling) if (s.localName === n.localName) i++; out.unshift(`${n.localName}:nth-of-type(${i})`); } return `body > ${out.join(" > ")}`; }, sel).catch(() => null);
         heldPresses.push({ trigger, held: "server-call", hook: [...new Set(wrote.map((q) => `${q.method} ${q.url.replace(/^\w+:\/\//, "")}`))].join("; "), label: opt.name, control: opt.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `press-${opt.g}-${opt.o}`, selector: live });
         console.error(`state ${opt.g}:${opt.o} (${opt.name}) would write (${wrote.map((q) => q.key).join(", ")}): stopped, and held`);
+        /* Timers the press armed would otherwise fire under the next press and be read as its own. */
+        await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {});
         continue;
       }
       await page.evaluate(() => scrollTo(0, 0));
