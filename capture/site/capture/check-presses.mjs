@@ -30,11 +30,17 @@
  *       and a Log In beside it is never pressed, only held;
  *  (10) under a terms gate hidden (never agreed to) whose page locks the
  *       pointer again when a search palette closes, the palette and the
- *       presses after it are all states.
+ *       presses after it are all states;
+ *  (12) a press that writes over a WebSocket the page opened as it loaded
+ *       is stopped before it leaves and held, the frame kept only as its
+ *       shape, while what the page sent on its own (its subscribe as the
+ *       socket opened) went through; a press that writes by sendBeacon is
+ *       stopped and held the same way.
  *
  *   node capture/site/capture/check-presses.mjs
  */
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -61,6 +67,7 @@ body{margin:0;font:15px sans-serif}button{margin:6px;padding:6px 10px}#panel{dis
 <section><button type="button" id="port">Portfolio</button></section>
 <section><button type="button" id="menu">Menu</button></section>
 <section><button type="button" id="signin">Rewards</button><button type="button" id="login">Log In</button><div id="modal" hidden><p>STANDIN rewards panel</p></div></section>
+<section><button type="button" id="cheer">Cheer</button><button type="button" id="like" style="margin-left:40px">Like</button></section>
 <main id="view">STANDIN home</main>
 <script>
 tabs.addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (!b) return; tabs.querySelectorAll("[data-t]").forEach((x) => x.setAttribute("aria-selected", String(x === b))); range.textContent = "STANDIN " + b.dataset.t; });
@@ -77,6 +84,10 @@ addEventListener("popstate", () => { if (!location.search.includes("rewards")) m
 menu.onclick = () => { document.body.style.overflow = "hidden"; document.body.classList.add("menu-open"); const m = document.createElement("nav"); m.innerHTML = "<p>STANDIN menu item one</p><p>STANDIN menu item two</p>"; menu.parentElement.append(m); };
 port.onclick = () => { const d = document.createElement("div"); d.setAttribute("role", "dialog"); d.innerHTML = "<h2>Connect a wallet</h2><p>Phantom</p>"; document.body.append(d); };
 save.onclick = () => { fetch("/api/save", { method: "POST", body: "{}" }); };
+const feed = new WebSocket(location.origin.replace(/^http/, "ws") + "/feed");
+feed.onopen = () => { feed.send(JSON.stringify({ type: "subscribe", channel: "STANDIN" })); };
+cheer.onclick = () => { if (feed.readyState === 1) feed.send(JSON.stringify({ type: "cheer", team: "STANDIN", by: "STANDIN0WALLET0000000000000001" })); };
+like.onclick = () => { navigator.sendBeacon("/api/like", JSON.stringify({ id: 1 })); };
 </script></body></html>`;
 
 /* A page under a terms gate, as a modal library keeps one: the pointer locked on <body> while it is open, and locked again whenever another modal (a search palette) closes. */
@@ -106,6 +117,30 @@ const server = createServer((req, res) => {
   if (req.url === "/gated") { res.writeHead(200, { "content-type": "text/html" }); return res.end(GATED); }
   if (req.url.startsWith("/api/")) { res.writeHead(200, { "content-type": "application/json" }); return res.end("{}"); }
   res.writeHead(200, { "content-type": "text/html" }); res.end("<p>STANDIN elsewhere</p>");
+});
+/* A WebSocket at /feed, by hand (no library here): the handshake answered, each text frame the page sends written down as `WS <words>`, nothing sent back. */
+server.on("upgrade", (req, socket) => {
+  if (req.url !== "/feed") return socket.destroy();
+  const accept = createHash("sha1").update(`${req.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+  socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+  let buf = Buffer.alloc(0);
+  socket.on("data", (d) => {
+    buf = Buffer.concat([buf, d]);
+    for (;;) {
+      if (buf.length < 2) return;
+      const op = buf[0] & 0x0f, masked = !!(buf[1] & 0x80);
+      let len = buf[1] & 0x7f, at = 2;
+      if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); at = 4; } else if (len === 127) { if (buf.length < 10) return; len = Number(buf.readBigUInt64BE(2)); at = 10; }
+      const need = at + (masked ? 4 : 0) + len;
+      if (buf.length < need) return;
+      const mask = masked ? buf.subarray(at, at + 4) : null, body = Buffer.from(buf.subarray(at + (masked ? 4 : 0), need));
+      if (mask) for (let i = 0; i < body.length; i++) body[i] ^= mask[i % 4];
+      if (op === 1) got.push(`WS ${body.toString("utf8")}`);
+      if (op === 8) socket.end();
+      buf = buf.subarray(need);
+    }
+  });
+  socket.on("error", () => {});
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -174,6 +209,11 @@ check("(11) …and the Log In beside it was never pressed, only held", !states.s
 const gnames = (gcap.states ?? []).map((st) => st.name);
 check("(10) under a hidden gate, the palette is a state and so are the presses after it", gc.status === 0 && gnames.includes("Search") && gnames.includes("Newest") && gnames.includes("Help"), J({ status: gc.status, states: gnames, err: gc.err.trim().split("\n").filter((l) => /not back|states:|presses:/.test(l)).slice(0, 6) }));
 check("(10) …and the gate was never agreed to", !got.includes("POST /api/agree"));
+
+const socketHeld = held.find((h) => h.label === "Cheer");
+check("(12) a press that writes over an open WebSocket is stopped before it leaves, and held", !got.some((g) => /^WS .*cheer/.test(g)) && socketHeld?.held === "server-call" && /^WS 127\.0\.0\.1:\d+\/feed$/.test(socketHeld.hook ?? "") && !states.some((st) => st.part === part("Cheer")?.id), J({ held: socketHeld, got: got.filter((g) => /^WS /.test(g)), states: states.map((s) => s.name) }));
+check("(12) …its frame is kept only as its shape, and what the page sent on its own went through", !J(doc).includes("STANDIN0WALLET") && got.some((g) => /^WS .*"subscribe"/.test(g)), J(got.filter((g) => /^WS /.test(g))));
+check("(12) a press that writes by sendBeacon is stopped before it leaves, and held", !got.some((g) => /\/api\/like/.test(g)) && held.some((h) => h.label === "Like" && h.held === "server-call"), J({ held: held.find((h) => h.label === "Like"), got: got.filter((g) => /like/.test(g)) }));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length}`);
