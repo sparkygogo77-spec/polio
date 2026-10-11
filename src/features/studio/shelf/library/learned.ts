@@ -133,7 +133,7 @@ const tied = (u: { id: string; inputs?: Record<string, string> }) => travelling(
 /** What a site's parts carried that nothing else turns into a feature: behaviours sink recorded, by group. */
 const GROUP_GIVES: Record<string, string[]> = {
   reveal: ["reveal"], intro: ["reveal"], scrollClass: ["scroll-header"], pointer: ["follow-pointer", "tilt"], loops: ["marquee"],
-  idle: ["blink", "spin", "float"], loader: ["crt-loader"], states: ["press-shows"], presses: ["copy-toast"], glide: ["glide"],
+  idle: ["blink", "spin", "float"], loader: ["crt-loader", "loader-film"], states: ["press-shows"], presses: ["copy-toast"], glide: ["glide"],
   worlds: ["world-dialogs"],
 };
 const GROUP_WORDS: Record<string, string> = {

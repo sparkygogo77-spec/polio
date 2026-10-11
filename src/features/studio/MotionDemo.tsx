@@ -27,7 +27,7 @@ const KIND: Record<string, string> = {
   "reveal-on-scroll": "reveal", reveal: "reveal",
   "scroll-progress": "progress", "scroll-snap": "snap", "smooth-scroll": "smooth",
   parallax: "parallax", "cursor-effects": "cursor", "hover-tilt": "tilt", tilt: "tilt",
-  "page-load": "intro", "crt-loader": "intro", "page-transitions": "transition", confetti: "confetti",
+  "page-load": "intro", "crt-loader": "intro", "loader-film": "intro", "page-transitions": "transition", confetti: "confetti",
   "back-to-top": "top", marquee: "marquee", blink: "blink", spin: "spin", float: "float",
   "sticky-story": "sticky", "horizontal-scroll": "sideways", "scroll-video": "film",
   "morph-transition": "morph", physics: "physics", "infinite-scroll": "more",

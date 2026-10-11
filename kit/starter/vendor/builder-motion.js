@@ -12,7 +12,7 @@
 /* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
   var defs = {};
-  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths","moving-frames"];
+  var NOT_ON_COPIES = ["crt-loader","loader-film","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths","moving-frames"];
   function leaf(el) {
     var kids = el.childNodes || [];
     for (var i = 0; i < kids.length; i++) if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue)) return el;
@@ -741,6 +741,47 @@ siteFeatures.define("crt-loader", function (el, inputs) {
 });
 
   })(F);
+  /* Loading screen as captured: The site's own loading screen, as the capture pictured it, over the whole window as the page opens; it fades as the original did. */
+  (function (siteFeatures) {
+siteFeatures.define("loader-film", function (el, inputs) {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.querySelector("[data-loader-film]")) return;
+  /* The part's own picture, or the file a code site names; a picture still on its way (the Preview's comes a moment after the part) is waited for. */
+  var find = function () { var img = el.querySelector && el.querySelector("img"); return String(inputs.src || "").trim() || (img && (img.getAttribute("src") || img.currentSrc)) || ""; };
+  var first = find();
+  if (first) return show(first);
+  if (!window.MutationObserver) return;
+  var mo = new MutationObserver(function () { var s = find(); if (s) { mo.disconnect(); show(s); } });
+  mo.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ["src"] });
+  setTimeout(function () { mo.disconnect(); }, 8000);
+  function show(src) {
+  if (document.querySelector("[data-loader-film]")) return;
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  var at = num(inputs.at, 2) * 1000, fade = Math.max(0, num(inputs.fade, 0.6) * 1000);
+  var o = document.createElement("div");
+  o.setAttribute("data-loader-film", ""); o.setAttribute("aria-hidden", "true");
+  o.style.cssText = "position:fixed;inset:0;z-index:2147482000;overflow:hidden;background:" + (String(inputs.bg || "").trim() || "#000");
+  var p = document.createElement("img");
+  p.alt = ""; p.src = src;
+  p.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block";
+  o.appendChild(p);
+  document.body.appendChild(o);
+  var root = document.documentElement, flow = root.style.overflow;
+  root.style.overflow = "hidden";
+  /* On the visitor's clock from the navigation, as the original went; a page whose script ran late still shows it a moment. */
+  var now = window.performance && performance.now ? performance.now() : 0;
+  var wait = Math.max(600, at - now);
+  setTimeout(function () {
+    root.style.overflow = flow;
+    var done = function () { if (o.parentNode) o.parentNode.removeChild(o); };
+    if (!fade || !o.animate) { done(); return; }
+    var a = o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fade, easing: "ease", fill: "forwards" });
+    a.onfinish = done;
+    setTimeout(done, fade + 400);
+  }, wait);
+  }
+});
+
+  })(F);
   /* Copy with toast: A click copies the part's words, or the text it was given, and a small toast says so. For contract addresses. */
   (function (siteFeatures) {
 siteFeatures.define("copy-toast", function (el, inputs) {
@@ -1310,7 +1351,7 @@ siteFeatures.define("compare", function (el, inputs) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"moving-frames":{"kind":"loop","pointer":"","scroll":"","every":"100","src":""},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"moving-frames":{"kind":"loop","pointer":"","scroll":"","every":"100","src":""},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"loader-film":{"at":"2","fade":"0.6","bg":"#000","src":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

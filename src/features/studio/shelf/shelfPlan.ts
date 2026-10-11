@@ -126,7 +126,7 @@ export const VARIANTS: Record<string, { self: string; more: VariantDef[] }> = {
   parallax: { self: "The page background", more: [{ key: "work:follow-pointer", label: "Layers follow the pointer" }] },
   "smooth-scroll": { self: "The whole page", more: [{ key: "work:glide", label: "Links glide to their place" }] },
   "hover-tilt": { self: "Every part, on every page", more: [{ key: "work:tilt", label: "One part" }] },
-  "page-load": { self: "A wipe as the page opens", more: [{ key: "work:crt-loader", label: "An old television tuning in" }] },
+  "page-load": { self: "A wipe as the page opens", more: [{ key: "work:crt-loader", label: "An old television tuning in" }, { key: "work:loader-film", label: "The site's own loading screen, as captured" }] },
   /* Interaction */
   "copy-button": { self: "A value and a Copy button", more: [{ key: "work:copy-toast", label: "Any part copies its words" }] },
   shortcuts: { self: "Keys and a cheat sheet", more: [{ key: "hotkey-first", label: "Everything by keyboard" }] },

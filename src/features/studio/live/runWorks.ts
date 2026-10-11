@@ -143,7 +143,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
   }
   return () => {
     for (const t of timers) window.clearInterval(t);
-    document.querySelectorAll("[data-crt]").forEach((o) => o.remove());
+    document.querySelectorAll("[data-crt], [data-loader-film]").forEach((o) => o.remove());
     document.documentElement.style.overflow = "";
     for (const { el, style } of touched) {
       for (const a of el.getAnimations?.() ?? []) if (!(a as { animationName?: string }).animationName) a.cancel();
