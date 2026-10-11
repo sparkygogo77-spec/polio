@@ -39,7 +39,7 @@ import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
 import { olderBuilder, readLastBring, resetToLastBring, useLastBring } from "./lastBring";
-import { defaultBranch, fileOnDefault } from "./kitRun";
+import { fileWherePublished, publishBranch } from "./kitRun";
 import { LANE_MODE } from "./loop";
 import { NEXT_PATH, asksToSend, fixedIn, promotePending, sentMerged, sentUnmerged } from "./fixLoop";
 import { asksNow, gatherAsks } from "./publishAsks";
@@ -87,12 +87,12 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     window.addEventListener("focus", back);
     return () => { window.clearInterval(t); window.removeEventListener("focus", back); };
   }, [read]);
-  /* The branch Publish merges into and Refresh reads polio/NEXT.md from: the default one, whatever branch the board came from (`styleLayerRun.ts`). One request per repository. */
-  const [main, setMain] = React.useState<string | null>(null);
+  /* The branch Publish merges into and Refresh reads polio/NEXT.md from: the one the board came from (`kitRun.ts#publishBranch`), and the default one to say when they differ. One read per board. */
+  const [into, setInto] = React.useState<{ branch: string; main: string } | null>(null);
   React.useEffect(() => {
-    setMain(null);
-    void defaultBranch(fetch, heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "", source.repo).then((m) => setMain(m.ok ? m.branch : null)).catch(() => {});
-  }, [source.repo]);
+    setInto(null);
+    void publishBranch(fetch, heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "", source).then((m) => setInto(m.ok ? { branch: m.branch, main: m.main } : null)).catch(() => {});
+  }, [source.repo, source.ref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const say = (title: string, body: string, level: "info" | "success" | "warn" = "info") => ctx.publish({ key: "studio:code-site", title, body, level, source: "studio", toast: { durationMs: 9000 } });
 
@@ -101,9 +101,9 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     const was = fixLoopOf(useStudio.getState().look);
     if (!was.sent.length && !was.pending?.length) return;
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
-    /* Read where Publish merged it, the default branch, not the branch the board came from. */
-    const md = await fileOnDefault(fetch, token, source.repo, NEXT_PATH).catch(() => null);
-    /* Lines from a pull request not merged count only once the default branch has them: until then their absence is not a fix. */
+    /* Read where Publish merged it: the branch the board came from. */
+    const md = await fileWherePublished(fetch, token, source, NEXT_PATH).catch(() => null);
+    /* Lines from a pull request not merged count only once that branch has them: until then their absence is not a fix. */
     const loop = promotePending(was, md);
     const fixed = fixedIn(loop.sent, md);
     if (!fixed.length) { if (loop !== was) setFixLoop(loop); return; }
@@ -194,7 +194,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       if (commit === merged.sha) setHead(merged.sha); else void read();
       play("confirm");
       const moved = commit === merged.sha ? "" : " The code had moved on since this board read it: Refresh (Keep my changes) brings in what changed.";
-      say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.${moved}`, "success");
+      say("Published", `The design is merged into ${source.repo}${into ? ` on ${into.branch}` : ""} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.${moved}`, "success");
     } finally {
       setBusy(null);
     }
@@ -264,8 +264,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
           <FixNote source={source} />
           {status?.at === "behind" ? <p data-code-publish-behind="" className="text-warning">{status.says} Publishing first is fine: the code keeps its changes, and Refresh stays orange until they are on the board.</p> : null}
           <p>{changes}. Only the look changes: the style layer{source.kit ? ", the hooks map made from it" : ""} and the design record. Its scripts, pages and every hook stay as they are.</p>
-          <p>It goes on a new style/ branch and is merged into {main ?? "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
-          {main && source.ref && source.ref !== main ? <p data-code-publish-base="">This board came from {source.ref}; Publish merges into {main}.</p> : null}
+          <p>It goes on a new style/ branch and is merged into {into?.branch ?? (source.ref || "the default branch")} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
+          {into && into.branch !== into.main ? <p data-code-publish-base="">This board came from {into.branch}, so Publish merges there and leaves {into.main} as it is.</p> : null}
           {layer.rules.length ? <p className="text-small text-fg-faint">{layer.rules.slice(0, 6).map((r) => r.selector).join(", ")}{layer.rules.length > 6 ? ", …" : ""}</p> : null}
         </div>
       </Dialog>
