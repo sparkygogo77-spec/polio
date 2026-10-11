@@ -3785,6 +3785,12 @@ remove it from `src/features/index.ts` when you're sure.
   `onSave`, never "Saving…" on every edit, and red when the browser would
   not keep it. It opens the backups, and once per site that was never
   backed up or published it opens by itself after ten edits (`nudged`).
+  **A tab never saves over another tab's newer work**: every saved document
+  carries the stamp of the tab that wrote it (`docStore.ts`), and a tab
+  behind another's save writes nothing. With nothing of its own unsaved it
+  takes the newer work; otherwise the line goes red and a bubble asks for
+  the newer work or this tab's, or, when the other tab opened a different
+  site, a reload (`board/store/load.ts`, "Another tab"; `tests/two-tabs.mjs`).
 - **One molten surface, not two reds that nearly match**
   (`src/core/ui/molten.css`, handle in `src/core/ui/molten.ts`). Glowing
   constructs — the timeline's iteration boxes, the element cards — are one

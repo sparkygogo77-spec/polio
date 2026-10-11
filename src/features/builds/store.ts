@@ -15,7 +15,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/board/store";
+import { otherTab, swapDoc, takeCarriedRepo, takeOpenSite, useStudio } from "@/features/studio/board/store";
 import { flushDocs, isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
@@ -161,6 +161,20 @@ interface Builds {
 const read = (key: string): Promise<string | null> => Promise.resolve(readDoc(key));
 const write = (key: string, value: string | null): Promise<void> => writeDocNow(key, value);
 
+/*
+ * ANOTHER TAB OPENED A DIFFERENT SITE (`otherTab`, board/store/load.ts). The
+ * live key holds that site now, and this tab's list still names the one it had
+ * open: saved as this tab understood it, the other site's work would go into
+ * this one's slot, over this one's. So this tab writes no list until it has
+ * caught up, and a site action here catches up first, the way a reload would:
+ * the list read again, and the live key's document on the board.
+ */
+async function caughtUp(): Promise<void> {
+  if (otherTab() !== "moved") return;
+  await useBuilds.persist.rehydrate();
+  takeOpenSite(await read(LIVE));
+}
+
 /**
  * A project's document, as the Builder would have loaded it.
  *
@@ -233,6 +247,7 @@ export const useBuilds = create<Builds>()(
       },
 
       save: async () => {
+        await caughtUp();
         const id = get().activeId;
         if (!id) return;
         /* The last edit may still be waiting to reach IndexedDB (writeDoc
@@ -289,6 +304,7 @@ export const useBuilds = create<Builds>()(
       },
 
       open: async (id) => {
+        await caughtUp();
         if (get().activeId === id) return;
         await get().save();
         const held = await read(slot(id));
@@ -318,6 +334,7 @@ export const useBuilds = create<Builds>()(
       },
 
       remove: async (id) => {
+        await caughtUp();
         const was = get().activeId;
         await write(slot(id), null);
         set((s) => {
@@ -366,6 +383,7 @@ export const useBuilds = create<Builds>()(
 
       /* Beside the others, never over one: a backup loaded is a new site, and the one open stays as it is. */
       restore: async (p, raw) => {
+        await caughtUp();
         const id = uid();
         await write(slot(id), raw);
         set((s) => ({ projects: [{ ...p, id, updatedAt: Date.now() }, ...s.projects] }));
@@ -389,6 +407,8 @@ export const useBuilds = create<Builds>()(
         getItem: (k) => localStorage.getItem(k),
         removeItem: (k) => localStorage.removeItem(k),
         setItem: (k, v) => {
+          /* Never naming the site this tab had open over another tab's switch (`caughtUp`). */
+          if (otherTab() === "moved") return;
           let failed = false;
           try { localStorage.setItem(k, v); } catch { failed = true; }
           if (useBuilds.getState().saveFailed !== failed) useBuilds.setState({ saveFailed: failed });
