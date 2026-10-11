@@ -22,4 +22,5 @@ deeper fails `tests/module-doors.mjs`. Files in here import each other freely.
 | `exportSite.ts` | Exporting the board as a site |
 | `kitPublish.ts` | Publishing the builder kit into a site's repository |
 | `goLive.ts` | Going live on Vercel |
+| `pagesRecord.ts` | The page files a push wrote, so the next takes off the ones no longer pages |
 | `publishCheck.ts` | The checks run before publishing |

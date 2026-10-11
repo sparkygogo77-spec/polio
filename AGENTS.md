@@ -3025,7 +3025,12 @@ a kicker with a rule, and label-and-value rows that copy.
   repository through the git data API, then calls `VERCEL_DEPLOY_HOOK` when
   set. It pushes `site/document.json` (the document; the app renders it at
   `/site`), `site/BLUEPRINT.md`, `site/blueprint.json` and any generated
-  files. Paths are checked (`safePath`); files are capped. The token rides
+  files. A push of the site also carries `site/pages.json`, the page files it
+  wrote, and the commit takes off each page file the branch's record names
+  and the new one does not, so a page deleted or renamed on the board leaves
+  the live site; nothing a record never named is removed
+  (`send-out/pagesRecord.ts`). Paths are checked (`safePath`); files are
+  capped. The token rides
   from the browser as `x-github-token` and `GITHUB_TOKEN` is the fallback;
   `GET` says only whether one would be found, never what it is. A site with
   no repository sends `create` and gets a private one made for it, named

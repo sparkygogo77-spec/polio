@@ -21,6 +21,7 @@ import { deploy, productionAddress, publish, siteFiles, watchDeploy, type Deploy
 import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
 import { kitAfterPush, type KitSent } from "./kitPublish";
+import { pagesRecord } from "./pagesRecord";
 import { sitePictures } from "../staticSite";
 import { useStudio } from "../board/store";
 import { contractFiles } from "../shelf";
@@ -243,7 +244,9 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
       address: address ?? null,
     }),
   };
-  const all = [...pages, ...shots, ...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described];
+  /* And the page files this push writes: a page deleted or renamed on the board since the last push comes off the site (`pagesRecord.ts`). */
+  const record = pagesRecord(pages);
+  const all = [...pages, ...(record ? [record] : []), ...shots, ...contract, ...(described.some((d) => d.path === POLIO_MD) ? [] : [polio]), ...described];
   /*
    * NOTHING A PAGE POINTS AT IS LEFT BEHIND (`siteRefs.ts`). What the
    * Builder serves itself (its `public/` files: the construct faces, the
@@ -340,7 +343,8 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
     set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook }, step: { at: "waiting", saved: { repo: pushed.repo, branch: pushed.branch }, siteId: here?.id ?? null } });
     const saved = { repo: pushed.repo, branch: pushed.branch };
     /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */
-    if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
+    const gone = pushed.removed?.length ?? 0;
+    if (typeof pushed.changed === "number" && typeof pushed.total === "number") say({ key: "studio:publish", title: `${pushed.changed} of ${pushed.total} files changed`, body: `Pushed to ${pushed.repo} on ${pushed.branch}${gone ? `, and took off ${gone} page${gone === 1 ? "" : "s"} no longer on the board` : ""}; building next.`, level: "info", source: "studio", toast: true, href: pushed.commitUrl });
     useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
 
     setBusy("Asking Vercel to build it…");

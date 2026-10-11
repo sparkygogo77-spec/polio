@@ -10,6 +10,7 @@ import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "../board/store";
 import { MERGED_FILES } from "../shelf";
+import { PAGES_RECORD } from "../send-out";
 import { publishedHead, type SiteHead } from "../siteHead";
 import { standInOn } from "../standIn";
 
@@ -691,7 +692,9 @@ export function siteFiles(_markdown?: string, _json?: string): GeneratedFile[] {
 export type PublishResult =
   | { ok: true; sha: string; /** The tip the commit was written on; null for a repository's first. */ parent?: string | null; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
       /** How many files had changed from what the branch held, of how many the site is: only those were sent (`tests/publish-changed.mjs`). */
-      changed?: number; total?: number }
+      changed?: number; total?: number;
+      /** Page files the push took off the branch: pages deleted or renamed on the board since the last push (`pagesRecord.ts`). */
+      removed?: string[] }
   /* A failure can still have made the repository, and says so, so the next
      press goes to the one that exists rather than making another. */
   | { ok: false; message: string; reason?: string; created?: string; repo?: string; /** Set when the Builder's own server failed rather than answering. */ serverStatus?: number; status?: number };
@@ -853,7 +856,7 @@ const PIECE = 3_000_000;
 const RESUMES = 12;
 type Answer = PublishResult & { staged?: { path: string; sha: string }[]; pending?: string[]; wait?: number };
 /** What the route reads as it commits, so it goes in the last request, never a part. */
-const COMMITTED_LAST = new Set(["site/document.json", ...MERGED_FILES]);
+const COMMITTED_LAST = new Set(["site/document.json", PAGES_RECORD, ...MERGED_FILES]);
 
 type Sent = { path: string; content: string; encoding?: "base64" | "gzip" };
 
