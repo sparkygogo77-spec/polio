@@ -157,10 +157,14 @@ export function useStudioHydration() {
   }, []);
 }
 
-/** The live preview address for a page; the home page has no suffix. */
-export function livePath(pageId?: string): string {
+/**
+ * The live preview address for a page; the home page has no suffix. The
+ * published site (/site) passes its own base, so a visitor's page link stays
+ * on the site instead of landing in the Builder's preview.
+ */
+export function livePath(pageId?: string, base = "/builder/preview"): string {
   const s = useStudio.getState();
   const page = s.pages.find((p) => p.id === (pageId ?? s.activePageId)) ?? s.pages[0];
   const path = page?.path ?? "/";
-  return "/builder/preview" + (path === "/" ? "" : path);
+  return base + (path === "/" ? "" : path);
 }

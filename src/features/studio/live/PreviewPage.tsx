@@ -104,9 +104,10 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   const goPage = React.useCallback(
     (id: string) => {
       play("navigate");
-      router.push(livePath(id));
+      /* On /site a page link is the visitor's, and stays on /site. */
+      router.push(livePath(id, published ? "/site" : undefined));
     },
-    [router],
+    [router, published],
   );
 
   return (
