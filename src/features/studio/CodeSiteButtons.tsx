@@ -34,7 +34,7 @@ import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
-import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./send-out";
+import { codeStatus, commitAfterPublish, headOf, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
@@ -169,14 +169,21 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       setBusy("Merging…");
       const merged = await mergePull(source.repo, sent.pull, token, { title: `Design from the Builder: ${site}` });
       if (!merged.ok) { say("Sent, not merged", merged.says, "warn"); return; }
-      /* The code has the design now: what is published, and the commit it is at, so Refresh is green. */
+      /*
+       * The code has the design now: what is published, and the commit it is at, so Refresh is green.
+       * Only when the merge sat on the commit the board was read at: a code chat's change merged in
+       * between is not on the board, so the board keeps its commit and Refresh stays orange.
+       */
       const st = useStudio.getState();
       const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
-      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit: merged.sha } } as never);
+      const parent = await parentOf(source.repo, merged.sha, token).catch(() => null);
+      const commit = commitAfterPublish(now?.commit ?? source.commit, parent, merged.sha);
+      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit } } as never);
       if (adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...adding] }); }
-      setHead(merged.sha);
+      if (commit === merged.sha) setHead(merged.sha); else void read();
       play("confirm");
-      say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.`, "success");
+      const moved = commit === merged.sha ? "" : " The code had moved on since this board read it: Refresh (Keep my changes) brings in what changed.";
+      say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.${moved}`, "success");
     } finally {
       setBusy(null);
     }
@@ -244,6 +251,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       >
         <div data-code-publish-says="" className="space-y-2 text-plain text-fg-muted">
           <FixNote source={source} />
+          {status?.at === "behind" ? <p data-code-publish-behind="" className="text-warning">{status.says} Publishing first is fine: the code keeps its changes, and Refresh stays orange until they are on the board.</p> : null}
           <p>{changes}. Only the look changes: the style layer{source.kit ? ", the hooks map made from it" : ""} and the design record. Its scripts, pages and every hook stay as they are.</p>
           <p>It goes on a new style/ branch and is merged into {source.ref || "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
           {layer.rules.length ? <p className="text-small text-fg-faint">{layer.rules.slice(0, 6).map((r) => r.selector).join(", ")}{layer.rules.length > 6 ? ", …" : ""}</p> : null}

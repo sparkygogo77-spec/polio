@@ -2,7 +2,7 @@
  * Exporting a site, publishing the kit, going live and the publish check (they need the bundler's imports) are behind ./run.ts. Named re-exports (not export *) so an import cycle still sees every name. See README.md. */
 export { KIT_COLOUR, applyToPage, artCss, baselineAsLanded, buildLayer, changedDeclarations, colourKey, fontKey, hookCounts, isColour, kitDeclarations, layerBranch, linkHref, lookOf, partSlots, partTokens, selectorFor, statesCss, svgDeclarations, wearTextures, wordsOf } from "./styleLayer.ts";
 export type { CssLook, HookCheck, HookFate, Layer, LayerNode, LayerState, NodeSource, PartCode, StyleSource, TextEdit } from "./styleLayer.ts";
-export { codeStatus, headOf, issueFiles, layerPrint, mergePull, pushBranch } from "./codePublish.ts";
+export { codeStatus, commitAfterPublish, headOf, issueFiles, layerPrint, mergePull, parentOf, pushBranch } from "./codePublish.ts";
 export type { CodeStatus, Issue } from "./codePublish.ts";
 export { zipFiles } from "./zipWrite.ts";
 export { DESIGN_DIR, changesJson, changesMarkdown, deletedOnBoard, designBranch, designFiles, gitBlobSha, githubWhy, hookChanges, hooksOnBoard, readHookMap, removedLine, sendDesign, withRefs } from "./designBranch.ts";
