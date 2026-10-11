@@ -90,13 +90,37 @@ export interface GroundLayer {
   fixed?: boolean;
   z?: number;
   animation?: MotionAnimation[];
+  /** Its box as the page measured it, px (a fixed one's against the window). */
+  box?: { x: number; y: number; w: number; h: number };
+  /** How its own background layers blend (`background-blend-mode`). */
+  blendLayers?: string;
+  mask?: string;
+  maskOptions?: string[];
 }
-export interface PageGround { layers?: GroundLayer[] }
+export interface PageGround { layers?: unknown[] }
+
+/** A layer as the importer stores it (`siteread/faces.ts` `PageRead.layers`): where it came from, its box, its paint under `art`. */
+interface ReadLayer { from: string; position?: "absolute" | "fixed"; box?: { x: number; y: number; w: number; h: number }; z?: number | null; art?: { colour?: string; background?: string; backgroundOptions?: string[]; backgroundBlend?: string; filter?: string; mask?: string; maskOptions?: string[]; blend?: string; opacity?: number } }
+
+/** Either shape, as one. */
+function asLayer(raw: unknown): GroundLayer | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as ReadLayer & GroundLayer;
+  if (typeof r.from === "string") {
+    const a = r.art ?? {};
+    return {
+      which: r.from, color: a.colour, background: a.background, size: a.backgroundOptions?.[0], position: a.backgroundOptions?.[1], repeat: a.backgroundOptions?.[2],
+      blendLayers: a.backgroundBlend, blend: a.blend, opacity: a.opacity, filter: a.filter, mask: a.mask, maskOptions: a.maskOptions,
+      fixed: r.position === "fixed", ...(typeof r.z === "number" ? { z: r.z } : {}), ...(r.box ? { box: r.box } : {}),
+    };
+  }
+  return typeof r.which === "string" ? r : null;
+}
 
 /** The page's own layers, when its record carries them. */
 export function groundLayersOf(page: unknown): GroundLayer[] {
   const list = (page as { ground?: PageGround | null } | null)?.ground?.layers;
-  return Array.isArray(list) ? list.filter((l) => l && typeof l === "object" && (l.background || l.color)) : [];
+  return Array.isArray(list) ? list.map(asLayer).filter((l): l is GroundLayer => !!l && !!(l.background || l.color || l.mask)) : [];
 }
 
 const SAFE = (v: unknown): string | undefined => (typeof v === "string" && v.trim() && v.length < 4000 && !/[{};<>\\]|expression\s*\(|javascript:/i.test(v) ? v.trim() : undefined);
@@ -118,7 +142,14 @@ export function layerStyle(l: GroundLayer, w: number, h: number): React.CSSPrope
   const width = pseudo && lf !== null && r !== null ? Math.max(0, w - lf - r) : w;
   s.left = left;
   s.width = width;
-  if (pinned) {
+  /* Measured: its own box, the window's for a fixed one. */
+  const bx = l.box && [l.box.x, l.box.y, l.box.w, l.box.h].every((v) => typeof v === "number" && Number.isFinite(v)) ? l.box : null;
+  if (bx) {
+    s.left = bx.x;
+    s.width = Math.max(0, bx.w);
+    s.top = pinned ? `calc(var(--view-top, 0px) + ${bx.y}px)` : bx.y;
+    s.height = Math.max(0, bx.h);
+  } else if (pinned) {
     const top = pseudo ? t ?? 0 : 0;
     s.top = `calc(var(--view-top, 0px) + ${top}px)`;
     s.height = pseudo && t !== null && b !== null ? `calc(var(--view-h, 100%) - ${t + b}px)` : "var(--view-h, 100%)";
@@ -135,6 +166,14 @@ export function layerStyle(l: GroundLayer, w: number, h: number): React.CSSPrope
     if (SAFE(l.size)) s.backgroundSize = SAFE(l.size);
     if (SAFE(l.position)) s.backgroundPosition = SAFE(l.position);
     if (SAFE(l.repeat)) s.backgroundRepeat = SAFE(l.repeat);
+  }
+  if (SAFE(l.blendLayers)) s.backgroundBlendMode = SAFE(l.blendLayers);
+  if (SAFE(l.mask) && l.mask !== "none") {
+    const m = s as Record<string, string>;
+    m.maskImage = m.WebkitMaskImage = SAFE(l.mask)!;
+    if (SAFE(l.maskOptions?.[0])) m.maskSize = m.WebkitMaskSize = SAFE(l.maskOptions?.[0])!;
+    if (SAFE(l.maskOptions?.[1])) m.maskPosition = m.WebkitMaskPosition = SAFE(l.maskOptions?.[1])!;
+    if (SAFE(l.maskOptions?.[2])) m.maskRepeat = m.WebkitMaskRepeat = SAFE(l.maskOptions?.[2])!;
   }
   if (SAFE(l.blend)) s.mixBlendMode = SAFE(l.blend) as React.CSSProperties["mixBlendMode"];
   if (typeof l.opacity === "number" && l.opacity >= 0 && l.opacity < 1) s.opacity = l.opacity;

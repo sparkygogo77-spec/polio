@@ -519,7 +519,10 @@ export function FromASite({ space }: { space: Space }) {
      * in. The parts they were worn by are replaced here anyway; the site's
      * own pattern is its page texture (`siteDots.ts`).
      */
-    landAsBrought({ pages: doc.pages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, texture: [], palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
+    /* The entry page's own background layers no part carries (html, body and their ::before/::after): drawn behind its frame (`board/themeDraw.tsx`). */
+    const groundLayers = (doc.ground as { layers?: unknown[] }).layers;
+    const landedPages = groundLayers?.length ? doc.pages.map((p, i) => (i === 0 ? { ...p, ground: { layers: groundLayers } } : p)) : doc.pages;
+    landAsBrought({ pages: landedPages, nodes: doc.nodes, frameWidth: doc.frameWidth, format, brief: st.brief, look: { ...st.look, texture: [], palette: { ...st.look.palette, bg: doc.ground.bg, text: doc.ground.text }, styleSource, ...(doc.keyframes.length ? { keyframes: doc.keyframes } : {}) }, swept: SWEEP });
     /* What the landing itself changed (the sweep's repaint, the palette's roles) is no design: the board as landed is what the style layer is measured from (`baselineAsLanded`). */
     {
       const now = useStudio.getState();

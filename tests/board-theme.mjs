@@ -74,6 +74,17 @@ check("…a fixed ::before rides with the view", /top:\s*calc\(var\(--view-top, 
 check("…and a layer the page put over its content is drawn over the parts", over.includes("repeating-linear-gradient") && !under.includes("repeating-linear-gradient"));
 check("…and nothing that runs is drawn", !under.includes("javascript") && !over.includes("javascript"));
 
+/* 3b. The importer's own shape (`PageRead.layers`): from, position, box, z, art. */
+const read = draw.groundLayersOf({ ground: { layers: [
+  { from: "body::before", position: "fixed", box: { x: 0, y: 0, w: 1440, h: 900 }, z: -1, art: { background: "radial-gradient(circle, red, blue), repeating-conic-gradient(red 0deg 5deg, blue 5deg 10deg)", backgroundOptions: ["auto, 40px 40px", "0% 0%, 0% 0%", "repeat"], backgroundBlend: "multiply", mask: "linear-gradient(black, transparent)", opacity: 0.6 } },
+  { from: "html::after", position: "absolute", box: { x: 0, y: 0, w: 1440, h: 3000 }, z: 5, art: { background: "repeating-linear-gradient(0deg, black 0 1px, transparent 1px 3px)", blend: "overlay" } },
+] } });
+const readUnder = renderToStaticMarkup(React.createElement(draw.PageGroundLayers, { layers: read, width: 1440, height: 3000 }));
+const readOver = renderToStaticMarkup(React.createElement(draw.PageGroundLayers, { layers: read, width: 1440, height: 3000, over: true }));
+check("the importer's layers are read: a fixed ::before at its box, riding with the view", read.length === 2 && /top:\s*calc\(var\(--view-top, 0px\) \+ 0px\)/.test(readUnder) && readUnder.includes("height:900px"), readUnder.slice(0, 500));
+check("…with its layers, their blend and its mask", readUnder.includes("repeating-conic-gradient") && readUnder.includes("background-blend-mode:multiply") && /mask-image:linear-gradient/.test(readUnder));
+check("…and an ::after the page set over its content is drawn over the parts", readOver.includes("repeating-linear-gradient") && readOver.includes("mix-blend-mode:overlay"));
+
 /* 4. Fixed and sticky parts. */
 const nodes = [
   { id: "main", x: 0, y: 0, w: 1440, h: 3000, from: { selector: "body > main" } },
