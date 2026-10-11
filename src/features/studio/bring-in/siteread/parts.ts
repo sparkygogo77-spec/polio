@@ -910,7 +910,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
         const sw = parseFloat(sc.strokeWidth) || 0;
         const base = styleOf(s);
         push({
-          kind: "shape", tag: s.tagName.toLowerCase(), parent: at, box: sb, words: (s.tagName.toLowerCase() === "text" ? s.textContent ?? "" : "").trim(), hooks: hooksOf(s), hidden, selector: path(s),
+          /* Words in a drawn svg are in its picture already, turned and set as the svg set them (PST's dial labels, rotated up its sides): read again as words of their own they drew twice, upright, in this machine's face, and taller than their box. */
+          kind: "shape", tag: s.tagName.toLowerCase(), parent: at, box: sb, words: (s.tagName.toLowerCase() === "text" && own ? s.textContent ?? "" : "").trim(), hooks: hooksOf(s), hidden, selector: path(s),
           style: { ...base, bg: fill, border: stroke && sw > 0 ? { w: Math.round(sw * 100) / 100, style: "solid", colour: stroke } : null, radius: /^(circle|ellipse)$/i.test(s.tagName) ? Math.round(Math.min(sb.w, sb.h) / 2) : 0, pad: [0, 0, 0, 0] },
         }, s);
       }
