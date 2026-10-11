@@ -106,6 +106,8 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("**/api/tweets/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false }) }));
 const wait = (ms) => page.waitForTimeout(ms);
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks read the open shelf. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForFunction(() => !!window.__studioLoadDoc && !!window.__studioLearned, null, { timeout: 30000 });
 /* The browser's own copy of what it learned, before anything is imported. */

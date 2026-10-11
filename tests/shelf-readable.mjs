@@ -66,6 +66,8 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 await page.route("**/api/tweets/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false }) }));
 await page.route("**/api/studio/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ github: { configured: false, missing: [] }, vercel: { hook: false }, configured: false, source: null }) }));
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks read the open shelf. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForFunction(() => typeof window.__studioLoadDoc === "function", null, { timeout: 60000 });
 

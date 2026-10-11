@@ -153,10 +153,11 @@ export interface CategoryDef {
   /**
    * The colour that says which kind of part this is.
    *
-   * Spaced 60 degrees apart, all the way round, and that is the whole rule:
-   * with six, no two can be mistaken for each other at this chroma. Every
-   * category kept its old neighbourhood: Layout is still blue, Motion
-   * still green-cyan, Words still yellow.
+   * At least 30 degrees apart, spread all the way round: below about 25 at
+   * this chroma two categories read as one. When twelve became six, each
+   * kept the colour it had (Layout blue, Motion cyan, Words yellow, Engine
+   * orange); Data moved 10 so the six still reach every quarter of the
+   * wheel.
    */
   hue: number;
 }
@@ -164,10 +165,10 @@ export interface CategoryDef {
 export const CATEGORIES: CategoryDef[] = [
   { id: "structure", label: "Layout and menus", icon: LayoutTemplate, blurb: "How the page is divided, and how people move around it.", hue: 200 },
   { id: "content", label: "Words and pictures", icon: Type, blurb: "The first screen, words, pictures, video and 3D.", hue: 80 },
-  { id: "motion", label: "Motion and interaction", icon: Waves, blurb: "What moves, and what answers a press, a hover or a key.", hue: 140 },
-  { id: "forms", label: "Forms and shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 20 },
-  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 260 },
-  { id: "platform", label: "People, AI and engine", icon: Cpu, blurb: "People and their traces, artificial intelligence (AI), and the things that make it real.", hue: 320 },
+  { id: "motion", label: "Motion and interaction", icon: Waves, blurb: "What moves, and what answers a press, a hover or a key.", hue: 170 },
+  { id: "forms", label: "Forms and shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 110 },
+  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 270 },
+  { id: "platform", label: "People, AI and engine", icon: Cpu, blurb: "People and their traces, artificial intelligence (AI), and the things that make it real.", hue: 20 },
 ];
 
 /** The shelf category each kind is filed in. A kind not named here is a category of its own. */
@@ -697,7 +698,9 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "sticky-header": { w: 1440, h: 64, options: [{ id: "onScroll", label: "On scroll", values: ["shrink", "hide-then-show", "static", "blur"] }, yesNo("button", "Right-hand button", "yes")], content: { label: "Links, and the wordmark", placeholder: "logo: $BORB, Vision, Token, Community, button: Connect wallet" } },
   "mega-menu": { w: 1440, h: 64, content: { label: "Top-level items", placeholder: "Products, Solutions, Pricing, Docs" } },
   "mobile-nav": { w: 390, h: 56, content: { label: "Links", placeholder: "Home, Work, About" } },
-  breadcrumbs: { w: 480, h: 32, content: { label: "Trail", placeholder: "Home, Shop, Shoes" } },
+  breadcrumbs: { w: 320, h: 32, content: { label: "Trail", placeholder: "Home, Shop, Shoes" } },
+  /* A list down the side, tall enough for its entries: at the default 88px its four lines were squeezed into a strip. */
+  toc: { w: 280, h: 180 },
   "tabs-panel": { w: 720, h: 260, options: [{ id: "style", label: "Style", values: ["underline", "pill", "segmented", "boxed"] }], content: { label: "Tab labels", placeholder: "Overview, Details, Reviews" } },
   accordion: { w: 720, h: 220, content: { label: "Row titles", placeholder: "How it works, Pricing, Support" } },
   faq: { w: 720, h: 260, content: { label: "Questions", placeholder: "How does it work?, What does it cost?, Can I cancel?" } },
@@ -1081,7 +1084,7 @@ export function categoryOf(id: CategoryId): CategoryDef {
 }
 
 /**
- * Sub-groups inside a category, so all 233 parts are reachable in three clicks: a card, or a version on a card's detail.
+ * Sub-groups inside a category, so all 236 parts are reachable in three clicks: a card, or a version on a card's detail.
  * Projected from `shelfGroups.ts`, which says where every item sits and in
  * what order; a group lists only catalogue ids here (the working features it
  * also holds are `work:` keys there). An id missing from every group is a

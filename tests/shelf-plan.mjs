@@ -23,7 +23,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CATEGORIES, FEATURES } from "../src/features/studio/shelf/catalog.ts";
+import { CATEGORIES, FEATURES, shelfCategoryOf } from "../src/features/studio/shelf/catalog.ts";
 import { SHELF_GROUPS, isWorkKey, workIdOf } from "../src/features/studio/shelf/shelfGroups.ts";
 import { PUBLISH, REMOVED, VARIANTS, VARIANT_OF, itemOf, onShelf, placedWorks, publishOf } from "../src/features/studio/shelf/shelfPlan.ts";
 import { statusOf, switchOf, needsOf } from "../src/features/studio/shelfFacts.ts";
@@ -58,7 +58,7 @@ const removedShown = Object.keys(REMOVED).filter((id) => onShelf(id) || VARIANT_
 check("1. what was taken off is not on the shelf in any form", removedShown.length === 0, removedShown.join(", "));
 const noLine = ids.filter((id) => !PUBLISH[id]);
 check("1. every catalogue id says what the published page does with it", noLine.length === 0, noLine.join(", "));
-const wrongPlace = Object.entries(SHELF_GROUPS).flatMap(([cat, gs]) => gs.flatMap((g) => g.items.filter((k) => !isWorkKey(k) && byId.get(k)?.category !== cat).map((k) => `${k} in ${cat}`)));
+const wrongPlace = Object.entries(SHELF_GROUPS).flatMap(([cat, gs]) => gs.flatMap((g) => g.items.filter((k) => !isWorkKey(k) && shelfCategoryOf(byId.get(k)?.category ?? "") !== cat).map((k) => `${k} in ${cat}`)));
 check("1. every card sits in its own category", wrongPlace.length === 0, wrongPlace.join(", "));
 const missingItem = cards.filter((k) => (isWorkKey(k) ? !LIBRARY.some((w) => w.manifest.id === workIdOf(k)) : !byId.has(k)));
 check("1. every card names something that exists", missingItem.length === 0, missingItem.join(", "));

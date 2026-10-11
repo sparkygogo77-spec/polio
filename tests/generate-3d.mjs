@@ -92,7 +92,7 @@ check("the Sphere draws the picture round it", sphere ? (await page.locator(`[da
 
 /* 2. A Cube card from Media, carried onto the drawing tool */
 await pickThreeD("Flat");
-if (!(await page.locator('[data-category-open="media"]').count())) await page.locator('[data-category="media"]').first().click({ force: true }).catch(() => {});
+if (!(await page.locator('[data-category-open="content"]').count())) await page.locator('[data-category="content"]').first().click({ force: true }).catch(() => {});
 await page.waitForTimeout(1000);
 const card = page.locator('[data-shelf-card="shape-cube"]').first();
 if (await card.count()) await card.scrollIntoViewIfNeeded().catch(() => {});
@@ -106,7 +106,7 @@ const grip = await page.evaluate(() => {
   }
   return null;
 });
-check("the Cube is on the Media shelf", !!grip);
+check("the Cube is on the Words and pictures shelf", !!grip);
 if (grip) {
   const box = await panel.boundingBox();
   const to = { x: box.x + box.width / 2, y: box.y + 80 };

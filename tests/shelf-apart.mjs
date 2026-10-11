@@ -48,7 +48,7 @@ for (let i = 0; i < hues.length; i++) {
   const gap = apart(hues[i].hue, next.hue);
   if (gap < worst.gap) worst = { gap, pair: `${hues[i].label} ${hues[i].hue} and ${next.label} ${next.hue}` };
 }
-/* 30 apart is what twelve evenly spaced comes to. Below about 25 at this
+/* 30 apart is what twelve evenly spaced came to; the six keep at least that. Below about 25 at this
    chroma two categories stop reading as two. */
 check("no two categories are closer than a person can see", worst.gap >= 25,
   `closest are ${worst.pair}, ${worst.gap} apart`);
@@ -61,7 +61,7 @@ check("and they are spread all the way round rather than bunched",
 /* The table is the families as they are now; a category not in it is a
    category whose family nobody wrote down, which counts as moved. */
 const WAS = { structure: 200, nav: 230, hero: 50, content: 80, media: 320, motion: 170,
-  interact: 140, forms: 110, data: 260, social: 350, ai: 290, platform: 20 };
+  interact: 140, forms: 110, data: 270, social: 350, ai: 290, platform: 20 };
 const moved = CATEGORIES.map((c) => ({ label: c.label, by: c.id in WAS ? apart(c.hue, WAS[c.id]) : 360 }))
   .filter((m) => m.by > 20);
 check("and none of them changed colour family to get there", moved.length === 0,

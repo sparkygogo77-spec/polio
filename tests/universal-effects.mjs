@@ -90,7 +90,7 @@ check("…and the TV's own screen (Trump & Morty) is one of them", allNew.some((
 const TM = SITES.find((s) => /trumpmorty/.test(s));
 const TV = "n_box_192";
 const tmKf = docs[TM]?.keyframes ?? docs[TM]?.look?.keyframes ?? [];
-const comp = TM ? C.componentOf(boards[TM], TV, { name: "TV screen", category: "media", kind: "Pictures and screens", keyframes: tmKf, fonts: docs[TM].look?.fonts ?? [] }) : null;
+const comp = TM ? C.componentOf(boards[TM], TV, { name: "TV screen", category: "content", kind: "Pictures and screens", keyframes: tmKf, fonts: docs[TM].look?.fonts ?? [] }) : null;
 check("the TV saved as a component holds its parts, the screen picture among them", !!comp && comp.nodes.length >= 10 && comp.nodes.some((n) => n.picture) && comp.nodes[0].id === TV, `${comp?.nodes.length} parts`);
 const animNames = comp ? [...new Set(comp.nodes.flatMap((n) => (n.motion?.animation ?? []).map((a) => a.name.replace(/^cap-/, ""))))] : [];
 check("…and the keyframes its motion names", animNames.length > 0 && animNames.every((a) => comp.frames.some((k) => k.name.replace(/^cap-/, "") === a)), animNames.join(", "));
@@ -124,6 +124,8 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("**/api/tweets/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: false }) }));
 const wait = (ms) => page.waitForTimeout(ms);
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks read the open shelf. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForFunction(() => !!window.__studioLoadDoc && !!window.__studioLearned && !!window.__studioNodes && !!window.__studioHistory, null, { timeout: 30000 });
 
@@ -202,7 +204,7 @@ for (const s of SITES) {
     await page.screenshot({ path: `${SHOTS}/tv-saved.png` });
     const lib = await page.evaluate(() => window.__studioLearned());
     const saved = (lib.components ?? []).find((c) => c.name === "TV screen");
-    check("the TV saved from its panel is on the shelf under Media, whole", !!saved && saved.category === "media" && saved.nodes.length === comp.nodes.length, `${saved?.category} · ${saved?.nodes.length} parts · picked ${String(cat).slice(0, 20)}`);
+    check("the TV saved from its panel is on the shelf under Words and pictures, whole", !!saved && saved.category === "content" && saved.nodes.length === comp.nodes.length, `${saved?.category} · ${saved?.nodes.length} parts · picked ${String(cat).slice(0, 20)}`);
     const { site, ctx } = await serve(toFiles(await exportNow()), { calm: true });
     tvShot = await shotOf(site, TV);
     writeFileSync(`${SHOTS}/tv-on-its-site.png`, tvShot);
