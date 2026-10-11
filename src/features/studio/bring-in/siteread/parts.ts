@@ -627,6 +627,28 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     return at;
   };
 
+  /* The display a hidden block's own rules give it once whatever hides it is off (J, 2026-10-11): PST's
+     scoreboard is a grid and its stamps inline-grid, and shown as block for the read its cells stacked in a
+     column and the stamps ran the full line. The last rule in sheet order that says something other than
+     none wins, an !important one over the rest; PST names each part by hook, so that is the one it wears. */
+  const ownDisplay = (e: Element): string | null => {
+    let found: string | null = null, sure = false;
+    const walk = (list: CSSRuleList) => {
+      for (const r of Array.from(list)) {
+        if (r instanceof CSSStyleRule) {
+          const v = r.style.getPropertyValue("display").trim();
+          if (!v || /^(none|contents|inherit|initial|unset|revert(-layer)?)$/.test(v)) continue;
+          try { if (!e.matches(r.selectorText)) continue; } catch { continue; }
+          const important = r.style.getPropertyPriority("display") === "important";
+          if (important || !sure) { found = v; sure = important; }
+        } else if (r instanceof CSSMediaRule) { if (matchMedia(r.conditionText).matches) walk(r.cssRules); }
+        else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
+      }
+    };
+    for (const sh of Array.from(document.styleSheets)) { try { walk(sh.cssRules); } catch { /* another origin's sheet */ } }
+    return found;
+  };
+
   /* Hidden blocks wait until the page as it opens has been read. */
   const later: { el: Element; parent: number; template?: boolean }[] = [];
   const queue = (el: Element, parent: number) => { later.push({ el, parent, ...(el.tagName === "TEMPLATE" ? { template: true } : {}) }); };
@@ -1109,7 +1131,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       const hadHidden = h.hasAttribute("hidden");
       const hadStyle = h.getAttribute("style");
       if (hadHidden) h.removeAttribute("hidden");
-      if (!shown(h)) h.style.setProperty("display", h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block", "important");
+      if (!shown(h)) h.style.setProperty("display", ownDisplay(h) ?? (h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block"), "important");
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
