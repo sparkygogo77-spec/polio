@@ -1028,6 +1028,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (e.tagName === "A" && e.hasAttribute("href") && lone) { flush(); link(e, parent, hidden); continue; }
       /* A <details>' own "?" that paints (PST's round yellow help button) is a part with its own look where the page draws it, not a stretch of the line's words. */
       if (e.tagName === "SUMMARY" && paints(e)) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
+      /* An inline element the page took out of its line (placed absolutely, or turned on its own: PST's "Test networks only" stamp, a rotated span over the desk) is a part of its own where the page put it, with its hook and its turn; folded into the line it lost all three. */
+      if (inlineish(e) && (/^(absolute|fixed)$/.test(css(e).position) || turns.has(e))) { flush(); block(e, parent, hidden); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
         /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */
