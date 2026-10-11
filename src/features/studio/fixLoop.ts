@@ -142,7 +142,7 @@ export function sentMerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop 
 /** Pending lines whose line (open or ticked) is in the default branch's NEXT.md: their pull request is merged, so they are sent. */
 export function promotePending(loop: FixLoop, md: string | null): FixLoop {
   if (md == null || !loop.pending?.length) return loop;
-  const there = new Set(md.split("\n").map((l) => LINE.exec(l)?.[2]).filter(Boolean));
+  const there = new Set(md.split("\n").map((l) => queued(l)?.key).filter(Boolean));
   const merged = loop.pending.filter((i) => there.has(i.key));
   return merged.length ? sentMerged(loop, merged) : loop;
 }
