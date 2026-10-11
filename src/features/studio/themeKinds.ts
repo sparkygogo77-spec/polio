@@ -57,17 +57,20 @@ export const PANEL = 2 * TAB_HEIGHT;
 /** A gradient-painted piece this big or more (its longer side, px) is a kind of its own, however few parts wear it. */
 export const PIECE = 192;
 /**
- * A surface whose parts together cover less than this share of the site's
- * pages is an accent: a legend's dots, a table's thin progress bars and the
- * stripes down its rows' edges. It is drawn as a small dot in the preview,
- * not a box as big as a panel (J, 2026-10-11, on sunkcoin: "Bars 2" is the
- * orange of the little dots in the legend, and should not be its own panel
- * as big as "Bars"). By area covered, not by how many parts wear it: 47
- * dots and bars are still a speck of the page.
+ * Kept for the record of what a speck of the site is: a kind is NOT an accent
+ * by its share of the site any more. Every page a site has added to that
+ * share's whole, so on the PonsStars redesign (six tall pages) 31 worded wood
+ * bars and their texture fell under it and came out a 12 px dot (J,
+ * 2026-10-11: "not sure why this little bars icon in the preview is used for
+ * the bars and material on bars"). A kind is small by its own middle part,
+ * `ACCENT_PART`, and only when no words stand on it.
  */
 export const ACCENT_SHARE = 0.015;
-/** Or its parts are this small (middle part's area, px²): a dot, a bar, a stripe, however many there are. */
+/** A kind whose middle part is this small (area, px²) and carries no words is a small accent: a dot, a screw, a stripe, however many there are. */
 export const ACCENT_PART = 48 * 48;
+/** A surface whose middle part is at least this wide and this tall is a panel: it always gets a box, worn by two parts or more (J, 2026-10-11: the paper forms and wood boards had none). */
+export const PANEL_W = 160;
+export const PANEL_H = 96;
 
 export interface SurfaceKind {
   /** The lead fill. */
@@ -78,8 +81,12 @@ export interface SurfaceKind {
   parts: number;
   /** How much of the site its parts cover together, px². */
   cover: number;
-  /** A small accent colour (`ACCENT_SHARE`): drawn as a dot in the preview, not a box. */
+  /** A small accent: its middle part is a speck (`ACCENT_PART`) with no words on it, a screw, a dot, a stripe. Drawn small, in the box it sits in, with no count on it. */
   accent: boolean;
+  /** A bar with no words on it that is not a speck (a long rule, a striped strip): drawn as a bar, in its own paint. */
+  strip: boolean;
+  /** Its parts are round (a dot, a screw head, a lamp): its small swatch is round too. */
+  round: boolean;
   /**
    * Its parts are loading bars (`components.ts`, kind "progress"): their
    * tracks, or the level bars inside them. Every colour of them is one
@@ -223,11 +230,52 @@ const pieceName = (p: Node): string | null => {
   return (w.join(" ").charAt(0).toUpperCase() + w.join(" ").slice(1)).slice(0, 28);
 };
 
-type Node = Part & { radius?: number | null; state?: { group?: string } | null; edge?: { width?: number; colour?: string; style?: string; shadow?: string } | null };
+/** Words in a hook that say how a part is wrapped or which one it is, not what it is. */
+const VAGUE = new Set(["wrap", "wrapper", "inner", "outer", "inside", "holder", "container", "content", "item", "part", "el", "bg", "js", "is", "has", "the", "of", "and"]);
+const plural = (w: string) => (/(s|x|z|ch|sh)$/.test(w) ? (/[^s]s$/.test(w) && w.length > 3 ? w : `${w}es`) : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
+const wordsIn = (hook: string) => hook.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 1 && !VAGUE.has(w));
+
+/**
+ * A KIND NAMED BY ITS PARTS' HOOKS (J, 2026-10-11): "Panels: Last audited",
+ * "Panels 2" and "Main fill" told J nothing. The page's own code names its
+ * parts (`data-hook`, an id), and the word most of a kind's hooks share is
+ * what they are ("lab-drawer-label", "play-drawer-label" → labels; the later
+ * word when two are shared as often), and the word before it, when most share
+ * that too, says which (→ Drawer labels). A page's name or a number in a hook
+ * is in too few of them to count. Each part drawn on every page counted once.
+ * Null when too few of the parts have a hook (a captured live site's
+ * "div · 8 inside"), or they share no word: the kind then keeps the name its
+ * shape or its parts give it.
+ */
+function hookName(ms: readonly Node[], one: (id: string) => string): string | null {
+  const seen = new Set<string>();
+  const lists: string[][] = [];
+  let all = 0;
+  for (const p of ms) {
+    if (seen.has(one(p.id))) continue;
+    seen.add(one(p.id));
+    all++;
+    const hook = p.hooks?.["data-hook"] || p.hooks?.id;
+    const w = hook ? wordsIn(hook) : [];
+    if (w.length) lists.push(w);
+  }
+  const named = lists.length;
+  if (!named || named * 2 < all) return null;
+  /* How many hooks hold each word, and how far along them it sits (0 first, 1 last). */
+  const df = new Map<string, { n: number; along: number }>();
+  for (const w of lists) for (const [i, x] of w.entries()) { if (w.indexOf(x) !== i) continue; const d = df.get(x) ?? { n: 0, along: 0 }; df.set(x, { n: d.n + 1, along: d.along + (w.length > 1 ? i / (w.length - 1) : 1) }); }
+  const head = [...df.entries()].sort((a, b) => b[1].n - a[1].n || b[1].along / b[1].n - a[1].along / a[1].n)[0];
+  if (!head || head[1].n * 5 < named * 2 || (named > 1 && head[1].n < 2)) return null;
+  const leads = new Map<string, number>();
+  for (const w of lists) { const i = w.indexOf(head[0]); if (i > 0) bump(leads, w[i - 1]!); }
+  const lead = top(leads);
+  const name = lead && lead[1] * 3 >= head[1].n * 2 ? `${lead[0]} ${plural(head[0])}` : plural(head[0]);
+  return (name.charAt(0).toUpperCase() + name.slice(1)).replace(/\btv\b/gi, "TV");
+}
+
+type Node = Part & { radius?: number | null; hooks?: Record<string, string>; state?: { group?: string } | null; edge?: { width?: number; colour?: string; style?: string; shadow?: string } | null };
 
 const area = (p: Node) => Math.max(0, p.w ?? 0) * Math.max(0, p.h ?? 0);
-/** A thin strip, four times as long as it is thick or more (`TRIM`). */
-const isTrim = (p: Node) => { const a = Math.min(p.w ?? 0, p.h ?? 0), b = Math.max(p.w ?? 0, p.h ?? 0); return a > 0 && a <= TRIM && b >= 4 * a; };
 /** Painted in stripes: a repeating gradient, the hazard tape look. */
 const STRIPES = /repeating-(linear|conic)-gradient\(/;
 const holds = (o: Node, i: Node) => {
@@ -255,15 +303,8 @@ const glowOf = (m: Map<string, number>, worn: Map<string, { colour: string; blur
 };
 
 /** At most `cap` kinds (and two painted pieces), the most-worn first, buttons and surfaces both. */
-export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, background: ReadonlySet<string> = new Set(), cap = 10): SiteKinds {
+export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, background: ReadonlySet<string> = new Set(), cap = 24): SiteKinds {
   const parts = nodes as readonly Node[];
-  /* The site's area: each page as far as its parts reach. */
-  const reach = new Map<string, { w: number; h: number }>();
-  for (const p of parts) {
-    const r = reach.get(p.pageId ?? "") ?? { w: 0, h: 0 };
-    reach.set(p.pageId ?? "", { w: Math.max(r.w, (p.x ?? 0) + (p.w ?? 0)), h: Math.max(r.h, (p.y ?? 0) + (p.h ?? 0)) });
-  }
-  const siteArea = [...reach.values()].reduce((a, r) => a + r.w * r.h, 0);
   /* Loading bars, read as components: a track and the level bar it holds. */
   const comps = componentsOf(nodes as unknown as readonly CompNode[], palette as Record<string, string | undefined>);
   const progressOf = (id: string): "track" | "level" | null => {
@@ -282,50 +323,6 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   /* Kinds: fills clustered, the most-worn first. Buttons and surfaces never share a kind, however close their fills
      (J, 2026-10-09): the site's plain grey buttons and a TV body painted near that grey were one "Menu" kind whose
      Fill showed only on the TV and whose Words and Outline showed nowhere. */
-  /* Trim (a thin strip, not a loading bar) is a class of its own, so a button's lip is neither a button nor one of the surfaces of its colour. */
-  /* A strip the colour of a loading bar stays with the loading bars (sunkcoin's rows wear their bar's colour down their edge). */
-  const barFills = [...new Set(parts.filter((p) => fillOf.has(p.id) && progressOf(p.id)).map((p) => fillOf.get(p.id)!))];
-  const trim = new Set(parts.filter((p) => fillOf.has(p.id) && isTrim(p) && !progressOf(p.id) && !barFills.some((f) => oklabDistance(f, fillOf.get(p.id)!) < KIND_SHADES)).map((p) => p.id));
-  const btn = new Set(parts.filter((p) => fillOf.has(p.id) && !trim.has(p.id) && isButton(p)).map((p) => p.id));
-  const keyOf = (id: string) => `${btn.has(id) ? "b" : trim.has(id) ? "t" : "s"}|${fillOf.get(id)!}`;
-  /* A part drawn again on every page is one part (`repeats.ts`). */
-  const once = repeatsAcrossPages(parts as never);
-  const one = (id: string) => once.get(id) ?? id;
-  const counted = new Map<string, Set<string>>();
-  for (const id of fillOf.keys()) { const k = keyOf(id); counted.set(k, (counted.get(k) ?? new Set()).add(one(id))); }
-  const count = new Map([...counted].map(([k, v]) => [k, v.size]));
-  const leads: { fill: string; button: boolean; cls: string; members: Set<string> }[] = [];
-  const kindOfKey = new Map<string, number>();
-  for (const [key] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
-    const cls = key.slice(0, 1), button = cls === "b", k = key.slice(2);
-    let i = leads.findIndex((g) => g.cls === cls && oklabDistance(g.fill, k) < KIND_SHADES);
-    if (i < 0) { leads.push({ fill: k, button, cls, members: new Set() }); i = leads.length - 1; }
-    kindOfKey.set(key, i);
-  }
-  const moved = new Map<string, number>();
-  const kindAt = (id: string) => moved.get(id) ?? kindOfKey.get(keyOf(id))!;
-  for (const id of fillOf.keys()) leads[kindAt(id)]!.members.add(id);
-  /* A panel whose own shade is worn by one or two parts (the PonsStars key cabinet, a darker wood than the rail's) joins the
-     surface it is a shade of, rather than vanish from the preview with the one-offs (J, 2026-10-11). */
-  const byId = new Map(parts.map((p) => [p.id, p] as const));
-  leads.forEach((g, i) => {
-    if (g.cls !== "s" || thingsIn(g.members, once) >= 3) return;
-    for (const id of [...g.members]) {
-      const p = byId.get(id)!;
-      if (Math.min(p.w ?? 0, p.h ?? 0) <= PANEL) continue;
-      /* Of the surfaces it is a shade of, the one covering most of the site: the wood, not a strip of it. */
-      let best = -1, most = 0;
-      leads.forEach((h, j) => {
-        if (j === i || h.cls !== "s" || thingsIn(h.members, once) < 3 || oklabDistance(g.fill, h.fill) >= PANEL_SHADES) return;
-        const c = [...h.members].reduce((a, m) => a + area(byId.get(m)!), 0);
-        if (c > most) { most = c; best = j; }
-      });
-      if (best < 0) continue;
-      g.members.delete(id);
-      leads[best]!.members.add(id);
-      moved.set(id, best);
-    }
-  });
   /* The surface each part stands on: itself if filled, else the smallest filled part holding it. */
   const filled = parts.filter((p) => fillOf.has(p.id));
   const under = (p: Node): Node | null => {
@@ -337,6 +334,84 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     }
     return best;
   };
+  /* The filled parts words stand on. */
+  const carries = new Set<string>();
+  for (const p of parts) {
+    if (background.has(p.id) || !spotsOf(p, palette).some((s) => s.spot.use === "text")) continue;
+    const u = under(p);
+    if (u) carries.add(u.id);
+  }
+  /*
+   * WHAT A PART IS, by its own box, before it is put with others (J, 2026-10-11). One colour is worn by a panel, a
+   * label, a stripe and a screw alike: on the PonsStars redesign the dark brown of the drawer labels was also the
+   * room's dim layer and the striped strips' paint, and the cream of the queue panel also the clock's face. A kind
+   * that mixed them was drawn as none of them, and each fix tuned the guess for one screenshot. So a kind is one
+   * colour worn by one sort of thing:
+   *
+   *   · bar     a loading bar's track or level, and a strip of its colour (sunkcoin's rows wear their bar's colour
+   *             down their edge);
+   *   · strip   no words on it, a bar (BAR_HEIGHT thick or less, four times as long): a rule, a button's striped lip
+   *             (the trim of #230, which was a kind of button, "Buttons 2");
+   *   · speck   no words on it, smaller than ACCENT_PART: a screw, a dot, a lamp;
+   *   · label   words on it, TAB_HEIGHT tall or less: a label bar, a name plate, a tag;
+   *   · box     the rest: a panel, a card, a form, a board.
+   *
+   * Buttons are a kind of their own, as before, but a strip, or a speck drawn by a ::before or ::after, is the
+   * button's trim, never a button.
+   */
+  const barFills = [...new Set(parts.filter((p) => fillOf.has(p.id) && progressOf(p.id)).map((p) => fillOf.get(p.id)!))];
+  const sortOf = (p: Node): "bar" | "speck" | "strip" | "label" | "box" => {
+    const w = p.w ?? 0, h = p.h ?? 0, thin = Math.min(w, h), long = Math.max(w, h), worded = carries.has(p.id);
+    const bar = !worded && thin > 0 && thin <= BAR_HEIGHT && long >= 4 * thin;
+    if (progressOf(p.id) || (bar && barFills.some((f) => oklabDistance(f, fillOf.get(p.id)!) < KIND_SHADES))) return "bar";
+    /* A bar first, however small its area: the redesign's striped strips were drawn as a dot (J, 2026-10-11). */
+    if (bar) return "strip";
+    if (!worded && w * h < ACCENT_PART) return "speck";
+    if (worded && h > 0 && h <= TAB_HEIGHT) return "label";
+    return "box";
+  };
+  const sorts = new Map(filled.map((p) => [p.id, sortOf(p)]));
+  const pseudo = (p: Node) => /::(before|after)$/.test(String((p as { label?: unknown }).label ?? ""));
+  const btn = new Set(filled.filter((p) => isButton(p) && sorts.get(p.id) !== "strip" && sorts.get(p.id) !== "bar" && !(sorts.get(p.id) === "speck" && pseudo(p))).map((p) => p.id));
+  const keyOf = (id: string) => `${btn.has(id) ? "button" : sorts.get(id)}|${fillOf.get(id)!}`;
+  /* A part drawn again on every page is one part (`repeats.ts`). */
+  const once = repeatsAcrossPages(parts as never);
+  const one = (id: string) => once.get(id) ?? id;
+  const counted = new Map<string, Set<string>>();
+  for (const id of fillOf.keys()) { const k = keyOf(id); counted.set(k, (counted.get(k) ?? new Set()).add(one(id))); }
+  const count = new Map([...counted].map(([k, v]) => [k, v.size]));
+  const leads: { fill: string; button: boolean; sort: string; members: Set<string> }[] = [];
+  const kindOfKey = new Map<string, number>();
+  for (const [key] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
+    const sort = key.slice(0, key.indexOf("|")), k = key.slice(key.indexOf("|") + 1), button = sort === "button";
+    let i = leads.findIndex((g) => g.sort === sort && oklabDistance(g.fill, k) < KIND_SHADES);
+    if (i < 0) { leads.push({ fill: k, button, sort, members: new Set() }); i = leads.length - 1; }
+    kindOfKey.set(key, i);
+  }
+  const moved = new Map<string, number>();
+  const kindAt = (id: string) => moved.get(id) ?? kindOfKey.get(keyOf(id))!;
+  for (const id of fillOf.keys()) leads[kindAt(id)]!.members.add(id);
+  /* A panel whose own shade is worn by one or two parts (the PonsStars key cabinet, a darker wood than the rail's) joins the
+     boxes it is a shade of, rather than vanish from the preview with the one-offs (J, 2026-10-11). */
+  const byId = new Map(parts.map((p) => [p.id, p] as const));
+  leads.forEach((g, i) => {
+    if (g.sort !== "box" || thingsIn(g.members, once) >= 3) return;
+    for (const id of [...g.members]) {
+      const p = byId.get(id)!;
+      if (Math.min(p.w ?? 0, p.h ?? 0) <= PANEL) continue;
+      /* Of the boxes it is a shade of, the one covering most of the site: the wood, not a strip of it. */
+      let best = -1, most = 0;
+      leads.forEach((h, j) => {
+        if (j === i || h.sort !== "box" || thingsIn(h.members, once) < 3 || oklabDistance(g.fill, h.fill) >= PANEL_SHADES) return;
+        const c = [...h.members].reduce((a, m) => a + area(byId.get(m)!), 0);
+        if (c > most) { most = c; best = j; }
+      });
+      if (best < 0) continue;
+      g.members.delete(id);
+      leads[best]!.members.add(id);
+      moved.set(id, best);
+    }
+  });
   /* What a part stands in: the smallest part holding it whose fill is another kind worn by three parts or more (a same-colour layer or a one-off wrapper is passed through). */
   const kindOf = (q: Node) => kindAt(q.id);
   const container = (p: Node): number => {
@@ -383,7 +458,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     if (first && i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
     if (first && i >= 0 && w && u === p) bump(own[i]!, w.toLowerCase());
   }
-  const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null; trim: boolean })[] = leads.map((g, i) => {
+  const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null; hooked: boolean })[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
     const outlines = new Map<string, number>();
     const shadows = new Map<string, number>();
@@ -415,31 +490,39 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const mid = (f: (p: Node) => number) => ms.map(f).sort((a, b) => a - b)[ms.length >> 1] ?? 0;
     const midW = mid((p) => p.w ?? 0), midH = mid((p) => p.h ?? 0);
     const isButtons = buttons >= ms.length / 2;
-    const isTrimKind = g.cls === "t";
-    const shape = isButtons || isTrimKind ? null : shapeOf(ms);
-    /* Most of its area panels (the lined index cards a site's forms sit on): a box, however many small tags share its colour. */
-    const panels = ms.filter((p) => Math.min(p.w ?? 0, p.h ?? 0) > PANEL);
-    const panelled = panels.length * 4 >= ms.length && panels.reduce((a, p) => a + area(p), 0) * 2 >= ms.reduce((a, p) => a + area(p), 0);
+    const shape = isButtons ? null : shapeOf(ms);
     const striped = ms.filter((p) => STRIPES.test((p as { art?: { background?: string } | null }).art?.background ?? "")).length * 2 >= ms.length;
     const biggest = ms.reduce<Node | null>((b, p) => (!b || area(p) > area(b) ? p : b), null);
     const cover = ms.reduce((a, p) => a + area(p), 0);
     /* Half its parts loading-bar tracks, or a third their level bars (the same orange is often a row's edge stripe too): a loading bar's colour. */
     const tracks = ms.filter((p) => progressOf(p.id) === "track").length, levels = ms.filter((p) => progressOf(p.id) === "level").length;
     const progress = isButtons ? null : tracks * 2 >= ms.length ? "track" as const : levels * 3 >= ms.length ? "level" as const : null;
+    /*
+     * How the preview draws it follows from the sort of thing its parts are (`sortOf`), never from a share of the
+     * whole site (that grew with every page: the redesign's 31 worded wood bars came out a dot; J, 2026-10-11):
+     * specks are small accents, label bars go over a panel's top edge, strips are bars, the rest are boxes.
+     */
+    const sort = g.sort;
+    const accent = !isButtons && (!!progress || sort === "speck");
+    /* A bar of loading-bar colour is not a tab: sunkcoin's loading bars read as labels. A field is a box. */
+    const tab = !isButtons && !accent && sort === "label" && top(what)?.[0] !== "Fields";
+    const hooked = isButtons || progress ? null : hookName(ms, one);
     return {
       cover,
-      trim: isTrimKind,
       progress,
-      accent: !isButtons && (isTrimKind || !!progress || (!panelled && (cover < ACCENT_SHARE * siteArea || mid(area) < ACCENT_PART))),
-      big: biggest ? Math.max(biggest.w ?? 0, biggest.h ?? 0) : 0,
+      accent,
+      strip: !isButtons && !accent && sort === "strip",
+      round: ms.filter((p) => Math.min(p.w ?? 0, p.h ?? 0) > 0 && Number(p.radius ?? 0) * 2 >= Math.min(p.w ?? 0, p.h ?? 0) - 1).length * 2 >= ms.length,
+      /* Its middle part's longer side: one big part painted the same (a ruler among 115 screws) does not make the screws a piece. */
+      big: Math.max(midW, midH),
       label: biggest ? pieceName(biggest) : null,
+      hooked: !!hooked,
       w: midW,
       h: midH,
-      /* A bar is not a tab: drawn over a panel's top edge, PonsStars-style, sunkcoin's loading bars read as labels. */
-      tab: !isButtons && !isTrimKind && !shape && !panelled && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
+      tab,
       shape,
       fill: g.fill,
-      name: isButtons ? buttonsName(own[i]!, thingsIn(g.members, once)) : isTrimKind ? (striped ? "Stripes" : "Trim") : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
+      name: isButtons ? buttonsName(own[i]!, thingsIn(g.members, once)) : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : hooked ?? (sort === "strip" && striped ? "Stripes" : tab && shape === "bars" ? "Label bars" : shape ? SHAPE_NAME[shape] : sort === "strip" ? "Trim" : top(what)?.[0] ?? "Parts"),
       parts: thingsIn(g.members, once),
       ids: ms.map((p) => p.id),
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
@@ -465,29 +548,69 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. A big piece
      painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
      and edited as one gradient (J, 2026-10-09). */
-  const isPiece = (k: (typeof kinds)[number]) => !k.button && !k.trim && k.stops.length > 1 && k.big >= PIECE;
-  /* Past the cap, a big real surface (the wood the forms and the TV stand on) is still kept: the cap drops the small things first. */
-  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK))
-    .filter(({ k }, j) => j < cap || (!k.button && !k.accent && !k.trim && k.cover >= BIG_SURFACE * siteArea));
-  const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
+  /* A piece is one or two big painted parts; three or more of them are a kind of surface, drawn as a box like any other. */
+  const isPiece = (k: (typeof kinds)[number]) => !k.button && k.stops.length > 1 && k.big >= PIECE && k.parts < 3;
+  /* A panel always gets a box, worn by two parts or more; specks are kept as small accents (the screws, J 2026-10-11). */
+  const panel = (k: (typeof kinds)[number]) => !k.button && !k.accent && k.w >= PANEL_W && k.h >= PANEL_H;
+  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && (k.parts >= 3 || (panel(k) && k.parts >= 2)) && (k.button || !!k.progress || k.accent || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
+  const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, strip: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
   /* A tab is drawn as a strip already: only a surface drawn as a box can be an accent. */
-  const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false, tab: k.tab && !k.progress, accent: k.accent && (!k.tab || !!k.progress) }, i })), ...pieces];
+  const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false, tab: k.tab && !k.progress, accent: k.accent && (!k.tab || !!k.progress), strip: k.strip && !k.tab }, i })), ...pieces];
   const at = new Map(kept.map(({ i }, j) => [i, j]));
   /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
   const seen = new Map<string, number>();
+  const used = new Set<string>();
   const named = kept.map(({ k }, j) => {
     /* The main fill is the most-worn plain surface: a grid, rows or bars keep their own name. */
-    const main = (x: (typeof kept)[number]["k"]) => !x.button && !x.piece && !x.shape && !x.accent;
+    const main = (x: (typeof kept)[number]["k"]) => !x.button && !x.piece && !x.shape && !x.accent && !x.hooked;
     const base = main(k) && j === kept.findIndex(({ k: x }) => main(x)) ? "Main fill" : k.name;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
-    const { big: _b, label: _l, trim: _t, ...kind } = k;
-    /* A second kind of the same name says what is on it ("Bars: Latest payday"), not "Bars 4": a number tells nothing apart. */
-    const says = k.sample && k.sample.length <= 18 && /[a-z]{2}/i.test(k.sample) ? k.sample.charAt(0).toUpperCase() + k.sample.slice(1).toLowerCase() : null;
-    return { ...kind, name: n > 1 ? (says ? `${base}: ${says}` : `${base} ${n}`) : base, inside: at.get(k.inside) ?? -1 };
+    const { big: _b, label: _l, hooked: _h, ...kind } = k;
+    /*
+     * A second kind of the same name is told apart by how it looks, "Dark labels" beside "Labels", never by the words
+     * on one of its parts: "Panels: Last audited" read as the name of one panel (J, 2026-10-11). A number only when
+     * the two look alike.
+     */
+    const first = kept.find(({ k: x }) => x !== k && x.name === base)?.k;
+    const dl = first ? (parseColor(k.fill)?.l ?? 0) - (parseColor(first.fill)?.l ?? 0) : 0;
+    const looks = `${dl < 0 ? "Dark" : "Light"} ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+    const name = n === 1 ? base : Math.abs(dl) >= 0.2 && !used.has(looks) ? looks : `${base} ${n}`;
+    used.add(name);
+    return { ...kind, name, inside: at.get(k.inside) ?? -1 };
   });
   return {
     page: { fill: palette.bg ?? "#ffffff", words: top(pageWords)?.[0] ?? null, face: top(pageFaces)?.[0] ?? null, faceKey: top(pageFaceKeys)?.[0] ?? null, wordsIds: pageIds, ...glowOf(pageGlows, glowsWorn, pageIds.length) },
     kinds: named,
+  };
+}
+
+/**
+ * WHAT THE PREVIEW DRAWS (`SiteColours.tsx#ThemePreview`), pure, so a test can
+ * hold it to a real board rather than to a made-up one (J, 2026-10-11: fixes
+ * checked on a stale saved board came out poor on the redesign).
+ *
+ *   · tabs      label bars, the biggest first, drawn over the top edge of the first box;
+ *   · surfaces  every kind drawn as a box, the biggest first by how much of the
+ *               site it covers, not by how many parts wear it: the paper forms
+ *               and wood boards fell behind four kinds of small labels; the
+ *               one the buttons stand in comes first; a big painted piece too;
+ *   · buttons   as the site's buttons, standing in their surface;
+ *   · accents   small swatches shaped like their parts, with no count on them
+ *               (the count shows once one is picked), in the box they sit in;
+ *   · strips    bars with no words that are no speck, drawn as a bar;
+ *   · bars      every loading bar's colours, one chip.
+ */
+export function previewPlan(site: SiteKinds) {
+  const k = site.kinds;
+  const holdsButtons = (x: SurfaceKind) => Number(k.some((b) => b.button && b.inside === k.indexOf(x)));
+  return {
+    /* The biggest label bars first, by how much of the site they cover: the redesign's wood drawer labels, not four kinds of little tags. */
+    tabs: k.filter((x) => x.tab && !x.button).sort((a, b) => b.cover - a.cover).slice(0, 5),
+    surfaces: [...k.filter((x) => !x.button && !x.tab && !x.piece && !x.accent && !x.strip && !x.progress).sort((a, b) => b.cover - a.cover).slice(0, 6), ...k.filter((x) => x.piece)].sort((a, b) => holdsButtons(b) - holdsButtons(a)),
+    buttons: k.filter((x) => x.button).slice(0, 4),
+    accents: k.filter((x) => x.accent && !x.progress).slice(0, 10),
+    strips: k.filter((x) => x.strip && !x.button && !x.progress).slice(0, 4),
+    bars: [...k.filter((x) => x.progress === "track"), ...k.filter((x) => x.progress === "level")].slice(0, 6),
   };
 }
