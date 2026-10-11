@@ -23,7 +23,7 @@ import { exportSite, publishedAt } from "./exportSite";
 import { kitAfterPush, type KitSent } from "./kitPublish";
 import { pagesRecord } from "./pagesRecord";
 import { sitePictures } from "../staticSite";
-import { useStudio } from "../board/store";
+import { sentBoard, useStudio } from "../board/store";
 import { contractFiles } from "../shelf";
 import { polioMd, POLIO_MD } from "../polioMd";
 import { completeSite, fetchOwnFromBuilder, missingSays } from "../siteRefs";
@@ -178,7 +178,7 @@ export function remember(project: ReturnType<typeof activeProject>, made: string
 
 /** The site's own document and blueprint, compiled from the board as it is now. */
 export function documentFiles(): GeneratedFile[] {
-  const s = useStudio.getState();
+  const s = sentBoard(useStudio.getState());
   const spec = compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief, frameWidth: s.frameWidth, look: s.look, motion: s.motion, trail: s.trail });
   return siteFiles(specToMarkdown(spec), specToJson(spec));
 }
@@ -228,7 +228,7 @@ export async function collectFiles(described: GeneratedFile[], say: (note: strin
    * by the route), and a features/<name>/ folder per feature in use
    * (`library/contract.ts`). What a code chat builds there comes back.
    */
-  const st = useStudio.getState();
+  const st = sentBoard(useStudio.getState());
   const contract = contractFiles(st.nodes, st.pages).filter((f) => !described.some((d) => d.path === f.path));
   /*
    * And POLIO.md: what the site is and what still needs code, for a backend

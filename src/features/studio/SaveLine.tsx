@@ -17,10 +17,17 @@
  *
  * Only in the Builder: elsewhere there is no board open to be saved.
  * `tests/board-backup.mjs`, `tests/save-line.mjs`.
+ *
+ * ANOTHER TAB SAVED THIS SITE (`board/store/load.ts`, "Another tab"). A tab
+ * behind another stops saving; when that leaves a change of its own unsaved,
+ * or the other tab opened a different site, the line says so in red and a
+ * bubble under it puts the choice to him: the newer work or this tab's, or a
+ * reload onto the other site. It stays until he picks, on the preview too.
+ * `tests/two-tabs.mjs`.
  */
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Download, HardDrive, Loader2, TriangleAlert, Upload } from "lucide-react";
+import { Download, HardDrive, Loader2, RotateCw, TriangleAlert, Upload } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Popover } from "@/core/ui/popover";
 import { useActions } from "@/core/actions";
@@ -30,7 +37,7 @@ import { lastEdit } from "@/features/builds/edits";
 import { timeWords } from "@/features/builds/publishState";
 import { onSave, saveStateOf, type SaveState } from "./docStore";
 import { downloadBackup, pickAndLoadBackup } from "./backup";
-import { onBoardEdit } from "./board/store";
+import { keepThisTab, loadNewer, onBoardEdit, onOtherTab, otherTab } from "./board/store";
 
 const LIVE = "builder.studio";
 /** Edits to one site in one visit before the one reminder may show. */
@@ -51,15 +58,20 @@ function useSaveState(): SaveState | null {
   return st;
 }
 
+/** What another tab did that this one waits on him for (`load.ts#otherTab`). */
+const useOtherTab = () => React.useSyncExternalStore(onOtherTab, otherTab, () => null);
+
 export function SaveLine() {
   const path = usePathname() ?? "";
-  if (!/^\/(builder|studio)(\/|$)/.test(path) || /\/preview\//.test(path)) return null;
+  const elsewhere = useOtherTab();
+  if (!/^\/(builder|studio)(\/|$)/.test(path) || (/\/preview\//.test(path) && !elsewhere)) return null;
   return <SaveLineInner />;
 }
 
 function SaveLineInner() {
   const ctx = useActions();
   const st = useSaveState();
+  const elsewhere = useOtherTab();
   const project = useBuilds((s) => s.projects.find((p) => p.id === s.activeId) ?? null);
   const [open, setOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState(false);
@@ -82,12 +94,18 @@ function SaveLineInner() {
 
   const at = st?.at ?? lastEdit() ?? project?.updatedAt ?? null;
   const failed = st?.state === "failed";
+  /* Red for either: the change on screen is not kept. */
+  const notKept = failed || !!elsewhere;
   const saving = st?.state === "saving";
-  const words = failed
-    ? "Not saved: this browser would not keep it"
-    : saving
-      ? "Saving…"
-      : `Saved in this browser${at ? `, ${timeWords(at)}` : ""}`;
+  const words = elsewhere === "moved"
+    ? "Not saved: another tab opened a different site"
+    : elsewhere === "newer"
+      ? "Not saved: this site changed in another tab"
+      : failed
+        ? "Not saved: this browser would not keep it"
+        : saving
+          ? "Saving…"
+          : `Saved in this browser${at ? `, ${timeWords(at)}` : ""}`;
 
   const download = async () => {
     if (!project) return;
@@ -151,14 +169,40 @@ function SaveLineInner() {
         title={`${words}. Press for backups.`}
         className={cn(
           "tactile hidden h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-small sm:inline-flex",
-          failed ? "text-down" : "text-fg-faint hover:text-fg-muted",
+          notKept ? "text-down" : "text-fg-faint hover:text-fg-muted",
         )}
       >
-        {failed ? <TriangleAlert className="size-3.5" /> : saving ? <Loader2 className="size-3.5 animate-spin" /> : <HardDrive className="size-3.5" />}
+        {notKept ? <TriangleAlert className="size-3.5" /> : saving ? <Loader2 className="size-3.5 animate-spin" /> : <HardDrive className="size-3.5" />}
         <span className="hidden max-w-[220px] truncate lg:inline">{words}</span>
       </button>
     </Popover>
-    {nudge ? (
+    {elsewhere ? (
+      <div
+        data-other-tab={elsewhere}
+        role="alert"
+        className="absolute right-0 top-full z-50 mt-1.5 flex w-[min(340px,90vw)] flex-col gap-2 rounded-lg border border-border bg-panel p-3 text-small shadow-lg"
+      >
+        {elsewhere === "moved" ? (
+          <>
+            <p className="text-plain text-fg">Another tab opened a different site, so nothing done in this tab is saved any more. Reload this tab to carry on with that site.</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button size="sm" variant="primary" data-other-tab-reload="" onClick={() => window.location.reload()}>
+                <RotateCw /> Reload this tab
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-plain text-fg">This site was saved in another tab, and what changed here since then is not saved.</p>
+            <p className="text-fg-muted">Load the newer work and let this tab&apos;s changes go, or keep this tab&apos;s and save it over the other tab&apos;s.</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button size="sm" variant="primary" data-other-tab-load="" onClick={loadNewer}>Load the newer work</Button>
+              <Button size="sm" variant="outline" data-other-tab-keep="" onClick={keepThisTab}>Keep this tab&apos;s</Button>
+            </div>
+          </>
+        )}
+      </div>
+    ) : nudge ? (
       <div
         data-save-reminder=""
         role="status"

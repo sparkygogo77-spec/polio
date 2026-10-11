@@ -4,7 +4,7 @@ import { coloursOf, swapColour, swapFont } from "../../look";
 import { newLayer, type TextureLayer } from "../../look";
 import { newMotion } from "../../motion";
 import { useStudio } from "./create";
-import { GetStudio, MOTION_RUNS, SetStudio, shelve } from "./history";
+import { GetStudio, MOTION_RUNS, SHELVED, SetStudio, shelve, type Push } from "./history";
 import { FIT_MIN, ZOOM_MAX, ZOOM_MIN } from "./model";
 import type { StudioState } from "./state";
 
@@ -12,7 +12,7 @@ import type { StudioState } from "./state";
 /** A layer's dragged settings: a run of writes to one is one undo. Any other change (where it lands, its kind, on or off) is a step each. */
 const TEXTURE_RUNS = new Set(["opacity", "scale", "angle", "drift", "contrast", "hue", "tolerance", "weave", "colour", "crop"]);
 
-export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "setTool" | "setInk" | "setDrawKind" | "setSiteBranch" | "setZoom" | "setFitZoom" | "setPan" | "setFrameWidth" | "setView" | "setSmallRule" | "requestFit" | "setPositions" | "setFormat" | "resetFormat" | "addMotion" | "updateMotion" | "removeMotion" | "setMotionFrame" | "moveMotionFrame" | "attachMotion" | "setLook" | "swapColourAll" | "patchNodes" | "swapFontAll" | "addTexture" | "updateTexture" | "mergeTexture" | "removeTexture" | "moveTexture" | "setShowAllFormat" | "setShowWires" | "setStatesOn" | "setMode" | "setMenuShape" | "setPlacingLight" | "setLightCarry" | "cancelPlacingLight" | "setMenuSpin" | "rememberColour" | "setCompanion" | "hideFeature" | "restoreFeature" | "restoreAllFeatures" | "bringIn" | "sendBack"> {
+export function viewActions(set: SetStudio, get: GetStudio, push: Push, pushEdit: (key: string) => void): Pick<StudioState, "setTool" | "setInk" | "setDrawKind" | "setSiteBranch" | "setZoom" | "setFitZoom" | "setPan" | "setFrameWidth" | "setView" | "setSmallRule" | "requestFit" | "setPositions" | "setFormat" | "resetFormat" | "addMotion" | "updateMotion" | "removeMotion" | "setMotionFrame" | "moveMotionFrame" | "attachMotion" | "setLook" | "swapColourAll" | "patchNodes" | "swapFontAll" | "addTexture" | "updateTexture" | "mergeTexture" | "removeTexture" | "moveTexture" | "setShowAllFormat" | "setShowWires" | "setStatesOn" | "setMode" | "setMenuShape" | "setPlacingLight" | "setLightCarry" | "cancelPlacingLight" | "setMenuSpin" | "rememberColour" | "setCompanion" | "hideFeature" | "restoreFeature" | "restoreAllFeatures" | "bringIn" | "sendBack"> {
   return {
     setTool: (t) => set({ tool: t }),
     setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
@@ -232,7 +232,8 @@ export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pu
     restoreAllFeatures: () => set({ hiddenFeatures: [] }),
 
     bringIn: (repo, parts) => {
-      push();
+      /* The shelf as it was is part of the step: undo takes the parts off it again. */
+      push(SHELVED);
       set((s) => {
         const brought = [...s.brought.filter((r) => r.id !== repo.id), repo];
         const broughtParts = [...s.broughtParts.filter((p) => p.categoryId !== repo.id), ...parts];
@@ -242,7 +243,7 @@ export function viewActions(set: SetStudio, get: GetStudio, push: () => void, pu
     },
 
     sendBack: (repoId) => {
-      push();
+      push(SHELVED);
       set((s) => {
         const brought = s.brought.filter((r) => r.id !== repoId);
         const broughtParts = s.broughtParts.filter((p) => p.categoryId !== repoId);

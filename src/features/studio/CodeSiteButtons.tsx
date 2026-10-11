@@ -33,6 +33,7 @@ import { activeProject } from "@/features/builds/store";
 import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
+import { checkedIn } from "./states";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
 import { codeStatus, commitAfterPublish, headOf, layerEmpty, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
@@ -60,7 +61,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   /* Held still under the hand: the whole style layer is rebuilt from it (`store/hold.ts`). */
   /* Parts wearing a texture carry it: a living background as their own living picture, any other as their own background pictures (`wearTextures`). */
   const textures = useStudio((s) => s.look.texture);
-  const steady = useSteady(useStudio((s) => s.nodes));
+  /* Checked in: a state worn on the board ("This state only") goes out as that state's look, never the part's own (`states/stateEdits.ts`). */
+  const steady = useSteady(useStudio((s) => checkedIn(s.nodes)));
   /* Every other texture a part wears is painted as the board paints it, over its own fill (`wornPaint`). */
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -113,7 +115,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     if (!fixed.length) { if (loop !== was) setFixLoop(loop); return; }
     for (const i of fixed) useStudio.getState().landThread({ mode: LANE_MODE, ask: i.says, answer: `Fixed by a code chat from polio/NEXT.md: ${i.hook ?? "a part"} on ${i.page}.`, changes: [`${i.hook ?? "A part"} on ${i.page} fixed`], state: "done" });
     const gone = new Set(fixed.map((i) => i.key));
-    /* A board change the code built is done: the board still holds it, so it is never asked for again. */
+    /* A board change the code built is done: never asked for again while the board asks the same of it (its key holds what it asked, `codeAsks.ts`). */
     const built = fixed.filter((i) => i.kind === "build").map((i) => i.key);
     setFixLoop({ ...loop, ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])], asked: (loop.asked ?? []).filter((i) => !gone.has(i.key)) });
     say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
@@ -284,8 +286,9 @@ function FixNote({ source }: { source: StyleSource }) {
   const nodes = useStudio((s) => s.nodes);
   const pages = useStudio((s) => s.pages);
   const format = useStudio((s) => s.format);
+  const brief = useStudio((s) => s.brief);
   const n = loop.ticked.filter((k) => !loop.sent.some((i) => i.key === k)).length;
-  const asks = React.useMemo(() => asksToSend(loop, asksNow(source)), [loop, source, nodes, pages, format]); // eslint-disable-line react-hooks/exhaustive-deps
+  const asks = React.useMemo(() => asksToSend(loop, asksNow(source)), [loop, source, nodes, pages, format, brief]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       {n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null}

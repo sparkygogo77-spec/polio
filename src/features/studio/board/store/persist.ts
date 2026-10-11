@@ -8,6 +8,7 @@ import type { Worn } from "../../wornShape";
 import type { PartCode } from "../../snippet";
 import type { Picture } from "../../pictures";
 import type { StudioState } from "./state";
+import { checkedIn } from "../../states";
 
 /* ------------------------------------------------------------------ */
 /* Loading a document                                                  */
@@ -21,12 +22,26 @@ import type { StudioState } from "./state";
  * site with nothing saved has to be loaded as. A key added here is saved and
  * blanked by the same edit.
  */
+/**
+ * THE BOARD AS IT GOES OUT (builder audit, 2026-10-11). A state worn on the
+ * board ("This state only", the Panels page's state on show) is a way of
+ * editing that state, not the document. So whatever sends the site away reads
+ * the parts checked in, as the save does: Go live's pages, document and
+ * contract, Export for code and the pictures they carry. With nothing worn,
+ * the board itself.
+ */
+export function sentBoard(s: StudioState): StudioState {
+  const nodes = checkedIn(s.nodes);
+  return nodes === s.nodes ? s : { ...s, nodes };
+}
+
 /** One empty list, so an unchanged document hands over the same value every time (`create.ts#keptOnly`). */
 const NO_STATES: string[] = [];
 export function docOnly(s: StudioState) {
   return {
         pages: s.pages,
-        nodes: s.nodes,
+        /* Checked in: a state worn on the board is saved as that state's look, never the part's own (`states/stateEdits.ts`). */
+        nodes: checkedIn(s.nodes),
         /* His drawings survive leaving the tab, which is the whole point of them. */
         draws: s.draws,
         /* When he last opened the timeline, so a finished action's green bar

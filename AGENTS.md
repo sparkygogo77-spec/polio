@@ -1248,18 +1248,19 @@ turning headline and a button, where a dashed region with its name printed
 in the middle used to stand in for it.
 
 **The orbs, and what they are for.** `orb-css`, `orb-webgl` and `orb-image`
-are one object drawn three ways — layered gradients, a three.js sphere, a
-picture — with the same four sliders on each (size, tilt, colour, glow) and
-the same rings and tag around them, so the difference between the three
-techniques is visible rather than argued about. `parts/Orb.tsx` holds all
-three. Two things in there are worth keeping: a crescent on a sphere is a
-*conic* gradient masked to the outer band, never a radial one (a circle of
-light is a blob, and a blob reads as a stain); and the WebGL orb is lit by an
-environment — a canvas with two wide coloured lamps painted into it, wrapped
-round the scene — because point lights on a smooth black sphere give three
-white pinpricks and nothing else. three.js is imported dynamically, so a page
-with no orb never loads it, and any failure (no WebGL, no chunk) falls back
-to the drawn orb and says so in the tag. `corner-glow`, `eyebrow-rule` and
+are one object drawn three ways — the page's own planet, the same planet in
+a surface (glass, metal or matte) worked out on the graphics card, and the
+planet wearing a picture — with the same four sliders on each (size, tilt,
+colour, glow) and the same rings and tag around them. `parts/Orb.tsx` holds
+all three, and every ball is `library/planetJs.ts`: the board, the Preview,
+the published page (the "planet" feature, which reads `data-planet-surface`)
+and a builder-ready site's `vendor/builder-motion.js` (`planet?surface=glass`,
+which the NEXT.md line for a new orb names) run the same lines. The turnable
+orb was three.js on the board and the plain planet everywhere else, so the
+site never looked like the board; now it is a WebGL shader of the planet's
+own light, no library, and where WebGL is missing the page draws the same
+light and surface itself and the board's tag says so
+(`tests/orb-turnable-published.mjs`). `corner-glow`, `eyebrow-rule` and
 `details-table` came from the same rebuild: a light off the edge of the page,
 a kicker with a rule, and label-and-value rows that copy.
 
@@ -3779,11 +3780,21 @@ remove it from `src/features/index.ts` when you're sure.
   beside the keys shows the last fifty, newest first; a press goes there in
   one change of state (`travel`), not fifty undos. A new kind of edit that
   reads as "an edit" wants a line in `stepName`. `tests/undo-history.mjs`.
+  A step that changes more than the document keeps those fields beside it
+  (`Step.aside`, `history.ts#stepTo`): a bring-in's frame width, learned
+  record, stand-in, sweep mark, states and shelf come back with its undo,
+  and no other step touches them (`tests/undo-bring-in.mjs`).
 - **The save line** (`SaveLine.tsx`, a `status` item in the top bar, only in
   the Builder) says "Saved in this browser, 12:04" off `docStore.ts`'s
   `onSave`, never "Saving…" on every edit, and red when the browser would
   not keep it. It opens the backups, and once per site that was never
   backed up or published it opens by itself after ten edits (`nudged`).
+  **A tab never saves over another tab's newer work**: every saved document
+  carries the stamp of the tab that wrote it (`docStore.ts`), and a tab
+  behind another's save writes nothing. With nothing of its own unsaved it
+  takes the newer work; otherwise the line goes red and a bubble asks for
+  the newer work or this tab's, or, when the other tab opened a different
+  site, a reload (`board/store/load.ts`, "Another tab"; `tests/two-tabs.mjs`).
 - **One molten surface, not two reds that nearly match**
   (`src/core/ui/molten.css`, handle in `src/core/ui/molten.ts`). Glowing
   constructs — the timeline's iteration boxes, the element cards — are one

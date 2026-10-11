@@ -23,6 +23,21 @@ import { type Twin } from "../../twins";
 import { type Grown } from "../../owns";
 import { BoardMode, BroughtPart, BroughtRepo, Doc, Revision, ShapeRelation, StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, Tool, TrailEntry } from "./model";
 
+/**
+ * WHAT A STEP OF UNDO PUTS BACK BESIDE THE DOCUMENT (`history.ts#stepTo`).
+ * Only the steps that change these carry them: loading a document (a bring-in)
+ * sets the frame to its width, its learned record, its stand-in, the sweep's
+ * mark and the states it opens with, bringing a site's parts in fills the
+ * shelf, and Clear everything takes those with the edit branch and the
+ * timeline. Every other step leaves them as they are, so an undo never takes
+ * back a width picked from the bar.
+ */
+export type AsideKey =
+  | "frameWidth" | "learn" | "standIn" | "swept" | "statesOn" | "brought" | "broughtParts"
+  | "siteBranch" | "trail" | "threads" | "liveThreadId" | "pinnedThreads" | "threadSpots" | "draftPieces" | "sentPieces";
+/** A step in the undo history: the document, and what the step changed beside it when it did. */
+export type Step = Doc & { aside?: Partial<Pick<StudioState, AsideKey>> };
+
 export interface StudioState extends Doc {
   /** Width of the page frame drawn on the board. */
   frameWidth: number;
@@ -219,8 +234,8 @@ export interface StudioState extends Doc {
    * resent: the model has it from the turn before.
    */
   sentPieces: Record<string, string>;
-  past: Doc[];
-  future: Doc[];
+  past: Step[];
+  future: Step[];
 
   /* nodes */
   addNode: (featureId: string, x: number, y: number, patch?: Partial<StudioNode>) => string;
@@ -544,7 +559,9 @@ export interface StudioState extends Doc {
   /**
    * An import is one undo step (tests/bring-again.mjs). `historyMark` before
    * it starts; `oneStepSince(mark)` once it has landed folds every
-   * checkpoint it took into the first, so one Ctrl+Z is the board before it.
+   * checkpoint it took into the first, so one Ctrl+Z is the board before it:
+   * what they kept beside the document too, the width and the shelf among
+   * it (`Step`, tests/undo-bring-in.mjs).
    */
   historyMark: () => number;
   oneStepSince: (mark: number) => void;

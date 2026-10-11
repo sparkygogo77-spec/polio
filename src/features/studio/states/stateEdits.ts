@@ -15,7 +15,7 @@
  * again (checked in). Only the look moves: words, place and size are the
  * part's in every state (data is not a state; a place is the code's).
  *
- * Pure: `tests/state-rules.mjs`.
+ * Pure: `tests/state-rules.mjs`, `tests/state-only-checked-in.mjs`.
  */
 
 /** What a part keeps the same in every state. */
@@ -58,6 +58,65 @@ export function checkIn<T extends EditNode>(nodes: readonly T[], out: CheckedOut
     back.byState = Object.keys(byState).length ? byState : null;
     return back as T;
   });
+}
+
+/*
+ * WHAT THE BOARD WEARS NOW (builder audit, 2026-10-11). A state worn on the
+ * board (Show's "This state only", the Panels page's state on show) is a way
+ * of editing that state, not the document. With one worn, Publish sent the
+ * TV's live look as its look in every state, and an undo past the moment it
+ * went on put back parts that wore nothing, so taking it off deleted the
+ * state's saved edits. So what is worn is kept here, by who wears it:
+ * whatever keeps or sends the document (the undo history, the save, Publish)
+ * reads the parts checked in (`checkedIn`), and a document put back while a
+ * state is worn wears it again (`wearAgain`), its own look read afresh.
+ */
+type Part = { id: string };
+const asEdit = (nodes: readonly Part[]) => nodes as unknown as EditNode[];
+const worn = new Map<string, CheckedOut[]>();
+/** Moved on by every change to what is worn, so `checkedIn` answers again. */
+let wornAt = 0;
+
+/** Whether `who` (the Show switch, the Panels page) wears a state now. */
+export const wears = (who: string): boolean => worn.has(who);
+
+/** `who` puts these states on the parts, each look to put back kept here; what it wore before comes off first. */
+export function wearStates<T extends Part>(who: string, nodes: readonly T[], looks: readonly { key: string; ids: readonly string[] }[]): T[] {
+  let next = asEdit(takeOffStates(who, nodes));
+  const outs: CheckedOut[] = [];
+  for (const g of looks) { const got = checkOut(next, g.key, g.ids); next = got.nodes; outs.push(got.out); }
+  if (outs.length) { worn.set(who, outs); wornAt++; }
+  return next as unknown as T[];
+}
+
+/** `who` takes its states off: its parts back in their own look, what each state changed kept in `byState`. */
+export function takeOffStates<T extends Part>(who: string, nodes: readonly T[]): T[] {
+  const outs = worn.get(who);
+  if (!outs) return nodes as T[];
+  worn.delete(who);
+  wornAt++;
+  return outs.reduceRight((ns, out) => checkIn(ns, out), asEdit(nodes)) as unknown as T[];
+}
+
+const answered = new WeakMap<readonly Part[], { at: number; back: Part[] }>();
+/** The document under the board: every worn state checked back in, none taken off. The same parts when nothing is worn, and the same answer for the same parts, so the save, which compares by reference, writes nothing new (`create.ts#keptOnly`). */
+export function checkedIn<T extends Part>(nodes: readonly T[]): T[] {
+  if (!worn.size) return nodes as T[];
+  const had = answered.get(nodes);
+  if (had?.at === wornAt) return had.back as T[];
+  let back = asEdit(nodes);
+  for (const outs of [...worn.values()].reverse()) back = outs.reduceRight((ns, out) => checkIn(ns, out), back);
+  answered.set(nodes, { at: wornAt, back: back as unknown as Part[] });
+  return back as unknown as T[];
+}
+
+/** A document put back while states are worn (an undo, a redo, a step in the history, a thread stood on): the same states worn on it. */
+export function wearAgain<T extends Part>(nodes: readonly T[]): T[] {
+  if (!worn.size) return nodes as T[];
+  let next = asEdit(nodes);
+  for (const [who, outs] of worn) worn.set(who, outs.map((out) => { const got = checkOut(next, out.key, [...out.base.keys()]); next = got.nodes; return got.out; }));
+  wornAt++;
+  return next as unknown as T[];
 }
 
 /** What a part is given on its own, never its group's: a shelf effect (`work`) and its animation. */

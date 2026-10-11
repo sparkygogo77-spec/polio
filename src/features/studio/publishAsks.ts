@@ -10,6 +10,7 @@
  * it (J, 2026-10-10). Both now take their asks from here.
  */
 import { useStudio } from "./board/store";
+import { checkedIn } from "./states";
 import { changedDeclarations, lookOf, type LayerNode, type StyleSource } from "./send-out";
 import { fileOrGone, publishBranch } from "./kitRun";
 import { NEXT_PATH, asksToSend, nextMd, toSend, type FixIssue } from "./fixLoop";
@@ -26,20 +27,25 @@ export function freshNow(source: StyleSource): Record<string, string> {
   return freshHooks(st.nodes as never, new Set(source.files.map((f) => f.pageId)), taken, { part: (id) => getFeature(id)?.name ?? null, skip: RUN_MOTIONS, pages: st.pages });
 }
 
-/** What the board holds that the style layer cannot write (effects, Format switches, pages, parts made here), as NEXT.md lines (`codeAsks.ts`). */
+/** What the board holds that the style layer cannot write (effects, Format switches, pages, the site's name and description, parts made here), as NEXT.md lines (`codeAsks.ts`). */
 export function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(source)): FixIssue[] {
   const st = useStudio.getState();
   const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
   const def = new Map(FORMAT_FIELDS.map((f) => [f.id, f.default]));
   const palette = st.look.palette as Record<string, string> | undefined;
+  /* The lines already out, so what they asked is asked again when he changes it, and asked out when he turns it off. */
+  const loop = fixLoopOf(st.look);
   return codeAsks({
+    asked: [...loop.sent, ...(loop.pending ?? [])].map((i) => i.key).concat(loop.done ?? []),
     fresh,
     part: (id) => getFeature(id)?.name ?? null,
     siteMotions: RUN_MOTIONS,
     kit: !!source.kit,
     lookCss: (n) => { const now = lookOf(n as unknown as LayerNode, palette); return changedDeclarations({ box: now.box, words: "" }, now, { dx: 0, dy: 0 }).filter((d) => !/^(width|min-height|max-width|box-sizing):/.test(d)); },
-    nodes: st.nodes as never,
+    /* Checked in, as the layer is: a state worn on the board is never asked for as the part's own. */
+    nodes: checkedIn(st.nodes) as never,
     pages: st.pages,
+    site: { name: st.brief.name, description: st.brief.description },
     format: st.format,
     switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key, def: def.get(s.key) })),
     coded: new Set(source.files.map((f) => f.pageId)),

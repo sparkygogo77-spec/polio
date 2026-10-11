@@ -38,7 +38,7 @@ import type { Panel, PanelNode } from "./panels";
 import { panelsOfPage, ISOLATE, isolateKey, readIsolateKey } from "./panelsOf";
 import { isolatedOnBoard } from "../board/reads";
 import { labelsOf, readDeclared, statesOfPart, type DeclaredScene, type Samples } from "./stateRules";
-import { checkIn, checkOut, stateEditKey, type CheckedOut } from "./stateEdits";
+import { stateEditKey, takeOffStates, wearStates, wears } from "./stateEdits";
 import { scenesOnPage } from "./sceneStep";
 import { screenKey } from "./boardStates";
 import { spotlight } from "./panelSpotlight";
@@ -78,19 +78,12 @@ export function usePagePanels(pageId: string): { panels: Panel[]; screens: Scree
  * The state being edited, checked out on the board's parts (`stateEdits.ts`):
  * its parts wear its look, so every panel edits it as usual.
  */
-let checkedOut: CheckedOut | null = null;
 function endStateEdit() {
-  if (!checkedOut) return;
-  const out = checkedOut;
-  checkedOut = null;
-  useStudio.setState((s) => ({ nodes: checkIn(s.nodes as never, out) as never }));
+  if (wears("panels")) useStudio.setState((s) => ({ nodes: takeOffStates("panels", s.nodes) }));
 }
 function beginStateEdit(key: string, ids: string[]) {
   endStateEdit();
-  if (!ids.length) return;
-  const got = checkOut(useStudio.getState().nodes as never, key, ids);
-  checkedOut = got.out;
-  useStudio.setState({ nodes: got.nodes as never });
+  if (ids.length) useStudio.setState({ nodes: wearStates("panels", useStudio.getState().nodes, [{ key, ids }]) });
 }
 
 /*

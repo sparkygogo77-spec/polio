@@ -10,7 +10,7 @@
 import { exportSite } from "./send-out/run";
 import { homeFor } from "./homePage";
 import { pageFile } from "./staticSite";
-import { useStudio } from "./board/store";
+import { sentBoard, useStudio } from "./board/store";
 import { finishKit, pullPictures, toKit, type KitExport, type KitFile, type KitPart } from "./kitExport";
 import { hookChanges, readHookMap, sendDesign, type ChangeNode, type HookChanges, type HookMap } from "./send-out";
 import { designRecord, type RecordNode } from "./designRecord";
@@ -23,7 +23,7 @@ import { partRoles } from "./partRoles";
 import type { CompNode } from "./components";
 
 export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; problems: string[]; says: string; kit?: KitExport }> {
-  const s = useStudio.getState();
+  const s = sentBoard(useStudio.getState());
   if (!s.pages.length) return { ok: false, files: [], problems: [], says: "There is nothing on the board to export yet." };
   /* With the hooks the pages carry: the words and list choices a brought-in page's code finds its way by. */
   const files = (await exportSite(undefined, { hooks: true })) as KitFile[];
@@ -55,7 +55,7 @@ export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; 
  * and only once the kit's check passes on it.
  */
 export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?: Date; onProgress?: (says: string) => void } = {}): Promise<{ ok: boolean; says: string; branch?: string; pull?: string | null; changes?: HookChanges; sent?: number; reused?: number }> {
-  const s = useStudio.getState();
+  const s = sentBoard(useStudio.getState());
   const source = (s.look as { styleSource?: StyleSource & { onBoard?: string[] } }).styleSource;
   if (!source?.repo) return { ok: false, says: "This site did not come from a repository, so there is no branch to send it to. Export for code as a zip instead." };
   const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
@@ -89,7 +89,7 @@ export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?:
  * the site's tokens, with the owner's settings over them.
  */
 export function boardRecord(map: HookMap = {}, date?: Date, fresh: Record<string, string> = {}): string {
-  const s = useStudio.getState();
+  const s = sentBoard(useStudio.getState());
   const source = (s.look as { styleSource?: StyleSource | null }).styleSource ?? null;
   const tokens: Record<string, string> = {};
   for (const f of source?.files ?? []) for (const v of f.vars) if (v.token && !(v.name in tokens)) tokens[v.name] = v.value;

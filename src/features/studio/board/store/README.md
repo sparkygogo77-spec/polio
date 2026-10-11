@@ -15,4 +15,4 @@ exported; other files import it as `./board/store` (or `@/features/studio/board/
 | `view.ts` | Tool, ink, zoom, pan, format, motion, look, textures, menu, features, bring in/send back |
 | `threads.ts` | Brief, asks, spend, threads, draft queue, revisions, clear/reset, theme, `loadDoc` |
 | `persist.ts` | `docOnly` (what is saved), `mergeDoc` (loading a saved doc), `takeCarriedRepo` |
-| `load.ts` | Site swap (`swapDoc`), import mark, page selectors, bounds, `useStudioHydration`, `livePath` |
+| `load.ts` | Site swap (`swapDoc`), import mark, page selectors, bounds, `useStudioHydration`, `livePath`, another tab saving the same key (`watchOtherTabs`, `otherTab`, `loadNewer`, `keepThisTab`, `takeOpenSite`) |

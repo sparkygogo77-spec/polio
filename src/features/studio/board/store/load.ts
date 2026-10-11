@@ -1,10 +1,12 @@
 "use client";
 import { persist } from "zustand/middleware";
 import { useLayoutEffect } from "react";
-import { PRISTINE, useStudio } from "./create";
+import { behind, holdStamp, idbGet, isPointer, movedIn, readMirror, stampOf, tookFromOtherTab, unpackDocText, whenOtherTabWrites } from "../../docStore";
+import { PRISTINE, dropHere, onKeptBack, tookHere, unsavedHere, useStudio, writeHere } from "./create";
 import { migrateKey, pen, shelve } from "./history";
 import { StudioNode, StudioShape } from "./model";
 import { mergeDoc } from "./persist";
+import { wearAgain } from "../../states";
 import type { StudioState } from "./state";
 
 
@@ -42,7 +44,7 @@ export function holdImportMark(mark: number): void { importMark = mark; }
 export function takeImportMark(): number | null { const m = importMark; importMark = null; return m; }
 
 
-export function swapDoc(raw: string | null): void {
+export function swapDoc(raw: string | null, live = false): void {
   pen.swapping = true;
   try {
     /* A fresh copy every time: `mergeDoc` may hand parts of the base
@@ -63,6 +65,8 @@ export function swapDoc(raw: string | null): void {
     }
     useStudio.setState({
       ...doc,
+      /* A state worn on the board is worn on this one's parts, or on none: never taken off one site against another's look (`states/stateEdits.ts#wearAgain`). */
+      nodes: wearAgain(doc.nodes),
       /* Not the document, and all of it about the site being left: a
          selection of parts that no longer exist, and an undo history that
          would step this site's board back into the last one's. */
@@ -71,15 +75,153 @@ export function swapDoc(raw: string | null): void {
       future: [],
     });
     /* The same two things `onRehydrateStorage` does after a read, because
-       this is a read — it just did not come through the persister. */
+       this is a read — it just did not come through the persister. A
+       document another tab is still working on (`live`) keeps its running
+       threads: they are running there. */
     const now = useStudio.getState();
     shelve(now.brought ?? [], now.broughtParts ?? []);
-    if (now.threads.some((t) => t.state === "running")) {
+    if (!live && now.threads.some((t) => t.state === "running")) {
       useStudio.setState({ threads: now.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t)) });
     }
   } finally {
     pen.swapping = false;
   }
+  /* A site opened in this tab is the one it holds now: nothing from another tab is pending over it, and what was kept back belonged to the site it left. */
+  if (!live) { dropHere(); setOther(null); heard = false; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Another tab                                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * ANOTHER TAB SAVED THIS SITE.
+ *
+ * Every tab in this browser holds the same key, and a tab stops writing the
+ * moment another has saved since it read (`create.ts#keptOnly`). Then:
+ *
+ *   - with nothing of its own unsaved, it takes the newer document: when it is
+ *     looked at again (shown, focused, pressed) or, while it is on screen,
+ *     once the other tab has been quiet a moment. A tab left open since the
+ *     morning shows the newer work when he comes back to it, and a preview
+ *     open beside the board follows it. One that is out of sight takes it
+ *     when it comes back, rather than drawing the board again on every
+ *     letter typed in the other.
+ *   - with a change of its own that could not be saved: "newer". Nothing is
+ *     written until he picks the newer work or this tab's (`SaveLine.tsx`).
+ *   - when the other tab opened a different site: "moved". Nothing is
+ *     written, the site list included; reloading puts this tab on that site,
+ *     and so does a site action here before it does anything else
+ *     (`builds/store.ts#caughtUp`).
+ */
+export type OtherTab = null | "newer" | "moved";
+const LIVE = "builder.studio";
+/** How long the other tab is quiet before a tab on screen takes its work: once a burst of edits, not once a letter. */
+const QUIET_MS = 400;
+let other: OtherTab = null;
+/** Another tab has written since this one last caught up: a look at this tab is worth a check of the key. */
+let heard = false;
+let quiet: ReturnType<typeof setTimeout> | null = null;
+let tries = 0;
+const otherListeners = new Set<() => void>();
+function setOther(v: OtherTab): void {
+  if (other === v) return;
+  other = v;
+  for (const fn of otherListeners) { try { fn(); } catch { /* its own trouble */ } }
+}
+/** What another tab has done that this tab must wait on him for: nothing, newer work over unsaved changes here, or another site. */
+export const otherTab = (): OtherTab => other;
+export function onOtherTab(fn: () => void): () => void {
+  otherListeners.add(fn);
+  return () => { otherListeners.delete(fn); };
+}
+
+const hiddenNow = () => typeof document !== "undefined" && document.hidden === true;
+/** The key now holds a site this tab did not open: moved in by another tab, or emptied for a new one. */
+function movedNow(): boolean {
+  const raw = readMirror(LIVE);
+  return raw === null || movedIn(stampOf(raw));
+}
+
+/** Take the newer document when there is one and nothing of this tab's would be lost by it. */
+function catchUp(): void {
+  if (quiet) { clearTimeout(quiet); quiet = null; }
+  if (!heard || other || pen.visitor || !pen.read) return;
+  if (!behind(LIVE)) { heard = false; return; }
+  if (movedNow()) { setOther("moved"); return; }
+  if (unsavedHere()) { setOther("newer"); return; }
+  const raw = readMirror(LIVE)!;
+  if (!isPointer(raw)) { take(unpackDocText(raw)); return; }
+  /* Too big for the mirror: IndexedDB has it once the other tab's write lands there, a moment after its pointer. */
+  void idbGet(LIVE).then((text) => {
+    if (text !== null && stampOf(text) === stampOf(readMirror(LIVE))) { tries = 0; take(text); return; }
+    if (++tries < 40) quiet = setTimeout(catchUp, 250);
+  });
+}
+function take(text: string): void {
+  if (other || !behind(LIVE)) return;
+  if (unsavedHere()) { setOther("newer"); return; }
+  swapDoc(text, true);
+  tookHere();
+  tookFromOtherTab(LIVE, text);
+  heard = false;
+}
+
+/** Another tab wrote the key. */
+function otherWrote(): void {
+  if (pen.visitor || !pen.read || !behind(LIVE)) return;
+  heard = true;
+  if (movedNow()) { setOther("moved"); return; }
+  if (unsavedHere()) { setOther("newer"); return; }
+  if (quiet) clearTimeout(quiet);
+  quiet = hiddenNow() ? null : setTimeout(catchUp, QUIET_MS);
+}
+
+let watching = false;
+/** From the first hydration on: hear the other tabs, and catch up when this one is looked at. */
+export function watchOtherTabs(): void {
+  if (!watching && typeof window !== "undefined") {
+    watching = true;
+    whenOtherTabWrites(LIVE, otherWrote);
+    /* A change refused here while behind is the moment to say so, not the next look. */
+    onKeptBack(() => { if (behind(LIVE)) setOther(movedNow() ? "moved" : "newer"); });
+    const look = () => { if (!hiddenNow()) catchUp(); };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", look);
+    window.addEventListener("focus", look);
+    window.addEventListener("pointerdown", look, true);
+    window.addEventListener("keydown", look, true);
+  }
+  /* A write that landed while this tab was reading is newer than what it read. */
+  if (pen.read && behind(LIVE)) otherWrote();
+}
+
+/** His pick: the newer work from the other tab; what was changed here and not saved is let go. */
+export function loadNewer(): void {
+  dropHere();
+  setOther(null);
+  heard = true;
+  catchUp();
+}
+/**
+ * A site action in a tab another tab moved to a different site
+ * (`builds/store.ts#caughtUp`): it takes the site the key holds now, as a
+ * reload would, but with that tab's running updates still running there.
+ */
+export function takeOpenSite(raw: string | null): void {
+  swapDoc(raw, true);
+  tookHere();
+  holdStamp(LIVE, raw);
+  setOther(null);
+  heard = false;
+}
+/** His pick: this tab's document, saved over what the other tab saved. */
+export function keepThisTab(): void {
+  if (other === "moved") return;
+  /* What is there now is what this tab writes over, knowingly. */
+  holdStamp(LIVE, readMirror(LIVE));
+  setOther(null);
+  heard = false;
+  writeHere();
 }
 
 /* ------------------------------------------------------------------ */
@@ -148,7 +290,8 @@ export function useStudioHydration() {
     migrateKey("polio.studio", "builder.studio");
     if (sweeping) return;
     sweeping = true;
-    const sweep = () => { useStudio.getState().sweepDocument(); };
+    /* …and from then on the other tabs on this browser are heard (`watchOtherTabs`). */
+    const sweep = () => { useStudio.getState().sweepDocument(); watchOtherTabs(); };
     if (useStudio.persist.hasHydrated()) { sweep(); return; }
     /* Hydration may resolve after this surface's own effects have run, so
        what the sweep did is put in the document's state and watched for

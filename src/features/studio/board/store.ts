@@ -25,7 +25,8 @@ export { startGesture, gestureFrame, endGesture, gestureBase, inGesture } from "
 export { frameHeight, frameTopReach, FRAME_WIDTHS, placeInFrame } from "./store/frame";
 export { EDIT_RUN_MS, HUES, snapshot, onBoardEdit, pickedStates } from "./store/history";
 export { holdImportMark, takeImportMark, swapDoc, pageNodes, pageShapes, pageSpaces, pageGroups, activePage, groupBounds, shapeBounds, useStudioHydration, useLookingOnly, livePath } from "./store/load";
+export { otherTab, onOtherTab, loadNewer, keepThisTab, takeOpenSite, watchOtherTabs, type OtherTab } from "./store/load";
 export { BACKGROUND_ID, BASE_ZOOM, ZOOM_MIN, FIT_MIN, ZOOM_MAX, NODE_SHAPES } from "./store/model";
 export type { Tool, Priority, ShapeKind, BoardMode, ShapeRelation, NodeShape, StudioNode, StudioGroup, StudioShape, StudioPage, StudioBrief, BroughtRepo, BroughtPart, RevisionKind, Revision, TrailStage, TrailTargetKind, TrailTarget, TrailEntry } from "./store/model";
-export { takeCarriedRepo } from "./store/persist";
+export { sentBoard, takeCarriedRepo } from "./store/persist";
 export { DRAW_KINDS, type DrawKind } from "../drawKinds";

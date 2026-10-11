@@ -468,8 +468,10 @@ export const OWN_FEATURE: Readonly<Record<string, string>> = { "whats-new": "wha
 
 /**
  * Shelf parts drawn by a library feature on the published page, where React
- * is gone: the orbs are a ball the "planet" feature turns (`planetJs.ts`).
- * Unlike `OWN_FEATURE`, the shelf places them as parts, not as features.
+ * is gone: the orbs are a ball the "planet" feature turns (`planetJs.ts`),
+ * the turnable orb in its surface on the graphics card (`data-planet-surface`),
+ * as the board draws it. Unlike `OWN_FEATURE`, the shelf places them as
+ * parts, not as features.
  */
 export const PART_SCRIPT: Readonly<Record<string, string>> = { "orb-css": "planet", "orb-webgl": "planet", "orb-image": "planet", "shape-sphere": "planet", "shape-cube": "planet", "shape-pyramid": "planet", "before-after": "compare" };
 

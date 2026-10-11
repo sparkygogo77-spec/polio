@@ -446,6 +446,8 @@ export interface StudioPage {
   scroll: string;
   /** Where this page's link preview differs from the site's (`brief.head`): its own title, description, share picture. */
   head?: SiteHead;
+  /** Its name and route before J first renamed or moved it here (`updatePage`): on a page the code has, Publish asks the code to follow (`codeAsks.ts`). */
+  came?: { name: string; path: string };
 }
 
 export interface StudioBrief {

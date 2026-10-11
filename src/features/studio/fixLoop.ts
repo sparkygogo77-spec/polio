@@ -26,6 +26,16 @@
  * No server is involved: the file in the repository is the queue, so it
  * works with any code chat. This file imports nothing at run time, so
  * `tests/fix-loop.mjs` reads it straight off the disk.
+ *
+ * A BOARD CHANGE IS ASKED AGAIN WHEN J CHANGES IT AGAIN (audit 2026-10-11).
+ * Its key was only what it was about (`build-format-pages.transition`), so
+ * once sent or built, a new value or a switch turned off was never asked.
+ * Now a board change's key is `what~value` (`codeAsks.ts`): the same thing
+ * asked of differently is a new line. Sending it drops the older line about
+ * the same thing from the loop (`sentMerged`), and in NEXT.md the older one,
+ * still open, is ticked as replaced so the code chat builds only the newest
+ * (Refresh reads that tick as no fix); a value J goes back to is written
+ * again after the line that changed it.
  */
 import type { Difficulty, Item } from "./loop";
 
@@ -46,7 +56,7 @@ export interface FixIssue {
 export interface FixLoop {
   ticked: string[];
   sent: FixIssue[];
-  /** Board changes the code chat has built (`codeAsks.ts`): never asked again while the board still holds them. */
+  /** Board changes the code chat has built (`codeAsks.ts`), by key: never asked again while the board asks the same of them. */
   done?: string[];
   /**
    * Lines in a pull request not merged yet ("Send the design back", or a
@@ -107,7 +117,19 @@ export function toggleTick(loop: FixLoop, key: string): FixLoop {
   return { ...loop, ticked: on ? loop.ticked.filter((k) => k !== key) : [...loop.ticked, key] };
 }
 
-/** The board's own asks (`codeAsks.ts`) not yet in NEXT.md and not built yet: Publish sends them without a tick, since J made them. */
+/** What a board change's line is about, without what it asks of it (`build-…~value`); any other key (a link's may hold a `~`) is its own. */
+export const baseOf = (key: string): string => (key.startsWith("build-") ? key.split("~")[0]! : key);
+
+/** What the Builder adds to an open line a later one about the same thing replaces (`nextMd`): ticked so, it is no fix (`fixedIn`). */
+const REPLACED = "(replaced by a later line)";
+
+/** The lines these stand in for: an older one about the same thing that asked something else. */
+function replacedBy(adding: readonly FixIssue[]): (key: string) => boolean {
+  const keys = new Set(adding.map((i) => i.key)), bases = new Set(adding.map((i) => baseOf(i.key)));
+  return (key) => !keys.has(key) && bases.has(baseOf(key));
+}
+
+/** The board's own asks (`codeAsks.ts`) not yet in NEXT.md and not built yet, as they ask now: Publish sends them without a tick, since J made them. */
 export function asksToSend(loop: FixLoop, asks: readonly FixIssue[]): FixIssue[] {
   const sent = new Set([...loop.sent.map((i) => i.key), ...(loop.done ?? [])]);
   return asks.filter((i) => !sent.has(i.key));
@@ -129,24 +151,35 @@ const queued = (l: string): { box: string; key: string } | null => {
   return b && k ? { box: b[1]!, key: k[1]! } : null;
 };
 
-/** Lines that went out in a pull request not merged yet: held apart from `sent`, each key once. */
+/** Lines that went out in a pull request not merged yet: held apart from `sent`, each key once; a pending line they replace goes. */
 export function sentUnmerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
+  const gone = replacedBy(adding);
   const have = new Set([...loop.sent, ...(loop.pending ?? [])].map((i) => i.key));
-  return { ...loop, pending: [...(loop.pending ?? []), ...adding.filter((i) => !have.has(i.key))] };
+  return { ...loop, pending: [...(loop.pending ?? []).filter((i) => !gone(i.key)), ...adding.filter((i) => !have.has(i.key))] };
 }
 
-/** Lines merged into the default branch's NEXT.md: sent, and no longer pending. */
+/** Lines merged into the default branch's NEXT.md: sent, and no longer pending; the lines they replace, sent, pending or built, go. */
 export function sentMerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
   const keys = new Set(adding.map((i) => i.key));
+  const gone = replacedBy(adding);
   const have = new Set(loop.sent.map((i) => i.key));
-  return { ...loop, sent: [...loop.sent, ...adding.filter((i) => !have.has(i.key))], pending: (loop.pending ?? []).filter((i) => !keys.has(i.key)) };
+  return {
+    ...loop,
+    sent: [...loop.sent.filter((i) => !gone(i.key)), ...adding.filter((i) => !have.has(i.key))],
+    pending: (loop.pending ?? []).filter((i) => !keys.has(i.key) && !gone(i.key)),
+    ...(loop.done ? { done: loop.done.filter((k) => !gone(k)) } : {}),
+  };
 }
 
-/** Pending lines whose line (open or ticked) is in the default branch's NEXT.md: their pull request is merged, so they are sent. */
+/**
+ * Pending lines whose line (open or ticked) is in the default branch's NEXT.md: their pull request is merged, so they are sent.
+ * Their line is the last one about the same thing: an older line with the key, before the line that changed it, is not this one.
+ */
 export function promotePending(loop: FixLoop, md: string | null): FixLoop {
   if (md == null || !loop.pending?.length) return loop;
-  const there = new Set(md.split("\n").map((l) => queued(l)?.key).filter(Boolean));
-  const merged = loop.pending.filter((i) => there.has(i.key));
+  const last = new Map<string, string>();
+  for (const l of md.split("\n")) { const k = queued(l)?.key; if (k) last.set(baseOf(k), k); }
+  const merged = loop.pending.filter((i) => last.get(baseOf(i.key)) === i.key);
   return merged.length ? sentMerged(loop, merged) : loop;
 }
 /** The line the Builder writes above the queue: everything under it is the code chat's, kept word for word. */
@@ -161,8 +194,10 @@ export function nextLine(i: FixIssue): string {
  * The whole file, with the new lines added to what is already there.
  * Everything under the old header is kept as it is, word for word: ticked
  * lines, notes under a line, text after a comment. The code chat owns it once
- * it is written. Only the Builder's own header is written fresh. A line whose
- * key is already in the file is not written twice.
+ * it is written. Only the Builder's own header is written fresh, and only an
+ * open line about the same thing as a new line is ticked, marked replaced. A
+ * line whose key is already in the file is not written twice, unless a later
+ * line about the same thing came after it: J went back to what it asked.
  */
 export function nextMd(adding: readonly FixIssue[], o: { site: string; when: string; prev?: string | null }): string {
   const all = (o.prev ?? "").split(/\r?\n/);
@@ -173,8 +208,14 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
   while (from < all.length && !all[from]!.trim()) from++;
   const prev = all.slice(from);
   while (prev.length && !prev[prev.length - 1]!.trim()) prev.pop();
-  const have = new Set(prev.flatMap((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!)));
-  const lines = [...prev, ...adding.filter((i) => !have.has(i.key)).map(nextLine)];
+  const keysOn = prev.map((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!));
+  const fresh = adding.filter((i) => {
+    const at = keysOn.findLastIndex((ks) => ks.includes(i.key));
+    return at < 0 || prev.slice(at + 1).some((l) => { const q = queued(l); return !!q && q.key !== i.key && baseOf(q.key) === baseOf(i.key); });
+  });
+  const about = new Set(fresh.map((i) => baseOf(i.key)));
+  const kept = prev.map((l) => { const q = queued(l); return q && q.box === " " && about.has(baseOf(q.key)) ? `${l.replace(/^(\s*[-*+]\s+)\[ \]/, "$1[x]")} ${REPLACED}` : l; });
+  const lines = [...kept, ...fresh.map(nextLine)];
   return [
     `# Next for the code chat: ${o.site}`,
     "",
@@ -184,6 +225,7 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
     "Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
     "and leave the `<!-- fix:... -->` comment as it is. The Builder's Refresh reads this file back: a ticked or deleted line shows as fixed.",
     "A note for J goes on its own indented line under the item; the item's line keeps its box and its comment.",
+    `A line the Builder ticked "${REPLACED}" needs nothing: J changed that thing again, and the later line says what he wants now.`,
     "",
     `${STAMP}${o.when}.`,
     "",
@@ -195,14 +237,16 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
 /**
  * Which of the sent issues the code chat has fixed: its line ticked, or its key
  * gone from the file. A line still there but not ticked (even one reformatted or
- * with a note after it) stays open. Nothing, when the file could not be read.
+ * with a note after it) stays open, and one the Builder ticked as replaced was
+ * never built. Nothing, when the file could not be read.
  */
 export function fixedIn(sent: readonly FixIssue[], md: string | null): FixIssue[] {
   if (md == null) return [];
   const open = new Set<string>(), ticked = new Set<string>();
   for (const l of md.split(/\r?\n/)) {
     const q = queued(l);
-    if (q) (q.box === " " ? open : ticked).add(q.key);
+    if (q?.box === " ") open.add(q.key);
+    else if (q && !l.includes(REPLACED)) ticked.add(q.key);
   }
   return sent.filter((i) => (ticked.has(i.key) && !open.has(i.key)) || !md.includes(`<!-- fix:${i.key} -->`));
 }

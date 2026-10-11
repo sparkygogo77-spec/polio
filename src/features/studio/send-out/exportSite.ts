@@ -62,7 +62,7 @@ import { keyframesCss, motionCss, pathCodes } from "../shelf";
 import { shareRules } from "../cssMerge";
 import { carryOwned, pointing } from "../carry";
 import { LiveSite, resolvePageLink } from "../live/LiveSite";
-import { useStudio, type StudioNode, type StudioPage } from "../board/store";
+import { sentBoard, useStudio, type StudioNode, type StudioPage } from "../board/store";
 import type { NodeLink } from "../shelf";
 import { homeFor, type Home } from "../homePage";
 import { markupOf, pageFile, sitePictures, type SiteBinary, type SiteFile } from "../staticSite";
@@ -959,7 +959,8 @@ export function publishedAt(): string | null {
  * caller, which Go live does so that a lost one can be named.
  */
 export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null; /** Keep every `data-hook` the pages carry (Export for code). */ hooks?: boolean } = {}): Promise<ExportFile[]> {
-  const s = useStudio.getState();
+  /* The document, never a state worn on the board (`sentBoard`). */
+  const s = sentBoard(useStudio.getState());
   const hooksKept = !!opts.hooks;
   const offsiteNow = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   if (!s.pages.length) return [];

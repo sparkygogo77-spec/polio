@@ -7,13 +7,13 @@ import { buildStarter, isStarter } from "../../starterPage";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type ThreadDoc } from "../../loop";
 import { QUEUED } from "../../formation";
 import { trimQueue } from "../../loop";
-import { GetStudio, SetStudio, TRAIL_LIMIT, carry, docPatch, promptOf, reformed, resolveTarget, shelve, snapshot, starterDoc } from "./history";
+import { CLEARED, GetStudio, LOADED, SetStudio, TRAIL_LIMIT, docPatch, promptOf, reformed, resolveTarget, shelve, snapshot, starterDoc, type Push } from "./history";
 import { LEARN_DEFAULT } from "../../learn";
 import { StudioNode } from "./model";
 import type { StudioState } from "./state";
 
 /** The threads actions of the studio store; spread into `useStudio` by create.ts. */
-export function threadsActions(set: SetStudio, get: GetStudio, push: () => void, pushEdit: (key: string) => void): Pick<StudioState, "setBrief" | "recordAsk" | "noteSpend" | "noteProgress" | "notePass" | "markThread" | "noteMade" | "setCurrentThread" | "landThread" | "pruneThread" | "moveThread" | "toggleDraftPiece" | "clearDraft" | "recordSent" | "resetThreadSpots" | "togglePinnedThread" | "setBookPinned" | "openThread" | "enqueueDraw" | "updateJob" | "answerJob" | "clearFinishedJobs" | "noteThread" | "standOn" | "applyRevision" | "clearPage" | "resetAll" | "applyTheme" | "loadDoc"> {
+export function threadsActions(set: SetStudio, get: GetStudio, push: Push, pushEdit: (key: string) => void): Pick<StudioState, "setBrief" | "recordAsk" | "noteSpend" | "noteProgress" | "notePass" | "markThread" | "noteMade" | "setCurrentThread" | "landThread" | "pruneThread" | "moveThread" | "toggleDraftPiece" | "clearDraft" | "recordSent" | "resetThreadSpots" | "togglePinnedThread" | "setBookPinned" | "openThread" | "enqueueDraw" | "updateJob" | "answerJob" | "clearFinishedJobs" | "noteThread" | "standOn" | "applyRevision" | "clearPage" | "resetAll" | "applyTheme" | "loadDoc"> {
   void pushEdit;
   return {
     setBrief: (patch) => {
@@ -361,12 +361,10 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
 
     resetAll: () => {
       /* Everything goes: the shelf the sites brought, the record of the
-         import and the timeline with the parts. The checkpoint carries
-         them, so one undo puts all of it back (`carry`). The owner's own
-         daily cap on Learn presses stays. */
-      push();
-      const was = carry(get());
-      set((s) => ({ past: [...s.past.slice(0, -1), { ...s.past[s.past.length - 1]!, ...was }] }));
+         import and the timeline with the parts. The checkpoint keeps them
+         beside the document (`CLEARED`), so one undo puts all of it back.
+         The owner's own daily cap on Learn presses stays. */
+      push(CLEARED);
       set((s) => ({
         ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, pinnedThreads: [], threadSpots: {}, draftPieces: [], sentPieces: {},
         brought: [], broughtParts: [], statesOn: [], taken: null, learn: { ...LEARN_DEFAULT, cap: s.learn?.cap ?? LEARN_DEFAULT.cap }, standIn: null, swept: undefined, siteBranch: null,
@@ -401,7 +399,8 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
     },
 
     loadDoc: (doc) => {
-      push();
+      /* One undo puts back the board as it was before, beside the document too: the width, the learned record, the stand-in, the sweep's mark and the states. */
+      push(LOADED);
       // What the document brings, the width included: see `docTake.ts`.
       /* A new document starts as it opens: states switched on for the last one (a hidden group a pick showed, a preview) would draw its parts over this one's every preview (J, 2026-10-09: the tour over Match after a reimport). */
       set((s) => ({ ...(takeDoc(s, doc, { format: formatDefaults, look: emptyLook }) as unknown as Partial<StudioState>), statesOn: (doc as { statesOn?: string[] }).statesOn ?? [] }));

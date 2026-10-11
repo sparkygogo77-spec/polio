@@ -83,8 +83,8 @@ const tilted = nodes.map((n) => (n.id === box.id ? { ...n, work: { id: "tilt-hov
 const asks = A.codeAsks({ ...base, nodes: tilted, format: { "build.darkLight": true }, pages: [...pages.map((p, i) => (i === 0 ? { ...p, scroll: "snap to sections" } : p)), { id: "page_new", name: "Leaderboard", path: "/leaderboard", scroll: "inherit" }] });
 const effect = asks.find((i) => i.key.startsWith("build-effect-"));
 check("An effect on a PST part asks the code to build it on that hook", effect?.hook === box.source.hook.value && /Tilt on hover/.test(effect.says), effect?.says);
-check("A Format switch turned on asks for it on every page", asks.some((i) => i.key === "build-format-build.darkLight" && i.page === "every page"));
-check("A page added in the Builder asks for its page", asks.some((i) => i.key === "build-page-page_new" && /\/leaderboard/.test(i.says)));
+check("A Format switch turned on asks for it on every page", asks.some((i) => i.key === "build-format-build.darkLight~on" && i.page === "every page"));
+check("A page added in the Builder asks for its page", asks.some((i) => i.key.startsWith("build-page-page_new~") && /\/leaderboard/.test(i.says)));
 check("A page's scroll set in Pages asks for it", asks.some((i) => i.key.startsWith("build-scroll-") && /snap to sections/.test(i.says)));
 const md = F.nextMd(asks, { site: "PonsStars", when: "2026-10-10" });
 check("Each goes into NEXT.md as a line the Refresh can read back", asks.every((i) => md.includes(`<!-- fix:${i.key} -->`)) && F.fixedIn(asks, md).length === 0);

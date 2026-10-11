@@ -24,6 +24,9 @@
  *
  * WRITING: the mirror at once, the IndexedDB copy a moment later (one
  * write per key per burst of edits; flushed when the tab is hidden).
+ *
+ * MORE THAN ONE TAB: every document written carries a stamp saying which tab
+ * wrote it (see "More than one tab" below).
  */
 
 export const DOC_DB = "builder.docs";
@@ -31,7 +34,7 @@ const SHELF = "docs";
 /** How much of a document localStorage takes, in characters: under its 5 MB with the other keys beside it. */
 export const MIRROR_MAX = 2_500_000;
 
-export interface Pointer { idb: true; bytes: number; pages: number; parts: number; siteRepo: string | null }
+export interface Pointer { idb: true; bytes: number; pages: number; parts: number; siteRepo: string | null; by?: string }
 
 const ok = () => typeof indexedDB !== "undefined";
 const store = (): Storage | null => { try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; } };
@@ -173,7 +176,9 @@ export function shapeOfRaw(raw: string | null | undefined): { pages: number; par
 }
 function pointerFor(value: string): string {
   const shape = shapeOfRaw(value) ?? { pages: 0, parts: 0, siteRepo: null };
-  const p: Pointer = { idb: true, bytes: value.length, ...shape };
+  /* The document's stamp too, so the pointer changes with every write and another tab hears each one. */
+  const by = stampOf(value);
+  const p: Pointer = { idb: true, bytes: value.length, ...shape, ...(by ? { by } : {}) };
   return JSON.stringify(p);
 }
 
@@ -202,18 +207,22 @@ const packKept = new Map<string, number>();
 export function readMirror(key: string): string | null {
   try { return store()?.getItem(key) ?? null; } catch { return null; }
 }
-/** True when localStorage holds the whole document (not only a pointer to it). */
-function writeMirror(key: string, value: string | null): boolean {
+/**
+ * `whole` when localStorage holds the whole document (not only a pointer to it);
+ * `landed` when it holds this write at all, whole or as a pointer, rather than
+ * still holding what it held (no storage, or no room even for a pointer).
+ */
+function writeMirror(key: string, value: string | null): { whole: boolean; landed: boolean } {
   const ls = store();
-  if (!ls) return false;
+  if (!ls) return { whole: false, landed: false };
   try {
-    if (value === null) { ls.removeItem(key); return true; }
+    if (value === null) { ls.removeItem(key); return { whole: true, landed: true }; }
     const m = mirrorText(value, MIRROR_MAX, packKept.get(key));
     if (m.kept) packKept.set(key, m.kept); else packKept.delete(key);
-    try { ls.setItem(key, m.text); return m.kind !== "pointer"; } catch { /* over quota all the same: a pointer, below */ }
-    if (m.kind !== "pointer") ls.setItem(key, pointerFor(value));
+    try { ls.setItem(key, m.text); return { whole: m.kind !== "pointer", landed: true }; } catch { /* over quota all the same: a pointer, below */ }
+    if (m.kind !== "pointer") { ls.setItem(key, pointerFor(value)); return { whole: false, landed: true }; }
   } catch { /* private mode, or nothing left: IndexedDB holds it */ }
-  return false;
+  return { whole: false, landed: false };
 }
 
 /*
@@ -236,6 +245,102 @@ export function saveStateOf(key: string): SaveState | null {
 export function onSave(fn: () => void): () => void {
   saveListeners.add(fn);
   return () => { saveListeners.delete(fn); };
+}
+
+/* ------------------------------------------------------------------ */
+/* More than one tab                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * TWO TABS, ONE KEY. Every tab of the Builder in this browser reads and writes
+ * the same key, and nothing stopped one writing its copy over the other's: a
+ * tab left open since the morning saved its board over an hour of work done
+ * in a newer tab the moment anything in it changed, a click on another page
+ * included (the audit, 2026-10-11).
+ *
+ * So a document written here carries a STAMP as its last key, `"by":"<tab>:<n>"`
+ * (which tab wrote it, and how many writes that tab had made), and so does the
+ * pointer left for one too big for the mirror: the key's storage event tells
+ * every other tab, and the stamp says whether what the key holds now is what
+ * this tab holds (`behind`). A write that moves a document in from another key
+ * (`writeDocNow`: a switch of site) is stamped `:moved`. What a tab that is
+ * behind does about it is the store's (`board/store/load.ts`, "Another tab").
+ */
+const TAB = Math.random().toString(36).slice(2, 10) || "tab";
+let stamps = 0;
+const BY = '"by":"';
+
+/** The stamp on a document's text, a packed one or its pointer: null when it carries none (written before stamps, or by hand). */
+export function stampOf(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const tail = raw.slice(-120);
+  const i = tail.lastIndexOf(BY);
+  if (i < 0) return null;
+  const j = tail.indexOf('"', i + BY.length);
+  /* Only the envelope's own last key: nothing after it but the end, or the pack's mark. */
+  const rest = j < 0 ? "" : tail.slice(j + 1);
+  return rest === "}" || rest === ',"packed":1}' ? tail.slice(i + BY.length, j) : null;
+}
+/** A document's text carrying `by` in place of any stamp it had (none, for null); anything that is not a document (`{"state"…`) as it is. */
+export function stamped(text: string, by: string | null): string {
+  if (!text.startsWith('{"state"') || !text.endsWith("}")) return text;
+  const was = stampOf(text);
+  const end = was === null ? "" : `,${BY}${was}"}`;
+  const bare = end && text.endsWith(end) ? `${text.slice(0, -end.length)}}` : text;
+  return by === null ? bare : `${bare.slice(0, -1)},${BY}${by}"}`;
+}
+/** The stamp says the document was moved in from another key: another tab opened a different site. */
+export const movedIn = (stamp: string | null): boolean => !!stamp && stamp.endsWith(":moved");
+
+/** Per key, the stamp on the document this tab holds: what it last wrote there, or took (`holdStamp`). */
+const held = new Map<string, string | null>();
+/** This tab holds the document `raw` under `key` now: read on load, or taken from another tab. */
+export function holdStamp(key: string, raw: string | null): void {
+  held.set(key, stampOf(raw));
+}
+/** The stamp on the document this tab holds under `key`: null when it holds none, or one with no stamp. */
+export const heldStamp = (key: string): string | null => held.get(key) ?? null;
+/** After this tab wrote `text`: it holds that, or, when localStorage would not take it, whatever the key still holds, so a refused write is never read as another tab's. */
+function heldAfter(key: string, text: string | null, landed: boolean): void {
+  held.set(key, landed ? stampOf(text) : stampOf(readMirror(key)));
+}
+/**
+ * Another tab has written `key` since this tab last wrote or took it.
+ *
+ * Read off the key itself, not off an event, so a write is checked against
+ * what is there at that moment: for a mirrored document the whole text, for
+ * one too big the pointer. A key this tab has never read or written is
+ * nobody's, and is never behind.
+ */
+export function behind(key: string): boolean {
+  return held.has(key) && stampOf(readMirror(key)) !== held.get(key);
+}
+
+/**
+ * Another tab wrote `key`: `fn` is told. A write of this tab's to that key still
+ * on its way to IndexedDB is older than what is there now, and is dropped, so it
+ * cannot land after the other tab's and put the older document back.
+ */
+export function whenOtherTabWrites(key: string, fn: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const on = (e: Event) => {
+    const k = (e as StorageEvent).key;
+    /* A key of null is the whole of localStorage cleared. */
+    if (k !== key && k !== null) return;
+    if (pending.has(key) && behind(key)) {
+      pending.delete(key);
+      const t = timers.get(key);
+      if (t) { clearTimeout(t); timers.delete(key); }
+    }
+    fn();
+  };
+  window.addEventListener("storage", on);
+  return () => window.removeEventListener("storage", on);
+}
+/** This tab now shows what another tab saved under `key`: it holds that document, and it is saved. */
+export function tookFromOtherTab(key: string, raw: string): void {
+  holdStamp(key, raw);
+  said(key, { state: "saved", at: Date.now() });
 }
 
 /* ------------------------------------------------------------------ */
@@ -294,21 +399,30 @@ if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") void flushDocs(); });
 }
 
-/** A document written: the mirror now, IndexedDB a moment later. */
-export function writeDoc(key: string, value: string | null): void {
-  mirrored.set(key, writeMirror(key, value));
+/**
+ * A document written: the mirror now, IndexedDB a moment later. Stamped as this
+ * tab's next write, or, `again`, with the stamp it already holds: the document
+ * as it was read, only filled in by the load, is not newer work.
+ */
+export function writeDoc(key: string, value: string | null, again = false): void {
+  const text = value === null ? null : stamped(value, again ? heldStamp(key) : `${TAB}:${++stamps}`);
+  const m = writeMirror(key, text);
+  mirrored.set(key, m.whole);
+  heldAfter(key, text, m.landed);
   if (saves.get(key)?.state !== "saving") said(key, { state: "saving", at: Date.now() });
-  pending.set(key, value);
+  pending.set(key, text);
   const t = timers.get(key);
   if (t) clearTimeout(t);
   timers.set(key, setTimeout(() => flushKey(key), 120));
 }
-/** A document written and in IndexedDB before this returns: for moving one between keys. */
+/** A document written and in IndexedDB before this returns: for moving one between keys, so stamped as moved in. */
 export async function writeDocNow(key: string, value: string | null): Promise<void> {
-  const whole = writeMirror(key, value);
+  const text = value === null ? null : stamped(value, `${TAB}:${++stamps}:moved`);
+  const { whole, landed } = writeMirror(key, text);
+  heldAfter(key, text, landed);
   pending.delete(key);
   const t = timers.get(key);
   if (t) { clearTimeout(t); timers.delete(key); }
-  const kept = await idbSet(key, value);
+  const kept = await idbSet(key, text);
   said(key, kept || whole ? { state: "saved", at: Date.now() } : { state: "failed", at: Date.now() });
 }
