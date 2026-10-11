@@ -201,6 +201,8 @@ check("4. …and that script reads the surface and draws it on the graphics card
 check("4. the export keeps the ball's data-planet-* settings, surface among them", /if \(a\.name\.startsWith\("data-planet"\)\) continue;/.test(read("src/features/studio/send-out/exportSite.ts")));
 const kitFile = read("kit/starter/vendor/builder-motion.js");
 check("4. the kit's vendor/builder-motion.js carries the same ball, and is current", kitFile === K.kitMotionJs() && kitFile.includes(P.PLANET_JS));
+/* The script is a template literal: a lone \s in it shipped as "s", and a list of pictures was split on the letter s. */
+check("4. a list of pictures is split on spaces, not on the letter s", P.PLANET_JS.includes(".split(/\\s+/)") && !P.PLANET_JS.includes(".split(/s+/)"));
 
 /* ------------------------------------------------------------------ 5 */
 check("5. the exact motion value: the turnable orb names its surface, glass unless picked",

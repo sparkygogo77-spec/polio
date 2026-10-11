@@ -62,7 +62,7 @@ export const PLANET_JS = `function polioPlanet(host, o) {
   /* Pictures: one wraps the ball; a cube or a pyramid wears one per face, round again when there are fewer. */
   var imgs = Array.prototype.slice.call(host.querySelectorAll("img[data-planet-picture]"));
   var srcs = imgs.length ? imgs.map(function (i) { return i.currentSrc || i.getAttribute("src") || ""; }).filter(Boolean)
-    : String(pick(d.planetPicture, o.picture) || "").split(/\s+/).filter(Boolean);
+    : String(pick(d.planetPicture, o.picture) || "").split(/\\s+/).filter(Boolean);
   var src = srcs[0] || "";
   imgs.forEach(function (i) { i.style.display = "none"; });
   /* A page saved with the ball on it carries its old canvas, blank: this draws a new one. */
@@ -94,8 +94,8 @@ export const PLANET_JS = `function polioPlanet(host, o) {
     var x = null;
     try { x = c.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }) || c.getContext("experimental-webgl"); } catch (e) { x = null; }
     if (!x) return null;
-    function part(type, text) { var s = x.createShader(type); x.shaderSource(s, text); x.compileShader(s); return x.getShaderParameter(s, x.COMPILE_STATUS) ? s : null; }
-    var vs = part(x.VERTEX_SHADER, VS), fs = part(x.FRAGMENT_SHADER, FS);
+    function compiled(type, text) { var s = x.createShader(type); x.shaderSource(s, text); x.compileShader(s); return x.getShaderParameter(s, x.COMPILE_STATUS) ? s : null; }
+    var vs = compiled(x.VERTEX_SHADER, VS), fs = compiled(x.FRAGMENT_SHADER, FS);
     if (!vs || !fs) return null;
     var pr = x.createProgram();
     x.attachShader(pr, vs); x.attachShader(pr, fs); x.linkProgram(pr);
