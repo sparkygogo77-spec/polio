@@ -116,7 +116,15 @@ export function toSend(loop: FixLoop, issues: readonly FixIssue[]): FixIssue[] {
   return issues.filter((i) => loop.ticked.includes(i.key) && !sent.has(i.key));
 }
 
-const LINE = /^- \[( |x|X)\] .*<!-- fix:(\S+) -->\s*$/;
+/** A list item's box, however the code chat wrote it (`-`, `*` or `+`, indented or not). */
+const ITEM = /^\s*[-*+]\s+\[( |x|X)\]/;
+/** A line's key for Refresh, wherever it sits on the line (the code chat may add a note after it). */
+const KEY = /<!-- fix:(\S+?) -->/;
+/** A queue line: a box and a key. The header names `<!-- fix:... -->` too, but has no box. */
+const queued = (l: string): { box: string; key: string } | null => {
+  const b = ITEM.exec(l), k = KEY.exec(l);
+  return b && k ? { box: b[1]!, key: k[1]! } : null;
+};
 
 /** Lines that went out in a pull request not merged yet: held apart from `sent`, each key once. */
 export function sentUnmerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
@@ -151,8 +159,11 @@ export function nextLine(i: FixIssue): string {
  * is not written twice.
  */
 export function nextMd(adding: readonly FixIssue[], o: { site: string; when: string; prev?: string | null }): string {
-  const prev = (o.prev ?? "").split("\n").filter((l) => LINE.test(l));
-  const have = new Set(prev.map((l) => LINE.exec(l)![2]));
+  const all = (o.prev ?? "").split(/\r?\n/);
+  const from = all.findIndex((l) => queued(l));
+  const prev = from < 0 ? [] : all.slice(from);
+  while (prev.length && !prev[prev.length - 1]!.trim()) prev.pop();
+  const have = new Set(prev.flatMap((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!)));
   const lines = [...prev, ...adding.filter((i) => !have.has(i.key)).map(nextLine)];
   return [
     `# Next for the code chat: ${o.site}`,
@@ -168,13 +179,17 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
   ].join("\n");
 }
 
-/** Which of the sent issues the code chat has fixed: ticked or deleted in the file. Nothing, when the file could not be read. */
+/**
+ * Which of the sent issues the code chat has fixed: its line ticked, or its key
+ * gone from the file. A line still there but not ticked (even one reformatted or
+ * with a note after it) stays open. Nothing, when the file could not be read.
+ */
 export function fixedIn(sent: readonly FixIssue[], md: string | null): FixIssue[] {
   if (md == null) return [];
-  const open = new Set<string>();
-  for (const l of md.split("\n")) {
-    const m = LINE.exec(l);
-    if (m && m[1] === " ") open.add(m[2]!);
+  const open = new Set<string>(), ticked = new Set<string>();
+  for (const l of md.split(/\r?\n/)) {
+    const q = queued(l);
+    if (q) (q.box === " " ? open : ticked).add(q.key);
   }
-  return sent.filter((i) => !open.has(i.key));
+  return sent.filter((i) => (ticked.has(i.key) && !open.has(i.key)) || !md.includes(`<!-- fix:${i.key} -->`));
 }
