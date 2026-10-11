@@ -186,8 +186,9 @@ export function codeAsks(a: AskInput): FixIssue[] {
     if (!n.source && !n.from) continue;
     const uses = n.work ? [n.work, ...(n.work.also ?? [])] : [];
     for (const u of uses) {
-      /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`). */
-      if (u.off || carriedEffect(u.id)) continue;
+      if (u.off) continue;
+      /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`), but only on a hook the layer can key: not on a part with none (a form label, a ::marker), nor on an id-only part of a builder-ready site. */
+      if (carriedEffect(u.id) && n.source?.hook && (!a.kit || n.source.hook.attr === "data-hook")) continue;
       /* On a builder-ready site the kit's motion file runs the rest, named in the style layer on the part's hook. */
       if (a.kit && n.source?.hook?.attr === "data-hook" && kitEffect(u.id)) continue;
       const set = settingsOf(u.inputs);
@@ -205,6 +206,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
     const e = a.effect(g.id);
     const name = e?.name ?? g.id;
     const hooks = [...new Set(g.parts.map((n) => n.source?.hook?.value).filter(Boolean))] as string[];
+    /* A part with no data-hook is named by its id, or else by its words, so the line still says which one. */
+    const names = [...new Set(g.parts.map((n) => (n.source?.hook ? (n.source.hook.attr === "id" ? `the element with id="${n.source.hook.value}"` : `\`${n.source.hook.value}\``) : `the part "${clean(String(n.label ?? wordsOf(n.content))).slice(0, 60)}"`)))];
     const pages = [...new Set(g.parts.map((n) => pageName.get(n.pageId) ?? "the page"))];
     const many = g.parts.length > 1;
     out.push({
@@ -212,7 +215,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
       kind: "build",
       hook: hooks[0] ?? null,
       page: pages.join(", "),
-      says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${hooks.map((h) => `\`${h}\``).join(", ")}` : "this element"}.`),
+      says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${names.join(", ")}` : g.parts[0]!.source?.hook?.attr === "data-hook" ? "this element" : names[0]}.`),
     });
   }
   /*
