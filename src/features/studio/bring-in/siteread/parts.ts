@@ -648,21 +648,28 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      scoreboard is a grid and its stamps inline-grid, and shown as block for the read its cells stacked in a
      column and the stamps ran the full line. The last rule in sheet order that says something other than
      none wins, an !important one over the rest; PST names each part by hook, so that is the one it wears. */
+  let displayRules: { sel: string; v: string; important: boolean }[] | null = null;
   const ownDisplay = (e: Element): string | null => {
+    if (!displayRules) {
+      const all: { sel: string; v: string; important: boolean }[] = [];
+      const walk = (list: CSSRuleList) => {
+        for (const r of Array.from(list)) {
+          if (r instanceof CSSStyleRule) {
+            const v = r.style.getPropertyValue("display").trim();
+            if (v && !/^(none|contents|inherit|initial|unset|revert(-layer)?)$/.test(v)) all.push({ sel: r.selectorText, v, important: r.style.getPropertyPriority("display") === "important" });
+          } else if (r instanceof CSSMediaRule) { if (matchMedia(r.conditionText).matches) walk(r.cssRules); }
+          else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) { try { walk(sh.cssRules); } catch { /* another origin's sheet */ } }
+      displayRules = all;
+    }
     let found: string | null = null, sure = false;
-    const walk = (list: CSSRuleList) => {
-      for (const r of Array.from(list)) {
-        if (r instanceof CSSStyleRule) {
-          const v = r.style.getPropertyValue("display").trim();
-          if (!v || /^(none|contents|inherit|initial|unset|revert(-layer)?)$/.test(v)) continue;
-          try { if (!e.matches(r.selectorText)) continue; } catch { continue; }
-          const important = r.style.getPropertyPriority("display") === "important";
-          if (important || !sure) { found = v; sure = important; }
-        } else if (r instanceof CSSMediaRule) { if (matchMedia(r.conditionText).matches) walk(r.cssRules); }
-        else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
-      }
-    };
-    for (const sh of Array.from(document.styleSheets)) { try { walk(sh.cssRules); } catch { /* another origin's sheet */ } }
+    for (const r of displayRules) {
+      if (sure && !r.important) continue;
+      try { if (!e.matches(r.sel)) continue; } catch { continue; }
+      found = r.v; sure = r.important;
+    }
     return found;
   };
 
@@ -1148,7 +1155,12 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       const hadHidden = h.hasAttribute("hidden");
       const hadStyle = h.getAttribute("style");
       if (hadHidden) h.removeAttribute("hidden");
-      if (!shown(h)) h.style.setProperty("display", ownDisplay(h) ?? (h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block"), "important");
+      if (!shown(h)) {
+        const plain = h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block";
+        h.style.setProperty("display", ownDisplay(h) ?? plain, "important");
+        /* A display its rules give through a token that comes out as none: shown plainly instead. */
+        if (!shown(h)) h.style.setProperty("display", plain, "important");
+      }
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
