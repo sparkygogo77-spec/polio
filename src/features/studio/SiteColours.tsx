@@ -403,7 +403,10 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece && !k.accent).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
   /* Small accent colours (a legend's dots, thin bars, edge stripes: `ACCENT_SHARE`) are a dot each, not a box as big as a panel (J, 2026-10-11). */
-  const accents = site.kinds.filter((k) => k.accent).slice(0, 8);
+  const accents = site.kinds.filter((k) => k.accent && !k.progress).slice(0, 8);
+  /* Every loading bar is one element, whatever its colours (J, 2026-10-11): one chip, a dot for its track and each colour of its level. */
+  const bars = [...site.kinds.filter((k) => k.progress === "track"), ...site.kinds.filter((k) => k.progress === "level")].slice(0, 6);
+  const barIds = bars.flatMap((k) => k.ids);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   /* Only a glow most of the words wear, at the size they wear it: the preview shows what the site shows. */
@@ -508,8 +511,19 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
           </div>
         ))}
       </div>
-      {accents.length ? (
+      {accents.length || bars.length ? (
         <div data-preview-accents="" className="flex flex-wrap gap-x-2.5 gap-y-1">
+          {bars.length ? (
+            <span data-preview-part="loading-bars" title={`Loading bars: ${site.kinds.filter((k) => k.progress === "track").reduce((a, k) => a + k.parts, 0) || bars[0]!.parts} on the site. Press a dot for that colour.`}
+              onMouseEnter={() => pointAt(onThisPage(barIds))} onMouseLeave={() => pointAt(resting ? onThisPage(resting) : null)}
+              className="group relative inline-flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2.5 text-fine">
+              {bars.map((k) => (
+                <span key={at(k)} data-preview-kind={at(k)} data-preview-fill={k.fill} data-preview-dot={k.progress} {...choose(at(k), k.ids)} title={`${k.progress === "track" ? "Track" : "Level"}: ${k.parts} on the site`}
+                  className={cn("size-3 shrink-0 cursor-pointer rounded-full", ring(picked === at(k)))} style={{ background: k.paint, boxShadow: "0 0 0 1px rgb(0 0 0 / 0.35)" }} />
+              ))}
+              <span data-preview-name="" className="truncate">Loading bars</span>
+            </span>
+          ) : null}
           {accents.map((k) => (
             <span key={at(k)} data-preview-part="accent" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site, a small accent`}
               className={cn("group relative inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2.5 text-fine", ring(picked === at(k)))}>

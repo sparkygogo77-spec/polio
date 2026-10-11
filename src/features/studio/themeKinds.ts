@@ -29,6 +29,7 @@
  */
 import { colourKey, coloursIn, faceOf, glowsIn, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
 import { isButton, type Part } from "./siteRoles.ts";
+import { componentsOf, type CompNode } from "./components.ts";
 
 /** Closer than the palette merges: a cream card and a grey field are two kinds of surface even where they are one swatch. */
 export const KIND_SHADES = 0.025;
@@ -62,6 +63,12 @@ export interface SurfaceKind {
   cover: number;
   /** A small accent colour (`ACCENT_SHARE`): drawn as a dot in the preview, not a box. */
   accent: boolean;
+  /**
+   * Its parts are loading bars (`components.ts`, kind "progress"): their
+   * tracks, or the level bars inside them. Every colour of them is one
+   * element, shown together as "Loading bars" (J, 2026-10-11). Null otherwise.
+   */
+  progress: "track" | "level" | null;
   /** Their ids: one edit recolours every one of them. */
   ids: string[];
   /** Every shade of the fill they wear (close shades are one kind). */
@@ -236,6 +243,13 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     reach.set(p.pageId ?? "", { w: Math.max(r.w, (p.x ?? 0) + (p.w ?? 0)), h: Math.max(r.h, (p.y ?? 0) + (p.h ?? 0)) });
   }
   const siteArea = [...reach.values()].reduce((a, r) => a + r.w * r.h, 0);
+  /* Loading bars, read as components: a track and the level bar it holds. */
+  const comps = componentsOf(nodes as unknown as readonly CompNode[], palette as Record<string, string | undefined>);
+  const progressOf = (id: string): "track" | "level" | null => {
+    const c = comps.byId.get(comps.of.get(id) ?? "");
+    if (c?.kind !== "progress") return null;
+    return c.id === id ? "track" : c.layers.some((l) => l.id === id && l.role === "fill") ? "level" : null;
+  };
   const fillOf = new Map<string, string>();
   for (const p of parts) {
     if (background.has(p.id)) continue;
@@ -346,9 +360,13 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const shape = isButtons ? null : shapeOf(ms);
     const biggest = ms.reduce<Node | null>((b, p) => (!b || area(p) > area(b) ? p : b), null);
     const cover = ms.reduce((a, p) => a + area(p), 0);
+    /* Half its parts loading-bar tracks, or a third their level bars (the same orange is often a row's edge stripe too): a loading bar's colour. */
+    const tracks = ms.filter((p) => progressOf(p.id) === "track").length, levels = ms.filter((p) => progressOf(p.id) === "level").length;
+    const progress = isButtons ? null : tracks * 2 >= ms.length ? "track" as const : levels * 3 >= ms.length ? "level" as const : null;
     return {
       cover,
-      accent: !isButtons && (cover < ACCENT_SHARE * siteArea || mid(area) < ACCENT_PART),
+      progress,
+      accent: !isButtons && (!!progress || cover < ACCENT_SHARE * siteArea || mid(area) < ACCENT_PART),
       big: biggest ? Math.max(biggest.w ?? 0, biggest.h ?? 0) : 0,
       label: biggest ? pieceName(biggest) : null,
       w: midW,
@@ -357,7 +375,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       tab: !isButtons && !shape && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
       shape,
       fill: g.fill,
-      name: isButtons ? buttonsName(own[i]!, ms.length) : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
+      name: isButtons ? buttonsName(own[i]!, ms.length) : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
       parts: ms.length,
       ids: ms.map((p) => p.id),
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
@@ -384,10 +402,10 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
      and edited as one gradient (J, 2026-10-09). */
   const isPiece = (k: (typeof kinds)[number]) => !k.button && k.stops.length > 1 && k.big >= PIECE;
-  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
-  const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
+  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
+  const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
   /* A tab is drawn as a strip already: only a surface drawn as a box can be an accent. */
-  const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false, accent: k.accent && !k.tab }, i })), ...pieces];
+  const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false, tab: k.tab && !k.progress, accent: k.accent && (!k.tab || !!k.progress) }, i })), ...pieces];
   const at = new Map(kept.map(({ i }, j) => [i, j]));
   /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
   const seen = new Map<string, number>();

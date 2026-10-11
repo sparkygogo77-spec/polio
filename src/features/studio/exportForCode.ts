@@ -19,6 +19,8 @@ import { heldKeys } from "@/features/keys/store";
 import { defaultBranch, fileAt, kitMapOnServer } from "./kitRun";
 import { DEFAULT_OFFSITE } from "./shelf";
 import { zipFiles } from "./send-out";
+import { partRoles } from "./partRoles";
+import type { CompNode } from "./components";
 
 export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; problems: string[]; says: string; kit?: KitExport }> {
   const s = useStudio.getState();
@@ -30,10 +32,12 @@ export async function exportForCode(): Promise<{ ok: boolean; files: KitFile[]; 
   const pages = s.pages.map((p) => ({ file: pageFile(p, home), title: p.name?.trim() || name }));
   /* A part with no source was made here: it is named for what it is called, and listed as new. Only on a site that came from code: elsewhere every part is the Builder's. */
   const fromCode = !!(s.look as { styleSource?: unknown }).styleSource;
+  const roles = partRoles(s.nodes as unknown as CompNode[]);
   const parts: Record<string, KitPart> = Object.fromEntries(s.nodes.map((n) => {
     const hook = (n as { hooks?: Record<string, string> | null }).hooks?.["data-hook"];
     const fresh = fromCode && !hook && !(n as { source?: unknown }).source;
-    return [n.id, { label: n.label, hook, ...(fresh ? { fresh: true, kind: n.featureId } : {}) }];
+    const role = roles.get(n.id);
+    return [n.id, { label: n.label, hook, ...(fresh ? { fresh: true, kind: n.featureId } : {}), ...(role ? { role } : {}) }];
   }));
   const raw = toKit({ files, name, pages, parts, links: String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE) });
   /* Pictures written inside the pages and styles become files of their own: the text stays small enough to check and to read. */
