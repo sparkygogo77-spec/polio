@@ -28,7 +28,8 @@ const words = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 const all = [
   ...readdirSync(dir).filter((f) => /^check-.*\.mjs$/.test(f)).map((f) => join(dir, f)),
   join(dir, "tools", "check-tools.mjs"),
-].filter((f) => !words.length || words.some((w) => f.includes(w)));
+].filter((f) => !words.length || words.some((w) => relative(dir, f).includes(w)));
+if (!all.length) { console.error(`no capture check named ${words.join(" ")}`); process.exit(1); }
 const JOBS = Math.max(1, Number(process.env.JOBS) || 3);
 const TIMEOUT = Number(process.env.CHECK_TIMEOUT_MS) || 600_000;
 
@@ -45,8 +46,8 @@ const run = (file) => new Promise((done) => {
   child.on("close", (code) => {
     clearTimeout(timer);
     const lines = out.split("\n");
-    const ok = lines.filter((l) => /^\s*ok\s/.test(l)).length;
-    const fail = lines.filter((l) => /^\s*FAIL\s/.test(l));
+    const ok = lines.filter((l) => /^\s*ok\b/.test(l)).length;
+    const fail = lines.filter((l) => /^\s*FAIL\b/.test(l));
     results.push({ name: relative(dir, file), code, ok, fail, secs: Math.round((Date.now() - began) / 1000), tail: lines.filter(Boolean).slice(-3).join("\n") });
     process.stdout.write(code === 0 ? "." : "F");
     done();
