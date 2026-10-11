@@ -12,6 +12,12 @@ import { KIT_MAP_MOST, kitMap } from "@/features/studio/kitMap";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  /* Only the Builder's own page: another site J has open could post here too (the check writes files). JSON
+     makes a browser ask first (a preflight this never answers), and an Origin from elsewhere is turned away. */
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return NextResponse.json({ ok: false, problems: ["send JSON"], made: {} }, { status: 415 });
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (origin && (() => { try { return new URL(origin).host !== host; } catch { return true; } })()) return NextResponse.json({ ok: false, problems: ["only the Builder's own page can ask"], made: {} }, { status: 403 });
   /* Gzipped by the browser (kitRun.ts#kitMapOnServer): a big site's text is past what the host takes in one request. */
   const text = request.headers.get("x-body-encoding") === "gzip" ? await unzipped(request, KIT_MAP_MOST * 1.2 + 1) : await request.text();
   if (text.length > KIT_MAP_MOST * 1.2) return NextResponse.json({ ok: false, problems: ["the files are too big to check here"], made: {} }, { status: 413 });

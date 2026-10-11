@@ -11,7 +11,7 @@
  */
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, normalize } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { check } from "../../../kit/tools/kit-check.mjs";
 
 export interface KitMapAnswer {
@@ -24,10 +24,34 @@ export interface KitMapAnswer {
 /** Most a call may carry, so a mistake cannot fill the disk. */
 export const KIT_MAP_MOST = 8 * 1024 * 1024;
 
+/**
+ * Whether `p` names a file inside `dir` (seen from `base` there): not absolute,
+ * no `..` past the top, no control character. The check writes where
+ * builder.json points, so a path outside would write on this machine.
+ */
+function inside(dir: string, base: string, p: unknown): p is string {
+  if (typeof p !== "string" || isAbsolute(p) || /^[\\/]/.test(p) || /[\x00-\x1f]/.test(p)) return false;
+  const r = relative(dir, resolve(dir, base, p));
+  return r !== "" && r.split(/[\\/]/)[0] !== ".." && !isAbsolute(r);
+}
+
+/** Every path builder.json names, so none of them can lead the check out of its folder. */
+function namedPaths(manifest: object): unknown[] {
+  const m = manifest as { pages?: unknown; preview?: { page?: unknown }; scripts?: { helperFiles?: unknown }; rules?: { outsideParts?: unknown } };
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  return [
+    ...["hooks", "tokens", "tokensModule", "styleLayer", "gallery", "parts", "scenes", "samples"].map((k) => (manifest as Record<string, unknown>)[k]),
+    m.preview?.page,
+    ...list(m.pages).map((x) => (x as { file?: unknown } | null)?.file),
+    ...list(m.scripts?.helperFiles),
+    ...list(m.rules?.outsideParts).map((x) => (typeof x === "string" ? x : (x as { file?: unknown } | null)?.file)),
+  ].filter((v) => v !== undefined);
+}
+
 export function kitMap(files: Record<string, string>, manifestPath = "builder.json"): KitMapAnswer {
   let size = 0;
   for (const [p, t] of Object.entries(files)) {
-    if (typeof t !== "string" || !p || p.startsWith("/") || normalize(p).startsWith("..") || p.includes("\0")) return { problems: [`${p}: not a file of the repository`], made: {} };
+    if (typeof t !== "string" || !inside(tmpdir(), "", p)) return { problems: [`${p}: not a file of the repository`], made: {} };
     size += t.length;
   }
   if (size > KIT_MAP_MOST) return { problems: ["the files are too big to check here"], made: {} };
@@ -41,6 +65,8 @@ export function kitMap(files: Record<string, string>, manifestPath = "builder.js
     }
     const manifest = JSON.parse(files[manifestPath]!) as { hooks?: string; tokensModule?: string };
     const base = dirname(manifestPath) === "." ? "" : `${dirname(manifestPath)}/`;
+    const outside = namedPaths(manifest).find((p) => !inside(dir, base, p));
+    if (outside !== undefined) return { problems: [`builder.json: ${String(outside)} is not a file of the repository`], made: {} };
     const { problems } = check(join(dir, manifestPath), { write: true }) as { problems: string[] };
     const made: Record<string, string> = {};
     for (const p of [manifest.hooks, manifest.tokensModule]) {
