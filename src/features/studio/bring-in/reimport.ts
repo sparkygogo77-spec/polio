@@ -38,12 +38,14 @@
 import { partName, type Named } from "../partNames.ts";
 
 type Rec = Record<string, unknown>;
-export interface MergeNode { id: string; pageId?: string; from?: { selector?: string } | null; byHand?: boolean; work?: unknown; label?: unknown }
+export interface MergeNode { id: string; pageId?: string; from?: { selector?: string } | null; byHand?: boolean; work?: unknown; label?: unknown; hooks?: Record<string, string> | null }
 export interface MergeDoc<N extends MergeNode = MergeNode> { nodes: N[]; format?: object; brief?: object; look?: object }
 
 /** The board as it was brought in: each part's facets and the document's, as hashes. */
 export interface Taken {
   v: 1;
+  /** How `nodes` is keyed: by data-hook (`keysOf`), or, left out, by the element's path alone (records from before hooks were the key; re-keyed as they are read). */
+  keys?: "hook";
   /** When it was recorded, and from what (repository@commit), for the note. */
   at?: number;
   from?: string | null;
@@ -164,17 +166,92 @@ function unfacet(base: MergeNode, f: Map<string, unknown>): MergeNode {
 /* Matching parts across two documents                                 */
 /* ------------------------------------------------------------------ */
 
-/** Each part's key: its page and the element it was read from, numbered when two share one; a part drawn by hand by its id. */
-export function keysOf(nodes: readonly MergeNode[]): string[] {
+/** The name a part's code finds it by, as `data-hook=x` or `id=x`; null for a part with neither. */
+function hookOf(n: MergeNode): string | null {
+  const h = n.hooks;
+  if (!h) return null;
+  if (typeof h["data-hook"] === "string" && h["data-hook"]) return `data-hook=${h["data-hook"]}`;
+  if (typeof h.id === "string" && h.id) return `id=${h.id}`;
+  return null;
+}
+/** A selector split into the element's path and what the part is of it: a text line (` ::line(3)`) or a pseudo-element (`::before`). */
+const PART_OF = /( ::line\(\d+\)|::(?:before|after))$/;
+
+/**
+ * Each part's key, by which the board's parts are matched to the new
+ * document's. A part drawn by hand is its id. A captured part is its page
+ * and the name its code finds it by (`data-hook`, else `id`): the builder
+ * contract keeps every one unique and stable, where the element's path
+ * (`body > main > div:nth-of-type(3) > …`) is renumbered by any sibling the
+ * code adds before it, which used to hand the owner's edits on every later
+ * part to the wrong part or drop them (dissect 2026-10-10 #3). A part with no
+ * hook of its own (a text line, a `::before`, an unhooked child) is keyed
+ * from its nearest hooked ancestor and the rest of its path from there. A
+ * hook two parts of one page share (a template's clones) names neither:
+ * both key by their path, as before. Two parts that still share a key are
+ * numbered. `by: "selector"` is the old key, for records made with it.
+ */
+export function keysOf(nodes: readonly MergeNode[], by: "hook" | "selector" = "hook"): string[] {
+  /* The hooked parts of each page, by the element's path, where the hook is that page's alone. */
+  const anchors = new Map<string, string | null>();
+  if (by === "hook") {
+    const count = new Map<string, number>();
+    for (const n of nodes) { const h = hookOf(n); if (h && n.from?.selector?.trim()) { const k = `${n.pageId ?? ""}|${h}`; count.set(k, (count.get(k) ?? 0) + 1); } }
+    for (const n of nodes) {
+      const h = hookOf(n), sel = n.from?.selector?.trim();
+      if (!h || !sel || count.get(`${n.pageId ?? ""}|${h}`) !== 1) continue;
+      const path = sel.replace(PART_OF, "");
+      const at = `${n.pageId ?? ""}|${path}`;
+      /* Two hooked parts on one path (a line that carries its holder's hook): the path names neither. */
+      anchors.set(at, anchors.has(at) ? null : h);
+    }
+  }
   const seen = new Map<string, number>();
   return nodes.map((n) => {
     const sel = n.from?.selector?.trim();
     if (!sel) return `#${n.id}`;
-    const k = `${n.pageId ?? ""}|${sel}`;
+    const page = n.pageId ?? "";
+    let k = `${page}|${sel}`;
+    if (by === "hook") {
+      const h = hookOf(n);
+      const path = sel.replace(PART_OF, "");
+      const own = h && anchors.get(`${page}|${path}`) === h;
+      if (own) k = `${page}|@${h}${sel.slice(path.length)}`;
+      else {
+        /* The nearest hooked element on its path (its own holder, for a line or a pseudo-element), and the path on from it. */
+        const steps = path.split(" > ");
+        for (let i = steps.length; i > 0; i--) {
+          const a = anchors.get(`${page}|${steps.slice(0, i).join(" > ")}`);
+          if (!a) continue;
+          const rest = steps.slice(i).join(" > ");
+          k = `${page}|@${a}${rest ? ` > ${rest}` : ""}${sel.slice(path.length)}`;
+          break;
+        }
+      }
+    }
     const i = seen.get(k) ?? 0;
     seen.set(k, i + 1);
     return i ? `${k}~${i}` : k;
   });
+}
+
+/**
+ * A record keyed by the elements' paths, re-keyed by hooks from the board
+ * it describes: each part's path on the board says which hook key its
+ * record moves under. The records of parts no longer on the board (the ones
+ * the owner deleted) keep their path key, and are still read by it.
+ */
+export function rekeyed(taken: Taken, board: MergeDoc): Taken {
+  if (taken.keys === "hook") return taken;
+  const was = keysOf(board.nodes, "selector"), now = keysOf(board.nodes);
+  const nodes: Taken["nodes"] = { ...taken.nodes };
+  board.nodes.forEach((_, i) => {
+    const a = was[i]!, b = now[i]!;
+    if (a === b || !(a in nodes) || b in nodes) return;
+    nodes[b] = nodes[a]!;
+    delete nodes[a];
+  });
+  return { ...taken, keys: "hook", nodes };
 }
 
 const DOC_PARTS = ["format", "brief", "look"] as const;
@@ -195,7 +272,7 @@ export function fingerprint(doc: MergeDoc, from: string | null = null, at = Date
   });
   const d: Record<string, string> = {};
   for (const [p, v] of docFacets(doc)) { const h = print(v); if (h) d[p] = h; }
-  return { v: 1, at, from, nodes, doc: d };
+  return { v: 1, keys: "hook", at, from, nodes, doc: d };
 }
 
 /** Is this a record the merge can read? */
@@ -221,9 +298,13 @@ function carefulEdited(p: string, board: MergeNode, v: unknown, next: unknown): 
  * merge. The new document is as imported (attached, swept, its palette
  * landed); what comes back is the document to load.
  */
-export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, taken: Taken | null, next: MergeDoc<N>): { doc: MergeDoc<N>; kept: Kept } {
-  const kept: Kept = { edited: [], added: [], stayDeleted: 0, gone: 0, fresh: 0, doc: [], by: taken ? "record" : "careful" };
+export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, given: Taken | null, next: MergeDoc<N>): { doc: MergeDoc<N>; kept: Kept } {
+  const kept: Kept = { edited: [], added: [], stayDeleted: 0, gone: 0, fresh: 0, doc: [], by: given ? "record" : "careful" };
+  /* A record from before hooks were the key is read by hooks where the board says which, and by path for the parts the board no longer has. */
+  const legacy = !!given && given.keys !== "hook";
+  const taken = given && legacy ? rekeyed(given, board) : given;
   const bKeys = keysOf(board.nodes), nKeys = keysOf(next.nodes);
+  const nPaths = legacy ? keysOf(next.nodes, "selector") : null;
   const onBoard = new Map(board.nodes.map((n, i) => [bKeys[i]!, n]));
   const inNext = new Set(nKeys);
   const ids = new Set<string>();
@@ -236,7 +317,7 @@ export function keepOwnerEdits<N extends MergeNode>(board: MergeDoc<N>, taken: T
     const bn = onBoard.get(key);
     if (!bn) {
       /* Recorded, and not on the board: he deleted it. With no record, a part that is new to him is simply new. */
-      if (taken && taken.nodes[key]) { kept.stayDeleted++; return; }
+      if (taken && (taken.nodes[key] || (nPaths && taken.nodes[nPaths[i]!]))) { kept.stayDeleted++; return; }
       kept.fresh++;
       out.push(nn as N); ids.add(nn.id);
       return;
