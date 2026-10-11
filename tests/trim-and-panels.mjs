@@ -1,0 +1,47 @@
+/**
+ * TRIM AND PANELS IN THE COLOURS PREVIEW (J, 2026-10-11, on the PonsStars
+ * redesign): the striped lip under "Start recording" was a kind of button
+ * ("Buttons 2, 24"), and the lined paper panels the forms sit on had no box,
+ * drawn as a tab because small cream tags share their colour.
+ *
+ *   1. a thin strip under a button is trim: never a button, never mixed with the surfaces of its colour;
+ *   2. trim painted in repeating stripes is "Stripes", drawn as a small dot;
+ *   3. a kind whose area is mostly panels is drawn as a box, however many small tags share it;
+ *   4. a kind of small tags with one big overlay is still a tab.
+ *
+ *   node tests/trim-and-panels.mjs
+ */
+import { siteKinds } from "../src/features/studio/themeKinds.ts";
+
+const results = [];
+const check = (name, ok, detail = "") => {
+  results.push(ok === true);
+  console.log(`${ok === true ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
+};
+const INK = "rgb(43, 29, 18)", AMBER = "rgb(228, 154, 42)", PAPER = "rgb(247, 236, 211)", MUSTARD = "rgb(216, 178, 60)";
+const HAZARD = `repeating-linear-gradient(-45deg, ${MUSTARD} 0px, ${MUSTARD} 5px, ${INK} 5px, ${INK} 10px)`;
+const nodes = [];
+const add = (n) => nodes.push({ pageId: "p", featureId: "box", ...n });
+for (let i = 0; i < 6; i++) {
+  const x = i * 300;
+  add({ id: `btn${i}`, featureId: "cta-primary", x, y: 0, w: 154, h: 40, content: `Go ${i}`, colour: { text: INK, bg: AMBER } });
+  /* The lip: inside the button, as its ::before (an imported pseudo-element reads as inside a control). */
+  add({ id: `lip${i}`, featureId: "cta-primary", label: `btn${i}::before`, x: x + 14, y: 36, w: 126, h: 4, art: { background: HAZARD } });
+  add({ id: `tag${i}`, x, y: 200, w: 120, h: 24, content: `Drawer ${i}`, colour: { text: INK, bg: PAPER } });
+  add({ id: `ink${i}`, x, y: 300, w: 60, h: 16, content: `No. ${i}`, colour: { text: PAPER, bg: INK } });
+}
+for (let i = 0; i < 3; i++) add({ id: `card${i}`, x: i * 800, y: 500, w: 776, h: 268, colour: { text: INK, bg: PAPER }, art: { background: `repeating-linear-gradient(rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 27px, rgb(159, 183, 196) 27px, rgb(159, 183, 196) 28px), ${PAPER}` } });
+add({ id: "dim", x: 0, y: 0, w: 1400, h: 1700, colour: { bg: INK } });
+
+const r = siteKinds(nodes, { bg: "rgb(233, 214, 180)" });
+const list = r.kinds.map((k) => `${k.name}:${k.parts}${k.tab ? "·tab" : ""}${k.accent ? "·accent" : ""}`).join(", ");
+const of = (id) => r.kinds.find((k) => k.ids.includes(id));
+check("1. the lip is not a button", of("lip0") && !of("lip0").button && !of("btn0").ids.includes("lip0"), list);
+check("…nor one of the ink surfaces", of("lip0") !== of("ink0"), list);
+check("2. striped trim is Stripes, a small dot", of("lip0")?.name === "Stripes" && of("lip0").accent === true && /repeating-linear-gradient/.test(of("lip0").paint), list);
+check("3. the paper panels and their tags are a box, not a tab", of("card0") && of("card0") === of("tag0") && of("card0").tab === false && of("card0").accent === false, list);
+check("4. small ink tags with one big overlay stay a tab", of("ink0")?.tab === true, list);
+
+const failed = results.filter((x) => !x).length;
+console.log(`\n${results.length - failed}/${results.length} passed`);
+process.exit(failed ? 1 : 0);
