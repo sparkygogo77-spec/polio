@@ -18,7 +18,7 @@ import type { StyleSource } from "./send-out";
 import { heldKeys } from "@/features/keys/store";
 import { defaultBranch, fileAt, kitMapOnServer } from "./kitRun";
 import { DEFAULT_OFFSITE } from "./shelf";
-import { zipFiles } from "./send-out";
+import { siteZip } from "./send-out";
 import { partRoles } from "./partRoles";
 import type { CompNode } from "./components";
 
@@ -113,14 +113,21 @@ export function boardRecord(map: HookMap = {}, date?: Date, fresh: Record<string
 export async function downloadForCode(): Promise<{ ok: boolean; says: string }> {
   const got = await exportForCode();
   if (!got.files.length) return { ok: false, says: got.says };
-  const enc = new TextEncoder();
-  const bytes = zipFiles(got.files.map((f) => ({ path: f.path, bytes: f.encoding === "base64" ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : enc.encode(f.content) })));
-  const slug = (useStudio.getState().brief.name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "site";
+  saveZip(siteZip(got.files), `${siteSlug()}-for-code.zip`);
+  return { ok: got.ok, says: got.says };
+}
+
+/** The site's name as a file name: "My Site" is my-site. */
+export function siteSlug(): string {
+  return (useStudio.getState().brief.name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "site";
+}
+
+/** A zip handed to the browser as one download. The link is let go of a moment later, once the download has begun. */
+export function saveZip(bytes: Uint8Array, filename: string): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/zip" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${slug}-for-code.zip`;
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  return { ok: got.ok, says: got.says };
 }

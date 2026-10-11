@@ -4,6 +4,6 @@ export { KIT_COLOUR, applyToPage, artCss, baselineAsLanded, buildLayer, changedD
 export type { CssLook, HookCheck, HookFate, Layer, LayerNode, LayerState, NodeSource, PartCode, StyleSource, TextEdit } from "./styleLayer.ts";
 export { codeStatus, commitAfterPublish, headOf, issueFiles, layerPrint, mergePull, parentOf, pushBranch } from "./codePublish.ts";
 export type { CodeStatus, Issue } from "./codePublish.ts";
-export { zipFiles } from "./zipWrite.ts";
+export { siteZip, zipFiles } from "./zipWrite.ts";
 export { DESIGN_DIR, changesJson, changesMarkdown, deletedOnBoard, designBranch, designFiles, gitBlobSha, githubWhy, hookChanges, hooksOnBoard, readHookMap, removedLine, sendDesign, withRefs } from "./designBranch.ts";
 export type { ChangeNode, HookChanges, HookMap, HookRef, RemovedHook } from "./designBranch.ts";
