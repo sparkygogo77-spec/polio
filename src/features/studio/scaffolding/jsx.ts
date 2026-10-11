@@ -1,4 +1,4 @@
-import { homeOf } from "../homePage.ts";
+import { homeFor, homeOf, routeOf } from "../homePage.ts";
 import type { ScaffoldPage, ScaffoldPart } from "./types.ts";
 
 /**
@@ -25,7 +25,8 @@ export function hrefOf(link: ScaffoldPart["link"], pages: ScaffoldPage[]): { hre
     pages.find((p) => p.path === t || p.path === "/" + slugOf(t)) ??
     pages.find((p) => p.name.toLowerCase() === t.toLowerCase()) ??
     (t.toLowerCase() === "home" || t === "/" ? homeOf(pages) ?? null : null);
-  return page ? { href: page.path, newTab: false } : null;
+  /* The route the page is written to, not the path as typed: the two differ for "", "/index", "/about/" and a repeat. */
+  return page ? { href: `/${routeOf(homeFor(pages), page)}`, newTab: false } : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -253,8 +254,6 @@ export function componentName(part: ScaffoldPart): string {
 
 /** A line cut to length at a word, with a mark to say it was cut. */
 export const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, s.lastIndexOf(" ", max) > max * 0.6 ? s.lastIndexOf(" ", max) : max)}…`);
-
-export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "page";
 
 /* ------------------------------------------------------------------ */
 /* The files                                                           */

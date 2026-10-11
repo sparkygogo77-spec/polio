@@ -65,3 +65,8 @@ export function homeFor(pages: readonly Routed[]): Home {
     file: (page) => files.get(page.id) ?? `${(bare(page.path) ? pathOf(bare(page.path)) : slugOf(page.id)) || page.id}/index.html`,
   };
 }
+
+/** A page's route: its file without `index.html` (`""` for Home, `blog/post` for `blog/post/index.html`). Build's app folders and links use it, so they agree with the export. */
+export function routeOf(home: Home, page: Routed): string {
+  return home.file(page).replace(/(^|\/)index\.html$/, "");
+}
