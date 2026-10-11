@@ -7,7 +7,9 @@
  *   1. a thin strip under a button is trim: never a button, never mixed with the surfaces of its colour;
  *   2. trim painted in repeating stripes is "Stripes", drawn as a small dot;
  *   3. a kind whose area is mostly panels is drawn as a box, however many small tags share it;
- *   4. a kind of small tags with one big overlay is still a tab.
+ *   4. a kind of small tags with one big overlay is still a tab;
+ *   5. a lone panel a darker shade of the wood (the key cabinet) joins the wood, not the one-offs;
+ *   6. past the cap of kinds, a big real surface is still kept.
  *
  *   node tests/trim-and-panels.mjs
  */
@@ -41,6 +43,18 @@ check("…nor one of the ink surfaces", of("lip0") !== of("ink0"), list);
 check("2. striped trim is Stripes, a small dot", of("lip0")?.name === "Stripes" && of("lip0").accent === true && /repeating-linear-gradient/.test(of("lip0").paint), list);
 check("3. the paper panels and their tags are a box, not a tab", of("card0") && of("card0") === of("tag0") && of("card0").tab === false && of("card0").accent === false, list);
 check("4. small ink tags with one big overlay stay a tab", of("ink0")?.tab === true, list);
+
+/* 5–6: the wood rail on three pages and the TV's stand, a darker-wood key cabinet, and eleven kinds of small buttons ahead of it in the count. */
+const W = "rgb(90, 58, 33)", DARK = "rgb(74, 46, 26)";
+const wood = [];
+for (let i = 0; i < 3; i++) wood.push({ id: `rail${i}`, pageId: `p${i}`, featureId: "box", x: 0, y: 0, w: 176, h: 1700, colour: { bg: W } });
+for (let i = 0; i < 3; i++) wood.push({ id: i ? `stand${i}` : "stand", pageId: `p${i}`, featureId: "box", x: 300 + i * 40, y: 600, w: 600, h: 800, colour: { bg: W } });
+wood.push({ id: "cabinet", pageId: "p1", featureId: "box", x: 300, y: 400, w: 388, h: 268, colour: { bg: DARK } });
+for (let c = 0; c < 11; c++) for (let i = 0; i < 12; i++) wood.push({ id: `b${c}-${i}`, pageId: "p0", featureId: "cta-primary", x: 1000 + i * 30, y: c * 40, w: 28, h: 28, colour: { bg: `rgb(${20 + c * 20}, ${200 - c * 15}, ${(c * 70) % 255})` } });
+const w = siteKinds(wood, { bg: "rgb(233, 214, 180)" });
+const woodKind = w.kinds.find((k) => k.ids.includes("stand"));
+check("5. the darker-wood cabinet joins the wood", !!woodKind && woodKind.ids.includes("cabinet"), w.kinds.map((k) => `${k.name}:${k.parts}`).join(", "));
+check("6. past the cap of kinds, the wood is still kept", !!woodKind && w.kinds.filter((k) => k.button).length === 10, w.kinds.map((k) => k.name).join(", "));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

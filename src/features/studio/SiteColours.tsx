@@ -26,6 +26,7 @@ import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } fro
 import { siteKinds, type SiteKinds, type SurfaceKind } from "./themeKinds";
 import { componentsOf, type CompNode } from "./components";
 import { repeatsAcrossPages } from "./repeats";
+import { nextStop } from "./tourStop";
 import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
@@ -126,7 +127,7 @@ export function scrollToParts(ids: readonly string[]) {
  * hand came in, unless a press was made in it (a pick, or Next): then it
  * stays where the hand left it.
  */
-const tour = { key: "", at: -1, start: null as { page: string; top: number } | null, kept: false };
+const tour = { key: "", at: -1, start: null as { page: string; top: number } | null, kept: false, view: null as { page: string; top: number; bottom: number } | null };
 
 const boardPane = (): HTMLElement | null => {
   const p = document.querySelector("[data-studio-pane]");
@@ -167,13 +168,24 @@ function inView(id: string): boolean {
   return r.top >= p.top && r.bottom <= p.bottom;
 }
 
-/** Bring one part to the middle of the board's pane: gliding, or at once. */
-function glideTo(id: string, behavior: ScrollBehavior) {
+/** Bring one part to the middle of the board's pane: gliding, or at once. Says the stretch of the page the pane will show when it gets there. */
+function glideTo(id: string, behavior: ScrollBehavior): { top: number; bottom: number } | null {
   const el = nodeEl(id);
   const pane = el instanceof HTMLElement ? el.closest("[data-studio-pane]") ?? el.closest("[data-studio-scroll]") : null;
-  if (!(el instanceof HTMLElement) || !(pane instanceof HTMLElement)) return;
+  if (!(el instanceof HTMLElement) || !(pane instanceof HTMLElement)) return null;
   const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
-  pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior });
+  const top = Math.max(0, Math.min(pane.scrollHeight - pane.clientHeight, pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2)));
+  pane.scrollTo({ top, behavior });
+  return { top, bottom: top + p.height };
+}
+
+/** Where a part is down its pane's page, however far the pane is scrolled (or still gliding). */
+function downPage(id: string): { top: number; bottom: number } | null {
+  const el = nodeEl(id);
+  const pane = el instanceof HTMLElement ? el.closest("[data-studio-pane]") ?? el.closest("[data-studio-scroll]") : null;
+  if (!(el instanceof HTMLElement) || !(pane instanceof HTMLElement) || !el.getClientRects().length) return null;
+  const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+  return { top: pane.scrollTop + r.top - p.top, bottom: pane.scrollTop + r.bottom - p.top };
 }
 
 /** A kind's parts in reading order: page by page as the site lists them, then top to bottom, left to right. */
@@ -197,7 +209,7 @@ export function tourStep(ids: readonly string[], dir: 1 | -1, unseen = false) {
   if (!order.length) return;
   tourBegin();
   const key = order.join("|");
-  if (tour.key !== key) { tour.key = key; tour.at = -1; }
+  if (tour.key !== key) { tour.key = key; tour.at = -1; tour.view = null; }
   const page = new Map(s.nodes.map((n) => [n.id, n.pageId]));
   /* Where to step from, the first time: the first of them at or below the top of the view, on the page in view, so the wheel goes on from what is seen. */
   if (tour.at < 0) {
@@ -206,24 +218,28 @@ export function tourStep(ids: readonly string[], dir: 1 | -1, unseen = false) {
     const j = here.find(({ id }) => (nodeEl(id)?.getBoundingClientRect().bottom ?? -Infinity) > top)?.i ?? (here.length ? here[here.length - 1]!.i + 1 : 0);
     tour.at = dir > 0 ? j - 1 : j;
   }
-  let i = tour.at;
-  for (let k = 0; k < order.length; k++) {
-    i = (((i + dir) % order.length) + order.length) % order.length;
-    const id = order[i]!;
-    /* A part in a hidden state on the page in view is not drawn: there is nothing to glide to. */
-    if (page.get(id) === s.activePageId && !drawnNow(id)) continue;
-    if (unseen && page.get(id) === s.activePageId && inView(id)) continue;
-    break;
-  }
+  const shows = (id: string) => {
+    const v = tour.view?.page === s.activePageId ? tour.view : null;
+    if (!v) return inView(id);
+    const b = downPage(id);
+    return !!b && b.top >= v.top && b.bottom <= v.bottom;
+  };
+  const here = (i: number) => page.get(order[i]!) === s.activePageId;
+  /* A part in a hidden state on the page in view is not drawn: there is nothing to glide to. Parts that show already, or will once
+     the board gets where it is going, are passed in one step (J, 2026-10-11: "if they are all in view then it should go to the next immediately"). */
+  const i = nextStop(order.length, tour.at, dir, (j) => here(j) && !drawnNow(order[j]!), (j) => here(j) && (unseen || !!tour.view) && shows(order[j]!));
   tour.at = i;
   const id = order[i]!;
   window.clearTimeout(follow);
   if (page.get(id) !== s.activePageId && page.get(id)) {
     s.setActivePage(page.get(id)!);
-    requestAnimationFrame(() => requestAnimationFrame(() => { pointParts(onThisPage([...ids])); glideTo(id, "auto"); }));
+    const to = page.get(id)!;
+    tour.view = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => { pointParts(onThisPage([...ids])); const v = glideTo(id, "auto"); tour.view = v ? { page: to, ...v } : null; }));
   } else {
     pointParts(onThisPage([...ids]));
-    glideTo(id, "smooth");
+    const v = glideTo(id, "smooth");
+    tour.view = v ? { page: s.activePageId, ...v } : null;
   }
 }
 

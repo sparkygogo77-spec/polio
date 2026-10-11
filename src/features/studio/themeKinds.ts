@@ -48,6 +48,10 @@ export const TAB_HEIGHT = 40;
  * recording" was a kind of button, "Buttons 2, 24").
  */
 export const TRIM = 8;
+/** How far a lone panel's shade may be from a surface's and still be one of them. */
+export const PANEL_SHADES = 0.06;
+/** A surface covering this share of the site or more is kept in the preview however many kinds there are. */
+export const BIG_SURFACE = 0.03;
 /** A part both ways bigger than this is a panel: a kind most of whose area is panels is drawn as a box, never a tab. */
 export const PANEL = 2 * TAB_HEIGHT;
 /** A gradient-painted piece this big or more (its longer side, px) is a kind of its own, however few parts wear it. */
@@ -298,8 +302,30 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     if (i < 0) { leads.push({ fill: k, button, cls, members: new Set() }); i = leads.length - 1; }
     kindOfKey.set(key, i);
   }
-  const kindAt = (id: string) => kindOfKey.get(keyOf(id))!;
+  const moved = new Map<string, number>();
+  const kindAt = (id: string) => moved.get(id) ?? kindOfKey.get(keyOf(id))!;
   for (const id of fillOf.keys()) leads[kindAt(id)]!.members.add(id);
+  /* A panel whose own shade is worn by one or two parts (the PonsStars key cabinet, a darker wood than the rail's) joins the
+     surface it is a shade of, rather than vanish from the preview with the one-offs (J, 2026-10-11). */
+  const byId = new Map(parts.map((p) => [p.id, p] as const));
+  leads.forEach((g, i) => {
+    if (g.cls !== "s" || thingsIn(g.members, once) >= 3) return;
+    for (const id of [...g.members]) {
+      const p = byId.get(id)!;
+      if (Math.min(p.w ?? 0, p.h ?? 0) <= PANEL) continue;
+      /* Of the surfaces it is a shade of, the one covering most of the site: the wood, not a strip of it. */
+      let best = -1, most = 0;
+      leads.forEach((h, j) => {
+        if (j === i || h.cls !== "s" || thingsIn(h.members, once) < 3 || oklabDistance(g.fill, h.fill) >= PANEL_SHADES) return;
+        const c = [...h.members].reduce((a, m) => a + area(byId.get(m)!), 0);
+        if (c > most) { most = c; best = j; }
+      });
+      if (best < 0) continue;
+      g.members.delete(id);
+      leads[best]!.members.add(id);
+      moved.set(id, best);
+    }
+  });
   /* The surface each part stands on: itself if filled, else the smallest filled part holding it. */
   const filled = parts.filter((p) => fillOf.has(p.id));
   const under = (p: Node): Node | null => {
@@ -440,7 +466,9 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
      and edited as one gradient (J, 2026-10-09). */
   const isPiece = (k: (typeof kinds)[number]) => !k.button && !k.trim && k.stops.length > 1 && k.big >= PIECE;
-  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
+  /* Past the cap, a big real surface (the wood the forms and the TV stand on) is still kept: the cap drops the small things first. */
+  const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK))
+    .filter(({ k }, j) => j < cap || (!k.button && !k.accent && !k.trim && k.cover >= BIG_SURFACE * siteArea));
   const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
   /* A tab is drawn as a strip already: only a surface drawn as a box can be an accent. */
   const kept = [...many.map(({ k, i }) => ({ k: { ...k, piece: false, tab: k.tab && !k.progress, accent: k.accent && (!k.tab || !!k.progress) }, i })), ...pieces];
