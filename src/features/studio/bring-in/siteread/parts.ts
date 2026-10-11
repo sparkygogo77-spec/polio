@@ -59,6 +59,26 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const SECTIONING = new Set(["SECTION", "ARTICLE", "ASIDE", "HEADER", "FOOTER", "MAIN", "NAV", "FORM", "FIELDSET", "DETAILS", "DIALOG", "UL", "OL", "DL", "TABLE", "FIGURE"]);
   const SEPARATORS = /^[\s|·•/\\,;:–—\-]*$/;
   const css = (e: Element) => getComputedStyle(e);
+  /*
+   * THE PAGE AS IT SETTLES, NOT AS IT ARRIVES (J, 2026-10-11). PonsStars'
+   * redesign deals its panels in: a 420 ms fade from nothing, each a little
+   * after the last, and its readouts warm up over 260 ms. Read a third of a
+   * second after load, the Wallet panel landed at 46% and the Find a match
+   * panel, whose turn had not come, at 0%: gone from the board, and a
+   * different panel gone each time. So every animation that ends is run
+   * to its end first, which is the page a visitor sees a moment later;
+   * one that never ends (a blink, a sway, static) runs on and is read at
+   * rest by `liftTurns` as before. The animation itself is still recorded
+   * on the part (`animOf`), so the board can play the entrance.
+   */
+  try {
+    for (const a of document.getAnimations()) {
+      try {
+        const t = a.effect?.getTiming?.();
+        if (t && Number.isFinite(t.iterations) && a.playState !== "finished") a.finish();
+      } catch { /* an animation that cannot be finished runs on */ }
+    }
+  } catch { /* a browser without the Web Animations API reads the page as it is */ }
   const shown = (e: Element) => css(e).display !== "none";
   /* What a closed <details> holds past its summary: the page does not show it, whatever its display says. */
   const folded = (e: Element) => { const d = e.parentElement; return !!d && d.tagName === "DETAILS" && !(d as HTMLDetailsElement).open && e.tagName !== "SUMMARY"; };
@@ -564,6 +584,14 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     if (el) {
       /* Pinned to the window (PST's tour and its card): kept on the part, so the board keeps it on the page and shades the page with it (`boardStates.ts#keepOverlaysOnPage`). */
       if (css(el).position === "fixed") p.position = "fixed";
+      /*
+       * A RAIL THAT STICKS THE WHOLE WAY DOWN (J, 2026-10-11): a sticky
+       * element as tall as the window is beside every part of the page
+       * below it as it scrolls (PonsStars' Departments rail, 100vh). The
+       * board does not scroll a window down a page, so the rail is run from
+       * where it starts to the foot of the page, which is what it covers.
+       */
+      if (css(el).position === "sticky" && p.box.h >= innerHeight - 1 && p.box.y + p.box.h < document.documentElement.scrollHeight) p.box = { ...p.box, h: document.documentElement.scrollHeight - p.box.y };
       const rules = lean ? [] : rulesFor(el);
       if (rules.length) p.rules = rules;
       const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
