@@ -8,7 +8,7 @@ import { type ThreadDoc } from "../../loop";
 import { activeRepo } from "@/features/builds/store";
 import { boardActions } from "./board";
 import { FRAME_WIDTHS } from "./frame";
-import { EDIT_RUN_MS, HISTORY_LIMIT, edited, pen, shelve, snapshot, starterDoc } from "./history";
+import { EDIT_RUN_MS, HISTORY_LIMIT, edited, landing, leaving, pen, shelve, snapshot, starterDoc } from "./history";
 import { ZOOM_MIN } from "./model";
 import { nodesActions } from "./nodes";
 import { docOnly, mergeDoc } from "./persist";
@@ -229,9 +229,9 @@ export const useStudio = create<StudioState>()(
             // Whatever was being typed is over: the next letter is a new edit.
             run = null;
             return {
-              ...prev,
+              ...landing([prev]),
               past: s.past.slice(0, -1),
-              future: [snapshot(s), ...s.future].slice(0, HISTORY_LIMIT),
+              future: [leaving(s, [prev]), ...s.future].slice(0, HISTORY_LIMIT),
               selection: [],
               activePageId: prev.pages.some((p) => p.id === s.activePageId) ? s.activePageId : prev.pages[0]!.id,
             };
@@ -253,8 +253,8 @@ export const useStudio = create<StudioState>()(
             edited();
             run = null;
             return {
-              ...next,
-              past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
+              ...landing([next]),
+              past: [...s.past, leaving(s, [next])].slice(-HISTORY_LIMIT),
               future: s.future.slice(1),
               selection: [],
               activePageId: next.pages.some((p) => p.id === s.activePageId) ? s.activePageId : next.pages[0]!.id,
@@ -266,15 +266,15 @@ export const useStudio = create<StudioState>()(
             if (!steps || (steps < 0 ? !s.past.length : !s.future.length)) return {};
             run = null;
             edited();
-            const doc = snapshot(s);
             if (steps < 0) {
               const n = Math.min(-steps, s.past.length);
               if (!n) return {};
               const to = s.past[s.past.length - n]!;
+              const back = s.past.slice(s.past.length - n);
               /* The documents stepped over go onto redo in order: nearest first. */
-              const over = [...s.past.slice(s.past.length - n + 1), doc];
+              const over = [...s.past.slice(s.past.length - n + 1), leaving(s, back)];
               return {
-                ...to,
+                ...landing([...back].reverse()),
                 past: s.past.slice(0, s.past.length - n),
                 future: [...over, ...s.future].slice(0, HISTORY_LIMIT),
                 selection: [],
@@ -284,9 +284,10 @@ export const useStudio = create<StudioState>()(
             const n = Math.min(steps, s.future.length);
             if (!n) return {};
             const to = s.future[n - 1]!;
+            const ahead = s.future.slice(0, n);
             return {
-              ...to,
-              past: [...s.past, doc, ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
+              ...landing(ahead),
+              past: [...s.past, leaving(s, ahead), ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
               future: s.future.slice(n),
               selection: [],
               activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,

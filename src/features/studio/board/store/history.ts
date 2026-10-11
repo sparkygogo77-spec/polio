@@ -152,6 +152,42 @@ export function snapshot(s: StudioState): Doc {
 }
 
 /**
+ * WHAT A CHECKPOINT CAN HOLD BEYOND THE DOCUMENT.
+ *
+ * Clear everything takes the shelf, the import record and the timeline with
+ * the parts, and none of those are in `snapshot`. Its checkpoint carries them
+ * (`carry`), so one undo puts back everything the clear took, not only the
+ * parts: undoing it used to bring back a brought-in board with no shelf, no
+ * import record and no updates.
+ */
+const CARRIED = ["brought", "broughtParts", "statesOn", "learn", "standIn", "swept", "siteBranch", "trail", "threads", "liveThreadId", "pinnedThreads", "threadSpots", "draftPieces", "sentPieces"] as const;
+type Carried = Pick<StudioState, (typeof CARRIED)[number]>;
+
+/** The fields beyond the document that `s` holds now, for a checkpoint to carry. */
+export function carry(s: Carried): Carried {
+  return Object.fromEntries(CARRIED.map((k) => [k, s[k]])) as Carried;
+}
+
+const carries = (d: Doc): d is Doc & Carried => "brought" in d;
+
+/**
+ * The step history goes to, put together from the checkpoints passed over
+ * on the way: the document of the last one and the carried fields of the
+ * last one that carries any. Its shelf goes back on the catalogue too.
+ */
+export function landing(over: Doc[]): Doc & Partial<Carried> {
+  const to = over[over.length - 1]!;
+  const held = [...over].reverse().find(carries);
+  if (held) shelve(held.brought, held.broughtParts ?? []);
+  return held ? { ...to, ...carry(held) } : to;
+}
+
+/** The step being left, as the other stack keeps it: carrying what `like` carries, so undo and redo trade the same things. */
+export function leaving(s: StudioState, like: Doc[]): Doc {
+  return like.some(carries) ? { ...snapshot(s), ...carry(s) } : snapshot(s);
+}
+
+/**
  * The nodes a set of rebuilt sentences leaves behind.
  *
  * Pure and shared, because the palette command and the sweep on open must
