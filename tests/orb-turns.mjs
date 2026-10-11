@@ -118,8 +118,10 @@ const orbCanvas = async () => {
   return { at: best, area };
 };
 let found = await orbCanvas();
-check("the orb in 3D draws a real WebGL sphere, not the drawn stand-in", !!found.at && found.area > 100000,
-  found.at ? `a ${Math.round(Math.sqrt(found.area))}px canvas on the board` : "no canvas \u2014 it fell back to the drawn orb");
+/* The page's stand-in is a canvas too (`library/planetJs.ts` draws both): the ball says which drew it. */
+const onCard = await page.evaluate(() => [...document.querySelectorAll('[data-part="orb-webgl"] [data-planet]')].some((h) => h.__planet?.gl === true));
+check("the orb in 3D draws a real WebGL sphere, not the drawn stand-in", !!found.at && found.area > 100000 && onCard,
+  found.at ? `a ${Math.round(Math.sqrt(found.area))}px canvas on the board, ${onCard ? "drawn on the graphics card" : "drawn by the page: the shader did not run"}` : "no canvas \u2014 it fell back to the drawn orb");
 if (!found.at) {
   console.log("\nnothing to measure");
   await browser.close();
@@ -157,6 +159,8 @@ const discBox = async () => {
  * sqrt(d\u00b2-r\u00b2)/d = 0.974 sitting at depth d - r\u00b2/d = 4.173, and the frame at
  * that depth is 4.173\u00b7tan(17.5\u00b0) = 1.316 half-tall, so the sphere is 0.740 of
  * the half-height. Sampled at 0.70 and nothing but sphere is in the reading.
+ * (That was the three.js orb; the planet script's ball fills its canvas, so
+ * 0.70 is further inside it still.)
  */
 const FACE = 0.70;
 

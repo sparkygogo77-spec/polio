@@ -258,7 +258,8 @@ export const PUBLISH: Record<string, Publish> = {
   "video-player": still(PLAYER), "audio-player": still(PLAYER), podcast: still(PLAYER),
   "map-embed": still("a map service"), "3d-viewer": still(THREE_D),
   "generative-art": draws, "avatar-stack": draws, "corner-glow": draws,
-  "orb-css": draws, "orb-image": draws, "orb-webgl": still(THREE_D), "cube-3d": still(THREE_D), "mesh-3d": still(THREE_D),
+  /* The turnable orb too: the planet script draws its surface on the graphics card on the published page, as on the board. */
+  "orb-css": draws, "orb-image": draws, "orb-webgl": draws, "cube-3d": still(THREE_D), "mesh-3d": still(THREE_D),
   /* Drawn by the part, and turned on the published page by the planet script it carries (`works.ts#PART_SCRIPT`), as the orbs are. */
   "shape-sphere": draws, "shape-cube": draws, "shape-pyramid": draws,
   "drawn-icon": draws,

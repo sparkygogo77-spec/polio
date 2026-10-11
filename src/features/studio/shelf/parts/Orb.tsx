@@ -13,10 +13,12 @@
  *   orb-css     a planet drawn by the page on a plain canvas, a pixel at a
  *               time (`library/planetJs.ts`): no library, no GPU. It
  *               turns on its own axis and every way in the hand.
- *   orb-webgl   a real sphere in three.js. It turns, and the key light
- *               follows the pointer, because the light is a light. Needs a
- *               GPU context and the library, and falls back to the drawn
- *               orb when either is missing.
+ *   orb-webgl   the same planet in a surface (glass, metal or matte), its
+ *               light worked out on the graphics card, as sharp as its box.
+ *               Where WebGL is missing it is drawn by the page in the same
+ *               light, and the tag says so. It was three.js here and the
+ *               plain planet on the published page; now both run the one
+ *               script, so the site shows the orb the board does.
  *   orb-image   the same planet with a picture wrapped round it, the way
  *               a map wraps a globe ("Wrap it round" off: the picture laid
  *               flat in the circle, as it was).
@@ -204,7 +206,7 @@ function Stage({
 }
 
 /* ------------------------------------------------------------------ */
-/* The planet: the drawn orb and the picture orb, turnable              */
+/* The planet: all three orbs, turnable                                */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -215,15 +217,20 @@ function Stage({
  * picture on a hidden `<img>`, so the page exported from this one still has
  * them once React is gone. On the board it is one still frame, out of
  * anyone's hands, as every part is there.
+ *
+ * A `surface` (the turnable orb's glass, metal or matte) rides the same way,
+ * and the script draws it on the graphics card; `onFlat` hears when it could
+ * not, and the page drew it instead.
  */
-function PlanetBall({ s, src, onFail, recolour }: { s: OrbSet; src?: string | null; onFail?: () => void; recolour?: boolean }) {
+function PlanetBall({ s, src, onFail, recolour, surface, onFlat }: { s: OrbSet; src?: string | null; onFail?: () => void; recolour?: boolean; surface?: string; onFlat?: () => void }) {
   const host = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     const el = host.current;
     if (!el) return;
     const p = planet(el);
+    if (surface && p && !p.gl) onFlat?.();
     return () => p?.stop();
-  }, [s.hue, s.tilt, s.moving, s.hands, src]);
+  }, [s.hue, s.tilt, s.moving, s.hands, src, surface, onFlat]);
   return (
     <div
       ref={host}
@@ -232,6 +239,7 @@ function PlanetBall({ s, src, onFail, recolour }: { s: OrbSet; src?: string | nu
       data-planet-tilt={Math.round(s.tilt)}
       data-planet-spin={s.moving ? "yes" : "no"}
       data-planet-hands={s.hands ? "yes" : "no"}
+      data-planet-surface={surface || undefined}
       style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "0 28px 56px rgba(0,0,0,0.6)", filter: recolour ? `hue-rotate(${Math.round(s.hue - 96)}deg) saturate(1.15)` : undefined }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- a part ships without next/image */}
@@ -241,328 +249,7 @@ function PlanetBall({ s, src, onFail, recolour }: { s: OrbSet; src?: string | nu
 }
 
 /* ------------------------------------------------------------------ */
-/* (b) WebGL: a real sphere                                            */
-/* ------------------------------------------------------------------ */
-
-/**
- * three.js, loaded when the part is first drawn and never during the build:
- * the import is dynamic so the library is a chunk of its own, and a page
- * with no orb on it never pays for it. If the import fails, or the browser
- * gives no WebGL context, the drawn orb takes over and says so in the tag.
- *
- * The sphere is a black mirror and the picture on it is a *reflection*, not
- * a highlight. Point lights were tried first and are the wrong instrument:
- * on a smooth sphere they give three white pinpricks and nothing else, and
- * turning them up only makes the pinpricks bigger and whiter. What makes the
- * long coloured crescents is an environment — two wide coloured lamps and a
- * white slash painted into a canvas, wrapped round the scene — so the orb
- * reflects a room. Moving the pointer turns that room (`environmentRotation`)
- * rather than moving a lamp, which is the same gesture and a truer one: the
- * crescents slide round the sphere the way they do on a real black ball.
- */
-
-/** Where the two lamps hang, in the wrapped picture. Found by sweeping and looking. */
-const LAMP = { key: { u: 0.42, v: 0.68 }, cool: { u: 0.17, v: 0.72 }, white: { u: 0.5, v: 0.12 } };
-
-/**
- * How the surface behaves. A body that carries a colour cannot be a pure
- * mirror: a metal of one reflects and never shows what it is made of, which
- * is why the first orb came out black whatever colour was asked for — its
- * dark half measured 0% saturated at a red and 0% at a blue, and the face of
- * it read 4 of 255 bright. So each surface keeps some of itself.
- */
-const SURFACE: Record<string, { roughness: number; metalness: number; clearcoat: number }> = {
-  matte: { roughness: 0.66, metalness: 0.12, clearcoat: 0.12 },
-  metal: { roughness: 0.3, metalness: 0.68, clearcoat: 0.32 },
-  glass: { roughness: 0.16, metalness: 0.3, clearcoat: 1 },
-};
-
-/**
- * The body, painted: his colour, with something on it.
- *
- * Both of the things he asked for are this one thing. A smooth sphere with
- * nothing on it looks identical from every angle, so turning it is invisible
- * and there is nothing to grab — which is why the first orb turned the room
- * and called it rotation. Give the body bands and mottling in his colour and
- * the turn can be watched, and the colour he picked is on the thing itself
- * rather than only in what it reflects.
- *
- * Everything here is fixed rather than random: two orbs of the same colour
- * are the same orb, and a part that drew itself differently each time could
- * not hold still for the one frame the board is allowed.
- */
-const MARKS: { u: number; v: number; r: number; l: number }[] = [
-  { u: 0.18, v: 0.34, r: 0.17, l: 40 }, { u: 0.46, v: 0.62, r: 0.22, l: 11 },
-  { u: 0.71, v: 0.28, r: 0.14, l: 36 }, { u: 0.88, v: 0.71, r: 0.19, l: 12 },
-  { u: 0.33, v: 0.81, r: 0.12, l: 43 }, { u: 0.62, v: 0.15, r: 0.16, l: 9 },
-];
-
-function bodyCanvas(hue: number): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 512;
-  const g = c.getContext("2d")!;
-  g.fillStyle = hsl(hue, 50, 29);
-  g.fillRect(0, 0, 1024, 512);
-  /* Latitudes: a slow swell of light and dark round the body, so a turn
-     reads even where nothing else is happening. */
-  for (let y = 0; y < 512; y++) {
-    const band = Math.sin((y / 512) * Math.PI * 7) * 0.5 + Math.sin((y / 512) * Math.PI * 2.3) * 0.5;
-    g.fillStyle = hsl(hue, 50, 29 + band * 10, 0.6);
-    g.fillRect(0, y, 1024, 1);
-  }
-  for (const m of MARKS) {
-    const x = m.u * 1024;
-    const y = m.v * 512;
-    const rad = m.r * 320;
-    const grad = g.createRadialGradient(x, y, 0, x, y, rad);
-    grad.addColorStop(0, hsl(hue, 58, m.l, 0.85));
-    grad.addColorStop(1, hsl(hue, 58, m.l, 0));
-    g.fillStyle = grad;
-    g.beginPath();
-    g.arc(x, y, rad, 0, Math.PI * 2);
-    g.fill();
-    /* The same mark again a full turn away, so nothing seams at the join. */
-    const x2 = x > 512 ? x - 1024 : x + 1024;
-    const g2 = g.createRadialGradient(x2, y, 0, x2, y, rad);
-    g2.addColorStop(0, hsl(hue, 58, m.l, 0.85));
-    g2.addColorStop(1, hsl(hue, 58, m.l, 0));
-    g.fillStyle = g2;
-    g.beginPath();
-    g.arc(x2, y, rad, 0, Math.PI * 2);
-    g.fill();
-  }
-  return c;
-}
-
-/** How far a drag across the whole box turns the sphere: a little over half a turn. */
-const HAND = 3.4;
-/** What is left of a throw each frame once it is let go of, and when it is done. */
-const CARRY = 0.93;
-const STILL = 0.0006;
-
-function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: () => void }) {
-  const host = React.useRef<HTMLDivElement>(null);
-  /*
-   * Where the sphere has been turned to: pitch and yaw, in radians, counted
-   * up and never clamped, because free means free. Kept on a ref rather than
-   * in state so that turning it does not re-render the part, and kept
-   * outside the effect so that changing his colour does not stand it back up
-   * straight.
-   */
-  const turn = React.useRef({ x: 0, y: 0 });
-  const fling = React.useRef({ x: 0, y: 0 });
-  const held = React.useRef(false);
-  const from = React.useRef({ x: 0, y: 0 });
-  /** Set once three.js is up: ask for the loop back when something is happening. */
-  const wake = React.useRef<() => void>(() => {});
-
-  React.useEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    /* The Builder's three.js ball holds its host: the planet script (run on the published page, where this is gone) leaves it be. */
-    const claim = el as HTMLDivElement & { __planet?: unknown };
-    claim.__planet = { stop() {}, turn: () => [turn.current.x, turn.current.y] };
-    let stop = false;
-    let frame = 0;
-    let dispose: (() => void) | null = null;
-
-    void (async () => {
-      let THREE: typeof import("three");
-      try {
-        THREE = await import("three");
-      } catch {
-        if (!stop) onFail();
-        return;
-      }
-      if (stop) return;
-      const box = el.getBoundingClientRect();
-      const width = Math.max(64, Math.round(box.width));
-      const height = Math.max(64, Math.round(box.height));
-
-      let renderer: import("three").WebGLRenderer;
-      try {
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      } catch {
-        if (!stop) onFail();
-        return;
-      }
-      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-      renderer.setSize(width, height, false);
-      // Filmic, so a bright crescent stays its own colour instead of
-      // clipping to white the moment it is bright enough to see.
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.1;
-      renderer.domElement.style.width = "100%";
-      renderer.domElement.style.height = "100%";
-      renderer.domElement.style.display = "block";
-      /* Published, the planet script takes this blank canvas away and draws its own ball. */
-      renderer.domElement.setAttribute("data-planet-canvas", "");
-      el.append(renderer.domElement);
-
-      /* The room, painted: two wide lamps in the part's colours and a white slash. */
-      const c = lights(s.hue);
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 512;
-      const g2 = canvas.getContext("2d")!;
-      g2.fillStyle = "#000";
-      g2.fillRect(0, 0, 1024, 512);
-      const lamp = (at: { u: number; v: number }, rad: number, colour: string, alpha: number) => {
-        const x = at.u * 1024;
-        const y = at.v * 512;
-        const grad = g2.createRadialGradient(x, y, 0, x, y, rad);
-        grad.addColorStop(0, colour);
-        grad.addColorStop(0.5, colour);
-        grad.addColorStop(1, "rgba(0,0,0,0)");
-        g2.globalAlpha = alpha;
-        g2.fillStyle = grad;
-        g2.beginPath();
-        g2.arc(x, y, rad, 0, Math.PI * 2);
-        g2.fill();
-        g2.globalAlpha = 1;
-      };
-      const reach = 120 + s.glow * 90;
-      lamp(LAMP.key, reach, c.key(), 1);
-      lamp(LAMP.cool, reach * 1.1, c.cool(), 0.9);
-      lamp(LAMP.white, reach * 0.45, "#ffffff", 0.55);
-      const env = new THREE.CanvasTexture(canvas);
-      env.mapping = THREE.EquirectangularReflectionMapping;
-      env.colorSpace = THREE.SRGBColorSpace;
-
-      const skin = new THREE.CanvasTexture(bodyCanvas(s.hue));
-      skin.colorSpace = THREE.SRGBColorSpace;
-      skin.wrapS = THREE.RepeatWrapping;
-
-      const scene = new THREE.Scene();
-      scene.environment = env;
-      scene.environmentIntensity = 1.5 + s.glow;
-      const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
-      camera.position.set(0, 0, 4.4);
-
-      const look = SURFACE[surface] ?? SURFACE.glass!;
-      const ball = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 128, 128),
-        new THREE.MeshPhysicalMaterial({
-          map: skin,
-          roughness: look.roughness,
-          metalness: look.metalness,
-          clearcoat: look.clearcoat,
-          clearcoatRoughness: 0.04,
-        }),
-      );
-      /* Enough plain light to see the body by. The room alone is two lamps
-         in a black box, which lights a crescent and leaves the rest nothing. */
-      scene.add(ball, new THREE.AmbientLight(0xffffff, 1.9));
-
-      const draw = () => {
-        /* The room stays where it is. It is the sphere that turns, which is
-           the whole point: a reflection that travelled with the hand looked
-           the same whichever way the ball was facing. */
-        scene.environmentRotation.set(0, (s.tilt * Math.PI) / 180, 0);
-        ball.rotation.x = turn.current.x;
-        ball.rotation.y = turn.current.y;
-        renderer.render(scene, camera);
-      };
-
-      let running = false;
-      const step = () => {
-        if (stop) return;
-        if (!held.current) {
-          /* What is left of a throw, and the idle turn under it. */
-          fling.current.x *= CARRY;
-          fling.current.y *= CARRY;
-          turn.current.x += fling.current.x;
-          turn.current.y += fling.current.y + (s.moving ? 0.0016 : 0);
-        }
-        draw();
-        const busy = s.moving || held.current || Math.abs(fling.current.x) + Math.abs(fling.current.y) > STILL;
-        if (busy) frame = requestAnimationFrame(step);
-        else { running = false; draw(); }
-      };
-      wake.current = () => {
-        if (running || stop) return;
-        running = true;
-        frame = requestAnimationFrame(step);
-      };
-
-      // Board mode, and a live orb left alone: one frame, held. No loop.
-      if (s.moving || held.current || Math.abs(fling.current.x) + Math.abs(fling.current.y) > STILL) wake.current();
-      else draw();
-
-      dispose = () => {
-        cancelAnimationFrame(frame);
-        wake.current = () => {};
-        env.dispose();
-        skin.dispose();
-        ball.geometry.dispose();
-        (ball.material as import("three").Material).dispose();
-        renderer.dispose();
-        renderer.domElement.remove();
-      };
-    })();
-
-    return () => {
-      stop = true;
-      dispose?.();
-      claim.__planet = null;
-    };
-  }, [s.hue, s.tilt, s.glow, s.moving, surface, onFail]);
-
-  /*
-   * The hand. The pointer is captured on the way down, so a drag that leaves
-   * the sphere keeps turning it instead of stopping at the edge of the box,
-   * and a pointer nobody is pressing does nothing at all — the orb used to
-   * move under a mouse merely passing over it.
-   */
-  return (
-    <div
-      ref={host}
-      data-orb-ball=""
-      data-planet=""
-      data-planet-hue={Math.round(s.hue)}
-      data-planet-tilt={Math.round(s.tilt)}
-      data-planet-spin={s.moving ? "yes" : "no"}
-      data-planet-hands={s.hands ? "yes" : "no"}
-      style={{
-        position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
-        cursor: s.hands ? "grab" : undefined, touchAction: s.hands ? "none" : undefined,
-      }}
-      onPointerDown={(e) => {
-        if (!s.hands) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        e.currentTarget.style.cursor = "grabbing";
-        held.current = true;
-        fling.current = { x: 0, y: 0 };
-        from.current = { x: e.clientX, y: e.clientY };
-        wake.current();
-      }}
-      onPointerMove={(e) => {
-        if (!s.hands || !held.current) return;
-        const r = e.currentTarget.getBoundingClientRect();
-        const dy = ((e.clientX - from.current.x) / Math.max(1, r.width)) * HAND;
-        const dx = ((e.clientY - from.current.y) / Math.max(1, r.height)) * HAND;
-        turn.current.y += dy;
-        turn.current.x += dx;
-        fling.current = { x: dx, y: dy };
-        from.current = { x: e.clientX, y: e.clientY };
-      }}
-      onPointerUp={(e) => {
-        if (!held.current) return;
-        held.current = false;
-        e.currentTarget.style.cursor = "grab";
-        wake.current();
-      }}
-      onPointerCancel={(e) => {
-        held.current = false;
-        e.currentTarget.style.cursor = "grab";
-      }}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* (c) A picture                                                       */
+/* A picture, laid flat                                                */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -619,9 +306,10 @@ export function Orb({ id, content, options, theme: t, mode }: PartProps) {
   }
 
   if (id === "orb-webgl") {
+    /* The published page runs this same ball (the planet feature reads `data-planet-surface`), so what the board shows is what the site shows. */
     return (
       <Stage t={t} id={id} s={s} tag={failed ? "Drawn, no WebGL here" : words.join(", ")}>
-        {failed ? <PlanetBall s={s} /> : <GlBall s={s} surface={opt(options, "surface", "glass")} onFail={fail} />}
+        <PlanetBall s={s} surface={opt(options, "surface", "glass")} onFlat={fail} />
       </Stage>
     );
   }

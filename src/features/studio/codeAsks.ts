@@ -129,6 +129,21 @@ const clean = (s: string) => s.replace(/\s+/g, " ").trim();
    `--builder-motion` itself only here, because Publish names no motion for these parts. */
 export const OWN_CSS = "in the page's own stylesheet on that hook (never in the style layer: BUILDER-RULES.md rule 35 allows this for a part a NEXT.md line asks for)";
 
+/**
+ * The exact `--builder-motion` a shelf part's own script goes by on a
+ * builder-ready site: a cube or a pyramid names its shape, and the turnable
+ * orb its surface (glass unless J picked metal or matte, as `parts/Orb.tsx`
+ * reads it), which the kit's file draws on the graphics card as the board
+ * does. It used to be plain `planet`: the flat planet, never the orb he saw.
+ */
+export function partMotion(featureId: string, options?: Record<string, string> | null): string | null {
+  const id = PART_SCRIPT[featureId];
+  if (!id) return null;
+  if (/^shape-(cube|pyramid)$/.test(featureId)) return `${id}?shape=${featureId.slice(6)}`;
+  if (featureId === "orb-webgl") return `${id}?surface=${encodeURIComponent(options?.surface?.trim() || "glass")}`;
+  return id;
+}
+
 /** Every board change the style layer cannot carry, as a line for NEXT.md (`kind: "build"`). */
 export function codeAsks(a: AskInput): FixIssue[] {
   const pageName = new Map(a.pages.map((p) => [p.id, p.name]));
@@ -179,7 +194,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
         /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
         /* A before / after slider is split by the same file: two pictures stacked at full size, the before revealed by the handle (`compare`). */
         a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` ${OWN_CSS}, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
-        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
+        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${partMotion(n.featureId!, n.options)}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
         `Make it in the code with data-hook="${hook}"; its record (outline, link, note, effects) is in design/record.json under that hook.`,
       ].filter(Boolean).join(" ")),
     });
