@@ -405,13 +405,15 @@ export function FromASite({ space }: { space: Space }) {
     const board = keep ? boardNow() : null;
     const taken = keep && isTaken(st0.taken) ? st0.taken : null;
     /*
-     * READ AT HIS WINDOW'S WIDTH (J, 2026-10-04): PonsStars on his ~2000px
-     * screen looked like the board only zoomed to 150%, because the board
-     * read it at 1440. A site from code is read at the width of the window
-     * he is looking from, so the board is the site 1:1 as he sees it.
+     * READ AT 1440, WHATEVER THE WINDOW (J, 2026-10-11). From 4 October a
+     * site from code was read at the width of the window he looked from, so
+     * the board was the site as his screen showed it; on his 2327-wide
+     * window PonsStars' redesign came in 2327 wide with its panels spread
+     * far apart, which read as "sized massively inaccurately". Asked, he
+     * chose 1440 for every site, the design's width, so a board is the same
+     * whichever window brings it in.
      */
-    const seen = typeof window === "undefined" ? 0 : Math.round(window.innerWidth);
-    const readAt = seen >= 1280 ? Math.min(2560, seen) : st0.frameWidth || 1440;
+    const readAt = 1440;
     /* And at its height: a rail as tall as the screen puts its clock at the screen's foot, wherever that is on his window (the read was always 900 tall, and J's rail's clock sat 81px low). */
     const seenH = typeof window === "undefined" ? 0 : Math.round(window.innerHeight);
     const readTall = seenH >= 600 ? Math.min(1600, seenH) : 900;
