@@ -31,6 +31,7 @@ import { carriers, movesWhole } from "./carry";
 import { followsOf, placeFollowers } from "./follow";
 import { leadsOf, withLead } from "../shelf";
 import { holderIds } from "../owner";
+import { svgUnder } from "./svgUnder";
 import { groundLayersOf, layerStyle, overParts, type GroundLayer } from "../board/themeDraw";
 
 /**
@@ -351,6 +352,15 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     return kids;
   }, [nested, placed]);
   const carriedIds = React.useMemo(() => new Set([...carried.values()].flat().map((p) => p.node.id)), [carried]);
+  /* A drawing's own hooked shapes that the page painted under it (a dial's face) are drawn before it, so its ticks and hands are over them (`svgUnder.ts`). */
+  const under = React.useMemo(() => svgUnder(pageNodes as Parameters<typeof svgUnder>[0]), [pageNodes]);
+  const flat = React.useMemo(() => {
+    const top = placed.filter((p) => !carriedIds.has(p.node.id));
+    if (!under.size) return top;
+    const before = new Map<string, typeof top>();
+    for (const p of top) { const svg = under.get(p.node.id); if (svg) before.set(svg, [...(before.get(svg) ?? []), p]); }
+    return top.flatMap((p) => (under.has(p.node.id) && top.some((q) => q.node.id === under.get(p.node.id)) ? [] : [...(before.get(p.node.id) ?? []), p]));
+  }, [placed, carriedIds, under]);
   /* A part on a body's edge drawn before it (the TV's antennas, behind its body) stays behind it once carried: under the body's own drawing, inside its box. */
   const order = React.useMemo(() => new Map(placed.map((p, i) => [p.node.id, i])), [placed]);
   const behind = (kid: string, body: string) => (order.get(kid) ?? 0) < (order.get(body) ?? 0);
@@ -492,7 +502,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               {(tree?.roots ?? []).filter((n) => byId.has(n.id)).sort((x, y) => keyOf(x.id) - keyOf(y.id)).map((n) => unit(n.id))}
               {breakers("")}
             </>
-          ) : placed.filter((p) => !carriedIds.has(p.node.id)).map((p) => partOf(p))}
+          ) : flat.map((p) => partOf(p))}
           {sections.map((sec) => (
             <div
               key={sec.id}
