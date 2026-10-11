@@ -10,7 +10,7 @@ import { boardRecord } from "./exportForCode";
 import { fileAt } from "./kitRun";
 import { layerPrint } from "./send-out";
 import { prepareLayer, publishLayer } from "./styleLayerRun";
-import { pictureFiles } from "./partPicture";
+import { PICTURES_LIST, pictureFiles, sentHooks } from "./partPicture";
 import { base64, bytesFor } from "./pictures";
 import type { LayerNode, StyleSource } from "./send-out";
 
@@ -29,10 +29,13 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
     const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
     prepared.files.push({ path: "design/record.json", content: boardRecord(map, undefined, o.fresh) });
   }
-  /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook. */
-  const pics = await pictureFiles(nodes as never, async (look) => { const b = await bytesFor(look.picture as never); return b ? base64(b) : null; });
+  /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook.
+     The repo's own pictures.json says which hooks wore one at the last send, so a picture he took off goes back as `removed`. */
+  const before = sentHooks(await fileAt(fetch, token, source.repo, source.ref || "HEAD", PICTURES_LIST).catch(() => null));
+  const pics = await pictureFiles(nodes as never, async (look) => { const b = await bytesFor(look.picture as never); return b ? base64(b) : null; }, before);
   if (pics.files.length) {
-    o.say?.(`Adding ${pics.files.length - 1} picture${pics.files.length === 2 ? "" : "s"} for parts…`);
+    const added = pics.files.length - 1;
+    o.say?.(added ? `Adding ${added} picture${added === 1 ? "" : "s"} for parts…` : "Taking pictures off parts…");
     prepared.files.push(...pics.files);
   }
   /* Other files that ride with the design: polio/NEXT.md, the issues ticked for the next code chat (`fixLoop.ts`). */
@@ -40,7 +43,7 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
   const done = await publishLayer(prepared, source, token, { site: o.site });
   if (!done.ok) return { ok: false, says: done.says };
   return {
-    ok: true, says: `${done.says}${pics.missing.length ? ` The picture for ${pics.missing.join(", ")} is no longer in this browser, so it was not sent; drop it on the part again.` : ""}${pics.unhooked.length ? ` ${pics.unhooked.join(", ")} has no data-hook, so its picture was not sent.` : ""}`, pull: done.pull, compare: done.compare, branch: done.branch, kit: prepared.kit,
+    ok: true, says: `${done.says}${pics.missing.length ? ` The picture for ${pics.missing.join(", ")} is no longer in this browser, so it was not sent; drop it on the part again.` : ""}${pics.unhooked.length ? ` ${pics.unhooked.join(", ")} has no data-hook, so its picture was not sent.` : ""}${pics.removed.length ? ` It asks the code to take the picture look off ${pics.removed.join(", ")}.` : ""}`, pull: done.pull, compare: done.compare, branch: done.branch, kit: prepared.kit,
     print: layerPrint(prepared.layer.css), files: prepared.files.map((x) => x.path),
     held: prepared.kit ? prepared.skipped.map((s) => s.from) : prepared.skipped.map((s) => `“${s.from.slice(0, 40)}” (${s.why})`),
   };

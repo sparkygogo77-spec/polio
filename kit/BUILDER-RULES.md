@@ -287,6 +287,9 @@ entry:
 - If the picture shows a shape (a rounded or angled button), match the part's clickable area to it
   with `border-radius` or a `clip-path` token, so clicks land where the picture is.
 - Add the new token to the slots list (`rules.slots`) so the builder can edit it next round.
+- A hook under `removed` in `design/pictures.json` is a picture J took off: drop its
+  `--<hook>-picture` token, the background that uses it, its slot entry and the copied picture, and
+  show the part's own words again.
 
 ## Change notes for the builder (rules 26 and 27)
 
