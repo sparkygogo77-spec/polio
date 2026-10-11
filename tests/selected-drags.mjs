@@ -115,7 +115,7 @@ if (btn) {
 /* The cube: the part his words were about.                            */
 /* ------------------------------------------------------------------ */
 
-const cube = await drop("cube", "Cube");
+const cube = await drop("word cube", "Word cube"); /* `cube-3d`; a plain "Cube" is the picture-faced shape now */
 check("a cube is on the board, and it is the selected one", !!cube, cube ?? "none dropped");
 if (cube) {
   const a = await spot(cube);
