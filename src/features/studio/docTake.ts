@@ -8,7 +8,7 @@
  * be held without a browser.
  */
 import { captureNotes, sourceNote } from "./polioMd.ts";
-import { attachCaptured } from "./shelf/index.ts";
+import { attachCaptured, giveCopies } from "./shelf/index.ts";
 import { learnFromDoc, type LearnState } from "./learn.ts";
 import { standInFromDoc, type StandIn } from "./standIn.ts";
 import { isTaken } from "./bring-in/index.ts";
@@ -100,7 +100,11 @@ export function takeDoc<P extends DocPrev>(
   return {
     pages,
     // A capture's script-driven motion arrives as features on its parts (library/captured.ts).
-    nodes: doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes,
+    // A copy button nothing was decided for copies what it sits beside (library/copyButton.ts).
+    nodes: (() => {
+      const nodes = doc.nodes && doc.behaviours ? attachCaptured(doc.nodes as Parameters<typeof attachCaptured>[0], doc.behaviours, doc.keyframes) : doc.nodes ?? s.nodes;
+      return giveCopies(nodes as Parameters<typeof giveCopies>[0]) as typeof nodes;
+    })(),
     groups: doc.groups ?? s.groups,
     shapes: doc.shapes ?? s.shapes,
     spaces: doc.spaces ?? s.spaces,

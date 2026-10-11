@@ -26,6 +26,7 @@ export { answered, decisionSays, decisions, isLiveWords } from "./library/badge.
 export type { Decision } from "./library/badge.ts";
 export { AMBIENT, BEHAVIOURS } from "./library/behaviours.ts";
 export { attachCaptured } from "./library/captured.ts";
+export { giveCopies, saysCopy, undecidedCopies } from "./library/copyButton.ts";
 export { componentOf, membersOf, placeComponent } from "./library/components.ts";
 export type { SavedComponent } from "./library/components.ts";
 export { BLOCK_END, BLOCK_START, MERGED_FILES, agentsFile, claudeFile, contractFiles, manifestJson, mergeBlock, readmeOf, tasksFile } from "./library/contract.ts";
