@@ -40,6 +40,16 @@ export const KIND_SHADES = 0.025;
 export const SPECK = 48;
 /** A strip this tall or less is a tab or label bar. */
 export const TAB_HEIGHT = 40;
+/**
+ * A strip this thin or less (and four times as long) is trim: the hazard lip
+ * under a main button, a stripe down a row's edge. Never a button of its own,
+ * never mixed with the surfaces of its colour, drawn as a small dot (J,
+ * 2026-10-11, on the PonsStars redesign: the striped lip under "Start
+ * recording" was a kind of button, "Buttons 2, 24").
+ */
+export const TRIM = 8;
+/** A part both ways bigger than this is a panel: a kind most of whose area is panels is drawn as a box, never a tab. */
+export const PANEL = 2 * TAB_HEIGHT;
 /** A gradient-painted piece this big or more (its longer side, px) is a kind of its own, however few parts wear it. */
 export const PIECE = 192;
 /**
@@ -212,6 +222,10 @@ const pieceName = (p: Node): string | null => {
 type Node = Part & { radius?: number | null; state?: { group?: string } | null; edge?: { width?: number; colour?: string; style?: string; shadow?: string } | null };
 
 const area = (p: Node) => Math.max(0, p.w ?? 0) * Math.max(0, p.h ?? 0);
+/** A thin strip, four times as long as it is thick or more (`TRIM`). */
+const isTrim = (p: Node) => { const a = Math.min(p.w ?? 0, p.h ?? 0), b = Math.max(p.w ?? 0, p.h ?? 0); return a > 0 && a <= TRIM && b >= 4 * a; };
+/** Painted in stripes: a repeating gradient, the hazard tape look. */
+const STRIPES = /repeating-(linear|conic)-gradient\(/;
 const holds = (o: Node, i: Node) => {
   const w = Math.max(0, Math.min((o.x ?? 0) + (o.w ?? 0), (i.x ?? 0) + (i.w ?? 0)) - Math.max(o.x ?? 0, i.x ?? 0));
   const h = Math.max(0, Math.min((o.y ?? 0) + (o.h ?? 0), (i.y ?? 0) + (i.h ?? 0)) - Math.max(o.y ?? 0, i.y ?? 0));
@@ -264,20 +278,24 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   /* Kinds: fills clustered, the most-worn first. Buttons and surfaces never share a kind, however close their fills
      (J, 2026-10-09): the site's plain grey buttons and a TV body painted near that grey were one "Menu" kind whose
      Fill showed only on the TV and whose Words and Outline showed nowhere. */
-  const btn = new Set(parts.filter((p) => fillOf.has(p.id) && isButton(p)).map((p) => p.id));
-  const keyOf = (id: string) => `${btn.has(id) ? "b" : "s"}|${fillOf.get(id)!}`;
+  /* Trim (a thin strip, not a loading bar) is a class of its own, so a button's lip is neither a button nor one of the surfaces of its colour. */
+  /* A strip the colour of a loading bar stays with the loading bars (sunkcoin's rows wear their bar's colour down their edge). */
+  const barFills = [...new Set(parts.filter((p) => fillOf.has(p.id) && progressOf(p.id)).map((p) => fillOf.get(p.id)!))];
+  const trim = new Set(parts.filter((p) => fillOf.has(p.id) && isTrim(p) && !progressOf(p.id) && !barFills.some((f) => oklabDistance(f, fillOf.get(p.id)!) < KIND_SHADES)).map((p) => p.id));
+  const btn = new Set(parts.filter((p) => fillOf.has(p.id) && !trim.has(p.id) && isButton(p)).map((p) => p.id));
+  const keyOf = (id: string) => `${btn.has(id) ? "b" : trim.has(id) ? "t" : "s"}|${fillOf.get(id)!}`;
   /* A part drawn again on every page is one part (`repeats.ts`). */
   const once = repeatsAcrossPages(parts as never);
   const one = (id: string) => once.get(id) ?? id;
   const counted = new Map<string, Set<string>>();
   for (const id of fillOf.keys()) { const k = keyOf(id); counted.set(k, (counted.get(k) ?? new Set()).add(one(id))); }
   const count = new Map([...counted].map(([k, v]) => [k, v.size]));
-  const leads: { fill: string; button: boolean; members: Set<string> }[] = [];
+  const leads: { fill: string; button: boolean; cls: string; members: Set<string> }[] = [];
   const kindOfKey = new Map<string, number>();
   for (const [key] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
-    const button = key.startsWith("b|"), k = key.slice(2);
-    let i = leads.findIndex((g) => g.button === button && oklabDistance(g.fill, k) < KIND_SHADES);
-    if (i < 0) { leads.push({ fill: k, button, members: new Set() }); i = leads.length - 1; }
+    const cls = key.slice(0, 1), button = cls === "b", k = key.slice(2);
+    let i = leads.findIndex((g) => g.cls === cls && oklabDistance(g.fill, k) < KIND_SHADES);
+    if (i < 0) { leads.push({ fill: k, button, cls, members: new Set() }); i = leads.length - 1; }
     kindOfKey.set(key, i);
   }
   const kindAt = (id: string) => kindOfKey.get(keyOf(id))!;
@@ -339,7 +357,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     if (first && i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
     if (first && i >= 0 && w && u === p) bump(own[i]!, w.toLowerCase());
   }
-  const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null })[] = leads.map((g, i) => {
+  const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null; trim: boolean })[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
     const outlines = new Map<string, number>();
     const shadows = new Map<string, number>();
@@ -362,7 +380,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       const bg = (p as { art?: { background?: string } | null }).art?.background;
       if (bg && /gradient\(/.test(bg)) bump(paints, bg);
       bump(radii, Number(p.radius ?? 0) < 1 ? 0 : Math.round(Number(p.radius)));
-      if (isButton(p)) buttons++;
+      if (btn.has(p.id)) buttons++;
       bump(inside, container(p));
     }
     const o = top(outlines);
@@ -371,7 +389,12 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const mid = (f: (p: Node) => number) => ms.map(f).sort((a, b) => a - b)[ms.length >> 1] ?? 0;
     const midW = mid((p) => p.w ?? 0), midH = mid((p) => p.h ?? 0);
     const isButtons = buttons >= ms.length / 2;
-    const shape = isButtons ? null : shapeOf(ms);
+    const isTrimKind = g.cls === "t";
+    const shape = isButtons || isTrimKind ? null : shapeOf(ms);
+    /* Most of its area panels (the lined index cards a site's forms sit on): a box, however many small tags share its colour. */
+    const panels = ms.filter((p) => Math.min(p.w ?? 0, p.h ?? 0) > PANEL);
+    const panelled = panels.length * 4 >= ms.length && panels.reduce((a, p) => a + area(p), 0) * 2 >= ms.reduce((a, p) => a + area(p), 0);
+    const striped = ms.filter((p) => STRIPES.test((p as { art?: { background?: string } | null }).art?.background ?? "")).length * 2 >= ms.length;
     const biggest = ms.reduce<Node | null>((b, p) => (!b || area(p) > area(b) ? p : b), null);
     const cover = ms.reduce((a, p) => a + area(p), 0);
     /* Half its parts loading-bar tracks, or a third their level bars (the same orange is often a row's edge stripe too): a loading bar's colour. */
@@ -379,17 +402,18 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const progress = isButtons ? null : tracks * 2 >= ms.length ? "track" as const : levels * 3 >= ms.length ? "level" as const : null;
     return {
       cover,
+      trim: isTrimKind,
       progress,
-      accent: !isButtons && (!!progress || cover < ACCENT_SHARE * siteArea || mid(area) < ACCENT_PART),
+      accent: !isButtons && (isTrimKind || !!progress || (!panelled && (cover < ACCENT_SHARE * siteArea || mid(area) < ACCENT_PART))),
       big: biggest ? Math.max(biggest.w ?? 0, biggest.h ?? 0) : 0,
       label: biggest ? pieceName(biggest) : null,
       w: midW,
       h: midH,
       /* A bar is not a tab: drawn over a panel's top edge, PonsStars-style, sunkcoin's loading bars read as labels. */
-      tab: !isButtons && !shape && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
+      tab: !isButtons && !isTrimKind && !shape && !panelled && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
       shape,
       fill: g.fill,
-      name: isButtons ? buttonsName(own[i]!, thingsIn(g.members, once)) : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
+      name: isButtons ? buttonsName(own[i]!, thingsIn(g.members, once)) : isTrimKind ? (striped ? "Stripes" : "Trim") : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
       parts: thingsIn(g.members, once),
       ids: ms.map((p) => p.id),
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
@@ -415,7 +439,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      all specks (a TV's antenna balls) is decoration, not a kind of panel anyone reads the site by. A big piece
      painted with a gradient (the TV bodies) is kept on its own however few wear it, named after its biggest part,
      and edited as one gradient (J, 2026-10-09). */
-  const isPiece = (k: (typeof kinds)[number]) => !k.button && k.stops.length > 1 && k.big >= PIECE;
+  const isPiece = (k: (typeof kinds)[number]) => !k.button && !k.trim && k.stops.length > 1 && k.big >= PIECE;
   const many = kinds.map((k, i) => ({ k, i })).filter(({ k }) => !isPiece(k) && k.parts >= 3 && (k.button || !!k.progress || Math.max(k.w, k.h) >= SPECK)).slice(0, cap);
   const pieces = kinds.map((k, i) => ({ k: { ...k, name: k.label ?? `Painted ${k.name.toLowerCase().replace(/s$/, "")}`, piece: true, accent: false, progress: null }, i })).filter(({ k }) => isPiece(k)).slice(0, 2);
   /* A tab is drawn as a strip already: only a surface drawn as a box can be an accent. */
@@ -429,7 +453,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const base = main(k) && j === kept.findIndex(({ k: x }) => main(x)) ? "Main fill" : k.name;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
-    const { big: _b, label: _l, ...kind } = k;
+    const { big: _b, label: _l, trim: _t, ...kind } = k;
     /* A second kind of the same name says what is on it ("Bars: Latest payday"), not "Bars 4": a number tells nothing apart. */
     const says = k.sample && k.sample.length <= 18 && /[a-z]{2}/i.test(k.sample) ? k.sample.charAt(0).toUpperCase() + k.sample.slice(1).toLowerCase() : null;
     return { ...kind, name: n > 1 ? (says ? `${base}: ${says}` : `${base} ${n}`) : base, inside: at.get(k.inside) ?? -1 };
