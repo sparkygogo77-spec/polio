@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notAllowed, sourceAmong } from "../publish/capture";
 
 /**
  * THE MERGE BUTTON. Main moves here and nowhere else, and only by his hand.
@@ -14,6 +15,12 @@ import { NextResponse } from "next/server";
  * Whose token: his, `x-github-token` from the Keys panel, with the server's
  * `GITHUB_TOKEN` as the silent fallback — exactly as publish and create do.
  * It rides with the call and is not stored.
+ *
+ * The same locks as Publish, here at the route and before GitHub is asked
+ * anything: only a repository on `GITHUB_REPOS` (when the server names any),
+ * and never one a site here was brought in from (`sources`, as Publish is
+ * sent them). Merge writes into the default branch, which is the running
+ * site, so it is held to no less.
  */
 export const runtime = "nodejs";
 
@@ -29,19 +36,25 @@ const head = (token: string) => ({ authorization: `Bearer ${token}`, accept: "ap
 export async function POST(request: Request) {
   const token = tokenFrom(request);
   if (!token) return NextResponse.json({ ok: false, reason: "no-token", message: "No GitHub token. Put one in the Keys panel, or set GITHUB_TOKEN on the server." });
-  let repo = "", branch = "";
+  let repo = "", branch = "", sources: unknown = [];
   try {
-    const body = (await request.json()) as { repo?: unknown; branch?: unknown };
+    const body = (await request.json()) as { repo?: unknown; branch?: unknown; sources?: unknown };
     repo = typeof body.repo === "string" ? body.repo.trim() : "";
     branch = typeof body.branch === "string" ? body.branch.trim() : "";
+    sources = body.sources;
   } catch { /* caught below */ }
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return NextResponse.json({ ok: false, reason: "bad-repo", message: "Which repository? It wants to be owner/name." });
+  const refused = notAllowed(repo);
+  if (refused) return NextResponse.json({ ok: false, reason: "bad-repo", message: refused });
+  const fromHere = sourceAmong(repo, sources);
+  if (fromHere) return NextResponse.json({ ok: false, reason: "source", repo: fromHere, message: `${fromHere} is where a site here was brought in from, and the Builder never merges into that.` });
   if (!branch || branch === "main" || branch === "master") return NextResponse.json({ ok: false, reason: "bad-branch", message: "There is no edit branch open to merge." });
 
   try {
     const info = await fetch(`${API}/repos/${repo}`, { headers: head(token), cache: "no-store" });
     if (!info.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${info.status} when asked about ${repo}.` });
     const base = ((await info.json()) as { default_branch?: string }).default_branch || "main";
+    if (branch === base) return NextResponse.json({ ok: false, reason: "bad-branch", message: "There is no edit branch open to merge." });
 
     const merged = await fetch(`${API}/repos/${repo}/merges`, {
       method: "POST",

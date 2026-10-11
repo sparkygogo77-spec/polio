@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notAllowed, sourceAmong } from "../publish/capture";
 
 /**
  * THE BRANCH LIST, and the one thing on it that cannot be undone.
@@ -19,7 +20,10 @@ import { NextResponse } from "next/server";
  * `GITHUB_TOKEN` as the silent fallback, exactly as merge and publish do.
  * It rides with the call and is not stored.
  *
- * The default branch is never deleted from here, whatever the call says.
+ * The default branch is never deleted from here, whatever the call says,
+ * and nothing is deleted in a repository Publish could not write to: one
+ * off `GITHUB_REPOS` (when the server names any), or one a site here was
+ * brought in from (`sources`, as Publish is sent them).
  */
 export const runtime = "nodejs";
 
@@ -107,13 +111,18 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   const token = tokenFrom(request);
   if (!token) return NextResponse.json(NO_TOKEN);
-  let repo = "", branch = "";
+  let repo = "", branch = "", sources: unknown = [];
   try {
-    const body = (await request.json()) as { repo?: unknown; branch?: unknown };
+    const body = (await request.json()) as { repo?: unknown; branch?: unknown; sources?: unknown };
     repo = typeof body.repo === "string" ? body.repo.trim() : "";
     branch = typeof body.branch === "string" ? body.branch.trim() : "";
+    sources = body.sources;
   } catch { /* caught below */ }
   if (!REPO.test(repo)) return NextResponse.json({ ok: false, reason: "bad-repo", message: "Which repository? It wants to be owner/name." });
+  const refused = notAllowed(repo);
+  if (refused) return NextResponse.json({ ok: false, reason: "bad-repo", message: refused });
+  const fromHere = sourceAmong(repo, sources);
+  if (fromHere) return NextResponse.json({ ok: false, reason: "source", repo: fromHere, message: `${fromHere} is where a site here was brought in from, and the Builder never deletes its branches.` });
   if (!branch) return NextResponse.json({ ok: false, reason: "bad-branch", message: "Which branch? None was named." });
   try {
     const info = await fetch(`${API}/repos/${repo}`, { headers: head(token), cache: "no-store" });
