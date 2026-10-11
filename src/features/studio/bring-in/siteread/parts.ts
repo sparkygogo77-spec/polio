@@ -158,6 +158,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       align: s.textAlign,
       leading: Math.round((parseFloat(s.lineHeight) || normalLine(s, px)) * 100) / 100,
       transform: s.textTransform,
+      /* Spaced letters (PST's stencilled capitals), as a share of the size so the words keep their spacing at any size; and words the page holds to one line. */
+      ...(s.letterSpacing && s.letterSpacing !== "normal" && px > 0 && Math.abs(parseFloat(s.letterSpacing) || 0) > 0 ? { spacing: Math.round(((parseFloat(s.letterSpacing) || 0) / px) * 1000) / 1000 } : {}),
+      ...(/^(nowrap|pre)$/.test(s.whiteSpace) ? { nowrap: true } : {}),
       ...(!which && (s.overflowX !== "visible" || s.overflowY !== "visible") ? { clips: true } : {}),
       /* Its max-width in pixels, where it has one: the export lets it grow with the window up to this and no further (`fluidSite.ts`, node.maxw). */
       ...(!which && /^[\d.]+px$/.test(s.maxWidth) ? { maxw: Math.round(parseFloat(s.maxWidth)) } : {}),
@@ -182,7 +185,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    * as data:. A picture at an address of the page's own would be a broken
    * link on the board, and is left out as before.
    */
-  type Paint = Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "shadow" | "filter" | "mask" | "maskOptions" | "blend" | "backdrop" | "clipPath" | "textShadow" | "textStroke" | "paintOrder" | "radii" | "animation" | "accent">;
+  type Paint = Pick<PartStyle, "image" | "imageOptions" | "imageClip" | "imageBlend" | "shadow" | "filter" | "mask" | "maskOptions" | "blend" | "backdrop" | "clipPath" | "textShadow" | "textStroke" | "paintOrder" | "radii" | "animation" | "accent">;
   function paintOf(s: CSSStyleDeclaration): Paint {
     const out: Paint = {};
     const r = s as unknown as Record<string, string>;
@@ -193,6 +196,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       out.imageOptions = [s.backgroundSize, s.backgroundPosition, s.backgroundRepeat];
       const clip = r.webkitBackgroundClip || s.backgroundClip;
       if (clip === "text") out.imageClip = "text";
+      /* The layers blended (a tile multiplied over a colour reads as dark wood; drawn plainly it is the tile's own orange). */
+      const blend = s.backgroundBlendMode;
+      if (blend && blend.split(",").some((v) => v.trim() !== "normal")) out.imageBlend = blend;
     }
     /* A mask it is painted through: PST's icons are one colour (background: currentColor) seen through an svg (web/assets/tv). */
     const mk = s.maskImage || r.webkitMaskImage;

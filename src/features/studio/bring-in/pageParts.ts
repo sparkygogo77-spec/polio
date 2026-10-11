@@ -192,7 +192,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const featureId = FEATURE[p.kind];
     const id = `n_${pageId.replace(/^page_/, "")}_${p.kind}_${i + 1}`;
     const s = clippedCorners(read.parts, i);
-    const font = { stack: s.family, ...(familyOf(s.family) ? { family: familyOf(s.family) } : {}), size: fine(s.px / base), px: s.px, weight: s.weight, leading: fine(s.leading / Math.max(1, s.px)) };
+    const font = { stack: s.family, ...(familyOf(s.family) ? { family: familyOf(s.family) } : {}), size: fine(s.px / base), px: s.px, weight: s.weight, leading: fine(s.leading / Math.max(1, s.px)), ...(s.spacing ? { spacing: s.spacing } : {}) };
     const colour: Record<string, string> = { text: s.colour };
     if (s.bg) colour.bg = s.bg;
     if (s.border && (p.kind === "button" || p.kind === "field")) colour.accent = s.border.colour;
@@ -205,7 +205,7 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const edge = s.border ? { width: s.border.w, style: edgeStyle, colour: s.border.colour, ...(s.shadow ? { shadow: s.shadow } : {}) } : s.shadow ? { width: 0, style: "none", shadow: s.shadow } : null;
     /* What paints it besides one colour (a gradient, layers of them, a data: picture) and what turns it, drawn by the box wrapper as written (`parts/theme.ts#boxStyle`). */
     const art = {
-      ...(s.image ? { background: s.image, ...(s.imageOptions ? { backgroundOptions: s.imageOptions } : {}), ...(s.imageClip ? { backgroundClip: s.imageClip } : {}) } : {}),
+      ...(s.image ? { background: s.image, ...(s.imageOptions ? { backgroundOptions: s.imageOptions } : {}), ...(s.imageClip ? { backgroundClip: s.imageClip } : {}), ...(s.imageBlend ? { backgroundBlend: s.imageBlend } : {}) } : {}),
       ...(s.ownTurn ? { transform: s.ownTurn.transform, origin: s.ownTurn.origin } : p.turn ? { transform: p.turn } : {}),
       ...(s.filter ? { filter: s.filter } : {}),
       ...(s.mask ? { mask: s.mask, ...(s.maskOptions ? { maskOptions: s.maskOptions } : {}) } : {}),
@@ -237,7 +237,8 @@ function nodesOf(fr: FileRead, pageId: string, link: (href: string) => { kind: "
     const transform = /^(uppercase|lowercase|capitalize)$/.test(s.transform) ? { transform: s.transform } : null;
     /* A button whose words the page set on more than one line keeps them on more than one. */
     const inside = p.box.h - s.pad[0] - s.pad[2] - (s.border ? 2 * s.border.w : 0);
-    const wraps = (p.kind === "button" && !!p.words && s.leading > 0 && inside > 1.6 * s.leading) || p.wraps ? { wrap: "wrap" } : null;
+    /* And words the page holds to one line stay on one, whatever face this machine sets them in (`parts/Text.tsx#heldToOne`). */
+    const wraps = (p.kind === "button" && !!p.words && s.leading > 0 && inside > 1.6 * s.leading) || p.wraps ? { wrap: "wrap" } : s.nowrap && !!p.words ? { wrap: "nowrap" } : null;
     const text = align || transform || wraps ? { ...(align ?? {}), ...(transform ?? {}), ...(wraps ?? {}) } : null;
     const linkTo = p.kind === "link" && p.href !== undefined ? link(p.href) : null;
     const content = p.kind === "link"

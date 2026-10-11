@@ -111,7 +111,7 @@ function wordsSet(node: StudioNode): NodeText | null | undefined {
  * `tests/line-owned.mjs`.
  */
 function pageWrapped(node: StudioNode): boolean {
-  if (node.featureId !== "prose" || node.text?.wrap) return false;
+  if (node.featureId !== "prose" || (node.text?.wrap && node.text.wrap !== "nowrap")) return false;
   const was = node.source?.was;
   const lh = (was?.fontSize ?? 0) * (was?.lineHeight ?? 0);
   if (!was?.box || !(lh > 0)) return false;

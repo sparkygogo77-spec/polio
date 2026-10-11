@@ -95,6 +95,10 @@ export interface PartStyle {
   align: string;
   leading: number;
   transform: string;
+  /** Its letter-spacing as a share of its font size (em), where the page set one: PST's spaced capitals. */
+  spacing?: number;
+  /** The page keeps its words on one line (`white-space: nowrap` or `pre`). */
+  nowrap?: boolean;
   /**
    * What paints it besides one colour: a gradient, several layered, a data:
    * picture (the TV's static), as computed, with its size, position and
@@ -104,6 +108,8 @@ export interface PartStyle {
   imageOptions?: [string, string, string];
   /** `text`: the background is seen only through its letters. */
   imageClip?: string;
+  /** How its background layers blend into each other and its colour (`background-blend-mode`), where any layer is not `normal`: a wood tile multiplied over brown. */
+  imageBlend?: string;
   /** Its box-shadow, as computed (the TV body's offset ink shadow). */
   shadow?: string;
   /** A filter over it, as computed (the TV static's contrast). */
