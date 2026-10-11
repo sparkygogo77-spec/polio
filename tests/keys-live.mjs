@@ -207,12 +207,13 @@ await a.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 const status = await a.evaluate(async () => (await fetch("/api/keys/status", { cache: "no-store" })).json()).catch(() => null);
 const serverHas = status ? Object.entries(status.set).filter(([, v]) => v).map(([k]) => k) : null;
 console.log(`server keys: ${status ? (serverHas.length ? serverHas.join(", ") : "none") : "status route did not answer"}`);
-/* With a key on the server, the server's wins for Claude and the browser's
-   is never the one tried: checks 1 to 4 would then measure the server's
-   key, and they say so below rather than count. */
+/* The browser's key wins whenever it is held (`keyFor`), but with a key on
+   the server a call with nothing held still has one, so the checks that
+   forget or never paste a key would measure the server's: checks 1 to 4
+   say so below rather than count. */
 const browserIsTried = status !== null && !status.set.ANTHROPIC_API_KEY;
 const unlessServer = (ok) => (browserIsTried ? ok : "unproven");
-const serverNote = browserIsTried ? "" : "cannot be proven here: the server holds ANTHROPIC_API_KEY, so its key is the one tried and the browser's never is";
+const serverNote = browserIsTried ? "" : "cannot be proven here: the server holds ANTHROPIC_API_KEY, so a call with nothing held in this browser still has a key";
 
 /* ------------------------------------------------------------------ */
 /* 1. Entered in one browser, on that person's next call, and nowhere else */

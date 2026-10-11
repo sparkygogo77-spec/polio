@@ -202,13 +202,13 @@ picture of what it rendered and what is short.
 
 | Call | Key | Precedence | What happens without it |
 |---|---|---|---|
-| `/api/studio/reshape` | `ANTHROPIC_API_KEY` | **Server env wins**, else `x-anthropic-key` from the browser keys panel | HTTP 200, `reason: "no-key"`. The part still takes the drawing's proportion and shape |
-| `/api/studio/body` | `ANTHROPIC_API_KEY` | **Server env wins**, else `x-anthropic-key` | HTTP 200, `reason: "no-key"`. The part keeps its shape and its prompt |
-| `/api/studio/image` | `REPLICATE_API_TOKEN` | **Browser header wins**, else server env | HTTP 200, `reason: "unavailable"`. The loop falls through to the written body |
+| `/api/studio/reshape` | `ANTHROPIC_API_KEY` | `x-anthropic-key` from the browser keys panel, else server env | HTTP 200, `reason: "no-key"`. The part still takes the drawing's proportion and shape |
+| `/api/studio/body` | `ANTHROPIC_API_KEY` | `x-anthropic-key`, else server env | HTTP 200, `reason: "no-key"`. The part keeps its shape and its prompt |
+| `/api/studio/image` | `REPLICATE_API_TOKEN` | `x-replicate-key`, else server env | HTTP 200, `reason: "unavailable"`. The loop falls through to the written body |
 | `/api/studio/render` | none | — | `reason: "no-playwright"`; the body is kept unjudged (`overlap: -1`) |
 | `/api/studio/screenshot` | none | — | `available: false`; the words go alone |
-| `/api/studio/generate` | `ANTHROPIC_API_KEY` | **Server env wins**, else `x-anthropic-key` | HTTP 200, `reason: "no-key"`; copy the blueprint into any agent |
-| `/api/studio/publish` | `GITHUB_TOKEN` | Server env only | Not configured |
+| `/api/studio/generate` | `ANTHROPIC_API_KEY` | `x-anthropic-key`, else server env | HTTP 200, `reason: "no-key"`; copy the blueprint into any agent |
+| `/api/studio/publish` | `GITHUB_TOKEN` | `x-github-token`, else server env | Not configured |
 | `/api/studio/deploy` | `VERCEL_TOKEN` | `x-vercel-token` from the keys panel, else server env | Not configured |
 
 The browser's side is `keyHeader()` and `rendererHeader()` in `agent.ts`,
@@ -216,9 +216,11 @@ reading `heldKeys()` from the keys panel. A supplied key is used for the one cal
 and nothing else: never stored, never logged, never echoed.
 `/api/keys/status` answers a name and a boolean, nothing more.
 
-**The Replicate precedence is deliberately the opposite of the others**: the
-person who typed the token is the person being billed per press, so their
-token wins over the deployment's.
+**Every route picks a key the same way** (`src/app/api/keyFor.ts`): the one
+in the browser's keys panel wins, and the server's is the fallback when the
+browser offers none. The person who typed a key is the one it is for: their
+limit, their billing, their account. A key of eight characters or fewer is
+dropped as if none were offered.
 
 ---
 

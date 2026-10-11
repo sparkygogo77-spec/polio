@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { notAllowed, sourceAmong } from "../publish/capture";
 
 /**
@@ -35,9 +36,7 @@ const AT_ONCE = 6;
 const PAGES = 10;
 
 function tokenFrom(request: Request): string | null {
-  const supplied = request.headers.get("x-github-token")?.trim();
-  if (supplied) return supplied;
-  return process.env.GITHUB_TOKEN?.trim() || null;
+  return keyFor(request, "x-github-token")?.key ?? null;
 }
 const head = (token: string) => ({ authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" });
 const NO_TOKEN = { ok: false, reason: "no-token", message: "No GitHub token. Put one in the Keys panel, or set GITHUB_TOKEN on the server." };

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
 import { MERGED_FILES, mergeBlock } from "@/features/studio/shelf";
+import { keyFor } from "@/app/api/keyFor";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "./capture";
 
 /**
@@ -98,12 +99,11 @@ const LONGEST_WAIT_S = 60;
  *
  * `GITHUB_TOKEN` in the environment still works and is a silent fallback
  * rather than the path. A browser that offered one is using that one: the
- * person who typed it is the person whose repositories these are.
+ * person who typed it is the person whose repositories these are. Every
+ * route picks a key this way (`keyFor`).
  */
 function tokenFor(request: Request): string | null {
-  const supplied = request.headers.get("x-github-token")?.trim();
-  if (supplied && supplied.length > 8) return supplied;
-  return process.env.GITHUB_TOKEN?.trim() || null;
+  return keyFor(request, "x-github-token")?.key ?? null;
 }
 
 /** Nothing that leaves here may carry the token, whatever GitHub put in a message. */

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
 import { describeBoundary, describeSketch, isBlankSketch, normaliseSketch, readBoundary, sketchToText } from "@/features/studio/pictures";
 
@@ -158,20 +159,9 @@ Rules:
 - Only set options the part offers, with values it offers. Only write contents when the drawing or the words show what the part holds.
 - The words beside the drawing win over your reading of the picture.`;
 
-/**
- * The key to use: the server's if it has one, otherwise whatever the browser
- * offered on this request. A supplied key is used for the call and nothing
- * else — never stored, never logged, never echoed back.
- */
-function keyFor(request: Request): string | null {
-  const own = process.env.ANTHROPIC_API_KEY?.trim();
-  if (own) return own;
-  const supplied = request.headers.get("x-anthropic-key")?.trim();
-  return supplied && supplied.length > 8 ? supplied : null;
-}
-
 export async function POST(request: Request) {
-  const apiKey = keyFor(request);
+  /* The key in Keys if the browser offered one, else the server's (`keyFor`). Used for the call and nothing else — never stored, never logged, never echoed back. */
+  const apiKey = keyFor(request, "x-anthropic-key")?.key ?? null;
   if (!apiKey) {
     return NextResponse.json({
       ok: false,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findVercelProject, type VercelProject } from "@/features/studio/vercelProjects";
+import { keyFor } from "@/app/api/keyFor";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "../publish/capture";
 
 /**
@@ -11,10 +12,10 @@ import { CaptureUnknown, holdsCapture, sourceAmong } from "../publish/capture";
  * repository's current branch, and a second that waits for it and hands back
  * the address people will actually type.
  *
- * The token can come from either side, like the Claude key: the server's
- * `VERCEL_TOKEN` if it has one, or the browser's keys panel as `x-vercel-token`.
- * The server's wins. It is used for these calls and nothing else, is never
- * written down, and never comes back in an answer.
+ * The token can come from either side, like every key here: the browser's
+ * keys panel as `x-vercel-token`, or the server's `VERCEL_TOKEN` when the
+ * browser offers none (`keyFor`). It is used for these calls and nothing
+ * else, is never written down, and never comes back in an answer.
  *
  * The deploy hook in `/api/studio/publish` stays what it was: a poke for a
  * project that is not connected to the repository. A hook answers with
@@ -46,10 +47,8 @@ function query(team: string | null, extra: Record<string, string> = {}): string 
 }
 
 function token(request: Request): { token: string | null; source: "server" | "browser" | null } {
-  const own = process.env.VERCEL_TOKEN?.trim();
-  if (own) return { token: own, source: "server" };
-  const supplied = request.headers.get("x-vercel-token")?.trim();
-  return supplied && supplied.length > 8 ? { token: supplied, source: "browser" } : { token: null, source: null };
+  const picked = keyFor(request, "x-vercel-token");
+  return { token: picked?.key ?? null, source: picked?.source ?? null };
 }
 
 
@@ -384,7 +383,7 @@ export async function POST(request: Request) {
   } else {
     /* Connecting is the step the rule is about: nothing is connected to a
        capture repository, and it is looked for before anything is made. */
-    const ghToken = request.headers.get("x-github-token")?.trim() || process.env.GITHUB_TOKEN?.trim() || "";
+    const ghToken = keyFor(request, "x-github-token")?.key ?? "";
     if (ghToken.length <= 8) {
       return NextResponse.json({ ok: false, reason: "no-github", message: `No GitHub token to check that ${repo} is not a capture repository, so no Vercel project was connected to it. Put one in the keys panel.` });
     }

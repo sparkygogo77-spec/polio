@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { execFileSync } from "node:child_process";
+import { keyFor } from "@/app/api/keyFor";
 import { shapeLines, type UpdatesAnswer } from "@/features/studio/landed";
 import { PASSES } from "@/features/studio/passes.generated";
 import site from "@site";
@@ -26,11 +27,11 @@ import site from "@site";
  *   3. The saved snapshot, `passes.generated.ts`, flattened, and said to be
  *      the saved one with its date, when neither can answer.
  *
- * The server's `GITHUB_TOKEN` is used when it has one, else the browser's key
- * (`x-github-token`), else none, which a public repository needs. No token
- * ever comes back. The line filter is the one the snapshot always used
- * (`aboutTheSite`): a subject about the making, not the website, is counted
- * rather than shown.
+ * The browser's key (`x-github-token`) is used when it offers one, else the
+ * server's `GITHUB_TOKEN` (`keyFor`), else none, which a public repository
+ * needs. No token ever comes back. The line filter is the one the snapshot
+ * always used (`aboutTheSite`): a subject about the making, not the
+ * website, is counted rather than shown.
  */
 
 export const runtime = "nodejs";
@@ -95,9 +96,8 @@ export async function GET(request: Request) {
   const branch = env("VERCEL_GIT_COMMIT_REF") ?? env("GIT_BRANCH");
   const live = { commit, short: commit ? commit.slice(0, 7) : null, branch, builtAt: process.env.BUILD_TIME ?? null };
   const repo = builderRepo();
-  const serverToken = env("GITHUB_TOKEN");
-  const browserToken = request.headers.get("x-github-token")?.trim() || null;
-  const token = serverToken ?? browserToken;
+  const picked = keyFor(request, "x-github-token");
+  const token = picked?.key ?? null;
   let note: string | undefined;
 
   /* A test run's GitHub is a stand-in; a real one is asked only where the deployment says which commit it is, or a branch is named. */
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
       const rows = await fromGitHub(repo, from, token, !!commit);
       const shaped = shapeLines(rows);
       const body: UpdatesAnswer = { live, source: "github", changes: shaped.changes, counted: shaped.counted };
-      return NextResponse.json(body, { headers: { "cache-control": browserToken && !serverToken ? "private, max-age=600" : "public, s-maxage=600, stale-while-revalidate=86400" } });
+      return NextResponse.json(body, { headers: { "cache-control": picked?.source === "browser" ? "private, max-age=600" : "public, s-maxage=600, stale-while-revalidate=86400" } });
     } catch (err) {
       note = `GitHub could not be asked for the newest changes (${err instanceof Error ? err.message : "no answer"}).`;
     }

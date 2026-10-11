@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { askSize, DEFAULT_REMAKE_MODEL, modelLabel, pickModel, REMAKE_MODELS } from "@/features/studio/pictures";
 
 /**
@@ -49,8 +50,7 @@ export async function POST(request: Request) {
   } catch {
     return say("bad-request", "Nothing readable was sent.");
   }
-  const supplied = request.headers.get("x-openai-key")?.trim();
-  const key = (supplied && supplied.length > 8 ? supplied : null) || process.env.OPENAI_API_KEY?.trim() || null;
+  const key = keyFor(request, "x-openai-key")?.key ?? null;
   if (!key) {
     return say("no-key", "No OpenAI key yet. Press the key button in the top bar (Control or Command, Shift and K), paste your key under OpenAI, and press Try it. It is held in this browser and used for your own pictures only.");
   }

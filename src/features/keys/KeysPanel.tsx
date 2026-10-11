@@ -308,7 +308,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
               ? "Held for this tab: anything running on this page can read it while the tab is open, and it goes when the tab closes. "
               : "A four-digit PIN keeps out a passing glance, not a determined person with your unlocked computer. "}
             The safe place for a key is the server, <code className="text-fg">.env.local</code> when you run it yourself, or your
-            host&rsquo;s environment variables. A key held here is sent with a request only when the server has none.
+            host&rsquo;s environment variables. A key held here goes with each request that needs it and is used instead of the server&rsquo;s.
           </span>
         </p>
         <p className="mb-3 rounded-md border border-border bg-elevated/40 p-2 text-small leading-relaxed text-fg-muted">
@@ -333,7 +333,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
               <header className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="text-large font-semibold text-fg">{s.label}</h3>
                 {onServer ? (
-                  <Tooltip content="Set in the server's environment. Nothing you type here is used for it.">
+                  <Tooltip content="Set in the server's environment. A key you hold here is used instead of it.">
                     <Badge variant="up" size="sm"><Check className="size-3" /> on the server</Badge>
                   </Tooltip>
                 ) : (
@@ -350,7 +350,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                     <label key={f.id} className="flex min-w-0 flex-col gap-1">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="text-small font-medium text-fg-muted">{f.label}</span>
-                        {server?.set[f.id] ? <span className="text-fine text-up">server has it</span> : here ? <span className="text-fine text-accent">{held ? "held for this tab" : "held here"}</span> : null}
+                        {here ? <span className="text-fine text-accent">{held ? "held for this tab" : "held here"}</span> : server?.set[f.id] ? <span className="text-fine text-up">server has it</span> : null}
                       </span>
                       <Input
                         inputSize="sm"
@@ -383,7 +383,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                   </span>
                 ) : (
                   <span className="text-small text-fg-faint">
-                    {server?.set[keyField]
+                    {server?.set[keyField] && !(draft[keyField] ?? "").trim()
                       ? `Asks ${s.label} whether the server's ${s.fields[0]!.label.toLowerCase()} works.`
                       /* Where the asking happens is the person's business: the
                          three that answer a browser are asked from here and
@@ -424,7 +424,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             <h3 className="mb-2 text-large font-semibold text-fg">How this is kept</h3>
             <p className="text-plain leading-relaxed text-fg-muted">
               In this browser until you forget it: across reloads and across tabs, on this machine only. It is never sent
-              anywhere but this app&rsquo;s own routes, and only when the server has no key of its own.
+              anywhere but this app&rsquo;s own routes, and there it is used instead of any key the server has.
             </p>
             <p className="mt-2 text-plain leading-relaxed text-fg-muted">
               It is written down sealed, never as itself. The key that opens it was made by this browser, is kept where a

@@ -6,8 +6,8 @@
  * confused. **The server's keys** are the real ones: they sit in the
  * environment, no route ever returns them, and the browser learns only
  * whether each is set. **This browser's key** is a convenience for someone
- * without access to the server, sent with a request only when the server has
- * nothing of its own.
+ * without access to the server, sent with each request that needs it and
+ * used there instead of the server's own (`keyFor`).
  *
  * By default there is no PIN at all. The key is held in this browser, open
  * on arrival and across reloads and tabs, with one plain way to be rid of

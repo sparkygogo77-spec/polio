@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 
 /**
  * What a repository offers to be brought in from: its branches, the default
@@ -15,9 +16,7 @@ const API = process.env.GITHUB_API?.replace(/\/$/, "") || "https://api.github.co
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 function tokenFrom(request: Request): string | null {
-  const supplied = request.headers.get("x-github-token")?.trim();
-  if (supplied) return supplied;
-  return process.env.GITHUB_TOKEN?.trim() || null;
+  return keyFor(request, "x-github-token")?.key ?? null;
 }
 const head = (token: string) => ({ authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" });
 

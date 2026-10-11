@@ -51,8 +51,9 @@ check("…and something unusable still yields a name", repoNameFor("!!!") === "s
 
 const route = readFileSync("src/app/api/studio/repo/route.ts", "utf8");
 check("it can list what the token can see, and make one", /export async function GET/.test(route) && /export async function POST/.test(route));
+/* Picked by the one shared rule every route uses (tests/key-precedence.mjs). */
 check("his token first, the server's as the fallback, exactly as a publish does",
-  /x-github-token/.test(route) && /process\.env\.GITHUB_TOKEN/.test(route));
+  /keyFor\(request, "x-github-token"\)/.test(route));
 check("a repository is made under the TOKEN'S owner, not a name this file picked",
   /\/user\/repos/.test(route) && !/\bowner:\s*"/.test(route));
 check("private, and with a first commit so a publish has somewhere to land",

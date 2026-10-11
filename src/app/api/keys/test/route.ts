@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { rateCardSays } from "@/features/studio/renderMeter";
 
 /**
@@ -10,10 +11,10 @@ import { rateCardSays } from "@/features/studio/renderMeter";
  * asked the smallest question its service answers — Claude, the model the
  * Builder calls; Replicate, who the token belongs to; Vercel, the same. A
  * rejected key, a network problem and a working key each come back as a
- * plain sentence. Each is tried the way its own route would use it: the
- * server's wins for Claude and Vercel, the browser's wins for Replicate,
- * which is the one key the person is expected to bring. It is used for the
- * call and nothing else, and never comes back in the answer.
+ * plain sentence. Each is tried the way its own route would use it
+ * (`keyFor`): the browser's when it offers one, the server's when it does
+ * not. It is used for the call and nothing else, and never comes back in
+ * the answer.
  */
 
 export const runtime = "nodejs";
@@ -32,11 +33,10 @@ type Answer = { ok: boolean; reason?: string; source?: string; message: string; 
 const tooShort = (what: string) => `The ${what} held in this browser is too short to be one. Paste it whole, from its first character to its last, and try again.`;
 
 async function tryClaude(request: Request): Promise<Answer> {
-  const own = process.env.ANTHROPIC_API_KEY?.trim();
+  const picked = keyFor(request, "x-anthropic-key");
   const supplied = request.headers.get("x-anthropic-key")?.trim();
-  const apiKey = own || (supplied && supplied.length > 8 ? supplied : null);
-  if (!apiKey) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing on the server and nothing offered by this browser." };
-  const source = own ? "server" : "browser";
+  if (!picked) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing held in this browser and nothing on the server." };
+  const { key: apiKey, source } = picked;
   const client = new Anthropic({ apiKey, maxRetries: 0 });
   try {
     const model = await client.models.retrieve(MODEL);
@@ -57,11 +57,10 @@ async function tryClaude(request: Request): Promise<Answer> {
 }
 
 async function tryVercel(request: Request): Promise<Answer> {
-  const own = process.env.VERCEL_TOKEN?.trim();
+  const picked = keyFor(request, "x-vercel-token");
   const supplied = request.headers.get("x-vercel-token")?.trim();
-  const token = own || (supplied && supplied.length > 8 ? supplied : null);
-  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing on the server and nothing offered by this browser." };
-  const source = own ? "server" : "browser";
+  if (!picked) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
+  const { key: token, source } = picked;
   try {
     const res = await fetch("https://api.vercel.com/v2/user", { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
     if (res.status === 401 || res.status === 403) {
@@ -85,11 +84,10 @@ async function tryVercel(request: Request): Promise<Answer> {
  * route will use. Nothing about the account comes back but the name.
  */
 async function tryReplicate(request: Request): Promise<Answer> {
+  const picked = keyFor(request, "x-replicate-key");
   const supplied = request.headers.get("x-replicate-key")?.trim();
-  const own = process.env.REPLICATE_API_TOKEN?.trim();
-  const token = (supplied && supplied.length > 8 ? supplied : null) || own || null;
-  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
-  const source = supplied && supplied.length > 8 ? "browser" : "server";
+  if (!picked) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
+  const { key: token, source } = picked;
   try {
     const res = await fetch("https://api.replicate.com/v1/account", { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
     if (res.status === 401 || res.status === 403) {
@@ -116,11 +114,10 @@ async function tryReplicate(request: Request): Promise<Answer> {
  * there and the only honest answer is that the first publish will find out.
  */
 async function tryGithub(request: Request): Promise<Answer> {
+  const picked = keyFor(request, "x-github-token");
   const supplied = request.headers.get("x-github-token")?.trim();
-  const own = process.env.GITHUB_TOKEN?.trim();
-  const token = (supplied && supplied.length > 8 ? supplied : null) || own || null;
-  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
-  const source = supplied && supplied.length > 8 ? "browser" : "server";
+  if (!picked) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
+  const { key: token, source } = picked;
   try {
     const res = await fetch("https://api.github.com/user", {
       headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
@@ -150,11 +147,10 @@ async function tryGithub(request: Request): Promise<Answer> {
  * to know. Nothing about the account comes back.
  */
 async function tryOpenai(request: Request): Promise<Answer> {
+  const picked = keyFor(request, "x-openai-key");
   const supplied = request.headers.get("x-openai-key")?.trim();
-  const own = process.env.OPENAI_API_KEY?.trim();
-  const key = (supplied && supplied.length > 8 ? supplied : null) || own || null;
-  if (!key) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing held in this browser and nothing on the server." };
-  const source = supplied && supplied.length > 8 ? "browser" : "server";
+  if (!picked) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing held in this browser and nothing on the server." };
+  const { key, source } = picked;
   try {
     const res = await fetch(`${(process.env.OPENAI_API ?? "https://api.openai.com").replace(/\/$/, "")}/v1/models`, { headers: { authorization: `Bearer ${key}` }, cache: "no-store" });
     if (res.status === 401 || res.status === 403) return { ok: false, reason: "auth", source, message: `OpenAI rejected the ${source}'s key. Check it is copied whole and has not been revoked.` };

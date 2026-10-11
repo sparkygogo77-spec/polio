@@ -1536,9 +1536,9 @@ a kicker with a rule, and label-and-value rows that copy.
   call — never written down, never logged, never returned, and the one place
   a library's error message could carry it is scrubbed. A
   `REPLICATE_API_TOKEN` in the server's environment still works and is a
-  silent fallback rather than the path: the browser's token wins, which is
-  the reverse of every other route here and right, because the person who
-  typed it is the person being billed. `/api/keys/status` reports the
+  silent fallback rather than the path: the browser's token wins, as every
+  key here does (`src/app/api/keyFor.ts`), because the person who typed it
+  is the person being billed. `/api/keys/status` reports the
   server's, present or absent, the same yes-or-no it gives for every other
   name. With no token anywhere the route answers HTTP 200, `ok: false`,
   `reason: "unavailable"`, the same shape and the same path a locked Claude
@@ -3040,8 +3040,8 @@ a kicker with a rule, and label-and-value rows that copy.
   ?id=` says how that build is getting on and, when it is `READY`, what
   address it is at — the shortest alias, which is the production domain,
   else the deployment's own host. `GET` with no id says only whether there
-  is a token at all. The token is the server's `VERCEL_TOKEN` or the keys panel's
-  `x-vercel-token`, server first, like the Claude key. A build outlives a
+  is a token at all. The token is the keys panel's `x-vercel-token` or the
+  server's `VERCEL_TOKEN`, the browser's first, like every key (`keyFor`). A build outlives a
   serverless request, so the client polls (`watchDeploy` in `agent.ts`)
   rather than the route waiting. The deploy hook stays what it always was:
   a poke for a project not connected to the repository, which answers with
@@ -3722,10 +3722,13 @@ remove it from `src/features/index.ts` when you're sure.
   own header (`x-anthropic-key`, `x-replicate-key`, `x-github-token`,
   `x-vercel-token`) and never to any other, because a route with no use for a
   key should never be handed one. The environment variable of the same name
-  stays as a silent fallback. This file used to say a GitHub token in a
+  stays as a silent fallback: every route picks through `keyFor`
+  (`src/app/api/keyFor.ts`), the browser's key first, the server's when the
+  browser offers none. This file used to say a GitHub token in a
   browser would do nothing; that was wrong, and Publish now pushes with the
   person's own. Adding a
-  service to `SERVICES` means adding a header a route reads and an arm to
+  service to `SERVICES` means adding a header a route reads (with its
+  variable in `KEY_ENV`, `keyFor.ts`) and an arm to
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
 - **Nothing writes a key down in the clear. Ever, under any name.** One
@@ -3755,8 +3758,8 @@ remove it from `src/features/index.ts` when you're sure.
   the PIN or a hash of it, with the tab-held and kept-for-this-tab modes
   beside it. A key sealed before the setting existed is brought across by
   typing the PIN once in the panel; a key held for the tab comes across on
-  its own. A held key is sent as a header and used for that one call when
-  the server has none.
+  its own. A held key is sent as a header and used for that one call,
+  before the server's (`keyFor`).
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
 - **Undo names its step, and the steps are a list** (`HistoryControls.tsx`,

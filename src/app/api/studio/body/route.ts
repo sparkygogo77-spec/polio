@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { answerCeiling } from "../budget";
 import { cleanSnippet, SNIPPET_LIMIT } from "@/features/studio/snippet";
 import { takePng } from "@/features/studio/pictureIn";
@@ -111,19 +112,9 @@ THE RULES, AND THEY ARE HARD
 WHEN YOU ARE GIVEN A CRITIQUE
 You are revising your own last attempt, which is included with a picture of how it actually rendered and an overlap number: how much of the drawing's silhouette your render covered. Fix that specifically — usually it means drawing bigger, reaching into the corners of the outline, or filling where you only stroked. Return the whole body again, not a diff.`;
 
-/**
- * The key to use: the server's if it has one, otherwise whatever the browser
- * offered on this request. Never stored, never logged, never echoed back.
- */
-function keyFor(request: Request): string | null {
-  const own = process.env.ANTHROPIC_API_KEY?.trim();
-  if (own) return own;
-  const supplied = request.headers.get("x-anthropic-key")?.trim();
-  return supplied && supplied.length > 8 ? supplied : null;
-}
-
 export async function POST(request: Request) {
-  const apiKey = keyFor(request);
+  /* The key in Keys if the browser offered one, else the server's (`keyFor`). Never stored, never logged, never echoed back. */
+  const apiKey = keyFor(request, "x-anthropic-key")?.key ?? null;
   if (!apiKey) {
     return NextResponse.json({
       ok: false,
