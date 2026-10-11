@@ -135,6 +135,8 @@ export interface StyleSource {
   commit?: string | null;
   /** The fingerprint of the layer last published into the code (`codePublish.ts#layerPrint`): a design not yet published is one that differs. */
   sent?: string | null;
+  /** That layer's blocks, by what comes before each brace (`styleLayerRun.ts#layerBlocks`): one the board no longer writes (a part set back to how it came in) comes out of a builder-ready repository's layer on the next send. */
+  sentBlocks?: string[] | null;
   /** What the repository was when last read (`kitRun.ts`): the baseline each design round is compared with. */
   seen?: import("../kitRun.ts").KitSeen;
   /** Its `builder.json`, when it is builder-ready: the design then goes back by the kit's contract. */

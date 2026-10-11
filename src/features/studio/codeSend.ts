@@ -9,13 +9,13 @@ import { readHookMap } from "./send-out";
 import { boardRecord } from "./exportForCode";
 import { fileAt } from "./kitRun";
 import { layerPrint } from "./send-out";
-import { prepareLayer, publishLayer } from "./styleLayerRun";
+import { layerBlocks, prepareLayer, publishLayer } from "./styleLayerRun";
 import { PICTURES_LIST, pictureFiles, sentHooks } from "./partPicture";
 import { base64, bytesFor } from "./pictures";
 import type { LayerNode, StyleSource } from "./send-out";
 
 export type Sent =
-  | { ok: true; says: string; pull: string | null; compare: string; branch: string; kit: boolean; print: string; files: string[]; held: string[] }
+  | { ok: true; says: string; pull: string | null; compare: string; branch: string; kit: boolean; print: string; blocks: string[]; files: string[]; held: string[] }
   | { ok: false; says: string };
 
 export async function sendDesign(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, o: { site: string; family?: (name: string) => string | undefined; say?: (t: string) => void; extra?: { path: string; content: string }[]; fresh?: Record<string, string> }): Promise<Sent> {
@@ -44,7 +44,7 @@ export async function sendDesign(nodes: LayerNode[], palette: Record<string, str
   if (!done.ok) return { ok: false, says: done.says };
   return {
     ok: true, says: `${done.says}${pics.missing.length ? ` The picture for ${pics.missing.join(", ")} is no longer in this browser, so it was not sent; drop it on the part again.` : ""}${pics.unhooked.length ? ` ${pics.unhooked.join(", ")} has no data-hook, so its picture was not sent.` : ""}${pics.removed.length ? ` It asks the code to take the picture look off ${pics.removed.join(", ")}.` : ""}`, pull: done.pull, compare: done.compare, branch: done.branch, kit: prepared.kit,
-    print: layerPrint(prepared.layer.css), files: prepared.files.map((x) => x.path),
+    print: layerPrint(prepared.layer.css), blocks: layerBlocks(prepared.layer.css), files: prepared.files.map((x) => x.path),
     held: prepared.kit ? prepared.skipped.map((s) => s.from) : prepared.skipped.map((s) => `“${s.from.slice(0, 40)}” (${s.why})`),
   };
 }

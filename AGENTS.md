@@ -468,7 +468,9 @@ made by the kit's own check on the server (`/api/studio/kit-map`, `kitMap.ts`),
 which must pass. Send the design back: always from and into the repository's
 default branch, a new `style/` branch and a pull request, never merged here;
 for a repository with `builder.json` only `style-layer.css` (rules by
-data-hook, colours in custom properties, earlier rounds kept) and the remade
+data-hook, colours in custom properties, earlier rounds kept, but a block the
+board's last Publish wrote and no longer writes, a part set back, comes out:
+`styleSource.sentBlocks`, `tests/publish-set-back.mjs`) and the remade
 `hooks.json` change, so `kit:diff --style-only` passes, and words stay the
 code's. Each round first reads the code again (`kitRun.ts readRound`, on the
 panel's opening): pages, hooks and tokens added or gone since import
