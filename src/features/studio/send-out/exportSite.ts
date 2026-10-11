@@ -762,12 +762,19 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
    * scrolls, so nothing is cut off. Any other page is as tall as its lowest
    * part and scrolls. Never with a scrollbar showing (`frameCss`).
    */
-  const bottom = Math.max(0, ...parts.map((p) => p.y + p.h));
+  /*
+   * A part a press shows (`state`) is not on the page as it opens: counted, PST's Play ran
+   * 2044px for 1315px of page, an empty band under its last panel. And a page shorter than
+   * the window is still the window's height, as a browser paints its body's ground down to
+   * the window's foot (PST's Leaderboard: white to the bottom, not cut off under its table).
+   */
+  const body = parts.find((p) => p.selector === "body" && !p.state);
+  const bottom = Math.max(0, ...parts.filter((p) => !p.state).map((p) => p.y + p.h), body ? body.y * 2 + body.h : 0);
   const fits = H > 0 && bottom <= H + 1;
   for (const pg of Array.from(root.querySelectorAll<HTMLElement>("[data-live-page]"))) {
     pg.style.width = "100%";
     const grown = [heroPart && heroPx > 0 ? `(${heroH} - ${heroBase}px)` : null, typed.pageGrow].filter(Boolean);
-    pg.style.height = fits ? `max(100vh, ${bottom}px)` : grown.length ? `calc(${bottom}px + ${grown.join(" + ")})` : `${bottom}px`;
+    pg.style.height = fits || !grown.length ? `max(100vh, ${bottom}px)` : `max(100vh, calc(${bottom}px + ${grown.join(" + ")}))`;
   }
 }
 
