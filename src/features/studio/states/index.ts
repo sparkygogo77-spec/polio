@@ -6,7 +6,7 @@ export { clampMove, frameFor, frameRiders, inside, keepInFrame, liftToFrame, pla
 export type { Box, FrameNode, FramesRead, StateFrame, StateStep } from "./stateFrames.ts";
 export { declaredPagePanels, drawnWith, foldScenes, followsStateRules, isPageState, labelsOf, panelDecides, panelKey, partsChanged, readDeclared, readPanelKey, readSamples, readScenes, samplesFor, sceneScreens, stateIn, stateRuleNotes, statesOfPart, wordShape } from "./stateRules.ts";
 export type { Declared, DeclaredPanel, DeclaredScene, RuleNode, Samples, SceneScreen } from "./stateRules.ts";
-export { checkIn, checkOut, groupTwins, readStateEditKey, stateEditKey } from "./stateEdits.ts";
+export { checkIn, checkOut, checkedIn, groupTwins, readStateEditKey, stateEditKey, takeOffStates, wearAgain, wearStates, wears } from "./stateEdits.ts";
 export type { CheckedOut } from "./stateEdits.ts";
 export { allVariants, momentOf, nearlySame, pageScenes, sameLayout } from "./scenes.ts";
 export type { PageScenes, Scene, SceneVariant } from "./scenes.ts";

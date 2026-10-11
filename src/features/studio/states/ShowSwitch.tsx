@@ -13,7 +13,7 @@ import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { previewsOnPage, scenesOnPage, showScene, stepScene } from "./sceneStep";
 import { stateLooksIn } from "./show";
-import { checkIn, checkOut, type CheckedOut } from "./stateEdits";
+import { takeOffStates, wearStates, wears } from "./stateEdits";
 import { panelKey, type RuleNode } from "./stateRules";
 import { usePanelsPageOpen } from "./PanelsPage";
 import { useStudio } from "../board/store";
@@ -21,31 +21,19 @@ import { useStudio } from "../board/store";
 /*
  * "This state only": the panels on show wear this preview's state, checked
  * out on the board's parts, so whatever is edited is kept as that state's
- * look when they are checked back in (`stateEdits.ts`). One preview at a time.
+ * look when they are checked back in (`stateEdits.ts`, which keeps what is
+ * worn: the history, the save and Publish read the parts checked in, so
+ * leaving with it on keeps nothing of it as the part's own). One preview at a time.
  */
-let worn: CheckedOut[] = [];
 function takeOff() {
-  if (!worn.length) return;
-  const outs = worn;
-  worn = [];
-  useStudio.setState((s) => {
-    let nodes = s.nodes as never;
-    for (const out of [...outs].reverse()) nodes = checkIn(nodes, out) as never;
-    return { nodes };
-  });
+  if (wears("show")) useStudio.setState((s) => ({ nodes: takeOffStates("show", s.nodes) }));
 }
 function wear(pageId: string, scene: { panels: Record<string, string> }) {
   takeOff();
-  let nodes = useStudio.getState().nodes as never;
-  for (const g of stateLooksIn(nodes as RuleNode[], pageId, scene)) {
-    const got = checkOut(nodes, g.key, g.ids);
-    nodes = got.nodes as never;
-    worn.push(got.out);
-  }
-  if (worn.length) useStudio.setState({ nodes });
+  const nodes = useStudio.getState().nodes;
+  const worn = wearStates("show", nodes, stateLooksIn(nodes as unknown as RuleNode[], pageId, scene));
+  if (wears("show")) useStudio.setState({ nodes: worn });
 }
-/* Leaving the builder with a state worn would keep its look as the part's own. */
-if (typeof window !== "undefined") window.addEventListener("pagehide", takeOff);
 
 export function ShowSwitch() {
   const activePageId = useStudio((s) => s.activePageId);

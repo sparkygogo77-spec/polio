@@ -20,7 +20,7 @@ import cycle loads a door before the file behind it.
 | `boardStates.ts` | Screens read from a site, where each draws its parts (`screenPlaces`), part steps |
 | `stateFrames.ts` | A box's faces and the frame they share: `stateFrames`, `clampMove`, `liftToFrame`, `seatStates` |
 | `stateRules.ts` | The declared rules: `data-panel`/`data-states`/`data-show`, scenes.json, samples.json, `foldScenes` |
-| `stateEdits.ts` | Per-state edits (`byState`), checked out and back in |
+| `stateEdits.ts` | Per-state edits (`byState`), checked out and back in; what the board wears now, read checked in by the history, the save and Publish |
 | `scenes.ts` | A page's scenes |
 | `panels.ts`, `panelsOf.ts` | Panels and their states, and which belong to a page |
 | `panelSpotlight.ts` | Drawing one panel in place on its ancestors |

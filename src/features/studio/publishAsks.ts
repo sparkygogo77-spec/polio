@@ -10,6 +10,7 @@
  * it (J, 2026-10-10). Both now take their asks from here.
  */
 import { useStudio } from "./board/store";
+import { checkedIn } from "./states";
 import { changedDeclarations, lookOf, type LayerNode, type StyleSource } from "./send-out";
 import { fileOrGone, publishBranch } from "./kitRun";
 import { NEXT_PATH, asksToSend, nextMd, toSend, type FixIssue } from "./fixLoop";
@@ -38,7 +39,8 @@ export function asksNow(source: StyleSource, fresh: Record<string, string> = fre
     siteMotions: RUN_MOTIONS,
     kit: !!source.kit,
     lookCss: (n) => { const now = lookOf(n as unknown as LayerNode, palette); return changedDeclarations({ box: now.box, words: "" }, now, { dx: 0, dy: 0 }).filter((d) => !/^(width|min-height|max-width|box-sizing):/.test(d)); },
-    nodes: st.nodes as never,
+    /* Checked in, as the layer is: a state worn on the board is never asked for as the part's own. */
+    nodes: checkedIn(st.nodes) as never,
     pages: st.pages,
     format: st.format,
     switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key, def: def.get(s.key) })),

@@ -28,6 +28,7 @@ import { activeProject } from "@/features/builds/store";
 import { useStudio } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
+import { checkedIn } from "./states";
 import { buildLayer, wearTextures, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
@@ -187,7 +188,8 @@ export function StyleLayerSection() {
   const source = useStudio((s) => (s.look as { styleSource?: StyleSource | null }).styleSource ?? null);
   /* Parts wearing a texture carry it: a living background as their own living picture, any other as their own background pictures (`wearTextures`). */
   const textures = useStudio((s) => s.look.texture);
-  const own = useStudio((s) => s.nodes);
+  /* Checked in: a state worn on the board ("This state only") goes out as that state's look, never the part's own (`states/stateEdits.ts`). */
+  const own = useStudio((s) => checkedIn(s.nodes));
   /* Every other texture a part wears is painted as the board paints it, over its own fill (`wornPaint`). */
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);

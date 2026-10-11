@@ -1,5 +1,5 @@
 "use client";
-import { boardShows, type ScreenRead } from "../../states";
+import { boardShows, checkedIn, wearAgain, type ScreenRead } from "../../states";
 import { readStepKey, stateFrames, stepKey } from "../../states";
 import { setBrought } from "../../shelf";
 import { Boxes } from "lucide-react";
@@ -96,7 +96,8 @@ export function docPatch(doc: ThreadDoc | undefined, openPageId?: string): Parti
   const d = doc as Partial<Doc>;
   const patch: Partial<StudioState> = {};
   if (Array.isArray(d.pages) && d.pages.length) patch.pages = d.pages;
-  if (Array.isArray(d.nodes)) patch.nodes = d.nodes;
+  /* Its parts are kept checked in (`snapshot`): a state worn now is worn on them again. */
+  if (Array.isArray(d.nodes)) patch.nodes = wearAgain(d.nodes);
   if (Array.isArray(d.groups)) patch.groups = d.groups;
   if (Array.isArray(d.shapes)) patch.shapes = d.shapes;
   if (Array.isArray(d.spaces)) patch.spaces = d.spaces;
@@ -135,11 +136,11 @@ export function inherit(
   };
 }
 
-/** The document as a step in the history holds it: what undo puts back. */
+/** The document as a step in the history holds it: what undo puts back. Its parts checked in: a state worn on the board is not the document (`states/stateEdits.ts#checkedIn`). */
 export function snapshot(s: StudioState): Doc {
   return {
     pages: s.pages,
-    nodes: s.nodes,
+    nodes: checkedIn(s.nodes),
     groups: s.groups,
     shapes: s.shapes,
     spaces: s.spaces,

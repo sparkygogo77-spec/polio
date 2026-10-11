@@ -8,6 +8,7 @@ import type { Worn } from "../../wornShape";
 import type { PartCode } from "../../snippet";
 import type { Picture } from "../../pictures";
 import type { StudioState } from "./state";
+import { checkedIn } from "../../states";
 
 /* ------------------------------------------------------------------ */
 /* Loading a document                                                  */
@@ -26,7 +27,8 @@ const NO_STATES: string[] = [];
 export function docOnly(s: StudioState) {
   return {
         pages: s.pages,
-        nodes: s.nodes,
+        /* Checked in: a state worn on the board is saved as that state's look, never the part's own (`states/stateEdits.ts`). */
+        nodes: checkedIn(s.nodes),
         /* His drawings survive leaving the tab, which is the whole point of them. */
         draws: s.draws,
         /* When he last opened the timeline, so a finished action's green bar

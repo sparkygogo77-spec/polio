@@ -5,6 +5,7 @@ import { PRISTINE, useStudio } from "./create";
 import { migrateKey, pen, shelve } from "./history";
 import { StudioNode, StudioShape } from "./model";
 import { mergeDoc } from "./persist";
+import { wearAgain } from "../../states";
 import type { StudioState } from "./state";
 
 
@@ -63,6 +64,8 @@ export function swapDoc(raw: string | null): void {
     }
     useStudio.setState({
       ...doc,
+      /* A state worn on the board is worn on this one's parts, or on none: never taken off one site against another's look (`states/stateEdits.ts#wearAgain`). */
+      nodes: wearAgain(doc.nodes),
       /* Not the document, and all of it about the site being left: a
          selection of parts that no longer exist, and an undo history that
          would step this site's board back into the last one's. */

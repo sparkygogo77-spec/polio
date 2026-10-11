@@ -33,6 +33,7 @@ import { activeProject } from "@/features/builds/store";
 import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
+import { checkedIn } from "./states";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
 import { codeStatus, commitAfterPublish, headOf, layerEmpty, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
@@ -60,7 +61,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   /* Held still under the hand: the whole style layer is rebuilt from it (`store/hold.ts`). */
   /* Parts wearing a texture carry it: a living background as their own living picture, any other as their own background pictures (`wearTextures`). */
   const textures = useStudio((s) => s.look.texture);
-  const steady = useSteady(useStudio((s) => s.nodes));
+  /* Checked in: a state worn on the board ("This state only") goes out as that state's look, never the part's own (`states/stateEdits.ts`). */
+  const steady = useSteady(useStudio((s) => checkedIn(s.nodes)));
   /* Every other texture a part wears is painted as the board paints it, over its own fill (`wornPaint`). */
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);

@@ -12,6 +12,7 @@ import { EDIT_RUN_MS, HISTORY_LIMIT, edited, landing, leaving, pen, shelve, snap
 import { ZOOM_MIN } from "./model";
 import { nodesActions } from "./nodes";
 import { docOnly, mergeDoc } from "./persist";
+import { wearAgain } from "../../states";
 import type { StudioState } from "./state";
 import { threadsActions } from "./threads";
 import { viewActions } from "./view";
@@ -221,6 +222,12 @@ export const useStudio = create<StudioState>()(
         beginGesture: () => { if (!gesture) gesture = { pushed: false }; },
         endGesture: () => { gesture = null; run = null; },
 
+        /*
+         * The history holds the parts checked in (`snapshot`), so a state worn
+         * on the board ("This state only") is worn again on what comes back
+         * (`states/stateEdits.ts#wearAgain`). The board as it is goes into the
+         * history first: wearing again replaces what it is checked in against.
+         */
         undo: () =>
           set((s) => {
             const prev = s.past[s.past.length - 1];
@@ -228,10 +235,13 @@ export const useStudio = create<StudioState>()(
             edited();
             // Whatever was being typed is over: the next letter is a new edit.
             run = null;
+            const now = leaving(s, [prev]);
+            const at = landing([prev]);
             return {
-              ...landing([prev]),
+              ...at,
+              nodes: wearAgain(at.nodes),
               past: s.past.slice(0, -1),
-              future: [leaving(s, [prev]), ...s.future].slice(0, HISTORY_LIMIT),
+              future: [now, ...s.future].slice(0, HISTORY_LIMIT),
               selection: [],
               activePageId: prev.pages.some((p) => p.id === s.activePageId) ? s.activePageId : prev.pages[0]!.id,
             };
@@ -241,6 +251,7 @@ export const useStudio = create<StudioState>()(
           push();
           set((s) => ({
             ...doc,
+            nodes: wearAgain(doc.nodes),
             selection: [],
             activePageId: doc.pages.some((p) => p.id === s.activePageId) ? s.activePageId : doc.pages[0]!.id,
           }));
@@ -252,9 +263,12 @@ export const useStudio = create<StudioState>()(
             if (!next) return {};
             edited();
             run = null;
+            const now = leaving(s, [next]);
+            const at = landing([next]);
             return {
-              ...landing([next]),
-              past: [...s.past, leaving(s, [next])].slice(-HISTORY_LIMIT),
+              ...at,
+              nodes: wearAgain(at.nodes),
+              past: [...s.past, now].slice(-HISTORY_LIMIT),
               future: s.future.slice(1),
               selection: [],
               activePageId: next.pages.some((p) => p.id === s.activePageId) ? s.activePageId : next.pages[0]!.id,
@@ -273,8 +287,10 @@ export const useStudio = create<StudioState>()(
               const back = s.past.slice(s.past.length - n);
               /* The documents stepped over go onto redo in order: nearest first. */
               const over = [...s.past.slice(s.past.length - n + 1), leaving(s, back)];
+              const at = landing([...back].reverse());
               return {
-                ...landing([...back].reverse()),
+                ...at,
+                nodes: wearAgain(at.nodes),
                 past: s.past.slice(0, s.past.length - n),
                 future: [...over, ...s.future].slice(0, HISTORY_LIMIT),
                 selection: [],
@@ -285,9 +301,12 @@ export const useStudio = create<StudioState>()(
             if (!n) return {};
             const to = s.future[n - 1]!;
             const ahead = s.future.slice(0, n);
+            const left = leaving(s, ahead);
+            const at = landing(ahead);
             return {
-              ...landing(ahead),
-              past: [...s.past, leaving(s, ahead), ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
+              ...at,
+              nodes: wearAgain(at.nodes),
+              past: [...s.past, left, ...s.future.slice(0, n - 1)].slice(-HISTORY_LIMIT),
               future: s.future.slice(n),
               selection: [],
               activePageId: to.pages.some((p) => p.id === s.activePageId) ? s.activePageId : to.pages[0]!.id,
