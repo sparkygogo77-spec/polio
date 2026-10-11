@@ -36,6 +36,8 @@ const URL_GIVEN = opt("url");
 const PORT = Number(opt("port", "3019"));
 const FROM = opt("from");
 const REPO = opt("repo"), REF = opt("ref"), TAKE = opt("take");
+/* --width/--height: the window the Builder is opened in (what a refresh reads the site at). */
+const WINDOW = { width: Number(opt("width", 1440)), height: Number(opt("height", 900)) };
 const [cmd, name = "pst", out] = argv;
 const site = { ...(SITES[name] ?? {}), ...(REPO ? { repo: REPO } : {}), ...(REF ? { ref: REF } : {}), ...(TAKE ? { take: TAKE.split(",") } : {}) };
 
@@ -58,7 +60,7 @@ if (!URL_GIVEN) {
 }
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const page = await browser.newPage({ viewport: WINDOW });
 const done = async (code = 0) => { await browser.close(); server?.kill(); process.exit(code); };
 
 if (cmd === "shot") {

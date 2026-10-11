@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
    * measures it, `tests/function-sizes.mjs` holds it).
    */
   outputFileTracingIncludes: Object.fromEntries(
-    ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"].map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"]]),
+    ["/api/studio/element", "/api/studio/preview-video", "/api/studio/render", "/api/studio/screenshot", "/api/studio/zip"].map((r) => [r, ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**", "./src/app/api/studio/fonts/files/**"]]),
   ),
   /*
    * And nothing of the repository's own that no route reads: its checks,
