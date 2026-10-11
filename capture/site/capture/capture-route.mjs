@@ -55,7 +55,7 @@
  *   node capture-route.mjs <url> <out.json> [--wallet] [--agree]
  *        [--click "<words>" [--within <selector>]] [--width 1763 --height 1427]
  *        [--assets <dir>] [--section <id>] [--sources <seconds>]
- *        [--behaviours [--behaviours-shots <dir>]] [--frames <seconds>]
+ *        [--behaviours [--behaviours-shots <dir>] [--no-moving] [--moving-every <ms>] [--moving-seconds <s>] [--moving-most <n>]] [--frames <seconds>]
  *
  * `--click` presses the button holding exactly those words (inside
  * `--within`, when given) and waits for the page to settle, which is how a
@@ -408,7 +408,9 @@ await page.waitForTimeout(400);
 const still = await page.evaluate(() => [document.documentElement, document.body].some((el) => el?.hasAttribute("data-preview-still") || el?.hasAttribute("data-still")) || new URLSearchParams(location.search).get("still") === "1").catch(() => false);
 if (still && (behaviours || flag("--states"))) console.error("still: a still screen, read once: no behaviours driven, nothing pressed");
 /* What the page's scripts do, measured before the pass below scrolls the page for everything else. */
-const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot }) : null;
+/* Pictures of what moves (frames-drive.mjs), with the behaviours: `--no-moving` leaves them out; `--moving-every <ms>`, `--moving-seconds <s>`, `--moving-most <n>` set the pace, the window and the budget. A 2d canvas the canvas pass reads itself is left to it. */
+const moving = flag("--no-moving") ? null : { every: Number(opt("--moving-every", 100)), seconds: Number(opt("--moving-seconds", 3.2)), most: Number(opt("--moving-most", 16)), skip2d: Number(opt("--frames", 3)) > 0 };
+const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot, frames: moving }) : null;
 /* How its in-page links take a visitor to their places: a glide by its script or its stylesheet, or a jump (glide.mjs). */
 if (behaved) behaved.glide = await readGlides(page);
 /*
