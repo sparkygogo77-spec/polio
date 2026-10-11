@@ -21,12 +21,15 @@
  *   2. all three pages land on the board with their parts;
  *   3. the strip counted the pages as it read them;
  *   4. the branch named with `@` is the one read, and is what the board
- *      records as its source.
+ *      records as its source;
+ *   5. a panel dealt in by an entrance animation lands whole (the reader
+ *      runs animations that end to their end first), and a sticky rail as
+ *      tall as the window runs the whole page.
  *
  *   npm run build && npx next start -p 3013
  *   node tests/bring-in-page-by-page.mjs http://127.0.0.1:3013
  *
- * Covers: src/app/api/studio/zip/route.ts, src/features/studio/bring-in/fromasite/FromASite.tsx
+ * Covers: src/app/api/studio/zip/route.ts, src/features/studio/bring-in/fromasite/FromASite.tsx, src/features/studio/bring-in/siteread/parts.ts
  */
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -37,11 +40,12 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 const J = (x) => JSON.stringify(x);
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 
+/* The front page also deals two panels in (a fade from nothing, the second after a delay, as PonsStars' redesign does) beside a rail that sticks the whole window tall. */
 const pageOf = (name, title, words) => `<!doctype html><html><head><title>${title}</title><link rel="stylesheet" href="site.css"></head><body data-hook="app-${name}">
 <header data-hook="top-${name}"><h1 data-hook="title-${name}">${title}</h1><nav data-hook="nav-${name}"><a data-hook="to-index-${name}" href="index.html">Home</a> <a data-hook="to-about-${name}" href="about.html">About</a> <a data-hook="to-work-${name}" href="work.html">Work</a></nav></header>
-<main data-hook="main-${name}"><p data-hook="words-${name}">${words}</p><button data-hook="go-${name}">Go</button></main></body></html>`;
+<main data-hook="main-${name}"><p data-hook="words-${name}">${words}</p><button data-hook="go-${name}">Go</button>${name === "index" ? `<div data-hook="row"><aside data-hook="rail"><b data-hook="rail-name">Rail</b></aside><section data-hook="deal-1"><p data-hook="deal-1-words">First panel</p></section><section data-hook="deal-2"><p data-hook="deal-2-words">Second panel</p></section></div><div data-hook="tail">A long page follows.</div>` : ""}</main></body></html>`;
 const FILES = {
-  "web/site.css": "body{margin:0;font:16px/1.4 sans-serif}header,main{padding:24px}h1{font-size:40px}button{padding:8px 16px}",
+  "web/site.css": "body{margin:0;font:16px/1.4 sans-serif}header,main{padding:24px}h1{font-size:40px}button{padding:8px 16px}[data-hook=row]{display:flex;gap:24px;align-items:flex-start}[data-hook=rail]{position:sticky;top:0;height:100vh;width:120px;background:#642}[data-hook^=deal-]{width:240px;padding:16px;background:#eee;animation:deal .4s ease-out both}[data-hook=deal-2]{animation-delay:2s}@keyframes deal{from{opacity:0;translate:0 24px}to{opacity:1;translate:0 0}}[data-hook=tail]{height:1600px}",
   "web/index.html": pageOf("index", "Blackorb", "A small studio."),
   "web/about.html": pageOf("about", "About us", "Two people and a dog."),
   "web/work.html": pageOf("work", "Our work", "Sites, mostly."),
@@ -123,6 +127,9 @@ check("…each page's parts are on their own page, in the site's order", onPage(
 check("…with the page's words", /Two people and a dog/.test(J(byHook(s, "words-about")?.content)) && /Sites, mostly/.test(J(byHook(s, "words-work")?.content)), J({ about: byHook(s, "words-about")?.content, work: byHook(s, "words-work")?.content }));
 const tab = byHook(s, "title-about")?.widths?.tablet, ph = byHook(s, "words-work")?.widths?.phone;
 check("…and each part has its tablet and phone box from the site's own layout", !!tab && tab.w > 0 && tab.w <= 834 && !!ph && ph.w > 0 && ph.w <= 390, J({ tab, ph }));
+const d1 = byHook(s, "deal-1"), d2 = byHook(s, "deal-2"), rail = byHook(s, "rail"), app = byHook(s, "app-index");
+check("5. panels dealt in by an animation land as they settle, whole, not mid-fade or before their turn", !!d1 && !!d2 && (d1.opacity ?? 1) >= 0.999 && (d2.opacity ?? 1) >= 0.999 && !!byHook(s, "deal-2-words"), J({ d1: d1 && { op: d1.opacity, h: d1.h }, d2: d2 && { op: d2.opacity, h: d2.h } }));
+check("…and a rail that sticks the whole window tall runs the whole page", !!rail && !!app && rail.y + rail.h >= app.h - 2 && rail.h > 900, J({ rail: rail && { y: rail.y, h: rail.h }, page: app && app.h }));
 check("3. the strip counted the pages as it read them", [...strips].some((t) => /Reading page 2 of 3 in branchy: web\/about\.html/.test(t)) && [...strips].some((t) => /Reading page 3 of 3/.test(t)), J([...strips].filter((t) => /Reading page/.test(t)).slice(0, 4)));
 const said = await strip();
 check("…and the line says what landed, with nothing left out", /parts from him\/branchy@claude\/elaborate-redesign landed/.test(said) && !/would not open|not read/.test(said), said.slice(0, 300));
