@@ -278,9 +278,18 @@ export async function POST(request: Request) {
       messages: [{ role: "user", content }],
     }, { signal: deadline.signal });
     const message = await stream.finalMessage();
+    // Claude charges for the call whether or not the answer was usable, so
+    // every answer from here on says what it used, failures included.
+    const usage = {
+      input: message.usage.input_tokens,
+      output: message.usage.output_tokens,
+      cached: message.usage.cache_read_input_tokens ?? 0,
+      written: message.usage.cache_creation_input_tokens ?? 0,
+      model: message.model,
+    };
 
     if (message.stop_reason === "refusal") {
-      return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to read this drawing." });
+      return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to read this drawing.", usage });
     }
     const text = message.content
       .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
@@ -293,18 +302,14 @@ export async function POST(request: Request) {
         ok: false,
         reason: message.stop_reason === "max_tokens" ? "truncated" : "unreadable",
         message: message.stop_reason === "max_tokens" ? "Claude ran out of room before it answered." : "Claude's answer wasn't a shape.",
+        usage,
       });
     }
     patch.options = optionsRecord(patch.options);
     return NextResponse.json({
       ok: true,
       patch,
-      usage: {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens,
-        cached: message.usage.cache_read_input_tokens ?? 0,
-        model: message.model,
-      },
+      usage,
     });
   } catch (error) {
     // Every branch answers HTTP 200 with a reason and the seconds it took:

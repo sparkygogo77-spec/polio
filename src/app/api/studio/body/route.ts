@@ -209,8 +209,17 @@ export async function POST(request: Request) {
       messages: [{ role: "user", content }],
     }, { signal: deadline.signal });
     const message = await stream.finalMessage();
+    // Claude charges for the call whether or not the answer was usable, so
+    // every answer from here on says what it used, failures included.
+    const usage = {
+      input: message.usage.input_tokens,
+      output: message.usage.output_tokens,
+      cached: message.usage.cache_read_input_tokens ?? 0,
+      written: message.usage.cache_creation_input_tokens ?? 0,
+      model: message.model,
+    };
     if (message.stop_reason === "refusal") {
-      return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to write this body." });
+      return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to write this body.", usage });
     }
     const text = message.content
       .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
@@ -224,13 +233,14 @@ export async function POST(request: Request) {
         ok: false,
         reason: message.stop_reason === "max_tokens" ? "truncated" : "unreadable",
         message: message.stop_reason === "max_tokens" ? "Claude ran out of room before the body was finished." : "Claude's answer had no body in it.",
+        usage,
       });
     }
     // Cleaned before it is handed back, so nothing that reaches off the page
     // is ever written into the document.
     const { html, stripped } = cleanSnippet(raw);
     if (!html) {
-      return NextResponse.json({ ok: false, reason: "empty-body", message: "Everything in that body had to be stripped." });
+      return NextResponse.json({ ok: false, reason: "empty-body", message: "Everything in that body had to be stripped.", usage });
     }
     return NextResponse.json({
       ok: true,
@@ -238,12 +248,7 @@ export async function POST(request: Request) {
       stripped,
       note: typeof answer?.note === "string" ? answer.note.slice(0, 400) : "",
       unseen,
-      usage: {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens,
-        cached: message.usage.cache_read_input_tokens ?? 0,
-        model: message.model,
-      },
+      usage,
     });
   } catch (error) {
     // Every branch answers HTTP 200 with a reason and the seconds it took:
