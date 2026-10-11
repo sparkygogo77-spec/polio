@@ -353,6 +353,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         ...(lifted ? { zIndex: 4 } : {}),
         /* Pinned to the window as the page pinned it: it rides down with the view, above what scrolls under it. */
         ...(pin ? { translate: pin, zIndex: lifted ? 4 : 3 } : {}),
+        /* Set over its neighbours by the page (`art.z`, a positive z-index): drawn over the parts in the flow. */
+        ...(!pin && !lifted && typeof (node.art as { z?: unknown } | null | undefined)?.z === "number" && ((node.art as { z: number }).z > 0) ? { zIndex: 2 } : {}),
         ...(holes ? holeMask(holes) : {}),
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
