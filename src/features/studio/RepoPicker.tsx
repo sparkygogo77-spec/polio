@@ -548,14 +548,14 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     if (!own) { setBranches(null); return; }
     setBranchSaid(null);
     try {
-      const a = await askRoute<{ base?: string; branches?: BranchRow[]; more?: number }>(`/api/studio/branches?repo=${encodeURIComponent(own)}`, { headers: token(), cache: "no-store" });
+      const a = await askRoute<{ base?: string; branches?: BranchRow[]; more?: number }>(`/api/studio/branches?repo=${encodeURIComponent(own)}&branch=${encodeURIComponent(ownBranch)}`, { headers: token(), cache: "no-store" });
       if (!a.ok) { setBranches(null); setBranchSaid(a.message ?? "GitHub would not list the branches."); return; }
       setBranches({ base: String(a.base ?? "main"), rows: (a.branches ?? []) as BranchRow[], more: Number(a.more ?? 0) });
     } catch {
       setBranches(null);
       setBranchSaid("The Builder's server could not be reached from this browser.");
     }
-  }, [own]);
+  }, [own, ownBranch]);
   React.useEffect(() => { void listBranches(); }, [listBranches]);
 
   /* Main moves here and nowhere else, by his hand, and it asks first: it cannot be undone. */

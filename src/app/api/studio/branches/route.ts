@@ -27,6 +27,8 @@ const API = process.env.GITHUB_API?.replace(/\/$/, "") || "https://api.github.co
 /** Past this many the list is a chore GitHub's own page is better at. */
 const MOST = 40;
 const AT_ONCE = 6;
+/** Pages of a hundred read from GitHub's branch list; past that "N more" is a floor. */
+const PAGES = 10;
 
 function tokenFrom(request: Request): string | null {
   const supplied = request.headers.get("x-github-token")?.trim();
@@ -59,11 +61,21 @@ export async function GET(request: Request) {
     if (!info.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${info.status} when asked about ${repo}.` });
     const base = ((await info.json()) as { default_branch?: string }).default_branch || "main";
 
-    const list = await fetch(`${API}/repos/${repo}/branches?per_page=100`, { headers: head(token), cache: "no-store" });
-    if (!list.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${list.status} for the branches of ${repo}.` });
-    const names = ((await list.json()) as { name?: string }[]).map((b) => b.name ?? "").filter((n) => n && n !== base);
-    const more = Math.max(0, names.length - MOST);
-    const asked = names.slice(0, MOST);
+    /* GitHub hands branches out a hundred at a time, in name order: every
+       page is read (up to PAGES), or "N more" stops counting at a hundred. */
+    const names: string[] = [];
+    for (let page = 1; page <= PAGES; page++) {
+      const list = await fetch(`${API}/repos/${repo}/branches?per_page=100&page=${page}`, { headers: head(token), cache: "no-store" });
+      if (!list.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${list.status} for the branches of ${repo}.` });
+      const got = (await list.json()) as { name?: string }[];
+      names.push(...got.map((b) => b.name ?? "").filter((n) => n && n !== base));
+      if (got.length < 100) break;
+    }
+    /* The branch Update live site writes to always gets a row, wherever it
+       sorts: its row is the only place Merge into main is offered. */
+    const own = new URL(request.url).searchParams.get("branch")?.trim() ?? "";
+    const asked = names.includes(own) ? [own, ...names.filter((n) => n !== own).slice(0, MOST - 1)] : names.slice(0, MOST);
+    const more = names.length - asked.length;
 
     const rows: BranchRow[] = [];
     for (let i = 0; i < asked.length; i += AT_ONCE) {
