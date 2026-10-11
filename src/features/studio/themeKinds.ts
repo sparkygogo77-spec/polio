@@ -40,19 +40,9 @@ export const KIND_SHADES = 0.025;
 export const SPECK = 48;
 /** A strip this tall or less is a tab or label bar. */
 export const TAB_HEIGHT = 40;
-/**
- * A strip this thin or less (and four times as long) is trim: the hazard lip
- * under a main button, a stripe down a row's edge. Never a button of its own,
- * never mixed with the surfaces of its colour, drawn as a small dot (J,
- * 2026-10-11, on the PonsStars redesign: the striped lip under "Start
- * recording" was a kind of button, "Buttons 2, 24").
- */
-export const TRIM = 8;
 /** How far a lone panel's shade may be from a surface's and still be one of them. */
 export const PANEL_SHADES = 0.06;
-/** A surface covering this share of the site or more is kept in the preview however many kinds there are. */
-export const BIG_SURFACE = 0.03;
-/** A part both ways bigger than this is a panel: a kind most of whose area is panels is drawn as a box, never a tab. */
+/** A part both ways bigger than this is a panel: a lone one joins the boxes it is a shade of. */
 export const PANEL = 2 * TAB_HEIGHT;
 /** A gradient-painted piece this big or more (its longer side, px) is a kind of its own, however few parts wear it. */
 export const PIECE = 192;
@@ -231,7 +221,7 @@ const pieceName = (p: Node): string | null => {
 };
 
 /** Words in a hook that say how a part is wrapped or which one it is, not what it is. */
-const VAGUE = new Set(["wrap", "wrapper", "inner", "outer", "inside", "holder", "container", "content", "item", "part", "el", "bg", "js", "is", "has", "the", "of", "and"]);
+const VAGUE = new Set(["wrap", "wrapper", "inner", "outer", "inside", "holder", "container", "content", "item", "part", "el", "bg", "js", "is", "has", "the", "of", "and", "tl", "tr", "bl", "br", "left", "right", "top", "bottom", "middle", "mid", "center", "centre"]);
 const plural = (w: string) => (/(s|x|z|ch|sh)$/.test(w) ? (/[^s]s$/.test(w) && w.length > 3 ? w : `${w}es`) : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
 const wordsIn = (hook: string) => hook.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 1 && !VAGUE.has(w));
 
@@ -242,7 +232,10 @@ const wordsIn = (hook: string) => hook.replace(/([a-z])([A-Z])/g, "$1 $2").toLow
  * what they are ("lab-drawer-label", "play-drawer-label" → labels; the later
  * word when two are shared as often), and the word before it, when most share
  * that too, says which (→ Drawer labels). A page's name or a number in a hook
- * is in too few of them to count. Each part drawn on every page counted once.
+ * is in too few of them to count, and so are where words ("tl", "left"). A
+ * ::before or ::after is left out: the redesign's 78 screw heads drawn by
+ * their plates have no name, its 14 hooked ones say "screw". Each part drawn
+ * on every page counted once.
  * Null when too few of the parts have a hook (a captured live site's
  * "div · 8 inside"), or they share no word: the kind then keeps the name its
  * shape or its parts give it.
@@ -254,6 +247,8 @@ function hookName(ms: readonly Node[], one: (id: string) => string): string | nu
   for (const p of ms) {
     if (seen.has(one(p.id))) continue;
     seen.add(one(p.id));
+    /* A ::before or ::after is its host's decoration and carries no name of its own: it neither names the kind nor counts against a name. */
+    if (/::(before|after)$/.test(String((p as { label?: unknown }).label ?? ""))) continue;
     all++;
     const hook = p.hooks?.["data-hook"] || p.hooks?.id;
     const w = hook ? wordsIn(hook) : [];
@@ -264,7 +259,9 @@ function hookName(ms: readonly Node[], one: (id: string) => string): string | nu
   /* How many hooks hold each word, and how far along them it sits (0 first, 1 last). */
   const df = new Map<string, { n: number; along: number }>();
   for (const w of lists) for (const [i, x] of w.entries()) { if (w.indexOf(x) !== i) continue; const d = df.get(x) ?? { n: 0, along: 0 }; df.set(x, { n: d.n + 1, along: d.along + (w.length > 1 ? i / (w.length - 1) : 1) }); }
-  const head = [...df.entries()].sort((a, b) => b[1].n - a[1].n || b[1].along / b[1].n - a[1].along / a[1].n)[0];
+  /* A hook's first word is often its page or section ("lib-", "play-"): a word counts for more the later it sits. */
+  const score = (d: { n: number; along: number }) => d.n * (0.4 + (0.6 * d.along) / d.n);
+  const head = [...df.entries()].sort((a, b) => score(b[1]) - score(a[1]) || b[1].n - a[1].n)[0];
   if (!head || head[1].n * 5 < named * 2 || (named > 1 && head[1].n < 2)) return null;
   const leads = new Map<string, number>();
   for (const w of lists) { const i = w.indexOf(head[0]); if (i > 0) bump(leads, w[i - 1]!); }
@@ -334,10 +331,10 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     }
     return best;
   };
-  /* The filled parts words stand on. */
+  /* The filled parts words stand on: real words, not a text colour a ::before inherits with nothing to say (the redesign's screw heads). */
   const carries = new Set<string>();
   for (const p of parts) {
-    if (background.has(p.id) || !spotsOf(p, palette).some((s) => s.spot.use === "text")) continue;
+    if (background.has(p.id) || !wordsOf(p).replace(/\u200b/g, "").trim()) continue;
     const u = under(p);
     if (u) carries.add(u.id);
   }
@@ -562,8 +559,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   const used = new Set<string>();
   const named = kept.map(({ k }, j) => {
     /* The main fill is the most-worn plain surface: a grid, rows or bars keep their own name. */
-    const main = (x: (typeof kept)[number]["k"]) => !x.button && !x.piece && !x.shape && !x.accent && !x.hooked;
-    const base = main(k) && j === kept.findIndex(({ k: x }) => main(x)) ? "Main fill" : k.name;
+    /* No "Main fill": it told J nothing (2026-10-11). A kind is named by its parts' hooks, or by what its parts are. */
+    const base = k.name;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     const { big: _b, label: _l, hooked: _h, ...kind } = k;
@@ -590,7 +587,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
  * hold it to a real board rather than to a made-up one (J, 2026-10-11: fixes
  * checked on a stale saved board came out poor on the redesign).
  *
- *   · tabs      label bars, the biggest first, drawn over the top edge of the first box;
+ *   · tabs      label bars, the most-worn first, drawn over the top edge of the first box;
  *   · surfaces  every kind drawn as a box, the biggest first by how much of the
  *               site it covers, not by how many parts wear it: the paper forms
  *               and wood boards fell behind four kinds of small labels; the
@@ -605,9 +602,8 @@ export function previewPlan(site: SiteKinds) {
   const k = site.kinds;
   const holdsButtons = (x: SurfaceKind) => Number(k.some((b) => b.button && b.inside === k.indexOf(x)));
   return {
-    /* The biggest label bars first, by how much of the site they cover: the redesign's wood drawer labels, not four kinds of little tags. */
-    tabs: k.filter((x) => x.tab && !x.button).sort((a, b) => b.cover - a.cover).slice(0, 5),
-    surfaces: [...k.filter((x) => !x.button && !x.tab && !x.piece && !x.accent && !x.strip && !x.progress).sort((a, b) => b.cover - a.cover).slice(0, 6), ...k.filter((x) => x.piece)].sort((a, b) => holdsButtons(b) - holdsButtons(a)),
+    tabs: k.filter((x) => x.tab && !x.button).slice(0, 6),
+    surfaces: [...k.filter((x) => !x.button && !x.tab && !x.piece && !x.accent && !x.strip && !x.progress).sort((a, b) => b.cover - a.cover).slice(0, 8), ...k.filter((x) => x.piece)].sort((a, b) => holdsButtons(b) - holdsButtons(a)),
     buttons: k.filter((x) => x.button).slice(0, 4),
     accents: k.filter((x) => x.accent && !x.progress).slice(0, 10),
     strips: k.filter((x) => x.strip && !x.button && !x.progress).slice(0, 4),

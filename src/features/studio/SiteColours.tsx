@@ -417,8 +417,14 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const { tabs, surfaces, buttons, accents, strips, bars } = previewPlan(site);
-  const sitting = (where: number) => accents.filter((k) => k.inside === where);
-  const looseAccents = accents.filter((k) => k.inside === -1 || !surfaces.some((x) => at(x) === k.inside));
+  /* An accent standing in a surface drawn here is drawn on it, one small piece for all of them (J, 2026-10-11: "a single screw on top of the red panel"). */
+  /* What it stands in, or what that stands in, until a surface drawn here: screws on brass plates on the wood go on the wood. */
+  const home = (k: SurfaceKind): number => {
+    for (let i = k.inside, n = 0; i >= 0 && n < 8; i = site.kinds[i]?.inside ?? -1, n++) if (surfaces.some((s) => at(s) === i)) return i;
+    return -1;
+  };
+  const sitting = (where: number) => accents.filter((k) => home(k) === where);
+  const looseAccents = accents.filter((k) => home(k) < 0);
   const barIds = bars.flatMap((k) => k.ids);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   /* Only a glow most of the words wear, at the size they wear it: the preview shows what the site shows. */
@@ -537,7 +543,7 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
             {count(k.parts)}
             {next(k)}
             {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
-            {sitting(at(k)).length ? <div data-preview-sitting="" className="flex flex-wrap gap-1 pt-0.5">{sitting(at(k)).map((a) => swatch(a, false))}</div> : null}
+            {sitting(at(k)).length ? <div data-preview-atop="" className="absolute bottom-1.5 left-1.5 flex gap-1">{sitting(at(k)).map((a) => swatch(a, false))}</div> : null}
           </div>
         ))}
       </div>

@@ -74,17 +74,21 @@ check("…never by the words on one part", !site.kinds.some((k) => k.name.includ
 /* 5. The saved redesign board, when this checkout has one (`npm run board -- refresh redesign`). */
 const saved = new URL("./fixtures/boards/redesign.json.gz", import.meta.url);
 if (existsSync(saved)) {
-  const { boardSite } = await import("../scripts/colour-kinds.mjs").catch(() => ({}));
-  const real = boardSite ? boardSite("redesign") : null;
+  const { boardKinds } = await import("../scripts/colour-kinds.mjs").catch(() => ({}));
+  const read = boardKinds ? boardKinds("redesign") : null;
+  const real = read?.site;
+  const byId = new Map((read?.nodes ?? []).map((x) => [x.id, x]));
   if (real) {
     const rp = previewPlan(real);
-    const worded = real.kinds.filter((k) => !k.button && k.wordsParts * 2 >= k.parts && rp.accents.includes(k));
+    /* Real words, not a text colour a ::before inherits: half its parts or more say something. */
+    const says = (id) => { const c = byId.get(id)?.content; const t = typeof c === "string" ? c : Array.isArray(c) ? c.map((r) => r?.text ?? "").join("") : ""; return /[A-Za-z0-9]/.test(t); };
+    const worded = real.kinds.filter((k) => !k.button && rp.accents.includes(k) && k.ids.filter(says).length * 2 >= k.ids.length);
     check("5. on the redesign, no kind with words on it is a dot", !worded.length, worded.map((k) => k.name).join(", "));
     const panels = real.kinds.filter((k) => !k.button && !k.accent && !k.tab && !k.strip && !k.progress && k.w >= PANEL_W && k.h >= PANEL_H && k.parts >= 2);
     const missing = panels.filter((k) => !rp.surfaces.includes(k)).slice(0, 6 - Math.min(6, rp.surfaces.length));
     check("…every panel worn twice or more has a box", !missing.length, missing.map((k) => k.name).join(", "));
     check("…no name is one part's words", !real.kinds.some((k) => k.name.includes(":")), real.kinds.map((k) => k.name).join(", "));
-  } else console.log("  --   no saved redesign board reader (scripts/colour-kinds.mjs#boardSite): 5 skipped");
+  } else console.log("  --   no saved redesign board reader (scripts/colour-kinds.mjs#boardKinds): 5 skipped");
 } else console.log("  --   no saved redesign board: 5 skipped");
 
 const failed = results.filter((x) => !x).length;

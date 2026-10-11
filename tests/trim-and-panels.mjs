@@ -9,7 +9,8 @@
  *   3. the paper panels are drawn as a box; the small tags of their colour are label bars of their own;
  *   4. a kind of small tags with one big overlay is still a tab;
  *   5. a lone panel a darker shade of the wood (the key cabinet) joins the wood, not the one-offs;
- *   6. past the cap of kinds, a big real surface is still kept.
+ *   6. past the cap of kinds, a big real surface is still kept;
+ *   7. a board's many screw heads are one accent kind standing in the plates they are on, not a piece named after a ruler painted the same brass.
  *
  *   node tests/trim-and-panels.mjs
  */
@@ -56,6 +57,20 @@ const w = siteKinds(wood, { bg: "rgb(233, 214, 180)" });
 const woodKind = w.kinds.find((k) => k.ids.includes("stand"));
 check("5. the darker-wood cabinet joins the wood", !!woodKind && woodKind.ids.includes("cabinet"), w.kinds.map((k) => `${k.name}:${k.parts}`).join(", "));
 check("6. with eleven kinds of small buttons ahead of it, the wood is still kept", !!woodKind && w.kinds.filter((k) => k.button).length >= 10, w.kinds.map((k) => k.name).join(", "));
+
+/* 7: forty brass screw heads on brass plates on the wood, and one big ruler painted the same brass gradient. */
+const BRASS = "rgb(125, 94, 29)", PLATE = "rgb(246, 197, 106)", SCREW = `radial-gradient(circle, rgb(255, 248, 216) 0px, ${BRASS} 100%)`;
+const board = [];
+for (let i = 0; i < 4; i++) board.push({ id: `board${i}`, featureId: "box", pageId: "p", x: 0, y: i * 500, w: 800, h: 400, colour: { bg: W } });
+for (let i = 0; i < 10; i++) {
+  board.push({ id: `plate${i}`, featureId: "box", pageId: "p", x: 20 + (i % 2) * 300, y: Math.floor(i / 2) * 500 + 20, w: 200, h: 30, colour: { bg: PLATE } });
+  for (let j = 0; j < 4; j++) board.push({ id: `screw${i}-${j}`, featureId: "box", pageId: "p", x: 24 + (i % 2) * 300 + j * 50, y: Math.floor(i / 2) * 500 + 30, w: 6, h: 6, radius: 3, art: { background: SCREW } });
+}
+board.push({ id: "ruler", featureId: "box", pageId: "p", x: 0, y: 2600, w: 700, h: 60, art: { background: `linear-gradient(90deg, rgb(255, 248, 216), ${BRASS})` } });
+const b = siteKinds(board, { bg: "rgb(233, 214, 180)" });
+const screws = b.kinds.find((k) => k.ids.includes("screw0-0"));
+check("7. the screw heads are one accent kind, not a piece", !!screws && screws.accent && !screws.piece && screws.parts >= 40 && screws.name !== "Ruler", b.kinds.map((k) => `${k.name}:${k.parts}${k.piece ? "·piece" : ""}${k.accent ? "·accent" : ""}`).join(", "));
+check("…standing in the plates, which stand on the wood", !!screws && b.kinds[screws.inside]?.fill === PLATE && b.kinds[b.kinds[screws.inside].inside]?.fill === W, `${b.kinds[screws?.inside]?.name} in ${b.kinds[b.kinds[screws?.inside]?.inside]?.name}`);
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
