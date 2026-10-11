@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis, Eye, EyeOff, History, Link2, Link2Off, Monitor, PanelLeft, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Ellipsis, Eye, EyeOff, History, Link2, Link2Off, Monitor, PanelLeft, PauseCircle, PlayCircle, Search, Smartphone, Square, Tablet, TriangleDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { HistoryControls } from "../HistoryControls";
 import { CaptureSiteDoor } from "../CaptureSiteDialog";
 import { UpdatesPanel } from "../Updates";
@@ -19,6 +19,7 @@ import { Dropdown } from "@/core/ui/dropdown-menu";
 import { TOOLS, useMedia, FOLDING } from "./sizes";
 import { SiteHead, PageChips } from "./head";
 import { ShowSwitch } from "../states/ui";
+import { setBoardMotion, useBoardMotion } from "../board/themeDraw";
 
 export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   // The More key exists only while the bar is folding controls away: on a
@@ -240,6 +241,7 @@ export function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
       <span className="mx-1 hidden h-4 w-px bg-border md:block" />
+      <MotionSwitch />
       <DecideCount />
       <MoreTools folding={folding} shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} />
       {/* THE WAY IN, and it lives in the bar because a row above the board
@@ -557,6 +559,30 @@ export function PreviewToggle() {
         onClick={() => { play("navigate"); useStudio.getState().setMode(on ? "design" : "preview"); }}
       >
         <PlayCircle />
+      </Button>
+    </Tooltip>
+  );
+}
+
+/**
+ * THE SITE'S MOTION ON THE BOARD, ONE SWITCH (J, 2026-10-11). The board plays
+ * the page's animations as the page does; held still, every part stands at
+ * rest so it can be picked and lined up. It starts still for a person whose
+ * system asks for less motion, and keeps the choice (`board/themeDraw.tsx`).
+ */
+function MotionSwitch() {
+  const motion = useBoardMotion();
+  const playing = motion === "play";
+  return (
+    <Tooltip content={playing ? "Hold the site's motion still while you edit" : "Play the site's motion"}>
+      <Button
+        variant={playing ? "ghost" : "subtle"} size="iconXs"
+        data-board-motion-switch={motion}
+        aria-label={playing ? "Pause motion" : "Play motion"}
+        aria-pressed={!playing}
+        onClick={() => { play("tap"); setBoardMotion(playing ? "still" : "play"); }}
+      >
+        {playing ? <PauseCircle /> : <PlayCircle />}
       </Button>
     </Tooltip>
   );

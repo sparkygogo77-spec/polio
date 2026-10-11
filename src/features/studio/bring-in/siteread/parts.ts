@@ -51,6 +51,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const cap = typeof ask === "number" ? ask : ask.cap;
   const lean = typeof ask !== "number" && !!ask.lean;
   const parts: PagePart[] = [];
+  /* The part each element became, for the kept count. */
+  const partOf = new Map<Element, PagePart>();
   let truncated = false;
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "META", "LINK", "HEAD", "TITLE", "BASE", "WBR"]);
   const MEDIA = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE", "IFRAME", "AUDIO"]);
@@ -271,6 +273,21 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const turns = new Map<Element, DOMMatrix>();
   const lifted: { el: HTMLElement; had: string | null }[] = [];
   /*
+   * A block hidden as the page opens has no animation then: revealed for
+   * its read, its entrance starts over at frame 0. PST's redesign shows
+   * its sign, match, result and player panels by state, each fading up
+   * from nothing 24 px low, and every part in them came in see-through
+   * and low: 254 on Play alone (J, 2026-10-11). So each entrance is run
+   * to its end, as at the page's open; one that never ends runs on.
+   */
+  const endEntrances = (el: Element | Document) => {
+    try {
+      for (const a of el.getAnimations?.() ?? []) {
+        try { const t = a.effect?.getTiming?.(); if (t && Number.isFinite(t.iterations) && a.playState !== "finished") a.finish(); } catch { /* it runs on */ }
+      }
+    } catch { /* no Web Animations API: read as it is */ }
+  };
+  /*
    * Run on the page as it opens, and again on each hidden block once it is
    * revealed for its read (and each template's copy): a box hidden as the
    * page opens has no layout then, so its turn was never lifted. PST's
@@ -278,9 +295,14 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    * came in as the box round each lean, upright, 19x31 (J, 2026-10-06).
    */
   const liftTurns = (root: Element) => {
+    /* Whatever the reveal set going (the block, its copy, what above it was hidden too), at its end before anything is read. */
+    endEntrances(document);
     const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
-    for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]) {
-      if (!(el instanceof HTMLElement) || (root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
+    for (const one of [root, ...Array.from(root.querySelectorAll("*"))]) {
+      /* An outer <svg> turned by the page (a podium drawn as svg, rotate: -3deg) turns as a box does. */
+      if (!(one instanceof HTMLElement || (one instanceof SVGSVGElement && !one.parentElement?.closest("svg")))) continue;
+      const el = one as HTMLElement;
+      if ((root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
       const s = css(el);
       const moved = (v: string) => !!v && v !== "none";
       if (!moved(s.transform) && !moved(s.getPropertyValue("rotate")) && !moved(s.getPropertyValue("scale"))) continue;
@@ -290,8 +312,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (animated) el.style.setProperty("animation", "none", "important");
       const r = css(el);
       const rest = { tf: r.transform, translate: r.getPropertyValue("translate"), rotate: r.getPropertyValue("rotate"), scale: r.getPropertyValue("scale"), origin: r.transformOrigin, position: r.position };
-      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); }
-      const m = ownMatrix(rest, el.offsetWidth, el.offsetHeight);
+      if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); endEntrances(el); }
+      /* An outer <svg> has no offset box: its layout box is its client box. */
+      const m = el instanceof HTMLElement ? ownMatrix(rest, el.offsetWidth, el.offsetHeight) : ownMatrix(rest, (one as Element).clientWidth, (one as Element).clientHeight);
       if (flat(m)) continue;
       lifted.push({ el, had: before });
       moving.set(el, keep(css(el)));
@@ -309,6 +332,44 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       turns.set(t.el, about(t.m, ox, oy));
     }
   };
+  /*
+   * THE LIVE COUNT (J, 2026-10-11: the pass bar). Every element of the page
+   * as the browser computed it, before any turn is lifted: what animates,
+   * what turns, the inline svgs and their shapes, layered backgrounds,
+   * ::before/::after with content, drop shadows, blends, clip paths,
+   * masks, fixed and sticky boxes, canvases. Counted again at the end over
+   * what the read kept, so the report says kept against live, page by page.
+   */
+  type Feat = "animated" | "turned" | "svg" | "svgShapes" | "layered" | "pseudo" | "dropShadow" | "blend" | "clipPath" | "mask" | "fixed" | "sticky" | "canvas";
+  const census = new Map<Element, Set<Feat>>();
+  const livePseudo: { el: Element; which: "::before" | "::after" }[] = [];
+  const liveNames = new Set<string>();
+  const layersIn = (v: string) => { let depth = 0, n = 1; for (const ch of v) { if (ch === "(") depth++; else if (ch === ")") depth--; else if (ch === "," && depth === 0) n++; } return n; };
+  if (!lean) {
+    for (const el of [document.documentElement, ...Array.from(document.body.querySelectorAll("*")), document.body]) {
+      if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|LINK|META|TITLE|HEAD)$/i.test(el.tagName) || el.closest("template")) continue;
+      /* Counted as the board thread's `scripts/theme-count.mjs` counts the live page, so the two read alike: a shape inside an svg counts as its svg's shape only. */
+      const tag = el.tagName.toLowerCase();
+      if (el.parentElement?.closest("svg") && tag !== "svg") continue;
+      const cs = css(el), f = new Set<Feat>();
+      const names = (cs.animationName || "none").split(",").map((v) => v.trim()).filter((v) => v && v !== "none");
+      if (names.length) { f.add("animated"); names.forEach((v) => liveNames.add(v)); }
+      /* The individual transforms J counts (rotate, translate, scale). */
+      if ([cs.getPropertyValue("rotate"), cs.getPropertyValue("scale"), cs.getPropertyValue("translate")].some((v) => !!v && v !== "none")) f.add("turned");
+      if (tag === "svg") { f.add("svg"); for (const sh of Array.from(el.querySelectorAll("circle,line,path,polyline,polygon,rect,ellipse,text,tspan,textPath"))) census.set(sh, new Set<Feat>(["svgShapes"])); }
+      if (cs.backgroundImage && cs.backgroundImage !== "none" && layersIn(cs.backgroundImage) > 1) f.add("layered");
+      if (/drop-shadow/.test(cs.filter)) f.add("dropShadow");
+      if (cs.mixBlendMode && cs.mixBlendMode !== "normal") f.add("blend");
+      if (cs.clipPath && cs.clipPath !== "none") f.add("clipPath");
+      const mk = cs.maskImage || cs.getPropertyValue("-webkit-mask-image");
+      if (mk && mk !== "none") f.add("mask");
+      if (cs.position === "fixed") f.add("fixed");
+      if (cs.position === "sticky") f.add("sticky");
+      if (tag === "canvas") f.add("canvas");
+      if (f.size) census.set(el, f);
+      for (const which of ["::before", "::after"] as const) { const ps = getComputedStyle(el, which); if (ps.content && ps.content !== "none" && ps.content !== "normal") livePseudo.push({ el, which }); }
+    }
+  }
   liftTurns(document.body);
   /* Everything that turns it, in the page's space: what holds it first, its own last. */
   const turnOf = (el: Element | null, own: DOMMatrix | null = null): DOMMatrix | null => {
@@ -355,7 +416,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (ps.position !== "absolute" && ps.position !== "fixed") {
         const paint0 = paintOf(ps);
         const words0 = (/^"([\s\S]*)"$/.exec(c)?.[1] ?? "").replace(/\\(.)/g, "$1").trim();
-        if (!(!seeThrough(ps.backgroundColor) || paint0.image || paint0.mask || paint0.shadow || words0)) continue;
+        /* An edge draws too: a label's dotted leader (an empty ::after grown to fill the row with a dotted bottom edge). */
+        const edged0 = ["top", "right", "bottom", "left"].some((k) => ps.getPropertyValue(`border-${k}-style`) !== "none" && (parseFloat(ps.getPropertyValue(`border-${k}-width`)) || 0) > 0);
+        if (!(!seeThrough(ps.backgroundColor) || paint0.image || paint0.mask || paint0.shadow || words0 || edged0)) continue;
         const stand = document.createElement("span");
         for (let k = 0; k < ps.length; k++) { const prop = ps[k]!; if (prop !== "content") stand.style.setProperty(prop, ps.getPropertyValue(prop)); }
         if (words0) stand.textContent = words0;
@@ -384,6 +447,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
         if (!(rr.width > 0 && rr.height > 0)) continue;
         const b0 = box(rr);
         const st0 = { ...styleOf(el, which), ...paint0 };
+        /* An edge on one side only (the leader's dotted bottom) is the edge it draws: in a box as thin as the edge, it reads as that line. */
+        if (edged0 && !st0.border) { const side = ["bottom", "top", "left", "right"].find((k) => ps.getPropertyValue(`border-${k}-style`) !== "none" && (parseFloat(ps.getPropertyValue(`border-${k}-width`)) || 0) > 0)!; st0.border = { w: Math.min(parseFloat(ps.getPropertyValue(`border-${side}-width`)) || 1, Math.max(1, Math.floor(Math.min(b0.w, b0.h) / 2))), style: ps.getPropertyValue(`border-${side}-style`), colour: ps.getPropertyValue(`border-${side}-color`) }; }
         if (/%$/.test(ps.borderTopLeftRadius)) st0.radius = Math.round((parseFloat(ps.borderTopLeftRadius) / 100) * Math.min(b0.w, b0.h));
         const turn0 = turnSaid(turnOf(el), b0);
         push({ kind: "shape", tag: which, parent, box: b0, words: words0, hooks: {}, hidden, selector: `${path(el)}${which}`, style: st0, pseudo: { which, host: hooksOf(el) }, ...(turn0 ? { turn: turn0 } : {}) });
@@ -589,7 +654,17 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
     if (el) {
       /* Pinned to the window (PST's tour and its card): kept on the part, so the board keeps it on the page and shades the page with it (`boardStates.ts#keepOverlaysOnPage`). */
-      if (css(el).position === "fixed") p.position = "fixed";
+      const pos = css(el).position;
+      if (pos === "fixed" || pos === "sticky") {
+        p.position = pos;
+        /* Where it pins, as computed: the sides the page set (a sticky rail's top: 0), so the board and Preview pin it there (the capture's `from.inset`). */
+        const cs = css(el), inset: NonNullable<PagePart["inset"]> = {};
+        for (const side of ["top", "right", "bottom", "left"] as const) { const v = cs.getPropertyValue(side); if (/^-?[\d.]+px$/.test(v)) inset[side] = Math.round(parseFloat(v) * 100) / 100; }
+        if (Object.keys(inset).length) p.inset = inset;
+      }
+      /* Stacked over or under its neighbours by the page (a seal z-index 2 over its clipboard). */
+      const z = css(el).zIndex;
+      if (pos !== "static" && /^-?\d+$/.test(z)) p.style.z = Number(z);
       /*
        * A RAIL THAT STICKS THE WHOLE WAY DOWN (J, 2026-10-11): a sticky
        * element as tall as the window is beside every part of the page
@@ -619,12 +694,50 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
         if (a && own && !held) p.style.ownTurn = own;
       }
       if (!p.pseudo && !lean) Object.assign(p.style, statesOf(el, was));
+      /* What the live page computed for a hooked part (a shape inside an svg is drawn by its svg), as it stands: the import report checks the board was handed every bit of it (`pageParts.ts#fidelityOf`). */
+      if (!lean && !p.pseudo && p.hooks["data-hook"] && !(el instanceof SVGElement && el.tagName.toLowerCase() !== "svg")) {
+        const ls = css(el), w = was ?? ls;
+        /* Turned, scaled or skewed; a move alone (translate) is already in its box. */
+        const m = ls.transform && ls.transform !== "none" ? new DOMMatrix(ls.transform) : null;
+        const turned = (!!m && (Math.abs(m.a - 1) > 1e-3 || Math.abs(m.b) > 1e-3 || Math.abs(m.c) > 1e-3 || Math.abs(m.d - 1) > 1e-3)) || [ls.getPropertyValue("rotate"), ls.getPropertyValue("scale")].some((v) => !!v && v !== "none" && !/^(0deg|1)$/.test(v)) || restTurn.has(el);
+        p.live = { font: `${ls.fontWeight} ${ls.fontSize} ${ls.fontFamily}`, colour: ls.color, bg: ls.backgroundColor, image: ls.backgroundImage, shadow: ls.boxShadow, filter: ls.filter, turned, animations: (animOf(w) ?? []).map((a) => a.name), position: ls.position };
+      }
     }
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
     const at = parts.length - 1;
+    if (el && !p.pseudo && !partOf.has(el)) partOf.set(el, p);
     if (el && !p.pseudo) pseudoParts(el, p.kind === "section" ? at : p.parent, p.hidden, at);
     return at;
+  };
+
+  /* The display a hidden block's own rules give it once whatever hides it is off (J, 2026-10-11): PST's
+     scoreboard is a grid and its stamps inline-grid, and shown as block for the read its cells stacked in a
+     column and the stamps ran the full line. The last rule in sheet order that says something other than
+     none wins, an !important one over the rest; PST names each part by hook, so that is the one it wears. */
+  let displayRules: { sel: string; v: string; important: boolean }[] | null = null;
+  const ownDisplay = (e: Element): string | null => {
+    if (!displayRules) {
+      const all: { sel: string; v: string; important: boolean }[] = [];
+      const walk = (list: CSSRuleList) => {
+        for (const r of Array.from(list)) {
+          if (r instanceof CSSStyleRule) {
+            const v = r.style.getPropertyValue("display").trim();
+            if (v && !/^(none|contents|inherit|initial|unset|revert(-layer)?)$/.test(v)) all.push({ sel: r.selectorText, v, important: r.style.getPropertyPriority("display") === "important" });
+          } else if (r instanceof CSSMediaRule) { if (matchMedia(r.conditionText).matches) walk(r.cssRules); }
+          else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) { try { walk(sh.cssRules); } catch { /* another origin's sheet */ } }
+      displayRules = all;
+    }
+    let found: string | null = null, sure = false;
+    for (const r of displayRules) {
+      if (sure && !r.important) continue;
+      try { if (!e.matches(r.sel)) continue; } catch { continue; }
+      found = r.v; sure = r.important;
+    }
+    return found;
   };
 
   /* Hidden blocks wait until the page as it opens has been read. */
@@ -733,6 +846,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (SKIP.has(d.tagName) || d.tagName === "BR") continue;
       if (isControl(d) || isMedia(d) || d.tagName === "TEMPLATE") return true;
       if (shown(d) && !inlineish(d)) return true;
+      /* An inline box that animates is a part of its own (`flow`), so what holds it holds parts. */
+      if (shown(d) && css(d).display === "inline-block" && (moving.has(d) || (css(d).animationName || "none") !== "none")) return true;
     }
     return false;
   };
@@ -834,6 +949,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      */
     const inline = el.tagName.toLowerCase() === "svg";
     const kept = new Set<Element>();
+    const moves = new Set<string>();
+    let svgMarkup = "";
     if (inline && !drawn) {
       try {
         const copy = el.cloneNode(true) as SVGSVGElement;
@@ -843,15 +960,42 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
           if (!c || !/^(svg|g|path|circle|ellipse|rect|polygon|polyline|line|text|tspan|use)$/i.test(s.tagName)) return;
           const sc = css(s);
           /* A circle, an ellipse or a box with a hook is a part of its own (below), drawn there: not twice. */
-          if (/^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
+          /* Unless a box cannot draw it: a dashed stroke (a dial's ticks are one circle dashed into twelve), a pathLength, a turn or an animation stay in the svg, where they are drawn as the page drew them. */
+          const plain = (sc.strokeDasharray === "none" || !sc.strokeDasharray) && !s.hasAttribute("pathLength") && (sc.transform === "none" || !sc.transform) && !s.hasAttribute("transform") && !animOf(moving.get(s) ?? sc);
+          if (plain && /^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
           /* Words in it keep the face the page set them in (PST's dial labels: 700 8px Gill Sans, spaced), else the picture sets them in the svg default. */
           const type = /^(text|tspan)$/i.test(s.tagName) ? `;font-family:${sc.fontFamily};font-size:${sc.fontSize};font-weight:${sc.fontWeight};font-style:${sc.fontStyle};letter-spacing:${sc.letterSpacing};text-anchor:${sc.textAnchor};dominant-baseline:${sc.dominantBaseline};text-transform:${sc.textTransform}` : "";
-          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};opacity:${sc.opacity};color:${sc.color}${type}`);
+          /*
+           * DRAWN AS THE PAGE DREW IT, STROKES AND MOTION INCLUDED. A dial's
+           * ticks are one circle with a dashed stroke, its hands lines a
+           * stylesheet turns and spins: without the dashes, the CSS turn and
+           * the animation the ticks drew as one solid ring and the hands
+           * stood still at twelve. Each is written on its shape.
+           */
+          const dash = sc.strokeDasharray && sc.strokeDasharray !== "none" ? `;stroke-dasharray:${sc.strokeDasharray};stroke-dashoffset:${sc.strokeDashoffset}` : "";
+          const turned = sc.transform && sc.transform !== "none" && !s.hasAttribute("transform") ? `;transform:${sc.transform};transform-box:${sc.transformBox};transform-origin:${sc.transformOrigin}` : "";
+          const a = animOf(moving.get(s) ?? sc);
+          if (a) for (const x of a) moves.add(x.name);
+          const anim = a ? `;transform-box:${sc.transformBox};transform-origin:${sc.transformOrigin};animation:${a.map((x) => `${x.name} ${x.duration} ${x.timing} ${x.delay} ${x.iterations} ${x.direction} ${x.fill}`).join(",")}` : "";
+          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};stroke-miterlimit:${sc.strokeMiterlimit};paint-order:${sc.paintOrder};opacity:${sc.opacity};color:${sc.color}${dash}${turned}${anim}${type}`);
         });
+        /* Nothing in it runs: no scripts, no foreign html, no handlers, no script links. */
+        copy.querySelectorAll("script, foreignObject").forEach((n) => n.remove());
+        for (const n of [copy, ...Array.from(copy.querySelectorAll("*"))]) for (const at of Array.from(n.attributes)) if (/^on/i.test(at.name) || (/href$/i.test(at.name) && /^\s*javascript:/i.test(at.value))) n.removeAttribute(at.name);
+        /* The keyframes its shapes play, written into it, so the hands spin wherever it is drawn. */
+        if (moves.size) {
+          const root = css(document.documentElement);
+          const out: string[] = [];
+          const find = (list: CSSRuleList) => { for (const r of Array.from(list)) { if (r instanceof CSSKeyframesRule) { if (moves.has(r.name) && !out.some((t) => t.startsWith(`@keyframes ${r.name} `))) out.push(r.cssText.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*))?\)/g, (_, n: string, fb?: string) => root.getPropertyValue(n).trim() || (fb ?? "").trim())); } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) find((r as CSSGroupingRule).cssRules); } };
+          for (const sh of Array.from(document.styleSheets)) { try { find(sh.cssRules); } catch { /* another origin's sheet */ } }
+          if (out.length) { const st = document.createElementNS("http://www.w3.org/2000/svg", "style"); st.textContent = out.join("\n"); copy.insertBefore(st, copy.firstChild); }
+        }
         copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         copy.setAttribute("width", String(b.w));
         copy.setAttribute("height", String(b.h));
-        drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
+        const markup = new XMLSerializer().serializeToString(copy);
+        if (markup.length <= 200_000) svgMarkup = markup;
+        drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
       } catch { /* drawn as it was */ }
     }
     /*
@@ -883,7 +1027,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
     /* Painted as the box's own picture, as a data: background is: no file to carry, nothing to stand in for. */
     const at = inline && drawn
-      ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] } }, el)
+      ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] }, ...(svgMarkup ? { svg: svgMarkup } : {}) }, el)
       : push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: drawn || im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
     /*
      * AN INLINE SVG KEEPS ITS SHAPES' HOOKS. PST's duel is an svg holding two
@@ -925,8 +1069,19 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     push({ kind: "link", tag: "a", parent, box: box(a.getBoundingClientRect()), words: said, href: a.getAttribute("href") ?? "", ...(underlined(a) ? {} : { bare: true as const }), hooks: hooksOf(a), hidden, selector: path(a), style: styleOf(a) }, a);
   };
 
-  /* A run of inline words between the parts of a mixed block: one line of its own. */
-  let lineNo = 0;
+  /*
+   * A run of inline words between the parts of a mixed block: one line of its
+   * own, numbered within the box that holds it. Numbered across the page, one
+   * line a media query adds or drops anywhere above moved every later line's
+   * number, so tablet and phone, matched to desktop by selector, took another
+   * line's box or came back hidden: redesign Play at 390 matched 0 of its 17
+   * lines to 1440's (J, 2026-10-11). Within its box, 16 of 17.
+   * Counted by the holder's path, not the element: a template's clone is read
+   * in a stand-in box that has the path of a real one beside it, and two
+   * holders on one path would both say ::line(1).
+   */
+  const lineNos = new Map<string, number>();
+  const lineSel = (holder: Element) => { const at = path(holder); const n = (lineNos.get(at) ?? 0) + 1; lineNos.set(at, n); return `${at} ::line(${n})`; };
   /* The last line read, and where its last row ends: a small part set right after its words follows them (`tieAfter`). */
   let lastLine: { at: number; right: number; top: number; bottom: number } | null = null;
   /*
@@ -997,7 +1152,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     x1 = x0 + Math.ceil(x1 - x0 - 0.01);
     const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
-    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: styleOf(holder) }, undefined, holder); return; }
+    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: lineSel(holder), style: styleOf(holder) }, undefined, holder); return; }
     /*
      * The line wears its holder's words, never its box: the holder is a part
      * of its own when it paints, and drew its fill, outline and padding there.
@@ -1006,7 +1161,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      */
     const worn = styleOf(holder);
     delete worn.layout; delete worn.clips; delete worn.maxw;
-    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${++lineNo})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: lineSel(holder), style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
     const last = rows.reduce<(typeof rows)[number] | null>((a, w) => (!a || w.top > a.top ? w : a), null);
     lastLine = at >= 0 && last ? { at, right: last.right, top: last.top, bottom: last.bottom } : null;
   };
@@ -1032,6 +1187,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (e.tagName === "SUMMARY" && paints(e)) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
       /* An inline element the page took out of its line (placed absolutely, or turned on its own: PST's "Test networks only" stamp, a rotated span over the desk) is a part of its own where the page put it, with its hook and its turn; folded into the line it lost all three. */
       if (inlineish(e) && (/^(absolute|fixed)$/.test(css(e).position) || turns.has(e))) { flush(); block(e, parent, hidden); continue; }
+      /* An inline box that animates (PST's readouts flicker on like warming phosphor) is a part of its own, set right after the words before it: a stretch of the line's words has no animation to play. */
+      if (css(e).display === "inline-block" && (moving.has(e) || (css(e).animationName || "none") !== "none")) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
         /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */
@@ -1109,7 +1266,12 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       const hadHidden = h.hasAttribute("hidden");
       const hadStyle = h.getAttribute("style");
       if (hadHidden) h.removeAttribute("hidden");
-      if (!shown(h)) h.style.setProperty("display", h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block", "important");
+      if (!shown(h)) {
+        const plain = h.tagName === "TR" ? "table-row" : h.tagName === "TD" || h.tagName === "TH" ? "table-cell" : "block";
+        h.style.setProperty("display", ownDisplay(h) ?? plain, "important");
+        /* A display its rules give through a token that comes out as none: shown plainly instead. */
+        if (!shown(h)) h.style.setProperty("display", plain, "important");
+      }
       undo.push(() => { if (hadHidden) h.setAttribute("hidden", ""); if (hadStyle === null) h.removeAttribute("style"); else h.setAttribute("style", hadStyle); });
     }
     try {
@@ -1159,8 +1321,81 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
   };
   if (named.size) for (const sh of Array.from(document.styleSheets)) { try { frameRules(sh.cssRules); } catch { /* another origin's sheet */ } }
+  /*
+   * THE PAGE'S OWN BACKGROUND LAYERS. A page painted on <html>, or on a
+   * <body> that is not a part of its own (no hook), with layers of
+   * gradients (a lamp's glow over a sunburst over halftone dots) or a
+   * ::before/::after laid over the whole page, came in as its one ground
+   * colour. Each is kept, in paint order, with its box and how it paints.
+   */
+  const layers: NonNullable<PageRead["layers"]> = [];
+  const layerOf = (from: NonNullable<PageRead["layers"]>[number]["from"], s: CSSStyleDeclaration, b: { x: number; y: number; w: number; h: number }, position: "absolute" | "fixed", ownColour = true) => {
+    const paint = paintOf(s);
+    const colour = !ownColour || seeThrough(s.backgroundColor) ? null : s.backgroundColor;
+    if (!paint.image && !paint.mask && !colour) return;
+    const z = /^-?\d+$/.test(s.zIndex) ? Number(s.zIndex) : null;
+    const opacity = Number(s.opacity);
+    layers.push({ from, position, box: b, z, art: { ...(colour ? { colour } : {}), ...(paint.image ? { background: paint.image, ...(paint.imageOptions ? { backgroundOptions: paint.imageOptions } : {}), ...(paint.imageBlend ? { backgroundBlend: paint.imageBlend } : {}) } : {}), ...(paint.filter ? { filter: paint.filter } : {}), ...(paint.mask ? { mask: paint.mask, ...(paint.maskOptions ? { maskOptions: paint.maskOptions } : {}) } : {}), ...(paint.blend ? { blend: paint.blend } : {}), ...(opacity < 1 ? { opacity } : {}) } });
+  };
+  const pageH = Math.max(document.documentElement.scrollHeight, innerHeight);
+  const whole = { x: 0, y: 0, w: innerWidth, h: pageH };
+  const bodyIsPart = hooked(document.body);
+  for (const [el, name] of [[document.documentElement, "html"], [document.body, "body"]] as const) {
+    if (el === document.body && bodyIsPart) continue;
+    const s = css(el);
+    /* The ground colour is the read's `bg` already: a layer only when it paints more than that. */
+    if (s.backgroundImage && s.backgroundImage !== "none") layerOf(name, s, el === document.body ? box(el.getBoundingClientRect()) : whole, s.backgroundAttachment === "fixed" ? "fixed" : "absolute", false);
+    for (const which of ["::before", "::after"] as const) {
+      const ps = getComputedStyle(el, which);
+      if (!ps.content || ps.content === "none" || ps.display === "none") continue;
+      const fixed = ps.position === "fixed";
+      const cb = fixed ? { x: scrollX, y: scrollY, w: innerWidth, h: innerHeight } : el === document.documentElement || css(document.body).position === "static" ? whole : box(document.body.getBoundingClientRect());
+      const n = (v: string) => (/^-?[\d.]+px$/.test(v) ? parseFloat(v) : null);
+      const w = n(ps.width) ?? cb.w, h = n(ps.height) ?? cb.h;
+      const left = n(ps.left) ?? (n(ps.right) !== null ? cb.w - w - n(ps.right)! : 0);
+      const top = n(ps.top) ?? (n(ps.bottom) !== null ? cb.h - h - n(ps.bottom)! : 0);
+      layerOf(`${name}${which}` as NonNullable<PageRead["layers"]>[number]["from"], ps, { x: Math.round(cb.x + left), y: Math.round(cb.y + top), w: Math.round(w), h: Math.round(h) }, fixed ? "fixed" : "absolute");
+    }
+  }
+  /* Kept against live: an element counts as kept when the part it became carries the feature (a shape, by the svg markup holding it). */
+  const counts = (): Record<Feat | "keyframes", number> => ({ animated: 0, keyframes: 0, turned: 0, svg: 0, svgShapes: 0, layered: 0, pseudo: 0, dropShadow: 0, blend: 0, clipPath: 0, mask: 0, fixed: 0, sticky: 0, canvas: 0 });
+  const live = counts(), kept = counts();
+  const keptNames = new Set<string>([...keyframes.map((k) => k.name)]);
+  for (const p of parts) if (p.svg) for (const m of p.svg.matchAll(/@keyframes\s+([\w-]+)/g)) keptNames.add(m[1]!);
+  const pseudoKept = new Set(parts.filter((p) => p.pseudo).map((p) => p.selector));
+  for (const [el, f] of census) {
+    const p = partOf.get(el);
+    const holder = el instanceof SVGElement && el.tagName.toLowerCase() !== "svg" ? el.closest("svg") : null;
+    const inMarkup = !!holder && !!partOf.get(holder)?.svg;
+    const layer = (from: string) => layers.some((l) => l.from === from);
+    const named = el === document.documentElement ? "html" : el === document.body && !bodyIsPart ? "body" : null;
+    for (const k of f) {
+      live[k]++;
+      const ok = k === "animated" ? inMarkup || !!p?.style.animation?.length
+        : k === "turned" ? inMarkup || !!p?.turn || !!p?.style.ownTurn || !!p?.style.animation?.some((a) => /forwards|both/.test(a.fill)) || (!!p && [css(el).getPropertyValue("rotate"), css(el).getPropertyValue("scale")].every((v) => !v || v === "none") && (() => { const t = css(el).transform; if (!t || t === "none") return true; const m = new DOMMatrix(t); return Math.abs(m.a - 1) < 1e-3 && Math.abs(m.b) < 1e-3 && Math.abs(m.c) < 1e-3 && Math.abs(m.d - 1) < 1e-3; })())
+        : k === "svg" ? !!p?.svg
+        : k === "svgShapes" ? inMarkup
+        : k === "layered" ? (named ? layer(named) : !!p?.style.image && layersIn(p.style.image) > 1)
+        : k === "dropShadow" ? /drop-shadow/.test(p?.style.filter ?? "")
+        : k === "blend" ? !!p?.style.blend
+        : k === "clipPath" ? !!p?.style.clipPath
+        : k === "mask" ? !!p?.style.mask
+        : k === "fixed" ? p?.position === "fixed"
+        : k === "sticky" ? p?.position === "sticky"
+        : k === "canvas" ? !!p
+        : false;
+      if (ok) kept[k]++;
+    }
+  }
+  for (const { el, which } of livePseudo) {
+    live.pseudo++;
+    const named = el === document.documentElement ? "html" : el === document.body && !bodyIsPart ? "body" : null;
+    if (named ? layers.some((l) => l.from === `${named}${which}`) : pseudoKept.has(`${path(el)}${which}`)) kept.pseudo++;
+  }
+  live.keyframes = liveNames.size;
+  kept.keyframes = [...liveNames].filter((n) => keptNames.has(n)).length;
   /* Every turn put back as it was. */
-  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
+  for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); endEntrances(el); }
   return {
     title: document.title.trim(),
     width: innerWidth,
@@ -1175,5 +1410,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     truncated,
     parts,
     ...(keyframes.length ? { keyframes } : {}),
+    ...(layers.length ? { layers } : {}),
+    ...(census.size || livePseudo.length ? { census: { live, kept } } : {}),
   };
 };

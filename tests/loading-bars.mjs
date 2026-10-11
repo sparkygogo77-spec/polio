@@ -15,7 +15,7 @@
  *   node tests/loading-bars.mjs
  */
 import { readComponents } from "../src/features/studio/components.ts";
-import { siteKinds } from "../src/features/studio/themeKinds.ts";
+import { previewPlan, siteKinds } from "../src/features/studio/themeKinds.ts";
 import { partRoles } from "../src/features/studio/partRoles.ts";
 import { toKit } from "../src/features/studio/kitExport.ts";
 import { readFileSync } from "node:fs";
@@ -55,7 +55,8 @@ check("…and so is the blue", by(BLUE)?.progress === "level", list);
 check("4. none is named Bars", !r.kinds.some((k) => k.progress && /^Bars/.test(k.name)), list);
 check("…all are drawn small, not as a panel's box", r.kinds.filter((k) => k.progress).every((k) => k.accent));
 const ui = readFileSync(new URL("../src/features/studio/SiteColours.tsx", import.meta.url), "utf8");
-check("…and the preview draws every loading-bar colour in one chip", /data-preview-part="loading-bars"/.test(ui) && /k\.accent && !k\.progress/.test(ui));
+const plan = previewPlan(r);
+check("…and the preview draws every loading-bar colour in one chip", /data-preview-part="loading-bars"/.test(ui) && r.kinds.filter((k) => k.progress).every((k) => plan.bars.includes(k) && !plan.accents.includes(k)));
 
 const roles = partRoles(nodes);
 check("5. the hook names: track loading-bar, level loading-bar-level", roles.get("track3") === "loading-bar" && roles.get("level3") === "loading-bar-level" && !roles.has("stripe3"));

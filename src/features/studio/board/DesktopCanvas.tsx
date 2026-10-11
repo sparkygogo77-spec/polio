@@ -53,6 +53,8 @@ import { useSettingValue } from "@/core/settings/useSetting";
 import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
+import { motionCss } from "../shelf/parts/capturedMotion";
+import { groundLayersOf, PageGroundLayers, pinsOf, STILL_CSS, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
 
@@ -1578,6 +1580,13 @@ export function DesktopCanvas() {
      `{ w, h }` or a fresh lead-in copy made every part redraw each time
      (`tests/pan-no-redraw.mjs`). */
   const pageBox = React.useMemo(() => ({ w: frameWidth, h: frameH }), [frameWidth, frameH]);
+  /* The site's theme on the board (`themeDraw.tsx`): its motion, played or held still by the toolbar's switch; its background layers; its fixed and sticky parts riding down with the view. */
+  const motion = useBoardMotion();
+  const motionSheet = React.useMemo(() => motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`), [pageAll, look.keyframes]);
+  const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
+  const pins = React.useMemo(() => pinsOf(nodes, pageH), [nodes, pageH]);
+  const pageWindowRef = React.useRef<HTMLDivElement>(null);
+  useViewTop(zoomRef, pageWindowRef, paneOf, zoom, pins.size > 0 || groundLayers.length > 0);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
   const leads = React.useMemo(() => leadsOf(steadyNodes), [steadyNodes]);
   const ledOf = React.useMemo(() => { const kept = new WeakMap<StudioNode, StudioNode>(); return (n: StudioNode) => { let v = kept.get(n); if (!v) { v = withLead(n, leads); kept.set(n, v); } return v; }; }, [leads]);
@@ -1665,7 +1674,7 @@ export function DesktopCanvas() {
       */}
       <div className="absolute left-0 top-0" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px)` }}>
       {/* `--chip-scale`: the 1/zoom a part's hover chips are drawn at (and `--point-z` the zoom a pointed part's glow is sized against, globals.css), set here once so a zoom does not redraw every part to tell it (`NodeView.tsx`). */}
-      <div ref={zoomRef} data-board-zoom="" className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
+      <div ref={zoomRef} data-board-zoom="" data-board-motion={motion} className="absolute left-0 top-0" style={{ zoom, "--chip-scale": Math.max(1, 1 / zoom), "--point-z": zoom } as React.CSSProperties}>
         {/*
           The page's box, which no longer clips to itself.
 
@@ -1694,6 +1703,7 @@ export function DesktopCanvas() {
           measured that way at all.
         */}
         <div
+          ref={pageWindowRef}
           data-page-window=""
           className="absolute left-0 top-0 rounded-[3px]"
           style={{ width: frameWidth, height: frameH }}
@@ -1749,6 +1759,9 @@ export function DesktopCanvas() {
           className="pointer-events-none absolute left-0 top-0"
           style={{ width: frameWidth, height: pageH }}
         >
+        <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} />
+        {motionSheet ? <style data-board-motion-css="">{motionSheet}</style> : null}
+        <style data-board-still="">{STILL_CSS}</style>
         <TextureDrift layers={look.texture} palette={palette} />
         {theme.surfaceDrift ? <style data-page-drift="">{theme.surfaceDrift}</style> : null}
         <LiveKeyframes />
@@ -1901,8 +1914,10 @@ export function DesktopCanvas() {
             flash={!!fresh && fresh.nodes.includes(n.id)}
             decide={decideAll || (mode !== "preview" && selection.includes(n.id)) ? decide.get(n.id) ?? null : null}
             name={names.get(n.id) ?? n.label}
+            pin={pins.get(n.id)}
           />
         ))}
+        <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} over />
         {/* Words typed where they are drawn (`WordsInPlace.tsx`). */}
         <WordsInPlace zoom={zoom} />
 

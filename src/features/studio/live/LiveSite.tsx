@@ -31,6 +31,30 @@ import { carriers, movesWhole } from "./carry";
 import { followsOf, placeFollowers } from "./follow";
 import { leadsOf, withLead } from "../shelf";
 import { holderIds } from "../owner";
+import { groundLayersOf, layerStyle, overParts, type GroundLayer } from "../board/themeDraw";
+
+/**
+ * THE PAGE'S OWN BACKGROUND LAYERS, LIVE. The html and body layers a page
+ * paints (a sunburst, a halftone, a ::before grain over everything) are kept
+ * on the page record (`page.ground.layers`) and the board draws them
+ * (`board/themeDraw.tsx`); the Preview and the published page did not. They
+ * are drawn here the same way, under the parts or over them as the page put
+ * them, and a layer the page pinned to the window is fixed: in the Preview's
+ * window view that is its view, which does not scroll (`LiveStage.tsx`).
+ */
+function LiveGroundLayers({ layers, width, height, over = false }: { layers: GroundLayer[]; width: number; height: number; over?: boolean }) {
+  const here = layers.filter((l) => overParts(l) === over);
+  if (!here.length) return null;
+  return (
+    <div aria-hidden data-live-ground-layers={over ? "over" : "under"} style={{ position: "absolute", left: 0, top: 0, width, height, overflow: "clip", pointerEvents: "none", "--view-top": "0px", "--view-h": "100%", ...(over ? { zIndex: 30 } : null) } as React.CSSProperties}>
+      {here.map((l, i) => {
+        const pinned = !!l.fixed || l.attachment === "fixed";
+        const st = layerStyle(l, width, height);
+        return <div key={`${l.which}-${i}`} data-ground-layer={l.which} className="mo" style={pinned ? { ...st, position: "fixed", maxHeight: undefined } : st} />;
+      })}
+    </div>
+  );
+}
 
 /** Parts that draw a real control and wear a brought-in page's hooks on it, not on their box. */
 const OWN_HOOKS = new Set(["field", "checkbox"]);
@@ -184,6 +208,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   );
   const height = reflowed && sections.length ? laidOut + sections.length * (STRIP + 12) + 12 : laidOut;
   const pageScroll = pages.find((p) => p.id === pageId)?.scroll;
+  const groundLayers = React.useMemo(() => groundLayersOf(pages.find((p) => p.id === pageId)), [pages, pageId]);
   const behaviours = React.useMemo(() => deriveBehaviours(pageNodes, pageScroll, frameWidth), [pageNodes, pageScroll, frameWidth]);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const seq = React.useRef(0);
@@ -451,6 +476,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       <CarriedFonts fonts={look?.fonts} />
       {/* The page's own motion, as captured (parts/capturedMotion.ts); the export writes the same into its stylesheet. */}
       {motionSheet ? <style data-motion-css="">{motionSheet}</style> : null}
+      <LiveGroundLayers layers={groundLayers} width={width} height={height} />
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface} published={published}>
         <div key={pageId} className="sm-root" style={{ position: "absolute", inset: 0, animation }}>
           {/* The pool the lamp puts on the page ("Light on the page"), as the
@@ -491,6 +517,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
           ) : null}
         </div>
       </LiveShell>
+      <LiveGroundLayers layers={groundLayers} width={width} height={height} over />
       {t.overlayStyle ? (
         <div aria-hidden data-live-wash="" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...t.overlayStyle }} />
       ) : null}

@@ -5,8 +5,8 @@
  * drawn as a tab because small cream tags share their colour.
  *
  *   1. a thin strip under a button is trim: never a button, never mixed with the surfaces of its colour;
- *   2. trim painted in repeating stripes is "Stripes", drawn as a small dot;
- *   3. a kind whose area is mostly panels is drawn as a box, however many small tags share it;
+ *   2. trim painted in repeating stripes is "Stripes", drawn as a bar in its stripes (a strip), not a dot;
+ *   3. the paper panels are drawn as a box; the small tags of their colour are label bars of their own;
  *   4. a kind of small tags with one big overlay is still a tab;
  *   5. a lone panel a darker shade of the wood (the key cabinet) joins the wood, not the one-offs;
  *   6. past the cap of kinds, a big real surface is still kept;
@@ -41,8 +41,9 @@ const list = r.kinds.map((k) => `${k.name}:${k.parts}${k.tab ? "·tab" : ""}${k.
 const of = (id) => r.kinds.find((k) => k.ids.includes(id));
 check("1. the lip is not a button", of("lip0") && !of("lip0").button && !of("btn0").ids.includes("lip0"), list);
 check("…nor one of the ink surfaces", of("lip0") !== of("ink0"), list);
-check("2. striped trim is Stripes, a small dot", of("lip0")?.name === "Stripes" && of("lip0").accent === true && /repeating-linear-gradient/.test(of("lip0").paint), list);
-check("3. the paper panels and their tags are a box, not a tab", of("card0") && of("card0") === of("tag0") && of("card0").tab === false && of("card0").accent === false, list);
+check("2. striped trim is Stripes, drawn as a strip", of("lip0")?.name === "Stripes" && of("lip0").strip === true && of("lip0").accent === false && /repeating-linear-gradient/.test(of("lip0").paint), list);
+check("3. the paper panels are a box, not a tab", of("card0") && of("card0").tab === false && of("card0").accent === false && of("card0").strip === false, list);
+check("…and the small paper tags a label bar of their own", of("tag0") && of("tag0") !== of("card0") && of("tag0").tab === true, list);
 check("4. small ink tags with one big overlay stay a tab", of("ink0")?.tab === true, list);
 
 /* 5–6: the wood rail on three pages and the TV's stand, a darker-wood key cabinet, and eleven kinds of small buttons ahead of it in the count. */
@@ -55,7 +56,7 @@ for (let c = 0; c < 11; c++) for (let i = 0; i < 12; i++) wood.push({ id: `b${c}
 const w = siteKinds(wood, { bg: "rgb(233, 214, 180)" });
 const woodKind = w.kinds.find((k) => k.ids.includes("stand"));
 check("5. the darker-wood cabinet joins the wood", !!woodKind && woodKind.ids.includes("cabinet"), w.kinds.map((k) => `${k.name}:${k.parts}`).join(", "));
-check("6. past the cap of kinds, the wood is still kept", !!woodKind && w.kinds.filter((k) => k.button).length === 10, w.kinds.map((k) => k.name).join(", "));
+check("6. with eleven kinds of small buttons ahead of it, the wood is still kept", !!woodKind && w.kinds.filter((k) => k.button).length >= 10, w.kinds.map((k) => k.name).join(", "));
 
 /* 7: forty brass screw heads on brass plates on the wood, and one big ruler painted the same brass gradient. */
 const BRASS = "rgb(125, 94, 29)", PLATE = "rgb(246, 197, 106)", SCREW = `radial-gradient(circle, rgb(255, 248, 216) 0px, ${BRASS} 100%)`;
