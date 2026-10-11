@@ -26,6 +26,7 @@ import type { Theme } from "./theme";
 import { hasLetters, type Span } from "./spans";
 import { animationsValue } from "./capturedMotion";
 import type { NodeLink, PartMode } from "./types";
+import { FAMILY } from "./theme";
 
 export interface RunsProps {
   spans: readonly Span[];
@@ -85,7 +86,8 @@ function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefin
   /* The face by its real name, with the part's own stack behind it: where
      the file is on this machine it draws in it, and where it is not the
      part's face draws rather than a browser default. */
-  if (s.face) { out.fontFamily = `'${s.face.replace(/['"]/g, "")}', ${t.bodyFamily}`; any = true; }
+  /* Or one of the app's own families by its plain name ("serif", "monospace"), as the Font control offers them: its stack, not a face called "serif". */
+  if (s.face) { const name = s.face.replace(/['"]/g, "").trim(); out.fontFamily = FAMILY[name] ?? `'${name}', ${t.bodyFamily}`; any = true; }
   if (s.space?.length === 2) { if (s.space[0]) out.marginLeft = s.space[0]; if (s.space[1]) out.marginRight = s.space[1]; any = true; }
   /* A chip in the sentence: its own fill, padding and rounding, on every line it wraps onto (tests/run-chip.mjs). */
   if (s.bg) {
@@ -97,6 +99,18 @@ function look(s: Span, t: Theme, mode?: PartMode): React.CSSProperties | undefin
     any = true;
   }
   return any ? out : undefined;
+}
+
+/**
+ * A line break inside a run drawn as one. A captured title keeps its page's
+ * `<br>` as "\n" in its words (sunkcoin.fun's "The coin that pays\nyour sunk
+ * cost."), and a heading draws its runs straight, without `lines()`: in
+ * ordinary white space that "\n" would collapse to a space.
+ */
+function broken(text: string): React.ReactNode {
+  if (!text.includes("\n")) return text;
+  const bits = text.split("\n");
+  return bits.map((b, i) => <React.Fragment key={i}>{i ? <br /> : null}{b}</React.Fragment>);
 }
 
 export function Runs({ spans, t, mode, onNavigate }: RunsProps) {
@@ -155,8 +169,8 @@ function one(s: Span, i: number, t: Theme, mode: PartMode | undefined, onNavigat
          * no style, the words straight in, so nothing about being stored as
          * runs can change how they set.
          */
-        if (to) return <span key={i} {...own} data-run-link={to.kind} data-run-to={to.target} style={style}>{s.text}</span>;
-        if (own) return <span key={i} {...own} className={moving ? "mo-l" : undefined} style={style ?? undefined}>{s.text}</span>;
-        return style ? <span key={i} className={moving ? "mo-l" : undefined} style={style}>{s.text}</span> : <React.Fragment key={i}>{s.text}</React.Fragment>;
+        if (to) return <span key={i} {...own} data-run-link={to.kind} data-run-to={to.target} style={style}>{broken(s.text)}</span>;
+        if (own) return <span key={i} {...own} className={moving ? "mo-l" : undefined} style={style ?? undefined}>{broken(s.text)}</span>;
+        return style ? <span key={i} className={moving ? "mo-l" : undefined} style={style}>{broken(s.text)}</span> : <React.Fragment key={i}>{broken(s.text)}</React.Fragment>;
       }
 }
