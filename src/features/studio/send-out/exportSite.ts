@@ -133,7 +133,7 @@ function toRoles(style: string, roles: [string, RoleId][]): string {
 const upOf = (page: StudioPage, home: Home) => "../".repeat(pageFile(page, home).split("/").length - 1);
 
 /** Where a link goes from one exported page, as an href, or null when it names nothing that is exported. */
-/* The site's allow-list for links off it, read as each export starts. */
+/* The site's allow-list for links off it, set for one export just before its pages are written (see `keepHooks`). */
 let offsite: OffsiteRules = offsiteRules(DEFAULT_OFFSITE);
 function hrefOf(link: NodeLink | null | undefined, from: StudioPage, pages: StudioPage[], home: Home): string | null {
   const target = link?.target?.trim();
@@ -437,7 +437,11 @@ function carriedFeatures(nodes: StudioNode[], fluid: boolean): StudioNode[] {
   });
 }
 
-/** Set for one export: keep `data-hook` attributes (Export for code). */
+/**
+ * Set for one export: keep `data-hook` attributes (Export for code). Set
+ * just before the page loop, which never awaits, so a Go live and a kit
+ * Publish running at once each clean their pages with their own setting.
+ */
 let keepHooks = false;
 
 function clean(html: string, page: StudioPage, pages: StudioPage[], home: Home, nodes: Map<string, StudioNode>, roles: [string, RoleId][], fluidAt: number | null = null, atOf?: ReadonlyMap<string, string>, shared?: ReadonlyMap<string, readonly string[]>): string {
@@ -932,8 +936,8 @@ export function publishedAt(): string | null {
  */
 export async function exportSite(only?: readonly string[], opts: { pictures?: boolean; /** The published address when it is known before the site has gone live (Go live asks Vercel for it before the push). */ address?: string | null; /** Keep every `data-hook` the pages carry (Export for code). */ hooks?: boolean } = {}): Promise<ExportFile[]> {
   const s = useStudio.getState();
-  keepHooks = !!opts.hooks;
-  offsite = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
+  const hooksKept = !!opts.hooks;
+  const offsiteNow = offsiteRules(String(s.format?.["links.offsite"] ?? DEFAULT_OFFSITE));
   if (!s.pages.length) return [];
   const home = homeFor(s.pages);
   const width = s.frameWidth || 1440;
@@ -1020,6 +1024,9 @@ export async function exportSite(only?: readonly string[], opts: { pictures?: bo
   let anyMotion = false;
   let anyParts = false;
   const drawn: string[] = [];
+  /* Only now: the awaits above let another export start, and it sets these too. */
+  keepHooks = hooksKept;
+  offsite = offsiteNow;
   for (const page of s.pages) {
     if (only && !only.includes(page.id)) continue;
     const up = upOf(page, home);
