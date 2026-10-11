@@ -43,6 +43,7 @@ import { scenesOnPage } from "./sceneStep";
 import { screenKey } from "./boardStates";
 import { spotlight } from "./panelSpotlight";
 import { MoreStates } from "./PanelsMore";
+import { holdGiveBack, holdWrite, type RailHold } from "./railHold";
 import { StructureView } from "./StructureView";
 
 type Source = { files?: { file: string; pageId: string }[]; screens?: ScreenRead[]; scenes?: DeclaredScene[] | null; samples?: Samples | null };
@@ -92,6 +93,25 @@ function beginStateEdit(key: string, ids: string[]) {
   useStudio.setState({ nodes: got.nodes as never });
 }
 
+/*
+ * Every change the rail makes to the board's states is held (`railHold.ts`),
+ * so letting go, or the pointer leaving a hovered panel, puts back exactly
+ * what it changed and the board is as it was.
+ */
+let held: RailHold | null = null;
+function railWrite(next: string[]) {
+  const st = useStudio.getState();
+  held = holdWrite(held, st.statesOn ?? [], next);
+  st.setStatesOn(next);
+}
+function railGiveBack() {
+  const st = useStudio.getState();
+  const now = st.statesOn ?? [];
+  const back = held ? holdGiveBack(held, now) : now.filter((k) => !k.startsWith(ISOLATE));
+  held = null;
+  if (back.length !== now.length || back.some((k, i) => k !== now[i])) st.setStatesOn(back);
+}
+
 /** The page state snapped, with no slide, to the first scene that draws this hook, unless the one on show (or the page as it opens) already does. Says whether it is drawn now: false for a panel no scene draws (a pop-up such as the sign panel). */
 export function snapToSceneShowing(hook: string, openShows: boolean): boolean {
   const st = useStudio.getState();
@@ -101,7 +121,7 @@ export function snapToSceneShowing(hook: string, openShows: boolean): boolean {
   const to = scenes.findIndex((x) => x.shows.includes(hook));
   if (to < 0) return false;
   const keys = scenes.map((x) => screenKey(x.name));
-  st.setStatesOn([...(st.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), keys[to]!]);
+  railWrite([...(st.statesOn ?? []).filter((k) => !keys.includes(k) && !k.startsWith("panel:") && !k.startsWith("isolate:")), keys[to]!]);
   return true;
 }
 
@@ -153,7 +173,7 @@ export function PanelsPage() {
     const m0 = s0?.samples.find((x) => x.key === sm) ?? s0?.samples[0];
     if (!p || !s0) return;
     setPicked(id); setStateKey(s0.key); setSampleKey(m0?.key ?? null);
-    store.setStatesOn([...(store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)), isolateKey(id, s0.key, m0?.key ?? "")]);
+    railWrite([...(store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)), isolateKey(id, s0.key, m0?.key ?? "")]);
     if (!store.selection.includes(id)) store.setSelection([id]);
     window.setTimeout(() => bringToView(id, true), 60);
   }, [panels]);
@@ -161,13 +181,13 @@ export function PanelsPage() {
   const hovered = React.useRef<{ id: string; stop: (() => void) | null } | null>(null);
   /* A panel no page state draws (a pop-up) is shown on hover as it pops up: alone, in the middle, the rest dimmed (J, 2026-10-06). */
   const previewing = React.useRef(false);
-  const unhover = React.useCallback(() => {
-    hovered.current?.stop?.();
+  /* Left without a click: the scene it snapped to and any pop-up put back. Clicked (`keep`): held until it is let go. */
+  const unhover = React.useCallback((keep = false) => {
+    const was = hovered.current;
+    was?.stop?.();
     hovered.current = null;
-    if (!previewing.current) return;
     previewing.current = false;
-    const store = useStudio.getState();
-    store.setStatesOn((store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)));
+    if (was && !keep) railGiveBack();
   }, []);
   const hover = React.useCallback((p: Panel) => {
     if (hovered.current?.id === p.id) return;
@@ -179,7 +199,7 @@ export function PanelsPage() {
     if (!drawn && s0) {
       previewing.current = true;
       const store = useStudio.getState();
-      store.setStatesOn([...(store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)), isolateKey(p.id, s0.key, s0.samples[0]?.key ?? "")]);
+      railWrite([...(store.statesOn ?? []).filter((k) => !k.startsWith(ISOLATE)), isolateKey(p.id, s0.key, s0.samples[0]?.key ?? "")]);
     }
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (hovered.current?.id !== p.id) return;
@@ -188,11 +208,8 @@ export function PanelsPage() {
     }));
   }, [unhover]);
   React.useEffect(() => { if (!isOpen) unhover(); }, [isOpen, unhover]);
-  const letGo = React.useCallback(() => {
-    const store = useStudio.getState();
-    const now = store.statesOn ?? [];
-    if (now.some((k) => k.startsWith(ISOLATE))) store.setStatesOn(now.filter((k) => !k.startsWith(ISOLATE)));
-  }, []);
+  /* Let go: everything the rail switched on goes off, and what it switched off comes back. */
+  const letGo = React.useCallback(() => railGiveBack(), []);
   /* Opened on a part: the panel round it, isolated. */
   React.useEffect(() => {
     if (!isOpen || !want) return;
@@ -297,7 +314,7 @@ export function PanelsPage() {
         const lit = p.id === panel?.id && !!iso && !previewing.current;
         return (
           <div key={p.id} className={cn("flex flex-col gap-1 rounded-md", lit && "bg-accent-soft/50 pb-1.5")}>
-            <button type="button" data-panels-item={p.id} aria-pressed={lit} onPointerEnter={() => hover(p)} onPointerLeave={unhover} onFocus={() => hover(p)} onBlur={unhover} onClick={() => { play("tap"); unhover(); if (lit) letGo(); else isolate(p.id, null, null); }}
+            <button type="button" data-panels-item={p.id} aria-pressed={lit} onPointerEnter={() => hover(p)} onPointerLeave={() => unhover()} onFocus={() => hover(p)} onBlur={() => unhover()} onClick={() => { play("tap"); unhover(true); if (lit) letGo(); else isolate(p.id, null, null); }}
               className={cn("tactile flex h-7 w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-left text-plain", lit ? "text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
               <Layers className={cn("size-3 shrink-0", lit && "text-accent")} />
               <span className="min-w-0 flex-1 truncate" title={p.hook}>{p.label ?? p.hook}</span>
