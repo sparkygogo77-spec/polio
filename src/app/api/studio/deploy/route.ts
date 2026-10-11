@@ -157,6 +157,18 @@ const commitHandle = (projectId: string, sha: string | null, branch: string, sin
 /** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
 const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
 
+/**
+ * What a project's Deployment Protection asks a visitor to the live site
+ * for, in words, or null for nothing. Vercel lists each kind as an object
+ * or null; one on previews only leaves the live site open.
+ */
+function protectionOf(p: { ssoProtection?: unknown; passwordProtection?: unknown }): string | null {
+  const on = (x: unknown) => !!x && typeof x === "object" && (x as { deploymentType?: unknown }).deploymentType !== "preview" && (x as { enabled?: unknown }).enabled !== false;
+  const sso = on(p.ssoProtection);
+  const pw = on(p.passwordProtection);
+  return sso && pw ? "Vercel's sign-in and a password" : sso ? "Vercel's sign-in" : pw ? "a password" : null;
+}
+
 /** A Vercel project name made from whatever the site is called: lowercase letters, digits, `.`, `_` and `-`. */
 function projectName(name: unknown): string | null {
   if (typeof name !== "string") return null;
@@ -415,9 +427,17 @@ export async function POST(request: Request) {
    * site's own vercel.app address showed a Vercel login page to anyone but
    * J. A published site is for visitors: the lock is taken off the project,
    * and a project that cannot be opened says so rather than failing the build.
+   *
+   * ONLY ON A PROJECT THIS PRESS MADE: that lock is Vercel's default, never
+   * anybody's choice. A project found for the repository may be locked on
+   * purpose (a staging copy, a client's preview), so its protection is left
+   * as it is and the site is said to be protected, in one line
+   * (`tests/go-live-protected.mjs`).
    */
   const locked = (project as VercelProject & { ssoProtection?: unknown; passwordProtection?: { enabled?: boolean } | null });
-  if (locked.ssoProtection !== null || locked.passwordProtection?.enabled) {
+  const guards = made ? null : protectionOf(locked);
+  if (guards) note = `The site is protected: Vercel asks visitors for ${guards} (the ${project.name} project's Settings, then Deployment Protection), and Go live left that as it is.`;
+  if (made && (locked.ssoProtection !== null || locked.passwordProtection?.enabled)) {
     try {
       const open = await vercel(tok, `/v9/projects/${encodeURIComponent(project.id)}${query(team)}`, { method: "PATCH", body: JSON.stringify({ ssoProtection: null, passwordProtection: null }) });
       if (!open.ok) note = [note, `The site is still behind Vercel's sign-in: Vercel would not open it (${open.data.error?.message ?? open.status}). In Vercel, open the project's Settings, then Deployment Protection, and turn Vercel Authentication off.`].filter(Boolean).join(" ");
@@ -487,6 +507,8 @@ export async function POST(request: Request) {
           inspectorUrl: own.inspectorUrl ?? null,
           /* Started by the push, not by this call. */
           followed: true,
+          /* What to know about the project, such as its protection (above). */
+          ...(note ? { note } : {}),
         });
       }
       if (!listed || Date.now() >= until) break;
@@ -505,6 +527,7 @@ export async function POST(request: Request) {
       inspectorUrl: null,
       followed: true,
       waiting: true,
+      ...(note ? { note } : {}),
     });
   }
 

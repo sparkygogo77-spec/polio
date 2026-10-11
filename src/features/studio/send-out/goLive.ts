@@ -360,7 +360,11 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       return;
     }
     if (started.created) useStudio.getState().noteThread([`Made the Vercel project ${started.created}, connected to ${started.repo}: every push to it deploys on its own now`]);
-    if (started.note) setNote(started.note);
+    /* What the deploy route says about the project, a site left protected among it: a card too, since the top bar shows no note. */
+    if (started.note) {
+      setNote(started.note);
+      say({ key: "studio:live-note", title: "The Vercel project", body: started.note, level: "warn", source: "studio", toast: { durationMs: 12000 } });
+    }
     set({ run: { state: started.state, url: started.url, inspectorUrl: started.inspectorUrl, done: false } });
 
     setBusy("Building…");
