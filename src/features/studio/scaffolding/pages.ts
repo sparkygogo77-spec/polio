@@ -68,6 +68,23 @@ ${standInHas(input.standIn) ? `      {/* The stand-in server (public/stand-in.js
 `;
 }
 
+/**
+ * The line drawn round a part, as a clip its wrapper points at. The cut is
+ * in the part's own 0..1 box, so it is read in objectBoundingBox units and
+ * follows the part to any size; CSS path() would read it as pixels.
+ */
+function outlineClipSvg(id: string, cut: string, indent: string): string {
+  return [
+    `<svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>`,
+    `  <defs>`,
+    `    <clipPath id=${JSON.stringify(`clip-${id}`)} clipPathUnits="objectBoundingBox">`,
+    `      <path d=${JSON.stringify(cut)} />`,
+    `    </clipPath>`,
+    `  </defs>`,
+    `</svg>`,
+  ].map((l) => indent + l).join("\n");
+}
+
 /** One part, exactly as the Builder renders it. */
 export function partTsx(part: ScaffoldPart, palette: Record<string, string>): string {
   const name = componentName(part);
@@ -118,8 +135,8 @@ const ROLES = ${JSON.stringify(roleVars({
 
 export function ${name}() {
   return (
-    <div style={{ width: "100%", height: "100%"${part.outline ? `, clipPath: "path('" + PATH + "')"` : ""} }}>
-      <iframe
+    <div style={{ width: "100%", height: "100%"${part.outline ? `, overflow: "hidden", clipPath: \`url(#clip-${part.id})\`` : ""} }}>
+${part.outline ? `${outlineClipSvg(part.id, part.outline.cut, "      ")}\n` : ""}      <iframe
         title=${JSON.stringify(part.label)}
         srcDoc={\`<!doctype html><meta charset="utf-8"><meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"><style>:root{\${ROLES}}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:currentColor}svg{display:block;width:100%;height:100%}</style>\${BODY}\`}
         sandbox=""
@@ -129,18 +146,12 @@ export function ${name}() {
     </div>
   );
 }
-${part.outline ? `\n/** The line drawn round this part, in its own box. */\nconst PATH = ${JSON.stringify(part.outline.cut)};\n` : ""}`;
+`;
   }
   const body = htmlToJsx(part.html || `<div />`);
   const clipped = part.outline
     ? `    <div style={{ width: "100%", height: "100%", overflow: "hidden", clipPath: \`url(#clip-${part.id})\` }}>
-      <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
-        <defs>
-          <clipPath id=${JSON.stringify(`clip-${part.id}`)} clipPathUnits="objectBoundingBox">
-            <path d=${JSON.stringify(part.outline.cut)} />
-          </clipPath>
-        </defs>
-      </svg>
+${outlineClipSvg(part.id, part.outline.cut, "      ")}
 ${body.split("\n").map((l) => `  ${l}`).join("\n")}
     </div>`
     : body;

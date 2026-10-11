@@ -11,6 +11,8 @@
  * the file that says what is left for Claude says the true thing.
  *
  *   node tests/scaffold.mjs
+ *
+ * Covers: src/features/studio/scaffold.ts, src/features/studio/scaffolding/pages.ts
  */
 import { componentName, htmlToJsx, scaffold, styleToObject } from "../src/features/studio/scaffold.ts";
 
@@ -84,6 +86,12 @@ const helix = at(`components/parts/${componentName(input.parts[1])}.tsx`);
 check("a written body is carried through", helix.includes("a helix") && helix.includes("srcDoc"));
 check("in a frame with no permissions", helix.includes('sandbox=""') && helix.includes("default-src 'none'"));
 check("and the line it is cut to comes with it", helix.includes("M 0.5 0 C 0.6 0.3"));
+// The cut is in the part's own 0..1 box. CSS path() reads numbers as
+// pixels, so a clip built that way shrinks the part to a dot; it has to be
+// read in objectBoundingBox units, the same way a part without a body is.
+check("and is read in the part's own box, not as pixels",
+  helix.includes('clipPathUnits="objectBoundingBox"') && helix.includes("url(#clip-n_helix)") && helix.includes('id="clip-n_helix"'));
+check("never as a CSS path() of the raw cut", !/path\(['"]/.test(helix) && !helix.includes("PATH"));
 
 const idea = at(`components/parts/${componentName(input.parts[2])}.tsx`);
 check("an empty Idea part still gets a component", !!idea && idea.includes("The lab"));
