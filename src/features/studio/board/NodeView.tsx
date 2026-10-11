@@ -190,7 +190,7 @@ export function holeMask(holes: string): React.CSSProperties {
     maskComposite: Array(boxes.length + 1).fill("exclude").join(","),
   } as React.CSSProperties;
 }
-export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, pin }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** A fixed or sticky part rides down with the view (`themeDraw.ts#pinsOf`). */ pin?: string }) {
+export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, stack }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** How it stands: the ride a pinned part (or one inside it) takes with the view, and its level over the flow (`themeDraw.tsx#stacksOf`). */ stack?: { translate?: string; z: number } }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -352,9 +352,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         /* A part stepped through on the board stands over its neighbours (`liftedOnBoard`). */
         ...(lifted ? { zIndex: 4 } : {}),
         /* Pinned to the window as the page pinned it: it rides down with the view, above what scrolls under it. */
-        ...(pin ? { translate: pin, zIndex: lifted ? 4 : 3 } : {}),
-        /* Set over its neighbours by the page (`art.z`, a positive z-index): drawn over the parts in the flow. */
-        ...(!pin && !lifted && typeof (node.art as { z?: unknown } | null | undefined)?.z === "number" && ((node.art as { z: number }).z > 0) ? { zIndex: 2 } : {}),
+        ...(stack ? { ...(stack.translate ? { translate: stack.translate } : {}), zIndex: lifted ? Math.max(4, stack.z) : stack.z } : {}),
         ...(holes ? holeMask(holes) : {}),
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.

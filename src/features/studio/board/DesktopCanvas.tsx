@@ -54,7 +54,7 @@ import { pulledBox,scaleHeld } from "../groupScale";
 import { pageFeatures } from "../shelf";
 import { ON_BOARD } from "../shelf";
 import { motionCss } from "../shelf/parts/capturedMotion";
-import { groundLayersOf, PageGroundLayers, pinsOf, STILL_CSS, useBoardMotion, useViewTop } from "./themeDraw";
+import { BOARD_MOTION_CSS, groundLayersOf, PageGroundLayers, stacksOf, useBoardMotion, useViewTop } from "./themeDraw";
 import { runWorks } from "../live/runWorks";
 import { followsOf, placeFollowers } from "../live/follow";
 
@@ -1584,9 +1584,9 @@ export function DesktopCanvas() {
   const motion = useBoardMotion();
   const motionSheet = React.useMemo(() => motionCss(pageAll, look.keyframes, (id) => `[data-node-id="${id}"]`), [pageAll, look.keyframes]);
   const groundLayers = React.useMemo(() => groundLayersOf(page), [page]);
-  const pins = React.useMemo(() => pinsOf(nodes, pageH), [nodes, pageH]);
+  const stacks = React.useMemo(() => stacksOf(nodes, pageH), [nodes, pageH]);
   const pageWindowRef = React.useRef<HTMLDivElement>(null);
-  useViewTop(zoomRef, pageWindowRef, paneOf, zoom, pins.size > 0 || groundLayers.length > 0);
+  useViewTop(zoomRef, pageWindowRef, paneOf, zoom, stacks.size > 0 || groundLayers.length > 0);
   /* Kept per part, so a part the hand is not on keeps the same object across a drag and its `NodeView` is not drawn again. */
   const leads = React.useMemo(() => leadsOf(steadyNodes), [steadyNodes]);
   const ledOf = React.useMemo(() => { const kept = new WeakMap<StudioNode, StudioNode>(); return (n: StudioNode) => { let v = kept.get(n); if (!v) { v = withLead(n, leads); kept.set(n, v); } return v; }; }, [leads]);
@@ -1761,7 +1761,7 @@ export function DesktopCanvas() {
         >
         <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} />
         {motionSheet ? <style data-board-motion-css="">{motionSheet}</style> : null}
-        <style data-board-still="">{STILL_CSS}</style>
+        <style data-board-still="">{BOARD_MOTION_CSS}</style>
         <TextureDrift layers={look.texture} palette={palette} />
         {theme.surfaceDrift ? <style data-page-drift="">{theme.surfaceDrift}</style> : null}
         <LiveKeyframes />
@@ -1914,7 +1914,7 @@ export function DesktopCanvas() {
             flash={!!fresh && fresh.nodes.includes(n.id)}
             decide={decideAll || (mode !== "preview" && selection.includes(n.id)) ? decide.get(n.id) ?? null : null}
             name={names.get(n.id) ?? n.label}
-            pin={pins.get(n.id)}
+            stack={stacks.get(n.id)}
           />
         ))}
         <PageGroundLayers layers={groundLayers} width={frameWidth} height={pageH} over />
