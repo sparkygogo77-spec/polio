@@ -1014,9 +1014,8 @@ export function DesktopCanvas() {
       const by = clampMove(s.nodes, all, was, dx, dy);
       const positions: Record<string, { x: number; y: number }> = {};
       for (const n of s.nodes) if (all.includes(n.id) && !n.locked) positions[n.id] = { x: n.x + by.dx, y: n.y + by.dy };
-      s.setPositions(positions);
-      const before = new Map(s.nodes.map((n) => [n.id, n]));
-      useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (positions[n.id] && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(before.get(n.id) ?? n) } : n)) });
+      /* One write, so one save of the document per press (two were 150 ms a press on PST). */
+      useStudio.setState({ nodes: s.nodes.map((n) => (positions[n.id] ? { ...n, ...positions[n.id]!, ...(n.byHand ? {} : { byHand: true, handFrom: boxOf(n) }) } : n)) });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
