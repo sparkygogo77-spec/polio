@@ -31,7 +31,6 @@ import { Inspector } from "../panels/ui";
 import { LookPanel } from "../look/ui";
 import { MotionPanel } from "../panels/ui";
 import { PicturesPanel } from "../pictures/ui";
-import { LabPanel } from "../lab/ui";
 import { FormatPanel } from "../panels/ui";
 import { PagesPanel } from "../PagesPanel";
 import { BriefDialog } from "../BriefDialog";
@@ -404,7 +403,6 @@ export function StudioPage() {
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />
                 : sideTab === "pictures" ? <PicturesPanel />
-                : sideTab === "lab" ? <LabPanel />
                 : <LookPanel />}
             </div>
           </aside>

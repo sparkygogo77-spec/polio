@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Clapperboard, FlaskConical, Image as ImageIcon, Layers, Palette as PaletteIcon, Settings2, Sparkles } from "lucide-react";
+import { Clapperboard, Image as ImageIcon, Layers, Palette as PaletteIcon, Settings2, Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 
@@ -38,10 +38,6 @@ export const SIDE_TABS = [
      it could not be found at all; his words: "give the ai image generator its
      own section/display panel option". 50 is the one gap left on the wheel. */
   { value: "pictures", label: "Pictures", icon: <ImageIcon />, hue: 50 },
-  /* TEMPORARY. The Lab: five experiments on the page's layout (lab/). J asked
-     for new test features behind one side panel option (2026-10-10). Take the
-     tab out by deleting this line, its branch in StudioPage.tsx and lab/. */
-  { value: "lab", label: "Lab", icon: <FlaskConical />, hue: 110 },
 ] as const;
 
 /*
