@@ -26,6 +26,7 @@ import { WornShape } from "./WornShape";
 import { hasLetters, isSpans, plain, spansOf } from "./shelf";
 import type { NodeMedia } from "./shelf";
 import type { NodeWorld } from "./shelf/ui";
+import { SvgArt, svgMarkupOf } from "./board/themeDraw";
 
 export { items, themeFrom, type Theme } from "./shelf/run";
 
@@ -236,7 +237,9 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   }
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
-  const boxed = hasBox(node);
+  /* A drawing the page wrote inline (a dial's ticks, curved labels, hands): drawn as the svg it was, not as a flat picture of it (`board/themeDraw.tsx`). */
+  const svgArt = svgMarkupOf(node);
+  const boxed = hasBox(node) || !!svgArt;
   /*
    * A BOX IS FILLED TO ITS EDGE.
    *
@@ -352,7 +355,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       // page never settles — `plain-box` could not even take a screenshot.
       // See `parts/primitives.tsx`.
       <StillCut node={node}>
-      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn ? { position: "relative" as const, isolation: "isolate" as const } : null) }}>
+      <div data-part-box="" className={hasMotion(node) ? motionClass(motionId ?? node.id) ?? undefined : undefined} style={{ width: "100%", height: "auto", flex: "1 0 auto", boxSizing: "border-box", overflow: hasLetters(node.content) || wordsOwn ? "visible" : "hidden", ...(ground ? { background: ground } : null), ...boxStyle(node, t, palette), ...(node.featureId === "box" && !livingLayered(node.art?.live) ? boxPicture(picture) : null), ...(stillCut(node) ? { clipPath: undefined } : null), ...(band?.middle ? { paddingTop: 0, paddingBottom: 0, display: "flex", flexDirection: "column" } : null), ...(boxWorn || svgArt ? { position: "relative" as const, isolation: "isolate" as const } : null), ...(svgArt ? { backgroundImage: undefined } : null) }}>
         {/*
           A TEXTURE A BOXED PART WEARS, over the fill its box paints and under
           everything the part draws. A part brought in paints its fill on the
@@ -363,6 +366,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
           context) leaves the fill under it and the words over it.
         */}
         {/* The page's own texture worn by a part is the page's, seen through it: laid where the page is, so the bands never seam (`WornTexture.tsx`). */}
+        {svgArt ? <SvgArt markup={svgArt} /> : null}
         {boxWorn ? <WornTexture id={worn!.id} page={lands(worn!, "page")} paint={textureCss([{ ...worn!, on: true }], palette!, "transparent")} /> : null}
         {drawn}
       </div>

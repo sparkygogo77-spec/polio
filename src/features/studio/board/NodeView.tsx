@@ -190,7 +190,7 @@ export function holeMask(holes: string): React.CSSProperties {
     maskComposite: Array(boxes.length + 1).fill("exclude").join(","),
   } as React.CSSProperties;
 }
-export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null }) {
+export const NodeView = React.memo(function NodeView({ node, name, selected, inHeldGroup, theme, palette, zoom, light, page, layers, flash, decide, pin }: { node: StudioNode; name: string; selected: boolean; inHeldGroup?: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean; decide?: Decision["why"] | null; /** A fixed or sticky part rides down with the view (`themeDraw.ts#pinsOf`). */ pin?: string }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
@@ -351,6 +351,8 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
         minHeight: place?.h ?? node.h, display: "flex", flexDirection: "column",
         /* A part stepped through on the board stands over its neighbours (`liftedOnBoard`). */
         ...(lifted ? { zIndex: 4 } : {}),
+        /* Pinned to the window as the page pinned it: it rides down with the view, above what scrolls under it. */
+        ...(pin ? { translate: pin, zIndex: lifted ? 4 : 3 } : {}),
         ...(holes ? holeMask(holes) : {}),
         // Its turn has not come: not drawn, but holding its place, so
         // nothing measures a different page while a run is arriving.
@@ -420,7 +422,7 @@ export const NodeView = React.memo(function NodeView({ node, name, selected, inH
            Drawn whole, as the page and the Preview draw it
            (`tests/tv-import.mjs`, 7). */
         /* Cut with room for its own shadow: `overflow: clip` takes a margin, `hidden` does not (`shadowReach`). */
-        className={cn("relative flex w-full flex-col", node.art?.transform || node.worn ? "overflow-visible" : cn(shadowRoom ? "overflow-clip" : "overflow-hidden", "has-[[data-one-line]]:overflow-visible"))}
+        className={cn("relative flex w-full flex-col", node.art?.transform || node.art?.rotate || node.art?.translate || node.art?.scale || node.worn ? "overflow-visible" : cn(shadowRoom ? "overflow-clip" : "overflow-hidden", "has-[[data-one-line]]:overflow-visible"))}
         data-part-drawn=""
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
