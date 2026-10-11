@@ -56,7 +56,14 @@ export interface KitExportInput {
   links?: string | null;
 }
 
-export interface KitPart { label?: string; hook?: string; fresh?: boolean; kind?: string }
+export interface KitPart {
+  label?: string;
+  hook?: string;
+  fresh?: boolean;
+  kind?: string;
+  /** What the Builder recognised it as (`components.ts`): a loading bar's track is `loading-bar`, its level `loading-bar-level`. Its hook, when the site gave it none. */
+  role?: string;
+}
 
 export interface KitExport {
   files: KitFile[];
@@ -296,6 +303,8 @@ function nameFor(n: Namer, tag: string, attrs: string, words: string, parent: st
     n.fresh.push({ part: (id[1] ?? id[2])!, hook, label: part.label ?? "", page: n.pageName });
     return hook;
   }
+  /* A thing the Builder recognised (a loading bar) is hooked as what it is, every copy alike: loading-bar, loading-bar-2. */
+  if (part?.role) return claim(n, part.role);
   const label = part?.label && !/·|\binside\b/.test(part.label) ? part.label : "";
   const aria = attr("aria-label") ?? attr("alt") ?? attr("title") ?? attr("placeholder");
   const cls = attr("class");
