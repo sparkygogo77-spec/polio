@@ -48,6 +48,11 @@ check("an issue already in NEXT.md is not sent again", F.toSend({ ...loop, sent:
 /* 3. Queue: the file. */
 const md = F.nextMd([tv], { site: "PonsStars", when: "2026-10-08" });
 check("NEXT.md says to read it first and how to close a line", /^# Next for the code chat: PonsStars/.test(md) && /Read this first/.test(md) && /tick its box/.test(md));
+/* The header covers both kinds of line: J's own builds (no tick) and the ticked problems. */
+const head = md.slice(0, md.indexOf("Last written"));
+check("the header does not call every line a ticked problem", !/J ticked for the next code chat/.test(head) && !/Each line is a problem/.test(head));
+check("the header says J's lines are builds and the others are problems to fix", /"J made"/.test(head) && /build it in the code/i.test(head) && /problems the Builder found/i.test(head));
+check("the header explains (no hook) and the repo's hooks step for a new data-hook", /\(no hook\) covers a whole page or the whole site/.test(head) && /new data-hook needs the repo's hooks step/.test(head));
 check("each line: box, hook, page, problem, done when, key", md.includes("- [ ] `tv-box-start` on Play: Start does nothing yet. Done when pressing it does something: it leads somewhere or runs its script. <!-- fix:nowhere:n1 -->"));
 const more = F.nextMd([tv, words], { site: "PonsStars", when: "2026-10-09", prev: md.replace("- [ ]", "- [x]") });
 check("lines already there are kept as the code chat left them, none written twice", (more.match(/fix:nowhere:n1/g) ?? []).length === 1 && more.includes("- [x] `tv-box-start`") && more.includes("<!-- fix:link:n2 -->"));
@@ -62,6 +67,7 @@ check("an unreadable file fixes nothing", F.fixedIn([tv, words], null).length ==
 const lanesTsx = read("src/features/studio/loop/Lanes.tsx");
 const csb = read("src/features/studio/CodeSiteButtons.tsx");
 const send = read("src/features/studio/codeSend.ts");
+const asks = read("src/features/studio/publishAsks.ts");
 check("the lanes show real issues when there are any, the sample otherwise", /useIssues\(\)/.test(lanesTsx) && /given \?\? real \?\? SAMPLE/.test(lanesTsx));
 check("an issue card ticks, and turns blue when ticked", /data-lane-tick/.test(lanesTsx) && /moltenClass\(issue && !ticked \? "lantern" : "azure"\)/.test(lanesTsx));
 check("Publish sends NEXT.md with the design, and keeps what went", /extra/.test(send) && /path: NEXT_PATH, content: nextMd\(adding/.test(read("src/features/studio/publishAsks.ts")) && /setFixLoop\(sentMerged\(fixLoopOf\(useStudio\.getState\(\)\.look\), adding\)\)/.test(csb));

@@ -168,8 +168,10 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
   return [
     `# Next for the code chat: ${o.site}`,
     "",
-    "Read this first. Each line is a problem the Builder found that J ticked for the next code chat to fix.",
-    "Fix it in the code and keep every data-hook. Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
+    "Read this first. A line that says \"J made\", \"J gave\", \"J switched\" and so on is something J built on the board: build it in the code.",
+    "Any other line is one of the problems the Builder found that J ticked: fix it in the code. A line marked (no hook) covers a whole page or the whole site.",
+    "Keep every data-hook. A new data-hook needs the repo's hooks step (its CLAUDE.md names it, e.g. `npm run hooks`) so its hook map stays current.",
+    "Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
     "and leave the `<!-- fix:... -->` comment as it is. The Builder's Refresh reads this file back: a ticked or deleted line shows as fixed.",
     "",
     `Last written by the Builder on ${o.when}.`,
