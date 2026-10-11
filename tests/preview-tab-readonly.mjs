@@ -18,6 +18,7 @@
  *
  * Covers: src/features/studio/board/store/load.ts, src/features/studio/board/store/create.ts, src/features/studio/board/store/history.ts, src/features/studio/live/PreviewPage.tsx, src/features/studio/live/PublishedPage.tsx, src/features/studio/live/LiveStage.tsx
  */
+import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3013";
@@ -29,12 +30,13 @@ const check = (name, ok, detail = "") => {
 
 const faces = Array.from({ length: 6 }, (_, i) => ({ heading: i ? "" : "Speed", body: "", colour: "" }));
 const DOC = {
-  pages: [{ id: "p", name: "Home", path: "/" }],
+  pages: [{ id: "p", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
   activePageId: "p",
-  nodes: [{ id: "n1", pageId: "p", featureId: "cube-3d", label: "Pillars", x: 40, y: 40, w: 420, h: 420, cube: { faces, turn: { x: -18, y: -32 } } }],
+  nodes: [{ id: "n1", pageId: "p", featureId: "cube-3d", label: "Pillars", prompt: "", content: "", data: "", x: 40, y: 40, w: 420, h: 420, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null, colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, cube: { faces, turn: { x: -18, y: -32 } } }],
 };
 
-const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
+const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
 const builder = await ctx.newPage();
 await builder.goto(`${BASE}/builder`, { waitUntil: "domcontentloaded" });
@@ -46,6 +48,8 @@ await builder.evaluate(() => {
 await builder.reload({ waitUntil: "networkidle" });
 await builder.waitForFunction(() => typeof window.__studioLoadDoc === "function" && typeof window.__studioSetFormat === "function", null, { timeout: 30000 });
 await builder.evaluate((d) => window.__studioLoadDoc(d), DOC);
+/* Loading the document draws the Builder again, which puts its handles back a moment later. */
+await builder.waitForFunction(() => typeof window.__studioSetFormat === "function", null, { timeout: 30000 });
 await builder.evaluate(() => window.__studioSetFormat("concept.audience", "first"));
 await builder.waitForTimeout(1500);
 

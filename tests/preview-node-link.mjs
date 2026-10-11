@@ -35,7 +35,8 @@ const doc = boardDoc(saved);
 const here = doc.nodes.filter((n) => n.pageId === doc.activePageId);
 const boxes = here.filter((n) => n.featureId === "box").sort((a, b) => a.y - b.y);
 const [from, quoted] = boxes;
-const foot = here.slice().sort((a, b) => b.y - a.y)[0];
+/* The lowest part the page shows as it opens: one in a hidden state (shown later by a script) draws nothing to scroll to. */
+const foot = here.filter((n) => !n.state && n.h > 20).sort((a, b) => b.y - a.y)[0];
 const QUOTE = 'no"such\\part';
 const put = (state) => {
   for (const n of state.nodes ?? []) {
