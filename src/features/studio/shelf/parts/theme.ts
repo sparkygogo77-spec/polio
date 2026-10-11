@@ -264,6 +264,10 @@ export interface NodeArt {
   backdrop?: string;
   clipPath?: string;
   transform?: string;
+  /** The page's individual transforms (`rotate: -8deg`, `translate: 4px 2px`, `scale: 1.1`), as computed: applied after `transform`, as the browser applies them. */
+  rotate?: string;
+  translate?: string;
+  scale?: string;
   animation?: string;
   textShadow?: string;
   textStroke?: { w: number; color: string };
@@ -580,6 +584,11 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
     if (a.transform && a.transform !== "none" && a.transform !== "matrix(1, 0, 0, 1, 0, 0)") s.transform = a.transform;
     /* Turned about its own point, so the page's keyframes turn it where they did. */
     if (a.origin) s.transformOrigin = a.origin;
+    /* Its own rotate, translate and scale, written apart from its transform (a seal set at `rotate: -8deg`). */
+    const one = (v: string | undefined) => (typeof v === "string" && v.trim() && v.trim() !== "none" && !/[{};<>\\]/.test(v) ? v.trim() : undefined);
+    if (one(a.rotate)) s.rotate = one(a.rotate);
+    if (one(a.translate)) s.translate = one(a.translate);
+    if (one(a.scale)) s.scale = one(a.scale);
     if (a.mask) {
       const m = s as Record<string, string>;
       m.maskImage = m.WebkitMaskImage = a.mask;
