@@ -69,9 +69,9 @@ export async function exportForCodeToBranch(opts: { fetch?: typeof fetch; date?:
   const got = await exportForCode();
   if (!got.files.length || !got.kit) return { ok: false, says: got.says };
   if (got.problems.length) return { ok: false, says: `Nothing was sent: the kit's check found ${got.problems.length} problem${got.problems.length === 1 ? "" : "s"}: ${got.problems.slice(0, 3).join("; ")}.` };
-  /* The code that finds each hook, from its hooks.json as it came in: a removed hook is listed with it, for the code chat to delete. */
+  /* The code that finds each hook, from its hooks.json on the default branch the design branch is cut from: a removed hook is listed with it, for the code chat to delete. */
   const mapPath = source.kit?.hooks ?? null;
-  const map = mapPath ? readHookMap(await fileAt(opts.fetch ?? fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
+  const map = mapPath ? readHookMap(await fileAt(opts.fetch ?? fetch, token, source.repo, main.branch, mapPath).catch(() => null)) : {};
   const changes = hookChanges(s.nodes as unknown as ChangeNode[], source, { files: got.files, fresh: got.kit.fresh, renamed: got.kit.renamed }, map);
   const site = s.brief.name?.trim() || source.repo.split("/").pop() || "site";
   /* The design record beside it (design/record.json): what a code chat builds from and checks the build against. */

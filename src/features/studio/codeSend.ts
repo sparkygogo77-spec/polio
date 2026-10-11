@@ -19,19 +19,19 @@ export type Sent =
   | { ok: false; says: string };
 
 export async function sendDesign(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, o: { site: string; family?: (name: string) => string | undefined; say?: (t: string) => void; extra?: { path: string; content: string }[]; fresh?: Record<string, string> }): Promise<Sent> {
-  o.say?.(`Reading the pages from ${source.repo} on ${source.ref}…`);
+  o.say?.(`Reading the pages from ${source.repo}…`);
   const prepared = await prepareLayer(nodes, palette, source, token, { family: o.family, when: new Date().toISOString().slice(0, 10) });
   if (!prepared.ok) return { ok: false, says: prepared.says };
   o.say?.("Making the branch…");
-  /* The design record goes with it (design/record.json), with the parts each sits in from the repository's hooks.json. */
+  /* The design record goes with it (design/record.json), with the parts each sits in from the repository's hooks.json on the default branch the layer is cut from (`prepared.base`). */
   if (prepared.files.length) {
     const mapPath = source.kit?.hooks ?? null;
-    const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, source.ref || "HEAD", mapPath).catch(() => null)) : {};
+    const map = mapPath ? readHookMap(await fileAt(fetch, token, source.repo, prepared.base, mapPath).catch(() => null)) : {};
     prepared.files.push({ path: "design/record.json", content: boardRecord(map, undefined, o.fresh) });
   }
   /* Pictures he put on parts (the Contents plate, `partPicture.ts`): each file and design/pictures.json, for the code to apply under the same hook.
-     The repo's own pictures.json says which hooks wore one at the last send, so a picture he took off goes back as `removed`. */
-  const before = sentHooks(await fileAt(fetch, token, source.repo, source.ref || "HEAD", PICTURES_LIST).catch(() => null));
+     The repo's own pictures.json, on the default branch the layer is cut from, says which hooks wore one at the last send, so a picture he took off goes back as `removed`. */
+  const before = sentHooks(await fileAt(fetch, token, source.repo, prepared.base, PICTURES_LIST).catch(() => null));
   const pics = await pictureFiles(nodes as never, async (look) => { const b = await bytesFor(look.picture as never); return b ? base64(b) : null; }, before);
   if (pics.files.length) {
     const added = pics.files.length - 1;

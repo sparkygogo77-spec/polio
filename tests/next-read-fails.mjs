@@ -53,7 +53,7 @@ check("so Refresh calls none of the old lines fixed", F.fixedIn([...old, fresh],
 const asks = read("src/features/studio/publishAsks.ts");
 const csb = read("src/features/studio/CodeSiteButtons.tsx");
 const slp = read("src/features/studio/StyleLayerPanel.tsx");
-check("gatherAsks reads NEXT.md with fileOrGone, never a swallowed fileAt", /fileOrGone\(fetch, token, source\.repo, source\.ref \|\| "HEAD", NEXT_PATH\)/.test(asks) && !/fileAt\([^)]*NEXT_PATH\)\.catch/.test(asks));
+check("gatherAsks reads NEXT.md with fileOrGone, never a swallowed fileAt", /fileOrGone\(fetch, token, source\.repo, [^)]*NEXT_PATH\)/.test(asks) && !/fileAt\([^)]*NEXT_PATH\)\.catch/.test(asks));
 check("a failed read returns its line with nothing to write", /if \(!prev\.ok\) return \{[^}]*extra: \[\][^}]*says: prev\.says \}/.test(asks) && /prev: prev\.text/.test(asks));
 check("Publish stops before sending when the read failed", /if \(says\) \{ say\("Not published", says, "warn"\); return; \}[\s\S]{0,40}const sent = await sendDesign/.test(csb));
 check("Send the design back stops before sending too", /if \(asks\.says\) \{ setSaid\(\{ text: asks\.says, bad: true \}\); return; \}[\s\S]{0,40}const done = await sendDesign/.test(slp));

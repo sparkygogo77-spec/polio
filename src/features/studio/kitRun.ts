@@ -117,6 +117,17 @@ export async function defaultBranch(f: Fetch, token: string, repo: string): Prom
   return { ok: true, branch: String(info.json?.default_branch ?? "main") };
 }
 
+/**
+ * A file as it is where Publish merges (`styleLayerRun.ts#publishLayer`): the
+ * repository's default branch, whatever branch the board came from, so
+ * polio/NEXT.md is added to and read back where the code chat ticks it.
+ * HEAD (GitHub's own default) when the repository will not say its name.
+ */
+export async function fileOnDefault(f: Fetch, token: string, repo: string, path: string): Promise<string | null> {
+  const main = await defaultBranch(f, token, repo);
+  return fileAt(f, token, repo, main.ok ? main.branch : "HEAD", path);
+}
+
 /** The snapshot of a builder-ready repository, from its manifest and map. */
 export function seenOfKit(manifest: KitManifest, hooksJson: string | null, ref: string, at: string): KitSeen {
   let map: { hooks?: Record<string, { element?: string }>; tokens?: Record<string, unknown> } = {};
