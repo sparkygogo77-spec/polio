@@ -5,6 +5,6 @@ The behaviour scripts (strings run on the exported site), split by topic. `../be
 | File | Holds |
 | --- | --- |
 | `motion.ts` | `CALM`, `SHEET_TRANSITION`, `REVEAL`, `COPY`, `TILT`, `FOLLOW`, `MARQUEE` |
-| `effects.ts` | `EMBED`, `CRT`, `DUST`, `SCROLL_HEADER`, `BLINK`, `SPIN`, `FLOAT`, `HOVER_LIFT`, `SCROLL_GROW` |
+| `effects.ts` | `EMBED`, `CRT`, `DUST`, `SCROLL_HEADER`, `STICKY_BAR`, `BLINK`, `SPIN`, `FLOAT`, `HOVER_LIFT`, `SCROLL_GROW`, `PLANET`, `TURN_3D` |
 | `interactions.ts` | `PRESS_SHOWS`, `GLIDE`, `WORLD_DIALOGS` |
-| `list.ts` | `BEHAVIOURS` (every script by name) and `AMBIENT` |
+| `list.ts` | `BEHAVIOURS` (every script by name), `AMBIENT` and `ON_BOARD` |

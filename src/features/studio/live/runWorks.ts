@@ -23,7 +23,7 @@
  * when the Preview is).
  */
 import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../shelf";
-import { AMBIENT } from "../shelf";
+import { ON_BOARD } from "../shelf";
 import { carriers } from "./carry";
 
 type Def = (el: HTMLElement, inputs: Record<string, string>, api: unknown) => unknown;
@@ -92,7 +92,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
    * whatever it is (a reveal, a tilt) runs as the page would run it.
    */
   const only = opts.only;
-  const ambient = (id: string) => (AMBIENT as readonly string[]).includes(id);
+  const ambient = (id: string) => ON_BOARD.includes(id);
   const bindings = only
     ? all.bindings.filter((b) => b.part === only.part && b.feature === only.feature)
     : board ? all.bindings.filter((b) => ambient(b.feature)) : all.bindings;

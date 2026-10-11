@@ -31,7 +31,7 @@
  * site is named anywhere in it.
  */
 import { CARRIES, SHELF_GROUPS, isWorkKey, workIdOf, type ShelfGroup } from "./shelfGroups.ts";
-import { PART_SCRIPT } from "./library/works.ts";
+import { PART_OPTION_SCRIPT, PART_SCRIPT } from "./library/works.ts";
 
 /* ------------------------------------------------------------------ */
 /* Variations                                                          */
@@ -111,6 +111,7 @@ export const VARIANTS: Record<string, { self: string; more: VariantDef[] }> = {
     ],
   },
   /* Media */
+  picture: { self: "One picture", more: [{ key: "work:scroll-depths", label: "A strip that follows the scroll" }] },
   gallery: {
     self: "A grid of pictures",
     more: [{ key: "lightbox", label: "Opens full screen" }, { key: "image-blur-up", label: "Blurred until loaded" }, { key: "photo-credit", label: "With captions and credits" }],
@@ -366,5 +367,7 @@ export function placedWorks(): string[] {
   const carried = [...items, ...VARIANT_OF.keys()].filter((k) => CARRIES[k]);
   /* So does a part its feature draws on the published page (the before and after slider runs "compare"). */
   const drawn = [...items, ...VARIANT_OF.keys()].flatMap((k) => (PART_SCRIPT[k] ? [`work:${PART_SCRIPT[k]}`] : []));
-  return [...new Set([...own, ...versions, ...carried].map(workIdOf).concat(drawn.map(workIdOf)))];
+  /* And a part whose own option is a feature's input (the Sticky top bar's On scroll runs "sticky-bar"). */
+  const optioned = [...items, ...VARIANT_OF.keys()].flatMap((k) => (PART_OPTION_SCRIPT[k] ? [`work:${PART_OPTION_SCRIPT[k]!.work}`] : []));
+  return [...new Set([...own, ...versions, ...carried].map(workIdOf).concat(drawn.map(workIdOf), optioned.map(workIdOf)))];
 }

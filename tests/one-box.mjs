@@ -60,6 +60,8 @@ const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(A
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 /* Every part's ! on the board, as the top bar's count shows them (`decideShown.ts`): by default only the picked part wears one. */
 await page.addInitScript(() => localStorage.setItem("builder.decideBadges.v1", "all"));
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); the shelf section opens its Data category. */
+await page.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 /* Nothing leaves the machine: the Builder's own API answers "not configured", everything else off-site is refused. */
