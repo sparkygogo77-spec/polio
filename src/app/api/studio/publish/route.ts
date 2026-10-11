@@ -751,6 +751,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       sha: commit.sha,
+      /* The tip it was written on (none for a root commit): a kit the board sent at that tip is still the board's own (`kitAfterPush`). */
+      parent: baseSha,
       commitUrl: commit.html_url ?? `https://github.com/${repo}/commit/${commit.sha}`,
       branch,
       ...(assumed ? { assumed: true } : {}),

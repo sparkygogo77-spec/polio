@@ -20,6 +20,7 @@ import { flushEdits, lastEdit } from "@/features/builds/edits";
 import { deploy, productionAddress, publish, siteFiles, watchDeploy, type DeployState, type GeneratedFile } from "../loop/run";
 import { compileSpec, specToJson, specToMarkdown } from "../spec";
 import { exportSite, publishedAt } from "./exportSite";
+import { kitAfterPush, type KitSent } from "./kitPublish";
 import { sitePictures } from "../staticSite";
 import { useStudio } from "../board/store";
 import { contractFiles } from "../shelf";
@@ -333,6 +334,9 @@ export async function goLive(o: { extra?: GeneratedFile[]; message: string; site
       return;
     }
     if (project) useBuilds.getState().setPublished(project.id, pushed.repo, pushed.branch, { sha: pushed.sha, commitUrl: pushed.commitUrl, editedAt: carried });
+    /* A kit the board published is still current after this push on top of it: a record, kept without an undo step (`BuilderSiteButtons.tsx`). */
+    const kitNow = kitAfterPush((useStudio.getState().look as { kitSent?: KitSent | null }).kitSent, pushed);
+    if (kitNow) useStudio.setState((st) => ({ look: { ...st.look, kitSent: kitNow } as typeof st.look }));
     set({ pushed: { url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook }, step: { at: "waiting", saved: { repo: pushed.repo, branch: pushed.branch }, siteId: here?.id ?? null } });
     const saved = { repo: pushed.repo, branch: pushed.branch };
     /* How much of it went up: only what changed is sent (`tests/publish-changed.mjs`). */

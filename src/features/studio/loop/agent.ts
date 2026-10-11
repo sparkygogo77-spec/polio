@@ -688,7 +688,7 @@ export function siteFiles(_markdown?: string, _json?: string): GeneratedFile[] {
 }
 
 export type PublishResult =
-  | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
+  | { ok: true; sha: string; /** The tip the commit was written on; null for a repository's first. */ parent?: string | null; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
       /** How many files had changed from what the branch held, of how many the site is: only those were sent (`tests/publish-changed.mjs`). */
       changed?: number; total?: number }
   /* A failure can still have made the repository, and says so, so the next

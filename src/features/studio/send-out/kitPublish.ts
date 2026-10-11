@@ -48,6 +48,17 @@ export function kitStatus(repo: string, sent: KitSent | null | undefined, head: 
   return { at: "current", head, says: `Up to date with ${repo} (${head.slice(0, 7)}): nothing has been pushed since this board published.` };
 }
 
+/**
+ * Go live's own push is not a code chat's work. When it lands directly on the
+ * commit the kit was merged at, the board's record moves with it, so Refresh
+ * stays green and Publish stays open. Anything else in between (a code chat
+ * pushed first) leaves the record where it was, and the repository reads "moved".
+ */
+export function kitAfterPush(sent: KitSent | null | undefined, pushed: { repo: string; sha: string; parent?: string | null }): KitSent | null {
+  if (!sent || sent.repo.toLowerCase() !== pushed.repo.toLowerCase() || !pushed.parent || pushed.parent !== sent.sha) return null;
+  return { ...sent, sha: pushed.sha, at: Date.now() };
+}
+
 /** The kit's files on a branch, a pull request, merged. A merge GitHub refuses leaves the pull request open and says why. */
 export async function publishKit(repo: string, token: string, o: { site: string; sent?: KitSent | null; date?: Date; fetch?: Fetch; say?: (t: string) => void }): Promise<Answer<{ sha: string; pull: string; files: number }>> {
   const f = o.fetch ?? fetch;
