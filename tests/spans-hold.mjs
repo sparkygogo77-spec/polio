@@ -14,7 +14,7 @@
  * Pure, so it can be run red without a browser or a build:
  *   node tests/spans-hold.mjs
  */
-import { alike, isSpans, lines, merged, plain, spansOf } from "../src/features/studio/shelf/parts/spans.ts";
+import { alike, isSpans, lines, lookIn, merged, plain, restyle, spansOf } from "../src/features/studio/shelf/parts/spans.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -110,6 +110,35 @@ check("a plain string with newlines cuts the same way",
 check("commas are never a line break here", lines("a, b, c").length === 1);
 check("and each line comes back merged, not in fragments",
   lines([{ text: "A " }, { text: "Sol\nWorks" }, { text: " project" }]).every((l) => l.length === 1));
+
+/* ------------------------------------------------------------------ */
+/* 6. Words highlighted inside a sentence take a look of their own      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * J's ask (2026-10-11): like a document, highlight the words inside a
+ * sentence and change only those into another font, so sunkcoin.fun's
+ * "The coin that pays / your sunk cost." is one box with its second half
+ * slanted and orange, not two boxes overlapping. `restyle` cuts the runs at
+ * the highlight and styles the cut-out; `lookIn` reads what a stretch wears.
+ */
+const sunk = "The coin that pays your sunk cost.";
+const styled = restyle(sunk, 19, 34, { italic: true, colour: "rgb(255, 176, 112)", weight: 300 });
+check("a plain sentence becomes two runs when words inside it are styled",
+  isSpans(styled) && styled.length === 2 && styled[0].text === "The coin that pays " && Object.keys(styled[0]).length === 1, JSON.stringify(styled));
+check("…the highlighted stretch wearing the look", isSpans(styled) && styled[1].text === "your sunk cost." && styled[1].italic === true && styled[1].colour === "rgb(255, 176, 112)" && styled[1].weight === 300, JSON.stringify(styled));
+check("…and still reading as the same sentence", plain(styled) === sunk);
+const mid = restyle(sunk, 4, 8, { face: "serif", size: 40 });
+check("a stretch in the middle cuts the sentence in three, the ends untouched",
+  isSpans(mid) && mid.length === 3 && mid[0].text === "The " && mid[1].face === "serif" && mid[1].size === 40 && mid[1].text === "coin" && Object.keys(mid[2]).length === 1, JSON.stringify(mid));
+check("a size tells two runs apart, so a bigger word is never folded into its neighbour", !alike({ text: "a", size: 40 }, { text: "b" }));
+check("the look a stretch wears is read back", same(lookIn(styled, 19, 34), { face: null, size: null, colour: "rgb(255, 176, 112)", weight: 300, italic: true }), JSON.stringify(lookIn(styled, 19, 34)));
+check("…and a stretch across two looks says only what they share (no face, no size; the rest differs)", (() => { const l = lookIn(styled, 0, 34); return l.face === null && l.size === null && !("colour" in l) && !("weight" in l) && !("italic" in l); })(), JSON.stringify(lookIn(styled, 0, 34)));
+const back = restyle(styled, 19, 34, { italic: null, colour: null, weight: null });
+check("taking the look back leaves a plain string, exactly as it was", back === sunk, JSON.stringify(back));
+check("styling nothing changes nothing", restyle(sunk, 5, 5, { italic: true }) === sunk);
+const keep = restyle([{ text: "go " }, { text: "there", link: { kind: "page", target: "p1" } }], 0, 8, { weight: 700 });
+check("a run's link survives being styled", isSpans(keep) && keep.find((s) => s.text === "there")?.link?.target === "p1" && keep.every((s) => s.weight === 700), JSON.stringify(keep));
 
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

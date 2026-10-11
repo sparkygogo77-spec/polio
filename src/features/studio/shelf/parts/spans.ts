@@ -63,7 +63,10 @@ export interface Span {
    * part) keeps, per letter, what that letter wore apart from the rest: its
    * size (px, as measured) and text effects where they differ, and its own
    * transform and animation, which is what made the letters wobble on their
-   * own. Only a capture writes these; a span typed here never has them.
+   * own. A capture writes these; and since words can be styled where they
+   * are typed (`WordsInPlace.tsx`, the bar over highlighted words), a size
+   * in px is the one of them a person sets too, like a word made bigger in
+   * a document.
    */
   size?: number;
   textShadow?: string;
@@ -173,6 +176,7 @@ export function alike(a: Span, b: Span): boolean {
     && a.weight === b.weight
     && !!a.italic === !!b.italic
     && a.face === b.face
+    && a.size === b.size
     && a.bg === b.bg
     && linkAlike(a.link, b.link)
     /* A value a brought-in page's code writes into is its own run, however it looks: folded into its neighbour, its hook would name the whole sentence. */
@@ -233,4 +237,88 @@ export function lines(w: Words | null | undefined): Span[][] {
   }
   out.push(merged(line));
   return out.filter((l, i) => l.length > 0 || i === 0);
+}
+
+/**
+ * The look a person can give a stretch of words: what the bar over
+ * highlighted words sets (`WordsInPlace.tsx`). `null` takes that one back,
+ * so the words follow the part again; absent leaves it as it is.
+ */
+export interface RunLook {
+  face?: string | null;
+  /** In px. */
+  size?: number | null;
+  colour?: string | null;
+  weight?: number | null;
+  italic?: boolean | null;
+}
+const LOOK_KEYS = ["face", "size", "colour", "weight", "italic"] as const;
+
+/**
+ * The words between two offsets of the plain text restyled, the rest kept.
+ *
+ * LIKE A DOCUMENT, NOT LIKE BOXES. J's ask (2026-10-11): highlight the words
+ * inside a sentence and change just those into another font, the way any
+ * document editor does, instead of one text box per face laid beside the
+ * next and overlapping it. So a run is cut where the highlight starts and
+ * ends, the cut-out stretch takes the look, and the runs either side keep
+ * theirs: a plain string becomes runs the first time a word in it is
+ * styled. Runs that come out alike are folded back into one, so styling and
+ * then unstyling a word leaves the sentence exactly as it was.
+ */
+export function restyle(was: Words | null | undefined, from: number, to: number, look: RunLook): Words {
+  const spans = spansOf(was);
+  const text = plain(spans);
+  const a = Math.max(0, Math.min(from, to)), b = Math.min(text.length, Math.max(from, to));
+  if (b <= a || !spans.length) return was ?? "";
+  const out: Span[] = [];
+  let at = 0;
+  for (const s of spans) {
+    const start = at, end = at + s.text.length;
+    at = end;
+    const cut = (x: number, y: number, styled: boolean) => {
+      if (y <= x) return;
+      const piece: Span = { ...s, text: s.text.slice(x - start, y - start) };
+      if (styled) {
+        for (const k of LOOK_KEYS) {
+          const v = look[k];
+          if (v === undefined) continue;
+          const bag = piece as unknown as Record<string, unknown>;
+          if (v === null || v === false || v === "") delete bag[k];
+          else bag[k] = v;
+        }
+      }
+      out.push(piece);
+    };
+    cut(start, Math.min(end, a), false);
+    cut(Math.max(start, a), Math.min(end, b), true);
+    cut(Math.max(start, b), end, false);
+  }
+  const folded = merged(out);
+  /* Nothing left that says anything: a plain string again, as it was before any word was styled. */
+  return folded.length === 1 && Object.keys(folded[0]!).length === 1 ? folded[0]!.text : folded;
+}
+
+/**
+ * What the words between two offsets have in common, so the bar can show
+ * it: a value every run in the stretch shares, else undefined. An empty
+ * stretch reads the run the caret is in.
+ */
+export function lookIn(was: Words | null | undefined, from: number, to: number): RunLook {
+  const spans = spansOf(was);
+  const a = Math.min(from, to), b = Math.max(from, to);
+  const hit: Span[] = [];
+  let at = 0;
+  for (const s of spans) {
+    const start = at, end = at + s.text.length;
+    at = end;
+    if (b === a ? (a > start && a <= end) || (a === 0 && start === 0) : start < b && end > a) hit.push(s);
+  }
+  const out: RunLook = {};
+  if (!hit.length) return out;
+  for (const k of LOOK_KEYS) {
+    const first = hit[0]![k];
+    if (hit.every((s) => s[k] === first)) (out as Record<string, unknown>)[k] = first ?? null;
+  }
+  return out;
 }
