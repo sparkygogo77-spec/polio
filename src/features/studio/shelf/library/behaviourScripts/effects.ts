@@ -591,7 +591,10 @@ export const HOVER_LIFT: Work = {
   ${SHEET_TRANSITION}
   var own = was.transition || sheetTransition(el);
   s.transition = (own ? own + ", " : "") + "translate " + ms + "ms ease, rotate " + ms + "ms ease, scale " + ms + "ms ease";
-  el.addEventListener("pointerenter", function () { s.translate = x + "px " + (-lift) + "px"; if (turn) s.rotate = turn + "deg"; if (k !== 1) s.scale = String(k); });
+  /* A float replacing translate would swallow the lift: make it add to it. */
+  var only = function (f) { for (var p in f) if (!/^(translate|offset|computedOffset|easing|composite)$/.test(p)) return false; return "translate" in f; };
+  var add = function () { (el.getAnimations ? el.getAnimations() : []).forEach(function (a) { var e = a.effect; if (e && e.composite === "replace" && e.getKeyframes && e.getKeyframes().every(only)) e.composite = "add"; }); };
+  el.addEventListener("pointerenter", function () { add(); s.translate = x + "px " + (-lift) + "px"; if (turn) s.rotate = turn + "deg"; if (k !== 1) s.scale = String(k); });
   el.addEventListener("pointerleave", function () { s.translate = was.translate; s.rotate = was.rotate; s.scale = was.scale; });
 });
 `,

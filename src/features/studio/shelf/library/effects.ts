@@ -141,7 +141,10 @@ export const PRESS_PUSH: Work = {
   s.transition = (was.transition ? was.transition + ", " : "") + "translate " + ms + "ms ease, scale " + ms + "ms ease, box-shadow " + ms + "ms ease";
   var cur = getComputedStyle(el).cursor;
   if (cur === "auto" || cur === "default") s.cursor = "pointer";
-  var on = function () { s.translate = x + "px " + down + "px"; if (k !== 1) s.scale = String(k); if (sh) s.boxShadow = sh; el.setAttribute("data-pressed", ""); };
+  /* A float replacing translate would swallow the push: make it add to it. */
+  var only = function (f) { for (var p in f) if (!/^(translate|offset|computedOffset|easing|composite)$/.test(p)) return false; return "translate" in f; };
+  var add = function () { (el.getAnimations ? el.getAnimations() : []).forEach(function (a) { var e = a.effect; if (e && e.composite === "replace" && e.getKeyframes && e.getKeyframes().every(only)) e.composite = "add"; }); };
+  var on = function () { add(); s.translate = x + "px " + down + "px"; if (k !== 1) s.scale = String(k); if (sh) s.boxShadow = sh; el.setAttribute("data-pressed", ""); };
   var off = function () { s.translate = was.translate; s.scale = was.scale; s.boxShadow = was.boxShadow; el.removeAttribute("data-pressed"); };
   el.addEventListener("pointerdown", on);
   el.addEventListener("pointerup", off);
