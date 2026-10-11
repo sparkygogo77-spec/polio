@@ -589,7 +589,17 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
     if (el) {
       /* Pinned to the window (PST's tour and its card): kept on the part, so the board keeps it on the page and shades the page with it (`boardStates.ts#keepOverlaysOnPage`). */
-      if (css(el).position === "fixed") p.position = "fixed";
+      const pos = css(el).position;
+      if (pos === "fixed" || pos === "sticky") {
+        p.position = pos;
+        /* Where it pins, as computed: the sides the page set (a sticky rail's top: 0), so the board and Preview pin it there (the capture's `from.inset`). */
+        const cs = css(el), inset: NonNullable<PagePart["inset"]> = {};
+        for (const side of ["top", "right", "bottom", "left"] as const) { const v = cs.getPropertyValue(side); if (/^-?[\d.]+px$/.test(v)) inset[side] = Math.round(parseFloat(v) * 100) / 100; }
+        if (Object.keys(inset).length) p.inset = inset;
+      }
+      /* Stacked over or under its neighbours by the page (a seal z-index 2 over its clipboard). */
+      const z = css(el).zIndex;
+      if (pos !== "static" && /^-?\d+$/.test(z)) p.style.z = Number(z);
       /*
        * A RAIL THAT STICKS THE WHOLE WAY DOWN (J, 2026-10-11): a sticky
        * element as tall as the window is beside every part of the page
@@ -619,6 +629,14 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
         if (a && own && !held) p.style.ownTurn = own;
       }
       if (!p.pseudo && !lean) Object.assign(p.style, statesOf(el, was));
+      /* What the live page computed for a hooked part (a shape inside an svg is drawn by its svg), as it stands: the import report checks the board was handed every bit of it (`pageParts.ts#fidelityOf`). */
+      if (!lean && !p.pseudo && p.hooks["data-hook"] && !(el instanceof SVGElement && el.tagName.toLowerCase() !== "svg")) {
+        const ls = css(el), w = was ?? ls;
+        /* Turned, scaled or skewed; a move alone (translate) is already in its box. */
+        const m = ls.transform && ls.transform !== "none" ? new DOMMatrix(ls.transform) : null;
+        const turned = (!!m && (Math.abs(m.a - 1) > 1e-3 || Math.abs(m.b) > 1e-3 || Math.abs(m.c) > 1e-3 || Math.abs(m.d - 1) > 1e-3)) || [ls.getPropertyValue("rotate"), ls.getPropertyValue("scale")].some((v) => !!v && v !== "none" && !/^(0deg|1)$/.test(v)) || restTurn.has(el);
+        p.live = { font: `${ls.fontWeight} ${ls.fontSize} ${ls.fontFamily}`, colour: ls.color, bg: ls.backgroundColor, image: ls.backgroundImage, shadow: ls.boxShadow, filter: ls.filter, turned, animations: (animOf(w) ?? []).map((a) => a.name), position: ls.position };
+      }
     }
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
@@ -834,6 +852,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      */
     const inline = el.tagName.toLowerCase() === "svg";
     const kept = new Set<Element>();
+    const moves = new Set<string>();
+    let svgMarkup = "";
     if (inline && !drawn) {
       try {
         const copy = el.cloneNode(true) as SVGSVGElement;
@@ -843,15 +863,42 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
           if (!c || !/^(svg|g|path|circle|ellipse|rect|polygon|polyline|line|text|tspan|use)$/i.test(s.tagName)) return;
           const sc = css(s);
           /* A circle, an ellipse or a box with a hook is a part of its own (below), drawn there: not twice. */
-          if (/^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
+          /* Unless a box cannot draw it: a dashed stroke (a dial's ticks are one circle dashed into twelve), a pathLength, a turn or an animation stay in the svg, where they are drawn as the page drew them. */
+          const plain = (sc.strokeDasharray === "none" || !sc.strokeDasharray) && !s.hasAttribute("pathLength") && (sc.transform === "none" || !sc.transform) && !s.hasAttribute("transform") && !animOf(moving.get(s) ?? sc);
+          if (plain && /^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
           /* Words in it keep the face the page set them in (PST's dial labels: 700 8px Gill Sans, spaced), else the picture sets them in the svg default. */
           const type = /^(text|tspan)$/i.test(s.tagName) ? `;font-family:${sc.fontFamily};font-size:${sc.fontSize};font-weight:${sc.fontWeight};font-style:${sc.fontStyle};letter-spacing:${sc.letterSpacing};text-anchor:${sc.textAnchor};dominant-baseline:${sc.dominantBaseline};text-transform:${sc.textTransform}` : "";
-          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};opacity:${sc.opacity};color:${sc.color}${type}`);
+          /*
+           * DRAWN AS THE PAGE DREW IT, STROKES AND MOTION INCLUDED. A dial's
+           * ticks are one circle with a dashed stroke, its hands lines a
+           * stylesheet turns and spins: without the dashes, the CSS turn and
+           * the animation the ticks drew as one solid ring and the hands
+           * stood still at twelve. Each is written on its shape.
+           */
+          const dash = sc.strokeDasharray && sc.strokeDasharray !== "none" ? `;stroke-dasharray:${sc.strokeDasharray};stroke-dashoffset:${sc.strokeDashoffset}` : "";
+          const turned = sc.transform && sc.transform !== "none" && !s.hasAttribute("transform") ? `;transform:${sc.transform};transform-box:${sc.transformBox};transform-origin:${sc.transformOrigin}` : "";
+          const a = animOf(moving.get(s) ?? sc);
+          if (a) for (const x of a) moves.add(x.name);
+          const anim = a ? `;transform-box:${sc.transformBox};transform-origin:${sc.transformOrigin};animation:${a.map((x) => `${x.name} ${x.duration} ${x.timing} ${x.delay} ${x.iterations} ${x.direction} ${x.fill}`).join(",")}` : "";
+          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};stroke-miterlimit:${sc.strokeMiterlimit};paint-order:${sc.paintOrder};opacity:${sc.opacity};color:${sc.color}${dash}${turned}${anim}${type}`);
         });
+        /* Nothing in it runs: no scripts, no foreign html, no handlers, no script links. */
+        copy.querySelectorAll("script, foreignObject").forEach((n) => n.remove());
+        for (const n of [copy, ...Array.from(copy.querySelectorAll("*"))]) for (const at of Array.from(n.attributes)) if (/^on/i.test(at.name) || (/href$/i.test(at.name) && /^\s*javascript:/i.test(at.value))) n.removeAttribute(at.name);
+        /* The keyframes its shapes play, written into it, so the hands spin wherever it is drawn. */
+        if (moves.size) {
+          const root = css(document.documentElement);
+          const out: string[] = [];
+          const find = (list: CSSRuleList) => { for (const r of Array.from(list)) { if (r instanceof CSSKeyframesRule) { if (moves.has(r.name) && !out.some((t) => t.startsWith(`@keyframes ${r.name} `))) out.push(r.cssText.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*))?\)/g, (_, n: string, fb?: string) => root.getPropertyValue(n).trim() || (fb ?? "").trim())); } else if ("cssRules" in r && (r as CSSGroupingRule).cssRules) find((r as CSSGroupingRule).cssRules); } };
+          for (const sh of Array.from(document.styleSheets)) { try { find(sh.cssRules); } catch { /* another origin's sheet */ } }
+          if (out.length) { const st = document.createElementNS("http://www.w3.org/2000/svg", "style"); st.textContent = out.join("\n"); copy.insertBefore(st, copy.firstChild); }
+        }
         copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         copy.setAttribute("width", String(b.w));
         copy.setAttribute("height", String(b.h));
-        drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
+        const markup = new XMLSerializer().serializeToString(copy);
+        if (markup.length <= 200_000) svgMarkup = markup;
+        drawn = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
       } catch { /* drawn as it was */ }
     }
     /*
@@ -883,7 +930,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
     /* Painted as the box's own picture, as a data: background is: no file to carry, nothing to stand in for. */
     const at = inline && drawn
-      ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] } }, el)
+      ? push({ kind: "shape", tag: "svg", parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), style: { ...style, image: `url("${drawn}")`, imageOptions: ["100% 100%", "0% 0%", "no-repeat"] }, ...(svgMarkup ? { svg: svgMarkup } : {}) }, el)
       : push({ kind: "picture", tag: el.tagName.toLowerCase(), parent, box: b, words: "", hooks: hooksOf(el), hidden, selector: path(el), src: drawn || im.currentSrc || im.getAttribute?.("src") || "", alt: im.getAttribute?.("alt") ?? el.getAttribute("aria-label") ?? "", style }, el);
     /*
      * AN INLINE SVG KEEPS ITS SHAPES' HOOKS. PST's duel is an svg holding two
@@ -1159,6 +1206,42 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     }
   };
   if (named.size) for (const sh of Array.from(document.styleSheets)) { try { frameRules(sh.cssRules); } catch { /* another origin's sheet */ } }
+  /*
+   * THE PAGE'S OWN BACKGROUND LAYERS. A page painted on <html>, or on a
+   * <body> that is not a part of its own (no hook), with layers of
+   * gradients (a lamp's glow over a sunburst over halftone dots) or a
+   * ::before/::after laid over the whole page, came in as its one ground
+   * colour. Each is kept, in paint order, with its box and how it paints.
+   */
+  const layers: NonNullable<PageRead["layers"]> = [];
+  const layerOf = (from: NonNullable<PageRead["layers"]>[number]["from"], s: CSSStyleDeclaration, b: { x: number; y: number; w: number; h: number }, position: "absolute" | "fixed", ownColour = true) => {
+    const paint = paintOf(s);
+    const colour = !ownColour || seeThrough(s.backgroundColor) ? null : s.backgroundColor;
+    if (!paint.image && !paint.mask && !colour) return;
+    const z = /^-?\d+$/.test(s.zIndex) ? Number(s.zIndex) : null;
+    const opacity = Number(s.opacity);
+    layers.push({ from, position, box: b, z, art: { ...(colour ? { colour } : {}), ...(paint.image ? { background: paint.image, ...(paint.imageOptions ? { backgroundOptions: paint.imageOptions } : {}), ...(paint.imageBlend ? { backgroundBlend: paint.imageBlend } : {}) } : {}), ...(paint.filter ? { filter: paint.filter } : {}), ...(paint.mask ? { mask: paint.mask, ...(paint.maskOptions ? { maskOptions: paint.maskOptions } : {}) } : {}), ...(paint.blend ? { blend: paint.blend } : {}), ...(opacity < 1 ? { opacity } : {}) } });
+  };
+  const pageH = Math.max(document.documentElement.scrollHeight, innerHeight);
+  const whole = { x: 0, y: 0, w: innerWidth, h: pageH };
+  const bodyIsPart = hooked(document.body);
+  for (const [el, name] of [[document.documentElement, "html"], [document.body, "body"]] as const) {
+    if (el === document.body && bodyIsPart) continue;
+    const s = css(el);
+    /* The ground colour is the read's `bg` already: a layer only when it paints more than that. */
+    if (s.backgroundImage && s.backgroundImage !== "none") layerOf(name, s, el === document.body ? box(el.getBoundingClientRect()) : whole, s.backgroundAttachment === "fixed" ? "fixed" : "absolute", false);
+    for (const which of ["::before", "::after"] as const) {
+      const ps = getComputedStyle(el, which);
+      if (!ps.content || ps.content === "none" || ps.display === "none") continue;
+      const fixed = ps.position === "fixed";
+      const cb = fixed ? { x: scrollX, y: scrollY, w: innerWidth, h: innerHeight } : el === document.documentElement || css(document.body).position === "static" ? whole : box(document.body.getBoundingClientRect());
+      const n = (v: string) => (/^-?[\d.]+px$/.test(v) ? parseFloat(v) : null);
+      const w = n(ps.width) ?? cb.w, h = n(ps.height) ?? cb.h;
+      const left = n(ps.left) ?? (n(ps.right) !== null ? cb.w - w - n(ps.right)! : 0);
+      const top = n(ps.top) ?? (n(ps.bottom) !== null ? cb.h - h - n(ps.bottom)! : 0);
+      layerOf(`${name}${which}` as NonNullable<PageRead["layers"]>[number]["from"], ps, { x: Math.round(cb.x + left), y: Math.round(cb.y + top), w: Math.round(w), h: Math.round(h) }, fixed ? "fixed" : "absolute");
+    }
+  }
   /* Every turn put back as it was. */
   for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
   return {
@@ -1175,5 +1258,6 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     truncated,
     parts,
     ...(keyframes.length ? { keyframes } : {}),
+    ...(layers.length ? { layers } : {}),
   };
 };
