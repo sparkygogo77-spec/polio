@@ -111,6 +111,7 @@ export const VARIANTS: Record<string, { self: string; more: VariantDef[] }> = {
     ],
   },
   /* Media */
+  picture: { self: "One picture", more: [{ key: "work:scroll-depths", label: "A strip that follows the scroll" }] },
   gallery: {
     self: "A grid of pictures",
     more: [{ key: "lightbox", label: "Opens full screen" }, { key: "image-blur-up", label: "Blurred until loaded" }, { key: "photo-credit", label: "With captions and credits" }],
