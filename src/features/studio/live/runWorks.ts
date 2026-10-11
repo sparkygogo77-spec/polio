@@ -112,8 +112,21 @@ function boardRiders(nodes: readonly Placed[], moving: ReadonlySet<string>): Map
   return out;
 }
 
-export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { board?: boolean; only?: { part: string; feature: string } } = {}): () => void {
-  const all = pageFeatures(nodes as { id: string; work?: null }[]);
+/**
+ * WHAT COVERS THE WHOLE WINDOW. A loader puts its screen over everything
+ * (`position: fixed` on the body) and holds the page still while it plays.
+ * In the Preview that is the page, as published; in the little companion
+ * beside the board it would be the whole Builder, so the companion leaves
+ * these out (`skip`) and the Preview alone plays them.
+ */
+export const PAGE_WIDE = ["crt-loader", "loader-film"];
+
+export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { board?: boolean; only?: { part: string; feature: string }; skip?: readonly string[] } = {}): () => void {
+  const found = pageFeatures(nodes as { id: string; work?: null }[]);
+  const skip = opts.skip ?? [];
+  const all = skip.length
+    ? { bindings: found.bindings.filter((b) => !skip.includes(b.feature)), scripts: found.scripts.filter((s) => !skip.includes(s.replace(/\.js$/, ""))) }
+    : found;
   const board = !!opts.board;
   /*
    * ONE, PLAYED ON PURPOSE. The Motion tab's play button runs a single
@@ -130,6 +143,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
     ? all.scripts.filter((s) => s === "runtime.js" || s.replace(/\.js$/, "") === only.feature)
     : board ? all.scripts.filter((s) => ambient(s.replace(/\.js$/, ""))) : all.scripts;
   const gentle = board && !only;
+  const covers = bindings.some((b) => PAGE_WIDE.includes(b.feature));
   if (!bindings.length) return () => {};
   const rt = runtime();
   if (!rt) return () => {};
@@ -175,8 +189,11 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
   return () => {
     for (const u of undo.splice(0)) try { u(); } catch { /* already gone */ }
     for (const t of timers) window.clearInterval(t);
-    document.querySelectorAll("[data-crt], [data-loader-film]").forEach((o) => o.remove());
-    document.documentElement.style.overflow = "";
+    /* Only a run that started a loader takes one away: the companion's run leaves the Preview's playing. */
+    if (covers) {
+      document.querySelectorAll("[data-crt], [data-loader-film]").forEach((o) => o.remove());
+      document.documentElement.style.overflow = "";
+    }
     for (const { el, style } of touched) {
       for (const a of el.getAnimations?.() ?? []) if (!(a as { animationName?: string }).animationName) a.cancel();
       /* A layer a feature drew into the part (the dust's canvas): taken out, and its loop stops with it. */

@@ -26,7 +26,7 @@ import { breakersFor, cssIdent, smallSheet } from "./smallCss";
 import { resolvePart } from "../shelf/ui";
 import { homeOf } from "../homePage";
 import { getWork, pageFeatures, usesOf } from "../shelf";
-import { runWorks } from "./runWorks";
+import { PAGE_WIDE, runWorks } from "./runWorks";
 import { carriers, movesWhole } from "./carry";
 import { followsOf, placeFollowers } from "./follow";
 import { leadsOf, withLead } from "../shelf";
@@ -101,11 +101,17 @@ export interface LiveSiteProps {
   visitor?: boolean;
   /**
    * Run the features the page's parts carry (`node.work`), as the published
-   * page runs them: the Preview's switch and the full preview route. Left
-   * out everywhere else (the companion beside the board, a page on a cube,
-   * the export's own render), so nothing plays while the board is shown.
+   * page runs them: the Preview's switch, the full preview route and the
+   * companion beside the board (without the page-wide ones, `pageWide`).
+   * Left out everywhere else (a page on a cube, the export's own render).
    */
   features?: boolean;
+  /**
+   * With `features`: also the ones that cover the whole window (a loader,
+   * `PAGE_WIDE`). Left on for the Preview, which is the page; off for the
+   * companion beside the board, where a loader would cover the Builder.
+   */
+  pageWide?: boolean;
   /**
    * The published page: one page for every width (`live/smallCss.ts`). The
    * desktop is drawn as ever, each part once, and under this window width
@@ -130,7 +136,7 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, visitor = false, features = false, smallAt }: LiveSiteProps) {
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false, visitor = false, features = false, pageWide = true, smallAt }: LiveSiteProps) {
   /* What a stranger reads: no notes about how the work is made, no stand-ins for what is not written. */
   const forVisitor = published || visitor;
   const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published: forVisitor }), [format, look, siteName, forVisitor]);
@@ -276,9 +282,9 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const bound = React.useMemo(() => (features && !published && depth === 0 ? JSON.stringify(pageFeatures(pageNodes).bindings) : "[]"), [features, published, depth, pageNodes]);
   React.useEffect(() => {
     if (bound === "[]" || !rootRef.current) return;
-    return runWorks(rootRef.current, pageNodes);
+    return runWorks(rootRef.current, pageNodes, { skip: pageWide ? [] : PAGE_WIDE });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bound, pageId]);
+  }, [bound, pageId, pageWide]);
 
   /* Parts set right after a line's words follow them wherever they end (`follow.ts`): after every draw, a resize, and the fonts. */
   const followers = React.useMemo(() => (depth > 0 ? [] : pageNodes.flatMap((n) => { const f = followsOf(n); return f ? [{ id: n.id, follows: f }] : []; })), [depth, pageNodes]);
