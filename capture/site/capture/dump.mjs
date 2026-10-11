@@ -775,7 +775,9 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
     /* A page the capture loaded with list-trim.js has had its long lists cut in place, laid out at what they kept: that is the rule, and it says what each had. The console snippet, without it, cuts here. */
     const trimmed = window.__sinkTrims?.get(el);
     const cut = inSvg || t === "svg" || window.__sinkTrims ? null : rowsOf(el);
-    for (const k of cut ? cut.keep : Array.from(el.children)) { const got = walk(k, kidCtx); if (got) kids.push(got); }
+    /* The elements that became kids, in order: a text node of this element's own is placed among them by DOM order (`ot`'s `before`). */
+    const kidEls = [];
+    for (const k of cut ? cut.keep : Array.from(el.children)) { const got = walk(k, kidCtx); if (got) { kids.push(got); kidEls.push(k); } }
     if (cut) e.rows = { of: cut.of, kept: cut.keep.length, shapes: cut.shapes };
     if (trimmed) e.rows = { of: trimmed.of, kept: trimmed.kept, trimmed: true, ...(trimmed.endless ? { endless: true } : {}), ...(trimmed.rebuilt ? { rebuilt: true } : {}) };
     if (!inSvg) { const a = pseudoOf(el, "::after", kidCtx.cb, acc); if (a) kids.push(a); }
@@ -800,14 +802,26 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
        * and how many lines it takes (check-script-built.mjs (4)).
        */
       const ot = [];
+      /*
+       * AND WHERE EACH SITS AMONG THE ELEMENTS, BY DOM ORDER (`before`: how
+       * many of this element's kids come before it). A sentence that wraps
+       * ("Bought high? … You are <b>underwater</b>. When the price dips…",
+       * sunkcoin.fun) has runs and children on several lines, where no box
+       * says which came first; the order the page wrote them does. A <br>
+       * is recorded as a run of "\n" with no box, so a title broken by one
+       * ("The coin that pays<br><em>your sunk cost.</em>") folds back with
+       * its break (inline-runs.mjs, check-mixed-sentence.mjs).
+       */
+      const before = (n) => kidEls.filter((k) => k.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING).length;
       for (const n of Array.from(el.childNodes)) {
+        if (n.nodeType === 1 && n.tagName === "BR" && getComputedStyle(n).display !== "none") { ot.push(["\n", 0, 0, 0, 0, 1, before(n)]); continue; }
         if (n.nodeType !== 3 || !n.textContent) continue;
         const rg = document.createRange(); rg.selectNodeContents(n);
         const qs = Array.from(rg.getClientRects()).filter((q) => q.width > 0 && q.height > 0);
         if (!qs.length) continue;
         const [l, t, r, b] = [Math.min(...qs.map((q) => q.left)), Math.min(...qs.map((q) => q.top)), Math.max(...qs.map((q) => q.right)), Math.max(...qs.map((q) => q.bottom))];
         const bx = edges(l + scrollX, t + scrollY, r - l, b - t);
-        ot.push([n.textContent.replace(/\s+/g, " "), bx.x, bx.y, bx.w, bx.h, new Set(qs.map((q) => Math.round(q.top))).size]);
+        ot.push([n.textContent.replace(/\s+/g, " "), bx.x, bx.y, bx.w, bx.h, new Set(qs.map((q) => Math.round(q.top))).size, before(n)]);
       }
       if (ot.length) e.ot = ot;
     }
@@ -816,6 +830,8 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
       const fs = num(cs.fontSize); if (fs !== null) e.fs = fs;
       const fsu = fluidFont(el); if (fsu) e.fsu = fsu;
       e.fw = cs.fontWeight;
+      /* Slanted type: an <em> in a sentence, folded back as an italic run. */
+      if (/italic|oblique/.test(cs.fontStyle)) e.fst = "italic";
       e.ff = family(cs.fontFamily);
       /* The whole stack: a glyph the first face lacks (VT323 has no ✈) is drawn by the next. */
       if (cs.fontFamily.includes(",")) e.ffs = cs.fontFamily;

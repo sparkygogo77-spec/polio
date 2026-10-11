@@ -95,7 +95,11 @@ CSS default, or nowhere), page by page.
   fetched; words on one line beside elements keep their order and spaces
   (each run of an element's own words recorded with its box, `ot`, and put
   back by `inline-runs.mjs`: a sentence folds its words' children in as
-  runs, a nav's bars become parts of their own between its links); pages
+  runs, a nav's bars become parts of their own between its links; a
+  sentence that wraps folds too, by the order the page wrote it, each run
+  recording how many kids come before it and a `<br>` as a run of "\n",
+  with an `<em>`'s slant and another face's name on the run,
+  `check-mixed-sentence.mjs`); pages
   that differ only by their query stay separate pages.
 - `check-strokes.mjs` — the check that an icon keeps every stroke (straight
   lines, rounded rects, every SVG shape) and a card its `box-shadow`.

@@ -468,6 +468,8 @@ function fontOf(el, featureId, exact = false) {
   if (exact && el.fsu) f.fluid = el.fsu;
   const weight = Number(el.fw);
   if (weight) f.weight = weight;
+  /* Slanted (an <em>): read by `runOf` when the element folds into its sentence as a run. */
+  if (el.fst === "italic") f.italic = true;
   if (el.ls && el.ls !== "normal" && el.fs > 0) {
     const em = Math.round(((parseFloat(el.ls) || 0) / el.fs) * 1000) / 1000;
     if (Math.abs(em) > 0.005) f.spacing = em;
@@ -2139,6 +2141,10 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
     if (k.colour?.text) s.colour = k.colour.text;
     if (k.font?.weight && k.font.weight !== (p.font?.weight ?? 400)) s.weight = k.font.weight;
     if (k.font?.face && k.font.face !== p.font?.face) s.face = k.font.face;
+    /* sunkcoin.fun's "your sunk cost." and "buys the dip": the same serif, slanted and lighter and orange, inside its heading. */
+    if (k.font?.italic && !p.font?.italic) s.italic = true;
+    /* Its own size where the sentence's is not it (a <small>, a <sup>): in px, as the chip below keeps its. */
+    if (k.font?.px && p.font?.px && k.font.px !== p.font.px) s.size = k.font.px;
     if (k.link) s.link = k.link;
     /* A chip in the sentence (parasiteonsol.fun's dark "HOST" tag) keeps its fill, padding and rounding: white words on nothing were gone (check-chips.mjs). */
     if (k.colour?.bg && k.colour.bg !== p.colour?.bg) {
@@ -2169,7 +2175,7 @@ for (const g of generics) note("(faces)", g, "nowhere", `a generic keyword: the 
         const reads = p.content.map((x) => x.text).join("");
         if (p.label === was) p.label = reads;
         for (const k of kids) { gone.add(k.id); handled.add(k.id); }
-        note(p.from.selector, "ot", "field", `${JSON.stringify(was)} -> ${JSON.stringify(reads)}: its own words and ${kids.length} element${kids.length === 1 ? "" : "s"} on one line, in the order the page drew them (each run's box recorded), folded in as runs with the spaces its text holds`);
+        note(p.from.selector, "ot", "field", `${JSON.stringify(was)} -> ${JSON.stringify(reads)}: its own words and ${kids.length} element${kids.length === 1 ? "" : "s"}${line.ordered ? "" : " on one line"}, in the order the page drew them (each run's box recorded), folded in as runs with the spaces its text holds${line.ordered ? "; by the order the page wrote them (`before` on each run), so a sentence that wraps folds too, its <br>s kept" : ""}`);
       } else {
         const made = line.own.map((o) => wordsPart(p, o, `n_prose_${++n}`));
         p.content = "";
