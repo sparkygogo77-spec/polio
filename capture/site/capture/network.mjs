@@ -282,7 +282,10 @@ export function recordNetwork(page, { started = Date.now(), base } = {}) {
       if (rec.messages.length < STREAM_MAX) rec.messages.push({ t: Date.now() - opened, data: typeof f.payload === "string" ? f.payload : { binary: f.payload?.length ?? 0 } });
     });
     ws.on("framesent", (f) => {
-      if ((rec.sent ??= []).length >= 3 || typeof f.payload !== "string") return;
+      if (typeof f.payload !== "string") return;
+      /* Every shape the page sent on its own as it loaded and stood open (up to 50): a press's frame of the same shape is the page's, not the press's (capture-route.mjs `background`). */
+      if ((rec.sentShapes ??= []).length < 50) { const k = keyOfSocketSend(ws.url(), f.payload, page.url()); if (!rec.sentShapes.includes(k)) rec.sentShapes.push(k); }
+      if ((rec.sent ??= []).length >= 3) return;
       let j; try { j = JSON.parse(f.payload); } catch { j = undefined; }
       rec.sent.push(j !== undefined ? shapeOf(j) : "string");
     });
@@ -333,12 +336,92 @@ export const EVENTSOURCE_WATCH = `(() => {
 })();`;
 
 /**
+ * A frame the page sends on a WebSocket, read or write. A heartbeat
+ * ("ping", "pong", a Socket.IO "2"/"3"), a JSON-RPC asking only for reads
+ * (`getBalance`, `accountSubscribe`) and a subscribe/unsubscribe of any
+ * shape (`{ type: "subscribe" }`, `["subscribe", …]`, `{ op: "unsub" }`) are
+ * reads; anything else (a vote, a chat line, a game move) is a write. Written
+ * to run in the page too (`WRITE_WATCH` carries its source), so it uses
+ * nothing from this file.
+ */
+export function isSocketRead(payload) {
+  if (typeof payload !== "string") return false;
+  const READ_WORD = /^(ping|pong|heartbeat|hb|keepalive|sub|subscribe|unsub|unsubscribe|get[A-Z_]\w*|query|hello)$/i;
+  const RPC = /^(get|is|simulate|query|eth_(call|get|chainId|blockNumber|gasPrice|estimateGas|feeHistory)|net_|web3_|\w*(un)?subscribe)/i;
+  const s = payload.trim();
+  if (!s || /^(ping|pong|heartbeat|[2356])$/i.test(s)) return true;
+  let j; try { j = JSON.parse(s); } catch { return false; }
+  const one = (x) => {
+    if (typeof x === "string") return READ_WORD.test(x);
+    if (!x || typeof x !== "object") return false;
+    if (typeof x.method === "string") return RPC.test(x.method);
+    for (const k of ["type", "event", "op", "action", "cmd", "command", "channel_op"]) if (typeof x[k] === "string") return READ_WORD.test(x[k]);
+    return false;
+  };
+  if (Array.isArray(j)) return j.length > 0 && (typeof j[0] === "string" ? one(j[0]) : j.every(one));
+  return one(j);
+}
+
+/** The key of a frame a press sent on a socket: the socket's redacted address and the frame's shape, never its values. */
+export function keyOfSocketSend(url, payload, base) {
+  let shape = "string";
+  if (typeof payload === "string") { try { shape = shapeOf(JSON.parse(payload)); } catch { /* words */ } }
+  else if (payload && typeof payload === "object") shape = payload.binary != null ? "binary" : payload;
+  return `WS ${redactUrl(url, base).url} ${JSON.stringify(shape)}`;
+}
+
+/**
+ * Put into the page before its scripts, by `guardWrites`: a press that writes
+ * over an already-open WebSocket is never seen by the browser's request
+ * routing, so the socket's `send` is watched here. While `__sinkGuard.on`,
+ * a frame that is not a read (`isSocketRead`) is dropped before it leaves and
+ * reported through `__sinkGuardStopped` (the capturer's own binding; the
+ * frame's words stay inside the capturer and are kept only as their shape).
+ * A `navigator.sendBeacon` made while on is dropped the same way. Off, both
+ * run as the page wrote them.
+ */
+export const WRITE_WATCH = `(() => {
+  if (window.__sinkGuard) return;
+  const g = window.__sinkGuard = { on: false };
+  const isSocketRead = ${isSocketRead.toString()};
+  const report = (kind, url, payload) => { try { const f = window.__sinkGuardStopped; if (typeof f === "function") f({ kind, url: String(url), payload: typeof payload === "string" ? payload : { binary: payload && payload.byteLength != null ? payload.byteLength : payload && payload.size != null ? payload.size : 0 } }); } catch (e) { /* no binding */ } };
+  const W = window.WebSocket;
+  if (W && W.prototype && typeof W.prototype.send === "function") {
+    const realSend = W.prototype.send;
+    W.prototype.send = function (data) {
+      if (g.on && !(typeof data === "string" && isSocketRead(data))) { report("WS", this.url, data); return; }
+      return realSend.apply(this, arguments);
+    };
+  }
+  const nav = window.navigator;
+  if (nav && typeof nav.sendBeacon === "function") {
+    const realBeacon = nav.sendBeacon;
+    nav.sendBeacon = function (url, data) {
+      if (g.on) { report("BEACON", (() => { try { return new URL(String(url), location.href).href; } catch (e) { return String(url); } })(), typeof data === "string" ? data : ""); return true; }
+      return realBeacon.apply(this, arguments);
+    };
+  }
+})();`;
+
+/**
  * While armed, a write a press would make is stopped before it leaves (a read
- * goes on). `on(list)` arms it and writes each stopped write into `list`;
- * `off()` disarms. Returns the handle and `dispose()` to take the route away.
+ * goes on): a fetch or XHR by the browser's request routing, a frame on a
+ * WebSocket or a beacon by `WRITE_WATCH` in the page. `on(list)` arms it and
+ * writes each stopped write into `list`; `off()` disarms; both settle once the
+ * page knows. Returns the handle and `dispose()` to take the route away.
  */
 export async function guardWrites(page, { nav = false } = {}) {
   let list = null;
+  /* The socket's and the beacon's side: in the page, every frame from now on and the frames already open (the prototype is patched, so a socket opened before counts too). */
+  await page.exposeBinding("__sinkGuardStopped", (_src, q) => {
+    if (!list || !q) return;
+    const method = q.kind === "BEACON" ? "BEACON" : "WS";
+    list.push({ method, url: redactUrl(q.url, page.url()).url, key: method === "WS" ? keyOfSocketSend(q.url, q.payload, page.url()) : `BEACON ${redactUrl(q.url, page.url()).url}` });
+  }).catch(() => {});
+  await page.addInitScript(WRITE_WATCH).catch(() => {});
+  const inPage = (code) => Promise.all(page.frames().map((f) => f.evaluate(code).catch(() => {})));
+  await inPage(WRITE_WATCH);
+  const arm = (v) => inPage(`(() => { ${WRITE_WATCH}; if (window.__sinkGuard) window.__sinkGuard.on = ${v}; })()`);
   const route = async (r) => {
     const q = r.request();
     /* With `nav`, a press that would load another page is answered 204 (No Content), on which the browser stays, and its address kept. */
@@ -351,7 +434,11 @@ export async function guardWrites(page, { nav = false } = {}) {
     return r.fallback().catch(() => {});
   };
   await page.route("**/*", route);
-  return { on: (l) => { list = l; }, off: () => { list = null; }, dispose: () => page.unroute("**/*", route).catch(() => {}) };
+  return {
+    on: async (l) => { list = l; await arm(true); },
+    off: async () => { await arm(false); list = null; },
+    dispose: () => page.unroute("**/*", route).catch(() => {}),
+  };
 }
 
 /**
