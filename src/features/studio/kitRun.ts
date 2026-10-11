@@ -45,6 +45,8 @@ export interface KitManifest {
   /** The scene file and the samples file (BUILDER-RULES.md rules 15 and 17), read with it (`stateRules.ts`). */
   scenes?: string;
   samples?: string;
+  /** The kit's ready-made parts (BUILDER-RULES.md "Game parts on the shelf"): their css and js are named from this file's folder. */
+  parts?: string;
 }
 
 /** A style or setting the builder learns (BUILDER-RULES.md rule 4): a token one part uses, shown by its label in the part's Settings. */
@@ -95,10 +97,35 @@ export async function fileAt(f: Fetch, token: string, repo: string, ref: string,
   return got.status === 200 && typeof content === "string" ? b64decode(content) : null;
 }
 
+/**
+ * A file that must be read before it is rewritten (polio/NEXT.md): its text,
+ * null only when GitHub says it is not there (404), and a failure for any
+ * other answer, so a rate limit, a 5xx or a dropped connection never reads
+ * as an empty file and wipes what it held.
+ */
+export async function fileOrGone(f: Fetch, token: string, repo: string, ref: string, path: string): Promise<Answer<{ text: string | null }>> {
+  const got = await gh(f, token, `/repos/${repo}/contents/${pathOf(path)}?ref=${encodeURIComponent(ref)}`);
+  const content = got.json?.content;
+  if (got.status === 200 && typeof content === "string") return { ok: true, text: b64decode(content) };
+  if (got.status === 404) return { ok: true, text: null };
+  return { ok: false, says: `Could not read ${path} from ${repo} (GitHub answered ${got.status || "nothing"}); nothing was sent, try again.` };
+}
+
 export async function defaultBranch(f: Fetch, token: string, repo: string): Promise<Answer<{ branch: string }>> {
   const info = await gh(f, token, `/repos/${repo}`);
   if (info.status !== 200) return { ok: false, says: info.status === 404 ? `GitHub has no ${repo}, or this token cannot see it.` : info.status === 401 ? "GitHub does not accept the saved key (401): it has expired, been revoked, or was pasted wrong. Make a new one with Contents and Pull requests: read and write on this repository, and add it under Keys." : info.status === 403 ? "GitHub refused that token (403). Check it under Keys." : "GitHub could not be reached." };
   return { ok: true, branch: String(info.json?.default_branch ?? "main") };
+}
+
+/**
+ * A file as it is where Publish merges (`styleLayerRun.ts#publishLayer`): the
+ * repository's default branch, whatever branch the board came from, so
+ * polio/NEXT.md is added to and read back where the code chat ticks it.
+ * HEAD (GitHub's own default) when the repository will not say its name.
+ */
+export async function fileOnDefault(f: Fetch, token: string, repo: string, path: string): Promise<string | null> {
+  const main = await defaultBranch(f, token, repo);
+  return fileAt(f, token, repo, main.ok ? main.branch : "HEAD", path);
 }
 
 /** The snapshot of a builder-ready repository, from its manifest and map. */
@@ -180,10 +207,15 @@ export async function readKit(repo: string, ref: string, token: string, opts: { 
 
 const TEXT = /\.(html?|css|m?js|json|md|ya?ml)$/i;
 const MOST_FILES = 400;
+/** Where a kit folder keeps the builder's motion file (kit/starter/vendor/builder-motion.js); $1 is the kit folder. */
+export const KIT_MOTION = /^(.*\/)?starter\/vendor\/builder-motion\.js$/;
 
 /**
- * Every text file the kit's check reads: `builder.json` and each folder
- * holding a page, a stylesheet or the map, as on `ref`.
+ * Every text file the kit's check reads: `builder.json`, each folder
+ * holding a page, a stylesheet or the map, the parts file's folder, the
+ * files it names by path wherever they sit (PonsStars keeps its scenes and
+ * samples in kit/, beside no page), and the kit's own copy of the builder's
+ * motion file where the repository keeps its kit, as on `ref`.
  */
 export async function kitFiles(repo: string, ref: string, token: string, manifest: KitManifest, opts: { fetch?: Fetch } = {}): Promise<Answer<{ files: Record<string, string> }>> {
   const f = opts.fetch ?? fetch;
@@ -192,7 +224,11 @@ export async function kitFiles(repo: string, ref: string, token: string, manifes
   if (!list) return { ok: false, says: `GitHub would not list ${repo} on ${ref}.` };
   const top = (p: string) => (p.includes("/") ? `${p.split("/")[0]}/` : "");
   const dirs = new Set([manifest.hooks, manifest.tokens, manifest.styleLayer, manifest.preview?.page ?? "", manifest.gallery ?? "", ...manifest.pages.map((p) => p.file)].filter(Boolean).map(top));
-  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (e.path === "builder.json" || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
+  if (manifest.parts) dirs.add(manifest.parts.slice(0, manifest.parts.lastIndexOf("/") + 1));
+  const exact = new Set(["builder.json", manifest.scenes, manifest.samples, manifest.tokensModule].filter(Boolean));
+  /* The repository's own copy of the kit keeps the builder's motion file its kit-check copies into the site: read too, so a stale one is sent fresh with the layer. */
+  const kitCopy = (p: string) => KIT_MOTION.test(p) && list.some((e) => e.path === p.replace(KIT_MOTION, "$1tools/kit-check.mjs"));
+  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (exact.has(e.path) || kitCopy(e.path) || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
   if (want.length > MOST_FILES) return { ok: false, says: `${repo} has ${want.length} files beside its pages, more than the Builder checks at once (${MOST_FILES}).` };
   const files: Record<string, string> = {};
   for (const e of want) {

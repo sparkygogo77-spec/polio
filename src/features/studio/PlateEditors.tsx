@@ -31,6 +31,7 @@ import { plain, reword } from "./shelf";
 import { growToWords } from "./growToWords";
 import { LookFields } from "./LookFields";
 import { PartPictureField } from "./PartPictureField";
+import { applyToSelection, selectionFor } from "./radial/selectionEdit";
 
 /* ------------------------------------------------------------------ */
 /* The pieces                                                          */
@@ -205,7 +206,18 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
   const feature = getFeature(node.featureId);
   const pages = useStudio((s) => s.pages);
   const pickedFace = useStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
+  /*
+   * Its settings (options, shape, links, priority) go to every picked part,
+   * as the wheel's looks do (`radial/selectionEdit.ts`); the words it says
+   * (name, prompt, contents, data) stay on this one, and the plate says so.
+   */
   const update = (patch: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, patch);
+  const spread = (patch: Partial<StudioNode>) => applyToSelection(node, patch);
+  const several = useStudio((s) => selectionFor(node, s.selection).length > 1);
+  const resetOptions = () => {
+    const st = useStudio.getState();
+    st.patchNodes(selectionFor(node, st.selection), () => ({ options: {} }));
+  };
   const [info, setInfo] = React.useState(false);
   const about = feature?.explain ?? feature?.blurb ?? null;
   // What every plate shares: the part's name over the screen, and the rail
@@ -221,10 +233,12 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     side: rail,
     lead: info && about ? <p className="text-[8.5px] leading-snug" style={{ color: SCREEN.dim }}>{about}</p> : null,
   };
+  /** With several parts picked, the words plates say whose words they are. */
+  const onlyThis = several ? `${common.sub} · this part only` : common.sub;
 
   if (which === "name") {
     return (
-      <PlateQuad {...common} title="Name">
+      <PlateQuad {...common} title="Name" sub={onlyThis}>
         <Input value={node.label} aria-label="Name" inputSize="sm" className={field} onChange={(e) => update({ label: e.target.value })} />
       </PlateQuad>
     );
@@ -249,7 +263,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
       <PlateQuad {...common} title="Priority">
         <div className="flex flex-wrap gap-1">
           {levels.map(([v, label]) => (
-            <Tick key={v} on={node.priority === v} onClick={() => update({ priority: v })}>{label}</Tick>
+            <Tick key={v} on={node.priority === v} onClick={() => spread({ priority: v })}>{label}</Tick>
           ))}
         </div>
       </PlateQuad>
@@ -280,7 +294,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
       );
     }
     return (
-      <PlateQuad {...common} title="This part's prompt">
+      <PlateQuad {...common} title="This part's prompt" sub={onlyThis}>
         <Textarea rows={5} value={node.prompt} aria-label="Element prompt" className={`${field} flex-1 resize-none`} placeholder={feature?.hint ?? "Specific to this placement…"} onChange={(e) => update({ prompt: e.target.value })} />
       </PlateQuad>
     );
@@ -290,7 +304,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     const beside = spare[1] ?? spare[0];
     return (
       <>
-        <PlateQuad {...common} title={feature?.content?.label ?? "Contents"}>
+        <PlateQuad {...common} title={feature?.content?.label ?? "Contents"} sub={onlyThis}>
           {feature?.content ? (
             <Textarea rows={5} value={plain(node.content)} aria-label={feature.content.label} className={`${field} flex-1 resize-none`} placeholder={feature.content.placeholder} onChange={(e) => { update({ content: reword(node.content, e.target.value) }); growToWords(node.id); }} />
           ) : (
@@ -316,7 +330,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
 
   if (which === "data") {
     return (
-      <PlateQuad {...common} title="Data">
+      <PlateQuad {...common} title="Data" sub={onlyThis}>
         <Textarea rows={5} value={node.data} aria-label="Data" className={`${field} flex-1 resize-none`} placeholder="What it shows or does" onChange={(e) => update({ data: e.target.value })} />
       </PlateQuad>
     );
@@ -335,14 +349,14 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     return (
       <PlateQuad {...common} title="Links to">
         <div className="flex flex-wrap gap-1">
-          <Tick on={current === "none"} onClick={() => update({ link: null })}>Nowhere</Tick>
+          <Tick on={current === "none"} onClick={() => spread({ link: null })}>Nowhere</Tick>
           {pages.map((p) => (
-            <Tick key={p.id} on={current === `page:${p.id}`} onClick={() => update({ link: { kind: "page", target: p.id } })}>{p.name}</Tick>
+            <Tick key={p.id} on={current === `page:${p.id}`} onClick={() => spread({ link: { kind: "page", target: p.id } })}>{p.name}</Tick>
           ))}
-          <Tick on={current === "url"} onClick={() => update({ link: { kind: "url", target: link?.kind === "url" ? link.target : "https://" } })}>Web address</Tick>
+          <Tick on={current === "url"} onClick={() => spread({ link: { kind: "url", target: link?.kind === "url" ? link.target : "https://" } })}>Web address</Tick>
         </div>
         {link?.kind === "url" ? (
-          <Input value={link.target} aria-label="Web address" inputSize="sm" className={field} onChange={(e) => update({ link: { kind: "url", target: e.target.value } })} />
+          <Input value={link.target} aria-label="Web address" inputSize="sm" className={field} onChange={(e) => spread({ link: { kind: "url", target: e.target.value } })} />
         ) : null}
       </PlateQuad>
     );
@@ -357,7 +371,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
         side={
           <>
             {rail}
-            <RailButton label="Reset the options" onClick={() => update({ options: {} })}><RotateCcw className="size-3" /></RailButton>
+            <RailButton label="Reset the options" onClick={resetOptions}><RotateCcw className="size-3" /></RailButton>
           </>
         }
       >
@@ -369,7 +383,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
         <Row label="Shape">
           <div className="flex flex-wrap gap-1">
             {NODE_SHAPES.map((v) => (
-              <Tick key={v} on={(node.shape ?? "box") === v} onClick={() => update({ shape: v === "box" ? null : v })}>{v}</Tick>
+              <Tick key={v} on={(node.shape ?? "box") === v} onClick={() => spread({ shape: v === "box" ? null : v })}>{v}</Tick>
             ))}
           </div>
         </Row>
@@ -382,7 +396,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
               const next = new Set(on);
               if (next.has(v)) next.delete(v);
               else next.add(v);
-              update({ options: { ...node.options, [opt.id]: opt.values.filter((x) => next.has(x)).join(", ") } });
+              spread({ options: { ...node.options, [opt.id]: opt.values.filter((x) => next.has(x)).join(", ") } });
             };
             return (
               <Row key={opt.id} label={`${opt.label} · ${on.size} on`}>
@@ -405,7 +419,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
                   step={r.step ?? 1}
                   value={now}
                   aria-label={opt.label}
-                  onChange={(v) => update({ options: { ...node.options, [opt.id]: String(v) } })}
+                  onChange={(v) => spread({ options: { ...node.options, [opt.id]: String(v) } })}
                   className="h-2 w-full cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                   style={{ background: `linear-gradient(to right, ${SCREEN.ink} ${((now - r.min) / Math.max(1e-6, r.max - r.min)) * 100}%, ${SCREEN.key} 0%)` }}
                 />
@@ -416,7 +430,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
           return (
             <Row key={opt.id} label={opt.label}>
               <div className="flex flex-wrap gap-1">
-                {opt.values.map((v) => <Tick key={v} on={value === v} onClick={() => update({ options: { ...node.options, [opt.id]: v } })}>{v}</Tick>)}
+                {opt.values.map((v) => <Tick key={v} on={value === v} onClick={() => spread({ options: { ...node.options, [opt.id]: v } })}>{v}</Tick>)}
               </div>
             </Row>
           );

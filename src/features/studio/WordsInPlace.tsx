@@ -29,7 +29,7 @@
  */
 import * as React from "react";
 import { useStudio, type StudioNode } from "./board/store";
-import { lookIn, plain, restyle, reword, spansOf, type RunLook, type Span } from "./shelf";
+import { lookIn, plain, restyle, reword, spansOf, type RunLook, type Span, type Words } from "./shelf";
 import { getFeature } from "./shelf";
 import { FAMILY } from "./shelf/run";
 import { fontsInPageOrder } from "./look";
@@ -126,6 +126,17 @@ function paint(el: HTMLElement, words: StudioNode["content"] | undefined) {
   }
 }
 
+/**
+ * The part's runs with what was typed so far laid over them (`reword`), so
+ * offsets counted in the box land on the same words. What the bar shows and
+ * what Ctrl+B / Ctrl+I flip read these, not the runs stored before typing.
+ */
+function typedWords(el: HTMLElement | null, was: Words): Words {
+  if (!el) return was;
+  const typed = textOf(el);
+  return typed === plain(was) ? was : reword(was, typed);
+}
+
 /** The words in the box as typed: text nodes in order, a <br> the browser put in as a line break. */
 function textOf(el: HTMLElement): string {
   let out = "";
@@ -214,6 +225,8 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
   const hidden = React.useRef<HTMLElement | null>(null);
   const done = React.useRef(false);
   const committed = React.useRef(false);
+  /* The words as they were when the box opened, for Escape to put back once the bar has already written a look. */
+  const before = React.useRef<StudioNode["content"] | undefined>(undefined);
   /* The stretch the bar works on: the box's last selection, kept because the box loses it to the bar's own controls. */
   const held = React.useRef<[number, number] | null>(null);
 
@@ -221,6 +234,7 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
   React.useLayoutEffect(() => {
     done.current = false;
     committed.current = false;
+    before.current = node?.content;
     held.current = null;
     setRange(null);
     if (!id || !node) { setSpot(null); return; }
@@ -296,6 +310,9 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
       if (!committed.current) s.commit();   // one step of undo for the whole edit
       s.updateNodeQuiet(id, { content: reword(n.content, typed) });
       play("confirm");
+    } else if (!keep && committed.current && n) {
+      /* The bar (or Ctrl+B/I) wrote as it went: Escape takes all of it back, the typing too. */
+      s.updateNodeQuiet(id, { content: before.current ?? n.content });
     }
     setEditing(null);
   }, [id]);
@@ -313,8 +330,7 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
     const n = s.nodes.find((x) => x.id === id);
     if (!n) return;
     if (!committed.current) { s.commit(); committed.current = true; }
-    const typed = textOf(el);
-    const words = restyle(typed === plain(n.content) ? n.content : reword(n.content, typed), stretch[0], stretch[1], look);
+    const words = restyle(typedWords(el, n.content), stretch[0], stretch[1], look);
     s.updateNodeQuiet(id, { content: words });
     paint(el, words);
     held.current = stretch;
@@ -362,8 +378,8 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
           e.stopPropagation();
           if (e.key === "Escape") { e.preventDefault(); finish(false); }
           else if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finish(true); }
-          else if ((e.metaKey || e.ctrlKey) && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggle(apply, held.current, node, "weight"); }
-          else if ((e.metaKey || e.ctrlKey) && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggle(apply, held.current, node, "italic"); }
+          else if ((e.metaKey || e.ctrlKey) && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggle(apply, held.current, typedWords(box.current, node.content), "weight"); }
+          else if ((e.metaKey || e.ctrlKey) && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggle(apply, held.current, typedWords(box.current, node.content), "italic"); }
         }}
         className="pointer-events-auto absolute z-40 whitespace-pre-wrap break-words outline-none"
         style={{
@@ -374,24 +390,28 @@ export function WordsInPlace({ zoom }: { zoom: number }) {
           borderRadius: 2,
         }}
       />
-      {range ? <WordsBar ref={bar} node={node} range={range} spot={spot} zoom={zoom} apply={apply} /> : null}
+      {range ? <WordsBar ref={bar} node={node} words={typedWords(box.current, node.content)} range={range} spot={spot} zoom={zoom} apply={apply} /> : null}
     </>
   );
 }
 
-/** Bold or italic flipped on the highlighted stretch, as a document does on Ctrl+B / Ctrl+I. */
-function toggle(apply: (look: RunLook, refocus?: boolean) => void, stretch: [number, number] | null, node: StudioNode, what: "weight" | "italic") {
+/**
+ * Bold or italic flipped on the highlighted stretch, as a document does on
+ * Ctrl+B / Ctrl+I: the same test as the bar's B and I, so a run at 600 or
+ * 900 counts as bold for the keys too and both take the weight off.
+ */
+function toggle(apply: (look: RunLook, refocus?: boolean) => void, stretch: [number, number] | null, words: Words, what: "weight" | "italic") {
   if (!stretch || stretch[1] <= stretch[0]) return;
-  const now = lookIn(node.content, stretch[0], stretch[1]);
+  const now = lookIn(words, stretch[0], stretch[1]);
   if (what === "italic") apply({ italic: now.italic ? null : true });
-  else apply({ weight: now.weight === 700 ? null : 700 });
+  else apply({ weight: (now.weight ?? 0) >= 600 ? null : 700 });
 }
 
 /* ------------------------------------------------------------ the bar over highlighted words */
 
-interface BarProps { node: StudioNode; range: [number, number]; spot: Spot; zoom: number; apply: (look: RunLook, refocus?: boolean) => void }
+interface BarProps { node: StudioNode; words: Words; range: [number, number]; spot: Spot; zoom: number; apply: (look: RunLook, refocus?: boolean) => void }
 
-const WordsBar = React.forwardRef<HTMLDivElement, BarProps>(function WordsBar({ node, range, spot, zoom, apply }, ref) {
+const WordsBar = React.forwardRef<HTMLDivElement, BarProps>(function WordsBar({ node, words, range, spot, zoom, apply }, ref) {
   const nodes = useStudio((s) => s.nodes);
   const pages = useStudio((s) => s.pages);
   const carried = useStudio((s) => s.look.fonts);
@@ -401,7 +421,7 @@ const WordsBar = React.forwardRef<HTMLDivElement, BarProps>(function WordsBar({ 
     ...(carried ?? []).map((f) => f.family),
     ...Object.keys(FAMILY),
   ])], [carried, nodes, pages]);
-  const now = lookIn(node.content, range[0], range[1]);
+  const now = lookIn(words, range[0], range[1]);
   const face = now.face ?? "";
   const size = typeof now.size === "number" ? now.size : null;
   const colour = typeof now.colour === "string" && /^(#|rgb|hsl|oklch)/i.test(now.colour) ? now.colour : "";

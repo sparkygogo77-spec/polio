@@ -92,7 +92,17 @@ export function sitePress(states: readonly (Record<string, string> | undefined)[
 export function effectCss(sel: string, uses: readonly EffectUse[], o: { press?: string[] | null } = {}): MotionCss {
   const out: MotionCss = { own: [], rules: [], frames: new Map(), done: [] };
   const anims: string[] = [];
+  /* Which of `anims` follow the scroll (Reveal); the rest keep time, so a float beside a reveal still bobs. */
+  const scrolled = new Set<number>();
   const trans: string[] = [];
+  /*
+   * A float on a part that also lifts or pushes adds to its `translate`
+   * instead of owning it: an animation outranks `:hover` / `:active`, so the
+   * lift and the push would only move the float's resting point (audit
+   * 2026-10-11). Alone it still replaces, as it always has.
+   */
+  const moved = uses.some((u) => !u.off && (u.id === "hover-lift" || u.id === "press-push"));
+  const adds = new Set<number>();
   for (const u of uses) {
     if (u.off || !CSS_EFFECTS.has(u.id)) continue;
     const i = u.inputs ?? {};
@@ -116,8 +126,9 @@ export function effectCss(sel: string, uses: readonly EffectUse[], o: { press?: 
     } else if (u.id === "float") {
       const d = num(i.travel, 12), t = Math.max(0.1, num(i.period, 6)), sign = i.toward === "+" ? 1 : -1, axis = i.axis === "x" ? "x" : "y";
       const ease = EASE.test(i.ease ?? "") ? i.ease! : "ease-in-out";
-      const far = px(sign * d), f = name(`pb-float-${axis}-${sign * d}`);
-      out.frames.set(f, `@keyframes ${f} {\n  50% { translate: ${axis === "x" ? `${far} 0px` : `0px ${far}`}; }\n}`);
+      const far = px(sign * d), f = name(`pb-float-${axis}-${sign * d}${moved ? "-add" : ""}`);
+      out.frames.set(f, `@keyframes ${f} {\n${moved ? "  0%, 100% { translate: 0px 0px; }\n" : ""}  50% { translate: ${axis === "x" ? `${far} 0px` : `0px ${far}`}; }\n}`);
+      if (moved) adds.add(anims.length);
       anims.push(`${f} ${t}s ${ease} infinite`);
     } else if (u.id === "spin") {
       const t = Math.max(0.1, num(i.period, 20)), f = i.direction === "ccw" ? "pb-spin-ccw" : "pb-spin-cw";
@@ -133,8 +144,8 @@ export function effectCss(sel: string, uses: readonly EffectUse[], o: { press?: 
       const from = dir === "up" ? `0px ${px(d)}` : dir === "down" ? `0px ${px(-d)}` : dir === "left" ? `${px(d)} 0px` : dir === "right" ? `${px(-d)} 0px` : "0px 0px";
       const f = name(`pb-reveal-${dir}-${d}${k !== 1 ? `-s${k}` : ""}`);
       out.frames.set(f, `@keyframes ${f} {\n  from { opacity: 0; translate: ${from};${k !== 1 ? ` scale: ${k};` : ""} }\n}`);
+      scrolled.add(anims.length);
       anims.push(`${f} linear both`);
-      out.own.push("animation-timeline: view()", "animation-range: entry 0% entry 60%");
     } else if (u.id === "switch-on") {
       out.frames.set("pb-switch-on", "@keyframes pb-switch-on {\n  0% { scale: 1 0.02; filter: brightness(3); opacity: 0.6; }\n  45% { scale: 1 1; filter: brightness(1.8); opacity: 1; }\n  100% { filter: none; }\n}");
       anims.push("pb-switch-on 0.9s cubic-bezier(.2,.8,.2,1) both");
@@ -142,8 +153,13 @@ export function effectCss(sel: string, uses: readonly EffectUse[], o: { press?: 
     out.done.push(u.id);
   }
   if (trans.length) out.own.push(`transition: ${[...new Set(trans)].join(", ")}`);
-  /* The timeline names come after the shorthand, which would reset them. */
+  /* The timeline names come after the shorthand, which would reset them: one per animation, in its order. */
+  if (scrolled.size) {
+    const each = (v: string, t: string) => anims.map((_, k) => (scrolled.has(k) ? v : t)).join(", ");
+    out.own.push(`animation-timeline: ${each("view()", "auto")}`, `animation-range: ${each("entry 0% entry 60%", "normal")}`);
+  }
   if (anims.length) out.own.unshift(`animation: ${anims.join(", ")}`);
+  if (adds.size) out.own.push(`animation-composition: ${anims.map((_, j) => (adds.has(j) ? "add" : "replace")).join(", ")}`);
   return out;
 }
 

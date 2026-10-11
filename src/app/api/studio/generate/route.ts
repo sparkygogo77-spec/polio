@@ -355,7 +355,18 @@ export async function POST(request: Request) {
     const message = await stream.finalMessage();
 
     if (message.stop_reason === "refusal") {
-      return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined this request. Adjust the blueprint and try again." });
+      return NextResponse.json({
+        ok: false,
+        reason: "refusal",
+        message: "Claude declined this request. Adjust the blueprint and try again.",
+        usage: {
+          input: message.usage.input_tokens,
+          output: message.usage.output_tokens,
+          cached: message.usage.cache_read_input_tokens ?? 0,
+          written: message.usage.cache_creation_input_tokens ?? 0,
+          model: message.model,
+        },
+      });
     }
 
     const raw = message.content

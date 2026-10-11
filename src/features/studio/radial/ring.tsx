@@ -15,6 +15,7 @@ import { type Slab } from "../RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "../shelf/run";
 import { auraStyle, lands, parseColor, textureCss, type Palette, type RoleId, type TextureLayer } from "../look";
 import { PULL_LOCK, Pull, GREEN, CRIMSON, ANIM_SLAB, motionOptions } from "./choices";
+import { applyToSelection } from "./selectionEdit";
 
 /**
  * The line of the gesture, drawn *under* the wheel so it runs beneath the
@@ -378,34 +379,8 @@ export function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palet
 /* The one editor a green choice asked for                             */
 /* ------------------------------------------------------------------ */
 
-/**
- * AN EDIT ON THE WHEEL IS AN EDIT TO THE SELECTION. Opened on one of several
- * picked parts, the wheel changes all of them — but only what was changed:
- * painting the words white on one card leaves the other cards' fills, borders
- * and faces as they are. Colour, edge and font are merged key by key; any
- * other field is set as it is. One undo for the lot.
- */
-export const MERGED = new Set(["colour", "edge", "font"]);
-export function applyToSelection(node: StudioNode, patch: Partial<StudioNode>) {
-  const st = useStudio.getState();
-  const ids = st.selection.length > 1 && st.selection.includes(node.id) ? st.selection : [node.id];
-  if (ids.length === 1) return st.updateNode(node.id, patch);
-  const diff: Record<string, { set: Record<string, unknown>; drop: string[] } | { whole: unknown }> = {};
-  for (const [k, v] of Object.entries(patch)) {
-    if (!MERGED.has(k)) { diff[k] = { whole: v }; continue; }
-    const was = ((node as unknown as Record<string, Record<string, unknown> | null>)[k] ?? {}) as Record<string, unknown>;
-    const now = (v ?? {}) as Record<string, unknown>;
-    const set: Record<string, unknown> = {};
-    for (const [kk, vv] of Object.entries(now)) if (JSON.stringify(was[kk]) !== JSON.stringify(vv)) set[kk] = vv;
-    diff[k] = { set, drop: Object.keys(was).filter((kk) => !(kk in now)) };
-  }
-  st.patchNodes(ids, (n) => Object.fromEntries(Object.entries(diff).map(([k, d]) => {
-    if ("whole" in d) return [k, d.whole];
-    const own = { ...(((n as unknown as Record<string, Record<string, unknown> | null>)[k]) ?? {}), ...d.set };
-    for (const kk of d.drop) delete own[kk];
-    return [k, Object.keys(own).length ? own : null];
-  })) as Partial<StudioNode>);
-}
+/* An edit on the wheel is an edit to the selection (`selectionEdit.ts`). */
+export { MERGED, applyToSelection } from "./selectionEdit";
 
 export function Editor({ which, node, slabs, onMore }: { which: string; node: StudioNode; slabs: Slab[]; onMore: () => void }) {
   const format = useStudio((st) => st.format);

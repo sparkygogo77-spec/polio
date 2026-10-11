@@ -34,14 +34,14 @@ import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
-import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./send-out";
+import { codeStatus, commitAfterPublish, headOf, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
 import { olderBuilder, readLastBring, resetToLastBring, useLastBring } from "./lastBring";
-import { fileAt } from "./kitRun";
+import { defaultBranch, fileOnDefault } from "./kitRun";
 import { LANE_MODE } from "./loop";
-import { NEXT_PATH, asksToSend, fixedIn } from "./fixLoop";
+import { NEXT_PATH, asksToSend, fixedIn, promotePending, sentMerged, sentUnmerged } from "./fixLoop";
 import { asksNow, gatherAsks } from "./publishAsks";
 import { fixLoopOf, setFixLoop } from "./useFixLoop";
 
@@ -87,22 +87,31 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     window.addEventListener("focus", back);
     return () => { window.clearInterval(t); window.removeEventListener("focus", back); };
   }, [read]);
+  /* The branch Publish merges into and Refresh reads polio/NEXT.md from: the default one, whatever branch the board came from (`styleLayerRun.ts`). One request per repository. */
+  const [main, setMain] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setMain(null);
+    void defaultBranch(fetch, heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "", source.repo).then((m) => setMain(m.ok ? m.branch : null)).catch(() => {});
+  }, [source.repo]);
 
   const say = (title: string, body: string, level: "info" | "success" | "warn" = "info") => ctx.publish({ key: "studio:code-site", title, body, level, source: "studio", toast: { durationMs: 9000 } });
 
   /* The fix loop's last step: the lines the code chat ticked or deleted in polio/NEXT.md become blue boxes. */
   const readFixed = async () => {
-    const loop = fixLoopOf(useStudio.getState().look);
-    if (!loop.sent.length) return;
+    const was = fixLoopOf(useStudio.getState().look);
+    if (!was.sent.length && !was.pending?.length) return;
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
-    const md = await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null);
+    /* Read where Publish merged it, the default branch, not the branch the board came from. */
+    const md = await fileOnDefault(fetch, token, source.repo, NEXT_PATH).catch(() => null);
+    /* Lines from a pull request not merged count only once the default branch has them: until then their absence is not a fix. */
+    const loop = promotePending(was, md);
     const fixed = fixedIn(loop.sent, md);
-    if (!fixed.length) return;
+    if (!fixed.length) { if (loop !== was) setFixLoop(loop); return; }
     for (const i of fixed) useStudio.getState().landThread({ mode: LANE_MODE, ask: i.says, answer: `Fixed by a code chat from polio/NEXT.md: ${i.hook ?? "a part"} on ${i.page}.`, changes: [`${i.hook ?? "A part"} on ${i.page} fixed`], state: "done" });
     const gone = new Set(fixed.map((i) => i.key));
     /* A board change the code built is done: the board still holds it, so it is never asked for again. */
     const built = fixed.filter((i) => i.kind === "build").map((i) => i.key);
-    setFixLoop({ ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
+    setFixLoop({ ...loop, ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
     say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
   };
 
@@ -161,21 +170,31 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     try {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
       /* Ticked issues not yet queued go in polio/NEXT.md, with what he set that CSS cannot carry and each part made in the Builder (`publishAsks.ts`). */
-      const { fresh, adding, extra, nodes: withHooks } = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      const { fresh, adding, extra, nodes: withHooks, says } = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      if (says) { say("Not published", says, "warn"); return; }
       const sent = await sendDesign(withHooks as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra, fresh });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
-      if (!sent.pull) { say("Sent, not merged", sent.says, "warn"); return; }
+      /* Not merged: its NEXT.md lines are pending, so Refresh neither forgets them nor reads them as fixed. */
+      const unmerged = (says: string) => { if (adding.length) setFixLoop(sentUnmerged(fixLoopOf(useStudio.getState().look), adding)); say("Sent, not merged", says, "warn"); };
+      if (!sent.pull) { unmerged(sent.says); return; }
       setBusy("Merging…");
       const merged = await mergePull(source.repo, sent.pull, token, { title: `Design from the Builder: ${site}` });
-      if (!merged.ok) { say("Sent, not merged", merged.says, "warn"); return; }
-      /* The code has the design now: what is published, and the commit it is at, so Refresh is green. */
+      if (!merged.ok) { unmerged(merged.says); return; }
+      /*
+       * The code has the design now: what is published, and the commit it is at, so Refresh is green.
+       * Only when the merge sat on the commit the board was read at: a code chat's change merged in
+       * between is not on the board, so the board keeps its commit and Refresh stays orange.
+       */
       const st = useStudio.getState();
       const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
-      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit: merged.sha } } as never);
-      if (adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...adding] }); }
-      setHead(merged.sha);
+      const parent = await parentOf(source.repo, merged.sha, token).catch(() => null);
+      const commit = commitAfterPublish(now?.commit ?? source.commit, parent, merged.sha);
+      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit } } as never);
+      if (adding.length) setFixLoop(sentMerged(fixLoopOf(useStudio.getState().look), adding));
+      if (commit === merged.sha) setHead(merged.sha); else void read();
       play("confirm");
-      say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.`, "success");
+      const moved = commit === merged.sha ? "" : " The code had moved on since this board read it: Refresh (Keep my changes) brings in what changed.";
+      say("Published", `The design is merged into ${source.repo} (${merged.sha.slice(0, 7)}): ${sent.files.join(", ")}. Wherever the repository deploys from, it goes live from there.${moved}`, "success");
     } finally {
       setBusy(null);
     }
@@ -243,8 +262,10 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       >
         <div data-code-publish-says="" className="space-y-2 text-plain text-fg-muted">
           <FixNote source={source} />
+          {status?.at === "behind" ? <p data-code-publish-behind="" className="text-warning">{status.says} Publishing first is fine: the code keeps its changes, and Refresh stays orange until they are on the board.</p> : null}
           <p>{changes}. Only the look changes: the style layer{source.kit ? ", the hooks map made from it" : ""} and the design record. Its scripts, pages and every hook stay as they are.</p>
-          <p>It goes on a new style/ branch and is merged into {source.ref || "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
+          <p>It goes on a new style/ branch and is merged into {main ?? "the default branch"} at once. Wherever {source.repo} deploys from, the site updates from there.</p>
+          {main && source.ref && source.ref !== main ? <p data-code-publish-base="">This board came from {source.ref}; Publish merges into {main}.</p> : null}
           {layer.rules.length ? <p className="text-small text-fg-faint">{layer.rules.slice(0, 6).map((r) => r.selector).join(", ")}{layer.rules.length > 6 ? ", …" : ""}</p> : null}
         </div>
       </Dialog>

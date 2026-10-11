@@ -68,6 +68,8 @@ export interface ScaffoldPart {
   cube?: { faces: { heading: string; body: string; colour: string }[]; turn?: { x: number; y: number } } | null;
   /** True when nothing has been written for it yet: this is what Claude is for. */
   empty?: boolean;
+  /** True when some of its words were never written: left out of the component, and listed for Claude. */
+  unwritten?: boolean;
   /** What it reads, when the board says it reads something. */
   data?: string;
   /** Its entrance on the live page, as the wheel's Animation shard set it. */

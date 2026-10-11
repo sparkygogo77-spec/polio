@@ -10,7 +10,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useStudio, type StudioNode } from "../board/store";
-import { FACETS, lookOf, lookPatch, lookDiffers, type Facet, type PartLook, type PasteOpts } from "./partLook";
+import { FACETS, lookOf, lookHas, lookPatch, lookDiffers, type Facet, type PartLook, type PasteOpts } from "./partLook";
 import { sameKind } from "../partKind";
 
 interface LookClip {
@@ -80,13 +80,27 @@ export const useMakeAll = create<MakeAllPrefs>()(
   ),
 );
 
+/**
+ * The facets Make all like this carries from `node`: the chosen ones its look
+ * says something about. A facet the part has nothing of is left out, so it
+ * never clears what the other parts wear there (a plain button carries
+ * nothing, and wipes nobody's fill, corners or font). The panel and the
+ * wheel's tray both go through here.
+ */
+export function makeAllFacets(node: StudioNode, chosen: readonly Facet[]): Facet[] {
+  return lookHas(lookOf(node as never)).filter((f) => chosen.includes(f));
+}
+
 /** The parts Make all like this would change: every other part of `node`'s kind on the site that the look would change. */
 export function makeAllReach(node: StudioNode, chosen: readonly Facet[], opts: PasteOpts = {}, nodes: readonly StudioNode[] = useStudio.getState().nodes): string[] {
   const look = lookOf(node as never);
-  return sameKind(nodes as never[], node as never).filter((m) => lookDiffers(m as never, look, chosen, opts).length > 0).map((m) => (m as StudioNode).id);
+  const on = makeAllFacets(node, chosen);
+  if (!on.length) return [];
+  return sameKind(nodes as never[], node as never).filter((m) => lookDiffers(m as never, look, on, opts).length > 0).map((m) => (m as StudioNode).id);
 }
 
 /** Restyle every part of `node`'s kind on the site to `node`'s look, as one undo step. Returns how many changed. */
 export function makeAllLike(node: StudioNode, chosen: readonly Facet[], opts: PasteOpts = {}): number {
-  return pasteLook(makeAllReach(node, chosen, opts), lookOf(node as never), chosen, opts);
+  const on = makeAllFacets(node, chosen);
+  return on.length ? pasteLook(makeAllReach(node, on, opts), lookOf(node as never), on, opts) : 0;
 }

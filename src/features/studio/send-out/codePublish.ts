@@ -59,6 +59,23 @@ export async function mergePull(repo: string, pull: string, token: string, opts:
   return { ok: false, says: `The design is a pull request, not merged: ${why}. ${pull}` };
 }
 
+/** The commit a commit was made on: for a squash merge, the base branch's head when it merged. */
+export async function parentOf(repo: string, sha: string, token: string, f: Fetch = fetch): Promise<string | null> {
+  const got = await gh(f, token, `/repos/${repo}/git/commits/${encodeURIComponent(sha)}`);
+  const parent = (got.json?.parents as { sha?: unknown }[] | undefined)?.[0]?.sha;
+  return got.status === 200 && typeof parent === "string" ? parent : null;
+}
+
+/**
+ * The commit the board stands at once its design is merged. Only when the
+ * merge sat straight on the commit the board was read at does the board move
+ * up to it: a code chat's change merged in between (or a parent not known)
+ * keeps the old commit, so Refresh stays orange until he brings it in.
+ */
+export function commitAfterPublish(readAt: string | null | undefined, parent: string | null, merged: string): string | null {
+  return readAt && parent === readAt ? merged : readAt ?? null;
+}
+
 /** One thing the check list found, as it goes to the code. */
 export interface Issue { kind: string; hook: string | null; page: string; says: string }
 

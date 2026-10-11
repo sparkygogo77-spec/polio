@@ -23,13 +23,16 @@
  *                             alarm; the role numbers are explained.
  *   Width                     the panel starts at 300px, its edge drags from
  *                             228px to about half the window, is kept in this
- *                             browser, and the tabs always say their names.
+ *                             browser, a double press on the edge puts it back
+ *                             to 300px, and the tabs always say their names.
  *
  * Parts are picked from the panel's own list of parts, never by a click on
  * the board: how the board selects is another lane's.
  *
  *   npx next start -p 3013
  *   node tests/side-panel.mjs http://127.0.0.1:3013
+ *
+ * Covers: src/features/studio/page/side.tsx
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
@@ -113,7 +116,10 @@ await drag(3000);
 check("…never past about half the window", (await width()) <= 996 && (await width()) >= 990, `${await width()}px of 1992`);
 await drag(-3000);
 check("…nor under 228px", Math.abs((await width()) - 228) <= 1, `${await width()}px`);
-await drag(252);
+await edge.dblclick();
+await page.waitForTimeout(400);
+check("a double press on the edge puts it back to where it started, 300px, not the narrowest", Math.abs((await width()) - 300) <= 1, `${await width()}px`);
+await drag(180);
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 check("the width is kept in this browser", Math.abs((await width()) - 480) <= 4, `${await width()}px after a reload`);

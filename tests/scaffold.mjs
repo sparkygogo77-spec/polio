@@ -8,11 +8,15 @@
  * rules: the markup a part rendered survives into its component unchanged,
  * the tokens are the palette's own values, a part cut to a drawn line is
  * still cut to it, a written body is carried through in its sandbox, and
- * the file that says what is left for Claude says the true thing.
+ * the file that says what is left for Claude says the true thing. And a
+ * page's folder and every link to it are the route the export gives it.
  *
  *   node tests/scaffold.mjs
+ *
+ * Covers: src/features/studio/scaffold.ts, src/features/studio/scaffolding/scaffold.ts, src/features/studio/scaffolding/jsx.ts, src/features/studio/scaffolding/pages.ts, src/features/studio/homePage.ts
  */
 import { componentName, htmlToJsx, scaffold, styleToObject } from "../src/features/studio/scaffold.ts";
+import { homeFor } from "../src/features/studio/homePage.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -29,7 +33,7 @@ const check = (name, ok, detail = "") => {
   check("so does the exact shadow", jsx.includes("0 8px 24px oklch(0 0 0 / 0.4)"));
   check("styles are an object, camel-cased", /fontSize: "28px"/.test(jsx) && /letterSpacing: "-0.02em"/.test(jsx) && /boxShadow:/.test(jsx));
   check("void tags close themselves", /<br \/>/.test(jsx) && /<img [^>]*\/>/.test(jsx), jsx.match(/<img[^>]*>/)?.[0]);
-  check("tabindex is React's", jsx.includes('tabIndex="-1"'));
+  check("tabindex is React's, a number", jsx.includes("tabIndex={-1}"));
   check("the words are still the words", jsx.includes("Power in the dark"));
 }
 {
@@ -84,6 +88,12 @@ const helix = at(`components/parts/${componentName(input.parts[1])}.tsx`);
 check("a written body is carried through", helix.includes("a helix") && helix.includes("srcDoc"));
 check("in a frame with no permissions", helix.includes('sandbox=""') && helix.includes("default-src 'none'"));
 check("and the line it is cut to comes with it", helix.includes("M 0.5 0 C 0.6 0.3"));
+// The cut is in the part's own 0..1 box. CSS path() reads numbers as
+// pixels, so a clip built that way shrinks the part to a dot; it has to be
+// read in objectBoundingBox units, the same way a part without a body is.
+check("and is read in the part's own box, not as pixels",
+  helix.includes('clipPathUnits="objectBoundingBox"') && helix.includes("url(#clip-n_helix)") && helix.includes('id="clip-n_helix"'));
+check("never as a CSS path() of the raw cut", !/path\(['"]/.test(helix) && !helix.includes("PATH"));
 
 const idea = at(`components/parts/${componentName(input.parts[2])}.tsx`);
 check("an empty Idea part still gets a component", !!idea && idea.includes("The lab"));
@@ -129,6 +139,50 @@ check("and does not claim the looks are Claude's job", !/Claude.*colou?r/i.test(
   }
   check("every relative import in the export names a file the export wrote", imports > 0 && missing.length === 0,
     `${imports} imports, ${missing.length} unresolved${missing.length ? `: ${missing.join(", ")}` : ""}`);
+}
+
+/* 2c. Routes: a page's folder and its links are the export's route for it.
+   Build named folders by its own rule (slash to dash, "/" only for home)
+   while links kept the path as typed: a home on "" or "/index" left no
+   app/page.tsx, "/blog/post" went to app/blog-post while its link said
+   /blog/post, and "/about" and "/about/" both wrote app/about/page.tsx. */
+{
+  const pages = [
+    { id: "h", name: "Home", path: "" },
+    { id: "p", name: "Post", path: "/blog/post" },
+    { id: "a", name: "About", path: "/about" },
+    { id: "a2", name: "About again", path: "/about/" },
+    { id: "c", name: "Case", path: "/h/Ai66" },
+  ];
+  const parts = [
+    { id: "n_go", pageId: "h", featureId: "button", label: "Read the post", prompt: "", x: 0, y: 0, w: 200, h: 60,
+      html: "<button>Read</button>", link: { kind: "page", target: "p" } },
+    { id: "n_two", pageId: "h", featureId: "button", label: "About two", prompt: "", x: 0, y: 80, w: 200, h: 60,
+      html: "<button>About</button>", link: { kind: "page", target: "a2" } },
+    { id: "n_home", pageId: "p", featureId: "button", label: "Back home", prompt: "", x: 0, y: 0, w: 200, h: 60,
+      html: "<button>Home</button>", link: { kind: "page", target: "home" } },
+  ];
+  const out = scaffold({ ...input, pages, parts });
+  const pageFiles = out.map((f) => f.path).filter((p) => p.endsWith("/page.tsx"));
+  const has = (p) => pageFiles.includes(p);
+  check("a home on \"\" is the root page", has("app/page.tsx") && !has("app/page/page.tsx"), pageFiles.join(" "));
+  check("a nested route keeps its folders", has("app/blog/post/page.tsx") && !has("app/blog-post/page.tsx"));
+  check("two pages on one route get two folders", has("app/about/page.tsx") && has("app/about-2/page.tsx"));
+  check("a route keeps its case", has("app/h/Ai66/page.tsx"));
+  check("no page file is written twice", new Set(pageFiles).size === pageFiles.length && pageFiles.length === pages.length);
+  const home = homeFor(pages);
+  check("every folder is the export's file for that page", pages.every((pg) => {
+    const route = home.file(pg).replace(/(^|\/)index\.html$/, "");
+    return has(route ? `app/${route}/page.tsx` : "app/page.tsx");
+  }));
+  const root = out.find((f) => f.path === "app/page.tsx")?.content ?? "";
+  check("a link to a nested page goes to its folder", root.includes('href="/blog/post"'), root.match(/href="[^"]*"/g)?.join(" "));
+  check("a link to the second page on a route goes to its own folder", root.includes('href="/about-2"'));
+  check("a link home goes to /", (out.find((f) => f.path === "app/blog/post/page.tsx")?.content ?? "").includes('href="/"'));
+
+  const index = scaffold({ ...input, pages: [{ id: "h", name: "Home", path: "/index" }, { id: "o", name: "Other", path: "/other" }], parts: [] })
+    .map((f) => f.path);
+  check("a home on \"/index\" is the root page too", index.includes("app/page.tsx") && !index.includes("app/index/page.tsx"), index.filter((p) => p.endsWith("page.tsx")).join(" "));
 }
 
 /* 3. Determinism: the same document, the same bytes. */

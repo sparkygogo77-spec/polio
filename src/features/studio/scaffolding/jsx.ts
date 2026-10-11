@@ -1,4 +1,4 @@
-import { homeOf } from "../homePage.ts";
+import { homeFor, homeOf, routeOf } from "../homePage.ts";
 import type { ScaffoldPage, ScaffoldPart } from "./types.ts";
 
 /**
@@ -25,7 +25,8 @@ export function hrefOf(link: ScaffoldPart["link"], pages: ScaffoldPage[]): { hre
     pages.find((p) => p.path === t || p.path === "/" + slugOf(t)) ??
     pages.find((p) => p.name.toLowerCase() === t.toLowerCase()) ??
     (t.toLowerCase() === "home" || t === "/" ? homeOf(pages) ?? null : null);
-  return page ? { href: page.path, newTab: false } : null;
+  /* The route the page is written to, not the path as typed: the two differ for "", "/index", "/about/" and a repeat. */
+  return page ? { href: `/${routeOf(homeFor(pages), page)}`, newTab: false } : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -50,9 +51,47 @@ const ATTR: Record<string, string> = {
   srcset: "srcSet",
   novalidate: "noValidate",
   enctype: "encType",
+  minlength: "minLength",
+  spellcheck: "spellCheck",
+  inputmode: "inputMode",
+  enterkeyhint: "enterKeyHint",
+  accesskey: "accessKey",
+  autoplay: "autoPlay",
+  playsinline: "playsInline",
+  allowfullscreen: "allowFullScreen",
+  referrerpolicy: "referrerPolicy",
+  fetchpriority: "fetchPriority",
+  frameborder: "frameBorder",
+  srcdoc: "srcDoc",
+  datetime: "dateTime",
+  formnovalidate: "formNoValidate",
+  usemap: "useMap",
+  charset: "charSet",
+  nomodule: "noModule",
+  itemscope: "itemScope",
   "xlink:href": "xlinkHref",
   "xml:lang": "xmlLang",
 };
+
+/**
+ * Attributes React types as booleans. The DOM writes them as `disabled=""`,
+ * and a string there fails the export's typecheck, so they are written
+ * bare, which JSX reads as true. Keyed by the HTML name.
+ */
+const BOOL = new Set([
+  "disabled", "readonly", "checked", "selected", "hidden", "required", "multiple", "autofocus", "autoplay",
+  "playsinline", "loop", "muted", "controls", "open", "novalidate", "formnovalidate", "allowfullscreen",
+  "default", "defer", "async", "reversed", "itemscope", "inert", "nomodule",
+]);
+
+/** Attributes React types as numbers: `tabindex="0"` is written `tabIndex={0}`. */
+const NUM = new Set(["tabindex", "rows", "cols", "colspan", "rowspan", "maxlength", "minlength", "size", "span", "start"]);
+
+/** Form controls whose value the markup only seeds: a `value` with no onChange would lock them. */
+const CONTROL = new Set(["input", "select", "textarea"]);
+
+/** Elements whose text is raw, not markup: `a > b` in a style is not escaped by the DOM, and JSX would read it as a tag. */
+const RAW_TEXT = new Set(["style", "script"]);
 
 const camel = (s: string) => s.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
@@ -111,8 +150,10 @@ const escapeText = (s: string) => s.replace(/[{}]/g, (c) => `{"${c}"}`);
  * Not a general HTML parser: the input is React's own output, so tags are
  * balanced, attributes are quoted, and there is nothing exotic in it. What
  * it has to get right is the handful of names React spells differently,
- * inline styles (which is where every part keeps its looks), and braces in
- * text.
+ * the attributes React types as numbers or booleans (the DOM writes every
+ * one as a string, and the export has to typecheck), inline styles (which
+ * is where every part keeps its looks), braces in text, and the raw text
+ * of a style or script.
  */
 export function htmlToJsx(html: string, indent = "    "): string {
   let out = "";
@@ -144,13 +185,27 @@ export function htmlToJsx(html: string, indent = "    "): string {
       .map(({ name, value }) => {
         if (/^(data|aria)-/.test(name)) return `${name}=${JSON.stringify(value)}`;
         if (name === "style") return `style={${styleToObject(value)}}`;
-        const jsxName = ATTR[name] ?? (name.includes("-") ? camel(name) : name);
+        // Looked up lower-cased: the DOM writes `readonly`, React's server `readOnly`.
+        const key = name.toLowerCase();
+        if (CONTROL.has(tag) && key === "value") return `defaultValue=${JSON.stringify(value)}`;
+        if (CONTROL.has(tag) && key === "checked") return "defaultChecked";
+        const jsxName = ATTR[key] ?? (name.includes("-") ? camel(name) : name);
+        if (BOOL.has(key)) return jsxName;
+        if (NUM.has(key) && /^-?\d+$/.test(value.trim())) return `${jsxName}={${Number(value)}}`;
         return `${jsxName}=${JSON.stringify(value)}`;
       })
       .join(" ");
     const selfClosing = VOID_TAGS.has(tag) || raw.endsWith("/>");
     push(`<${tag}${written ? ` ${written}` : ""}${selfClosing ? " />" : ">"}`);
     i = gt + 1;
+    // A style's or script's text goes in whole, as one string.
+    if (!selfClosing && RAW_TEXT.has(tag)) {
+      const close = html.indexOf(`</${tag}`, i);
+      const end = close < 0 ? html.length : close;
+      const text = html.slice(i, end);
+      if (text) push(`{${JSON.stringify(text)}}`);
+      i = end;
+    }
   }
   return out.split("\n").map((l) => indent + l).join("\n").trim();
 }
@@ -199,8 +254,6 @@ export function componentName(part: ScaffoldPart): string {
 
 /** A line cut to length at a word, with a mark to say it was cut. */
 export const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, s.lastIndexOf(" ", max) > max * 0.6 ? s.lastIndexOf(" ", max) : max)}…`);
-
-export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "page";
 
 /* ------------------------------------------------------------------ */
 /* The files                                                           */

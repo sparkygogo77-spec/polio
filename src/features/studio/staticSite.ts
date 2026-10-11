@@ -1,37 +1,24 @@
 "use client";
 /**
- * The site as a site: HTML and CSS a browser can open, written in the
- * browser that is already drawing it.
+ * One page rendered off-screen and read back as markup, and what the site
+ * is made of besides its markup.
  *
- * WHY THIS EXISTS. A publish put three files in a `site/` folder — the
- * document and the blueprint — which is a description of a website and not
- * a website. Imported at Vercel, the repository had nothing at its root to
- * serve and every address answered NOT_FOUND. The scaffold (`scaffold.ts`)
- * writes a Next app from the same document, which is the right thing later
- * and could not have saved this either: it has no `package.json`, no
- * framework config, so nothing builds it and there is still no page.
+ *   · `markupOf` renders a page with the preview's own `LiveSite` into a
+ *     detached container at the site's width, reads the DOM back, and
+ *     audits it on the way out (a part that drew nothing, never placed,
+ *     words never written, copy the prompt named and the part dropped);
+ *   · `auditSite` / `auditCounts` run that audit for every page, for the
+ *     panel beside the publish button rather than for a visitor;
+ *   · `sitePictures` fetches the bytes of every picture the parts point at;
+ *   · `pageFile` names where a page's own `index.html` goes.
  *
- * So this writes the simplest thing that is a real website: one `index.html`
- * per page at the repository root, one stylesheet beside them, and nothing
- * else. No build step, no framework to detect, no configuration to get
- * wrong — and no serverless function, which is not a detail: a static export
- * costs nothing against the function storage a Next deployment eats.
- *
- * HOW IT IS FAITHFUL. Not by describing the board to anything. Each page is
- * rendered once, by the same `LiveSite` the preview uses, into a detached
- * container at the site's own width; its DOM is read out; and the app's own
- * stylesheets are read out of `document.styleSheets` and written beside it.
- * The exported page is therefore the same markup under the same rules as the
- * preview, not a second implementation of it. Images are already data URLs,
- * so the export carries them with it.
- *
- * WHAT IT IS NOT, said here so nobody finds out by being surprised: it is a
- * still. Anything that was a React handler is gone, so a part that only does
- * something when pressed does nothing; page-to-page links are the notable
- * case, and every page is still at its own address. Behaviour is what the
- * model is for, and it goes in the scaffold's components, not here.
+ * THIS FILE DOES NOT WRITE THE SITE. The page writer is
+ * `send-out/exportSite.ts`, which Publish and Go live send through
+ * `send-out/goLive.ts`. A second writer used to live here (`staticSite`,
+ * copying the app's stylesheets beside each page); nothing called it, and
+ * it had drifted from the real one, so a fix made to it reached no site.
+ * It is gone, and tests/dead-declarations.mjs keeps it gone.
  */
-import { TABLET_MAX } from "./live/small";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
@@ -53,44 +40,6 @@ export interface SiteFile {
 export function pageFile(page: StudioPage, home: Home): string {
   return home.file(page);
 }
-
-/**
- * Every rule the app is painting with, as one stylesheet.
- *
- * Read off the live document rather than rebuilt: whatever the preview looks
- * like, the export is under the same rules. A sheet from another origin
- * cannot be read at all — the browser refuses — so those are linked instead,
- * which is what a web font is and is the right answer for it anyway.
- */
-function styles(): { css: string; links: string[] } {
-  const out: string[] = [];
-  const links: string[] = [];
-  for (const sheet of Array.from(document.styleSheets)) {
-    let rules: CSSRuleList | null = null;
-    try {
-      rules = sheet.cssRules;
-    } catch {
-      // Another origin. A link is the only way to carry it.
-      if (sheet.href) links.push(sheet.href);
-      continue;
-    }
-    if (!rules) continue;
-    for (const rule of Array.from(rules)) out.push(rule.cssText);
-  }
-  return { css: out.join("\n"), links };
-}
-
-/** The attributes the tokens hang off: the theme, the font, the accent hue. */
-function rootAttrs(): string {
-  const el = document.documentElement;
-  const keep = ["data-theme", "data-font", "data-contrast", "data-motion", "data-glow", "data-glass"];
-  const attrs = keep.filter((k) => el.getAttribute(k)).map((k) => `${k}="${el.getAttribute(k)}"`);
-  const style = el.getAttribute("style");
-  if (style) attrs.push(`style="${style.replace(/"/g, "&quot;")}"`);
-  return attrs.join(" ");
-}
-
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
  * Did this part put anything on the page at all?
@@ -197,10 +146,6 @@ export function markupOf(el: React.ReactElement, width: number, expect: Expected
   return { html, blank, unplaced, unwritten, unsaid };
 }
 
-/**
- * The whole site, as files. Nothing is asked of anybody: no key, no model,
- * no network. The same document gives the same files every time.
- */
 /** A file that is bytes rather than words: a picture, on its way to the repository. */
 export interface SiteBinary {
   path: string;
@@ -303,91 +248,4 @@ export function auditSite(): PageAudit[] {
 /** Is there anything at all to say about this document? */
 export function auditCounts(audit: PageAudit[]): number {
   return audit.reduce((n, a) => n + a.blank.length + a.unplaced.length + a.unwritten.length + a.unsaid.length + a.sections.length, 0);
-}
-
-export function staticSite(): SiteFile[] {
-  const s = useStudio.getState();
-  if (!s.pages.length) return [];
-  const home = homeFor(s.pages);
-  const width = s.frameWidth || 1440;
-  const { css, links } = styles();
-  const name = s.brief.name?.trim() || "Site";
-  const pageIds = new Set(s.pages.map((p) => p.id));
-  const orphans = s.nodes.filter((n) => !pageIds.has(n.pageId));
-  const files: SiteFile[] = [];
-
-  for (const page of s.pages) {
-    const { html: body } = markupOf(
-      React.createElement(LiveSite, {
-        pages: s.pages,
-        nodes: s.nodes,
-        pageId: page.id,
-        device: "desktop" as const,
-        frameWidth: width,
-        format: s.format,
-        look: s.look,
-        siteName: s.brief.name,
-        /* A visitor is reading this one. */
-        published: true,
-        /* The brief's layout is regions as well as parts, and a region with
-           nothing in it is a section the board never built. It is in the
-           brief, so it is on the page — saying it is not built. */
-        shapes: s.shapes,
-        /* Not a browser address: the page being written will be read from a
-           repository, where the file sits at its own path beside it. */
-        pictureAt: (pic) => `${"../".repeat(pageFile(page, home).split("/").length - 1)}${pic.path}`,
-        /* One page at every width: the tablet's and the phone's layouts are rules on the same parts (`live/smallCss.ts`), keyed to each part's id. */
-        smallAt: TABLET_MAX + 1,
-      }),
-      width,
-      /*
-       * What this page is meant to hold — and, on the home page, anything
-       * the board holds that no page claims at all. A part whose `pageId`
-       * names a page that is gone is drawn nowhere and belongs to nothing,
-       * which is the one shape that used to vanish without trace: not a
-       * part that rendered badly, a part nothing ever asked to render.
-       */
-      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home.id ? orphans : [])]
-        .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId, prompt: n.prompt ?? "" })),
-    );
-    const title = page.name?.trim() ? (page.id === home.id ? name : `${page.name.trim()} · ${name}`) : name;
-    const up = "../".repeat(pageFile(page, home).split("/").length - 1);
-    files.push({
-      path: pageFile(page, home),
-      content: `<!doctype html>
-<html lang="en" ${rootAttrs()}>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)}</title>
-${links.map((h) => `<link rel="stylesheet" href="${esc(h)}">`).join("\n")}
-<link rel="stylesheet" href="${up}assets/site.css">
-</head>
-<body>
-<div class="site-root">
-${body.replace(/ data-live-node="([^"]+)"/g, ' data-live-node="$1" id="$1"')}
-</div>
-</body>
-</html>
-`,
-    });
-  }
-
-  /*
-   * The page's own frame, after everything the app paints with.
-   *
-   * The board is laid out at one width, so the export is too, and without
-   * this it sat against the left edge of a wider window with the rest of the
-   * screen bare. Centred, and the browser's own default margin taken off.
-   */
-  const frame = `
-/* The exported page's frame. */
-html, body { margin: 0; padding: 0; }
-.site-root { width: ${width}px; max-width: 100%; margin-inline: auto; }
-.sm-g, .sm-gi { display: contents; }
-.sm-br, .sm-menu-button, .sm-menu-panel { display: none; }
-@media (max-width: ${TABLET_MAX + 0.98}px) { .site-root { width: 100%; overflow-x: clip; } }
-`;
-  files.push({ path: "assets/site.css", content: `${css}${frame}` });
-  return files;
 }

@@ -44,3 +44,14 @@ export function sourceAmong(repo: string, sources: unknown): string | null {
   const list = Array.isArray(sources) ? sources.filter((r): r is string => typeof r === "string" && /^[\w.-]+\/[\w.-]+$/.test(r.trim())).map((r) => r.trim()) : [];
   return list.find((r) => r.toLowerCase() === repo.toLowerCase()) ?? null;
 }
+
+/**
+ * Whether this server may write to `repo` at all: `GITHUB_REPOS`, when it
+ * names any, is the whole list, for Publish, Merge and branch delete alike.
+ * The refusal in words when it may not, or null.
+ */
+export function notAllowed(repo: string): string | null {
+  const allow = (process.env.GITHUB_REPOS ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+  if (!allow.length || allow.some((a) => a.toLowerCase() === repo.toLowerCase())) return null;
+  return `This server only works on ${allow.join(", ")}.`;
+}

@@ -1026,34 +1026,89 @@ export interface TrayItem {
   disabled?: boolean;
 }
 
+/** The widest the open tray grows before its row wraps: a few actions a line, never a bar across the screen. */
+const TRAY_WIDE = 560;
+/** How close the open tray may come to the window's edge. */
+const TRAY_PAD = 8;
+
 /**
- * A small tab under the wheel that opens, on hover, into a row of actions.
+ * A small tab under the wheel that opens, on hover or on focus, into the
+ * actions it holds.
  *
  * For the things a part's menu needs that are not worth a piece of the
  * wheel: seeing the part live, moving it forward or back among the others,
  * carrying its looks to another part. Under the wheel rather than on it, so
  * the wheel stays the wheel; a tab rather than a row, so it is not chrome
  * until it is wanted.
+ *
+ * The open row wraps at `TRAY_WIDE` and is nudged back inside the window
+ * once it is open. It ran as one line that never wrapped, centred under the
+ * wheel: fifteen actions are over a thousand pixels, and a part near a side
+ * of a laptop window had its last ones off screen (dissect #30). The tab
+ * takes focus, so Tab (or a tap) opens it as hovering does, and Tab walks
+ * on through the actions; Enter or the down arrow on the tab goes straight
+ * to the first one.
  */
 export function HoverTray({ at, icon, label, items, testId, lit }: { at: Pt; icon: React.ReactNode; label: string; items: TrayItem[]; testId: string; lit?: boolean }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  /* How far the open tray is moved to stay on screen; nothing until it opens near an edge. */
+  const [nudge, setNudge] = React.useState<Pt>([0, 0]);
+  const fit = () =>
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el || !el.matches(":hover, :focus-within")) return;
+      const r = el.getBoundingClientRect();
+      setNudge(([nx, ny]) => {
+        // Where it would sit unmoved, then the least move that brings it inside.
+        const left = r.left - nx, top = r.top - ny;
+        const into = (lo: number, size: number, room: number) =>
+          lo < TRAY_PAD ? TRAY_PAD - lo : lo + size > room - TRAY_PAD ? Math.max(TRAY_PAD - lo, room - TRAY_PAD - lo - size) : 0;
+        const next: Pt = [into(left, r.width, window.innerWidth), into(top, r.height, window.innerHeight)];
+        return next[0] === nx && next[1] === ny ? [nx, ny] : next;
+      });
+    });
+  const shut = () =>
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (el && !el.matches(":hover, :focus-within")) setNudge((n) => (n[0] || n[1] ? [0, 0] : n));
+    });
   return (
     <div
+      ref={ref}
       data-tray={testId}
       data-lit={lit ? "" : undefined}
-      className="group/tray pointer-events-auto absolute flex -translate-x-1/2 items-center rounded-md transition-[box-shadow,border-color]"
+      onPointerEnter={fit}
+      onFocus={fit}
+      onPointerLeave={shut}
+      onBlur={shut}
+      className="group/tray pointer-events-auto absolute flex w-max -translate-x-1/2 items-center rounded-md transition-[box-shadow,border-color]"
       style={{
-        left: at[0],
-        top: at[1],
+        left: at[0] + nudge[0],
+        top: at[1] + nudge[1],
         background: CONSOLE.face,
         // Lit, the tab wears the first level's blue: something in it is ready.
         border: `1px solid ${lit ? "oklch(0.6 0.14 205)" : CONSOLE.rim}`,
         boxShadow: lit ? "0 0 10px oklch(0.7 0.16 205 / 0.45), 0 3px 8px oklch(0 0 0 / 0.55)" : "0 3px 8px oklch(0 0 0 / 0.55)",
       }}
     >
-      <span className="flex h-5 w-8 items-center justify-center group-hover/tray:hidden" title={label} style={{ color: lit ? "oklch(0.82 0.13 205)" : CONSOLE.muted }}>
+      {/* Out of sight when open but never `display: none`: it may be the thing holding focus, and a hidden focus drops it and shuts the tray. */}
+      <span
+        tabIndex={0}
+        role="button"
+        aria-label={label}
+        aria-haspopup="true"
+        className="flex h-5 w-8 items-center justify-center rounded-md outline-none group-hover/tray:sr-only group-focus-within/tray:sr-only"
+        title={label}
+        style={{ color: lit ? "oklch(0.82 0.13 205)" : CONSOLE.muted }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowDown") return;
+          e.preventDefault();
+          ref.current?.querySelector<HTMLButtonElement>("[data-tray-item]:not(:disabled)")?.focus();
+        }}
+      >
         {icon}
       </span>
-      <div className="hidden items-center gap-0.5 p-0.5 group-hover/tray:flex">
+      <div className="hidden flex-wrap items-center justify-center gap-0.5 p-0.5 group-focus-within/tray:flex group-hover/tray:flex" style={{ maxWidth: `min(${TRAY_WIDE}px, calc(100vw - ${2 * TRAY_PAD}px))` }}>
         {items.map((it) => (
           <button
             key={it.id}
@@ -1063,7 +1118,7 @@ export function HoverTray({ at, icon, label, items, testId, lit }: { at: Pt; ico
             title={it.label}
             disabled={it.disabled}
             onClick={() => { play(it.primary ? "confirm" : "tap"); it.onClick(); }}
-            className="flex h-6 items-center gap-1 whitespace-nowrap rounded-[4px] px-1.5 text-fine font-semibold transition-[filter] enabled:hover:brightness-125 disabled:opacity-40"
+            className="flex h-6 items-center gap-1 whitespace-nowrap rounded-[4px] px-1.5 text-fine font-semibold transition-[filter] enabled:hover:brightness-125 focus-visible:brightness-125 disabled:opacity-40"
             style={{
               background: it.primary ? "oklch(0.66 0.155 205)" : CONSOLE.box,
               color: it.primary ? "oklch(0.99 0 0)" : CONSOLE.text,

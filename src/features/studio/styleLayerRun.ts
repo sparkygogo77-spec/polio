@@ -19,6 +19,7 @@
  */
 import { deletedOnBoard, readHookMap, removedLine, withRefs, type RemovedHook } from "./send-out/index.ts";
 import { applyToPage, buildLayer, hookCounts, layerBranch, linkHref, type Layer, type LayerNode, type StyleSource } from "./send-out/index.ts";
+import { removedPictures } from "./partPicture.ts";
 import { defaultBranch, fileAt, gh, kitFiles, kitMapOnServer, readKit, type KitManifest, type KitMapCall } from "./kitRun.ts";
 
 export interface LayerFiles {
@@ -194,6 +195,8 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
     if (put.status === 201 || put.status === 200) {
       branch = name;
       const compare = `https://github.com/${repo}/compare/${base}...${branch}`;
+      /* Hooks whose picture he took off since the last send (`partPicture.ts`, `removed` in design/pictures.json). */
+      const picturesOff = removedPictures(prepared.files.find((x) => x.path === "design/pictures.json")?.content);
       const listed = `${prepared.files.length} file${prepared.files.length === 1 ? "" : "s"} (${prepared.files.map((x) => x.path).join(", ")})`;
       const body = [
         "The design from the Builder, sent back as a style layer.",
@@ -202,7 +205,9 @@ export async function publishLayer(prepared: LayerFiles, source: StyleSource, to
         "",
         `Files: ${prepared.files.map((x) => `\`${x.path}\``).join(", ")}.`,
         ...(prepared.files.some((x) => x.path === "design/pictures.json") ? [`Pictures on parts (${prepared.files.filter((x) => x.path.startsWith("design/pictures/")).length}): \`design/pictures.json\` names each part's hook and picture. Apply each as that part's look by BUILDER-RULES.md "Pictures on parts": copy it into the site, crop it to its \`crop\` box, make it the part's look through a token, and keep the same element, data-hook and behaviour.`, ""] : []),
+        ...(picturesOff.length ? [`Pictures taken off (${picturesOff.length}): ${picturesOff.map((h) => `\`${h}\``).join(", ")}. For each, drop its \`--<hook>-picture\` token, the background that uses it, its slot entry and the copied picture, and show the part's own words again.`, ""] : []),
         prepared.kit ? "Only the style layer (and the hooks map made from it) changes, so `kit:diff --style-only` holds it." : "Each page gains at most one <link> to the layer, and words written once as plain text.",
+        ...(prepared.files.some((x) => x.path.endsWith("vendor/builder-motion.js")) ? ["", "The builder's motion file was behind the Builder's, so a motion the layer names could do nothing on the live site: this branch brings `vendor/builder-motion.js` up to date (and the kit's copy of it, so `kit-check --write` keeps it)."] : []),
         ...(prepared.removed?.length ? ["", `Deleted on the board (${prepared.removed.length}): the layer leaves these as the page draws them. Delete each element and every reference to it in the code (selectors, handlers, tests, CSS), then remake hooks.json.`, ...prepared.removed.map((r) => `- ${removedLine(r)}`)] : []),
         "",
         "Made by the Builder's \"Send the design back\". The Builder never merges: merge it once its checks are green.",

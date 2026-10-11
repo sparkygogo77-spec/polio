@@ -59,6 +59,9 @@ export function BuilderSiteButtons() {
     window.addEventListener("focus", back);
     return () => { window.clearInterval(t); window.removeEventListener("focus", back); };
   }, [read]);
+  /* The record moved (Go live pushed on top of the kit, `kitAfterPush`): read the head it now names, rather than show "moved" against the old one. */
+  const sentSha = sent?.sha;
+  React.useEffect(() => { if (sentSha) void read(); }, [sentSha, read]);
 
   const say = (title: string, body: string, level: "info" | "success" | "warn" = "info") => ctx.publish({ key: "studio:builder-site", title, body, level, source: "studio", toast: { durationMs: 9000 } });
   const noRepo = "Go live once first: it makes the site's repository, which Refresh reads and Publish writes to.";

@@ -104,9 +104,10 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   const goPage = React.useCallback(
     (id: string) => {
       play("navigate");
-      router.push(livePath(id));
+      /* On /site a page link is the visitor's, and stays on /site. */
+      router.push(livePath(id, published ? "/site" : undefined));
     },
-    [router],
+    [router, published],
   );
 
   return (
@@ -165,6 +166,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
           <div key={stretch ? "window" : "frame"} style={stretch ? { width: "100%" } : drawn === "desktop" ? { width, transform: `scale(${scale})`, transformOrigin: "0 0" } : { width, zoom: scale }}>
             <LiveSite
               features
+              visitor={published}
               pages={pages}
               nodes={nodes}
               pageId={page.id}

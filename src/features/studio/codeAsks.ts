@@ -125,6 +125,9 @@ export function clipPx(cut: string, w: number, h: number): string {
 const settingsOf = (inputs: Record<string, string> | undefined) => Object.entries(inputs ?? {}).filter(([, v]) => v !== "").map(([k, v]) => `${k} ${v}`).join(", ");
 const on = (s: AskSwitch, v: unknown) => (typeof s.on === "boolean" ? v === true : v !== undefined && v !== null && v !== s.off);
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+/* Where a shelf part's own motion goes (an orb, a 3D shape, a before / after slider): rule 35 lets the code chat write
+   `--builder-motion` itself only here, because Publish names no motion for these parts. */
+export const OWN_CSS = "in the page's own stylesheet on that hook (never in the style layer: BUILDER-RULES.md rule 35 allows this for a part a NEXT.md line asks for)";
 
 /** Every board change the style layer cannot carry, as a line for NEXT.md (`kind: "build"`). */
 export function codeAsks(a: AskInput): FixIssue[] {
@@ -175,8 +178,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
         css.length ? `Its look: \`${css.join("; ")}\`.` : "",
         /* An orb is a ball the kit's motion file draws and turns: no drawing code to write (`library/planetJs.ts`). */
         /* A before / after slider is split by the same file: two pictures stacked at full size, the before revealed by the handle (`compare`). */
-        a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` in the CSS, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
-        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` in the CSS, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
+        a.kit && PART_SCRIPT[n.featureId ?? ""] === "compare" ? `It is a before / after slider: give its hook \`--builder-motion: "compare"\` ${OWN_CSS}, with the two pictures inside it as \`<img data-compare-after src="...">\` and \`<img data-compare-before src="...">\` (each with its own data-hook), and vendor/builder-motion.js stacks them at full size in the same place and reveals the before by dragging the handle, with no stretching.` :
+        a.kit && PART_SCRIPT[n.featureId ?? ""] ? `It is a 3D shape that turns in the hand: give its hook \`--builder-motion: "${PART_SCRIPT[n.featureId!]}${/^shape-(cube|pyramid)$/.test(n.featureId ?? "") ? `?shape=${n.featureId!.slice(6)}` : ""}"\` ${OWN_CSS}, with any pictures inside it as \`<img data-planet-picture src="...">\` (one per face), and vendor/builder-motion.js draws and turns it.` : "",
         `Make it in the code with data-hook="${hook}"; its record (outline, link, note, effects) is in design/record.json under that hook.`,
       ].filter(Boolean).join(" ")),
     });
@@ -186,8 +189,9 @@ export function codeAsks(a: AskInput): FixIssue[] {
     if (!n.source && !n.from) continue;
     const uses = n.work ? [n.work, ...(n.work.also ?? [])] : [];
     for (const u of uses) {
-      /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`). */
-      if (u.off || carriedEffect(u.id)) continue;
+      if (u.off) continue;
+      /* Lift, press, float, spin, blink, reveal and switch on go out as CSS (`motionCss.ts`), but only on a hook the layer can key: not on a part with none (a form label, a ::marker), nor on an id-only part of a builder-ready site. */
+      if (carriedEffect(u.id) && n.source?.hook && (!a.kit || n.source.hook.attr === "data-hook")) continue;
       /* On a builder-ready site the kit's motion file runs the rest, named in the style layer on the part's hook. */
       if (a.kit && n.source?.hook?.attr === "data-hook" && kitEffect(u.id)) continue;
       const set = settingsOf(u.inputs);
@@ -205,6 +209,8 @@ export function codeAsks(a: AskInput): FixIssue[] {
     const e = a.effect(g.id);
     const name = e?.name ?? g.id;
     const hooks = [...new Set(g.parts.map((n) => n.source?.hook?.value).filter(Boolean))] as string[];
+    /* A part with no data-hook is named by its id, or else by its words, so the line still says which one. */
+    const names = [...new Set(g.parts.map((n) => (n.source?.hook ? (n.source.hook.attr === "id" ? `the element with id="${n.source.hook.value}"` : `\`${n.source.hook.value}\``) : `the part "${clean(String(n.label ?? wordsOf(n.content))).slice(0, 60)}"`)))];
     const pages = [...new Set(g.parts.map((n) => pageName.get(n.pageId) ?? "the page"))];
     const many = g.parts.length > 1;
     out.push({
@@ -212,7 +218,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
       kind: "build",
       hook: hooks[0] ?? null,
       page: pages.join(", "),
-      says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${hooks.map((h) => `\`${h}\``).join(", ")}` : "this element"}.`),
+      says: clean(`J gave ${many ? `these ${g.parts.length} parts` : "this part"} the "${name}" effect in the Builder${e?.blurb ? ` (${e.blurb.replace(/\.$/, "")})` : ""}${g.set ? `, set to ${g.set}` : ""}. The style layer cannot carry it; build it in the code on ${many ? `each of: ${names.join(", ")}` : g.parts[0]!.source?.hook?.attr === "data-hook" ? "this element" : names[0]}.`),
     });
   }
   /*

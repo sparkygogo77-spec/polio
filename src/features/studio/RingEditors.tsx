@@ -706,6 +706,11 @@ export function AnimQuads({
  * readout with arrows on the third, set in its own face, with "the site's"
  * as the first stop. Every value is relative to the site's where it can be,
  * so the part stays a shade larger when the site's type changes.
+ *
+ * Given two screens — Edit on a cube has a fifth choice, so the green level
+ * takes a second quadrant — the family moves out to the far edge of the
+ * second one, past the spacing and a thinner line height, instead of being
+ * drawn on top of them with its caption over theirs.
  */
 export function FontQuads({
   slabs, font, onChange,
@@ -720,6 +725,10 @@ export function FontQuads({
   // Two bands: one just past the caption, one just past the middle.
   const inner = { rIn: hole + 32, rOut: mid - 4 };
   const outer = { rIn: mid + 6, rOut: mid + 22 };
+  const sharing = slabs.length < 3;
+  // Sharing, line height is as thin as spacing and sits right past the
+  // middle, which leaves the stepper's 22 pixels clear room by the far edge.
+  const leadBand = sharing ? { rIn: mid + 2, rOut: mid + 11 } : outer;
   const size = font?.size ?? 1;
   const weight = font?.weight ?? 400;
   const spacing = font?.spacing ?? 0;
@@ -735,12 +744,11 @@ export function FontQuads({
     ...Object.keys(FAMILY).map((k): StepItem => ({ id: k, label: k, style: { fontFamily: FAMILY[k], textTransform: "none", fontSize: 10 } })),
   ];
   const facing = font?.face && faces.includes(font.face) ? `face:${font.face}` : (font?.family ?? "");
-  void reach;
   return (
     <>
       <ScreenFace slab={a} />
       <ScreenFace slab={b} />
-      <ScreenFace slab={fam} />
+      {sharing ? null : <ScreenFace slab={fam} />}
       <ArcSlider slab={a} tone="screen" {...runOf(a)} {...inner} label="Size" value={(size - 0.6) / 1.4}
         onChange={(f) => set({ size: Math.round((0.6 + f * 1.4) * 100) / 100 })} />
       <ArcSlider slab={a} tone="screen" {...runOf(a)} {...outer} label="Weight" value={(weight - 300) / 500}
@@ -748,12 +756,12 @@ export function FontQuads({
       <Caption slab={a}>{`${Math.round(size * 100)}% · w${weight}`}</Caption>
       <ArcSlider slab={b} tone="screen" {...runOf(b)} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35}
         onChange={(f) => set({ spacing: Math.round((-0.05 + f * 0.35) * 1000) / 1000 })} />
-      <ArcSlider slab={b} tone="screen" {...runOf(b)} {...outer} label="Line height" value={(leading - 1) / 1}
+      <ArcSlider slab={b} tone="screen" {...runOf(b)} {...leadBand} label="Line height" value={(leading - 1) / 1}
         onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
       <Caption slab={b}>{`${spacing}em · ${leading}`}</Caption>
-      <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={facing} label="Family"
+      <ArcStepper slab={fam} radius={sharing ? reach - 20 : chipsAt(fam) - 4} items={families} value={facing} label="Family"
         onChange={(id) => (id.startsWith("face:") ? set({ face: id.slice(5) }) : set({ family: id || undefined, face: undefined }))} />
-      <Caption slab={fam}>Family</Caption>
+      {sharing ? null : <Caption slab={fam}>Family</Caption>}
     </>
   );
 }

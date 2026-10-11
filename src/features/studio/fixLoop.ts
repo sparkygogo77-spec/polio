@@ -19,7 +19,9 @@
  *              tells every code chat to read it first.
  *   4. Land.   Refresh reads the file back (`fixedIn`): a line the code chat
  *              ticked (`- [x]`) or deleted is fixed, and becomes a blue box
- *              on the timeline.
+ *              on the timeline. Lines still in a pull request not merged are
+ *              `pending`, not `sent`: the default branch has no line for them
+ *              yet, and that must not read as deleted.
  *
  * No server is involved: the file in the repository is the queue, so it
  * works with any code chat. This file imports nothing at run time, so
@@ -46,6 +48,13 @@ export interface FixLoop {
   sent: FixIssue[];
   /** Board changes the code chat has built (`codeAsks.ts`): never asked again while the board still holds them. */
   done?: string[];
+  /**
+   * Lines in a pull request not merged yet ("Send the design back", or a
+   * Publish GitHub would not merge). They are not in NEXT.md on the default
+   * branch, so they are never read as fixed and are asked again until they
+   * are; Refresh makes them `sent` once their line shows there (`promotePending`).
+   */
+  pending?: FixIssue[];
 }
 
 export const NO_LOOP: FixLoop = { ticked: [], sent: [] };
@@ -107,7 +116,36 @@ export function toSend(loop: FixLoop, issues: readonly FixIssue[]): FixIssue[] {
   return issues.filter((i) => loop.ticked.includes(i.key) && !sent.has(i.key));
 }
 
-const LINE = /^- \[( |x|X)\] .*<!-- fix:(\S+) -->\s*$/;
+/** A list item's box, however the code chat wrote it (`-`, `*` or `+`, indented or not). */
+const ITEM = /^\s*[-*+]\s+\[( |x|X)\]/;
+/** A line's key for Refresh, wherever it sits on the line (the code chat may add a note after it). */
+const KEY = /<!-- fix:(\S+?) -->/;
+/** A queue line: a box and a key. The header names `<!-- fix:... -->` too, but has no box. */
+const queued = (l: string): { box: string; key: string } | null => {
+  const b = ITEM.exec(l), k = KEY.exec(l);
+  return b && k ? { box: b[1]!, key: k[1]! } : null;
+};
+
+/** Lines that went out in a pull request not merged yet: held apart from `sent`, each key once. */
+export function sentUnmerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
+  const have = new Set([...loop.sent, ...(loop.pending ?? [])].map((i) => i.key));
+  return { ...loop, pending: [...(loop.pending ?? []), ...adding.filter((i) => !have.has(i.key))] };
+}
+
+/** Lines merged into the default branch's NEXT.md: sent, and no longer pending. */
+export function sentMerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
+  const keys = new Set(adding.map((i) => i.key));
+  const have = new Set(loop.sent.map((i) => i.key));
+  return { ...loop, sent: [...loop.sent, ...adding.filter((i) => !have.has(i.key))], pending: (loop.pending ?? []).filter((i) => !keys.has(i.key)) };
+}
+
+/** Pending lines whose line (open or ticked) is in the default branch's NEXT.md: their pull request is merged, so they are sent. */
+export function promotePending(loop: FixLoop, md: string | null): FixLoop {
+  if (md == null || !loop.pending?.length) return loop;
+  const there = new Set(md.split("\n").map((l) => queued(l)?.key).filter(Boolean));
+  const merged = loop.pending.filter((i) => there.has(i.key));
+  return merged.length ? sentMerged(loop, merged) : loop;
+}
 
 /** One queue line: the box, the hook, the page, what is wrong, what done looks like, and its key for Refresh. */
 export function nextLine(i: FixIssue): string {
@@ -121,14 +159,19 @@ export function nextLine(i: FixIssue): string {
  * is not written twice.
  */
 export function nextMd(adding: readonly FixIssue[], o: { site: string; when: string; prev?: string | null }): string {
-  const prev = (o.prev ?? "").split("\n").filter((l) => LINE.test(l));
-  const have = new Set(prev.map((l) => LINE.exec(l)![2]));
+  const all = (o.prev ?? "").split(/\r?\n/);
+  const from = all.findIndex((l) => queued(l));
+  const prev = from < 0 ? [] : all.slice(from);
+  while (prev.length && !prev[prev.length - 1]!.trim()) prev.pop();
+  const have = new Set(prev.flatMap((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!)));
   const lines = [...prev, ...adding.filter((i) => !have.has(i.key)).map(nextLine)];
   return [
     `# Next for the code chat: ${o.site}`,
     "",
-    "Read this first. Each line is a problem the Builder found that J ticked for the next code chat to fix.",
-    "Fix it in the code and keep every data-hook. Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
+    "Read this first. A line that says \"J made\", \"J gave\", \"J switched\" and so on is something J built on the board: build it in the code.",
+    "Any other line is one of the problems the Builder found that J ticked: fix it in the code. A line marked (no hook) covers a whole page or the whole site.",
+    "Keep every data-hook. A new data-hook needs the repo's hooks step (its CLAUDE.md names it, e.g. `npm run hooks`) so its hook map stays current.",
+    "Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
     "and leave the `<!-- fix:... -->` comment as it is. The Builder's Refresh reads this file back: a ticked or deleted line shows as fixed.",
     "",
     `Last written by the Builder on ${o.when}.`,
@@ -138,13 +181,17 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
   ].join("\n");
 }
 
-/** Which of the sent issues the code chat has fixed: ticked or deleted in the file. Nothing, when the file could not be read. */
+/**
+ * Which of the sent issues the code chat has fixed: its line ticked, or its key
+ * gone from the file. A line still there but not ticked (even one reformatted or
+ * with a note after it) stays open. Nothing, when the file could not be read.
+ */
 export function fixedIn(sent: readonly FixIssue[], md: string | null): FixIssue[] {
   if (md == null) return [];
-  const open = new Set<string>();
-  for (const l of md.split("\n")) {
-    const m = LINE.exec(l);
-    if (m && m[1] === " ") open.add(m[2]!);
+  const open = new Set<string>(), ticked = new Set<string>();
+  for (const l of md.split(/\r?\n/)) {
+    const q = queued(l);
+    if (q) (q.box === " " ? open : ticked).add(q.key);
   }
-  return sent.filter((i) => !open.has(i.key));
+  return sent.filter((i) => (ticked.has(i.key) && !open.has(i.key)) || !md.includes(`<!-- fix:${i.key} -->`));
 }

@@ -34,7 +34,7 @@ const check = (name, ok, detail = "") => { results.push(ok === true); console.lo
 /* 1. One door for the asks. */
 const panel = src("StyleLayerPanel.tsx"), buttons = src("CodeSiteButtons.tsx"), asks = src("publishAsks.ts");
 check("Send the design back gathers the asks before sending", /gatherAsks\(/.test(panel) && /extra: asks\.extra, fresh: asks\.fresh/.test(panel));
-check("…and records what it sent in the fix loop, as Publish does", /setFixLoop\(\{ \.\.\.l, sent: \[\.\.\.l\.sent, \.\.\.asks\.adding\] \}\)/.test(panel));
+check("…and records what it sent in the fix loop as pending, since its pull request is not merged (tests/send-back-pending.mjs)", /setFixLoop\(sentUnmerged\(fixLoopOf\(useStudio\.getState\(\)\.look\), asks\.adding\)\)/.test(panel));
 check("Publish takes its asks from the same place", /gatherAsks\(/.test(buttons) && !/function freshNow|function asksNow/.test(buttons));
 check("the shared gatherer writes polio/NEXT.md and stamps each new part's hook", /NEXT_PATH/.test(asks) && /"data-hook": hook/.test(asks) && /freshHooks\(/.test(asks));
 

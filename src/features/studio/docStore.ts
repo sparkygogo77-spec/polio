@@ -177,13 +177,26 @@ function pointerFor(value: string): string {
   return JSON.stringify(p);
 }
 
-/** What localStorage takes for a document: the whole of it, its paths packed, or a pointer. Pure, so it can be checked. */
-export function mirrorText(value: string, max = MIRROR_MAX): { kind: "full" | "packed" | "pointer"; text: string } {
+/**
+ * What localStorage takes for a document: the whole of it, its paths packed, or a pointer. Pure, so it can be checked.
+ *
+ * `kept` is how much of the document the last pack of this key kept
+ * (packed length over length, as `kept` comes back). Packing is a full read
+ * and write of the document; on PST's 856 parts it kept 98% of 3.2 MB, still
+ * past `max`, and it ran on every letter typed and every arrow pressed only
+ * to be thrown away. When the last pack says this one cannot fit either,
+ * the pack is skipped (a little slack for what changed since).
+ */
+export function mirrorText(value: string, max = MIRROR_MAX, kept?: number): { kind: "full" | "packed" | "pointer"; text: string; kept?: number } {
   if (value.length <= max) return { kind: "full", text: value };
+  if (kept && value.length * kept > max * 1.02) return { kind: "pointer", text: pointerFor(value), kept };
   const packed = packDocText(value);
-  if (packed && packed.length <= max) return { kind: "packed", text: packed };
-  return { kind: "pointer", text: pointerFor(value) };
+  const was = packed ? packed.length / value.length : undefined;
+  if (packed && packed.length <= max) return { kind: "packed", text: packed, kept: was };
+  return { kind: "pointer", text: pointerFor(value), kept: was };
 }
+/** Per key, how much the last pack kept (`mirrorText`). */
+const packKept = new Map<string, number>();
 
 /** The mirror as localStorage holds it: a document, a packed one, a pointer, or nothing. */
 export function readMirror(key: string): string | null {
@@ -195,7 +208,8 @@ function writeMirror(key: string, value: string | null): boolean {
   if (!ls) return false;
   try {
     if (value === null) { ls.removeItem(key); return true; }
-    const m = mirrorText(value);
+    const m = mirrorText(value, MIRROR_MAX, packKept.get(key));
+    if (m.kept) packKept.set(key, m.kept); else packKept.delete(key);
     try { ls.setItem(key, m.text); return m.kind !== "pointer"; } catch { /* over quota all the same: a pointer, below */ }
     if (m.kind !== "pointer") ls.setItem(key, pointerFor(value));
   } catch { /* private mode, or nothing left: IndexedDB holds it */ }

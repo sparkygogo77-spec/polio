@@ -287,6 +287,9 @@ entry:
 - If the picture shows a shape (a rounded or angled button), match the part's clickable area to it
   with `border-radius` or a `clip-path` token, so clicks land where the picture is.
 - Add the new token to the slots list (`rules.slots`) so the builder can edit it next round.
+- A hook under `removed` in `design/pictures.json` is a picture J took off: drop its
+  `--<hook>-picture` token, the background that uses it, its slot entry and the copied picture, and
+  show the part's own words again.
 
 ## Change notes for the builder (rules 26 and 27)
 
@@ -455,6 +458,8 @@ that part a role (`[data-hook="x"] { --builder-scroll: "stop section depth"; }`)
 to a stop, the page snaps to a section, a depth layer moves slower than the content. What CSS can do
 (lift, press, float, spin, blink, reveal, switch on, the progress bar, the opening) is written as CSS.
 
-Never edit the file or write `--builder-motion` by hand: `polio npm run kit:motion` writes the kit's
+Never edit the file or write `--builder-motion` by hand, except where a polio/NEXT.md line for a new
+part (an orb, a 3D shape, a before / after slider) gives the exact value: then write that value on its
+hook in the page's own stylesheet, never in the style layer. `polio npm run kit:motion` writes the kit's
 copy, `kit:check --write` (`npm run kit:hooks`) copies it into the site and adds the `<script>` to a
 page that lacks it. `kit:check` fails when a page does not load it or the copy is stale.

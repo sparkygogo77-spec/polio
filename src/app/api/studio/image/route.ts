@@ -27,6 +27,7 @@ import {
   optionsFor,
 } from "@/features/studio/pictures";
 import { fromMetrics } from "@/features/studio/spend";
+import { answerBudget } from "../budget";
 
 /**
  * The renderer service: a part's body, drawn rather than written.
@@ -93,6 +94,22 @@ import { fromMetrics } from "@/features/studio/spend";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
+
+/*
+ * Rule 8b, at this end. A model that is slow cold (flux-2-pro often is) ran
+ * past the platform's ceiling, the function was killed with no answer, and
+ * the prediction went on at Replicate, finished and was charged for a
+ * picture nobody collected. So every wait carries the budget the other
+ * routes keep (`budget.ts`): when it runs out the prediction is cancelled
+ * and the answer is `timeout` with the seconds it took.
+ */
+const ANSWER_BUDGET_MS = answerBudget(process.env, maxDuration);
+
+/** What `predict` throws when the budget ran out, or the asker went away, first. */
+const PREDICT_TIMEOUT = "PredictTimeout";
+const cutShort = (error: unknown) => error instanceof Error && error.name === PREDICT_TIMEOUT;
+const slowSays = (seconds: number) =>
+  `The picture model had not finished after ${seconds}s, so it was stopped and is not charged past that point. Try again, or pick a faster model.`;
 
 /** A raster body is carried in the document, so it has a ceiling a document can hold. */
 
@@ -399,9 +416,28 @@ interface Prediction {
  * output alone and what a pass has to report — what it cost, how long the
  * model itself took — is on the prediction.
  */
-async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>): Promise<Prediction> {
+async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>, until: number, signal?: AbortSignal): Promise<Prediction> {
   const started = await replicate.predictions.create({ model: slug, input });
-  return replicate.wait(started, { interval: 700 });
+  // The wait, raced against the budget and the asker leaving. Whichever
+  // ends it first also stops the polling, and a cut cancels the prediction
+  // so Replicate does not draw (and bill) a picture nobody will collect.
+  let cut = false;
+  let ran: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => { cut = true; };
+  const late = new Promise<never>((_, reject) => {
+    const quit = () => { stop(); reject(Object.assign(new Error("the picture model took too long"), { name: PREDICT_TIMEOUT })); };
+    ran = setTimeout(quit, Math.max(0, until - Date.now()));
+    if (signal?.aborted) quit();
+    else signal?.addEventListener("abort", quit, { once: true });
+  });
+  try {
+    return await Promise.race([replicate.wait(started, { interval: 700 }, async () => cut), late]);
+  } catch (error) {
+    if (cut) await replicate.predictions.cancel(started.id, { signal: AbortSignal.timeout(3_000) }).catch(() => undefined);
+    throw error;
+  } finally {
+    clearTimeout(ran);
+  }
 }
 
 /**
@@ -432,7 +468,7 @@ const picture = (v: unknown, limit = 4_000_000): string | null => base64Picture(
  * picture is an `ok: false` the caller shows on the card while keeping what
  * stage one drew.
  */
-async function refine(body: Body, token: string) {
+async function refine(body: Body, token: string, until: number, signal: AbortSignal) {
   const first = picture(body.first);
   if (!first) {
     return NextResponse.json({ ok: false, stage: 2, reason: "no-first", message: "The second pass had no first pass to work from." }, { status: 400 });
@@ -501,8 +537,12 @@ async function refine(body: Body, token: string) {
   const began = Date.now();
   let done: Prediction;
   try {
-    done = await predict(replicate, pick.slug, input);
+    done = await predict(replicate, pick.slug, input, until, signal);
   } catch (error) {
+    if (cutShort(error)) {
+      const seconds = Math.round((Date.now() - began) / 1000);
+      return NextResponse.json({ ok: false, stage: 2, reason: "timeout", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, slowSays(seconds)), seconds });
+    }
     const status = (error as { response?: { status?: number } }).response?.status;
     const message = error instanceof Error ? safe(error.message, token) : "the model failed";
     const reason = status === 401 || status === 403 ? "auth" : status === 429 ? "rate-limit" : "refine";
@@ -564,7 +604,7 @@ async function refine(body: Body, token: string) {
         const said = await predict(replicate, cutter.slug, inputFor(cutter, {
           prompt: "",
           images: [`data:${mime};base64,${Buffer.from(bytes).toString("base64")}`],
-        }));
+        }), until, signal);
         const meterCut = fromMetrics(said.metrics, Date.now() - from);
         const got = said.status === "succeeded" ? await bytesOf(said.output) : null;
         if (got?.bytes.length) {
@@ -623,6 +663,8 @@ async function refine(body: Body, token: string) {
 }
 
 export async function POST(request: Request) {
+  // The budget runs from the moment the request arrived, for every pass in it.
+  const until = Date.now() + ANSWER_BUDGET_MS;
   // Looked for first, so a request that could not be drawn whatever it said
   // gets the one answer worth giving — in the words of the stage that asked.
   const token = tokenFor(request);
@@ -654,7 +696,7 @@ export async function POST(request: Request) {
 
   // The second pass is its own road: it has a picture already and needs
   // none of the first pass's shaping.
-  if (second) return refine(body, token);
+  if (second) return refine(body, token, until, request.signal);
 
   const kind: RenderKind = isRenderKind(body.kind) ? body.kind : "vector";
   const prompt = (body.prompt ?? "").trim().slice(0, 2000);
@@ -699,15 +741,19 @@ export async function POST(request: Request) {
   let done: Prediction;
   try {
     try {
-      done = await predict(replicate, model, input(kind, words, picture, w, h, card, asked));
+      done = await predict(replicate, model, input(kind, words, picture, w, h, card, asked), until, request.signal);
     } catch (first) {
       // A field this version of the model does not have is the one failure
       // worth a second go: the prompt alone is a shape every model takes.
       const status = (first as { response?: { status?: number } }).response?.status;
       if (status !== 422 && status !== 400) throw first;
-      done = await predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words });
+      done = await predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words }, until, request.signal);
     }
   } catch (error) {
+    if (cutShort(error)) {
+      const seconds = Math.round((Date.now() - began) / 1000);
+      return NextResponse.json({ ok: false, reason: "timeout", message: slowSays(seconds), seconds });
+    }
     const status = (error as { response?: { status?: number } }).response?.status;
     const message = error instanceof Error ? safe(error.message, token) : "The renderer failed.";
     if (status === 401 || status === 403) {

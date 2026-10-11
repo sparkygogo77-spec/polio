@@ -12,13 +12,20 @@
  *   · each hooked part wearing a picture becomes design/pictures/<hook>.<ext>
  *     (base64) plus design/pictures.json with hook, crop and note; a part
  *     with no hook, or whose bytes are gone, is said and not sent;
- *   · the kit rules carry "Pictures on parts" in the doc and builder.json.
+ *   · a picture he took off (the X) since the last send goes back under
+ *     `removed` in design/pictures.json, read against the repo's own list
+ *     (`sentHooks`), even when no picture is left; one only missing from
+ *     this browser is not a removal; the pull request names them;
+ *   · the kit rules carry "Pictures on parts" in the doc and builder.json,
+ *     and say what to do with a hook under `removed`.
  *
  *   node tests/part-picture.mjs
+ *
+ * Covers: src/features/studio/partPicture.ts, src/features/studio/codeSend.ts, src/features/studio/styleLayerRun.ts, kit/BUILDER-RULES.md, src/features/studio/kitFiles.ts
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { pictureFiles, trimBox, PICTURES_LIST } from "../src/features/studio/partPicture.ts";
+import { pictureFiles, removedPictures, sentHooks, trimBox, PICTURES_LIST } from "../src/features/studio/partPicture.ts";
 
 const canvas = (w, h, back) => {
   const px = new Uint8ClampedArray(w * h * 4);
@@ -67,10 +74,52 @@ assert.match(list.about, /Pictures on parts/);
 // Nothing wearing a picture: nothing added.
 assert.deepEqual((await pictureFiles([{ hooks: { "data-hook": "x" } }], async () => "QUJD")).files, []);
 
+// He sent a picture on play-button, then pressed X: the next send still says so, with no picture left.
+const before = sentHooks(JSON.stringify({ pictures: [{ hook: "play-button" }, { hook: "trade-buy" }, { hook: "trade-gone" }] }));
+assert.deepEqual(before, ["play-button", "trade-buy", "trade-gone"]);
+const off = await pictureFiles([{ label: "Play", hooks: { "data-hook": "play-button" }, lookPicture: null }], async () => "QUJD", ["play-button"]);
+assert.deepEqual(off.files.map((f) => f.path), [PICTURES_LIST]);
+assert.deepEqual(off.removed, ["play-button"]);
+const offList = JSON.parse(off.files[0].content);
+assert.deepEqual(offList.pictures, []);
+assert.deepEqual(offList.removed, ["play-button"]);
+assert.match(offList.about, /under removed: take its picture look away/);
+assert.deepEqual(removedPictures(off.files[0].content), ["play-button"]);
+
+// One picture kept, one taken off, one only missing from this browser: just the taken-off one is removed.
+const mixed = await pictureFiles(nodes, async (look) => (look.picture.id === "c" ? null : "QUJD"), before);
+assert.deepEqual(mixed.removed, ["play-button"]);
+assert.deepEqual(mixed.missing, ["trade-gone"]);
+const mixedList = JSON.parse(mixed.files.at(-1).content);
+assert.deepEqual(mixedList.pictures.map((p) => p.hook), ["trade-buy", "trade-sell"]);
+assert.deepEqual(mixedList.removed, ["play-button"]);
+
+// Nothing taken off: no removed key, the list as before.
+assert.equal("removed" in list, false);
+assert.deepEqual((await pictureFiles(nodes, async () => "QUJD", ["trade-buy"])).removed, []);
+
+// No list in the repo, or one that is not JSON: nothing was sent before.
+assert.deepEqual(sentHooks(null), []);
+assert.deepEqual(sentHooks("{not json"), []);
+assert.deepEqual(sentHooks(JSON.stringify({ pictures: "x" })), []);
+assert.deepEqual(removedPictures(undefined), []);
+
+// The pull request tells the code chat which pictures to take off.
+const run = readFileSync(new URL("../src/features/studio/styleLayerRun.ts", import.meta.url), "utf8");
+assert.match(run, /Pictures taken off/);
+const send = readFileSync(new URL("../src/features/studio/codeSend.ts", import.meta.url), "utf8");
+assert.match(send, /sentHooks\(await fileAt\(/);
+
 const doc = readFileSync(new URL("../kit/BUILDER-RULES.md", import.meta.url), "utf8");
+const removedRule = /A hook under `removed` in `design\/pictures\.json` is a picture J took off/;
+assert.match(doc, removedRule);
+const kitFiles = readFileSync(new URL("../src/features/studio/kitFiles.ts", import.meta.url), "utf8");
+assert.match(kitFiles, /A hook under `removed` in `design\/pictures\.json` is a picture J took off/);
 assert.match(doc, /^## 25\. Pictures on parts$/m);
 assert.match(doc, /design\/pictures\.json/);
 const { rules } = JSON.parse(readFileSync(new URL("../kit/builder.json", import.meta.url), "utf8"));
-assert.equal(rules.list.at(-1).id, "pictures-on-parts");
+const pictureRule = rules.list.find((r) => r.id === "pictures-on-parts");
+assert.ok(pictureRule, "builder.json lists the pictures-on-parts rule");
+assert.match(pictureRule.rule, /under removed/);
 
 console.log("part-picture: ok");

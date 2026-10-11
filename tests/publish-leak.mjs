@@ -3,7 +3,7 @@
  * A published repository holds the built site and nothing else.
  *
  * WHAT PUBLISH SENDS TODAY, read off the request the real button makes: an
- * index.html per page and a stylesheet (`staticSite.ts`), the pictures, and
+ * index.html per page and a stylesheet (`send-out/exportSite.ts`), the pictures, and
  * `site/document.json`, `site/BLUEPRINT.md` and `site/blueprint.json`. The
  * last three are the design document and two descriptions of it, and they
  * carry the capture and the owner's own working: every captured part's

@@ -533,7 +533,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       patch?: ReshapePatch;
       message?: string;
       reason?: string;
-      usage?: { model?: string; input?: number; output?: number; cached?: number };
+      usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number };
     };
     const readCost = claudeSpend(data.usage, Date.now() - readFrom);
     // Anything he did while the read was out is his own step, not the drawing's.
@@ -632,6 +632,10 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
       changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(nearly ? [nearly] : [])],
     });
+    // A read that came back truncated, unreadable or refused was still paid
+    // for, so it goes on this iteration's bill the same as one that landed.
+    // No key means no call, and nothing to charge.
+    if (data.usage) useStudio.getState().noteSpend(readCost, job.threadId);
     useStudio.getState().noteMade(landed, made.id);
     if (data.reason === "no-key") deps.onNoKey();
     const body =

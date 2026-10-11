@@ -39,7 +39,7 @@ import { cn } from "@/core/lib/cn";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
 import { heldKeys, useKeys } from "@/features/keys/store";
-import { activeProject, repoFrom, repoLabel, sharedTargetSays, sourceOf, sourceWords, targetKey, targetTakenBy, useBuilds } from "@/features/builds/store";
+import { activeProject, allSources, repoFrom, repoLabel, sharedTargetSays, sourceOf, sourceWords, targetKey, targetTakenBy, useBuilds } from "@/features/builds/store";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import type { BranchRow } from "@/app/api/studio/branches/route";
 import { bringRepoIn } from "./bringRepo";
@@ -548,14 +548,14 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     if (!own) { setBranches(null); return; }
     setBranchSaid(null);
     try {
-      const a = await askRoute<{ base?: string; branches?: BranchRow[]; more?: number }>(`/api/studio/branches?repo=${encodeURIComponent(own)}`, { headers: token(), cache: "no-store" });
+      const a = await askRoute<{ base?: string; branches?: BranchRow[]; more?: number }>(`/api/studio/branches?repo=${encodeURIComponent(own)}&branch=${encodeURIComponent(ownBranch)}`, { headers: token(), cache: "no-store" });
       if (!a.ok) { setBranches(null); setBranchSaid(a.message ?? "GitHub would not list the branches."); return; }
       setBranches({ base: String(a.base ?? "main"), rows: (a.branches ?? []) as BranchRow[], more: Number(a.more ?? 0) });
     } catch {
       setBranches(null);
       setBranchSaid("The Builder's server could not be reached from this browser.");
     }
-  }, [own]);
+  }, [own, ownBranch]);
   React.useEffect(() => { void listBranches(); }, [listBranches]);
 
   /* Main moves here and nowhere else, by his hand, and it asks first: it cannot be undone. */
@@ -567,7 +567,7 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     setMerging(true);
     setSaid(null);
     try {
-      const a = await askRoute("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: mergeFrom }) });
+      const a = await askRoute("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: mergeFrom, sources: allSources() }) });
       if (!a.ok) { setSaid(a.message ?? "GitHub would not merge it."); return; }
       setSaid(a.message ?? `Merged ${mergeFrom} into ${base}.`);
       void listBranches();
@@ -587,7 +587,7 @@ function PublishTo({ mine }: { mine: Mine[] | null }) {
     setRemoving(row.name);
     setBranchSaid(null);
     try {
-      const a = await askRoute("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: row.name }) });
+      const a = await askRoute("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: own, branch: row.name, sources: allSources() }) });
       if (!a.ok) { setBranchSaid(a.message ?? `GitHub would not delete ${row.name}.`); return; }
       if (row.name === siteBranch) useStudio.getState().setSiteBranch(null);
       setBranches((b) => (b ? { ...b, rows: b.rows.filter((r) => r.name !== row.name) } : b));

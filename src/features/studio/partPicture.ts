@@ -14,7 +14,10 @@
  *
  *   design/pictures/<hook>.<ext>   the picture, untouched
  *   design/pictures.json           which hook wears it, where its edges are,
- *                                  and his note
+ *                                  and his note; and under `removed`, each
+ *                                  hook the repo's list named that no
+ *                                  longer wears one (his X), so the code
+ *                                  takes that look away again
  *
  * and the code chat applies it by BUILDER-RULES.md "Pictures on parts".
  * The Builder never writes it into the page itself: a builder-ready site
@@ -99,10 +102,10 @@ export function partPictures(nodes: readonly PictureNode[]): { list: { hook: str
   return { list, unhooked };
 }
 
-/** design/pictures.json: what the code chat reads (BUILDER-RULES.md "Pictures on parts"). */
-export function picturesJson(list: ReturnType<typeof partPictures>["list"]): string {
+/** design/pictures.json: what the code chat reads (BUILDER-RULES.md "Pictures on parts"). `removed`: hooks whose picture look he took off since the last send. */
+export function picturesJson(list: ReturnType<typeof partPictures>["list"], removed: readonly string[] = []): string {
   return `${JSON.stringify({
-    about: "Pictures J put on parts in the builder. Apply each as that part's look by BUILDER-RULES.md \"Pictures on parts\": same element, same data-hook, same behaviour.",
+    about: `Pictures J put on parts in the builder. Apply each as that part's look by BUILDER-RULES.md "Pictures on parts": same element, same data-hook, same behaviour.${removed.length ? " A hook under removed: take its picture look away and show the part's own words again." : ""}`,
     pictures: list.map((p) => ({
       hook: p.hook,
       label: p.label,
@@ -111,11 +114,33 @@ export function picturesJson(list: ReturnType<typeof partPictures>["list"]): str
       crop: p.look.crop,
       ...(p.look.note?.trim() ? { note: p.look.note.trim() } : {}),
     })),
+    ...(removed.length ? { removed } : {}),
   }, null, 2)}\n`;
 }
 
-/** The files a send adds: each picture (base64, from `bytes`) and the list. A picture whose bytes this browser no longer has is said, not sent. */
-export async function pictureFiles(nodes: readonly PictureNode[], bytes: (look: LookPicture) => Promise<string | null>): Promise<{ files: { path: string; content: string; encoding?: "base64" }[]; missing: string[]; unhooked: string[] }> {
+/** The hooks under `key` in a design/pictures.json: nothing when there is none, or it is not JSON. */
+function listedHooks(text: string | null | undefined, key: "pictures" | "removed"): string[] {
+  if (!text) return [];
+  try {
+    const got = (JSON.parse(text) as Record<string, unknown>)[key];
+    const hooks = Array.isArray(got) ? got.map((p) => (typeof p === "string" ? p : (p as { hook?: unknown } | null)?.hook)) : [];
+    return hooks.filter((h): h is string => typeof h === "string" && !!h);
+  } catch {
+    return [];
+  }
+}
+
+/** The hooks a design/pictures.json already in the repo gives a picture: what the last send put there. */
+export const sentHooks = (text: string | null | undefined): string[] => listedHooks(text, "pictures");
+
+/** The hooks a design/pictures.json asks the code to take the picture off (the pull request says them). */
+export const removedPictures = (text: string | null | undefined): string[] => listedHooks(text, "removed");
+
+/**
+ * The files a send adds: each picture (base64, from `bytes`) and the list. A picture whose bytes this browser no longer has is said, not sent.
+ * `before` is the hooks the repo's list already names (`sentHooks`): one no part wears any more is listed under `removed`, so his X reaches the site too.
+ */
+export async function pictureFiles(nodes: readonly PictureNode[], bytes: (look: LookPicture) => Promise<string | null>, before: readonly string[] = []): Promise<{ files: { path: string; content: string; encoding?: "base64" }[]; missing: string[]; unhooked: string[]; removed: string[] }> {
   const { list, unhooked } = partPictures(nodes);
   const files: { path: string; content: string; encoding?: "base64" }[] = [];
   const kept: typeof list = [];
@@ -126,6 +151,9 @@ export async function pictureFiles(nodes: readonly PictureNode[], bytes: (look: 
     files.push({ path: p.file, content: data, encoding: "base64" });
     kept.push(p);
   }
-  if (kept.length) files.push({ path: PICTURES_LIST, content: picturesJson(kept) });
-  return { files, missing, unhooked };
+  /* A part still wearing its picture, only not in this browser, keeps it: that is not a removal. */
+  const worn = new Set(list.map((p) => p.hook));
+  const removed = [...new Set(before)].filter((h) => !worn.has(h));
+  if (kept.length || removed.length) files.push({ path: PICTURES_LIST, content: picturesJson(kept, removed) });
+  return { files, missing, unhooked, removed };
 }

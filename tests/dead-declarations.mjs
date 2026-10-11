@@ -132,6 +132,20 @@ for (const [p, name] of declared) {
 }
 check("no export in src is mentioned only where it is declared", once.length === 0, once.length ? `${once.length}: ${once.slice(0, 8).join(", ")}${once.length > 8 ? ", …" : ""}` : `${declared.length} exports checked`);
 
+/* A second site writer. `staticSite()` wrote pages and a stylesheet of its
+   own, nothing called it, and it had drifted from the writer Publish and Go
+   live use (send-out/exportSite.ts): a fix made there reached no site. Its
+   three private helpers went with it. Mentioned in comments, it got past the
+   one-mention rule below, so it is held gone by name. */
+{
+  const f = "src/features/studio/staticSite.ts";
+  const src = read(f);
+  const left = [/export function staticSite\b/, /function styles\(/, /function rootAttrs\(/, /const esc\b/].filter((re) => re.test(src));
+  check(`${f} no longer declares a site writer of its own`, left.length === 0, left.length ? `still: ${left.map(String).join(", ")}` : "");
+  const importers = walk("src").filter((p) => /import\s*\{[^}]*\bstaticSite\b[^}]*\}/.test(read(p)));
+  check("nothing in src imports staticSite by name", importers.length === 0, importers.join(", "));
+}
+
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);
 process.exit(failed ? 1 : 0);

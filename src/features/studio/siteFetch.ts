@@ -19,7 +19,11 @@
  *   · **A budget at both ends**, because a call that can hang must have a
  *     deadline at both ends and the spinner must stop with a sentence.
  *
- * Pure: no fetch, no browser, no keys. `tests/site-bounds.mjs` holds it.
+ * Pure: no fetch, no browser, no keys. This file only reads the address as
+ * typed; `siteResolve.ts` (server only) also asks DNS where a name points and
+ * follows redirects by hand, because a public-looking name (localtest.me,
+ * 127.0.0.1.nip.io) or a redirect can still land on this machine.
+ * `tests/site-bounds-resolved.mjs` holds both.
  */
 
 /** How long the whole read may take on the server, inside the route's own `maxDuration`. */
@@ -62,7 +66,36 @@ function privateNumber(host: string): boolean {
   if (a === 172 && b >= 16 && b <= 31) return true;
   // Link-local, including the cloud metadata address every provider serves there.
   if (a === 169 && b === 254) return true;
+  // Carrier-grade NAT, where some clouds keep their metadata service (100.100.100.200).
+  if (a === 100 && b >= 64 && b <= 127) return true;
   return false;
+}
+
+/**
+ * Is this address, as DNS answered it, one the server can see and a visitor
+ * cannot? IPv4 by the list above; IPv6 by loopback, unspecified, unique-local,
+ * link-local, and an IPv4 address carried inside one (`::ffff:127.0.0.1`).
+ */
+export function privateAddress(ip: string): boolean {
+  const a = ip.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!a.includes(":")) return privateNumber(a);
+  if (a === "::" || a === "::1") return true;
+  if (/^(fc|fd)[0-9a-f]{2}:/.test(a) || /^fe[89ab][0-9a-f]:/.test(a)) return true;
+  const mapped = /^::ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/.exec(a);
+  if (mapped) {
+    if (mapped[1]) return privateNumber(mapped[1]);
+    const hi = parseInt(mapped[2] ?? "0", 16), lo = parseInt(mapped[3] ?? "0", 16);
+    return privateNumber(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+  }
+  return false;
+}
+
+/** Is this host, as typed, one that must not be opened? Any scheme: the address check alone. */
+export function privateHost(hostname: string): boolean {
+  // "localhost." is localhost: a trailing dot is a fully qualified name, not another host.
+  const host = hostname.toLowerCase().replace(/\.+$/, "");
+  // A hostname with no dot is a machine on this network, not a site.
+  return !host || PRIVATE_HOST.test(host) || privateNumber(host) || !host.includes(".");
 }
 
 export interface Allowed {
@@ -92,8 +125,6 @@ export function allowed(raw: string): Allowed | Denied {
   }
   if (u.protocol !== "https:") return no("not-https");
   const host = u.hostname.toLowerCase();
-  if (!host || PRIVATE_HOST.test(host) || privateNumber(host)) return no("private");
-  // A hostname with no dot is a machine on this network, not a site.
-  if (!host.includes(".")) return no("private");
+  if (privateHost(host)) return no("private");
   return { ok: true, url: u.toString(), host };
 }

@@ -24,6 +24,10 @@
  *   · stylesheets load `tokens.css` first and an empty `style-layer.css`
  *     last; inline scripts move to files; the Builder's own runtime under
  *     `site/assets/` is listed in `builder.json` `scripts.ignore`;
+ *   · every page loads the builder's motion file, `site/vendor/builder-motion.js`
+ *     (BUILDER-RULES.md rule 35), and its source goes along under
+ *     `starter/vendor/`, so a motion Publish later names on a hook
+ *     (`--builder-motion`) runs, and the repo's own check keeps it current;
  *   · `builder.json` names the pages, a preview screen per page, the
  *     gallery, and the site's link rules (`offsiteToKitLinks`), and the
  *     kit's tools, contract, CLAUDE.md, AGENTS.md, PIPELINE.md and CI go
@@ -37,6 +41,7 @@
 import { KIT_FILES, KIT_RULES, KIT_VERSION } from "./kitFiles.ts";
 import { offsiteToKitLinks } from "./shelf/index.ts";
 import { colourKey } from "./send-out/index.ts";
+import { kitMotionJs } from "./send-out/kitMotion.ts";
 
 export interface KitFile { path: string; content: string; encoding?: "base64" }
 
@@ -469,6 +474,9 @@ export function toKit(input: KitExportInput): KitExport {
     namer.present = new Set([...f.content.matchAll(/\sdata-hook\s*=\s*"([^"]+)"/g)].map((m) => m[1]!));
     namer.pageName = `${ROOT}${f.path}`;
     const page = pageForKit(f.content, f.path, slug, up, namer, tokens);
+    /* The builder's motion file, loaded as kit:check --write loads it (rule 35), unless the page already does. */
+    const motion = `<script src="${up}vendor/builder-motion.js" defer></script>`;
+    if (!page.html.includes(`src="${up}vendor/builder-motion.js"`)) page.html = /<\/body>/i.test(page.html) ? page.html.replace(/<\/body>/i, `${motion}\n</body>`) : `${page.html}${motion}\n`;
     hooks += page.hooks;
     for (const css of page.inlineCss) base.push(`/* From ${f.path}'s own style block. */\n${cssForKit(css, tokens)}`);
     if (page.rules.length) base.push(`/* ${f.path}: what its elements carried as inline styles, each keyed by its hook. */\n${page.rules.join("\n")}`);
@@ -536,6 +544,11 @@ ${inside}
 </main>`)),
     },
   );
+  /* The builder's motion file beside the pages, and its source where the repo's own kit-check looks for it (`starter/vendor/`), so the check keeps the two the same. */
+  const motionJs = kitMotionJs();
+  const motionFiles = [`${ROOT}vendor/builder-motion.js`, "starter/vendor/builder-motion.js"];
+  for (let i = files.length - 1; i >= 0; i--) if (motionFiles.includes(files[i]!.path)) files.splice(i, 1);
+  files.push(...motionFiles.map((path) => ({ path, content: motionJs })));
   const slugName = slugWords(input.name, 6) || "site";
   const manifest = {
     kit: KIT_VERSION,
@@ -573,7 +586,7 @@ ${inside}
     },
     {
       path: "README.md",
-      content: `# ${input.name}\n\nExported from J's Polio builder with **Export for code**: a builder-ready repo (kit ${KIT_VERSION}). The site is in \`site/\`; \`builder.json\` is what the builder reads first.\n\n- Read \`CLAUDE.md\`, \`AGENTS.md\`, \`BUILDER-CONTRACT.md\`, \`BUILDER-RULES.md\` and \`PIPELINE.md\` before changing anything. \`BUILDER-RULES.md\` (also \`rules\` in \`builder.json\`) is what every code chat follows: anything a script shows later is a state inside a part the builder can see.\n- \`npm run kit:check\` must pass; \`npm run kit:hooks\` remakes \`site/hooks.json\` after a page, stylesheet or script changes.\n- \`site/assets/\` is the builder's own runtime (motion, features, pictures): the check skips its scripts (\`builder.json\` \`scripts.ignore\`). Replace them with hooked code as the site grows.\n- \`site/style-layer.css\` is empty: it is the design's file, sent back by the builder as a pull request from a \`style/...\` branch.\n- Serve \`site/\` as the web root (\`npm run serve\`, then open http://localhost:8080/site/).\n`,
+      content: `# ${input.name}\n\nExported from J's Polio builder with **Export for code**: a builder-ready repo (kit ${KIT_VERSION}). The site is in \`site/\`; \`builder.json\` is what the builder reads first.\n\n- Read \`CLAUDE.md\`, \`AGENTS.md\`, \`BUILDER-CONTRACT.md\`, \`BUILDER-RULES.md\` and \`PIPELINE.md\` before changing anything. \`BUILDER-RULES.md\` (also \`rules\` in \`builder.json\`) is what every code chat follows: anything a script shows later is a state inside a part the builder can see.\n- \`npm run kit:check\` must pass; \`npm run kit:hooks\` remakes \`site/hooks.json\` after a page, stylesheet or script changes.\n- \`site/assets/\` is the builder's own runtime (motion, features, pictures): the check skips its scripts (\`builder.json\` \`scripts.ignore\`). Replace them with hooked code as the site grows.\n- \`site/vendor/builder-motion.js\` is the builder's motion file (BUILDER-RULES.md rule 35): every page loads it, and it runs any motion the style layer names on a hook (\`--builder-motion\`). Never edit it; \`npm run kit:hooks\` keeps it the same as \`starter/vendor/builder-motion.js\`.\n- \`site/style-layer.css\` is empty: it is the design's file, sent back by the builder as a pull request from a \`style/...\` branch.\n- Serve \`site/\` as the web root (\`npm run serve\`, then open http://localhost:8080/site/).\n`,
     },
     ...["BUILDER-CONTRACT.md", "BUILDER-RULES.md", "PIPELINE.md", "AGENTS.md", "CLAUDE.md", "RETROFIT.md", "tools/kit-check.mjs", "tools/kit-diff.mjs", "tools/state-frames.mjs", "tools/record-diff.mjs", "tools/code-notes.mjs", ".github/workflows/kit-check.yml"].map((p) => ({ path: p, content: KIT_FILES[p]! })),
   );

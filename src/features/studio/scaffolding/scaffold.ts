@@ -25,7 +25,8 @@
  */
 import { standInFiles, standInHas } from "../standIn.ts";
 import type { ScaffoldFile, ScaffoldPart, ScaffoldInput } from "./types.ts";
-import { componentName, slug } from "./jsx.ts";
+import { componentName } from "./jsx.ts";
+import { homeFor, routeOf } from "../homePage.ts";
 import { tokensCss, layoutTsx, partTsx, pageTsx } from "./pages.ts";
 import { FRAME_TSX } from "./frameMesh.ts";
 import { SHELL_TSX, buildMd } from "./shell.ts";
@@ -41,9 +42,12 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
 
   for (const part of input.parts) files.push({ path: `components/parts/${componentName(part)}.tsx`, content: partTsx(part, input.palette) });
 
+  /* A page's folder is its exported file's: Home on "/" (or the first page), nested routes kept, a repeat given the next free name. */
+  const home = homeFor(input.pages);
   for (const page of input.pages) {
     const parts = input.parts.filter((p) => p.pageId === page.id);
-    const dir = page.path === "/" ? "app" : `app/${slug(page.path)}`;
+    const route = routeOf(home, page);
+    const dir = route ? `app/${route}` : "app";
     files.push({ path: `${dir}/page.tsx`, content: pageTsx(page, parts, input) });
   }
   /* The stand-in server, only when it is asked for: the runtime and the samples, loaded before the page's scripts. */

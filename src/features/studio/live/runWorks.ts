@@ -19,8 +19,8 @@
  *
  * What a run leaves is undone where it can be: the loader's screen is taken
  * away, the inline styles a feature set are put back, the animations it
- * started are cancelled. A marquee's track is left (the part is drawn again
- * when the Preview is).
+ * started are cancelled, what it listens to and watches is let go (`noting`).
+ * A marquee's track is left (the part is drawn again when the Preview is).
  */
 import { getWork, NOT_ON_COPIES, pageFeatures, RUNTIME_JS } from "../shelf";
 import { ON_BOARD } from "../shelf";
@@ -41,6 +41,36 @@ function runtime(): { F: Runtime; defs: Map<string, Def> } | null {
   const real = win.siteFeatures as Runtime | undefined;
   if (!real) return null;
   return { F: { define: (id, fn) => { defs.set(id, fn); }, api: real.api }, defs };
+}
+
+/**
+ * WHAT A FEATURE LISTENS TO GOES WITH IT. As published a script listens on
+ * the window (a follow, a tilt, a parallax) and watches its part for as long
+ * as the page is open; here a run is undone (the Motion tab's four seconds, a
+ * hover-try, the Preview drawn again), so every listener and observer a
+ * script starts while it runs is noted, and the undo lets it go. Else a part
+ * played with Follow the pointer went on following it after its four
+ * seconds, and each play added another.
+ */
+type Observer = new (...a: never[]) => { disconnect(): void };
+const WATCHERS = ["IntersectionObserver", "ResizeObserver", "MutationObserver"] as const;
+function noting<T>(run: () => T, undo: (() => void)[]): T {
+  const proto = EventTarget.prototype;
+  const add = proto.addEventListener;
+  proto.addEventListener = function (this: EventTarget, type: string, fn: EventListenerOrEventListenerObject | null, o?: boolean | AddEventListenerOptions) {
+    add.call(this, type, fn, o);
+    undo.push(() => this.removeEventListener(type, fn, o));
+  };
+  const w = window as unknown as Record<string, Observer | undefined>;
+  const was = WATCHERS.map((k) => w[k]);
+  WATCHERS.forEach((k, i) => {
+    const O = was[i];
+    if (O) w[k] = class extends O { constructor(...a: never[]) { super(...a); undo.push(() => this.disconnect()); } };
+  });
+  try { return run(); } finally {
+    proto.addEventListener = add;
+    WATCHERS.forEach((k, i) => { if (was[i]) w[k] = was[i]; });
+  }
 }
 
 /**
@@ -82,8 +112,21 @@ function boardRiders(nodes: readonly Placed[], moving: ReadonlySet<string>): Map
   return out;
 }
 
-export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { board?: boolean; only?: { part: string; feature: string } } = {}): () => void {
-  const all = pageFeatures(nodes as { id: string; work?: null }[]);
+/**
+ * WHAT COVERS THE WHOLE WINDOW. A loader puts its screen over everything
+ * (`position: fixed` on the body) and holds the page still while it plays.
+ * In the Preview that is the page, as published; in the little companion
+ * beside the board it would be the whole Builder, so the companion leaves
+ * these out (`skip`) and the Preview alone plays them.
+ */
+export const PAGE_WIDE = ["crt-loader", "loader-film"];
+
+export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { board?: boolean; only?: { part: string; feature: string }; skip?: readonly string[] } = {}): () => void {
+  const found = pageFeatures(nodes as { id: string; work?: null }[]);
+  const skip = opts.skip ?? [];
+  const all = skip.length
+    ? { bindings: found.bindings.filter((b) => !skip.includes(b.feature)), scripts: found.scripts.filter((s) => !skip.includes(s.replace(/\.js$/, ""))) }
+    : found;
   const board = !!opts.board;
   /*
    * ONE, PLAYED ON PURPOSE. The Motion tab's play button runs a single
@@ -100,6 +143,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
     ? all.scripts.filter((s) => s === "runtime.js" || s.replace(/\.js$/, "") === only.feature)
     : board ? all.scripts.filter((s) => ambient(s.replace(/\.js$/, ""))) : all.scripts;
   const gentle = board && !only;
+  const covers = bindings.some((b) => PAGE_WIDE.includes(b.feature));
   if (!bindings.length) return () => {};
   const rt = runtime();
   if (!rt) return () => {};
@@ -112,6 +156,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
   const touched: { el: HTMLElement; style: string | null }[] = [];
   const riders = board ? boardRiders(nodes, new Set(bindings.map((b) => b.part))) : null;
   const timers: number[] = [];
+  const undo: (() => void)[] = [];
   for (const b of bindings) {
     const el = board
       ? root.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(b.part)}"] > [data-part-drawn]`)
@@ -122,7 +167,7 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
     for (const x of [el, ...Array.from(el.children)] as HTMLElement[]) if (!touched.some((t) => t.el === x)) touched.push({ el: x, style: x.getAttribute("style") });
     if (board) el.setAttribute("data-board-moves", b.feature);
     try {
-      const r = fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api);
+      const r = noting(() => fn(el, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api), undo);
       if (typeof r === "number") timers.push(r);
     } catch { /* as the runtime does: the part keeps what it was drawn as */ }
     const host = riders ? nodes.find((n) => n.id === b.part) : null;
@@ -132,25 +177,31 @@ export function runWorks(root: HTMLElement, nodes: readonly Placed[], opts: { bo
       if (!touched.some((t) => t.el === kel)) touched.push({ el: kel, style: kel.getAttribute("style") });
       kel.style.transformOrigin = `${host!.x! + host!.w! / 2 - k.x!}px ${host!.y! + host!.h! / 2 - k.y!}px`;
       kel.setAttribute("data-board-moves-of", b.part);
-      try { fn(kel, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api); } catch { /* the rider stays as drawn */ }
+      try { noting(() => fn(kel, gentle ? softly(b.feature, b.inputs) : b.inputs, rt.F.api), undo); } catch { /* the rider stays as drawn */ }
     }
     /* The part drawn again in a "What's new" card works as the part does, as published (`RUNTIME_JS`). */
     if (board || NOT_ON_COPIES.includes(b.feature)) continue;
     for (const copy of Array.from(root.querySelectorAll<HTMLElement>(`[data-copy-of="${CSS.escape(b.part)}"]`))) {
       if (!touched.some((t) => t.el === copy)) touched.push({ el: copy, style: copy.getAttribute("style") });
-      try { fn(copy, b.inputs, rt.F.api); } catch { /* the copy stays as drawn */ }
+      try { noting(() => fn(copy, b.inputs, rt.F.api), undo); } catch { /* the copy stays as drawn */ }
     }
   }
   return () => {
+    for (const u of undo.splice(0)) try { u(); } catch { /* already gone */ }
     for (const t of timers) window.clearInterval(t);
-    document.querySelectorAll("[data-crt], [data-loader-film]").forEach((o) => o.remove());
-    document.documentElement.style.overflow = "";
+    /* Only a run that started a loader takes one away: the companion's run leaves the Preview's playing. */
+    if (covers) {
+      document.querySelectorAll("[data-crt], [data-loader-film]").forEach((o) => o.remove());
+      document.documentElement.style.overflow = "";
+    }
     for (const { el, style } of touched) {
       for (const a of el.getAnimations?.() ?? []) if (!(a as { animationName?: string }).animationName) a.cancel();
       /* A layer a feature drew into the part (the dust's canvas): taken out, and its loop stops with it. */
       el.querySelectorAll(":scope > [data-feature-layer]").forEach((x) => x.remove());
       el.removeAttribute("data-board-moves");
       el.removeAttribute("data-board-moves-of");
+      /* A loop a feature keeps going (a follow as a layer) stops at its next frame, the part no longer its own. */
+      delete (el as { __follow?: unknown }).__follow;
       if (style === null) el.removeAttribute("style"); else el.setAttribute("style", style);
     }
   };

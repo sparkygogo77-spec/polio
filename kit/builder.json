@@ -198,7 +198,7 @@
         "id": "pictures-on-parts",
         "title": "Pictures on parts",
         "checkedBy": "",
-        "rule": "A picture dropped on a part's Contents arrives in design/pictures.json with its hook, crop box and note: the code makes it that part's look through a token, cut to its crop, keeping the same element, data-hook, words and behaviour."
+        "rule": "A picture dropped on a part's Contents arrives in design/pictures.json with its hook, crop box and note: the code makes it that part's look through a token, cut to its crop, keeping the same element, data-hook, words and behaviour; a hook under removed loses that look again."
       },
       {
         "id": "leave-a-change-note",

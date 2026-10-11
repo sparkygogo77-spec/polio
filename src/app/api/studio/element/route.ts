@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT } from "../headless";
-import { allowed, MAX_ELEMENTS, READ_BUDGET_MS } from "@/features/studio/siteFetch";
+import { answerBudget } from "../budget";
+import { fetchFont } from "../fontFile";
+import { MAX_ELEMENTS, READ_BUDGET_MS, REFUSAL_SAYS } from "@/features/studio/siteFetch";
+import { allowedResolved, requestCheck } from "@/features/studio/siteResolve";
 import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/bring-in";
-import { carryFaces, FONT_FILE_MAX, type FacesRead } from "@/features/studio/look";
+import { carryFaces, type FacesRead } from "@/features/studio/look";
 
 /**
  * Reading one element off a live page, exactly.
@@ -27,8 +30,12 @@ import { carryFaces, FONT_FILE_MAX, type FacesRead } from "@/features/studio/loo
  *
  * **Bounds** are `siteFetch.ts` and are checked before anything opens:
  * https only, no private addresses, one page, one element, a budget at
- * both ends. Every failure is HTTP 200 with a reason and the seconds it
- * took, like every other route here, and the browser keeps a longer
+ * both ends. `siteResolve.ts` holds them past the typed address: the name
+ * is resolved, and every request the page then makes (a redirect, a frame,
+ * a picture, a script's fetch) is checked the same way, so a public page
+ * cannot turn the screenshot into a picture of something private.
+ * Every failure is HTTP 200 with a reason and the seconds it took, like
+ * every other route here, and the browser keeps a longer
  * deadline of its own for the case where nothing arrives at all.
  */
 export const runtime = "nodejs";
@@ -42,34 +49,11 @@ export async function GET() {
   return NextResponse.json({ ok: !!found.pw, ...(found.pw ? { from: found.from } : { reason: "no-browser", message: NO_PLAYWRIGHT }) });
 }
 
-/**
- * A font file, fetched by this server. The same bounds as the page: public
- * https only, so a page cannot point this server at something inside its
- * own network. Refused past the size a face may weigh, and after eight
- * seconds, with the reason said rather than a silent fallback.
- */
-async function fetchFont(url: string): Promise<{ bytes: Uint8Array } | { error: string }> {
-  const gate = allowed(url);
-  if (!gate.ok) return { error: gate.says };
-  const stop = new AbortController();
-  const timer = setTimeout(() => stop.abort(), 8000);
-  try {
-    const r = await fetch(gate.url, { signal: stop.signal, redirect: "follow", headers: { accept: "font/woff2,font/woff,font/ttf,font/otf,*/*;q=0.5" } });
-    if (!r.ok) return { error: `it answered ${r.status}` };
-    const said = Number(r.headers.get("content-length") ?? 0);
-    if (said > FONT_FILE_MAX) return { error: `its file is ${Math.round(said / 1024)}KB, past the ${Math.round(FONT_FILE_MAX / 1024)}KB a face may weigh` };
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return { bytes: buf };
-  } catch (err) {
-    return { error: err instanceof Error && err.name === "AbortError" ? "no answer within eight seconds" : err instanceof Error ? err.message.split("\n")[0] ?? "no answer" : String(err) };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export async function POST(request: Request) {
   const began = Date.now();
   const took = () => Math.round((Date.now() - began) / 100) / 10;
+  // When this read must answer by: the budget every route keeps (rule 8b).
+  const until = began + answerBudget(process.env, maxDuration);
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -77,7 +61,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "bad-request", message: "Expected a JSON body." }, { status: 400 });
   }
 
-  const gate = allowed(String(body.url ?? ""));
+  const gate = await allowedResolved(String(body.url ?? ""));
   if (!gate.ok) return NextResponse.json({ ok: false, reason: gate.why, message: gate.says, took: took() });
 
   const found = await findPlaywright();
@@ -93,8 +77,39 @@ export async function POST(request: Request) {
   let browser: Awaited<ReturnType<typeof found.pw.chromium.launch>> | null = null;
   try {
     browser = await found.pw.chromium.launch(await found.launchOptions());
-    const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    // Service workers off: a request one answers never reaches the check below.
+    const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1, serviceWorkers: "block" });
+    /*
+     * Every request the page makes, the first one and its redirects
+     * included, goes only where the gate would have let it. A refused main
+     * page is said as "private" rather than as the browser's error, whose
+     * wording would tell which private ports answer.
+     */
+    const check = requestCheck();
+    let refusedPage = false;
+    type Routed = { request: () => { url: () => string; isNavigationRequest: () => boolean; frame: () => unknown }; continue: () => Promise<void>; abort: () => Promise<void> };
+    type Sock = { url: () => string; connectToServer: () => unknown; close: () => Promise<void> };
+    const held = context as unknown as {
+      route: (pattern: string, handler: (route: Routed) => Promise<void>) => Promise<void>;
+      routeWebSocket?: (pattern: RegExp, handler: (ws: Sock) => Promise<void>) => Promise<void>;
+    };
     const page = await context.newPage();
+    const mainFrame = (page as unknown as { mainFrame: () => unknown }).mainFrame();
+    await held.route("**/*", async (route) => {
+      const req = route.request();
+      if (await check(req.url())) return route.continue().catch(() => undefined);
+      try {
+        if (req.isNavigationRequest() && req.frame() === mainFrame) refusedPage = true;
+      } catch {
+        /* A request with no frame is not the page. */
+      }
+      return route.abort().catch(() => undefined);
+    });
+    await held.routeWebSocket?.(/.*/, async (ws) => {
+      if (await check(ws.url())) ws.connectToServer();
+      else await ws.close().catch(() => undefined);
+    });
+    const privateAnswer = () => NextResponse.json({ ok: false, reason: "private", message: REFUSAL_SAYS.private, took: took() });
     /*
      * The budget, at this end. The route answers itself before the platform
      * kills it, so a page that never settles comes back as a sentence
@@ -103,7 +118,14 @@ export async function POST(request: Request) {
      * server drives is a hand-written surface with only what its routes
      * use on it, and widening it is somebody else's file.
      */
-    const answer = await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: READ_BUDGET_MS });
+    const answer = await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: Math.max(1_000, Math.min(READ_BUDGET_MS, until - Date.now())) }).catch((err: unknown) => {
+      if (refusedPage) return null;
+      throw err;
+    });
+    if (refusedPage || !(await check((page as unknown as { url: () => string }).url()))) {
+      await context.close();
+      return privateAnswer();
+    }
     /* A page that answers with an error is not a page to point at. A bot
        wall's 403 and a 404's own error page loaded "successfully" and were
        listed as things to point at. */
@@ -156,7 +178,7 @@ export async function POST(request: Request) {
        */
       const read = (await page.evaluate(FACES).catch(() => ({ faces: [], links: [] }))) as FacesRead;
       const used = readings.map((r) => (r as { type?: { face?: string | null } }).type?.face ?? "").filter(Boolean);
-      const faces = await carryFaces(read, used, gate.url, fetchFont);
+      const faces = await carryFaces(read, used, gate.url, (url) => fetchFont(url, until));
       await context.close();
       if (!readings.length) return NextResponse.json({ ok: false, reason: "gone", message: "None of those are on the page any more. Read the page again.", took: took() });
       return NextResponse.json({ ok: true, page: { width, height }, readings, faces, took: took() });
