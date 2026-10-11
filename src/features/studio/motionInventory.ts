@@ -79,7 +79,7 @@ export interface MoveRow {
 /* ------------------------------------------------------------------ */
 
 const WORK_KIND: Record<string, MoveKind> = {
-  reveal: "reveal", "scroll-grow": "reveal", "scroll-header": "reveal",
+  reveal: "reveal", "scroll-grow": "reveal", "scroll-header": "reveal", "scroll-depths": "reveal",
   "follow-pointer": "follow",
   tilt: "tilt",
   "hover-lift": "hover",

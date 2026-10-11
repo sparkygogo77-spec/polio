@@ -436,6 +436,59 @@ export const HOVER_LIFT: Work = {
 `,
 };
 
+export const SCROLL_DEPTHS: Work = {
+  manifest: {
+    id: "scroll-depths",
+    name: "Follows the scroll",
+    category: "motion",
+    blurb: "A picture taken at each depth of the page shows the one for where the scroll is: a sea that dives with the page, a map whose window moves.",
+    inputs: [
+      { id: "bands", label: "Pictures in the strip", kind: "number", default: "2" },
+      { id: "ease", label: "Slide between them (ms)", kind: "number", default: "0", advanced: true },
+    ],
+    needs: "none",
+    says: ["follows the scroll", "depth strip", "scroll-driven picture", "minimap", "dives with the page", "picture by scroll"],
+    look: { sample: "▤▤▤", caption: "slides · on scroll" },
+    version: 1,
+  },
+  script: `siteFeatures.define("scroll-depths", function (el, inputs) {
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  /* The strip is looked up each time: the Preview draws the part anew as the page is re-anchored, and the one first found is then no longer in the page. */
+  var stripOf = function () { return el.querySelector("[data-depth-strip]") || el; };
+  var strip = stripOf();
+  var bands = Math.max(1, Math.round(num(inputs.bands, 1)));
+  /* The strip is as tall as its bands: the count written on its holder wins over the input where the two differ. */
+  var holder = strip.parentElement && strip.parentElement.getAttribute("data-picture-depths");
+  if (holder && Number(holder) > 1) bands = Number(holder);
+  if (bands < 2) return;
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var ms = Math.max(0, num(inputs.ease, 0));
+  var queued = false, shown = -1, placed = null;
+  function place() {
+    queued = false;
+    if (!el.isConnected) return;
+    var strip = stripOf();
+    var top = box ? box.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0);
+    var range = box ? box.scrollHeight - box.clientHeight : (document.documentElement.scrollHeight - window.innerHeight);
+    var q = range > 0 ? Math.max(0, Math.min(1, top / range)) : 0;
+    var band = Math.round(q * (bands - 1));
+    if (band === shown && strip === placed) return;
+    shown = band; placed = strip;
+    if (ms) strip.style.transition = "translate " + ms + "ms linear";
+    var tall = strip.getBoundingClientRect().height / bands;
+    strip.style.translate = "0 " + (-band * tall).toFixed(2) + "px";
+    el.setAttribute("data-depth", String(band));
+    if (strip.tagName === "IMG" && !strip.complete && !strip.__depthsLoad) { strip.__depthsLoad = true; strip.addEventListener("load", function () { shown = -1; soon(); }); }
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
+  (box || window).addEventListener("scroll", soon, { passive: true });
+  window.addEventListener("resize", function () { shown = -1; soon(); });
+  place();
+});
+`,
+};
+
 export const SCROLL_GROW: Work = {
   manifest: {
     id: "scroll-grow",

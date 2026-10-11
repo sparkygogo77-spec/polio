@@ -370,7 +370,7 @@ export function matchWorks(text: string, manifests: WorkManifest[]): WorkMatch[]
  * press in a preview that rearranges the page under the card would each be
  * wrong, and a preview shows the part as it is seen, already arrived.
  */
-export const NOT_ON_COPIES = ["crt-loader", "scroll-header", "press-shows", "glide", "whats-new", "world-dialogs", "reveal", "scroll-grow"];
+export const NOT_ON_COPIES = ["crt-loader", "scroll-header", "press-shows", "glide", "whats-new", "world-dialogs", "reveal", "scroll-grow", "scroll-depths"];
 
 export const RUNTIME_JS = `/* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
