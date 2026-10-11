@@ -22,7 +22,7 @@
  *   npm run build && npx next start -p 3013
  *   node tests/preview-svg-order.mjs http://127.0.0.1:3013
  *
- * Covers: src/features/studio/live/svgUnder.ts, src/features/studio/live/LiveSite.tsx
+ * Covers: src/features/studio/live/svgUnder.ts, src/features/studio/live/LiveSite.tsx, src/features/studio/board/DesktopCanvas.tsx
  */
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
@@ -54,6 +54,16 @@ try {
   ui.on("pageerror", (e) => errors.push(e.message));
   await ui.route("https://api.github.com/**", (r) => r.abort());
   await openBoard(ui, URL_BASE, boardWith(parts));
+  /* The board draws it the same way (`board/DesktopCanvas.tsx`): the face before the drawing, the hub after, the ticks on top. */
+  await ui.waitForSelector('[data-node-id="n_dial"] [data-svg-art]', { timeout: 10000 }).catch(() => {});
+  const board = await ui.evaluate(() => {
+    const at = (id) => document.querySelector(`[data-node-id="${id}"]`);
+    const dial = at("n_dial"), face = at("n_face"), hub = at("n_hub");
+    if (!dial || !face || !hub) return { found: false };
+    const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return { found: true, svg: !!dial.querySelector('[data-svg-art] circle[data-hook="dial-ticks"]'), faceFirst: before(face, dial), hubAfter: before(dial, hub) };
+  });
+  check("on the board too: the dial is drawn as svg, its face before it and its hub after", board.found && board.svg && board.faceFirst && board.hubAfter, JSON.stringify(board));
   await ui.click("[data-preview-toggle]");
   for (let i = 0; i < 40; i++) {
     if (await ui.evaluate(() => !!document.querySelector('[data-studio-pane] [data-live-scroller] [data-live-node="n_dial"]'))) break;
