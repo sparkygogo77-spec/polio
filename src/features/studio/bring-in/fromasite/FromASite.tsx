@@ -406,14 +406,30 @@ export function FromASite({ space }: { space: Space }) {
     const readAt = seen >= 1280 ? Math.min(2560, seen) : st0.frameWidth || 1440;
     /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
     const m = got.manifest ?? null;
-    const zr = await askZip(got.file, {
-      parts: "1",
-      width: String(readAt),
-      ...(m?.pages.length ? { entry: m.pages[0]!.file, pages: JSON.stringify(m.pages.slice(1).map((p) => p.file)) } : {}),
-      ...(m?.tokens ? { tokens: m.tokens } : {}),
-    });
+    /*
+     * ONE PAGE A REQUEST (J, 2026-10-11). His redesign branch of PonsStars,
+     * six pages of 1,800 parts, was read in one request that took 27
+     * seconds here and longer on the host, and the browser gave up at 45:
+     * "Nothing came back within 45 seconds", on a branch that was fine. So
+     * the first page is asked for alone, with the names of the others
+     * (`only`, `siblings`), and each other page is a request of its own
+     * with its own deadline; the strip counts them. A site of any size on
+     * any branch comes in a page at a time.
+     */
+    const ask = (extra: Record<string, string>) => askZip(got.file, { parts: "1", only: "1", width: String(readAt), ...(m?.tokens ? { tokens: m.tokens } : {}), ...extra });
+    const zr = await ask(m?.pages.length ? { entry: m.pages[0]!.file, pages: JSON.stringify(m.pages.slice(1).map((p) => p.file)) } : {});
     const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
     if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
+    const siblings = Array.isArray(zr.siblings) ? (zr.siblings as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    const siteDir = files[0]!.file.includes("/") ? files[0]!.file.slice(0, files[0]!.file.lastIndexOf("/") + 1) : "";
+    let wouldNotOpen = 0;
+    for (const [i, file] of siblings.entries()) {
+      busy(`Reading page ${i + 2} of ${siblings.length + 1} in ${of.name}: ${file}…`);
+      const more = await ask({ entry: file, pages: "[]", dir: siteDir });
+      const page = Array.isArray(more.pages) ? (more.pages as (FileRead & { scripts?: boolean })[]).find((p) => p.file === file) : null;
+      if (more.ok && page) files.push(page);
+      else wouldNotOpen += 1;
+    }
     const { doc, report } = pagesToDoc(files, { code: got.code, ...(m ? { names: Object.fromEntries(m.pages.filter((p) => p.name).map((p) => [p.file, p.name!])), byHook: true, hooksFile: m.hooks, manifestDir: m.file.includes("/") ? m.file.slice(0, m.file.lastIndexOf("/") + 1) : "" } : {}) });
     /*
      * THE STILLS ITS builder.json ASKS FOR (`stills.ts`): what its code draws
@@ -523,7 +539,7 @@ export function FromASite({ space }: { space: Space }) {
     if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
     const anyScripts = files.some((f) => f.scripts);
     const left = Number(zr.left) || 0;
-    const failed = Number(zr.failed) || 0;
+    const failed = (Number(zr.failed) || 0) + wouldNotOpen;
     /* Thin is still said: a page that shows two parts or fewer as it opens has little on it. */
     const showing = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id && n.featureId !== "box").length;
     const fromManifest = m ? ` Read from its ${m.file}${m.name || m.kit ? ` (${[m.name, m.kit ? `kit ${m.kit}` : null].filter(Boolean).join(", ")})` : ""}: its pages in its order, its code view from ${m.hooks ?? "a reading of its scripts"}, ${m.tokens ? `its tokens in ${m.tokens} as variables you can set` : "no tokens file"}, and the style layer goes back to ${m.styleLayer ?? `${entryDir}style-layer.css`}.${m.screens.length ? ` It lists ${m.screens.length} preview screen${m.screens.length === 1 ? "" : "s"} (${m.screens.slice(0, 6).join(", ")}${m.screens.length > 6 ? ", …" : ""}), each at ${m.previewPage ?? "its page"}${m.previewQuery ?? "?still=1&screen=<name>"}; the States control on the page strip shows them on the board once they are read.` : ""}${m.gallery ? ` Its gallery is ${m.gallery}.` : ""}` : "";

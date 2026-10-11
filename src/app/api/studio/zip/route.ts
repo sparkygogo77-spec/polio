@@ -28,7 +28,9 @@ import { BUSY_NOW, ISOLATE, readStillsAsk, type StillTaken } from "@/features/st
  *     uploads of the same zip would be a dozen too many; or
  *   · `parts`: the page read element by element (`PARTS`), and every other
  *     page in the zip beside it, each its own reading, in one go
- *     (`pageParts.ts` makes them pages of parts).
+ *     (`pageParts.ts` makes them pages of parts); with `only`, that page
+ *     alone, and the names of the others (`siblings`) for the Builder to
+ *     ask for one request at a time, `dir` naming the site's folder.
  *
  * The zip is sent each time rather than kept on the server: the route
  * holds nothing between calls, like every other route here. Every failure
@@ -64,9 +66,24 @@ export async function POST(request: Request) {
   if (!checked.ok) return no(checked.why, checked.says);
   /* The page a builder.json names is the page, when the zip has it; else the one the zip would open. */
   const askedEntry = typeof form.get("entry") === "string" ? String(form.get("entry")) : "";
-  const gate = askedEntry && askedEntry !== checked.entry && /\.html?$/i.test(askedEntry) && files.some((f) => f.name === askedEntry)
+  const byParts = form.get("parts") === "1";
+  /*
+   * ONE PAGE A REQUEST (`only`). Reading every page of a site in one request
+   * put the whole site inside one deadline: PonsStars' redesign branch, six
+   * pages of 1,800 parts, took 27 seconds here and longer on the host, and
+   * the browser gave up at 45 ("Nothing came back within 45 seconds") on a
+   * branch that was fine to read. With `only`, this reads the entry alone
+   * and names the site's other pages (`siblings`), and the Builder asks for
+   * each in a request of its own (`FromASite.tsx#landParts`), so a site of
+   * any size is read a page at a time, each inside its own deadline.
+   */
+  const onlyEntry = byParts && form.get("only") === "1";
+  /* The site's folder, when the Builder names it: a sibling page read on its own is served from the site's folder, as it was when every page was read behind the entry. */
+  const siteDir = typeof form.get("dir") === "string" && files.some((f) => f.name.startsWith(String(form.get("dir")))) ? String(form.get("dir")) : null;
+  const gate0 = askedEntry && askedEntry !== checked.entry && /\.html?$/i.test(askedEntry) && files.some((f) => f.name === askedEntry)
     ? { ...checked, entry: askedEntry, dir: askedEntry.includes("/") ? askedEntry.slice(0, askedEntry.lastIndexOf("/") + 1) : "" }
     : checked;
+  const gate = siteDir !== null && byParts ? { ...gate0, dir: siteDir } : gate0;
 
   const selectors = (() => {
     const raw = form.get("selectors");
@@ -93,7 +110,6 @@ export async function POST(request: Request) {
       return page || list.length ? { page, list } : null;
     } catch { return null; }
   })();
-  const byParts = form.get("parts") === "1";
   /* The design-tokens file a builder.json names: read for its variables whether or not a page links it. */
   const tokensFile = typeof form.get("tokens") === "string" ? String(form.get("tokens")) || null : null;
 
@@ -289,6 +305,10 @@ export async function POST(request: Request) {
         return Object.keys(out).length ? { ...r, widths: out } : r;
       };
       read.push({ file: gate.entry, scripts, ...sourced(gate.entry, entryHtml, ownPictures(await atWidths((await page.evaluate(PARTS, MAX_PARTS)) as PageRead))) });
+      if (onlyEntry) {
+        await context.close();
+        return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, pages: read, siblings: others.slice(0, MOST_PAGES - 1), left: Math.max(0, others.length - (MOST_PAGES - 1)), failed: 0, took: took() });
+      }
       for (const file of others.slice(0, MOST_PAGES - 1)) {
         try {
           await page.goto(`${HOME}/${file}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
