@@ -598,6 +598,45 @@ export function heroHeight(vh: { height?: string; minHeight?: string; px?: numbe
 }
 
 /** The capture's window height for a page: the foot of its lowest fixed band. */
+/**
+ * A RAIL THAT STICKS THE WHOLE WAY DOWN, ONE WINDOW TALL. A sticky element as
+ * tall as the window (PonsStars' nav rail: `position: sticky; top: 0; height:
+ * 100vh`) is read running from where it starts to the page's foot
+ * (`siteread/parts.ts`), because the board shows the whole page at once and
+ * the rail is beside all of it. Drawn that tall in the Preview or the
+ * published page it has nowhere to stick, scrolls away, and its clock and
+ * nameplate at the window's foot float mid-page. Such a band is a window
+ * tall again wherever a window scrolls. The ids of the sticky bands that
+ * run to the foot of the page and are taller than the bands under them.
+ */
+export function windowTallBands(parts: readonly FluidPart[]): Set<string> {
+  /* The page as it opens: a panel a press shows can run further down than the page does. */
+  const foot = Math.max(0, ...parts.filter((p) => !p.state).map((p) => p.y + p.h));
+  const out = new Set<string>();
+  for (const p of parts) {
+    if (!p.selector || p.position !== "sticky" || p.state) continue;
+    /* Reaches the foot, and stands from near the top: a band that only starts down the page and ends at its foot is a footer, not a rail. */
+    if (p.y + p.h >= foot - 2 && p.h > foot * 0.5 && p.h > 400) out.add(p.id);
+  }
+  return out;
+}
+
+/**
+ * WHAT STANDS AT A WINDOW-TALL RAIL'S FOOT STAYS AT ITS FOOT. PonsStars'
+ * clock and nameplate sit at the bottom of its 100vh rail: in a shorter
+ * window they are higher up the view, never under its foot. A part the rail
+ * owns in the lower half of the window it was read in is placed from the
+ * rail's foot (the distance under it, px); the rest from its top. `H` is the
+ * window's height at the read (`captureHeight`, else the lowest part in the
+ * rail). Null: placed from the top.
+ */
+export function fromRailFoot(p: FluidPart, band: FluidPart, kids: readonly FluidPart[], H: number): number | null {
+  const at = p.y - band.y;
+  const win = H > 0 ? H : Math.max(0, ...kids.map((k) => k.y - band.y + k.h));
+  if (win <= 0 || at + p.h > win || at + p.h / 2 <= win / 2) return null;
+  return Math.max(0, win - (at + p.h));
+}
+
 export function captureHeight(parts: readonly FluidPart[]): number {
   return Math.max(0, ...parts.filter((p) => p.selector && p.position === "fixed").map((p) => p.y + p.h));
 }
