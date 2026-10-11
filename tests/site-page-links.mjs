@@ -12,7 +12,12 @@
  *   1. `livePath` takes a base: the preview's by default, "/site" on the
  *      site; Home has no suffix on either.
  *   2. On /site, a button linked to the second page goes to /site/about,
- *      draws that page, and the preview bar stays hidden.
+ *      draws that page, and the preview bar stays hidden. /site always shows
+ *      the published document (`PublishedPage.tsx`), so when the build
+ *      bundles one (site/document.json has parts) the seeded board is not
+ *      what /site draws: the press is then checked on the preview's own
+ *      wiring (a source read) and the end-to-end press needs a build with
+ *      nothing published.
  *   3. In the preview the same button still goes to /builder/preview/about.
  *
  *   npm run build && npx next start -p 3013
@@ -20,7 +25,7 @@
  *
  * Covers: src/features/studio/live/PreviewPage.tsx, src/features/studio/live/PublishedPage.tsx, src/features/studio/board/store/load.ts
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
@@ -84,15 +89,25 @@ const shown = () => page.evaluate(() => ({
   board: [...document.querySelectorAll('[aria-label="Back to board"]')].some((e) => e.getClientRects().length > 0),
 }));
 
-await page.goto(`${URL_}/site`, { waitUntil: "networkidle" });
-await page.waitForTimeout(1500);
-const pressedSite = await press();
-const onSite = await shown();
-const sitePath = new URL(page.url()).pathname;
-check("2. on /site the link is there to press", pressedSite);
-check("…and goes to /site/about, not into the Builder's preview", sitePath === "/site/about", sitePath);
-check("…drawing the About page", onSite.page === "p1", onSite.page || "nothing");
-check("…with no preview bar and no Board button", onSite.bar === "none" && !onSite.board, JSON.stringify(onSite));
+const bundled = JSON.parse(readFileSync(join(here, "..", "site", "document.json"), "utf8"));
+if (Array.isArray(bundled.nodes) && bundled.nodes.length) {
+  /* This build shows its published document on /site, not the seeded board: check the wiring the press goes through. */
+  const preview = readFileSync(join(here, "..", "src/features/studio/live/PreviewPage.tsx"), "utf8");
+  const site = readFileSync(join(here, "..", "src/features/studio/live/PublishedPage.tsx"), "utf8");
+  console.log("  note  site/document.json has parts, so /site draws that document; the end-to-end press needs a build with nothing published");
+  check("2. on /site a page link goes through livePath with the site's base", /router\.push\(livePath\(id, published \? "\/site" : undefined\)\)/.test(preview));
+  check("…and /site draws the preview with published set, so its bar is hidden", /<PreviewPage \{\.\.\.props\} published \/>/.test(site) && /published && "hidden"/.test(preview));
+} else {
+  await page.goto(`${URL_}/site`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  const pressedSite = await press();
+  const onSite = await shown();
+  const sitePath = new URL(page.url()).pathname;
+  check("2. on /site the link is there to press", pressedSite);
+  check("…and goes to /site/about, not into the Builder's preview", sitePath === "/site/about", sitePath);
+  check("…drawing the About page", onSite.page === "p1", onSite.page || "nothing");
+  check("…with no preview bar and no Board button", onSite.bar === "none" && !onSite.board, JSON.stringify(onSite));
+}
 
 /* 3. */
 await page.goto(`${URL_}/builder/preview`, { waitUntil: "networkidle" });
