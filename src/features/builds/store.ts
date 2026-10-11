@@ -16,7 +16,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/board/store";
-import { isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
+import { flushDocs, isPointer, readDoc, readMirror, shapeOfRaw, unpackDocText, writeDocNow } from "@/features/studio/docStore";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
 /** A hydration settled the list (`settle`), and storage does not have it yet. */
@@ -235,6 +235,11 @@ export const useBuilds = create<Builds>()(
       save: async () => {
         const id = get().activeId;
         if (!id) return;
+        /* The last edit may still be waiting to reach IndexedDB (writeDoc
+           holds it 120 ms), and a site too big for the mirror is read from
+           there: without this the slot got the copy from before it, and
+           `open` then wrote over the waiting one. Backup does the same. */
+        await flushDocs();
         const held = await read(LIVE);
         if (held) await write(slot(id), held);
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, updatedAt: Date.now() } : p)) }));
