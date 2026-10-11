@@ -404,7 +404,15 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
          */
         const top = C.y <= E, bottom = H > 0 && Math.abs(C.y + C.h - H) <= E;
         const tall = H > 0 && C.h >= H / 2;
-        f = top ? "top" : bottom ? "bottom" : tall ? "both" : H > 0 && H - (C.y + C.h) < C.y ? "bottom" : "top";
+        /*
+         * A LAYER THAT FILLS THE WINDOW KEEPS BOTH EDGES. sunkcoin.fun's sea is a
+         * fixed canvas, `inset: 0; 100vw × 100vh`, under the whole page. Touching
+         * the top it was anchored there alone, and the band-at-the-top rule below
+         * cut it to the 10px above the first part of the page: a strip of water.
+         * Top and bottom both touched, it is anchored at both and runs the
+         * window's height, as a sidebar does. `tests/fluid-window-layer.mjs`.
+         */
+        f = top && bottom ? "both" : top ? "top" : bottom ? "bottom" : tall ? "both" : H > 0 && H - (C.y + C.h) < C.y ? "bottom" : "top";
       }
       if (f) k.fixed = f === "both" && C.position !== "fixed" ? "top" : f;
       /*

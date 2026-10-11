@@ -56,6 +56,16 @@ export interface Picture {
   pixelated?: boolean;
   /** Its background was cleared ("Transparent background…", `ClearBackground.tsx`): drawn with no frame and no floor behind it, so what shows through is the page. */
   seeThrough?: boolean;
+  /**
+   * A strip of what a canvas pinned to the window showed at each depth of
+   * its page (the capturer's `depths`: sunkcoin.fun's sea and its minimap),
+   * top first, `bands` pictures each `band` px tall in the file's own px,
+   * `at` the scroll each was read at. The board shows the top band, or the
+   * strip whole where the layer is stretched over the page; the Preview and
+   * the published page show the band for where the scroll is (the
+   * `scroll-depths` effect, `tests/scroll-depths.mjs`).
+   */
+  depths?: { bands: number; band: number; at?: number[] };
 }
 
 const ok = () => typeof indexedDB !== "undefined";

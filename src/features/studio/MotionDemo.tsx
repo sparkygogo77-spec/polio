@@ -34,7 +34,7 @@ const KIND: Record<string, string> = {
   "dust-canvas": "dust", glide: "glide", grow: "grow", "follow-pointer": "cursor",
   /* The library's working behaviours, each shown doing its job to a piece of the open site. */
   "copy-toast": "copy", "hover-lift": "lift", "press-shows": "press", "world-dialogs": "dialog",
-  "scroll-header": "header", "scroll-grow": "grow-scroll", embed: "embed",
+  "scroll-header": "header", "scroll-grow": "grow-scroll", "scroll-depths": "grow-scroll", embed: "embed",
   "sol-price": "price", "token-price": "price",
   /* One site's effects made any part's (library/effects.ts). */
   "screen-filter": "screen", "switch-on": "tvon", "press-push": "push",

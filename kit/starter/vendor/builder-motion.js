@@ -12,7 +12,7 @@
 /* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
   var defs = {};
-  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow"];
+  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths"];
   function leaf(el) {
     var kids = el.childNodes || [];
     for (var i = 0; i < kids.length; i++) if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue)) return el;
@@ -411,6 +411,45 @@ siteFeatures.define("scroll-grow", function (el, inputs) {
   function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
   (box || window).addEventListener("scroll", soon, { passive: true });
   window.addEventListener("resize", soon);
+  place();
+});
+
+  })(F);
+  /* Follows the scroll: A picture taken at each depth of the page shows the one for where the scroll is: a sea that dives with the page, a map whose window moves. */
+  (function (siteFeatures) {
+siteFeatures.define("scroll-depths", function (el, inputs) {
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  /* The strip is looked up each time: the Preview draws the part anew as the page is re-anchored, and the one first found is then no longer in the page. */
+  var stripOf = function () { return el.querySelector("[data-depth-strip]") || el; };
+  var strip = stripOf();
+  var bands = Math.max(1, Math.round(num(inputs.bands, 1)));
+  /* The strip is as tall as its bands: the count written on its holder wins over the input where the two differ. */
+  var holder = strip.parentElement && strip.parentElement.getAttribute("data-picture-depths");
+  if (holder && Number(holder) > 1) bands = Number(holder);
+  if (bands < 2) return;
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var ms = Math.max(0, num(inputs.ease, 0));
+  var queued = false, shown = -1, placed = null;
+  function place() {
+    queued = false;
+    if (!el.isConnected) return;
+    var strip = stripOf();
+    var top = box ? box.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0);
+    var range = box ? box.scrollHeight - box.clientHeight : (document.documentElement.scrollHeight - window.innerHeight);
+    var q = range > 0 ? Math.max(0, Math.min(1, top / range)) : 0;
+    var band = Math.round(q * (bands - 1));
+    if (band === shown && strip === placed) return;
+    shown = band; placed = strip;
+    if (ms) strip.style.transition = "translate " + ms + "ms linear";
+    var tall = strip.getBoundingClientRect().height / bands;
+    strip.style.translate = "0 " + (-band * tall).toFixed(2) + "px";
+    el.setAttribute("data-depth", String(band));
+    if (strip.tagName === "IMG" && !strip.complete && !strip.__depthsLoad) { strip.__depthsLoad = true; strip.addEventListener("load", function () { shown = -1; soon(); }); }
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
+  (box || window).addEventListener("scroll", soon, { passive: true });
+  window.addEventListener("resize", function () { shown = -1; soon(); });
   place();
 });
 
@@ -1150,7 +1189,7 @@ siteFeatures.define("compare", function (el, inputs) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

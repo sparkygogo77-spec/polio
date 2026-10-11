@@ -916,6 +916,8 @@ export const DUMP = ({ sheets = [], paths = false } = {}) => {
     if ((t === "canvas" || t === "img") && cs.imageRendering && cs.imageRendering !== "auto") e.ir = cs.imageRendering;
     /* A canvas that repainted while capture-route.mjs watched it: every picture it showed and how long each stood. */
     if (t === "canvas" && el.dataset.sinkCanvas !== undefined && window.__sinkFrames?.[el.dataset.sinkCanvas]) e.frames = window.__sinkFrames[el.dataset.sinkCanvas];
+    /* A canvas pinned to the window that follows the scroll (capture-route.mjs `sampleDepths`): what it showed at each depth of the page. */
+    if (t === "canvas" && el.dataset.sinkCanvas !== undefined && window.__sinkDepths?.[el.dataset.sinkCanvas]) e.depths = window.__sinkDepths[el.dataset.sinkCanvas];
     /* A canvas world (worlds.mjs): where each character stands in each frame, and the dialog it opens, dressed in the page's own look (`css`). */
     if (t === "canvas" && el.dataset.sinkCanvas !== undefined && window.__sinkWorlds?.by?.[el.dataset.sinkCanvas]) e.world = { ...window.__sinkWorlds.by[el.dataset.sinkCanvas], css: window.__sinkWorlds.css ?? {} };
     if (t === "canvas" && el.width && el.height && el.width * el.height <= 4_000_000) {
