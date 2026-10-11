@@ -201,12 +201,14 @@ same boxes as everywhere else, in the screen's colours.
   Behaviour slabs; columns, density, shape stay on the Options screen.
 - **Nothing on the disc's face.** The drawing board's whole face is drawing
   surface. Back is on the rim; Make real and Clear are in the tray under it.
-- **Nothing hangs off the wheel.** What is about the part but not about
-  editing it — preview here, forward, back, copy and paste looks — is the
-  More piece, the third icon on the top inner band, opening into green
-  pieces that fire on the spot. A tab outside the wheel was a bar sticking
-  out of an object. The drawing board keeps its tray under the disc, because
-  the disc has no band to put a piece on.
+- **What is about the part but not about editing it hangs in the tray.**
+  Preview here, forward, back, copy and paste looks, all like this and the
+  rest are a small tab under the wheel (`HoverTray`), not a piece of it: the
+  three-dot More piece was the tray's items a second time, and J took it out
+  (`tests/wheel-pass.mjs`). The tab opens on hover, on a tap and on Tab; the
+  open row wraps and is moved back inside the window, so a part near a side
+  never has actions off screen (`tests/tray-on-screen.mjs`). The drawing
+  board hangs the same tray under its disc.
 - **Never an empty slab.** An editor that would leave a slab bare is folded
   into its neighbour: the page's colour, fill and veil are one Color editor;
   its width comes with Fit in view and the wires beside it. A slab with only

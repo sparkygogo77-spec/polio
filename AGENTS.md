@@ -2790,11 +2790,14 @@ a kicker with a rule, and label-and-value rows that copy.
 - **The command palette is a console** (`CommandPalette.tsx`) and the
   chrome leans into the void (`--void-h` and the dark tokens in
   `globals.css`): a shade, not a colour. Keep new chrome on the tokens.
-- **More is a piece of the wheel** (`SLOTS.more`; the top inner band is
-  three icons — Animation, the pencil, More). It opens into green pieces
-  built from the same list the tray held, each firing on the spot and dimmed
-  when it has nothing to do (`Choice.dim`). The `HoverTray` stays only under
-  the drawing board, which has no band to put a piece on. What More holds —
+- **The tray hangs under the wheel** (`HoverTray` in `RingConsole.tsx`, its
+  list built in `RadialMenu.tsx`). The three-dot More piece that repeated it
+  on the wheel is gone (`tests/wheel-pass.mjs`). The tab opens on hover and
+  on focus, so Tab or a tap reaches it and Tab walks through its actions;
+  the open row wraps at `TRAY_WIDE` and is nudged back inside the window, so
+  a part near a side never has actions off screen (dissect #30,
+  `tests/tray-on-screen.mjs`). The drawing board hangs the same tray under
+  its disc. What the tray holds —
   **Preview here** (the live page, scrolled to the part: `livePath` plus the
   part's id as the hash, which `PreviewPage` reads), **Bring forward** and
   **Send back** (`raiseNode`/`lowerNode`: the node list *is* the z-order),
