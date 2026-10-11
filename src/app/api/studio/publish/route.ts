@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
 import { MERGED_FILES, mergeBlock } from "@/features/studio/shelf";
+import { keyFor } from "@/app/api/keyFor";
+import { PAGES_RECORD, pagesGone } from "@/features/studio/send-out";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "./capture";
 
 /**
@@ -98,12 +100,11 @@ const LONGEST_WAIT_S = 60;
  *
  * `GITHUB_TOKEN` in the environment still works and is a silent fallback
  * rather than the path. A browser that offered one is using that one: the
- * person who typed it is the person whose repositories these are.
+ * person who typed it is the person whose repositories these are. Every
+ * route picks a key this way (`keyFor`).
  */
 function tokenFor(request: Request): string | null {
-  const supplied = request.headers.get("x-github-token")?.trim();
-  if (supplied && supplied.length > 8) return supplied;
-  return process.env.GITHUB_TOKEN?.trim() || null;
+  return keyFor(request, "x-github-token")?.key ?? null;
 }
 
 /** Nothing that leaves here may carry the token, whatever GitHub put in a message. */
@@ -375,14 +376,17 @@ function blobSha(f: FileOut): string {
   return createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
 }
 
-/** Every blob sha in the tree of `baseSha`. Unreadable, it is nothing known, and every file goes up. */
-async function knownBlobs(token: string, repo: string, baseSha: string | null, treeSha?: string): Promise<Set<string>> {
+/** Every blob sha in the tree of `baseSha`, and into `paths` (when given) each file's path and sha. Unreadable, it is nothing known, and every file goes up. */
+async function knownBlobs(token: string, repo: string, baseSha: string | null, treeSha?: string, paths?: Map<string, string>): Promise<Set<string>> {
   const known = new Set<string>();
   if (!baseSha) return known;
   try {
     const tree = treeSha ?? (await gh<{ tree: { sha: string } }>(token, "GET", `/repos/${repo}/git/commits/${baseSha}`)).tree.sha;
-    const listing = await gh<{ tree?: { sha?: string; type?: string }[] }>(token, "GET", `/repos/${repo}/git/trees/${tree}?recursive=1`);
-    for (const e of listing.tree ?? []) if (e.type === "blob" && typeof e.sha === "string") known.add(e.sha);
+    const listing = await gh<{ tree?: { path?: string; sha?: string; type?: string }[] }>(token, "GET", `/repos/${repo}/git/trees/${tree}?recursive=1`);
+    for (const e of listing.tree ?? []) if (e.type === "blob" && typeof e.sha === "string") {
+      known.add(e.sha);
+      if (typeof e.path === "string") paths?.set(e.path, e.sha);
+    }
   } catch {
     /* Not listed: nothing is skipped, which is only slower. */
   }
@@ -418,6 +422,31 @@ async function blobsOf(token: string, repo: string, files: FileOut[], known: Set
   return made;
 }
 
+/*
+ * A PAGE DELETED OR RENAMED ON THE BOARD COMES OFF THE SITE.
+ *
+ * A push of the site carries the record of the page files it wrote
+ * (`site/pages.json`, `pagesRecord.ts`). Each page file the record on the
+ * branch names that this push's does not, and that is still on the branch,
+ * goes in the same commit. A push with no record, a branch with none, or a
+ * record that cannot be read takes nothing off: an old page left up is
+ * better than a file gone that was not the Builder's.
+ */
+async function pagesTakenOff(token: string, repo: string, files: FileOut[], staged: Staged[], onBranch: Map<string, string>): Promise<string[]> {
+  const now = files.find((f) => f.path === PAGES_RECORD && f.encoding === "utf-8");
+  const was = onBranch.get(PAGES_RECORD);
+  if (!now || !was) return [];
+  try {
+    const blob = await gh<{ content?: string; encoding?: string }>(token, "GET", `/repos/${repo}/git/blobs/${was}`);
+    if (typeof blob.content !== "string") return [];
+    const text = blob.encoding === "base64" ? Buffer.from(blob.content.replace(/\s+/g, ""), "base64").toString("utf8") : blob.content;
+    const writing = new Set([...files.map((f) => f.path), ...staged.map((s) => s.path)]);
+    return pagesGone(text, now.content, writing).filter((p) => onBranch.has(p));
+  } catch {
+    return [];
+  }
+}
+
 /** Every file in one commit, on top of `baseSha` — or as the root commit, when there is none. `staged` are blobs an earlier call made. */
 async function writeCommit(
   token: string,
@@ -428,13 +457,18 @@ async function writeCommit(
   baseSha: string | null,
   staged: Staged[],
   clock: { blobs: number; end: number },
-): Promise<{ sha: string; html_url: string }> {
+): Promise<{ sha: string; html_url: string; removed: string[] }> {
   const baseCommit = baseSha ? await gh<{ tree: { sha: string } }>(token, "GET", `/repos/${repo}/git/commits/${baseSha}`) : null;
-  const known = await knownBlobs(token, repo, baseSha, baseCommit?.tree.sha);
+  const onBranch = new Map<string, string>();
+  const known = await knownBlobs(token, repo, baseSha, baseCommit?.tree.sha, onBranch);
   const own = new Set(files.map((f) => f.path));
   const made = await blobsOf(token, repo, files, known, clock.blobs);
-  const tree = [...staged.filter((s) => !own.has(s.path)), ...made]
-    .map((b) => ({ path: b.path, mode: "100644" as const, type: "blob" as const, sha: b.sha }));
+  const removed = await pagesTakenOff(token, repo, files, staged, onBranch);
+  const tree = [
+    ...[...staged.filter((s) => !own.has(s.path)), ...made].map((b) => ({ path: b.path, mode: "100644" as const, type: "blob" as const, sha: b.sha as string | null })),
+    /* A null sha is how the git data API takes a file out of the tree. */
+    ...removed.map((path) => ({ path, mode: "100644" as const, type: "blob" as const, sha: null })),
+  ];
   /* Every blob is up: a limit from here on keeps them all, and the next call goes straight to the commit. */
   const kept = <T,>(run: () => Promise<T>) => patient(clock.end, run).catch((err) => {
     if (err instanceof GitHubError && err.limited) throw new Resume(made, [], err.wait ?? LONGEST_WAIT_S, err);
@@ -452,7 +486,7 @@ async function writeCommit(
   await kept(() => at("ref", () => (baseSha
     ? gh(token, "PATCH", `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { sha: commit.sha, force: false })
     : gh(token, "POST", `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: commit.sha }))));
-  return commit;
+  return { ...commit, removed };
 }
 
 /** What a call that stopped part-way answers: not a failure, the next call carries on from `staged`. */
@@ -713,7 +747,7 @@ export async function POST(request: Request) {
     let baseSha = await tipOf(token, repo, branch);
     /* The feature contract goes into the owner's AGENTS.md and CLAUDE.md, not over them (`library/contract.ts`). */
     if (baseSha) await mergeContract(token, repo, baseSha, files);
-    let commit: { sha: string; html_url: string };
+    let commit: { sha: string; html_url: string; removed: string[] };
     try {
       commit = await writeCommit(token, repo, branch, files, message, baseSha, staged, clock);
     } catch (err) {
@@ -761,6 +795,8 @@ export async function POST(request: Request) {
          the site rather than assuming every publish is the first. */
       ...(created ? { created } : {}),
       files: new Set([...files.map((f) => f.path), ...staged.map((f) => f.path)]).size,
+      /* Page files taken off the branch: pages no longer on the board (`pagesTakenOff`). */
+      ...(commit.removed.length ? { removed: commit.removed } : {}),
       deployed,
       hook: !!c.hook,
       deployNote,

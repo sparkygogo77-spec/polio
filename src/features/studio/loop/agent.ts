@@ -10,6 +10,7 @@ import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "../board/store";
 import { MERGED_FILES } from "../shelf";
+import { PAGES_RECORD } from "../send-out";
 import { publishedHead, type SiteHead } from "../siteHead";
 import { standInOn } from "../standIn";
 
@@ -45,7 +46,8 @@ export interface GeneratedFile {
 
 /**
  * A header carrying a key this browser holds, when it holds one and the
- * keys panel is open. Empty otherwise, and the server's own key wins regardless.
+ * keys panel is open. Empty otherwise. A key sent here wins over the
+ * server's own (`keyFor`).
  */
 export function keyHeader(): Record<string, string> {
   const held = heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY;
@@ -84,8 +86,8 @@ export function publisherHeader(): Record<string, string> {
 /**
  * Where this browser stands with a Claude key: holding one and open, holding
  * one but locked, or holding none. The server's own key is invisible from
- * here and wins regardless; this is only for saying the right thing when a
- * route answers "no key".
+ * here and is used only when this browser sends none; this is only for
+ * saying the right thing when a route answers "no key".
  */
 export type KeyState = "held" | "locked" | "none";
 
@@ -690,7 +692,9 @@ export function siteFiles(_markdown?: string, _json?: string): GeneratedFile[] {
 export type PublishResult =
   | { ok: true; sha: string; /** The tip the commit was written on; null for a repository's first. */ parent?: string | null; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
       /** How many files had changed from what the branch held, of how many the site is: only those were sent (`tests/publish-changed.mjs`). */
-      changed?: number; total?: number }
+      changed?: number; total?: number;
+      /** Page files the push took off the branch: pages deleted or renamed on the board since the last push (`pagesRecord.ts`). */
+      removed?: string[] }
   /* A failure can still have made the repository, and says so, so the next
      press goes to the one that exists rather than making another. */
   | { ok: false; message: string; reason?: string; created?: string; repo?: string; /** Set when the Builder's own server failed rather than answering. */ serverStatus?: number; status?: number };
@@ -723,22 +727,9 @@ export interface DeployStatus {
  * live sends none: the route is asked only about its own, as the GitHub
  * status read already is (`publishStatus`). A read that does need a token
  * (following a deployment, asking a project's address) carries this
- * browser's only when the server has none of its own (`tests/no-plain-key.mjs`).
+ * browser's whenever it holds one: the route uses it before the server's
+ * (`keyFor`), so the deployment it follows is the one that token made.
  */
-let serverVercel: Promise<boolean> | null = null;
-async function serverHasVercel(): Promise<boolean> {
-  serverVercel ??= fetch("/api/studio/deploy", { cache: "no-store" })
-    .then((r) => r.json() as Promise<DeployStatus>)
-    .then((d) => d.source === "server")
-    .catch(() => { serverVercel = null; return false; });
-  return serverVercel;
-}
-/** This browser's token, for a read that needs one, unless the server brings its own. */
-async function vercelHeaderIfNeeded(): Promise<Record<string, string>> {
-  const mine = vercelHeader();
-  if (!mine["x-vercel-token"]) return {};
-  return (await serverHasVercel()) ? {} : mine;
-}
 
 /** Can this put the site live at all — and off whose token? */
 export async function deployStatus(): Promise<DeployStatus> {
@@ -746,9 +737,8 @@ export async function deployStatus(): Promise<DeployStatus> {
   try {
     const res = await fetch("/api/studio/deploy", { cache: "no-store" });
     const said = (await res.json()) as DeployStatus;
-    serverVercel = Promise.resolve(said.source === "server");
-    /* The server's own token wins; with none, the one this browser holds is the one that will be used. */
-    return said.configured || !mine ? said : { ...said, configured: true, source: "browser" };
+    /* The one this browser holds wins; with none, the server's own is the one that will be used. */
+    return mine ? { ...said, configured: true, source: "browser" } : said;
   } catch {
     return { configured: mine, source: mine ? "browser" : null, repo: null, hook: false };
   }
@@ -762,7 +752,7 @@ export async function productionAddress(input: { repo?: string; sources?: string
     const team = heldTeam();
     if (team) q.set("team", team);
     for (const s of input.sources ?? []) q.append("source", s);
-    const res = await fetch(`/api/studio/deploy?${q}`, { cache: "no-store", headers: await vercelHeaderIfNeeded() });
+    const res = await fetch(`/api/studio/deploy?${q}`, { cache: "no-store", headers: vercelHeader() });
     const data = (await res.json()) as { ok?: boolean; url?: string };
     return data.ok && typeof data.url === "string" ? data.url.replace(/\/+$/, "") : null;
   } catch {
@@ -833,7 +823,7 @@ export async function watchDeploy(
     if (opts.signal?.aborted) return { ok: false, state: "ABORTED", done: true, url: null, inspectorUrl: null, message: "Stopped waiting." };
     let s: DeployState;
     try {
-      const res = await fetch(`/api/studio/deploy?${query}`, { cache: "no-store", headers: await vercelHeaderIfNeeded(), signal: opts.signal });
+      const res = await fetch(`/api/studio/deploy?${query}`, { cache: "no-store", headers: vercelHeader(), signal: opts.signal });
       s = (await res.json()) as DeployState;
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") throw err;
@@ -866,7 +856,7 @@ const PIECE = 3_000_000;
 const RESUMES = 12;
 type Answer = PublishResult & { staged?: { path: string; sha: string }[]; pending?: string[]; wait?: number };
 /** What the route reads as it commits, so it goes in the last request, never a part. */
-const COMMITTED_LAST = new Set(["site/document.json", ...MERGED_FILES]);
+const COMMITTED_LAST = new Set(["site/document.json", PAGES_RECORD, ...MERGED_FILES]);
 
 type Sent = { path: string; content: string; encoding?: "base64" | "gzip" };
 

@@ -80,13 +80,6 @@ export async function prepareLayer(nodes: LayerNode[], palette: Record<string, s
 }
 
 /**
- * THIS ROUND'S RULES INTO THE LAYER ALREADY MERGED. A rule for a part the
- * layer already styles replaces the old one (and any copies of it) rather
- * than following it as a second copy; a part new to the layer is added
- * after the rest, so it wins. A round that changes nothing leaves the file
- * as it was.
- */
-/**
  * The stylesheet's top-level blocks, each whole: a rule, or an at-rule with
  * the rules inside it (`@keyframes`, `@media`, `@supports`), keyed by what
  * comes before its brace. Comments are skipped. A flat match took only the
@@ -112,6 +105,36 @@ export function topBlocks(css: string): { selector: string; body: string; text: 
   return out;
 }
 
+/** A layer's own blocks, by what comes before each brace, without its header: what a Publish wrote is kept as `styleSource.sentBlocks`. */
+export function layerBlocks(css: string): string[] {
+  return topBlocks(css.slice(css.indexOf("*/") + 2)).map((b) => b.selector);
+}
+
+/** Every top-level block these selectors key, taken out. */
+function cut(css: string, selectors: ReadonlySet<string>): string {
+  let out = css;
+  for (const o of topBlocks(css)) if (selectors.has(o.selector)) out = out.replace(o.text, "");
+  return out;
+}
+
+/* A round's note left with no rule under it goes too. */
+const tidy = (css: string) => css.replace(/\/\* From the Builder[^*]*\*\/\s*(?=(\/\*|$))/g, "").replace(/\n{3,}/g, "\n\n").trimEnd();
+
+/** The layer without the blocks these selectors key; as it was when it has none of them. */
+export function dropBlocks(css: string, selectors: Iterable<string>): string {
+  const out = cut(css, new Set(selectors));
+  if (out === css) return css;
+  const left = tidy(out);
+  return left ? `${left}\n` : "";
+}
+
+/**
+ * THIS ROUND'S RULES INTO THE LAYER ALREADY MERGED. A rule for a part the
+ * layer already styles replaces the old one (and any copies of it) rather
+ * than following it as a second copy; a part new to the layer is added
+ * after the rest, so it wins. A round that changes nothing leaves the file
+ * as it was.
+ */
 export function mergeLayer(had: string, rules: string, when?: string): string {
   const blocks = topBlocks;
   const fresh = blocks(rules);
@@ -119,10 +142,7 @@ export function mergeLayer(had: string, rules: string, when?: string): string {
   const old = blocks(had);
   const same = (a: { selector: string; body: string }) => old.some((o) => o.selector === a.selector && o.body === a.body);
   if (fresh.every(same) && fresh.every((f) => old.filter((o) => o.selector === f.selector).length === 1)) return had;
-  let out = had;
-  for (const f of fresh) for (const o of old) if (o.selector === f.selector) out = out.replace(o.text, "");
-  /* A round's note left with no rule under it goes too. */
-  out = out.replace(/\/\* From the Builder[^*]*\*\/\s*(?=(\/\*|$))/g, "").replace(/\n{3,}/g, "\n\n").trimEnd();
+  const out = tidy(cut(had, new Set(fresh.map((f) => f.selector))));
   return `${out}\n\n/* From the Builder${when ? `, ${when}` : ""}: this round's rules, after the ones already here, so they win. */\n${fresh.map((f) => f.text.trim()).join("\n\n")}\n`;
 }
 
@@ -130,7 +150,8 @@ export function mergeLayer(had: string, rules: string, when?: string): string {
  * A builder-ready repository (kit/BUILDER-CONTRACT.md): the design is its
  * style layer and nothing else. Rules keyed by data-hook, colours in custom
  * properties, no page touched; what was already in the layer is kept, with
- * this round after it; and `hooks.json` remade by the kit's own check, which
+ * this round after it, but for what the board's last Publish wrote and it no
+ * longer writes; and `hooks.json` remade by the kit's own check, which
  * must pass, or nothing is sent. The branch then passes `kit:diff --style-only`.
  */
 async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, string> | null | undefined, source: StyleSource, token: string, manifest: KitManifest, base: string, opts: { fetch: Fetch; when?: string; family?: (name: string) => string | undefined; kitMap?: KitMapCall }): Promise<Answer<LayerFiles>> {
@@ -141,8 +162,16 @@ async function prepareKitLayer(nodes: LayerNode[], palette: Record<string, strin
   const had = got.files[cssPath] ?? "";
   /* Its rules alone, without the header: a layer already merged stays, and this round follows it, so its rules win. */
   const rules = layer.css.slice(layer.css.indexOf("*/") + 2).trim();
-  const kept = had.replace(/\/\*[\s\S]*?\*\//g, "").trim();
-  const css = !rules ? had || layer.css : kept ? mergeLayer(had, rules, opts.when) : layer.css;
+  /*
+   * What the last Publish wrote that this round no longer writes (a part set
+   * back to how it came in) comes out, or the live site kept the old look.
+   * Only this board's own blocks: what the layer held when the board came in
+   * is already in each part's look as it came in (`source.was`).
+   */
+  const wrote = new Set(layerBlocks(layer.css));
+  const left = dropBlocks(had, (source.sentBlocks ?? []).filter((s) => !wrote.has(s)));
+  const kept = left.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+  const css = !rules ? left || layer.css : kept ? mergeLayer(left, rules, opts.when) : layer.css;
   const after = { ...got.files, [cssPath]: css };
   const map = await (opts.kitMap ?? kitMapOnServer)(after);
   if (map.problems.length) return { ok: false, says: `The kit's check finds ${map.problems.length} problem${map.problems.length === 1 ? "" : "s"} with the code and this design together, so nothing was written: ${map.problems.slice(0, 5).join("; ")}${map.problems.length > 5 ? "; and more" : ""}.` };

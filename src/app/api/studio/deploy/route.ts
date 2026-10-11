@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findVercelProject, type VercelProject } from "@/features/studio/vercelProjects";
+import { keyFor } from "@/app/api/keyFor";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "../publish/capture";
 
 /**
@@ -11,10 +12,10 @@ import { CaptureUnknown, holdsCapture, sourceAmong } from "../publish/capture";
  * repository's current branch, and a second that waits for it and hands back
  * the address people will actually type.
  *
- * The token can come from either side, like the Claude key: the server's
- * `VERCEL_TOKEN` if it has one, or the browser's keys panel as `x-vercel-token`.
- * The server's wins. It is used for these calls and nothing else, is never
- * written down, and never comes back in an answer.
+ * The token can come from either side, like every key here: the browser's
+ * keys panel as `x-vercel-token`, or the server's `VERCEL_TOKEN` when the
+ * browser offers none (`keyFor`). It is used for these calls and nothing
+ * else, is never written down, and never comes back in an answer.
  *
  * The deploy hook in `/api/studio/publish` stays what it was: a poke for a
  * project that is not connected to the repository. A hook answers with
@@ -46,10 +47,8 @@ function query(team: string | null, extra: Record<string, string> = {}): string 
 }
 
 function token(request: Request): { token: string | null; source: "server" | "browser" | null } {
-  const own = process.env.VERCEL_TOKEN?.trim();
-  if (own) return { token: own, source: "server" };
-  const supplied = request.headers.get("x-vercel-token")?.trim();
-  return supplied && supplied.length > 8 ? { token: supplied, source: "browser" } : { token: null, source: null };
+  const picked = keyFor(request, "x-vercel-token");
+  return { token: picked?.key ?? null, source: picked?.source ?? null };
 }
 
 
@@ -157,6 +156,18 @@ const commitHandle = (projectId: string, sha: string | null, branch: string, sin
 
 /** What Publish sends is static HTML: nothing to detect, build or install, served from the root. */
 const STATIC_SITE = { framework: null, buildCommand: null, installCommand: null, outputDirectory: null };
+
+/**
+ * What a project's Deployment Protection asks a visitor to the live site
+ * for, in words, or null for nothing. Vercel lists each kind as an object
+ * or null; one on previews only leaves the live site open.
+ */
+function protectionOf(p: { ssoProtection?: unknown; passwordProtection?: unknown }): string | null {
+  const on = (x: unknown) => !!x && typeof x === "object" && (x as { deploymentType?: unknown }).deploymentType !== "preview" && (x as { enabled?: unknown }).enabled !== false;
+  const sso = on(p.ssoProtection);
+  const pw = on(p.passwordProtection);
+  return sso && pw ? "Vercel's sign-in and a password" : sso ? "Vercel's sign-in" : pw ? "a password" : null;
+}
 
 /** A Vercel project name made from whatever the site is called: lowercase letters, digits, `.`, `_` and `-`. */
 function projectName(name: unknown): string | null {
@@ -384,7 +395,7 @@ export async function POST(request: Request) {
   } else {
     /* Connecting is the step the rule is about: nothing is connected to a
        capture repository, and it is looked for before anything is made. */
-    const ghToken = request.headers.get("x-github-token")?.trim() || process.env.GITHUB_TOKEN?.trim() || "";
+    const ghToken = keyFor(request, "x-github-token")?.key ?? "";
     if (ghToken.length <= 8) {
       return NextResponse.json({ ok: false, reason: "no-github", message: `No GitHub token to check that ${repo} is not a capture repository, so no Vercel project was connected to it. Put one in the keys panel.` });
     }
@@ -416,9 +427,17 @@ export async function POST(request: Request) {
    * site's own vercel.app address showed a Vercel login page to anyone but
    * J. A published site is for visitors: the lock is taken off the project,
    * and a project that cannot be opened says so rather than failing the build.
+   *
+   * ONLY ON A PROJECT THIS PRESS MADE: that lock is Vercel's default, never
+   * anybody's choice. A project found for the repository may be locked on
+   * purpose (a staging copy, a client's preview), so its protection is left
+   * as it is and the site is said to be protected, in one line
+   * (`tests/go-live-protected.mjs`).
    */
   const locked = (project as VercelProject & { ssoProtection?: unknown; passwordProtection?: { enabled?: boolean } | null });
-  if (locked.ssoProtection !== null || locked.passwordProtection?.enabled) {
+  const guards = made ? null : protectionOf(locked);
+  if (guards) note = `The site is protected: Vercel asks visitors for ${guards} (the ${project.name} project's Settings, then Deployment Protection), and Go live left that as it is.`;
+  if (made && (locked.ssoProtection !== null || locked.passwordProtection?.enabled)) {
     try {
       const open = await vercel(tok, `/v9/projects/${encodeURIComponent(project.id)}${query(team)}`, { method: "PATCH", body: JSON.stringify({ ssoProtection: null, passwordProtection: null }) });
       if (!open.ok) note = [note, `The site is still behind Vercel's sign-in: Vercel would not open it (${open.data.error?.message ?? open.status}). In Vercel, open the project's Settings, then Deployment Protection, and turn Vercel Authentication off.`].filter(Boolean).join(" ");
@@ -488,6 +507,8 @@ export async function POST(request: Request) {
           inspectorUrl: own.inspectorUrl ?? null,
           /* Started by the push, not by this call. */
           followed: true,
+          /* What to know about the project, such as its protection (above). */
+          ...(note ? { note } : {}),
         });
       }
       if (!listed || Date.now() >= until) break;
@@ -506,6 +527,7 @@ export async function POST(request: Request) {
       inspectorUrl: null,
       followed: true,
       waiting: true,
+      ...(note ? { note } : {}),
     });
   }
 

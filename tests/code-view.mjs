@@ -234,6 +234,8 @@ await section.locator('[data-style-layer-var="--pons-gain"] input[type="color"]'
 await ui.waitForTimeout(500);
 check("tokens of every kind are editable: a size typed, a colour picked", /2 set by the layer/.test(await section.locator("[data-style-layer-says]").innerText()));
 await section.locator("[data-style-layer-send]").click();
+/* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+for (let i = 0; i < 20 && !(await section.locator("[data-style-layer-said]").count()); i++) { if (await ui.locator("[data-publish-anyway]").count()) { await ui.locator("[data-publish-anyway]").click(); break; } await ui.waitForTimeout(250); }
 let said = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 /* This fixture keeps PST's older shape (an old hooks map, tokens through an @import, unhooked headings), which the kit's contract does not allow: the kit's own check refuses the design in its own words and nothing is written. The starter below, built to the contract, goes all the way. */
@@ -356,10 +358,14 @@ await kui.waitForTimeout(300);
 await ksec.locator('[data-style-layer-var="--color-accent"] input[type="color"]').fill("#00aa88");
 await kui.waitForTimeout(400);
 await ksec.locator("[data-style-layer-send]").click();
+/* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+for (let i = 0; i < 20 && !(await ksec.locator("[data-style-layer-said]").count()); i++) { if (await kui.locator("[data-publish-anyway]").count()) { await kui.locator("[data-publish-anyway]").click(); break; } await kui.waitForTimeout(250); }
 let ksaid = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(ksaid); i++) { await kui.waitForTimeout(500); ksaid = await ksec.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const klayer = kwrote.find((w) => w.path === "starter/style-layer.css")?.content ?? "";
-check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else (the design record beside it)", /--color-accent: #00aa88/.test(klayer) && kwrote.filter((w) => w.path !== "design/record.json").length === 1 && kwrote.some((w) => w.path === "design/record.json"), `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 1200)}`);
+/* Beside them, the site's motion file when it is behind the Builder's (kit rule 35: Publish brings it up to date). */
+const kother = kwrote.filter((w) => w.path !== "design/record.json" && !w.path.endsWith("vendor/builder-motion.js"));
+check("its accent token, set on the board, goes back in starter/style-layer.css and nowhere else (the design record beside it, and the motion file when the site's is behind)", /--color-accent: #00aa88/.test(klayer) && kother.length === 1 && kother[0].path === "starter/style-layer.css" && kwrote.some((w) => w.path === "design/record.json"), `${kwrote.map((w) => w.path).join()} ${ksaid.slice(0, 1200)}`);
 check("no errors in the Builder with the starter", kerr.length === 0, kerr.slice(0, 3).join(" | "));
 await kui.close();
 const kserved = { ...KF, "starter/style-layer.css": klayer };

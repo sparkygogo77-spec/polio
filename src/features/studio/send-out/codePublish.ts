@@ -37,6 +37,16 @@ export function layerPrint(css: string): string {
   return `${body.length}:${(h >>> 0).toString(36)}`;
 }
 
+/**
+ * Nothing in the board's layer for the code: no rule, no token, and no other
+ * layer this board published to take out. A board set back to how it came in
+ * after a Publish still has that Publish's look to take out of the code, or
+ * the live site keeps it while Publish says the code already has the design.
+ */
+export function layerEmpty(layer: { rules: readonly unknown[]; vars: readonly unknown[] }, print: string, sent: string | null | undefined): boolean {
+  return !layer.rules.length && !layer.vars.length && (sent ?? print) === print;
+}
+
 /** Where the board stands, in words. `layerNow` is the layer the board would send (its fingerprint). */
 export function codeStatus(source: Pick<StyleSource, "repo" | "ref"> & { commit?: string | null; sent?: string | null }, head: string | null, layerNow: string, empty: boolean): CodeStatus {
   const pending = !empty && layerNow !== (source.sent ?? "");

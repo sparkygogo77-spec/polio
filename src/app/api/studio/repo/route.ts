@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keyFor } from "@/app/api/keyFor";
 import { nameRefusal } from "@/features/studio/repoName";
 
 /**
@@ -37,10 +38,8 @@ export const runtime = "nodejs";
 const API = process.env.GITHUB_API?.replace(/\/$/, "") || "https://api.github.com";
 
 function tokenFrom(request: Request): { token: string; source: "browser" | "server" } | null {
-  const supplied = request.headers.get("x-github-token")?.trim();
-  if (supplied) return { token: supplied, source: "browser" };
-  const own = process.env.GITHUB_TOKEN?.trim();
-  return own ? { token: own, source: "server" } : null;
+  const picked = keyFor(request, "x-github-token");
+  return picked ? { token: picked.key, source: picked.source } : null;
 }
 
 const head = (token: string) => ({

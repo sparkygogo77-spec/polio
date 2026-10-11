@@ -34,8 +34,9 @@ import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
 import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
-import { codeStatus, commitAfterPublish, headOf, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
+import { codeStatus, commitAfterPublish, headOf, layerEmpty, layerPrint, mergePull, parentOf, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
+import { layerBlocks } from "./styleLayerRun";
 import { checkThenPublish } from "./PublishCheck";
 import { placeBring } from "./bringRepo";
 import { olderBuilder, readLastBring, resetToLastBring, useLastBring } from "./lastBring";
@@ -67,8 +68,11 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   const nodes = React.useMemo(() => wearTextures(steady, textures, (l, o) => wornPaint(l, full, o)), [steady, textures, full]);
   const palette = useStudio((s) => s.look.palette as Record<string, string>);
   const layer = React.useMemo(() => buildLayer(nodes as unknown as LayerNode[], palette, source, { family, kit: !!source.kit }), [nodes, palette, source]);
-  const empty = !layer.rules.length && !layer.vars.length;
   const print = React.useMemo(() => layerPrint(layer.css), [layer.css]);
+  /* A board set back to how it came in after a Publish is not empty: that Publish's look is still in the code to take out (`layerEmpty`). */
+  const empty = layerEmpty(layer, print, source.sent);
+  /* What the last Publish wrote that the board no longer does: Publish takes it out (`styleLayerRun.ts#prepareKitLayer`). */
+  const back = React.useMemo(() => { const now = new Set(layerBlocks(layer.css)); return (source.sentBlocks ?? []).filter((s) => !now.has(s)); }, [layer.css, source.sentBlocks]);
   const [head, setHead] = React.useState<string | null | undefined>(undefined);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [ask, setAsk] = React.useState<"refresh" | "publish" | null>(null);
@@ -189,7 +193,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       const now = (st.look as { styleSource?: StyleSource | null }).styleSource;
       const parent = await parentOf(source.repo, merged.sha, token).catch(() => null);
       const commit = commitAfterPublish(now?.commit ?? source.commit, parent, merged.sha);
-      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit } } as never);
+      if (now) st.setLook({ styleSource: { ...now, sent: sent.print, sentBlocks: sent.blocks, commit } } as never);
       if (adding.length) setFixLoop(sentMerged(fixLoopOf(useStudio.getState().look), adding));
       if (commit === merged.sha) setHead(merged.sha); else void read();
       play("confirm");
@@ -201,7 +205,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
   };
 
   const green = status?.at === "current" && !status.pending;
-  const changes = `${layer.rules.length} part${layer.rules.length === 1 ? "" : "s"} restyled and ${layer.vars.length} design token${layer.vars.length === 1 ? "" : "s"} set`;
+  const changes = `${layer.rules.length} part${layer.rules.length === 1 ? "" : "s"} restyled and ${layer.vars.length} design token${layer.vars.length === 1 ? "" : "s"} set${back.length ? `, and ${back.length} rule${back.length === 1 ? "" : "s"} from the last Publish taken out` : ""}`;
   return (
     <span className="flex items-center gap-1.5" data-code-site="">
       <Tooltip content={status?.says ?? `Reading ${source.repo}…`}>
@@ -212,7 +216,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
           </Button>
         </span>
       </Tooltip>
-      <Tooltip content={empty || status?.pending === false ? "Nothing to publish: the code has this design." : `Publish ${changes} into ${source.repo}: a style branch, merged.`}>
+      <Tooltip content={empty || status?.pending === false ? "Nothing to publish: the code has this design." : `Publish into ${source.repo}: ${changes}. A style branch, merged.`}>
         <span>
           <Button variant={status?.pending ? "primary" : "outline"} size="sm" data-code-publish="" disabled={!!busy} onClick={publish}>
             {busy ? <Loader2 className="animate-spin" /> : <GitMerge />} {busy ?? "Publish"}

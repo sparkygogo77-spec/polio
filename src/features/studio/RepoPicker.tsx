@@ -759,12 +759,19 @@ export function openRepoPicker(): void {
   window.dispatchEvent(new CustomEvent("studio:bring-repo"));
 }
 
+/** Closed for the board: the check list's Show puts a part on it, which the menu would cover (`PublishCheck.tsx`). */
+export function closeRepoPicker(): void {
+  window.dispatchEvent(new CustomEvent("studio:bring-repo-close"));
+}
+
 export function useRepoPickerDoor(): [boolean, (v: boolean) => void] {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     const on = () => setOpen(true);
+    const off = () => setOpen(false);
     window.addEventListener("studio:bring-repo", on);
-    return () => window.removeEventListener("studio:bring-repo", on);
+    window.addEventListener("studio:bring-repo-close", off);
+    return () => { window.removeEventListener("studio:bring-repo", on); window.removeEventListener("studio:bring-repo-close", off); };
   }, []);
   return [open, setOpen];
 }

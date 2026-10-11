@@ -169,8 +169,12 @@ console.log("3. A project with its own framework that has deployed before");
   const dep = deployments.at(-1);
   check("its deployment starts, carrying no settings over its own", r.ok === true && dep?.project === "prj_framed" && dep?.settings === null, JSON.stringify({ ok: r.ok, settings: dep?.settings, message: r.message }));
 }
-check("every site that went live is open to visitors: Vercel's sign-in taken off its project", projects.filter((p) => p.deployments > 0).every((p) => p.ssoProtection === null),
-  projects.map((p) => `${p.id}:${p.deployments > 0 ? (p.ssoProtection === null ? "open" : "locked") : "not live"}`).join(", "));
+/* Only a project Go live made has the lock taken off; one it found is left as its owner set it (tests/go-live-protected.mjs). */
+const patched = vcSeen.filter((c) => /^PATCH \/v9\/projects\//.test(c.line)).map((c) => decodeURIComponent(c.line.split("/").pop()));
+const madeHere = projects.filter((p) => p.link);
+check("the project Go live made is open to visitors: Vercel's sign-in taken off it", madeHere.length === 1 && madeHere[0].ssoProtection === null && JSON.stringify(patched) === JSON.stringify([madeHere[0].id]),
+  `patched: ${patched.join(", ") || "none"}; ${madeHere.map((p) => `${p.id}:${p.ssoProtection === null ? "open" : "locked"}`).join(", ")}`);
+check("the projects it found are left as they were: nothing sent to change their protection", !patched.includes("prj_made_earlier") && !patched.includes("prj_framed"), `patched: ${patched.join(", ") || "none"}`);
 check("one project made in all, never a second for the same repository", projects.length === 3 && projects.filter((p) => p.link).length === 1, projects.map((p) => `${p.id}:${p.link?.repo ?? "not connected"}`).join(", "));
 
 stop();

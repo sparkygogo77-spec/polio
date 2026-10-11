@@ -10,3 +10,4 @@ Writing a Next.js site from the board, split by topic. `../scaffold.ts` re-expor
 | `pages.ts` | Tokens CSS, root layout, one part, one page |
 | `frameMesh.ts` | The responsive `Frame`/`Place` file and the 3D mesh part |
 | `shell.ts` | The behaviours shell (`SHELL_CSS`, `SHELL_TSX`) and the README writer |
+| `contract.ts` | What the build ask tells Claude these files are: `SCAFFOLD_LAYOUT`, file by file, and `buildContract` (`tests/build-contract.mjs` holds the two to `scaffold`) |

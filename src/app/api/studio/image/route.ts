@@ -27,6 +27,7 @@ import {
   optionsFor,
 } from "@/features/studio/pictures";
 import { fromMetrics } from "@/features/studio/spend";
+import { keyFor } from "@/app/api/keyFor";
 import { answerBudget } from "../budget";
 
 /**
@@ -228,16 +229,12 @@ interface Body {
 /**
  * The token for this call: the browser's, or the server's if it has one.
  *
- * The browser's wins, unlike every other route here, because this is the
- * one key the person is expected to bring: they typed it into the keys panel and
- * they are the one being billed for the call. It is returned, used, and
- * dropped when the request ends; nothing holds it.
+ * The browser's wins, as it does on every route here (`keyFor`): they typed
+ * it into the keys panel and they are the one being billed for the call. It
+ * is returned, used, and dropped when the request ends; nothing holds it.
  */
 function tokenFor(request: Request): string | null {
-  const supplied = request.headers.get("x-replicate-key")?.trim();
-  if (supplied && supplied.length > 8) return supplied;
-  const own = process.env.REPLICATE_API_TOKEN?.trim();
-  return own || null;
+  return keyFor(request, "x-replicate-key")?.key ?? null;
 }
 
 /** Nothing that leaves here may contain the token, whatever a library put in a message. */

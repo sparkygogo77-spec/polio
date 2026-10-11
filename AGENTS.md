@@ -468,7 +468,9 @@ made by the kit's own check on the server (`/api/studio/kit-map`, `kitMap.ts`),
 which must pass. Send the design back: always from and into the repository's
 default branch, a new `style/` branch and a pull request, never merged here;
 for a repository with `builder.json` only `style-layer.css` (rules by
-data-hook, colours in custom properties, earlier rounds kept) and the remade
+data-hook, colours in custom properties, earlier rounds kept, but a block the
+board's last Publish wrote and no longer writes, a part set back, comes out:
+`styleSource.sentBlocks`, `tests/publish-set-back.mjs`) and the remade
 `hooks.json` change, so `kit:diff --style-only` passes, and words stay the
 code's. Each round first reads the code again (`kitRun.ts readRound`, on the
 panel's opening): pages, hooks and tokens added or gone since import
@@ -1536,9 +1538,9 @@ a kicker with a rule, and label-and-value rows that copy.
   call — never written down, never logged, never returned, and the one place
   a library's error message could carry it is scrubbed. A
   `REPLICATE_API_TOKEN` in the server's environment still works and is a
-  silent fallback rather than the path: the browser's token wins, which is
-  the reverse of every other route here and right, because the person who
-  typed it is the person being billed. `/api/keys/status` reports the
+  silent fallback rather than the path: the browser's token wins, as every
+  key here does (`src/app/api/keyFor.ts`), because the person who typed it
+  is the person being billed. `/api/keys/status` reports the
   server's, present or absent, the same yes-or-no it gives for every other
   name. With no token anywhere the route answers HTTP 200, `ok: false`,
   `reason: "unavailable"`, the same shape and the same path a locked Claude
@@ -3025,7 +3027,12 @@ a kicker with a rule, and label-and-value rows that copy.
   repository through the git data API, then calls `VERCEL_DEPLOY_HOOK` when
   set. It pushes `site/document.json` (the document; the app renders it at
   `/site`), `site/BLUEPRINT.md`, `site/blueprint.json` and any generated
-  files. Paths are checked (`safePath`); files are capped. The token rides
+  files. A push of the site also carries `site/pages.json`, the page files it
+  wrote, and the commit takes off each page file the branch's record names
+  and the new one does not, so a page deleted or renamed on the board leaves
+  the live site; nothing a record never named is removed
+  (`send-out/pagesRecord.ts`). Paths are checked (`safePath`); files are
+  capped. The token rides
   from the browser as `x-github-token` and `GITHUB_TOKEN` is the fallback;
   `GET` says only whether one would be found, never what it is. A site with
   no repository sends `create` and gets a private one made for it, named
@@ -3040,8 +3047,8 @@ a kicker with a rule, and label-and-value rows that copy.
   ?id=` says how that build is getting on and, when it is `READY`, what
   address it is at — the shortest alias, which is the production domain,
   else the deployment's own host. `GET` with no id says only whether there
-  is a token at all. The token is the server's `VERCEL_TOKEN` or the keys panel's
-  `x-vercel-token`, server first, like the Claude key. A build outlives a
+  is a token at all. The token is the keys panel's `x-vercel-token` or the
+  server's `VERCEL_TOKEN`, the browser's first, like every key (`keyFor`). A build outlives a
   serverless request, so the client polls (`watchDeploy` in `agent.ts`)
   rather than the route waiting. The deploy hook stays what it always was:
   a poke for a project not connected to the repository, which answers with
@@ -3372,7 +3379,10 @@ carry why a thing arrived.
   and Publish anyway is always there: the list informs, it never holds a
   site back. A clean board publishes straight away. A new kind of problem is
   one more block in `checkBoard`, read by the check that already owns it.
-  `tests/publish-check.mjs`.
+  It runs before Go live, Publish (a site made here or from code) and the
+  repo menu's Open a pull request (`checkThenPublish`); opened from the repo
+  menu, Show also closes the menu. `tests/publish-check.mjs`,
+  `tests/send-back-check.mjs`.
 - **The launch kit** (`studio/launchKit.ts`, `LaunchKit.tsx`, the rocket key
   in the top bar in the Builder, and the palette) draws a share card
   (1200 by 630), an X banner (1500 by 500, the bottom left clear for the
@@ -3722,10 +3732,13 @@ remove it from `src/features/index.ts` when you're sure.
   own header (`x-anthropic-key`, `x-replicate-key`, `x-github-token`,
   `x-vercel-token`) and never to any other, because a route with no use for a
   key should never be handed one. The environment variable of the same name
-  stays as a silent fallback. This file used to say a GitHub token in a
+  stays as a silent fallback: every route picks through `keyFor`
+  (`src/app/api/keyFor.ts`), the browser's key first, the server's when the
+  browser offers none. This file used to say a GitHub token in a
   browser would do nothing; that was wrong, and Publish now pushes with the
   person's own. Adding a
-  service to `SERVICES` means adding a header a route reads and an arm to
+  service to `SERVICES` means adding a header a route reads (with its
+  variable in `KEY_ENV`, `keyFor.ts`) and an arm to
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
 - **Nothing writes a key down in the clear. Ever, under any name.** One
@@ -3755,8 +3768,8 @@ remove it from `src/features/index.ts` when you're sure.
   the PIN or a hash of it, with the tab-held and kept-for-this-tab modes
   beside it. A key sealed before the setting existed is brought across by
   typing the PIN once in the panel; a key held for the tab comes across on
-  its own. A held key is sent as a header and used for that one call when
-  the server has none.
+  its own. A held key is sent as a header and used for that one call,
+  before the server's (`keyFor`).
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
 - **Undo names its step, and the steps are a list** (`HistoryControls.tsx`,
