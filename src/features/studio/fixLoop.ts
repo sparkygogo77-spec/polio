@@ -146,6 +146,8 @@ export function promotePending(loop: FixLoop, md: string | null): FixLoop {
   const merged = loop.pending.filter((i) => there.has(i.key));
   return merged.length ? sentMerged(loop, merged) : loop;
 }
+/** The line the Builder writes above the queue: everything under it is the code chat's, kept word for word. */
+const STAMP = "Last written by the Builder on ";
 
 /** One queue line: the box, the hook, the page, what is wrong, what done looks like, and its key for Refresh. */
 export function nextLine(i: FixIssue): string {
@@ -153,15 +155,20 @@ export function nextLine(i: FixIssue): string {
 }
 
 /**
- * The whole file, with the new lines added to what is already there. Lines
- * already in the file (open or ticked) are kept as they are: the code chat
- * owns them once they are written. A line whose key is already in the file
- * is not written twice.
+ * The whole file, with the new lines added to what is already there.
+ * Everything under the old header is kept as it is, word for word: ticked
+ * lines, notes under a line, text after a comment. The code chat owns it once
+ * it is written. Only the Builder's own header is written fresh. A line whose
+ * key is already in the file is not written twice.
  */
 export function nextMd(adding: readonly FixIssue[], o: { site: string; when: string; prev?: string | null }): string {
   const all = (o.prev ?? "").split(/\r?\n/);
-  const from = all.findIndex((l) => queued(l));
-  const prev = from < 0 ? [] : all.slice(from);
+  /* Under the Builder's stamp everything is kept, notes before the first line too; a file with no stamp keeps from its first queue line, so no old header is written twice. */
+  const stamp = all.findIndex((l) => l.startsWith(STAMP));
+  let from = stamp >= 0 ? stamp + 1 : all.findIndex((l) => queued(l));
+  if (from < 0) from = all.length;
+  while (from < all.length && !all[from]!.trim()) from++;
+  const prev = all.slice(from);
   while (prev.length && !prev[prev.length - 1]!.trim()) prev.pop();
   const have = new Set(prev.flatMap((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!)));
   const lines = [...prev, ...adding.filter((i) => !have.has(i.key)).map(nextLine)];
@@ -173,8 +180,9 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
     "Keep every data-hook. A new data-hook needs the repo's hooks step (its CLAUDE.md names it, e.g. `npm run hooks`) so its hook map stays current.",
     "Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
     "and leave the `<!-- fix:... -->` comment as it is. The Builder's Refresh reads this file back: a ticked or deleted line shows as fixed.",
+    "A note for J goes on its own indented line under the item; the item's line keeps its box and its comment.",
     "",
-    `Last written by the Builder on ${o.when}.`,
+    `${STAMP}${o.when}.`,
     "",
     ...lines,
     "",
