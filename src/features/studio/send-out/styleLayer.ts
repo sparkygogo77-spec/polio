@@ -317,6 +317,37 @@ function splitList(v: string): string[] {
 }
 
 /**
+ * A shelf effect's animation and transition joined to the part's own, never
+ * in their place: its captured motion, a living picture and a texture's drift
+ * (`artCss`) keep playing on the site as on the board. One list each, the
+ * part's first and the effect's after, with the timelines and ranges padded
+ * per entry as CSS repeats them. Where two drive one property (a drift and
+ * Float both translate) CSS lets the later, the effect, win.
+ */
+function withEffect(decl: readonly string[], own: readonly string[], art: Record<string, string> | undefined): string[] {
+  const MOTION = /^(animation(-timeline|-range)?|transition):/;
+  const val = (list: readonly string[], prop: string) => list.find((d) => d.startsWith(`${prop}:`))?.slice(prop.length + 1).trim();
+  /* What the part plays now: as this layer writes it, or else as the page already has it. */
+  const its = (prop: string) => val(decl, prop) ?? art?.[prop];
+  const items = (v: string | undefined) => (v && v !== "none" ? splitList(v) : []);
+  /* A list shorter than its animations repeats from its start; a missing one is the initial value. */
+  const per = (v: string | undefined, count: number, initial: string) => { const l = v ? splitList(v) : []; return Array.from({ length: count }, (_, i) => l[i % l.length] ?? initial); };
+  const fxAnim = val(own, "animation"), fxTrans = val(own, "transition");
+  const out = decl.filter((d) => !(fxAnim !== undefined && /^animation(-timeline|-range)?:/.test(d)) && !(fxTrans !== undefined && d.startsWith("transition:")));
+  if (fxAnim !== undefined) {
+    const mine = items(its("animation")), fx = splitList(fxAnim);
+    const timeline = [...per(its("animation-timeline"), mine.length, "auto"), ...per(val(own, "animation-timeline"), fx.length, "auto")];
+    const range = [...per(its("animation-range"), mine.length, "normal"), ...per(val(own, "animation-range"), fx.length, "normal")];
+    /* The timeline names come after the shorthand, which would reset them. */
+    out.push(`animation: ${[...mine, ...fx].join(", ")}`);
+    if (timeline.some((t) => t !== "auto")) out.push(`animation-timeline: ${timeline.join(", ")}`);
+    if (range.some((r) => r !== "normal")) out.push(`animation-range: ${range.join(", ")}`);
+  }
+  if (fxTrans !== undefined) out.push(`transition: ${[...new Set([...items(its("transition")), ...splitList(fxTrans)])].join(", ")}`);
+  return [...out, ...own.filter((d) => !MOTION.test(d))];
+}
+
+/**
  * The pictures a living background is cut into are big, and every part
  * wearing it would carry its own copy. Each set is written once, as a
  * variable on the root, and the parts name it.
@@ -680,7 +711,7 @@ export function buildLayer(nodes: LayerNode[], palette: Record<string, string> |
       if (!(opts.kit && src.hook.attr !== "data-hook")) decl = [...decl, ...layoutDeclarations(src.hook.value, n.place)];
       const fx = !(opts.kit && src.hook.attr !== "data-hook") && n.work ? effectCss(selectorFor(src.hook), [n.work, ...(n.work.also ?? [])], { press }) : null;
       if (fx?.done.length) {
-        decl = [...decl.filter((d) => !(fx.own.some((o) => o.startsWith("animation")) && /^animation(-timeline|-range)?:/.test(d)) && !(fx.own.some((o) => o.startsWith("transition:")) && d.startsWith("transition:"))), ...fx.own];
+        decl = withEffect(decl, fx.own, now.art);
         for (const [k, v] of fx.frames) frames.set(k, v);
         movingSel.push(selectorFor(src.hook), ...fx.rules.map((r) => r.selector));
       }
