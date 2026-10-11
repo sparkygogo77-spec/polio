@@ -60,8 +60,8 @@ async function score(pg, width) {
   const path = pg.path.replace(/^\/+|\/+$/g, "");
   await prev.goto(`${URL_BASE}/builder/preview${path ? `/${path}` : ""}`, { waitUntil: "networkidle" });
   await prev.waitForTimeout(1500);
-  /* The window the page is seen in: the Preview's own room in the window, the device's screen otherwise. */
-  const screenH = device === "phone" ? 844 : device === "tablet" ? 1194 : await prev.evaluate(() => document.querySelector("[data-live-scroller]")?.clientHeight ?? 900);
+  /* The window the page is seen in: the window the import read it from (its height, as `landParts` sends it), the device's screen otherwise. */
+  const screenH = device === "phone" ? 844 : device === "tablet" ? 1194 : 900;
   if (device !== "window") { await prev.evaluate((d) => window.__studioLiveDevice?.(d), device); await prev.waitForTimeout(1200); }
   const tall = await prev.evaluate(() => {
     const sc = document.querySelector("[data-live-scroller]");
