@@ -25,7 +25,7 @@
  *
  * Pure: no store, no browser. `tests/plain-page.mjs` holds it.
  */
-import type { PagePart, PageRead, PartRun } from "./siteRead.ts";
+import type { CensusKey, PagePart, PageRead, PartRun } from "./siteRead.ts";
 import type { Span } from "../shelf/index.ts";
 import { familyOf } from "../recreate.ts";
 import { seatStates, type FrameNode } from "../states/index.ts";
@@ -68,6 +68,8 @@ export interface PageReport {
 
 /** What the board was handed against what the live page computed, per hooked part. */
 export interface Fidelity {
+  /** Per page, over every element: how many the live page has of each, and how many the board was handed (`PageRead.census`). */
+  pages?: { page: string; live: Record<CensusKey, number>; kept: Record<CensusKey, number> }[];
   checked: number;
   mismatches: { page: string; hook: string; what: "font" | "colour" | "background" | "shadow" | "filter" | "transform" | "animation" | "position"; live: string; board: string }[];
 }
@@ -79,6 +81,14 @@ export interface Fidelity {
  * board was handed for it. A difference here is the import losing
  * something, named part by part in the report, rather than found by eye.
  */
+/** The kept-against-live count's names, as the report says them. */
+export const CENSUS_WORDS: Record<CensusKey, string> = { animated: "animated", keyframes: "keyframes", turned: "turned (rotate/translate/scale)", svg: "inline svgs", svgShapes: "svg shapes", layered: "layered backgrounds", pseudo: "::before/::after", dropShadow: "drop shadows", blend: "blend modes", clipPath: "clip paths", mask: "masks", fixed: "fixed", sticky: "sticky", canvas: "canvases" };
+
+/** Kept against live, one line per page (J's pass bar): "Play: animated 78/78, keyframes 13/13, …". */
+export function censusLines(fid: Fidelity | undefined): string[] {
+  return (fid?.pages ?? []).map((pg) => `${pg.page}: ${(Object.keys(pg.live) as CensusKey[]).filter((k) => pg.live[k] > 0).map((k) => `${CENSUS_WORDS[k]} ${pg.kept[k]}/${pg.live[k]}`).join(", ")}`);
+}
+
 export function fidelityOf(page: string, parts: PagePart[], nodes: Record<string, unknown>[], keyframes: { name: string }[], out: Fidelity): void {
   parts.forEach((p, i) => {
     const live = p.live, hook = p.hooks["data-hook"];
@@ -88,7 +98,7 @@ export function fidelityOf(page: string, parts: PagePart[], nodes: Record<string
     const miss = (what: Fidelity["mismatches"][number]["what"], l: string, b: string) => { if (out.mismatches.length < 400) out.mismatches.push({ page, hook, what, live: l.slice(0, 160), board: b.slice(0, 160) }); };
     /* A tick box is read in its label's type, not the box's own. */
     const words = (!!p.words || !!p.runs?.length) && p.kind !== "check";
-    if (words && n.font && /\d/.test(live.font)) { const b = `${n.font.weight} ${n.font.px}px ${n.font.stack}`; if (b.replace(/\s+/g, " ") !== live.font.replace(/\s+/g, " ")) miss("font", live.font, b); }
+    if (words && n.font && /\d/.test(live.font)) { const b = `${n.font.weight} ${n.font.px}px ${n.font.stack}`; const lf = /^(\S+) ([\d.]+)px (.*)$/.exec(live.font.replace(/\s+/g, " ")); if (!lf || lf[1] !== String(n.font.weight) || Math.abs(Number(lf[2]) - Number(n.font.px)) > 0.05 || lf[3] !== n.font.stack) miss("font", live.font, b); }
     if (words && n.colour?.text && n.colour.text !== live.colour) miss("colour", live.colour, n.colour.text);
     const bgLive = /rgba\([^)]*,\s*0\)|transparent/.test(live.bg) ? "" : live.bg;
     if (bgLive && p.tag !== "svg" && !(n.colour?.bg)) miss("background", bgLive, "none");
@@ -99,7 +109,8 @@ export function fidelityOf(page: string, parts: PagePart[], nodes: Record<string
     }
     if (live.shadow && live.shadow !== "none" && !n.edge?.shadow) miss("shadow", live.shadow, "none");
     if (live.filter && live.filter !== "none" && n.art?.filter !== live.filter) miss("filter", live.filter, n.art?.filter ?? "none");
-    if (live.turned && !n.art?.transform) miss("transform", "turned", "upright");
+    /* A turn its animation holds at the end (a stamp slammed down at -8deg, fill forwards) is carried by the animation. */
+    if (live.turned && !n.art?.transform && !(n.motion?.animation ?? []).some((a) => /forwards|both/.test((a as { fill?: string }).fill ?? ""))) miss("transform", "turned", "upright");
     const names = new Set((n.motion?.animation ?? []).map((a) => a.name));
     for (const a of live.animations) {
       if (!names.has(a)) miss("animation", a, "not carried");
@@ -534,7 +545,9 @@ export function pagesToDoc(files: FileRead[], opts: { at?: number; code?: { path
   /* Checked once every page's keyframes are in. */
   const fidelity: Fidelity = { checked: 0, mismatches: [] };
   files.forEach((f, i) => fidelityOf(pages[i]!.name, f.read.parts, nodes.slice(starts[i]!, starts[i]! + f.read.parts.length), keyframes, fidelity));
-  if (fidelity.checked) report.fidelity = fidelity;
+  const counted = files.flatMap((f, i) => (f.read.census ? [{ page: pages[i]!.name, ...f.read.census }] : []));
+  if (counted.length) fidelity.pages = counted;
+  if (fidelity.checked || counted.length) report.fidelity = fidelity;
   return { doc: { pages, nodes, frameWidth: entry.read.width || 1440, ground: { bg: entry.read.bg, text: entry.read.colour, ...(entry.read.layers?.length ? { layers: entry.read.layers } : {}) }, styleSource, keyframes }, report };
 }
 
@@ -588,6 +601,11 @@ export function reportChips(report: PageReport): ReportChip[] {
   if (report.hooks) out.push({ k: "hooks", n: report.hooks, word: "code names", label: `Code names: ${report.hooks} ${word(report.hooks, ["part keeps", "parts keep"])} the id or data-hook the site's code finds ${report.hooks === 1 ? "it" : "them"} by` });
   if (report.pictures) out.push({ k: "placeholders", n: report.pictures, word: "stand-in pictures", label: `Stand-in pictures: ${report.pictures} ${word(report.pictures, ["picture is a placeholder", "pictures are placeholders"])}, because picture files are not carried this way` });
   const fid = report.fidelity;
+  for (const pg of fid?.pages ?? []) {
+    const short = (Object.keys(pg.live) as CensusKey[]).filter((k) => pg.live[k] > 0);
+    const behind = short.filter((k) => pg.kept[k] < pg.live[k]);
+    out.push({ k: `kept:${pg.page}`, n: behind.length, word: behind.length ? `${pg.page}: short of live` : `${pg.page}: all kept`, label: `Kept against live, ${pg.page}: ${short.map((k) => `${CENSUS_WORDS[k]} ${pg.kept[k]}/${pg.live[k]}`).join(", ")}` });
+  }
   if (fid?.checked) {
     const n = fid.mismatches.length;
     const list = fid.mismatches.slice(0, 12).map((m) => `${m.hook} ${m.what} (live ${m.live}; board ${m.board})`).join("; ");
@@ -620,5 +638,7 @@ export function reportSays(report: PageReport, opts: { scripts: boolean; from: s
   const fid = report.fidelity;
   const kinds = fid ? [...new Set(fid.mismatches.map((m) => m.what))] : [];
   const fidSaid = !fid?.checked ? "" : fid.mismatches.length ? ` Checked against the live page, ${fid.mismatches.length} look ${fid.mismatches.length === 1 ? "difference" : "differences"} over ${fid.checked} hooked parts (${kinds.join(", ")}): ${fid.mismatches.slice(0, 6).map((m) => `${m.hook} ${m.what}`).join(", ")}${fid.mismatches.length > 6 ? ", …" : ""}.` : ` Checked against the live page, all ${fid.checked} hooked parts carry its look.`;
-  return `${head}${hidden}${hooks}${bare}${scripts}${pics}${cut}${fidSaid}`;
+  const census = censusLines(fid);
+  const censusSaid = census.length ? ` Kept against live (every element): ${census.join("; ")}.` : "";
+  return `${head}${hidden}${hooks}${bare}${scripts}${pics}${cut}${fidSaid}${censusSaid}`;
 }

@@ -34,7 +34,7 @@ body { margin: 0; font: 16px Arial; display: grid; grid-template-columns: 180px 
 [data-hook="seal"] { position: absolute; left: 400px; top: 80px; width: 80px; height: 80px; rotate: -8deg; z-index: 2; border: 3px double olive; border-radius: 50%; animation: pulse 2s infinite; }
 </style></head><body>
 <nav data-hook="rail"><svg data-hook="clock" viewBox="0 0 80 80" width="80" height="80" onclick="alert(1)"><circle data-hook="ticks" cx="40" cy="40" r="30" pathLength="12"/><line data-hook="hand" x1="40" y1="40" x2="40" y2="12"/><script>1</script></svg></nav>
-<main data-hook="main" style="height:1200px"><span data-hook="seal">SEAL</span><p data-hook="words">Hello</p></main>
+<main data-hook="main" style="height:1200px"><span data-hook="seal">SEAL</span><p data-hook="words">Hello</p><p data-hook="pot-line">Pot: <span data-hook="pot" style="display:inline-block;animation:pulse 1s 1 forwards">0.5</span> SOL.</p></main>
 </body></html>`);
 const read = await page.evaluate(PARTS, 1500);
 const by = (h) => read.parts.find((p) => p.hooks?.["data-hook"] === h);
@@ -66,6 +66,11 @@ const out = { checked: 0, mismatches: [] };
 fidelityOf("Home", read.parts, nodes, doc.keyframes, out);
 check("a dropped turn and animation are listed", out.mismatches.some((m) => m.hook === "seal" && m.what === "transform") && out.mismatches.some((m) => m.hook === "seal" && m.what === "animation"), JSON.stringify(out.mismatches));
 check("the report says it", reportChips(report).some((c) => c.k === "fidelity") && /Checked against the live page/.test(reportSays(report, { scripts: false, from: "x" })));
+check("an inline box that animates is a part of its own, with its animation", by("pot")?.style.animation?.[0]?.name === "pulse", JSON.stringify(by("pot")?.style.animation));
+const c = read.census;
+check("the live count is taken over every element", c?.live.animated >= 2 && c?.live.svg === 1 && c?.live.svgShapes === 2 && c?.live.sticky === 1 && c?.live.layered >= 1 && c?.live.pseudo >= 1, JSON.stringify(c?.live));
+check("and everything counted live is kept", c && Object.keys(c.live).every((k) => c.kept[k] === c.live[k]), JSON.stringify(c));
+check("the report shows kept against live per page", reportChips(report).some((x) => x.k === "kept:Home" && /animated \d+\/\d+/.test(x.label)) && /Kept against live/.test(reportSays(report, { scripts: false, from: "x" })));
 await browser.close();
 const bad = results.filter((x) => !x).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

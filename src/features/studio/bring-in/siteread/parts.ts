@@ -51,6 +51,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
   const cap = typeof ask === "number" ? ask : ask.cap;
   const lean = typeof ask !== "number" && !!ask.lean;
   const parts: PagePart[] = [];
+  /* The part each element became, for the kept count. */
+  const partOf = new Map<Element, PagePart>();
   let truncated = false;
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "META", "LINK", "HEAD", "TITLE", "BASE", "WBR"]);
   const MEDIA = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE", "IFRAME", "AUDIO"]);
@@ -279,8 +281,11 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    */
   const liftTurns = (root: Element) => {
     const turning: { el: HTMLElement; m: DOMMatrix; origin: string }[] = [];
-    for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]) {
-      if (!(el instanceof HTMLElement) || (root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
+    for (const one of [root, ...Array.from(root.querySelectorAll("*"))]) {
+      /* An outer <svg> turned by the page (a podium drawn as svg, rotate: -3deg) turns as a box does. */
+      if (!(one instanceof HTMLElement || (one instanceof SVGSVGElement && !one.parentElement?.closest("svg")))) continue;
+      const el = one as HTMLElement;
+      if ((root === document.body && el === root) || SKIP.has(el.tagName) || turns.has(el) || !el.getClientRects().length) continue;
       const s = css(el);
       const moved = (v: string) => !!v && v !== "none";
       if (!moved(s.transform) && !moved(s.getPropertyValue("rotate")) && !moved(s.getPropertyValue("scale"))) continue;
@@ -291,7 +296,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       const r = css(el);
       const rest = { tf: r.transform, translate: r.getPropertyValue("translate"), rotate: r.getPropertyValue("rotate"), scale: r.getPropertyValue("scale"), origin: r.transformOrigin, position: r.position };
       if (animated) { if (before === null) el.removeAttribute("style"); else el.setAttribute("style", before); }
-      const m = ownMatrix(rest, el.offsetWidth, el.offsetHeight);
+      /* An outer <svg> has no offset box: its layout box is its client box. */
+      const m = el instanceof HTMLElement ? ownMatrix(rest, el.offsetWidth, el.offsetHeight) : ownMatrix(rest, (one as Element).clientWidth, (one as Element).clientHeight);
       if (flat(m)) continue;
       lifted.push({ el, had: before });
       moving.set(el, keep(css(el)));
@@ -309,6 +315,44 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       turns.set(t.el, about(t.m, ox, oy));
     }
   };
+  /*
+   * THE LIVE COUNT (J, 2026-10-11: the pass bar). Every element of the page
+   * as the browser computed it, before any turn is lifted: what animates,
+   * what turns, the inline svgs and their shapes, layered backgrounds,
+   * ::before/::after with content, drop shadows, blends, clip paths,
+   * masks, fixed and sticky boxes, canvases. Counted again at the end over
+   * what the read kept, so the report says kept against live, page by page.
+   */
+  type Feat = "animated" | "turned" | "svg" | "svgShapes" | "layered" | "pseudo" | "dropShadow" | "blend" | "clipPath" | "mask" | "fixed" | "sticky" | "canvas";
+  const census = new Map<Element, Set<Feat>>();
+  const livePseudo: { el: Element; which: "::before" | "::after" }[] = [];
+  const liveNames = new Set<string>();
+  const layersIn = (v: string) => { let depth = 0, n = 1; for (const ch of v) { if (ch === "(") depth++; else if (ch === ")") depth--; else if (ch === "," && depth === 0) n++; } return n; };
+  if (!lean) {
+    for (const el of [document.documentElement, ...Array.from(document.body.querySelectorAll("*")), document.body]) {
+      if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|LINK|META|TITLE|HEAD)$/i.test(el.tagName) || el.closest("template")) continue;
+      /* Counted as the board thread's `scripts/theme-count.mjs` counts the live page, so the two read alike: a shape inside an svg counts as its svg's shape only. */
+      const tag = el.tagName.toLowerCase();
+      if (el.parentElement?.closest("svg") && tag !== "svg") continue;
+      const cs = css(el), f = new Set<Feat>();
+      const names = (cs.animationName || "none").split(",").map((v) => v.trim()).filter((v) => v && v !== "none");
+      if (names.length) { f.add("animated"); names.forEach((v) => liveNames.add(v)); }
+      /* The individual transforms J counts (rotate, translate, scale). */
+      if ([cs.getPropertyValue("rotate"), cs.getPropertyValue("scale"), cs.getPropertyValue("translate")].some((v) => !!v && v !== "none")) f.add("turned");
+      if (tag === "svg") { f.add("svg"); for (const sh of Array.from(el.querySelectorAll("circle,line,path,polyline,polygon,rect,ellipse,text,tspan,textPath"))) census.set(sh, new Set<Feat>(["svgShapes"])); }
+      if (cs.backgroundImage && cs.backgroundImage !== "none" && layersIn(cs.backgroundImage) > 1) f.add("layered");
+      if (/drop-shadow/.test(cs.filter)) f.add("dropShadow");
+      if (cs.mixBlendMode && cs.mixBlendMode !== "normal") f.add("blend");
+      if (cs.clipPath && cs.clipPath !== "none") f.add("clipPath");
+      const mk = cs.maskImage || cs.getPropertyValue("-webkit-mask-image");
+      if (mk && mk !== "none") f.add("mask");
+      if (cs.position === "fixed") f.add("fixed");
+      if (cs.position === "sticky") f.add("sticky");
+      if (tag === "canvas") f.add("canvas");
+      if (f.size) census.set(el, f);
+      for (const which of ["::before", "::after"] as const) { const ps = getComputedStyle(el, which); if (ps.content && ps.content !== "none" && ps.content !== "normal") livePseudo.push({ el, which }); }
+    }
+  }
   liftTurns(document.body);
   /* Everything that turns it, in the page's space: what holds it first, its own last. */
   const turnOf = (el: Element | null, own: DOMMatrix | null = null): DOMMatrix | null => {
@@ -355,7 +399,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (ps.position !== "absolute" && ps.position !== "fixed") {
         const paint0 = paintOf(ps);
         const words0 = (/^"([\s\S]*)"$/.exec(c)?.[1] ?? "").replace(/\\(.)/g, "$1").trim();
-        if (!(!seeThrough(ps.backgroundColor) || paint0.image || paint0.mask || paint0.shadow || words0)) continue;
+        /* An edge draws too: a label's dotted leader (an empty ::after grown to fill the row with a dotted bottom edge). */
+        const edged0 = ["top", "right", "bottom", "left"].some((k) => ps.getPropertyValue(`border-${k}-style`) !== "none" && (parseFloat(ps.getPropertyValue(`border-${k}-width`)) || 0) > 0);
+        if (!(!seeThrough(ps.backgroundColor) || paint0.image || paint0.mask || paint0.shadow || words0 || edged0)) continue;
         const stand = document.createElement("span");
         for (let k = 0; k < ps.length; k++) { const prop = ps[k]!; if (prop !== "content") stand.style.setProperty(prop, ps.getPropertyValue(prop)); }
         if (words0) stand.textContent = words0;
@@ -384,6 +430,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
         if (!(rr.width > 0 && rr.height > 0)) continue;
         const b0 = box(rr);
         const st0 = { ...styleOf(el, which), ...paint0 };
+        /* An edge on one side only (the leader's dotted bottom) is the edge it draws: in a box as thin as the edge, it reads as that line. */
+        if (edged0 && !st0.border) { const side = ["bottom", "top", "left", "right"].find((k) => ps.getPropertyValue(`border-${k}-style`) !== "none" && (parseFloat(ps.getPropertyValue(`border-${k}-width`)) || 0) > 0)!; st0.border = { w: Math.min(parseFloat(ps.getPropertyValue(`border-${side}-width`)) || 1, Math.max(1, Math.floor(Math.min(b0.w, b0.h) / 2))), style: ps.getPropertyValue(`border-${side}-style`), colour: ps.getPropertyValue(`border-${side}-color`) }; }
         if (/%$/.test(ps.borderTopLeftRadius)) st0.radius = Math.round((parseFloat(ps.borderTopLeftRadius) / 100) * Math.min(b0.w, b0.h));
         const turn0 = turnSaid(turnOf(el), b0);
         push({ kind: "shape", tag: which, parent, box: b0, words: words0, hooks: {}, hidden, selector: `${path(el)}${which}`, style: st0, pseudo: { which, host: hooksOf(el) }, ...(turn0 ? { turn: turn0 } : {}) });
@@ -641,6 +689,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);
     const at = parts.length - 1;
+    if (el && !p.pseudo && !partOf.has(el)) partOf.set(el, p);
     if (el && !p.pseudo) pseudoParts(el, p.kind === "section" ? at : p.parent, p.hidden, at);
     return at;
   };
@@ -751,6 +800,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (SKIP.has(d.tagName) || d.tagName === "BR") continue;
       if (isControl(d) || isMedia(d) || d.tagName === "TEMPLATE") return true;
       if (shown(d) && !inlineish(d)) return true;
+      /* An inline box that animates is a part of its own (`flow`), so what holds it holds parts. */
+      if (shown(d) && css(d).display === "inline-block" && (moving.has(d) || (css(d).animationName || "none") !== "none")) return true;
     }
     return false;
   };
@@ -1079,6 +1130,8 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       if (e.tagName === "SUMMARY" && paints(e)) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
       /* An inline element the page took out of its line (placed absolutely, or turned on its own: PST's "Test networks only" stamp, a rotated span over the desk) is a part of its own where the page put it, with its hook and its turn; folded into the line it lost all three. */
       if (inlineish(e) && (/^(absolute|fixed)$/.test(css(e).position) || turns.has(e))) { flush(); block(e, parent, hidden); continue; }
+      /* An inline box that animates (PST's readouts flicker on like warming phosphor) is a part of its own, set right after the words before it: a stretch of the line's words has no animation to play. */
+      if (css(e).display === "inline-block" && (moving.has(e) || (css(e).animationName || "none") !== "none")) { flush(); const from = parts.length; block(e, parent, hidden); if (parts.length > from) tieAfter(e, from); continue; }
       if (inlineish(e)) {
         if (!holdsParts(e) || e.tagName === "A") { buffer.push(e); continue; }
         /* An inline holder of parts (a label round a field): its words are a line, its controls parts; with a hook of its own, it is a box round them. */
@@ -1242,6 +1295,43 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
       layerOf(`${name}${which}` as NonNullable<PageRead["layers"]>[number]["from"], ps, { x: Math.round(cb.x + left), y: Math.round(cb.y + top), w: Math.round(w), h: Math.round(h) }, fixed ? "fixed" : "absolute");
     }
   }
+  /* Kept against live: an element counts as kept when the part it became carries the feature (a shape, by the svg markup holding it). */
+  const counts = (): Record<Feat | "keyframes", number> => ({ animated: 0, keyframes: 0, turned: 0, svg: 0, svgShapes: 0, layered: 0, pseudo: 0, dropShadow: 0, blend: 0, clipPath: 0, mask: 0, fixed: 0, sticky: 0, canvas: 0 });
+  const live = counts(), kept = counts();
+  const keptNames = new Set<string>([...keyframes.map((k) => k.name)]);
+  for (const p of parts) if (p.svg) for (const m of p.svg.matchAll(/@keyframes\s+([\w-]+)/g)) keptNames.add(m[1]!);
+  const pseudoKept = new Set(parts.filter((p) => p.pseudo).map((p) => p.selector));
+  for (const [el, f] of census) {
+    const p = partOf.get(el);
+    const holder = el instanceof SVGElement && el.tagName.toLowerCase() !== "svg" ? el.closest("svg") : null;
+    const inMarkup = !!holder && !!partOf.get(holder)?.svg;
+    const layer = (from: string) => layers.some((l) => l.from === from);
+    const named = el === document.documentElement ? "html" : el === document.body && !bodyIsPart ? "body" : null;
+    for (const k of f) {
+      live[k]++;
+      const ok = k === "animated" ? inMarkup || !!p?.style.animation?.length
+        : k === "turned" ? inMarkup || !!p?.turn || !!p?.style.ownTurn || !!p?.style.animation?.some((a) => /forwards|both/.test(a.fill)) || (!!p && [css(el).getPropertyValue("rotate"), css(el).getPropertyValue("scale")].every((v) => !v || v === "none") && (() => { const t = css(el).transform; if (!t || t === "none") return true; const m = new DOMMatrix(t); return Math.abs(m.a - 1) < 1e-3 && Math.abs(m.b) < 1e-3 && Math.abs(m.c) < 1e-3 && Math.abs(m.d - 1) < 1e-3; })())
+        : k === "svg" ? !!p?.svg
+        : k === "svgShapes" ? inMarkup
+        : k === "layered" ? (named ? layer(named) : !!p?.style.image && layersIn(p.style.image) > 1)
+        : k === "dropShadow" ? /drop-shadow/.test(p?.style.filter ?? "")
+        : k === "blend" ? !!p?.style.blend
+        : k === "clipPath" ? !!p?.style.clipPath
+        : k === "mask" ? !!p?.style.mask
+        : k === "fixed" ? p?.position === "fixed"
+        : k === "sticky" ? p?.position === "sticky"
+        : k === "canvas" ? !!p
+        : false;
+      if (ok) kept[k]++;
+    }
+  }
+  for (const { el, which } of livePseudo) {
+    live.pseudo++;
+    const named = el === document.documentElement ? "html" : el === document.body && !bodyIsPart ? "body" : null;
+    if (named ? layers.some((l) => l.from === `${named}${which}`) : pseudoKept.has(`${path(el)}${which}`)) kept.pseudo++;
+  }
+  live.keyframes = liveNames.size;
+  kept.keyframes = [...liveNames].filter((n) => keptNames.has(n)).length;
   /* Every turn put back as it was. */
   for (const { el, had } of lifted.reverse()) { if (had === null) el.removeAttribute("style"); else el.setAttribute("style", had); }
   return {
@@ -1259,5 +1349,6 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     parts,
     ...(keyframes.length ? { keyframes } : {}),
     ...(layers.length ? { layers } : {}),
+    ...(census.size || livePseudo.length ? { census: { live, kept } } : {}),
   };
 };

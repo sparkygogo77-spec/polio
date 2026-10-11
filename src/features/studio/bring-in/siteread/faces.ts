@@ -225,6 +225,9 @@ export interface PagePart {
   pseudo?: { which: "::before" | "::after"; host: Record<string, string> };
 }
 
+/** What the fidelity count counts. */
+export type CensusKey = "animated" | "keyframes" | "turned" | "svg" | "svgShapes" | "layered" | "pseudo" | "dropShadow" | "blend" | "clipPath" | "mask" | "fixed" | "sticky" | "canvas";
+
 /** A page read element by element. */
 export interface PageRead {
   title: string;
@@ -247,6 +250,8 @@ export interface PageRead {
   widths?: Partial<Record<"tablet" | "phone", ({ x: number; y: number; w: number; h: number; px?: number } | null)[]>>;
   /** The page's @keyframes that a part's animation names, as the capture records them. */
   keyframes?: { name: string; frames: { key: string; style: Record<string, string> }[] }[];
+  /** Kept against live, over every element of the page: what animates (and the keyframes named), turns, inline svgs and their shapes, layered backgrounds, ::before/::after with content, drop shadows, blends, clip paths, masks, fixed, sticky, canvases. */
+  census?: { live: Record<CensusKey, number>; kept: Record<CensusKey, number> };
   /** The page's own background layers that no part carries: <html>'s, an unhooked <body>'s, and their ::before/::after, in paint order. */
   layers?: { from: "html" | "body" | "html::before" | "html::after" | "body::before" | "body::after"; position: "absolute" | "fixed"; box: { x: number; y: number; w: number; h: number }; z: number | null; art: { colour?: string; background?: string; backgroundOptions?: string[]; backgroundBlend?: string; filter?: string; mask?: string; maskOptions?: string[]; blend?: string; opacity?: number } }[];
 }
