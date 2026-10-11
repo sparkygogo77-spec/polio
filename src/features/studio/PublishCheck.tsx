@@ -2,7 +2,8 @@
 /**
  * THE LIST BEFORE UPDATE LIVE SITE.
  *
- * Pressing Update live site (or Go live) reads the board first
+ * Pressing Update live site (or Go live; on a site from code, Publish and the
+ * repo menu's Open a pull request) reads the board first
  * (`publishCheck.ts`). Nothing wrong, it publishes as it always did. Something
  * wrong, this opens: one short list, grouped by kind, each line naming the
  * part and saying what is wrong, with Fix (where there is one) and Show,
@@ -26,7 +27,7 @@ import { activeProject } from "@/features/builds/store";
 import { issueFiles, pushBranch } from "./send-out";
 import { goToPart } from "./panels/ui";
 import { stillCopyWords, useStillCopy } from "./stillCopy";
-import { openRepoPicker } from "./RepoPicker";
+import { closeRepoPicker, openRepoPicker } from "./RepoPicker";
 
 /** The board read now, as the check wants it. */
 export async function readBoard(): Promise<Problem[]> {
@@ -63,6 +64,8 @@ function show(p: Problem) {
   const s = useStudio.getState();
   if (s.activePageId !== p.pageId) s.setActivePage(p.pageId);
   useCheck.setState({ open: false });
+  /* Opened by the repo menu's Open a pull request, the list sits over the menu, and the menu over the part. */
+  closeRepoPicker();
   requestAnimationFrame(() => goToPart(p.id));
 }
 

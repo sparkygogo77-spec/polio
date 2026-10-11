@@ -3379,7 +3379,10 @@ carry why a thing arrived.
   and Publish anyway is always there: the list informs, it never holds a
   site back. A clean board publishes straight away. A new kind of problem is
   one more block in `checkBoard`, read by the check that already owns it.
-  `tests/publish-check.mjs`.
+  It runs before Go live, Publish (a site made here or from code) and the
+  repo menu's Open a pull request (`checkThenPublish`); opened from the repo
+  menu, Show also closes the menu. `tests/publish-check.mjs`,
+  `tests/send-back-check.mjs`.
 - **The launch kit** (`studio/launchKit.ts`, `LaunchKit.tsx`, the rocket key
   in the top bar in the Builder, and the palette) draws a share card
   (1200 by 630), an X banner (1500 by 500, the bottom left clear for the

@@ -239,6 +239,8 @@ try {
   await page.waitForTimeout(800);
   const sec = page.locator("[data-style-layer-panel]");
   await sec.locator("[data-style-layer-send]").click();
+  /* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+  for (let i = 0; i < 20 && !(await sec.locator("[data-style-layer-said]").count()); i++) { if (await page.locator("[data-publish-anyway]").count()) { await page.locator("[data-publish-anyway]").click(); break; } await page.waitForTimeout(250); }
   let said = "";
   for (let i = 0; i < 120 && !/pull request|compare|Refused|would not|problem/i.test(said); i++) { await page.waitForTimeout(500); said = await sec.locator("[data-style-layer-said]").innerText().catch(() => ""); }
   const branch = [...refs.keys()].find((b) => b !== MAIN);

@@ -369,6 +369,8 @@ let roundSays = "";
 for (let i = 0; i < 20 && !/Nothing changed|hook/.test(roundSays); i++) { await ui.waitForTimeout(300); roundSays = await section.locator("[data-style-layer-round-says]").innerText().catch(() => ""); }
 check("opened, it reads the code again first and says what changed since it was brought in", /^Nothing changed in the code since/.test(roundSays), roundSays);
 await section.locator("[data-style-layer-send]").click();
+/* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+for (let i = 0; i < 20 && !(await section.locator("[data-style-layer-said]").count()); i++) { if (await ui.locator("[data-publish-anyway]").count()) { await ui.locator("[data-publish-anyway]").click(); break; } await ui.waitForTimeout(250); }
 let said = "";
 for (let i = 0; i < 30 && !/pull request|compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const compare = await section.locator("[data-style-layer-compare]").getAttribute("href").catch(() => null);

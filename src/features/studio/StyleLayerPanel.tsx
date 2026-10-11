@@ -5,7 +5,8 @@
  * Shown only for a site brought in from a code repository's HTML pages
  * (`look.styleSource`). It says first what the layer would do, in plain
  * words: how many parts it restyles, which hooks are covered, untouched or
- * missing, with a warning for each missing one; then, on one press, puts
+ * missing, with a warning for each missing one; then, on one press and past
+ * the board's check list as Publish runs it (`PublishCheck.tsx`), puts
  * the layer on a new `style/` branch of that repository and gives the
  * compare link, so the owner reads the change and merges it himself. The
  * CSS variables the source exposes are listed under "Advanced", each with
@@ -29,6 +30,7 @@ import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
 import { buildLayer, wearTextures, colourKey, isColour, partSlots, partTokens, type LayerNode, type StyleSource } from "./send-out";
 import { sendDesign } from "./codeSend";
+import { checkThenPublish } from "./PublishCheck";
 import { gatherAsks } from "./publishAsks";
 import { fixLoopOf, setFixLoop } from "./useFixLoop";
 import { sentUnmerged } from "./fixLoop";
@@ -235,7 +237,9 @@ export function StyleLayerSection() {
   const tokens = all.filter((v) => v.token);
   const vars = all.filter((v) => !v.token && isColour(v.value));
 
-  const send = async () => {
+  /* The board's check list first, the one Publish runs (`PublishCheck.tsx`): what is wrong is said before the pull request opens, with Publish anyway beside it. */
+  const send = () => void checkThenPublish(() => void sendNow());
+  const sendNow = async () => {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (!token) { setSaid({ text: "This writes to the repository with your own GitHub token, and there is not one saved yet. Add one under Keys.", bad: true }); return; }
     setBusy(true);
@@ -293,7 +297,7 @@ export function StyleLayerSection() {
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="sm" variant="primary" data-style-layer-send="" disabled={busy} onClick={() => void send()}>
+        <Button size="sm" variant="primary" data-style-layer-send="" disabled={busy} onClick={send}>
           {busy ? <Loader2 className="size-3 animate-spin" /> : null}
           Open a pull request
         </Button>

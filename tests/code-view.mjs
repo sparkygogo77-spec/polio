@@ -234,6 +234,8 @@ await section.locator('[data-style-layer-var="--pons-gain"] input[type="color"]'
 await ui.waitForTimeout(500);
 check("tokens of every kind are editable: a size typed, a colour picked", /2 set by the layer/.test(await section.locator("[data-style-layer-says]").innerText()));
 await section.locator("[data-style-layer-send]").click();
+/* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+for (let i = 0; i < 20 && !(await section.locator("[data-style-layer-said]").count()); i++) { if (await ui.locator("[data-publish-anyway]").count()) { await ui.locator("[data-publish-anyway]").click(); break; } await ui.waitForTimeout(250); }
 let said = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(said); i++) { await ui.waitForTimeout(500); said = await section.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 /* This fixture keeps PST's older shape (an old hooks map, tokens through an @import, unhooked headings), which the kit's contract does not allow: the kit's own check refuses the design in its own words and nothing is written. The starter below, built to the contract, goes all the way. */
@@ -356,6 +358,8 @@ await kui.waitForTimeout(300);
 await ksec.locator('[data-style-layer-var="--color-accent"] input[type="color"]').fill("#00aa88");
 await kui.waitForTimeout(400);
 await ksec.locator("[data-style-layer-send]").click();
+/* The board's check list comes first, as on Publish (`PublishCheck.tsx`): past it with Publish anyway when it opens. */
+for (let i = 0; i < 20 && !(await ksec.locator("[data-style-layer-said]").count()); i++) { if (await kui.locator("[data-publish-anyway]").count()) { await kui.locator("[data-publish-anyway]").click(); break; } await kui.waitForTimeout(250); }
 let ksaid = "";
 for (let i = 0; i < 30 && !/compare|Refused|would not/i.test(ksaid); i++) { await kui.waitForTimeout(500); ksaid = await ksec.locator("[data-style-layer-said]").innerText().catch(() => ""); }
 const klayer = kwrote.find((w) => w.path === "starter/style-layer.css")?.content ?? "";
