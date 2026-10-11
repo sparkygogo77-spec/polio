@@ -978,9 +978,12 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
    * number, so tablet and phone, matched to desktop by selector, took another
    * line's box or came back hidden: redesign Play at 390 matched 0 of its 17
    * lines to 1440's (J, 2026-10-11). Within its box, 16 of 17.
+   * Counted by the holder's path, not the element: a template's clone is read
+   * in a stand-in box that has the path of a real one beside it, and two
+   * holders on one path would both say ::line(1).
    */
-  const lineNos = new Map<Element, number>();
-  const lineOf = (holder: Element) => { const n = (lineNos.get(holder) ?? 0) + 1; lineNos.set(holder, n); return n; };
+  const lineNos = new Map<string, number>();
+  const lineSel = (holder: Element) => { const at = path(holder); const n = (lineNos.get(at) ?? 0) + 1; lineNos.set(at, n); return `${at} ::line(${n})`; };
   /* The last line read, and where its last row ends: a small part set right after its words follows them (`tieAfter`). */
   let lastLine: { at: number; right: number; top: number; bottom: number } | null = null;
   /*
@@ -1051,7 +1054,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
     x1 = x0 + Math.ceil(x1 - x0 - 0.01);
     const r = { left: x0, top: y0, width: x1 - x0, height: y1 - y0, right: x1, bottom: y1, x: x0, y: y0 } as DOMRect;
     /* Only empty places the code writes into: one empty place, with their hook. */
-    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: `${path(holder)} ::line(${lineOf(holder)})`, style: styleOf(holder) }, undefined, holder); return; }
+    if (!words.trim()) { push({ kind: "slot", tag: "span", parent, box: box(r), words: "", hooks: hooks!, hidden, selector: lineSel(holder), style: styleOf(holder) }, undefined, holder); return; }
     /*
      * The line wears its holder's words, never its box: the holder is a part
      * of its own when it paints, and drew its fill, outline and padding there.
@@ -1060,7 +1063,7 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
      */
     const worn = styleOf(holder);
     delete worn.layout; delete worn.clips; delete worn.maxw;
-    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: `${path(holder)} ::line(${lineOf(holder)})`, style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
+    const at = push({ kind: "text", tag: "line", parent, box: box(r), words, ...(plainRuns(runs) ? {} : { runs }), ...(wrapped ? { wraps: true as const } : {}), hooks: {}, hidden, selector: lineSel(holder), style: { ...worn, bg: null, border: null, radius: 0, pad: [0, 0, 0, 0] } }, undefined, holder);
     const last = rows.reduce<(typeof rows)[number] | null>((a, w) => (!a || w.top > a.top ? w : a), null);
     lastLine = at >= 0 && last ? { at, right: last.right, top: last.top, bottom: last.bottom } : null;
   };

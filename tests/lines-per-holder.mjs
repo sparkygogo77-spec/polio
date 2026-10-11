@@ -31,6 +31,12 @@ const wide = await page.evaluate(PARTS, 1500);
 await page.setViewportSize({ width: 390, height: 900 });
 await page.waitForTimeout(150);
 const narrow = await page.evaluate(PARTS, { cap: 1500, lean: true });
+/* A template's clone is read in a stand-in box on a real box's path: its lines still have their own numbers. */
+await page.setContent(`<!doctype html><html><body><main><div>first</div>
+<template data-hook="template-a">Alpha words <b>x</b><p>blk</p></template>
+<template data-hook="template-b">Beta words <b>y</b><p>blk</p></template>
+<div>Real words <b>z</b><p>blk</p></div></main></body></html>`);
+const cloned = await page.evaluate(PARTS, 1500);
 await browser.close();
 
 /* The route's key (zip/route.ts, `atWidths`): kind and selector, and which of that pair it is. */
@@ -49,6 +55,7 @@ for (const [k, p] of later) {
 const once = (read) => { const s = read.parts.filter(isLine).map((p) => p.selector); return s.length === new Set(s).size; };
 check("no line selector repeats at 1440", once(wide), JSON.stringify(wide.parts.filter(isLine).map((p) => p.selector)));
 check("no line selector repeats at 390", once(narrow), JSON.stringify(narrow.parts.filter(isLine).map((p) => p.selector)));
+check("no line selector repeats beside templates", cloned.parts.filter(isLine).length === 3 && once(cloned), JSON.stringify(cloned.parts.filter(isLine).map((p) => p.selector)));
 const bad = results.filter((x) => !x).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);
 process.exit(bad ? 1 : 0);
