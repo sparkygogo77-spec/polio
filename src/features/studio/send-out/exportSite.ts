@@ -73,7 +73,7 @@ import { resolvePalette } from "../shelf/run";
 import { base64, bytesFor, type Picture } from "../pictures";
 import { siteLogo } from "../siteMark";
 import { headPictures, heldHead, pageHead, type SiteIcons } from "../siteHead";
-import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, pageUnits, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, vhShift, vhStretch, type FluidPart } from "../fluidSite";
+import { bandMoves, captureHeight, css as lenCss, heroHeight, fluidClip, fluidParts, fluidStyle, isCaptured, pageUnits, snapPlace, SNAP_CSS, stickyFlow, stickyHolds, typeShifts, windowTallBands, fromRailFoot, vhShift, vhStretch, type FluidPart } from "../fluidSite";
 import { activeProject } from "@/features/builds/store";
 import { innerBlock, layerStyle, type Units } from "../layerUnits";
 import { DEFAULT_OFFSITE, isOffsite, linkAllowed, offsiteRules, type OffsiteRules } from "../shelf";
@@ -556,6 +556,16 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
       if (moved) cutEl.style.clipPath = moved;
     }
   }
+  /* A rail that sticks the whole way down is one window tall, so it sticks (`fluidSite.ts#windowTallBands`). */
+  for (const id of windowTallBands(parts)) {
+    const el = root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
+    if (!el || el.parentElement?.closest("[data-live-node]") || el.style.position !== "sticky") continue;
+    el.style.height = "100vh";
+    el.style.minHeight = "0px";
+    el.style.marginBottom = "-100vh";
+    el.style.overflow = "clip";
+    for (const box of Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-part-box], :scope > [data-still-cut], :scope > [data-still-cut] > [data-part-box]"))) { box.style.flex = "1 1 0"; box.style.minHeight = "0"; box.style.height = "auto"; }
+  }
   /* A hero sized in the window's height (`node.vh`, 100svh): it fills a taller window and what is under it moves down (`fluidSite.ts#vhShift`). */
   const heroNode = [...nodes.values()].find((n) => n.pageId === pageId && (n as { vh?: { px?: number } }).vh?.px);
   const heroPx = (heroNode as { vh?: { px?: number } } | undefined)?.vh?.px ?? 0;
@@ -652,12 +662,17 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
    * with its own parts already inside it (the moves are nearest band first).
    */
   const moves = bandMoves(parts, W);
+  /* A window-tall rail's own parts, and which of them stand at its foot (`fluidSite.ts#fromRailFoot`). */
+  const tall = windowTallBands(parts);
+  const railKids = (band: string) => [...moves].filter(([, m]) => m.band === band).map(([k]) => byId.get(k)!).filter(Boolean);
   const elOf = (id: string) => root.querySelector<HTMLElement>(`[data-live-node="${CSS.escape(id)}"]`);
   for (const [id, m] of live ? [] : moves) {
     const el = elOf(id), host = elOf(m.band);
     if (!el || !host || el === host || host.contains(el) || el.contains(host)) continue;
     host.appendChild(el);
     el.style.top = `${m.top}px`;
+    const under = tall.has(m.band) ? fromRailFoot(byId.get(id)!, byId.get(m.band)!, railKids(m.band), H) : null;
+    if (under !== null) { el.style.top = "auto"; el.style.bottom = `${under}px`; }
     if (m.inside) { el.style.left = m.inside.left; el.style.width = m.inside.width; }
     else if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
   }
@@ -681,7 +696,16 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     /* At rest where it was measured: its offset in the band, as a sticky band's own margin places it (fluidStyle). */
     st.marginTop = `${p.y - band.y}px`;
     st.marginBottom = `-${p.y - band.y + p.h}px`;
-    st.marginLeft = st.left || `${p.x}px`;
+    /* At a window-tall rail's foot: as far above the window's foot as it was (`fluidSite.ts#fromRailFoot`). */
+    const under = tall.has(band.id) ? fromRailFoot(p, band, railKids(band.id), H) : null;
+    if (under !== null) {
+      st.top = `calc(${band.inset?.top ?? 0}px + 100vh - ${under + p.h}px)`;
+      st.marginTop = `calc(100vh - ${under + p.h}px)`;
+      st.marginBottom = `calc(${under}px - 100vh)`;
+    }
+    /* Run again (the Preview re-anchors on every resize), its left is already a margin (`fluidStyle`'s first case) and `left` is "auto". */
+    if (st.left && st.left !== "auto") st.marginLeft = st.left;
+    else if (!st.marginLeft || st.marginLeft === "auto") st.marginLeft = `${p.x}px`;
     st.left = "auto";
     st.zIndex = "2";
     stuck.set(id, { ...p, position: "sticky" });
