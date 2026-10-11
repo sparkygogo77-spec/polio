@@ -585,6 +585,98 @@ const sampleFrames = async (seconds, near = null) => {
 };
 if (frameSecs > 0) await sampleFrames(frameSecs);
 /*
+ * A CANVAS THAT FOLLOWS THE SCROLL (J, 2026-10-11, sunkcoin.fun). The sea is
+ * a fixed canvas under the whole page whose camera is the scroll (`cam =
+ * scrollY`): read once at the top it was the surface, and the deep water
+ * below the first screen was never seen. Its minimap, fixed at the right,
+ * draws a window where the scroll is: read once it was a still, not the
+ * scroll bar J pressed. Every canvas pinned to the window is read again at
+ * each depth of the page (every half window, `--depths-every`, at most
+ * `--depths` stills), and kept as `depths` (dump.mjs) when what it shows
+ * changes with the scroll by more than it changes on its own: the
+ * converter lays the stills in one strip, the Builder shows the one for
+ * where the scroll is (`scroll-depths`). `check-depths.mjs`.
+ */
+const depthsMax = Math.max(0, Number(opt("--depths", 48)));
+const depthsEvery = Math.max(100, Number(opt("--depths-every", Math.round(height / 2))));
+const sampleDepths = async () => {
+  const pinned = await page.evaluate(() => Array.from(document.querySelectorAll("canvas")).map((c, i) => {
+    const r = c.getBoundingClientRect();
+    if (!(c.width && c.height && c.width * c.height <= 4_000_000 && r.width > 0 && r.height > 0)) return null;
+    let fixed = false;
+    for (let n = c; n && n !== document.body; n = n.parentElement) if (getComputedStyle(n).position === "fixed") { fixed = true; break; }
+    if (!fixed) return null;
+    c.dataset.sinkCanvas = String(i);
+    return i;
+  }).filter((i) => i !== null));
+  if (!pinned.length) return;
+  const pageH = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+  const range = Math.max(0, pageH - height);
+  if (range < depthsEvery) return;
+  const steps = Math.min(depthsMax, Math.floor(range / depthsEvery) + 1);
+  if (steps < 2) return;
+  const at = Array.from({ length: steps }, (_, k) => Math.round((range * k) / (steps - 1)));
+  const read = () => page.evaluate((ids) => ids.map((i) => { const el = document.querySelector(`canvas[data-sink-canvas="${i}"]`); try { return el ? el.toDataURL("image/png") : null; } catch { return null; } }), pinned);
+  /* How much a canvas changes on its own, read twice at the top: the measure a depth has to beat. */
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(250);
+  const first = await read();
+  await page.waitForTimeout(250);
+  const again = await read();
+  const stills = pinned.map(() => []);
+  for (const y of at) {
+    await page.evaluate((y) => scrollTo(0, y), y);
+    await page.waitForTimeout(250);
+    const urls = await read();
+    urls.forEach((u, k) => { if (u) stills[k].push([y, u]); });
+  }
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(250);
+  /*
+   * How two pictures differ, read at 128px on the long side (a minimap 25
+   * wide and 393 tall squashed to 48 × 48 lost the window it draws): the
+   * mean difference per pixel (0 to 255), the share of pixels that changed
+   * outright (the minimap's window, moved: few pixels, all of them), and
+   * the shift of the average colour (the sea, darker with depth).
+   */
+  const differ = (a, b) => page.evaluate(async ([a, b]) => {
+    const load = (u) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = u; });
+    const [ia, ib] = await Promise.all([load(a), load(b)]);
+    const s = 128 / Math.max(1, ia.naturalWidth, ia.naturalHeight);
+    const W = Math.max(1, Math.round(ia.naturalWidth * s)), H = Math.max(1, Math.round(ia.naturalHeight * s));
+    const px = (im) => { const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(im, 0, 0, W, H); return g.getImageData(0, 0, W, H).data; };
+    const pa = px(ia), pb = px(ib), n = pa.length / 4;
+    let sum = 0, big = 0; const ma = [0, 0, 0], mb = [0, 0, 0];
+    for (let i = 0; i < pa.length; i += 4) { let d = 0; for (let c = 0; c < 3; c++) { d += Math.abs(pa[i + c] - pb[i + c]); ma[c] += pa[i + c]; mb[c] += pb[i + c]; } sum += d; if (d > 96) big++; }
+    return { mean: sum / n / 3, frac: big / n, shift: (Math.abs(ma[0] - mb[0]) + Math.abs(ma[1] - mb[1]) + Math.abs(ma[2] - mb[2])) / n / 3 };
+  }, [a, b]);
+  /* Changed by the scroll: more than it changes on its own at rest, by any of the three measures. */
+  const beats = (deep, noise) => deep.mean > noise.mean * 1.5 + 1 || deep.frac > noise.frac * 1.5 + 0.01 || deep.shift > noise.shift * 1.5 + 1.5;
+  const fmt = (d) => `${d.mean.toFixed(1)} mean, ${(d.frac * 100).toFixed(1)}% changed, ${d.shift.toFixed(1)} shift`;
+  const kept = {};
+  for (let k = 0; k < pinned.length; k++) {
+    const list = stills[k];
+    if (list.length < 2 || !first[k] || !again[k]) continue;
+    const noise = await differ(first[k], again[k]);
+    /* The depth least like the top: a minimap's window can stand where it stood at the top again at the foot. */
+    let deep = null;
+    for (const [, u] of list.slice(1)) { const d = await differ(list[0][1], u); if (!deep || d.mean + d.frac * 100 + d.shift > deep.mean + deep.frac * 100 + deep.shift) deep = d; }
+    const moved = list.some(([, u]) => u !== list[0][1]);
+    if (!moved || !deep || !beats(deep, noise)) { console.error(`depths: canvas ${pinned[k]} is the same at every depth (${deep ? fmt(deep) : "no change"} at most; ${fmt(noise)} on its own); read once`); continue; }
+    /*
+     * OVER THE BUDGET (3 MB of stills): every n-th depth is kept, the top and
+     * the foot always, so the strip still reaches the page's end.
+     */
+    const bytes = list.reduce((n, [, u]) => n + u.length, 0);
+    const n = Math.max(1, Math.ceil(bytes / 3_000_000));
+    const chosen = n > 1 ? list.filter((_, i) => i % n === 0 || i === list.length - 1) : list;
+    kept[pinned[k]] = { at: chosen.map(([y]) => y), stills: chosen.map(([, u]) => u), view: height, page: pageH, every: depthsEvery };
+    console.error(`depths: canvas ${pinned[k]} follows the scroll (${fmt(deep)} at most; ${fmt(noise)} on its own): ${chosen.length} of ${list.length} depths kept, every ${depthsEvery}px${n > 1 ? `, thinned ${n}× to the budget` : ""}`);
+  }
+  await page.evaluate((kept) => { window.__sinkDepths = kept; }, kept);
+};
+if (frameSecs > 0 && depthsMax > 0) await sampleDepths();
+/*
  * A CANVAS WORLD (worlds.mjs): a canvas seen repainting whose sprites open
  * something when pressed. Its frames are read again, held still one by one,
  * with where each character stands in each and the dialog it opens; the

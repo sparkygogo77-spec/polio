@@ -143,11 +143,32 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
  */
 export function PictureSlot({ t, pic, src, label, mode = "board" }: {
   t: Theme;
-  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean } | null;
+  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
 }) {
+  if (pic && src && pic.depths && pic.depths.bands > 1) {
+    /*
+     * A STRIP OF DEPTHS (`Picture.depths`): the picture is `bands` stills one
+     * under another, each what a canvas pinned to the window showed at that
+     * depth of the page. Drawn at the part's width and its own height, cut by
+     * the part's box: the top band where the box is one band tall (the board,
+     * the Preview as the page opens), the whole strip where the board has
+     * stretched the layer over the page. The `scroll-depths` effect slides it
+     * to the band for where the scroll is.
+     */
+    return (
+      <div data-picture-depths={pic.depths.bands} style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+        <img
+          src={src}
+          alt={pic.alt ?? ""}
+          data-depth-strip=""
+          style={{ width: "100%", height: "auto", display: "block", ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
+        />
+      </div>
+    );
+  }
   if (pic && src) {
     /* A captured picture draws only the edge the capture recorded, which the
        box round the part draws; the line here is a default for a picture

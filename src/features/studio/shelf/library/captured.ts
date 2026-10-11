@@ -88,7 +88,6 @@ function capturedAnimation(a: { name?: string; duration?: string; timing?: strin
  */
 export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: unknown, keyframes?: unknown): N[] {
   const b = behaviours as Rec | null;
-  if (!b || typeof b !== "object" || b.version !== 1) return [...nodes];
   const out = nodes.map((n) => ({ ...n }));
   const byId = new Map(out.map((n) => [n.id, n]));
   /* What the document already says of a feature (the owner's ribbons: "Centre in its band", a text size) stands over what the capture says of it. */
@@ -98,6 +97,12 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     if (n) n.work = withWork(n.work, had ? { ...use, inputs: { ...(use.inputs ?? {}), ...had.inputs }, ...(had.off ? { off: true } : {}) } : use);
     return !!n;
   };
+  /* ---------------------------------------------------------------- a canvas that followed the scroll (the capturer's `depths`, carried on the picture itself: sunkcoin.fun's sea and minimap) */
+  for (const n of out) {
+    const d = (n as { picture?: { depths?: { bands?: number } | null } | null }).picture?.depths;
+    if (d && typeof d.bands === "number" && d.bands > 1) give(n.id, { id: "scroll-depths", inputs: { bands: String(d.bands) } });
+  }
+  if (!b || typeof b !== "object" || b.version !== 1) return out;
   /** The parts inside a part: every one on its page whose element sits under its element. */
   const inside = (n: Node): Node[] => {
     const sel = n.from?.selector?.trim();
@@ -176,7 +181,8 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const speed = perFrame !== null ? perFrame * 60 : num(l.speed) ?? 60;
     /* Stepped by the page every frame (sink `clock: "frame"`, told apart by sampling at two frame rates): so much a frame here too, so a 144 Hz screen runs it as fast as the original did there. */
     const step: Record<string, string> = l.clock === "frame" && perFrame ? { step: str(perFrame) } : {};
-    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: "0" } });
+    /* A stylesheet marquee (capture-to-document.mjs `cssMarquee`): the gap its row set between its words is the gap between loops too. */
+    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: String(Math.max(0, num(l.gap) ?? 0)) } });
   }
 
   /* Layers that follow the pointer and the scroll. */
