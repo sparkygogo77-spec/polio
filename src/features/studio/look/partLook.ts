@@ -180,6 +180,18 @@ export function lookPatch(target: N, look: PartLook, chosen: readonly Facet[], o
     if (v.art) { art = merge(art, v.art as Rec); touched.add("art"); }
     /* A worn shape's kit only dresses a worn shape: its outline is the target's own. */
     if (v.worn && target.worn) { worn = merge(worn, v.worn as Rec); touched.add("worn"); }
+    /*
+     * A LOOK FROM A PLAIN PART ON A DRAWN SHAPE (J, 2026-10-10: Copy look from a
+     * button onto a drawn star left the star as it was). A drawn shape paints its
+     * kit's fill, not `colour`, and lifts by `worn.hover`, not `motion.hover`, so
+     * the facets are written where it reads them: the fill colour as its picked
+     * fill (a plain colour; a token or picture is left to the kit's own), hover
+     * and press as its own switches.
+     */
+    else if (!v.worn && target.worn && WORN[f]) {
+      if (f === "fill") { const bg = (v.colour as Rec | null)?.bg; worn = merge(worn, { fill: typeof bg === "string" && /^(#|rgb|hsl|oklch|oklab|color\()/i.test(bg.trim()) ? bg.trim() : null }); touched.add("worn"); }
+      if (f === "hover") { worn = merge(worn, { hover: !!v.hover, press: !!v.active }); touched.add("worn"); }
+    }
   }
   if (opts.keepColour) {
     if ("colour" in p) { p.colour = target.colour ?? null; p.hue = target.hue ?? null; }

@@ -560,8 +560,8 @@ export function KeysPanel() {
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "fixed right-0 top-0 z-[76] flex h-dvh w-[min(460px,94vw)] flex-col border-l border-border bg-panel shadow-panel transition-transform duration-(--motion-slow) ease-out",
-          open ? "translate-x-0" : "translate-x-full",
+          "fixed right-0 top-0 z-[76] flex h-dvh w-[min(460px,94vw)] flex-col border-l border-border bg-panel transition-transform duration-(--motion-slow) ease-out",
+          open ? "translate-x-0 shadow-panel" : "translate-x-full",
         )}
       >
         <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">

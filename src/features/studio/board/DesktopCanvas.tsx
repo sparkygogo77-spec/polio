@@ -1,4 +1,5 @@
 "use client";
+import { pageGround } from "../pageGround";
 import { partUnder } from "../states";
 import { clampMove,frameRiders,inside,keepInFrame,stateFrames } from "../states";
 import * as React from "react";
@@ -219,6 +220,8 @@ export function DesktopCanvas() {
   const theme = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   const wash = React.useMemo(() => washCss(look.light), [look.light]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  /* The page's own ground, where its body has one (`pageGround.ts`). */
+  const ground = React.useMemo(() => pageGround(pageAll, palette.bg), [pageAll, palette.bg]);
   const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
   /* The frame being chosen in Import, if one is. Not in the document and
      not in the undo history — a preview is not an edit. */
@@ -1714,7 +1717,7 @@ export function DesktopCanvas() {
             /* No size patched on here. The backdrop carries its own now —
                a grid arrived unsized, so this tiled it at 24px while the
                swatch said 8 and the live page drew a hairline. */
-            ...(theme.surfaceStyle ?? { background: theme.backdrop }),
+            ...(ground ? { background: ground } : theme.surfaceStyle ?? { background: theme.backdrop }),
             // The page is marked in the far side of its own colour, like a
             // part: an accent-blue box round the whole frame was the loudest
             // thing on a board whose whole subject is what the page looks like.

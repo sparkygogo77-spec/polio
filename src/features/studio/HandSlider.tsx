@@ -13,6 +13,8 @@ import * as React from "react";
 import { Slider as CoreSlider, type SliderProps } from "@/core/ui/slider";
 import { endGesture, gestureFrame, inGesture } from "./board/store";
 
+/* A finger on one of these moves the thumb at most once a frame and saves on release: see the head of this file. */
+
 export function Slider({ value, onValueChange, onValueCommit, onPointerDown, ...props }: SliderProps) {
   const [held, setHeld] = React.useState<number[] | null>(null);
   const mine = React.useRef(false);
@@ -95,6 +97,67 @@ export function HandColour({ onPick, onSettle, onBlur, value, ...props }: Colour
       type="color"
       {...(value === undefined ? {} : { value: held ?? value })}
       onChange={(e) => { const hex = e.target.value; setHeld(hex); mine.current = true; gestureFrame(() => onPick(hex)); }}
+      onBlur={(e) => { settle.current(); onBlur?.(e); }}
+    />
+  );
+}
+
+type RangeProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "value"> & {
+  value: number;
+  /** Each value the hand passes through, at most once a frame. */
+  onChange: (value: number) => void;
+};
+
+/**
+ * A PLAIN `<input type="range">` UNDER THE HAND-ON-SLIDER RULE (J, 2026-10-10:
+ * the wheel's plates, the Look hue strip and Theme's Familiar to Original
+ * took one undo step and one save per tick, so the drag lagged on PonsStars
+ * and Undo walked back tick by tick). The browser sends `input` on every
+ * move; here each move previews on the board once a frame, and the hand
+ * coming up (pointer, key or the input's own `change`) ends the gesture:
+ * one save, one undo step. The thumb follows the hand from its own value
+ * meanwhile, since the panel stands still until release.
+ */
+export function HandRange({ value, onChange, onPointerDown, onBlur, ...props }: RangeProps) {
+  const [held, setHeld] = React.useState<number | null>(null);
+  const mine = React.useRef(false);
+  const settle = React.useRef(() => {});
+  settle.current = () => {
+    if (!mine.current) return;
+    mine.current = false;
+    if (inGesture()) endGesture();
+    setHeld(null);
+  };
+  const ref = React.useRef<HTMLInputElement>(null);
+  /* The input's own `change` is the release (the browser sends it when the hand comes up, and a test's fill sends it at once); React folds it into onChange, so it is heard here. */
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const done = () => settle.current();
+    el.addEventListener("change", done);
+    return () => { el.removeEventListener("change", done); done(); };
+  }, []);
+  return (
+    <input
+      {...props}
+      ref={ref}
+      type="range"
+      value={held ?? value}
+      onPointerDown={(e) => {
+        onPointerDown?.(e);
+        /* The hand comes up anywhere, on the thumb or far off it. */
+        const up = () => { window.removeEventListener("pointerup", up, true); window.removeEventListener("pointercancel", up, true); setTimeout(() => settle.current(), 0); };
+        window.addEventListener("pointerup", up, true);
+        window.addEventListener("pointercancel", up, true);
+      }}
+      onInput={(e) => {
+        const v = Number((e.target as HTMLInputElement).value);
+        setHeld(v);
+        mine.current = true;
+        gestureFrame(() => onChange(v));
+      }}
+      /* A key press is one step: the change lands, then the gesture ends with it, so each press is one undo step. */
+      onKeyUp={() => queueMicrotask(() => settle.current())}
       onBlur={(e) => { settle.current(); onBlur?.(e); }}
     />
   );

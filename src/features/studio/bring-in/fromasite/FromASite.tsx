@@ -62,7 +62,7 @@ import { fingerprint, isTaken, keepOwnerEdits, keptShort, keptSays } from "../re
 import { sourceNote } from "../../polioMd";
 import { holdIncoming } from "../../boxEntry";
 import { lockNow } from "../../surfaceRun";
-import { drawnOnBoard, tidyToWords } from "../../textFit";
+import { boardElements, drawnOnBoard, tidyToWords } from "../../textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "../zipImport";
 import { pagesToDoc, reportSays, reportChips, type FileRead } from "../pageParts";
 import type { BuilderManifest } from "../../builderManifest";
@@ -246,7 +246,7 @@ export function FromASite({ space }: { space: Space }) {
       busy(`From its source, ${got.source.page}: ${n.bands.length} bands${opened.length ? `, opened ${opened.join(", ")}` : ""}${n.closed.length ? `; ${[...new Set(n.closed)].join(", ")} closed on a first view` : ""}.`);
     } else busy(`Reading the page in ${r.name}…`);
     /* Element by element first (`pageParts.ts`): each heading, line, button, field and checkbox a part of its own, every page of it a page. */
-    if (await landParts(r, got)) return;
+    if (await landParts(r, got, keep)) return;
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
@@ -380,9 +380,22 @@ export function FromASite({ space }: { space: Space }) {
    *
    * False when nothing could be read this way, so the reading by blocks
    * runs as before and says its own ending.
+   *
+   * KEEPING WHAT HE CHANGED (`reimport.ts`), on this path too. "Bring in
+   * again, keeping my changes" on PonsStars replaced the board whole and
+   * said his edits were kept: the keep ran only for a site made here
+   * (`copySite`), never for a site read from its files (dissect 2026-10-10
+   * #1). With `keep`, the board as it stands and its record are taken
+   * first, the new reading lands, and his changes are laid back over it,
+   * part by part, matched by data-hook. Every landing records the board as
+   * brought in, so the next keep has a record; a board brought in before
+   * records were kept gets the careful merge, and the line says so.
    */
-  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File; stills?: { file: File; ask: StillsAsk } }): Promise<boolean> => {
+  const landParts = async (of: Repo, got: { file: File; ref: string; entry: string; code?: { path: string; text: string }[]; manifest?: BuilderManifest; screensFile?: File; stills?: { file: File; ask: StillsAsk } }, keep = false): Promise<boolean> => {
     const st0 = useStudio.getState();
+    /* Kept first: the board as it stands and its record of itself as brought in, before anything lands over it. */
+    const board = keep ? boardNow() : null;
+    const taken = keep && isTaken(st0.taken) ? st0.taken : null;
     /*
      * READ AT HIS WINDOW'S WIDTH (J, 2026-10-04): PonsStars on his ~2000px
      * screen looked like the board only zoomed to 150%, because the board
@@ -469,6 +482,21 @@ export function FromASite({ space }: { space: Space }) {
       const now = useStudio.getState();
       useStudio.setState({ nodes: baselineAsLanded(now.nodes as unknown as LayerNode[], now.look.palette as Record<string, string>, { family: (name) => FAMILY[name] }) as unknown as typeof now.nodes });
     }
+    /* The board as brought in, recorded; and, keeping, the owner's changes laid back over it (`reimport.ts`). */
+    const brought = boardNow();
+    const record = fingerprint(brought, `${styleSource.repo}@${styleSource.commit ?? styleSource.ref}`);
+    let keptLine = "";
+    let keptDetails = "";
+    if (board) {
+      const { doc: merged, kept } = keepOwnerEdits(board, taken, brought);
+      type S = ReturnType<typeof useStudio.getState>;
+      /* The look is his where he changed it (the palette); where the code stands (`styleSource`) is this reading's, never the board's old one. */
+      const look = { ...(merged.look as S["look"]), styleSource: (brought.look as { styleSource?: StyleSource }).styleSource };
+      useStudio.setState({ nodes: merged.nodes as S["nodes"], format: merged.format as S["format"], brief: merged.brief as S["brief"], look: look as S["look"] });
+      keptLine = ` Brought in again over your board: ${keptShort(kept)}`;
+      keptDetails = `Brought in again over your board: ${keptSays(kept)}`;
+    }
+    useStudio.setState({ taken: record });
     /* The elements, in the shelf under the repository's own name: what shows as the page opens, on its first page. */
     const cat = categoryFor(of);
     const shows = (doc.nodes as unknown as StudioNode[]).filter((n) => !n.state && n.pageId === doc.pages[0]!.id);
@@ -506,8 +534,8 @@ export function FromASite({ space }: { space: Space }) {
     /* The counts as chips, a short line beside them, and the whole account under "details" (J, 2026-10-06: too much text to read). */
     const notes = [ report.truncated.length ? `${report.truncated.join(", ")} cut short` : "", left ? `${left} more page${left === 1 ? "" : "s"} not read` : "", failed ? `${failed} page${failed === 1 ? "" : "s"} would not open` : ""].filter(Boolean);
     /* Plain words, not "scripts not run" (design-flaws #4): what the board leaves out, and where to see it. */
-    const short = `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed${notes.length ? ` (${notes.join(", ")})` : ""}.${anyScripts ? " The board doesn't run the site's code; Preview does." : ""} One undo takes it all back.`;
-    setStage({ at: "said", says: short, details: says, chips: reportChips(report) });
+    const short = `${total} part${total === 1 ? "" : "s"} from ${repoName(of)} landed${notes.length ? ` (${notes.join(", ")})` : ""}.${anyScripts ? " The board doesn't run the site's code; Preview does." : ""}${keptLine} One undo takes it all back.`;
+    setStage({ at: "said", says: short, details: keptDetails ? `${says}\n\n${keptDetails}` : says, chips: reportChips(report) });
     play("confirm");
     return true;
   };
@@ -716,9 +744,17 @@ export function FromASite({ space }: { space: Space }) {
      * Not awaited: the import is finished, and the tidy lands a moment
      * later as one undo step of its own.
      */
+    /* The parts and their elements looked up once for the whole read, not searched for each part. */
+    let byId: Map<string, StudioNode> | null = null;
+    let onBoard: Map<string, Element> | null = null;
     void tidyToWords(
       ids,
-      (id) => { const n = useStudio.getState().nodes.find((x) => x.id === id); return n ? drawnOnBoard(n) : null; },
+      (id) => {
+        byId ??= new Map(useStudio.getState().nodes.map((x) => [x.id, x]));
+        onBoard ??= boardElements();
+        const n = byId.get(id);
+        return n ? drawnOnBoard(n, onBoard) : null;
+      },
       (f) => useStudio.getState().fitToWords(f),
     );
     /*

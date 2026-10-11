@@ -473,7 +473,7 @@ const wide = await score(1440);
 const narrow = await score(390, "phone");
 if (process.env.SCORE_FILE) { const { writeFileSync } = await import("node:fs"); writeFileSync(process.env.SCORE_FILE, JSON.stringify([wide, narrow], null, 1)); }
 /* What this branch reached, held so it cannot slip back. */
-const HOLD = { 1440: { share: 1, pixels: 0.02 }, 390: { share: 0.93, pixels: 0.04 } };
+const HOLD = { 1440: { share: 1, pixels: 0.015 }, 390: { share: 1, pixels: 0.015 } };
 for (const r of [wide, narrow]) check(`7. at ${r.width} the import scores at least what it reached (${Math.round(HOLD[r.width].share * 100)}% of parts, at most ${Math.round(HOLD[r.width].pixels * 100)}% of pixels off)`, !!process.env.SCORE_ONLY || (r.parts > 60 && r.matching / r.parts >= HOLD[r.width].share && r.pixels <= HOLD[r.width].pixels), `${r.matching}/${r.parts} parts, ${(r.pixels * 100).toFixed(1)}% pixels`);
 /*
  * …AND A LINE HELD ON ONE LINE IS NEVER CUT. J (2026-10-03), on the live

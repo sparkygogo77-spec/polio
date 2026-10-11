@@ -73,7 +73,7 @@ export function range(id: string, label: string, def: number, min: number, max: 
  * out. The wheel puts these under Animation, as Behaviour; every other option
  * is under Edit.
  */
-export const MOTION_OPTION_IDS: ReadonlySet<string> = new Set(["speed", "autoplay", "motion", "sticky", "onScroll"]);
+export const MOTION_OPTION_IDS: ReadonlySet<string> = new Set(["speed", "autoplay", "onScroll"]);
 
 export interface FeatureDef {
   id: string;

@@ -33,7 +33,7 @@ import { activeProject } from "@/features/builds/store";
 import { useStudio, useSteady } from "./board/store";
 import { FAMILY, resolvePalette } from "./shelf/run";
 import { wornPaint } from "./look";
-import { buildLayer, changedDeclarations, lookOf, wearTextures, type LayerNode, type StyleSource } from "./send-out";
+import { buildLayer, wearTextures, type LayerNode, type StyleSource } from "./send-out";
 import { codeStatus, headOf, layerPrint, mergePull, type CodeStatus } from "./send-out";
 import { sendDesign } from "./codeSend";
 import { checkThenPublish } from "./PublishCheck";
@@ -41,42 +41,11 @@ import { placeBring } from "./bringRepo";
 import { resetToLastBring, useLastBring } from "./lastBring";
 import { fileAt } from "./kitRun";
 import { LANE_MODE } from "./loop";
-import { NEXT_PATH, asksToSend, fixedIn, nextMd, toSend, type FixIssue } from "./fixLoop";
-import { codeAsks, freshHooks } from "./codeAsks";
-import { RUN_MOTIONS, formatSwitches } from "./shelfFacts";
-import { FORMAT_FIELDS } from "./format";
-import { getFeature, getWork } from "./shelf";
-import { fixLoopOf, issuesNow, setFixLoop } from "./useFixLoop";
+import { NEXT_PATH, asksToSend, fixedIn } from "./fixLoop";
+import { asksNow, gatherAsks } from "./publishAsks";
+import { fixLoopOf, setFixLoop } from "./useFixLoop";
 
 const family = (name: string) => FAMILY[name];
-
-/** The data-hooks parts made in the Builder go by (`codeAsks.ts#freshHooks`): theirs if they have one, else made unique against the code's and the board's. */
-function freshNow(source: StyleSource): Record<string, string> {
-  const st = useStudio.getState();
-  const taken = source.files.flatMap((f) => f.hooks.map((h) => h.value));
-  return freshHooks(st.nodes as never, new Set(source.files.map((f) => f.pageId)), taken, { part: (id) => getFeature(id)?.name ?? null, skip: RUN_MOTIONS, pages: st.pages });
-}
-
-/** What the board holds that the style layer cannot write (effects, Format switches, pages, parts made here), as NEXT.md lines (`codeAsks.ts`). */
-function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(source)): FixIssue[] {
-  const st = useStudio.getState();
-  const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
-  const def = new Map(FORMAT_FIELDS.map((f) => [f.id, f.default]));
-  const palette = st.look.palette as Record<string, string> | undefined;
-  return codeAsks({
-    fresh,
-    part: (id) => getFeature(id)?.name ?? null,
-    siteMotions: RUN_MOTIONS,
-    kit: !!source.kit,
-    lookCss: (n) => { const now = lookOf(n as unknown as LayerNode, palette); return changedDeclarations({ box: now.box, words: "" }, now, { dx: 0, dy: 0 }).filter((d) => !/^(width|min-height|max-width|box-sizing):/.test(d)); },
-    nodes: st.nodes as never,
-    pages: st.pages,
-    format: st.format,
-    switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key, def: def.get(s.key) })),
-    coded: new Set(source.files.map((f) => f.pageId)),
-    effect: (id) => { const m = getWork(id)?.manifest; return m ? { name: m.name, blurb: m.blurb } : null; },
-  });
-}
 
 /** The repository, its folder and branch, as "Bring it in" takes them. */
 function wantOf(source: StyleSource): string {
@@ -174,18 +143,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     setBusy("Publishing…");
     try {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
-      /* Ticked issues not yet queued go in polio/NEXT.md, added to what the file already holds. */
-      const loop = fixLoopOf(useStudio.getState().look);
-      /* And what he set that CSS cannot carry (an effect, a whole-site switch, a page): a line each, for the code chat to build. */
-      /* Each part made in the Builder keeps the data-hook it is asked for by, so the next Publish names it the same and its record carries it. */
-      const fresh = freshNow(source);
-      for (const [id, hook] of Object.entries(fresh)) {
-        const n = useStudio.getState().nodes.find((x) => x.id === id);
-        if (n && n.hooks?.["data-hook"] !== hook) useStudio.getState().updateNode(id, { hooks: { ...(n.hooks ?? {}), "data-hook": hook } });
-      }
-      const adding: FixIssue[] = [...(loop.ticked.length ? toSend(loop, await issuesNow()) : []), ...asksToSend(loop, asksNow(source, fresh))];
-      const extra = adding.length ? [{ path: NEXT_PATH, content: nextMd(adding, { site, when: new Date().toISOString().slice(0, 10), prev: await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null) }) }] : [];
-      const withHooks = nodes.map((n) => (fresh[n.id] && n.hooks?.["data-hook"] !== fresh[n.id] ? { ...n, hooks: { ...(n.hooks ?? {}), "data-hook": fresh[n.id]! } } : n));
+      /* Ticked issues not yet queued go in polio/NEXT.md, with what he set that CSS cannot carry and each part made in the Builder (`publishAsks.ts`). */
+      const { fresh, adding, extra, nodes: withHooks } = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
       const sent = await sendDesign(withHooks as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra, fresh });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
       if (!sent.pull) { say("Sent, not merged", sent.says, "warn"); return; }

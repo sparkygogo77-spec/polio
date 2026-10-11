@@ -28,7 +28,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
-import { Slider } from "../HandSlider";
+import { HandRange, Slider } from "../HandSlider";
 import { Tooltip } from "@/core/ui/tooltip";
 
 /* ------------------------------------------------------------------ */
@@ -77,14 +77,13 @@ function Mixer({ value, onChange }: { value: Oklch; onChange: (c: Oklch) => void
           style={{ left: `${(value.c / 0.32) * 100}%`, top: `${(1 - value.l) * 100}%`, background: css(value) }}
         />
       </div>
-      <input
-        type="range"
+      <HandRange
         min={0}
         max={360}
         step={1}
         value={Math.round(value.h)}
         aria-label="Hue"
-        onChange={(e) => onChange({ ...value, h: Number(e.target.value) })}
+        onChange={(h) => onChange({ ...value, h })}
         className="h-3 w-full cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
         style={{
           background: `linear-gradient(to right, ${Array.from({ length: 13 }, (_, i) => css({ l: 0.7, c: 0.16, h: i * 30 })).join(", ")})`,
