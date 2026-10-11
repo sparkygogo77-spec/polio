@@ -12,7 +12,7 @@
 /* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
   var defs = {};
-  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths"];
+  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths","moving-frames"];
   function leaf(el) {
     var kids = el.childNodes || [];
     for (var i = 0; i < kids.length; i++) if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue)) return el;
@@ -451,6 +451,93 @@ siteFeatures.define("scroll-depths", function (el, inputs) {
   (box || window).addEventListener("scroll", soon, { passive: true });
   window.addEventListener("resize", function () { shown = -1; soon(); });
   place();
+});
+
+  })(F);
+  /* Moves as captured: The pictures the capture took of this part as it moved, played back: a loop loops, a once plays once, and what the pointer or the scroll drove follows the visitor's. */
+  (function (siteFeatures) {
+siteFeatures.define("moving-frames", function (el, inputs) {
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  var kind = String(inputs.kind || "loop");
+  var every = Math.max(1, num(inputs.every, 100));
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var driven = kind === "pointer" || kind === "scroll";
+  var samples = kind === "pointer"
+    ? String(inputs.pointer || "").split(";").map(function (p) { var q = p.split(","); return [Number(q[0]), Number(q[1])]; }).filter(function (p) { return isFinite(p[0]) && isFinite(p[1]); })
+    : kind === "scroll" ? String(inputs.scroll || "").split(",").map(Number).filter(function (v) { return isFinite(v); }) : [];
+  /* The flipbook: the layer's own picture, or the file a code site names. */
+  if (!el.querySelector("img[data-moving-frames]") && inputs.src) { var made = document.createElement("img"); made.setAttribute("data-moving-frames", ""); made.alt = ""; made.src = inputs.src; made.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block"; if (!el.style.position) el.style.position = "relative"; el.appendChild(made); }
+  /* Taken over: inlined, no animation of its own, one picture at a time, by hand. */
+  var take = function (img) {
+    var src = img.getAttribute("src");
+    var holder = img.parentElement;
+    if (!src || !holder) return;
+    fetch(src).then(function (r) { return r.ok ? r.text() : null; }).then(function (text) {
+      if (!text || !img.isConnected) return;
+      var svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+      if (!svg || svg.tagName.toLowerCase() !== "svg") return;
+      var uses = Array.prototype.slice.call(svg.querySelectorAll("use"));
+      if (!uses.length) return;
+      Array.prototype.slice.call(svg.querySelectorAll("style")).forEach(function (st) { st.parentNode.removeChild(st); });
+      uses.forEach(function (u, i) { u.style.animation = "none"; u.style.opacity = i === 0 ? "1" : "0"; });
+      svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); svg.setAttribute("preserveAspectRatio", "none");
+      svg.style.display = "block"; svg.style.width = "100%"; svg.style.height = "100%";
+      Array.prototype.forEach.call(img.attributes, function (a) { if (/^data-/.test(a.name)) svg.setAttribute(a.name, a.value); });
+      svg.setAttribute("data-moving-frames", kind);
+      holder.replaceChild(svg, img);
+      if (!driven || samples.length < 2) return;
+      /* When each picture was on: its own time (data-ms), else the pictures evenly over the recording. */
+      var ends = [], at = 0;
+      uses.forEach(function (u) { var d = Number(u.getAttribute("data-ms")); at += isFinite(d) && d > 0 ? d : every * Math.max(1, Math.round(samples.length / uses.length)); ends.push(at); });
+      var total = at;
+      var frameAt = function (k) { var t = Math.min(total - 1, Math.max(0, k * every)); for (var i = 0; i < ends.length; i++) if (t < ends[i]) return i; return ends.length - 1; };
+      var shown = 0;
+      var show = function (i) { if (i === shown || i < 0 || i >= uses.length) return; uses[shown].style.opacity = "0"; uses[i].style.opacity = "1"; shown = i; svg.setAttribute("data-frame", String(i)); };
+      var queued = false, want = 0;
+      var soon = function () { if (!queued) { queued = true; requestAnimationFrame(function () { queued = false; show(frameAt(want)); }); } };
+      if (kind === "pointer") {
+        /* The captured sweep: a circle round the middle of the window, its radii 22 % of the window's sides (frames-drive.mjs), so the window it was read in is known from the sweep, and a visitor's pointer is read against theirs the same way. */
+        var xs = samples.map(function (p) { return p[0]; }), ys = samples.map(function (p) { return p[1]; });
+        var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+        var rx = Math.max(1, (maxX - minX) / 2), ry = Math.max(1, (maxY - minY) / 2);
+        var capW = rx / 0.22, capH = ry / 0.22, capX = (minX + maxX) / 2 - capW / 2, capY = (minY + maxY) / 2 - capH / 2;
+        var windowOf = function () { var box = el.closest("[data-live-scroller]"); return box ? box.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }; };
+        window.addEventListener("pointermove", function (e) {
+          if (!svg.isConnected) return;
+          var r = windowOf();
+          if (!r.width || !r.height) return;
+          var x = capX + ((e.clientX - r.left) / r.width) * capW, y = capY + ((e.clientY - r.top) / r.height) * capH;
+          var best = 0, d = Infinity;
+          for (var i = 0; i < samples.length; i++) { var dx = samples[i][0] - x, dy = samples[i][1] - y, q = dx * dx + dy * dy; if (q < d) { d = q; best = i; } }
+          want = best; soon();
+        }, { passive: true });
+      } else {
+        var scroller = null;
+        for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { scroller = p; break; } }
+        var read = function () {
+          if (!svg.isConnected) return;
+          var top = scroller ? scroller.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0);
+          var best = 0, d = Infinity;
+          for (var i = 0; i < samples.length; i++) { var q = Math.abs(samples[i] - top); if (q < d) { d = q; best = i; } }
+          want = best; soon();
+        };
+        (scroller || window).addEventListener("scroll", read, { passive: true });
+        read();
+      }
+    }).catch(function () { /* the picture stays as drawn */ });
+  };
+  /* A loop, a once, a drift, a live run: the svg plays itself, and a visitor who asked for less motion sees its first picture. The pointer's and the scroll's are taken over. The picture can arrive after the feature (the Preview finds its bytes first), and be drawn again: each new one is looked at. */
+  var look = function () {
+    var img = el.querySelector("img[data-moving-frames]");
+    if (!img) return;
+    if (!img.getAttribute("data-moving-frames")) img.setAttribute("data-moving-frames", kind);
+    if (!driven && !calm) return;
+    if (img.__movingTaken) return;
+    img.__movingTaken = true;
+    take(img);
+  };
+  look();
+  if ((driven || calm) && typeof MutationObserver === "function") new MutationObserver(look).observe(el, { childList: true, subtree: true });
 });
 
   })(F);
@@ -1223,7 +1310,7 @@ siteFeatures.define("compare", function (el, inputs) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"moving-frames":{"kind":"loop","pointer":"","scroll":"","every":"100","src":""},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

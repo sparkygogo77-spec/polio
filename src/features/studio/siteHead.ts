@@ -196,11 +196,17 @@ export function headPictures(head: SiteHead | null | undefined): Picture[] {
  * taken in, the same head is `brief.head`. The importer fetches these, and
  * the export writes them.
  */
-export function namedPictures(doc: { nodes?: unknown; head?: unknown; brief?: unknown; pages?: unknown }): Picture[] {
+export function namedPictures(doc: { nodes?: unknown; head?: unknown; brief?: unknown; pages?: unknown; behaviours?: unknown }): Picture[] {
   const out = new Map<string, Picture>();
   const add = (p: Picture | null | undefined) => { if (p && typeof p.id === "string" && typeof p.path === "string" && !out.has(p.id)) out.set(p.id, p); };
   /* A part's picture, and a captured video's own file (carried and published as a picture is). */
   for (const n of Array.isArray(doc.nodes) ? (doc.nodes as { picture?: Picture | null; media?: { file?: Picture } | null }[]) : []) { add(n?.picture); add(n?.media?.file); }
+  /* The frames the capture took of each moving part (sink `behaviours.motion.frames`): named by the record until the hand-over makes each a layer's picture (`captured.ts`), so the importer fetches them. */
+  const frames = (doc.behaviours as { motion?: { frames?: unknown } } | null | undefined)?.motion?.frames;
+  for (const f of Array.isArray(frames) ? (frames as { picture?: { id?: unknown; path?: unknown; w?: unknown; h?: unknown } | null }[]) : []) {
+    const p = f?.picture;
+    if (p && typeof p.id === "string" && typeof p.path === "string") add({ id: p.id, path: p.path, type: "image/svg+xml", w: typeof p.w === "number" ? p.w : 0, h: typeof p.h === "number" ? p.h : 0, bytes: 0, alt: "", from: "upload" });
+  }
   const heads = [doc.head, (doc.brief as { head?: unknown } | undefined)?.head, ...(Array.isArray(doc.pages) ? (doc.pages as { head?: unknown }[]).map((p) => p?.head) : [])];
   for (const h of heads) if (h && typeof h === "object") headPictures(h as SiteHead).forEach(add);
   return [...out.values()];

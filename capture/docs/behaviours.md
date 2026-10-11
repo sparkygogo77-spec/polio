@@ -348,6 +348,23 @@ else is **live** (a shader, a ticker, a noise). The budget: at most 16
 parts a page (`--moving-most`), 36 pictures and 2.5 MB a part; `--no-moving`
 leaves the pass out.
 
+**How the Builder plays them** (polio, `shelf/library/captured.ts`,
+`behaviourScripts/effects.ts` `moving-frames`, `tests/moving-frames.mjs`): the
+hand-over lays each record's flipbook over its part as a layer of its own
+(`Picture.moving`, drawn edge to edge, taking no press, after the part and
+what is inside it), carrying the "Moves as captured" feature with the kind
+and the pointer's or the scroll's readings. A loop, a once, a drift and a
+live run play themselves wherever the picture shows: the board, the Preview,
+the published page. The pointer's and the scroll's are written still here
+(no animation, each `<use>` stamped `data-ms`); on the page the feature
+inlines the svg and shows the frame taken when the pointer stood where the
+visitor's does (the sweep's circle read against the visitor's window) or
+the page was scrolled as far as theirs is; on the board they stand as their
+first frame. A stylesheet loop the part already plays as captured CSS is not
+laid twice. The importer fetches the pictures off the record
+(`siteHead.ts` `namedPictures`). The kit's `vendor/builder-motion.js`
+carries the feature too, with a `src` input for a code site's own flipbook.
+
 | field | what it holds |
 |---|---|
 | `frames[]` | `{part, selector, kind: loop, once, drift, live, pointer or scroll, box (page px), w, h (the pictures'), scale, every, ms, frames (how many), picture: {id, path, w, h} (the flipbook svg), period? (ms, a loop's, or a stylesheet loop's cycle), name? (its animation), what[] (the properties that changed on it or inside it), text?, words? (the words it showed), via: css, script, canvas or video, self (false for the page itself: a trail), alike? (how many alike siblings, a row of bubbles, this part stands for), pointer? ([x, y] a frame), scroll? (px a frame)}` |

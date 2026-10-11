@@ -26,7 +26,9 @@ interface Node {
   id: string;
   pageId?: string;
   featureId?: string;
+  label?: string;
   data?: string;
+  media?: { file?: unknown } | null;
   x?: number; y?: number; w?: number; h?: number;
   from?: { selector?: string } | null;
   art?: Rec | null;
@@ -464,6 +466,58 @@ function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown
       } });
       const at = below ? out.indexOf(below as N) + 1 : above ? out.indexOf(above as N) : host ? out.indexOf(host as N) + 1 : out.length;
       out.splice(Math.max(0, at), 0, layer);
+      byId.set(id, layer);
+    }
+
+    /*
+     * THE FRAMES OF WHAT MOVED (frames-drive.mjs, `motion.frames`): the
+     * capture's own pictures of each part the screen showed changing, as one
+     * svg flipbook cut to the part. Laid over the part as a layer of its own,
+     * at the box the frames were cut at, drawn edge to edge (`Picture.moving`),
+     * taking no press, carrying "Moves as captured" with how it moved: a loop,
+     * a once, a drift or a live run plays itself wherever the picture shows
+     * (the board too, as a canvas's flipbook does); the pointer's and the
+     * scroll's stand still until the feature follows the visitor's. The layer
+     * goes after the part and everything inside it, so it covers the part
+     * as the frames did. Not laid: a stylesheet loop the part already plays
+     * as captured CSS (the Builder would show it twice), a video the part
+     * plays from its own file, and a run the capture tied to no part and no
+     * page (a trail off the page's parts has nowhere to stand).
+     */
+    let fk = 0;
+    for (const f of list("frames")) {
+      const box = Array.isArray(f.box) ? (f.box as unknown[]).map(num) : [];
+      const pic = f.picture as Rec | null | undefined;
+      const kind = String(f.kind ?? "");
+      if (box.length !== 4 || box.some((v) => v === null) || !pic || typeof pic.id !== "string" || typeof pic.path !== "string") continue;
+      if (!["loop", "once", "drift", "live", "pointer", "scroll"].includes(kind)) continue;
+      const host = typeof f.part === "string" ? byId.get(f.part) : undefined;
+      if (!host && f.self !== false) continue;
+      if (host && f.via === "css" && plays(host, f.name)) continue;
+      if (host && f.via === "video" && host.media?.file) continue;
+      const ref = host ?? out[0];
+      if (!ref) continue;
+      const id = `n_frames_${++fk}`;
+      if (byId.has(id)) continue;
+      const [x, y, w, h] = box as [number, number, number, number];
+      if (!(w > 0 && h > 0)) continue;
+      const kin = host ? inside(host) : [];
+      const after = [host, ...kin].filter((n): n is N => !!n).reduce((best, n) => Math.max(best, out.indexOf(n as N)), -1);
+      const what = Array.isArray(f.what) && f.what.length ? ` (${(f.what as unknown[]).map(String).join(", ")} changing)` : "";
+      const layer = {
+        id, pageId: ref.pageId, featureId: "picture", label: `Moving picture of ${host?.label?.trim() || "the page"}`,
+        prompt: `The pictures the capture took of this part as it moved${what}: the Moves-as-captured feature plays them here.`,
+        content: "", data: "", x, y, w, h, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null,
+        colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
+        cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, art: null, work: null,
+        picture: { id: pic.id, path: pic.path, type: "image/svg+xml", w: num(pic.w) ?? w, h: num(pic.h) ?? h, bytes: 0, alt: "", from: "upload", seeThrough: true, moving: { kind } },
+        from: { ...(ref.from ?? {}), selector: `${(host?.from?.selector ?? (typeof f.selector === "string" ? f.selector : "body"))}::frames` },
+        inert: true,
+      } as unknown as N;
+      const pointer = kind === "pointer" && Array.isArray(f.pointer) ? (f.pointer as unknown[]).filter((p): p is number[] => Array.isArray(p) && p.length === 2 && p.every((v) => typeof v === "number")).map((p) => `${Math.round(p[0]!)},${Math.round(p[1]!)}`).join(";") : "";
+      const scroll = kind === "scroll" && Array.isArray(f.scroll) ? (f.scroll as unknown[]).filter((v): v is number => typeof v === "number").map((v) => String(Math.round(v))).join(",") : "";
+      layer.work = withWork(null, { id: "moving-frames", inputs: { kind, ...(pointer ? { pointer } : {}), ...(scroll ? { scroll } : {}), ...(num(f.every) ? { every: String(num(f.every)) } : {}) } });
+      out.splice(after >= 0 ? after + 1 : out.length, 0, layer);
       byId.set(id, layer);
     }
   }
