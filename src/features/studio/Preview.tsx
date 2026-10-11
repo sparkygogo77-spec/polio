@@ -193,7 +193,7 @@ export function PreviewWindow() {
             <div data-companion-page="" style={{ width: boxW, position: "relative", overflow: "hidden" }}>
               <div style={{ width, zoom: scale }}>
                 <LiveSite features pageWide={false} pages={pages} nodes={nodes} pageId={activeId} device={device} frameWidth={frameWidth} format={format}
-            look={look} siteName={siteName} shapes={shapes} />
+            look={look} siteName={siteName} shapes={shapes} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
               </div>
             </div>
           ) : (

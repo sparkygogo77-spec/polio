@@ -16,7 +16,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Segmented } from "@/core/ui/segmented";
 import { Tooltip } from "@/core/ui/tooltip";
-import { livePath, useStudio, useStudioHydration } from "../board/store";
+import { livePath, useLookingOnly, useStudio, useStudioHydration } from "../board/store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 import { keepTurn } from "./LiveStage";
@@ -27,6 +27,7 @@ import { previewWindow } from "./previewWindow";
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
 export function PreviewPage({ params, published }: RouteProps & { published?: boolean }) {
+  useLookingOnly();
   useStudioHydration();
   const router = useRouter();
   const pages = useStudio((s) => s.pages);
@@ -68,10 +69,15 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
 
   // Lets the right-click menu switch device.
   React.useEffect(() => {
-    const w = window as unknown as { __studioLiveDevice?: (d: string) => void };
+    const w = window as unknown as { __studioLiveDevice?: (d: string) => void; __studioLiveTurn?: (id: string, turn: { x: number; y: number }) => void; __studioLiveFormat?: (key: string) => unknown };
     w.__studioLiveDevice = (d) => setDevice(d as Device | "window");
+    /* A turn kept as a drag keeps it, and the document this tab reads: for the checks (tests/preview-tab-readonly.mjs). */
+    w.__studioLiveTurn = (id, turn) => { const n = useStudio.getState().nodes.find((x) => x.id === id); keepTurn({ type: n?.featureId === "mesh-3d" ? "mesh" : "cube", turn }, id); };
+    w.__studioLiveFormat = (key) => useStudio.getState().format[key];
     return () => {
       delete w.__studioLiveDevice;
+      delete w.__studioLiveTurn;
+      delete w.__studioLiveFormat;
     };
   }, []);
 

@@ -111,7 +111,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     const gone = new Set(fixed.map((i) => i.key));
     /* A board change the code built is done: the board still holds it, so it is never asked for again. */
     const built = fixed.filter((i) => i.kind === "build").map((i) => i.key);
-    setFixLoop({ ...loop, ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
+    setFixLoop({ ...loop, ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])], asked: (loop.asked ?? []).filter((i) => !gone.has(i.key)) });
     say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
   };
 

@@ -619,7 +619,7 @@ const bandOf = (s: Slab) => ({ rIn: s.rings.mid - 6, rOut: s.rings.mid + 12 });
  * its outer corner.
  */
 export function AnimQuads({
-  slabs, node, focus, onChange,
+  slabs, node, onChange,
 }: {
   slabs: Slab[];
   node: Pick<StudioNode, "anim" | "animSpeed" | "animDelay" | "animEase">;
@@ -636,7 +636,6 @@ export function AnimQuads({
   const wait = delayMs(node.animDelay);
   const [run, setRun] = React.useState(0);
   React.useEffect(() => { setRun((n) => n + 1); }, [node.anim, node.animSpeed, node.animDelay, node.animEase]);
-  void focus;
   // The replay sits in the demo slab's far corner on a square wheel — past
   // the keys' arc, where the corner is empty — and by the leading seam on a
   // round one, which has no corner.
@@ -787,7 +786,7 @@ export function BehaviourQuads({
 }) {
   return (
     <>
-      {slabs.map((slab, i) => <ScreenFace key={i} slab={slab} />)}
+      {slabs.slice(0, options.length).map((slab, i) => <ScreenFace key={i} slab={slab} />)}
       {options.slice(0, slabs.length).map((opt, i) => {
         const slab = slabs[i]!;
         const current = values[opt.id] ?? opt.values[0]!;

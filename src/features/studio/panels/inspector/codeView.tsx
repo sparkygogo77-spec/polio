@@ -3,7 +3,8 @@ import * as React from "react";
 import { useHeldStudio, useStudio, type StudioNode } from "../../board/store";
 import { written } from "../../shelf";
 import { screenshotPage } from "../../loop/run";
-import { askCode } from "../../askCode";
+import { askCode, askIssue } from "../../askCode";
+import { fixLoopOf, setFixLoop } from "../../useFixLoop";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
@@ -195,7 +196,9 @@ export function CodeView({ node }: { node: StudioNode }) {
  * ASK THE CODE CHAT, from this part (`askCode.ts`): what the owner wants its
  * code to do, written to a request branch with the part's hook, its code and
  * a picture of it, as a draft pull request a code chat picks up. The Builder
- * never edits the script itself.
+ * never edits the script itself. The ask is kept on the board too
+ * (`look.fixLoop.asked`), so the next Publish puts it in polio/NEXT.md, where
+ * code chats look first, and Refresh shows when it is done.
  */
 export function AskCodeBox({ node, from, refs }: { node: StudioNode; from: { repo: string; ref: string }; refs: CodeRef[] }) {
   const hook = node.source!.hook!.value;
@@ -209,9 +212,15 @@ export function AskCodeBox({ node, from, refs }: { node: StudioNode; from: { rep
     setSaid({ text: "Taking a picture of the part…" });
     const shot = await Promise.race([screenshotPage(node.pageId, { hook }).catch(() => null), new Promise<null>((ok) => setTimeout(() => ok(null), 45000))]);
     setSaid({ text: `Writing the request to ${from.repo}…` });
-    const got = await askCode({ text, hook, name: node.label ?? hook, page: node.source?.file ?? null, refs, picture: shot?.data ?? null }, from.repo, token);
+    const ask = { text, hook, name: node.label ?? hook, page: node.source?.file ?? null, refs, picture: shot?.data ?? null };
+    const got = await askCode(ask, from.repo, token);
     setBusy(false);
-    setSaid(got.ok ? { text: got.says, link: got.pull } : { text: got.says, bad: true });
+    if (got.ok) {
+      const st = useStudio.getState();
+      const loop = fixLoopOf(st.look);
+      setFixLoop({ ...loop, asked: [...(loop.asked ?? []), askIssue(ask, got, { repo: from.repo, page: st.pages.find((p) => p.id === node.pageId)?.name ?? node.source?.file ?? node.pageId })] });
+    }
+    setSaid(got.ok ? { text: `${got.says} It goes into polio/NEXT.md on your next Publish, so the next code chat sees it.`, link: got.pull } : { text: got.says, bad: true });
     if (got.ok) { play("success"); setText(""); }
   };
   return (

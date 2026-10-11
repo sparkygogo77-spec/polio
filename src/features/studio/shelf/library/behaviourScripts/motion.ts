@@ -235,7 +235,7 @@ export const TILT: Work = {
     ${RAISE_JS}
     var lower = null, settle = 0;
     function raise() { clearTimeout(settle); if (!lower) lower = raiseOver(carried); }
-    function drop() { clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, pace + 40); }
+    function settleDown() { clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, pace + 40); }
     if (carried.length === 1 && !area) {
       var box = null;
       el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
@@ -245,7 +245,7 @@ export const TILT: Work = {
         var r = box || (box = el.getBoundingClientRect());
         s.transform = pose((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5) + (bases[0].t ? " " + bases[0].t : "");
       });
-      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; drop(); });
+      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; settleDown(); });
       return;
     }
     /* Carried parts sit over it and take the pointer: it is watched from the window, over the box it had standing still. */
@@ -255,7 +255,7 @@ export const TILT: Work = {
       var cx = m.left + m.width / 2, cy = m.top + m.height / 2;
       geo = { r: r, sx: window.scrollX, sy: window.scrollY, origins: carried.map(function (p) { var b = p.getBoundingClientRect(), kx = b.width ? p.offsetWidth / b.width : 1, ky = b.height ? p.offsetHeight / b.height : 1; return ((cx - b.left) * kx).toFixed(2) + "px " + ((cy - b.top) * ky).toFixed(2) + "px"; }) };
     }
-    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); drop(); }
+    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); settleDown(); }
     window.addEventListener("pointermove", function (e) {
       if (!on) measure();
       var r = geo.r, dx = window.scrollX - geo.sx, dy = window.scrollY - geo.sy;

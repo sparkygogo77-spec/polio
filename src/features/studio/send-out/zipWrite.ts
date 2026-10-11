@@ -46,3 +46,13 @@ export function zipFiles(files: { path: string; bytes: Uint8Array }[]): Uint8Arr
   for (const p of [...parts, ...central, end]) { out.set(p, at); at += p.length; }
   return out;
 }
+
+/**
+ * A site's files as one zip, every file at its own path: what the export
+ * and the book's Download All save. A file sent as base64 (a picture) goes
+ * in as its bytes, not as the base64 text.
+ */
+export function siteZip(files: { path: string; content: string; encoding?: string }[]): Uint8Array {
+  const enc = new TextEncoder();
+  return zipFiles(files.map((f) => ({ path: f.path, bytes: f.encoding === "base64" ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : enc.encode(f.content) })));
+}

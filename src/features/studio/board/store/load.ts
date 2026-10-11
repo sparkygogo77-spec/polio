@@ -158,6 +158,42 @@ export function useStudioHydration() {
 }
 
 /**
+ * A Preview that opened in a tab of its own looks and never writes.
+ *
+ * "Open the site in a new tab" gives a second tab with its own copy of the
+ * document, read once as it opened, while he goes on editing in the Builder
+ * tab. That copy never showed his later edits, and turning a cube in it
+ * wrote the older copy back over the newer one. So a tab that opened on the
+ * Preview holds `pen.lookingOnly`, reads the document again whenever the
+ * Builder saves (the `storage` event) or he comes back to the tab, and on
+ * leaving for the Builder in that same tab reads it once more before it may
+ * write. A Preview reached inside the Builder's own tab shares its document
+ * and keeps saving, as before.
+ *
+ * Call it before `useStudioHydration`: whether the tab opened here is
+ * whether nothing has read the document yet.
+ */
+export function useLookingOnly() {
+  useLayoutEffect(() => {
+    if (pen.lookingOnly || useStudio.persist.hasHydrated()) return;
+    pen.lookingOnly = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    /* A moment late: the Builder's write reaches IndexedDB a little after the mirror. */
+    const again = () => { clearTimeout(timer); timer = setTimeout(() => { void useStudio.persist.rehydrate(); }, 300); };
+    const onStorage = (e: StorageEvent) => { if (e.key === useStudio.persist.getOptions().name) again(); };
+    const onShow = () => { if (document.visibilityState === "visible") again(); };
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onShow);
+      void Promise.resolve(useStudio.persist.rehydrate()).finally(() => { pen.lookingOnly = false; });
+    };
+  }, []);
+}
+
+/**
  * The live preview address for a page; the home page has no suffix. The
  * published site (/site) passes its own base, so a visitor's page link stays
  * on the site instead of landing in the Builder's preview.

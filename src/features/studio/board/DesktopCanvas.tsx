@@ -922,7 +922,7 @@ export function DesktopCanvas() {
     const rects = d.ids.map((id) => ({ ...d.origin![id]!, x: d.origin![id]!.x + dx, y: d.origin![id]!.y + dy }));
     const snap = snapSelection(rects, ids);
     /* A state stops at its frame's edge, and what moves with it stops there too (`stateFrames.ts#clampMove`). */
-    const by = clampMove(useStudio.getState().nodes, d.ids, d.origin, dx + snap.dx, dy + snap.dy);
+    const by = clampMove(useStudio.getState().nodes, d.ids, d.origin, dx + snap.dx, dy + snap.dy, d.frames);
     const positions: Record<string, { x: number; y: number }> = {};
     for (const id of d.ids) positions[id] = { x: Math.round(d.origin![id]!.x + by.dx), y: Math.round(d.origin![id]!.y + by.dy) };
     useStudio.getState().setPositions(positions);
@@ -1208,7 +1208,7 @@ export function DesktopCanvas() {
       if (h.includes("s")) for (const c of ys) if (Math.abs(c - (y + hgt)) < thr) { hgt = c - y; gy.push(c); break; }
       let to = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) };
       /* A state resized by hand stays in its frame, when it started there. */
-      const frameId = stateFrames(store.nodes).frameOf.get(drag.nodeId);
+      const frameId = (drag.frames ?? stateFrames(store.nodes)).frameOf.get(drag.nodeId);
       const fr = frameId ? store.nodes.find((n) => n.id === frameId) : null;
       if (fr && inside(o, fr, 0)) to = keepInFrame(to, fr);
       useStudio.setState({ nodes: store.nodes.map((n) => (n.id === drag.nodeId ? { ...n, ...to } : drag.riders?.includes(n.id) && drag.origin?.[n.id] ? { ...n, ...resizedWith(o, to, drag.origin[n.id]!) } : n)) });

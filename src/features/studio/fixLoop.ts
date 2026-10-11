@@ -55,6 +55,8 @@ export interface FixLoop {
    * are; Refresh makes them `sent` once their line shows there (`promotePending`).
    */
   pending?: FixIssue[];
+  /** What J asked a part's code for in "Ask the code chat" (`askCode.ts#askIssue`): the next Publish puts each in NEXT.md like a board ask. */
+  asked?: FixIssue[];
 }
 
 export const NO_LOOP: FixLoop = { ticked: [], sent: [] };
@@ -68,10 +70,11 @@ export const DONE_WHEN: Record<string, string> = {
   nowhere: "pressing it does something: it leads somewhere or runs its script",
   region: "the element sits inside that data-region in the markup, with its data-hook unchanged",
   build: "the site does what the Builder shows for it",
+  ask: "the code does what J asked, on the request's branch, and its pull request is marked ready",
 };
 
 /** How hard each kind is to fix in code. Difficulty picks the model, the cost and so the lane (`lanes.ts`). */
-const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, build: 3, fit: 4 };
+const HARD: Record<string, Difficulty> = { link: 1, share: 1, nowhere: 2, picture: 2, region: 2, build: 3, ask: 3, fit: 4 };
 const TOKENS: Record<Difficulty, { in: number; out: number }> = {
   1: { in: 15_000, out: 2_000 },
   2: { in: 30_000, out: 4_000 },
@@ -146,6 +149,8 @@ export function promotePending(loop: FixLoop, md: string | null): FixLoop {
   const merged = loop.pending.filter((i) => there.has(i.key));
   return merged.length ? sentMerged(loop, merged) : loop;
 }
+/** The line the Builder writes above the queue: everything under it is the code chat's, kept word for word. */
+const STAMP = "Last written by the Builder on ";
 
 /** One queue line: the box, the hook, the page, what is wrong, what done looks like, and its key for Refresh. */
 export function nextLine(i: FixIssue): string {
@@ -153,15 +158,20 @@ export function nextLine(i: FixIssue): string {
 }
 
 /**
- * The whole file, with the new lines added to what is already there. Lines
- * already in the file (open or ticked) are kept as they are: the code chat
- * owns them once they are written. A line whose key is already in the file
- * is not written twice.
+ * The whole file, with the new lines added to what is already there.
+ * Everything under the old header is kept as it is, word for word: ticked
+ * lines, notes under a line, text after a comment. The code chat owns it once
+ * it is written. Only the Builder's own header is written fresh. A line whose
+ * key is already in the file is not written twice.
  */
 export function nextMd(adding: readonly FixIssue[], o: { site: string; when: string; prev?: string | null }): string {
   const all = (o.prev ?? "").split(/\r?\n/);
-  const from = all.findIndex((l) => queued(l));
-  const prev = from < 0 ? [] : all.slice(from);
+  /* Under the Builder's stamp everything is kept, notes before the first line too; a file with no stamp keeps from its first queue line, so no old header is written twice. */
+  const stamp = all.findIndex((l) => l.startsWith(STAMP));
+  let from = stamp >= 0 ? stamp + 1 : all.findIndex((l) => queued(l));
+  if (from < 0) from = all.length;
+  while (from < all.length && !all[from]!.trim()) from++;
+  const prev = all.slice(from);
   while (prev.length && !prev[prev.length - 1]!.trim()) prev.pop();
   const have = new Set(prev.flatMap((l) => [...l.matchAll(new RegExp(KEY, "g"))].map((m) => m[1]!)));
   const lines = [...prev, ...adding.filter((i) => !have.has(i.key)).map(nextLine)];
@@ -173,8 +183,9 @@ export function nextMd(adding: readonly FixIssue[], o: { site: string; when: str
     "Keep every data-hook. A new data-hook needs the repo's hooks step (its CLAUDE.md names it, e.g. `npm run hooks`) so its hook map stays current.",
     "Then, in the same pull request, tick its box (`- [x]`) or delete the line,",
     "and leave the `<!-- fix:... -->` comment as it is. The Builder's Refresh reads this file back: a ticked or deleted line shows as fixed.",
+    "A note for J goes on its own indented line under the item; the item's line keeps its box and its comment.",
     "",
-    `Last written by the Builder on ${o.when}.`,
+    `${STAMP}${o.when}.`,
     "",
     ...lines,
     "",

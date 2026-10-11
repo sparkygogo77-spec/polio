@@ -50,7 +50,7 @@ export function asksNow(source: StyleSource, fresh: Record<string, string> = fre
 export interface AsksOut {
   /** Each part made in the Builder, by id, with the hook it is asked for by. */
   fresh: Record<string, string>;
-  /** The NEXT.md lines going out this time: ticked issues not yet sent, and the board's own asks. */
+  /** The NEXT.md lines going out this time: ticked issues not yet sent, the board's own asks, and what J asked a part's code for. */
   adding: FixIssue[];
   /** polio/NEXT.md, added to what the repository already holds; empty when nothing is asked. */
   extra: { path: string; content: string }[];
@@ -72,7 +72,7 @@ export async function gatherAsks(nodes: readonly LayerNode[], source: StyleSourc
     if (n && n.hooks?.["data-hook"] !== hook) useStudio.getState().updateNode(id, { hooks: { ...(n.hooks ?? {}), "data-hook": hook } });
   }
   const loop = fixLoopOf(useStudio.getState().look);
-  const adding: FixIssue[] = [...(loop.ticked.length ? toSend(loop, await issuesNow()) : []), ...asksToSend(loop, asksNow(source, fresh))];
+  const adding: FixIssue[] = [...(loop.ticked.length ? toSend(loop, await issuesNow()) : []), ...asksToSend(loop, [...asksNow(source, fresh), ...(loop.asked ?? [])])];
   /*
    * Added to NEXT.md as it is on the branch Publish merges into: the board's own branch (`kitRun.ts#publishBranch`).
    * Only a 404 means there is no NEXT.md yet; any other failed read stops the send, so the open lines are not lost (and then read back as fixed).

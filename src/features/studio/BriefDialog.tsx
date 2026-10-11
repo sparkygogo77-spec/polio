@@ -39,6 +39,7 @@ import { askClaude, claudeReady, deployStatus, filesFromMarkdown, MODES, noKeyMe
 import { useKeys } from "@/features/keys/store";
 import { collectFiles, following, followDeployment, goLive as goLiveNow, PENDING_FOR, pushTo, refusedTarget, remember, useGoLive } from "./send-out/run";
 import { useBuilds } from "@/features/builds/store";
+import { siteZip } from "./send-out";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { Button } from "@/core/ui/button";
@@ -666,8 +667,16 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     await goLiveNow({ extra: files, message: pubMessage.trim() || "Builder: publish the site", siteName, say: ctx.publish });
   };
 
+  /* Every file in one zip, each at its own path and pictures as pictures:
+     one download per file lost the folders (every page is an index.html)
+     and saved each picture as its base64 text. */
   const downloadAll = async () => {
-    for (const f of await everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
+    const all = await everything();
+    if (!all.length) return;
+    const { saveZip, siteSlug } = await import("./exportForCode");
+    const filename = `${siteSlug()}-site.zip`;
+    saveZip(siteZip(all), filename);
+    ctx.publish({ key: "studio:download", title: `Saved ${filename}`, level: "success", source: "studio", toast: true });
   };
 
   const current = MODES.find((m) => m.value === mode)!;

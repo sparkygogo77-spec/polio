@@ -7,7 +7,8 @@ import { buildStarter, isStarter } from "../../starterPage";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type ThreadDoc } from "../../loop";
 import { QUEUED } from "../../formation";
 import { trimQueue } from "../../loop";
-import { GetStudio, SetStudio, TRAIL_LIMIT, docPatch, promptOf, reformed, resolveTarget, snapshot, starterDoc } from "./history";
+import { GetStudio, SetStudio, TRAIL_LIMIT, carry, docPatch, promptOf, reformed, resolveTarget, shelve, snapshot, starterDoc } from "./history";
+import { LEARN_DEFAULT } from "../../learn";
 import { StudioNode } from "./model";
 import type { StudioState } from "./state";
 
@@ -359,8 +360,18 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
     },
 
     resetAll: () => {
+      /* Everything goes: the shelf the sites brought, the record of the
+         import and the timeline with the parts. The checkpoint carries
+         them, so one undo puts all of it back (`carry`). The owner's own
+         daily cap on Learn presses stays. */
       push();
-      set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, pinnedThreads: [], threadSpots: {}, draftPieces: [], sentPieces: {} });
+      const was = carry(get());
+      set((s) => ({ past: [...s.past.slice(0, -1), { ...s.past[s.past.length - 1]!, ...was }] }));
+      set((s) => ({
+        ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, pinnedThreads: [], threadSpots: {}, draftPieces: [], sentPieces: {},
+        brought: [], broughtParts: [], statesOn: [], taken: null, learn: { ...LEARN_DEFAULT, cap: s.learn?.cap ?? LEARN_DEFAULT.cap }, standIn: null, swept: undefined, siteBranch: null,
+      }));
+      shelve([], []);
     },
 
     applyTheme: (theme, opts = {}) => {

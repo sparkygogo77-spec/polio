@@ -257,8 +257,9 @@ export function keepInFrame(box: Box, frame: Box): Box {
  * How far a hand-moved set may go: a state's part in it whose frame is not
  * moving with it stops at its frame's edge, and the whole set stops with it.
  */
-export function clampMove(nodes: readonly FrameNode[], ids: readonly string[], origin: Record<string, Box>, dx: number, dy: number): { dx: number; dy: number } {
-  const r = stateFrames(nodes);
+export function clampMove(nodes: readonly FrameNode[], ids: readonly string[], origin: Record<string, Box>, dx: number, dy: number, frames?: FramesRead): { dx: number; dy: number } {
+  /* A drag passes the frames it read when the hand went down: every move makes a new nodes array, so reading them here each move cost 5-30 ms on PST. */
+  const r = frames ?? stateFrames(nodes);
   if (!r.frameOf.size) return { dx, dy };
   const moving = new Set(ids);
   const byId = new Map(nodes.map((n) => [n.id, n]));
