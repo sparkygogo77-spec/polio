@@ -20,6 +20,10 @@
  *   · tab: a part the capture recorded as a tab;
  *   · ticker: the band a running marquee is drawn in;
  *   · copy-address bar: a dressed control-sized part holding an address;
+ *   · loading bar: a thin painted track holding a thinner painted bar that
+ *     starts at its edge, the bar's length the level (J, 2026-10-11, on
+ *     sunkcoin's ranked list: its orange and blue bars "are all the same
+ *     thing", a loading bar, whatever colour each is);
  *   · button, badge, card, panel: a dressed part (a fill or a border) in the
  *     kits' sizes and roles (`roleOf`).
  *
@@ -38,8 +42,8 @@
  */
 import { lookOf, luminanceOf, parseRgba, parseShadows, roleOf, type KitNode } from "./look/index.ts";
 
-export type ComponentKind = "button" | "tab" | "copy-bar" | "badge" | "card" | "panel" | "ticker";
-export const KIND_WORD: Record<ComponentKind, string> = { button: "Button", tab: "Tab", "copy-bar": "Copy-address bar", badge: "Badge", card: "Card", panel: "Panel", ticker: "Ticker" };
+export type ComponentKind = "button" | "tab" | "copy-bar" | "progress" | "badge" | "card" | "panel" | "ticker";
+export const KIND_WORD: Record<ComponentKind, string> = { button: "Button", tab: "Tab", "copy-bar": "Copy-address bar", progress: "Loading bar", badge: "Badge", card: "Card", panel: "Panel", ticker: "Ticker" };
 
 export type LayerRole = "words" | "lighting" | "shadow" | "outline" | "fill" | "icon" | "decoration";
 export const LAYER_WORD: Record<LayerRole, string> = { words: "Words", lighting: "Lighting bar", shadow: "Shadow", outline: "Outline", fill: "Fill", icon: "Icon", decoration: "Decoration" };
@@ -115,6 +119,28 @@ export function holdsPart(o: CompNode, i: CompNode): boolean {
   }
   const s = 1;
   return i.x >= o.x - s && i.y >= o.y - s && i.x + i.w <= o.x + o.w + s && i.y + i.h <= o.y + o.h + s && area(i) < area(o);
+}
+
+/** A bar is this thick or less, and four times as long as thick or more, lying or standing. */
+export const BAR_THICK = 16;
+const isBar = (n: CompNode) => { const t = Math.min(n.w, n.h), l = Math.max(n.w, n.h); return t > 0 && t <= BAR_THICK && l >= 4 * t; };
+const paints = (n: CompNode, palette: Record<string, string | undefined> | null | undefined) => {
+  const v = n.colour?.bg ?? n.colour?.surface;
+  const c = parseRgba(v && (palette?.[v] ?? v));
+  return (!!c && c.a > 0.05) || /gradient\(/.test((n as { art?: { background?: string } | null }).art?.background ?? "");
+};
+
+/**
+ * The level bar of a loading bar, when `track` is one: a painted bar it holds
+ * that starts at its start edge (left, or the foot of a standing one), runs
+ * the same way and is no longer than it. Null when it holds none.
+ */
+export function levelIn(track: CompNode, held: readonly CompNode[], palette?: Record<string, string | undefined> | null): CompNode | null {
+  if (track.loose || !isBar(track) || !paints(track, palette)) return null;
+  const lying = track.w >= track.h;
+  return held.find((m) => m.id !== track.id && !m.loose && isBar(m) && paints(m, palette) && (m.w >= m.h) === lying
+    && (lying ? Math.abs(m.x - track.x) <= 3 && m.w <= track.w + 1 : Math.abs(m.y + m.h - (track.y + track.h)) <= 3 && m.h <= track.h + 1)
+    && holdsPart(track, m)) ?? null;
 }
 
 /** What kind of component a part is the host of, before its layers are read; null when it is none. */
@@ -195,7 +221,13 @@ export function readComponents(nodes: readonly CompNode[], palette?: Record<stri
     const near = (h: CompNode) => { const out: CompNode[] = []; for (let i = lowerBound(h.y - 40); i < sorted.length && sorted[i]!.y <= h.y + h.h + 40; i++) out.push(sorted[i]!); return out; };
     const marquees = here.filter(usesMarquee);
     const hosts: { node: CompNode; kind: ComponentKind }[] = [];
+    /* Loading bars first: the track is the host, its level bar a layer of it, never a badge of its own. */
+    const levels = new Map<string, string>();
+    for (const n of here) { const lv = levelIn(n, near(n), palette); if (lv && !levels.has(n.id)) levels.set(lv.id, n.id); }
+    const tracks = new Set(levels.values());
     for (const n of here) {
+      if (levels.has(n.id) && !tracks.has(n.id)) continue;
+      if (tracks.has(n.id)) { hosts.push({ node: n, kind: "progress" }); continue; }
       const marqueeIn = marquees.some((m) => m === n || holdsPart(n, m));
       let kind = hostKind(n, palette, marqueeIn);
       if (!kind) continue;
@@ -235,7 +267,7 @@ export function readComponents(nodes: readonly CompNode[], palette?: Record<stri
         }
         if (claimed.has(m.id) || best.get(m.id) !== h.node) continue;
         claimed.set(m.id, h.node.id);
-        layers.push({ node: m, role: layerRole(m, h.node, palette) });
+        layers.push({ node: m, role: h.kind === "progress" && levels.get(m.id) === h.node.id ? "fill" : layerRole(m, h.node, palette) });
       }
       const c: Component = {
         id: h.node.id, kind: h.kind, pageId, name: nameOf(h.kind, h.node, layers),
@@ -294,7 +326,7 @@ export function componentsOf(nodes: readonly CompNode[], palette?: Record<string
 }
 
 /** Kinds a press grabs whole, like a control: the small things a visitor reads as one. Panels and tickers stay drawn across, as any big holder is. */
-export const GRABBED: ReadonlySet<ComponentKind> = new Set(["button", "tab", "copy-bar", "badge", "card"]);
+export const GRABBED: ReadonlySet<ComponentKind> = new Set(["button", "tab", "copy-bar", "progress", "badge", "card"]);
 
 /** The innermost component a part belongs to, host or layer; null for a part on its own. */
 export function componentOf(nodes: readonly CompNode[], partId: string, palette?: Record<string, string | undefined> | null): Component | null {
