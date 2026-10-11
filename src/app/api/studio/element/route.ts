@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT } from "../headless";
+import { answerBudget } from "../budget";
+import { fetchFont } from "../fontFile";
 import { MAX_ELEMENTS, READ_BUDGET_MS, REFUSAL_SAYS } from "@/features/studio/siteFetch";
-import { allowedResolved, requestCheck, safeFetch } from "@/features/studio/siteResolve";
+import { allowedResolved, requestCheck } from "@/features/studio/siteResolve";
 import { CANDIDATES, FACES, MEASURE, type Candidate } from "@/features/studio/bring-in";
-import { carryFaces, FONT_FILE_MAX, type FacesRead } from "@/features/studio/look";
+import { carryFaces, type FacesRead } from "@/features/studio/look";
 
 /**
  * Reading one element off a live page, exactly.
@@ -47,33 +49,11 @@ export async function GET() {
   return NextResponse.json({ ok: !!found.pw, ...(found.pw ? { from: found.from } : { reason: "no-browser", message: NO_PLAYWRIGHT }) });
 }
 
-/**
- * A font file, fetched by this server. The same bounds as the page: public
- * https only, so a page cannot point this server at something inside its
- * own network. Refused past the size a face may weigh, and after eight
- * seconds, with the reason said rather than a silent fallback.
- */
-async function fetchFont(url: string): Promise<{ bytes: Uint8Array } | { error: string }> {
-  const stop = new AbortController();
-  const timer = setTimeout(() => stop.abort(), 8000);
-  try {
-    const r = await safeFetch(url, { signal: stop.signal, headers: { accept: "font/woff2,font/woff,font/ttf,font/otf,*/*;q=0.5" } });
-    if (!(r instanceof Response)) return { error: r.says };
-    if (!r.ok) return { error: `it answered ${r.status}` };
-    const said = Number(r.headers.get("content-length") ?? 0);
-    if (said > FONT_FILE_MAX) return { error: `its file is ${Math.round(said / 1024)}KB, past the ${Math.round(FONT_FILE_MAX / 1024)}KB a face may weigh` };
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return { bytes: buf };
-  } catch (err) {
-    return { error: err instanceof Error && err.name === "AbortError" ? "no answer within eight seconds" : err instanceof Error ? err.message.split("\n")[0] ?? "no answer" : String(err) };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export async function POST(request: Request) {
   const began = Date.now();
   const took = () => Math.round((Date.now() - began) / 100) / 10;
+  // When this read must answer by: the budget every route keeps (rule 8b).
+  const until = began + answerBudget(process.env, maxDuration);
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -138,7 +118,7 @@ export async function POST(request: Request) {
      * server drives is a hand-written surface with only what its routes
      * use on it, and widening it is somebody else's file.
      */
-    const answer = await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: READ_BUDGET_MS }).catch((err: unknown) => {
+    const answer = await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: Math.max(1_000, Math.min(READ_BUDGET_MS, until - Date.now())) }).catch((err: unknown) => {
       if (refusedPage) return null;
       throw err;
     });
@@ -198,7 +178,7 @@ export async function POST(request: Request) {
        */
       const read = (await page.evaluate(FACES).catch(() => ({ faces: [], links: [] }))) as FacesRead;
       const used = readings.map((r) => (r as { type?: { face?: string | null } }).type?.face ?? "").filter(Boolean);
-      const faces = await carryFaces(read, used, gate.url, fetchFont);
+      const faces = await carryFaces(read, used, gate.url, (url) => fetchFont(url, until));
       await context.close();
       if (!readings.length) return NextResponse.json({ ok: false, reason: "gone", message: "None of those are on the page any more. Read the page again.", took: took() });
       return NextResponse.json({ ok: true, page: { width, height }, readings, faces, took: took() });
