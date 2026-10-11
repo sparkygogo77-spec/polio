@@ -57,7 +57,8 @@ const errors = [];
 const treesAsked = [];
 
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+/* A wide window: the site is still read at 1440 (J, 2026-10-11). */
+const page = await browser.newPage({ viewport: { width: 1920, height: 900 } });
 page.on("pageerror", (e) => errors.push(e.message));
 await page.route("https://api.github.com/**", (r) => {
   const u = new URL(r.request().url());
@@ -85,7 +86,7 @@ page.on("request", (req) => {
   if (!req.url().includes("/api/studio/zip") || req.method() !== "POST") return;
   const body = req.postData() ?? "";
   const field = (k) => { const m = new RegExp(`name="${k}"\\r?\\n\\r?\\n([^\\r\\n]*)`).exec(body); return m ? m[1] : null; };
-  if (field("parts") === "1") zipAsks.push({ entry: field("entry"), only: field("only"), pages: field("pages"), dir: field("dir"), widths: field("widths"), boxes: field("boxes") !== null });
+  if (field("parts") === "1") zipAsks.push({ entry: field("entry"), only: field("only"), pages: field("pages"), dir: field("dir"), widths: field("widths"), width: field("width"), boxes: field("boxes") !== null });
 });
 const strips = new Set();
 const env = (s) => J({ state: s, version: 0 });
@@ -119,6 +120,7 @@ const s = await state();
 const partsAsks = zipAsks.filter((a) => !a.boxes), boxAsks = zipAsks.filter((a) => a.boxes);
 check("1. the zip route was asked once per page for its parts, each for that page alone, without its tablet and phone", partsAsks.length === 3 && partsAsks.every((a) => a.only === "1" && a.widths === "0"), J(partsAsks));
 check("…in the site's order, the first naming no page list and the others one page each from the site's folder", partsAsks[0]?.pages === null && partsAsks[1]?.entry === "web/about.html" && partsAsks[1]?.pages === "[]" && partsAsks[1]?.dir === "web/" && partsAsks[2]?.entry === "web/work.html", J(partsAsks));
+check("…every reading at 1440, though the window is 1920", zipAsks.length > 0 && zipAsks.every((a) => a.width === "1440"), J(zipAsks.map((a) => a.width)));
 check("…and once per page for its tablet and phone boxes, each after that page's parts", boxAsks.length === 3 && boxAsks.map((a) => a.entry).join() === "web/index.html,web/about.html,web/work.html" && zipAsks[1]?.boxes === true && zipAsks[2]?.boxes === false, J(zipAsks.map((a) => `${a.entry}${a.boxes ? " boxes" : ""}`)));
 const pages = s.pages ?? [];
 check("2. three pages are on the board", pages.length === 3, J(pages.map((p) => p.name ?? p.id)));
