@@ -357,11 +357,14 @@ check(
   `${crossing.bottom} of ${crossing.n} crossing pixels are on the near side`,
 );
 
-/* The far half must still exist, behind: the whole ellipse, not half a ring. */
+/* The far half must still exist, behind: the whole ellipse, not half a ring.
+   On a ball smaller than its rings: the planet script's ball is as big as its
+   size says, and at 94 the rings (88 and 94 wide) are behind it end to end,
+   where the three.js sphere stood a quarter inside its box. 70 is that. */
 const wide = { x: box.x - 60, y: box.y - 60, width: box.width + 120, height: box.height + 120 };
-await put({ ...BASE, rings: "none" });
+await put({ ...BASE, size: "70", rings: "none" });
 const bareWide = await readDisc(wide, 0.98);
-await put({ ...BASE, rings: "two" });
+await put({ ...BASE, size: "70", rings: "two" });
 const ringedWide = await readDisc(wide, 0.98);
 const whole = differs(bareWide, ringedWide);
 check(
