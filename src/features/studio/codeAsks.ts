@@ -52,7 +52,8 @@ export interface AskNode {
   /** A frame of another page the import found (`node.embed`); `was` is set once J changed its address in the embed box. */
   embed?: { src?: string; was?: string } | null;
 }
-export interface AskPage { id: string; name: string; path?: string; scroll?: string }
+/** `came`: its name and route before J first renamed or moved it (`StudioPage.came`). */
+export interface AskPage { id: string; name: string; path?: string; scroll?: string; came?: { name: string; path: string } | null }
 /** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J switched, on or off (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
 export interface AskSwitch { key: string; label: string; on: string | boolean; off: string | boolean; def?: string | boolean | number }
 
@@ -76,6 +77,8 @@ export interface AskInput {
   siteMotions?: ReadonlySet<string>;
   /** A builder-ready site (`styleSource.kit`): it loads the kit's motion file, so the motions it runs go in the style layer (`send-out/kitMotion.ts`). */
   kit?: boolean;
+  /** The site's name and description as typed in the Pages tab (`brief`): its head, which no style can carry. */
+  site?: { name?: string; description?: string } | null;
 }
 
 /** A part made in the Builder on a page the code has: no element there yet. */
@@ -295,7 +298,7 @@ export function codeAsks(a: AskInput): FixIssue[] {
       says: clean(lit ? `J switched on "${s.label}"${said} for the whole site in the Builder. Build it in the code.` : `J switched off "${s.label}"${said} for the whole site in the Builder. Take it out of the code.`),
     });
   }
-  /* Pages: one added in the Builder, and a page's own scroll behaviour. */
+  /* Pages: one added in the Builder, a page's own scroll behaviour, and a page the code has renamed or moved. */
   for (const p of a.pages) {
     if (!a.coded.has(p.id)) {
       out.push({ key: `build-page-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J added the page "${p.name}"${p.path ? ` at ${p.path}` : ""} in the Builder. Make it in the code, with a data-hook on every part, as the board lays it out.`) });
@@ -303,6 +306,19 @@ export function codeAsks(a: AskInput): FixIssue[] {
     if (p.scroll && p.scroll !== "inherit") {
       out.push({ key: `build-scroll-${p.id}-${p.scroll.replace(/[^a-z]+/gi, "-")}`, kind: "build", hook: null, page: p.name, says: clean(`J set this page's scroll to "${p.scroll}" in the Builder. Build that scroll behaviour in the code.`) });
     }
+    /*
+     * A PAGE THE CODE HAS, RENAMED OR MOVED IN THE PAGES TAB (audit
+     * 2026-10-11): its name is its title and its route is where the code
+     * serves it, so Publish said "Published" and the live site kept both.
+     * Asked against what it was before he first changed it (`came`).
+     */
+    if (!a.coded.has(p.id) || !p.came) continue;
+    if (p.name.trim() && p.name !== p.came.name) out.push({ key: `build-rename-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J renamed the page "${p.came.name}" to "${p.name}" in the Builder. Use the new name wherever the code names that page: its \`<title>\`, its link preview, the site's own navigation, and builder.json's pages if there is one.`) });
+    if (p.path?.trim() && p.path !== p.came.path) out.push({ key: `build-move-${p.id}`, kind: "build", hook: null, page: p.name, says: clean(`J moved the page "${p.name}" from ${p.came.path} to ${p.path} in the Builder. Serve it at ${p.path} and update every link to it, keeping every data-hook.`) });
   }
+  /* The site's own name and description from the Pages tab: the code's head stands until he types one. */
+  const name = clean(a.site?.name ?? ""), description = clean(a.site?.description ?? "");
+  if (name) out.push({ key: "build-head-name", kind: "build", hook: null, page: "every page", says: `J named the site "${name}" in the Builder. Use it as the site's name wherever the code names the site: each page's \`<title>\` and its link preview's og:site_name.` });
+  if (description) out.push({ key: "build-head-description", kind: "build", hook: null, page: "every page", says: `J gave the site the description "${description}" in the Builder (the line under its name in a link preview). Use it as each page's \`<meta name="description">\` and its link preview's og:description and twitter:description, where a page has none of its own.` });
   return out;
 }

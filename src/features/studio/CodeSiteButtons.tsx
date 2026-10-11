@@ -286,8 +286,9 @@ function FixNote({ source }: { source: StyleSource }) {
   const nodes = useStudio((s) => s.nodes);
   const pages = useStudio((s) => s.pages);
   const format = useStudio((s) => s.format);
+  const brief = useStudio((s) => s.brief);
   const n = loop.ticked.filter((k) => !loop.sent.some((i) => i.key === k)).length;
-  const asks = React.useMemo(() => asksToSend(loop, asksNow(source)), [loop, source, nodes, pages, format]); // eslint-disable-line react-hooks/exhaustive-deps
+  const asks = React.useMemo(() => asksToSend(loop, asksNow(source)), [loop, source, nodes, pages, format, brief]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       {n ? <p data-code-publish-fixes="">{n} ticked issue{n === 1 ? "" : "s"} go{n === 1 ? "es" : ""} into polio/NEXT.md, for the next code chat to fix first.</p> : null}

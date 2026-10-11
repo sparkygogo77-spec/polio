@@ -6,7 +6,7 @@ import { isWrapper } from "../../owner";
 import { QUEUED } from "../../formation";
 import { boundaryIn, lockLayout, placeLocked, tidyBoundary } from "../../space";
 import { GetStudio, HUES, SetStudio, inherit, pickedStates } from "./history";
-import { BACKGROUND_ID, StudioNode } from "./model";
+import { BACKGROUND_ID, StudioNode, type StudioPage } from "./model";
 import type { StudioState } from "./state";
 
 /**
@@ -198,7 +198,9 @@ export function boardActions(set: SetStudio, get: GetStudio, push: () => void, p
 
     updatePage: (id, patch) => {
       push();
-      set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
+      /* The first rename or move keeps what it was (`came`): the code serves it by that name and route until asked (`codeAsks.ts`). */
+      const moves = (p: StudioPage) => !p.came && ((patch.name !== undefined && patch.name !== p.name) || (patch.path !== undefined && patch.path !== p.path));
+      set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, ...(moves(p) ? { came: { name: p.name, path: p.path } } : {}), ...patch } : p)) }));
     },
 
     setActivePage: (id) => set({ activePageId: id, selection: [] }),

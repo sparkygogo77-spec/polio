@@ -27,7 +27,7 @@ export function freshNow(source: StyleSource): Record<string, string> {
   return freshHooks(st.nodes as never, new Set(source.files.map((f) => f.pageId)), taken, { part: (id) => getFeature(id)?.name ?? null, skip: RUN_MOTIONS, pages: st.pages });
 }
 
-/** What the board holds that the style layer cannot write (effects, Format switches, pages, parts made here), as NEXT.md lines (`codeAsks.ts`). */
+/** What the board holds that the style layer cannot write (effects, Format switches, pages, the site's name and description, parts made here), as NEXT.md lines (`codeAsks.ts`). */
 export function asksNow(source: StyleSource, fresh: Record<string, string> = freshNow(source)): FixIssue[] {
   const st = useStudio.getState();
   const label = new Map(FORMAT_FIELDS.map((f) => [f.id, f.label]));
@@ -42,6 +42,7 @@ export function asksNow(source: StyleSource, fresh: Record<string, string> = fre
     /* Checked in, as the layer is: a state worn on the board is never asked for as the part's own. */
     nodes: checkedIn(st.nodes) as never,
     pages: st.pages,
+    site: { name: st.brief.name, description: st.brief.description },
     format: st.format,
     switches: formatSwitches().map((s) => ({ key: s.key, on: s.on, off: s.off, label: label.get(s.key) ?? s.key, def: def.get(s.key) })),
     coded: new Set(source.files.map((f) => f.pageId)),
