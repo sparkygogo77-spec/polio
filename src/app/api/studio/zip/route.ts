@@ -112,6 +112,8 @@ export async function POST(request: Request) {
     }
   })();
   const width = Math.max(360, Math.min(2560, Number(form.get("width")) || 1280));
+  /* And its height: the viewer's own window (`FromASite.tsx#landParts`), so what the page sets by the window's height (a rail as tall as the screen, a hero of 100vh, what sits at the foot of either) is read where he sees it. */
+  const screenH = Math.max(600, Math.min(1600, Number(form.get("height")) || 900));
   /* The preview page a builder.json names, and how a screen is asked for: its screens are read instead of its parts. */
   /* The pages whose pictures its scripts draw, asked for after the import (`FromASite.tsx#readPicturesOf`). */
   const picturesAsk = (() => {
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
        * socket or an event stream cannot even be opened: the page draws
        * from its own sample data or not at all.
        */
-      const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+      const context = await browser.newContext({ viewport: { width, height: screenH }, deviceScaleFactor: 1 });
       await context.addInitScript(() => {
         const refuse = function () { throw new Error("A still is taken with no network."); };
         Object.defineProperty(window, "WebSocket", { value: refuse });
@@ -188,7 +190,7 @@ export async function POST(request: Request) {
       await context.close();
       return NextResponse.json({ ok: true, page: stillsAsked.page, stills, missed, took: took() });
     }
-    const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    const context = await browser.newContext({ viewport: { width, height: screenH }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     /* The repository's preview screens, read as its own code builds them (`boardStates.ts`): its scripts run here, and only here, with nothing reachable but the zip's own files. */
     /*
@@ -317,7 +319,7 @@ export async function POST(request: Request) {
             /* A width that will not read is left to the Builder's own plan. */
           }
         }
-        await page.setViewportSize({ width, height: 900 });
+        await page.setViewportSize({ width, height: screenH });
         await page.waitForTimeout(100);
         return Object.keys(out).length ? { ...r, widths: out } : r;
       };

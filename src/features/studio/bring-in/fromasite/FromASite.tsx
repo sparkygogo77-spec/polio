@@ -404,6 +404,9 @@ export function FromASite({ space }: { space: Space }) {
      */
     const seen = typeof window === "undefined" ? 0 : Math.round(window.innerWidth);
     const readAt = seen >= 1280 ? Math.min(2560, seen) : st0.frameWidth || 1440;
+    /* And at its height: a rail as tall as the screen puts its clock at the screen's foot, wherever that is on his window (the read was always 900 tall, and J's rail's clock sat 81px low). */
+    const seenH = typeof window === "undefined" ? 0 : Math.round(window.innerHeight);
+    const readTall = seenH >= 600 ? Math.min(1600, seenH) : 900;
     /* A builder.json says which pages, in which order, and where its tokens are (`builderManifest.ts`). */
     const m = got.manifest ?? null;
     /*
@@ -416,7 +419,7 @@ export function FromASite({ space }: { space: Space }) {
      * with its own deadline; the strip counts them. A site of any size on
      * any branch comes in a page at a time.
      */
-    const ask = (extra: Record<string, string>) => askZip(got.file, { parts: "1", only: "1", widths: "0", width: String(readAt), ...(m?.tokens ? { tokens: m.tokens } : {}), ...extra });
+    const ask = (extra: Record<string, string>) => askZip(got.file, { parts: "1", only: "1", widths: "0", width: String(readAt), height: String(readTall), ...(m?.tokens ? { tokens: m.tokens } : {}), ...extra });
     /*
      * AND ITS TABLET AND PHONE IN A REQUEST OF THEIR OWN. The same page's
      * three readings (desktop, 834, 390) in one request were still a minute
@@ -456,7 +459,7 @@ export function FromASite({ space }: { space: Space }) {
     let stillsSaid = "";
     if (got.stills) {
       busy(`Taking a still of what its code draws into ${got.stills.ask.shots.map((x) => x.hook).join(", ")}…`);
-      const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(readAt) }).catch(() => ({ ok: false }) as Record<string, unknown>);
+      const sr = await askZip(got.stills.file, { still: JSON.stringify(got.stills.ask), width: String(readAt), height: String(readTall) }).catch(() => ({ ok: false }) as Record<string, unknown>);
       const taken = Array.isArray(sr.stills) ? (sr.stills as StillTaken[]) : [];
       const put: string[] = [];
       for (const t of taken) {
