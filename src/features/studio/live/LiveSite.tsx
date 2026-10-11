@@ -227,6 +227,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     [onEvent],
   );
 
+  const rootRef = React.useRef<HTMLDivElement>(null);
   const navigate = React.useCallback(
     (link: NodeLink) => {
       if (link.kind === "url") {
@@ -234,7 +235,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
         return;
       }
       if (link.kind === "node") {
-        const to = document.querySelector(`[data-live-node="${link.target}"]`);
+        /* This page's own copy: the Preview and its phone companion draw the same parts, and the first in the document is the other one. */
+        const to = rootRef.current?.querySelector(`[data-live-node="${link.target.replace(/["\\]/g, "\\$&")}"]`);
         /* A link to a "What's new" card opens it (`library/tour.ts`), as the published link does. */
         if (to?.querySelector("[data-tour]")) { to.dispatchEvent(new CustomEvent("whats-new:open")); return; }
         to?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -304,7 +306,6 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   );
 
   /* The features, run on this page's parts once they are drawn; again only when what they are told changes. */
-  const rootRef = React.useRef<HTMLDivElement>(null);
   const bound = React.useMemo(() => (features && !published && depth === 0 ? JSON.stringify(pageFeatures(pageNodes).bindings) : "[]"), [features, published, depth, pageNodes]);
   React.useEffect(() => {
     if (bound === "[]" || !rootRef.current) return;
