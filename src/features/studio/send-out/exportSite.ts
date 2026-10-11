@@ -661,6 +661,29 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     if (m.inside) { el.style.left = m.inside.left; el.style.width = m.inside.width; }
     else if (m.dx) el.style.left = `calc(${el.style.left || "0px"} - ${m.dx}px)`;
   }
+  /*
+   * IN THE PREVIEW A STICKY BAND'S OWN PARTS STICK WITH IT. React owns the
+   * Preview's DOM, so nothing is moved into the band there; left absolute at
+   * the page's own coordinates, under the band's z-index 2, sunkcoin.fun's
+   * logo, nav, ticker and button were hidden behind an empty bar. Each part
+   * the band owns is made sticky too, at the band's inset plus its own offset
+   * in it, in the frame's flow after the band (`stickyFlow` below measures
+   * its margin from the band's top), so it paints over the band and sticks
+   * where the band does. `tests/sticky-band-parts.mjs`.
+   */
+  const stuck = new Map<string, FluidPart>();
+  if (live) for (const [id, m] of moves) {
+    const band = byId.get(m.band), p = byId.get(id), el = elOf(id);
+    if (!band || !p || !el || band.position !== "sticky" || el.parentElement?.closest("[data-live-node]")) continue;
+    const st = el.style;
+    st.position = "sticky";
+    st.top = `${(band.inset?.top ?? 0) + (p.y - band.y)}px`;
+    st.marginBottom = `-${p.h}px`;
+    st.marginLeft = st.left || `${p.x}px`;
+    st.left = "auto";
+    st.zIndex = "2";
+    stuck.set(id, { ...p, position: "sticky" });
+  }
   /* A band that sticks inside less than the page, or that a press shows or hides, is held in a box where its parent stood and sticks inside it (fluidSite.ts#stickyHolds). */
   const holds = live ? new Map<string, { top: number; height: number }>() : stickyHolds(parts, Math.max(0, ...parts.map((p) => p.y + p.h)));
   for (const [id, box] of holds) {
@@ -713,7 +736,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     mine.style.clipPath = "";
   }
   /* The sticky bands left at the frame's level, in the order they stand there: each one's top margin is measured from the last (fluidSite.ts#stickyFlow). */
-  const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => byId.get(el.getAttribute("data-live-node") ?? "")).filter((p): p is FluidPart => !!p);
+  const atFrame = Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]")).filter((el) => !el.parentElement?.closest("[data-live-node], [data-sticky-hold]")).map((el) => { const id = el.getAttribute("data-live-node") ?? ""; return stuck.get(id) ?? byId.get(id); }).filter((p): p is FluidPart => !!p);
   for (const [id, top] of stickyFlow(atFrame)) { const el = elOf(id); if (el) el.style.marginTop = `${top}px`; }
   /* What moves under the pointer carries what is on it (`carryOwned`): each part inside its box, nearest box first. */
   if (!live) {

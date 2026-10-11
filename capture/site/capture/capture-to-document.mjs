@@ -1659,7 +1659,16 @@ function convert(pageDef, cap) {
    * band with a negative z-index is painted before the flow: its rank is
    * below the flow's 0.
    */
-  const stackOf = (el) => { for (let n = el; n && n.kind !== "page"; n = n.parent) if (n.pos === "relative" && n.z !== undefined && n.z !== "auto" && Number.isFinite(Number(n.z))) return n; return null; };
+  /*
+   * A STICKY ELEMENT WITH A Z-INDEX IS A STACKING CONTEXT TOO. sunkcoin.fun's
+   * header is `position: sticky; z-index: 40` over a fixed canvas at z-index
+   * 0 (the sea) and a `main` at 1. Read as flow it was written first and the
+   * sea, a band written after it, painted over it: no header on the board or
+   * in the Preview. A sticky one ranks by its z-index as a relative one does;
+   * it keeps its place in the flow (from.position sticky) and only paints
+   * where the browser painted it. `check-paint-order.mjs`.
+   */
+  const stackOf = (el) => { for (let n = el; n && n.kind !== "page"; n = n.parent) if ((n.pos === "relative" || n.pos === "sticky") && n.z !== undefined && n.z !== "auto" && Number.isFinite(Number(n.z))) return n; return null; };
   for (const m of made) if (!m.band) { const st = stackOf(m.el); if (st && zOf(st) > 0) m.lift = st; }
   const bandZ = (b) => (b.z && b.z !== "auto" ? zOf(b) : zOf(stackOf(b)));
   /*
@@ -1682,11 +1691,25 @@ function convert(pageDef, cap) {
    * outermost such box lifts everything in it together.
    */
   const flatBands = bands.filter((b) => bandZ(b) === 0);
+  /*
+   * A FIXED BAND MEETS THE WHOLE PAGE. sunkcoin.fun's sea is a fixed canvas,
+   * `z-index: 0`, the first child of `main` (relative, z-index 1): measured at
+   * scroll 0 it is the window's box, but it follows the window, so every
+   * section scrolled over it is painted over it. Its relative sections
+   * (`section.wrap`, `.payday > *`) come after it in the page, so the browser
+   * paints them over the sea; ranked only with `main` they were written
+   * before the canvas and drowned. So a band's box, for who paints over it,
+   * is the page's whole height when it is fixed; and the same rule holds
+   * inside a lifted context, up to the lift, between a band and a relative
+   * box of the one context. `check-paint-order.mjs`.
+   */
+  const reach = (b) => (b.pos === "fixed" ? { x: b.x, y: 0, w: b.w, h: Math.max(b.y + b.h, page.h) } : b);
   const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+  const sameContext = (b, n) => stackOf(b.parent) === stackOf(n.parent);
   if (flatBands.length) for (const m of made) {
-    if (m.band || m.lift) continue;
+    if (m.band) continue;
     let over = null;
-    for (let n = m.el; n && n.kind !== "page"; n = n.parent) if (n.pos === "relative" && zOf(n) === 0 && flatBands.some((b) => b.order < n.order && meets(b, n))) over = n;
+    for (let n = m.el; n && n.kind !== "page" && n !== m.lift; n = n.parent) if (n.pos === "relative" && zOf(n) === 0 && flatBands.some((b) => b.order < n.order && meets(reach(b), n) && sameContext(b, n))) over = n;
     if (over) { m.lift = over; note(m.el.sel, "(stack)", "field", `painted with its relative box (${over.sel}), after the positioned band it comes after in the page and overlaps, as the browser paints it`); }
   }
   const lifts = [...new Set(made.map((m) => m.lift).filter(Boolean))];
