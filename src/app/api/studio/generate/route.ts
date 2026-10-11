@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { answerCeiling } from "../budget";
 import { droppedCount, droppedWords, takePictures, type PictureIn } from "@/features/studio/pictureIn";
+import { buildContract } from "@/features/studio/scaffolding/contract";
 
 /**
  * Claude, on the site: every kind of prompt the Builder can make.
@@ -84,7 +85,7 @@ const MODE_INSTRUCTIONS: Record<Mode, string> = {
     "Write only what is genuinely missing: a body for each Idea part that has none, where the data each part reads comes from, " +
     "and the behaviour that follows an interaction. Start with a short list of what you are adding and why, then every file " +
     "you add or change, complete, as a fenced code block whose info string is the language and then the path, like " +
-    "```tsx src/features/site/Home.tsx — one block per file, no elisions, no placeholders. A file you name that the scaffold " +
+    "```tsx components/parts/Newsletter.tsx — one block per file, no elisions, no placeholders. A file you name that the scaffold " +
     "already wrote replaces it, so name one only when you mean to change it, and say in a comment what you changed and why.",
 };
 
@@ -103,13 +104,6 @@ The blueprint comes from a canvas where the author placed feature icons, drew re
 - When pictures are given, they are the pages as the live preview draws them right now, top to bottom, in the same order as the blueprint. They show what is actually there; the blueprint says what it is for. Where they disagree, say so.
 
 Write for a competent developer who will implement this. Be concrete and specific, never generic. Do not pad, do not restate the blueprint back at length, and do not produce a wall of boilerplate advice that would apply to any website.`;
-
-const REPO_CONTRACT = `The repository the files are for:
-- Next.js 16 App Router, React 19, TypeScript strict, Tailwind 4 with design tokens (bg-panel, bg-elevated, text-fg, text-fg-muted, border-border, bg-accent, text-accent-fg; no raw hex).
-- Every feature is a module at src/features/<id>/index.ts exporting defineFeature({ id, name, description, icon, routes: [{ path, component, title }], nav: [{ label, href, icon, order }] }) from "@/core/types", registered by adding it to the modules array in src/features/index.ts.
-- Route components are "use client" React components taking { path, params }. UI primitives come from "@/core/ui": Button, Input, Textarea, Select, Switch, Segmented, Badge, Card, CardHeader, CardTitle, CardContent, Tabs, Separator, ScrollArea, EmptyState. Icons from "lucide-react". Class merging with cn from "@/core/lib/cn".
-- No new dependencies. Data the site needs goes in a plain TypeScript file beside the component.
-- The site's own document is also rendered by the app at /site from site/document.json; code you write is for what the document cannot express.`;
 
 /**
  * What Build is now: the looks come from the document, deterministically,
@@ -308,7 +302,10 @@ export async function POST(request: Request) {
   const wantsRevisions = mode === "critique" || mode === "expand" || mode === "finish";
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
   // Build is told what has already been written before it is told anything
-  // else: the scaffold is the ground it is adding to.
+  // else: the scaffold is the ground it is adding to. The codebase it names
+  // is the scaffold's own layout (`buildContract`); it used to be the
+  // Builder's own repository, so Claude's files came back as a second app
+  // that no page imported (`tests/build-contract.mjs`).
   const scaffoldFiles = (body.scaffold?.files ?? [])
     .filter((f): f is { path: string; bytes: number } => typeof f?.path === "string")
     .map((f) => ({ path: f.path.slice(0, 200), bytes: Number(f.bytes) || 0 }))
@@ -317,7 +314,7 @@ export async function POST(request: Request) {
   const scaffolded = mode === "build" && scaffoldFiles.length
     ? `\n\n${scaffoldContract(scaffoldFiles, gaps.length ? gaps : ["an Idea part with no body", "where the data comes from", "what happens after an interaction"], body.scaffold?.stats ?? null)}`
     : "";
-  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}${scaffolded}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
+  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${buildContract(scaffoldFiles.length > 0)}${scaffolded}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
 
   /*
    * The upstream gets a deadline, and so does the whole route.

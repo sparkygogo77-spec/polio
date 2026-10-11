@@ -160,8 +160,9 @@ Two shapes, one route.
   fingerprint has moved since this thread last sent them, then `skipped` as a
   count.
 
-Plus the pictures, the mode instruction, and — for Build — the
-`REPO_CONTRACT` (1,094 chars) and the scaffold contract: the file list
+Plus the pictures, the mode instruction, and — for Build — the build
+contract (`buildContract` in `scaffolding/contract.ts`, 2,529 chars: the
+scaffold's own layout, file by file) and the scaffold contract: the file list
 `buildScaffold()` already wrote from the document, deterministically, in the
 browser, with no model involved.
 
@@ -283,8 +284,8 @@ The Build ask alone, on BLACKORB (2 pages, 33 parts):
 
 ```
 input   system 503 + 2 pictures 3,956 + labels 40 + build instruction 340
-        + REPO_CONTRACT 313 + scaffold contract ~740 + blueprint 5,527
-      = 11,419 tok                                            → $0.057
+        + build contract ~720 + scaffold contract ~740 + blueprint 5,527
+      = 11,826 tok                                            → $0.059
 output  20,000 tok (assumed; the cap is 64,000)               → $0.500
                                                         Build  $0.56
 ```
