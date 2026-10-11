@@ -80,7 +80,7 @@ import type { ScreenRead } from "../states";
 import { openPartFocus } from "../states/ui";
 import { frameFor } from "../states";
 import { current, openedAt, pageSpot, openRadial, openBoard, closeRadial, moveRadial, useRadial } from "./open";
-import { PULL_FROM, PULL_LOCK, TRAY_DROP, PullStage, Pull, SlotId, Slot, SLOTS, GREEN, GREEN_SHRINK, ANIM_SLAB, Choice, choicesFor, SLOTS_BG, bgChoicesFor } from "./choices";
+import { PULL_FROM, PULL_LOCK, TRAY_DROP, PullStage, Pull, SlotId, Slot, SLOTS, GREEN, GREEN_SHRINK, ANIM_SLAB, Choice, choicesFor, SLOTS_BG, bgChoicesFor, motionOptions } from "./choices";
 import { PullLine, PullEnds, RingPiece, inkOn, Ring, HueSwatch, textureWear, AuraSwatch, Editor } from "./ring";
 
 /* ------------------------------------------------------------------ */
@@ -484,12 +484,6 @@ export function RadialMenu() {
   const topMid = (topA + topB) / 2;
 
   const B = BLUE_RINGS;
-  // The top quadrant's inner band carries three icons — Animation, the
-  // pencil, and More — where the bottom one carries two; the outer block is
-  // still one word, Draw.
-  const t1 = topA + (topB - topA) / 3;
-  const t2 = topA + (2 * (topB - topA)) / 3;
-  void topMid;
   const level1: { slot: Slot; d: string; at: Pt; wear?: RingPiece["wear"]; glow?: string | null }[] = [
     /*
      * The inner top: two, on a part and on the page alike.
@@ -703,12 +697,16 @@ export function RadialMenu() {
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
   const onPlate = !!editing && !["hue", "texture", "aura", "font", "edge", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide"].includes(editing) && !(editing in ANIM_SLAB);
+  // Behaviour has one screen per motion option the part offers — one, for
+  // every part so far — and no more: a lit screen with nothing on it reads
+  // as broken (DESIGN.md, "Never an empty slab").
+  const quads = editing === "behaviour" && node ? freeQuads.slice(0, Math.max(1, motionOptions(node).length)) : freeQuads;
   const consoleSpan: ConsoleSpan = {
-    quads: freeQuads,
+    quads,
     rings: GREEN_RINGS,
     shape,
     spin,
-    shapes: freeQuads.map(([f]) => (onPlate && Math.abs(((f % 1) + 1) % 1 - 0.25) < 0.001 ? "square" : shape)),
+    shapes: quads.map(([f]) => (onPlate && Math.abs(((f % 1) + 1) % 1 - 0.25) < 0.001 ? "square" : shape)),
     lit: editing && editing in ANIM_SLAB ? ANIM_SLAB[editing as keyof typeof ANIM_SLAB] : undefined,
   };
 
