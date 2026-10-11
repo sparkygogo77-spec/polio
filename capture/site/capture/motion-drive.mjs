@@ -301,7 +301,7 @@ export async function hoverMotion(page) {
       out.push(B.idOf(el));
       if (out.length >= 40) break;
     }
-    window.__sinkHoverEls = new Map(out.map((id) => [id, [...cands].find((e) => B.idOf(e) === id)]));
+    window.__sinkHoverEls = new Map(out.map((id) => [id, B.elOf(id)]));
     return out;
   });
   const results = [];
@@ -342,7 +342,7 @@ export async function hoverMotion(page) {
         if (!c || !a || !z) continue;
         const same = (p, q) => p.computed === q.computed && p.rotate === q.rotate && p.translate === q.translate && p.scale === q.scale;
         if (same(b, c) && same(b, a) && same(b, z)) continue;
-        const el = Array.from(document.querySelectorAll("*")).find((e) => B.idOf(e) === b.id);
+        const el = B.elOf(b.id);
         /* One a forever animation moves anyway (a floating eye): it moved with the clock, not with the pointer. */
         if (el && el.getAnimations().some((an) => !an.effect?.pseudoElement && an.effect?.getTiming?.().iterations === Infinity)) continue;
         const cs = el ? getComputedStyle(el) : null;

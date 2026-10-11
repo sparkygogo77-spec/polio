@@ -25,7 +25,10 @@
   const t0 = performance.now();
   const now = () => Math.round(performance.now() - t0);
   const els = [];
-  const idOf = (el) => { let i = els.indexOf(el); if (i < 0) { els.push(el); i = els.length - 1; } return `b${i}`; };
+  /* Each element's number, looked up, not searched for: a whole-page map was every element against every other. */
+  const numOf = new WeakMap();
+  const idOf = (el) => { let i = numOf.get(el); if (i === undefined) { i = els.length; els.push(el); numOf.set(el, i); } return `b${i}`; };
+  const elOf = (id) => els[Number(String(id).slice(1))] ?? null;
   const phase = { at: "load" };
 
   /* ---------------------------------------------------------------- animate() */
@@ -127,7 +130,7 @@
     pointer: [],
     scrolled: [],
     idle: [],
-    idOf,
+    idOf, elOf,
     /* When the recorder started, in ms from the navigation's start (performance.now's own origin): every `now()` plus this is a time from the navigation. */
     t0: Math.round(t0),
     classes, animations, loaders, pointerListened,

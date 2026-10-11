@@ -39,15 +39,27 @@ const cssOf = (n, base) => {
 /** The sentences with elements inside them, and the children that belong back in them, in reading order. */
 export function holesIn(nodes, skip = new Set()) {
   const out = [];
+  const under = kidsByParent(nodes);
   for (const p of nodes) {
     if (skip.has(p.id)) continue;
     if (!TEXT_KINDS.has(p.featureId) || typeof p.content !== "string" || !p.content.trim() || !p.from?.selector) continue;
     /* A tag inside the sentence (a span with a role of image: a "Save 71×" badge) is a thing beside the words, never words of the sentence. */
-    const kids = nodes.filter((c) => c.pageId === p.pageId && c !== p && !skip.has(c.id) && TEXT_KINDS.has(c.featureId) && typeof c.content === "string" && c.content.trim()
-      && parentOf(c.from?.selector) === p.from.selector).sort((a, b) => a.y - b.y || a.x - b.x);
+    const kids = (under.get(`${p.pageId}|${p.from.selector}`) ?? []).filter((c) => c !== p && !skip.has(c.id) && TEXT_KINDS.has(c.featureId) && typeof c.content === "string" && c.content.trim())
+      .sort((a, b) => a.y - b.y || a.x - b.x);
     if (kids.length) out.push({ p, kids });
   }
   return out;
+}
+
+/** Every part by the page and the selector of its parent on the page, read once: the children of a part are looked up, not every part scanned per part. */
+export function kidsByParent(nodes) {
+  const under = new Map();
+  for (const c of nodes) {
+    const key = `${c.pageId}|${parentOf(c.from?.selector)}`;
+    const had = under.get(key);
+    if (had) had.push(c); else under.set(key, [c]);
+  }
+  return under;
 }
 
 /**

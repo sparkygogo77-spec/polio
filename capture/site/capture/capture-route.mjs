@@ -192,8 +192,22 @@ const net = flag("--network") ? recordNetwork(page) : null;
 await net?.ready;
 /* A page that marks itself as still building (`body data-preview="loading"`, ready.mjs) is waited for on every settle, up to `--ready` seconds. */
 const readyFor = Number(opt("--ready", 120)) * 1000;
+/*
+ * A page that keeps an EventSource open never goes idle by Playwright's
+ * count, so every settle waited its whole 30 s: once one is seen, the wait
+ * is for the page's own requests instead (none in flight for half a second,
+ * websockets and the feed left out), up to 10 s.
+ */
+let feedSeen = false;
+const inFlightNow = new Set();
+page.on("request", (r) => { const t = r.resourceType(); if (t === "eventsource") feedSeen = true; if (!["websocket", "eventsource"].includes(t)) inFlightNow.add(r); });
+page.on("requestfinished", (r) => inFlightNow.delete(r)); page.on("requestfailed", (r) => inFlightNow.delete(r));
+const quiet = async (most = 10000) => {
+  const t0 = Date.now();
+  for (let still = 0; still < 500 && Date.now() - t0 < most; ) { await page.waitForTimeout(100); still = inFlightNow.size ? 0 : still + 100; }
+};
 const settle = async (ms = 1200) => {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  if (feedSeen) await quiet(); else await page.waitForLoadState("networkidle").catch(() => {});
   const waited = await waitReady(page, { most: readyFor });
   if (waited) console.error(`ready: waited ${waited.secs} s for ${waited.marks.join(", ")}${waited.done ? "" : ", and it never said ready"}`);
   await page.waitForTimeout(ms);
@@ -477,14 +491,16 @@ if (flag("--agree")) {
 }
 /* The wallet modal opens itself half a second after load when nothing is connected; with the stand-in it should not, and if it did it is closed. */
 if (flag("--wallet")) {
-  for (let i = 0; i < 20; i++) {
+  /* The sidebar is the root site's (routes.json, --section / --click): another site is not made to wait 25 s for an <aside> it has not got. */
+  const sidebar = !!(section || click);
+  for (let i = 0; i < (sidebar ? 20 : 2); i++) {
     const modal = page.locator(".wallet-adapter-modal-wrapper, .wallet-adapter-modal");
     if (await modal.count()) { await page.keyboard.press("Escape"); await page.waitForTimeout(300); }
-    if (await page.locator("aside").count()) break;
+    if (sidebar && await page.locator("aside").count()) break;
     await page.waitForTimeout(500);
   }
   /* "Processing items..." holds the sidebar back for three seconds after connecting. */
-  await page.waitForSelector("aside", { timeout: 15000 }).catch(() => {});
+  if (sidebar) await page.waitForSelector("aside", { timeout: 15000 }).catch(() => {});
   await settle(500);
 }
 if (click) {
@@ -615,6 +631,7 @@ const cdp = await context.newCDPSession(page);
 await cdp.send("DOM.enable");
 await cdp.send("Accessibility.enable");
 const { nodes: ax } = await cdp.send("Accessibility.getFullAXTree");
+const marks = [];
 for (const n of ax) {
   if (n.ignored || !n.backendDOMNodeId) continue;
   const role = n.role?.value;
@@ -622,14 +639,19 @@ for (const n of ax) {
   const name = n.name?.value ?? "";
   const state = {};
   for (const p of n.properties ?? []) if (STATES.has(p.name) && p.value?.value !== undefined && p.value.value !== false && p.value.value !== "false") state[p.name] = p.value.value;
+  marks.push({ id: n.backendDOMNodeId, role, name, state: Object.keys(state).length ? JSON.stringify(state) : "" });
+}
+/* Written in batches of a hundred, not two round trips awaited per node: thousands of nodes, three reads and one per press. */
+const markOne = async (m) => {
   let object;
-  try { ({ object } = await cdp.send("DOM.resolveNode", { backendNodeId: n.backendDOMNodeId })); } catch { continue; }
+  try { ({ object } = await cdp.send("DOM.resolveNode", { backendNodeId: m.id })); } catch { return; }
   await cdp.send("Runtime.callFunctionOn", {
     objectId: object.objectId,
     functionDeclaration: `function (role, name, state) { if (this.nodeType !== 1) return; this.dataset.axRole = role; if (name) this.dataset.axName = name; if (state) this.dataset.axState = state; }`,
-    arguments: [{ value: role }, { value: name }, { value: Object.keys(state).length ? JSON.stringify(state) : "" }],
+    arguments: [{ value: m.role }, { value: m.name }, { value: m.state }],
   }).catch(() => {});
-}
+};
+for (let i = 0; i < marks.length; i += 100) await Promise.all(marks.slice(i, i + 100).map(markOne));
 await cdp.detach().catch(() => {});
 };
 await markRoles();

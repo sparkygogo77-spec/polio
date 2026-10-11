@@ -248,6 +248,8 @@ export function recordNetwork(page, { started = Date.now(), base } = {}) {
   const seen = [];
   let phase = "load";
   const pending = new Map();
+  /* An endpoint whose answer was read once (2xx JSON): later answers of it are counted and timed, never read again (mapOf keeps the first sample only). */
+  const sampled = new Set();
   page.on("request", (q) => {
     if (!DATA.has(q.resourceType())) return;
     let body = null; try { body = q.postData(); } catch { /* bytes */ }
@@ -265,7 +267,9 @@ export function recordNetwork(page, { started = Date.now(), base } = {}) {
     if (!/json/i.test(type) || /event-stream/i.test(type)) return;
     const len = Number(res.headers()["content-length"] ?? 0);
     if (len > READ_MAX) return;
-    try { const text = await res.text(); if (text.length <= READ_MAX) rec.json = JSON.parse(text); } catch { /* gone, or not JSON after all */ }
+    const key = keyOfRequest(rec.method, rec.url, rec.body, base ?? page.url());
+    if (sampled.has(key)) return;
+    try { const text = await res.text(); if (text.length <= READ_MAX) { rec.json = JSON.parse(text); if (rec.status >= 200 && rec.status < 300) sampled.add(key); } } catch { /* gone, or not JSON after all */ }
   });
   page.on("requestfailed", (q) => { const rec = pending.get(q); if (rec) { rec.status = 0; rec.failed = q.failure()?.errorText ?? "failed"; pending.delete(q); } });
   /*
