@@ -29,7 +29,7 @@ const check = (name, ok, detail = "") => {
   check("so does the exact shadow", jsx.includes("0 8px 24px oklch(0 0 0 / 0.4)"));
   check("styles are an object, camel-cased", /fontSize: "28px"/.test(jsx) && /letterSpacing: "-0.02em"/.test(jsx) && /boxShadow:/.test(jsx));
   check("void tags close themselves", /<br \/>/.test(jsx) && /<img [^>]*\/>/.test(jsx), jsx.match(/<img[^>]*>/)?.[0]);
-  check("tabindex is React's", jsx.includes('tabIndex="-1"'));
+  check("tabindex is React's, a number", jsx.includes("tabIndex={-1}"));
   check("the words are still the words", jsx.includes("Power in the dark"));
 }
 {
