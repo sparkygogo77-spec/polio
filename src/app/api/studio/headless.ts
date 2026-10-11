@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { browserEnv } from "./fonts";
 
 /**
  * The site, open in a browser on the server.
@@ -85,7 +86,7 @@ export async function findPlaywright(): Promise<Found | { pw: null; tried: strin
         pw: outside(c) as PW,
         from: c,
         video: true,
-        launchOptions: async () => ({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined }),
+        launchOptions: async () => ({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined, env: browserEnv() }),
       };
     } catch (err) {
       tried.push(`${c}: ${why(err)}`);
@@ -105,6 +106,8 @@ export async function findPlaywright(): Promise<Found | { pw: null; tried: strin
         headless: true,
         args: chromium.args,
         executablePath: process.env.PLAYWRIGHT_CHROMIUM || (await chromium.executablePath()),
+        /* After `executablePath()`: that unpacks the browser's own faces into `/tmp/fonts`, which the config includes. */
+        env: browserEnv(),
       }),
     };
   } catch (err) {
