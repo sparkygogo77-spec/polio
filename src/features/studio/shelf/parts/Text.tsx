@@ -73,7 +73,7 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
   const wordsRef = React.useRef<HTMLDivElement>(null);
   const pad0 = boxStyles(t).padding;
   const roomY = h - ((typeof pad0 === "number" ? pad0 * 2 : 0) + (t.padY ?? 0));
-  const heldToOne = !t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1;
+  const heldToOne = !!t.said?.nowrap || (!t.said?.wrap && paras.length === 1 && (runParas?.length ?? 1) === 1 && h > 0 && roomY < 2 * t.fontPx * t.lineHeight - 1);
   useKeepLines(wordsRef, quote || heldToOne ? 0 : roomY, `${w}|${content}|${t.fontPx}|${t.lineHeight}|${t.bodyFamily}`);
 
   if (quote) {

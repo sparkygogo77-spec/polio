@@ -256,7 +256,7 @@ export interface NodeEdge {
 }
 /** How the words inside are set: where they sit and their case. */
 /** `wrap`: its words wrap onto more lines, as the page's did (a button two lines tall), where the part would keep them on one. */
-export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize"; wrap?: "balance" | "pretty" | "wrap" }
+export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize"; wrap?: "balance" | "pretty" | "wrap" | "nowrap" }
 /** The artistic properties a capture recorded, as the browser computed them (sink `node.art`). Drawn as written; none is invented. */
 export interface NodeArt {
   blend?: string;
@@ -272,6 +272,8 @@ export interface NodeArt {
   backgroundOptions?: string[];
   /** `text`: the background is seen only through the words (a gradient title, sink `bgclip`). */
   backgroundClip?: string;
+  /** How its background layers blend (`background-blend-mode`), as the page set them. */
+  backgroundBlend?: string;
   /** The point it turns about, px from its box's top left, where an animation turns it (the antenna's rods: their feet). */
   origin?: string;
   /** A mask the page painted it through, as computed, with its size, position and repeat. */
@@ -346,6 +348,8 @@ export interface NodeSaid {
   edge?: boolean;
   /** True when its words wrap, as the page's did. */
   wrap?: boolean;
+  /** True when the page holds its words to one line (`white-space: nowrap`). */
+  nowrap?: boolean;
 }
 
 /** Did this node paint that role for itself? */
@@ -386,13 +390,14 @@ export function hasBox(n: NodeBox): boolean {
 
 /** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
 export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
-  if (text?.wrap && !text.align) return { ...t, said: { ...t.said, wrap: true } };
+  const wrap = text?.wrap === "nowrap" ? { nowrap: true } : text?.wrap ? { wrap: true } : {};
+  if (text?.wrap && !text.align) return { ...t, said: { ...t.said, ...wrap } };
   if (!text?.align) return t;
   const a = text.align;
   const align = a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left";
   // Recorded as well as applied: a part that centres its own words needs to
   // know this alignment is HIS and not the site's default. See `NodeSaid`.
-  return { ...t, textAlign: align, said: { ...t.said, align, ...(text.wrap ? { wrap: true } : {}) } };
+  return { ...t, textAlign: align, said: { ...t.said, align, ...wrap } };
 }
 
 /**
@@ -589,6 +594,7 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
       if (a.backgroundOptions?.[2]) s.backgroundRepeat = a.backgroundOptions[2];
       /* Seen only through its letters: trendtrader.pro's gradient "TTP" drew as a teal box without it (tests/text-fill.mjs). */
       if (a.backgroundClip) (s as Record<string, string>).backgroundClip = (s as Record<string, string>).WebkitBackgroundClip = a.backgroundClip;
+      if (a.backgroundBlend) s.backgroundBlendMode = a.backgroundBlend;
     }
     if (a.textShadow) s.textShadow = a.textShadow;
     if (a.textStroke && a.textStroke.w > 0) s.WebkitTextStroke = `${a.textStroke.w}px ${a.textStroke.color}`;
@@ -607,7 +613,8 @@ export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProp
   if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
   if (x?.transform) s.textTransform = x.transform;
   /* Its lines evened out as the page set them (trendtrader.pro's "Build a global private / hedge fund around TTP."): inherited by the words inside. */
-  if (x?.wrap) (s as Record<string, string>).textWrap = x.wrap;
+  if (x?.wrap === "nowrap") s.whiteSpace = "nowrap";
+  else if (x?.wrap) (s as Record<string, string>).textWrap = x.wrap;
   return s;
 }
 
