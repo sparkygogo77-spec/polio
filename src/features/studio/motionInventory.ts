@@ -87,7 +87,7 @@ const WORK_KIND: Record<string, MoveKind> = {
   "switch-on": "canvas",
   blink: "loop", spin: "loop", float: "loop", "moving-frames": "loop",
   marquee: "ribbon",
-  "dust-canvas": "canvas", "crt-loader": "canvas",
+  "dust-canvas": "canvas", "crt-loader": "canvas", "loader-film": "canvas",
 };
 
 interface SpeedOf { input: string; label: string; unit: MoveSpeed["unit"]; min: number; max: number; step: number }

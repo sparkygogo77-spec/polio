@@ -148,6 +148,74 @@ export const CRT: Work = {
 `,
 };
 
+/*
+ * THE SITE'S OWN LOADING SCREEN, AS CAPTURED (sunkcoin.fun, J 2026-10-11:
+ * "the loading screen also looks like this not the full screen animation
+ * like we have now"). The capture pictures the window while the loader
+ * stands over it and the converter makes the pictures one svg that plays
+ * once (`behaviours.loader.film`); the hand-over lays it as a hidden part of
+ * its own (`captured.ts`). On the page this takes the picture out to the
+ * whole window as the page opens, plays it, and fades it as the original
+ * did: from when it started to switch off (`at`, on the visitor's clock
+ * from the navigation), over as long as the original took to go (`fade`).
+ */
+export const LOADER_FILM: Work = {
+  manifest: {
+    id: "loader-film",
+    name: "Loading screen as captured",
+    category: "hero",
+    blurb: "The site's own loading screen, as the capture pictured it, over the whole window as the page opens; it fades as the original did.",
+    inputs: [
+      { id: "at", label: "Starts to go at (seconds after the page is asked for)", kind: "number", default: "2" },
+      { id: "fade", label: "Fades over (seconds)", kind: "number", default: "0.6" },
+      { id: "bg", label: "Behind the picture", kind: "text", default: "#000", advanced: true },
+      { id: "src", label: "The pictures (a code site's own file)", kind: "text", default: "", advanced: true },
+    ],
+    needs: "none",
+    says: ["loading screen as captured", "captured loader", "site's own loader", "loader film"],
+    look: { sample: "◐ loading", caption: "loader · as captured" },
+    version: 1,
+  },
+  script: `siteFeatures.define("loader-film", function (el, inputs) {
+  if (${CALM} || document.querySelector("[data-loader-film]")) return;
+  /* The part's own picture, or the file a code site names; a picture still on its way (the Preview's comes a moment after the part) is waited for. */
+  var find = function () { var img = el.querySelector && el.querySelector("img"); return String(inputs.src || "").trim() || (img && (img.getAttribute("src") || img.currentSrc)) || ""; };
+  var first = find();
+  if (first) return show(first);
+  if (!window.MutationObserver) return;
+  var mo = new MutationObserver(function () { var s = find(); if (s) { mo.disconnect(); show(s); } });
+  mo.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ["src"] });
+  setTimeout(function () { mo.disconnect(); }, 8000);
+  function show(src) {
+  if (document.querySelector("[data-loader-film]")) return;
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  var at = num(inputs.at, 2) * 1000, fade = Math.max(0, num(inputs.fade, 0.6) * 1000);
+  var o = document.createElement("div");
+  o.setAttribute("data-loader-film", ""); o.setAttribute("aria-hidden", "true");
+  o.style.cssText = "position:fixed;inset:0;z-index:2147482000;overflow:hidden;background:" + (String(inputs.bg || "").trim() || "#000");
+  var p = document.createElement("img");
+  p.alt = ""; p.src = src;
+  p.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block";
+  o.appendChild(p);
+  document.body.appendChild(o);
+  var root = document.documentElement, flow = root.style.overflow;
+  root.style.overflow = "hidden";
+  /* On the visitor's clock from the navigation, as the original went; a page whose script ran late still shows it a moment. */
+  var now = window.performance && performance.now ? performance.now() : 0;
+  var wait = Math.max(600, at - now);
+  setTimeout(function () {
+    root.style.overflow = flow;
+    var done = function () { if (o.parentNode) o.parentNode.removeChild(o); };
+    if (!fade || !o.animate) { done(); return; }
+    var a = o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fade, easing: "ease", fill: "forwards" });
+    a.onfinish = done;
+    setTimeout(done, fade + 400);
+  }, wait);
+  }
+});
+`,
+};
+
 export const DUST: Work = {
   manifest: {
     id: "dust-canvas",

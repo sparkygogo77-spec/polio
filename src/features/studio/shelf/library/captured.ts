@@ -200,7 +200,42 @@ function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown
     const off = num((loader.off as Rec | undefined)?.afterMs) ?? num(loader.lastedMs);
     /* When it switched off from the navigation's start (sink `loader.nav.off`): the moment the page showed through on the original, on a visitor's clock. */
     const at = num((loader.nav as Rec | undefined)?.off);
-    if (host) give(host.id, { id: "crt-loader", inputs: {
+    /*
+     * THE SITE'S OWN LOADING SCREEN (`loader.film`, capture-route.mjs): the
+     * pictures the capture took of the window while it stood, as one svg that
+     * plays once. Laid as a part of its own, the size of the window, in a
+     * hidden group (`hidden:loading-screen`): the page opens without it on
+     * the board, the Panels rail switches it on to see it, and on the page
+     * "Loading screen as captured" shows it over everything as the page
+     * opens and fades it as the original did. The CRT loader is not given:
+     * it was a stand-in for a look the capture did not have.
+     */
+    const film = loader.film as Rec | undefined;
+    const fp = film?.picture as Rec | undefined;
+    const vw = num(fp?.w), vh = num(fp?.h);
+    if (host && fp && typeof fp.id === "string" && typeof fp.path === "string" && vw && vh && !byId.has("n_loader_film")) {
+      const nav = (loader.nav ?? {}) as Rec;
+      /* When it started to go: the later of the film's last picture (it still stood whole then) and the switch-off the behaviours saw; the film holds its last picture till then. */
+      const offAt = Math.max(num(film?.to) ?? 0, num(nav.off) ?? 0) || null;
+      const fade = num(nav.off) !== null && num(nav.gone) !== null ? Math.max(0, num(nav.gone)! - num(nav.off)!) : null;
+      const layer = {
+        id: "n_loader_film", pageId: host.pageId, featureId: "picture", label: "Loading screen",
+        prompt: "The site's own loading screen, as the capture pictured it while it stood over the window: shown over everything as the page opens, then faded.",
+        content: "", data: "", x: 0, y: 0, w: vw, h: vh, groupId: null, options: {}, priority: "must", custom: false, glyph: null, hue: null, locked: false, link: null,
+        colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
+        cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, art: null, work: null,
+        picture: { id: fp.id, path: fp.path, type: "image/svg+xml", w: vw, h: vh, bytes: 0, alt: "", from: "upload" },
+        from: { ...(host.from ?? {}), selector: "body::loader", position: "fixed" },
+        state: { group: "hidden:loading-screen", option: 0 },
+        inert: true,
+      } as unknown as N;
+      layer.work = withWork(null, { id: "loader-film", inputs: {
+        ...(offAt && offAt > 0 ? { at: String(round(offAt / 1000, 100)) } : {}),
+        ...(fade !== null ? { fade: String(round(fade / 1000, 100)) } : {}),
+      } });
+      out.push(layer);
+      byId.set(layer.id, layer);
+    } else if (host) give(host.id, { id: "crt-loader", inputs: {
       title: String(loader.title ?? ""), ticker: String(loader.ticker ?? ""),
       channel: String(loader.channel ?? ""), label: String(loader.label ?? ""),
       ...(off ? { hold: String(round(off / 1000, 10)) } : {}),

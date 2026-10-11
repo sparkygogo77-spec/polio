@@ -1767,6 +1767,85 @@ if (withStates) {
 }
 if (behaved) cap.behaviours = behaved;
 lap("states");
+/*
+ * THE LOADING SCREEN AS IT LOOKED (sunkcoin.fun, J 2026-10-11: "the loading
+ * screen also looks like this not the full screen animation"). The
+ * behaviours pass kept a loader as its words, pictures and times, and the
+ * Builder dressed those in a loader of its own (the CRT one), which is not
+ * the site's. So one more load, after everything else has been read: the
+ * window pictured while the loader stands over it, from when it was first
+ * seen to when it started to switch off (`nav.shown` to `nav.off`), a frame
+ * every `--loader-every` ms (120), at most 24, a frame the screen already
+ * showed kept once. The converter makes them one svg that plays once and
+ * holds its last picture (`behaviours.loader.film`); the Builder shows it
+ * full window as the page opens and fades it as the page did.
+ */
+if (behaved && !flag("--no-loader-film")) {
+  const l = (behaved.loaders ?? []).find((x) => (x.words ?? []).length || (x.pictures ?? []).length);
+  const from = Number(l?.nav?.shown), to = Number(l?.nav?.off ?? l?.nav?.gone);
+  if (l && Number.isFinite(from) && Number.isFinite(to) && to > from) {
+    const every = Math.max(60, Number(opt("--loader-every", 120)));
+    const frames = [], times = [];
+    let last = null;
+    /*
+     * Its times from the earlier load are only a guide: a page that read its
+     * data faster this time goes sooner. So each look also asks whether the
+     * loader stands whole over the window: its words drawn, and nothing
+     * round them faded (every ancestor's opacity multiplied). Pictures are
+     * kept from when it does until it no longer does, or the old times
+     * have run out a second over.
+     */
+    const words = (l.words ?? []).map((w) => w.text).filter(Boolean).slice(0, 2);
+    const standing = (ws) => {
+      const want = ws.map((w) => w.replace(/\s+/g, " ").trim()).filter(Boolean);
+      if (!want.length) return null;
+      const walker = document.createTreeWalker(document.body ?? document.documentElement, NodeFilter.SHOW_TEXT);
+      for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+        const said = (t.textContent ?? "").replace(/\s+/g, " ").trim();
+        if (!said || !want.some((w) => said === w || said.startsWith(w))) continue;
+        const el = t.parentElement;
+        const r = el?.getBoundingClientRect();
+        if (!r || r.width < 1 || r.height < 1) continue;
+        let o = 1;
+        for (let e = el; e && o > 0; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === "hidden" || cs.display === "none") o = 0; else o *= Number(cs.opacity); }
+        if (o >= 0.95) return true;
+      }
+      return false;
+    };
+    /* As a first visit: nothing cached, so the loader stands as long as a newcomer sees it, not the moment a cached reload gives it. */
+    try { const cdp = await page.context().newCDPSession(page); await cdp.send("Network.clearBrowserCache"); await cdp.detach(); } catch { /* not Chromium: a cached load */ }
+    await page.goto(url, { waitUntil: "commit" }).catch(() => null);
+    const t0 = Date.now();
+    let seen = false;
+    let end = to;
+    while (Date.now() - t0 < to + 4000 && frames.length < 24) {
+      const look = await page.evaluate(standing, words).then((up) => ({ up })).catch(() => null);
+      const now = await page.evaluate(() => performance.now()).catch(() => null);
+      if (now === null || look === null) { await page.waitForTimeout(30); continue; }
+      if (look.up === false) { if (seen) { end = now; break; } if (now > to + 1000) break; await page.waitForTimeout(30); continue; }
+      if (look.up === null && now >= to) break;
+      if (look.up === null && now < from) { await page.waitForTimeout(Math.min(every, from - now)); continue; }
+      seen = true;
+      const buf = await page.screenshot({ type: "jpeg", quality: 65 }).catch(() => null);
+      if (!buf) continue;
+      if (last && Buffer.compare(last, buf) === 0) { times[times.length - 1] = now; continue; }
+      last = buf;
+      frames.push(`data:image/jpeg;base64,${buf.toString("base64")}`);
+      times.push(now);
+      await page.waitForTimeout(Math.max(0, every - 40));
+    }
+    if (frames.length) {
+      /* Each picture stood until the next one came; the last until the switch-off. */
+      if (!(end > times.at(-1))) end = times.at(-1) + every;
+      const steps = frames.map((_, i) => [i, Math.max(1, Math.round((i + 1 < times.length ? times[i + 1] : end) - times[i]))]);
+      const vp = page.viewportSize() ?? { width: 1440, height: 900 };
+      l.film = { frames, steps, w: vp.width, h: vp.height, from: Math.round(times[0]), to: Math.round(end) };
+      console.error(`loader: ${frames.length} pictures of it over ${Math.round(end - times[0])} ms`);
+    }
+    await page.waitForLoadState("load").catch(() => {});
+  }
+}
+lap("loader film");
 /* How much the worlds were pressed, and how much told (worlds.mjs, NO PRESS TWICE). */
 { const ws = await page.evaluate(() => window.__sinkWorlds?.stats ?? null).catch(() => null); if (ws) cap.worldStats = ws; }
 if (net) { await page.waitForTimeout(300); await net.flush(); cap.network = net.report(); console.error(`network: ${cap.network.endpoints.length} endpoints (${cap.network.endpoints.filter((e) => e.read).length} reads)`); }

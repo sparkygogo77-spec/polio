@@ -2647,6 +2647,17 @@ const behavioursSection = (() => {
         bodyClass: l.bodyClass ?? [],
         ...(l.bodyOff ? { bodyOff: l.bodyOff } : {}),
       };
+      /* The window as the loader stood over it (capture-route.mjs, THE LOADING SCREEN AS IT LOOKED): one svg that plays once and holds its last picture, the Builder's `loader-film`. */
+      if (l.film?.frames?.length) {
+        const svg = flipbookOf({ frames: { frames: l.film.frames, steps: l.film.steps }, w: l.film.w, h: l.film.h, __st: true });
+        const bytes = svg ? Buffer.from(svg) : null;
+        const key = bytes ? `loader-film:${createHash("sha1").update(bytes).digest("hex")}` : null;
+        const got = bytes ? pictures.get(key) ?? pictureOf(key, "loader-film.svg", bytes) : null;
+        if (got) {
+          out.loader.film = { picture: { id: got.record.id, path: got.record.path, w: got.record.w, h: got.record.h }, frames: l.film.frames.length, from: l.film.from, to: l.film.to };
+          note("(behaviours)", "loader.film", "field", `behaviours.loader.film: ${l.film.frames.length} pictures of the window under the loader, ${l.film.from}-${l.film.to}ms after the navigation started, played once as ${got.record.path}`);
+        } else note("(behaviours)", "loader.film", "nowhere", `${l.film.frames.length} pictures of the loader made no picture`);
+      }
       note("(behaviours)", "loader", "field", `behaviours.loader: a fixed element over the window reading ${JSON.stringify(out.loader.title)}, counting ${counts.length} values to ${counts.at(-1)}, ${out.loader.lastedMs}ms, switched off with .${l.off?.class ?? "?"}${out.loader.nav ? ` ${out.loader.nav.off}ms after the navigation started` : ""}`);
     }
     for (const a of b.intro ?? []) out.intro.push({ ...place(a.el, "intro"), keyframes: a.keyframes, duration: num(a.duration), delay: num(a.delay), easing: a.easing, fill: a.fill, iterations: a.iterations, atMs: a.t });
