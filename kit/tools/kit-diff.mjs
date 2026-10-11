@@ -15,8 +15,9 @@
 // change that drops a hook listed there passes; dropping any other hook still fails. --changes
 // names that file when it lives elsewhere.
 // A style change from the builder (--style-only): only the design's files may change (the style
-// layer, the tokens, the files made from them, builder.json's "styleAssets" folder if it has
-// one, and the design record under design/), no token may disappear, and no hook may change at all.
+// layer, the tokens, the files made from them, the builder's motion file and the kit's copy of
+// it, builder.json's "styleAssets" folder if it has one, and the design record under design/),
+// no token may disappear, and no hook may change at all.
 // Both also run the full contract check.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -59,12 +60,15 @@ export function diff(manifestPath, { base, styleOnly = false, allowRemoved = fal
   const listed = new Set(styleOnly ? [] : designRemoved(dir, changes).hooks);
   if (styleOnly) {
     const owned = [manifest.styleLayer, manifest.tokens, manifest.tokensModule, manifest.hooks].filter(Boolean);
+    /* The builder's motion file (kit-check writes it beside the tokens) rides with a design that names a motion it lacked, as does the kit's copy it comes from. */
+    const motion = manifest.tokens ? `${dirname(manifest.tokens) === '.' ? '' : `${dirname(manifest.tokens)}/`}vendor/builder-motion.js` : null;
+    const motionFile = (f) => f === motion || /(^|\/)starter\/vendor\/builder-motion\.js$/.test(f);
     const assets = manifest.styleAssets ? `${manifest.styleAssets.replace(/\/$/, '')}/` : null;
     const files = git(dir, 'diff', '--relative', '--name-only', from).split('\n').filter(Boolean);
     files.push(...git(dir, 'ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean));
     /* The builder's design record (design/record.json, DESIGN-RECORD.md) and the rest of design/ ride with a style change. */
     const design = (f) => f.startsWith('design/') || f.includes('/design/');
-    for (const f of files) if (!owned.includes(f) && !(assets && f.startsWith(assets)) && !design(f)) problems.push(`${f} changed, but a style change may only touch ${[...owned, ...(assets ? [assets] : [])].join(', ')}`);
+    for (const f of files) if (!owned.includes(f) && !(assets && f.startsWith(assets)) && !design(f) && !motionFile(f)) problems.push(`${f} changed, but a style change may only touch ${[...owned, ...(assets ? [assets] : [])].join(', ')}`);
     for (const h of [...removed, ...added]) problems.push(`hook "${h}" was ${removed.includes(h) ? 'removed' : 'added'} (a style change never changes hooks)`);
     for (const t of lostTokens) problems.push(`token ${t} was removed (a style change may change a token's value, not drop it)`);
   } else {

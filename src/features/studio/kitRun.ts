@@ -207,12 +207,15 @@ export async function readKit(repo: string, ref: string, token: string, opts: { 
 
 const TEXT = /\.(html?|css|m?js|json|md|ya?ml)$/i;
 const MOST_FILES = 400;
+/** Where a kit folder keeps the builder's motion file (kit/starter/vendor/builder-motion.js); $1 is the kit folder. */
+export const KIT_MOTION = /^(.*\/)?starter\/vendor\/builder-motion\.js$/;
 
 /**
  * Every text file the kit's check reads: `builder.json`, each folder
- * holding a page, a stylesheet or the map, the parts file's folder, and the
+ * holding a page, a stylesheet or the map, the parts file's folder, the
  * files it names by path wherever they sit (PonsStars keeps its scenes and
- * samples in kit/, beside no page), as on `ref`.
+ * samples in kit/, beside no page), and the kit's own copy of the builder's
+ * motion file where the repository keeps its kit, as on `ref`.
  */
 export async function kitFiles(repo: string, ref: string, token: string, manifest: KitManifest, opts: { fetch?: Fetch } = {}): Promise<Answer<{ files: Record<string, string> }>> {
   const f = opts.fetch ?? fetch;
@@ -223,7 +226,9 @@ export async function kitFiles(repo: string, ref: string, token: string, manifes
   const dirs = new Set([manifest.hooks, manifest.tokens, manifest.styleLayer, manifest.preview?.page ?? "", manifest.gallery ?? "", ...manifest.pages.map((p) => p.file)].filter(Boolean).map(top));
   if (manifest.parts) dirs.add(manifest.parts.slice(0, manifest.parts.lastIndexOf("/") + 1));
   const exact = new Set(["builder.json", manifest.scenes, manifest.samples, manifest.tokensModule].filter(Boolean));
-  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (exact.has(e.path) || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
+  /* The repository's own copy of the kit keeps the builder's motion file its kit-check copies into the site: read too, so a stale one is sent fresh with the layer. */
+  const kitCopy = (p: string) => KIT_MOTION.test(p) && list.some((e) => e.path === p.replace(KIT_MOTION, "$1tools/kit-check.mjs"));
+  const want = list.filter((e) => e.type === "blob" && TEXT.test(e.path) && !/(^|\/)node_modules\//.test(e.path) && (exact.has(e.path) || kitCopy(e.path) || [...dirs].some((d) => d === "" ? !e.path.includes("/") : e.path.startsWith(d))));
   if (want.length > MOST_FILES) return { ok: false, says: `${repo} has ${want.length} files beside its pages, more than the Builder checks at once (${MOST_FILES}).` };
   const files: Record<string, string> = {};
   for (const e of want) {

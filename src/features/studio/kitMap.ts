@@ -13,11 +13,16 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { check } from "../../../kit/tools/kit-check.mjs";
+import { KIT_MOTION } from "./kitRun.ts";
 
 export interface KitMapAnswer {
   /** What the contract finds, in its own words; empty when it passes. */
   problems: string[];
-  /** Files the check made from the code (hooks.json, and the tokens module where there is one), by path. */
+  /**
+   * Files the check made from the code (hooks.json, and the tokens module where there is one), by path,
+   * and the builder's motion file beside the tokens with the kit's copy of it (`kit/starter/vendor/`),
+   * so a site whose copy is behind the Builder's gets every motion its layer names.
+   */
   made: Record<string, string>;
 }
 
@@ -63,17 +68,21 @@ export function kitMap(files: Record<string, string>, manifestPath = "builder.js
       mkdirSync(dirname(at), { recursive: true });
       writeFileSync(at, t);
     }
-    const manifest = JSON.parse(files[manifestPath]!) as { hooks?: string; tokensModule?: string };
+    const manifest = JSON.parse(files[manifestPath]!) as { hooks?: string; tokensModule?: string; tokens?: string };
     const base = dirname(manifestPath) === "." ? "" : `${dirname(manifestPath)}/`;
     const outside = namedPaths(manifest).find((p) => !inside(dir, base, p));
     if (outside !== undefined) return { problems: [`builder.json: ${String(outside)} is not a file of the repository`], made: {} };
     const { problems } = check(join(dir, manifestPath), { write: true }) as { problems: string[] };
     const made: Record<string, string> = {};
-    for (const p of [manifest.hooks, manifest.tokensModule]) {
+    /* kit-check writes the motion file at <the tokens' folder>/vendor/builder-motion.js. */
+    const motion = manifest.tokens ? join(dirname(manifest.tokens), "vendor", "builder-motion.js").split("\\").join("/") : undefined;
+    for (const p of [manifest.hooks, manifest.tokensModule, motion]) {
       if (!p) continue;
       const at = join(dir, base, p);
       if (existsSync(at)) made[`${base}${p}`] = readFileSync(at, "utf8");
     }
+    const fresh = motion ? made[`${base}${motion}`] : undefined;
+    if (fresh) for (const p of Object.keys(files)) if (KIT_MOTION.test(p)) made[p] = fresh;
     return { problems, made };
   } catch (e) {
     return { problems: [`the check could not run (${(e as Error).message})`], made: {} };
