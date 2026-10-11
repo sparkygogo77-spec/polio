@@ -28,5 +28,5 @@ export { holdImportMark, takeImportMark, swapDoc, pageNodes, pageShapes, pageSpa
 export { otherTab, onOtherTab, loadNewer, keepThisTab, takeOpenSite, watchOtherTabs, type OtherTab } from "./store/load";
 export { BACKGROUND_ID, BASE_ZOOM, ZOOM_MIN, FIT_MIN, ZOOM_MAX, NODE_SHAPES } from "./store/model";
 export type { Tool, Priority, ShapeKind, BoardMode, ShapeRelation, NodeShape, StudioNode, StudioGroup, StudioShape, StudioPage, StudioBrief, BroughtRepo, BroughtPart, RevisionKind, Revision, TrailStage, TrailTargetKind, TrailTarget, TrailEntry } from "./store/model";
-export { takeCarriedRepo } from "./store/persist";
+export { sentBoard, takeCarriedRepo } from "./store/persist";
 export { DRAW_KINDS, type DrawKind } from "../drawKinds";

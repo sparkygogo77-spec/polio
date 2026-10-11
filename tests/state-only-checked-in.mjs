@@ -25,11 +25,13 @@
  *      go out as they are;
  *   5. wiring: the Show switch and the Panels page wear through
  *      `stateEdits.ts`, and Publish, Send the design back and the asks read
- *      the parts checked in.
+ *      the parts checked in;
+ *   6. so do Go live (its pages, document and contract), Export for code and
+ *      the pictures they carry (`persist.ts#sentBoard`).
  *
  *   node tests/state-only-checked-in.mjs
  *
- * Covers: src/features/studio/states/stateEdits.ts, src/features/studio/states/ShowSwitch.tsx, src/features/studio/states/PanelsPage.tsx, src/features/studio/board/store/history.ts, src/features/studio/board/store/persist.ts, src/features/studio/board/store/create.ts, src/features/studio/board/store/load.ts, src/features/studio/CodeSiteButtons.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/publishAsks.ts
+ * Covers: src/features/studio/states/stateEdits.ts, src/features/studio/states/ShowSwitch.tsx, src/features/studio/states/PanelsPage.tsx, src/features/studio/board/store/history.ts, src/features/studio/board/store/persist.ts, src/features/studio/board/store/create.ts, src/features/studio/board/store/load.ts, src/features/studio/CodeSiteButtons.tsx, src/features/studio/StyleLayerPanel.tsx, src/features/studio/publishAsks.ts, src/features/studio/send-out/exportSite.ts, src/features/studio/send-out/goLive.ts, src/features/studio/exportForCode.ts, src/features/studio/staticSite.ts
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -122,6 +124,16 @@ check("5a. the Show switch and the Panels page wear through stateEdits.ts, with 
 check("5b. Publish and Send the design back build from the parts checked in",
   /useSteady\(useStudio\(\(s\) => checkedIn\(s\.nodes\)\)\)/.test(read("CodeSiteButtons.tsx")) && /const own = useStudio\(\(s\) => checkedIn\(s\.nodes\)\)/.test(read("StyleLayerPanel.tsx")));
 check("5c. and so do the NEXT.md asks", /nodes: checkedIn\(st\.nodes\)/.test(read("publishAsks.ts")));
+
+/* 6. */
+edited();
+const out = P.sentBoard(st());
+check("6a. the board as it goes out: the TV's own look, the edit kept as the live state's, and the board still wears it", look(out.nodes[0]) === J({ opacity: null, radius: 4, byState: { [KEY]: { opacity: 0.2 } } }) && TV().opacity === 0.2 && E.wears("show"), look(out.nodes[0]));
+off();
+check("6b. with nothing worn, it is the board itself", P.sentBoard(st()) === st());
+const sends = { "send-out/exportSite.ts": 1, "send-out/goLive.ts": 2, "exportForCode.ts": 3, "staticSite.ts": 1 };
+const reads = Object.fromEntries(Object.keys(sends).map((f) => [f, (read(f).match(/sentBoard\(useStudio\.getState\(\)\)/g) ?? []).length]));
+check("6c. Go live's pages, document and contract, Export for code and the pictures they carry read the board that way", Object.entries(sends).every(([f, n]) => reads[f] === n), J(reads));
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} passed`);
