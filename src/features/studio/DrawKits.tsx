@@ -243,7 +243,10 @@ function PointEditor({ worn, aspect, onChange }: { worn: Worn; aspect: number; o
   const [pts, setPts] = React.useState(worn.pts);
   React.useEffect(() => setPts(worn.pts), [worn.pts]);
   const drag = React.useRef<number | null>(null);
+  /* The last point pressed and when: a second press on it within a blink is the double press, with a mouse or a finger. */
+  const last = React.useRef<{ i: number; at: number } | null>(null);
   const svg = React.useRef<SVGSVGElement>(null);
+  const takeAway = (i: number) => { if (pts.length <= 3) return false; const next = pts.filter((_, k) => k !== i); setPts(next); onChange(next); last.current = null; return true; };
   const at = (e: React.PointerEvent): [number, number] => {
     const r = svg.current!.getBoundingClientRect();
     return [+(((e.clientX - r.left) / r.width - 0.1) / 0.8).toFixed(4), +(((e.clientY - r.top) / r.height - 0.1) / 0.8).toFixed(4)];
@@ -270,8 +273,21 @@ function PointEditor({ worn, aspect, onChange }: { worn: Worn; aspect: number; o
             cy={y}
             r={6}
             className="cursor-grab fill-accent"
-            onPointerDown={(e) => { e.stopPropagation(); (e.currentTarget.ownerSVGElement as SVGSVGElement).setPointerCapture(e.pointerId); drag.current = i; }}
-            onDoubleClick={() => { if (pts.length <= 3) return; const next = pts.filter((_, k) => k !== i); setPts(next); onChange(next); }}
+            /*
+             * The capture is the circle's own, not the svg's: captured by the svg, the
+             * pointer's later events (and so the click and dblclick) went to the svg, and
+             * a real mouse's double press on a point never reached it (J, 2026-10-10).
+             * Captured here, the moves and the release still bubble to the svg's handlers.
+             */
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              const now = e.timeStamp || performance.now();
+              if (last.current && last.current.i === i && now - last.current.at < 450) { e.preventDefault(); takeAway(i); return; }
+              last.current = { i, at: now };
+              e.currentTarget.setPointerCapture(e.pointerId);
+              drag.current = i;
+            }}
+            onDoubleClick={() => takeAway(i)}
           />
         );
       })}

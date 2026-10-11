@@ -14,6 +14,7 @@
  * address — are typed into.
  */
 import * as React from "react";
+import { HandRange } from "./HandSlider";
 import { Info, RotateCcw, Wand2, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
@@ -398,14 +399,13 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
             const now = Number.isFinite(at) ? Math.max(r.min, Math.min(r.max, at)) : fallback;
             return (
               <Row key={opt.id} label={`${opt.label} · ${now}${r.unit ?? ""}`}>
-                <input
-                  type="range"
+                <HandRange
                   min={r.min}
                   max={r.max}
                   step={r.step ?? 1}
                   value={now}
                   aria-label={opt.label}
-                  onChange={(e) => update({ options: { ...node.options, [opt.id]: e.target.value } })}
+                  onChange={(v) => update({ options: { ...node.options, [opt.id]: String(v) } })}
                   className="h-2 w-full cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                   style={{ background: `linear-gradient(to right, ${SCREEN.ink} ${((now - r.min) / Math.max(1e-6, r.max - r.min)) * 100}%, ${SCREEN.key} 0%)` }}
                 />
