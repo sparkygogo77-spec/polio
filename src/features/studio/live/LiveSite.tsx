@@ -326,6 +326,18 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       className={nested ? ((p.node as { state?: unknown }).state ? "sm-p sm-state" : "sm-p") : undefined}
       style={{
         position: "absolute", left: p.x - from.x, top: p.y - from.y, width: p.w,
+        /*
+         * THE STICKY TOP BAR STICKS. Every part is placed absolutely, so the
+         * bar scrolled away with the page and its "On scroll" option had
+         * nothing to act on (shelf audit, item 3). Its box is sticky instead,
+         * at the top of whatever scrolls (the Preview's window, the published
+         * page), standing in the flow where its neighbours are not, so its
+         * margins put it where the board drew it. Over the parts that scroll
+         * under it. At a small width the page's own rules place it again
+         * (`smallCss.ts`, `!important`); the export keeps it sticky
+         * (`fluidSite.ts#fluidStyle`).
+         */
+        ...(p.node.featureId === "sticky-header" && !from.id ? { position: "sticky" as const, top: 0, left: "auto", marginLeft: p.x - from.x, marginTop: p.y - from.y, zIndex: 20 } : null),
         // A part the page never let take a press (the grain over everything, a decoration): presses pass through it.
         ...((p.node as { inert?: boolean }).inert ? { pointerEvents: "none" as const } : null),
         // The same floor the board gives a box: its words are never
@@ -415,7 +427,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       data-live-device={device}
       {...(small ? { "data-small-page": small } : null)}
       className={nested ? "sm-page" : undefined}
-      style={{ width, height, overflow: "hidden", position: "relative", ...(ground ? { background: ground } : t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text, fontFeatureSettings: "normal", fontVariationSettings: "normal", WebkitFontSmoothing: "auto", MozOsxFontSmoothing: "auto" } as React.CSSProperties}
+      /* `clip`, not `hidden`: the page frame cuts what reaches past it and is no scroll container, so the sticky top bar sticks to what really scrolls (the Preview's window, the published page); `hidden` made the frame the nearest scrolling ancestor and the bar stuck to a frame that never scrolls (the export already wrote it as `clip`, `exportSite.ts`). */
+      style={{ width, height, overflow: "clip", position: "relative", ...(ground ? { background: ground } : t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text, fontFeatureSettings: "normal", fontVariationSettings: "normal", WebkitFontSmoothing: "auto", MozOsxFontSmoothing: "auto" } as React.CSSProperties}
     >
       <TextureDrift layers={look?.texture} palette={palette} />
       {t.surfaceDrift ? <style data-page-drift="">{t.surfaceDrift}</style> : null}

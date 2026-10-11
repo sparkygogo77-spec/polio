@@ -3,6 +3,7 @@ import { uid } from "@/core/lib/ids";
 import { getFeature } from "../../shelf";
 import { emptyCube } from "../../shelf";
 import { plain } from "../../shelf";
+import { giveCopies } from "../../shelf";
 import { emptyWrappers, saysWhat, sentences, slimSays, slimWrappers, SWEEP, type Frag, type Slimming } from "../../reassemble";
 import { paintSays, repaintActive } from "../../repaint";
 import { twins, twinSays } from "../../twins";
@@ -232,6 +233,17 @@ export function nodesActions(set: SetStudio, get: GetStudio, push: () => void, p
      * it holds any more — see the note where the fitting used to run.
      */
     sweepDocument: (force) => {
+      /*
+       * A COPY BUTTON COPIES, on every open and outside the mark below: a
+       * board brought in before the rule (sunkcoin.fun's holders table, a
+       * COPY on each row) gets it without a fresh import. It only ever adds
+       * the Copy feature to a copy button nothing was decided for, so a
+       * second open finds nothing to do (`library/copyButton.ts`).
+       */
+      {
+        const before = get().nodes, after = giveCopies(before);
+        if (after !== before) set({ nodes: after as StudioNode[] });
+      }
       const s0 = get();
       /*
        * AT OR PAST these rules, and it is left alone. Written as `>=`

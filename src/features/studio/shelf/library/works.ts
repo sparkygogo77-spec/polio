@@ -370,7 +370,7 @@ export function matchWorks(text: string, manifests: WorkManifest[]): WorkMatch[]
  * press in a preview that rearranges the page under the card would each be
  * wrong, and a preview shows the part as it is seen, already arrived.
  */
-export const NOT_ON_COPIES = ["crt-loader", "scroll-header", "press-shows", "glide", "whats-new", "world-dialogs", "reveal", "scroll-grow"];
+export const NOT_ON_COPIES = ["crt-loader", "scroll-header", "press-shows", "glide", "whats-new", "world-dialogs", "reveal", "scroll-grow", "scroll-depths"];
 
 export const RUNTIME_JS = `/* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
@@ -456,7 +456,7 @@ function shipped(w: Work): string {
 }
 
 /** The fields of a part this reads. Any node shape will do. */
-interface Carrier { id: string; featureId?: string; work?: WorkUse | null }
+interface Carrier { id: string; featureId?: string; work?: WorkUse | null; options?: Record<string, string> | null }
 
 /**
  * Shelf parts whose working is a library feature of their own (a "What's
@@ -473,11 +473,26 @@ export const OWN_FEATURE: Readonly<Record<string, string>> = { "whats-new": "wha
  */
 export const PART_SCRIPT: Readonly<Record<string, string>> = { "orb-css": "planet", "orb-webgl": "planet", "orb-image": "planet", "shape-sphere": "planet", "shape-cube": "planet", "shape-pyramid": "planet", "before-after": "compare" };
 
+/**
+ * Shelf parts whose own option is a library feature's input: the Sticky top
+ * bar's "On scroll" (shrink, hide-then-show, blur) is what `sticky-bar` does
+ * to it (`behaviourScripts/effects.ts`). "static" asks for nothing, and
+ * nothing is carried.
+ */
+export const PART_OPTION_SCRIPT: Readonly<Record<string, { work: string; option: string; input: string; none: string; fallback: string }>> = {
+  "sticky-header": { work: "sticky-bar", option: "onScroll", input: "on", none: "static", fallback: "shrink" },
+};
+
 /** The features a part runs: those it was given, and its own. */
 function usesHere(n: Carrier): WorkUse[] {
   const uses = onUsesOf(n.work);
   const own = n.featureId ? OWN_FEATURE[n.featureId] ?? PART_SCRIPT[n.featureId] : undefined;
-  return own && !onUsesOf(n.work).some((u) => u.id === own) && !usesOf(n.work).some((u) => u.id === own && u.off) ? [...uses, { id: own, inputs: {} }] : uses;
+  const out = own && !onUsesOf(n.work).some((u) => u.id === own) && !usesOf(n.work).some((u) => u.id === own && u.off) ? [...uses, { id: own, inputs: {} }] : uses;
+  const opt = n.featureId ? PART_OPTION_SCRIPT[n.featureId] : undefined;
+  if (!opt) return out;
+  const value = (n.options?.[opt.option] ?? "").trim() || opt.fallback;
+  if (value === opt.none || out.some((u) => u.id === opt.work) || usesOf(n.work).some((u) => u.id === opt.work && u.off)) return out;
+  return [...out, { id: opt.work, inputs: { [opt.input]: value } }];
 }
 
 export interface Binding { part: string; feature: string; inputs: Record<string, string> }

@@ -291,6 +291,68 @@ marquee the scroll hurries and a line the scroll grows; red on 2521ca7,
 | `scrollGrow[]` | `{part, prop: width or height, from, to (% of the holder), start, end (its top as a share of the window), holder, full, kept (% drawn in the capture)}` |
 | `canvases[]` | `{host, below, above (the parts painted either side), box, zIndex, readable, kind: particles, repaint, still or unknown, repaints (share of frames drawn again)}`; particles: `specks`, `spacing` (px of width a speck), `size` (px across the middle), `colours`, `alpha`, `drift`, `perFrame`, `speed`, `fps` |
 
+## Frames of what moves (`behaviours.motion.frames`)
+
+Capture what moves lane, 2026-10-11. The rest of this section says motion in
+numbers; this keeps the look of it: a short run of frames of each part the
+screen shows changing, cropped to that part, played back as one svg the way
+a canvas's flipbook is (`capture-to-document.mjs`, `flipbookOf`), so the
+Builder can show the thing moving as it was drawn rather than one still of
+it. `site/capture/frames-drive.mjs`, called by `behaviours-drive.mjs` after
+the scroll-motion pass; the check is
+`node capture/site/capture/check-moving-frames.mjs` (a blinking dot, a
+shimmer, sliding words, a ticking price, a cursor's trail and follower, a
+hill the scroll moves, a still square and a 2d canvas; 24/24).
+
+Time goes only where something moves. The page is looked at a window at a
+time (at most 8 windows deep), the pointer off the page: three half-size
+PNG looks 0, 250 and 800 ms apart, compared in 16 × 16 px tiles. Tiles that
+changed are grouped by touch; a group's part is the deepest element under
+at least half of its tiles (five places looked at in each, the smallest
+thing found standing for it, so a 6 px light in a 16 px tile and a trail
+the pointer passes through are found; a canvas or video under the place,
+over or behind what the hit test found, is what is drawn there and stands
+for it, so a water behind the words gets the frames, not the words). Three
+or more alike siblings (a row of bubbles) are one part, their parent. A
+holder taller than two windows is not one moving thing: its patches are cut
+round the changed tiles. A window where nothing changed costs
+those three looks. A forever animation the stylesheet runs on a part in the
+window is added even when the looks missed it (a slow blink), unless it
+only moves or turns the part (a spin, a float: read exactly above). Every window
+with moving parts is then shot as a JPEG every 100 ms (`--moving-every`)
+for 3.2 s (`--moving-seconds`, or one cycle of the slowest stylesheet loop in
+it, at most 6 s), each part cut from every shot at its own box, at most
+512 px a side, a frame already shown kept once with how long each stood.
+A 2d canvas of a million px or fewer is left out (capture-route.mjs reads its
+pixels itself, `--frames`); a WebGL canvas or a bigger one is pictured here.
+
+Then the pointer, at the top of the page: one look with it off the page,
+two with it moved across the window; what changed only then and was not
+moving on its own is recorded while the pointer is swept round a slow
+circle, its place kept with every frame. Something that appears only beside
+the pointer (a trail) belongs to no part and is cut round the sweep. Then
+the scroll: a look at rest and one scrolled 160 px, the first shifted up by
+the same, compared; what changed beyond the shift, changes something of its
+own with the scroll (a position, a size, a colour, its words) and holds
+still once the scroll stops is recorded over a scroll from 0 to 320 px in
+16 steps, the scroll kept with every frame.
+
+Each run of frames is read through 16 × 16 greys, in time (a shot can come
+late): all the same is **still** and dropped; coming back on itself every
+P ms, seen at least twice over with at most a fifth of the pairs off (a
+blink read as it switched), is a **loop** with its period; changed and then
+held is a **once** (played once, holding its last frame); drawing ever
+further from its first frame, or a place of its own that only grows or only
+shrinks across three looks (words slid along), is a **drift**; anything
+else is **live** (a shader, a ticker, a noise). The budget: at most 16
+parts a page (`--moving-most`), 36 pictures and 2.5 MB a part; `--no-moving`
+leaves the pass out.
+
+| field | what it holds |
+|---|---|
+| `frames[]` | `{part, selector, kind: loop, once, drift, live, pointer or scroll, box (page px), w, h (the pictures'), scale, every, ms, frames (how many), picture: {id, path, w, h} (the flipbook svg), period? (ms, a loop's, or a stylesheet loop's cycle), name? (its animation), what[] (the properties that changed on it or inside it), text?, words? (the words it showed), via: css, script, canvas or video, self (false for the page itself: a trail), alike? (how many alike siblings, a row of bubbles, this part stands for), pointer? ([x, y] a frame), scroll? (px a frame)}` |
+| `looked[]` (the capture only) | where the pass looked and what it found: `{band, changed (tiles), parts}` |
+
 ### How trumpmorty.fun does each, and what came through
 
 Read in `assets/js/main.js` and `assets/css/style.css`, then sampled:

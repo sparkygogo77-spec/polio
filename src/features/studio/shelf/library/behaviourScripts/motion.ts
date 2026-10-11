@@ -99,7 +99,41 @@ export const COPY: Work = {
   var given = String(inputs.text || "").trim();
   var say = String(inputs.toast || "").trim() || "Copied";
   var calm = ${CALM};
-  function words() { return given || String(el.textContent || "").replace(/\\s+/g, " ").trim(); }
+  var own = function () { return String(el.textContent || "").replace(/\\s+/g, " ").trim(); };
+  /* A button whose words only say Copy copies what it sits beside, by common sense (\`library/copyButton.ts\`). */
+  var SAYS = /^(?:copy(?:\\s+(?:the\\s+)?(?:ca|address|contract(?:\\s+address)?|link|code|text|wallet(?:\\s+address)?|mint|token(?:\\s+address)?|url))?|\u29c9|\ud83d\udccb)$/i;
+  var says = function (w) { return SAYS.test(w.replace(/[:!.]+$/, "")); };
+  function near() {
+    var r = el.getBoundingClientRect(), best = null, bs = Infinity;
+    var all = (el.ownerDocument || document).body.querySelectorAll("*");
+    for (var i = 0; i < all.length; i++) {
+      var e = all[i];
+      if (e === el || el.contains(e) || e.contains(el) || /^(SCRIPT|STYLE|TEMPLATE)$/.test(e.tagName)) continue;
+      var t = "";
+      for (var c = e.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) t += c.nodeValue;
+      t = t.replace(/\\s+/g, " ").trim();
+      if (!t || t.length > 200 || says(t)) continue;
+      var q = e.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      var across = Math.max(0, q.left - r.right, r.left - q.right), down = Math.max(0, q.top - r.bottom, r.top - q.bottom);
+      var row = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 0, above = !row && q.bottom <= r.top && down <= 40 && !across;
+      if ((!row && !above) || across > 240) continue;
+      var sc = across + (row ? 0 : 1000) + (row && q.left > r.left ? 50 : 0);
+      if (sc < bs) { bs = sc; best = { t: t, e: e }; }
+    }
+    if (!best) return "";
+    /* An address cut down for show: the whole one its link carries, else one anywhere on the page; never the cut one, which pastes as nonsense. */
+    var m = /^([1-9A-HJ-NP-Za-km-z]{2,8})(?:\u2026|\\.\\.\\.)([1-9A-HJ-NP-Za-km-z]{2,8})$/.exec(best.t);
+    if (!m) return best.t;
+    var a = best.e.closest ? best.e.closest("a[href]") : null, links = Array.prototype.slice.call(document.querySelectorAll("a[href]"));
+    var places = (a ? [a.getAttribute("href") || ""] : []).concat(links.map(function (l) { return l.getAttribute("href") || ""; }), [document.body.textContent || ""]);
+    for (var j = 0; j < places.length; j++) {
+      var hits = places[j].match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) || [];
+      for (var k = 0; k < hits.length; k++) if (hits[k].indexOf(m[1]) === 0 && hits[k].slice(-m[2].length) === m[2]) return hits[k];
+    }
+    return "";
+  }
+  function words() { if (given) return given; var w = own(); return says(w) ? near() : w; }
   function fallback(t) {
     var a = document.createElement("textarea");
     a.value = t; a.setAttribute("readonly", ""); a.style.cssText = "position:fixed;top:0;left:0;opacity:0";

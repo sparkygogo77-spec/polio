@@ -65,6 +65,8 @@ const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIG
 async function open(w, h) {
   const context = await browser.newContext({ viewport: { width: w, height: h } });
   await context.addInitScript((d) => localStorage.setItem("builder.studio", d), doc);
+  /* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks measure it open. */
+  await context.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
   const page = await context.newPage();
   await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1600);
@@ -127,6 +129,8 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.addInitScript((d) => localStorage.setItem("builder.studio", d), doc);
+  /* The shelf opens folded to its "+ Add" strip (J, 2026-10-05); these checks measure it open. */
+  await context.addInitScript(() => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } });
   const page = await context.newPage();
   const res = await page.goto(`${URL_}/`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1400);
@@ -342,7 +346,8 @@ async function toTheFoot(page, { measure = true } = {}) {
     const s = svg?.getBoundingClientRect();
     return { size: Math.round(r.width), radius: getComputedStyle(disc).borderRadius, icon: Math.round(s?.width ?? 0), top: Math.round(r.top) };
   }));
-  check("every category is a round button", cats.length > 10 && cats.every((c) => /9999px|50%/.test(c.radius) || parseFloat(c.radius) >= c.size / 2), cats[0]?.radius);
+  /* Six categories since the shelf was regrouped (bcd818e: "Shelf in six categories"), down from thirteen. */
+  check("every category is a round button", cats.length >= 6 && cats.every((c) => /9999px|50%/.test(c.radius) || parseFloat(c.radius) >= c.size / 2), cats[0]?.radius);
   check("with an icon big enough to see what it is drawn of", cats.every((c) => c.icon >= 30), `${Math.min(...cats.map((c) => c.icon))}px`);
   check("and there is a way to add something the library has not got", (await page.locator('[data-category="custom-idea"]').count()) === 1);
 
@@ -372,7 +377,8 @@ async function toTheFoot(page, { measure = true } = {}) {
      it did before. */
   const tabs = () => page.locator('[data-side-panel] [aria-label="Side panel"] [role=radio]').evaluateAll((els) => els.map((e) => e.textContent?.trim()));
   /* Generate went into each part's "Make a picture" (tests/side-panel-h.mjs). */
-  const ROW = "Element,Format,Pages,Look,Motion";
+  /* Pictures has a tab of its own since (side.tsx: "give the ai image generator its own section/display panel option"); Lab is the temporary experiments tab (J, 2026-10-10). */
+  const ROW = "Element,Format,Pages,Look,Motion,Pictures,Lab";
   const before = await tabs();
   check("with nothing picked it is the whole row, in order", before.join(",") === ROW, before.join(" · "));
 

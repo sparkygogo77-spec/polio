@@ -87,8 +87,68 @@ function capturedAnimation(a: { name?: string; duration?: string; timing?: strin
  * back) from any other loop.
  */
 export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: unknown, keyframes?: unknown): N[] {
+  return copyBySense(fromBehaviours(nodes, behaviours, keyframes));
+}
+
+/* ---------------------------------------------------------------- a Copy button copies what is beside it (J, 2026-10-11: "copy button should also be common sense") */
+
+/** Words that say a press copies: "Copy", "Copy address", "Copy CA", the copy glyphs. */
+const COPY_WORDS = /^(?:copy(?:\s+(?:address|ca|contract|wallet|link|it))?|⧉|📋|⎘)$/i;
+/** A whole Solana address, as a link or a part's words carry it. */
+const ADDRESS = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+/** A shortened one: "6aoZ…AE1w". */
+const SHORT = /^[1-9A-HJ-NP-Za-km-z]{3,8}(?:\.\.\.|…)[1-9A-HJ-NP-Za-km-z]{3,8}$/;
+
+type Run = { text?: unknown; link?: { target?: unknown } | null };
+const wordsIn = (n: Node): string => {
+  const c = (n as { content?: unknown }).content;
+  return (typeof c === "string" ? c : Array.isArray(c) ? (c as Run[]).map((r) => (r && typeof r.text === "string" ? r.text : "")).join("") : "").replace(/\s+/g, " ").trim();
+};
+/** The whole address a part carries: in its link, a link on its words, or its words themselves. */
+const addressIn = (n: Node): string | null => {
+  const c = (n as { content?: unknown }).content;
+  const runs = Array.isArray(c) ? (c as Run[]).map((r) => (r?.link && typeof r.link.target === "string" ? r.link.target : "")) : [];
+  for (const t of [n.link?.target, ...runs, wordsIn(n), n.data]) {
+    const m = typeof t === "string" ? ADDRESS.exec(t) : null;
+    if (m) return m[0];
+  }
+  return null;
+};
+
+/**
+ * A button that says Copy and does nothing yet copies the value beside it:
+ * the nearest part on its row (or just above it) carrying an address, the
+ * whole one where a link or its words hold it. A shortened address with no
+ * whole one behind it is copied as shown. Nothing given where no value sits
+ * beside it, or where the part already does something (a capture's own copy,
+ * the site's own script).
+ */
+export function copyBySense<N extends Node>(nodes: N[]): N[] {
+  for (const n of nodes) {
+    if (!COPY_WORDS.test(wordsIn(n)) || usesOf(n.work).length) continue;
+    const code = (n as { source?: { code?: { refs?: unknown[]; built?: unknown } } }).source?.code;
+    if (code && (code.built || code.refs?.length)) continue;
+    const cy = (n.y ?? 0) + (n.h ?? 0) / 2;
+    let best: { v: string; d: number } | null = null;
+    for (const o of nodes) {
+      if (o === n || o.pageId !== n.pageId) continue;
+      const whole = addressIn(o), shown = wordsIn(o);
+      const v = whole ?? (SHORT.test(shown) ? shown : null);
+      if (!v) continue;
+      const oy = (o.y ?? 0) + (o.h ?? 0) / 2;
+      /* On its row, or the line above it; no further than a row's width away. */
+      const dy = Math.abs(oy - cy), dx = Math.max(0, (n.x ?? 0) - ((o.x ?? 0) + (o.w ?? 0)), (o.x ?? 0) - ((n.x ?? 0) + (n.w ?? 0)));
+      if (dy > Math.max(n.h ?? 0, o.h ?? 0, 24) * 1.5 || dx > 480) continue;
+      const d = dx + dy * 4 - (whole ? 1 : 0);
+      if (!best || d < best.d) best = { v, d };
+    }
+    if (best) n.work = withWork(n.work, { id: "copy-toast", inputs: { text: best.v } });
+  }
+  return nodes;
+}
+
+function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown, keyframes?: unknown): N[] {
   const b = behaviours as Rec | null;
-  if (!b || typeof b !== "object" || b.version !== 1) return [...nodes];
   const out = nodes.map((n) => ({ ...n }));
   const byId = new Map(out.map((n) => [n.id, n]));
   /* What the document already says of a feature (the owner's ribbons: "Centre in its band", a text size) stands over what the capture says of it. */
@@ -98,6 +158,12 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     if (n) n.work = withWork(n.work, had ? { ...use, inputs: { ...(use.inputs ?? {}), ...had.inputs }, ...(had.off ? { off: true } : {}) } : use);
     return !!n;
   };
+  /* ---------------------------------------------------------------- a canvas that followed the scroll (the capturer's `depths`, carried on the picture itself: sunkcoin.fun's sea and minimap) */
+  for (const n of out) {
+    const d = (n as { picture?: { depths?: { bands?: number } | null } | null }).picture?.depths;
+    if (d && typeof d.bands === "number" && d.bands > 1) give(n.id, { id: "scroll-depths", inputs: { bands: String(d.bands) } });
+  }
+  if (!b || typeof b !== "object" || b.version !== 1) return out;
   /** The parts inside a part: every one on its page whose element sits under its element. */
   const inside = (n: Node): Node[] => {
     const sel = n.from?.selector?.trim();
@@ -176,7 +242,8 @@ export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: 
     const speed = perFrame !== null ? perFrame * 60 : num(l.speed) ?? 60;
     /* Stepped by the page every frame (sink `clock: "frame"`, told apart by sampling at two frame rates): so much a frame here too, so a 144 Hz screen runs it as fast as the original did there. */
     const step: Record<string, string> = l.clock === "frame" && perFrame ? { step: str(perFrame) } : {};
-    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: "0" } });
+    /* A stylesheet marquee (capture-to-document.mjs `cssMarquee`): the gap its row set between its words is the gap between loops too. */
+    give(l.part, { id: "marquee", inputs: { speed: String(Math.round(speed)), ...step, direction: l.direction === "right" ? "right" : "left", pause: "no", gap: String(Math.max(0, num(l.gap) ?? 0)) } });
   }
 
   /* Layers that follow the pointer and the scroll. */

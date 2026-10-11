@@ -109,6 +109,16 @@ const LOOK = () => {
 };
 
 const browser = await chromium.launch({ headless: true });
+/* The shelf opens folded to its "+ Add" strip (J, 2026-10-05). Every room this
+   measures has a category to open, so every page and context here starts
+   with the shelf open, the way it was when these numbers were taken. */
+{
+  const unfold = () => { try { localStorage.setItem("builder.shelf.folded", "0"); } catch { /* private window */ } };
+  const newPage = browser.newPage.bind(browser);
+  const newContext = browser.newContext.bind(browser);
+  browser.newPage = async (...a) => { const p = await newPage(...a); await p.addInitScript(unfold); return p; };
+  browser.newContext = async (...a) => { const c = await newContext(...a); await c.addInitScript(unfold); return c; };
+}
 /* His own setting first, then the window he measured in. */
 for (const [w, h, what] of [[2048, 1152, "1440p at 125% browser"], [1267, 1278, "the window J measured in"]]) {
   for (const [name, d] of Object.entries(DOCS)) {

@@ -278,6 +278,99 @@ export const SCROLL_HEADER: Work = {
 `,
 };
 
+/**
+ * THE TOP BAR, ON SCROLL. The Sticky top bar's own "On scroll" option
+ * (shrink, hide-then-show, blur; `catalog.ts`) was read nowhere, so the part
+ * said it did something and did nothing (shelf audit, item 3). Every
+ * Sticky top bar carries this, with the option as its input
+ * (`works.ts#usesHere`), and it runs where the part is:
+ *
+ *   · on the published page, where the bar's box is `position: sticky`
+ *     (`LiveSite.tsx`), and the window is what scrolls;
+ *   · in the Preview, the same markup inside the Preview's own scroller;
+ *   · on the board, where nothing sticks (a stuck box could not be picked
+ *     up where it is drawn): the drawn layer inside the part rides the
+ *     board's scroll instead, so the bar is seen doing what the site's does,
+ *     while its box, selection and handles stay where they are.
+ *
+ * `at`: how far the page has gone before the bar changes. Hide-then-show
+ * hides on the way down once the bar's own height has passed, and comes back
+ * on the first move up. A visitor who asked for less motion gets each state
+ * at once, with no transition: a change of state, not a motion.
+ */
+export const STICKY_BAR: Work = {
+  manifest: {
+    id: "sticky-bar",
+    name: "Top bar on scroll",
+    category: "nav",
+    blurb: "As the page scrolls, the bar shrinks, hides until the reader scrolls up, or goes to glass. The Sticky top bar carries it; its On scroll option says which.",
+    inputs: [
+      { id: "on", label: "On scroll", kind: "one", default: "shrink", values: ["shrink", "hide-then-show", "blur", "static"], heard: "\\b(shrink|hide-then-show|hide|blur|static)\\b" },
+      { id: "at", label: "After (px scrolled)", kind: "number", default: "24", heard: "(\\d+)\\s*px\\b" },
+    ],
+    needs: "none",
+    says: ["top bar on scroll", "shrink the bar on scroll", "hide the bar on scroll", "blur the bar on scroll", "bar on scroll"],
+    look: { sample: "▔▔ bar ▔▔ ↕", caption: "top bar · on scroll" },
+    version: 1,
+  },
+  script: `siteFeatures.define("sticky-bar", function (el, inputs) {
+  var calm = ${CALM};
+  var on = String(inputs.on || "shrink"); if (on === "hide") on = "hide-then-show";
+  if (on !== "shrink" && on !== "hide-then-show" && on !== "blur") return;
+  var at = Number(inputs.at); if (!isFinite(at) || inputs.at === "") at = 24;
+  /* The bar itself: the part's own element, inside the box this runs on. */
+  var bar = el.matches("[data-part]") ? el : (el.querySelector("[data-part]") || el.firstElementChild || el); /* the published page keeps no data-*: the first thing in the box is the bar */
+  var bs = bar.style, es = el.style;
+  /* What scrolls: the nearest box that does (the Preview's window, the board's pane), else the window. */
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var board = !!(box && box.hasAttribute("data-studio-pane"));
+  var top = function () { return box ? box.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0); };
+  /* Where the bar's top stands in the page, so "scrolled" is scrolled past the bar. A stuck box reads its own margin (LiveSite sets it to the bar's y); anything else is measured. */
+  var wrap = el.parentElement;
+  var stuck = wrap && getComputedStyle(el).position === "sticky" ? el : (wrap && getComputedStyle(wrap).position === "sticky" ? wrap : null);
+  var start;
+  if (stuck) start = parseFloat(getComputedStyle(stuck).marginTop) || 0;
+  else { var r = el.getBoundingClientRect(), br = box ? box.getBoundingClientRect() : { top: 0 }; start = top() + r.top - br.top; }
+  var h = bar.getBoundingClientRect().height || el.getBoundingClientRect().height || 64;
+  /* The board draws the page at a zoom: a screen pixel of scroll is less than a page pixel. */
+  var zoom = function () { var w = el.offsetWidth; return w ? el.getBoundingClientRect().width / w : 1; };
+  var was = { height: bs.height, translate: bs.translate, filter: bs.backdropFilter, wfilter: bs.webkitBackdropFilter, background: bs.background, transition: bs.transition, ride: es.translate };
+  var bg = getComputedStyle(bar).backgroundColor;
+  var ms = calm ? 0 : 260;
+  bs.transition = ms ? "height " + ms + "ms ease, translate " + ms + "ms ease, backdrop-filter " + ms + "ms ease, background-color " + ms + "ms ease" : "none";
+  var state = null, last = top(), hidden = false;
+  function apply(now) {
+    if (now === state) return;
+    state = now;
+    if (on === "shrink") bs.height = now ? Math.round(h * 0.76) + "px" : was.height;
+    if (on === "blur") {
+      bs.backdropFilter = now ? "blur(12px) saturate(1.2)" : was.filter;
+      bs.webkitBackdropFilter = now ? "blur(12px) saturate(1.2)" : was.wfilter;
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") bs.background = now ? "color-mix(in srgb, " + bg + " 68%, transparent)" : was.background;
+    }
+    if (now) el.setAttribute("data-scrolled", on); else el.removeAttribute("data-scrolled");
+  }
+  function hide(yes) {
+    if (yes === hidden) return;
+    hidden = yes;
+    bs.translate = yes ? "0 " + (-Math.round(h * 1.15)) + "px" : (was.translate || "0 0");
+    if (yes) el.setAttribute("data-bar-hidden", ""); else el.removeAttribute("data-bar-hidden");
+  }
+  function place() {
+    var t = top(), gone = t - start;
+    /* On the board the drawn layer rides along the pane's top edge, as the stuck bar does on the site. */
+    if (board) es.translate = gone > 0 ? "0 " + Math.round(gone / zoom()) + "px" : (was.ride || "0 0");
+    apply(gone > at);
+    if (on === "hide-then-show") { if (t < last) hide(false); else if (gone > h && t > last) hide(true); }
+    last = t;
+  }
+  (box || window).addEventListener("scroll", place, { passive: true });
+  place();
+});
+`,
+};
+
 export const BLINK: Work = {
   manifest: {
     id: "blink",
@@ -432,6 +525,59 @@ export const HOVER_LIFT: Work = {
   s.transition = (own ? own + ", " : "") + "translate " + ms + "ms ease, rotate " + ms + "ms ease, scale " + ms + "ms ease";
   el.addEventListener("pointerenter", function () { s.translate = x + "px " + (-lift) + "px"; if (turn) s.rotate = turn + "deg"; if (k !== 1) s.scale = String(k); });
   el.addEventListener("pointerleave", function () { s.translate = was.translate; s.rotate = was.rotate; s.scale = was.scale; });
+});
+`,
+};
+
+export const SCROLL_DEPTHS: Work = {
+  manifest: {
+    id: "scroll-depths",
+    name: "Follows the scroll",
+    category: "motion",
+    blurb: "A picture taken at each depth of the page shows the one for where the scroll is: a sea that dives with the page, a map whose window moves.",
+    inputs: [
+      { id: "bands", label: "Pictures in the strip", kind: "number", default: "2" },
+      { id: "ease", label: "Slide between them (ms)", kind: "number", default: "0", advanced: true },
+    ],
+    needs: "none",
+    says: ["follows the scroll", "depth strip", "scroll-driven picture", "minimap", "dives with the page", "picture by scroll"],
+    look: { sample: "▤▤▤", caption: "slides · on scroll" },
+    version: 1,
+  },
+  script: `siteFeatures.define("scroll-depths", function (el, inputs) {
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  /* The strip is looked up each time: the Preview draws the part anew as the page is re-anchored, and the one first found is then no longer in the page. */
+  var stripOf = function () { return el.querySelector("[data-depth-strip]") || el; };
+  var strip = stripOf();
+  var bands = Math.max(1, Math.round(num(inputs.bands, 1)));
+  /* The strip is as tall as its bands: the count written on its holder wins over the input where the two differ. */
+  var holder = strip.parentElement && strip.parentElement.getAttribute("data-picture-depths");
+  if (holder && Number(holder) > 1) bands = Number(holder);
+  if (bands < 2) return;
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var ms = Math.max(0, num(inputs.ease, 0));
+  var queued = false, shown = -1, placed = null;
+  function place() {
+    queued = false;
+    if (!el.isConnected) return;
+    var strip = stripOf();
+    var top = box ? box.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0);
+    var range = box ? box.scrollHeight - box.clientHeight : (document.documentElement.scrollHeight - window.innerHeight);
+    var q = range > 0 ? Math.max(0, Math.min(1, top / range)) : 0;
+    var band = Math.round(q * (bands - 1));
+    if (band === shown && strip === placed) return;
+    shown = band; placed = strip;
+    if (ms) strip.style.transition = "translate " + ms + "ms linear";
+    var tall = strip.getBoundingClientRect().height / bands;
+    strip.style.translate = "0 " + (-band * tall).toFixed(2) + "px";
+    el.setAttribute("data-depth", String(band));
+    if (strip.tagName === "IMG" && !strip.complete && !strip.__depthsLoad) { strip.__depthsLoad = true; strip.addEventListener("load", function () { shown = -1; soon(); }); }
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
+  (box || window).addEventListener("scroll", soon, { passive: true });
+  window.addEventListener("resize", function () { shown = -1; soon(); });
+  place();
 });
 `,
 };

@@ -12,7 +12,7 @@
 /* The site's features: which part takes which feature is listed in #site-features on each page. */
 (function () {
   var defs = {};
-  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow"];
+  var NOT_ON_COPIES = ["crt-loader","scroll-header","press-shows","glide","whats-new","world-dialogs","reveal","scroll-grow","scroll-depths"];
   function leaf(el) {
     var kids = el.childNodes || [];
     for (var i = 0; i < kids.length; i++) if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue)) return el;
@@ -415,6 +415,45 @@ siteFeatures.define("scroll-grow", function (el, inputs) {
 });
 
   })(F);
+  /* Follows the scroll: A picture taken at each depth of the page shows the one for where the scroll is: a sea that dives with the page, a map whose window moves. */
+  (function (siteFeatures) {
+siteFeatures.define("scroll-depths", function (el, inputs) {
+  var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
+  /* The strip is looked up each time: the Preview draws the part anew as the page is re-anchored, and the one first found is then no longer in the page. */
+  var stripOf = function () { return el.querySelector("[data-depth-strip]") || el; };
+  var strip = stripOf();
+  var bands = Math.max(1, Math.round(num(inputs.bands, 1)));
+  /* The strip is as tall as its bands: the count written on its holder wins over the input where the two differ. */
+  var holder = strip.parentElement && strip.parentElement.getAttribute("data-picture-depths");
+  if (holder && Number(holder) > 1) bands = Number(holder);
+  if (bands < 2) return;
+  var box = null;
+  for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { box = p; break; } }
+  var ms = Math.max(0, num(inputs.ease, 0));
+  var queued = false, shown = -1, placed = null;
+  function place() {
+    queued = false;
+    if (!el.isConnected) return;
+    var strip = stripOf();
+    var top = box ? box.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0);
+    var range = box ? box.scrollHeight - box.clientHeight : (document.documentElement.scrollHeight - window.innerHeight);
+    var q = range > 0 ? Math.max(0, Math.min(1, top / range)) : 0;
+    var band = Math.round(q * (bands - 1));
+    if (band === shown && strip === placed) return;
+    shown = band; placed = strip;
+    if (ms) strip.style.transition = "translate " + ms + "ms linear";
+    var tall = strip.getBoundingClientRect().height / bands;
+    strip.style.translate = "0 " + (-band * tall).toFixed(2) + "px";
+    el.setAttribute("data-depth", String(band));
+    if (strip.tagName === "IMG" && !strip.complete && !strip.__depthsLoad) { strip.__depthsLoad = true; strip.addEventListener("load", function () { shown = -1; soon(); }); }
+  }
+  function soon() { if (!queued) { queued = true; requestAnimationFrame(place); } }
+  (box || window).addEventListener("scroll", soon, { passive: true });
+  window.addEventListener("resize", function () { shown = -1; soon(); });
+  place();
+});
+
+  })(F);
   /* Glide to its place: A link to a place on the page scrolls there smoothly, over the time and curve the page itself took. */
   (function (siteFeatures) {
 siteFeatures.define("glide", function (el, inputs) {
@@ -621,7 +660,41 @@ siteFeatures.define("copy-toast", function (el, inputs) {
   var given = String(inputs.text || "").trim();
   var say = String(inputs.toast || "").trim() || "Copied";
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function words() { return given || String(el.textContent || "").replace(/\s+/g, " ").trim(); }
+  var own = function () { return String(el.textContent || "").replace(/\s+/g, " ").trim(); };
+  /* A button whose words only say Copy copies what it sits beside, by common sense (`library/copyButton.ts`). */
+  var SAYS = /^(?:copy(?:\s+(?:the\s+)?(?:ca|address|contract(?:\s+address)?|link|code|text|wallet(?:\s+address)?|mint|token(?:\s+address)?|url))?|⧉|📋)$/i;
+  var says = function (w) { return SAYS.test(w.replace(/[:!.]+$/, "")); };
+  function near() {
+    var r = el.getBoundingClientRect(), best = null, bs = Infinity;
+    var all = (el.ownerDocument || document).body.querySelectorAll("*");
+    for (var i = 0; i < all.length; i++) {
+      var e = all[i];
+      if (e === el || el.contains(e) || e.contains(el) || /^(SCRIPT|STYLE|TEMPLATE)$/.test(e.tagName)) continue;
+      var t = "";
+      for (var c = e.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) t += c.nodeValue;
+      t = t.replace(/\s+/g, " ").trim();
+      if (!t || t.length > 200 || says(t)) continue;
+      var q = e.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      var across = Math.max(0, q.left - r.right, r.left - q.right), down = Math.max(0, q.top - r.bottom, r.top - q.bottom);
+      var row = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 0, above = !row && q.bottom <= r.top && down <= 40 && !across;
+      if ((!row && !above) || across > 240) continue;
+      var sc = across + (row ? 0 : 1000) + (row && q.left > r.left ? 50 : 0);
+      if (sc < bs) { bs = sc; best = { t: t, e: e }; }
+    }
+    if (!best) return "";
+    /* An address cut down for show: the whole one its link carries, else one anywhere on the page; never the cut one, which pastes as nonsense. */
+    var m = /^([1-9A-HJ-NP-Za-km-z]{2,8})(?:…|\.\.\.)([1-9A-HJ-NP-Za-km-z]{2,8})$/.exec(best.t);
+    if (!m) return best.t;
+    var a = best.e.closest ? best.e.closest("a[href]") : null, links = Array.prototype.slice.call(document.querySelectorAll("a[href]"));
+    var places = (a ? [a.getAttribute("href") || ""] : []).concat(links.map(function (l) { return l.getAttribute("href") || ""; }), [document.body.textContent || ""]);
+    for (var j = 0; j < places.length; j++) {
+      var hits = places[j].match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) || [];
+      for (var k = 0; k < hits.length; k++) if (hits[k].indexOf(m[1]) === 0 && hits[k].slice(-m[2].length) === m[2]) return hits[k];
+    }
+    return "";
+  }
+  function words() { if (given) return given; var w = own(); return says(w) ? near() : w; }
   function fallback(t) {
     var a = document.createElement("textarea");
     a.value = t; a.setAttribute("readonly", ""); a.style.cssText = "position:fixed;top:0;left:0;opacity:0";
@@ -1150,7 +1223,7 @@ siteFeatures.define("compare", function (el, inputs) {
 });
 
   })(F);
-  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
+  var DEFAULTS = {"tilt":{"mode":"mouse","strength":"10","axis":"both","across":"","down":"","lift":"0","depth":"0","perspective":"800","pace":"250","parts":"","area":""},"follow-pointer":{"travel":"12","how":"move","x":"-20","y":"-10","scroll":"0","ease":"0.06"},"marquee":{"speed":"60","step":"","direction":"left","pause":"yes","gap":"40","middle":"no","size":"","boost":"0","cap":"14"},"dust-canvas":{"colours":"#8fbf7a, #a6d86f, #89cebc, #fff3a0, #ef9043","spacing":"18","speed":"1","size":"2.1","direction":"up"},"scroll-grow":{"prop":"width","start":"0.9","end":"0.2","from":"0","to":"100","kept":"100"},"scroll-depths":{"bands":"2","ease":"0"},"glide":{"to":"","how":"script","base":"600","perPx":"0","max":"","ease":"ease-in-out-cubic","curve":"","offset":"0"},"screen-filter":{"scanlines":"0.14","lines":"3","static":"0.06","shift":"0","saturate":"1.1","contrast":"1.05","jitter":"0","every":"6","css":""},"scroll-header":{"at":"40","background":"","edge":"0 4px 0 #111","duration":"300","padding":"","parts":""},"crt-loader":{"title":"","ticker":"","picture":"","channel":"CH 47","label":"TUNING","hold":"1.8","at":""},"copy-toast":{"text":"","toast":"Copied","quiet":"no"},"planet":{"shape":"sphere","picture":"","hue":"96","spin":"yes","speed":"1","tilt":"-22"},"turn-3d":{"spin":"no","back":"no","depth":"900"},"compare":{"start":"50"}};
   var bound = typeof WeakMap === "function" ? new WeakMap() : null;
   function words(v) {
     v = String(v || "").trim().replace(/^["']|["']$/g, "");

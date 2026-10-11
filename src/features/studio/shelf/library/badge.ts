@@ -67,11 +67,11 @@ function wordsOf(content: unknown): string {
   return "";
 }
 
-const segs = (sel: string) => sel.split(/\s*>\s*/).filter(Boolean);
+export const segs = (sel: string) => sel.split(/\s*>\s*/).filter(Boolean);
 const tag = (seg: string) => /^[a-z][a-z0-9-]*/i.exec(seg)?.[0]?.toLowerCase() ?? "";
 
 /** The selector of the nearest `a` or `button` at or above this part, if the capture recorded one. */
-function controlOf(sel: string): string | null {
+export function controlOf(sel: string): string | null {
   const s = segs(sel);
   for (let i = s.length - 1; i >= 0; i--) {
     const t = tag(s[i]!);

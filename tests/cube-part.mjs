@@ -79,7 +79,8 @@ await page.waitForTimeout(1200);
 
 await page.locator('input[placeholder*="Search parts"]').first().fill("cube");
 await page.waitForTimeout(900);
-const tile = page.getByText("Cube", { exact: true }).first();
+/* "Word cube" since the turnable shapes landed: a plain "Cube" is now the shape with a picture on each face (`shape-cube`); this one is `cube-3d`, with words. */
+const tile = page.getByText("Word cube", { exact: true }).first();
 check("searching the shelf for a cube finds one", (await tile.count()) === 1);
 check("and the shelf tile is a cube, not an icon of one", (await page.locator("[data-part-preview] [data-cube], [data-cube]").count()) >= 1);
 

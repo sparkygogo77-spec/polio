@@ -26,10 +26,11 @@
  */
 
 import { idleMotion, hoverMotion, scrollMotion } from "./motion-drive.mjs";
+import { movingFrames } from "./frames-drive.mjs";
 
 const P1 = [0.25, 0.3], P2 = [0.75, 0.55];
 
-export async function driveBehaviours(page, { shots = null, shot = async () => {} } = {}) {
+export async function driveBehaviours(page, { shots = null, shot = async () => {}, frames = {} } = {}) {
   const wait = (ms) => page.waitForTimeout(ms);
   const vw = page.viewportSize();
   await page.evaluate(() => scrollTo(0, 0));
@@ -201,7 +202,10 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
   const hover = await hoverMotion(page);
   await page.evaluate(() => window.__sinkBehaviours.phase("scroll-motion"));
   const scrolled = await scrollMotion(page, { loops: idle.loops.filter((l) => l.kind === "marquee").map((l) => l.el) });
-  const motion = { ...still, hover, ...scrolled };
+  /* Pictures of what moves, and only of that (frames-drive.mjs): found by looking at the screen, recorded cropped, read as a loop, a drift, a once, a live, a pointer's or the scroll's. */
+  await page.evaluate(() => window.__sinkBehaviours.phase("frames"));
+  const pictured = frames ? await movingFrames(page, { ...frames, log: (s) => console.error(s) }).catch((e) => { console.error(`frames: ${String(e.message ?? e).split("\n")[0]}`); return { frames: [], looked: [] }; }) : { frames: [], looked: [] };
+  const motion = { ...still, hover, ...scrolled, frames: pictured.frames, looked: pictured.looked };
   await page.evaluate(async () => {
     window.__sinkBehaviours.phase("top");
     scrollTo(0, 0);
@@ -243,7 +247,7 @@ export async function driveBehaviours(page, { shots = null, shot = async () => {
       for (const c of list.filter((q) => q.phase === "scroll")) {
         for (const cls of c.added) {
           /* Taken off again later: on the way back to the top, or by the hover and scroll-motion passes after it (they scroll too). */
-          const off = list.find((q) => q.t > c.t && q.removed.includes(cls) && ["top", "scroll", "hover", "scroll-motion"].includes(q.phase));
+          const off = list.find((q) => q.t > c.t && q.removed.includes(cls) && ["top", "scroll", "hover", "scroll-motion", "frames"].includes(q.phase));
           const b = before.get(el), a = after.get(el);
           if (off) {
             if (scrolled.some((s) => s.el === B.idOf(el) && s.class === cls)) continue;

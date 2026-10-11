@@ -28,7 +28,20 @@
 import type { NodeLink } from "./types";
 
 /** One animation, every longhand as the browser computed it. */
-export interface MotionAnimation { name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string }
+export interface MotionAnimation {
+  name: string; duration?: string; timing?: string; delay?: string; iterations?: string; direction?: string; fill?: string;
+  /**
+   * WHAT ITS ANCESTORS ADD (capture-to-document.mjs `animationBaseOf`): the
+   * part's transform is everything that moved the element, its ancestors'
+   * included, and a keyframe's `transform` replaces only the element's own.
+   * sunkcoin.fun's "scroll to dive" arrow (`rotate(45deg)` in a cue shifted
+   * `translateX(-50%)`, nudged by `rotate(45deg) translate(4px, 4px)` at
+   * 50%) jumped 62px sideways twice a second. With `base`, the part plays a
+   * copy of the keyframes of its own, every transform frame composed on it.
+   * `tests/animation-base.mjs`.
+   */
+  base?: string;
+}
 /** One transitioned property. */
 export interface MotionTransition { property: string; duration?: string; timing?: string; delay?: string }
 /**
@@ -77,16 +90,22 @@ export function capName(name: string): string | null {
 }
 
 /** An animation as one `animation` value, under its prefixed name; null when nothing safe is left. */
-export function animationValue(a: MotionAnimation): string | null {
+/** The name a part's own copy of a keyframes rule goes by: the rule's, then the part's id. */
+export function ownName(a: MotionAnimation, id: string | undefined): string | null {
   const name = capName(a.name ?? "");
+  return name && a.base && id && ID.test(id) ? `${name}--${id}` : name;
+}
+
+export function animationValue(a: MotionAnimation, id?: string): string | null {
+  const name = ownName(a, id);
   if (!name) return null;
   const rest = [a.duration, a.timing, a.delay, a.iterations, a.direction, a.fill].map(safeValue);
   if (rest.some((v, i) => v === null && [a.duration, a.timing, a.delay, a.iterations, a.direction, a.fill][i] !== undefined)) return null;
   return [...rest.map((v) => v ?? ""), name].filter(Boolean).join(" ");
 }
 
-export function animationsValue(list: readonly MotionAnimation[] | undefined): string | null {
-  const got = (list ?? []).map(animationValue).filter((v): v is string => !!v);
+export function animationsValue(list: readonly MotionAnimation[] | undefined, id?: string): string | null {
+  const got = (list ?? []).map((a) => animationValue(a, id)).filter((v): v is string => !!v);
   return got.length ? got.join(", ") : null;
 }
 
@@ -109,18 +128,34 @@ function declarations(style: Record<string, string> | undefined, important: bool
   return out.join("; ");
 }
 
-/** The keyframes, each under its prefixed name. */
-export function keyframesCss(list: readonly CapturedKeyframes[] | undefined): string {
+/** The keyframes, each under its prefixed name; and, for each part whose animation carries a `base`, its own copy with every transform frame composed on it. */
+export function keyframesCss(list: readonly CapturedKeyframes[] | undefined, nodes?: readonly { id: string; motion?: NodeMotion | null }[]): string {
   const out: string[] = [];
-  for (const k of list ?? []) {
-    const name = capName(k?.name ?? "");
-    if (!name || !Array.isArray(k.frames)) continue;
+  const rule = (k: CapturedKeyframes, name: string, base?: string) => {
+    if (!Array.isArray(k.frames)) return;
     const frames = k.frames.map((f) => {
       const key = typeof f?.key === "string" && /^(from|to|\d{1,3}(\.\d+)?%)(\s*,\s*(from|to|\d{1,3}(\.\d+)?%))*$/.test(f.key.trim()) ? f.key.trim() : null;
-      const decl = declarations(f.style, false);
+      const style = base && typeof f?.style?.transform === "string" ? { ...f.style, transform: `${base} ${f.style.transform}` } : f.style;
+      const decl = declarations(style, false);
       return key && decl ? `  ${key} { ${decl} }` : null;
     }).filter(Boolean);
     if (frames.length) out.push(`@keyframes ${name} {\n${frames.join("\n")}\n}`);
+  };
+  for (const k of list ?? []) {
+    const name = capName(k?.name ?? "");
+    if (name) rule(k, name);
+  }
+  const done = new Set<string>();
+  for (const n of nodes ?? []) {
+    for (const a of n.motion?.animation ?? []) {
+      const name = ownName(a, n.id);
+      const base = safeValue(a.base ?? "");
+      if (!a.base || !name || !base || done.has(name) || !/^matrix\([-\d.e, ]+\)$/.test(base)) continue;
+      const k = (list ?? []).find((x) => x?.name === a.name);
+      if (!k) continue;
+      done.add(name);
+      rule(k, name, base);
+    }
   }
   return out.join("\n");
 }
@@ -303,7 +338,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
     if (!m || m.off || !ID.test(n.id)) continue;
     const box = `.mo-${n.id}`;
     const own: string[] = [];
-    const anim = animationsValue(m.animation);
+    const anim = animationsValue(m.animation, n.id);
     if (anim) own.push(`animation: ${anim}`);
     const trans = transitionValue(m.transition);
     if (trans) own.push(`transition: ${trans}`);
@@ -361,7 +396,7 @@ export function motionCss(nodes: readonly MotionNode[], keyframes: readonly Capt
       }
     }
   }
-  const frames = keyframesCss(keyframes);
+  const frames = keyframesCss(keyframes, nodes);
   if (!frames && !rules.length) return "";
   return [
     frames,

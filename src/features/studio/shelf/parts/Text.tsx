@@ -178,7 +178,16 @@ export function Prose({ id, content, spans, theme: t, mode, onNavigate, w, h }: 
      * it.
      */
     /* Centred by its own box (a grid's `place-items: center`, `applyLayout`): the words sit in the middle, down and across, with no inset to move them off it. */
-    <Fill t={t} data-part={id} data-one-line={oneLine ? "" : undefined} style={{ ...box, overflow: oneLine ? "visible" : "auto", ...(slack ? { overflowX: "hidden" as const } : {}), paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y || spill ? { display: "flex", flexDirection: "column", justifyContent: mid?.y ? "center" : undefined, alignItems: spill ? "center" : undefined } : {}) }}>
+    /*
+     * WORDS NEVER GROW A SCROLLBAR. A wrapped line whose words are a hair
+     * wider in this machine's font than the box the page measured (sunkcoin
+     * .fun's table head, "UNDERWATER FOR" in a 72px cell) scrolled: a bar
+     * across the cell, the word cut to "UNDERWATE" (J, 2026-10-11). The
+     * page had no bar there. What leaves the box is clipped, as `Fill`
+     * clips everything else; the box grows with its words down, never
+     * across. `tests/text-no-scrollbar.mjs`.
+     */
+    <Fill t={t} data-part={id} data-one-line={oneLine ? "" : undefined} style={{ ...box, overflow: oneLine ? "visible" : "clip", ...(slack ? { overflowX: "hidden" as const } : {}), paddingLeft: mid?.x ? Number(box.padding ?? 0) : Math.max(2, Number(box.padding ?? 0)), ...(!mid?.x && Number(box.padding ?? 0) < 2 ? { width: `calc(100% + ${2 - Number(box.padding ?? 0)}px)`, marginLeft: -(2 - Number(box.padding ?? 0)) } : {}), ...(mid?.y || spill ? { display: "flex", flexDirection: "column", justifyContent: mid?.y ? "center" : undefined, alignItems: spill ? "center" : undefined } : {}) }}>
       {/*
         The line length caps the words, and the cap has to sit where the
         words are set. It sat at the left edge whatever the alignment, so a
