@@ -170,7 +170,7 @@ siteFeatures.define("tilt", function (el, inputs) {
 }
     var lower = null, settle = 0;
     function raise() { clearTimeout(settle); if (!lower) lower = raiseOver(carried); }
-    function drop() { clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, pace + 40); }
+    function settleDown() { clearTimeout(settle); settle = setTimeout(function () { if (lower) { lower(); lower = null; } }, pace + 40); }
     if (carried.length === 1 && !area) {
       var box = null;
       el.addEventListener("pointerenter", function () { box = el.getBoundingClientRect(); });
@@ -180,7 +180,7 @@ siteFeatures.define("tilt", function (el, inputs) {
         var r = box || (box = el.getBoundingClientRect());
         s.transform = pose((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5) + (bases[0].t ? " " + bases[0].t : "");
       });
-      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; drop(); });
+      el.addEventListener("pointerleave", function () { box = null; s.transform = bases[0].t; settleDown(); });
       return;
     }
     /* Carried parts sit over it and take the pointer: it is watched from the window, over the box it had standing still. */
@@ -190,7 +190,7 @@ siteFeatures.define("tilt", function (el, inputs) {
       var cx = m.left + m.width / 2, cy = m.top + m.height / 2;
       geo = { r: r, sx: window.scrollX, sy: window.scrollY, origins: carried.map(function (p) { var b = p.getBoundingClientRect(), kx = b.width ? p.offsetWidth / b.width : 1, ky = b.height ? p.offsetHeight / b.height : 1; return ((cx - b.left) * kx).toFixed(2) + "px " + ((cy - b.top) * ky).toFixed(2) + "px"; }) };
     }
-    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); drop(); }
+    function rest() { on = false; carried.forEach(function (p, i) { p.style.transform = bases[i].t; }); settleDown(); }
     window.addEventListener("pointermove", function (e) {
       if (!on) measure();
       var r = geo.r, dx = window.scrollX - geo.sx, dy = window.scrollY - geo.sy;
@@ -500,9 +500,9 @@ siteFeatures.define("moving-frames", function (el, inputs) {
       var total = at;
       var frameAt = function (k) { var t = Math.min(total - 1, Math.max(0, k * every)); for (var i = 0; i < ends.length; i++) if (t < ends[i]) return i; return ends.length - 1; };
       var shown = 0;
-      var show = function (i) { if (i === shown || i < 0 || i >= uses.length) return; uses[shown].style.opacity = "0"; uses[i].style.opacity = "1"; shown = i; svg.setAttribute("data-frame", String(i)); };
+      var showFrame = function (i) { if (i === shown || i < 0 || i >= uses.length) return; uses[shown].style.opacity = "0"; uses[i].style.opacity = "1"; shown = i; svg.setAttribute("data-frame", String(i)); };
       var queued = false, want = 0;
-      var soon = function () { if (!queued) { queued = true; requestAnimationFrame(function () { queued = false; show(frameAt(want)); }); } };
+      var soon = function () { if (!queued) { queued = true; requestAnimationFrame(function () { queued = false; showFrame(frameAt(want)); }); } };
       if (kind === "pointer") {
         /* The captured sweep: a circle round the middle of the window, its radii 22 % of the window's sides (frames-drive.mjs), so the window it was read in is known from the sweep, and a visitor's pointer is read against theirs the same way. */
         var xs = samples.map(function (p) { return p[0]; }), ys = samples.map(function (p) { return p[1]; });
@@ -756,12 +756,12 @@ siteFeatures.define("loader-film", function (el, inputs) {
   /* The part's own picture, or the file a code site names; a picture still on its way (the Preview's comes a moment after the part) is waited for. */
   var find = function () { var img = el.querySelector && el.querySelector("img"); return String(inputs.src || "").trim() || (img && (img.getAttribute("src") || img.currentSrc)) || ""; };
   var first = find();
-  if (first) return show(first);
+  if (first) return showFilm(first);
   if (!window.MutationObserver) return;
-  var mo = new MutationObserver(function () { var s = find(); if (s) { mo.disconnect(); show(s); } });
+  var mo = new MutationObserver(function () { var s = find(); if (s) { mo.disconnect(); showFilm(s); } });
   mo.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ["src"] });
   setTimeout(function () { mo.disconnect(); }, 8000);
-  function show(src) {
+  function showFilm(src) {
   if (document.querySelector("[data-loader-film]")) return;
   var num = function (v, d) { var n = Number(v); return v === "" || v === undefined || !isFinite(n) ? d : n; };
   var at = num(inputs.at, 2) * 1000, fade = Math.max(0, num(inputs.fade, 0.6) * 1000);
@@ -1234,7 +1234,7 @@ siteFeatures.define("turn-3d", function (el, inputs) {
     M = [a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]];
   }
   var M = [1, 0, 0, 0, 1, 0, 0, 0, 1], vel = [0, 0], held = false, from = null, dragged = false, last = 0, frame = 0;
-  function show() {
+  function paint() {
     /* Turned in the page's own axes (y down): the same turn, read the way CSS reads it. */
     var m = [M[0], -M[1], M[2], -M[3], M[4], -M[5], M[6], -M[7], M[8]];
     var flat = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
@@ -1251,7 +1251,7 @@ siteFeatures.define("turn-3d", function (el, inputs) {
       else if (back && !vel[0] && !vel[1]) { for (var i = 0; i < 9; i++) M[i] += ((i % 4 === 0 ? 1 : 0) - M[i]) * 0.12; }
     }
     tidy();
-    show();
+    paint();
     var home = Math.abs(M[0] - 1) + Math.abs(M[4] - 1) + Math.abs(M[8] - 1) < 1e-4;
     if (spin || held || vel[0] || vel[1] || (back && !home)) frame = requestAnimationFrame(step);
   }
