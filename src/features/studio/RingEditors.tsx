@@ -719,7 +719,7 @@ export function FontQuads({
   onChange: (next: NodeFont | null) => void;
 }) {
   const [a, b, fam] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
-  const { hole, mid } = a.rings;
+  const { hole, mid, reach } = a.rings;
   const set = (patch: Partial<NodeFont>) => onChange({ ...(font ?? {}), ...patch });
   // Two bands: one just past the caption, one just past the middle.
   const inner = { rIn: hole + 32, rOut: mid - 4 };
