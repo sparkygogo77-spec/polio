@@ -46,8 +46,9 @@
    dropped, and the wheel's Edit slot is why. */
 import { canRemake, openRemake } from "../RemakePicture";
 import { canClearBackground, openClearBackground } from "../ClearBackground";
+import { GRID_LABEL, gridOf } from "../gridOf";
 import * as React from "react";
-import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
+import { ChevronsDown, ChevronsUp, ClipboardPaste, CopyPlus, LayoutGrid, Shuffle, Paintbrush, Ellipsis, Eraser, Eye, History, Layers, Lock, Maximize2, Pipette, Plus, Sparkles, Type, Undo2, Unlock } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "../AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio } from "../board/store";
@@ -580,6 +581,14 @@ export function RadialMenu() {
         ...(inPanel(nodes, node!) ? [{ id: "states", label: "Edit on Panels page", icon: <History className="size-3" />, onClick: () => { closeRadial(); openPanelsPage(node!.id); } }] : []),
         /* …and the part alone, at real size, every state side by side (PartFocus.tsx). */
         ...(hasStates(nodes, node!.id) ? [{ id: "focus", label: "Focus: every state", icon: <Maximize2 className="size-3" />, onClick: () => { closeRadial(); openPartFocus(frameFor(nodes, node!.id)?.frame ?? node!.id); } }] : []),
+        /* A card of a grid (gridOf.ts): locked, a press picks every card and one colour reaches them all; unlocked, each is its own (J, 2026-10-11). */
+        ...(() => {
+          const g = node!.groupId ? s().groups.find((x) => x.id === node!.groupId) : null;
+          if (g?.label === GRID_LABEL) return [{ id: "grid-unlock", label: "Unlock the grid: one by one", icon: <Unlock className="size-3" />, onClick: () => { s().ungroup(g.id); s().setSelection([node!.id]); play("toggleOff"); setCarried((k) => k + 1); } }];
+          const cards = node!.groupId ? [] : gridOf(nodes, node!);
+          if (cards.length < 4 || cards.some((id) => nodes.find((n) => n.id === id)?.groupId)) return [];
+          return [{ id: "grid-lock", label: `Lock the grid: ${cards.length} cards as one`, icon: <LayoutGrid className="size-3" />, onClick: () => { s().setSelection(cards); s().groupSelection(GRID_LABEL); play("toggleOn"); setCarried((k) => k + 1); } }];
+        })(),
         /* A part that holds a picture can have it remade from one prompt (RemakePicture.tsx). */
         ...(canRemake(node) ? [{ id: "remake", label: "Remake this picture…", icon: <Sparkles className="size-3" />, onClick: () => { closeRadial(); openRemake(node!.id); } }] : []),
         /* …or its background pointed at and made see-through (ClearBackground.tsx). */
