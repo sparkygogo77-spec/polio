@@ -25,6 +25,7 @@ import { PieceTexture, kindGround, pageGround } from "./PieceTexture";
 import { ROLE_USE, siteRoles, mainColours, type RoleSwatch, type SiteRoles } from "./siteRoles";
 import { siteKinds, type SiteKinds, type SurfaceKind } from "./themeKinds";
 import { componentsOf, type CompNode } from "./components";
+import { repeatsAcrossPages } from "./repeats";
 import type { CountedAs } from "./siteRoles";
 import { bytesFor, type Picture } from "./pictures";
 import { getFeature } from "./shelf";
@@ -873,10 +874,11 @@ export function SiteColoursSection({ captured = true, paletteRoles = null }: { c
   const frameWidth = useHeldStudio((s) => s.frameWidth);
   const pictureColours = usePictureColours(nodes);
   const pictureKey = [...pictureColours.entries()].map(([k, v]) => `${k}:${v.join("")}`).join("|");
-  /* A button painted by stacked parts is one button in every count (`components.ts`). */
+  /* A button painted by stacked parts is one button in every count (`components.ts`), and a part drawn again on every page is one part (`repeats.ts`). */
   const counted = React.useMemo<CountedAs>(() => {
     const c = componentsOf(nodes as unknown as CompNode[], palette as Record<string, string>);
-    return { countAs: (id) => c.of.get(id) ?? id, kindOf: (id) => { const host = c.of.get(id); return host ? c.byId.get(host)?.kind ?? null : null; } };
+    const once = repeatsAcrossPages(nodes);
+    return { countAs: (id) => { const host = c.of.get(id) ?? id; return once.get(host) ?? host; }, kindOf: (id) => { const host = c.of.get(id); return host ? c.byId.get(host)?.kind ?? null : null; } };
   }, [nodes, palette]);
   const roles = React.useMemo(() => siteRoles(nodes, palette, frameWidth || 1440, pictureColours, undefined, counted), [nodes, palette, frameWidth, pictureKey, counted]); // eslint-disable-line react-hooks/exhaustive-deps
   const background = React.useMemo(() => new Set(roles.left.backgroundLayers), [roles]);

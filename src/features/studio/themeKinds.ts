@@ -24,12 +24,15 @@
  *     words standing on it and their glow, so one edit in the preview's
  *     editor reaches every copy of it across the site (J, 2026-10-09).
  *   · A kind is named by what it is for, never by its colour.
+ *   · A part drawn again on every page (a rail, a header) is one part in
+ *     every count and every name (`repeats.ts`; J, 2026-10-11).
  *
  * Pure: no store, no DOM. `tests/theme-kinds.mjs`.
  */
 import { colourKey, coloursIn, faceOf, glowsIn, oklabDistance, parseColor, spotsOf, type Palette, type Worn } from "./look/index.ts";
 import { isButton, type Part } from "./siteRoles.ts";
 import { componentsOf, type CompNode } from "./components.ts";
+import { repeatsAcrossPages, thingsIn } from "./repeats.ts";
 
 /** Closer than the palette merges: a cream card and a grey field are two kinds of surface even where they are one swatch. */
 export const KIND_SHADES = 0.025;
@@ -57,7 +60,7 @@ export interface SurfaceKind {
   fill: string;
   /** What it is for, never its colour (J, 2026-10-09): "Main fill" for the most-worn surface, then "Panels", "Fields", "Buttons" and so on. */
   name: string;
-  /** Parts wearing it as their own fill. */
+  /** Parts wearing it as their own fill, a part repeated across pages counted once. */
   parts: number;
   /** How much of the site its parts cover together, px². */
   cover: number;
@@ -263,8 +266,12 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
      Fill showed only on the TV and whose Words and Outline showed nowhere. */
   const btn = new Set(parts.filter((p) => fillOf.has(p.id) && isButton(p)).map((p) => p.id));
   const keyOf = (id: string) => `${btn.has(id) ? "b" : "s"}|${fillOf.get(id)!}`;
-  const count = new Map<string, number>();
-  for (const id of fillOf.keys()) bump(count, keyOf(id));
+  /* A part drawn again on every page is one part (`repeats.ts`). */
+  const once = repeatsAcrossPages(parts as never);
+  const one = (id: string) => once.get(id) ?? id;
+  const counted = new Map<string, Set<string>>();
+  for (const id of fillOf.keys()) { const k = keyOf(id); counted.set(k, (counted.get(k) ?? new Set()).add(one(id))); }
+  const count = new Map([...counted].map(([k, v]) => [k, v.size]));
   const leads: { fill: string; button: boolean; members: Set<string> }[] = [];
   const kindOfKey = new Map<string, number>();
   for (const [key] of [...count.entries()].sort((a, b) => b[1] - a[1])) {
@@ -293,7 +300,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     for (const q of filled) {
       if (q === p || q.pageId !== p.pageId || (q.state?.group ?? "") !== (p.state?.group ?? "") || area(q) <= area(p) || !holds(q, p)) continue;
       const k = kindOf(q);
-      if (k === kindOf(p) || leads[k]!.members.size < 3) continue;
+      if (k === kindOf(p) || thingsIn(leads[k]!.members, once) < 3) continue;
       if (!best || area(q) < area(best)) best = q;
     }
     return best ? kindOf(best) : -1;
@@ -312,6 +319,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   const pageIds: string[] = [];
   const pageGlows = new Map<string, number>();
   const pageFaceKeys = new Map<string, number>();
+  /* A label is counted once per part, not once per page it is drawn on. */
+  const said = new Set<string>();
   for (const p of parts) {
     if (background.has(p.id)) continue;
     const t = spotsOf(p, palette).find((s) => s.spot.use === "text");
@@ -325,8 +334,10 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     for (const k of new Set(glowsOf(p).map((g) => { const k = colourKey(g.colour); if ((glowsWorn.get(k)?.blur ?? 0) < g.blur) glowsWorn.set(k, g); return k; }))) bump(i < 0 ? pageGlows : glows[i]!, k);
     const w = wordsOf(p);
     /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
-    if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
-    if (i >= 0 && w && u === p) bump(own[i]!, w.toLowerCase());
+    const first = !said.has(one(p.id));
+    said.add(one(p.id));
+    if (first && i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
+    if (first && i >= 0 && w && u === p) bump(own[i]!, w.toLowerCase());
   }
   const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null })[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
@@ -337,8 +348,11 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const inside = new Map<number, number>();
     let buttons = 0;
     const what = new Map<string, number>();
+    const met = new Set<string>();
     for (const p of ms) {
-      bump(what, WHAT[p.featureId ?? ""] ?? "parts");
+      /* What a kind is, by its parts, each counted once however many pages draw it. */
+      if (!met.has(one(p.id))) bump(what, WHAT[p.featureId ?? ""] ?? "parts");
+      met.add(one(p.id));
       const e = p.edge;
       if (e && (e.width ?? 1) > 0 && e.style !== "none" && e.colour) {
         const c = spotsOf({ id: p.id, edge: e } as Worn, palette).find((s) => s.spot.use === "border");
@@ -375,8 +389,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
       tab: !isButtons && !shape && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
       shape,
       fill: g.fill,
-      name: isButtons ? buttonsName(own[i]!, ms.length) : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
-      parts: ms.length,
+      name: isButtons ? buttonsName(own[i]!, thingsIn(g.members, once)) : progress === "track" ? "Loading bars" : progress === "level" ? "Loading bar level" : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
+      parts: thingsIn(g.members, once),
       ids: ms.map((p) => p.id),
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
       stops: /gradient\(/.test(paint) ? [...new Set(coloursIn(paint).map(colourKey))] : [],
