@@ -365,7 +365,55 @@ function flipbookOf(el) {
   const frames = f.frames.map((u, i) => `<image id="f${i}" href="${u}" width="${W}" height="${H}" preserveAspectRatio="none"${square ? ` style="image-rendering:pixelated" image-rendering="optimizeSpeed"` : ""}/>`).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><style>${keys.join("")}</style><defs>${frames}</defs>${uses.join("")}</svg>`;
 }
+/**
+ * A CANVAS THAT FOLLOWS THE SCROLL, AS ONE STRIP (capture-route.mjs
+ * `sampleDepths`: sunkcoin.fun's sea and its minimap). The stills it showed
+ * at each depth of the page, top first, laid one under another in one svg
+ * the width of the canvas and `bands` times its height: a board with no
+ * window shows the strip whole where the layer is stretched over the page
+ * (the sea at every depth, in order), and the Preview and the published
+ * page show the band for where the scroll is (`scroll-depths`). The top band
+ * keeps the flipbook the canvas played at rest, so the water still moves
+ * where the page opens. `picture.depths` says how many bands, how tall
+ * each is, and the scroll each was read at.
+ */
+function depthStripOf(el) {
+  const d = el.depths;
+  const W = Math.max(1, el.w), H = Math.max(1, el.h);
+  const square = /pixelated|crisp-edges/.test(el.ir ?? "");
+  const img = (href, id, y) => `<image${id ? ` id="${id}"` : ""} href="${href}" x="0" y="${y}" width="${W}" height="${H}" preserveAspectRatio="none"${square ? ` style="image-rendering:pixelated" image-rendering="optimizeSpeed"` : ""}/>`;
+  const parts = [];
+  let top = "";
+  const f = el.frames;
+  if (f?.frames?.length > 1 && !el.world?.stage) {
+    const total = f.steps.reduce((n, [, t]) => n + t, 0);
+    if (total > 0) {
+      const pct = (n) => Math.round((n / total) * 100000) / 1000;
+      let at = 0;
+      const keys = [], uses = [];
+      f.steps.forEach(([frame, t], i) => {
+        const a = pct(at), b = pct(at + t);
+        at += t;
+        keys.push(`@keyframes s${i}{0%{opacity:0}${a > 0 ? `${a}%{opacity:0}` : ""}${a}%{opacity:1}${b}%{opacity:0}100%{opacity:0}}`);
+        uses.push(`<use href="#f${frame}" style="opacity:${i === 0 ? 1 : 0};animation:s${i} ${Math.round(total)}ms step-end infinite"/>`);
+      });
+      top = `<style>${keys.join("")}</style><defs>${f.frames.map((u, i) => img(u, `f${i}`, 0)).join("")}</defs>${uses.join("")}`;
+    }
+  }
+  if (!top) top = img(d.stills[0], null, 0);
+  parts.push(top);
+  d.stills.slice(1).forEach((u, i) => parts.push(img(u, null, (i + 1) * H)));
+  const bands = d.stills.length;
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H * bands}" viewBox="0 0 ${W} ${H * bands}">${parts.join("")}</svg>`, depths: { bands, band: H, at: d.at } };
+}
 function pictureOfCanvas(el) {
+  if (el.depths?.stills?.length > 1) {
+    const { svg, depths } = depthStripOf(el);
+    const bytes = Buffer.from(svg);
+    const key = `canvas-depths:${createHash("sha1").update(bytes).digest("hex")}`;
+    const got = pictures.get(key) ?? pictureOf(key, "canvas-depths.svg", bytes);
+    return got ? { ...got, record: { ...got.record, depths } } : null;
+  }
   /* A world drawn again live (worlds.mjs `stage`) keeps the still it showed: the engine does the moving. */
   if (el.frames?.frames?.length > 1 && !el.world?.stage) {
     const svg = flipbookOf(el);
@@ -1450,14 +1498,15 @@ function convert(pageDef, cap) {
     let label;
     if (kind === "picture") {
       const whole = el.t === "svg" || !!el.masked;
-      const canvas = (el.t === "canvas" && (el.drawn || el.frames)) || (el.t === "video" && !el.src && el.drawn);
+      const canvas = (el.t === "canvas" && (el.drawn || el.frames || el.depths)) || (el.t === "video" && !el.src && el.drawn);
       const got = canvas ? pictureOfCanvas(el) : whole ? pictureOfSvg(el) : pictureFor(el.src, cap.url);
       data = el.t === "video" ? `a video (${el.video?.src ?? "no source"}), as it stands as the page opens: ${el.src ? "its poster" : "the frame it shows"}` : canvas ? "what the canvas drew, as a PNG" : el.masked ? "its colour cut by its mask-image, carried as a picture of itself" : whole ? "an svg carried whole, every shape in its own paint" : /^data:/i.test(el.src ?? "") ? `a picture written into the page as a data: address (${el.src.length} characters), carried as its bytes` : el.src;
       if (got) {
         /* Pixel art the page drew square stays square when drawn larger than its pixels. */
         picture = /pixelated|crisp-edges/.test(el.ir ?? "") ? { ...got.record, pixelated: true } : got.record;
         if (picture.pixelated) note(sel, "ir", "field", `picture.pixelated: image-rendering ${el.ir}`);
-        if (el.frames) note(sel, "frames", el.frames.frames?.length > 1 && got.name === "canvas-frames.svg" ? "field" : "nowhere", `${el.frames.frames?.length ?? 0} pictures over ${el.frames.ms}ms${got.name === "canvas-frames.svg" ? ", played back as one svg" : ""}`);
+        if (el.frames) note(sel, "frames", el.frames.frames?.length > 1 && /^canvas-(frames|depths)\.svg$/.test(got.name) ? "field" : "nowhere", `${el.frames.frames?.length ?? 0} pictures over ${el.frames.ms}ms${got.name === "canvas-frames.svg" ? ", played back as one svg" : got.name === "canvas-depths.svg" ? ", played back in the strip's top band" : ""}`);
+        if (el.depths) note(sel, "depths", got.name === "canvas-depths.svg" ? "field" : "nowhere", `${el.depths.stills?.length ?? 0} depths of the page (every ${el.depths.every}px of scroll)${got.name === "canvas-depths.svg" ? `, laid in one strip; picture.depths: ${JSON.stringify(got.record.depths)}; the Builder shows the band for where the scroll is (scroll-depths)` : ""}`);
         label = got.name.replace(/\.[^.]+$/, "") || "Picture";
         if (el.name) label = `image “${cut(el.name, 36)}”`;
         note(sel, "src", "field", `node.picture: a reference to ${got.record.path} (${got.bytes} bytes, ${got.size.w}×${got.size.h}), the bytes committed beside the document; the address itself is kept in data as words only`);
@@ -1668,7 +1717,16 @@ function convert(pageDef, cap) {
    * it keeps its place in the flow (from.position sticky) and only paints
    * where the browser painted it. `check-paint-order.mjs`.
    */
-  const stackOf = (el) => { for (let n = el; n && n.kind !== "page"; n = n.parent) if ((n.pos === "relative" || n.pos === "sticky") && n.z !== undefined && n.z !== "auto" && Number.isFinite(Number(n.z))) return n; return null; };
+  const reach = (b) => (b.pos === "fixed" ? { x: b.x, y: 0, w: b.w, h: Math.max(b.y + b.h, page.h) } : b);
+  const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+  const under = (a, b) => { for (let n = b.parent; n; n = n.parent) if (n === a) return true; return false; };
+  /*
+   * Only a sticky one that a later band actually paints over counts: a docs
+   * page's sticky header with nothing positioned after it (SOLCINERATOR) is
+   * written as the flow it was, in its place, as before.
+   */
+  const stuckOver = new Set(all.filter((n) => n.pos === "sticky" && n.z !== undefined && n.z !== "auto" && Number.isFinite(Number(n.z)) && bands.some((b) => b.order > n.order && !under(n, b) && meets(reach(b), n))));
+  const stackOf = (el) => { for (let n = el; n && n.kind !== "page"; n = n.parent) if ((n.pos === "relative" || stuckOver.has(n)) && n.z !== undefined && n.z !== "auto" && Number.isFinite(Number(n.z))) return n; return null; };
   for (const m of made) if (!m.band) { const st = stackOf(m.el); if (st && zOf(st) > 0) m.lift = st; }
   const bandZ = (b) => (b.z && b.z !== "auto" ? zOf(b) : zOf(stackOf(b)));
   /*
@@ -1703,8 +1761,6 @@ function convert(pageDef, cap) {
    * inside a lifted context, up to the lift, between a band and a relative
    * box of the one context. `check-paint-order.mjs`.
    */
-  const reach = (b) => (b.pos === "fixed" ? { x: b.x, y: 0, w: b.w, h: Math.max(b.y + b.h, page.h) } : b);
-  const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
   const sameContext = (b, n) => stackOf(b.parent) === stackOf(n.parent);
   if (flatBands.length) for (const m of made) {
     if (m.band) continue;
