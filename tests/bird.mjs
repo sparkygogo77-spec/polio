@@ -134,7 +134,7 @@ await page.route("**/api/studio/reshape", (r) => r.fulfill({ status: 200, conten
 await page.route("**/api/studio/body", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, reason: "unavailable", message: "no" }) }));
 
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
-await page.evaluate(() => { localStorage.clear(); localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "studio.drawMode": "raw" }, advanced: false }, version: 0 })); });
+await page.evaluate(() => { localStorage.clear(); localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "studio.drawMode": "raw" }, advanced: false }, version: 0 })); localStorage.setItem("builder.shelf.folded", "0"); /* the shelf opens folded (J, 2026-10-05); the last section searches it */ });
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1300);
 

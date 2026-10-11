@@ -444,6 +444,12 @@ export function fluidParts(parts: readonly FluidPart[], W: number): Map<string, 
  */
 export function fluidStyle(el: HTMLElement, p: FluidPart, k: Fluid, W: number, H: number): void {
   const st = el.style;
+  /* A shelf part the Preview already made sticky (the Sticky top bar, `LiveSite.tsx`): it keeps its place in the flow, its left as a margin, as the captured bands below. */
+  if (!p.position && st.position === "sticky") {
+    st.marginLeft = css(k.left, W);
+    if (k.width.css || Math.abs(k.width.k) > 1e-9) st.width = css(k.width, W);
+    return;
+  }
   st.left = css(k.left, W);
   if (k.width.css || Math.abs(k.width.k) > 1e-9) st.width = css(k.width, W);
   /*

@@ -165,6 +165,9 @@ const WALLET = `(() => {
 /* The full browser, not the headless shell: only the full one reads the machine's own certificate store, and the page is fetched through a proxy that re-terminates TLS. */
 /* A page on this machine (a test's own server) is never asked for through the proxy: its bypass list is not honoured for loopback. */
 const proxy = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(url) ? null : process.env.HTTPS_PROXY || process.env.https_proxy;
+/* Where the time went, said at the end on stderr: each phase in seconds, from the one before it. */
+const laps = []; laps.t0 = Date.now(); let lapAt = laps.t0;
+const lap = (name) => { const now = Date.now(); laps.push(`${name} ${((now - lapAt) / 1000).toFixed(1)}`); lapAt = now; };
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium",
   headless: true,
@@ -192,8 +195,22 @@ const net = flag("--network") ? recordNetwork(page) : null;
 await net?.ready;
 /* A page that marks itself as still building (`body data-preview="loading"`, ready.mjs) is waited for on every settle, up to `--ready` seconds. */
 const readyFor = Number(opt("--ready", 120)) * 1000;
+/*
+ * A page that keeps an EventSource open never goes idle by Playwright's
+ * count, so every settle waited its whole 30 s: once one is seen, the wait
+ * is for the page's own requests instead (none in flight for half a second,
+ * websockets and the feed left out), up to 10 s.
+ */
+let feedSeen = false;
+const inFlightNow = new Set();
+page.on("request", (r) => { const t = r.resourceType(); if (t === "eventsource") feedSeen = true; if (!["websocket", "eventsource"].includes(t)) inFlightNow.add(r); });
+page.on("requestfinished", (r) => inFlightNow.delete(r)); page.on("requestfailed", (r) => inFlightNow.delete(r));
+const quiet = async (most = 10000) => {
+  const t0 = Date.now();
+  for (let still = 0; still < 500 && Date.now() - t0 < most; ) { await page.waitForTimeout(100); still = inFlightNow.size ? 0 : still + 100; }
+};
 const settle = async (ms = 1200) => {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  if (feedSeen) await quiet(); else await page.waitForLoadState("networkidle").catch(() => {});
   const waited = await waitReady(page, { most: readyFor });
   if (waited) console.error(`ready: waited ${waited.secs} s for ${waited.marks.join(", ")}${waited.done ? "" : ", and it never said ready"}`);
   await page.waitForTimeout(ms);
@@ -219,6 +236,7 @@ if (opened && !opened.ok()) failedReq.set(url, "document");
 const shot = async (name) => { mkdirSync(shotsDir, { recursive: true }); await page.screenshot({ path: join(shotsDir, `${name}.jpg`), type: "jpeg", quality: 72 }); };
 if (behaviours && shotsDir) { await page.waitForTimeout(700); await shot("loader"); }
 await settle();
+lap("load");
 /*
  * A TERMS GATE (`--agree`): a dialog over everything with a box to tick
  * ("I have read and agree…") and an Accept that waits for it, as
@@ -396,6 +414,7 @@ async function waitLoader(most = settleFor) {
 }
 await waitLoader();
 await page.waitForTimeout(400);
+lap("built+loader");
 /*
  * A STILL SCREEN, RECORDED ONCE. A page that says it is held still (its
  * <html> or <body> marked `data-preview-still`, or asked for with
@@ -413,6 +432,7 @@ const moving = flag("--no-moving") ? null : { every: Number(opt("--moving-every"
 const behaved = behaviours && !still ? await driveBehaviours(page, { shots: shotsDir, shot, frames: moving }) : null;
 /* How its in-page links take a visitor to their places: a glide by its script or its stylesheet, or a jump (glide.mjs). */
 if (behaved) behaved.glide = await readGlides(page);
+lap("behaviours");
 /*
  * On the way down, every element with no box at the top (a progress fill a
  * script grows with the scroll, width 0 until then) is looked at again at
@@ -468,6 +488,7 @@ await page.evaluate(async () => {
 });
 await page.waitForTimeout(1200);
 if (behaved?.motion?.scrollGrow?.length) {
+lap("scroll");
   const kept = await page.evaluate(() => window.__sinkScrollKept ?? []);
   for (const g of behaved.motion.scrollGrow) { const k = kept.find((q) => q.id === g.el); if (k && k.kept !== null) g.kept = k.kept; }
 }
@@ -479,14 +500,16 @@ if (flag("--agree")) {
 }
 /* The wallet modal opens itself half a second after load when nothing is connected; with the stand-in it should not, and if it did it is closed. */
 if (flag("--wallet")) {
-  for (let i = 0; i < 20; i++) {
+  /* The sidebar is the root site's (routes.json, --section / --click): another site is not made to wait 25 s for an <aside> it has not got. */
+  const sidebar = !!(section || click);
+  for (let i = 0; i < (sidebar ? 20 : 2); i++) {
     const modal = page.locator(".wallet-adapter-modal-wrapper, .wallet-adapter-modal");
     if (await modal.count()) { await page.keyboard.press("Escape"); await page.waitForTimeout(300); }
-    if (await page.locator("aside").count()) break;
+    if (sidebar && await page.locator("aside").count()) break;
     await page.waitForTimeout(500);
   }
   /* "Processing items..." holds the sidebar back for three seconds after connecting. */
-  await page.waitForSelector("aside", { timeout: 15000 }).catch(() => {});
+  if (sidebar) await page.waitForSelector("aside", { timeout: 15000 }).catch(() => {});
   await settle(500);
 }
 if (click) {
@@ -692,6 +715,7 @@ if (worldsOn && frameSecs > 0) {
 if (watch) await page.waitForTimeout(watch * 1000);
 await page.evaluate(() => scrollTo(0, 0));
 await page.waitForTimeout(200);
+lap("frames+worlds");
 
 /*
  * What each element is, by the browser's own accessibility tree, written
@@ -709,6 +733,7 @@ const cdp = await context.newCDPSession(page);
 await cdp.send("DOM.enable");
 await cdp.send("Accessibility.enable");
 const { nodes: ax } = await cdp.send("Accessibility.getFullAXTree");
+const marks = [];
 for (const n of ax) {
   if (n.ignored || !n.backendDOMNodeId) continue;
   const role = n.role?.value;
@@ -716,17 +741,23 @@ for (const n of ax) {
   const name = n.name?.value ?? "";
   const state = {};
   for (const p of n.properties ?? []) if (STATES.has(p.name) && p.value?.value !== undefined && p.value.value !== false && p.value.value !== "false") state[p.name] = p.value.value;
+  marks.push({ id: n.backendDOMNodeId, role, name, state: Object.keys(state).length ? JSON.stringify(state) : "" });
+}
+/* Written in batches of a hundred, not two round trips awaited per node: thousands of nodes, three reads and one per press. */
+const markOne = async (m) => {
   let object;
-  try { ({ object } = await cdp.send("DOM.resolveNode", { backendNodeId: n.backendDOMNodeId })); } catch { continue; }
+  try { ({ object } = await cdp.send("DOM.resolveNode", { backendNodeId: m.id })); } catch { return; }
   await cdp.send("Runtime.callFunctionOn", {
     objectId: object.objectId,
     functionDeclaration: `function (role, name, state) { if (this.nodeType !== 1) return; this.dataset.axRole = role; if (name) this.dataset.axName = name; if (state) this.dataset.axState = state; }`,
-    arguments: [{ value: role }, { value: name }, { value: Object.keys(state).length ? JSON.stringify(state) : "" }],
+    arguments: [{ value: m.role }, { value: m.name }, { value: m.state }],
   }).catch(() => {});
-}
+};
+for (let i = 0; i < marks.length; i += 100) await Promise.all(marks.slice(i, i + 100).map(markOne));
 await cdp.detach().catch(() => {});
 };
 await markRoles();
+lap("roles");
 const marked = watch !== null ? await page.evaluate(() => window.__sinkSources?.mark() ?? null) : null;
 /*
  * The stylesheets the page cannot read (cross-origin: Google Fonts, a CDN),
@@ -778,6 +809,7 @@ await restPointer(page);
 const heldHere = await scanHeld(page);
 if (heldHere.length) console.error(`held: ${heldHere.length} controls not pressed (${[...new Set(heldHere.map((h) => h.held))].map((w) => `${heldHere.filter((h) => h.held === w).length} ${w}`).join(", ")})`);
 const cap = await page.evaluate(DUMP, { sheets, paths: withStates });
+lap("dump");
 if (built) cap.built = built;
 /*
  * WHAT A PRESS SHOWS (`--states`). A row of cards that each open their own
@@ -1365,8 +1397,11 @@ if (withStates) {
     if (group[0]?.twinOf != null) continue;
     for (const opt of group) {
       if (!opt.single && tried++ >= statesMax) break;
+      /* Where each press's time goes (SINK_TIMING=1): the load before it, finding it, the press and its wait, the frames, the read, the undo. */
+      const timing = process.env.SINK_TIMING ? { at: Date.now(), laps: [] } : null;
+      const tlap = (name) => { if (!timing) return; const now = Date.now(); timing.laps.push(`${name} ${((now - timing.at) / 1000).toFixed(1)}`); timing.at = now; };
       /* The page is loaded again only when the last press could not be undone. */
-      if (dirty) { if (!(await fresh())) continue; dirty = false; }
+      if (dirty) { if (!(await fresh())) continue; dirty = false; tlap("load"); }
       /* Found again by its own place, not by its number: a press undone can leave the list of controls in another order. */
       let found = await choosers();
       /* By its place and its words, or by its place alone when its words changed on their own (a sound button the first gesture switched), or by its words alone when a live list above it moved it and no other control has them. */
@@ -1405,6 +1440,7 @@ if (withStates) {
         if (!(await reachable())) { console.error(`states: ${opt.name} still out of the pointer's reach: not pressed`); continue; }
       }
       const before = { s: states.length, p: pressedOut.length, h: heldPresses.length };
+      tlap("find");
       const pre = await page.evaluate(MARKS).catch(() => null);
       let undo = true;
       /* What the press added to the page and took from it, by path: an undo must leave none of the one and all of the other. */
@@ -1429,6 +1465,7 @@ if (withStates) {
       /* A panel that arrives late: the page let settle once it moved, or given a while when it did not (presses.mjs). Only a canvas watch stands in for that wait. */
       if (!(hasCanvas && !opt.single)) await afterPress(page);
       page.off("popup", onPopup);
+      tlap("press");
       const did = (await page.evaluate(() => window.__sinkPress?.end()).catch(() => null)) ?? { count: 0 };
       movedBy = did.pushedBy ?? null;
       /*
@@ -1463,6 +1500,7 @@ if (withStates) {
       /* Nothing moved and no canvas to watch: nothing to read again, and the page is still as it opened. */
       if (opt.single && !did.count && !hasCanvas && !stopped.length) { await page.evaluate(() => window.__sinkPress?.releaseAll()).catch(() => {}); await guard.off(); undo = false; continue; }
       if (frameSecs > 0) await sampleFrames(Math.min(frameSecs, 2.5), near);
+      tlap("frames");
       await guard.off();
       const wrote = stopped.filter((q) => !background.has(q.key));
       if (wrote.length) {
@@ -1478,6 +1516,7 @@ if (withStates) {
       /* A page that could not be read after the press (it was still changing, or went): no state, and the page loaded again before the next. */
       const now = await page.evaluate(DUMP, { sheets, paths: true }).catch((e) => { console.error(`state ${opt.g}:${opt.o} (${opt.name}): the page could not be read after it (${String(e.message ?? e).split("\n")[0]})`); return null; });
       if (!now?.tree) { dirty = true; continue; }
+      tlap("read");
       const nowIdx = index(now.tree);
       /* The distances a block of the page was pushed by, all at once (five or more elements, only moved up or down by exactly that): room made for what the press opened. */
       const roomFor = new Set();
@@ -1638,6 +1677,8 @@ if (withStates) {
         else if (!dirty && undo) { if (await undoPress(cur, found, group, pre, touched)) undone++; else dirty = true; }
         /* A page load this press costs: counted, for the run's summary. */
         if (dirty) loadsAfter++;
+        tlap(dirty ? "undo(failed)" : "undo");
+        if (timing) console.error(`timing ${opt.g}:${opt.o} (${opt.name}): ${timing.laps.join(", ")} s`);
       }
     }
   }
@@ -1725,6 +1766,7 @@ if (withStates) {
   await page.goto(url, { waitUntil: "load" }).catch(() => {});
 }
 if (behaved) cap.behaviours = behaved;
+lap("states");
 /* How much the worlds were pressed, and how much told (worlds.mjs, NO PRESS TWICE). */
 { const ws = await page.evaluate(() => window.__sinkWorlds?.stats ?? null).catch(() => null); if (ws) cap.worldStats = ws; }
 if (net) { await page.waitForTimeout(300); await net.flush(); cap.network = net.report(); console.error(`network: ${cap.network.endpoints.length} endpoints (${cap.network.endpoints.filter((e) => e.read).length} reads)`); }
@@ -1748,6 +1790,7 @@ if (failedReq.size) { cap.missing = [...failedReq].map(([u, t]) => ({ url: u, ty
  * a cross-origin sheet's faces appended after everything would turn that
  * round. So each is set where its link stood (`at`).
  */
+lap("network");
 const ownFaces = cap.faces.faces;
 const linkFaces = new Map();
 for (const link of cap.faces.links ?? []) {
@@ -1855,8 +1898,10 @@ if (assets) {
     }
   }));
 }
+lap("faces+assets");
 
 await browser.close();
+console.error(`took: ${laps.join(", ")} s, ${((Date.now() - laps.t0) / 1000).toFixed(1)} s in all`);
 mkdirSync(join(out, ".."), { recursive: true });
 writeFileSync(out, JSON.stringify(cap));
 let n = 0; (function count(e) { n++; (e.kids ?? []).forEach(count); })(cap.tree);

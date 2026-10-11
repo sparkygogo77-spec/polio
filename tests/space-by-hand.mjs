@@ -58,8 +58,18 @@ const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `docs/shots
  * parts shelf and not the board at all. A gesture that leaves the pane is
  * not a gesture the board ever sees. Everything below is kept inside it.
  */
-const PANE = await page.locator("[data-ctx='studio-canvas']").first().boundingBox();
+/* The pane is the scroller the board stands in (`[data-studio-pane]`), not
+   the board itself: the board is taller than the room it has, and the part of
+   it below the pane's foot is under the shelf. A hand there is not on the
+   board. */
+const PANE = await page.locator("[data-studio-pane]").first().boundingBox();
 const inPane = (x, y) => x > PANE.x + 20 && x < PANE.x + PANE.width - 20 && y > PANE.y + 20 && y < PANE.y + PANE.height - 20;
+/* Every drag on the board scrolls the page when the hand is within this of
+   the pane's top or bottom edge (`edgeScroll.ts`, EDGE_BAND; J, 2026-10-10).
+   A loop drawn into that band has the page slide under it, so its end never
+   meets its start in the page's own pixels, and it is rightly refused. The
+   loops below stay clear of the band. */
+const EDGE_BAND = 72;
 
 /** What is on screen, counted on screen. */
 const spaces = () => page.locator("[data-space]").count();
@@ -333,8 +343,16 @@ if (await hole.count()) {
 /* A fresh one, with nothing in it: the only open hole so far has the part
    this drew round inside it, and a hole with something in it is rightly
    steered through that thing rather than through a key of its own. */
+/* Nothing picked first: the hole section 6 drew in is still picked, and its
+   panel stands over the right of the board, where this loop goes. */
+for (let i = 0; i < 3 && (await page.locator("[data-space-panel]").count()); i++) { await page.keyboard.press("Escape"); await page.waitForTimeout(250); }
 await pickSpace();
-const spot = [PANE.x + 250, PANE.y + PANE.height - 150];
+/* In the clear column at the board's right, where none of the holes above
+   reach, and out of the edge band top and bottom. The pane is measured again
+   here: a strip above the board had gone since it was first measured. */
+const room = await page.locator("[data-studio-pane]").first().boundingBox();
+const spot = [room.x + room.width - 140, Math.round(room.y + room.height / 2)];
+if (spot[1] - 90 < room.y + EDGE_BAND || spot[1] + 90 > room.y + room.height - EDGE_BAND) note(`the loop at ${spot} reaches the edge band of a ${Math.round(room.height)}px pane`);
 await draw(loop(spot[0], spot[1], 90, 26), { step: 12 });
 await page.waitForTimeout(1800);
 await page.keyboard.press("v");

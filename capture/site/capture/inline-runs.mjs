@@ -39,8 +39,9 @@
  * capture, without the order, still folds only a line that does not wrap.
  */
 
+import { kidsByParent } from "./hole-arbiter.mjs";
+
 const TEXT_KINDS = new Set(["prose", "value-prop"]);
-const parentOf = (sel) => (sel ?? "").split(" > ").slice(0, -1).join(" > ");
 /** Words that only separate (a nav's bars, dots, slashes, dashes), never a sentence. */
 const SEPARATORS = /^[\s|·•∙/\\–—\-:;,>»›<«‹+*~]*$/;
 
@@ -52,12 +53,13 @@ const SEPARATORS = /^[\s|·•∙/\\–—\-:;,>»›<«‹+*~]*$/;
  */
 export function inlineLines(nodes, elOf, skip = new Set()) {
   const out = [];
+  const under = kidsByParent(nodes);
   for (const p of nodes) {
     if (skip.has(p.id) || typeof p.content !== "string" || !p.content.trim() || !p.from?.selector) continue;
     const el = elOf(p.id);
     const ot = el?.ot;
     if (!Array.isArray(ot) || !ot.length) continue;
-    const kids = nodes.filter((c) => c.pageId === p.pageId && c !== p && !skip.has(c.id) && parentOf(c.from?.selector) === p.from.selector);
+    const kids = (under.get(`${p.pageId}|${p.from.selector}`) ?? []).filter((c) => c !== p && !skip.has(c.id));
     if (!kids.length) continue;
     /* The order the page wrote them, when the capture recorded it (`before` on every run). */
     const ordered = ot.every((r) => Number.isInteger(r[6]) && r[6] >= 0);

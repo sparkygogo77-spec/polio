@@ -576,7 +576,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
     for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
       if (el.parentElement?.closest("[data-live-node]")) continue;
       const p = byId.get(el.getAttribute("data-live-node") ?? "");
-      if (!p || p.position === "fixed" || p.position === "sticky" || el.style.position === "fixed") continue;
+      if (!p || p.position === "fixed" || p.position === "sticky" || el.style.position === "fixed" || el.style.position === "sticky") continue;
       if (p === heroPart) { el.style.minHeight = heroH; continue; }
       /* The hero's own child that holds it: its group moves as one. */
       const hs = heroPart.selector ?? "";
@@ -608,7 +608,7 @@ function fluid(root: ParentNode, pageId: string, nodes: Map<string, StudioNode>,
       if (p) el.style.minHeight = `calc(${fluid} * ${+(p.h / fpx).toFixed(6)})`;
     }
     const moved = typed.shift.get(id);
-    if (moved && p && p.position !== "fixed" && p.position !== "sticky" && el.style.position !== "fixed") el.style.top = `calc(${el.style.top || `${p.y}px`} + ${moved})`;
+    if (moved && p && p.position !== "fixed" && p.position !== "sticky" && el.style.position !== "fixed" && el.style.position !== "sticky") el.style.top = `calc(${el.style.top || `${p.y}px`} + ${moved})`;
   }
   /* A layer placed in the window's units or a share of a block that grows with it (`node.units`): placed so again (`layerUnits.ts`). */
   for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-live-node]"))) {
