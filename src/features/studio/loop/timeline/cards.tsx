@@ -489,10 +489,11 @@ export function VineCut({ of, at, ends: pair, onTug, onCut }: {
          * moment the vine answers.
          *
          * The press is unchanged and lands on the same band, which is a
-         * bigger thing to press by accident than it was — and it is one
-         * undo, because `pruneThread` pushes history like every other
-         * edit, and the vine visibly lifts under the hand before the press
-         * as well as saying what will go.
+         * bigger thing to press by accident than it was — cutting the
+         * update the board stands on is one undo, because `pruneThread`
+         * pushes history before it moves the board (cutting any other
+         * leaves the board alone), and the vine visibly lifts under the
+         * hand before the press as well as saying what will go.
          */
         onPointerEnter={() => onTug(id, true)}
         onPointerLeave={() => onTug(id, false)}

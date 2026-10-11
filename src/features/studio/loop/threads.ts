@@ -276,9 +276,9 @@ export function pruneThread(threads: Thread[], id: string): Thread[] {
  * newest thread of all, and nothing when the last thread has gone.
  */
 export function liveAfterPrune(threads: Thread[], cutId: string, live: string | null): string | null {
-  if (live !== cutId) return live && threads.some((t) => t.id === live) ? live : newest(threads);
-  const cut = threads.find((t) => t.id === cutId);
   const rest = threads.filter((t) => t.id !== cutId);
+  if (live !== cutId) return live && rest.some((t) => t.id === live) ? live : newest(rest);
+  const cut = threads.find((t) => t.id === cutId);
   if (cut?.parentId && rest.some((t) => t.id === cut.parentId)) return cut.parentId;
   return newest(rest);
 }

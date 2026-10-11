@@ -91,7 +91,7 @@ export function promptOf(s: Pick<StudioState, "brief" | "pages" | "nodes" | "gro
  * with it. Only the document's own eight fields are applied, the way
  * `loadDoc` applies them.
  */
-export function docPatch(doc: ThreadDoc | undefined): Partial<StudioState> {
+export function docPatch(doc: ThreadDoc | undefined, openPageId?: string): Partial<StudioState> {
   if (!doc) return {};
   const d = doc as Partial<Doc>;
   const patch: Partial<StudioState> = {};
@@ -104,8 +104,9 @@ export function docPatch(doc: ThreadDoc | undefined): Partial<StudioState> {
   if (d.brief) patch.brief = d.brief;
   if (d.look) patch.look = { ...emptyLook(), ...d.look };
   if (Array.isArray(d.motion)) patch.motion = d.motion;
-  if (patch.pages && !patch.pages.some((p) => p.id === undefined)) {
-    // Standing on a thread whose pages no longer include the open one.
+  if (patch.pages && !patch.pages.some((p) => p.id === openPageId)) {
+    // Standing on a thread whose pages no longer include the open one;
+    // when they still do, J stays on the page he was looking at.
     patch.activePageId = patch.pages[0]!.id;
   }
   return patch;

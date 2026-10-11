@@ -204,15 +204,20 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
     /**
      * Cut one thread. Its children re-hang from its parent — they
      * happened, and removing the step underneath them does not unhappen
-     * them — and the board goes back to whatever is live after the cut.
+     * them. Only cutting the thread the board stands on moves the board,
+     * to whatever is live after the cut; cutting any other leaves the
+     * board, and every edit since, exactly where it is.
      */
     pruneThread: (id) => {
       const s = get();
       if (!s.threads.some((t) => t.id === id)) return;
       const threads = cutThread(s.threads, id);
-      const live = liveAfterPrune(s.threads, id, s.liveThreadId);
-      const stand = threads.find((t) => t.id === live);
-      push();
+      const moves = s.liveThreadId === id;
+      const live = moves
+        ? liveAfterPrune(s.threads, id, id)
+        : threads.some((t) => t.id === s.liveThreadId) ? s.liveThreadId : null;
+      const stand = moves ? threads.find((t) => t.id === live) : undefined;
+      if (stand?.doc) push();
       const spots = { ...s.threadSpots };
       delete spots[id];
       set(() => ({
@@ -223,8 +228,7 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
         currentThreadId: s.currentThreadId === id ? null : s.currentThreadId,
         threadSpots: spots,
         trail: s.trail.filter((e) => e.threadId !== id),
-        ...docPatch(stand?.doc),
-        selection: [],
+        ...(stand?.doc ? { ...docPatch(stand.doc, s.activePageId), selection: [] } : {}),
       }));
     },
 
@@ -308,7 +312,7 @@ export function threadsActions(set: SetStudio, get: GetStudio, push: () => void,
       const t = s.threads.find((x) => x.id === id);
       if (!t?.doc) return;
       push();
-      set({ ...docPatch(t.doc), liveThreadId: id, selection: [] });
+      set({ ...docPatch(t.doc, s.activePageId), liveThreadId: id, selection: [] });
     },
 
     applyRevision: (entryId) => {

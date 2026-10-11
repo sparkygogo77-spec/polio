@@ -61,6 +61,7 @@ const TREE = [th("a", null, 1), th("b", "a", 2), th("c", "a", 3), th("d", "b", 4
   check("cutting a live root stands on the newest that is left", liveAfterPrune(TREE, "a", "a") === "e");
   check("cutting the only thread leaves nothing to stand on", liveAfterPrune([th("solo", null, 1)], "solo", "solo") === null);
   check("a live id that no longer exists falls back to the newest", liveAfterPrune(TREE, "c", "ghost") === "e");
+  check("with nothing live, the cut thread is never what is left to stand on", liveAfterPrune(TREE, "e", null) === "d");
 }
 
 /* 4. What changed, between the board a thread inherited and the board it left. */
