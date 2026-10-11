@@ -64,7 +64,7 @@ check("4. a panel a page state draws snaps to it", toScore === true && J(useStud
 const toSign = PP.snapToSceneShowing("sign-panel", false);
 check("4. a pop-up no page state draws says so, and the page state stays", toSign === false && J(useStudio.getState().statesOn) === J(["screen:mid"]), J(useStudio.getState().statesOn));
 const src = (await import("node:fs")).readFileSync(join(here, "..", "src", "features", "studio", "states", "PanelsPage.tsx"), "utf8");
-check("4. the rail pops such a panel up alone on hover, and lets it go after (source read)", /if \(!drawn && s0\)[\s\S]{0,200}isolateKey\(p\.id/.test(src) && /previewing\.current = false;[\s\S]{0,160}!k\.startsWith\(ISOLATE\)/.test(src) && /bringToView\(p\.id, !drawn\)/.test(src));
+check("4. the rail pops such a panel up alone on hover, and lets it go after (source read)", /if \(!drawn && s0\)[\s\S]{0,200}isolateKey\(p\.id/.test(src) && /previewing\.current = false;\s*if \(was && !keep\) railGiveBack\(\)/.test(src) && /bringToView\(p\.id, !drawn\)/.test(src));
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);
