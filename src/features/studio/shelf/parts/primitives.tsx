@@ -143,7 +143,7 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
  */
 export function PictureSlot({ t, pic, src, label, mode = "board" }: {
   t: Theme;
-  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null } | null;
+  pic?: { alt?: string; w?: number; h?: number; pixelated?: boolean; seeThrough?: boolean; depths?: { bands: number; band: number } | null; moving?: { kind: string } | null } | null;
   src?: string;
   label?: string;
   mode?: PartMode;
@@ -167,6 +167,23 @@ export function PictureSlot({ t, pic, src, label, mode = "board" }: {
           style={{ width: "100%", height: "auto", display: "block", ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
         />
       </div>
+    );
+  }
+  if (pic && src && pic.moving) {
+    /*
+     * THE FRAMES OF A MOVING PART (`Picture.moving`): the flipbook the
+     * capture took of it, laid over the part edge to edge, no frame, no
+     * corner, stretched to the layer's box, which is the part's own. A loop
+     * plays itself here; the `moving-frames` feature takes a pointer's or a
+     * scroll's run over on the page (it finds the picture by its mark).
+     */
+    return (
+      <img
+        src={src}
+        alt={pic.alt ?? ""}
+        data-moving-frames={pic.moving.kind}
+        style={{ width: "100%", height: "100%", display: "block", objectFit: "fill", ...(pic.pixelated ? { imageRendering: "pixelated" as const } : {}) }}
+      />
     );
   }
   if (pic && src) {

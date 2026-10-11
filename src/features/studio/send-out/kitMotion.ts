@@ -28,7 +28,7 @@ import { carriedEffect, carriedSite } from "./motionCss.ts";
 import type { Corner } from "../live/corner.ts";
 
 /** The shelf effects the kit's file runs: the ones that move or draw on their own part and need nothing but the page. */
-export const KIT_EFFECTS: readonly string[] = ["tilt", "follow-pointer", "marquee", "dust-canvas", "scroll-grow", "scroll-depths", "glide", "screen-filter", "scroll-header", "crt-loader", "copy-toast", "planet", "turn-3d", "compare"];
+export const KIT_EFFECTS: readonly string[] = ["tilt", "follow-pointer", "marquee", "dust-canvas", "scroll-grow", "scroll-depths", "moving-frames", "glide", "screen-filter", "scroll-header", "crt-loader", "copy-toast", "planet", "turn-3d", "compare"];
 /** The whole-site motions it runs, where CSS does not (`SITE_MOTION_JS`). */
 export const KIT_SITE: readonly string[] = ["back-to-top", "parallax", "hover-tilt", "cursor-effects", "smooth-scroll", "scroll-snap"];
 

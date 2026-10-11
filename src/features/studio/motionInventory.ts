@@ -85,7 +85,7 @@ const WORK_KIND: Record<string, MoveKind> = {
   "hover-lift": "hover",
   "press-shows": "press", glide: "press", "press-push": "press",
   "switch-on": "canvas",
-  blink: "loop", spin: "loop", float: "loop",
+  blink: "loop", spin: "loop", float: "loop", "moving-frames": "loop",
   marquee: "ribbon",
   "dust-canvas": "canvas", "crt-loader": "canvas",
 };

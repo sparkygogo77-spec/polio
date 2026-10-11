@@ -66,6 +66,14 @@ export interface Picture {
    * `scroll-depths` effect, `tests/scroll-depths.mjs`).
    */
   depths?: { bands: number; band: number; at?: number[] };
+  /**
+   * The frames the capture took of a part as it moved (sink
+   * `behaviours.motion.frames`), as one svg flipbook: laid over the part as
+   * a layer of its own by the hand-over (`captured.ts`), drawn edge to edge
+   * with no frame, and played by the `moving-frames` feature
+   * (`tests/moving-frames.mjs`). `kind` is how it moved.
+   */
+  moving?: { kind: string };
 }
 
 const ok = () => typeof indexedDB !== "undefined";

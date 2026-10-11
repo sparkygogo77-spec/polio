@@ -343,6 +343,13 @@ function pictureOfSvg(el) {
  * each picture it showed once, each shown for as long as it stood, on a
  * loop, drawn square where the page drew it square. An `<img>` plays it; a
  * machine that plays no animation shows the first.
+ *
+ * A run the pointer or the scroll drives (`__still`) is written with no
+ * animation at all: it shows its first picture until a script picks another
+ * (the Builder's `moving-frames` feature), on the board as on a page with no
+ * script. Each of its `<use>` says how long its picture stood (`data-ms`),
+ * in the order the pictures were shown, so the script can tell which picture
+ * went with which moment of the recording.
  */
 function flipbookOf(el) {
   const f = el.frames;
@@ -353,17 +360,18 @@ function flipbookOf(el) {
   const pct = (n) => Math.round((n / total) * 100000) / 1000;
   /* A press's answer (a state's canvas, `__st`) plays once from the press and holds its last picture, as the device's "still an egg." comes and goes once; the page's own loops. */
   const once = !!el.__st;
+  const still = !!el.__still;
   let at = 0;
   const keys = [], uses = [];
   f.steps.forEach(([frame, d], i) => {
     const a = pct(at), b = pct(at + d);
     at += d;
     const last = once && i === f.steps.length - 1;
-    keys.push(`@keyframes s${i}{0%{opacity:0}${a > 0 ? `${a}%{opacity:0}` : ""}${a}%{opacity:1}${last ? "" : `${b}%{opacity:0}`}100%{opacity:${last ? 1 : 0}}}`);
-    uses.push(`<use href="#f${frame}" style="opacity:${i === 0 ? 1 : 0};animation:s${i} ${Math.round(total)}ms step-end ${once ? "1 forwards" : "infinite"}"/>`);
+    if (!still) keys.push(`@keyframes s${i}{0%{opacity:0}${a > 0 ? `${a}%{opacity:0}` : ""}${a}%{opacity:1}${last ? "" : `${b}%{opacity:0}`}100%{opacity:${last ? 1 : 0}}}`);
+    uses.push(`<use href="#f${frame}"${still ? ` data-ms="${Math.round(d)}"` : ""} style="opacity:${i === 0 ? 1 : 0}${still ? "" : `;animation:s${i} ${Math.round(total)}ms step-end ${once ? "1 forwards" : "infinite"}`}"/>`);
   });
   const frames = f.frames.map((u, i) => `<image id="f${i}" href="${u}" width="${W}" height="${H}" preserveAspectRatio="none"${square ? ` style="image-rendering:pixelated" image-rendering="optimizeSpeed"` : ""}/>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><style>${keys.join("")}</style><defs>${frames}</defs>${uses.join("")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${still ? "" : `<style>${keys.join("")}</style>`}<defs>${frames}</defs>${uses.join("")}</svg>`;
 }
 /**
  * A CANVAS THAT FOLLOWS THE SCROLL, AS ONE STRIP (capture-route.mjs
@@ -2679,7 +2687,8 @@ const behavioursSection = (() => {
       for (const f of b.motion.frames ?? []) {
         const { el, frames, steps, greys, ...r } = f;
         void greys;
-        const svg = flipbookOf({ frames: { frames, steps }, w: f.w, h: f.h, __st: f.kind === "once" });
+        /* The pointer's and the scroll's runs stand still until the page's script (the Builder's `moving-frames` feature) picks the picture for where the pointer or the scroll is. */
+        const svg = flipbookOf({ frames: { frames, steps }, w: f.w, h: f.h, __st: f.kind === "once", __still: f.kind === "pointer" || f.kind === "scroll" });
         const bytes = svg ? Buffer.from(svg) : null;
         const key = bytes ? `motion-frames:${createHash("sha1").update(bytes).digest("hex")}` : null;
         const got = bytes ? pictures.get(key) ?? pictureOf(key, "motion-frames.svg", bytes) : null;
