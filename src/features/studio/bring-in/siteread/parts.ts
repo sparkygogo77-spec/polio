@@ -844,7 +844,9 @@ export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead =
           const sc = css(s);
           /* A circle, an ellipse or a box with a hook is a part of its own (below), drawn there: not twice. */
           if (/^(circle|ellipse|rect)$/i.test(s.tagName) && (s.hasAttribute("data-hook") || s.hasAttribute("id"))) { kept.add(s); c.setAttribute("visibility", "hidden"); return; }
-          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};opacity:${sc.opacity};color:${sc.color}`);
+          /* Words in it keep the face the page set them in (PST's dial labels: 700 8px Gill Sans, spaced), else the picture sets them in the svg default. */
+          const type = /^(text|tspan)$/i.test(s.tagName) ? `;font-family:${sc.fontFamily};font-size:${sc.fontSize};font-weight:${sc.fontWeight};font-style:${sc.fontStyle};letter-spacing:${sc.letterSpacing};text-anchor:${sc.textAnchor};dominant-baseline:${sc.dominantBaseline};text-transform:${sc.textTransform}` : "";
+          c.setAttribute("style", `fill:${sc.fill};fill-opacity:${sc.fillOpacity};fill-rule:${sc.fillRule};stroke:${sc.stroke};stroke-width:${sc.strokeWidth};stroke-opacity:${sc.strokeOpacity};stroke-linecap:${sc.strokeLinecap};stroke-linejoin:${sc.strokeLinejoin};opacity:${sc.opacity};color:${sc.color}${type}`);
         });
         copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         copy.setAttribute("width", String(b.w));
