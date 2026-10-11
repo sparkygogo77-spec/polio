@@ -19,7 +19,9 @@
  *              tells every code chat to read it first.
  *   4. Land.   Refresh reads the file back (`fixedIn`): a line the code chat
  *              ticked (`- [x]`) or deleted is fixed, and becomes a blue box
- *              on the timeline.
+ *              on the timeline. Lines still in a pull request not merged are
+ *              `pending`, not `sent`: the default branch has no line for them
+ *              yet, and that must not read as deleted.
  *
  * No server is involved: the file in the repository is the queue, so it
  * works with any code chat. This file imports nothing at run time, so
@@ -46,6 +48,13 @@ export interface FixLoop {
   sent: FixIssue[];
   /** Board changes the code chat has built (`codeAsks.ts`): never asked again while the board still holds them. */
   done?: string[];
+  /**
+   * Lines in a pull request not merged yet ("Send the design back", or a
+   * Publish GitHub would not merge). They are not in NEXT.md on the default
+   * branch, so they are never read as fixed and are asked again until they
+   * are; Refresh makes them `sent` once their line shows there (`promotePending`).
+   */
+  pending?: FixIssue[];
 }
 
 export const NO_LOOP: FixLoop = { ticked: [], sent: [] };
@@ -108,6 +117,27 @@ export function toSend(loop: FixLoop, issues: readonly FixIssue[]): FixIssue[] {
 }
 
 const LINE = /^- \[( |x|X)\] .*<!-- fix:(\S+) -->\s*$/;
+
+/** Lines that went out in a pull request not merged yet: held apart from `sent`, each key once. */
+export function sentUnmerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
+  const have = new Set([...loop.sent, ...(loop.pending ?? [])].map((i) => i.key));
+  return { ...loop, pending: [...(loop.pending ?? []), ...adding.filter((i) => !have.has(i.key))] };
+}
+
+/** Lines merged into the default branch's NEXT.md: sent, and no longer pending. */
+export function sentMerged(loop: FixLoop, adding: readonly FixIssue[]): FixLoop {
+  const keys = new Set(adding.map((i) => i.key));
+  const have = new Set(loop.sent.map((i) => i.key));
+  return { ...loop, sent: [...loop.sent, ...adding.filter((i) => !have.has(i.key))], pending: (loop.pending ?? []).filter((i) => !keys.has(i.key)) };
+}
+
+/** Pending lines whose line (open or ticked) is in the default branch's NEXT.md: their pull request is merged, so they are sent. */
+export function promotePending(loop: FixLoop, md: string | null): FixLoop {
+  if (md == null || !loop.pending?.length) return loop;
+  const there = new Set(md.split("\n").map((l) => LINE.exec(l)?.[2]).filter(Boolean));
+  const merged = loop.pending.filter((i) => there.has(i.key));
+  return merged.length ? sentMerged(loop, merged) : loop;
+}
 
 /** One queue line: the box, the hook, the page, what is wrong, what done looks like, and its key for Refresh. */
 export function nextLine(i: FixIssue): string {

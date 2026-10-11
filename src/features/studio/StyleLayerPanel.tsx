@@ -31,6 +31,7 @@ import { buildLayer, wearTextures, colourKey, isColour, partSlots, partTokens, t
 import { sendDesign } from "./codeSend";
 import { gatherAsks } from "./publishAsks";
 import { fixLoopOf, setFixLoop } from "./useFixLoop";
+import { sentUnmerged } from "./fixLoop";
 import { layerHooksOf, readRound, takeTokens, type CodeNotes, type KitManifest, type KitSeen, type RoundChanges } from "./kitRun";
 import { kitLinksToOffsite } from "./shelf";
 import { formatNumber, isScriptSlotKind, LINE_STYLES, parseFormat, parseKey, parseLine, parseSound, playSound, writeFormat, writeKey, writeLine, writeSound, type ScriptSlotKind } from "./slotKinds";
@@ -245,7 +246,8 @@ export function StyleLayerSection() {
       if (asks.says) { setSaid({ text: asks.says, bad: true }); return; }
       const done = await sendDesign(asks.nodes, palette, source, token, { site, family, say: (text) => setSaid({ text }), extra: asks.extra, fresh: asks.fresh });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
-      if (asks.adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...asks.adding] }); }
+      /* A pull request he merges himself: its lines are pending until Refresh finds them on the default branch (`fixLoop.ts#promotePending`). */
+      if (asks.adding.length) setFixLoop(sentUnmerged(fixLoopOf(useStudio.getState().look), asks.adding));
       if (done.kit) { const held = done.held.length ? ` Held back: ${done.held.join(" ")}` : ""; setSaid({ text: `${done.says}${held}`, link: done.pull ?? done.compare }); return; }
       const skipped = done.held.length ? ` ${done.held.length} word change${done.held.length === 1 ? " was" : "s were"} left out: ${done.held.join("; ")}.` : "";
       setSaid({ text: `${done.says}${skipped}`, link: done.pull ?? done.compare });

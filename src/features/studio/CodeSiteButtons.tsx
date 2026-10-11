@@ -41,7 +41,7 @@ import { placeBring } from "./bringRepo";
 import { olderBuilder, readLastBring, resetToLastBring, useLastBring } from "./lastBring";
 import { fileAt } from "./kitRun";
 import { LANE_MODE } from "./loop";
-import { NEXT_PATH, asksToSend, fixedIn } from "./fixLoop";
+import { NEXT_PATH, asksToSend, fixedIn, promotePending, sentMerged, sentUnmerged } from "./fixLoop";
 import { asksNow, gatherAsks } from "./publishAsks";
 import { fixLoopOf, setFixLoop } from "./useFixLoop";
 
@@ -92,17 +92,19 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
 
   /* The fix loop's last step: the lines the code chat ticked or deleted in polio/NEXT.md become blue boxes. */
   const readFixed = async () => {
-    const loop = fixLoopOf(useStudio.getState().look);
-    if (!loop.sent.length) return;
+    const was = fixLoopOf(useStudio.getState().look);
+    if (!was.sent.length && !was.pending?.length) return;
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     const md = await fileAt(fetch, token, source.repo, source.ref || "HEAD", NEXT_PATH).catch(() => null);
+    /* Lines from a pull request not merged count only once the default branch has them: until then their absence is not a fix. */
+    const loop = promotePending(was, md);
     const fixed = fixedIn(loop.sent, md);
-    if (!fixed.length) return;
+    if (!fixed.length) { if (loop !== was) setFixLoop(loop); return; }
     for (const i of fixed) useStudio.getState().landThread({ mode: LANE_MODE, ask: i.says, answer: `Fixed by a code chat from polio/NEXT.md: ${i.hook ?? "a part"} on ${i.page}.`, changes: [`${i.hook ?? "A part"} on ${i.page} fixed`], state: "done" });
     const gone = new Set(fixed.map((i) => i.key));
     /* A board change the code built is done: the board still holds it, so it is never asked for again. */
     const built = fixed.filter((i) => i.kind === "build").map((i) => i.key);
-    setFixLoop({ ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
+    setFixLoop({ ...loop, ticked: loop.ticked.filter((k) => !gone.has(k)), sent: loop.sent.filter((i) => !gone.has(i.key)), done: [...new Set([...(loop.done ?? []), ...built])] });
     say("Fixed in the code", `${fixed.length} issue${fixed.length === 1 ? "" : "s"} from polio/NEXT.md ${fixed.length === 1 ? "is" : "are"} done: ${fixed.map((i) => i.hook ?? i.page).join(", ")}. ${fixed.length === 1 ? "It is" : "They are"} on the timeline in blue.`, "success");
   };
 
@@ -165,10 +167,12 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       if (says) { say("Not published", says, "warn"); return; }
       const sent = await sendDesign(withHooks as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra, fresh });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
-      if (!sent.pull) { say("Sent, not merged", sent.says, "warn"); return; }
+      /* Not merged: its NEXT.md lines are pending, so Refresh neither forgets them nor reads them as fixed. */
+      const unmerged = (says: string) => { if (adding.length) setFixLoop(sentUnmerged(fixLoopOf(useStudio.getState().look), adding)); say("Sent, not merged", says, "warn"); };
+      if (!sent.pull) { unmerged(sent.says); return; }
       setBusy("Merging…");
       const merged = await mergePull(source.repo, sent.pull, token, { title: `Design from the Builder: ${site}` });
-      if (!merged.ok) { say("Sent, not merged", merged.says, "warn"); return; }
+      if (!merged.ok) { unmerged(merged.says); return; }
       /*
        * The code has the design now: what is published, and the commit it is at, so Refresh is green.
        * Only when the merge sat on the commit the board was read at: a code chat's change merged in
@@ -179,7 +183,7 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
       const parent = await parentOf(source.repo, merged.sha, token).catch(() => null);
       const commit = commitAfterPublish(now?.commit ?? source.commit, parent, merged.sha);
       if (now) st.setLook({ styleSource: { ...now, sent: sent.print, commit } } as never);
-      if (adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...adding] }); }
+      if (adding.length) setFixLoop(sentMerged(fixLoopOf(useStudio.getState().look), adding));
       if (commit === merged.sha) setHead(merged.sha); else void read();
       play("confirm");
       const moved = commit === merged.sha ? "" : " The code had moved on since this board read it: Refresh (Keep my changes) brings in what changed.";
