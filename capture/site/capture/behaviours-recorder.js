@@ -128,6 +128,8 @@
     scrolled: [],
     idle: [],
     idOf,
+    /** The element an id names (frames-drive.mjs), or null. */
+    byId: (id) => els[Number(String(id).slice(1))] ?? null,
     /* When the recorder started, in ms from the navigation's start (performance.now's own origin): every `now()` plus this is a time from the navigation. */
     t0: Math.round(t0),
     classes, animations, loaders, pointerListened,

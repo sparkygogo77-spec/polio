@@ -70,6 +70,15 @@ CSS default, or nowhere), page by page.
   places: each pressed from the top, the scroll read every frame, read as
   one rule (`behaviours.glide`: the time for a distance, the curve, where
   it stops). With `--behaviours`.
+- `frames-drive.mjs` — pictures of what moves, and only of what moves
+  (`docs/behaviours.md`, "Frames of what moves"): the page looked at a
+  window at a time through half-size screen diffs, each patch that changed
+  matched to its part, those parts shot every 100 ms for 3.2 s and cut out,
+  read as a loop (with its period), a once, a drift, a live, the pointer's
+  or the scroll's, and played back as a flipbook svg among the document's
+  pictures (`behaviours.motion.frames`). A still window costs three looks.
+  `check-moving-frames.mjs`; `--no-moving`, `--moving-every`,
+  `--moving-seconds`, `--moving-most`.
 - `check-press-feel.mjs` — the owner's four from trumpmorty.fun, on a
   stand-in: a scripted glide read as its rule; a copy bar's "COPIED!" and
   toast read as a state with how long each lasted and where the toast came

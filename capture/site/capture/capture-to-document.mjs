@@ -2464,7 +2464,26 @@ const behavioursSection = (() => {
         m.canvases.push({ ...(self.part ? { part: self.part } : {}), ...(self.sel ? { selector: self.sel } : {}), host: side(host).part ?? null, below: side(below).folded ? null : side(below).part ?? null, above: side(above).folded ? null : side(above).part ?? null, ...r });
         note(self.sel ?? "(behaviours)", "bh", "field", `behaviours.motion.canvases: a ${r.kind} canvas at ${JSON.stringify(r.box)}${r.kind === "particles" ? `, ${r.specks} specks drifting ${r.drift}` : ""}`);
       }
-      note("(behaviours)", "motion", "field", `${m.spin.length} spins, ${m.float.length} floats, ${m.hover.length} hovers, ${m.scrollSpeed.length} sped up by the scroll, ${m.scrollGrow.length} grown by the scroll, ${m.canvases.length} canvases`);
+      /*
+       * Pictures of what moves (frames-drive.mjs): each moving part's frames
+       * played back as one svg at its own size, as a canvas's are, kept as a
+       * picture of the document; beside it what the part does (a loop and its
+       * period, a once, a drift, a live, the pointer's, the scroll's), what
+       * changed on it and who moves it. A `once` plays once and holds.
+       */
+      for (const f of b.motion.frames ?? []) {
+        const { el, frames, steps, greys, ...r } = f;
+        void greys;
+        const svg = flipbookOf({ frames: { frames, steps }, w: f.w, h: f.h, __st: f.kind === "once" });
+        const bytes = svg ? Buffer.from(svg) : null;
+        const key = bytes ? `motion-frames:${createHash("sha1").update(bytes).digest("hex")}` : null;
+        const got = bytes ? pictures.get(key) ?? pictureOf(key, "motion-frames.svg", bytes) : null;
+        if (!got) { note("(behaviours)", "motion.frames", "nowhere", `a ${f.kind} of ${frames.length} frames made no picture`); continue; }
+        const p = place(el, "motion.frames");
+        (m.frames ??= []).push({ ...p, ...r, frames: frames.length, picture: { id: got.record.id, path: got.record.path, w: got.record.w, h: got.record.h } });
+        note(p.selector ?? "(behaviours)", "motion.frames", "field", `behaviours.motion.frames: a ${f.kind}${f.period ? ` every ${f.period} ms` : ""} of ${frames.length} pictures over ${f.ms} ms at ${JSON.stringify(f.box)}, ${f.what?.length ? `${f.what.join(", ")} changing` : "nothing in its styles changing"}${f.text ? ", its words changing" : ""}, by ${f.via}; played back as ${got.record.path}`);
+      }
+      note("(behaviours)", "motion", "field", `${m.spin.length} spins, ${m.float.length} floats, ${m.hover.length} hovers, ${m.scrollSpeed.length} sped up by the scroll, ${m.scrollGrow.length} grown by the scroll, ${m.canvases.length} canvases${m.frames ? `, ${m.frames.length} moving parts pictured` : ""}`);
     }
     if (b.heldVisible?.length) out.heldVisible = [...(out.heldVisible ?? []), ...b.heldVisible.map((h) => ({ ...place(h.el, "heldVisible"), name: h.name, opacity: h.opacity }))];
     /* How the page goes to its own places (glide.mjs): one rule per page, the pages' first, since a site scrolls one way. */
