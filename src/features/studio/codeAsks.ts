@@ -12,7 +12,7 @@
  * code chat builds it and ticks the line; Refresh reads the tick back.
  *
  * Only what he changed is asked: an effect on a part brought in, a switch
- * he turned on, a page with no file in the code. Pure: no store, no React,
+ * he moved on or off, a page with no file in the code. Pure: no store, no React,
  * nothing imported at run time but the pure `motionCss.ts`; `tests/code-asks.mjs` holds it.
  *
  * A PART MADE IN THE BUILDER (J, 2026-10-10: a star drawn as a PST button,
@@ -53,7 +53,7 @@ export interface AskNode {
   embed?: { src?: string; was?: string } | null;
 }
 export interface AskPage { id: string; name: string; path?: string; scroll?: string }
-/** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J turned on (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
+/** A Format switch; `def`, the value a new board starts at: a switch still at it is not something J switched, on or off (PonsStars came in with page transitions, search listing, accessibility and speed bars at their defaults). */
 export interface AskSwitch { key: string; label: string; on: string | boolean; off: string | boolean; def?: string | boolean | number }
 
 export interface AskInput {
@@ -274,16 +274,25 @@ export function codeAsks(a: AskInput): FixIssue[] {
       says: clean(`J gave \`${hook}\` Push on press in the Builder but has not picked where a press goes. Make this a button: a \`<button type="button">\` (or role="button" with tabindex="0", pressed with Enter and Space), keeping data-hook="${hook}" and its look. Until J picks a place (When pressed, go to) it does nothing else.`),
     });
   }
-  /* Whole-site features switched on in Format. */
+  /*
+   * WHOLE-SITE FEATURES J SWITCHED, ON OR OFF. Search listing, the
+   * accessibility and speed bars and page transitions start on, so a switch
+   * that only counted when on could never ask: switched on it was still at
+   * its start, and switched off it was off. Now whichever way it moved from
+   * where the site came in is asked. Page transitions are dropped from the
+   * Motion shelf, not switched in Format, so the line names no tab.
+   */
   for (const s of a.switches) {
     const v = a.format[s.key];
-    if (!on(s, v) || (s.def !== undefined && v === s.def)) continue;
+    const lit = on(s, v);
+    if (s.def !== undefined ? v === undefined || v === s.def : !lit) continue;
+    const said = typeof v === "string" ? ` (${v})` : "";
     out.push({
       key: `build-format-${s.key}`,
       kind: "build",
       hook: null,
       page: "every page",
-      says: clean(`J switched on "${s.label}"${typeof v === "string" ? ` (${v})` : ""} for the whole site in the Builder's Format tab. Build it in the code.`),
+      says: clean(lit ? `J switched on "${s.label}"${said} for the whole site in the Builder. Build it in the code.` : `J switched off "${s.label}"${said} for the whole site in the Builder. Take it out of the code.`),
     });
   }
   /* Pages: one added in the Builder, and a page's own scroll behaviour. */
