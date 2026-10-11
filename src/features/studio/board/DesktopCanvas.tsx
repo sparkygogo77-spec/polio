@@ -1367,17 +1367,25 @@ export function DesktopCanvas() {
        */
       const moved = new Set(drag.ids ?? [drag.nodeId!]);
       useStudio.setState({
-        nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(drag.origin?.[n.id] ?? n) } : n)),
+        nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.locked && !n.byHand ? { ...n, byHand: true, handFrom: boxOf(drag.origin?.[n.id] ?? n) } : n)),
       });
       /* What holds what may have changed: the components are read again (`components.ts`). */
       rereadComponents();
       // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
       if (drag.kind === "resize" && drag.riders?.length) {
         /* A component resized whole is not snapped: its layers were placed on its box, and a snapped box would leave them a pixel off. */
-      } else if (!drag.snapped && drag.riders?.length) {
-        /* A control and what it holds snap as one: the lead's step to the grid, taken by all. */
+      } else if (!drag.snapped && drag.kind === "node" && (drag.riders?.length || (drag.ids?.length ?? 0) > 1)) {
+        /*
+         * A control and what it holds, or several parts picked together,
+         * snap as one: the lead's step to the grid, taken by all, so the
+         * spacing between them (often the live site's own) is kept. The
+         * lead is the first part that is not locked: a locked one never
+         * moved, so its step would carry the others off.
+         */
         const ids = new Set(drag.ids ?? []);
-        const lead = useStudio.getState().nodes.find((n) => n.id === drag.ids![0]);
+        const nodes = useStudio.getState().nodes;
+        const leadId = drag.ids!.find((id) => !nodes.find((n) => n.id === id)?.locked);
+        const lead = nodes.find((n) => n.id === leadId);
         const sx = lead ? snapGrid(lead.x) - lead.x : 0;
         const sy = lead ? snapGrid(lead.y) - lead.y : 0;
         useStudio.setState({ nodes: useStudio.getState().nodes.map((n) => (ids.has(n.id) && !n.locked ? { ...n, x: n.x + sx, y: n.y + sy } : n)) });
@@ -1385,7 +1393,7 @@ export function DesktopCanvas() {
         const ids = new Set(drag.ids ?? [drag.nodeId!]);
         useStudio.setState({
           nodes: useStudio.getState().nodes.map((n) =>
-            ids.has(n.id) ? { ...n, x: snapGrid(n.x), y: snapGrid(n.y), w: drag.kind === "resize" ? snapGrid(n.w) : n.w, h: drag.kind === "resize" ? snapGrid(n.h) : n.h } : n,
+            ids.has(n.id) && !n.locked ? { ...n, x: snapGrid(n.x), y: snapGrid(n.y), w: drag.kind === "resize" ? snapGrid(n.w) : n.w, h: drag.kind === "resize" ? snapGrid(n.h) : n.h } : n,
           ),
         });
       }
