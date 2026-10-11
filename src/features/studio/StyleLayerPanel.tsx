@@ -242,6 +242,7 @@ export function StyleLayerSection() {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
       /* What the layer cannot carry rides along as it does on Publish: polio/NEXT.md lines, and a data-hook for each part made in the Builder (`publishAsks.ts`). */
       const asks = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      if (asks.says) { setSaid({ text: asks.says, bad: true }); return; }
       const done = await sendDesign(asks.nodes, palette, source, token, { site, family, say: (text) => setSaid({ text }), extra: asks.extra, fresh: asks.fresh });
       if (!done.ok) { setSaid({ text: done.says, bad: true }); return; }
       if (asks.adding.length) { const l = fixLoopOf(useStudio.getState().look); setFixLoop({ ...l, sent: [...l.sent, ...asks.adding] }); }

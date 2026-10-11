@@ -64,7 +64,7 @@ const csb = read("src/features/studio/CodeSiteButtons.tsx");
 const send = read("src/features/studio/codeSend.ts");
 check("the lanes show real issues when there are any, the sample otherwise", /useIssues\(\)/.test(lanesTsx) && /given \?\? real \?\? SAMPLE/.test(lanesTsx));
 check("an issue card ticks, and turns blue when ticked", /data-lane-tick/.test(lanesTsx) && /moltenClass\(issue && !ticked \? "lantern" : "azure"\)/.test(lanesTsx));
-check("Publish sends NEXT.md with the design, and keeps what went", /extra/.test(send) && /path: NEXT_PATH, content: nextMd\(adding/.test(csb) && /sent: \[\.\.\.l\.sent, \.\.\.adding\]/.test(csb));
+check("Publish sends NEXT.md with the design, and keeps what went", /extra/.test(send) && /path: NEXT_PATH, content: nextMd\(adding/.test(read("src/features/studio/publishAsks.ts")) && /sent: \[\.\.\.l\.sent, \.\.\.adding\]/.test(csb));
 check("Refresh reads NEXT.md back and lands the fixed ones as blue boxes", /fixedIn\(loop\.sent, md\)/.test(csb) && /landThread\(\{ mode: LANE_MODE/.test(csb));
 check("the kit tells every code chat to read polio/NEXT.md first", /First, read `polio\/NEXT\.md`/.test(read("kit/CLAUDE.md")) && /polio\/NEXT\.md/.test(read("kit/PIPELINE.md")) && F.NEXT_PATH === "polio/NEXT.md");
 

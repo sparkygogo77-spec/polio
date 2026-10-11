@@ -161,7 +161,8 @@ export function CodeSiteButtons({ source }: { source: StyleSource }) {
     try {
       const site = activeProject()?.name || source.repo.split("/")[1] || "site";
       /* Ticked issues not yet queued go in polio/NEXT.md, with what he set that CSS cannot carry and each part made in the Builder (`publishAsks.ts`). */
-      const { fresh, adding, extra, nodes: withHooks } = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      const { fresh, adding, extra, nodes: withHooks, says } = await gatherAsks(nodes as unknown as LayerNode[], source, token, site);
+      if (says) { say("Not published", says, "warn"); return; }
       const sent = await sendDesign(withHooks as unknown as LayerNode[], palette, source, token, { site, family, say: (t) => setBusy(t), extra, fresh });
       if (!sent.ok) { say("Not published", sent.says, "warn"); return; }
       if (!sent.pull) { say("Sent, not merged", sent.says, "warn"); return; }

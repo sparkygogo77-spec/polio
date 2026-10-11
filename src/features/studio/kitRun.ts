@@ -95,6 +95,20 @@ export async function fileAt(f: Fetch, token: string, repo: string, ref: string,
   return got.status === 200 && typeof content === "string" ? b64decode(content) : null;
 }
 
+/**
+ * A file that must be read before it is rewritten (polio/NEXT.md): its text,
+ * null only when GitHub says it is not there (404), and a failure for any
+ * other answer, so a rate limit, a 5xx or a dropped connection never reads
+ * as an empty file and wipes what it held.
+ */
+export async function fileOrGone(f: Fetch, token: string, repo: string, ref: string, path: string): Promise<Answer<{ text: string | null }>> {
+  const got = await gh(f, token, `/repos/${repo}/contents/${pathOf(path)}?ref=${encodeURIComponent(ref)}`);
+  const content = got.json?.content;
+  if (got.status === 200 && typeof content === "string") return { ok: true, text: b64decode(content) };
+  if (got.status === 404) return { ok: true, text: null };
+  return { ok: false, says: `Could not read ${path} from ${repo} (GitHub answered ${got.status || "nothing"}); nothing was sent, try again.` };
+}
+
 export async function defaultBranch(f: Fetch, token: string, repo: string): Promise<Answer<{ branch: string }>> {
   const info = await gh(f, token, `/repos/${repo}`);
   if (info.status !== 200) return { ok: false, says: info.status === 404 ? `GitHub has no ${repo}, or this token cannot see it.` : info.status === 401 ? "GitHub does not accept the saved key (401): it has expired, been revoked, or was pasted wrong. Make a new one with Contents and Pull requests: read and write on this repository, and add it under Keys." : info.status === 403 ? "GitHub refused that token (403). Check it under Keys." : "GitHub could not be reached." };
