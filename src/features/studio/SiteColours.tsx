@@ -400,8 +400,10 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   /* Tabs and label bars sit over a panel's top edge, as on the site; the rest are tiles. */
   const tabs = site.kinds.filter((k) => k.tab && !k.button).slice(0, 4);
   /* A big painted piece (the TV bodies) is always drawn, after the four most-worn surfaces. */
-  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
+  const surfaces = [...site.kinds.filter((k) => !k.button && !k.tab && !k.piece && !k.accent).slice(0, 4), ...site.kinds.filter((k) => k.piece)].sort((a, b) => Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(b))) - Number(site.kinds.some((x) => x.button && x.inside === site.kinds.indexOf(a))));
   const buttons = site.kinds.filter((k) => k.button).slice(0, 4);
+  /* Small accent colours (a legend's dots, thin bars, edge stripes: `ACCENT_SHARE`) are a dot each, not a box as big as a panel (J, 2026-10-11). */
+  const accents = site.kinds.filter((k) => k.accent).slice(0, 8);
   const at = (k: SurfaceKind) => site.kinds.indexOf(k);
   const ink = (k: SurfaceKind) => k.words ?? site.page.words ?? palette.text;
   /* Only a glow most of the words wear, at the size they wear it: the preview shows what the site shows. */
@@ -506,6 +508,19 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
           </div>
         ))}
       </div>
+      {accents.length ? (
+        <div data-preview-accents="" className="flex flex-wrap gap-x-2.5 gap-y-1">
+          {accents.map((k) => (
+            <span key={at(k)} data-preview-part="accent" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site, a small accent`}
+              className={cn("group relative inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2.5 text-fine", ring(picked === at(k)))}>
+              <span data-preview-dot="" className="size-3 shrink-0 rounded-full" style={{ background: k.paint, boxShadow: "0 0 0 1px rgb(0 0 0 / 0.35)" }} />
+              <span data-preview-name="" className="max-w-[9rem] truncate">{k.name}</span>
+              {count(k.parts, true)}
+              {next(k, true)}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {loose.length ? <div className="flex flex-wrap gap-1.5">{loose.map(button)}</div> : null}
     </div>
   );
