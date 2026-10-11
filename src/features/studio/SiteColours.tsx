@@ -17,7 +17,7 @@
 import { hasKept, keepBefore } from "./previewWas";
 import * as React from "react";
 import { MoreHint } from "@/core/ui/more-hint";
-import { Dices, Undo2 } from "lucide-react";
+import { ChevronRight, Dices, Undo2 } from "lucide-react";
 import { ROLES, glowRings, setGlow, css, faceOf, parseColor, rollTheme, spotsOf, toHex, withColours, type ColourUse, type Palette } from "./look";
 import { PAGE_ID, SITE_TYPE, firstSays, fontsInPageOrder, type FaceTo } from "./look";
 import { partName } from "./partNames";
@@ -104,6 +104,126 @@ export function scrollToParts(ids: readonly string[]) {
   if (els.some((el) => shows(el.getBoundingClientRect()))) return;
   const r = first.getBoundingClientRect();
   pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior: "smooth" });
+}
+
+/* ------------------------------------------------------------------ */
+/* Walking a kind's parts from the theme preview                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * J (2026-10-11): "add a button near the panel hover so when I click I could
+ * scroll to the next one if it's not on the same screen ... when hovering over
+ * the preview, use the scroll wheel to move through them, a smooth glide to
+ * the next one or a snap if another page; when I stop hovering I want to be
+ * back at the beginning, if I clicked of course it should stay."
+ *
+ * So while the hand is on a piece of the preview, the wheel steps through
+ * that kind's parts on the board, in reading order across the pages: the
+ * board glides to the next on the same page and snaps to one on another. The
+ * piece's Next button steps to the next one not already in view. Leaving the
+ * preview puts the board back on the page and at the scroll it had when the
+ * hand came in, unless a press was made in it (a pick, or Next): then it
+ * stays where the hand left it.
+ */
+const tour = { key: "", at: -1, start: null as { page: string; top: number } | null, kept: false };
+
+const boardPane = (): HTMLElement | null => {
+  const p = document.querySelector("[data-studio-pane]");
+  return p instanceof HTMLElement ? p : null;
+};
+
+/** The hand came onto the preview: where the board is now is where it goes back to. */
+export function tourBegin() {
+  if (tour.start) return;
+  tour.start = { page: useStudio.getState().activePageId, top: boardPane()?.scrollTop ?? 0 };
+  tour.kept = false;
+}
+
+/** A press in the preview: the board stays where it is taken. */
+export function tourKeep() { tour.kept = true; }
+
+/** The hand left the preview: back to the start, unless a press kept the board where it is. */
+export function tourEnd() {
+  const was = tour.start;
+  tour.start = null;
+  tour.key = "";
+  tour.at = -1;
+  if (!was || tour.kept) return;
+  window.clearTimeout(follow);
+  const s = useStudio.getState();
+  if (s.activePageId !== was.page) {
+    s.setActivePage(was.page);
+    requestAnimationFrame(() => requestAnimationFrame(() => boardPane()?.scrollTo({ top: was.top, behavior: "auto" })));
+  } else boardPane()?.scrollTo({ top: was.top, behavior: "smooth" });
+}
+
+/** Seen whole in the board's pane now. */
+function inView(id: string): boolean {
+  const el = nodeEl(id);
+  const pane = el instanceof HTMLElement ? el.closest("[data-studio-pane]") ?? el.closest("[data-studio-scroll]") : null;
+  if (!(el instanceof HTMLElement) || !pane || !el.getClientRects().length) return false;
+  const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+  return r.top >= p.top && r.bottom <= p.bottom;
+}
+
+/** Bring one part to the middle of the board's pane: gliding, or at once. */
+function glideTo(id: string, behavior: ScrollBehavior) {
+  const el = nodeEl(id);
+  const pane = el instanceof HTMLElement ? el.closest("[data-studio-pane]") ?? el.closest("[data-studio-scroll]") : null;
+  if (!(el instanceof HTMLElement) || !(pane instanceof HTMLElement)) return;
+  const r = el.getBoundingClientRect(), p = pane.getBoundingClientRect();
+  pane.scrollTo({ top: pane.scrollTop + (r.top - p.top) - Math.max(24, (p.height - r.height) / 2), behavior });
+}
+
+/** A kind's parts in reading order: page by page as the site lists them, then top to bottom, left to right. */
+export function readingOrder(ids: readonly string[], nodes: readonly { id: string; pageId: string; x?: number; y?: number }[], pages: readonly { id: string }[]): string[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const pageAt = new Map(pages.map((p, i) => [p.id, i]));
+  return ids.filter((id) => byId.has(id)).sort((a, b) => {
+    const m = byId.get(a)!, n = byId.get(b)!;
+    return (pageAt.get(m.pageId) ?? 0) - (pageAt.get(n.pageId) ?? 0) || (Math.abs((m.y ?? 0) - (n.y ?? 0)) > 8 ? (m.y ?? 0) - (n.y ?? 0) : (m.x ?? 0) - (n.x ?? 0));
+  });
+}
+
+/**
+ * One step through a kind's parts: the next (or the one before) after the one
+ * stepped to last; with `unseen`, the next one not already in view. A part
+ * on another page turns the board to that page and snaps to it.
+ */
+export function tourStep(ids: readonly string[], dir: 1 | -1, unseen = false) {
+  const s = useStudio.getState();
+  const order = readingOrder(ids, s.nodes, s.pages);
+  if (!order.length) return;
+  tourBegin();
+  const key = order.join("|");
+  if (tour.key !== key) { tour.key = key; tour.at = -1; }
+  const page = new Map(s.nodes.map((n) => [n.id, n.pageId]));
+  /* Where to step from, the first time: the first of them at or below the top of the view, on the page in view, so the wheel goes on from what is seen. */
+  if (tour.at < 0) {
+    const top = boardPane()?.getBoundingClientRect().top ?? 0;
+    const here = order.map((id, i) => ({ id, i })).filter(({ id }) => page.get(id) === s.activePageId && drawnNow(id));
+    const j = here.find(({ id }) => (nodeEl(id)?.getBoundingClientRect().bottom ?? -Infinity) > top)?.i ?? (here.length ? here[here.length - 1]!.i + 1 : 0);
+    tour.at = dir > 0 ? j - 1 : j;
+  }
+  let i = tour.at;
+  for (let k = 0; k < order.length; k++) {
+    i = (((i + dir) % order.length) + order.length) % order.length;
+    const id = order[i]!;
+    /* A part in a hidden state on the page in view is not drawn: there is nothing to glide to. */
+    if (page.get(id) === s.activePageId && !drawnNow(id)) continue;
+    if (unseen && page.get(id) === s.activePageId && inView(id)) continue;
+    break;
+  }
+  tour.at = i;
+  const id = order[i]!;
+  window.clearTimeout(follow);
+  if (page.get(id) !== s.activePageId && page.get(id)) {
+    s.setActivePage(page.get(id)!);
+    requestAnimationFrame(() => requestAnimationFrame(() => { pointParts(onThisPage([...ids])); glideTo(id, "auto"); }));
+  } else {
+    pointParts(onThisPage([...ids]));
+    glideTo(id, "smooth");
+  }
 }
 
 /** Pick these on the board, on the page the first of them is on. */
@@ -300,27 +420,64 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
   const count = (n: number, small = false) => (
     <span data-preview-count={n} className={cn("num pointer-events-none absolute font-bold leading-none", small ? "-right-1 -top-1.5 text-[11px]" : "right-1 top-1 text-[13px]")} style={countStyle()}>{n}</span>
   );
+  /* The wheel over a piece steps through its kind's parts on the board (`tourStep`). */
+  const kinds = React.useRef(site.kinds);
+  kinds.current = site.kinds;
+  const root = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    let last = 0;
+    /* Not passive: over a piece the wheel walks the board, and the panel under it must not scroll as well. */
+    const wheel = (e: WheelEvent) => {
+      /* The piece under the hand, the innermost one: a button standing in a panel walks the buttons. */
+      const piece = e.target instanceof Element ? e.target.closest("[data-preview-kind]") : null;
+      const ids = piece ? kinds.current[Number(piece.getAttribute("data-preview-kind"))]?.ids : null;
+      if (!ids?.length || Math.abs(e.deltaY) < 1) return;
+      e.preventDefault();
+      const now = performance.now();
+      /* One step a notch: a trackpad's run of small deltas is one step, not twenty. */
+      if (now - last < 260) return;
+      last = now;
+      tourStep(ids, e.deltaY > 0 ? 1 : -1);
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => { el.removeEventListener("wheel", wheel); tourEnd(); };
+  }, []);
   const choose = (p: Pick, ids: string[]) => ({
     role: "button",
     tabIndex: 0,
     "aria-pressed": picked === p,
-    onClick: (e: React.MouseEvent) => { e.stopPropagation(); play("select"); onPick(p); },
-    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); play("select"); onPick(p); } },
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); tourKeep(); play("select"); onPick(p); },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); tourKeep(); play("select"); onPick(p); } },
     onMouseEnter: () => pointAt(onThisPage(ids)),
     onMouseLeave: () => pointAt(resting ? onThisPage(resting) : null),
   });
+  /* Next: the board goes to the next of this kind's parts not already in view; a press, so the board stays there. */
+  const next = (k: SurfaceKind, small = false) => k.parts > 1 ? (
+    <button type="button" data-preview-next={at(k)} aria-label={`Next of the ${k.name}`} title="Next one on the site (or turn the wheel)"
+      onClick={(e) => { e.stopPropagation(); tourKeep(); play("tick"); tourStep(k.ids, 1, true); }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className={cn("tactile absolute z-10 grid place-items-center rounded-full border border-border bg-elevated text-fg opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
+        small ? "-bottom-2 -right-2 size-4" : "bottom-1 right-1 size-5")}>
+      <ChevronRight className={small ? "size-2.5" : "size-3"} />
+    </button>
+  ) : null;
   const button = (k: SurfaceKind) => (
     <span key={at(k)} data-preview-part="button" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
-      className={cn("relative inline-block cursor-pointer px-2 py-0.5 text-fine font-semibold", ring(picked === at(k)))}
+      className={cn("group relative inline-block cursor-pointer px-2 py-0.5 text-fine font-semibold", ring(picked === at(k)))}
       style={{ ...dress(k), ...faceCss(k.face), ...glow(k), borderRadius: Math.min(k.radius, 12) }}>
       {k.sample ?? k.name}
       {count(k.parts, true)}
+      {next(k, true)}
     </span>
   );
   const standing = (where: number) => buttons.filter((b) => b.inside === where);
   const loose = buttons.filter((b) => b.inside === -1 || !surfaces.some((k) => at(k) === b.inside));
   return (
-    <div data-theme-preview="" data-preview-part="page" {...choose("page", [])}
+    <div ref={root} data-theme-preview="" data-preview-part="page" {...choose("page", [])}
+      onMouseEnter={() => { tourBegin(); pointAt([]); }}
+      onMouseLeave={() => { pointAt(resting ? onThisPage(resting) : null); tourEnd(); }}
       className={cn("cursor-pointer space-y-2 overflow-hidden rounded-md border border-border p-2", picked === "page" && "outline outline-2 outline-offset-2 outline-accent")}
       style={{ ...ground, color: site.page.words ?? palette.text }} title="The page">
       <span data-preview-part="heading" className="block text-[15px] font-bold leading-tight" style={{ ...faceCss(site.page.face), ...glow(site.page) }}>The page&rsquo;s own words</span>
@@ -328,10 +485,11 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
         <div data-preview-tabs="" className="relative z-10 -mb-3 flex flex-wrap gap-1 pl-2">
           {tabs.map((k) => (
             <span key={at(k)} data-preview-part="tab" data-preview-kind={at(k)} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
-              className={cn("relative inline-block cursor-pointer px-2 py-0.5 pr-4 text-fine font-semibold", ring(picked === at(k)))}
+              className={cn("group relative inline-block cursor-pointer px-2 py-0.5 pr-4 text-fine font-semibold", ring(picked === at(k)))}
               style={{ ...dress(k), ...faceCss(k.face), ...glow(k) }}>
               <span data-preview-name="">{k.name}</span>
               {count(k.parts, true)}
+              {next(k, true)}
             </span>
           ))}
         </div>
@@ -339,10 +497,11 @@ function ThemePreview({ site, palette, picked, onPick, ground, grounds }: { site
       <div className="grid grid-cols-2 gap-2">
         {surfaces.map((k) => (
           <div key={at(k)} data-preview-part="surface" data-preview-kind={at(k)} data-preview-fill={k.fill} {...choose(at(k), k.ids)} title={`${k.name}: ${k.parts} on the site`}
-            className={cn("relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", tabs.length && at(k) === at(surfaces[0]!) && "pt-4", ring(picked === at(k)))} style={dress(k)}>
+            className={cn("group relative min-w-0 cursor-pointer space-y-1 p-1.5 pr-7", standing(at(k)).length && "col-span-2", tabs.length && at(k) === at(surfaces[0]!) && "pt-4", ring(picked === at(k)))} style={dress(k)}>
             <span data-preview-name="" className="block truncate text-small font-semibold leading-tight" style={faceCss(k.face)}>{k.name}</span>
             {k.wordsIds.length ? <span className="block truncate text-fine leading-snug" style={{ ...faceCss(k.face), ...glow(k) }}>{k.sample ?? "Its words"}</span> : null}
             {count(k.parts)}
+            {next(k)}
             {standing(at(k)).length ? <div className="flex flex-wrap gap-1.5 pt-0.5">{standing(at(k)).map(button)}</div> : null}
           </div>
         ))}

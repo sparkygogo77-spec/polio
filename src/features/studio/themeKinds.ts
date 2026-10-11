@@ -67,6 +67,8 @@ export interface SurfaceKind {
   /** Its parts' middle width and height, in px. */
   w: number;
   h: number;
+  /** How its parts lie (`shapeOf`): bars, rows of a table, a grid of cards; null for none in particular. */
+  shape: KindShape | null;
   /** A short strip that is not a field or a button: a tab or a label bar, drawn over the panel's top edge as the site does (J, 2026-10-09). */
   tab: boolean;
   button: boolean;
@@ -89,6 +91,71 @@ export interface SurfaceKind {
 export interface SiteKinds {
   page: { fill: string; words: string | null; face: string | null; faceKey: string | null; wordsIds: string[]; glow: string | null; glowSize: number; glowShown: boolean };
   kinds: SurfaceKind[];
+}
+
+/**
+ * HOW A KIND'S PARTS LIE, read off their boxes (J, 2026-10-11, on sunkcoin):
+ * the wallet table's rows came out "Panels 6", its orange loading bars
+ * "Panels", and eight rule cards in three columns one more "Panels". A kind
+ * is named by what its parts plainly are, whatever element they were:
+ *
+ *   · bars: thin strips, four times as wide as tall or more, no taller than
+ *     BAR_HEIGHT (a loading bar, a meter's fill);
+ *   · rows: three or more wide strips the same width, one under another in one
+ *     column (a table's rows, a list's lines);
+ *   · grid: four or more parts the same size in two columns or more and two
+ *     rows or more (cards in a grid).
+ *
+ * Half the kind's parts or more must lie that way. Pure: `tests/kind-shapes.mjs`.
+ */
+export type KindShape = "bars" | "rows" | "grid";
+/** A bar is this tall or less. */
+export const BAR_HEIGHT = 16;
+/** Parts within this share of each other's width and height are the same size. */
+const SAME_SIZE = 0.1;
+/** Edges within this many px are in line. */
+const IN_LINE = 8;
+
+interface Box { x?: number; y?: number; w?: number; h?: number; pageId?: string }
+const sameSize = (a: Box, b: Box) => Math.abs((a.w ?? 0) - (b.w ?? 0)) <= SAME_SIZE * Math.max(a.w ?? 0, b.w ?? 0, 1) && Math.abs((a.h ?? 0) - (b.h ?? 0)) <= SAME_SIZE * Math.max(a.h ?? 0, b.h ?? 0, 1);
+/** Distinct values, edges within IN_LINE of each other counted once. */
+const lines = (vs: number[]) => vs.sort((a, b) => a - b).reduce<number[]>((out, v) => (out.length && v - out[out.length - 1]! <= IN_LINE ? out : [...out, v]), []).length;
+/** The biggest set of parts the same size as each other, on one page. */
+function biggestAlike<T extends Box>(ms: readonly T[]): T[] {
+  let best: T[] = [];
+  for (const m of ms) {
+    const like = ms.filter((o) => (o.pageId ?? "") === (m.pageId ?? "") && sameSize(m, o));
+    if (like.length > best.length) best = like;
+  }
+  return best;
+}
+/** One kind's shape, or null when its parts lie no way in particular. */
+export function shapeOf(ms: readonly Box[]): KindShape | null {
+  const n = ms.length;
+  if (!n) return null;
+  const bar = (p: Box) => (p.h ?? 0) > 0 && (p.h ?? 0) <= BAR_HEIGHT && (p.w ?? 0) >= 4 * (p.h ?? 0);
+  if (ms.filter(bar).length * 2 >= n) return "bars";
+  const like = biggestAlike(ms);
+  if (like.length * 2 < n) return null;
+  const cols = lines(like.map((p) => p.x ?? 0)), rows = lines(like.map((p) => p.y ?? 0));
+  const wide = like.every((p) => (p.w ?? 0) >= 3 * (p.h ?? 0));
+  if (like.length >= 3 && cols === 1 && rows >= 3 && wide) return "rows";
+  if (like.length >= 4 && cols >= 2 && rows >= 2) return "grid";
+  return null;
+}
+const SHAPE_NAME: Record<KindShape, string> = { bars: "Bars", rows: "Rows", grid: "Grid" };
+
+/**
+ * A kind of button named by what its buttons say, when most say one thing
+ * ("Copy buttons"), else "Buttons".
+ */
+function buttonsName(own: Map<string, number>, members: number): string {
+  const t = top(own);
+  if (t && t[1] >= 2 && t[1] * 2 >= members && t[0].length <= 14 && /[a-z]{2}/i.test(t[0])) {
+    const w = t[0].toLowerCase();
+    return `${w.charAt(0).toUpperCase()}${w.slice(1)} buttons`;
+  }
+  return "Buttons";
 }
 
 /** What a part is, in a word, by the shelf part it landed as. */
@@ -194,6 +261,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   const glowsWorn = new Map<string, { colour: string; blur: number }>();
   const faceKeys = leads.map(() => new Map<string, number>());
   const samples = leads.map(() => new Map<string, number>());
+  /* A button kind's own words, each counted once per button: what most of them say names the kind. */
+  const own = leads.map(() => new Map<string, number>());
   const pageIds: string[] = [];
   const pageGlows = new Map<string, number>();
   const pageFaceKeys = new Map<string, number>();
@@ -211,6 +280,7 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const w = wordsOf(p);
     /* Its own parts' words first (a trade button's "10%"), then words standing on it; a label, not a sentence. */
     if (i >= 0 && w && w.length <= 24 && (u === p || /[A-Za-z]{2}/.test(w))) bump(samples[i]!, w, u === p ? 1000 : 1);
+    if (i >= 0 && w && u === p) bump(own[i]!, w.toLowerCase());
   }
   const kinds: (Omit<SurfaceKind, "piece"> & { big: number; label: string | null })[] = leads.map((g, i) => {
     const ms = parts.filter((p) => g.members.has(p.id));
@@ -241,15 +311,18 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
     const mid = (f: (p: Node) => number) => ms.map(f).sort((a, b) => a - b)[ms.length >> 1] ?? 0;
     const midW = mid((p) => p.w ?? 0), midH = mid((p) => p.h ?? 0);
     const isButtons = buttons >= ms.length / 2;
+    const shape = isButtons ? null : shapeOf(ms);
     const biggest = ms.reduce<Node | null>((b, p) => (!b || area(p) > area(b) ? p : b), null);
     return {
       big: biggest ? Math.max(biggest.w ?? 0, biggest.h ?? 0) : 0,
       label: biggest ? pieceName(biggest) : null,
       w: midW,
       h: midH,
-      tab: !isButtons && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
+      /* A bar is not a tab: drawn over a panel's top edge, PonsStars-style, sunkcoin's loading bars read as labels. */
+      tab: !isButtons && !shape && midH > 0 && midH <= TAB_HEIGHT && top(what)?.[0] !== "Fields",
+      shape,
       fill: g.fill,
-      name: buttons >= ms.length / 2 ? "Buttons" : top(what)?.[0] ?? "Parts",
+      name: isButtons ? buttonsName(own[i]!, ms.length) : shape ? SHAPE_NAME[shape] : top(what)?.[0] ?? "Parts",
       parts: ms.length,
       ids: ms.map((p) => p.id),
       shades: [...new Set(ms.map((p) => fillOf.get(p.id)!))],
@@ -283,7 +356,8 @@ export function siteKinds(nodes: readonly Worn[], palette: Partial<Palette>, bac
   /* Names by role: the most-worn surface is the main fill; the rest by what they are, numbered when two share a name. */
   const seen = new Map<string, number>();
   const named = kept.map(({ k }, j) => {
-    const base = !k.button && !k.piece && j === kept.findIndex(({ k: x }) => !x.button && !x.piece) ? "Main fill" : k.name;
+    /* The main fill is the most-worn plain surface: a grid, rows or bars keep their own name. */
+    const base = !k.button && !k.piece && !k.shape && j === kept.findIndex(({ k: x }) => !x.button && !x.piece && !x.shape) ? "Main fill" : k.name;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     const { big: _b, label: _l, ...kind } = k;

@@ -87,6 +87,67 @@ function capturedAnimation(a: { name?: string; duration?: string; timing?: strin
  * back) from any other loop.
  */
 export function attachCaptured<N extends Node>(nodes: readonly N[], behaviours: unknown, keyframes?: unknown): N[] {
+  return copyBySense(fromBehaviours(nodes, behaviours, keyframes));
+}
+
+/* ---------------------------------------------------------------- a Copy button copies what is beside it (J, 2026-10-11: "copy button should also be common sense") */
+
+/** Words that say a press copies: "Copy", "Copy address", "Copy CA", the copy glyphs. */
+const COPY_WORDS = /^(?:copy(?:\s+(?:address|ca|contract|wallet|link|it))?|⧉|📋|⎘)$/i;
+/** A whole Solana address, as a link or a part's words carry it. */
+const ADDRESS = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
+/** A shortened one: "6aoZ…AE1w". */
+const SHORT = /^[1-9A-HJ-NP-Za-km-z]{3,8}(?:\.\.\.|…)[1-9A-HJ-NP-Za-km-z]{3,8}$/;
+
+type Run = { text?: unknown; link?: { target?: unknown } | null };
+const wordsIn = (n: Node): string => {
+  const c = (n as { content?: unknown }).content;
+  return (typeof c === "string" ? c : Array.isArray(c) ? (c as Run[]).map((r) => (r && typeof r.text === "string" ? r.text : "")).join("") : "").replace(/\s+/g, " ").trim();
+};
+/** The whole address a part carries: in its link, a link on its words, or its words themselves. */
+const addressIn = (n: Node): string | null => {
+  const c = (n as { content?: unknown }).content;
+  const runs = Array.isArray(c) ? (c as Run[]).map((r) => (r?.link && typeof r.link.target === "string" ? r.link.target : "")) : [];
+  for (const t of [n.link?.target, ...runs, wordsIn(n), n.data]) {
+    const m = typeof t === "string" ? ADDRESS.exec(t) : null;
+    if (m) return m[0];
+  }
+  return null;
+};
+
+/**
+ * A button that says Copy and does nothing yet copies the value beside it:
+ * the nearest part on its row (or just above it) carrying an address, the
+ * whole one where a link or its words hold it. A shortened address with no
+ * whole one behind it is copied as shown. Nothing given where no value sits
+ * beside it, or where the part already does something (a capture's own copy,
+ * the site's own script).
+ */
+export function copyBySense<N extends Node>(nodes: N[]): N[] {
+  for (const n of nodes) {
+    if (!COPY_WORDS.test(wordsIn(n)) || usesOf(n.work).length) continue;
+    const code = (n as { source?: { code?: { refs?: unknown[]; built?: unknown } } }).source?.code;
+    if (code && (code.built || code.refs?.length)) continue;
+    const cy = (n.y ?? 0) + (n.h ?? 0) / 2;
+    let best: { v: string; d: number } | null = null;
+    for (const o of nodes) {
+      if (o === n || o.pageId !== n.pageId) continue;
+      const whole = addressIn(o), shown = wordsIn(o);
+      const v = whole ?? (SHORT.test(shown) ? shown : null);
+      if (!v) continue;
+      const oy = (o.y ?? 0) + (o.h ?? 0) / 2;
+      /* On its row, or the line above it; no further than a row's width away. */
+      const dy = Math.abs(oy - cy), dx = Math.max(0, (n.x ?? 0) - ((o.x ?? 0) + (o.w ?? 0)), (o.x ?? 0) - ((n.x ?? 0) + (n.w ?? 0)));
+      if (dy > Math.max(n.h ?? 0, o.h ?? 0, 24) * 1.5 || dx > 480) continue;
+      const d = dx + dy * 4 - (whole ? 1 : 0);
+      if (!best || d < best.d) best = { v, d };
+    }
+    if (best) n.work = withWork(n.work, { id: "copy-toast", inputs: { text: best.v } });
+  }
+  return nodes;
+}
+
+function fromBehaviours<N extends Node>(nodes: readonly N[], behaviours: unknown, keyframes?: unknown): N[] {
   const b = behaviours as Rec | null;
   const out = nodes.map((n) => ({ ...n }));
   const byId = new Map(out.map((n) => [n.id, n]));
