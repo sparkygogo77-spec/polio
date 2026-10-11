@@ -5,7 +5,7 @@ import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 
 /**
- * The side panel's tabs: one set, in one order, always all five.
+ * The side panel's tabs: one set, in one order, always all six.
  *
  * They used to appear and disappear with the selection — Element, Format and
  * Pages only while something was held — which meant the strip you were
@@ -22,7 +22,7 @@ import { Button } from "@/core/ui/button";
  *
  * The hues are not invented where the app already has one. Motion is 170,
  * which is the Motion category's own hue in the parts catalogue; Pages sits
- * beside Navigation at 230. Element, Format, Look and Draw take the rest of
+ * beside Navigation at 230. Element, Format, Look and Pictures take the rest of
  * the wheel, none closer than 30 degrees to a neighbour — the spacing rule
  * the twelve categories were re-cut to obey, because below about 20 the
  * difference is not one a person can see.
@@ -86,7 +86,7 @@ export function useSideWidth(): [number, (w: number) => void] {
   return [w, set];
 }
 
-/** The panel's edge, to drag. Arrow keys move it too; a double press puts it back to the narrowest. */
+/** The panel's edge, to drag. Arrow keys move it too; a double press puts it back to the width it starts at (SIDE_DEFAULT, 300px). */
 export function SideEdge({ width, onWidth }: { width: number; onWidth: (w: number) => void }) {
   const [dragging, setDragging] = React.useState(false);
   const start = React.useRef<{ x: number; w: number } | null>(null);
@@ -101,7 +101,7 @@ export function SideEdge({ width, onWidth }: { width: number; onWidth: (w: numbe
       aria-valuemax={sideMax()}
       tabIndex={0}
       data-side-edge=""
-      title="Drag to widen the panel. Double press to put it back."
+      title="Drag to widen the panel. Double press to put it back to where it started."
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
