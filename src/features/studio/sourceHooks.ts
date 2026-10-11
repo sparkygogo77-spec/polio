@@ -121,12 +121,35 @@ export function sourceOfPage(file: string, html: string, open: (href: string) =>
 }
 
 /** The line a selector is written on in a stylesheet's text, from `from` on: matched with its whitespace and quotes taken out, the way the browser writes it back. */
+/*
+ * A stylesheet's lines, tidied once. Each part asked for every rule
+ * reaching it, and each ask split and tidied the whole sheet again: 750
+ * parts on PST's redesign branch spent a second here. The same sheet is
+ * asked a few hundred times, so its tidied lines are kept, and so is each
+ * selector's answer.
+ */
+const tidiedLines = new Map<string, string[]>();
+const selectorLines = new Map<string, number | null>();
 function selectorLine(text: string, selector: string, offset: number): number | null {
+  const key = `${text.length}:${offset}:${selector}:${text.slice(0, 200)}`;
+  const known = selectorLines.get(key);
+  if (known !== undefined) return known;
+  if (selectorLines.size > 20_000) selectorLines.clear();
+  const at = selectorLineOf(text, selector, offset);
+  selectorLines.set(key, at);
+  return at;
+}
+function selectorLineOf(text: string, selector: string, offset: number): number | null {
   const want = selector.replace(/\s+/g, "").replace(/'/g, '"');
   const first = want.split(",")[0]!;
-  const lines = text.split("\n");
+  let lines = tidiedLines.get(text);
+  if (!lines) {
+    if (tidiedLines.size > 64) tidiedLines.clear();
+    lines = text.split("\n").map((l) => l.replace(/\s+/g, "").replace(/'/g, '"'));
+    tidiedLines.set(text, lines);
+  }
   for (let i = 0; i < lines.length; i++) {
-    const l = lines[i]!.replace(/\s+/g, "").replace(/'/g, '"');
+    const l = lines[i]!;
     if (l.includes(want) || (first && l.includes(first) && /\{|,$/.test(l))) return offset + i + 1;
   }
   return null;

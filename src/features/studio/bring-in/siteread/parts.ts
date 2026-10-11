@@ -46,7 +46,10 @@ import type { PartRun, PartStyle, PartControl, PagePart, PageRead } from "./face
  *
  * Serialised into the page like the two above: no imports, no closure.
  */
-export const PARTS = (cap: number): PageRead => {
+export const PARTS = (ask: number | { cap: number; lean?: boolean }): PageRead => {
+  /* `lean`: the parts and their boxes, without the page's rules and states for each (the tablet and phone readings want only boxes). */
+  const cap = typeof ask === "number" ? ask : ask.cap;
+  const lean = typeof ask !== "number" && !!ask.lean;
   const parts: PagePart[] = [];
   let truncated = false;
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "META", "LINK", "HEAD", "TITLE", "BASE", "WBR"]);
@@ -432,6 +435,35 @@ export const PARTS = (cap: number): PageRead => {
   /* The page's own rules, once: a linked sheet by the address its link wrote, a style block by its place among the page's style blocks. */
   let pageRules: { sheet: string | null; block: number; selector: string }[] | null = null;
   /*
+   * WHICH RULES COULD NAME AN ELEMENT, by the names in them. Every part
+   * used to be tested against every rule of the page (`matches`), and a
+   * page of 750 parts and 760 rules (PST's redesign branch) spent a third
+   * of its reading there, three widths over. A rule can only match, or name,
+   * an element whose tag, id, class or data-hook it writes, so the rules
+   * are shelved once under each name they write and each tag their last
+   * compound names; one that writes none (`*`, `:root`, `[aria-x]`) is
+   * tested against everything, as before. Order is the page's.
+   */
+  let rulesByName: Map<string, number[]> | null = null;
+  let rulesForAll: number[] = [];
+  const shelveRules = () => {
+    rulesByName = new Map();
+    rulesForAll = [];
+    const shelve = (k: string, i: number) => { const l = rulesByName!.get(k); if (!l) rulesByName!.set(k, [i]); else if (l[l.length - 1] !== i) l.push(i); };
+    pageRules!.forEach((r, i) => {
+      const sel = r.selector;
+      let named = false;
+      for (const m of sel.matchAll(/\[data-hook=["']?([^"'\]]+)["']?\]|#(-?[A-Za-z_][\w-]*)|\.(-?[A-Za-z_][\w-]*)/g)) { shelve(m[1] !== undefined ? `@${m[1]}` : m[2] !== undefined ? `#${m[2]}` : `.${m[3]}`, i); named = true; }
+      for (const part of sel.split(/,(?![^(]*\))/)) {
+        const last = part.trim().replace(/::?[\w-]+(\([^)]*\))?$/g, "").split(/[\s>+~]+(?![^(]*\))/).pop() ?? "";
+        const tag = /^([A-Za-z][\w-]*)/.exec(last)?.[1];
+        if (tag) shelve(`<${tag.toLowerCase()}`, i);
+        else if (!/^[.#[]/.test(last) || /^\[(?!data-hook)/.test(last)) { rulesForAll.push(i); named = true; }
+      }
+      if (!named) rulesForAll.push(i);
+    });
+  };
+  /*
    * HOVER, PRESS AND FOCUS. Every `:hover`, `:active` and `:focus` rule of
    * the page, read once; for a part, the ones whose selector reaches it with
    * the state taken off, their declarations as written with the page's
@@ -504,8 +536,12 @@ export const PARTS = (cap: number): PageRead => {
     const hook = e.getAttribute("data-hook");
     const names = [hook ? `[data-hook="${hook}"]` : null, e.id ? `#${e.id}` : null, ...Array.from(e.classList).map((c) => `.${c}`)].filter((x): x is string => !!x);
     const names_ = (sel: string) => names.some((n) => { const i = sel.indexOf(n); return i >= 0 && !/[\w-]/.test(sel[i + n.length] ?? ""); });
-    for (const r of pageRules) {
+    if (!rulesByName) shelveRules();
+    const keys = [`<${e.tagName.toLowerCase()}`, hook ? `@${hook}` : null, e.id ? `#${e.id}` : null, ...Array.from(e.classList).map((c) => `.${c}`)].filter((x): x is string => !!x);
+    const could = [...new Set([...rulesForAll, ...keys.flatMap((k) => rulesByName!.get(k) ?? [])])].sort((a, b) => a - b);
+    for (const i of could) {
       if (out.length >= 12) break;
+      const r = pageRules[i]!;
       try { if (e.matches(r.selector) || names_(r.selector)) out.push(r); } catch { /* a selector this browser cannot test */ }
     }
     return out;
@@ -528,7 +564,7 @@ export const PARTS = (cap: number): PageRead => {
     if (el) {
       /* Pinned to the window (PST's tour and its card): kept on the part, so the board keeps it on the page and shades the page with it (`boardStates.ts#keepOverlaysOnPage`). */
       if (css(el).position === "fixed") p.position = "fixed";
-      const rules = rulesFor(el);
+      const rules = lean ? [] : rulesFor(el);
       if (rules.length) p.rules = rules;
       const classes = Array.from(el.classList).filter((c) => /^[A-Za-z_][\w-]*$/.test(c)).slice(0, 8);
       if (classes.length) p.classes = classes;
@@ -548,7 +584,7 @@ export const PARTS = (cap: number): PageRead => {
         const own = restTurn.get(el);
         if (a && own && !held) p.style.ownTurn = own;
       }
-      if (!p.pseudo) Object.assign(p.style, statesOf(el, was));
+      if (!p.pseudo && !lean) Object.assign(p.style, statesOf(el, was));
     }
     if (turnFrom && !p.turn) { const t = turnSaid(turnOf(turnFrom), p.box); if (t) p.turn = t; }
     parts.push(p);

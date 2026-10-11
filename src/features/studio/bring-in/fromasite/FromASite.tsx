@@ -416,18 +416,33 @@ export function FromASite({ space }: { space: Space }) {
      * with its own deadline; the strip counts them. A site of any size on
      * any branch comes in a page at a time.
      */
-    const ask = (extra: Record<string, string>) => askZip(got.file, { parts: "1", only: "1", width: String(readAt), ...(m?.tokens ? { tokens: m.tokens } : {}), ...extra });
+    const ask = (extra: Record<string, string>) => askZip(got.file, { parts: "1", only: "1", widths: "0", width: String(readAt), ...(m?.tokens ? { tokens: m.tokens } : {}), ...extra });
+    /*
+     * AND ITS TABLET AND PHONE IN A REQUEST OF THEIR OWN. The same page's
+     * three readings (desktop, 834, 390) in one request were still a minute
+     * on the host for that branch's front page; the desktop reading comes
+     * first, and the two small ones are asked for after it, boxes only,
+     * aligned to the parts already held (`widths` on the page's reading).
+     */
+    const smalls = async (page: FileRead, which: string, dir: string) => {
+      if (readAt <= 390) return;
+      busy(`Reading page ${which} in ${of.name}: ${page.file}, as a tablet and a phone…`);
+      const br = await askZip(got.file, { parts: "1", width: String(readAt), entry: page.file, dir, boxes: JSON.stringify(page.read.parts.map((p) => [p.kind, p.selector, p.style.px])) });
+      const widths = br.ok && br.widths && typeof br.widths === "object" ? (br.widths as NonNullable<FileRead["read"]["widths"]>) : null;
+      if (widths && Object.keys(widths).length) page.read.widths = widths;
+    };
     const zr = await ask(m?.pages.length ? { entry: m.pages[0]!.file, pages: JSON.stringify(m.pages.slice(1).map((p) => p.file)) } : {});
     const files = Array.isArray(zr.pages) ? (zr.pages as (FileRead & { scripts?: boolean })[]) : [];
     if (!zr.ok || !files.length || !files[0]!.read?.parts?.some((p) => !p.hidden)) return false;
     const siblings = Array.isArray(zr.siblings) ? (zr.siblings as unknown[]).filter((x): x is string => typeof x === "string") : [];
     const siteDir = files[0]!.file.includes("/") ? files[0]!.file.slice(0, files[0]!.file.lastIndexOf("/") + 1) : "";
+    await smalls(files[0]!, `1 of ${siblings.length + 1}`, siteDir);
     let wouldNotOpen = 0;
     for (const [i, file] of siblings.entries()) {
       busy(`Reading page ${i + 2} of ${siblings.length + 1} in ${of.name}: ${file}…`);
       const more = await ask({ entry: file, pages: "[]", dir: siteDir });
       const page = Array.isArray(more.pages) ? (more.pages as (FileRead & { scripts?: boolean })[]).find((p) => p.file === file) : null;
-      if (more.ok && page) files.push(page);
+      if (more.ok && page) { files.push(page); await smalls(page, `${i + 2} of ${siblings.length + 1}`, siteDir); }
       else wouldNotOpen += 1;
     }
     const { doc, report } = pagesToDoc(files, { code: got.code, ...(m ? { names: Object.fromEntries(m.pages.filter((p) => p.name).map((p) => [p.file, p.name!])), byHook: true, hooksFile: m.hooks, manifestDir: m.file.includes("/") ? m.file.slice(0, m.file.lastIndexOf("/") + 1) : "" } : {}) });
