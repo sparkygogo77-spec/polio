@@ -3,7 +3,7 @@
  * (`press.ts`), and the drags those rules start, built from the parts as
  * they are when the hand goes down.
  */
-import { frameRiders, liftToFrame, partUnder } from "../states";
+import { frameRiders, liftToFrame, partUnder, stateFrames } from "../states";
 import { getFeature } from "../shelf";
 import { componentsOf, carriedBy, GRABBED } from "../components";
 import { isControl } from "../control";
@@ -112,7 +112,7 @@ export function resizeDrag(st: StudioState, n: StudioNode, handle: Handle, p: Po
   const layers = [...new Set([...own, ...frameRiders(st.nodes, [n.id, ...own]), ...appAreaRiders(st.nodes, n.id)])];
   const origin: NonNullable<Drag["origin"]> = { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } };
   for (const m of st.nodes) if (layers.includes(m.id) && !m.locked) origin[m.id] = { x: m.x, y: m.y, w: m.w, h: m.h };
-  return { kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle, origin, riders: layers };
+  return { kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle, origin, riders: layers, frames: stateFrames(st.nodes) };
 }
 
 /**
@@ -136,5 +136,5 @@ export function moveDrag(st: StudioState, ids: readonly string[], p: Point): Dra
   const carried = [...new Set([...lifted, ...riders])];
   const origin: NonNullable<Drag["origin"]> = {};
   for (const n of st.nodes) if (carried.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
-  return { kind: "node", startX: p.x, startY: p.y, ids: carried, origin, riders };
+  return { kind: "node", startX: p.x, startY: p.y, ids: carried, origin, riders, frames: stateFrames(st.nodes) };
 }

@@ -1,5 +1,5 @@
 import { boardShows,screenKey,screenLooks,screenPlaces,steppedParts,type PlaceBox,type ScreenRead,type StepLook } from "../states";
-import { stateFrames } from "../states";
+import { stateFrames, type FramesRead } from "../states";
 import { panelDecides } from "../states";
 import { panelsOfPage, readIsolateKey, type PanelSource } from "../states";
 import { panelDrawing, type PanelNode } from "../states";
@@ -324,6 +324,8 @@ export interface Drag {
   from?: string;
   /** Parts carried because a moving control holds them: they keep their place on it, never snapped on their own. */
   riders?: string[];
+  /** The state frames as they were when the hand went down, read once rather than on every move (`stateFrames.ts`). */
+  frames?: FramesRead;
   /** A locked group being resized: its id, its box and its members as they were when the hand went down. */
   groupId?: string;
   box?: HeldBox;
