@@ -46,7 +46,7 @@ export const SHELF_GROUPS: Record<string, ShelfGroup[]> = {
     { id: "lists-of-things", emoji: "📰", label: "Article lists", items: ["blog-index"] },
     { id: "boxes", emoji: "💡", label: "Notes and code", items: ["callout", "code-block"] },
     { id: "your-notes", emoji: "📝", label: "Notes for the builder", items: ["custom-idea", "note"] },
-    { id: "shapes-3d", emoji: "🧊", label: "3D shapes you can turn", items: ["shape-sphere", "shape-cube", "shape-pyramid"] },
+    { id: "shapes-3d", emoji: "🧊", label: "Shapes you can turn", items: ["shape-sphere", "shape-cube", "shape-pyramid"] },
     { id: "pictures", emoji: "🖼️", label: "Pictures", items: ["picture", "gallery"] },
     { id: "moving-through", emoji: "🎠", label: "Slideshows", items: ["carousel", "before-after"] },
     { id: "sound-and-video", emoji: "▶️", label: "Video and sound", items: ["video-player"] },

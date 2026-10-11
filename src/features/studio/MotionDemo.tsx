@@ -38,6 +38,8 @@ const KIND: Record<string, string> = {
   "sol-price": "price", "token-price": "price",
   /* One site's effects made any part's (library/effects.ts). */
   "screen-filter": "screen", "switch-on": "tvon", "press-push": "push",
+  /* Turn in 3D: any part leaning in depth under the hand, as a tilting card shows it. */
+  "turn-3d": "tilt",
 };
 
 export function hasDemo(id: string): boolean {

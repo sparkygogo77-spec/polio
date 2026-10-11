@@ -182,7 +182,8 @@ for (const s of SITES) {
   const pick = {};
   for (const n of onPage) {
     const fam = E.familyOf(kindWord(n), partOf(n));
-    if (fam && !pick[fam] && n.w > 8 && n.h > 8) pick[fam] = n;
+    /* The page's own background is inert: it is under everything, never a part a person clicks, so it opens no panel. */
+    if (fam && !pick[fam] && !n.inert && n.w > 8 && n.h > 8) pick[fam] = n;
   }
   for (const [fam, n] of Object.entries(pick)) {
     await openPart(n.id);

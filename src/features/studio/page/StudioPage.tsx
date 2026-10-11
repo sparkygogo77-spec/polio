@@ -238,7 +238,10 @@ export function StudioPage() {
       const v = learnedVersions(useLearned.getState().lib).get(item)?.find((x) => x.host === host);
       if (!v) return null;
       let made: string | null = null;
-      putSiteVersion({ item, take: v.take, label: v.label, host, parts: [], frames: v.frames } as Parameters<typeof putSiteVersion>[0], (f) => { made = useStudio.getState().addNode(f, 40, 40 + useStudio.getState().nodes.length * 60); return made; });
+      const add = (f: string) => { made = useStudio.getState().addNode(f, 40, 40 + useStudio.getState().nodes.length * 60); return made; };
+      /* A motion or a feature goes onto a part (with nothing picked the shelf waits for a press), so the check gives it a new part, picked, first. */
+      if (v.take.kind !== "embed" && useStudio.getState().selection.length !== 1) useStudio.getState().setSelection([add("prose")]);
+      putSiteVersion({ item, take: v.take, label: v.label, host, parts: [], frames: v.frames } as Parameters<typeof putSiteVersion>[0], add);
       return made ?? useStudio.getState().selection[0] ?? null;
     };
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);

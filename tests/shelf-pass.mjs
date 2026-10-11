@@ -219,7 +219,7 @@ await look(1282, 917, "pane");
     `${was} before, ${afterIdea.length} after, last is ${afterIdea[afterIdea.length - 1]?.featureId ?? "none"}`);
 
   /* Then a tile, which needs a category open. */
-  await page.getByText("Layout", { exact: true }).first().click({ force: true });
+  await page.locator(`[data-category="structure"]`).first().click({ force: true });
   await page.waitForTimeout(1000);
   const tile = page.locator("[data-tile]").first();
   const id = await tile.getAttribute("data-tile");

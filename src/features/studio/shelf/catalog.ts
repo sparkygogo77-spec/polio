@@ -168,7 +168,7 @@ export const CATEGORIES: CategoryDef[] = [
   { id: "motion", label: "Motion and interaction", icon: Waves, blurb: "What moves, and what answers a press, a hover or a key.", hue: 170 },
   { id: "forms", label: "Forms and shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 110 },
   { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 270 },
-  { id: "platform", label: "People, AI and engine", icon: Cpu, blurb: "People and their traces, artificial intelligence (AI), and the things that make it real.", hue: 20 },
+  { id: "platform", label: "People, engine and artificial intelligence (AI)", icon: Cpu, blurb: "People and their traces, things a model writes or picks, and the things that make it real.", hue: 20 },
 ];
 
 /** The shelf category each kind is filed in. A kind not named here is a category of its own. */
