@@ -1,7 +1,7 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
 import { meterFirst } from "@/features/studio/renderMeter";
-import { answerFrom, base64Picture, mimeOf, RASTER_LIMIT, UNKNOWN_PICTURE } from "@/features/studio/renderAnswer";
+import { answerFrom, base64Picture, mimeOf, RASTER_LIMIT, UNKNOWN_PICTURE, type RenderAnswer } from "@/features/studio/renderAnswer";
 import {
   fluxRatio,
   fromPicture,
@@ -146,6 +146,8 @@ interface Body {
   references?: string[];
   /** png, jpeg or webp. The model's own default when he has not said. */
   format?: string;
+  /** How many pictures one press asks for. One unless he said. */
+  count?: number;
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
   picture?: string;
   prompt?: string;
@@ -285,6 +287,22 @@ export interface Asked {
   reference?: string;
   /** png, jpeg or webp. The model's own default when he has not said. */
   format?: string;
+  /** How many pictures one press asks for: 1 to MOST_PICTURES. */
+  count?: number;
+}
+
+/*
+ * HIS WORDS (2026-10-12): "it definitely also only puts out one at a time
+ * when i should be able to request multiple". One press may ask for up to
+ * this many. A model that has its own count field is asked once for all of
+ * them; any other is asked once per picture, side by side.
+ */
+const MOST_PICTURES = 4;
+const COUNT_FIELDS = ["number_of_images", "num_outputs", "num_images"];
+/** The field this model takes a picture count under, when it has one. */
+function countField(card: ImageModel | null): { name: string; max: number } | null {
+  const f = card?.fields.find((x) => COUNT_FIELDS.includes(x.name) && x.kind === "integer");
+  return f ? { name: f.name, max: f.max ?? MOST_PICTURES } : null;
 }
 
 function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
@@ -316,6 +334,8 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
     const take = given.slice(0, Math.max(1, card.references));
     out[card.refField] = card.references > 1 ? take : take[0];
   }
+  const many = countField(card);
+  if (many && asked.count && asked.count > 1) out[many.name] = Math.min(asked.count, many.max);
   /* And the file type he asked for, under the model's own field. Left alone,
      the model's own default stands. */
   if (asked.format && card.format?.field) {
@@ -406,6 +426,30 @@ interface Prediction {
   status?: string;
 }
 
+/*
+ * A model's own address takes predictions only for Replicate's "official"
+ * models. Any other (tencent/hunyuan3d-2mv, the 3D one, among them) answers
+ * that address with a 404, "The requested resource could not be found", and
+ * has to be run by its version instead. So a 404 there is answered by
+ * asking the model for its latest version and running that; the version is
+ * remembered for the life of the server so the lookup happens once.
+ */
+const versions = new Map<string, string>();
+async function start(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>) {
+  const known = versions.get(slug);
+  if (known) return replicate.predictions.create({ version: known, input });
+  try {
+    return await replicate.predictions.create({ model: slug, input });
+  } catch (error) {
+    if ((error as { response?: { status?: number } }).response?.status !== 404) throw error;
+    const [owner, name] = slug.split("/");
+    const version = owner && name ? (await replicate.models.get(owner, name)).latest_version?.id : undefined;
+    if (!version) throw error;
+    versions.set(slug, version);
+    return replicate.predictions.create({ version, input });
+  }
+}
+
 /**
  * One prediction, run and waited on.
  *
@@ -414,7 +458,7 @@ interface Prediction {
  * model itself took — is on the prediction.
  */
 async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>, until: number, signal?: AbortSignal): Promise<Prediction> {
-  const started = await replicate.predictions.create({ model: slug, input });
+  const started = await start(replicate, slug, input);
   // The wait, raced against the budget and the asker leaving. Whichever
   // ends it first also stops the polling, and a cut cancels the prediction
   // so Replicate does not draw (and bill) a picture nobody will collect.
@@ -726,6 +770,7 @@ export async function POST(request: Request) {
       ? body.references.filter((r): r is string => typeof r === "string" && /^data:image\//.test(r))
       : undefined,
     format: typeof body.format === "string" && ["png", "jpeg", "webp"].includes(body.format) ? body.format : undefined,
+    count: Math.max(1, Math.min(MOST_PICTURES, Math.round(Number(body.count)) || 1)),
   };
   const card = asked.model ? modelNamed(asked.model) : null;
   const model = (card?.returns === "picture" ? card.slug : RENDER_MODELS[kind]) as `${string}/${string}`;
@@ -735,17 +780,34 @@ export async function POST(request: Request) {
    * and the metrics are the only measured thing about the call.
    */
   const began = Date.now();
-  let done: Prediction;
-  try {
+  /*
+   * As many pictures as he asked for. A model with a count field is asked
+   * once for all of them; any other is asked once per picture, side by side,
+   * under the same clock. Whatever comes back is kept, so one failure out of
+   * four still hands back the other three.
+   */
+  const many = countField(card);
+  const runs = card?.returns === "picture" && !many ? asked.count ?? 1 : 1;
+  const shaped = input(kind, words, picture, w, h, card, asked);
+  const once = async (): Promise<Prediction> => {
     try {
-      done = await predict(replicate, model, input(kind, words, picture, w, h, card, asked), until, request.signal);
+      return await predict(replicate, model, shaped, until, request.signal);
     } catch (first) {
       // A field this version of the model does not have is the one failure
-      // worth a second go: the prompt alone is a shape every model takes.
+      // worth a second go: the prompt alone is a shape every model takes,
+      // with the pictures to work from kept, since a picture of something
+      // else is not the picture he asked for.
       const status = (first as { response?: { status?: number } }).response?.status;
       if (status !== 422 && status !== 400) throw first;
-      done = await predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words }, until, request.signal);
+      const refs = card?.refField && shaped[card.refField] ? { [card.refField]: shaped[card.refField] } : {};
+      return predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words, ...refs }, until, request.signal);
     }
+  };
+  let dones: Prediction[];
+  try {
+    const settled = await Promise.allSettled(Array.from({ length: runs }, once));
+    dones = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    if (!dones.length) throw (settled[0] as PromiseRejectedResult).reason;
   } catch (error) {
     if (cutShort(error)) {
       const seconds = Math.round((Date.now() - began) / 1000);
@@ -764,23 +826,42 @@ export async function POST(request: Request) {
 
   // What was measured: the seconds off the prediction, the cost as the
   // prediction reported it or, failing that, the model's published rate.
-  const meter = meterFirst(kind, done.metrics, Date.now() - began);
-  if (done.status !== "succeeded") {
+  const meters = dones.map((d) => meterFirst(kind, d.metrics, Date.now() - began));
+  const succeeded = dones.filter((d) => d.status === "succeeded");
+  const priced = meters.every((m) => m.priced === "reported") ? "reported" : "card";
+  const meter = { ms: Math.max(...meters.map((m) => m.ms)), cost: meters.reduce((sum, m) => sum + (m.cost ?? 0), 0), priced };
+  if (!succeeded.length) {
+    const done = dones[0]!;
     const said = typeof done.error === "string" ? safe(done.error, token) : String(done.status ?? "no answer");
     return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${said}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
   }
 
-  let file: { bytes: Uint8Array; type: string } | null;
-  try {
-    file = await bytesOf(done.output);
-  } catch (error) {
-    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  /* Every picture each prediction gave back, not only its first. */
+  const outputs = succeeded.flatMap((d) => (Array.isArray(d.output) ? d.output : [d.output])).filter((o) => o != null).slice(0, MOST_PICTURES);
+  const answers: RenderAnswer[] = [];
+  let failed: { reason: string; message: string } | null = null;
+  for (const out of outputs) {
+    let file: { bytes: Uint8Array; type: string } | null;
+    try {
+      file = await bytesOf(out);
+    } catch (error) {
+      failed ??= { reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).` };
+      continue;
+    }
+    if (!file || !file.bytes.length) {
+      failed ??= { reason: "empty-answer", message: "The renderer answered with nothing." };
+      continue;
+    }
+    const answer = answerFrom(kind, file.bytes, file.type);
+    if (answer.ok) answers.push(answer);
+    else failed ??= answer;
   }
-  if (!file || !file.bytes.length) {
-    return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing.", ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  if (!answers.length) {
+    const why = failed ?? { reason: "empty-answer", message: "The renderer answered with nothing." };
+    return NextResponse.json({ ok: false, ...why, ms: meter.ms, cost: meter.cost, priced: meter.priced });
   }
-
-  const answer = answerFrom(kind, file.bytes, file.type);
-  if (!answer.ok) return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms });
-  return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms, model });
+  // A card price is per picture: a count asked of one prediction is that many.
+  const cost = priced === "card" && many ? meter.cost * answers.length : meter.cost;
+  const images = answers.flatMap((a) => (a.ok && a.image ? [a.image] : []));
+  return NextResponse.json({ ...answers[0], ...(images.length ? { images } : {}), cost, priced: meter.priced, ms: meter.ms, model });
 }

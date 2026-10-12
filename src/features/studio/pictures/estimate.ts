@@ -52,11 +52,14 @@ export function about(n: number): string {
 }
 
 /** The whole line under Generate: the picture, plus the 3D model when one is asked for. */
-export function estimateLine(model: string, quality: string, threeD: string, past: readonly PastDraw[] = []): string {
+export function estimateLine(model: string, quality: string, threeD: string, past: readonly PastDraw[] = [], pictures = 1): string {
   const pic = pictureEstimate(model, quality, past);
-  const picSaid = pic.from === "yours" ? `About ${about(pic.dollars)} a picture (your last ${pic.count === 1 ? "one" : pic.count} from this model)` : `About ${about(pic.dollars)} a picture`;
-  if (threeD === "solid") return `${picSaid}, plus about ${about(SOLID_GUIDE)} for the 3D model: about ${about(pic.dollars + SOLID_GUIDE)} in all, on your own Replicate key.`;
-  return `${picSaid}, on your own Replicate key.`;
+  const many = Math.max(1, Math.round(pictures));
+  const picSaid = (pic.from === "yours" ? `About ${about(pic.dollars)} a picture (your last ${pic.count === 1 ? "one" : pic.count} from this model)` : `About ${about(pic.dollars)} a picture`)
+    + (many > 1 ? `, ${many} pictures` : "");
+  const pics = pic.dollars * many;
+  if (threeD === "solid") return `${picSaid}, plus about ${about(SOLID_GUIDE)} for the 3D model: about ${about(pics + SOLID_GUIDE)} in all, on your own Replicate key.`;
+  return many > 1 ? `${picSaid}: about ${about(pics)} in all, on your own Replicate key.` : `${picSaid}, on your own Replicate key.`;
 }
 
 /**
