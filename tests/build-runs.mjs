@@ -77,6 +77,10 @@ const input = {
     { id: "n_cube", pageId: "p2", featureId: "cube-3d", label: "Pillars \"three\"", prompt: "", x: 0, y: 0, w: 400, h: 300, html: "", cube: { faces: [{ heading: "Speed", body: "", colour: "accent" }] } },
     { id: "n_mesh", pageId: "p2", featureId: "mesh", label: "The orb", prompt: "", x: 420, y: 0, w: 400, h: 300, html: "", mesh: { glb: "data:model/gltf-binary;base64,AA==" } },
     { id: "n_link", pageId: "p2", featureId: "button", label: "Back home", prompt: "", x: 0, y: 320, w: 200, h: 60, html: "<span>Home</span>", link: { kind: "page", target: "p1" } },
+    /* Three parts a brought-in site gives one label and the same last letters of an id: two on one page, one on the other. */
+    { id: "web-index-html-nav-ion2", pageId: "p1", featureId: "box", label: "nav", prompt: "", x: 0, y: 640, w: 1440, h: 60, html: "<nav>HOME NAV</nav>" },
+    { id: "web-index-html-aside-ion2", pageId: "p1", featureId: "box", label: "nav", prompt: "", x: 0, y: 720, w: 1440, h: 60, html: "<nav>HOME ASIDE</nav>" },
+    { id: "web-orb-lab-html-nav-ion2", pageId: "p2", featureId: "box", label: "nav", prompt: "", x: 0, y: 400, w: 1440, h: 60, html: "<nav>LAB NAV</nav>" },
   ],
   palette: { bg: "#050505", surface: "#0c0e0d", text: "#f5f7f2", muted: "#8c9690", accent: "#b8ff24", highlight: "#075dff" },
   tokens: { radius: 8, fontPx: 16, bodyFamily: "ui-monospace, monospace", headingFamily: "ui-monospace, monospace", line: "#1b1f1d", surface: "#0c0e0d", muted: "#8c9690" },
@@ -282,6 +286,7 @@ try {
     check("5 / is the app: the board's home page, drawn by Build's parts", home.status === 200 && home.text.includes("Power in the") && home.text.includes("orb1234.png"), `${home.status} ${home.text.slice(0, 200)}`);
     const lab = await get("/orb-lab");
     check("5 /orb-lab is the app's second page", lab.status === 200 && lab.text.includes("data-cube"), `${lab.status}`);
+    check("5 parts sharing a label and the end of an id each draw their own markup, on their own page", home.text.includes("HOME NAV") && home.text.includes("HOME ASIDE") && !home.text.includes("LAB NAV") && lab.text.includes("LAB NAV") && !lab.text.includes("HOME NAV"));
     const page = await get("/index.html");
     const labPage = await get("/orb-lab/index.html");
     check("5 the site's published pages are still there, at their own files", page.status === 200 && page.text.includes("THE PAGE, AS PUBLISHED") && labPage.status === 200 && labPage.text.includes("THE LAB PAGE"), `${page.status} ${labPage.status}`);

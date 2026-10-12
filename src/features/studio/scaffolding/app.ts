@@ -61,7 +61,7 @@ export function appFiles(input: ScaffoldInput): ScaffoldFile[] {
       plugins: [{ name: "next" }],
       paths: { "@/*": ["./*"] },
     },
-    include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+    include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
     /* public/ is the site's published pages and pictures, served as they are, never compiled. */
     exclude: ["node_modules", "public"],
   };

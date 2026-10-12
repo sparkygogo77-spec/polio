@@ -255,12 +255,51 @@ const decode = (s: string) =>
 /* Names                                                               */
 /* ------------------------------------------------------------------ */
 
-/** A React component name from a part's label, unique by its id. */
-export function componentName(part: ScaffoldPart): string {
-  const words = part.label.replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean);
+/** A component name's lead, from a part's label: its words run together, and never starting with a digit. */
+function nameLead(label: string): string {
+  const words = label.replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean);
   const base = words.map((w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase()).join("") || "Part";
-  const tail = part.id.replace(/[^A-Za-z0-9]/g, "").slice(-4).toUpperCase();
-  return /^[0-9]/.test(base) ? `Part${base}${tail}` : `${base}${tail}`;
+  return /^[0-9]/.test(base) ? `Part${base}` : base;
+}
+
+/** Six letters and digits that stand for a whole id, the same every time. */
+function idMark(id: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(36).toUpperCase().padStart(6, "0").slice(-6);
+}
+
+/**
+ * A part's React component name: the one `scaffold()` gave it, unique across
+ * the site (`componentNames`), or else its label and a mark of its whole id.
+ */
+export function componentName(part: ScaffoldPart): string {
+  return part.component || `${nameLead(part.label)}${idMark(part.id)}`;
+}
+
+/**
+ * Every part's component name, by id, unique across the whole site.
+ *
+ * A name used to end in the last four letters of the id, and a site brought
+ * in has its nav on every page with one label and the same last letters: two
+ * parts with one name were two files at one path, so a page drew another
+ * page's nav (on PonsStars, 44 parts shared 10 names), and a page placing two
+ * of them did not build. A name ends in a mark of the whole id now, which no
+ * other part changes, so a part keeps its file whatever is added beside it;
+ * the rare two that still share one take a number after it.
+ * `tests/scaffold.mjs`.
+ */
+export function componentNames(parts: readonly ScaffoldPart[]): Map<string, string> {
+  const names = new Map<string, string>();
+  const used = new Set<string>();
+  for (const p of parts) {
+    const stem = componentName({ ...p, component: undefined });
+    let n = stem;
+    for (let i = 2; used.has(n.toLowerCase()); i++) n = `${stem}${i}`;
+    names.set(p.id, n);
+    used.add(n.toLowerCase());
+  }
+  return names;
 }
 
 /** Words written into a generated comment: a star then a slash in a label or a prompt would end the comment there and break the file. */
