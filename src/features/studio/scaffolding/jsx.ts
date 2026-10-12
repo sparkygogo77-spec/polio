@@ -145,6 +145,17 @@ function splitDeclarations(css: string): string[] {
 const escapeText = (s: string) => s.replace(/[{}]/g, (c) => `{"${c}"}`);
 
 /**
+ * An attribute's value as JSX writes it. A quoted JSX attribute has no
+ * escapes: `title="a \"b\""` ends at the second quote and the file no
+ * longer parses, so a value with a quote, a backslash or a line break in it
+ * goes in braces, as the string it is.
+ */
+export function jsxAttr(value: string): string {
+  const lit = JSON.stringify(value);
+  return lit.includes("\\") ? `{${lit}}` : lit;
+}
+
+/**
  * The markup a part rendered, as JSX.
  *
  * Not a general HTML parser: the input is React's own output, so tags are
@@ -183,16 +194,16 @@ export function htmlToJsx(html: string, indent = "    "): string {
     const attrs = parseAttrs(raw.slice(nameEnd, raw.endsWith("/>") ? -2 : -1));
     const written = attrs
       .map(({ name, value }) => {
-        if (/^(data|aria)-/.test(name)) return `${name}=${JSON.stringify(value)}`;
+        if (/^(data|aria)-/.test(name)) return `${name}=${jsxAttr(value)}`;
         if (name === "style") return `style={${styleToObject(value)}}`;
         // Looked up lower-cased: the DOM writes `readonly`, React's server `readOnly`.
         const key = name.toLowerCase();
-        if (CONTROL.has(tag) && key === "value") return `defaultValue=${JSON.stringify(value)}`;
+        if (CONTROL.has(tag) && key === "value") return `defaultValue=${jsxAttr(value)}`;
         if (CONTROL.has(tag) && key === "checked") return "defaultChecked";
         const jsxName = ATTR[key] ?? (name.includes("-") ? camel(name) : name);
         if (BOOL.has(key)) return jsxName;
         if (NUM.has(key) && /^-?\d+$/.test(value.trim())) return `${jsxName}={${Number(value)}}`;
-        return `${jsxName}=${JSON.stringify(value)}`;
+        return `${jsxName}=${jsxAttr(value)}`;
       })
       .join(" ");
     const selfClosing = VOID_TAGS.has(tag) || raw.endsWith("/>");
@@ -251,6 +262,9 @@ export function componentName(part: ScaffoldPart): string {
   const tail = part.id.replace(/[^A-Za-z0-9]/g, "").slice(-4).toUpperCase();
   return /^[0-9]/.test(base) ? `Part${base}${tail}` : `${base}${tail}`;
 }
+
+/** Words written into a generated comment: a star then a slash in a label or a prompt would end the comment there and break the file. */
+export const inComment = (s: string) => s.replace(/\*\//g, "* /");
 
 /** A line cut to length at a word, with a mark to say it was cut. */
 export const trim = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, s.lastIndexOf(" ", max) > max * 0.6 ? s.lastIndexOf(" ", max) : max)}…`);

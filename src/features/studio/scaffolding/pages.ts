@@ -4,7 +4,7 @@ import { standInHas } from "../standIn.ts";
 import { EXPORT_KEYFRAMES } from "./types.ts";
 import { LIVE_KEYFRAMES } from "../living.ts";
 import type { ScaffoldPage, ScaffoldPart, ScaffoldInput } from "./types.ts";
-import { styleJsx, hrefOf, htmlToJsx, componentName, trim } from "./jsx.ts";
+import { styleJsx, hrefOf, htmlToJsx, componentName, trim, jsxAttr, inComment } from "./jsx.ts";
 import { meshTsx } from "./frameMesh.ts";
 import { SHELL_CSS } from "./shell.ts";
 import { cubeTsx } from "./scaffold.ts";
@@ -89,13 +89,15 @@ function outlineClipSvg(id: string, cut: string, indent: string): string {
 export function partTsx(part: ScaffoldPart, palette: Record<string, string>): string {
   const name = componentName(part);
   const head = `/**
- * ${part.label}${part.prompt ? ` — ${trim(part.prompt.split("\n")[0]!, 120)}` : ""}
+ * ${inComment(part.label)}${part.prompt ? ` — ${inComment(trim(part.prompt.split("\n")[0]!, 120))}` : ""}
  *
  * Written from the document (${part.featureId}). The markup below is what
  * the Builder rendered: the styles are the site's own tokens resolved for
  * this part, including its shape, its texture and the shadow the page's
- * lamp casts on it. Edit it freely — nothing regenerates it — but if you
- * change the look here it will differ from the board.
+ * lamp casts on it. Edit it freely: once it is changed in the repository,
+ * Go live keeps it as it is rather than write it again from the board
+ * (site/build.json records what Build wrote), so a look changed here will
+ * differ from the board.
  */
 `;
   if (part.mesh?.glb) {
@@ -106,7 +108,7 @@ ${meshTsx(part, name)}`;
     // Its own preamble: the sentence about copied markup is untrue here,
     // and a comment that lies about the file under it is worse than none.
     return `/**
- * ${part.label}${part.prompt ? `, ${trim(part.prompt.split("\n")[0]!, 120)}` : ""}
+ * ${inComment(part.label)}${part.prompt ? `, ${inComment(trim(part.prompt.split("\n")[0]!, 120))}` : ""}
  *
  * A cube, written as a component rather than copied as markup: six faces
  * and the behaviour that turns them. A snapshot of it would be a
@@ -137,7 +139,7 @@ export function ${name}() {
   return (
     <div style={{ width: "100%", height: "100%"${part.outline ? `, overflow: "hidden", clipPath: \`url(#clip-${part.id})\`` : ""} }}>
 ${part.outline ? `${outlineClipSvg(part.id, part.outline.cut, "      ")}\n` : ""}      <iframe
-        title=${JSON.stringify(part.label)}
+        title=${jsxAttr(part.label)}
         srcDoc={\`<!doctype html><meta charset="utf-8"><meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"><style>:root{\${ROLES}}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:currentColor}svg{display:block;width:100%;height:100%}</style>\${BODY}\`}
         sandbox=""
         referrerPolicy="no-referrer"
@@ -148,7 +150,8 @@ ${part.outline ? `${outlineClipSvg(part.id, part.outline.cut, "      ")}\n` : ""
 }
 `;
   }
-  const body = htmlToJsx(part.html || `<div />`);
+  /* In a fragment: a part can render more than one element side by side, and a component returns one expression (two roots stopped \`next build\`). */
+  const body = `<>\n    ${htmlToJsx(part.html || `<div />`)}\n    </>`;
   const clipped = part.outline
     ? `    <div style={{ width: "100%", height: "100%", overflow: "hidden", clipPath: \`url(#clip-${part.id})\` }}>
 ${outlineClipSvg(part.id, part.outline.cut, "      ")}
@@ -189,7 +192,7 @@ export function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: Scaffo
       // A link is an anchor round the part: the markup's own click was lost with the snapshot.
       const link = hrefOf(p.link, input.pages);
       const inner = link
-        ? `<a href=${JSON.stringify(link.href)}${link.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""} style={{ display: "block", height: "100%", color: "inherit", textDecoration: "none" }}>
+        ? `<a href=${jsxAttr(link.href)}${link.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""} style={{ display: "block", height: "100%", color: "inherit", textDecoration: "none" }}>
           <${componentName(p)} />
         </a>`
         : `<${componentName(p)} />`;
@@ -220,7 +223,7 @@ export function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: Scaffo
 import { Frame, Place } from "@/components/Frame";${b ? `\nimport { Shell } from "@/components/Shell";` : ""}
 
 /**
- * ${page.name} (${page.path})${page.prompt ? `\n *\n * ${page.prompt.split("\n")[0]!.slice(0, 160)}` : ""}
+ * ${inComment(page.name)} (${inComment(page.path)})${page.prompt ? `\n *\n * ${inComment(page.prompt.split("\n")[0]!.slice(0, 160))}` : ""}
  *
  * The parts sit where the board puts them, at the frame's own width
  * (${input.frameWidth}px). ${sizes.length ? "At a tablet or a phone the frame takes the placement the\n * Builder's preview computes for that width, each part stacked in reading\n * order with the height its words need, and scales only between those\n * widths." : "The frame scales the whole page down on a narrower screen."}

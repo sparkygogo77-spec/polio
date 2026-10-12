@@ -10,7 +10,7 @@ import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "../board/store";
 import { MERGED_FILES } from "../shelf";
-import { PAGES_RECORD } from "../send-out";
+import { BUILD_RECORD, PAGES_RECORD } from "../send-out";
 import { publishedHead, type SiteHead } from "../siteHead";
 import { standInOn } from "../standIn";
 
@@ -693,8 +693,10 @@ export type PublishResult =
   | { ok: true; sha: string; /** The tip the commit was written on; null for a repository's first. */ parent?: string | null; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string;
       /** How many files had changed from what the branch held, of how many the site is: only those were sent (`tests/publish-changed.mjs`). */
       changed?: number; total?: number;
-      /** Page files the push took off the branch: pages deleted or renamed on the board since the last push (`pagesRecord.ts`). */
-      removed?: string[] }
+      /** Page files the push took off the branch: pages deleted or renamed on the board since the last push (`pagesRecord.ts`), and Build's files it no longer writes (`buildRecord.ts`). */
+      removed?: string[];
+      /** Build's files left as they are on the branch, because they were changed there since Build wrote them (`buildRecord.ts`). */
+      kept?: string[] }
   /* A failure can still have made the repository, and says so, so the next
      press goes to the one that exists rather than making another. */
   | { ok: false; message: string; reason?: string; created?: string; repo?: string; /** Set when the Builder's own server failed rather than answering. */ serverStatus?: number; status?: number };
@@ -856,7 +858,7 @@ const PIECE = 3_000_000;
 const RESUMES = 12;
 type Answer = PublishResult & { staged?: { path: string; sha: string }[]; pending?: string[]; wait?: number };
 /** What the route reads as it commits, so it goes in the last request, never a part. */
-const COMMITTED_LAST = new Set(["site/document.json", PAGES_RECORD, ...MERGED_FILES]);
+const COMMITTED_LAST = new Set(["site/document.json", PAGES_RECORD, BUILD_RECORD, ...MERGED_FILES]);
 
 type Sent = { path: string; content: string; encoding?: "base64" | "gzip" };
 
@@ -881,6 +883,17 @@ async function gitSha(f: GeneratedFile): Promise<string | null> {
   all.set(bytes, head.length);
   const d = new Uint8Array(await crypto.subtle.digest("SHA-1", all));
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Whether the site's branch is an app Build made: it holds Build's record
+ * (`send-out/buildRecord.ts`). Then every push of the site carries the app,
+ * written again from the board, whichever button pressed it. Unreadable, it
+ * is not: the push goes as the pages alone, as it did before.
+ */
+export async function isAppBranch(repo: string | undefined, branch: string | undefined): Promise<boolean> {
+  if (!repo) return false;
+  return (await treeOf(repo, branch ?? useStudio.getState().siteBranch ?? "main")).has(BUILD_RECORD);
 }
 
 /** The branch's tree as it stands, path to blob sha; empty when it cannot be read, and then everything is sent. */

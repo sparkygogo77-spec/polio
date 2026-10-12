@@ -27,7 +27,7 @@ import { NOT_WRITTEN } from "./shelf";
 import { resolvePalette } from "./shelf/run";
 import { placeNodes } from "./live/layout";
 import { scaffold, type ScaffoldFile, type ScaffoldPart } from "./scaffold";
-import { useStudio } from "./board/store";
+import { sentBoard, useStudio } from "./board/store";
 import { standInOn } from "./standIn";
 
 export interface ScaffoldResult {
@@ -57,7 +57,8 @@ function markupOf(el: React.ReactElement, w: number, h: number): string {
 /** The whole codebase, from the document as it stands. */
 export function buildScaffold(): ScaffoldResult {
   const began = typeof performance !== "undefined" ? performance.now() : Date.now();
-  const s = useStudio.getState();
+  /* The parts checked in: a state worn on the board is never Build's look for the part, and Go live carries these files (`persist.ts#sentBoard`). */
+  const s = sentBoard(useStudio.getState());
   const theme = themeFrom(s.format, s.look, s.brief.name);
   /*
    * A visitor reads what Build writes, so each part is rendered the way the
@@ -68,6 +69,13 @@ export function buildScaffold(): ScaffoldResult {
    */
   const shipped = { ...theme, published: true };
   const palette = resolvePalette(s.format, s.look);
+  /*
+   * A picture at the address it is served at on the site, from its root:
+   * the pictures go up as files beside the app (`public/assets/pictures/`,
+   * `collectFiles`). Left to the board's own, a part kept the blob address
+   * this browser held it at, which is nothing anywhere else.
+   */
+  const pictureAt = (pic: { path: string }) => `/${pic.path.replace(/^\/+/, "")}`;
   const parts: ScaffoldPart[] = [];
 
   for (const page of s.pages) {
@@ -78,7 +86,7 @@ export function buildScaffold(): ScaffoldResult {
         markupOf(
           React.createElement(Block, {
             node: n, t, mode: "live", size: { w: p.w, h: p.h },
-            palette, light: s.look?.light, page: { w: s.frameWidth, h: 900 }, layers: s.look?.texture,
+            palette, light: s.look?.light, page: { w: s.frameWidth, h: 900 }, layers: s.look?.texture, pictureAt,
           }),
           p.w,
           p.h,

@@ -1,4 +1,5 @@
 import type { ScaffoldPart } from "./types.ts";
+import { inComment, jsxAttr } from "./jsx.ts";
 
 export const FRAME_TSX = `"use client";
 import * as React from "react";
@@ -80,7 +81,7 @@ export function meshTsx(part: ScaffoldPart, name: string): string {
 import * as React from "react";
 
 /**
- * ${part.label}, a solid you can turn. Written from the document (${part.featureId}${m.from ? `, made by ${m.from}` : ""}).
+ * ${inComment(part.label)}, a solid you can turn. Written from the document (${part.featureId}${m.from ? `, made by ${inComment(m.from)}` : ""}).
  * The GLB rides in this file as data, so nothing is fetched. three.js is
  * loaded only in the browser and only when it is installed (npm install
  * three); without it, or without a 3D context, the still is shown and says so.
@@ -246,7 +247,7 @@ export function ${name}() {
       data-mesh-still={failed ? "" : undefined}
       role="img"
       tabIndex={failed ? -1 : 0}
-      aria-label=${JSON.stringify(`${part.label}, a solid you can turn. Drag to turn it, or use the arrow keys.`)}
+      aria-label=${jsxAttr(`${part.label}, a solid you can turn. Drag to turn it, or use the arrow keys.`)}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
@@ -257,7 +258,7 @@ export function ${name}() {
       <div ref={host} style={{ width: "100%", height: "100%", display: failed ? "none" : "block" }} />
       {failed ? (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {STILL ? <img src={STILL} alt=${JSON.stringify(part.label)} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <p style={{ color: "var(--muted)", fontSize: 11 }}>${part.label}</p>}
+          {STILL ? <img src={STILL} alt=${jsxAttr(part.label)} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <p style={{ color: "var(--muted)", fontSize: 11 }}>{${JSON.stringify(part.label)}}</p>}
           <p data-mesh-instead={failed} style={{ position: "absolute", bottom: 4, left: 4, padding: "2px 6px", borderRadius: 4, fontSize: 9, background: "var(--bg)", color: "var(--muted)" }}>{failed}</p>
         </div>
       ) : null}

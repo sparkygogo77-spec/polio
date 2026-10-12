@@ -13,9 +13,10 @@
  * this holds the words to the files: every file scaffold() can write is
  * named in the contract and nothing is named that it never writes, every
  * "@/" import resolves the way the contract says "@/" does, every package
- * the files import is one it allows, no build setup is written or asked
- * for, and the route sends this contract with an example file inside the
- * layout and nothing about the Builder's own repository.
+ * the files import is one it allows, the build setup that makes it an app
+ * Vercel runs is written and Claude is told to leave it (J chose "Run it",
+ * 2026-10-12), and the route sends this contract with an example file
+ * inside the layout and nothing about the Builder's own repository.
  *
  *   node tests/build-contract.mjs
  *
@@ -118,10 +119,26 @@ check('the contract says what "@/" means', /"@\/" means the repository root/.tes
   check("every package the scaffold imports is one the contract names", pkgs.size > 0 && unnamedPkgs.length === 0, `${[...pkgs].join(", ")}${unnamedPkgs.length ? `; not named: ${unnamedPkgs.join(", ")}` : ""}`);
 }
 
-/* 5. No build setup is written, and none is asked for: the files go up beside the published pages. Writing one is a deploy decision, so this and the contract change together. */
-const setup = paths.filter((p) => /^(package\.json|tsconfig\.json|next\.config\.\w+|next-env\.d\.ts)$/.test(p));
-check("the scaffold writes no package.json, tsconfig.json or next.config", setup.length === 0, setup.join(", "));
-check("and the contract tells Claude to add none, and why", /no build setup \(package\.json, tsconfig\.json, next\.config\)/.test(withScaffold) && /published HTML pages/.test(withScaffold));
+/* 5. The build setup that makes it an app Vercel runs is Build's (J chose "Run it", 2026-10-12), and Claude is told to leave it. Writing it is a deploy decision, so this and the contract change together. */
+const setup = paths.filter((p) => /^(package\.json|tsconfig\.json|next\.config\.\w+|next-env\.d\.ts|vercel\.json|\.gitignore)$/.test(p)).sort();
+check("the scaffold writes package.json, tsconfig.json, next.config.mjs, vercel.json and .gitignore, and leaves next-env.d.ts to Next", JSON.stringify(setup) === JSON.stringify([".gitignore", "next.config.mjs", "package.json", "tsconfig.json", "vercel.json"]), setup.join(", "));
+{
+  const at = (p) => files.find((f) => f.path === p)?.content ?? "";
+  const pkg = JSON.parse(at("package.json"));
+  const vercel = JSON.parse(at("vercel.json"));
+  const ts = JSON.parse(at("tsconfig.json"));
+  check("vercel.json says it is a Next.js app, which wins over the project's static setting", vercel.framework === "nextjs");
+  check('the tsconfig\'s "@/" is the repository root, as the contract says, and public/ is never compiled', JSON.stringify(ts.compilerOptions?.paths?.["@/*"]) === JSON.stringify(["./*"]) && ts.exclude?.includes("public"));
+  check("next build goes on past a type error", /ignoreBuildErrors:\s*true/.test(at("next.config.mjs")));
+  check("package.json has the scripts to build and run it", pkg.scripts?.build === "next build" && pkg.scripts?.dev === "next dev" && pkg.private === true);
+  /* The packages it names are the ones the files import (three, for the solid on this board), and a plain site's leave three out. */
+  const named = Object.keys(pkg.dependencies ?? {}).sort();
+  check("it depends on next, react, react-dom and, for the solid, three", JSON.stringify(named) === JSON.stringify(["next", "react", "react-dom", "three"]), named.join(", "));
+  const plainPkg = JSON.parse(S.scaffold({ ...doc, parts: [part("n_one", "h")], standIn: null }).find((f) => f.path === "package.json").content);
+  check("a site with no solid leaves three out", !("three" in (plainPkg.dependencies ?? {})) && !("@types/three" in (plainPkg.devDependencies ?? {})), Object.keys(plainPkg.dependencies ?? {}).join(", "));
+}
+check("and the contract tells Claude to add no dependency and change no build setup, and why", /Add no dependency and change no build setup/.test(withScaffold) && /Vercel builds and runs this app as the live site/.test(withScaffold));
+check("and where the site's own pages and pictures are", /published HTML pages[^.]*public\//.test(withScaffold) && /\/assets\/pictures\//.test(withScaffold));
 
 /* 6. The route sends this contract, and its example file is inside the layout. */
 const route = bare("src/app/api/studio/generate/route.ts");

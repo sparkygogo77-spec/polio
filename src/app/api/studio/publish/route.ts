@@ -3,7 +3,7 @@ import { gunzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
 import { MERGED_FILES, mergeBlock } from "@/features/studio/shelf";
 import { keyFor } from "@/app/api/keyFor";
-import { PAGES_RECORD, pagesGone } from "@/features/studio/send-out";
+import { BUILD_RECORD, PAGES_RECORD, buildKeeps, builtIn, pagesGone } from "@/features/studio/send-out";
 import { CaptureUnknown, holdsCapture, sourceAmong } from "./capture";
 
 /**
@@ -437,13 +437,44 @@ async function pagesTakenOff(token: string, repo: string, files: FileOut[], stag
   const was = onBranch.get(PAGES_RECORD);
   if (!now || !was) return [];
   try {
-    const blob = await gh<{ content?: string; encoding?: string }>(token, "GET", `/repos/${repo}/git/blobs/${was}`);
-    if (typeof blob.content !== "string") return [];
-    const text = blob.encoding === "base64" ? Buffer.from(blob.content.replace(/\s+/g, ""), "base64").toString("utf8") : blob.content;
+    const text = await blobText(token, repo, was);
+    if (text === null) return [];
     const writing = new Set([...files.map((f) => f.path), ...staged.map((s) => s.path)]);
     return pagesGone(text, now.content, writing).filter((p) => onBranch.has(p));
   } catch {
     return [];
+  }
+}
+
+/** A blob's text, as GitHub hands it back (base64, wrapped); null when it says nothing readable. */
+async function blobText(token: string, repo: string, sha: string): Promise<string | null> {
+  const blob = await gh<{ content?: string; encoding?: string }>(token, "GET", `/repos/${repo}/git/blobs/${sha}`);
+  if (typeof blob.content !== "string") return null;
+  return blob.encoding === "base64" ? Buffer.from(blob.content.replace(/\s+/g, ""), "base64").toString("utf8") : blob.content;
+}
+
+/*
+ * BUILD'S FILES ARE WRITTEN AGAIN, EXCEPT ONES A CODE CHAT CHANGED.
+ *
+ * A push of a site Build made an app carries the record of Build's files
+ * (`site/build.json`, `buildRecord.ts`). Against the one on the branch: a
+ * file of Build's that was changed on the branch since Build wrote it (a
+ * code chat's work) stays as it is, rather than be written over from the
+ * board; one Build no longer writes and nobody changed comes off. No record
+ * in the push, none on the branch, or one that cannot be read: everything
+ * goes as sent and nothing comes off.
+ */
+async function builtKept(token: string, repo: string, files: FileOut[], sent: Map<string, string>, onBranch: Map<string, string>): Promise<{ keep: string[]; gone: string[] }> {
+  const none = { keep: [], gone: [] };
+  const now = files.find((f) => f.path === BUILD_RECORD && f.encoding === "utf-8");
+  const was = onBranch.get(BUILD_RECORD);
+  const mine = now ? builtIn(now.content) : null;
+  if (!mine || !was) return none;
+  try {
+    const text = await blobText(token, repo, was);
+    return text === null ? none : buildKeeps(builtIn(text), mine, onBranch, sent);
+  } catch {
+    return none;
   }
 }
 
@@ -457,17 +488,22 @@ async function writeCommit(
   baseSha: string | null,
   staged: Staged[],
   clock: { blobs: number; end: number },
-): Promise<{ sha: string; html_url: string; removed: string[] }> {
+): Promise<{ sha: string; html_url: string; removed: string[]; kept: string[] }> {
   const baseCommit = baseSha ? await gh<{ tree: { sha: string } }>(token, "GET", `/repos/${repo}/git/commits/${baseSha}`) : null;
   const onBranch = new Map<string, string>();
   const known = await knownBlobs(token, repo, baseSha, baseCommit?.tree.sha, onBranch);
   const own = new Set(files.map((f) => f.path));
   const made = await blobsOf(token, repo, files, known, clock.blobs);
   const removed = await pagesTakenOff(token, repo, files, staged, onBranch);
+  const going = [...staged.filter((s) => !own.has(s.path)), ...made];
+  /* Build's files a code chat changed stay as the branch has them; the ones Build no longer writes come off (`builtKept`). */
+  const built = await builtKept(token, repo, files, new Map(going.map((b) => [b.path, b.sha])), onBranch);
+  const leave = new Set(built.keep);
+  const off = [...new Set([...removed, ...built.gone])];
   const tree = [
-    ...[...staged.filter((s) => !own.has(s.path)), ...made].map((b) => ({ path: b.path, mode: "100644" as const, type: "blob" as const, sha: b.sha as string | null })),
+    ...going.filter((b) => !leave.has(b.path)).map((b) => ({ path: b.path, mode: "100644" as const, type: "blob" as const, sha: b.sha as string | null })),
     /* A null sha is how the git data API takes a file out of the tree. */
-    ...removed.map((path) => ({ path, mode: "100644" as const, type: "blob" as const, sha: null })),
+    ...off.map((path) => ({ path, mode: "100644" as const, type: "blob" as const, sha: null })),
   ];
   /* Every blob is up: a limit from here on keeps them all, and the next call goes straight to the commit. */
   const kept = <T,>(run: () => Promise<T>) => patient(clock.end, run).catch((err) => {
@@ -486,7 +522,7 @@ async function writeCommit(
   await kept(() => at("ref", () => (baseSha
     ? gh(token, "PATCH", `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { sha: commit.sha, force: false })
     : gh(token, "POST", `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: commit.sha }))));
-  return { ...commit, removed };
+  return { ...commit, removed: off, kept: built.keep };
 }
 
 /** What a call that stopped part-way answers: not a failure, the next call carries on from `staged`. */
@@ -747,7 +783,7 @@ export async function POST(request: Request) {
     let baseSha = await tipOf(token, repo, branch);
     /* The feature contract goes into the owner's AGENTS.md and CLAUDE.md, not over them (`library/contract.ts`). */
     if (baseSha) await mergeContract(token, repo, baseSha, files);
-    let commit: { sha: string; html_url: string; removed: string[] };
+    let commit: { sha: string; html_url: string; removed: string[]; kept: string[] };
     try {
       commit = await writeCommit(token, repo, branch, files, message, baseSha, staged, clock);
     } catch (err) {
@@ -795,8 +831,10 @@ export async function POST(request: Request) {
          the site rather than assuming every publish is the first. */
       ...(created ? { created } : {}),
       files: new Set([...files.map((f) => f.path), ...staged.map((f) => f.path)]).size,
-      /* Page files taken off the branch: pages no longer on the board (`pagesTakenOff`). */
+      /* Files taken off the branch: pages no longer on the board (`pagesTakenOff`), and Build's files it no longer writes (`builtKept`). */
       ...(commit.removed.length ? { removed: commit.removed } : {}),
+      /* Build's files left as the branch has them, changed there since Build wrote them (`builtKept`). */
+      ...(commit.kept.length ? { kept: commit.kept } : {}),
       deployed,
       hook: !!c.hook,
       deployNote,

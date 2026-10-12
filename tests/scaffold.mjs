@@ -73,8 +73,8 @@ const input = {
 const files = scaffold(input);
 const at = (p) => files.find((f) => f.path === p)?.content ?? "";
 
-// Three for the shell, one per part, one per page, and the note.
-check("a file per part, plus the shell", files.length === 3 + input.parts.length + input.pages.length + 1, files.map((f) => f.path).join(" "));
+// Five that make it an app Vercel runs, three for the shell, one per part, one per page, and the note.
+check("a file per part, plus the shell and what runs it", files.length === 5 + 3 + input.parts.length + input.pages.length + 1, files.map((f) => f.path).join(" "));
 check("the tokens are the palette's own values", at("app/globals.css").includes("--accent: #b8ff24;") && at("app/globals.css").includes("--bg: #050505;"));
 check("and the page's own ground", at("app/globals.css").includes("background-image: radial-gradient(#111, #000);"));
 check("the layout carries the site's name", at("app/layout.tsx").includes('title: "BLACKORB"'));
