@@ -41,7 +41,9 @@ const check = (name, ok, detail = "") => {
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 const PNG2 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
-const COMMUNITY = new Set(["tencent/hunyuan3d-2mv"]);
+/* The solid model, TRELLIS since 2026-10-12: a community model, answering an object of files. */
+const SOLID = "firtoz/trellis";
+const COMMUNITY = new Set([SOLID]);
 const VERSION = "0123456789abcdef".repeat(4);
 const calls = [];
 /* Until when 3D starts are refused with Replicate's own 429, as its rate limit does. */
@@ -61,7 +63,7 @@ const standin = http.createServer((req, res) => {
     const body = () => JSON.parse(Buffer.concat(chunks).toString() || "{}");
     const done = (slug, input) => {
       const n = Number(input.number_of_images) || 1;
-      return { id: `standin${calls.length}`, status: "succeeded", output: COMMUNITY.has(slug) ? `http://127.0.0.1:${PORT}/mesh.glb` : n > 1 ? out(n) : out(1)[0], metrics: { predict_time: 1 } };
+      return { id: `standin${calls.length}`, status: "succeeded", output: COMMUNITY.has(slug) ? { model_file: `http://127.0.0.1:${PORT}/mesh.glb`, color_video: `http://127.0.0.1:${PORT}/out0.png` } : n > 1 ? out(n) : out(1)[0], metrics: { predict_time: 1 } };
     };
     const m = req.url.match(/^\/v1\/models\/([^/]+\/[^/]+)\/predictions$/);
     if (req.method === "POST" && m) {
@@ -74,12 +76,12 @@ const standin = http.createServer((req, res) => {
     if (req.method === "GET" && g) return send(200, { owner: g[1].split("/")[0], name: g[1].split("/")[1], latest_version: { id: VERSION } });
     if (req.method === "POST" && req.url === "/v1/predictions") {
       const b = body();
-      calls.push({ slug: b.version === VERSION ? "tencent/hunyuan3d-2mv" : "?", by: "version", version: b.version, input: b.input ?? {}, at: Date.now() });
+      calls.push({ slug: b.version === VERSION ? SOLID : "?", by: "version", version: b.version, input: b.input ?? {}, at: Date.now() });
       if (Date.now() < throttle) {
         calls.at(-1).refused = true;
         return send(429, { detail: "Request was throttled. Your rate limit for creating predictions is reduced to 6 requests per minute with a burst of 1 requests while you have less than $5.0 in credit. Your rate limit resets in ~1s.", status: 429, retry_after: 1 });
       }
-      const made = done("tencent/hunyuan3d-2mv", b.input ?? {});
+      const made = done(SOLID, b.input ?? {});
       if (!slow) return send(201, made);
       preds.set(made.id, { made, at: Date.now() + slow });
       return send(201, { id: made.id, status: "starting", urls: { get: `http://127.0.0.1:${PORT}/v1/predictions/${made.id}` } });
@@ -164,8 +166,8 @@ const { mine } = await press((n) => calls.slice(n).some((c) => c.by === "version
 await page.waitForTimeout(1500);
 const said = (await side.locator("[data-render-price]").innerText()).trim();
 /* At most once: a server that already ran it remembers the version. */
-check("3D: the model's own address answered 404 once", mine.filter((c) => c.slug === "tencent/hunyuan3d-2mv" && c.by === "model").length <= 1, mine.map((c) => `${c.slug}/${c.by}`).join(", "));
-check("3D: …and it ran by its latest version", mine.some((c) => c.by === "version" && c.version === VERSION && /^data:image\//.test(String(c.input.front_image))));
+check("3D: the model's own address answered 404 once", mine.filter((c) => c.slug === SOLID && c.by === "model").length <= 1, mine.map((c) => `${c.slug}/${c.by}`).join(", "));
+check("3D: …and it ran by its latest version", mine.some((c) => c.by === "version" && c.version === VERSION && /^data:image\//.test(String(c.input.images?.[0])) && c.input.generate_model === true));
 check("3D: no 404 reaches the panel", !/404|could not be found/.test(said), said);
 
 /* J (2026-10-12): a 429 "retry_after" made the 3D model fail and the flat picture stood in for it. */
@@ -203,8 +205,8 @@ await side.locator("[data-render-input-3d]").click({ force: true });
 for (let i = 0; i < 40 && !calls.slice(before5).some((c) => c.by === "version" && !c.refused); i++) await page.waitForTimeout(250);
 await page.waitForTimeout(1500);
 const mine5 = calls.slice(before5).filter((c) => c.by !== "poll");
-check("input picture straight to 3D: only the 3D model is asked, no picture drawn", mine5.length >= 1 && mine5.every((c) => c.slug === "tencent/hunyuan3d-2mv"), mine5.map((c) => c.slug).join(", "));
-check("…with the first input picture as the front and the second as the back", /^data:image\//.test(String(mine5.at(-1)?.input.front_image)) && /^data:image\//.test(String(mine5.at(-1)?.input.back_image)), Object.keys(mine5.at(-1)?.input ?? {}).join(", "));
+check("input picture straight to 3D: only the 3D model is asked, no picture drawn", mine5.length >= 1 && mine5.every((c) => c.slug === SOLID), mine5.map((c) => c.slug).join(", "));
+check("…with every input picture, the first one first", (mine5.at(-1)?.input.images ?? []).length === 2 && (mine5.at(-1)?.input.images ?? []).every((x) => /^data:image\//.test(x)), Object.keys(mine5.at(-1)?.input ?? {}).join(", "));
 
 check("no page error", errors.length === 0, errors.join(" | "));
 

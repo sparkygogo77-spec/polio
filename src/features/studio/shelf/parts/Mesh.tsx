@@ -18,8 +18,10 @@
  *   browser**, the same way the WebGL orb does it. A machine that will not
  *   give a WebGL context, or a build that did not ship the library, gets
  *   the still instead and says so rather than showing an empty box.
- * - Dragging turns it, at the same degrees-per-pixel the cube uses, so the
- *   two parts feel like the same hand. Arrow keys step a quarter turn, and
+ * - Dragging orbits it the way Replicate's own preview does (J, 2026-10-12:
+ *   "replicates dragging system is good we need that exactly"): three.js's
+ *   OrbitControls, live while the hand moves and easing to a stop after,
+ *   upright, no zoom or pan to fight the board. Arrow keys step a quarter turn, and
  *   it is focusable, because a thing you can turn with a pointer must be
  *   turnable without one.
  * - Where it is left standing is written back to the node, so the board
@@ -33,14 +35,22 @@ import { Fill } from "./primitives";
 import type { Theme } from "./theme";
 import { num, opt, type PartProps } from "./types";
 
-/** Degrees per pixel dragged. The cube's number, so the two turn alike. */
-const PER_PX = 0.42;
-/** How fast the spin dies, per frame at 60fps. */
-const DECAY = 0.94;
-/** Under this many degrees a frame, it is done spinning. */
-const SETTLE = 0.35;
-
 const rad = (d: number) => (d * Math.PI) / 180;
+const deg = (r: number) => (r * 180) / Math.PI;
+
+/*
+ * The stored turn is the solid's own tilt (x) and swing (y). Orbiting moves
+ * the camera instead, so the two are one change of frame apart: the camera
+ * sits where turning the solid by (x, y) would have put the eye.
+ */
+function eyeAt(turn: { x: number; y: number }, d: number): [number, number, number] {
+  const x = rad(turn.x), y = rad(turn.y);
+  return [-d * Math.cos(x) * Math.sin(y), d * Math.sin(x), d * Math.cos(x) * Math.cos(y)];
+}
+function turnOf(p: { x: number; y: number; z: number }): { x: number; y: number } {
+  const d = Math.hypot(p.x, p.y, p.z) || 1;
+  return { x: deg(Math.asin(Math.max(-1, Math.min(1, p.y / d)))), y: deg(Math.atan2(-p.x, p.z)) };
+}
 
 /** What the viewer could not do, said in a line rather than left blank. */
 function Instead({ t, still, why, label }: { t: Theme; still?: string; why: string; label: string }) {
@@ -71,9 +81,8 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
   const host = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState("");
   const turn = React.useRef(start);
-  const spin = React.useRef({ x: 0, y: 0 });
-  const drag = React.useRef<{ x: number; y: number } | null>(null);
-  const held = React.useRef(false);
+  /** Turns it to an angle from outside the loop: the arrow keys. */
+  const aim = React.useRef<((to: { x: number; y: number }) => void) | null>(null);
   const said = React.useRef(`${Math.round(start.x)},${Math.round(start.y)}`);
   /*
    * The callbacks, held rather than depended on.
@@ -117,6 +126,7 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
     let stop = false;
     let frame = 0;
     let cleanup = () => {};
+    let cleanupControls = () => {};
 
     void (async () => {
       let THREE: typeof import("three");
@@ -199,39 +209,55 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
       loaded.position.sub(middle);
       pivot.add(loaded);
       pivot.scale.setScalar(1 / longest);
-      camera.position.set(0, 0, 1 / fill / (2 * Math.tan(rad(35 / 2))));
+      const away = 1 / fill / (2 * Math.tan(rad(35 / 2)));
+      camera.position.set(...eyeAt(turn.current, away));
       camera.lookAt(0, 0, 0);
 
-      const draw = () => {
-        pivot.rotation.x = rad(turn.current.x);
-        pivot.rotation.y = rad(turn.current.y);
-        renderer.render(scene, camera);
+      const draw = () => renderer.render(scene, camera);
+
+      let OrbitControls: typeof import("three/examples/jsm/controls/OrbitControls.js").OrbitControls;
+      try {
+        ({ OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js"));
+      } catch {
+        if (!stop) setFailed("shown as a still: the 3D library did not load");
+        renderer.dispose();
+        return;
+      }
+      if (stop) { renderer.dispose(); return; }
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.rotateSpeed = 0.9;
+      controls.enableZoom = false;
+      controls.enablePan = false;
+      controls.autoRotate = spinning;
+      controls.autoRotateSpeed = 1.5;
+      controls.target.set(0, 0, 0);
+      controls.update();
+      // Where it was left: written when the hand lets go, and again once the
+      // ease after it has settled, so the angle kept is the one it stopped at.
+      let settle: ReturnType<typeof setTimeout> | undefined;
+      const note = () => {
+        turn.current = turnOf(camera.position);
+        clearTimeout(settle);
+        settle = setTimeout(rest, 400);
+      };
+      controls.addEventListener("end", () => { turn.current = turnOf(camera.position); rest(); });
+      controls.addEventListener("change", note);
+      aim.current = (to) => {
+        turn.current = to;
+        camera.position.set(...eyeAt(to, away));
+        controls.update();
+        rest();
       };
 
       const tick = () => {
         if (stop) return;
         frame = requestAnimationFrame(tick);
-        if (spinning && !held.current) {
-          turn.current = { x: turn.current.x, y: turn.current.y + 0.25 };
-          draw();
-          return;
-        }
-        if (held.current) return;
-        const s = spin.current;
-        if (Math.abs(s.x) > SETTLE || Math.abs(s.y) > SETTLE) {
-          turn.current = { x: turn.current.x + s.x, y: turn.current.y + s.y };
-          s.x *= DECAY;
-          s.y *= DECAY;
-          draw();
-          return;
-        }
-        if (!s.x && !s.y) return;
-        s.x = 0;
-        s.y = 0;
-        // Come to rest. Where it was left was written the moment the hand
-        // let go, not here: see `up`.
-        rest();
+        controls.update();
+        draw();
       };
+      cleanupControls = () => { clearTimeout(settle); controls.dispose(); aim.current = null; };
 
       draw();
       frame = requestAnimationFrame(tick);
@@ -249,6 +275,7 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
 
       cleanup = () => {
         cancelAnimationFrame(frame);
+        cleanupControls();
         watch?.disconnect();
         renderer.domElement.remove();
         renderer.dispose();
@@ -272,49 +299,22 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
     };
   }, [live, mesh?.glb, spinning, fill, lampX, lampY, rest]);
 
-  const down = (e: React.PointerEvent) => {
-    if (!live) return;
-    // The press stops here: the board's own surface captures every press,
-    // which is right for a part you are moving and wrong for one you are
-    // handling.
-    e.stopPropagation();
-    e.preventDefault();
-    held.current = true;
-    drag.current = { x: e.clientX, y: e.clientY };
-    spin.current = { x: 0, y: 0 };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const move = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!live || !d) return;
-    e.stopPropagation();
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    drag.current = { x: e.clientX, y: e.clientY };
-    spin.current = { x: -dy * PER_PX, y: dx * PER_PX };
-    turn.current = { x: turn.current.x - dy * PER_PX, y: turn.current.y + dx * PER_PX };
-  };
-  const up = (e: React.PointerEvent) => {
-    const was = !!drag.current;
-    if (live && was) e.stopPropagation();
-    held.current = false;
-    drag.current = null;
-    if (live) (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    if (live && was) rest();
-  };
+  /*
+   * The press stops here: the board's own surface captures every press,
+   * which is right for a part you are moving and wrong for one you are
+   * handling. The turning itself is OrbitControls', on the canvas.
+   */
+  const keep = (e: React.PointerEvent) => { if (live) e.stopPropagation(); };
   const keys = (e: React.KeyboardEvent) => {
     if (!live) return;
     const step = { ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [90, 0], ArrowDown: [-90, 0] }[e.key];
     if (!step) return;
     e.preventDefault();
     // The board nudges the selected part with the arrows; while this has the
-    // keys, they turn it instead of moving it.
+    // keys, they turn it instead of moving it. Upright stops short of the pole.
     e.stopPropagation();
-    spin.current = { x: 0, y: 0 };
-    turn.current = { x: Math.round(turn.current.x / 90) * 90 + step[0]!, y: Math.round(turn.current.y / 90) * 90 + step[1]! };
-    // A nudge, so the loop redraws it; the angle itself is written at once.
-    spin.current = { x: 0.01, y: 0.01 };
-    rest();
+    const x = Math.max(-85, Math.min(85, Math.round(turn.current.x / 90) * 90 + step[0]!));
+    aim.current?.({ x, y: Math.round(turn.current.y / 90) * 90 + step[1]! });
   };
 
   const none = !mesh?.glb;
@@ -330,10 +330,10 @@ export function Mesh({ id, label, w, h, theme: t, mode, mesh, options, emit }: P
         role="img"
         tabIndex={live && !still ? 0 : -1}
         aria-label={`${label}, a solid you can turn. Drag to turn it, or use the arrow keys.`}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
+        onPointerDown={keep}
+        onPointerMove={keep}
+        onPointerUp={keep}
+        onPointerCancel={keep}
         onKeyDown={keys}
         className="h-full w-full outline-none"
         style={{ cursor: live && !still ? "grab" : "default", touchAction: "none" }}
