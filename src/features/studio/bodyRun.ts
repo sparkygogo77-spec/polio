@@ -45,6 +45,7 @@ import { keyHeader, noRendererKeyMessage, rendererHeader } from "./loop/run";
 import { CLIP_STROKE, type OutlineClip, type SketchPoint } from "./pictures";
 import type { DrawnVector } from "./vector";
 import { priceTokens, type TokenUse } from "./spend";
+import { askImage } from "./pictures/askImage";
 
 /** How much of the drawing a body has to cover before it is left alone. */
 export const GOOD_ENOUGH = 0.72;
@@ -418,7 +419,7 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
  * never a failure, only a fork.
  */
 async function askRenderer(input: BodyInput, kind: RenderKind): Promise<{ ok: boolean; html?: string; cost?: number; message?: string; reason?: string }> {
-  const res = await fetch("/api/studio/image", {
+  const res = await askImage({
     method: "POST",
     headers: { "content-type": "application/json", ...rendererHeader() },
     body: JSON.stringify({

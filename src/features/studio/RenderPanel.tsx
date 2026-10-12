@@ -38,6 +38,7 @@ import { CURSOR_ASK, cursorFrom, takeCursorAsk } from "./cursorPicture";
 import { setCursorPicture } from "./ShelfCards";
 import { estimateLine, pictureSeconds, progressOf, SOLID_SECONDS } from "./pictures/estimate";
 import { asSolid, onShape, THREE_D, THREE_D_ASK, THREE_D_EVENT, THREE_D_RATIO, type ThreeD } from "./pictures/threeD";
+import { askImage } from "./pictures/askImage";
 
 /**
  * The models that DRAW a picture, which is what this panel is for.
@@ -137,11 +138,11 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
     };
   };
   const solidName = React.useMemo(() => modelTable().models.find((m) => m.returns === "mesh")?.name ?? "the 3D modeller", []);
-  const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string, job?: ReturnType<typeof startJob>): Promise<string> => {
+  const makeThreeD = async (src: string, alt: string, how: ThreeD, id?: string, job?: ReturnType<typeof startJob>, also: readonly string[] = []): Promise<string> => {
     if (!how) return "";
     let own: ReturnType<typeof startJob> | null = null;
     if (how === "solid") { if (job) job.phase(`Making the 3D model with ${solidName}`, SOLID_SECONDS); else own = startJob(`Making the 3D model with ${solidName}`, SOLID_SECONDS); }
-    const r = how === "solid" ? await asSolid(src, alt).finally(() => own?.end()) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
+    const r = how === "solid" ? await asSolid(src, alt, also).finally(() => own?.end()) : await onShape(src, how, alt).catch((err) => ({ ok: false, message: `It could not be put on the ${how}: ${err instanceof Error ? err.message : String(err)}` }));
     if (r.ok && id) setMadeThreeD(id);
     return r.message;
   };
@@ -267,7 +268,7 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
          report — Replicate gives no progress — so the bar says "gone, waiting"
          rather than inventing a percentage. */
       noteProgress(threadId, 0.35);
-      const res = await fetch("/api/studio/image", {
+      const res = await askImage({
         method: "POST",
         headers: { "content-type": "application/json", ...rendererHeader() },
         /* `frame` is not sent, so nothing is added to what he typed. Drawn
@@ -416,6 +417,18 @@ export function RenderPanel({ forNode }: { forNode?: string } = {}) {
             </button>
           ) : null}
         </div>
+        {/* Straight to 3D from the pictures he gave it, with no picture drawn
+            first: the first is the front, the rest the other sides. */}
+        {references.length ? (
+          <button
+            type="button"
+            data-render-input-3d=""
+            onClick={async () => setSaid(await makeThreeD(references[0]!, tweak.trim() || "From the input images", "solid", undefined, undefined, references.slice(1)))}
+            className="tactile mt-1.5 rounded-sm border border-border px-1.5 py-0.5 text-small text-fg-muted hover:text-fg"
+          >
+            {references.length > 1 ? "Make a 3D model from these" : "Make a 3D model from this"}
+          </button>
+        ) : null}
         <input
           ref={picker}
           data-render-reference=""

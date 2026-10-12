@@ -40,6 +40,7 @@ import { readVector } from "../vector";
 import { noRendererKeyMessage, rendererHeader } from "../loop/run";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "../snippet";
 import { isTap, TAP_SIZE, type OutlineClip, type SketchPoint } from "./sketch";
+import { askImage } from "./askImage";
 
 /** How many goes at it. One per rung of the ladder. */
 export const MAX_TRACES = 3;
@@ -177,7 +178,7 @@ interface Traced {
 
 /** One call to the tracer. The picture goes; nothing that describes it does. */
 async function trace(picture: string, input: DrawInput): Promise<Traced> {
-  const res = await fetch("/api/studio/image", {
+  const res = await askImage({
     method: "POST",
     headers: { "content-type": "application/json", ...rendererHeader() },
     body: JSON.stringify({ kind: "vectorize", picture, label: input.label, w: input.w, h: input.h, frame: true }),
